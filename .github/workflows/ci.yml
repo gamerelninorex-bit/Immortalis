@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Dependency / lockfile integrity
+        run: pnpm install --frozen-lockfile
+      - name: Format
+        run: pnpm run format:check
+      - name: Lint
+        run: pnpm run lint
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Spec-lock / acceptance register / open-gates consistency
+        run: pnpm run check:spec
+      - name: Unit
+        run: pnpm run test:unit
+      - name: Contract
+        run: pnpm run test:contract
+      - name: Conformance (register integrity; no engine conformance tests exist yet)
+        run: pnpm run test:conformance
+      - name: Integration smoke
+        run: pnpm run test:integration
+      - name: Security static/config checks
+        run: pnpm run test:security
