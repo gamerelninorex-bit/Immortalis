@@ -1,0 +1,125 @@
+# F-027 open gates — every unresolved/deferred horizon preserved from F-027.
+# Source: F-027 package v1.0 §5 (native pin 2026-09-29T00:40:44.707Z), Runtime/Translation v0.2 §6-§8
+# (native pin 2026-09-29T00:33:04.009Z), Repository Bootstrap Plan v1.0 §3.4.
+# Dependent code must query/consume the status explicitly or fail closed on the affected feature.
+# No code path may substitute a convenient constant. No gate here is resolved by bootstrap.
+schema_version: 1
+spec_lock: spec/f027/spec-lock.json
+gates:
+  - id: "CAL-01"
+    title: "Temporal APPROXIMATE-PARTITION tolerances"
+    status: UNCALIBRATED
+    note: "Per-mechanic numeric tolerance or UNCALIBRATED; discrete-outcome divergence forces subdivision/rebaselining."
+    acceptance_rows: ["IA-23"]
+  - id: "CAL-02"
+    title: "Population L_unavailable / default labour coefficients"
+    status: OPEN_CALIBRATION
+    note: "No zero or Legacy-default assumption."
+    acceptance_rows: ["IA-24"]
+  - id: "CAL-03"
+    title: "Explicit-participant implementation bound"
+    status: NO_ADOPTED_PRODUCTION_NUMBER
+    note: "4,096-participant fixture evidence is evidence only, not a semantic limit or SLA."
+    acceptance_rows: ["IA-25"]
+  - id: "CAL-04"
+    title: "SR-1 overlap exactness"
+    status: ACCEPTED_DESIGN_RESIDUAL
+    note: "Exactness only over actual intersecting claims/evidence-defined atoms; no hidden powerset or cap."
+  - id: "CAL-05"
+    title: "GIP exact non-monotone closure"
+    status: EXACTNESS_REQUIRED_NO_APPROXIMATION
+    note: "Exact within declared closure algebra; timeout/budget exhaustion is unavailable evidence, not a result."
+  - id: "CAL-06"
+    title: "Addressed runtime scaling"
+    status: NO_ADOPTED_CAP
+    note: "No world-size or history-size cap adopted; no whole-world/all-pairs/per-memory hot paths."
+    acceptance_rows: ["IA-22"]
+  - id: "CAL-07"
+    title: "Claim/change identity lineage"
+    status: EXPLICIT_LINEAGE_REQUIRED
+    note: "Changed intent cannot silently reuse an old receipt."
+    acceptance_rows: ["IA-05", "IA-06"]
+  - id: "CAL-08"
+    title: "Canonical commit/concurrency provider limits"
+    status: NOT_ADOPTED
+    note: "Semantic contract fixed; provider-specific limits not adopted."
+    acceptance_rows: ["IA-06"]
+  - id: "CAL-09"
+    title: "Managed restart/failover/PITR/backup/archive restore"
+    status: UNRUN_DEFERRED
+    note: "Never infer PASS; due at provider adoption / implementation / pre-live activation."
+    acceptance_rows: ["IA-07"]
+  - id: "CAL-10"
+    title: "Universal token/cost/SLA"
+    status: NOT_ADOPTED
+    note: "Accepted PF-4 evidence creates no universal value."
+    acceptance_rows: ["IA-22"]
+  - id: "CAL-11"
+    title: "Gameplay/security priority"
+    status: FIXED_QUALITATIVE_RULE
+    note: "Not a numeric limit; gameplay fidelity prevails over security theater."
+    acceptance_rows: ["IA-21"]
+  - id: "L-26"
+    title: "Legacy Technology maturity ladder / IY50 strategic-metal priority"
+    status: REQUIRES_DECISION
+    note: "Scenario-content migration; not hard-coded into the generic engine."
+  - id: "L-29"
+    title: "Legacy Imperial Mode 2d10 table and fixed modifiers"
+    status: REQUIRES_DECISION
+  - id: "L-30"
+    title: "Legacy Personal Adventure d20 table and fixed modifiers"
+    status: REQUIRES_DECISION
+  - id: "L-31"
+    title: "Legacy calibrated 1–10,000 probability method / aggregate binomial sampling"
+    status: REQUIRES_DECISION
+    note: "Decided by the owning modern mechanic."
+  - id: "L-32"
+    title: "Legacy numeric outcome bands"
+    status: REQUIRES_DECISION
+    note: "Non-numeric safeguards carry forward."
+  - id: "L-41"
+    title: "Legacy weapon/material/armor/terrain/weather numeric modifiers"
+    status: REQUIRES_DECISION
+    note: "Content migration."
+  - id: "L-43"
+    title: "Legacy casualty numeric bands"
+    status: REQUIRES_DECISION
+    note: "One-hazard/no-double-count and named-vs-aggregate separation carry forward."
+  - id: "L-48"
+    title: "Legacy fertility bands / numeric probabilities"
+    status: REQUIRES_DECISION
+  - id: "L-50"
+    title: "Worker-equivalent weights, participation formula, L_unavailable, reserve equation"
+    status: REQUIRES_DECISION_OPEN_CALIBRATION
+    acceptance_rows: ["IA-24"]
+  - id: "L-59"
+    title: "Legacy mortality tables / multipliers / d100 generation / fixed medical multipliers"
+    status: REQUIRES_DECISION
+    note: "Decided by current Health/Population/Actor owners."
+  - id: "OB-015"
+    title: "Live temporal continuation"
+    status: DEFERRED_TO_LIVE_MIGRATION_HORIZON
+    note: "Every actual live temporal object needs a lawful continuation path before liveness is relied on."
+    acceptance_rows: ["IA-27"]
+  - id: "OB-016"
+    title: "Code-era/live role-permission conformance"
+    status: OPEN_CODE_ERA_CONFORMANCE
+    note: "Documentary translation complete; implementation and live proof still due."
+    acceptance_rows: ["IA-28"]
+  - id: "MIG-01..MIG-10"
+    title: "Migration / continuity / single-canon mapping"
+    status: DECLARATIVE_ONLY
+    note: "No live migration, cutover or rollback until separately authorized."
+    acceptance_rows: ["IA-29"]
+  - id: "PROVIDER"
+    title: "Provider adoption / physical production schema"
+    status: NOT_ADOPTED
+    note: "No persistence or deployment provider selected."
+    acceptance_rows: ["IA-29"]
+  - id: "DEPLOYMENT"
+    title: "Deployment"
+    status: NOT_ACTIVATED
+  - id: "PF-6/F-028"
+    title: "PF-6 / F-028 (OB-030)"
+    status: NOT_ACTIVATED_BLOCKED
+    note: "Repository existence, CI success or a development tag is not PF-6 promotion."

@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "line": "f027",
+  "package": {
+    "title": "PF-5 / F-027 FINAL WORK / CODING-AGENT IMPLEMENTATION INSTRUCTIONS PACKAGE v1.0 — 2026-09-29",
+    "version": "v1.0",
+    "url": "https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639",
+    "native_pin": "2026-09-29T00:40:44.707Z"
+  },
+  "incorporated_tranches": [
+    {
+      "title": "F-027 Foundation Tranche v0.1",
+      "url": "https://app.notion.com/p/3ea20af901e081ce9c5dd3044d388173",
+      "native_pin": "2026-09-29T00:09:56.571Z"
+    },
+    {
+      "title": "F-027 Runtime Contract & Translation Tranche v0.2",
+      "url": "https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a",
+      "native_pin": "2026-09-29T00:33:04.009Z"
+    }
+  ],
+  "governance_references": [
+    {
+      "title": "Repository Bootstrap Plan v1.0 — 2026-09-29",
+      "url": "https://app.notion.com/p/3ea20af901e081ae8873e28d5290fc51",
+      "native_pin": "2026-09-29T00:50:15.564Z"
+    },
+    {
+      "title": "Implementation Agent Operating Charter — Claude Code",
+      "url": "https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc",
+      "native_pin": "2026-09-29T03:32:40.491Z"
+    },
+    {
+      "title": "Standing implementation roadmap / runtime-save-LLM-host security direction",
+      "url": "https://app.notion.com/p/3e220af901e081d98375f3fcd4a8d058",
+      "native_pin": "2026-09-27T07:27:48.079Z"
+    },
+    {
+      "title": "Canonical Role Registry v1",
+      "url": "https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a",
+      "native_pin": "2026-09-25T08:21:22.816Z"
+    },
+    {
+      "title": "Immutable Legacy Codex v1.2.9.2",
+      "url": "https://app.notion.com/p/3de20af901e081d4bf90c817f3cdc286",
+      "native_pin": "2026-09-17T02:57:25.703Z"
+    }
+  ],
+  "frozen_sources": [
+    {
+      "id": "F-014B",
+      "title": "Temporal Resolution",
+      "url": "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
+      "native_pin": "2026-09-25T23:42:29.547Z",
+      "primary_im": "IM-02"
+    },
+    {
+      "id": "F-014D",
+      "title": "Epistemic Access",
+      "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+      "native_pin": "2026-09-24T16:25:17.059Z",
+      "primary_im": "IM-10"
+    },
+    {
+      "id": "I-001",
+      "title": "Context-Adaptive Player Interface",
+      "url": "https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2",
+      "native_pin": "2026-09-25T00:17:49.551Z",
+      "primary_im": "IM-13"
+    },
+    {
+      "id": "I-002",
+      "title": "Player Character Generation",
+      "url": "https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718",
+      "native_pin": "2026-09-25T00:15:54.536Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "IR",
+      "title": "Player–World Insertion",
+      "url": "https://app.notion.com/p/3e320af901e081a3a669c1c0b842c9df",
+      "native_pin": "2026-09-25T00:17:26.287Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "NPK",
+      "title": "Narrative & Performance Kernel",
+      "url": "https://app.notion.com/p/3e320af901e081db854eef7c53de47a3",
+      "native_pin": "2026-09-25T00:18:32.532Z",
+      "primary_im": "IM-14"
+    },
+    {
+      "id": "WG",
+      "title": "World Generation",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-09-25T13:44:22.668Z",
+      "primary_im": "IM-03"
+    },
+    {
+      "id": "WS-001",
+      "title": "Population / Labor / Migration",
+      "url": "https://app.notion.com/p/3de20af901e081929b5df2337e4b2cf6",
+      "native_pin": "2026-09-25T23:42:28.770Z",
+      "primary_im": "IM-04"
+    },
+    {
+      "id": "WS-002",
+      "title": "KTI",
+      "url": "https://app.notion.com/p/3e720af901e081d1b9e9ce4bbe475268",
+      "native_pin": "2026-09-26T02:44:38.319Z",
+      "primary_im": "IM-09"
+    },
+    {
+      "id": "WS-003",
+      "title": "Production & Resources",
+      "url": "https://app.notion.com/p/3e020af901e0819aab34ebd5412b6338",
+      "native_pin": "2026-09-25T13:44:44.982Z",
+      "primary_im": "IM-05"
+    },
+    {
+      "id": "WS-004",
+      "title": "Economy / Exchange / Demand",
+      "url": "https://app.notion.com/p/3e220af901e081fa9d84caf71a4f4f01",
+      "native_pin": "2026-09-24T11:45:02.825Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-005",
+      "title": "Culture & Society",
+      "url": "https://app.notion.com/p/3e720af901e0813b82f5ca864ad8daff",
+      "native_pin": "2026-09-26T07:23:03.549Z",
+      "primary_im": "IM-09"
+    },
+    {
+      "id": "WS-006",
+      "title": "Named Actors",
+      "url": "https://app.notion.com/p/3e520af901e081619a59c069a36db420",
+      "native_pin": "2026-09-25T00:18:36.828Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "WS-007",
+      "title": "Government / Institutions / Politics",
+      "url": "https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521",
+      "native_pin": "2026-09-24T01:42:24.952Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-008",
+      "title": "Diplomacy",
+      "url": "https://app.notion.com/p/3e220af901e081fd8594d6f2e6c453f6",
+      "native_pin": "2026-09-24T07:01:45.312Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-009",
+      "title": "Military / Security",
+      "url": "https://app.notion.com/p/3e620af901e081248a12fde8dfa1538f",
+      "native_pin": "2026-09-25T20:39:44.035Z",
+      "primary_im": "IM-08"
+    },
+    {
+      "id": "WS-010",
+      "title": "Logistics",
+      "url": "https://app.notion.com/p/3e620af901e081e78415e03cda7cad12",
+      "native_pin": "2026-09-25T02:18:10.619Z",
+      "primary_im": "IM-05"
+    },
+    {
+      "id": "WS-011",
+      "title": "Autonomous Collective State",
+      "url": "https://app.notion.com/p/3e620af901e081ba85d2c8ef2d963223",
+      "native_pin": "2026-09-25T03:04:04.095Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "WS-012",
+      "title": "Intelligence / Covert Action classification",
+      "url": "https://app.notion.com/p/3e220af901e08148a334e565bf52d2ce",
+      "native_pin": "2026-09-24T12:14:21.325Z",
+      "primary_im": "IM-03"
+    },
+    {
+      "id": "WS-013",
+      "title": "Fiscal / Treasury classification",
+      "url": "https://app.notion.com/p/3e220af901e0816aa403e63f1b749541",
+      "native_pin": "2026-09-24T09:00:43.018Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-014",
+      "title": "Health — Condition & Process",
+      "url": "https://app.notion.com/p/3e620af901e0817c8b1ac2caf852e3aa",
+      "native_pin": "2026-09-25T08:16:44.399Z",
+      "primary_im": "IM-08"
+    },
+    {
+      "id": "WS-015",
+      "title": "Cohort Reference Architecture",
+      "url": "https://app.notion.com/p/3e120af901e081069cacdd9dcca751ab",
+      "native_pin": "2026-09-20T15:53:58.732Z",
+      "primary_im": "IM-04"
+    },
+    {
+      "id": "WS-016",
+      "title": "Character Capability Protocol",
+      "url": "https://app.notion.com/p/3e220af901e08168b37ccee101d23e49",
+      "native_pin": "2026-09-24T17:38:59.210Z",
+      "primary_im": "IM-07"
+    }
+  ],
+  "snapshot_files": {
+    "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    "spec/f027/acceptance-register.yaml": "05e2a798e370ce6bf5fd20d67fea74df308e4fde6ae6382dcdd663dd6b0e9f3f",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
+  },
+  "hash_algorithm": "sha256 over file bytes with CRLF normalized to LF",
+  "snapshot_commit": null,
+  "snapshot_commit_note": "A commit cannot contain its own SHA. The reviewed PR head SHA and the resulting main commit are recorded in the PR/release evidence (Bootstrap Plan §6, §12 step 9).",
+  "supersedes": null,
+  "superseded_by": null,
+  "source_validation": {
+    "performed_against": "Live Notion pages fetched 2026-09-29 for the package, both tranches and the Bootstrap Plan; pins above are the page_last_edited_at values observed.",
+    "frozen_source_pins_basis": "Copied from Runtime/Translation v0.2 §4 as carried by F-027; the 23 frozen pages themselves were not re-fetched at bootstrap."
+  },
+  "rules": [
+    "'latest Notion' is never an implicit build input.",
+    "A newer timestamp does not silently supersede this lock.",
+    "Changing this file is a substantive PR requiring exact-version review.",
+    "Code built against a different spec lock is a different review object."
+  ]
+}

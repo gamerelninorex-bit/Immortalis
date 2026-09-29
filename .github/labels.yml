@@ -1,0 +1,15 @@
+# Minimum label set (Bootstrap Plan §10). GitHub does not read this file; create labels to match.
+- name: implementation
+  description: Bounded implementation objective
+- name: defect
+  description: Code defect against clear specification
+- name: conformance
+  description: V/IA acceptance-register work
+- name: blocked-spec
+  description: Implementation-facing question awaiting a design/governance answer
+- name: security
+  description: Trust-boundary or security work
+- name: migration
+  description: Migration record or contract work (no live execution)
+- name: provider
+  description: Provider adoption question (requires separate authorization)

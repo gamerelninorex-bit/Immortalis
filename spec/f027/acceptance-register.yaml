@@ -1,0 +1,341 @@
+# F-027 acceptance register — machine-readable map of V-01–V-14 and IA-01–IA-30.
+# Source: F-027 Foundation Tranche v0.1 §6 / §6.1 (native pin 2026-09-29T00:09:56.571Z),
+# incorporated by F-027 package v1.0 (native pin 2026-09-29T00:40:44.707Z).
+# Allowed status values: NOT_IMPLEMENTED, BLOCKED, UNRUN, PASS, FAIL, NOT_APPLICABLE.
+# PASS/FAIL require an evidence reference. A CI skip is never PASS.
+# Blocked/unrun rows are held explicit until their governed horizon; nothing here is PASS.
+schema_version: 1
+spec_lock: spec/f027/spec-lock.json
+rows:
+  - id: V-01
+    family: V
+    title: "Existing semantic/recovery regression V-01 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-02
+    family: V
+    title: "Existing semantic/recovery regression V-02 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-03
+    family: V
+    title: "Existing semantic/recovery regression V-03 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-04
+    family: V
+    title: "Existing semantic/recovery regression V-04 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-05
+    family: V
+    title: "Existing semantic/recovery regression V-05 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-06
+    family: V
+    title: "Existing semantic/recovery regression V-06 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-07
+    family: V
+    title: "Existing semantic/recovery regression V-07 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-08
+    family: V
+    title: "Existing semantic/recovery regression V-08 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-09
+    family: V
+    title: "Existing semantic/recovery regression V-09 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-10
+    family: V
+    title: "Existing semantic/recovery regression V-10 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-11
+    family: V
+    title: "Existing semantic/recovery regression V-11 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-12
+    family: V
+    title: "Existing semantic/recovery regression V-12 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-13
+    family: V
+    title: "Existing semantic/recovery regression V-13 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: V-14
+    family: V
+    title: "Existing semantic/recovery regression V-14 (retained unchanged)"
+    source: "Foundation Tranche v0.1 §6.1"
+    note: "Full V-battery definition is carried by the frozen F-018/F-024 lineage referenced by F-027, not restated in the F-027 tranches; conformance test content is not authored at bootstrap."
+    packages: []
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-01
+    family: IA
+    title: "Source/version fidelity"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine", "contracts"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-02
+    family: IA
+    title: "No silent semantic invention"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine", "contracts", "testkit"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-03
+    family: IA
+    title: "Owner exclusivity / no accidental subsystem"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-04
+    family: IA
+    title: "Turnless causal ordering"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/temporal"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-05
+    family: IA
+    title: "Claims / contention / liveness"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/commit"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-06
+    family: IA
+    title: "Atomic publication / idempotent recovery"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/commit", "engine/persistence"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-07
+    family: IA
+    title: "Managed-provider recovery"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/persistence"]
+    status: BLOCKED
+    evidence: null
+    note: "Deferred by F-026 to provider-adoption / implementation / pre-live activation (CAL-09). No PASS may be inferred."
+  - id: IA-08
+    family: IA
+    title: "Non-PC trigger-source parity"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-09
+    family: IA
+    title: "Off-screen NPC↔NPC continuation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-10
+    family: IA
+    title: "Bounded materiality probe"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-11
+    family: IA
+    title: "Intent–effect / observer-relative interpretation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/epistemic-access"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-12
+    family: IA
+    title: "Micro↔macro causal reverberation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-13
+    family: IA
+    title: "Viewpoint / hidden-state integrity"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/projection"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-14
+    family: IA
+    title: "PC authorship boundary"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/actors-acs-capability"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-15
+    family: IA
+    title: "No protagonist privilege / plot convergence"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-16
+    family: IA
+    title: "Epistemic/access fidelity"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/epistemic-access"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-17
+    family: IA
+    title: "Projection-before-NPK"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/projection", "engine/presentation"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-18
+    family: IA
+    title: "Security: unauthorized operation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["protocol"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-19
+    family: IA
+    title: "Security: campaign isolation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["protocol"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-20
+    family: IA
+    title: "Security: injection/exfiltration"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["protocol"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-21
+    family: IA
+    title: "Security gameplay non-regression"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["protocol", "engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+  - id: IA-22
+    family: IA
+    title: "Runtime narrowness / dormant-state economy"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+    note: "Measurement only; no universal budget adopted (CAL-06, CAL-10)."
+  - id: IA-23
+    family: IA
+    title: "Temporal approximation calibration"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/temporal"]
+    status: BLOCKED
+    evidence: null
+    note: "CAL-01: per-mechanic tolerances UNCALIBRATED; no numeric value adopted."
+  - id: IA-24
+    family: IA
+    title: "Population calibration"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/population"]
+    status: BLOCKED
+    evidence: null
+    note: "CAL-02: L_unavailable and default labour coefficients OPEN CALIBRATION."
+  - id: IA-25
+    family: IA
+    title: "Participant representation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/epistemic-access"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+    note: "CAL-03: no adopted production participant number."
+  - id: IA-26
+    family: IA
+    title: "Legacy Baseline clause disposition"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["spec"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+    note: "Documentary disposition register L-01–L-69 lives in the pinned Notion tranche; Requires Decision rows are tracked in open-gates.yaml."
+  - id: IA-27
+    family: IA
+    title: "OB-015 live temporal continuation"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/temporal"]
+    status: BLOCKED
+    evidence: null
+    note: "Deferred to the actual-live migration horizon."
+  - id: IA-28
+    family: IA
+    title: "OB-016 role/permission mapping"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["protocol", "engine/authority"]
+    status: BLOCKED
+    evidence: null
+    note: "Documentary translation complete; code-era conformance and live conversion still due."
+  - id: IA-29
+    family: IA
+    title: "Single-canon migration"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/persistence", "migrations"]
+    status: BLOCKED
+    evidence: null
+    note: "Provider adoption not authorized."
+  - id: IA-30
+    family: IA
+    title: "Archive/replay integrity"
+    source: "Foundation Tranche v0.1 §6"
+    packages: ["engine/provenance-recovery"]
+    status: NOT_IMPLEMENTED
+    evidence: null
+    note: "Preserves V-14."
