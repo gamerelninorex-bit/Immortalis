@@ -1,6 +1,7 @@
 import {
   BUILD_SPEC_IDENTITY,
   ok,
+  type CommitGroup,
   type CommitReceipt,
   type OwnerFact,
   type Result,
@@ -62,6 +63,7 @@ export function createInMemoryCampaign(params: {
     getFact: (key: string): OwnerFact | undefined => core.state.facts.get(key),
     listFacts: () => stateToFile(core.state).facts,
     lookupReceipt: (intentId: string): CommitReceipt | null => core.lookupReceipt(intentId),
+    committedGroup: (intentId: string): CommitGroup | null => core.lookupGroup(intentId),
     commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
       const run = queue.then(async () => {
         const prepared = core.prepare(group);

@@ -1,5 +1,6 @@
 import {
   ExistenceContractSchema,
+  OWNER_TEMPORAL_KERNEL,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
   PLAYER_CHARACTER_BINDING_KEY,
@@ -7,60 +8,14 @@ import {
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
-  type Failure,
   type OwnerFact,
   type PlayerCharacterBinding,
 } from "@immortalis/contracts";
-import type { CampaignState, CommitErrorCode, WriteAdmission } from "../commit/campaign-core.ts";
+import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { temporalGroupCheck } from "../temporal/admission.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
-
-type Rejection = Failure<CommitErrorCode>;
-const reject = (
-  code: CommitErrorCode,
-  message: string,
-  details?: Record<string, unknown>,
-): Rejection => (details === undefined ? { code, message } : { code, message, details });
-
-/**
- * What a group must pin about a foreign fact it references (RC-07 expected source/input versions,
- * group dependencies): a `reads` entry at the fact's current version and a `depends_on` entry for
- * the group that committed it. Returns a rejection or null.
- */
-function requirePrerequisite(
-  group: CommitGroup,
-  state: CampaignState,
-  key: string,
-  what: string,
-): { fact: OwnerFact } | Rejection {
-  const fact = state.facts.get(key);
-  if (!fact) {
-    return reject(
-      "PREREQUISITE_MISSING",
-      `${what} is not committed; a dependent write may not precede or create its prerequisite`,
-      { key },
-    );
-  }
-  if (!group.reads.some((r) => r.key === key && r.version === fact.version)) {
-    return reject("REFERENCE_INVALID", `the group must read ${what} at its current version`, {
-      key,
-      version: fact.version,
-    });
-  }
-  if (!group.depends_on.includes(fact.provenance.group_id)) {
-    return reject(
-      "REFERENCE_INVALID",
-      `the group must depend on the group that committed ${what}`,
-      {
-        key,
-        group_id: fact.provenance.group_id,
-      },
-    );
-  }
-  return { fact };
-}
-
-const isRejection = (r: { fact: OwnerFact } | Rejection): r is Rejection => "code" in r;
+import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
 
 function checkLocus(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
   const locus = WorldLocusSchema.parse(value);
@@ -152,7 +107,7 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  *     the group's. There is no fallback owner (IA-03, RC-02).
  *  2. Typed value: the value satisfies the kind's strict schema, and the identity embedded in the
  *     key is the identity inside the value (stable canonical identity).
- *  3. Sealed canon: these kinds are create-only. Overwriting a sealed world baseline, a released
+ *  3. Sealed canon: the sealed kinds are create-only. Overwriting a sealed world baseline, a released
  *     Existence Contract or the binding needs an owner-defined amendment/transition mechanism
  *     (WG seal; I-002 Intrinsic Amendment Event; IR transitions) that is not implemented.
  *  4. Dependency direction: a locus needs its world; the binding needs the PC contract, the world
@@ -187,7 +142,7 @@ export const canonicalAdmission: WriteAdmission = {
           facet: kind.facet,
         });
       }
-      if (w.expected_version !== 0) {
+      if (kind.lifecycle === "SEALED" && w.expected_version !== 0) {
         return reject(
           "AMENDMENT_NOT_SUPPORTED",
           "sealed canon cannot be overwritten; no amendment mechanism is implemented",
@@ -206,6 +161,9 @@ export const canonicalAdmission: WriteAdmission = {
       const dependent = dependencyCheck(kind, group, state, w.key, parsed.data);
       if (dependent) return dependent;
     }
+    // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
+    // boundary-index and engaged-object updates).
+    if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
     return null;
   },
 };
@@ -226,7 +184,13 @@ export function identityMismatch(
     case "pc_existence_contract":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "player_character_binding":
+    case "temporal_state":
+    case "temporal_boundary_index":
       return null;
+    case "temporal_object":
+      return v["object_id"] === ids[0] ? null : "object_id does not match the key";
+    case "resolution_transaction":
+      return v["transaction_id"] === ids[0] ? null : "transaction_id does not match the key";
   }
 }
 

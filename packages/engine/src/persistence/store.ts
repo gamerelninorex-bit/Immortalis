@@ -1,5 +1,6 @@
 import type {
   BuildInfo,
+  CommitGroup,
   CommitReceipt,
   Failure,
   OwnerFact,
@@ -58,6 +59,11 @@ export interface CampaignStore {
    */
   commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>>;
   lookupReceipt(intentId: string): CommitReceipt | null;
+  /**
+   * IM-12 cold-history lookup: the exact group that committed under `intentId`, as recorded in the
+   * hash-chained journal, or null. Read-only evidence; it is the same record the receipt attests.
+   */
+  committedGroup(intentId: string): CommitGroup | null;
   /** Releases the campaign. Committed state is already durable; close never "saves". */
   close(): Promise<void>;
 }
