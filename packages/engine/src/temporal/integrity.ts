@@ -15,6 +15,7 @@ import {
   type ValueSchema,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { continuationRequestViolation } from "./admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -160,14 +161,10 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
           ? "a held continuation was abandoned rather than consumed"
           : "a continuing transaction consumes a continuation that was not held",
       );
-    } else if (prev?.outcome.remainder) {
-      if (!tx.requested.target || !timeEquals(prev.outcome.remainder.to, tx.requested.target)) {
-        bad(
-          key,
-          "TEMPORAL_TRANSACTION",
-          "a continuing transaction did not consume the remainder held",
-        );
-      }
+    } else if (prev && held) {
+      // the same rule admission applies, re-verified against the sealed prior record
+      const violation = continuationRequestViolation(prev, tx.requested);
+      if (violation) bad(key, "TEMPORAL_TRANSACTION", violation);
     }
     if (
       fact.provenance.intent_id !== transactionIntentId(tx.transaction_id) ||

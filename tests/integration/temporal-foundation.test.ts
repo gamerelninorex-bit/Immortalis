@@ -980,7 +980,7 @@ describe("dependency closure and fail-closed ordering (brief §4.5, §5.3, §5.6
       coordinator.advance(
         stopAtBoundaryRequest("tx-2", {
           continues: "tx-1", // the held continuation is consumed, never abandoned
-          requested: { target: T1, condition: null },
+          requested: stopAtBoundaryRequest().requested, // the unfinished request, carried forward unchanged
         }),
       ),
     );

@@ -7,6 +7,7 @@ import {
   TemporalStateSchema,
   compareTime,
   temporalObjectKey,
+  temporalTransactionKey,
   timeAtOrBefore,
   timeBefore,
   timeEquals,
@@ -177,10 +178,17 @@ function checkTransaction(
       { held: held?.from_transaction ?? null, continues: tx.continues },
     );
   }
-  if (held && held.toward !== null) {
-    if (tx.requested.target === null || !timeEquals(held.toward, tx.requested.target)) {
-      return bad("a continuing transaction must consume exactly the remainder the state holds");
+  if (held) {
+    // what is continued is the sealed prior transaction's unfinished request, verified against it
+    const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
+    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    if (!priorTx?.success) {
+      return bad("the held continuation's sealed transaction is not committed", {
+        held: held.from_transaction,
+      });
     }
+    const violation = continuationRequestViolation(priorTx.data, tx.requested);
+    if (violation) return bad(violation, { held: held.from_transaction });
   }
   // 4. the stage groups it cites are committed before it.
   for (const s of tx.stages) {
@@ -389,6 +397,36 @@ function indexConsistency(
         object_id: e.object_id,
       });
     }
+  }
+  return null;
+}
+
+/**
+ * A held continuation is unfinished requested work, not merely a link to the previous transaction id.
+ * Given the SEALED prior transaction a continuing request names, returns why the request does not
+ * lawfully consume it, or null. One rule, used identically by the coordinator, raw kernel admission
+ * and load-time verification so that they cannot drift:
+ *
+ *  - the prior stopped with unresolved dependents: its unresolved requested predicate — target AND
+ *    condition — is carried forward unchanged (canonical equality). A continuation cannot drop,
+ *    change or replace the unfinished request while acknowledging the prior transaction id.
+ *  - the prior left only a target remainder (its condition already resolved): the continuation
+ *    consumes exactly that remainder target, as before; nothing further is required.
+ *
+ * No cancellation or supersession exists: this only verifies what is being continued.
+ */
+export function continuationRequestViolation(
+  prior: ResolutionTransaction,
+  requested: ResolutionTransaction["requested"],
+): string | null {
+  if (prior.outcome.unresolved_dependents.length > 0) {
+    return canonicalEqual(requested, prior.requested)
+      ? null
+      : "a continuation of unresolved work must preserve the original requested target and condition";
+  }
+  const remainder = prior.outcome.remainder;
+  if (!remainder || requested.target === null || !timeEquals(remainder.to, requested.target)) {
+    return "a continuing transaction must consume exactly the remainder the state holds";
   }
   return null;
 }

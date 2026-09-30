@@ -38,6 +38,7 @@ import {
   type UnresolvedReason,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { continuationRequestViolation } from "./admission.ts";
 import { factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { analyzeStageGraph, type GraphEdge, type GraphNode } from "./graph.ts";
@@ -287,14 +288,14 @@ export class TemporalCoordinator {
     if (!held || held.toward === null) {
       return failure("NO_REMAINDER", "the temporal state holds no remainder toward a target");
     }
-    return this.advance(
-      {
-        ...input,
-        continues: held.from_transaction,
-        requested: { target: held.toward, condition: null },
-      },
-      options,
-    );
+    // Unresolved work is continued with its original request (target and condition); a plain
+    // target remainder is continued toward that target.
+    const prior = this.transaction(held.from_transaction)?.value;
+    const requested =
+      prior && prior.outcome.unresolved_dependents.length > 0
+        ? prior.requested
+        : { target: held.toward, condition: null };
+    return this.advance({ ...input, continues: held.from_transaction, requested }, options);
   }
 
   async advance(
@@ -344,16 +345,18 @@ export class TemporalCoordinator {
       );
     }
     if (req.continues !== null) {
-      if (
-        !held ||
-        held.from_transaction !== req.continues ||
-        (held.toward !== null && (target === null || !timeEquals(held.toward, target)))
-      ) {
+      if (!held || held.from_transaction !== req.continues) {
         return failure(
           "CONTINUATION_MISMATCH",
           "a continuing transaction must consume exactly the persisted continuation",
         );
       }
+      // the continuation is the sealed prior transaction's unfinished request: carry it forward
+      const priorTx = this.transaction(held.from_transaction)?.value;
+      const violation = priorTx
+        ? continuationRequestViolation(priorTx, req.requested)
+        : "the held continuation's sealed transaction is not committed";
+      if (violation) return failure("CONTINUATION_MISMATCH", violation);
     }
     const slices = options.slices ?? [];
     for (const s of slices) {

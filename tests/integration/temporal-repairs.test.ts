@@ -611,14 +611,16 @@ describe("Finding 3 — a held continuation cannot be silently abandoned", () =>
       coordinator.advance(
         stopAtBoundaryRequest("tx-2", {
           continues: "tx-1",
-          requested: { target: T1, condition: null },
+          requested: conditionOnly("tx-1").requested, // the original unfinished request, unchanged
         }),
       ),
     );
     expect(r2.transaction.continues).toBe("tx-1");
+    expect(r2.transaction.requested).toEqual(r1.transaction.requested);
     expect(r2.transaction.outcome).toMatchObject({
-      actual_stop: T1,
-      stop_reason: "TARGET_REACHED",
+      actual_stop: TB,
+      stop_reason: "CONDITION_SATISFIED",
+      remainder: null,
     });
     expect(r2.transaction.engaged).toMatchObject([
       { boundary: "RETIRED", object_id: OBJECT_ENGAGED },
@@ -700,7 +702,7 @@ describe("Finding 3 — a held continuation cannot be silently abandoned", () =>
         campaign,
         stopAtBoundaryRequest("tx-2", {
           continues: "tx-1",
-          requested: { target: T1, condition: null },
+          requested: conditionOnly("tx-1").requested,
         }),
         (g) =>
           edit(g, temporalTransactionKey("tx-2"), (t) => {
@@ -831,6 +833,243 @@ describe("Finding 4 — replay includes the immutable publication metadata", () 
       ),
     ).toBe("TRANSACTION_CONFLICT");
     expect((await must(b.coordinator.advance(stopAtBoundaryRequest("tx-1")))).replayed).toBe(true);
+    await b.campaign.close();
+  });
+});
+
+// ==========================================================================================
+// Finding 3 (second review) — a held continuation is UNFINISHED REQUESTED WORK
+// ==========================================================================================
+
+describe("Finding 3 (re-review) — a continuation of unresolved work preserves the original request", () => {
+  /** A producer that needs a source not yet committed: unresolved (SOURCE_ABSENT), fixable later. */
+  const needsLate = {
+    ...P!,
+    reads: [
+      ...P!.reads,
+      {
+        mode: "AS-OF-NOW" as const,
+        source: { owner: SYNTH_OWNER, fact_key: "synthetic/late-source" },
+        invalidators: [],
+      },
+    ],
+  };
+  const blockedObject = () => engagedObject({ dependencies: [needsLate, C!] });
+  const lateSource = (campaign: CampaignStore) =>
+    campaign.commit(syntheticSourceGroup(FIXTURE_CAMPAIGN, 9, "late", 0, "synthetic/late-source"));
+  const cond = conditionOnly("x").requested.condition!;
+  const resume = (id: string, requested: unknown) =>
+    stopAtBoundaryRequest(id, { continues: "tx-1", requested: requested as never });
+  const ORIGINAL_BLOCKED_ONLY = conditionOnly("x").requested; // { target: null, condition: C }
+  const ORIGINAL_WITH_TARGET = stopAtBoundaryRequest("x").requested; // { target: T1, condition: C }
+
+  it("blocked-only: resumed with the same original condition it succeeds once the dependency is resolvable — across save/close/load", async () => {
+    const dir = tempDir();
+    const a = await seededTemporalCampaign(dir, { objects: [blockedObject()] });
+    const r1 = await must(a.coordinator.advance(conditionOnly("tx-1")));
+    expect(r1.transaction.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
+    expect(a.coordinator.state()!.value.continuation).toMatchObject({ toward: null });
+    await a.campaign.close();
+
+    const b = await reopen(dir); // the held continuation and its sealed request persisted
+    await must(lateSource(b.campaign.store));
+    const r2 = await must(b.coordinator.advance(resume("tx-2", ORIGINAL_BLOCKED_ONLY)));
+    expect(r2.transaction.continues).toBe("tx-1");
+    expect(r2.transaction.requested).toEqual(r1.transaction.requested);
+    expect(r2.transaction.outcome).toMatchObject({
+      actual_stop: TB,
+      stop_reason: "CONDITION_SATISFIED",
+      remainder: null,
+      unresolved_dependents: [],
+    });
+    expect(r2.transaction.engaged).toMatchObject([
+      { boundary: "RETIRED", object_id: OBJECT_ENGAGED },
+    ]);
+    expect(b.coordinator.state()!.value.continuation).toBeNull();
+    expect(b.campaign.verify()).toEqual([]);
+    // replay is unchanged: the same request replays, a different one conflicts
+    expect(
+      (await must(b.coordinator.advance(resume("tx-2", ORIGINAL_BLOCKED_ONLY)))).replayed,
+    ).toBe(true);
+    expect(
+      await codeOf(b.coordinator.advance(resume("tx-2", { target: T1, condition: null }))),
+    ).toBe("TRANSACTION_CONFLICT");
+    await b.campaign.close();
+  });
+
+  it.each([
+    [
+      "changing the held condition (another boundary)",
+      { target: null, condition: { ...cond, boundary_id: "some-other-boundary" } },
+    ],
+    [
+      "changing the held condition (another object)",
+      { target: null, condition: { ...cond, object_id: "obj-other" } },
+    ],
+    ["dropping the held condition for a target", { target: T1, condition: null }],
+    [
+      "replacing the blocked-only request with an unrelated target",
+      { target: at(300), condition: null },
+    ],
+    [
+      "adding a target to the held condition (not the same request)",
+      { target: T1, condition: cond },
+    ],
+  ])("blocked-only: %s is rejected, and nothing is committed", async (_what, requested) => {
+    const { campaign, coordinator } = await seededTemporalCampaign(tempDir(), {
+      objects: [blockedObject()],
+    });
+    await must(coordinator.advance(conditionOnly("tx-1")));
+    await must(lateSource(campaign.store)); // even when the dependency IS resolvable
+    const entries = campaign.store.head().journal_entries;
+    const state = campaign.store.getFact(TEMPORAL_STATE_KEY)!;
+    expect(await codeOf(coordinator.advance(resume("tx-2", requested)))).toBe(
+      "CONTINUATION_MISMATCH",
+    );
+    expect(campaign.store.head().journal_entries).toBe(entries);
+    expect(campaign.store.getFact(TEMPORAL_STATE_KEY)).toEqual(state);
+    expect(coordinator.state()!.value.continuation).toMatchObject({
+      from_transaction: "tx-1",
+      toward: null,
+    });
+    // dropping BOTH target and condition is not even a request
+    expect(
+      await codeOf(coordinator.advance(resume("tx-3", { target: null, condition: null }))),
+    ).toBe("INPUT_INVALID");
+    await campaign.close();
+  });
+
+  it("unresolved work with a remainder target: the condition and the target must both be preserved", async () => {
+    const { campaign, coordinator } = await seededTemporalCampaign(tempDir(), {
+      objects: [unresolvedObject()],
+    });
+    await must(coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    expect(coordinator.state()!.value.continuation).toMatchObject({ toward: T1 });
+    for (const requested of [
+      { target: T1, condition: null }, // drops the condition (the previously accepted looser form)
+      { target: at(300), condition: cond }, // changes the target
+      { target: T1, condition: { ...cond, boundary_id: "some-other-boundary" } },
+    ]) {
+      expect(await codeOf(coordinator.advance(resume("tx-2", requested)))).toBe(
+        "CONTINUATION_MISMATCH",
+      );
+    }
+    // the original request, unchanged, is accepted
+    const ok = await must(coordinator.advance(resume("tx-2", ORIGINAL_WITH_TARGET)));
+    expect(ok.transaction.requested).toEqual(ORIGINAL_WITH_TARGET);
+    // the helper carries the original request forward too
+    const { campaign: c2, coordinator: k2 } = await seededTemporalCampaign(tempDir(), {
+      objects: [unresolvedObject()],
+    });
+    await must(k2.advance(stopAtBoundaryRequest("tx-1")));
+    const viaHelper = await must(k2.continueRemainder(continuationInput("tx-2")));
+    expect(viaHelper.transaction.requested).toEqual(ORIGINAL_WITH_TARGET);
+    await c2.close();
+    await campaign.close();
+  });
+
+  it("the existing lawful case is unchanged: a plain target remainder is continued toward that target, condition free", async () => {
+    const { campaign, coordinator } = await seededTemporalCampaign(tempDir());
+    await must(coordinator.advance(stopAtBoundaryRequest("tx-1"))); // condition resolved, target remains
+    expect(coordinator.state()!.value.continuation).toMatchObject({
+      toward: T1,
+      unresolved_dependents: [],
+    });
+    const done = await must(coordinator.advance(resume("tx-2", { target: T1, condition: null })));
+    expect(done.transaction.outcome).toMatchObject({
+      actual_stop: T1,
+      stop_reason: "TARGET_REACHED",
+    });
+    expect(coordinator.state()!.value.continuation).toBeNull();
+    await campaign.close();
+    // and through the helper, and with a wrong target still refused
+    const s = await seededTemporalCampaign(tempDir());
+    await must(s.coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    expect(
+      await codeOf(s.coordinator.advance(resume("tx-2", { target: at(150), condition: null }))),
+    ).toBe("CONTINUATION_MISMATCH");
+    expect(
+      (await must(s.coordinator.continueRemainder(continuationInput("tx-2")))).transaction
+        .requested,
+    ).toEqual({ target: T1, condition: null });
+    await s.campaign.close();
+  });
+
+  it("raw kernel admission refuses equivalent tampering of the continuing request", async () => {
+    // tx-1 blocked-only; tx-2 resumes it (still blocked, no late source) so the record stays schema-valid
+    const tamperCases: [string, unknown][] = [
+      [
+        "changed condition",
+        { target: null, condition: { ...cond, boundary_id: "some-other-boundary" } },
+      ],
+      ["dropped condition, unrelated target", { target: at(300), condition: null }],
+      ["condition replaced by a target", { target: T1, condition: null }],
+    ];
+    for (const [, requested] of tamperCases) {
+      const { campaign, coordinator } = await seededTemporalCampaign(tempDir(), {
+        objects: [blockedObject()],
+      });
+      await must(coordinator.advance(conditionOnly("tx-1")));
+      const error = await refused(campaign, resume("tx-2", ORIGINAL_BLOCKED_ONLY), (g) =>
+        edit(g, temporalTransactionKey("tx-2"), (t) => {
+          t.requested = requested;
+        }),
+      );
+      expect(error?.code).toBe("REFERENCE_INVALID");
+      expect(error?.message).toContain("preserve the original requested target and condition");
+      await campaign.close();
+    }
+    // unresolved with a remainder target: dropping the condition is refused raw as well
+    const { campaign, coordinator } = await seededTemporalCampaign(tempDir(), {
+      objects: [unresolvedObject()],
+    });
+    await must(coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    const error = await refused(campaign, resume("tx-2", ORIGINAL_WITH_TARGET), (g) =>
+      edit(g, temporalTransactionKey("tx-2"), (t) => {
+        t.requested = { target: T1, condition: null };
+      }),
+    );
+    expect(error?.code).toBe("REFERENCE_INVALID");
+    expect(error?.message).toContain("preserve the original requested target and condition");
+    await campaign.close();
+    // the lawful target-remainder case is NOT tightened: a raw group with condition free is admitted
+    const ok = await seededTemporalCampaign(tempDir());
+    await must(ok.coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    const passthrough = tamper(ok.campaign.store, (g) => g);
+    const c = new TemporalCoordinator(passthrough.store, syntheticProviders());
+    expect((await c.advance(resume("tx-2", { target: T1, condition: null }))).ok).toBe(true);
+    await ok.campaign.close();
+  });
+
+  it("load-time verification refuses equivalent historical tampering, and accepts the lawful histories", async () => {
+    // history: tx-1 blocked-only, tx-2 resumes it (still blocked), so its request can be altered validly
+    const { campaign, coordinator } = await seededTemporalCampaign(tempDir(), {
+      objects: [blockedObject()],
+    });
+    await must(coordinator.advance(conditionOnly("tx-1")));
+    await must(coordinator.advance(resume("tx-2", ORIGINAL_BLOCKED_ONLY)));
+    expect(campaign.verify()).toEqual([]); // the lawful history verifies
+    for (const requested of [
+      { target: null, condition: { ...cond, boundary_id: "some-other-boundary" } },
+      { target: at(300), condition: null },
+      { target: T1, condition: null },
+    ]) {
+      const facts = cloneFacts(campaign.store);
+      (facts.find((f) => f.key === temporalTransactionKey("tx-2"))!.value as any).requested =
+        requested;
+      const found = verifyTemporalIntegrity(view(campaign.store, facts));
+      expect(codes(found)).toEqual(["TEMPORAL_TRANSACTION"]);
+      expect(found[0]!.message).toContain("preserve the original requested target and condition");
+    }
+    await campaign.close();
+    // the lawful target-remainder history (condition free on the continuation) verifies, also after reload
+    const dir = tempDir();
+    const a = await seededTemporalCampaign(dir);
+    await must(a.coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    await must(a.coordinator.continueRemainder(continuationInput("tx-2")));
+    await a.campaign.close();
+    const b = await reopen(dir);
+    expect(b.campaign.verify()).toEqual([]);
     await b.campaign.close();
   });
 });
