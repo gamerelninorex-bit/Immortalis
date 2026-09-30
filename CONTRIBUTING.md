@@ -25,7 +25,7 @@ Coherent and reviewable; no secrets, generated credentials, production data or o
 - Every substantive PR names the F-027 spec lock and the exact head SHA under review.
 - Blue review is anchored to the exact head SHA plus the spec lock. **Any new commit invalidates prior clearance** and requires delta re-review.
 - Do not merge your own substantive implementation PR without the required review route.
-- Changing anything under `spec/f027/` (including `spec-lock.json`) is a substantive PR. Run `node --experimental-strip-types tools/check-spec.ts --write-hashes` after a reviewed snapshot edit and review the resulting lock diff.
+- Changing anything under `spec/f027/` (including `spec-lock.json`) is a substantive PR. Run `node --experimental-strip-types tools/check-spec.ts --write-hashes` after a reviewed snapshot edit; it also regenerates `packages/contracts/src/spec-identity.ts` (the identity embedded in every save). Review the resulting lock diff — changing the lock makes existing saves fail with `SPEC_LOCK_MISMATCH` by design.
 
 ## Evidence and tests
 

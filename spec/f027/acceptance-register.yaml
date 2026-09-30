@@ -4,6 +4,8 @@
 # Allowed status values: NOT_IMPLEMENTED, BLOCKED, UNRUN, PASS, FAIL, NOT_APPLICABLE.
 # PASS/FAIL require an evidence reference. A CI skip is never PASS.
 # Blocked/unrun rows are held explicit until their governed horizon; nothing here is PASS.
+# `partial_evidence` (optional) lists tests covering only a named aspect of a row. It never changes status:
+# a row stays NOT_IMPLEMENTED/BLOCKED until its whole acceptance surface has evidence.
 schema_version: 1
 spec_lock: spec/f027/spec-lock.json
 rows:
@@ -126,6 +128,9 @@ rows:
     packages: ["engine", "contracts"]
     status: NOT_IMPLEMENTED
     evidence: null
+    partial_evidence:
+      scope: "Persistence aspect only: saves record the governing spec identity; a save under a different F-027 spec lock is rejected, never silently upgraded. Build/package identification beyond persistence, and explicit migration, are not implemented."
+      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/integration/continuity.test.ts"]
   - id: IA-02
     family: IA
     title: "No silent semantic invention"
@@ -133,6 +138,9 @@ rows:
     packages: ["engine", "contracts", "testkit"]
     status: NOT_IMPLEMENTED
     evidence: null
+    partial_evidence:
+      scope: "Persistence/commit aspect only: no default owner, facet, unit, basis or secrecy exists; an empty owner registry fails every write closed; incomplete input is rejected, never repaired."
+      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/contract/rc-schemas.test.ts", "tests/integration/store-contract.test.ts"]
   - id: IA-03
     family: IA
     title: "Owner exclusivity / no accidental subsystem"
@@ -140,6 +148,9 @@ rows:
     packages: ["engine"]
     status: NOT_IMPLEMENTED
     evidence: null
+    partial_evidence:
+      scope: "Commit-core aspect only: a group writes exactly one registered owner/facet; foreign-owner writes are rejected; there is no fallback owner. No real owner adapter exists yet."
+      tests: ["tests/integration/store-contract.test.ts"]
   - id: IA-04
     family: IA
     title: "Turnless causal ordering"
@@ -161,6 +172,9 @@ rows:
     packages: ["engine/commit", "engine/persistence"]
     status: NOT_IMPLEMENTED
     evidence: null
+    partial_evidence:
+      scope: "Partial: all-or-nothing group publication, idempotent identity (RC-16), changed-intent rejection (CAL-07), UNKNOWN_OUTCOME reconciliation by intent_id, and crash-point convergence on the local file package. Publication-time revalidation of actor/rule/epoch/foreign claims and any provider-specific behavior are not implemented."
+      tests: ["tests/integration/continuity.test.ts", "tests/integration/store-contract.test.ts", "tests/unit/campaign-core.test.ts"]
   - id: IA-07
     family: IA
     title: "Managed-provider recovery"
@@ -338,4 +352,7 @@ rows:
     packages: ["engine/provenance-recovery"]
     status: NOT_IMPLEMENTED
     evidence: null
+    partial_evidence:
+      scope: "Partial: loading re-derives every committed transition by replaying the hash-chained journal and cross-checks the materialized state. Retained opportunity/draw/method evidence and correction lineage are not implemented."
+      tests: ["tests/integration/continuity.test.ts", "tests/unit/campaign-core.test.ts"]
     note: "Preserves V-14."

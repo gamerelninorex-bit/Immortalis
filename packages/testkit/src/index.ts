@@ -1,4 +1,6 @@
 // @immortalis/testkit — shared deterministic fixtures, builders and evidence helpers.
-// Any in-memory persistence fake added here must be marked non-production and cannot satisfy
-// provider/recovery acceptance (IA-07, CAL-09).
-export {};
+// Everything here is SYNTHETIC and NON-PRODUCTION. The in-memory store cannot satisfy provider or
+// recovery acceptance (IA-07, CAL-09).
+export * from "./builders.ts";
+export * from "./fault-fs.ts";
+export * from "./in-memory-store.ts";

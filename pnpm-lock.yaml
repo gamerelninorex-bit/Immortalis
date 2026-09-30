@@ -45,13 +45,28 @@ importers:
         specifier: 2.9.1
         version: 2.9.1
 
-  packages/contracts: {}
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
-  packages/engine: {}
+  packages/engine:
+    dependencies:
+      '@immortalis/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/protocol: {}
 
-  packages/testkit: {}
+  packages/testkit:
+    dependencies:
+      '@immortalis/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@immortalis/engine':
+        specifier: workspace:*
+        version: link:../engine
 
 packages:
 
@@ -846,6 +861,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
 snapshots:
 
   '@cacheable/memory@2.2.0':
@@ -1506,3 +1524,5 @@ snapshots:
   yaml@2.9.1: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@4.6.5: {}

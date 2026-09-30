@@ -2,7 +2,7 @@
 
 LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core).
 
-**Status: repository bootstrap.** This repository contains the skeleton, implementation charter, F-027 spec snapshot/lock, acceptance and open-gate registers, and CI. No engine behavior, vertical slice, persistence/deployment provider or migration exists.
+**Status: Campaign Continuity Foundation.** Adds the first bounded slice on top of the bootstrap: a campaign can be created, committed to, saved to a local structured-file package, closed, loaded again and continued without its identity, spec/version provenance or persisted state changing (see [`docs/campaign-package.md`](docs/campaign-package.md)). No persistence/deployment provider, host protocol, migration or gameplay mechanic exists, and every F-027 open gate remains open.
 
 ## Governing specification
 

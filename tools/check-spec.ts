@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import { renderSpecIdentity } from "./gen-spec-identity.ts";
+
+const IDENTITY_MODULE = "packages/contracts/src/spec-identity.ts";
 
 const STATUSES = ["NOT_IMPLEMENTED", "BLOCKED", "UNRUN", "PASS", "FAIL", "NOT_APPLICABLE"];
 const REQUIRED_GATES = [
@@ -35,7 +38,12 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-type Row = { id?: unknown; status?: unknown; evidence?: unknown };
+type Row = {
+  id?: unknown;
+  status?: unknown;
+  evidence?: unknown;
+  partial_evidence?: { scope?: unknown; tests?: unknown };
+};
 type Gate = { id?: unknown; status?: unknown };
 
 /** Returns a list of consistency errors; an empty list means the spec snapshot is internally consistent. */
@@ -93,6 +101,23 @@ export function checkSpec(root: string): string[] {
     if (typeof row.status !== "string" || !STATUSES.includes(row.status)) {
       errors.push(`acceptance-register.yaml: ${id} has invalid status ${String(row.status)}`);
     }
+    if (row.partial_evidence !== undefined) {
+      const { scope, tests } = row.partial_evidence;
+      if (typeof scope !== "string" || scope.length === 0) {
+        errors.push(`acceptance-register.yaml: ${id} partial_evidence needs a scope statement`);
+      }
+      if (!Array.isArray(tests) || tests.length === 0) {
+        errors.push(`acceptance-register.yaml: ${id} partial_evidence needs at least one test`);
+      } else {
+        for (const t of tests) {
+          if (typeof t !== "string" || !existsSync(at(t))) {
+            errors.push(
+              `acceptance-register.yaml: ${id} partial_evidence test not found: ${String(t)}`,
+            );
+          }
+        }
+      }
+    }
     if ((row.status === "PASS" || row.status === "FAIL") && !row.evidence) {
       errors.push(`acceptance-register.yaml: ${id} is ${String(row.status)} without evidence`);
     }
@@ -123,12 +148,22 @@ export function checkSpec(root: string): string[] {
     if (!gateIds.has(id)) errors.push(`open-gates.yaml: missing gate ${id}`);
   }
 
+  // The generated build identity must match the lock it claims to mirror.
+  try {
+    if (readFileSync(at(IDENTITY_MODULE), "utf8") !== renderSpecIdentity(root)) {
+      errors.push(
+        `${IDENTITY_MODULE} is out of date with spec-lock.json (run tools/gen-spec-identity.ts)`,
+      );
+    }
+  } catch (e) {
+    errors.push(`${IDENTITY_MODULE} unreadable: ${(e as Error).message}`);
+  }
+
   return errors;
 }
 
 /** Rewrites the snapshot hashes in spec-lock.json (a substantive change; review the diff). */
 export async function writeHashes(root: string): Promise<void> {
-  const { writeFileSync } = await import("node:fs");
   const path = join(root, "spec/f027/spec-lock.json");
   const lock = JSON.parse(readFileSync(path, "utf8"));
   for (const rel of Object.keys(lock.snapshot_files)) {
@@ -143,7 +178,8 @@ if (isMain) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   if (process.argv.includes("--write-hashes")) {
     await writeHashes(root);
-    console.log("spec-lock.json snapshot hashes updated");
+    writeFileSync(join(root, IDENTITY_MODULE), renderSpecIdentity(root));
+    console.log("spec-lock.json snapshot hashes and generated build spec identity updated");
   }
   const errors = checkSpec(root);
   if (errors.length > 0) {
