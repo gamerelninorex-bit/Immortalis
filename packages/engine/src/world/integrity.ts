@@ -23,7 +23,12 @@ export interface IntegrityViolation {
     | "UNSUPPORTED_AMENDMENT"
     | "PREREQUISITE_MISSING"
     | "REFERENCE_INVALID"
-    | "DEPENDENCY_ORDER";
+    | "DEPENDENCY_ORDER"
+    /** IM-02 kernel state: see verifyTemporalIntegrity */
+    | "TEMPORAL_STATE"
+    | "TEMPORAL_INDEX"
+    | "TEMPORAL_TRANSACTION"
+    | "TEMPORAL_EVIDENCE";
   readonly message: string;
 }
 
@@ -37,7 +42,10 @@ export interface IntegrityViolation {
  * this build: it fails closed rather than being partially trusted. Diagnostic full listing (CAL-06):
  * cost is proportional to the number of canonical facts, once per open.
  */
-export function verifyCanonicalIntegrity(store: CampaignStore): readonly IntegrityViolation[] {
+export function verifyCanonicalIntegrity(
+  store: CampaignStore,
+  options: { readonly isExtensionFact?: (fact: OwnerFact) => boolean } = {},
+): readonly IntegrityViolation[] {
   const facts = new Map<string, OwnerFact>(store.listFacts().map((f) => [f.key, f]));
   const out: IntegrityViolation[] = [];
   const bad = (key: string, code: IntegrityViolation["code"], message: string) =>
@@ -58,6 +66,9 @@ export function verifyCanonicalIntegrity(store: CampaignStore): readonly Integri
   };
 
   for (const fact of facts.values()) {
+    // An extension owner's facts are outside the canonical key spaces by construction and are
+    // verified by that owner's own admission; the canonical check does not claim them.
+    if (options.isExtensionFact?.(fact)) continue;
     const resolved = resolveKey(fact.key);
     if (!resolved) {
       bad(fact.key, "UNREGISTERED_KEY", "key is outside every registered key space");
@@ -68,7 +79,9 @@ export function verifyCanonicalIntegrity(store: CampaignStore): readonly Integri
       bad(fact.key, "WRONG_OWNER_FACET", `owner/facet is not ${kind.owner}/${kind.facet}`);
       continue;
     }
-    if (fact.version !== 1) bad(fact.key, "UNSUPPORTED_AMENDMENT", "sealed canon was overwritten");
+    if (kind.lifecycle === "SEALED" && fact.version !== 1) {
+      bad(fact.key, "UNSUPPORTED_AMENDMENT", "sealed canon was overwritten");
+    }
     if (!canonicalEqual(fact.provenance.rule, kind.rule)) {
       bad(fact.key, "RULE_DRIFT", "governing rule differs from the registered source citation");
     }

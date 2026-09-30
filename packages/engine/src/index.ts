@@ -2,10 +2,19 @@
 // Present surface: deterministic commit core (IM-11 subset), the provider-neutral persistence contract
 // (IM-17) with a prototype structured-file package (Campaign Continuity Foundation), and the
 // specification-backed owner resolution + canonical world/PC/binding path (Canonical World Identity
-// & Owner Foundation: IM-03 owner registry, IM-07 PC existence + binding).
+// & Owner Foundation: IM-03 owner registry, IM-07 PC existence + binding), and the Turnless Temporal &
+// Resolution Transaction Foundation (IM-02 coordinator over that same commit/persistence substrate).
 export * from "./commit/campaign-core.ts";
 export * from "./owners/admission.ts";
+export * from "./owners/extension.ts";
 export * from "./owners/registry.ts";
+export * from "./temporal/admission.ts";
+export * from "./temporal/coordinator.ts";
+export * from "./temporal/graph.ts";
+export * from "./temporal/identity.ts";
+export * from "./temporal/integrity.ts";
+export * from "./temporal/partition.ts";
+export * from "./temporal/providers.ts";
 export * from "./world/canonical-campaign.ts";
 export * from "./world/integrity.ts";
 export * from "./persistence/file-package.ts";

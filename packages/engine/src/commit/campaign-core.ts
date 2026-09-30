@@ -118,6 +118,8 @@ interface LedgerRecord {
   readonly group_id: string;
   readonly group_sha256: string;
   readonly receipt: CommitReceipt;
+  /** the committed group itself: IM-12 cold-history lookup (evidence, never a second source of truth) */
+  readonly group: CommitGroup;
 }
 
 /** What a successful `prepare` produced. `replayed` means nothing changes and no entry is written. */
@@ -166,6 +168,11 @@ export class CampaignCore {
     return this.#byIntent.get(intentId)?.receipt ?? null;
   }
 
+  /** The exact group committed under `intentId` (hash-chained journal evidence), or null. */
+  lookupGroup(intentId: string): CommitGroup | null {
+    return this.#byIntent.get(intentId)?.group ?? null;
+  }
+
   /** Re-registers an already-committed entry (used when replaying a journal on load). */
   adopt(entry: JournalEntry, nextState: CampaignState): void {
     this.#state = nextState;
@@ -183,6 +190,7 @@ export class CampaignCore {
       group_id: group.group_id,
       group_sha256: receipt.group_sha256,
       receipt,
+      group,
     });
     this.#byGroup.set(group.group_id, group.intent_id);
   }

@@ -26,7 +26,13 @@ import {
 } from "@immortalis/contracts";
 import type { FactKindId } from "../owners/registry.ts";
 import { canonicalAdmission } from "../owners/admission.ts";
+import {
+  storeBindings,
+  type ExtensionErrorCode,
+  type StageOwnerExtension,
+} from "../owners/extension.ts";
 import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
+import { verifyTemporalIntegrity } from "../temporal/integrity.ts";
 import {
   createFileCampaign,
   openFileCampaign,
@@ -61,7 +67,8 @@ export interface BindPcInput extends Publication {
 }
 
 export type CanonicalCommitCode = StoreCommitErrorCode | "INPUT_INVALID";
-export type CanonicalOpenCode = OpenErrorCode | "CANON_INTEGRITY";
+export type CanonicalOpenCode = OpenErrorCode | "CANON_INTEGRITY" | ExtensionErrorCode;
+export type CanonicalCreateCode = CreateErrorCode | ExtensionErrorCode;
 
 export interface Typed<T> {
   readonly fact: OwnerFact;
@@ -86,16 +93,29 @@ export class CanonicalCampaign {
   /** Exposed for diagnostics and tests. Admission governs every commit made through it. */
   readonly store: FileCampaignStore;
 
-  private constructor(store: FileCampaignStore) {
+  readonly #extension: StageOwnerExtension | undefined;
+
+  private constructor(store: FileCampaignStore, extension: StageOwnerExtension | undefined) {
     this.store = store;
+    this.#extension = extension;
   }
 
+  /**
+   * `extension` registers additional (owner-adapter) owner/facets beside the canonical and IM-02
+   * kernel ones. Omit it for a plain canonical campaign. The same extension must be supplied on open.
+   */
   static async create(
     dir: string,
-    params: Pick<FileCampaignOptions, "buildId" | "fs" | "specIdentity"> & { campaignId: string },
-  ): Promise<Result<CanonicalCampaign, CreateErrorCode>> {
-    const created = await createFileCampaign(dir, { ...params, ...CANONICAL_STORE_BINDINGS });
-    return created.ok ? ok(new CanonicalCampaign(created.value)) : created;
+    params: Pick<FileCampaignOptions, "buildId" | "fs" | "specIdentity"> & {
+      campaignId: string;
+      extension?: StageOwnerExtension;
+    },
+  ): Promise<Result<CanonicalCampaign, CanonicalCreateCode>> {
+    const { extension, ...rest } = params;
+    const bindings = storeBindings(extension);
+    if (!bindings.ok) return bindings;
+    const created = await createFileCampaign(dir, { ...rest, ...bindings.value });
+    return created.ok ? ok(new CanonicalCampaign(created.value, extension)) : created;
   }
 
   /**
@@ -104,23 +124,28 @@ export class CanonicalCampaign {
    */
   static async open(
     dir: string,
-    options: Pick<FileCampaignOptions, "buildId" | "fs" | "reclaimStaleLock"> = {},
+    options: Pick<FileCampaignOptions, "buildId" | "fs" | "reclaimStaleLock"> & {
+      extension?: StageOwnerExtension;
+    } = {},
   ): Promise<Result<CanonicalCampaign, CanonicalOpenCode>> {
-    const opened = await openFileCampaign(dir, { ...options, ...CANONICAL_STORE_BINDINGS });
+    const { extension, ...rest } = options;
+    const bindings = storeBindings(extension);
+    if (!bindings.ok) return bindings;
+    const opened = await openFileCampaign(dir, { ...rest, ...bindings.value });
     if (!opened.ok) return opened;
-    const violations = verifyCanonicalIntegrity(opened.value);
+    const violations = verifyAll(opened.value, extension);
     if (violations.length > 0) {
       await opened.value.close();
       return fail("CANON_INTEGRITY", "the campaign does not match this build's canonical owners", {
         violations: violations.slice(0, 10),
       });
     }
-    return ok(new CanonicalCampaign(opened.value));
+    return ok(new CanonicalCampaign(opened.value, extension));
   }
 
-  /** Re-runs the canonical integrity verification against current state. */
+  /** Re-runs the canonical and temporal integrity verification against current state. */
   verify(): readonly IntegrityViolation[] {
-    return verifyCanonicalIntegrity(this.store);
+    return verifyAll(this.store, this.#extension);
   }
 
   close(): Promise<void> {
@@ -298,6 +323,19 @@ export class CanonicalCampaign {
     };
     return this.store.commit(group);
   }
+}
+
+/** Canonical (world/PC/binding) integrity, then the IM-02 kernel's temporal integrity. */
+function verifyAll(
+  store: FileCampaignStore,
+  extension: StageOwnerExtension | undefined,
+): readonly IntegrityViolation[] {
+  return [
+    ...verifyCanonicalIntegrity(store, {
+      isExtensionFact: (f) => extension?.owners.get(f.owner)?.has(f.facet) === true,
+    }),
+    ...verifyTemporalIntegrity(store),
+  ];
 }
 
 function inputInvalid(what: string, error: SchemaIssues) {

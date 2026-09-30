@@ -15,6 +15,7 @@ import {
   type CommitReceipt,
   type Failure,
   type Genesis,
+  type CommitGroup,
   type Manifest,
   type OwnerFact,
   type Result,
@@ -549,6 +550,10 @@ class FilePackageStore implements FileCampaignStore {
 
   lookupReceipt(intentId: string): CommitReceipt | null {
     return this.#core.lookupReceipt(intentId);
+  }
+
+  committedGroup(intentId: string): CommitGroup | null {
+    return this.#core.lookupGroup(intentId);
   }
 
   commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
