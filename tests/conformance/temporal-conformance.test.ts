@@ -11,6 +11,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   F014B_SOURCE,
   FACT_KINDS,
+  TemporalCoordinator,
   TEMPORAL_FACT_KINDS,
 } from "@immortalis/engine";
 import { engagedObject } from "@immortalis/testkit";
@@ -171,6 +172,23 @@ describe("IA-04 turnless causal ordering (foundation aspect): no turn, tick, pha
       expect(text, f).not.toMatch(/^(let|var)\s/m);
       expect(text, f).not.toMatch(/node:fs|\.jsonl|appendFile|writeFile/);
     }
+  });
+
+  it("a held continuation has no cancellation/supersession mechanism: none is offered by the coordinator or the contracts", () => {
+    const methods = Object.getOwnPropertyNames(TemporalCoordinator.prototype);
+    expect(methods.filter((m) => /cancel|supersede|abandon|reset|clear|discard/i.test(m))).toEqual(
+      [],
+    );
+    expect(methods.filter((m) => !m.startsWith("constructor")).sort()).toEqual([
+      "advance",
+      "boundaryIndex",
+      "continueRemainder",
+      "establishCanonicalTime",
+      "object",
+      "registerObject",
+      "state",
+      "transaction",
+    ]);
   });
 
   it("the graph module takes only (nodes, edges, pre-blocked): no horizon, version, retry or slice can reach it", () => {

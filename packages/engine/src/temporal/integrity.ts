@@ -7,6 +7,7 @@ import {
   TemporalStateSchema,
   temporalObjectKey,
   temporalTransactionKey,
+  compareTime,
   timeAtOrBefore,
   timeEquals,
   type OwnerFact,
@@ -147,14 +148,24 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
         "the transaction's opening state version is not its place in the chain",
       );
     }
-    if (tx.continues !== null) {
-      const from = txs.slice(0, i).find((x) => x.tx.transaction_id === tx.continues)?.tx;
-      const remainder = from?.outcome.remainder;
-      if (!remainder || !tx.requested.target || !timeEquals(remainder.to, tx.requested.target)) {
+    // A held continuation is consumed by the very next transaction and only by it: this slice has
+    // no cancellation/supersession, so a chain that abandons or invents one is not a lawful history.
+    const held = prev && (prev.outcome.remainder || prev.outcome.unresolved_dependents.length > 0);
+    const expectedFrom = held && prev ? prev.transaction_id : null;
+    if (tx.continues !== expectedFrom) {
+      bad(
+        key,
+        "TEMPORAL_TRANSACTION",
+        expectedFrom
+          ? "a held continuation was abandoned rather than consumed"
+          : "a continuing transaction consumes a continuation that was not held",
+      );
+    } else if (prev?.outcome.remainder) {
+      if (!tx.requested.target || !timeEquals(prev.outcome.remainder.to, tx.requested.target)) {
         bad(
           key,
           "TEMPORAL_TRANSACTION",
-          "a continuing transaction does not consume a remainder that existed",
+          "a continuing transaction did not consume the remainder held",
         );
       }
     }
@@ -214,7 +225,7 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     }
     for (const e of tx.engaged) {
       const o = facts.find((f) => f.key === e.fact_key);
-      if (!o || o.version < e.version_after)
+      if (!o || (e.boundary === "RETIRED" && o.version < e.version_after))
         bad(
           key,
           "TEMPORAL_EVIDENCE",
@@ -245,6 +256,24 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     }
     if (!b && entry)
       bad(fact.key, "TEMPORAL_INDEX", "the index holds a boundary the object no longer has");
+  }
+  // Canonical time never passes an active earned boundary: an entry lies after the canonical time, or
+  // at it only when the last transaction stopped DEPENDENCY_UNRESOLVED and the object is one of its
+  // still-active engaged objects. (Registration requires a boundary after the canonical time.)
+  const stillActive = new Set(
+    last?.outcome.stop_reason === "DEPENDENCY_UNRESOLVED"
+      ? last.engaged.filter((e) => e.boundary === "STILL_ACTIVE").map((e) => e.object_id)
+      : [],
+  );
+  for (const e of entries) {
+    const c = compareTime(e.at, state.canonical_time);
+    if (c === null || c === -1 || (c === 0 && !stillActive.has(e.object_id))) {
+      bad(
+        TEMPORAL_BOUNDARY_INDEX_KEY,
+        "TEMPORAL_INDEX",
+        `canonical time has passed the active earned boundary of ${e.object_id}`,
+      );
+    }
   }
   for (const e of entries) {
     if (!objects.some((o) => o.value.object_id === e.object_id)) {

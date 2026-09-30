@@ -462,16 +462,34 @@ export const ResolutionTransactionSchema = z
     requested: RequestedSchema,
     /** active role/permission context */
     context: TransactionContextSchema,
-    /** causally engaged references: only the temporal objects whose boundary was resolved */
+    /**
+     * Causally engaged references (RC-05): EVERY temporal object whose due boundary the transaction
+     * selected and whose declared dependency graph it engaged, whether or not the work completed.
+     * `boundary` distinguishes the two cases, and only RETIRED objects are ever mutated:
+     *   RETIRED       every declared stage committed; the boundary was crossed and retired and the
+     *                 object advanced (`version_after`).
+     *   STILL_ACTIVE  at least one declared stage is unresolved; the object and its earned boundary
+     *                 are untouched and stay in the active index. Recording that it was engaged does
+     *                 not mutate it.
+     */
     engaged: z.array(
-      z.strictObject({
-        object_id: EntityId,
-        fact_key: Id,
-        version_before: Version.min(1),
-        version_after: Version.min(1),
-      }),
+      z.discriminatedUnion("boundary", [
+        z.strictObject({
+          boundary: z.literal("RETIRED"),
+          object_id: EntityId,
+          fact_key: Id,
+          version_before: Version.min(1),
+          version_after: Version.min(1),
+        }),
+        z.strictObject({
+          boundary: z.literal("STILL_ACTIVE"),
+          object_id: EntityId,
+          fact_key: Id,
+          version_before: Version.min(1),
+        }),
+      ]),
     ),
-    /** material boundaries crossed */
+    /** material boundaries crossed: exactly the RETIRED engaged objects' boundaries */
     boundaries_crossed: z.array(
       z.strictObject({ object_id: EntityId, boundary_id: Id, at: CanonicalTimeSchema }),
     ),
@@ -520,9 +538,26 @@ export const ResolutionTransactionSchema = z
       if (!target || !timeEquals(actual_stop, target) || remainder !== null) {
         bad("TARGET_REACHED means the stop equals the target with no remainder", ["outcome"]);
       }
+      // a declared stop condition names a due boundary, so the target cannot be reached past it
+      if (t.requested.condition !== null) {
+        bad("a transaction with a requested condition cannot stop as TARGET_REACHED", ["outcome"]);
+      }
     }
-    if (stop_reason === "CONDITION_SATISFIED" && t.requested.condition === null) {
-      bad("CONDITION_SATISFIED needs a requested condition", ["outcome"]);
+    if (stop_reason === "CONDITION_SATISFIED") {
+      const cond = t.requested.condition;
+      // Not merely a non-null condition: the exact requested boundary must have been crossed (and
+      // retired) by THIS transaction, and the stop is that boundary's instant.
+      const crossed = cond
+        ? t.boundaries_crossed.find(
+            (b) => b.object_id === cond.object_id && b.boundary_id === cond.boundary_id,
+          )
+        : undefined;
+      if (!cond || !crossed || !timeEquals(crossed.at, actual_stop)) {
+        bad(
+          "CONDITION_SATISFIED requires this transaction to have crossed the requested boundary, stopping at its instant",
+          ["outcome"],
+        );
+      }
     }
     if ((stop_reason === "DEPENDENCY_UNRESOLVED") !== unresolved_dependents.length > 0) {
       bad("unresolved dependents exist exactly when the stop is DEPENDENCY_UNRESOLVED", [
@@ -531,9 +566,26 @@ export const ResolutionTransactionSchema = z
     }
     const engaged = new Set(t.engaged.map((e) => e.object_id));
     if (engaged.size !== t.engaged.length) bad("duplicate engaged reference", ["engaged"]);
-    for (const b of t.boundaries_crossed) {
-      if (!engaged.has(b.object_id))
-        bad("a crossed boundary belongs to a non-engaged object", ["boundaries_crossed"]);
+    const retired = new Set(
+      t.engaged.filter((e) => e.boundary === "RETIRED").map((e) => e.object_id),
+    );
+    const crossedIds = new Set(t.boundaries_crossed.map((b) => b.object_id));
+    if (
+      crossedIds.size !== t.boundaries_crossed.length ||
+      crossedIds.size !== retired.size ||
+      [...crossedIds].some((id) => !retired.has(id))
+    ) {
+      bad(
+        "the boundaries crossed are exactly those of the engaged objects whose boundary was retired",
+        ["boundaries_crossed"],
+      );
+    }
+    const stillActive = t.engaged.filter((e) => e.boundary === "STILL_ACTIVE");
+    if ((stop_reason === "DEPENDENCY_UNRESOLVED") !== stillActive.length > 0) {
+      bad(
+        "an engaged object keeps its boundary active exactly when the stop is DEPENDENCY_UNRESOLVED",
+        ["engaged"],
+      );
     }
     const groups = new Set<string>();
     for (const s of t.stages) {

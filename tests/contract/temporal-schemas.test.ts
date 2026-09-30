@@ -413,6 +413,7 @@ describe("RC-05 ResolutionRequest / ResolutionTransaction", () => {
     context: { role: "role.player", permission: "permission.player_choice.commit" },
     engaged: [
       {
+        boundary: "RETIRED",
         object_id: OBJECT_ENGAGED,
         fact_key: `temporal/object/${OBJECT_ENGAGED}`,
         version_before: 1,
@@ -515,26 +516,172 @@ describe("RC-05 ResolutionRequest / ResolutionTransaction", () => {
     expect(valid(ResolutionTransactionSchema, withOutcome({ stop_reason: "TARGET_REACHED" }))).toBe(
       false,
     );
+    const targetOnly = { target: T1, condition: null };
+    expect(
+      valid(ResolutionTransactionSchema, {
+        ...withOutcome({ actual_stop: T1, stop_reason: "TARGET_REACHED", remainder: null }),
+        requested: targetOnly,
+      }),
+    ).toBe(true);
+    // a declared condition names a due boundary: the target cannot be reached past it
     expect(
       valid(
         ResolutionTransactionSchema,
         withOutcome({ actual_stop: T1, stop_reason: "TARGET_REACHED", remainder: null }),
       ),
-    ).toBe(true);
+    ).toBe(false);
     // unresolved dependents exist exactly when the stop is DEPENDENCY_UNRESOLVED
     const u = { stage: CONSUMER_STAGE, reason: "PREDECESSOR_ABSENT" };
     expect(valid(ResolutionTransactionSchema, withOutcome({ unresolved_dependents: [u] }))).toBe(
       false,
     );
+    const active = [
+      {
+        boundary: "STILL_ACTIVE",
+        object_id: OBJECT_ENGAGED,
+        fact_key: `temporal/object/${OBJECT_ENGAGED}`,
+        version_before: 1,
+      },
+    ];
     expect(
-      valid(
-        ResolutionTransactionSchema,
-        withOutcome({ stop_reason: "DEPENDENCY_UNRESOLVED", unresolved_dependents: [u] }),
-      ),
+      valid(ResolutionTransactionSchema, {
+        ...withOutcome({ stop_reason: "DEPENDENCY_UNRESOLVED", unresolved_dependents: [u] }),
+        engaged: active,
+        boundaries_crossed: [],
+      }),
     ).toBe(true);
     expect(
       valid(ResolutionTransactionSchema, withOutcome({ stop_reason: "DEPENDENCY_UNRESOLVED" })),
     ).toBe(false);
+  });
+
+  // Findings 1 and 2 (Blue review of 42526f8): proof of the stop, and complete engaged evidence.
+  describe("CONDITION_SATISFIED is proved by the exact requested boundary crossing", () => {
+    const withTx = (over: Record<string, unknown>) => ({ ...tx(), ...over });
+    const crossed = (over: Record<string, unknown> = {}) => [
+      { object_id: OBJECT_ENGAGED, boundary_id: BOUNDARY_ID, at: TB, ...over },
+    ];
+    it("accepts the stop when the requested object/boundary was crossed at the stop instant", () => {
+      expect(valid(ResolutionTransactionSchema, tx())).toBe(true);
+    });
+    it.each([
+      ["a different boundary of the object", { boundary_id: "some-other-boundary" }],
+      ["a different object", { object_id: "obj-other" }],
+      ["the requested boundary at a different instant than the stop", { at: at(130) }],
+    ])("rejects %s: a non-null condition alone is insufficient", (_l, over) => {
+      const t = withTx({ boundaries_crossed: crossed(over) });
+      const objectId = (over as { object_id?: string }).object_id;
+      const adjusted = objectId
+        ? {
+            ...t,
+            engaged: [
+              {
+                ...(tx()["engaged"] as object[])[0]!,
+                object_id: objectId,
+                fact_key: `temporal/object/${objectId}`,
+              },
+            ],
+          }
+        : t;
+      expect(valid(ResolutionTransactionSchema, adjusted)).toBe(false);
+    });
+    it("rejects the stop when nothing was crossed at all", () => {
+      const t = withTx({
+        boundaries_crossed: [],
+        engaged: [
+          {
+            boundary: "STILL_ACTIVE",
+            object_id: OBJECT_ENGAGED,
+            fact_key: `temporal/object/${OBJECT_ENGAGED}`,
+            version_before: 1,
+          },
+        ],
+      });
+      expect(valid(ResolutionTransactionSchema, t)).toBe(false);
+    });
+  });
+
+  describe("engaged references distinguish a retired boundary from a still-active one (RC-05)", () => {
+    const retired = (id = OBJECT_ENGAGED) => ({
+      boundary: "RETIRED",
+      object_id: id,
+      fact_key: `temporal/object/${id}`,
+      version_before: 1,
+      version_after: 2,
+    });
+    const active = (id: string) => ({
+      boundary: "STILL_ACTIVE",
+      object_id: id,
+      fact_key: `temporal/object/${id}`,
+      version_before: 1,
+    });
+    const u = { stage: CONSUMER_STAGE, reason: "PREDECESSOR_ABSENT" };
+    const unresolvedTx = (engaged: unknown[], crossed: unknown[] = []) => ({
+      ...tx(),
+      engaged,
+      boundaries_crossed: crossed,
+      outcome: {
+        actual_stop: TB,
+        stop_reason: "DEPENDENCY_UNRESOLVED",
+        remainder: { from: TB, to: T1 },
+        unresolved_dependents: [u],
+      },
+    });
+    it("an unresolved transaction keeps its engaged object represented, untouched (no version_after)", () => {
+      expect(valid(ResolutionTransactionSchema, unresolvedTx([active(OBJECT_ENGAGED)]))).toBe(true);
+    });
+    it("a mixed transaction records both the retired and the still-active object", () => {
+      const both = unresolvedTx(
+        [retired("obj-a"), active("obj-b")],
+        [{ object_id: "obj-a", boundary_id: "b-a", at: TB }],
+      );
+      expect(valid(ResolutionTransactionSchema, both)).toBe(true);
+    });
+    it("a still-active object carries no version_after and a retired one requires it", () => {
+      expect(
+        valid(
+          ResolutionTransactionSchema,
+          unresolvedTx([{ ...active(OBJECT_ENGAGED), version_after: 2 }]),
+        ),
+      ).toBe(false);
+      const { version_after: _omit, ...noAfter } = retired();
+      void _omit;
+      expect(valid(ResolutionTransactionSchema, { ...tx(), engaged: [noAfter] })).toBe(false);
+      expect(
+        valid(ResolutionTransactionSchema, {
+          ...tx(),
+          engaged: [{ ...retired(), boundary: "SOMETHING" }],
+        }),
+      ).toBe(false);
+    });
+    it("the boundaries crossed are exactly the retired objects' boundaries", () => {
+      // crossing recorded for a still-active object
+      expect(
+        valid(
+          ResolutionTransactionSchema,
+          unresolvedTx(
+            [active(OBJECT_ENGAGED)],
+            [{ object_id: OBJECT_ENGAGED, boundary_id: BOUNDARY_ID, at: TB }],
+          ),
+        ),
+      ).toBe(false);
+      // a retired object with no crossing recorded
+      expect(valid(ResolutionTransactionSchema, { ...tx(), boundaries_crossed: [] })).toBe(false);
+    });
+    it("a still-active object exists exactly when the stop is DEPENDENCY_UNRESOLVED", () => {
+      expect(
+        valid(ResolutionTransactionSchema, { ...tx(), engaged: [retired(), active("obj-b")] }),
+      ).toBe(false);
+      expect(
+        valid(
+          ResolutionTransactionSchema,
+          unresolvedTx(
+            [retired()],
+            [{ object_id: OBJECT_ENGAGED, boundary_id: BOUNDARY_ID, at: TB }],
+          ),
+        ),
+      ).toBe(false);
+    });
   });
   it("a turn number, revision or horizon cannot stand in for transaction identity", () => {
     for (const extra of [

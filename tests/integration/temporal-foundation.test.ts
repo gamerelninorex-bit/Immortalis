@@ -99,6 +99,7 @@ describe("the acceptance path: open at T0 → resolve Tb → stop with remainder
     // engaged references: exactly the one object whose earned boundary was crossed
     expect(t.engaged).toEqual([
       {
+        boundary: "RETIRED",
         object_id: OBJECT_ENGAGED,
         fact_key: temporalObjectKey(OBJECT_ENGAGED),
         version_before: 1,
@@ -600,6 +601,8 @@ describe("anti-fake identity: horizon, source version, retry, repartition and me
   it("a NEW transaction (any horizon, retry) never recreates a committed stage as a sibling", async () => {
     const { campaign, coordinator } = await seededTemporalCampaign(tempDir());
     await must(coordinator.advance(stopAtBoundaryRequest("tx-1")));
+    // the held remainder is consumed (there is no way to abandon it), then fresh transactions follow
+    await must(coordinator.continueRemainder(continuationInput("tx-consume")));
     const groups = () =>
       campaign.store
         .listFacts()
@@ -609,7 +612,7 @@ describe("anti-fake identity: horizon, source version, retry, repartition and me
     // a later source version appears, then fresh transactions with other horizons and "retries"
     await must(campaign.store.commit(syntheticSourceGroup(FIXTURE_CAMPAIGN, 3, "source-v2", 1)));
     const v2 = groups();
-    for (const [i, target] of [at(150), at(400), at(400)].entries()) {
+    for (const [i, target] of [at(300), at(400), at(400)].entries()) {
       const r = await must(
         coordinator.advance(
           stopAtBoundaryRequest(`tx-retry-${i}`, { requested: { target, condition: null } }),
@@ -975,7 +978,10 @@ describe("dependency closure and fail-closed ordering (brief §4.5, §5.3, §5.6
     // the next transaction opens where the last stopped; the producer is adopted from the journal
     const r2 = await must(
       coordinator.advance(
-        stopAtBoundaryRequest("tx-2", { requested: { target: T1, condition: null } }),
+        stopAtBoundaryRequest("tx-2", {
+          continues: "tx-1", // the held continuation is consumed, never abandoned
+          requested: { target: T1, condition: null },
+        }),
       ),
     );
     expect(r2.adopted).toEqual([PRODUCER_STAGE]);

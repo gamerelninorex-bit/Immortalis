@@ -63,6 +63,7 @@ export type TemporalErrorCode =
   | "TEMPORAL_STATE_ABSENT"
   | "TRANSACTION_CONFLICT"
   | "CONTINUATION_MISMATCH"
+  | "CONTINUATION_HELD"
   | "NO_REMAINDER"
   | "TARGET_BEFORE_BASIS"
   | "UNIT_MISMATCH"
@@ -332,18 +333,25 @@ export class TemporalCoordinator {
           "a target may not precede the canonical time: nothing is rewound",
         );
     }
+    // A held continuation is consumed or it stays. This slice authorizes continuation and has no
+    // cancellation/supersession mechanism, so unrelated progress cannot silently abandon it.
+    const held = state.continuation;
+    if (held && req.continues === null) {
+      return failure(
+        "CONTINUATION_HELD",
+        "the temporal state holds an unresolved continuation; it must be consumed by the next transaction, not abandoned",
+        { held: held.from_transaction },
+      );
+    }
     if (req.continues !== null) {
-      const held = state.continuation;
       if (
         !held ||
         held.from_transaction !== req.continues ||
-        held.toward === null ||
-        target === null ||
-        !timeEquals(held.toward, target)
+        (held.toward !== null && (target === null || !timeEquals(held.toward, target)))
       ) {
         return failure(
           "CONTINUATION_MISMATCH",
-          "a continuing transaction must consume exactly the persisted remainder",
+          "a continuing transaction must consume exactly the persisted continuation",
         );
       }
     }
@@ -383,6 +391,7 @@ export class TemporalCoordinator {
       ruleVersions: [kernelRule()],
       unresolved: [],
       resolved: [],
+      engagedAll: [],
       recomputed: [],
       adopted: [],
       rejections: [],
@@ -531,16 +540,16 @@ export class TemporalCoordinator {
       if (reason) ctx.unresolved.push({ stage: n.stage, reason });
     }
 
-    // 4. an object is resolved only when every stage it declared is committed; else it stays due.
+    // 4. every object whose due boundary was selected is causally engaged (RC-05). It is RETIRED only
+    // when every stage it declared is committed; otherwise it stays due, untouched, and is recorded as
+    // STILL_ACTIVE.
     for (const e of instant) {
       const typed = objects.get(e.object_id)!;
-      if (
-        nodes
-          .filter((n) => n.objectKey === temporalObjectKey(e.object_id))
-          .every((n) => done.has(n.id))
-      ) {
-        ctx.resolved.push({ typed, entry: e });
-      }
+      const retired = nodes
+        .filter((n) => n.objectKey === temporalObjectKey(e.object_id))
+        .every((n) => done.has(n.id));
+      ctx.engagedAll.push({ typed, entry: e, retired });
+      if (retired) ctx.resolved.push({ typed, entry: e });
     }
     return ok(undefined);
   }
@@ -749,12 +758,24 @@ export class TemporalCoordinator {
       opening: { basis_time: t0, state_version: stateTyped.fact.version },
       requested: req.requested,
       context: req.context,
-      engaged: resolved.map((r) => ({
-        object_id: r.entry.object_id,
-        fact_key: temporalObjectKey(r.entry.object_id),
-        version_before: r.typed.fact.version,
-        version_after: r.typed.fact.version + 1,
-      })),
+      engaged: [...ctx.engagedAll]
+        .sort((a, b) => (a.entry.object_id < b.entry.object_id ? -1 : 1))
+        .map((r) =>
+          r.retired
+            ? {
+                boundary: "RETIRED" as const,
+                object_id: r.entry.object_id,
+                fact_key: temporalObjectKey(r.entry.object_id),
+                version_before: r.typed.fact.version,
+                version_after: r.typed.fact.version + 1,
+              }
+            : {
+                boundary: "STILL_ACTIVE" as const,
+                object_id: r.entry.object_id,
+                fact_key: temporalObjectKey(r.entry.object_id),
+                version_before: r.typed.fact.version,
+              },
+        ),
       boundaries_crossed: resolved.map((r) => ({
         object_id: r.entry.object_id,
         boundary_id: r.entry.boundary_id,
@@ -852,7 +873,8 @@ export class TemporalCoordinator {
       canonicalEqual(t.trigger, req.trigger) &&
       t.continues === req.continues &&
       canonicalEqual(t.requested, req.requested) &&
-      canonicalEqual(t.context, req.context);
+      canonicalEqual(t.context, req.context) &&
+      this.#publicationMatches(req, existing);
     if (!same) {
       return failure(
         "TRANSACTION_CONFLICT",
@@ -875,6 +897,18 @@ export class TemporalCoordinator {
       adopted: [],
       rejections: [],
     });
+  }
+
+  /**
+   * The immutable publication metadata (RC-02 `basis`, `secrecy`) of a committed transaction is part
+   * of its identity: it is compared with the authoritative committed fact and with the journaled
+   * group, never with the caller's claim alone.
+   */
+  #publicationMatches(req: ResolutionRequest, existing: Typed<ResolutionTransaction>): boolean {
+    const { basis, secrecy } = req.publication;
+    if (existing.fact.basis !== basis || existing.fact.secrecy !== secrecy) return false;
+    const group = this.#store.committedGroup(transactionIntentId(req.transaction_id));
+    return group !== null && group.writes.every((w) => w.basis === basis && w.secrecy === secrecy);
   }
 
   // -- kernel group assembly --------------------------------------------------------------------
@@ -926,7 +960,14 @@ interface Run {
   readonly stages: StageRecord[];
   readonly ruleVersions: SourceRef[];
   readonly unresolved: UnresolvedDependent[];
+  /** objects whose boundary was retired (the only ones ever mutated) */
   readonly resolved: { typed: Typed<TemporalObject>; entry: BoundaryIndex["entries"][number] }[];
+  /** every causally engaged object, retired or still active */
+  readonly engagedAll: {
+    typed: Typed<TemporalObject>;
+    entry: BoundaryIndex["entries"][number];
+    retired: boolean;
+  }[];
   readonly recomputed: StageKey[];
   readonly adopted: StageKey[];
   readonly rejections: { stage: StageKey; code: string }[];

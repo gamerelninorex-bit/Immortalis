@@ -165,15 +165,20 @@ function checkTransaction(
   if (!canonicalEqual(newState.continuation, expectedContinuation)) {
     return bad("the recorded continuation is not this transaction's stop/remainder");
   }
-  if (tx.continues !== null) {
-    const held = prior.continuation;
-    if (
-      !held ||
-      held.from_transaction !== tx.continues ||
-      held.toward === null ||
-      tx.requested.target === null ||
-      !timeEquals(held.toward, tx.requested.target)
-    ) {
+  // A held continuation is consumed or it stays: this slice authorizes continuation and no
+  // cancellation/supersession, so unrelated progress cannot silently abandon it, and a continuing
+  // transaction must consume exactly the continuation the state holds.
+  const held = prior.continuation;
+  if ((held?.from_transaction ?? null) !== tx.continues) {
+    return bad(
+      held
+        ? "a held continuation must be consumed by the next transaction, not abandoned"
+        : "a continuing transaction must consume a continuation the state holds",
+      { held: held?.from_transaction ?? null, continues: tx.continues },
+    );
+  }
+  if (held && held.toward !== null) {
+    if (tx.requested.target === null || !timeEquals(held.toward, tx.requested.target)) {
       return bad("a continuing transaction must consume exactly the remainder the state holds");
     }
   }
@@ -183,34 +188,69 @@ function checkTransaction(
       return bad("a cited stage group is not a group dependency", { group_id: s.group_id });
     }
   }
-  // 2. exactly the engaged objects are touched, each across the boundary it had earned.
-  if (objWs.length !== tx.engaged.length || tx.engaged.length !== tx.boundaries_crossed.length) {
-    return bad("the objects written must be exactly the engaged objects");
+  // 2. Engaged objects are all recorded (RC-05); exactly the RETIRED ones are touched, each across
+  // the boundary it had earned. A STILL_ACTIVE object is untouched and keeps its boundary.
+  const retiredEngaged = tx.engaged.filter((e) => e.boundary === "RETIRED");
+  const activeEngaged = tx.engaged.filter((e) => e.boundary === "STILL_ACTIVE");
+  if (objWs.length !== retiredEngaged.length) {
+    return bad(
+      "the objects written must be exactly the engaged objects whose boundary was retired",
+    );
   }
   const priorIndex = readIndex(state);
   for (const e of tx.engaged) {
-    const w = objWs.find((x) => x.key === e.fact_key);
     const before = state.facts.get(e.fact_key);
-    if (!w || !before || e.fact_key !== temporalObjectKey(e.object_id)) {
-      return bad("an engaged reference does not name a written, committed temporal object", {
-        object_id: e.object_id,
-      });
-    }
-    if (
-      e.version_before !== before.version ||
-      w.expected_version !== before.version ||
-      e.version_after !== before.version + 1
-    ) {
-      return bad("an engaged object's versions do not match the committed object", {
+    if (!before || e.fact_key !== temporalObjectKey(e.object_id)) {
+      return bad("an engaged reference does not name a committed temporal object", {
         object_id: e.object_id,
       });
     }
     const was: TemporalObject = TemporalObjectSchema.parse(before.value);
+    if (e.version_before !== before.version) {
+      return bad("an engaged object's version_before is not the committed object", {
+        object_id: e.object_id,
+      });
+    }
+    // every engaged object had a due earned boundary, in the index
+    const entry = priorIndex.entries.find((en) => en.object_id === e.object_id);
+    if (
+      !entry ||
+      !was.next_boundary ||
+      entry.boundary_id !== was.next_boundary.boundary_id ||
+      !timeEquals(entry.at, was.next_boundary.at)
+    ) {
+      return bad("an engaged object must have held an earned, indexed boundary", {
+        object_id: e.object_id,
+      });
+    }
+    if (e.boundary === "STILL_ACTIVE") {
+      // unresolved work is not retired or mutated merely to record that it was engaged
+      if (objWs.some((x) => x.key === e.fact_key)) {
+        return bad("an unresolved engaged object may not be written", { object_id: e.object_id });
+      }
+      if (!timeEquals(was.next_boundary.at, tx.outcome.actual_stop)) {
+        return bad("an unresolved boundary stays active at the stop basis", {
+          object_id: e.object_id,
+        });
+      }
+      const declared = new Set(was.dependencies.map((d) => JSON.stringify(d.stage)));
+      if (!tx.outcome.unresolved_dependents.some((u) => declared.has(JSON.stringify(u.stage)))) {
+        return bad("an unresolved engaged object must have an unresolved dependent stage", {
+          object_id: e.object_id,
+        });
+      }
+      continue;
+    }
+    const w = objWs.find((x) => x.key === e.fact_key);
+    if (!w || w.expected_version !== before.version || e.version_after !== before.version + 1) {
+      return bad("a retired engaged object must be the written object, one version on", {
+        object_id: e.object_id,
+      });
+    }
     const now: TemporalObject = TemporalObjectSchema.parse(w.value);
     const crossed = tx.boundaries_crossed.find((b) => b.object_id === e.object_id);
     if (
       !crossed ||
-      !was.next_boundary ||
       was.next_boundary.boundary_id !== crossed.boundary_id ||
       !timeEquals(was.next_boundary.at, crossed.at) ||
       !timeAtOrBefore(crossed.at, tx.outcome.actual_stop)
@@ -239,16 +279,49 @@ function checkTransaction(
       });
     }
   }
-  // the index loses exactly the engaged objects' entries and nothing else
-  const engagedIds = new Set(tx.engaged.map((e) => e.object_id));
-  if (engagedIds.size === 0) {
-    if (idxW) return bad("an empty engagement does not touch the boundary index");
+  // every unresolved dependent is a declared stage of an engaged, still-active object
+  for (const u of tx.outcome.unresolved_dependents) {
+    const owner = activeEngaged.find((e) =>
+      TemporalObjectSchema.parse(state.facts.get(e.fact_key)!.value).dependencies.some(
+        (d) => JSON.stringify(d.stage) === JSON.stringify(u.stage),
+      ),
+    );
+    if (!owner)
+      return bad("an unresolved dependent is not a stage of an unresolved engaged object");
+  }
+  // the index loses exactly the RETIRED objects' entries and nothing else
+  const retiredIds = new Set(retiredEngaged.map((e) => e.object_id));
+  let postEntries = priorIndex.entries;
+  if (retiredIds.size === 0) {
+    if (idxW)
+      return bad("a transaction that retires no boundary does not touch the boundary index");
   } else {
     if (!idxW) return bad("resolved boundaries must leave the active boundary index");
     const next = BoundaryIndexSchema.parse(idxW.value);
-    const expected = priorIndex.entries.filter((en) => !engagedIds.has(en.object_id));
+    const expected = priorIndex.entries.filter((en) => !retiredIds.has(en.object_id));
     if (!canonicalEqual(next.entries, expected)) {
-      return bad("the index may lose only the resolved boundaries of engaged objects");
+      return bad("the index may lose only the resolved boundaries of retired objects");
+    }
+    postEntries = next.entries;
+  }
+  // Canonical time cannot bypass an active earned boundary (F-014B §6, §13): no active entry may
+  // lie strictly before the stop; at the stop instant only a DEPENDENCY_UNRESOLVED stop may leave
+  // entries, and only those of the engaged objects that are still active.
+  const stillActiveIds = new Set(activeEngaged.map((e) => e.object_id));
+  for (const en of postEntries) {
+    const c = compareTime(en.at, tx.outcome.actual_stop);
+    if (c === null) return bad("an active boundary is in another unit than the stop");
+    if (c === -1) {
+      return bad("canonical time may not pass an active earned boundary", {
+        object_id: en.object_id,
+        boundary_id: en.boundary_id,
+      });
+    }
+    if (c === 0 && !stillActiveIds.has(en.object_id)) {
+      return bad(
+        "a due earned boundary at the stop must be resolved, unless its engaged work is unresolved",
+        { object_id: en.object_id, boundary_id: en.boundary_id },
+      );
     }
   }
   return null;
