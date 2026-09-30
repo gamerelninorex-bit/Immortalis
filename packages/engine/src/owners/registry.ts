@@ -152,7 +152,7 @@ export const FACT_KINDS: readonly FactKind[] = [
     valueSchema: PlayerCharacterBindingSchema,
     rule: rule(
       IR_SOURCE,
-      "§2 Ownership Contract; §6 Step 6 — Commit the binding; §17 Persistence / Write-Back; PC-Control Handover Contract — Single Commit Point",
+      "§2 Ownership Contract; §3 input 3 and §5 Precedence for Insertion Facts (explicit player-authored fact); §6 Step 3 — native/already-there (no bridge invented) and Step 6 — Commit the binding; §17 Persistence / Write-Back; PC-Control Handover Contract — Single Commit Point",
       [ROLE_REGISTRY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
     ),
   },

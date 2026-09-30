@@ -1,12 +1,15 @@
 import {
+  ExistenceContractSchema,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
+  PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
   type Failure,
   type OwnerFact,
+  type PlayerCharacterBinding,
 } from "@immortalis/contracts";
 import type { CampaignState, CommitErrorCode, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
@@ -74,6 +77,38 @@ function checkLocus(group: CommitGroup, state: CampaignState, key: string, value
   return isRejection(world) ? world : null;
 }
 
+/**
+ * Verifies, from committed facts alone, that a binding's retained coupling basis is sufficient to
+ * authorize the represented first activation (IR §6 Step 3 / §5, RC-13). Used by admission when the
+ * binding is written and again by verifyCanonicalIntegrity on every load, so the two cannot drift.
+ * The schema has already limited the basis to the one supported case (native/already-there,
+ * explicit player-authored, role.player commitment); this checks it against the facts it cites:
+ *
+ *  - the PC contract it was established against is a released Existence Contract (the Character
+ *    Mirror was accepted before binding), and
+ *  - every pinned version is the version of the committed PC contract, world profile and locus — the
+ *    basis was established against these facts, not merely alongside them.
+ *
+ * Returns a message, or null when sufficient.
+ */
+export function couplingBasisViolation(
+  binding: PlayerCharacterBinding,
+  facts: { readonly pc: OwnerFact; readonly world: OwnerFact; readonly locus: OwnerFact },
+): string | null {
+  if (!ExistenceContractSchema.safeParse(facts.pc.value).success) {
+    return "the PC existence contract is not a released Existence Contract";
+  }
+  const pins = binding.transition.basis.pinned_versions;
+  if (
+    pins.pc !== facts.pc.version ||
+    pins.world !== facts.world.version ||
+    pins.locus !== facts.locus.version
+  ) {
+    return "the coupling basis was not established against the committed PC, world and locus versions";
+  }
+  return null;
+}
+
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
   const pcKey = pcExistenceContractKey(b.active_pc.entity_id);
@@ -100,6 +135,13 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
       key: locusKey,
     });
   }
+  const insufficient = couplingBasisViolation(b, {
+    pc: pc.fact,
+    world: world.fact,
+    locus: locus.fact,
+  });
+  if (insufficient)
+    return reject("REFERENCE_INVALID", insufficient, { key: PLAYER_CHARACTER_BINDING_KEY });
   return null;
 }
 
@@ -117,6 +159,10 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  *     and the locus — all already committed, read at their current versions, and depended upon. The
  *     binding group writes only the binding, so it cannot create its own prerequisites (IR: "Binding
  *     cannot feed backward to create its own prerequisite").
+ *  5. Coupling basis: the binding must carry the already-established IR coupling (native/already-
+ *     there, explicit player-authored) pinned to those exact facts; coexistence of the PC, world and
+ *     locus is not itself a lawful basis (see couplingBasisViolation). A binding without it is
+ *     rejected by the typed value (VALUE_INVALID), so a raw store.commit cannot bypass the rule.
  *
  * Pure: a function of (group, state) only.
  */

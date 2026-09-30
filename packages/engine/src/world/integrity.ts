@@ -8,7 +8,7 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { identityMismatch } from "../owners/admission.ts";
+import { couplingBasisViolation, identityMismatch } from "../owners/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 
@@ -107,14 +107,24 @@ export function verifyCanonicalIntegrity(store: CampaignStore): readonly Integri
       ) {
         bad(fact.key, "REFERENCE_INVALID", "binding references do not match their key identities");
       }
-      needs(fact, b.active_pc.fact_key);
-      needs(fact, worldKey);
+      const pcFact = needs(fact, b.active_pc.fact_key);
+      const worldFact = needs(fact, worldKey);
       const locusFact = needs(fact, locusKey);
       if (locusFact) {
         const committed = WorldLocusSchema.safeParse(locusFact.value);
         if (!committed.success || !canonicalEqual(committed.data.world, b.coupling.world)) {
           bad(fact.key, "REFERENCE_INVALID", "the locus does not belong to the coupled world");
         }
+      }
+      // The retained IR coupling basis is re-verified against the committed facts it cites: a binding
+      // is not accepted merely because its prerequisites happen to exist and precede it.
+      if (pcFact && worldFact && locusFact) {
+        const insufficient = couplingBasisViolation(b, {
+          pc: pcFact,
+          world: worldFact,
+          locus: locusFact,
+        });
+        if (insufficient) bad(fact.key, "REFERENCE_INVALID", insufficient);
       }
     }
   }

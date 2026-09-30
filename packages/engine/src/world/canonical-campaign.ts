@@ -1,6 +1,7 @@
 import {
   CANON_WRITE_AUTHORITY,
   ExistenceContractSchema,
+  InsertionFactSchema,
   BindingTargetSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
@@ -50,6 +51,13 @@ export interface BindPcInput extends Publication {
   readonly pc_id: string;
   readonly world_id: string;
   readonly locus_id: string;
+  /**
+   * The already-established IR insertion fact that makes this coupling lawful (see
+   * InsertionFactSchema). Required and never inferred: the existence of a PC, a world and a locus
+   * is not a basis. Anything but the supported native/already-there, explicit player-authored case
+   * is rejected, because no other bridge or precedence class is implemented.
+   */
+  readonly insertion: unknown;
 }
 
 export type CanonicalCommitCode = StoreCommitErrorCode | "INPUT_INVALID";
@@ -70,8 +78,9 @@ export interface Typed<T> {
  * values, sealing and dependency direction, so the same rules hold for a raw `store.commit`.
  *
  * The four operations are separate publications in dependency order. `bindPlayerCharacter` writes
- * only the binding: it reads and depends on the PC, world and locus already being committed and can
- * neither create them nor commit without them.
+ * only the binding: it reads and depends on the PC, world and locus already being committed, can
+ * neither create them nor commit without them, and commits only with an explicitly supplied,
+ * already-established IR coupling basis (never one inferred from the facts' coexistence).
  */
 export class CanonicalCampaign {
   /** Exposed for diagnostics and tests. Admission governs every commit made through it. */
@@ -158,8 +167,14 @@ export class CanonicalCampaign {
 
   /**
    * IR + RC-13 + F-014C: activates the single `role.player_character` binding between a released PC
-   * and an established world/locus. The prerequisites are only *read*; when any is missing the
-   * commit is rejected (PREREQUISITE_MISSING), it is never created here.
+   * and an established world/locus, on the strength of the caller's already-established insertion
+   * fact (`input.insertion`). The prerequisites are only *read*; when any is missing the commit is
+   * rejected (PREREQUISITE_MISSING), it is never created here.
+   *
+   * This method does not decide that the coupling is lawful and does not infer it from the
+   * coexistence of the three facts: the classification, precedence class, authority and statement
+   * are the caller's authored input, rejected unless they are the one supported case. The only thing
+   * added here is mechanical: the versions of the committed facts the basis is pinned to.
    */
   bindPlayerCharacter(input: BindPcInput): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
     const ids = BindingTargetSchema.safeParse({
@@ -168,17 +183,30 @@ export class CanonicalCampaign {
       locus_id: input.locus_id,
     });
     if (!ids.success) return Promise.resolve(inputInvalid("binding", ids.error));
+    const insertion = InsertionFactSchema.safeParse(input.insertion);
+    if (!insertion.success) return Promise.resolve(inputInvalid("insertion fact", insertion.error));
+    const pcKey = pcExistenceContractKey(input.pc_id);
+    const worldKey = worldProfileKey(input.world_id);
+    const locusKey = worldLocusKey(input.world_id, input.locus_id);
+    const versionOf = (key: string): number => this.store.getFact(key)?.version ?? 0;
     const binding: PlayerCharacterBinding = {
       binding_slot: "role.player_character",
-      active_pc: { fact_key: pcExistenceContractKey(input.pc_id), entity_id: input.pc_id },
+      active_pc: { fact_key: pcKey, entity_id: input.pc_id },
       coupling: {
-        world: { fact_key: worldProfileKey(input.world_id), entity_id: input.world_id },
-        locus: {
-          fact_key: worldLocusKey(input.world_id, input.locus_id),
-          entity_id: input.locus_id,
+        world: { fact_key: worldKey, entity_id: input.world_id },
+        locus: { fact_key: locusKey, entity_id: input.locus_id },
+      },
+      transition: {
+        type: "ACTIVATION",
+        basis: {
+          ...insertion.data,
+          pinned_versions: {
+            pc: versionOf(pcKey),
+            world: versionOf(worldKey),
+            locus: versionOf(locusKey),
+          },
         },
       },
-      transition: { type: "ACTIVATION" },
       prior_binding: null,
       replacement_binding: null,
       intrinsic_authority_migration: [],
@@ -191,11 +219,7 @@ export class CanonicalCampaign {
       "player_character_binding",
       PLAYER_CHARACTER_BINDING_KEY,
       parsed.data,
-      [
-        binding.active_pc.fact_key,
-        binding.coupling.world.fact_key,
-        binding.coupling.locus.fact_key,
-      ],
+      [pcKey, worldKey, locusKey],
     );
   }
 

@@ -1,5 +1,6 @@
 import type {
   ExistenceContract,
+  InsertionFact,
   Publication,
   WorldLocus,
   WorldProfile,
@@ -80,5 +81,18 @@ export const publication = (n: number, over: Partial<Publication> = {}): Publica
   cause: `wf-cause-${n}`,
   basis: "fixture-basis",
   secrecy: "fixture-visibility",
+  ...over,
+});
+
+/**
+ * The explicit, already-established IR insertion fact the acceptance fixture supplies for the
+ * native/already-there case (IR §6 Step 3). The binding service never infers this from the
+ * existence of the PC, world and locus; a test that omits it must see the binding fail closed.
+ */
+export const fixtureInsertionFact = (over: Partial<InsertionFact> = {}): InsertionFact => ({
+  bridge: "NATIVE_ALREADY_THERE",
+  established_by: "EXPLICIT_PLAYER_AUTHORED_FACT",
+  authored_under: { role: "role.player", permission: "permission.player_choice.commit" },
+  statement: "SYNTHETIC FIXTURE: the character is already at this locality; no bridge is involved.",
   ...over,
 });

@@ -30,6 +30,7 @@ import {
   FIXTURE_WORLD_ID,
   TEST_OWNERS,
   fixtureContract,
+  fixtureInsertionFact,
   fixtureLocus,
   fixtureWorld,
   group,
@@ -60,6 +61,7 @@ const bindInput = (n = 4) => ({
   pc_id: FIXTURE_PC_ID,
   world_id: FIXTURE_WORLD_ID,
   locus_id: FIXTURE_LOCUS_ID,
+  insertion: fixtureInsertionFact(),
 });
 
 async function established(dir: string, buildId = "seed"): Promise<CanonicalCampaign> {
@@ -100,7 +102,10 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
     expect(c.binding()?.value).toMatchObject({
       active_pc: { entity_id: FIXTURE_PC_ID },
       coupling: { world: { entity_id: FIXTURE_WORLD_ID }, locus: { entity_id: FIXTURE_LOCUS_ID } },
-      transition: { type: "ACTIVATION" },
+      transition: {
+        type: "ACTIVATION",
+        basis: { ...fixtureInsertionFact(), pinned_versions: { pc: 1, world: 1, locus: 1 } },
+      },
     });
     expect(c.verify()).toEqual([]);
     await c.close();
@@ -110,7 +115,9 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
     const c = await established(tempDir());
     await must(c.bindPlayerCharacter(bindInput()));
     const raw = JSON.stringify(c.store.getFact(PLAYER_CHARACTER_BINDING_KEY)?.value);
-    expect(raw).not.toContain("SYNTHETIC FIXTURE");
+    expect(raw).not.toContain(fixtureWorld().premise);
+    expect(raw).not.toContain(fixtureContract().identity_agency.statement);
+    expect(raw).not.toContain(fixtureLocus().designation);
     expect(JSON.stringify(c.store.getFact(PC)?.value)).not.toContain(FIXTURE_WORLD_ID);
     await c.close();
   });
@@ -185,6 +192,152 @@ describe("dependency direction through the service", () => {
     );
     await must(d.establishWorld({ ...publication(1), world: fixtureWorld() }));
     await d.close();
+  });
+});
+
+describe("the binding consumes an explicit, already-established IR coupling basis (RC-13; IR §6 Step 3)", () => {
+  const pins = { pc: 1, world: 1, locus: 1 };
+
+  it("NEGATIVE: valid PC, world and locus exist but no IR basis is supplied -> fails closed, nothing committed", async () => {
+    const c = await established(tempDir());
+    const before = c.store.head();
+    const withoutBasis: Record<string, unknown> = { ...bindInput() };
+    delete withoutBasis["insertion"];
+    expect(await code(c.bindPlayerCharacter(withoutBasis as never))).toBe("INPUT_INVALID");
+    expect(await code(c.bindPlayerCharacter({ ...bindInput(), insertion: null }))).toBe(
+      "INPUT_INVALID",
+    );
+    expect(await code(c.bindPlayerCharacter({ ...bindInput(), insertion: {} }))).toBe(
+      "INPUT_INVALID",
+    );
+    expect(c.store.head()).toEqual(before);
+    expect(c.store.head().revision).toBe(3);
+    expect(c.binding()).toBeUndefined(); // still NULL: no active PC
+    expect(c.store.getFact(PLAYER_CHARACTER_BINDING_KEY)).toBeUndefined();
+    await c.close();
+  });
+
+  it.each([
+    ["an established transfer/approach", { bridge: "ESTABLISHED_TRANSFER_APPROACH" }],
+    ["a deferred activation", { bridge: "DEFERRED_ACTIVATION" }],
+    ["a recurrent binding", { bridge: "RECURRENT_BINDING" }],
+    ["a degenerate coextensive binding", { bridge: "DEGENERATE_COEXTENSIVE_BINDING" }],
+    ["an ACTIVE-LIMITED/bridge-mode label", { bridge: "ACTIVE-LIMITED" }],
+    ["a delegated basis", { established_by: "EXPLICIT_BOUNDED_DELEGATION" }],
+    ["an implied basis", { established_by: "STRONG_SEMANTIC_IMPLICATION" }],
+    [
+      "a persona-authored basis",
+      { authored_under: { role: "George", permission: "permission.player_choice.commit" } },
+    ],
+    ["an invented bridge mechanism", { mechanism: "portal" }],
+    ["an empty statement", { statement: "" }],
+  ])("NEGATIVE: %s is unsupported and fails closed without guessing", async (_n, over) => {
+    const c = await established(tempDir());
+    const r = await c.bindPlayerCharacter({
+      ...bindInput(),
+      insertion: { ...fixtureInsertionFact(), ...over },
+    });
+    expect(!r.ok && r.error.code).toBe("INPUT_INVALID");
+    expect(c.store.head().revision).toBe(3);
+    expect(c.binding()).toBeUndefined();
+    await c.close();
+  });
+
+  it("POSITIVE: the authored basis is retained verbatim with only the mechanical version pins added", async () => {
+    const c = await established(tempDir());
+    await must(c.bindPlayerCharacter(bindInput()));
+    const b = c.binding()!;
+    expect(b.value.transition).toEqual({
+      type: "ACTIVATION",
+      basis: { ...fixtureInsertionFact(), pinned_versions: pins },
+    });
+    expect(b.value.transition.basis.statement).toBe(fixtureInsertionFact().statement);
+    // the pins are the versions of the committed prerequisites, not constants
+    expect(c.store.getFact(PC)?.version).toBe(pins.pc);
+    expect(c.store.getFact(WORLD)?.version).toBe(pins.world);
+    expect(c.store.getFact(LOCUS)?.version).toBe(pins.locus);
+    expect(c.verify()).toEqual([]);
+    await c.close();
+  });
+
+  it("the basis is not inferred: two different authored statements give two different canonical bindings", async () => {
+    const a = await established(tempDir());
+    const b = await established(tempDir());
+    await must(a.bindPlayerCharacter(bindInput()));
+    await must(
+      b.bindPlayerCharacter({
+        ...bindInput(),
+        insertion: fixtureInsertionFact({
+          statement: "SYNTHETIC FIXTURE: another authored wording.",
+        }),
+      }),
+    );
+    expect(a.binding()?.value.transition.basis.statement).not.toBe(
+      b.binding()?.value.transition.basis.statement,
+    );
+    await a.close();
+    await b.close();
+  });
+
+  it("RAW store.commit cannot bypass the rule: no basis, stale pins or unsupported basis are refused", async () => {
+    const c = await established(tempDir());
+    const k = factKind("player_character_binding");
+    const value = (transition: unknown) => ({
+      binding_slot: "role.player_character",
+      active_pc: { fact_key: PC, entity_id: FIXTURE_PC_ID },
+      coupling: {
+        world: { fact_key: WORLD, entity_id: FIXTURE_WORLD_ID },
+        locus: { fact_key: LOCUS, entity_id: FIXTURE_LOCUS_ID },
+      },
+      transition,
+      prior_binding: null,
+      replacement_binding: null,
+      intrinsic_authority_migration: [],
+      writer: { role: "role.archivist", permission: "permission.canon.write" },
+    });
+    const raw = (n: number, v: unknown) =>
+      group(
+        FIXTURE_CAMPAIGN,
+        n,
+        [write(PLAYER_CHARACTER_BINDING_KEY, v as never, { owner: k.owner, facet: k.facet })],
+        {
+          owner: k.owner,
+          facet: k.facet,
+          rule: k.rule,
+          reads: [PC, WORLD, LOCUS].map((key) => ({ key, version: 1 })),
+          depends_on: ["wf-group-3", "wf-group-1", "wf-group-2"],
+        },
+      );
+    const basis = { ...fixtureInsertionFact(), pinned_versions: pins };
+    const before = c.store.head();
+    expect(await code(c.store.commit(raw(10, value({ type: "ACTIVATION" }))))).toBe(
+      "VALUE_INVALID",
+    );
+    expect(
+      await code(
+        c.store.commit(
+          raw(11, value({ type: "ACTIVATION", basis: { ...basis, bridge: "RECURRENT_BINDING" } })),
+        ),
+      ),
+    ).toBe("VALUE_INVALID");
+    expect(
+      await code(
+        c.store.commit(
+          raw(
+            12,
+            value({
+              type: "ACTIVATION",
+              basis: { ...basis, pinned_versions: { pc: 1, world: 1, locus: 9 } },
+            }),
+          ),
+        ),
+      ),
+    ).toBe("REFERENCE_INVALID");
+    expect(c.store.head()).toEqual(before);
+    // the same raw path accepts the lawful value: the rule governs, it does not merely block
+    expect(await code(c.store.commit(raw(13, value({ type: "ACTIVATION", basis }))))).toBe("OK");
+    expect(c.verify()).toEqual([]);
+    await c.close();
   });
 });
 
@@ -353,6 +506,15 @@ describe("Save. Close. Load. Continue. — the world, the PC and the binding rem
     const b = c.binding()!;
     expect(b.value.active_pc.entity_id).toBe(FIXTURE_PC_ID);
     expect(b.value.coupling.locus.entity_id).toBe(FIXTURE_LOCUS_ID);
+    // the lawful IR coupling basis survives save -> close -> load -> continue, byte for byte
+    expect(b.value.transition).toEqual({
+      type: "ACTIVATION",
+      basis: { ...fixtureInsertionFact(), pinned_versions: { pc: 1, world: 1, locus: 1 } },
+    });
+    expect(
+      bind.after.facts.find((f: any) => f.key === PLAYER_CHARACTER_BINDING_KEY).value.transition
+        .basis.statement,
+    ).toBe(fixtureInsertionFact().statement);
     expect(b.fact).toMatchObject({
       owner: "role_registry",
       facet: "player_character_binding",
@@ -460,7 +622,10 @@ describe("load fails closed on owner/facet, rule or dependency drift", () => {
         world: { fact_key: WORLD, entity_id: FIXTURE_WORLD_ID },
         locus: { fact_key: LOCUS, entity_id: FIXTURE_LOCUS_ID },
       },
-      transition: { type: "ACTIVATION" },
+      transition: {
+        type: "ACTIVATION",
+        basis: { ...fixtureInsertionFact(), pinned_versions: { pc: 1, world: 1, locus: 1 } },
+      },
       prior_binding: null,
       replacement_binding: null,
       intrinsic_authority_migration: [],
@@ -476,6 +641,87 @@ describe("load fails closed on owner/facet, rule or dependency drift", () => {
       { owners: registry },
     );
     expect(await openCode(dir)).toContain("DEPENDENCY_ORDER");
+  });
+
+  /** PC, world and locus in lawful order, then a binding whose `transition` is chosen by the test. */
+  async function rogueBinding(transition: unknown): Promise<string> {
+    const [pk, wk, lk, bk] = (
+      ["pc_existence_contract", "world_profile", "world_locus", "player_character_binding"] as const
+    ).map(factKind);
+    const registry = new Map([
+      [pk!.owner, new Set([pk!.facet])],
+      [wk!.owner, new Set([wk!.facet, lk!.facet])],
+      [bk!.owner, new Set([bk!.facet])],
+    ]);
+    const put = (n: number, kind: typeof pk, key: string, value: unknown) =>
+      group(
+        FIXTURE_CAMPAIGN,
+        n,
+        [write(key, value as never, { owner: kind!.owner, facet: kind!.facet })],
+        {
+          owner: kind!.owner,
+          facet: kind!.facet,
+          rule: kind!.rule,
+        },
+      );
+    const binding = {
+      binding_slot: "role.player_character",
+      active_pc: { fact_key: PC, entity_id: FIXTURE_PC_ID },
+      coupling: {
+        world: { fact_key: WORLD, entity_id: FIXTURE_WORLD_ID },
+        locus: { fact_key: LOCUS, entity_id: FIXTURE_LOCUS_ID },
+      },
+      transition,
+      prior_binding: null,
+      replacement_binding: null,
+      intrinsic_authority_migration: [],
+      writer: { role: "role.archivist", permission: "permission.canon.write" },
+    };
+    return rogue(
+      async (s) => {
+        await must(s.commit(put(1, pk, PC, fixtureContract())));
+        await must(s.commit(put(2, wk, WORLD, fixtureWorld())));
+        await must(s.commit(put(3, lk, LOCUS, fixtureLocus())));
+        await must(s.commit(put(4, bk, PLAYER_CHARACTER_BINDING_KEY, binding)));
+      },
+      { owners: registry },
+    );
+  }
+  const goodBasis = () => ({
+    ...fixtureInsertionFact(),
+    pinned_versions: { pc: 1, world: 1, locus: 1 },
+  });
+
+  it("control: the same rogue-built package with a lawful basis opens (the drift cases below are not artefacts)", async () => {
+    expect(await openCode(await rogueBinding({ type: "ACTIVATION", basis: goodBasis() }))).toBe(
+      "OK",
+    );
+  });
+
+  it("a binding accepted only for coexistence (no retained IR basis) is refused on load", async () => {
+    expect(await openCode(await rogueBinding({ type: "ACTIVATION" }))).toBe("VALUE_INVALID");
+  });
+
+  it("a retained basis for an unsupported bridge is refused on load", async () => {
+    const t = {
+      type: "ACTIVATION",
+      basis: { ...goodBasis(), bridge: "ESTABLISHED_TRANSFER_APPROACH" },
+    };
+    expect(await openCode(await rogueBinding(t))).toBe("VALUE_INVALID");
+  });
+
+  it("a retained basis pinned to other than the committed PC, world and locus versions is refused on load", async () => {
+    for (const pinned_versions of [
+      { pc: 2, world: 1, locus: 1 },
+      { pc: 1, world: 2, locus: 1 },
+      { pc: 1, world: 1, locus: 2 },
+      { pc: 0, world: 0, locus: 0 },
+    ]) {
+      const t = { type: "ACTIVATION", basis: { ...goodBasis(), pinned_versions } };
+      expect(await openCode(await rogueBinding(t)), JSON.stringify(pinned_versions)).toBe(
+        "REFERENCE_INVALID",
+      );
+    }
   });
 
   it("a clean canonical campaign, empty or populated, opens", async () => {

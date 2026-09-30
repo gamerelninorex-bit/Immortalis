@@ -70,6 +70,19 @@ describe("IA-01 source/version fidelity (owner-registration aspect)", () => {
     }
   });
 
+  it("the binding's governing rule cites the IR clauses its coupling basis relies on (§3 input 3, §5, §6 Step 3/6)", () => {
+    const binding = FACT_KINDS.find((k) => k.id === "player_character_binding")!;
+    for (const clause of [
+      "§3 input 3",
+      "§5 Precedence for Insertion Facts",
+      "Step 3",
+      "native/already-there",
+      "Step 6",
+    ]) {
+      expect(binding.rule.clause).toContain(clause);
+    }
+  });
+
   it("no registration supersedes another source or asserts a pin the lock does not carry", () => {
     for (const kind of FACT_KINDS) expect(kind.rule.supersedes).toBeNull();
   });

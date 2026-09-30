@@ -15,6 +15,7 @@ import {
   CampaignCore,
   FACT_KINDS,
   canonicalAdmission,
+  couplingBasisViolation,
   emptyState,
   factKind,
   resolveKey,
@@ -26,6 +27,7 @@ import {
   FIXTURE_WORLD_ID,
   TEST_OWNERS,
   fixtureContract,
+  fixtureInsertionFact,
   fixtureLocus,
   fixtureWorld,
 } from "@immortalis/testkit";
@@ -96,7 +98,10 @@ const bindingValue = () => ({
     world: { fact_key: WORLD, entity_id: FIXTURE_WORLD_ID },
     locus: { fact_key: LOCUS, entity_id: FIXTURE_LOCUS_ID },
   },
-  transition: { type: "ACTIVATION" },
+  transition: {
+    type: "ACTIVATION",
+    basis: { ...fixtureInsertionFact(), pinned_versions: { pc: 1, world: 1, locus: 1 } },
+  },
   prior_binding: null,
   replacement_binding: null,
   intrinsic_authority_migration: [],
@@ -417,6 +422,114 @@ describe("dependency direction (IR: binding cannot feed backward to create its o
     expect(
       commit(c, bindGroup(4, { writes: [{ ...bindGroup(4).writes[0]!, value: v as never }] })),
     ).toBe("REFERENCE_INVALID");
+  });
+});
+
+describe("coupling basis: a lawful IR basis is required, not inferred from coexistence (RC-13, IR §6 Step 3)", () => {
+  const withBasis = (basis: unknown) => {
+    const v: Record<string, unknown> = { ...bindingValue() };
+    v["transition"] = { type: "ACTIVATION", basis };
+    return bindGroup(4, { writes: [{ ...bindGroup(4).writes[0]!, value: v as never }] });
+  };
+  const goodBasis = () => ({
+    ...fixtureInsertionFact(),
+    pinned_versions: { pc: 1, world: 1, locus: 1 },
+  });
+  const bindingFact = (c: CampaignCore) => c.state.facts.has(PLAYER_CHARACTER_BINDING_KEY);
+
+  it("positive: a binding carrying the supported basis, pinned to the committed facts, commits and retains it", () => {
+    const c = seeded();
+    expect(commit(c, withBasis(goodBasis()))).toBe("OK");
+    expect(c.state.facts.get(PLAYER_CHARACTER_BINDING_KEY)?.value).toMatchObject({
+      transition: { type: "ACTIVATION", basis: goodBasis() },
+    });
+  });
+
+  it("negative: PC, world and locus all committed, but no basis at all -> fail closed, nothing committed", () => {
+    const c = seeded();
+    const v: Record<string, unknown> = { ...bindingValue() };
+    v["transition"] = { type: "ACTIVATION" };
+    const noBasis = bindGroup(4, { writes: [{ ...bindGroup(4).writes[0]!, value: v as never }] });
+    expect(commit(c, noBasis)).toBe("VALUE_INVALID");
+    expect(bindingFact(c)).toBe(false);
+    expect(c.state.revision).toBe(3);
+  });
+
+  it.each([
+    ["an empty basis", {}],
+    ["a null basis", null],
+    [
+      "no pins",
+      (() => {
+        const b: Record<string, unknown> = { ...goodBasis() };
+        delete b["pinned_versions"];
+        return b;
+      })(),
+    ],
+    ["an unsupported bridge", { ...goodBasis(), bridge: "ESTABLISHED_TRANSFER_APPROACH" }],
+    ["a deferred activation", { ...goodBasis(), bridge: "DEFERRED_ACTIVATION" }],
+    [
+      "an unsupported precedence class",
+      { ...goodBasis(), established_by: "EXPLICIT_BOUNDED_DELEGATION" },
+    ],
+    [
+      "persona authority",
+      {
+        ...goodBasis(),
+        authored_under: { role: "George", permission: "permission.player_choice.commit" },
+      },
+    ],
+    ["an empty statement", { ...goodBasis(), statement: "" }],
+    ["an invented bridge mechanism", { ...goodBasis(), mechanism: "portal" }],
+  ])("negative: %s is malformed/unsupported -> VALUE_INVALID, nothing committed", (_n, basis) => {
+    const c = seeded();
+    expect(commit(c, withBasis(basis))).toBe("VALUE_INVALID");
+    expect(bindingFact(c)).toBe(false);
+  });
+
+  it.each([
+    ["pc", { pc: 2, world: 1, locus: 1 }],
+    ["world", { pc: 1, world: 2, locus: 1 }],
+    ["locus", { pc: 1, world: 1, locus: 2 }],
+    ["pc (version 0)", { pc: 0, world: 1, locus: 1 }],
+    ["every fact (version 0)", { pc: 0, world: 0, locus: 0 }],
+  ])(
+    "negative: a basis not established against the committed %s version -> REFERENCE_INVALID",
+    (_n, pinned_versions) => {
+      const c = seeded();
+      expect(commit(c, withBasis({ ...goodBasis(), pinned_versions }))).toBe("REFERENCE_INVALID");
+      expect(bindingFact(c)).toBe(false);
+    },
+  );
+
+  it("a missing prerequisite is still reported as such, before the basis is weighed", () => {
+    const c = core();
+    const unpinned = { ...goodBasis(), pinned_versions: { pc: 0, world: 0, locus: 0 } };
+    const v: Record<string, unknown> = { ...bindingValue() };
+    v["transition"] = { type: "ACTIVATION", basis: unpinned };
+    const g0 = bindGroup(1, {
+      reads: [PC, WORLD, LOCUS].map((key) => ({ key, version: 0 })),
+      depends_on: [],
+      writes: [{ ...bindGroup(1).writes[0]!, value: v as never }],
+    });
+    expect(commit(c, g0)).toBe("PREREQUISITE_MISSING");
+    expect(c.state.facts.size).toBe(0);
+  });
+
+  it("couplingBasisViolation is the single verifier: sufficient only for a released PC and exact pins", () => {
+    const c = seeded();
+    const fact = (k: string) => c.state.facts.get(k)!;
+    const facts = { pc: fact(PC), world: fact(WORLD), locus: fact(LOCUS) };
+    const b = withBasis(goodBasis()).writes[0]!.value as never;
+    const parsed = b as unknown as Parameters<typeof couplingBasisViolation>[0];
+    expect(couplingBasisViolation(parsed, facts)).toBeNull();
+    // a PC fact that is not a released Existence Contract cannot authorize an activation
+    const notReleased = { ...facts.pc, value: { pc_id: FIXTURE_PC_ID } };
+    expect(couplingBasisViolation(parsed, { ...facts, pc: notReleased })).toMatch(/released/);
+    // pins that do not match the committed versions do not authorize one either
+    expect(
+      couplingBasisViolation(parsed, { ...facts, world: { ...facts.world, version: 2 } }),
+    ).toMatch(/not established against/);
   });
 });
 

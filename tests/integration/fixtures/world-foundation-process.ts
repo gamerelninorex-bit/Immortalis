@@ -7,6 +7,7 @@ import {
   FIXTURE_PC_ID,
   FIXTURE_WORLD_ID,
   fixtureContract,
+  fixtureInsertionFact,
   fixtureLocus,
   fixtureWorld,
   publication,
@@ -29,6 +30,7 @@ const bindInput = {
   pc_id: FIXTURE_PC_ID,
   world_id: FIXTURE_WORLD_ID,
   locus_id: FIXTURE_LOCUS_ID,
+  insertion: fixtureInsertionFact(),
 };
 
 if (phase === "establish") {
