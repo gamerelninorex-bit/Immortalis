@@ -5,3 +5,4 @@ spec/f027/runtime-contract.md
 spec/f027/acceptance-register.yaml
 spec/f027/open-gates.yaml
 spec/f027/spec-lock.json
+packages/contracts/src/spec-identity.ts

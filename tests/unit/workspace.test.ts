@@ -6,15 +6,25 @@ import * as protocol from "@immortalis/protocol";
 import * as testkit from "@immortalis/testkit";
 
 describe("workspace wiring", () => {
-  it("resolves all four bootstrap packages and exposes no behavior yet", () => {
-    for (const mod of [contracts, engine, protocol, testkit]) {
-      expect(Object.keys(mod)).toEqual([]);
-    }
+  it("resolves all four packages; protocol still exposes nothing (no host operations exist)", () => {
+    expect(Object.keys(contracts).length).toBeGreaterThan(0);
+    expect(Object.keys(engine).length).toBeGreaterThan(0);
+    expect(Object.keys(testkit).length).toBeGreaterThan(0);
+    expect(Object.keys(protocol)).toEqual([]);
   });
 
   it("pins the runtime declared in .nvmrc to the engines range", () => {
     const nvmrc = readFileSync(".nvmrc", "utf8").trim();
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { engines: { node: string } };
     expect(pkg.engines.node).toContain(nvmrc);
+  });
+
+  it("keeps the engine version constant equal to its package.json", () => {
+    const pkg = JSON.parse(readFileSync("packages/engine/package.json", "utf8")) as {
+      name: string;
+      version: string;
+    };
+    expect(engine.ENGINE_VERSION).toBe(pkg.version);
+    expect(engine.ENGINE_PACKAGE).toBe(pkg.name);
   });
 });
