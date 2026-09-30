@@ -129,8 +129,8 @@ rows:
     status: NOT_IMPLEMENTED
     evidence: null
     partial_evidence:
-      scope: "Persistence aspect only: saves record exact creation and last-save spec identity (provenance); loading is gated only by Runtime Contract compatibility, so evidence-only spec changes (lock, register, gates) do not break compatible saves while a different Runtime Contract fails closed until compatibility is declared. Build/package identification beyond persistence, and explicit migration, are not implemented."
-      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/integration/continuity.test.ts"]
+      scope: "Persistence aspect plus owner-registration aspect only: saves record exact creation and last-save spec identity (provenance); loading is gated only by Runtime Contract compatibility, so evidence-only spec changes (lock, register, gates) do not break compatible saves while a different Runtime Contract fails closed until compatibility is declared. Each specification-backed owner/facet registration (world profile/locus, I-002 Existence Contract, RC-13 binding) cites its frozen source at the exact spec-locked pin and IM lowering, and every canonical fact records that citation as its governing rule. Build/package identification beyond persistence, other owners' sources, and explicit migration, are not implemented."
+      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/conformance/world-foundation-conformance.test.ts", "tests/integration/continuity.test.ts", "tests/integration/world-foundation.test.ts"]
   - id: IA-02
     family: IA
     title: "No silent semantic invention"
@@ -139,8 +139,8 @@ rows:
     status: NOT_IMPLEMENTED
     evidence: null
     partial_evidence:
-      scope: "Persistence/commit aspect only: no default owner, facet, unit, basis or secrecy exists; an empty owner registry fails every write closed; incomplete input is rejected, never repaired."
-      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/contract/rc-schemas.test.ts", "tests/integration/store-contract.test.ts"]
+      scope: "Persistence/commit aspect plus world/PC/binding aspect only: no default owner, facet, unit, basis or secrecy exists; an empty owner registry fails every write closed; incomplete input is rejected, never repaired. For the included facts, values are strict (an unmodelled field, a delegated world, host-admitted or delegated PC claims, non-activation binding transitions, existing-actor migration and any IR coupling basis other than explicit native/already-there authored under role.player are unrepresentable and fail closed), and basis/secrecy are authored input that is never defaulted. All other semantics (population, economy, time, relationships, epistemics, capabilities, delegation, amendment) are not implemented."
+      tests: ["tests/conformance/continuity-conformance.test.ts", "tests/contract/rc-schemas.test.ts", "tests/contract/world-foundation-schemas.test.ts", "tests/integration/store-contract.test.ts", "tests/integration/world-foundation.test.ts"]
   - id: IA-03
     family: IA
     title: "Owner exclusivity / no accidental subsystem"
@@ -149,8 +149,8 @@ rows:
     status: NOT_IMPLEMENTED
     evidence: null
     partial_evidence:
-      scope: "Commit-core aspect only: a group writes exactly one registered owner/facet; foreign-owner writes are rejected; there is no fallback owner. No real owner adapter exists yet."
-      tests: ["tests/integration/store-contract.test.ts"]
+      scope: "Commit-core aspect plus first real owners only: a group writes exactly one registered owner/facet; foreign-owner writes are rejected; there is no fallback owner. Specification-backed owners exist for World-State (world profile, world locus), the I-002 Existence Contract and the Role Registry / F-014C player-character binding: each key space belongs to exactly one owner/facet (a raw store commit cannot bypass it), foreign facts are referenced not copied, sealed canon is create-only, and a binding cannot commit before, or create, its PC/world/locus prerequisites, nor without an explicit already-established IR native/already-there coupling basis pinned to those facts (re-verified on every load). Every other owner adapter (Population, Production, Economy, Actor, Health, Culture, Epistemic, ...) does not exist."
+      tests: ["tests/integration/store-contract.test.ts", "tests/unit/owner-admission.test.ts", "tests/integration/world-foundation.test.ts", "tests/conformance/world-foundation-conformance.test.ts"]
   - id: IA-04
     family: IA
     title: "Turnless causal ordering"
@@ -336,6 +336,9 @@ rows:
     packages: ["protocol", "engine/authority"]
     status: BLOCKED
     evidence: null
+    partial_evidence:
+      scope: "Narrow: only the operations this slice touches. World profile/locus, Existence Contract and role.player_character binding publication require role.archivist + permission.canon.write (Runtime/Translation v0.2 §5.2 rule 6); persona, implementation, role.gm and role.player authority is denied for those writes; the binding value's writer is the archivist and the Existence Contract's Mirror acceptance is role.player + permission.player_choice.commit, never a persona. The caller is trusted engine code: no authentication exists, and every other role/permission operation, live conversion and host/protocol enforcement are not implemented."
+      tests: ["tests/unit/owner-admission.test.ts", "tests/contract/world-foundation-schemas.test.ts", "tests/integration/world-foundation.test.ts"]
     note: "Documentary translation complete; code-era conformance and live conversion still due."
   - id: IA-29
     family: IA

@@ -9,3 +9,7 @@ export function sha256Text(text: string): string {
 export function sha256Canonical(value: unknown): string {
   return sha256Text(canonicalJson(value));
 }
+
+/** Structural equality by canonical JSON serialization. */
+export const canonicalEqual = (a: unknown, b: unknown): boolean =>
+  canonicalJson(a) === canonicalJson(b);

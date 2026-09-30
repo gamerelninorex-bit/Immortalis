@@ -17,7 +17,7 @@ There is no campaign clock in the package: F-014B defines no universal tick, and
 
 ## Commit protocol
 
-1. Validate the group in memory (`CampaignCore.prepare`): schema, campaign, authority, registered owner/facet, per-fact `expected_version`, `reads`, `depends_on`, identity/idempotence. Nothing is visible yet.
+1. Validate the group in memory (`CampaignCore.prepare`): schema, campaign, authority, registered owner/facet (and, when the build supplies one, its IM-03 write admission — see `docs/canonical-world-foundation.md`), per-fact `expected_version`, `reads`, `depends_on`, identity/idempotence. Nothing is visible yet.
 2. Write `state.<rev+1>.json` (temp + fsync + rename).
 3. Truncate any uncommitted journal tail, append the entry line (fsync).
 4. Write the new `manifest.json` (temp + fsync + rename). **This is the commit.**

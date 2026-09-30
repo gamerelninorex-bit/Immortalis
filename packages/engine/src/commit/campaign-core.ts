@@ -1,6 +1,5 @@
 import {
   CANON_WRITE_AUTHORITY,
-  canonicalJson,
   CommitGroupSchema,
   fail,
   ok,
@@ -12,9 +11,7 @@ import {
   type Result,
   type StateFile,
 } from "@immortalis/contracts";
-import { sha256Canonical } from "../hash.ts";
-
-const canonicalEqual = (a: unknown, b: unknown): boolean => canonicalJson(a) === canonicalJson(b);
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
 
 /**
  * Pure, storage-free commit logic (IM-11 subset). Nothing here touches a filesystem, clock or RNG,
@@ -25,6 +22,19 @@ const canonicalEqual = (a: unknown, b: unknown): boolean => canonicalJson(a) ===
  * closed rather than falling back to a generic owner (IA-02, IA-03).
  */
 export type OwnerRegistry = ReadonlyMap<string, ReadonlySet<string>>;
+
+/**
+ * IM-03 owner-resolution hook consulted by IM-11 before a group can commit. It receives the parsed
+ * group and the current state and returns the first rejection, or null. It must be pure. Like the
+ * registry it belongs to the running build, not to history, so replay does not consult it.
+ *
+ * Without an admission, only owner/facet registration is checked (the Campaign Continuity Foundation
+ * behavior). With one, the build can also bind key spaces, typed values and cross-owner
+ * prerequisites to the owner that the governing source assigns (IA-03).
+ */
+export interface WriteAdmission {
+  check(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
+}
 
 export const CommitErrorCodes = [
   "SCHEMA_INVALID",
@@ -39,6 +49,16 @@ export const CommitErrorCodes = [
   "MISSING_DEPENDENCY",
   "INTENT_CONFLICT",
   "GROUP_ID_CONFLICT",
+  /** the key is outside the key space of the group's owner/facet (or of every registered owner) */
+  "KEY_NOT_ADMITTED",
+  /** the value violates the owner/facet's typed contract, or disagrees with its own key identity */
+  "VALUE_INVALID",
+  /** a required foreign fact is not committed: a dependent write may not precede or create it */
+  "PREREQUISITE_MISSING",
+  /** a reference does not match the referenced fact, or the group does not pin it (reads/depends_on) */
+  "REFERENCE_INVALID",
+  /** overwriting sealed canon needs an owner-defined amendment mechanism that is not implemented */
+  "AMENDMENT_NOT_SUPPORTED",
 ] as const;
 export type CommitErrorCode = (typeof CommitErrorCodes)[number];
 
@@ -114,6 +134,8 @@ export interface CoreParams {
   /** sha256 of the spec-lock in force for new commits (IA-01); recorded in each new receipt. */
   readonly specLockSha256: string;
   readonly owners: OwnerRegistry;
+  /** optional IM-03 admission (key spaces, typed values, prerequisites); see WriteAdmission */
+  readonly admission?: WriteAdmission;
   readonly state: CampaignState;
   /** chain head: genesis hash when the journal is empty */
   readonly headSha256: string;
@@ -345,6 +367,7 @@ export class CampaignCore {
       if (!this.#byGroup.has(dep))
         return bad("MISSING_DEPENDENCY", "dependency group not committed", { group_id: dep });
     }
+    if (checkRegistry) return this.#params.admission?.check(group, state) ?? null;
     return null;
   }
 }
