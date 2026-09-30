@@ -2,7 +2,7 @@
 
 LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core).
 
-**Status: Campaign Continuity Foundation.** Adds the first bounded slice on top of the bootstrap: a campaign can be created, committed to, saved to a local structured-file package, closed, loaded again and continued without its identity, spec/version provenance or persisted state changing (see [`docs/campaign-package.md`](docs/campaign-package.md)). No persistence/deployment provider, host protocol, migration or gameplay mechanic exists, and every F-027 open gate remains open.
+**Status: Canonical World Identity & Owner Foundation.** Builds on the Campaign Continuity Foundation (see [`docs/campaign-package.md`](docs/campaign-package.md)): a campaign can now hold one World Profile, one bounded locus, one released player-character Existence Contract and one active `role.player_character` binding — each written by the specification-backed owner, with dependency direction and owner exclusivity enforced — and it survives save → close → load → continue (see [`docs/canonical-world-foundation.md`](docs/canonical-world-foundation.md)). No persistence/deployment provider, host protocol, migration, time, population, economy or other gameplay mechanic exists, and every F-027 open gate remains open.
 
 ## Governing specification
 
@@ -12,16 +12,16 @@ LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core)
 
 ## Layout
 
-| Path                       | Purpose                                                                 |
-| -------------------------- | ----------------------------------------------------------------------- |
-| `spec/f027/`               | Version-locked implementation snapshot, acceptance register, open gates |
-| `packages/contracts`       | RC-01–RC-16 executable contracts (placeholder)                          |
-| `packages/engine`          | Provider-neutral core, IM-01–IM-14 + IM-17 interface (placeholder)      |
-| `packages/protocol`        | Host Protocol Gateway and security boundary, IM-15/IM-16 (placeholder)  |
-| `packages/testkit`         | Shared deterministic fixtures and evidence helpers (placeholder)        |
-| `tests/`                   | unit, contract, conformance, security, integration                      |
-| `tools/`                   | `check-spec.ts` spec-lock / register consistency check                  |
-| `migrations/`, `releases/` | Inert conventions only                                                  |
+| Path                       | Purpose                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `spec/f027/`               | Version-locked implementation snapshot, acceptance register, open gates          |
+| `packages/contracts`       | Executable RC contracts used so far (RC-01/02/07/13/16, world/PC/binding values) |
+| `packages/engine`          | Provider-neutral core: commit core, IM-03 owners, IM-07 PC/binding, IM-17        |
+| `packages/protocol`        | Host Protocol Gateway and security boundary, IM-15/IM-16 (placeholder)           |
+| `packages/testkit`         | Shared deterministic fixtures and evidence helpers (placeholder)                 |
+| `tests/`                   | unit, contract, conformance, security, integration                               |
+| `tools/`                   | `check-spec.ts` spec-lock / register consistency check                           |
+| `migrations/`, `releases/` | Inert conventions only                                                           |
 
 Directories for surfaces not yet used (e.g. `engine/src/temporal`, `tests/recovery`, `tests/scaling`) are created when first needed.
 

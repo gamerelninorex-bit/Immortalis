@@ -27,6 +27,7 @@ import {
   stateSha256,
   stateToFile,
   type OwnerRegistry,
+  type WriteAdmission,
 } from "../commit/campaign-core.ts";
 import { COMPATIBLE_RUNTIME_CONTRACT_SHA256S } from "../compat.ts";
 import { ENGINE_PACKAGE, ENGINE_VERSION } from "../version.ts";
@@ -81,6 +82,8 @@ export type OpenErrorCode =
 export interface FileCampaignOptions {
   /** Lawful owner/facet pairs for this build. Empty by default: every write fails closed. */
   readonly owners?: OwnerRegistry;
+  /** Optional IM-03 admission consulted for new commits (never on replay). See WriteAdmission. */
+  readonly admission?: WriteAdmission;
   /** Informational build identifier (e.g. git SHA). Recorded, never used to gate loading. */
   readonly buildId?: string | null;
   /** Spec identity this build implements. Defaults to the generated F-027 identity. */
@@ -199,6 +202,7 @@ export async function createFileCampaign(
       campaignId: genesis.campaign_id,
       specLockSha256: spec.spec_lock_sha256,
       owners: params.owners ?? new Map(),
+      ...(params.admission ? { admission: params.admission } : {}),
       state,
       headSha256: gHash,
     });
@@ -410,6 +414,7 @@ async function load(
     campaignId: manifest.campaign_id,
     specLockSha256: expectedSpec.spec_lock_sha256,
     owners: options.owners ?? new Map(),
+    ...(options.admission ? { admission: options.admission } : {}),
     state: emptyState(manifest.campaign_id),
     headSha256: gHash,
   });
