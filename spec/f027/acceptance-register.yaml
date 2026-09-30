@@ -129,7 +129,7 @@ rows:
     status: NOT_IMPLEMENTED
     evidence: null
     partial_evidence:
-      scope: "Persistence aspect only: saves record the governing spec identity; a save under a different F-027 spec lock is rejected, never silently upgraded. Build/package identification beyond persistence, and explicit migration, are not implemented."
+      scope: "Persistence aspect only: saves record exact creation and last-save spec identity (provenance); loading is gated only by Runtime Contract compatibility, so evidence-only spec changes (lock, register, gates) do not break compatible saves while a different Runtime Contract fails closed until compatibility is declared. Build/package identification beyond persistence, and explicit migration, are not implemented."
       tests: ["tests/conformance/continuity-conformance.test.ts", "tests/integration/continuity.test.ts"]
   - id: IA-02
     family: IA

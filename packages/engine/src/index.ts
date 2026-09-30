@@ -5,5 +5,6 @@ export * from "./commit/campaign-core.ts";
 export * from "./persistence/file-package.ts";
 export * from "./persistence/fs-ops.ts";
 export * from "./persistence/store.ts";
+export * from "./compat.ts";
 export * from "./hash.ts";
 export * from "./version.ts";

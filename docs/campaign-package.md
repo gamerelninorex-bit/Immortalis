@@ -27,9 +27,18 @@ A failure in steps 2–4 returns `UNKNOWN_OUTCOME` and poisons the handle: reope
 
 ## Load protocol (fail closed)
 
-`openFileCampaign` verifies, in order: format and format version → manifest self hash → genesis (identity) hash → **spec identity equals this build's** (`SPEC_LOCK_MISMATCH` otherwise; no migration is authorized) → the whole journal is replayed from genesis (chain hashes, consecutive revisions, versions, reads, dependencies, receipts re-derived) → the journal head and derived state equal the manifest → the materialized state file equals the replayed state. Any failure returns a typed error and leaves nothing loaded or repaired.
+`openFileCampaign` verifies, in order: format and format version → manifest self hash → genesis (identity) hash → **Runtime Contract compatibility** (`RUNTIME_CONTRACT_INCOMPATIBLE` unless the save's contract hash is one this build is declared compatible with; no migration is authorized) → the whole journal is replayed from genesis (chain hashes, consecutive revisions, versions, reads, dependencies, receipts re-derived) → the journal head and derived state equal the manifest → the materialized state file equals the replayed state. Any failure returns a typed error and leaves nothing loaded or repaired.
 
 Owner/facet registration is a property of the running build, not of history: replay does not re-check it, so an older save still loads when a build has fewer owners registered — its writes then fail closed.
+
+## Provenance vs compatibility
+
+Two things are recorded and deliberately kept apart:
+
+- **Provenance** (exact, never lossy): `spec_identity` (the spec line the campaign was created under, immutable, part of the genesis hash), `last_saved_spec_identity` (the line in force at the latest save), `created_with` / `last_saved_with` (engine build), and the `spec_lock_sha256` in each receipt. Provenance never gates loading; `store.provenanceDrift` reports when the last save's line differs from the running build's.
+- **Compatibility**: `compatibility.runtime_contract_sha256`, the hash of `spec/f027/runtime-contract.md` (RC-01–RC-16 and the IM map). A build loads a save only if that hash is in `COMPATIBLE_RUNTIME_CONTRACT_SHA256S` (by default only its own). Changing the lock file, acceptance register, open-gate wording or pins does **not** change it, so evidence-only changes cannot strand saves. A genuinely different Runtime Contract, or a different package `format_version`, fails closed until a lawful compatibility declaration (add the older hash, reviewed as a spec-affecting change) or a separately authorized migration exists.
+
+Replay takes the lock hash for each entry from that entry's own hash-chained receipt, so later lock changes cannot alter how history verifies.
 
 ## Integrity is not authentication
 

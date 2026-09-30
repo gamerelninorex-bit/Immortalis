@@ -15,3 +15,13 @@ export const SpecIdentitySchema = z.strictObject({
   snapshot_files: z.record(Id, Sha256),
 });
 export type SpecIdentity = z.infer<typeof SpecIdentitySchema>;
+
+export const RUNTIME_CONTRACT_SNAPSHOT = "spec/f027/runtime-contract.md";
+
+/**
+ * Compatibility key of a spec line: the hash of the Runtime Contract snapshot (RC-01–RC-16, IM map)
+ * only. Register status, open-gate wording, pins and the lock file itself are provenance, not
+ * compatibility: evidence-only changes must never make a compatible save unloadable.
+ */
+export const runtimeContractSha256 = (spec: SpecIdentity): string | undefined =>
+  spec.snapshot_files[RUNTIME_CONTRACT_SNAPSHOT];

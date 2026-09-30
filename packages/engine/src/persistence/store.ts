@@ -27,7 +27,10 @@ export interface CampaignHead {
   readonly state_sha256: string;
   readonly journal_entries: number;
   readonly journal_head_sha256: string;
+  /** spec line the campaign was created under (immutable provenance) */
   readonly spec_identity: SpecIdentity;
+  /** spec line in force at the most recent save (provenance; never gates loading) */
+  readonly last_saved_spec_identity: SpecIdentity;
   readonly created_with: BuildInfo;
   readonly last_saved_with: BuildInfo;
 }

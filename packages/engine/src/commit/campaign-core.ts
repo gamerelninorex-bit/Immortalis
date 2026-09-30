@@ -111,7 +111,7 @@ export type Prepared =
 
 export interface CoreParams {
   readonly campaignId: string;
-  /** sha256 of the spec-lock this build implements (IA-01); recorded in every receipt. */
+  /** sha256 of the spec-lock in force for new commits (IA-01); recorded in each new receipt. */
   readonly specLockSha256: string;
   readonly owners: OwnerRegistry;
   readonly state: CampaignState;
@@ -193,7 +193,7 @@ export class CampaignCore {
 
     const rejection = this.#validate(state, group, true);
     if (rejection) return { ok: false, error: rejection };
-    return ok({ kind: "apply", ...this.#compute(group, digest) });
+    return ok({ kind: "apply", ...this.#compute(group, digest, this.#params.specLockSha256) });
   }
 
   /**
@@ -214,14 +214,22 @@ export class CampaignCore {
     }
     const rejection = this.#validate(this.#state, entry.group, false);
     if (rejection) return mismatch(`entry is not a valid transition: ${rejection.code}`);
-    const computed = this.#compute(entry.group, digest);
+    // The lock hash in force at commit time is recorded (and hash-chained) in the receipt; replay
+    // takes it from there so a later evidence-only lock change cannot alter history.
+    // The lock hash in force at commit time is recorded (and hash-chained) in the receipt; replay
+    // takes it from there so a later evidence-only lock change cannot alter history.
+    const computed = this.#compute(entry.group, digest, entry.receipt.basis.spec_lock_sha256);
     if (canonicalEqual(computed.entry, entry) === false)
       return mismatch("recomputed entry differs");
     this.adopt(computed.entry, computed.nextState);
     return ok(undefined);
   }
 
-  #compute(group: CommitGroup, digest: string): { nextState: CampaignState; entry: JournalEntry } {
+  #compute(
+    group: CommitGroup,
+    digest: string,
+    specLockSha256: string,
+  ): { nextState: CampaignState; entry: JournalEntry } {
     const state = this.#state;
     const facts = new Map(state.facts);
     for (const w of group.writes) {
@@ -257,7 +265,7 @@ export class CampaignCore {
       group_sha256: digest,
       state_sha256: stateSha256(nextState),
       basis: {
-        spec_lock_sha256: this.#params.specLockSha256,
+        spec_lock_sha256: specLockSha256,
         rule: group.rule,
         authority: group.authority,
       },

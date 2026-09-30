@@ -7,6 +7,7 @@ import {
   PACKAGE_FORMAT,
   PACKAGE_FORMAT_VERSION,
   StateFileSchema,
+  runtimeContractSha256,
   canonicalJson,
   fail,
   ok,
@@ -27,6 +28,7 @@ import {
   stateToFile,
   type OwnerRegistry,
 } from "../commit/campaign-core.ts";
+import { COMPATIBLE_RUNTIME_CONTRACT_SHA256S } from "../compat.ts";
 import { ENGINE_PACKAGE, ENGINE_VERSION } from "../version.ts";
 import { sha256Canonical } from "../hash.ts";
 import { nodeFs, type FsOps } from "./fs-ops.ts";
@@ -68,7 +70,7 @@ export type OpenErrorCode =
   | "UNSUPPORTED_FORMAT"
   | "UNSUPPORTED_FORMAT_VERSION"
   | "INTEGRITY_MANIFEST"
-  | "SPEC_LOCK_MISMATCH"
+  | "RUNTIME_CONTRACT_INCOMPATIBLE"
   | "MISSING_STATE"
   | "INTEGRITY_STATE"
   | "MISSING_JOURNAL"
@@ -83,6 +85,8 @@ export interface FileCampaignOptions {
   readonly buildId?: string | null;
   /** Spec identity this build implements. Defaults to the generated F-027 identity. */
   readonly specIdentity?: SpecIdentity;
+  /** Runtime Contract hashes this build may load. Defaults to COMPATIBLE_RUNTIME_CONTRACT_SHA256S. */
+  readonly compatibleRuntimeContracts?: readonly string[];
   /** Reclaim a LOCK whose holder process is provably dead. Never reclaims a live holder. */
   readonly reclaimStaleLock?: boolean;
   readonly fs?: FsOps;
@@ -100,6 +104,11 @@ export interface Residue {
 
 export interface FileCampaignStore extends CampaignStore {
   readonly residue: Residue;
+  /**
+   * True when the spec line of the last save differs from this build's. Provenance only: the load
+   * succeeded because the Runtime Contract is compatible; the next save records this build's line.
+   */
+  readonly provenanceDrift: boolean;
 }
 
 const MANIFEST = "manifest.json";
@@ -128,11 +137,16 @@ export async function createFileCampaign(
 ): Promise<Result<FileCampaignStore, CreateErrorCode>> {
   const fs = params.fs ?? nodeFs;
   const spec = params.specIdentity ?? BUILD_SPEC_IDENTITY;
+  const contractHash = runtimeContractSha256(spec);
+  if (contractHash === undefined) {
+    return fail("SCHEMA_INVALID", "spec identity carries no Runtime Contract snapshot hash");
+  }
   const genesisParsed = GenesisSchema.safeParse({
     format: PACKAGE_FORMAT,
     format_version: PACKAGE_FORMAT_VERSION,
     campaign_id: params.campaignId,
     spec_identity: spec,
+    compatibility: { runtime_contract_sha256: contractHash },
     created_with: buildInfo(params.buildId),
   });
   if (!genesisParsed.success) {
@@ -166,8 +180,10 @@ export async function createFileCampaign(
       format_version: genesis.format_version,
       campaign_id: genesis.campaign_id,
       spec_identity: genesis.spec_identity,
+      compatibility: genesis.compatibility,
       created_with: genesis.created_with,
       last_saved_with: genesis.created_with,
+      last_saved_spec_identity: genesis.spec_identity,
       genesis_sha256: gHash,
       head: {
         revision: 0,
@@ -187,10 +203,17 @@ export async function createFileCampaign(
       headSha256: gHash,
     });
     return ok(
-      new FilePackageStore(dir, fs, core, manifest, params.buildId ?? null, 0, {
-        journal_tail_bytes: 0,
-        other_files: [],
-      }),
+      new FilePackageStore(
+        dir,
+        fs,
+        core,
+        manifest,
+        params.buildId ?? null,
+        0,
+        { journal_tail_bytes: 0, other_files: [] },
+        spec,
+        false,
+      ),
     );
   } catch (e) {
     await fs.remove(join(dir, LOCK)).catch(() => undefined);
@@ -334,6 +357,7 @@ async function load(
     format_version: manifest.format_version,
     campaign_id: manifest.campaign_id,
     spec_identity: manifest.spec_identity,
+    compatibility: manifest.compatibility,
     created_with: manifest.created_with,
   };
   const gHash = genesisHash(genesis);
@@ -341,14 +365,16 @@ async function load(
     return fail("INTEGRITY_MANIFEST", "campaign identity does not match its recorded genesis hash");
   }
 
-  // --- governing spec line (IA-01): stale/superseded line is rejected, never silently upgraded ---
-  if (sha256Canonical(manifest.spec_identity) !== sha256Canonical(expectedSpec)) {
+  // --- compatibility (IA-01): only the Runtime Contract gates loading. Everything else about the spec
+  // line (lock file, register, gates, pins) is provenance and may differ without breaking the save. ---
+  const compatible = options.compatibleRuntimeContracts ?? COMPATIBLE_RUNTIME_CONTRACT_SHA256S;
+  if (!compatible.includes(manifest.compatibility.runtime_contract_sha256)) {
     return fail(
-      "SPEC_LOCK_MISMATCH",
-      "save was created under a different F-027 spec lock; migration is not authorized",
+      "RUNTIME_CONTRACT_INCOMPATIBLE",
+      "save was written under a Runtime Contract this build is not declared compatible with; migration is not authorized",
       {
-        save_spec_lock_sha256: manifest.spec_identity.spec_lock_sha256,
-        build_spec_lock_sha256: expectedSpec.spec_lock_sha256,
+        save_runtime_contract_sha256: manifest.compatibility.runtime_contract_sha256,
+        build_compatible_runtime_contract_sha256s: [...compatible],
       },
     );
   }
@@ -382,7 +408,7 @@ async function load(
   }
   const core = new CampaignCore({
     campaignId: manifest.campaign_id,
-    specLockSha256: manifest.spec_identity.spec_lock_sha256,
+    specLockSha256: expectedSpec.spec_lock_sha256,
     owners: options.owners ?? new Map(),
     state: emptyState(manifest.campaign_id),
     headSha256: gHash,
@@ -441,12 +467,26 @@ async function load(
   };
 
   const build = options.buildId ?? null;
-  return ok(new FilePackageStore(dir, fs, core, manifest, build, journalBuf.length, residue));
+  return ok(
+    new FilePackageStore(
+      dir,
+      fs,
+      core,
+      manifest,
+      build,
+      journalBuf.length,
+      residue,
+      expectedSpec,
+      sha256Canonical(manifest.last_saved_spec_identity) !== sha256Canonical(expectedSpec),
+    ),
+  );
 }
 
 class FilePackageStore implements FileCampaignStore {
   readonly descriptor = FILE_PACKAGE_DESCRIPTOR;
   readonly residue: Residue;
+  readonly provenanceDrift: boolean;
+  readonly #spec: SpecIdentity;
   readonly #dir: string;
   readonly #fs: FsOps;
   readonly #core: CampaignCore;
@@ -465,6 +505,8 @@ class FilePackageStore implements FileCampaignStore {
     buildId: string | null,
     journalFileBytes: number,
     residue: Residue,
+    spec: SpecIdentity,
+    provenanceDrift: boolean,
   ) {
     this.#dir = dir;
     this.#fs = fs;
@@ -473,6 +515,8 @@ class FilePackageStore implements FileCampaignStore {
     this.#buildId = buildId;
     this.#journalFileBytes = journalFileBytes;
     this.residue = residue;
+    this.#spec = spec;
+    this.provenanceDrift = provenanceDrift;
   }
 
   head(): CampaignHead {
@@ -484,6 +528,7 @@ class FilePackageStore implements FileCampaignStore {
       journal_entries: m.head.journal_entries,
       journal_head_sha256: m.head.journal_head_sha256,
       spec_identity: m.spec_identity,
+      last_saved_spec_identity: m.last_saved_spec_identity,
       created_with: m.created_with,
       last_saved_with: m.last_saved_with,
     };
@@ -537,8 +582,10 @@ class FilePackageStore implements FileCampaignStore {
         format_version: this.#manifest.format_version,
         campaign_id: this.#manifest.campaign_id,
         spec_identity: this.#manifest.spec_identity,
+        compatibility: this.#manifest.compatibility,
         created_with: this.#manifest.created_with,
         last_saved_with: buildInfo(this.#buildId),
+        last_saved_spec_identity: this.#spec,
         genesis_sha256: this.#manifest.genesis_sha256,
         head: {
           revision: nextState.revision,

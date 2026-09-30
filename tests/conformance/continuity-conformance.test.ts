@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { BUILD_SPEC_IDENTITY } from "@immortalis/contracts";
+import { BUILD_SPEC_IDENTITY, RUNTIME_CONTRACT_SNAPSHOT } from "@immortalis/contracts";
 import { FILE_PACKAGE_DESCRIPTOR, createFileCampaign, openFileCampaign } from "@immortalis/engine";
 import { IN_MEMORY_DESCRIPTOR, TEST_OWNERS, group, write } from "@immortalis/testkit";
 import { tempDir } from "../support/tmp.ts";
@@ -32,18 +32,26 @@ describe("IA-01 source/version fidelity (persistence aspect)", () => {
     await c.value.close();
     const manifest = JSON.parse(readFileSync(`${dir}/manifest.json`, "utf8")) as {
       spec_identity: unknown;
+      last_saved_spec_identity: unknown;
     };
     expect(manifest.spec_identity).toEqual(BUILD_SPEC_IDENTITY);
+    expect(manifest.last_saved_spec_identity).toEqual(BUILD_SPEC_IDENTITY);
   });
 
-  it("a newer timestamp or different lock never silently supersedes: mismatch fails (see continuity.test.ts)", async () => {
+  it("compatibility is decided by the Runtime Contract alone; a different one fails closed", async () => {
     const dir = tempDir();
-    const foreign = { ...BUILD_SPEC_IDENTITY, package_native_pin: "2099-01-01T00:00:00.000Z" };
+    const foreign = {
+      ...BUILD_SPEC_IDENTITY,
+      snapshot_files: {
+        ...BUILD_SPEC_IDENTITY.snapshot_files,
+        [RUNTIME_CONTRACT_SNAPSHOT]: "3".repeat(64),
+      },
+    };
     const created = await createFileCampaign(dir, { campaignId: "c1", specIdentity: foreign });
     if (!created.ok) throw new Error("create");
     await created.value.close();
     const r = await openFileCampaign(dir);
-    expect(!r.ok && r.error.code).toBe("SPEC_LOCK_MISMATCH");
+    expect(!r.ok && r.error.code).toBe("RUNTIME_CONTRACT_INCOMPATIBLE");
   });
 });
 

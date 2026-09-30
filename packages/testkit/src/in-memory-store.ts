@@ -54,6 +54,7 @@ export function createInMemoryCampaign(params: {
         journal_entries: entries,
         journal_head_sha256: core.headSha256,
         spec_identity: BUILD_SPEC_IDENTITY,
+        last_saved_spec_identity: BUILD_SPEC_IDENTITY,
         created_with: build,
         last_saved_with: build,
       };

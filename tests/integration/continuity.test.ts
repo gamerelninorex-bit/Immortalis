@@ -6,7 +6,14 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { canonicalJson } from "@immortalis/contracts";
+import { createHash } from "node:crypto";
+import {
+  BUILD_SPEC_IDENTITY,
+  RUNTIME_CONTRACT_SNAPSHOT,
+  canonicalJson,
+  runtimeContractSha256,
+  type SpecIdentity,
+} from "@immortalis/contracts";
 import {
   createFileCampaign,
   nodeFs,
@@ -18,6 +25,26 @@ import { SimulatedCrash, TEST_OWNERS, group, instrumentFs, write } from "@immort
 import { copyDir, snapshotDir, tempDir } from "../support/tmp.ts";
 
 const C = "campaign-continuity-1";
+
+/** Same Runtime Contract; only lock-file, register and open-gates hashes differ. */
+const EVIDENCE_ONLY: SpecIdentity = {
+  ...BUILD_SPEC_IDENTITY,
+  spec_lock_sha256: "9".repeat(64),
+  snapshot_files: {
+    ...BUILD_SPEC_IDENTITY.snapshot_files,
+    "spec/f027/acceptance-register.yaml": "8".repeat(64),
+    "spec/f027/open-gates.yaml": "7".repeat(64),
+  },
+};
+/** A different Runtime Contract snapshot. */
+const INCOMPATIBLE: SpecIdentity = {
+  ...BUILD_SPEC_IDENTITY,
+  spec_lock_sha256: "6".repeat(64),
+  snapshot_files: {
+    ...BUILD_SPEC_IDENTITY.snapshot_files,
+    [RUNTIME_CONTRACT_SNAPSHOT]: "5".repeat(64),
+  },
+};
 const OPTS = { owners: TEST_OWNERS };
 
 async function must<T>(
@@ -292,6 +319,15 @@ describe("invalid, incompatible or tampered packages fail explicitly (never repa
       },
     ],
     [
+      "manifest compatibility edited AND resealed",
+      "INTEGRITY_MANIFEST",
+      (d) => {
+        const m = readManifest(d);
+        m.compatibility.runtime_contract_sha256 = "4".repeat(64);
+        writeManifest(d, reseal(m));
+      },
+    ],
+    [
       "manifest head hash edited AND resealed",
       "INTEGRITY_STATE",
       (d) => {
@@ -334,21 +370,84 @@ describe("invalid, incompatible or tampered packages fail explicitly (never repa
     );
   });
 
-  it("a save from a different F-027 spec lock is rejected, not silently upgraded (IA-01)", async () => {
-    const foreign = {
-      ...(await import("@immortalis/contracts")).BUILD_SPEC_IDENTITY,
-      spec_lock_sha256: "9".repeat(64),
-    };
+  it("an incompatible Runtime Contract still fails closed; compatibility must be declared (IA-01)", async () => {
     const d = tempDir();
     await (
-      await must(createFileCampaign(d, { campaignId: C, ...OPTS, specIdentity: foreign }))
+      await must(createFileCampaign(d, { campaignId: C, ...OPTS, specIdentity: INCOMPATIBLE }))
     ).close();
     const r = await openFileCampaign(d, OPTS);
-    expect(!r.ok && r.error.code).toBe("SPEC_LOCK_MISMATCH");
-    // and the reverse: this build cannot open it, but a build that implements that line can
-    const ok = await openFileCampaign(d, { ...OPTS, specIdentity: foreign });
-    expect(ok.ok).toBe(true);
-    if (ok.ok) await ok.value.close();
+    expect(!r.ok && r.error.code).toBe("RUNTIME_CONTRACT_INCOMPATIBLE");
+    expect(readdirSync(d).includes("LOCK")).toBe(false);
+    // Only an explicit compatibility declaration (never inference) lets a build load it.
+    const declared = await must(
+      openFileCampaign(d, {
+        ...OPTS,
+        compatibleRuntimeContracts: [runtimeContractSha256(INCOMPATIBLE)!],
+      }),
+    );
+    expect(declared.head().campaign_id).toBe(C);
+    await declared.close();
+  });
+
+  it("the reverse direction also fails closed: a build with a newer Runtime Contract refuses an older save", async () => {
+    const d = tempDir();
+    await (await seed(d)).close(); // written under the real contract
+    const r = await openFileCampaign(d, {
+      ...OPTS,
+      specIdentity: INCOMPATIBLE,
+      compatibleRuntimeContracts: [runtimeContractSha256(INCOMPATIBLE)!],
+    });
+    expect(!r.ok && r.error.code).toBe("RUNTIME_CONTRACT_INCOMPATIBLE");
+  });
+
+  it("an evidence-only spec change does not make a compatible save unloadable (IA-01)", async () => {
+    // Same Runtime Contract; different lock file, register and open-gates hashes.
+    expect(runtimeContractSha256(EVIDENCE_ONLY)).toBe(runtimeContractSha256(BUILD_SPEC_IDENTITY));
+    expect(EVIDENCE_ONLY.spec_lock_sha256).not.toBe(BUILD_SPEC_IDENTITY.spec_lock_sha256);
+
+    const d = tempDir();
+    const old = await must(
+      createFileCampaign(d, { campaignId: C, ...OPTS, specIdentity: EVIDENCE_ONLY }),
+    );
+    await must(old.commit(group(C, 1, [write("fact/a", { n: 1 })])));
+    await old.close();
+
+    // A build carrying the newer evidence-only lock loads it, verifies it, and reports drift.
+    const s = await must(openFileCampaign(d, OPTS));
+    expect(s.provenanceDrift).toBe(true);
+    expect(s.head().spec_identity).toEqual(EVIDENCE_ONLY); // creation provenance preserved exactly
+    expect(s.getFact("fact/a")).toMatchObject({ version: 1, value: { n: 1 } });
+    const r = await must(
+      s.commit(group(C, 2, [write("fact/a", { n: 2 }, { expected_version: 1 })])),
+    );
+    // New receipts record the lock actually in force; old ones keep theirs.
+    expect(r.receipt.basis.spec_lock_sha256).toBe(BUILD_SPEC_IDENTITY.spec_lock_sha256);
+    expect(s.lookupReceipt("intent-1")?.basis.spec_lock_sha256).toBe(
+      EVIDENCE_ONLY.spec_lock_sha256,
+    );
+    await s.close();
+
+    // Reload under the current build: provenance is exact and no longer drifting.
+    const again = await must(openFileCampaign(d, OPTS));
+    expect(again.provenanceDrift).toBe(false);
+    expect(again.head().spec_identity).toEqual(EVIDENCE_ONLY);
+    expect(again.head().last_saved_spec_identity).toEqual(BUILD_SPEC_IDENTITY);
+    expect(again.getFact("fact/a")).toMatchObject({ version: 2, value: { n: 2 } });
+    await again.close();
+
+    // And an older evidence-only build still loads the newer save (history replays from recorded basis).
+    const older = await must(openFileCampaign(d, { ...OPTS, specIdentity: EVIDENCE_ONLY }));
+    expect(older.provenanceDrift).toBe(true);
+    expect(older.head().revision).toBe(2);
+    await older.close();
+  });
+
+  it("the build's compatibility key is the hash of the real runtime-contract.md", () => {
+    expect(runtimeContractSha256(BUILD_SPEC_IDENTITY)).toBe(
+      createHash("sha256")
+        .update(readFileSync(RUNTIME_CONTRACT_SNAPSHOT, "utf8").replace(/\r\n/g, "\n"), "utf8")
+        .digest("hex"),
+    );
   });
 
   it("uncommitted residue is reported, never adopted, and is discarded by the next commit", async () => {

@@ -16,12 +16,21 @@ export const BuildInfoSchema = z.strictObject({
 });
 export type BuildInfo = z.infer<typeof BuildInfoSchema>;
 
+export const CompatibilitySchema = z.strictObject({
+  /** hash of the Runtime Contract snapshot the canon was written under */
+  runtime_contract_sha256: Sha256,
+});
+export type Compatibility = z.infer<typeof CompatibilitySchema>;
+
 /** The immutable identity block. Its hash seeds the journal chain and is recorded in the manifest. */
 export const GenesisSchema = z.strictObject({
   format: z.literal(PACKAGE_FORMAT),
   format_version: z.literal(PACKAGE_FORMAT_VERSION),
   campaign_id: Id,
+  /** provenance: the spec line the campaign was created under (immutable) */
   spec_identity: SpecIdentitySchema,
+  /** compatibility: what the campaign's canon requires of a loading build (immutable) */
+  compatibility: CompatibilitySchema,
   created_with: BuildInfoSchema,
 });
 export type Genesis = z.infer<typeof GenesisSchema>;
@@ -33,8 +42,11 @@ export const ManifestSchema = z.strictObject({
   format_version: z.literal(PACKAGE_FORMAT_VERSION),
   campaign_id: Id,
   spec_identity: SpecIdentitySchema,
+  compatibility: CompatibilitySchema,
   created_with: BuildInfoSchema,
   last_saved_with: BuildInfoSchema,
+  /** provenance of the most recent save; informational, never gates loading */
+  last_saved_spec_identity: SpecIdentitySchema,
   genesis_sha256: Sha256,
   /** the commit point: everything not referenced here is uncommitted residue */
   head: z.strictObject({
