@@ -12,6 +12,7 @@ import {
   GIP_FACT_KINDS,
   GIP_OFFICE_RULE,
   GIP_RULE,
+  GIP_SCOPE_BINDING_RULE,
   GipAdapter,
   KtiAdapter,
   WS007_SOURCE,
@@ -69,7 +70,11 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
     expect(ws007.native_pin).toBe("2026-09-24T01:42:24.952Z");
     for (const kind of GIP_FACT_KINDS) {
       expect(kind.rule).toEqual(
-        kind.id === "gip_office_authority_locus" ? GIP_OFFICE_RULE : GIP_RULE,
+        kind.id === "gip_office_authority_locus"
+          ? GIP_OFFICE_RULE
+          : kind.id === "gip_scope_binding"
+            ? GIP_SCOPE_BINDING_RULE
+            : GIP_RULE,
       );
       expect(kind.rule.artifact).toBe(ws007.url);
       expect(kind.rule.native_pin).toBe(ws007.native_pin);
@@ -77,6 +82,7 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
       expect(kind.rule.supersedes).toBeNull();
     }
     expect(GIP_OFFICE_RULE.authority_lineage).toEqual(GIP_RULE.authority_lineage);
+    expect(GIP_SCOPE_BINDING_RULE.authority_lineage).toEqual(GIP_RULE.authority_lineage);
     const lineage = GIP_RULE.authority_lineage.join("\n");
     expect(lineage).toContain(ws007.native_pin);
     expect(lineage).toContain("2026-09-25T00:59:55.526Z"); // GIP Scaling Profile v1.1, Red-confirmed
@@ -106,11 +112,12 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
   });
 });
 
-describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity and the Office / Authority Locus only", () => {
-  it("registers exactly one new owner, gip, with ONE facet, one exclusive create-only identity key space and one exclusive ADVANCING office key space", () => {
+describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity, the Office / Authority Locus and the Authority Scope Binding only", () => {
+  it("registers exactly one new owner, gip, with ONE facet, one exclusive create-only identity key space and exclusive ADVANCING office and scope-binding key spaces", () => {
     expect(GIP_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
       ["gip_institution_identity", "gip", "gip_institution_identity", "SEALED"],
       ["gip_office_authority_locus", "gip", "gip_institution_identity", "ADVANCING"],
+      ["gip_scope_binding", "gip", "gip_institution_identity", "ADVANCING"],
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(
@@ -119,17 +126,25 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity 
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/institution/i1/office/o1")),
     ).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(2);
-    expect(ALL_FACT_KINDS).toHaveLength(34);
+    expect(
+      ALL_FACT_KINDS.filter((k) =>
+        k.keyPattern.test("gip/institution/i1/office/o1/scope-binding/s1"),
+      ),
+    ).toHaveLength(1);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(3);
+    expect(ALL_FACT_KINDS).toHaveLength(35);
   });
 
   it("there is no instrument, procedure, membership, faction, asset, resource, KTI, actor, relationship, military, territory or lifecycle kind, and no fallback GIP owner", () => {
     expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
       "gip_institution_identity",
       "gip_office_authority_locus",
+      "gip_scope_binding",
     ]);
     for (const k of GIP_FACT_KINDS)
-      expect(k.id.replace("gip_office_authority_locus", "")).not.toMatch(
+      expect(
+        k.id.replace("gip_office_authority_locus", "").replace("gip_scope_binding", ""),
+      ).not.toMatch(
         /office|authorit|instrument|procedure|member|headcount|faction|asset|resource|treasur|kti|actor|relation|militar|territor|jurisdiction|transition|rename|split|merge|abolish|replace|success|score|level|rank/,
       );
     expect(
@@ -140,7 +155,7 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity 
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06")).toBe(true);
   });
 
-  it("there is no GIP writer other than the two authored establishments, and each read is by exact key", () => {
+  it("there is no GIP writer other than the three authored establishments, and each read is by exact key", () => {
     expect(
       Object.getOwnPropertyNames(GipAdapter.prototype)
         .filter((m) => m !== "constructor")
@@ -148,8 +163,10 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity 
     ).toEqual([
       "establishInstitution",
       "establishOffice",
+      "establishScopeBinding",
       "institutionIdentity",
       "officeAuthorityLocus",
+      "scopeBinding",
     ]);
   });
 
@@ -284,11 +301,11 @@ describe("IA-04 turnless: no tick, phase, scheduler, clock, RNG, cadence or glob
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no procedure, Governance Instrument, scope binding, political relation, pending decision, reach, stability, faction, membership, KTI, Diplomacy, actor, projection or host construct exists in the GIP modules", () => {
+  it("no procedure, Governance Instrument, scope applicability, political relation, pending decision, reach, stability, faction, membership, KTI, Diplomacy, actor, projection or host construct exists in the GIP modules (the Scope Binding establishment and keyed read of the fifteenth slice are the only scope construct)", () => {
     for (const f of GIP_SOURCES) {
       const text = identifiers(f);
       expect(text, f).not.toMatch(
-        /\b(offices|delegation|delegations|delegate\w*|concurrence|decisionBody|conditional\w*|appoint\w*|appointment|exercis\w*|instrument|instruments|procedure|veto|override|scopeBinding|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|asset|assets|treasury|resource|kti|belief|relationship|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|host)\b/i,
+        /\b(offices|delegation|delegations|delegate\w*|concurrence|decisionBody|conditional\w*|appoint\w*|appointment|exercis\w*|instrument|instruments|procedure|veto|override|applicab\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|asset|assets|treasury|resource|kti|belief|relationship|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|host)\b/i,
       );
     }
   });

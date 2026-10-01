@@ -112,7 +112,8 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
     expect(
       factKind("gip_institution_identity").keyPattern.test("gip/institution/i1/office/o1"),
     ).toBe(false);
-    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(2);
+    // (the fifteenth slice adds the Authority Scope Binding kind beneath the same owner and facet)
+    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(3);
   });
 
   it("no second GIP owner, ledger, sidecar or sibling office record exists: the engine's GIP modules are the four predecessor modules", () => {
@@ -125,6 +126,7 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
     expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
       "gip_institution_identity",
       "gip_office_authority_locus",
+      "gip_scope_binding",
     ]);
   });
 
@@ -210,11 +212,11 @@ describe("IA-04 turnless: no tick, clock, RNG, cadence or global scan on the off
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no transition, delegation, appointment, instrument, procedure, exercise, reach or foreign-owner construct exists in the GIP modules", () => {
+  it("no transition, delegation, appointment, instrument, procedure, exercise, applicability, reach or foreign-owner construct exists in the GIP modules (the fifteenth slice's Scope Binding establishment and keyed read are the only scope construct)", () => {
     for (const f of GIP_SOURCES) {
       const text = identifiers(f).replace(/\bsuccession_rule\b/g, "");
       expect(text, f).not.toMatch(
-        /\b(delegat\w*|concurrence|decisionBody|conditional\w*|appoint\w*|exercis\w*|instrument\w*|procedure|veto|override|scopeBinding|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
+        /\b(delegat\w*|concurrence|decisionBody|conditional\w*|appoint\w*|exercis\w*|instrument\w*|procedure|veto|override|applicab\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
       );
     }
   });
@@ -287,8 +289,8 @@ describe("acceptance-register and open-gate honesty (thirteenth slice)", () => {
 });
 
 describe("fourteenth slice — the decision_body_ref branch of the same Office / Authority Locus (IA-01, IA-02, IA-03, IA-06, IA-22)", () => {
-  it("no new fact kind, owner, facet or key space exists: the registry still holds exactly the two GIP kinds, and the office kind is unchanged", () => {
-    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
+  it("the decision-body branch added no fact kind, owner, facet or key space: the identity and office kinds are the same two (the fifteenth slice later adds only the scope-binding kind), and the office kind is unchanged", () => {
+    expect(GIP_FACT_KINDS.map((k) => k.id).slice(0, 2)).toEqual([
       "gip_institution_identity",
       "gip_office_authority_locus",
     ]);
@@ -370,7 +372,8 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
     const admission = code(`${GIP_DIR}/admission.ts`);
     expect(admission).toMatch(/group\.reads\.length !== 1 \|\| group\.depends_on\.length !== 1/);
     expect(admission).toMatch(/w\.expected_version !== 0/);
-    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(2);
+    // (the fifteenth slice's one scope-binding establishment is the third)
+    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(3);
   });
 
   it("no GitHub Issue #11 workaround: the GIP modules introduce no randomness, clock, seed, roll or probability, and the decision-body tests use none", () => {

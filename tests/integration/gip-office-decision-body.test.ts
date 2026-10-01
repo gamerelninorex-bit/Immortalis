@@ -435,8 +435,10 @@ describe("no post-establishment holder/body switch or body replacement is admitt
     ).toEqual([
       "establishInstitution",
       "establishOffice",
+      "establishScopeBinding",
       "institutionIdentity",
       "officeAuthorityLocus",
+      "scopeBinding",
     ]);
   });
 

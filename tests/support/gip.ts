@@ -9,6 +9,7 @@ import type {
   InstitutionIdentity,
   OfficeAuthorityLocusDecisionBody,
   OfficeAuthorityLocusHolder,
+  ScopeBinding,
 } from "@immortalis/contracts";
 import {
   FIXTURE_CAMPAIGN,
@@ -27,6 +28,7 @@ import {
   ledgerInput,
   officeAuthorityLocus,
   popPublication,
+  scopeBinding,
   publication,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
@@ -117,6 +119,20 @@ export async function establishDecisionBodyOffice(
   const office = decisionBodyOfficeAuthorityLocus(institutionId, officeId, over);
   await must(s.gip.establishOffice({ ...gipPublication(n), office }));
   return office;
+}
+
+/** Commits the one authored initial establishment of a scope binding beneath an already-committed office. */
+export async function establishScopeBinding(
+  s: Pick<GipSeeded, "gip">,
+  n: number,
+  institutionId?: string,
+  officeId?: string,
+  scopeBindingId?: string,
+  over: Partial<ScopeBinding> = {},
+): Promise<ScopeBinding> {
+  const binding = scopeBinding(institutionId, officeId, scopeBindingId, over);
+  await must(s.gip.establishScopeBinding({ ...gipPublication(n), scope_binding: binding }));
+  return binding;
 }
 
 /**
