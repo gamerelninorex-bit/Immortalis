@@ -5,6 +5,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   FALLBACK_BASIS,
   FallbackPhysicalEntitySchema,
+  OWNER_LOGISTICS,
   OWNER_WORLD_STATE,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
@@ -18,6 +19,11 @@ import {
   entityTransitionProcessId,
   entityTransitionStage,
   fail,
+  logisticsBoundaryId,
+  logisticsCommitmentKey,
+  logisticsDeliveryKey,
+  logisticsObjectId,
+  logisticsRequestIdOfDelivery,
   ok,
   temporalObjectKey,
   worldEntityTransitionKey,
@@ -77,18 +83,74 @@ export interface EntityTransitionPrior {
 
 /**
  * Whether a causing result is its own source's fact lawfully readable by World-State: held in the SOURCE owner's
- * own key space (an owner registered beside the canonical ones, never a canonical, kernel, Population, Production,
- * Economy or World-State key space) and written by the source it names. Returns a message, or null.
+ * own key space and written by the source it names. Two sources are lawful: an owner registered beside the
+ * canonical ones (its key space is never a canonical, kernel, Population, Production, Economy or World-State key
+ * space), and the Logistics owner's registered delivery-complete result (WS-010 §10.4, §23: Logistics establishes
+ * completion, the destination owner commits the new presence) — exactly that kind, at the key derived from the
+ * entity it moves, never any other Logistics fact. Returns a message, or null.
  */
 export function causeSourceViolation(
   key: string,
   owner: string,
   cause: EntityTransitionCause,
 ): string | null {
-  if (resolveKey(key) !== null || owner === OWNER_WORLD_STATE) {
+  const kind = resolveKey(key)?.kind.id;
+  if (kind === "logistics_delivery") {
+    if (
+      owner !== OWNER_LOGISTICS ||
+      key !==
+        logisticsDeliveryKey(cause.outcome.destination.world.entity_id, cause.subject.entity_id) ||
+      logisticsRequestIdOfDelivery(cause.cause_id) === null
+    ) {
+      return "a Logistics delivery-complete result is Logistics' own fact at the key derived from the entity it moves";
+    }
+    if (cause.source.owner !== owner) return "a causing result is written by the source it names";
+    return null;
+  }
+  if (kind !== undefined || owner === OWNER_WORLD_STATE) {
     return "a causing result is its source's own fact, never World-State's or another registered owner's";
   }
   if (cause.source.owner !== owner) return "a causing result is written by the source it names";
+  return null;
+}
+
+/**
+ * The one temporal engagement of a causing result: the object and earned boundary whose due resolution commits
+ * the transition. A standalone cause is engaged by its own entity-transition object; a Logistics delivery-complete
+ * result is engaged by the ONE Logistics transfer object that also declares its production and the retirement that
+ * follows the commit (never by a second object: a stage is declared by exactly one engaged object).
+ */
+export function entityTransitionEngagement(
+  owner: string,
+  cause: Pick<EntityTransitionCause, "cause_id">,
+): { readonly objectId: string; readonly boundaryId: string } {
+  const requestId = owner === OWNER_LOGISTICS ? logisticsRequestIdOfDelivery(cause.cause_id) : null;
+  return requestId !== null
+    ? { objectId: logisticsObjectId(requestId), boundaryId: logisticsBoundaryId(requestId) }
+    : {
+        objectId: entityTransitionObjectId(cause.cause_id),
+        boundaryId: entityTransitionBoundaryId(cause.cause_id),
+      };
+}
+
+/**
+ * One authoritative current locus (WS-010 §27: an object may never hold a rival ordinary current location beside a
+ * Logistics movement locus). Once Logistics has committed to move an entity, World-State commits that entity's
+ * destination only as the consequence of THAT commitment's delivery-complete result; no other causing result may
+ * move an entity Logistics is committed to or is moving. Returns a message, or null.
+ */
+export function movementGuardViolation(
+  facts: { has(key: string): boolean },
+  worldId: string,
+  entityId: string,
+  causeKey: string,
+): string | null {
+  if (
+    facts.has(logisticsCommitmentKey(worldId, entityId)) &&
+    causeKey !== logisticsDeliveryKey(worldId, entityId)
+  ) {
+    return "an entity Logistics has committed to move changes locus only through that movement's own delivery-complete result";
+  }
   return null;
 }
 
@@ -116,6 +178,15 @@ export function deriveEntityTransition(
   // transition already sealed against it
   if (cause.version !== 1)
     return refuse("a causing result is read at its establishment (version 1)");
+  // An external causing result is established before the instant it takes effect (its object's resolved basis is the
+  // establishment). Logistics' delivery-complete result is established BY a stage at the very boundary it takes
+  // effect at: the cause-before-effect order is the stage order (delivery result, then this commit), and Logistics'
+  // own derivation fixes its timing exactly.
+  if (
+    cause.owner !== OWNER_LOGISTICS &&
+    compareTime(c.timing.established_at, c.timing.occurs_at) !== -1
+  )
+    return refuse("an outcome takes effect after the basis it was established at");
   if (
     entity.key !== worldFallbackEntityKey(e.locality.world.entity_id, e.entity_id) ||
     c.subject.fact_key !== entity.key ||
@@ -271,9 +342,11 @@ const isTransitionStage = (s: { owner: string; operation: string }): boolean =>
 
 /** Whether a temporal object declares the transition stage or names a transition process. */
 export const isEntityTransitionObject = (o: TemporalObject): boolean =>
-  o.dependencies.some((d) => isTransitionStage(d.stage.owner_operation)) ||
-  (o.owning_ref.owner === OWNER_WORLD_STATE &&
-    o.owning_ref.process_id.startsWith(ENTITY_TRANSITION_PROCESS_PREFIX));
+  // a Logistics-owned object also declares the transition stage; it is governed by the Logistics object rule
+  o.owning_ref.owner !== OWNER_LOGISTICS &&
+  (o.dependencies.some((d) => isTransitionStage(d.stage.owner_operation)) ||
+    (o.owning_ref.owner === OWNER_WORLD_STATE &&
+      o.owning_ref.process_id.startsWith(ENTITY_TRANSITION_PROCESS_PREFIX)));
 
 /**
  * RC-10: an entity-transition temporal object is exactly the one derived from its committed causing result (one
@@ -308,6 +381,16 @@ export function entityTransitionObjectViolation(
     return "an entity-transition temporal object names a committed causing result that fixes it";
   }
   const { world } = cause.data.outcome.destination;
+  if (causeFact.owner === OWNER_LOGISTICS) {
+    return "a Logistics delivery-complete result is engaged only by its Logistics transfer object, never by a second object";
+  }
+  const guard = movementGuardViolation(
+    state.facts,
+    world.entity_id,
+    cause.data.subject.entity_id,
+    causeFact.key,
+  );
+  if (registered && guard) return guard;
   // The causing owner keeps its own lifecycle: once its result has advanced past the establishment the transition
   // (if any) is checked against that history by the integrity verifier, and the object by its identities alone.
   if (!registered && causeFact.version !== 1) return null;
@@ -458,8 +541,17 @@ export function worldTransitionGroupCheck(
     "ADMISSION",
   );
   if (identity) return ref(identity, { key: w.key });
+  // an entity Logistics is committed to move changes locus only through that movement's delivery result
+  const guard = movementGuardViolation(
+    state.facts,
+    world.entity_id,
+    cause.data.subject.entity_id,
+    causeP.fact.key,
+  );
+  if (guard) return ref(guard, { key: w.key });
   // it commits only at its engaged, unretired, declared boundary (the object is the engagement)
-  const obj = state.facts.get(temporalObjectKey(entityTransitionObjectId(causeId)));
+  const engagement = entityTransitionEngagement(causeP.fact.owner, cause.data);
+  const obj = state.facts.get(temporalObjectKey(engagement.objectId));
   const clock = state.facts.get(TEMPORAL_STATE_KEY);
   const o = obj ? TemporalObjectSchema.safeParse(obj.value) : undefined;
   const s = clock ? TemporalStateSchema.safeParse(clock.value) : undefined;
@@ -467,7 +559,7 @@ export function worldTransitionGroupCheck(
     !o?.success ||
     !s?.success ||
     !o.data.next_boundary ||
-    o.data.next_boundary.boundary_id !== entityTransitionBoundaryId(causeId) ||
+    o.data.next_boundary.boundary_id !== engagement.boundaryId ||
     compareTime(o.data.next_boundary.at, cause.data.timing.occurs_at) !== 0 ||
     ![-1, 0].includes(compareTime(s.data.canonical_time, cause.data.timing.occurs_at) ?? 1)
   ) {

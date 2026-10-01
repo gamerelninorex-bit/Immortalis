@@ -7,6 +7,7 @@ export * from "./economy-fixtures.ts";
 export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";
 export * from "./in-memory-store.ts";
+export * from "./logistics-fixtures.ts";
 export * from "./population-fixtures.ts";
 export * from "./production-fixtures.ts";
 export * from "./temporal-fixtures.ts";

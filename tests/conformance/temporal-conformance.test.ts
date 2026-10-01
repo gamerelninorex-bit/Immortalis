@@ -114,9 +114,11 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     // IM-05 Production kinds and the one World-State fallback physical-entity kind; the sixth adds the three
     // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
     // (same owner and facet as the fallback entity); the transaction-authority repair adds the one IM-02 kernel kind
-    expect(ALL_FACT_KINDS).toHaveLength(21);
+    // (the eighth slice's three Logistics kinds bring the registry to 24)
+    expect(ALL_FACT_KINDS).toHaveLength(24);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "logistics",
       "pc_existence",
       "population",
       "production",
@@ -145,15 +147,7 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
     // (Population is the fourth slice's lawful IM-04 owner, Production the fifth slice's lawful IM-05 owner and
     // Economy the sixth slice's lawful IM-06 owner; every other substantive owner stays absent.)
-    for (const forbidden of [
-      "health",
-      "military",
-      "actor",
-      "culture",
-      "epistemic",
-      "resource",
-      "logistics",
-    ]) {
+    for (const forbidden of ["health", "military", "actor", "culture", "epistemic", "resource"]) {
       expect(names).not.toContain(forbidden);
     }
   });
@@ -350,6 +344,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "commit",
       "economy",
+      "logistics",
       "owners",
       "persistence",
       "population",

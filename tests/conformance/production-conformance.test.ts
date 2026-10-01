@@ -127,6 +127,7 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
     // (the sixth slice's Economy is the one later registered owner)
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "logistics",
       "pc_existence",
       "population",
       "production",
@@ -158,7 +159,6 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
       "asset",
       "inventory",
       "labor",
-      "logistics",
       "movement",
       "kti",
       "health",
@@ -359,6 +359,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "commit",
       "economy",
+      "logistics",
       "owners",
       "persistence",
       "population",

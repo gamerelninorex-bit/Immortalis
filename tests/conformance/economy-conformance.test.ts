@@ -104,6 +104,7 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "logistics",
       "pc_existence",
       "population",
       "production",
@@ -138,7 +139,6 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
       "credit",
       "holding",
       "labor",
-      "logistics",
       "movement",
       "kti",
       "health",
@@ -327,6 +327,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "commit",
       "economy",
+      "logistics",
       "owners",
       "persistence",
       "population",

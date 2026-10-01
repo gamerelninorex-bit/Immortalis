@@ -36,7 +36,9 @@ export interface IntegrityViolation {
     /** IM-06 Economy state: see verifyEconomyIntegrity */
     | "ECONOMY_STATE"
     /** World-State entity transitions (ECT-01): see verifyEntityTransitionIntegrity */
-    | "ENTITY_TRANSITION_STATE";
+    | "ENTITY_TRANSITION_STATE"
+    /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */
+    | "LOGISTICS_STATE";
   readonly message: string;
 }
 

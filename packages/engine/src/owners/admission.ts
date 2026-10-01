@@ -2,6 +2,7 @@ import {
   ExistenceContractSchema,
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_ECONOMY,
+  OWNER_LOGISTICS,
   OWNER_POPULATION,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
@@ -19,6 +20,7 @@ import {
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
+import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
@@ -179,6 +181,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_PRODUCTION) return productionGroupCheck(group, state);
     // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
     if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
+    // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
+    if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -243,6 +247,26 @@ export function identityMismatch(
       return entity.entity_id === ids[1] && locus.from.world.entity_id === ids[0]
         ? null
         : "transition identity does not match the key";
+    }
+    case "logistics_commitment": {
+      const moved = v["moved"] as { entity_id: string };
+      const origin = v["origin"] as { world: { entity_id: string } };
+      return moved.entity_id === ids[1] && origin.world.entity_id === ids[0]
+        ? null
+        : "commitment identity does not match the key";
+    }
+    case "logistics_transfer": {
+      const moved = v["moved"] as { fact_key: string; entity_id: string };
+      return moved.entity_id === ids[1] && moved.fact_key === `world/${ids[0]}/entity/${ids[1]}`
+        ? null
+        : "transfer identity does not match the key";
+    }
+    case "logistics_delivery": {
+      const subject = v["subject"] as { entity_id: string };
+      const to = (v["outcome"] as { destination: { world: { entity_id: string } } }).destination;
+      return subject.entity_id === ids[1] && to.world.entity_id === ids[0]
+        ? null
+        : "delivery identity does not match the key";
     }
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };

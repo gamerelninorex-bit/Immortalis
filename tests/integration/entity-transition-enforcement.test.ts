@@ -626,8 +626,16 @@ describe("duplicate, replayed and incompatible transitions fail closed (acceptan
             dependencies: [{ ...lawful.dependencies[0]!, produces: [transitionKey] }],
           };
       const r = await s.coordinator.registerObject({ ...temporalPublication(40), object });
-      expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
-      expect(!r.ok && r.error.message).toMatch(why);
+      if (_n.includes("no later than it was established")) {
+        // the cause contract now permits taking effect AT the establishment (Logistics' delivery); an external cause
+        // keeps the strict rule in the derivation, and the object such a cause would earn is not even a well-formed
+        // temporal object (its boundary would not lie after its resolved basis): refused either way, nothing earned
+        expect(r.ok).toBe(false);
+        expect(!r.ok && r.error.code).toMatch(/REFERENCE_INVALID|INPUT_INVALID/);
+      } else {
+        expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+        expect(!r.ok && r.error.message).toMatch(why);
+      }
       expect(s.coordinator.object(`obj-entity-transition-${CAUSE_1}`)).toBeUndefined();
       expect(s.coordinator.boundaryIndex().entries).toEqual([]);
     },

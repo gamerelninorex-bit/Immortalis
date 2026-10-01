@@ -3,14 +3,19 @@ import {
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
   EconomyRealizationSchema,
+  EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   FACET_ECONOMY_STATE,
   FACET_EXISTENCE_CONTRACT,
+  FACET_LOGISTICS_STATE,
   FACET_PRODUCTION_STATE,
   FACET_WORLD_FALLBACK_ENTITY,
   FallbackPhysicalEntitySchema,
+  LogisticsCommitmentSchema,
+  LogisticsTransferSchema,
   OWNER_ECONOMY,
+  OWNER_LOGISTICS,
   OWNER_PRODUCTION,
   ProductionClaimSchema,
   ProductionOperationSchema,
@@ -107,6 +112,11 @@ export const WS004_SOURCE = {
   native_pin: "2026-09-24T11:45:02.825Z",
 } as const;
 
+export const WS010_SOURCE = {
+  artifact: "https://app.notion.com/p/3e620af901e081e78415e03cda7cad12",
+  native_pin: "2026-09-25T02:18:10.619Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -143,6 +153,11 @@ export const ECONOMY_FACT_KIND_IDS = [
   "economy_request",
   "economy_realization",
 ] as const;
+export const LOGISTICS_FACT_KIND_IDS = [
+  "logistics_commitment",
+  "logistics_transfer",
+  "logistics_delivery",
+] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
@@ -150,7 +165,8 @@ export type FactKindId =
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
-  | (typeof ECONOMY_FACT_KIND_IDS)[number];
+  | (typeof ECONOMY_FACT_KIND_IDS)[number]
+  | (typeof LOGISTICS_FACT_KIND_IDS)[number];
 
 /**
  * SEALED: create-only canon; overwriting needs an owner-defined amendment mechanism that does not
@@ -578,9 +594,74 @@ export const ECONOMY_FACT_KINDS: readonly FactKind[] = [
 ];
 
 /**
+ * One governing rule for every Logistics kind: a commitment, a dispatch, a delivery result and a retirement are
+ * each one group, and the retirement advances the commitment and the transfer together, so every version of every
+ * Logistics fact records the same citation. The clauses are the ones the state relies on; the destination handoff
+ * is World-State's own ECT-01 commit (already pinned by the entity-transition rule) and the staged order is F-017's
+ * §23 completion edge pair.
+ */
+export const LOGISTICS_RULE: SourceRef = rule(
+  WS010_SOURCE,
+  "§2.1 Logistics owns (non-agentive movement-service commitment state; consequential transfer-process state; authoritative current movement locus while a transfer is active); §2.2 Logistics does not own (carrier/entity ontology or substantive identity; cargo identity, stock quantity or condition; universal inventory); §3.1 Movement Service Request (interface envelope, not Logistics-owned state); §3.2 Movement-Service Commitment; §3.4 Transfer Record; §4.1 Non-agentive movement service; §9 Transfer lifecycle (dispatch; active transfer; delivery; capacity release / record retirement); §10.1 Authoritative movement locus; §10.2 Identity, quantity and condition; §10.4 Completion; §11 Dispatch is not delivery; §20 Temporal integration (no Logistics tick); §23 Cross-owner completion handshake (steps 1-5); §26 Scaling guards; §27 Failure conditions",
+  [F017_LINEAGE, F016_ECT_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const logisticsKind = (
+  id: (typeof LOGISTICS_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_LOGISTICS,
+  facet: FACET_LOGISTICS_STATE,
+  im: "IM-05",
+  rc,
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: LOGISTICS_RULE,
+});
+
+/**
+ * IM-05 Resource / Production / Logistics Adapter — the LOGISTICS part, bounded to one single-leg, uncontended,
+ * non-agentive transfer of one already-accepted entity. WS-010 §2.1 assigns the movement-service commitment, the
+ * transfer-process state and the authoritative movement locus while a transfer is active to Logistics; §3.1 keeps
+ * the request in its source's own key space. One owner, one facet, three exclusive entity-keyed key spaces: the
+ * commitment and the transfer ADVANCE (commit → release; dispatch → retire) under the expected-version chain, and
+ * the delivery-complete result is SEALED (create-only, exactly the causing-result envelope World-State's
+ * entity-transition seam reads). There is no fallback owner, and no Route Family, carrier, hub, capacity,
+ * recurring-commitment, inventory or agentive kind exists.
+ */
+export const LOGISTICS_FACT_KINDS: readonly FactKind[] = [
+  logisticsKind(
+    "logistics_commitment",
+    ["RC-02", "RC-07"],
+    "ADVANCING",
+    new RegExp(`^logistics/commitment/${ID}/${ID}$`),
+    LogisticsCommitmentSchema,
+  ),
+  logisticsKind(
+    "logistics_transfer",
+    ["RC-02", "RC-07", "RC-10"],
+    "ADVANCING",
+    new RegExp(`^logistics/transfer/${ID}/${ID}$`),
+    LogisticsTransferSchema,
+  ),
+  logisticsKind(
+    "logistics_delivery",
+    ["RC-02", "RC-08"],
+    "SEALED",
+    new RegExp(`^logistics/delivery/${ID}/${ID}$`),
+    EntityTransitionCauseSchema,
+  ),
+];
+
+/**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
- * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind and the IM-06
- * Economy kinds.
+ * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
+ * Economy kinds and the IM-05 Logistics kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -590,6 +671,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
+  ...LOGISTICS_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {
