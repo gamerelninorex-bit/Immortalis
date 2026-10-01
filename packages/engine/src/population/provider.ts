@@ -13,6 +13,7 @@ import {
   type ExternalCriterion,
   type OwnerFact,
   type ReconciliationClose,
+  type SourceFactRef,
 } from "@immortalis/contracts";
 import { resolveKey, POPULATION_RULE } from "../owners/registry.ts";
 import {
@@ -21,7 +22,13 @@ import {
   type StageProvider,
   type StageWrite,
 } from "../temporal/providers.ts";
-import { applyEnvelopes, composeCohortResult, eligibleEnvelopes } from "./derive.ts";
+import {
+  applyEnvelopes,
+  composeCohortResult,
+  eligibleEnvelopes,
+  qualifyingEntrants,
+  withSources,
+} from "./derive.ts";
 
 /**
  * IM-04 — the Population ordinary demographic/labor reconciliation operation (WS-001 §32), exposed to the
@@ -68,6 +75,7 @@ export const populationStageProvider: StageProvider = {
       ),
     );
     const envelopes: ConsequenceEnvelope[] = [];
+    const sourceOf = new Map<string, SourceFactRef>();
     const criteria = new Map<string, { value: ExternalCriterion; fact: OwnerFact }>();
     for (const r of input.reads) {
       if (criterionKeys.has(r.fact.key)) {
@@ -83,6 +91,7 @@ export const populationStageProvider: StageProvider = {
         if (e.writer.owner !== r.fact.owner)
           throw unresolved("SOURCE_INVALID", "an envelope's writer is not its register's owner");
         envelopes.push(e);
+        sourceOf.set(e.envelope_id, { owner: r.fact.owner, fact_key: r.fact.key });
       }
     }
     if (new Set(envelopes.map((e) => e.envelope_id)).size !== envelopes.length)
@@ -93,6 +102,9 @@ export const populationStageProvider: StageProvider = {
     const applied = applyEnvelopes(pl.units, eligible.value);
     if (!applied.ok) throw unresolved("SOURCE_INVALID", applied.error.message);
     const a = applied.value;
+    const sourced = withSources(a, sourceOf);
+    if (!sourced)
+      throw unresolved("SOURCE_INVALID", "a consumed envelope has no declared register");
 
     const stage = input.stage;
     const basis: BasisStamp["basis"] = {
@@ -110,23 +122,20 @@ export const populationStageProvider: StageProvider = {
       consumed_envelopes: [...pl.consumed_envelopes, ...a.consumed].sort(),
       basis_stamp: { basis, constituents: readsPinned },
     };
+    const closeCohorts: ReconciliationClose["cohorts"] = [];
     const close: ReconciliationClose = {
       ledger_id: pl.ledger_id,
       close_basis: POPULATION_CLOSE_BASIS,
       close_stage: stage,
       resolution_point: point,
       opening: { count: pl.count.count, ledger_version: priorLedger.version },
-      entries: [...a.entries],
-      exits: [...a.exits],
+      entries: [...sourced.entries],
+      exits: [...sourced.exits],
       closing: { count: a.units.length, ledger_version: nextLedgerVersion },
       consumed_envelopes: [...a.consumed],
       // the membership each recomposed Cohort had before this close (PCB-01 pre-state evidence)
-      cohorts: cohorts
-        .map((c) => ({
-          cohort_id: c.value.ref.cohort_id,
-          members_before: c.value.result?.members ? [...c.value.result.members] : null,
-        }))
-        .sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1)),
+      // (filled below, per Cohort, once each criterion has been verified at the resolution point)
+      cohorts: closeCohorts,
     };
     const inherit = (f: OwnerFact | undefined) => ({
       unit: null,
@@ -156,12 +165,18 @@ export const populationStageProvider: StageProvider = {
         constituents.push({ key: ref.fact_key, version: read.fact.version });
       }
       const result = composeCohortResult(c.value.ref, a.units, criterion, { basis, constituents });
+      closeCohorts.push({
+        cohort_id: c.value.ref.cohort_id,
+        members_before: c.value.result?.members ? [...c.value.result.members] : null,
+        qualifying_entrants: qualifyingEntrants(c.value.ref, eligible.value, criterion),
+      });
       writes.push({
         key: c.key,
         value: { ref: c.value.ref, result } as never,
         ...inherit(c.fact),
       });
     }
+    closeCohorts.sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1));
     return writes;
   },
 };

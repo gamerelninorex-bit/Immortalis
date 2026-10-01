@@ -64,6 +64,8 @@ export const popCoordinator = (store: CampaignStore): TemporalCoordinator =>
   new TemporalCoordinator(store, populationProviders(), populationBarrierEvaluator);
 
 export interface PopSeedOptions {
+  /** further registers close #2's stage reads (lawful, but not declared by the consumer's barrier) */
+  readonly extraSources?: readonly { owner: string; fact_key: string }[];
   readonly buildId?: string;
   readonly fs?: FileCampaignOptions["fs"];
 }
@@ -175,7 +177,7 @@ export async function seededPopulationCampaign(
   let n = 2;
   for (const object of [
     popClose1Object(),
-    popClose2Object(),
+    popClose2Object({}, [...(o.extraSources ?? [])]),
     popOtherObject(),
     popConsumerObject(1),
   ]) {

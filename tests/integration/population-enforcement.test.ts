@@ -44,6 +44,13 @@ import {
   SYNTH_CRITERION_OWNER,
   advanceToRequest,
   burdenCohort,
+  entryEnvelope,
+  exitEnvelope,
+  unit,
+  at,
+  register,
+  registerKey,
+  registerBKey,
   instrumentFs,
   popCloseStage,
   populationProviders,
@@ -52,6 +59,8 @@ import {
   popPublication,
 } from "@immortalis/testkit";
 import {
+  commitCriterion,
+  commitRegister,
   popCoordinator,
   popSummary,
   reopenPopulation,
@@ -289,6 +298,8 @@ describe("IM-11 refuses an unlawful reconciliation — even a TAMPERED one (WS-0
             unit_id: "u-5",
             adapter: "synthetic-entry-adapter",
             causing_event: { owner: SYNTH_CAUSE_OWNER, event_id: "event-env-a" },
+            effective_at: { unit: "fixture-time-unit", value: 110 },
+            source: { owner: SYNTH_CAUSE_OWNER, fact_key: "synthetic-cause/register/ledger-main" },
           });
           c.consumed_envelopes = [...c.consumed_envelopes, "env-a"].sort();
           c.closing.count = c.opening.count + c.entries.length - c.exits.length;
@@ -639,7 +650,12 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
     ],
     [
       "an extra, unsupported trigger",
-      (tx) => dueOf(tx).evidence.triggers.push({ envelope_id: "env-zz", basis: "LEDGER_SCOPE" }),
+      (tx) =>
+        dueOf(tx).evidence.triggers.push({
+          envelope_id: "env-zz",
+          basis: "LEDGER_SCOPE",
+          source: dueOf(tx).evidence.triggers[0].source,
+        }),
     ],
     [
       "another resolution point",
@@ -678,7 +694,13 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
       evidence: (barrier, instant) => ({
         scope: { ledger_id: barrier.population.ledger_id, cohort_id: barrier.population.cohort_id },
         instant,
-        triggers: [{ envelope_id: "env-zz", basis: "COHORT_MEMBER_EXIT" }],
+        triggers: [
+          {
+            envelope_id: "env-zz",
+            basis: "COHORT_MEMBER_EXIT",
+            source: barrier.consequence_sources[0]!,
+          },
+        ],
       }),
       closeSourceLawful: (...a) => populationBarrierEvaluator.closeSourceLawful(...a),
     };
@@ -756,6 +778,254 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
         return f;
       });
       expect(msgs(v)).toMatch(/cannot be traced/);
+    });
+  });
+});
+
+describe("PCB-01 repair 3/4: the retained proof survives same-unit consequences and names a DECLARED source", () => {
+  const txKey = temporalTransactionKey("tx-consumer-1");
+  const SRC_A = { owner: SYNTH_CAUSE_OWNER, fact_key: registerKey(LEDGER_MAIN) };
+  const SRC_B = { owner: SYNTH_CAUSE_OWNER, fact_key: registerBKey(LEDGER_MAIN) };
+  const dueOf = (tx: any) => tx.engaged.find((e: any) => e.boundary === "DUE_RECONCILED");
+
+  function kernelTamper(inner: CampaignStore, mutate: (tx: any) => void): CampaignStore {
+    return {
+      descriptor: inner.descriptor,
+      head: () => inner.head(),
+      getFact: (k) => inner.getFact(k),
+      listFacts: () => inner.listFacts(),
+      lookupReceipt: (i) => inner.lookupReceipt(i),
+      committedGroup: (i) => inner.committedGroup(i),
+      close: () => inner.close(),
+      commit: (g) => {
+        const group = g as CommitGroup;
+        if (group.owner !== "temporal_kernel" || !group.writes.some((w) => w.key === txKey))
+          return inner.commit(g);
+        return inner.commit(withWrite(group, txKey, (tx) => (mutate(tx), tx)));
+      },
+    };
+  }
+
+  /** qualifying Entry then Exit of u-6 (net zero), from the declared register; criterion qualifies u-6 */
+  async function netZero() {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [
+      entryEnvelope("env-n", unit("u-6", "locus-fixture-1", "locus-fixture-1"), at(130)),
+      exitEnvelope("env-x", "u-6", at(140)),
+    ]);
+    await commitCriterion(s.campaign.store, 13, POP_TC, ["u-1", "u-3", "u-5", "u-6"]);
+    return s;
+  }
+  /** a declared trigger (env-c) plus an envelope in a lawful but UNDECLARED register (env-b2) */
+  async function twoSources() {
+    const s = await seededPendingConsumer(tempDir(), { extraSources: [SRC_B] });
+    await must(
+      s.campaign.store.commit(
+        syntheticGroup(
+          FIXTURE_CAMPAIGN,
+          SYNTH_CAUSE_OWNER,
+          40,
+          registerBKey(LEDGER_MAIN),
+          register(LEDGER_MAIN, [exitEnvelope("env-b2", "u-1", at(135))]),
+          0,
+        ),
+      ),
+    );
+    return s;
+  }
+  type Seeded = Awaited<ReturnType<typeof netZero>>;
+
+  async function rawRefused(s: Seeded, mutate: (tx: any) => void) {
+    const lying = new TemporalCoordinator(
+      kernelTamper(s.campaign.store, mutate),
+      populationProviders(),
+      populationBarrierEvaluator,
+    );
+    const r = await lying.advance(advanceToRequest("tx-consumer-1", POP_TC));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && ["VALUE_INVALID", "REFERENCE_INVALID"]).toContain(!r.ok && r.error.code);
+    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+    const honest = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(honest.adopted.map((x) => x.owner_operation.operation)).toContain(
+      "population-reconcile-close",
+    );
+    expect(s.campaign.verify()).toEqual([]);
+  }
+
+  describe("same unit, several consequences (blocker 1)", () => {
+    it("the honest transaction records both triggers and verifies, on admission and on load", async () => {
+      const s = await netZero();
+      const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      expect(dueOf(r.transaction).evidence.triggers.map((t: any) => t.basis)).toEqual([
+        "COHORT_QUALIFYING_ENTRY",
+        "COHORT_MEMBER_EXIT",
+      ]);
+      expect(s.campaign.verify()).toEqual([]);
+    });
+    it.each<[string, (tx: any) => void]>([
+      ["drops the Entry trigger", (tx) => dueOf(tx).evidence.triggers.shift()],
+      ["drops the Exit trigger", (tx) => dueOf(tx).evidence.triggers.pop()],
+      [
+        "relabels the Exit as a qualifying Entry",
+        (tx) => (dueOf(tx).evidence.triggers[1].basis = "COHORT_QUALIFYING_ENTRY"),
+      ],
+      [
+        "relabels the Entry as a member Exit",
+        (tx) => (dueOf(tx).evidence.triggers[0].basis = "COHORT_MEMBER_EXIT"),
+      ],
+    ])("raw admission refuses a claim that %s", async (_n, mutate) => {
+      await rawRefused(await netZero(), mutate);
+    });
+
+    const popTamper: [string, (c: any) => void][] = [
+      [
+        "no qualifying entrant recorded",
+        (c) =>
+          (c.cohorts.find((k: any) => k.cohort_id === COHORT_STATUS_L).qualifying_entrants = []),
+      ],
+      [
+        "a changed effective point",
+        (c) => (c.entries[0].effective_at = { unit: "fixture-time-unit", value: 150 }),
+      ],
+    ];
+    it.each(popTamper)("Population admission refuses a close with %s", async (_n, f) => {
+      const s = await netZero();
+      const t = tamperStore(s.campaign.store, (g) => withWrite(g, closeKey, (c) => (f(c), c)));
+      const c = new TemporalCoordinator(t.store, populationProviders(), populationBarrierEvaluator);
+      const r = await must(c.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      expect(r.rejections.map((x) => x.code)).toEqual(["VALUE_INVALID"]);
+      expect(s.population.ledger(LEDGER_MAIN)!.fact.version).toBe(2);
+    });
+  });
+
+  describe("wrong consequence source (blocker 2)", () => {
+    const honestSrc = (tx: any) => dueOf(tx).evidence.triggers;
+    it.each<[string, (tx: any) => void]>([
+      [
+        "adds an undeclared-register envelope under the declared source",
+        (tx) =>
+          honestSrc(tx).unshift({
+            envelope_id: "env-b2",
+            basis: "COHORT_MEMBER_EXIT",
+            source: SRC_A,
+          }),
+      ],
+      [
+        "adds an undeclared-register envelope under its true (undeclared) source",
+        (tx) =>
+          honestSrc(tx).unshift({
+            envelope_id: "env-b2",
+            basis: "COHORT_MEMBER_EXIT",
+            source: SRC_B,
+          }),
+      ],
+      [
+        "replaces the declared trigger with the undeclared-register envelope",
+        (tx) =>
+          (dueOf(tx).evidence.triggers = [
+            { envelope_id: "env-b2", basis: "COHORT_MEMBER_EXIT", source: SRC_B },
+          ]),
+      ],
+      [
+        "re-attributes the declared trigger to the undeclared register",
+        (tx) => (honestSrc(tx)[0].source = SRC_B),
+      ],
+    ])("raw admission refuses a claim that %s", async (_n, mutate) => {
+      await rawRefused(await twoSources(), mutate);
+    });
+
+    it("Population admission refuses a close that misattributes an envelope's register", async () => {
+      const s = await twoSources();
+      const t = tamperStore(s.campaign.store, (g) =>
+        withWrite(g, closeKey, (c) => {
+          c.exits.find((x: any) => x.envelope_id === "env-b2").source = SRC_A;
+          return c;
+        }),
+      );
+      const c = new TemporalCoordinator(t.store, populationProviders(), populationBarrierEvaluator);
+      const r = await must(c.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      expect(r.rejections.map((x) => x.code)).toEqual(["VALUE_INVALID"]);
+    });
+  });
+
+  describe("load-time verification of the same corruption", () => {
+    async function drifted(
+      seed: () => Promise<Seeded>,
+      mutate: (facts: OwnerFact[]) => OwnerFact[],
+      group?: (g: CommitGroup | null) => CommitGroup | null,
+    ) {
+      const s = await seed();
+      await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      const inner = s.campaign.store;
+      const facts = mutate(structuredClone([...inner.listFacts()]) as OwnerFact[]);
+      const view: CampaignStore = {
+        descriptor: inner.descriptor,
+        head: () => inner.head(),
+        getFact: (k) => inner.getFact(k),
+        listFacts: () => facts,
+        lookupReceipt: (i) => inner.lookupReceipt(i),
+        committedGroup: (i) =>
+          group ? group(structuredClone(inner.committedGroup(i))) : inner.committedGroup(i),
+        commit: (g) => inner.commit(g),
+        close: () => inner.close(),
+      };
+      const out = [...verifyTemporalIntegrity(view), ...verifyPopulationIntegrity(view)];
+      await s.campaign.close();
+      return out;
+    }
+    const editTx = (f: (tx: any) => void) => (facts: OwnerFact[]) => {
+      f(facts.find((x) => x.key === txKey)!.value);
+      return facts;
+    };
+    const editClose = (f: (c: any) => void) => (g: CommitGroup | null) => {
+      const w = g?.writes.find((x) => x.key === closeKey) as any;
+      if (w) f(w.value);
+      return g;
+    };
+    const messages = (v: readonly { message: string }[]) => v.map((x) => x.message).join("\n");
+
+    it("healthy campaigns verify (net-zero and two-source)", async () => {
+      expect(await drifted(netZero, (f) => f)).toEqual([]);
+      expect(await drifted(twoSources, (f) => f)).toEqual([]);
+    });
+    it("net-zero: a dropped trigger, and a journaled close that no longer records the qualifying Entry, both fail", async () => {
+      const a = await drifted(
+        netZero,
+        editTx((tx) => dueOf(tx).evidence.triggers.pop()),
+      );
+      expect(messages(a)).toMatch(/recorded PCB-01 triggers/);
+      const b = await drifted(
+        netZero,
+        (f) => f,
+        editClose(
+          (c) =>
+            (c.cohorts.find((k: any) => k.cohort_id === COHORT_STATUS_L).qualifying_entrants = []),
+        ),
+      );
+      expect(messages(b)).toMatch(/PCB-01 trigger condition is supported/);
+    });
+    it("wrong source: a claim naming the undeclared register, and a journaled close attributing the trigger to it, both fail", async () => {
+      const a = await drifted(
+        twoSources,
+        editTx((tx) =>
+          dueOf(tx).evidence.triggers.unshift({
+            envelope_id: "env-b2",
+            basis: "COHORT_MEMBER_EXIT",
+            source: SRC_B,
+          }),
+        ),
+      );
+      expect(messages(a)).toMatch(/recorded PCB-01 triggers/);
+      const b = await drifted(
+        twoSources,
+        (f) => f,
+        editClose((c) => {
+          // only close #2 holds env-c (close #1 consumed other envelopes)
+          const x = c.exits.find((e: any) => e.envelope_id === "env-c");
+          if (x) x.source = SRC_B;
+        }),
+      );
+      expect(messages(b)).toMatch(/PCB-01 trigger condition is supported/);
     });
   });
 });

@@ -291,6 +291,8 @@ describe("the ordinary close: Closing = Opening + Entries − Exits is a propert
         unit_id: "n",
         adapter: "x",
         causing_event: { owner: "o", event_id: "e" },
+        effective_at: { unit: "u", value: 1 },
+        source: { owner: "o", fact_key: "k" },
       },
     ],
     exits: [],

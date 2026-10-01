@@ -252,11 +252,18 @@ export type ConsequenceRegister = z.infer<typeof ConsequenceRegisterSchema>;
 // is a property of the contract itself: a close that violates it is not a representable value.
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Every consumed envelope is recorded with the facts a later PCB-01 verification needs and cannot get
+ * from final state: its effective point (the order it was applied in, with the envelope id) and the
+ * declared register it came from (its authoritative writer's own carrier).
+ */
 const EntryRecordSchema = z.strictObject({
   envelope_id: EntityId,
   unit_id: EntityId,
   adapter: Id,
   causing_event: z.strictObject({ owner: Id, event_id: EntityId }),
+  effective_at: CanonicalTimeSchema,
+  source: SourceFactRefSchema,
 });
 const ExitRecordSchema = z.strictObject({
   envelope_id: EntityId,
@@ -265,6 +272,8 @@ const ExitRecordSchema = z.strictObject({
   disposition: z.enum(EXIT_DISPOSITIONS),
   continuity_ref: Id.nullable(),
   causing_event: z.strictObject({ owner: Id, event_id: EntityId }),
+  effective_at: CanonicalTimeSchema,
+  source: SourceFactRefSchema,
 });
 
 export const ReconciliationCloseSchema = z
@@ -292,7 +301,19 @@ export const ReconciliationCloseSchema = z
      * unquantified). Population verifies it against the prior Cohort fact at admission; it is the
      * authoritative pre-state a later PCB-01 verification needs, and it is Population's own evidence.
      */
-    cohorts: z.array(z.strictObject({ cohort_id: EntityId, members_before: SortedIds.nullable() })),
+    cohorts: z.array(
+      z.strictObject({
+        cohort_id: EntityId,
+        members_before: SortedIds.nullable(),
+        /**
+         * The Entry envelopes consumed by this close that QUALIFY for the Cohort (land where it is indexed
+         * and, if external, pass the criterion established at the resolution point), whatever later
+         * happens to the unit in the same close. Population verifies it at admission; it is what keeps
+         * a qualifying Entry provable when a later Exit nets the unit out of the final membership.
+         */
+        qualifying_entrants: SortedIds,
+      }),
+    ),
   })
   .superRefine((c, ctx) => {
     const bad = (message: string, path: string[]) =>
@@ -311,6 +332,9 @@ export const ReconciliationCloseSchema = z
       ]);
     if (!sortedUnique(c.cohorts.map((k) => k.cohort_id)))
       bad("recomposed Cohorts are sorted by id with no duplicates", ["cohorts"]);
+    const entryIds = new Set(c.entries.map((e) => e.envelope_id));
+    if (c.cohorts.some((k) => k.qualifying_entrants.some((id) => !entryIds.has(id))))
+      bad("a qualifying entrant is an Entry this close consumed", ["cohorts"]);
     for (const x of c.exits)
       if ((x.disposition === "REVERSIBLE_MEMBERSHIP_EXIT") !== (x.continuity_ref !== null))
         bad("a reversible exit preserves a continuity reference; cessation carries none", [

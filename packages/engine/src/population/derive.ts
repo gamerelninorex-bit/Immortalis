@@ -17,6 +17,7 @@ import {
   type PopulationUnit,
   type ReconciliationClose,
   type Result,
+  type SourceFactRef,
 } from "@immortalis/contracts";
 
 /**
@@ -70,11 +71,52 @@ export function eligibleEnvelopes(
   );
 }
 
+/** Entry/Exit records before the register each came from is attached (`withSources`). */
+export type EntryRec = Omit<ReconciliationClose["entries"][number], "source">;
+export type ExitRec = Omit<ReconciliationClose["exits"][number], "source">;
+
 export interface Applied {
   readonly units: readonly PopulationUnit[];
-  readonly entries: ReconciliationClose["entries"];
-  readonly exits: ReconciliationClose["exits"];
+  readonly entries: readonly EntryRec[];
+  readonly exits: readonly ExitRec[];
   readonly consumed: readonly string[];
+}
+
+/** Attaches to each record the declared register its envelope came from (by envelope id). */
+export function withSources(
+  a: Applied,
+  sourceOf: ReadonlyMap<string, SourceFactRef>,
+): { entries: ReconciliationClose["entries"]; exits: ReconciliationClose["exits"] } | null {
+  const entries = a.entries.map((e) => ({ ...e, source: sourceOf.get(e.envelope_id) }));
+  const exits = a.exits.map((e) => ({ ...e, source: sourceOf.get(e.envelope_id) }));
+  if ([...entries, ...exits].some((r) => r.source === undefined)) return null;
+  return {
+    entries: entries as ReconciliationClose["entries"],
+    exits: exits as ReconciliationClose["exits"],
+  };
+}
+
+/**
+ * The Entry envelopes that QUALIFY for a Cohort (WS-015 §VI–VII): they land where the Cohort is indexed
+ * and, for an external criterion, are in the Criterion Owner's set established at the resolution point.
+ * Evaluated per envelope, so a unit that is later Exited in the same close is still shown to have
+ * qualified. An unquantified Cohort has no discrete membership to qualify for.
+ */
+export function qualifyingEntrants(
+  ref: CohortRef,
+  eligible: readonly ConsequenceEnvelope[],
+  criterion: ExternalCriterion | null,
+): string[] {
+  if (ref.cardinality_semantics === "UNQUANTIFIED") return [];
+  const qualifying = criterion ? new Set(criterion.qualifying_unit_ids) : null;
+  return eligible
+    .flatMap((e) =>
+      e.consequence.kind === "ENTRY" ? [{ id: e.envelope_id, u: e.consequence.unit }] : [],
+    )
+    .filter(({ u }) => indexedPlace(u, ref.indexed_fact) === ref.scope.place)
+    .filter(({ u }) => qualifying === null || qualifying.has(u.unit_id))
+    .map(({ id }) => id)
+    .sort();
 }
 
 /**
@@ -88,10 +130,10 @@ export function applyEnvelopes(
 ): Result<Applied, DeriveErrorCode> {
   const units = new Map(opening.map((u) => [u.unit_id, u]));
   const seen = new Set<string>();
-  const entries: ReconciliationClose["entries"] = [];
-  const exits: ReconciliationClose["exits"] = [];
-  const entriesOut = entries as ReconciliationClose["entries"][number][];
-  const exitsOut = exits as ReconciliationClose["exits"][number][];
+  const entries: EntryRec[] = [];
+  const exits: ExitRec[] = [];
+  const entriesOut = entries;
+  const exitsOut = exits;
   for (const e of envelopes) {
     if (seen.has(e.envelope_id))
       return fail("ENVELOPE_INVALID", "an envelope may be applied only once", {
@@ -110,6 +152,7 @@ export function applyEnvelopes(
         unit_id: c.unit.unit_id,
         adapter: c.adapter,
         causing_event: e.causing_event,
+        effective_at: e.basis.at,
       });
     } else {
       if (!units.has(c.unit_id))
@@ -124,6 +167,7 @@ export function applyEnvelopes(
         disposition: c.disposition,
         continuity_ref: c.continuity_ref,
         causing_event: e.causing_event,
+        effective_at: e.basis.at,
       });
     }
   }

@@ -256,7 +256,14 @@ export const Pcb01EvidenceSchema = z
     /** the consumer's boundary instant: the single resolution point the reconciliation resolved at */
     instant: CanonicalTimeSchema,
     triggers: z
-      .array(z.strictObject({ envelope_id: EntityId, basis: z.enum(PCB01_TRIGGER_BASES) }))
+      .array(
+        z.strictObject({
+          envelope_id: EntityId,
+          basis: z.enum(PCB01_TRIGGER_BASES),
+          /** the consumer-declared consequence source the envelope came from */
+          source: SourceFactRefSchema,
+        }),
+      )
       .min(1),
   })
   .superRefine((e, ctx) => {

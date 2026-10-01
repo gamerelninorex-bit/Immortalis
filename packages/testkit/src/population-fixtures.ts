@@ -12,6 +12,7 @@ import {
   type DependencyDeclaration,
   type ExternalCriterion,
   type PendingConsequenceBarrier,
+  type SourceFactRef,
   type PopulationUnit,
   type ResolutionRequest,
   type TemporalObject,
@@ -204,6 +205,8 @@ export const criterion = (resolution_point: CanonicalTime, ids: string[]): Exter
 });
 
 export const registerKey = (ledger: string): string => `synthetic-cause/register/${ledger}`;
+/** A second, lawful register of the same causal owner — one the consumer's barrier does NOT declare. */
+export const registerBKey = (ledger: string): string => `synthetic-cause/register-b/${ledger}`;
 
 export const envelope = (
   envelope_id: string,
@@ -403,12 +406,15 @@ export const OBJECT_POP_CLOSE_2 = "obj-pop-close-2";
 export const OBJECT_POP_OTHER = "obj-pop-other";
 export const BOUNDARY_POP_CLOSE_1 = "boundary-pop-close-1";
 
-const mainSpec = (resultId: string) => ({
+const mainSpec = (resultId: string, extraSources: SourceFactRef[] = []) => ({
   ledgerId: LEDGER_MAIN,
   resultId,
   cohortIds: [COHORT_BURDEN_L, COHORT_BURDEN_M, COHORT_STATUS_L],
   criteria: [{ owner: SYNTH_CRITERION_OWNER, fact_key: CRITERION_KEY }],
-  consequenceSources: [{ owner: SYNTH_CAUSE_OWNER, fact_key: registerKey(LEDGER_MAIN) }],
+  consequenceSources: [
+    { owner: SYNTH_CAUSE_OWNER, fact_key: registerKey(LEDGER_MAIN) },
+    ...extraSources,
+  ],
 });
 
 /** Ordinary close #1: earns its boundary at TP. */
@@ -424,13 +430,16 @@ export const popClose1Object = (over: Partial<TemporalObject> = {}): TemporalObj
 });
 
 /** The next eligible reconciliation: dormant (no earned boundary), made due only by a PCB-01 barrier. */
-export const popClose2Object = (over: Partial<TemporalObject> = {}): TemporalObject => ({
+export const popClose2Object = (
+  over: Partial<TemporalObject> = {},
+  extraSources: SourceFactRef[] = [],
+): TemporalObject => ({
   ...populationTemporalObject({
     objectId: OBJECT_POP_CLOSE_2,
     ledgerId: LEDGER_MAIN,
     lastResolvedBasis: POP_T0,
     nextBoundary: null,
-    declaration: populationReconcileDeclaration(mainSpec("close-2")),
+    declaration: populationReconcileDeclaration(mainSpec("close-2", extraSources)),
   }),
   ...over,
 });

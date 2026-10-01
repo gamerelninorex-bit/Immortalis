@@ -44,6 +44,11 @@ import {
   advanceToRequest,
   at,
   entryEnvelope,
+  registerBKey,
+  syntheticGroup,
+  SYNTH_CAUSE_OWNER,
+  FIXTURE_CAMPAIGN,
+  register,
   exitEnvelope,
   unit,
   burdenCohort,
@@ -612,6 +617,8 @@ describe("a spent reconciliation is never selected again (no recurrence is imple
   });
 });
 
+const SRC_A = { owner: "SYNTHETIC-CAUSE-OWNER", fact_key: registerKey(LEDGER_MAIN) };
+
 describe("PCB-01 repair 1: an Entry the authoritative external criterion shows cannot qualify does not force reconciliation", () => {
   const joinedAtL = () => entryEnvelope("env-n", unit("u-6", PLACE_L, PLACE_L), at(130));
 
@@ -637,7 +644,7 @@ describe("PCB-01 repair 1: an Entry the authoritative external criterion shows c
     const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
     const due = r.transaction.engaged.find((e) => e.boundary === "DUE_RECONCILED") as any;
     expect(due.evidence.triggers).toEqual([
-      { envelope_id: "env-n", basis: "COHORT_QUALIFYING_ENTRY" },
+      { envelope_id: "env-n", basis: "COHORT_QUALIFYING_ENTRY", source: SRC_A },
     ]);
     expect(s.population.cohort(LEDGER_MAIN, COHORT_STATUS_L)!.value.result!.members).toContain(
       "u-6",
@@ -695,7 +702,7 @@ describe("PCB-01 repair 2: the due claim is retained as verifiable evidence", ()
     expect(due.evidence).toEqual({
       scope: { ledger_id: LEDGER_MAIN, cohort_id: COHORT_STATUS_L },
       instant: POP_TC,
-      triggers: [{ envelope_id: "env-c", basis: "COHORT_MEMBER_EXIT" }],
+      triggers: [{ envelope_id: "env-c", basis: "COHORT_MEMBER_EXIT", source: SRC_A }],
     });
     // Population's close retains the pre-state membership the claim relies on (verified at its admission)
     const close = s.population.close(LEDGER_MAIN)!.value;
@@ -704,6 +711,94 @@ describe("PCB-01 repair 2: the due claim is retained as verifiable evidence", ()
       "u-2",
       "u-5",
     ]);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+});
+
+describe("PCB-01 repair 3: several consequences for the same unit keep their causal proof", () => {
+  it("a qualifying Entry followed by an Exit of the same unit in one close: due, nets to nothing, and BOTH triggers are retained", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [
+      entryEnvelope("env-n", unit("u-6", PLACE_L, PLACE_L), at(130)),
+      exitEnvelope("env-x", "u-6", at(140)),
+    ]);
+    await commitCriterion(s.campaign.store, 13, POP_TC, ["u-1", "u-3", "u-5", "u-6"]);
+    const unitsBefore = s.population.ledger(LEDGER_MAIN)!.value.units;
+    // the live predicate: due (the Entry qualifies)
+    expect(
+      populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+        s.campaign.store.getFact(k),
+      ).due,
+    ).toBe(true);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    // final state alone cannot show why: the unit is neither in the ledger nor in the view afterwards
+    expect(s.population.ledger(LEDGER_MAIN)!.value.units).toEqual(unitsBefore);
+    expect(s.population.cohort(LEDGER_MAIN, COHORT_STATUS_L)!.value.result!.members).not.toContain(
+      "u-6",
+    );
+    const close = s.population.close(LEDGER_MAIN)!.value;
+    expect(close.consumed_envelopes).toEqual(["env-n", "env-x"]);
+    expect(close.opening.count).toBe(close.closing.count);
+    expect(close.cohorts.find((k) => k.cohort_id === COHORT_STATUS_L)).toMatchObject({
+      qualifying_entrants: ["env-n"],
+    });
+    // the retained proof still carries the cause: the qualifying Entry and the Exit of the then-member
+    const due = r.transaction.engaged.find((e) => e.boundary === "DUE_RECONCILED") as any;
+    expect(due.evidence.triggers).toEqual([
+      { envelope_id: "env-n", basis: "COHORT_QUALIFYING_ENTRY", source: SRC_A },
+      { envelope_id: "env-x", basis: "COHORT_MEMBER_EXIT", source: SRC_A },
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+});
+
+describe("PCB-01 repair 4: only DECLARED consequence sources can make a reconciliation due", () => {
+  const REG_B = { owner: "SYNTHETIC-CAUSE-OWNER", fact_key: registerBKey(LEDGER_MAIN) };
+  it("a pending envelope in a lawful but undeclared register does not force reconciliation", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false, extraSources: [REG_B] });
+    await must(
+      s.campaign.store.commit(
+        syntheticGroup(
+          FIXTURE_CAMPAIGN,
+          SYNTH_CAUSE_OWNER,
+          40,
+          registerBKey(LEDGER_MAIN),
+          register(LEDGER_MAIN, [exitEnvelope("env-b2", "u-1", at(135))]),
+          0,
+        ),
+      ),
+    );
+    const probe = populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+      s.campaign.store.getFact(k),
+    );
+    expect(probe.due).toBe(false);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(r.transaction.engaged.map((e) => e.boundary)).toEqual(["RETIRED"]);
+    expect(s.population.ledger(LEDGER_MAIN)!.value.consumed_envelopes).not.toContain("env-b2");
+  });
+
+  it("when a declared trigger exists, an undeclared-register envelope is consumed with it but is never a trigger", async () => {
+    const s = await seededPendingConsumer(tempDir(), { extraSources: [REG_B] });
+    await must(
+      s.campaign.store.commit(
+        syntheticGroup(
+          FIXTURE_CAMPAIGN,
+          SYNTH_CAUSE_OWNER,
+          40,
+          registerBKey(LEDGER_MAIN),
+          register(LEDGER_MAIN, [exitEnvelope("env-b2", "u-1", at(135))]),
+          0,
+        ),
+      ),
+    );
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    const due = r.transaction.engaged.find((e) => e.boundary === "DUE_RECONCILED") as any;
+    expect(due.evidence.triggers).toEqual([
+      { envelope_id: "env-c", basis: "COHORT_MEMBER_EXIT", source: SRC_A },
+    ]);
+    const close = s.population.close(LEDGER_MAIN)!.value;
+    expect(close.consumed_envelopes).toEqual(["env-b2", "env-c"]);
+    expect(close.exits.find((x) => x.envelope_id === "env-b2")!.source).toEqual(REG_B);
     expect(s.campaign.verify()).toEqual([]);
   });
 });

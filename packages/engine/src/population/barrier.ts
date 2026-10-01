@@ -72,35 +72,61 @@ function intersects(
 
 /**
  * The triggers of a PCB-01 due claim, derived ONLY from what the committed Population stage group wrote:
- * its close (the consumed Entries/Exits and each recomposed Cohort's membership before) and the Cohort's
- * composed result after. An envelope is a trigger when it intersects the engaged scope: any consumed
- * envelope for a ledger scope; for a Cohort, an Exit of a member before, an Entry that is a member after
- * (it qualifies), or anything while the Cohort was not yet composed.
+ * its close — each consumed envelope with its effective point and the register it came from, plus, per
+ * recomposed Cohort, the membership BEFORE and the Entry envelopes that QUALIFY — and the engaged scope.
+ *
+ * The consumed envelopes are REPLAYED in application order (effective point, then envelope id), so the
+ * cause is never lost to final state: a qualifying Entry that a later Exit of the same unit nets out is
+ * still an Entry that intersected, and so is that Exit (the unit was a member by then). An envelope is a
+ * trigger only if it came from one of the barrier's DECLARED consequence sources — an envelope from some
+ * other lawful register, though consumed by the same close, can never make this consumer's
+ * reconciliation due. For a ledger scope every declared-source envelope is a trigger; for a Cohort: an
+ * Exit of a then-member, a qualifying Entry, or anything while the Cohort was not yet composed.
  */
 export function derivePcbTriggers(
   barrier: PendingConsequenceBarrier,
   close: ReconciliationClose,
   cohort: CohortFact | null,
 ): Pcb01Evidence["triggers"] {
-  const out: Pcb01Evidence["triggers"] = [];
+  const declared = (s: { owner: string; fact_key: string }) =>
+    barrier.consequence_sources.some((d) => d.owner === s.owner && d.fact_key === s.fact_key);
   const consumed = [
-    ...close.entries.map((e) => ({ id: e.envelope_id, unit: e.unit_id, kind: "ENTRY" as const })),
-    ...close.exits.map((e) => ({ id: e.envelope_id, unit: e.unit_id, kind: "EXIT" as const })),
-  ];
+    ...close.entries.map((e) => ({ ...e, kind: "ENTRY" as const })),
+    ...close.exits.map((e) => ({ ...e, kind: "EXIT" as const })),
+  ].sort((x, y) =>
+    x.effective_at.value !== y.effective_at.value
+      ? x.effective_at.value - y.effective_at.value
+      : x.envelope_id < y.envelope_id
+        ? -1
+        : 1,
+  );
+  const out: Pcb01Evidence["triggers"] = [];
   const cohortId = barrier.population.cohort_id;
+  const trigger = (
+    c: (typeof consumed)[number],
+    basis: Pcb01Evidence["triggers"][number]["basis"],
+  ) => {
+    if (declared(c.source)) out.push({ envelope_id: c.envelope_id, basis, source: c.source });
+  };
   if (cohortId === null) {
-    for (const c of consumed) out.push({ envelope_id: c.id, basis: "LEDGER_SCOPE" });
+    for (const c of consumed) trigger(c, "LEDGER_SCOPE");
   } else {
     const composition = close.cohorts.find((k) => k.cohort_id === cohortId);
     if (!composition || !cohort || cohort.ref.cardinality_semantics === "UNQUANTIFIED") return [];
-    const before = composition.members_before;
-    const after = cohort.result?.members ?? null;
-    for (const c of consumed) {
-      if (before === null) out.push({ envelope_id: c.id, basis: "COHORT_NOT_YET_COMPOSED" });
-      else if (c.kind === "EXIT" && before.includes(c.unit))
-        out.push({ envelope_id: c.id, basis: "COHORT_MEMBER_EXIT" });
-      else if (c.kind === "ENTRY" && after?.includes(c.unit))
-        out.push({ envelope_id: c.id, basis: "COHORT_QUALIFYING_ENTRY" });
+    if (composition.members_before === null) {
+      for (const c of consumed) trigger(c, "COHORT_NOT_YET_COMPOSED");
+    } else {
+      const running = new Set(composition.members_before);
+      const qualifying = new Set(composition.qualifying_entrants);
+      for (const c of consumed) {
+        if (c.kind === "ENTRY") {
+          if (!qualifying.has(c.envelope_id)) continue;
+          running.add(c.unit_id);
+          trigger(c, "COHORT_QUALIFYING_ENTRY");
+        } else if (running.delete(c.unit_id)) {
+          trigger(c, "COHORT_MEMBER_EXIT");
+        }
+      }
     }
   }
   return out.sort((a, b) => (a.envelope_id < b.envelope_id ? -1 : 1));

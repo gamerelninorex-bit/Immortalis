@@ -80,10 +80,23 @@ export function verifyPopulationIntegrity(store: CampaignStore): readonly Integr
           bad(closeFact.key, "the close is not the ledger's own closing basis");
         if (!close.consumed_envelopes.every((id) => ledger.consumed_envelopes.includes(id)))
           bad(closeFact.key, "the close consumed an envelope the ledger does not record");
-        const exited = new Set(close.exits.map((x) => x.unit_id));
-        const entered = close.entries.map((x) => x.unit_id);
+        // replay in application order: the LAST consequence for a unit decides whether it is held (an
+        // Entry then an Exit of the same unit in one close nets to absent)
+        const last = new Map<string, "ENTRY" | "EXIT">();
+        [
+          ...close.entries.map((e) => ({ ...e, kind: "ENTRY" as const })),
+          ...close.exits.map((e) => ({ ...e, kind: "EXIT" as const })),
+        ]
+          .sort((x, y) =>
+            x.effective_at.value !== y.effective_at.value
+              ? x.effective_at.value - y.effective_at.value
+              : x.envelope_id < y.envelope_id
+                ? -1
+                : 1,
+          )
+          .forEach((x) => last.set(x.unit_id, x.kind));
         const held = new Set(ledger.units.map((u) => u.unit_id));
-        if (entered.some((id) => !held.has(id)) || [...exited].some((id) => held.has(id)))
+        if ([...last].some(([id, kind]) => held.has(id) !== (kind === "ENTRY")))
           bad(
             closeFact.key,
             "the close's entries and exits are not reflected in the ledger's units",

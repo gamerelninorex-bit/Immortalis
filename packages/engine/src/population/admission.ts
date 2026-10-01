@@ -18,12 +18,20 @@ import {
   type ExternalCriterion,
   type PopulationBasis,
   type PopulationUnit,
+  type ReconciliationClose,
+  type SourceFactRef,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
-import { applyEnvelopes, composeCohortResult, eligibleEnvelopes } from "./derive.ts";
+import {
+  applyEnvelopes,
+  composeCohortResult,
+  eligibleEnvelopes,
+  qualifyingEntrants,
+  withSources,
+} from "./derive.ts";
 
 /**
  * IM-11 admission for the IM-04 Population owner (IM-03 owner resolution; WS-001 §1, §35; WS-015 §III,
@@ -224,6 +232,7 @@ function checkReconciliation(
 
   // The typed envelopes the group pinned, from their authoritative writers' own registers.
   const envelopes: ConsequenceEnvelope[] = [];
+  const sourceOf = new Map<string, SourceFactRef>();
   const criteria = new Map<string, { value: ExternalCriterion; version: number; owner: string }>();
   for (const r of group.reads) {
     const fact = state.facts.get(r.key);
@@ -238,6 +247,7 @@ function checkReconciliation(
           });
         }
         envelopes.push(e);
+        sourceOf.set(e.envelope_id, { owner: fact.owner, fact_key: r.key });
       }
       continue;
     }
@@ -253,10 +263,14 @@ function checkReconciliation(
   const applied = applyEnvelopes(pl.units, eligible.value);
   if (!applied.ok) return bad(applied.error.message, applied.error.details);
   const a = applied.value;
+  // each consumed envelope is recorded with the register it actually came from (the pinned fact's owner and
+  // key) — the retained proof a PCB-01 verification needs to tie a trigger to a DECLARED source
+  const sourced = withSources(a, sourceOf);
   if (
+    !sourced ||
     !canonicalEqual(c.consumed_envelopes, a.consumed) ||
-    !canonicalEqual(c.entries, a.entries) ||
-    !canonicalEqual(c.exits, a.exits)
+    !canonicalEqual(c.entries, sourced.entries) ||
+    !canonicalEqual(c.exits, sourced.exits)
   ) {
     return bad(
       "a close consumes every eligible unconsumed envelope it pinned, each exactly once, as typed Entries and Exits",
@@ -267,22 +281,6 @@ function checkReconciliation(
     !canonicalEqual(nl.consumed_envelopes, [...pl.consumed_envelopes, ...a.consumed].sort())
   ) {
     return bad("units change only by the typed envelopes consumed; consumption is recorded once");
-  }
-  const expectedBefore = cohortWs
-    .map((w) => {
-      const prior = state.facts.get(w.key);
-      const was = prior ? CohortFactSchema.safeParse(prior.value) : undefined;
-      return {
-        cohort_id: resolveKey(w.key)!.ids[1]!,
-        members_before:
-          was?.success && was.data.result?.members ? [...was.data.result.members] : null,
-      };
-    })
-    .sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1));
-  if (!canonicalEqual(c.cohorts, expectedBefore)) {
-    return bad(
-      "a close records, for each Cohort it recomposes, exactly the membership that Cohort had before",
-    );
   }
   return checkCohorts(
     state,
@@ -295,6 +293,8 @@ function checkReconciliation(
     cohortWs,
     criteria,
     priorFact.version,
+    c,
+    eligible.value,
   );
 }
 
@@ -309,9 +309,12 @@ function checkCohorts(
   cohortWs: CommitGroup["writes"],
   criteria: Map<string, { value: ExternalCriterion; version: number; owner: string }>,
   priorLedgerVersion: number,
+  close: ReconciliationClose,
+  eligible: readonly ConsequenceEnvelope[],
 ): Rejection | null {
   const bad = (message: string, details?: Record<string, unknown>) =>
     reject("VALUE_INVALID", message, details);
+  const composition: ReconciliationClose["cohorts"] = [];
   for (const w of cohortWs) {
     const prior = state.facts.get(w.key);
     if (!prior || w.expected_version === 0) {
@@ -358,6 +361,13 @@ function checkCohorts(
       criterion = read.value;
       constituents.push({ key: ref.fact_key, version: read.version });
     }
+    // the close's per-Cohort evidence: the membership before and the qualifying Entry envelopes, which
+    // survive a later Exit of the same unit in the same close
+    composition.push({
+      cohort_id: now.ref.cohort_id,
+      members_before: was.result?.members ? [...was.result.members] : null,
+      qualifying_entrants: qualifyingEntrants(now.ref, eligible, criterion),
+    });
     const expected = composeCohortResult(now.ref, units, criterion, {
       basis: nl.basis_stamp.basis,
       constituents,
@@ -367,6 +377,12 @@ function checkCohorts(
         key: w.key,
       });
     }
+  }
+  composition.sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1));
+  if (!canonicalEqual(close.cohorts, composition)) {
+    return bad(
+      "a close records, for each Cohort it recomposes, the membership it had before and the Entry envelopes that qualify for it",
+    );
   }
   return null;
 }
