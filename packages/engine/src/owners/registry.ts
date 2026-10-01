@@ -21,11 +21,14 @@ import {
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   FACET_ECONOMY_STATE,
+  FACET_GIP_INSTITUTION_IDENTITY,
   FACET_EXISTENCE_CONTRACT,
   FACET_LOGISTICS_STATE,
   FACET_PRODUCTION_STATE,
   FACET_WORLD_FALLBACK_ENTITY,
   FallbackPhysicalEntitySchema,
+  InstitutionIdentitySchema,
+  OWNER_GIP,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   OWNER_ECONOMY,
@@ -151,6 +154,11 @@ export const WS002_SOURCE = {
   native_pin: "2026-09-26T02:44:38.319Z",
 } as const;
 
+export const WS007_SOURCE = {
+  artifact: "https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521",
+  native_pin: "2026-09-24T01:42:24.952Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -206,7 +214,9 @@ export const KTI_FACT_KIND_IDS = [
   "kti_transfer_basis",
   "kti_transfer_package",
 ] as const;
+export const GIP_FACT_KIND_IDS = ["gip_institution_identity"] as const;
 export type FactKindId =
+  | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
   | (typeof KTI_FACT_KIND_IDS)[number]
   | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
@@ -887,10 +897,49 @@ export const KTI_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const WS007_LINEAGE =
+  "WS-007 Government / Institutions / Politics — frozen F-027 source: the Sovereign-ratified GIP Working Operational Draft v2.1, pin 2026-09-24T01:42:24.952Z (https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521), paired with the GIP Scaling Profile v1.1, Red-confirmed at pin 2026-09-25T00:59:55.526Z (https://app.notion.com/p/3e620af901e0812d85efd4438089f417), and the OB-046 closed record confirming WS-007 Current-Saturated / Working Design Saturated in its local scope (https://app.notion.com/p/3e520af901e081e5be76efd3902a180c)";
+
+/**
+ * The governing rule for the GIP Institution Identity kind: the identity is one group, written once, and every load
+ * re-verifies it against this citation. The clauses are the ones the state relies on: Draft v2.1 §2.1 (GIP is the owner of
+ * institution identity references), §2.2 (explicit non-ownership: no population count, individual motive, faction posture,
+ * cultural norm, money, goods, military or logistics capability and no external commitment) and §3.1 (the Institution
+ * Identity Reference: one stable identity reference per real institution, identity/provenance only, never a catch-all state
+ * ledger); Scaling Profile §3 (institution identity: one materially distinct continuing institution identity, never a
+ * common property bag) and §4 Creation (create persistent GIP state only when future causality requires it).
+ */
+export const GIP_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (institution identity references) and §2.2 Explicit non-ownership; §3.1 Institution Identity Reference (institution_id, identity_label, continuity_status, predecessor/successor only where material, optional constitutive_source_ref; identity/provenance only, not a catch-all state ledger); with Scaling Profile v1.1 §3 Cardinality basis (one materially distinct continuing institution identity; never a common property bag), §4 Growth & lifecycle — Creation and §5 Retrieval cost (no scan of all institutions)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY part only: "GIP authority/instruments",
+ * lowered to the one identity/provenance record the source assigns to GIP. One owner, one facet, one exclusive create-only
+ * (SEALED) key space. There is no fallback owner, and no office, authority, instrument, procedure, membership, faction,
+ * asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or property-bag kind.
+ */
+export const GIP_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "gip_institution_identity",
+    owner: OWNER_GIP,
+    facet: FACET_GIP_INSTITUTION_IDENTITY,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^gip/institution/${ID}/identity$`),
+    valueSchema: InstitutionIdentitySchema,
+    rule: GIP_RULE,
+  },
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
- * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds and the IM-09 KTI kinds.
+ * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
+ * and the IM-06 GIP Institution Identity kind.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -904,6 +953,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...NAMED_ACTOR_FACT_KINDS,
   ...EPISTEMIC_ACCESS_FACT_KINDS,
   ...KTI_FACT_KINDS,
+  ...GIP_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

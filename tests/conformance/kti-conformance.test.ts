@@ -125,7 +125,7 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
         key,
       ).toHaveLength(1);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "kti")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(32);
+    expect(ALL_FACT_KINDS).toHaveLength(33);
   });
 
   it("there is no relationship, encounter, intelligibility, competence, adoption, diffusion, doctrine, institution, Population, headcount or numeric kind, and no fallback KTI owner", () => {
@@ -455,6 +455,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "commit",
       "economy",
       "epistemic",
+      "gip",
       "kti",
       "logistics",
       "owners",
