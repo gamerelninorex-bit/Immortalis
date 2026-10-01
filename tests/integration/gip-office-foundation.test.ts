@@ -424,9 +424,11 @@ describe("an attempted office update or holder change fails closed: no transitio
       .filter((m) => m !== "constructor")
       .sort();
     expect(methods).toEqual([
+      "establishGovernanceInstrument",
       "establishInstitution",
       "establishOffice",
       "establishScopeBinding",
+      "governanceInstrument",
       "institutionIdentity",
       "officeAuthorityLocus",
       "scopeBinding",

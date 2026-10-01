@@ -158,14 +158,15 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
     ).toEqual(["i1", "o1", "s1"]);
   });
 
-  it("the registry holds exactly three GIP kinds and no instrument, validity, procedure, relation, path, status, membership, faction or fallback kind", () => {
+  it("the registry holds exactly the four GIP kinds (the sixteenth slice adds only the Governance Instrument core) and no clause, validity, procedure, relation, path, status, membership, faction or fallback kind", () => {
     expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
       "gip_institution_identity",
       "gip_office_authority_locus",
       "gip_scope_binding",
+      "gip_governance_instrument",
     ]);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(35);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
+    expect(ALL_FACT_KINDS).toHaveLength(36);
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06" && k.owner === "gip")).toBe(true);
     expect(
       [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) =>
@@ -189,18 +190,20 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       );
     const adapter = code(`${GIP_DIR}/adapter.ts`);
     expect(adapter.match(/\.commit\(/g)).toHaveLength(1);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(3);
+    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
   });
 
-  it("the GIP adapter has exactly three authored writers and three keyed reads: no scope update, replacement, resolution or applicability method", () => {
+  it("the GIP adapter has exactly four authored writers (the sixteenth slice adds the Instrument establishment) and four keyed reads: no scope update, replacement, resolution or applicability method", () => {
     expect(
       Object.getOwnPropertyNames(GipAdapter.prototype)
         .filter((m) => m !== "constructor")
         .sort(),
     ).toEqual([
+      "establishGovernanceInstrument",
       "establishInstitution",
       "establishOffice",
       "establishScopeBinding",
+      "governanceInstrument",
       "institutionIdentity",
       "officeAuthorityLocus",
       "scopeBinding",
@@ -286,9 +289,12 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
   it("no instrument, validity, applicability, procedure, vote, exercise, reach, awareness, compliance, transition or foreign-owner construct was added to the GIP modules", () => {
     for (const f of SOURCES) {
       // the authored field names `succession_rule` (the office's) and `inheritance_rule` (the binding's) are carried, never acted on
-      const text = identifiers(f).replace(/\b(succession|inheritance)_rule\b/g, "");
+      // (the sixteenth slice's Governance Instrument core identifiers are the one permitted instrument construct)
+      const text = identifiers(f)
+        .replace(/\b(succession|inheritance)_rule\b/g, "")
+        .replace(/\b\w*[Ii]nstrument\w*\b/g, "");
       expect(text, f).not.toMatch(
-        /\b(instrument\w*|applicab\w*|procedure|vote\w*|veto|override|exercis\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|promulgat\w*|awareness|complian\w*|enforce\w*|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|inherit\w*|precedence|decisionBody|delegat\w*|appoint\w*|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*|projection|npk|llm|prompt)\b/i,
+        /\b(applicab\w*|procedure|vote\w*|veto|override|exercis\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|promulgat\w*|awareness|complian\w*|enforce\w*|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|inherit\w*|precedence|decisionBody|delegat\w*|appoint\w*|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*|projection|npk|llm|prompt)\b/i,
       );
     }
   });

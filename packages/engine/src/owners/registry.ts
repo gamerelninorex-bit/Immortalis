@@ -31,6 +31,7 @@ import {
   OfficeAuthorityLocusHolderSchema,
   OfficeAuthorityLocusSchema,
   OWNER_GIP,
+  GovernanceInstrumentSchema,
   ScopeBindingSchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
@@ -221,6 +222,7 @@ export const GIP_FACT_KIND_IDS = [
   "gip_institution_identity",
   "gip_office_authority_locus",
   "gip_scope_binding",
+  "gip_governance_instrument",
 ] as const;
 export type FactKindId =
   | (typeof GIP_FACT_KIND_IDS)[number]
@@ -983,16 +985,38 @@ export const GIP_SCOPE_BINDING_RULE: SourceRef = rule(
 );
 
 /**
- * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY, OFFICE / AUTHORITY LOCUS and AUTHORITY SCOPE
- * BINDING parts only: "GIP authority/instruments", lowered to the identity/provenance record, the one office/authority record
- * and the one Scope Binding of an office that the source assigns to GIP. One owner, one facet, three exclusive key spaces. The Institution Identity is SEALED (create-only). The
+ * The governing rule for the GIP Governance Instrument kind (sixteenth slice): one group, written once at establishment
+ * beneath one committed Office / Authority Locus and one committed Scope Binding of that same office (the Instrument is
+ * ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
+ * ones the state relies on: Draft v2.1 §2.1 (GIP owns Governance Instruments) and §2.2 (explicit non-ownership), §4.1 (the
+ * mandatory fields, the validity entry, the core validity and lifecycle literals; validity is order-relative and is not
+ * lifecycle/force), §4.2 (the operative-effect classes), §21.1/§21.2 (create only when future causality requires it; update
+ * only on a material change); Concept Amendment v2.1 A7 (validity-by-order and lifecycle/operative status are separate
+ * dimensions); Scaling Profile v1.1 §3 (Instrument/Clause cardinality: the Instrument unit only), §4 (Creation) and §5 (no
+ * scan of all institutions, offices, bindings, instruments, orders, recipients or subjects). The source artifact, exact native
+ * pin and authority lineage are those of the other GIP kinds. No other kind's citation is changed or reused.
+ */
+export const GIP_INSTRUMENT_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (Governance Instruments) and §2.2 Explicit non-ownership; §4.1 Mandatory fields (instrument_id, source_authority_ref, authority_basis_ref, operative_effect, scope_binding_ref, validity_by_order[] with governing_order_ref and validity_status, lifecycle_status; core validity_status and lifecycle_status literals; validity is order-relative and lifecycle/force is not validity), §4.2 Operative-effect classes; §4.3 conditional fields and §4.4 addressable clauses not implemented; §21.1 Create and §21.2 Update (validity or lifecycle change is a material update, not implemented here); with Concept Amendment v2.1 A7 (validity-by-order and lifecycle are separate dimensions) and Scaling Profile v1.1 §3 Cardinality basis (Instrument/Clause: the Instrument unit only), §4 Growth & lifecycle — Creation and §5 Retrieval cost (no scan of all institutions, offices, bindings, instruments, orders, recipients or subjects)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY, OFFICE / AUTHORITY LOCUS, AUTHORITY SCOPE
+ * BINDING and GOVERNANCE INSTRUMENT CORE parts only: "GIP authority/instruments", lowered to the identity/provenance record,
+ * the one office/authority record, the one Scope Binding of an office and the one Instrument core record that the source
+ * assigns to GIP. One owner, one facet, four exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
  * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
  * GIP admission refuses every other change to it. The Scope Binding is likewise ADVANCING in kind (a scope, exception or
- * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed office, at that
- * office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. There is no fallback
- * owner, and no instrument, procedure,
+ * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed
+ * office, at that office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. The
+ * Governance Instrument core is ADVANCING in kind (a later validity or lifecycle change is lawful work, WS-007 §4.1) and
+ * establishment-only here: it lives at its own `gip/instrument/<instrument_id>` key (the canonical identity is the exact
+ * `instrument_id` alone), rests on one committed office and one committed Scope Binding of that same office, and GIP admission
+ * refuses every other change to it. There is no fallback owner, and no procedure,
  * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or
  * property-bag kind.
  */
@@ -1035,13 +1059,24 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
     valueSchema: ScopeBindingSchema,
     rule: GIP_SCOPE_BINDING_RULE,
   },
+  {
+    id: "gip_governance_instrument",
+    owner: OWNER_GIP,
+    facet: FACET_GIP_INSTITUTION_IDENTITY,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^gip/instrument/${ID}$`),
+    valueSchema: GovernanceInstrumentSchema,
+    rule: GIP_INSTRUMENT_RULE,
+  },
 ];
 
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
- * and the IM-06 GIP Institution Identity, Office / Authority Locus and Authority Scope Binding kinds.
+ * and the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,

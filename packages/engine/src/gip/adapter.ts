@@ -1,14 +1,19 @@
 import {
   CANON_WRITE_AUTHORITY,
+  GovernanceInstrumentSchema,
   InstitutionIdentitySchema,
   OfficeAuthorityLocusSchema,
   PublicationSchema,
   ScopeBindingSchema,
   fail,
   gipInstitutionIdentityKey,
+  gipInstrumentKey,
   gipOfficeAuthorityLocusKey,
   gipScopeBindingKey,
+  parseInstrumentScopeBindingRef,
+  parseInstrumentSourceAuthorityRef,
   type CommitGroup,
+  type GovernanceInstrument,
   type InstitutionIdentity,
   type OfficeAuthorityLocus,
   type ScopeBinding,
@@ -97,17 +102,42 @@ export function readScopeBinding(
   return value.success ? { fact, value: value.data } : undefined;
 }
 
+/** A committed Governance Instrument core record read by exact key: the fact (with its provenance) and its typed value. */
+export interface TypedGovernanceInstrument {
+  readonly fact: OwnerFact;
+  readonly value: GovernanceInstrument;
+}
+
+/**
+ * The read path any lawful consumer uses: one committed Governance Instrument core record, by its exact canonical
+ * `instrument_id` (GIP Scaling Profile v1.1 §5: retrieval is keyed by the current governance question, never a scan of
+ * institutions, offices, bindings, instruments, orders, recipients or subjects). It takes only the read side of a store, so
+ * reading grants no write authority, and it returns undefined for an Instrument that is not established — nothing is created,
+ * inferred or defaulted by a read. It reports what the record says: it dereferences no authority basis or governing order,
+ * calculates no validity or lifecycle and returns no applicability result.
+ */
+export function readGovernanceInstrument(
+  store: Pick<CampaignStore, "getFact">,
+  instrumentId: string,
+): TypedGovernanceInstrument | undefined {
+  const fact = store.getFact(gipInstrumentKey(instrumentId));
+  if (!fact) return undefined;
+  const value = GovernanceInstrumentSchema.safeParse(fact.value);
+  return value.success ? { fact, value: value.data } : undefined;
+}
+
 /**
  * IM-06 GIP — the authored path of the GIP owner.
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority or a governing rule:
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
- * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly THREE authored publications: the explicit establishment
- * of one continuing institution's identity, the explicit establishment of one office beneath it, and the explicit establishment
- * of one scope binding beneath that office. Nothing else creates
+ * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly FOUR authored publications: the explicit establishment
+ * of one continuing institution's identity, the explicit establishment of one office beneath it, the explicit establishment
+ * of one scope binding beneath that office, and the explicit establishment of one Governance Instrument core record beneath
+ * that office and one of its scope bindings. Nothing else creates
  * either — not a label, a population or cohort, a culture, a charter text, a faction, a treaty, a settlement or any
  * organization-like object — and there is no rename, split, merge, abolition, replacement, appointment, removal, succession,
- * delegation, authority amendment, holder replacement, instrument, membership or property method, no tick, scan or
+ * delegation, authority amendment, holder replacement, instrument amendment, enactment, validity or lifecycle method, clause, membership or property method, no tick, scan or
  * scheduler, and no way to write another owner's fact, so no caller can write GIP state out of order; the store's admission
  * refuses it for a raw commit as well.
  *
@@ -119,6 +149,11 @@ export function readScopeBinding(
  * A Scope Binding's one prerequisite is its parent office, read by exact key; the adapter pins it (read at its current version,
  * depended on) and nothing else. The binding's `scope_ref`, `exception_refs[]` and `priority_or_conflict_rule_ref` are opaque authored values that
  * are never resolved, and its `target_condition` and `inheritance_rule` are authored text that is never parsed or executed.
+ *
+ * A Governance Instrument's two prerequisites are its source office and its Scope Binding of that same office, each read by exact
+ * key; the adapter pins them (each read at its current version, depended on) and nothing else. Its `authority_basis_ref` and each
+ * `governing_order_ref` are opaque authored values that are never dereferenced, and its validity and lifecycle are authored values
+ * that the engine never calculates, advances or applies: establishment here is not enactment and runs no decision procedure.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
@@ -249,6 +284,61 @@ export class GipAdapter {
     );
   }
 
+  /**
+   * Commits the initial establishment of one Governance Instrument core record beneath one already-committed Office / Authority
+   * Locus and one already-committed Scope Binding of that same office, each addressed by the exact reference the Instrument
+   * itself carries. It reads exactly those two facts (by key, at their current versions), depends on the groups that
+   * committed them, and writes exactly one create-only Instrument key derived from its `instrument_id` alone. Every value is the
+   * caller's authored input: nothing is defaulted, inferred or calculated, and the office's reference branch does not change
+   * the key, the prerequisites or the write. If a prerequisite is not established, its read is pinned at version zero and
+   * admission refuses the group as a missing prerequisite; nothing is created. There is no update, validity, lifecycle, clause,
+   * amendment or enactment method: an established Instrument is never rewritten.
+   */
+  async establishGovernanceInstrument(
+    input: Publication & { readonly instrument: unknown },
+  ): Promise<Result<CommitOutcome, GipErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const instrument = GovernanceInstrumentSchema.safeParse(input.instrument);
+    if (!instrument.success)
+      return fail("INPUT_INVALID", "governance instrument failed validation", {
+        issues: issues(instrument.error),
+      });
+    const value = instrument.data;
+    // the contract's own cross-check guarantees both references parse and name one authority
+    const office = parseInstrumentSourceAuthorityRef(value.source_authority_ref)!;
+    const binding = parseInstrumentScopeBindingRef(value.scope_binding_ref)!;
+    const officeKey = gipOfficeAuthorityLocusKey(office.institution_id, office.office_id);
+    const bindingKey = gipScopeBindingKey(
+      binding.institution_id,
+      binding.office_id,
+      binding.scope_binding_id,
+    );
+    const officeFact = this.#store.getFact(officeKey);
+    const bindingFact = this.#store.getFact(bindingKey);
+    return this.#publish(
+      p.data,
+      "gip_governance_instrument",
+      gipInstrumentKey(value.instrument_id),
+      value,
+      [
+        { key: officeKey, version: officeFact?.version ?? 0 },
+        { key: bindingKey, version: bindingFact?.version ?? 0 },
+      ],
+      [
+        ...(officeFact ? [officeFact.provenance.group_id] : []),
+        ...(bindingFact ? [bindingFact.provenance.group_id] : []),
+      ],
+    );
+  }
+
   // -- typed read, by identity (none scans) ----------------------------------------------------
 
   /** The committed Institution Identity, or undefined. Reading it transfers no GIP write authority. */
@@ -273,11 +363,16 @@ export class GipAdapter {
     return readScopeBinding(this.#store, institutionId, officeId, scopeBindingId);
   }
 
+  /** One Governance Instrument core record, or undefined. Reading it transfers no GIP write authority and resolves nothing. */
+  governanceInstrument(instrumentId: string): TypedGovernanceInstrument | undefined {
+    return readGovernanceInstrument(this.#store, instrumentId);
+  }
+
   async #publish(
     p: Publication,
     kindId: FactKindId,
     key: string,
-    value: InstitutionIdentity | OfficeAuthorityLocus | ScopeBinding,
+    value: InstitutionIdentity | OfficeAuthorityLocus | ScopeBinding | GovernanceInstrument,
     reads: CommitGroup["reads"],
     depends_on: readonly string[],
   ): Promise<Result<CommitOutcome, GipErrorCode>> {

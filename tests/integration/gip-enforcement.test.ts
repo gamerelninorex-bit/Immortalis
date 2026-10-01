@@ -169,7 +169,8 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
       "gip/institution/i1/faction",
       "gip/institution/i1/instrument/x",
       "gip/office/o1",
-      "gip/instrument/x",
+      "gip/instrument/x/clause/c1",
+      "gip/instrument",
       "gip/relation/a/b",
       "gips/institution/i1/identity",
     ])
@@ -207,24 +208,29 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
     expect(gipFacts(s)).toEqual([]);
   });
 
-  it("the adapter exposes the three authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
+  it("the adapter exposes the four authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
     const methods = Object.getOwnPropertyNames(GipAdapter.prototype)
       .filter((m) => m !== "constructor")
       .sort();
     expect(methods).toEqual([
+      "establishGovernanceInstrument",
       "establishInstitution",
       "establishOffice",
       "establishScopeBinding",
+      "governanceInstrument",
       "institutionIdentity",
       "officeAuthorityLocus",
       "scopeBinding",
     ]);
     expect(
-      methods.filter((m) =>
-        /set|update|write|rename|split|merge|abol|replace|succe|appoint|remov|deleg|member|faction|instrument|asset|resource|compet|tick|sweep|scan|list|all/i.test(
-          m,
+      // (the sixteenth slice's Governance Instrument establishment and keyed read are the only instrument methods)
+      methods
+        .filter((m) => !/^(establishGovernanceInstrument|governanceInstrument)$/.test(m))
+        .filter((m) =>
+          /set|update|write|rename|split|merge|abol|replace|succe|appoint|remov|deleg|member|faction|instrument|asset|resource|compet|tick|sweep|scan|list|all/i.test(
+            m,
+          ),
         ),
-      ),
     ).toEqual([]);
   });
 });
