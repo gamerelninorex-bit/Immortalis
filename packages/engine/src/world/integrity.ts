@@ -30,7 +30,9 @@ export interface IntegrityViolation {
     | "TEMPORAL_TRANSACTION"
     | "TEMPORAL_EVIDENCE"
     /** IM-04 Population state: see verifyPopulationIntegrity */
-    | "POPULATION_STATE";
+    | "POPULATION_STATE"
+    /** IM-05 Production state and the World-State fallback entity: see verifyProductionIntegrity */
+    | "PRODUCTION_STATE";
   readonly message: string;
 }
 

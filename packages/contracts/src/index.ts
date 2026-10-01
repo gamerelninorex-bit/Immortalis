@@ -3,13 +3,15 @@
 // format, the typed values of the Canonical World Identity & Owner Foundation facts, and the Turnless
 // Temporal & Resolution Transaction Foundation contracts (RC-03/04/05/10, kernel-owned state), and the
 // Population & Cohort Reconciliation Backbone Foundation contracts (RC-08 envelope, RC-12 PopulationBasis /
-// CohortRef, PCB-01 declaration).
+// CohortRef, PCB-01 declaration), and the Production & Resource Conservation Backbone Foundation contracts
+// (Production Reserve, RC-06 Claim, operation, Durable Completion Envelope, World-State fallback entity).
 export * from "./campaign-package.ts";
 export * from "./commit.ts";
 export * from "./ids.ts";
 export * from "./json.ts";
 export * from "./owner-fact.ts";
 export * from "./population.ts";
+export * from "./production.ts";
 export * from "./result.ts";
 export * from "./source-ref.ts";
 export * from "./spec-identity-schema.ts";

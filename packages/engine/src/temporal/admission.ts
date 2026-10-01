@@ -25,6 +25,7 @@ import {
 import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
+import { productionObjectViolation } from "../production/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 
@@ -111,6 +112,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       const o = TemporalObjectSchema.parse(w.value);
       const edge = populationReadViolation(o);
       if (edge) return reject("REFERENCE_INVALID", edge, { key: w.key });
+      const production = productionObjectViolation(o, state, true);
+      if (production) return reject("REFERENCE_INVALID", production, { key: w.key });
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
         (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))

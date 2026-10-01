@@ -103,10 +103,12 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
       ["population_close", "population", "population_state"],
       ["population_cohort", "population", "population_state"],
     ]);
-    expect(ALL_FACT_KINDS).toHaveLength(11);
+    // (the fifth slice's four Production kinds and one World-State fallback kind bring the registry to 16)
+    expect(ALL_FACT_KINDS).toHaveLength(16);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "pc_existence",
       "population",
+      "production",
       "role_registry",
       "temporal_kernel",
       "world_state",
@@ -122,11 +124,10 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key))).toHaveLength(1);
   });
 
-  it("no other substantive owner exists: no labor, production, economy, health, military, actor, culture or epistemic owner", () => {
+  it("no other Population-facing substantive owner exists: no labor, economy, health, military, actor, culture or epistemic owner (Production is the fifth slice's own IM-05 owner)", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
     for (const forbidden of [
       "labor",
-      "production",
       "economy",
       "health",
       "military",
@@ -284,7 +285,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
-    ).toEqual(["commit", "owners", "persistence", "population", "temporal", "world"]);
+    ).toEqual(["commit", "owners", "persistence", "population", "production", "temporal", "world"]);
     expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
     for (const forbidden of ["migrations/manifests/population.json"])
       expect(existsSync(forbidden)).toBe(false);

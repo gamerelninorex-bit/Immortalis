@@ -1,6 +1,9 @@
 import {
   ExistenceContractSchema,
+  FACET_WORLD_FALLBACK_ENTITY,
   OWNER_POPULATION,
+  OWNER_PRODUCTION,
+  OWNER_WORLD_STATE,
   OWNER_TEMPORAL_KERNEL,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
@@ -15,7 +18,9 @@ import {
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { populationGroupCheck } from "../population/admission.ts";
+import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
+import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
 
@@ -168,6 +173,11 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
     // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
     if (group.owner === OWNER_POPULATION) return populationGroupCheck(group, state);
+    // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
+    if (group.owner === OWNER_PRODUCTION) return productionGroupCheck(group, state);
+    // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
+      return worldEntityGroupCheck(group, state);
     return null;
   },
 };
@@ -198,6 +208,19 @@ export function identityMismatch(
     case "population_ledger":
     case "population_close":
       return v["ledger_id"] === ids[0] ? null : "ledger_id does not match the key";
+    case "production_reserve":
+      return v["reserve_id"] === ids[0] ? null : "reserve_id does not match the key";
+    case "production_claim":
+      return v["claim_id"] === ids[0] ? null : "claim_id does not match the key";
+    case "production_operation":
+    case "production_completion":
+      return v["operation_id"] === ids[0] ? null : "operation_id does not match the key";
+    case "world_fallback_entity": {
+      const locality = v["locality"] as { world: { entity_id: string } };
+      return v["entity_id"] === ids[1] && locality.world.entity_id === ids[0]
+        ? null
+        : "entity identity does not match the key";
+    }
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
       return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]
