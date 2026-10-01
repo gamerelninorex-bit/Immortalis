@@ -105,6 +105,7 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "logistics",
       "pc_existence",
       "population",
       "production",
@@ -132,7 +133,6 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
     for (const forbidden of [
       "asset",
       "inventory",
-      "logistics",
       "movement",
       "transfer",
       "kti",
@@ -296,18 +296,15 @@ describe("IA-04 turnless: no tick, phase, scheduler, clock, RNG, cadence or glob
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no Logistics, dispatch, in_transfer, pathfinding, route family, carrier, hub, capacity, KTI, Health, Military, Population or Economy consequence exists in the transition modules", () => {
+  it("no in_transfer state, pathfinding, route family, carrier, hub, capacity, dispatch, KTI, Health, Military, Population or Economy consequence exists in the transition modules — the only Logistics names are the eighth slice's two seams: Logistics' delivery-complete result as a lawful causing result, and the movement guard", () => {
     for (const f of ENTITY_SOURCES) {
       const text = code(f).toLowerCase();
       for (const word of [
         "in_transfer",
-        "transfer",
         "route",
         "pathfinding",
         "carrier",
         "dispatch",
-        "logistics",
-        "movement",
         "throughput",
         "capacity",
         "kti",
@@ -329,6 +326,21 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       ]) {
         expect(text, `${f}: ${word}`).not.toContain(word);
       }
+      // the Logistics seams are named by identity only: one kind (the delivery result) and the movement guard
+      const named = text.match(/logistics\w*/g) ?? [];
+      for (const n of named)
+        expect(
+          [
+            "logistics",
+            "logistics_delivery",
+            "logisticsboundaryid",
+            "logisticscommitmentkey",
+            "logisticsdeliverykey",
+            "logisticsobjectid",
+            "logisticsrequestidofdelivery",
+          ],
+          `${f}: ${n}`,
+        ).toContain(n);
     }
   });
 
@@ -348,6 +360,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "commit",
       "economy",
+      "logistics",
       "owners",
       "persistence",
       "population",

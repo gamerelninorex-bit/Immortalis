@@ -9,7 +9,9 @@
 // fallback physical-entity custodian over that same substrate), and the Economy Demand → Production Request →
 // Realized Access Backbone Foundation (IM-06 Economy owner path over that same substrate), and the World-State
 // Entity Continuity / Transition Close Backbone Foundation (ECT-01 same-entity locus transition by the fallback
-// custodian over that same substrate).
+// custodian over that same substrate), and the Single-Leg Logistics Transfer & Destination Handoff Backbone
+// Foundation (IM-05 Logistics owner path and the single authoritative current-locus resolver over that same
+// substrate).
 export * from "./commit/campaign-core.ts";
 export * from "./economy/adapter.ts";
 export * from "./economy/admission.ts";
@@ -17,6 +19,13 @@ export * from "./economy/declaration.ts";
 export * from "./economy/derive.ts";
 export * from "./economy/integrity.ts";
 export * from "./economy/provider.ts";
+export * from "./logistics/adapter.ts";
+export * from "./logistics/admission.ts";
+export * from "./logistics/declaration.ts";
+export * from "./logistics/derive.ts";
+export * from "./logistics/integrity.ts";
+export * from "./logistics/locus.ts";
+export * from "./logistics/provider.ts";
 export * from "./owners/admission.ts";
 export * from "./owners/extension.ts";
 export * from "./owners/registry.ts";

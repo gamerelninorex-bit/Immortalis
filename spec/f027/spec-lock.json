@@ -211,7 +211,7 @@
   ],
   "snapshot_files": {
     "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-    "spec/f027/acceptance-register.yaml": "5cf8e0cb21e88f36b0592b61ee3136f490f9440fdbf3d83b632529b40c29d40c",
+    "spec/f027/acceptance-register.yaml": "ceba21e6c3059c412077d4a87c26c0ff2356e756965f962af44a1761d83fa8a7",
     "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
   },
   "hash_algorithm": "sha256 over file bytes with CRLF normalized to LF",

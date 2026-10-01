@@ -4,7 +4,6 @@ import {
   FallbackPhysicalEntitySchema,
   ResolutionTransactionSchema,
   TemporalObjectSchema,
-  entityTransitionObjectId,
   entityTransitionStage,
   temporalObjectKey,
   worldEntityTransitionKey,
@@ -17,8 +16,10 @@ import { journaledStageViolation } from "../production/admission.ts";
 import {
   causeSourceViolation,
   deriveEntityTransition,
+  entityTransitionEngagement,
   entityTransitionObjectViolation,
   isEntityTransitionObject,
+  movementGuardViolation,
 } from "./entity-transition.ts";
 import type { IntegrityViolation } from "./integrity.ts";
 
@@ -123,8 +124,15 @@ export function verifyEntityTransitionIntegrity(
     if (!canonicalEqual(t.close.stage, entityTransitionStage(t.cause.cause_id))) {
       bad(tf.key, "the Entity Transition Close is the stage derived from the cause");
     }
+    const guard = movementGuardViolation(
+      byKey,
+      t.locus.from.world.entity_id,
+      t.entity.entity_id,
+      t.cause.fact_key,
+    );
+    if (guard) bad(tf.key, guard);
     const obj = parsed(
-      byKey.get(temporalObjectKey(entityTransitionObjectId(t.cause.cause_id))),
+      byKey.get(temporalObjectKey(entityTransitionEngagement(causeFact.owner, cause).objectId)),
       TemporalObjectSchema,
     );
     const unretired = obj?.next_boundary != null;

@@ -42,8 +42,12 @@ export const worldEntityTransitionProvider: StageProvider = {
         r.fact.owner === OWNER_WORLD_STATE &&
         resolveKey(r.fact.key)?.kind.id === "world_fallback_entity",
     );
-    // the causing result lives in its source's own key space: the one read no registered key space holds
-    const causes = input.reads.filter((r) => resolveKey(r.fact.key) === null);
+    // the causing result lives in its source's own key space: the one read no registered key space holds — or,
+    // for a movement Logistics committed to, Logistics' own registered delivery-complete result
+    const causes = input.reads.filter((r) => {
+      const kind = resolveKey(r.fact.key)?.kind.id;
+      return kind === undefined || kind === "logistics_delivery";
+    });
     if (entities.length !== 1 || causes.length !== 1)
       throw unresolved(
         "SOURCE_ABSENT",
