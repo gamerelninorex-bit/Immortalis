@@ -3,6 +3,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
+  OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
   OWNER_POPULATION,
@@ -24,6 +25,7 @@ import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
+import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
@@ -191,6 +193,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
     // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
+    // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
+    if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -290,6 +294,13 @@ export function identityMismatch(
         (v["event"] as { fact_key: string }).fact_key === `access/${ids[0]}/event`
         ? null
         : "event and recipient identity does not match the key";
+    case "kti_development_object":
+      return v["object_id"] === ids[0]
+        ? null
+        : "development-object identity does not match the key";
+    case "kti_transfer_basis":
+    case "kti_transfer_package":
+      return v["package_id"] === ids[0] ? null : "package identity does not match the key";
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
       return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]

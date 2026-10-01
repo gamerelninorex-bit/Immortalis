@@ -9,6 +9,7 @@ export * from "./epistemic-fixtures.ts";
 export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";
 export * from "./in-memory-store.ts";
+export * from "./kti-fixtures.ts";
 export * from "./logistics-fixtures.ts";
 export * from "./population-fixtures.ts";
 export * from "./production-fixtures.ts";

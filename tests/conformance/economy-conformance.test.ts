@@ -105,6 +105,7 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "epistemic_access",
+      "kti",
       "logistics",
       "named_actor",
       "pc_existence",
@@ -131,11 +132,11 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
 
   it("no generic or later owner exists: no Asset, Inventory, Market, Exchange, Currency, Credit, Holding, Labor, Logistics, KTI, Actor, Health, Military, Culture or Epistemic owner", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()]
-      .filter((n) => n !== "named_actor" && n !== "epistemic_access")
+      .filter((n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti")
       .join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()]
       .flatMap((f) => [...f])
-      .filter((f) => f !== "actor_profile" && f !== "epistemic_access")
+      .filter((f) => f !== "actor_profile" && f !== "epistemic_access" && f !== "kti_development")
       .join(" ");
     for (const forbidden of [
       "asset",
@@ -336,6 +337,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "commit",
       "economy",
       "epistemic",
+      "kti",
       "logistics",
       "owners",
       "persistence",

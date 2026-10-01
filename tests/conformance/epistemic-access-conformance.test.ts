@@ -413,6 +413,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "commit",
       "economy",
       "epistemic",
+      "kti",
       "logistics",
       "owners",
       "persistence",

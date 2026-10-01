@@ -35,6 +35,7 @@ import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
 import { verifyNamedActorIntegrity } from "../actor/integrity.ts";
 import { verifyEconomyIntegrity } from "../economy/integrity.ts";
 import { verifyEpistemicIntegrity } from "../epistemic/integrity.ts";
+import { verifyKtiIntegrity } from "../kti/integrity.ts";
 import { verifyLogisticsIntegrity } from "../logistics/integrity.ts";
 import { verifyPopulationIntegrity } from "../population/integrity.ts";
 import { verifyProductionIntegrity } from "../production/integrity.ts";
@@ -332,7 +333,7 @@ export class CanonicalCampaign {
   }
 }
 
-/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production, IM-06 Economy, World-State entity-transition, IM-05 Logistics, IM-07 Named-Actor capability and IM-10 Epistemic Access integrity. */
+/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production, IM-06 Economy, World-State entity-transition, IM-05 Logistics, IM-07 Named-Actor capability, IM-10 Epistemic Access and IM-09 KTI integrity. */
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
@@ -349,6 +350,7 @@ function verifyAll(
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyEpistemicIntegrity(store),
+    ...verifyKtiIntegrity(store),
   ];
 }
 

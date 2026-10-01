@@ -118,12 +118,13 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
   });
 
   it("there is no personality, goal, relationship, belief, mandate, development, loss, lifecycle, KTI, aggregate, PC-capability or numeric-rank kind, and no fallback actor owner", () => {
-    for (const k of ALL_FACT_KINDS)
+    // (the eleventh slice's IM-09 KTI owner is the lawful, separate owner of exactly the development kinds this guard names)
+    for (const k of ALL_FACT_KINDS.filter((k) => k.owner !== "kti"))
       expect(k.id).not.toMatch(
         /personality|goal|loyalty|relationship|belief|stance|mandate|development|loss|lifecycle|kti|cohort_capab|aggregate|skill|level|xp|rank|pc_capab|holder|referent|alias/,
       );
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter(
-      (n) => n !== "named_actor" && n !== "epistemic_access",
+      (n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti",
     );
     for (const n of names) expect(n).not.toMatch(/actor|character|capability|skill/);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => /actor/.test(n))).toEqual([
@@ -349,6 +350,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "commit",
       "economy",
       "epistemic",
+      "kti",
       "logistics",
       "owners",
       "persistence",

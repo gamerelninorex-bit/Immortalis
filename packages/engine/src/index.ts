@@ -15,6 +15,8 @@
 // capability owner path and its declared capability close over that same substrate), and the Epistemic Access /
 // Sealed Accessible Content Packet Backbone Foundation (IM-10 Epistemic Access owner path: one BOUNDED_SHARED_ACCESS
 // event, the capability-close read, and the separately sealed actor-safe packet and engine-only provenance over that
+// same substrate), and the KTI Managed Transfer Package / Result-Close Backbone Foundation (IM-09 KTI owner path: one
+// development object, one sealed-packet-evidenced active Transfer Package published at the KTI result close over that
 // same substrate).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
@@ -35,6 +37,12 @@ export * from "./epistemic/declaration.ts";
 export * from "./epistemic/derive.ts";
 export * from "./epistemic/integrity.ts";
 export * from "./epistemic/provider.ts";
+export * from "./kti/adapter.ts";
+export * from "./kti/admission.ts";
+export * from "./kti/declaration.ts";
+export * from "./kti/derive.ts";
+export * from "./kti/integrity.ts";
+export * from "./kti/provider.ts";
 export * from "./logistics/adapter.ts";
 export * from "./logistics/admission.ts";
 export * from "./logistics/declaration.ts";
