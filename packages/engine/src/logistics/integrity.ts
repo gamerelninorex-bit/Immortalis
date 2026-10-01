@@ -31,7 +31,7 @@ import {
   deriveCommitment,
   deriveRetirement,
   deriveTransfer,
-  deliveryOfTransfer,
+  deliveryOfCommitment,
   requestSourceViolation,
 } from "./derive.ts";
 
@@ -327,7 +327,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
       bad(df.key, "a delivery-complete result has a commitment and a dispatched transfer");
       continue;
     }
-    const expected = deliveryOfTransfer(c, t);
+    const expected = deliveryOfCommitment(c);
     if (
       !expected.ok ||
       !canonicalEqual(expected.value, d) ||

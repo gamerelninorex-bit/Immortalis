@@ -36,7 +36,7 @@ import {
   TemporalCoordinator,
   deriveCommitment,
   deriveTransfer,
-  deliveryOfTransfer,
+  deliveryOfCommitment,
   entityTransitionTemporalObject,
   logisticsTemporalObject,
   stageGroupId,
@@ -221,7 +221,7 @@ const rawDispatch = (s: LogSeeded, n: number, over: Partial<CommitGroup> = {}) =
   });
 
 function derivedDelivery(s: LogSeeded) {
-  const d = deliveryOfTransfer(parsedCommitment(s), parsedTransfer(s));
+  const d = deliveryOfCommitment(parsedCommitment(s));
   if (!d.ok) throw new Error(d.error.message);
   return d.value;
 }
@@ -723,7 +723,13 @@ describe("the delivery-complete result is lawful only as its IM-02 stage, from a
       /exactly what the commitment and transfer determine/,
     ],
     [
-      "a different establishment basis than the dispatch",
+      "a delivery backdated to the dispatch (establishment is at the delivery boundary, never earlier)",
+      (g) => withWrite(g, deliveryKey, (v) => (v.timing.established_at = at(140))),
+      "VALUE_INVALID",
+      /exactly what the commitment and transfer determine/,
+    ],
+    [
+      "a different establishment basis than the delivery boundary",
       (g) => withWrite(g, deliveryKey, (v) => (v.timing.established_at = at(120))),
       "VALUE_INVALID",
       /exactly what the commitment and transfer determine/,
@@ -929,13 +935,18 @@ describe("Logistics cannot retire early: retirement exists only after the destin
     const s = await registered();
     expect(await stopBefore(s, isTransition)).toBe(1);
     const d = fact(s, deliveryKey);
+    // (a delivery is established at its own boundary, so the standalone shape needs a hand-set earlier basis to be a
+    // well-formed object at all: the rule then refuses it on its merits)
     const standalone = await s.coordinator.registerObject({
       ...temporalPublication(97),
-      object: entityTransitionTemporalObject({
-        key: d.key,
-        owner: d.owner,
-        value: EntityTransitionCauseSchema.parse(d.value),
-      }),
+      object: {
+        ...entityTransitionTemporalObject({
+          key: d.key,
+          owner: d.owner,
+          value: EntityTransitionCauseSchema.parse(d.value),
+        }),
+        last_resolved_basis: at(140),
+      },
     });
     expect(!standalone.ok && standalone.error.code).toBe("REFERENCE_INVALID");
     expect(!standalone.ok && standalone.error.message).toMatch(
@@ -1372,6 +1383,11 @@ describe("load-time verification fails closed on Logistics drift (IA-30 partial)
     );
     expect(await drifted((f) => f.filter((x) => x.key !== deliveryKey))).toMatch(
       /only after its delivery and the destination owner's commit/,
+    );
+  });
+  it("detects a delivery backdated to the dispatch", async () => {
+    expect(await drifted(edit(deliveryKey, (v) => (v.timing.established_at = at(140))))).toMatch(
+      /exactly what the commitment and transfer determine/,
     );
   });
   it("detects a delivery that is not what the commitment and transfer determine", async () => {

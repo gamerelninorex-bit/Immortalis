@@ -19,7 +19,8 @@ import {
 } from "@immortalis/contracts";
 import {
   StageUnresolvedError,
-  deliveryOfTransfer,
+  deliveryOfCommitment,
+  deriveEntityTransition,
   deriveCommitment,
   deriveDelivery,
   deriveRetirement,
@@ -97,7 +98,7 @@ const transferFact = (value = transfer, version = 1): LogisticsFact<typeof trans
   version,
   value,
 });
-const delivery = must(deliveryOfTransfer(commitment, transfer));
+const delivery = must(deliveryOfCommitment(commitment));
 const deliveryFact = (value = delivery, version = 1): LogisticsFact<typeof delivery> => ({
   key: logisticsDeliveryKey("w", "durable:op-1"),
   owner: "logistics",
@@ -351,19 +352,28 @@ describe("deriveTransfer: dispatch states a movement in progress, never a delive
 });
 
 describe("deriveDelivery: Logistics' completion names where the entity must go, never that it is there (WS-010 §10.4, §23.3-§23.4)", () => {
-  it("is the one required locus change, established from the dispatch basis and effective at the declared boundary", () => {
+  it("is the one required locus change, established AT and effective at the declared boundary — never backdated to the dispatch", () => {
     expect(delivery).toEqual({
       cause_id: "delivery:m-1",
       source: { owner: "logistics", cause_ref: "logistics/transfer/w/durable:op-1" },
       subject: { fact_key: entityKey, entity_id: "durable:op-1" },
       outcome: { kind: "SAME_ENTITY_LOCUS_CHANGE_REQUIRED", destination: request.destination },
-      timing: { established_at: t(120), occurs_at: t(200) },
+      timing: { established_at: t(200), occurs_at: t(200) },
     });
     // the request and the commitment determine the same result: the owner operation and admission cannot drift
-    expect(must(deriveDelivery(request, t(120), t(200)))).toEqual(delivery);
+    expect(must(deriveDelivery(request, t(200)))).toEqual(delivery);
   });
-  it("refuses a result that does not take effect after the dispatch basis, or an entity at another world's key", () => {
-    expect(message(deriveDelivery(request, t(200), t(200)))).toMatch(/not a representable/);
+  it("is independent of the dispatch: the dispatch basis is neither an input nor visible in the result", () => {
+    const later = must(
+      deriveTransfer({ commitment: commitmentFact(), transitioned: false, now: t(150) }),
+    );
+    expect(later.dispatched_at).not.toEqual(transfer.dispatched_at);
+    expect(must(deliveryOfCommitment(commitment))).toEqual(delivery);
+    expect(delivery.timing.established_at).not.toEqual(transfer.dispatched_at);
+    expect(delivery.timing.established_at).toEqual(commitment.delivery.at);
+    expect(delivery.timing.occurs_at).toEqual(commitment.delivery.at);
+  });
+  it("refuses an entity at another world's key", () => {
     expect(
       message(
         deriveDelivery(
@@ -371,11 +381,61 @@ describe("deriveDelivery: Logistics' completion names where the entity must go, 
             ...request,
             subject: { fact_key: "world/w2/entity/durable:op-1", entity_id: "durable:op-1" },
           },
-          t(120),
           t(200),
         ),
       ),
     ).toMatch(/own key, in the destination's world/);
+  });
+});
+
+describe("the destination commit may lawfully take effect at the delivery result's own instant (cause-before-effect is the stage order)", () => {
+  const entityFact = { key: entityKey, version: 1, value: entity };
+  it("World-State derives the same-entity transition from Logistics' delivery established at the very boundary it takes effect at", () => {
+    const r = deriveEntityTransition({
+      cause: { key: deliveryFact().key, owner: "logistics", version: 1, value: delivery },
+      entity: entityFact,
+      at: t(200),
+    });
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.value.closed_at).toEqual(t(200));
+    expect(r.ok && r.value.cause).toMatchObject({ owner: "logistics", cause_id: "delivery:m-1" });
+  });
+  it("an external causing result keeps the strict rule: established at its own effective instant is refused, and a result never takes effect before it was established", () => {
+    const external = {
+      cause_id: "c-1",
+      source: { owner: "mover", cause_ref: "e" },
+      subject: delivery.subject,
+      outcome: delivery.outcome,
+    };
+    for (const timing of [
+      { established_at: t(200), occurs_at: t(200) },
+      { established_at: t(300), occurs_at: t(200) },
+    ])
+      expect(
+        deriveEntityTransition({
+          cause: {
+            key: "mover/cause/c-1",
+            owner: "mover",
+            version: 1,
+            value: { ...external, timing },
+          },
+          entity: entityFact,
+          at: t(200),
+        }).ok,
+      ).toBe(false);
+    // and the earlier-established external cause is unchanged
+    expect(
+      deriveEntityTransition({
+        cause: {
+          key: "mover/cause/c-1",
+          owner: "mover",
+          version: 1,
+          value: { ...external, timing: { established_at: t(100), occurs_at: t(200) } },
+        },
+        entity: entityFact,
+        at: t(200),
+      }).ok,
+    ).toBe(true);
   });
 });
 
@@ -476,7 +536,7 @@ describe("deriveRetirement: only the destination owner's commit of THIS delivery
       "a delivery that is not what the commitment and transfer determine",
       () =>
         retirePrior({
-          delivery: deliveryFact(edit(delivery, (x) => (x.timing.established_at = t(110)))),
+          delivery: deliveryFact(edit(delivery, (x) => (x.timing.established_at = t(120)))),
         }),
       /exactly what the commitment and transfer determine/,
     ],
@@ -570,6 +630,8 @@ describe("the Logistics owner operations: pure, deterministic, fail closed", () 
     });
     expect(writes).toHaveLength(1);
     expect(writes[0]).toMatchObject({ key, value: delivery, basis: "b", secrecy: "s" });
+    // established at the boundary being resolved, not at the span's start (the dispatch basis)
+    expect((writes[0]!.value as any).timing).toEqual({ established_at: t(200), occurs_at: t(200) });
     expect(
       logisticsDeliveryProvider.compute({
         stage: {} as never,
@@ -619,16 +681,6 @@ describe("the Logistics owner operations: pure, deterministic, fail closed", () 
         span,
         reads: [readOf(fact(requestKey, "mover", request))],
         prior: new Map([[logisticsDeliveryKey("w", "durable:op-1"), fact("x", "logistics", {})]]),
-      }),
-    ],
-    [
-      "a result that does not take effect after its basis",
-      () => ({
-        stage: {} as never,
-        produces: [logisticsDeliveryKey("w", "durable:op-1")],
-        span: { from: t(200), to: t(200), elapsed: 0 },
-        reads: [readOf(fact(requestKey, "mover", request))],
-        prior: new Map(),
       }),
     ],
   ])("the delivery operation throws instead of publishing for %s", (_n, input) => {

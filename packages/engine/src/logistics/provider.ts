@@ -57,9 +57,9 @@ export const logisticsDeliveryProvider: StageProvider = {
       throw unresolved("SOURCE_INVALID", "the delivery does not write its entity's own slot");
     if (input.prior.has(key))
       throw unresolved("SOURCE_INVALID", "the delivery is already established");
-    // established from the dispatch basis (the object's last resolved basis) and effective at the declared
-    // boundary being resolved, never at a requested horizon
-    const derived = deriveDelivery(request.data, input.span.from, input.span.to);
+    // established and effective AT the declared boundary being resolved (never backdated to the dispatch, never at
+    // a requested horizon)
+    const derived = deriveDelivery(request.data, input.span.to);
     if (!derived.ok) throw unresolved("SOURCE_INVALID", derived.error.message);
     EntityTransitionCauseSchema.parse(derived.value);
     return [

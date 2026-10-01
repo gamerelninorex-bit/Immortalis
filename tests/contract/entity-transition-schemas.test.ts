@@ -105,9 +105,13 @@ describe("the causing result establishes cause and causal outcome only", () => {
         ).success,
       ).toBe(false);
   });
-  it("takes effect strictly after the basis it was established at, in one unit", () => {
+  it("never takes effect before the basis it was established at, in one unit (taking effect AT it is the causing owner's own lawful timing, decided by the derivation)", () => {
+    expect(
+      EntityTransitionCauseSchema.safeParse(
+        cause({ timing: { established_at: t(200), occurs_at: t(200) } }),
+      ).success,
+    ).toBe(true);
     for (const timing of [
-      { established_at: t(200), occurs_at: t(200) },
       { established_at: t(300), occurs_at: t(200) },
       { established_at: { unit: "a", value: 1 }, occurs_at: { unit: "b", value: 2 } },
     ])

@@ -25,7 +25,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { entityTransitionDeclaration } from "../world/entity-transition.ts";
-import { deliveryOfTransfer } from "./derive.ts";
+import { deliveryOfCommitment } from "./derive.ts";
 
 /**
  * Builders for the Logistics side of the temporal declaration (RC-10 "dependency declarations"; WS-010 §20; F-017
@@ -82,7 +82,7 @@ export function logisticsTemporalObject(
   t: LogisticsTransfer,
 ): TemporalObject {
   const rid = c.request.request_id;
-  const delivery = deliveryOfTransfer(c, t);
+  const delivery = deliveryOfCommitment(c);
   if (!delivery.ok) throw new Error(delivery.error.message);
   const deliveryKey = logisticsDeliveryKey(c.origin.world.entity_id, c.moved.entity_id);
   const first = logisticsDeliveryDeclaration(c);

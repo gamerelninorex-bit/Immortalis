@@ -178,6 +178,15 @@ export function deriveEntityTransition(
   // transition already sealed against it
   if (cause.version !== 1)
     return refuse("a causing result is read at its establishment (version 1)");
+  // An external causing result is established before the instant it takes effect (its object's resolved basis is the
+  // establishment). Logistics' delivery-complete result is established BY a stage at the very boundary it takes
+  // effect at: the cause-before-effect order is the stage order (delivery result, then this commit), and Logistics'
+  // own derivation fixes its timing exactly.
+  if (
+    cause.owner !== OWNER_LOGISTICS &&
+    compareTime(c.timing.established_at, c.timing.occurs_at) !== -1
+  )
+    return refuse("an outcome takes effect after the basis it was established at");
   if (
     entity.key !== worldFallbackEntityKey(e.locality.world.entity_id, e.entity_id) ||
     c.subject.fact_key !== entity.key ||

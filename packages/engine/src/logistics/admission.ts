@@ -36,7 +36,7 @@ import {
   deriveDelivery,
   deriveRetirement,
   deriveTransfer,
-  deliveryOfTransfer,
+  deliveryOfCommitment,
 } from "./derive.ts";
 
 /**
@@ -300,8 +300,8 @@ function checkDelivery(group: CommitGroup, state: CampaignState, w: Write): Reje
   ) {
     return ref("the request is still the one this commitment pinned", { key: c.request.fact_key });
   }
-  const expected = deliveryOfTransfer(c, t);
-  const fromRequest = deriveDelivery(request.data, t.dispatched_at, c.delivery.at);
+  const expected = deliveryOfCommitment(c);
+  const fromRequest = deriveDelivery(request.data, c.delivery.at);
   if (!expected.ok || !fromRequest.ok || !canonicalEqual(expected.value, fromRequest.value)) {
     return bad("the request is the one the commitment was derived from", { key: w.key });
   }

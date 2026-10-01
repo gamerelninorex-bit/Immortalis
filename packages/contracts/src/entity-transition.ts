@@ -110,17 +110,22 @@ export const EntityTransitionCauseSchema = z
       destination: LocusRefSchema,
     }),
     timing: z.strictObject({
-      /** the basis at which the causing owner established the result */
+      /** the basis at which the causing owner actually established the result */
       established_at: CanonicalTimeSchema,
       /** the one instant at which the outcome takes effect: the earned boundary of the transition */
       occurs_at: CanonicalTimeSchema,
     }),
   })
   .superRefine((c, ctx) => {
-    if (compareTime(c.timing.established_at, c.timing.occurs_at) !== -1)
+    // An outcome never takes effect BEFORE the basis it was established at. Whether it may take effect AT that
+    // basis is the causing owner's own lawful timing, decided by the transition derivation: a result established by
+    // a stage at its own boundary (Logistics' delivery-complete result) takes effect at that boundary, and
+    // cause-before-effect is carried by the IM-02 stage order, not by a fabricated earlier establishment time.
+    const c0 = compareTime(c.timing.established_at, c.timing.occurs_at);
+    if (c0 !== -1 && c0 !== 0)
       ctx.addIssue({
         code: "custom",
-        message: "an outcome takes effect after the basis it was established at",
+        message: "an outcome never takes effect before the basis it was established at",
         path: ["timing"],
       });
   });

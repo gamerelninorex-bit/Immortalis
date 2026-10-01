@@ -268,7 +268,9 @@ describe("the primary path: delivery → World-State's destination commit → re
     expect(d.fact.provenance.group_id).toBe(stageGroupId(deliveryStage));
     expect(d.value.outcome.kind).toBe("SAME_ENTITY_LOCUS_CHANGE_REQUIRED");
     expect(d.value.source.owner).toBe("logistics");
-    expect(d.value.timing.established_at.value).toBe(140); // from the dispatch basis
+    // Logistics establishes the result AT the delivery boundary, never at the dispatch: it is not backdated
+    expect(d.value.timing.established_at).toEqual(LOG_T_DELIVERY);
+    expect(d.value.timing.established_at).not.toEqual(transferOf(s).value.dispatched_at);
     expect(d.value.timing.occurs_at).toEqual(LOG_T_DELIVERY);
 
     // the destination: World-State's ECT-01 transition, committed under the existing Entity Transition Close

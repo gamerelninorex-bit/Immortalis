@@ -224,12 +224,16 @@ export interface DeliverySubject {
  * The delivery-complete result (WS-010 §10.4(1), §23.3): Logistics establishes that the movement completed, with
  * its destination, and names — exactly as the existing causing-result envelope does — that one same-entity locus
  * change is required. It does not assert that the entity IS at the destination: that is the destination owner's
- * own commit (§23.4). It is established from the dispatch basis and takes effect at the declared delivery boundary.
+ * own commit (§23.4).
+ *
+ * Logistics establishes completion when its delivery stage resolves AT the declared delivery boundary, so the result
+ * is established at, and takes effect at, that one instant: it is never backdated to the dispatch (dispatch is not
+ * delivery, §11). Cause-before-effect is not a timestamp gap; it is the IM-02 stage order inside the engaged
+ * boundary — this result's commit precedes World-State's destination commit, which precedes the retirement.
  */
 export function deriveDelivery(
   s: DeliverySubject,
-  established_at: CanonicalTime,
-  occurs_at: CanonicalTime,
+  at: CanonicalTime,
 ): Result<EntityTransitionCause, "NOT_DELIVERABLE"> {
   const refuse = (message: string) => fail("NOT_DELIVERABLE", message);
   const world = worldOf(s);
@@ -243,16 +247,15 @@ export function deriveDelivery(
     },
     subject: { fact_key: s.subject.fact_key, entity_id: s.subject.entity_id },
     outcome: { kind: "SAME_ENTITY_LOCUS_CHANGE_REQUIRED", destination: s.destination },
-    timing: { established_at, occurs_at },
+    timing: { established_at: at, occurs_at: at },
   });
   if (!value.success) return refuse("the result is not a representable delivery-complete result");
   return ok(value.data);
 }
 
-/** The delivery-complete result a commitment and its dispatched transfer determine, at the declared boundary. */
-export const deliveryOfTransfer = (
+/** The delivery-complete result a commitment determines, established at and effective at the declared boundary. */
+export const deliveryOfCommitment = (
   commitment: LogisticsCommitment,
-  transfer: LogisticsTransfer,
 ): Result<EntityTransitionCause, "NOT_DELIVERABLE"> =>
   deriveDelivery(
     {
@@ -260,7 +263,6 @@ export const deliveryOfTransfer = (
       subject: { fact_key: commitment.moved.fact_key, entity_id: commitment.moved.entity_id },
       destination: commitment.destination,
     },
-    transfer.dispatched_at,
     commitment.delivery.at,
   );
 
@@ -309,7 +311,7 @@ export function deriveRetirement(
     t.moved.entity_id !== entityId
   )
     return refuse("the transfer is the one this commitment backs");
-  const expectedDelivery = deliveryOfTransfer(c, t);
+  const expectedDelivery = deliveryOfCommitment(c);
   if (
     !expectedDelivery.ok ||
     delivery.version !== 1 ||
