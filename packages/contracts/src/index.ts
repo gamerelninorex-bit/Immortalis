@@ -12,7 +12,9 @@
 // envelope, commitment, transfer record, delivery-complete result), and the Named-Actor Character Capability &
 // Capability-Close Backbone Foundation contracts (establishment basis, persisted capability, capability close), and
 // the Epistemic Access / Sealed Accessible Content Packet Backbone Foundation contracts (BOUNDED_SHARED_ACCESS event,
-// actor-safe Accessible Content Packet, engine-only Sealed Engine Provenance).
+// actor-safe Accessible Content Packet, engine-only Sealed Engine Provenance), and the KTI Managed Transfer Package /
+// Result-Close Backbone Foundation contracts (KTI development-object identity, Transfer Package basis, active Transfer
+// Package published at the KTI result close).
 export * from "./actor-capability.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
@@ -21,6 +23,7 @@ export * from "./economy.ts";
 export * from "./entity-transition.ts";
 export * from "./ids.ts";
 export * from "./json.ts";
+export * from "./kti.ts";
 export * from "./logistics.ts";
 export * from "./owner-fact.ts";
 export * from "./population.ts";

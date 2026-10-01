@@ -4,7 +4,12 @@ import {
   BoundaryIndexSchema,
   FACET_ACTOR_PROFILE,
   FACET_EPISTEMIC_ACCESS,
+  FACET_KTI_DEVELOPMENT,
+  KtiDevelopmentObjectSchema,
+  KtiTransferBasisSchema,
+  KtiTransferPackageSchema,
   OWNER_EPISTEMIC_ACCESS,
+  OWNER_KTI,
   SealedEngineProvenanceSchema,
   NamedActorCapabilityBasisSchema,
   NamedActorCapabilitySchema,
@@ -141,6 +146,11 @@ export const F014D_SOURCE = {
   native_pin: "2026-09-24T16:25:17.059Z",
 } as const;
 
+export const WS002_SOURCE = {
+  artifact: "https://app.notion.com/p/3e720af901e081d1b9e9ce4bbe475268",
+  native_pin: "2026-09-26T02:44:38.319Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -191,8 +201,14 @@ export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_accessible_packet",
   "epistemic_sealed_provenance",
 ] as const;
+export const KTI_FACT_KIND_IDS = [
+  "kti_development_object",
+  "kti_transfer_basis",
+  "kti_transfer_package",
+] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
+  | (typeof KTI_FACT_KIND_IDS)[number]
   | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
@@ -811,10 +827,70 @@ export const EPISTEMIC_ACCESS_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const WS002_LINEAGE =
+  "WS-002 KTI — frozen F-027 source: Blue post-ratification KTI v0.3 source conformance overlay, pin 2026-09-26T02:44:38.319Z (https://app.notion.com/p/3e720af901e081d1b9e9ce4bbe475268), conforming the Sovereign-ratified KTI v2.2 Candidate v0.3 (https://app.notion.com/p/3e720af901e0814fbf3ffec030c76b7a) and KTI Scaling Profile v1 Candidate v0.3 (https://app.notion.com/p/3e720af901e081d0bff4e4e083a5c162), both pin 2026-09-26T02:10:16.626Z, with KTI Concept 2 §§2, 9 (https://app.notion.com/p/3de20af901e08194a718cccdf5ff4844) and the KTI final scoped closure / Current-Saturated determination (https://app.notion.com/p/3e720af901e081579769e4f5c5a4d083)";
+
+/**
+ * One governing rule for every KTI kind: the authored development-object identity, the authored Transfer Package basis and
+ * the Transfer Package published at the KTI result close are each one group. The clauses are the ones the state relies on
+ * (the KTI v0.3 package as the owner that holds the facts; F-014D §§2.1, 17 and 18 for the packet → KTI and KTI-result-close
+ * cuts; F-017 §3 CLOSE for the declared close, as already implemented by IM-02).
+ */
+export const KTI_RULE: SourceRef = rule(
+  WS002_SOURCE,
+  "Post-ratification KTI v0.3 overlay §§1, 4, 5, 7 (KTI owns persistent development consequences supported by lawful receipt/access evidence only; one sparse Class-D relationship; unlowered BROADCAST_EXPOSURE creates no persisted KTI receipt, encounter, intelligibility, competence, adoption, diffusion, aggregate-exposure, transmission-availability or transmission-reach state; Diplomacy staging: KTI implementation/result → KTI result close); KTI v2.2 Candidate v0.3 §2 (mode-consumer invariant: BOUNDED_SHARED_ACCESS participants only, named by the event basis) and §5 (producer-side close applies only to facts KTI lawfully owns); Candidate v0.2 §4.2 (KTI consumes a sealed F-014D event evidence packet AS-OF-NOW after packet formation; every KTI-owned fact F-014D may read — active Transfer Package state included — is declared AS-OF-DECLARED-CLOSE, Close Basis = KTI result close; cycle invariant: F-014D packet formation → KTI consequence write → KTI result close, no same-resolution reread) and §4.3 (transfer relationship); Scaling Profile Candidate v0.3 §2 Class A (one canonical identity per materially persistent development object, no faction/object state) and Class E (one active Transfer Package per materially managed source × recipient × development-object programme; closed packages are not polled) and §3 (mode-safe growth); Concept 2 §2 (development-object classes) and §9 (Intentional transfer package: temporary workflow state, not a permanent historical ledger; the source does not directly write the recipient's adoption, belief, competence or behaviour; exposure is not mastery); F-014D §§2.1, 17, 18 (KTI Transfer Adapter: F-014D resolves only the per-event information side, KTI is sole persisted owner of the active Transfer Package)",
+  [WS002_LINEAGE, F014D_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const ktiKind = (
+  id: (typeof KTI_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_KTI,
+  facet: FACET_KTI_DEVELOPMENT,
+  im: "IM-09",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: KTI_RULE,
+});
+
+/**
+ * IM-09 Culture / KTI / Social-Meaning Adapter — the KTI MANAGED TRANSFER PACKAGE part only: "KTI development and lawful
+ * learning/receipt relationships". One owner, one facet, three exclusive create-only (SEALED) key spaces: the Class-A
+ * development-object identity, the authored Transfer Package basis and the active Transfer Package (which exists only as
+ * the KTI owner's declared result close, an IM-02 stage). There is no fallback owner, and no relationship, encounter,
+ * intelligibility, competence, adoption, diffusion, doctrine, institution, Population or numeric kind.
+ */
+export const KTI_FACT_KINDS: readonly FactKind[] = [
+  ktiKind(
+    "kti_development_object",
+    ["RC-02"],
+    new RegExp(`^kti/object/${ID}$`),
+    KtiDevelopmentObjectSchema,
+  ),
+  ktiKind(
+    "kti_transfer_basis",
+    ["RC-02", "RC-07", "RC-11"],
+    new RegExp(`^kti/transfer/${ID}/basis$`),
+    KtiTransferBasisSchema,
+  ),
+  ktiKind(
+    "kti_transfer_package",
+    ["RC-02", "RC-03", "RC-04", "RC-11"],
+    new RegExp(`^kti/transfer/${ID}/package$`),
+    KtiTransferPackageSchema,
+  ),
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
- * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds and the IM-10 Epistemic Access kinds.
+ * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds and the IM-09 KTI kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -827,6 +903,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,
   ...EPISTEMIC_ACCESS_FACT_KINDS,
+  ...KTI_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

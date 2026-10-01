@@ -41,6 +41,8 @@ export interface IntegrityViolation {
     | "NAMED_ACTOR_STATE"
     /** IM-10 Epistemic Access state: see verifyEpistemicIntegrity */
     | "EPISTEMIC_ACCESS_STATE"
+    /** IM-09 KTI state (managed Transfer Package): see verifyKtiIntegrity */
+    | "KTI_STATE"
     /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */
     | "LOGISTICS_STATE";
   readonly message: string;
