@@ -3,6 +3,7 @@ import type {
   JsonValue,
   OwnerFact,
   PendingConsequenceBarrier,
+  Pcb01Evidence,
   SourceRef,
   StageKey,
   TemporalRead,
@@ -110,6 +111,16 @@ export interface ConsequenceBarrierEvaluator {
     instant: CanonicalTime,
     getFact: (key: string) => OwnerFact | undefined,
   ): BarrierEvaluation;
+  /**
+   * The retained evidence of a due reconciliation, derived from what its committed stage group wrote
+   * (`valueOf`), or null when no frozen condition is supported. The same derivation verifies a recorded
+   * claim at admission and on load.
+   */
+  evidence(
+    barrier: PendingConsequenceBarrier,
+    instant: CanonicalTime,
+    valueOf: (key: string) => unknown,
+  ): Pcb01Evidence | null;
   /**
    * When no reconciliation is due, the consumer reads the latest committed close. True only if `fact`
    * is a stamped Population close artifact of the barrier's own close basis and ledger.

@@ -296,6 +296,7 @@ describe("the ordinary close: Closing = Opening + Entries − Exits is a propert
     exits: [],
     closing: { count: 5, ledger_version: 2 },
     consumed_envelopes: ["a"],
+    cohorts: [],
     ...over,
   });
   it("accepts a close that conserves", () =>

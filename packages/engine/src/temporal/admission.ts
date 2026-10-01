@@ -18,11 +18,13 @@ import {
   type CommitGroup,
   type Failure,
   type ResolutionTransaction,
+  type PendingConsequenceBarrier,
   type TemporalObject,
   type TemporalState,
 } from "@immortalis/contracts";
 import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 
@@ -486,7 +488,7 @@ function checkDueEngaged(
   }
   const sameStage = (a: unknown, b: unknown) => canonicalEqual(a, b);
   let consumerAt: CanonicalTime | undefined;
-  let barrierClose: { name: string; producer: { owner: string; operation: string } } | undefined;
+  let barrier: PendingConsequenceBarrier | undefined;
   for (const c of tx.engaged) {
     if (c.boundary !== "RETIRED" && c.boundary !== "STILL_ACTIVE") continue;
     const cf = state.facts.get(c.fact_key);
@@ -499,15 +501,16 @@ function checkDueEngaged(
     );
     if (decl && co.next_boundary) {
       consumerAt = co.next_boundary.at;
-      barrierClose = decl.pending_consequence_barrier!.close_basis;
+      barrier = decl.pending_consequence_barrier!;
     }
   }
-  if (!consumerAt || !barrierClose) {
+  if (!consumerAt || !barrier) {
     return bad(
       "a due reconciliation names an engaged consumer stage whose barrier declares it",
       ctx,
     );
   }
+  const barrierClose = barrier.close_basis;
   const closeStage = was.dependencies.find(
     (d) =>
       d.declares_close?.name === barrierClose.name &&
@@ -550,6 +553,20 @@ function checkDueEngaged(
   if (!was.dependencies.every((d) => tx.stages.some((s) => sameStage(s.stage, d.stage)))) {
     return bad("every stage the reconciled due object declares was committed", ctx);
   }
+  // The due claim must be TRUE: re-derived from the committed Population stage group's own facts (the
+  // single canon), at the consumer's single resolution point. A false, empty or tampered claim fails.
+  const stage = tx.stages.find((s) => sameStage(s.stage, closeStage.stage))!;
+  const valueOf = (key: string) => {
+    const f = state.facts.get(key);
+    return f && f.provenance.group_id === stage.group_id ? f.value : undefined;
+  };
+  const untrue = pcb01EvidenceViolation({
+    recorded: e.evidence,
+    barrier,
+    instant: consumerAt,
+    valueOf,
+  });
+  if (untrue) return bad(untrue, ctx);
   return null;
 }
 

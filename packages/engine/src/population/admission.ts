@@ -268,6 +268,22 @@ function checkReconciliation(
   ) {
     return bad("units change only by the typed envelopes consumed; consumption is recorded once");
   }
+  const expectedBefore = cohortWs
+    .map((w) => {
+      const prior = state.facts.get(w.key);
+      const was = prior ? CohortFactSchema.safeParse(prior.value) : undefined;
+      return {
+        cohort_id: resolveKey(w.key)!.ids[1]!,
+        members_before:
+          was?.success && was.data.result?.members ? [...was.data.result.members] : null,
+      };
+    })
+    .sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1));
+  if (!canonicalEqual(c.cohorts, expectedBefore)) {
+    return bad(
+      "a close records, for each Cohort it recomposes, exactly the membership that Cohort had before",
+    );
+  }
   return checkCohorts(
     state,
     ledgerKey,

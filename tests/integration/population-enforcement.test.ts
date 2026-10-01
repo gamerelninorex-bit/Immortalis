@@ -15,6 +15,7 @@ import {
   populationCloseKey,
   populationCohortKey,
   populationLedgerKey,
+  temporalTransactionKey,
   type CommitGroup,
   type OwnerFact,
 } from "@immortalis/contracts";
@@ -26,6 +27,7 @@ import {
   populationBarrierEvaluator,
   stageIntentId,
   verifyPopulationIntegrity,
+  verifyTemporalIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
 import {
@@ -319,6 +321,22 @@ describe("IM-11 refuses an unlawful reconciliation — even a TAMPERED one (WS-0
         }),
     ],
     [
+      "a close that misstates the membership a Cohort had before (the PCB-01 pre-state)",
+      (g) =>
+        withWrite(g, closeKey, (c) => {
+          c.cohorts.find((k: any) => k.cohort_id === COHORT_STATUS_L).members_before = ["u-1"];
+          return c;
+        }),
+    ],
+    [
+      "a close that omits a recomposed Cohort's pre-state",
+      (g) =>
+        withWrite(g, closeKey, (c) => {
+          c.cohorts = c.cohorts.filter((k: any) => k.cohort_id !== COHORT_STATUS_L);
+          return c;
+        }),
+    ],
+    [
       "a close that does not advance the ledger it names",
       (g) =>
         withWrite(g, closeKey, (c) => {
@@ -584,5 +602,160 @@ describe("seeding is itself lawful: the fixture establishes no Population withou
       FACET_POPULATION_STATE,
     );
     expect(s.campaign.verify()).toEqual([]);
+  });
+});
+
+describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admission (IM-11) and on load", () => {
+  const txKey = temporalTransactionKey("tx-consumer-1");
+
+  /** A store whose KERNEL groups are altered on the way in, to prove IM-11 (not the coordinator) refuses them. */
+  function kernelTamper(inner: CampaignStore, mutate: (tx: any) => void): CampaignStore {
+    return {
+      descriptor: inner.descriptor,
+      head: () => inner.head(),
+      getFact: (k) => inner.getFact(k),
+      listFacts: () => inner.listFacts(),
+      lookupReceipt: (i) => inner.lookupReceipt(i),
+      committedGroup: (i) => inner.committedGroup(i),
+      close: () => inner.close(),
+      commit: (g) => {
+        const group = g as CommitGroup;
+        if (group.owner !== "temporal_kernel" || !group.writes.some((w) => w.key === txKey))
+          return inner.commit(g);
+        return inner.commit(withWrite(group, txKey, (tx) => (mutate(tx), tx)));
+      },
+    };
+  }
+  const dueOf = (tx: any) => tx.engaged.find((e: any) => e.boundary === "DUE_RECONCILED");
+
+  const claims: [string, (tx: any) => void][] = [
+    [
+      "a different trigger basis",
+      (tx) => (dueOf(tx).evidence.triggers[0].basis = "COHORT_QUALIFYING_ENTRY"),
+    ],
+    [
+      "a trigger envelope this reconciliation did not consume",
+      (tx) => (dueOf(tx).evidence.triggers[0].envelope_id = "env-a"),
+    ],
+    [
+      "an extra, unsupported trigger",
+      (tx) => dueOf(tx).evidence.triggers.push({ envelope_id: "env-zz", basis: "LEDGER_SCOPE" }),
+    ],
+    [
+      "another resolution point",
+      (tx) => (dueOf(tx).evidence.instant = { unit: "fixture-time-unit", value: 120 }),
+    ],
+    ["another engaged scope", (tx) => (dueOf(tx).evidence.scope.cohort_id = null)],
+    ["no trigger at all", (tx) => (dueOf(tx).evidence.triggers = [])],
+    ["no evidence", (tx) => delete dueOf(tx).evidence],
+  ];
+  for (const [name, mutate] of claims) {
+    it(`raw admission refuses a transaction claiming ${name}; the honest re-presentation then completes by identity`, async () => {
+      const s = await seededPendingConsumer(tempDir());
+      const lying = new TemporalCoordinator(
+        kernelTamper(s.campaign.store, mutate),
+        populationProviders(),
+        populationBarrierEvaluator,
+      );
+      const r = await lying.advance(advanceToRequest("tx-consumer-1", POP_TC));
+      expect(r.ok).toBe(false);
+      expect(!r.ok && ["VALUE_INVALID", "REFERENCE_INVALID"]).toContain(!r.ok && r.error.code);
+      expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+      // the Population stage that did commit is adopted, not recomputed, once the claim is honest
+      const honest = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      expect(honest.adopted.map((x) => x.owner_operation.operation)).toContain(
+        "population-reconcile-close",
+      );
+      expect(s.population.close(LEDGER_MAIN)!.value.consumed_envelopes).toEqual(["env-c"]);
+      expect(s.campaign.verify()).toEqual([]);
+    });
+  }
+
+  it("a due claim with no supporting condition is refused: a lying evaluator cannot make a reconciliation 'due'", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false }); // nothing pending at all
+    const liar: typeof populationBarrierEvaluator = {
+      evaluate: () => ({ due: true, envelope_ids: ["env-zz"] }),
+      evidence: (barrier, instant) => ({
+        scope: { ledger_id: barrier.population.ledger_id, cohort_id: barrier.population.cohort_id },
+        instant,
+        triggers: [{ envelope_id: "env-zz", basis: "COHORT_MEMBER_EXIT" }],
+      }),
+      closeSourceLawful: (...a) => populationBarrierEvaluator.closeSourceLawful(...a),
+    };
+    const c = new TemporalCoordinator(s.campaign.store, populationProviders(), liar);
+    const r = await c.advance(advanceToRequest("tx-consumer-1", POP_TC));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+  });
+
+  describe("load-time: historical corruption of a committed due claim fails verification", () => {
+    async function drifted(
+      mutate: (facts: OwnerFact[]) => OwnerFact[],
+      group?: (g: CommitGroup | null) => CommitGroup | null,
+    ) {
+      const s = await seededPendingConsumer(tempDir());
+      await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      const inner = s.campaign.store;
+      const facts = mutate(structuredClone([...inner.listFacts()]) as OwnerFact[]);
+      const view: CampaignStore = {
+        descriptor: inner.descriptor,
+        head: () => inner.head(),
+        getFact: (k) => inner.getFact(k),
+        listFacts: () => facts,
+        lookupReceipt: (i) => inner.lookupReceipt(i),
+        committedGroup: (i) =>
+          group ? group(structuredClone(inner.committedGroup(i))) : inner.committedGroup(i),
+        commit: (g) => inner.commit(g),
+        close: () => inner.close(),
+      };
+      const out = verifyTemporalIntegrity(view);
+      await s.campaign.close();
+      return out;
+    }
+    const editTx = (f: (tx: any) => void) => (facts: OwnerFact[]) => {
+      f(facts.find((x) => x.key === txKey)!.value);
+      return facts;
+    };
+    const msgs = (v: readonly { message: string }[]) => v.map((x) => x.message).join("\n");
+
+    it("a healthy campaign verifies", async () => {
+      expect(await drifted((f) => f)).toEqual([]);
+    });
+    it("detects a recorded trigger the committed reconciliation does not support", async () => {
+      const v = await drifted(
+        editTx((tx) => (dueOf(tx).evidence.triggers[0].basis = "COHORT_QUALIFYING_ENTRY")),
+      );
+      expect(v.map((x) => x.code)).toContain("TEMPORAL_EVIDENCE");
+      expect(msgs(v)).toMatch(/PCB-01/);
+    });
+    it("detects a claim whose committed stage no longer supports any condition (the stage group is altered in the journal view)", async () => {
+      const v = await drifted(
+        (f) => f,
+        (g) => {
+          if (g?.writes.some((w) => w.key === closeKey)) {
+            const w = g.writes.find((x) => x.key === closeKey)! as any;
+            w.value.exits = [];
+            w.value.consumed_envelopes = [];
+          }
+          return g;
+        },
+      );
+      expect(msgs(v)).toMatch(/PCB-01 trigger condition is supported/);
+    });
+    it("detects a claim moved to another resolution point", async () => {
+      const v = await drifted(
+        editTx((tx) => (dueOf(tx).evidence.instant = { unit: "fixture-time-unit", value: 125 })),
+      );
+      expect(msgs(v)).toMatch(/engaged scope and resolution point/);
+    });
+    it("detects a due record that cannot be traced to a declared barrier", async () => {
+      const v = await drifted((f) => {
+        const o = f.find((x) => x.key === "temporal/object/obj-consumer-1")!.value as any;
+        delete o.dependencies[0].pending_consequence_barrier;
+        return f;
+      });
+      expect(msgs(v)).toMatch(/cannot be traced/);
+    });
   });
 });

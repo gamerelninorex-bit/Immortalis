@@ -23,6 +23,7 @@ import {
   type DependencyDeclaration,
   type Failure,
   type OwnerFact,
+  type Pcb01Evidence,
   type PendingConsequenceBarrier,
   type Publication,
   type ResolutionRequest,
@@ -503,7 +504,10 @@ export class TemporalCoordinator {
     const getFact = (key: string) => this.#store.getFact(key);
     const barrierOf = new Map<string, { barrier: PendingConsequenceBarrier; due: boolean }>();
     const barrierBlock = new Map<string, UnresolvedReason>();
-    const dueObjects = new Map<string, { typed: Typed<TemporalObject>; dueFor: StageKey }>();
+    const dueObjects = new Map<
+      string,
+      { typed: Typed<TemporalObject>; dueFor: StageKey; barrier: PendingConsequenceBarrier }
+    >();
     for (const n of [...nodes]) {
       const barrier = n.declaration.pending_consequence_barrier;
       if (!barrier) continue;
@@ -546,7 +550,7 @@ export class TemporalCoordinator {
         barrierBlock.set(n.id, "PREDECESSOR_ABSENT");
         continue;
       }
-      dueObjects.set(dueId, { typed, dueFor: n.stage });
+      dueObjects.set(dueId, { typed, dueFor: n.stage, barrier });
       for (const d of typed.value.dependencies) {
         const id = stageId(d.stage);
         if (seenStage.has(id))
@@ -662,11 +666,11 @@ export class TemporalCoordinator {
       if (retired) ctx.resolved.push({ typed, entry: e });
     }
     // PCB-01 due reconciliations are engaged too: reconciled only when every declared stage committed.
-    for (const [dueId, { typed, dueFor }] of dueObjects) {
+    for (const [dueId, { typed, dueFor, barrier }] of dueObjects) {
       const resolved = nodes
         .filter((n) => n.objectKey === temporalObjectKey(dueId))
         .every((n) => done.has(n.id));
-      ctx.dueEngaged.push({ typed, dueFor, resolved, at: tb });
+      ctx.dueEngaged.push({ typed, dueFor, resolved, at: tb, barrier });
     }
     return ok(undefined);
   }
@@ -879,6 +883,30 @@ export class TemporalCoordinator {
       a.entry.object_id < b.entry.object_id ? -1 : 1,
     );
 
+    // PCB-01: the retained evidence of every reconciled due object, derived from what its COMMITTED
+    // stage group wrote (the journal is the single source), so admission and load can re-derive it.
+    const evidenceOf = new Map<string, Pcb01Evidence>();
+    for (const d of ctx.dueEngaged) {
+      if (!d.resolved) continue;
+      const closeDecl = d.typed.value.dependencies.find(
+        (x) =>
+          x.declares_close?.name === d.barrier.close_basis.name &&
+          x.stage.owner_operation.owner === d.barrier.close_basis.producer.owner &&
+          x.stage.owner_operation.operation === d.barrier.close_basis.producer.operation,
+      );
+      const rec = closeDecl && ctx.stages.find((s) => canonicalEqual(s.stage, closeDecl.stage));
+      const group = rec ? this.#store.committedGroup(rec.intent_id) : null;
+      const writes = new Map((group?.writes ?? []).map((w) => [w.key, w.value]));
+      const ev = this.#barrier?.evidence(d.barrier, d.at, (k) => writes.get(k));
+      if (!ev) {
+        return failure(
+          "OBJECT_INVALID",
+          "a due reconciliation is recorded only when its committed stage supports a PCB-01 trigger",
+          { object_id: d.typed.value.object_id },
+        );
+      }
+      evidenceOf.set(d.typed.value.object_id, ev);
+    }
     const transaction: ResolutionTransaction = {
       transaction_id: req.transaction_id,
       cause: req.cause,
@@ -920,6 +948,7 @@ export class TemporalCoordinator {
                   boundary: "DUE_RECONCILED" as const,
                   ...base,
                   version_after: d.typed.fact.version + 1,
+                  evidence: evidenceOf.get(d.typed.value.object_id)!,
                 }
               : { boundary: "DUE_UNRESOLVED" as const, ...base },
           };
@@ -1134,6 +1163,7 @@ interface Run {
     dueFor: StageKey;
     resolved: boolean;
     at: CanonicalTime;
+    barrier: PendingConsequenceBarrier;
   }[];
   readonly recomputed: StageKey[];
   readonly adopted: StageKey[];

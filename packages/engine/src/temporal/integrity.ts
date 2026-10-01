@@ -11,10 +11,12 @@ import {
   timeAtOrBefore,
   timeEquals,
   type OwnerFact,
+  type PendingConsequenceBarrier,
   type ResolutionTransaction,
   type ValueSchema,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { continuationRequestViolation, populationReadViolation } from "./admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
@@ -232,6 +234,49 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
           "TEMPORAL_EVIDENCE",
           `engaged object ${e.object_id} is missing or older than the transaction`,
         );
+      if (e.boundary !== "DUE_RECONCILED" || !o) continue;
+      // PCB-01: re-derive the due claim from the COMMITTED stage group in the journal (IM-12). The claim
+      // must be what the group's own facts support, at the consumer's resolution point — never checked
+      // against anything that changed afterwards.
+      const dueObject = parsed(TemporalObjectSchema, o);
+      let barrier: PendingConsequenceBarrier | undefined;
+      for (const c of tx.engaged) {
+        if (c.boundary !== "RETIRED" && c.boundary !== "STILL_ACTIVE") continue;
+        const cf = facts.find((f) => f.key === c.fact_key);
+        const co = cf && parsed(TemporalObjectSchema, cf);
+        const decl = co?.dependencies.find(
+          (d) =>
+            canonicalEqual(d.stage, e.due_for) &&
+            d.pending_consequence_barrier?.reconciliation_object_id === e.object_id,
+        );
+        if (decl) barrier = decl.pending_consequence_barrier;
+      }
+      const closeDecl =
+        barrier &&
+        dueObject?.dependencies.find(
+          (d) =>
+            d.declares_close?.name === barrier!.close_basis.name &&
+            d.stage.owner_operation.owner === barrier!.close_basis.producer.owner &&
+            d.stage.owner_operation.operation === barrier!.close_basis.producer.operation,
+        );
+      const rec = closeDecl && tx.stages.find((s) => canonicalEqual(s.stage, closeDecl.stage));
+      const group = rec ? store.committedGroup(rec.intent_id) : null;
+      if (!barrier || !dueObject || !rec || !group) {
+        bad(
+          key,
+          "TEMPORAL_EVIDENCE",
+          `the PCB-01 due reconciliation of ${e.object_id} cannot be traced to a declared barrier and a committed stage`,
+        );
+        continue;
+      }
+      const writes = new Map(group.writes.map((w) => [w.key, w.value]));
+      const untrue = pcb01EvidenceViolation({
+        recorded: e.evidence,
+        barrier,
+        instant: dueObject.last_resolved_basis,
+        valueOf: (k) => writes.get(k),
+      });
+      if (untrue) bad(key, "TEMPORAL_EVIDENCE", `${untrue}: ${e.object_id}`);
     }
   });
 

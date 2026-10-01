@@ -287,6 +287,12 @@ export const ReconciliationCloseSchema = z
     }),
     /** the envelopes consumed by this close: exactly its entries and exits, each once */
     consumed_envelopes: SortedIds,
+    /**
+     * For each Cohort this close recomposed: the membership it had BEFORE (null when never composed or
+     * unquantified). Population verifies it against the prior Cohort fact at admission; it is the
+     * authoritative pre-state a later PCB-01 verification needs, and it is Population's own evidence.
+     */
+    cohorts: z.array(z.strictObject({ cohort_id: EntityId, members_before: SortedIds.nullable() })),
   })
   .superRefine((c, ctx) => {
     const bad = (message: string, path: string[]) =>
@@ -303,6 +309,8 @@ export const ReconciliationCloseSchema = z
       bad("the consumed envelopes are exactly the entries and exits recorded", [
         "consumed_envelopes",
       ]);
+    if (!sortedUnique(c.cohorts.map((k) => k.cohort_id)))
+      bad("recomposed Cohorts are sorted by id with no duplicates", ["cohorts"]);
     for (const x of c.exits)
       if ((x.disposition === "REVERSIBLE_MEMBERSHIP_EXIT") !== (x.continuity_ref !== null))
         bad("a reversible exit preserves a continuity reference; cessation carries none", [

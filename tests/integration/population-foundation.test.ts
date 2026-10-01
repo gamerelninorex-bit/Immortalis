@@ -43,7 +43,12 @@ import {
   SYNTH_CRITERION_OWNER,
   advanceToRequest,
   at,
+  entryEnvelope,
   exitEnvelope,
+  unit,
+  burdenCohort,
+  popPublication,
+  PLACE_L,
   popConsumerObject,
   popConsumerStage,
   populationBarrier,
@@ -602,6 +607,102 @@ describe("a spent reconciliation is never selected again (no recurrence is imple
       "env-a",
       "env-b",
       "env-c",
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+});
+
+describe("PCB-01 repair 1: an Entry the authoritative external criterion shows cannot qualify does not force reconciliation", () => {
+  const joinedAtL = () => entryEnvelope("env-n", unit("u-6", PLACE_L, PLACE_L), at(130));
+
+  it("an ENTRY lands at the Cohort's indexed place but the Criterion Owner's fact (at the resolution point) excludes it: not due", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [joinedAtL()]);
+    // criterion for TC is [u-1, u-3, u-5]: the entering u-6 does not qualify
+    const probe = populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+      s.campaign.store.getFact(k),
+    );
+    expect(probe.due).toBe(false);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(r.transaction.engaged.map((e) => e.boundary)).toEqual(["RETIRED"]);
+    expect(s.population.ledger(LEDGER_MAIN)!.fact.version).toBe(2); // no reconciliation
+    expect(s.population.ledger(LEDGER_MAIN)!.value.consumed_envelopes).not.toContain("env-n");
+    expect(s.coordinator.object(OBJECT_POP_CLOSE_2)!.fact.version).toBe(1);
+  });
+
+  it("the same Entry DOES force it when the criterion shows it qualifies, and the evidence says so", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [joinedAtL()]);
+    await commitCriterion(s.campaign.store, 13, POP_TC, ["u-1", "u-3", "u-5", "u-6"]);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    const due = r.transaction.engaged.find((e) => e.boundary === "DUE_RECONCILED") as any;
+    expect(due.evidence.triggers).toEqual([
+      { envelope_id: "env-n", basis: "COHORT_QUALIFYING_ENTRY" },
+    ]);
+    expect(s.population.cohort(LEDGER_MAIN, COHORT_STATUS_L)!.value.result!.members).toContain(
+      "u-6",
+    );
+  });
+
+  it("an Entry elsewhere than the Cohort's place never intersects", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [
+      entryEnvelope("env-m", unit("u-7", "place-m", "place-m"), at(130)),
+    ]);
+    expect(
+      populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+        s.campaign.store.getFact(k),
+      ).due,
+    ).toBe(false);
+  });
+
+  it("where the external criterion is not established at the resolution point it cannot say: the answer stays 'could change'", async () => {
+    const s = await seededPopulationCampaign(tempDir());
+    await must(s.coordinator.advance(advanceToRequest("tx-pop-1", POP_TP)));
+    await commitRegister(s.campaign.store, 12, [joinedAtL()]);
+    // the criterion is still the TP fact
+    expect(
+      populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+        s.campaign.store.getFact(k),
+      ).due,
+    ).toBe(true);
+  });
+
+  it("an unquantified Cohort has no discrete result to change: nothing is due for it", async () => {
+    const s = await seededPendingConsumer(tempDir());
+    await must(
+      s.population.instantiateCohort({
+        ...popPublication(77),
+        ref: burdenCohort("cohort-uq", PLACE_L, LEDGER_MAIN, {
+          cardinality_semantics: "UNQUANTIFIED",
+        }),
+      }),
+    );
+    const probe = populationBarrierEvaluator.evaluate(
+      populationBarrier({ population: { ledger_id: LEDGER_MAIN, cohort_id: "cohort-uq" } }),
+      POP_TC,
+      (k) => s.campaign.store.getFact(k),
+    );
+    expect(probe.due).toBe(false); // env-c is pending and eligible, but cannot change an unquantified result
+  });
+});
+
+describe("PCB-01 repair 2: the due claim is retained as verifiable evidence", () => {
+  it("the engaged record carries evidence re-derivable from the committed stage group", async () => {
+    const s = await seededPendingConsumer(tempDir());
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    const due = r.transaction.engaged.find((e) => e.boundary === "DUE_RECONCILED") as any;
+    expect(due.evidence).toEqual({
+      scope: { ledger_id: LEDGER_MAIN, cohort_id: COHORT_STATUS_L },
+      instant: POP_TC,
+      triggers: [{ envelope_id: "env-c", basis: "COHORT_MEMBER_EXIT" }],
+    });
+    // Population's close retains the pre-state membership the claim relies on (verified at its admission)
+    const close = s.population.close(LEDGER_MAIN)!.value;
+    expect(close.cohorts.find((k) => k.cohort_id === COHORT_STATUS_L)!.members_before).toEqual([
+      "u-1",
+      "u-2",
+      "u-5",
     ]);
     expect(s.campaign.verify()).toEqual([]);
   });

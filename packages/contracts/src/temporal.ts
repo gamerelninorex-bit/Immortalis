@@ -236,6 +236,40 @@ export const PendingConsequenceBarrierSchema = z.strictObject({
 });
 export type PendingConsequenceBarrier = z.infer<typeof PendingConsequenceBarrierSchema>;
 
+/**
+ * Retained, independently verifiable evidence that a PCB-01 due claim was true (F-017 PCB-01). It is
+ * deliberately thin: WHICH consumed envelopes made the reconciliation due, and on which structural basis.
+ * Everything it must be checked against — the consumed envelopes, the Cohort's membership before and after,
+ * the single resolution point — is in the committed Population stage group itself (the single canon), and
+ * the verifier RE-DERIVES the triggers from that group: a recorded claim that differs, or that no condition
+ * supports, is rejected at raw admission and again on load. It is a record, not a second log.
+ */
+export const PCB01_TRIGGER_BASES = [
+  "LEDGER_SCOPE",
+  "COHORT_MEMBER_EXIT",
+  "COHORT_QUALIFYING_ENTRY",
+  "COHORT_NOT_YET_COMPOSED",
+] as const;
+export const Pcb01EvidenceSchema = z
+  .strictObject({
+    scope: z.strictObject({ ledger_id: EntityId, cohort_id: EntityId.nullable() }),
+    /** the consumer's boundary instant: the single resolution point the reconciliation resolved at */
+    instant: CanonicalTimeSchema,
+    triggers: z
+      .array(z.strictObject({ envelope_id: EntityId, basis: z.enum(PCB01_TRIGGER_BASES) }))
+      .min(1),
+  })
+  .superRefine((e, ctx) => {
+    const ids = e.triggers.map((t) => t.envelope_id);
+    if (!ids.every((id, i) => i === 0 || (ids[i - 1] as string) < id))
+      ctx.addIssue({
+        code: "custom",
+        message: "triggers are sorted by envelope with no duplicates",
+        path: ["triggers"],
+      });
+  });
+export type Pcb01Evidence = z.infer<typeof Pcb01EvidenceSchema>;
+
 export const DependencyDeclarationSchema = z
   .strictObject({
     stage: StageKeySchema,
@@ -558,6 +592,8 @@ export const ResolutionTransactionSchema = z
           version_after: Version.min(1),
           due_for: StageKeySchema,
           trigger: z.literal("PCB-01"),
+          /** why it was due: re-derived and re-verified from the committed stage group */
+          evidence: Pcb01EvidenceSchema,
         }),
         /** PCB-01 reconciliation that could not lawfully complete: not credited, not mutated. */
         z.strictObject({

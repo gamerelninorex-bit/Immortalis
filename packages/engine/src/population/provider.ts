@@ -120,6 +120,13 @@ export const populationStageProvider: StageProvider = {
       exits: [...a.exits],
       closing: { count: a.units.length, ledger_version: nextLedgerVersion },
       consumed_envelopes: [...a.consumed],
+      // the membership each recomposed Cohort had before this close (PCB-01 pre-state evidence)
+      cohorts: cohorts
+        .map((c) => ({
+          cohort_id: c.value.ref.cohort_id,
+          members_before: c.value.result?.members ? [...c.value.result.members] : null,
+        }))
+        .sort((x, y) => (x.cohort_id < y.cohort_id ? -1 : 1)),
     };
     const inherit = (f: OwnerFact | undefined) => ({
       unit: null,
