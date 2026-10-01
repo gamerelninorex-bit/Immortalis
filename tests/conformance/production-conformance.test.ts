@@ -127,6 +127,7 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
     // (the sixth slice's Economy is the one later registered owner)
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "epistemic_access",
       "logistics",
       "named_actor",
       "pc_existence",
@@ -154,10 +155,12 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
   });
 
   it("no generic or later owner exists: no Asset, Inventory, Labor, Logistics, KTI, Actor, Health, Military, Culture or Epistemic owner (Economy is the sixth slice's own IM-06 owner)", () => {
-    const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => n !== "named_actor").join(" ");
+    const names = [...CANONICAL_OWNER_REGISTRY.keys()]
+      .filter((n) => n !== "named_actor" && n !== "epistemic_access")
+      .join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()]
       .flatMap((f) => [...f])
-      .filter((f) => f !== "actor_profile")
+      .filter((f) => f !== "actor_profile" && f !== "epistemic_access")
       .join(" ");
     for (const forbidden of [
       "asset",
@@ -364,6 +367,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "commit",
       "economy",
+      "epistemic",
       "logistics",
       "owners",
       "persistence",

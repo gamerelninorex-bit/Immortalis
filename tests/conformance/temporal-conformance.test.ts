@@ -115,9 +115,10 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
     // (same owner and facet as the fallback entity); the transaction-authority repair adds the one IM-02 kernel kind
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(26);
+    expect(ALL_FACT_KINDS).toHaveLength(29);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "epistemic_access",
       "logistics",
       "named_actor",
       "pc_existence",
@@ -145,7 +146,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
   });
 
   it("the kernel owns shared orchestration only — none of the substantive owners the IM map reserves", () => {
-    const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => n !== "named_actor").join(" ");
+    const names = [...CANONICAL_OWNER_REGISTRY.keys()]
+      .filter((n) => n !== "named_actor" && n !== "epistemic_access")
+      .join(" ");
     // (Population is the fourth slice's lawful IM-04 owner, Production the fifth slice's lawful IM-05 owner and
     // Economy the sixth slice's lawful IM-06 owner; every other substantive owner stays absent.)
     for (const forbidden of ["health", "military", "actor", "culture", "epistemic", "resource"]) {
@@ -346,6 +349,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "commit",
       "economy",
+      "epistemic",
       "logistics",
       "owners",
       "persistence",
