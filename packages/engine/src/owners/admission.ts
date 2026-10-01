@@ -1,6 +1,7 @@
 import {
   ExistenceContractSchema,
   FACET_WORLD_FALLBACK_ENTITY,
+  OWNER_ECONOMY,
   OWNER_POPULATION,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
@@ -17,6 +18,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { economyGroupCheck } from "../economy/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
@@ -175,6 +177,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_POPULATION) return populationGroupCheck(group, state);
     // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
     if (group.owner === OWNER_PRODUCTION) return productionGroupCheck(group, state);
+    // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
+    if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
       return worldEntityGroupCheck(group, state);
@@ -215,6 +219,16 @@ export function identityMismatch(
     case "production_operation":
     case "production_completion":
       return v["operation_id"] === ids[0] ? null : "operation_id does not match the key";
+    case "economy_demand":
+      return v["demand_envelope_id"] === ids[0]
+        ? null
+        : "demand_envelope_id does not match the key";
+    case "economy_request":
+      return v["request_id"] === ids[0] ? null : "request_id does not match the key";
+    case "economy_realization":
+      return v["demand_envelope_id"] === ids[0]
+        ? null
+        : "demand_envelope_id does not match the key";
     case "world_fallback_entity": {
       const locality = v["locality"] as { world: { entity_id: string } };
       return v["entity_id"] === ids[1] && locality.world.entity_id === ids[0]

@@ -124,7 +124,9 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
     expect(WORLD_FALLBACK_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
       ["world_fallback_entity", "world_state", "world_fallback_physical_entity", "SEALED"],
     ]);
+    // (the sixth slice's Economy is the one later registered owner)
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
+      "economy",
       "pc_existence",
       "population",
       "production",
@@ -149,14 +151,13 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
       ).toHaveLength(1);
   });
 
-  it("no generic or later owner exists: no Asset, Inventory, Labor, Economy, Logistics, KTI, Actor, Health, Military, Culture or Epistemic owner", () => {
+  it("no generic or later owner exists: no Asset, Inventory, Labor, Logistics, KTI, Actor, Health, Military, Culture or Epistemic owner (Economy is the sixth slice's own IM-06 owner)", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()].flatMap((f) => [...f]).join(" ");
     for (const forbidden of [
       "asset",
       "inventory",
       "labor",
-      "economy",
       "logistics",
       "movement",
       "kti",
@@ -333,7 +334,7 @@ describe("IA-23/IA-24/IA-25 CAL-01, CAL-02/L-50 and CAL-03 stay unresolved: noth
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the Production module is exactly the IM-05 Production owner path — no Logistics, Economy, KTI, labor, source-stock, actor, health, culture, epistemic or host layer", () => {
+  it("the Production module is exactly the IM-05 Production owner path — no Logistics, Economy, KTI, labor, source-stock, actor, health, culture, epistemic or host layer inside it (Economy is its own later module)", () => {
     expect(readdirSync("packages/engine/src/production").sort()).toEqual([
       "adapter.ts",
       "admission.ts",
@@ -351,7 +352,16 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
-    ).toEqual(["commit", "owners", "persistence", "population", "production", "temporal", "world"]);
+    ).toEqual([
+      "commit",
+      "economy",
+      "owners",
+      "persistence",
+      "population",
+      "production",
+      "temporal",
+      "world",
+    ]);
     expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
     for (const forbidden of ["migrations/manifests/production.json"])
       expect(existsSync(forbidden)).toBe(false);

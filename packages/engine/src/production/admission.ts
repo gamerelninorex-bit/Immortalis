@@ -1,4 +1,6 @@
 import {
+  ECONOMY_OPERATION_REALIZE_ACCESS,
+  OWNER_ECONOMY,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
   ProductionClaimSchema,
@@ -165,8 +167,12 @@ function checkStart(
   // the pinned request: a foreign fact in its source's own key space, referenced and never copied
   const request = requirePrerequisite(group, state, op.request.fact_key, "the Production Request");
   if (isRejection(request)) return request;
+  // A request is a foreign fact in its SOURCE's own key space: either an unregistered extension owner's, or the
+  // Economy owner's registered request space (WS-003 §13A; the Economy slice). Never a canonical, kernel,
+  // Population, Production, custodian or any other registered owner's fact.
+  const requestKind = resolveKey(op.request.fact_key)?.kind.id;
   if (
-    resolveKey(op.request.fact_key) ||
+    (requestKind !== undefined && requestKind !== "economy_request") ||
     request.fact.owner === OWNER_PRODUCTION ||
     request.fact.owner !== op.request.owner ||
     request.fact.version !== op.request.version ||
@@ -397,7 +403,8 @@ export function productionObjectViolation(
     stageOwners.some(
       (s) =>
         s.owner === OWNER_PRODUCTION ||
-        (s.owner === OWNER_WORLD_STATE && s.operation === WORLD_OPERATION_ACCEPT_FALLBACK),
+        (s.owner === OWNER_WORLD_STATE && s.operation === WORLD_OPERATION_ACCEPT_FALLBACK) ||
+        (s.owner === OWNER_ECONOMY && s.operation === ECONOMY_OPERATION_REALIZE_ACCESS),
     );
   if (!concerned) return null;
   const prefix = "obj-production-";

@@ -6,8 +6,15 @@
 // Resolution Transaction Foundation (IM-02 coordinator over that same commit/persistence substrate), and
 // the Population & Cohort Reconciliation Backbone Foundation (IM-04 owner path over that same substrate), and
 // the Production & Resource Conservation Backbone Foundation (IM-05 Production owner path and the World-State
-// fallback physical-entity custodian over that same substrate).
+// fallback physical-entity custodian over that same substrate), and the Economy Demand → Production Request →
+// Realized Access Backbone Foundation (IM-06 Economy owner path over that same substrate).
 export * from "./commit/campaign-core.ts";
+export * from "./economy/adapter.ts";
+export * from "./economy/admission.ts";
+export * from "./economy/declaration.ts";
+export * from "./economy/derive.ts";
+export * from "./economy/integrity.ts";
+export * from "./economy/provider.ts";
 export * from "./owners/admission.ts";
 export * from "./owners/extension.ts";
 export * from "./owners/registry.ts";

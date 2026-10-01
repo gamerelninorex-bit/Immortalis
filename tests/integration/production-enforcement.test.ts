@@ -176,17 +176,10 @@ describe("Production-owned state cannot be authoritatively written by anyone els
     expect(s.campaign.verify()).toEqual([]);
   });
 
-  it("there is no fallback or generic owner: no Asset, Inventory, Labor, Economy or Logistics owner, and no unregistered key space", async () => {
+  it("there is no fallback or generic owner: no Asset, Inventory, Labor or Logistics owner, and no unregistered key space (Economy is the sixth slice's own registered owner)", async () => {
     const s = await seededProductionCampaign(tempDir());
     const w = [{ key: "x/y", value: {}, expected_version: 0 }];
-    for (const [i, owner] of [
-      "asset",
-      "inventory",
-      "labor",
-      "economy",
-      "logistics",
-      "kti",
-    ].entries()) {
+    for (const [i, owner] of ["asset", "inventory", "labor", "logistics", "kti"].entries()) {
       expect(await codeOf(s.campaign.store.commit(rawGroup(i, owner, "any", w)))).toBe(
         "OWNER_NOT_REGISTERED",
       );
