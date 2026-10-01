@@ -11,10 +11,12 @@ import {
   ALL_FACT_KINDS,
   GIP_FACT_KINDS,
   GIP_OFFICE_RULE,
+  GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
   WS007_SOURCE,
   factKind,
 } from "@immortalis/engine";
+import { decisionBodyOfficeAuthorityLocus, officeAuthorityLocus } from "@immortalis/testkit";
 
 interface Lock {
   frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
@@ -76,15 +78,17 @@ describe("IA-01 source/version fidelity (GIP Office / Authority Locus registrati
       "office powers, duties, succession, appointment, removal",
       "§2.2 Explicit non-ownership",
       "§3.2 Office / Authority Locus",
-      "office_id, institution_id, authority_source_ref, competence_scope, powers[], duties[] where material, selection_rule, succession_rule, removal_rule, holder_ref",
+      "office_id, institution_id, authority_source_ref, competence_scope, powers[], duties[] where material, selection_rule, succession_rule, removal_rule, holder_ref OR decision_body_ref",
       "authority belongs to the office/order, not personally to the current holder",
-      "delegations, concurrence, review/veto/override, conditional authority and decision_body_ref not implemented",
+      "delegations, concurrence, review/veto/override and conditional authority not implemented",
       "§21.1 Create and §21.2 Update",
       "Scaling Profile v1.1 §3 Cardinality basis (Office/Institution × authority relation",
       "never copied onto holders, actors or subjects",
       "no scan of all institutions or offices",
     ])
       expect(GIP_OFFICE_RULE.clause).toContain(c);
+    // the current citation never says the now-implemented branch is unimplemented
+    expect(GIP_OFFICE_RULE.clause).not.toMatch(/decision_body_ref[^;]*not implemented/);
   });
 });
 
@@ -297,13 +301,54 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
     expect(office.keyPattern.test("gip/institution/i-1/decision-body/b-1")).toBe(false);
   });
 
-  it("the governing-rule citation is byte-identical to the one thirteenth-slice offices were committed under, so existing holder-branch saves still load without migration or reinterpretation", () => {
-    // Every committed office records this exact citation and is re-verified against it on load (canonical integrity compares
-    // it whole). It is therefore frozen: changing any byte would invalidate every existing save. This is the sha256 of the
-    // citation as of the thirteenth slice.
+  it("the superseded thirteenth-slice citation is kept byte-for-byte, so existing holder-branch saves still load without migration or reinterpretation", () => {
+    // Every thirteenth-slice office records this exact citation and is re-verified against it on load, so its text is
+    // frozen. This is the sha256 of the citation as committed by that slice.
+    expect(
+      createHash("sha256").update(JSON.stringify(GIP_OFFICE_RULE_THIRTEENTH_SLICE)).digest("hex"),
+    ).toBe("794f072b5a78d20f054ed809fe62693e1998bcf7eaa6e401d295d592fd9da9c8");
+    expect(GIP_OFFICE_RULE_THIRTEENTH_SLICE.clause).toContain("decision_body_ref not implemented");
+  });
+
+  it("the current citation truthfully reflects the implemented holder_ref OR decision_body_ref surface, with the same source artifact, exact native pin and authority lineage", () => {
+    const old = GIP_OFFICE_RULE_THIRTEENTH_SLICE;
+    expect(GIP_OFFICE_RULE.clause).not.toBe(old.clause);
+    expect(GIP_OFFICE_RULE.clause).toContain("holder_ref OR decision_body_ref");
+    expect(GIP_OFFICE_RULE.clause).not.toContain("decision_body_ref not implemented");
+    for (const k of [
+      "artifact",
+      "native_pin",
+      "authority_lineage",
+      "effective_basis",
+      "supersedes",
+    ] as const)
+      expect(GIP_OFFICE_RULE[k], k).toEqual(old[k]);
+    expect(GIP_OFFICE_RULE.native_pin).toBe("2026-09-24T01:42:24.952Z");
     expect(createHash("sha256").update(JSON.stringify(GIP_OFFICE_RULE)).digest("hex")).toBe(
-      "794f072b5a78d20f054ed809fe62693e1998bcf7eaa6e401d295d592fd9da9c8",
+      "580f849a52c8467718a7f5593d253a8881122c60534ae1bd390e3578736cb4b7",
     );
+  });
+
+  it("the historical compatibility is narrow: exactly one kind registers a superseded citation, only that whole citation, and only for the holder-branch value class", () => {
+    expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
+      "gip_office_authority_locus",
+    ]);
+    const legacy = factKind("gip_office_authority_locus").legacyRule!;
+    expect(legacy.rule).toEqual(GIP_OFFICE_RULE_THIRTEENTH_SLICE);
+    expect(legacy.admits(officeAuthorityLocus())).toBe(true);
+    for (const v of [
+      decisionBodyOfficeAuthorityLocus(),
+      { ...officeAuthorityLocus(), decision_body_ref: "body-1" },
+      { ...officeAuthorityLocus(), extra: 1 },
+      {},
+      null,
+    ])
+      expect(legacy.admits(v), JSON.stringify(v)).toBe(false);
+    // admission requires the current citation for every new office; the superseded one is never stamped on a write
+    const admission = code(`${GIP_DIR}/admission.ts`);
+    expect(admission).toMatch(/canonicalEqual\(group\.rule, GIP_OFFICE_RULE\)/);
+    expect(identifiers(`${GIP_DIR}/admission.ts`)).not.toMatch(/THIRTEENTH/);
+    expect(identifiers(`${GIP_DIR}/adapter.ts`)).not.toMatch(/THIRTEENTH/);
   });
 
   it("decision_body_ref is never read, resolved or dereferenced by any GIP engine module, and no body-side construct exists", () => {

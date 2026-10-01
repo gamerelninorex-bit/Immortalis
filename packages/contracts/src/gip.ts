@@ -154,7 +154,7 @@ export type OfficeAuthorityLocusDecisionBody = z.infer<
 >;
 
 /**
- * The frozen WS-007 §3.2 `holder_ref OR decision_body_ref`: exactly one of the two exclusive reference fields. Each branch is
+ * The frozen WS-007 §3.2 `holder_ref OR decision_body_ref` (the source, not this contract, is the authority): exactly one of the two exclusive reference fields. Each branch is
  * a strict object carrying one of them, so an office carrying both, neither, or any unmodelled field matches no branch and
  * fails closed. There is no discriminator field (the source defines none): the branch IS the one reference field present.
  * An existing holder-branch value is exactly a value of the holder branch, so no existing save is reinterpreted or migrated.

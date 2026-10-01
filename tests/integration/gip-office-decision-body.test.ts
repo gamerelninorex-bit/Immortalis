@@ -20,6 +20,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   CanonicalCampaign,
   GIP_OFFICE_RULE,
+  GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
   GipAdapter,
   createFileCampaign,
@@ -847,4 +848,252 @@ describe("load fails closed on a tampered branch or reference", () => {
     expect(new Set(v.map((x) => x.message)).size).toBe(1);
     await s.campaign.close();
   });
+});
+
+describe("governing-rule provenance: new offices carry the truthful current citation; thirteenth-slice holder offices keep loading under theirs", () => {
+  const stateFile = (d: string) => readdirSync(d).find((f) => f.startsWith("state."))!;
+  const openOutcome = async (dir: string) => {
+    const r = await CanonicalCampaign.open(dir);
+    if (r.ok) {
+      await r.value.close();
+      return "OK";
+    }
+    return r.error.code === "CANON_INTEGRITY"
+      ? (r.error.details?.["violations"] as { code: string }[]).map((v) => v.code).join(",")
+      : r.error.code;
+  };
+  /** A history built by a store with NO admission: replayable, so only canonical load integrity can judge it. */
+  async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
+    const dir = tempDir();
+    const s = await must(
+      createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+    );
+    await build(s);
+    await s.close();
+    return dir;
+  }
+  const put = (n: number, key: string, value: unknown, groupOver: any = {}) =>
+    group(
+      FIXTURE_CAMPAIGN,
+      n,
+      [write(key, value as never, { owner: "gip", facet: "gip_institution_identity" })],
+      {
+        owner: "gip",
+        facet: "gip_institution_identity",
+        rule: GIP_OFFICE_RULE,
+        reads: [{ key: courtKey, version: 1 }],
+        depends_on: ["group-1"],
+        ...groupOver,
+      },
+    );
+  const identity = () =>
+    group(
+      FIXTURE_CAMPAIGN,
+      1,
+      [
+        write(courtKey, institutionIdentity() as never, {
+          owner: "gip",
+          facet: "gip_institution_identity",
+        }),
+      ],
+      { owner: "gip", facet: "gip_institution_identity", rule: GIP_RULE },
+    );
+  const withOffice = (value: unknown, rule: unknown) =>
+    rogue(async (st) => {
+      await must(st.commit(identity()));
+      await must(st.commit(put(2, magistrateKey, value, { rule })));
+    });
+
+  it("a newly committed office of either branch is stamped with the current citation, which says decision_body_ref is implemented — never with the superseded one", async () => {
+    const dir = tempDir();
+    const s = await withCourt(dir);
+    await establishOffice(s, 2, INSTITUTION_COURT, OFFICE_TREASURER);
+    await establishDecisionBodyOffice(s, 3, INSTITUTION_COURT, OFFICE_MAGISTRATE);
+    for (const [key, n] of [
+      [treasurerKey, 2],
+      [magistrateKey, 3],
+    ] as const) {
+      const fact = s.campaign.store.getFact(key)!;
+      expect(fact.provenance.rule, key).toEqual(GIP_OFFICE_RULE);
+      expect(fact.provenance.rule, key).not.toEqual(GIP_OFFICE_RULE_THIRTEENTH_SLICE);
+      expect(s.campaign.store.committedGroup(gipPublication(n).intent_id)!.rule).toEqual(
+        GIP_OFFICE_RULE,
+      );
+      expect(fact.provenance.rule.clause).toContain("holder_ref OR decision_body_ref");
+      expect(fact.provenance.rule.clause).not.toContain("decision_body_ref not implemented");
+      // same source artifact, exact native pin and authority lineage as the historical citation
+      expect(fact.provenance.rule.artifact).toBe(GIP_OFFICE_RULE_THIRTEENTH_SLICE.artifact);
+      expect(fact.provenance.rule.native_pin).toBe("2026-09-24T01:42:24.952Z");
+      expect(fact.provenance.rule.authority_lineage).toEqual(
+        GIP_OFFICE_RULE_THIRTEENTH_SLICE.authority_lineage,
+      );
+    }
+    await s.campaign.close();
+    const r = await reopenGip(dir);
+    expect(r.campaign.verify()).toEqual([]);
+    expect(r.campaign.store.getFact(magistrateKey)!.provenance.rule).toEqual(GIP_OFFICE_RULE);
+    await r.campaign.close();
+  });
+
+  it("a new write carrying the superseded or any other citation is refused by admission, whichever the branch", async () => {
+    const s = await withCourt();
+    const identityFact = s.campaign.store.getFact(courtKey)!;
+    let n = 500;
+    for (const value of [decisionBodyOfficeAuthorityLocus(), officeAuthorityLocus()])
+      for (const rule of [
+        GIP_OFFICE_RULE_THIRTEENTH_SLICE,
+        { ...GIP_OFFICE_RULE, clause: "drifted" },
+        GIP_RULE,
+      ]) {
+        n++;
+        expect(
+          await codeOf(
+            s.campaign.store.commit(
+              rawGroup(s, n, magistrateKey, value, 0, identityFact, { rule }),
+            ),
+          ),
+          JSON.stringify(value),
+        ).toBe("REFERENCE_INVALID");
+      }
+    expect(gipFacts(s).map((f) => f.key)).toEqual([courtKey]);
+    // control: the current citation is admitted for both
+    await must(
+      s.campaign.store.commit(
+        rawGroup(s, 600, magistrateKey, decisionBodyOfficeAuthorityLocus(), 0, identityFact),
+      ),
+    );
+  });
+
+  it("existing thirteenth-slice holder-office facts carrying the historical citation load unchanged, with no migration, and the campaign continues with new current-citation offices", async () => {
+    const dir = await withOffice(officeAuthorityLocus(), GIP_OFFICE_RULE_THIRTEENTH_SLICE);
+    const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(await openOutcome(dir)).toBe("OK");
+    // opening migrated or rewrote nothing
+    expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
+
+    const c = await must(CanonicalCampaign.open(dir));
+    expect(c.verify()).toEqual([]);
+    const legacy = structuredClone(c.store.getFact(magistrateKey)!);
+    expect(legacy.provenance.rule).toEqual(GIP_OFFICE_RULE_THIRTEENTH_SLICE);
+    expect((legacy.value as any).holder_ref).toBe(HOLDER_REF_A);
+    const gip = new GipAdapter(c.store);
+    expect(gip.officeAuthorityLocus(INSTITUTION_COURT, OFFICE_MAGISTRATE)?.value).toEqual(
+      officeAuthorityLocus(),
+    );
+    // continue: new offices — a decision-body one and a holder one — carry the current citation beside the legacy fact
+    await must(
+      gip.establishOffice({
+        ...gipPublication(10),
+        office: decisionBodyOfficeAuthorityLocus(INSTITUTION_COURT, OFFICE_TREASURER),
+      }),
+    );
+    await must(
+      gip.establishOffice({
+        ...gipPublication(11),
+        office: officeAuthorityLocus(INSTITUTION_COURT, "office-clerk-1", {
+          holder_ref: HOLDER_REF_B,
+        }),
+      }),
+    );
+    // the legacy fact is byte-identical; a conflicting establishment of its key still fails closed
+    expect(c.store.getFact(magistrateKey)).toEqual(legacy);
+    expect(
+      await codeOf(
+        gip.establishOffice({ ...gipPublication(12), office: decisionBodyOfficeAuthorityLocus() }),
+      ),
+    ).not.toBe("OK");
+    expect(c.store.getFact(treasurerKey)!.provenance.rule).toEqual(GIP_OFFICE_RULE);
+    expect(c.verify()).toEqual([]);
+    await c.close();
+    // and the mixed-provenance campaign reloads and verifies
+    const again = await must(CanonicalCampaign.open(dir));
+    expect(again.verify()).toEqual([]);
+    expect(again.store.getFact(magistrateKey)!.provenance.rule).toEqual(
+      GIP_OFFICE_RULE_THIRTEENTH_SLICE,
+    );
+    expect(again.store.getFact(treasurerKey)!.provenance.rule).toEqual(GIP_OFFICE_RULE);
+    await again.close();
+  });
+
+  it("the compatibility is not an escape hatch: a decision-body office carrying the superseded citation is rule drift on load", async () => {
+    expect(
+      await openOutcome(
+        await withOffice(decisionBodyOfficeAuthorityLocus(), GIP_OFFICE_RULE_THIRTEENTH_SLICE),
+      ),
+    ).toMatch(/RULE_DRIFT/);
+    // control: the same decision-body office under the current citation, and a holder office under it, are canonical
+    expect(
+      await openOutcome(await withOffice(decisionBodyOfficeAuthorityLocus(), GIP_OFFICE_RULE)),
+    ).toBe("OK");
+    expect(await openOutcome(await withOffice(officeAuthorityLocus(), GIP_OFFICE_RULE))).toBe("OK");
+  });
+
+  it("only the whole historical citation is accepted: any altered, partial or foreign rule on a holder office, and the historical one on any other kind, is rule drift", async () => {
+    const h = GIP_OFFICE_RULE_THIRTEENTH_SLICE;
+    for (const [name, rule] of Object.entries({
+      "clause altered": {
+        ...h,
+        clause: h.clause.replace("not implemented here", "implemented here"),
+      },
+      "clause of the current citation with a changed pin": {
+        ...GIP_OFFICE_RULE,
+        native_pin: "2026-09-25T00:00:00.000Z",
+      },
+      "native pin altered": { ...h, native_pin: "2026-09-25T00:00:00.000Z" },
+      "artifact altered": { ...h, artifact: "https://example.invalid/other" },
+      "lineage truncated": { ...h, authority_lineage: h.authority_lineage.slice(1) },
+      "effective basis altered": { ...h, effective_basis: "drifted" },
+      "identity citation": GIP_RULE,
+    }))
+      expect(await openOutcome(await withOffice(officeAuthorityLocus(), rule)), name).toMatch(
+        /RULE_DRIFT/,
+      );
+    // the historical office citation on an Institution Identity (another kind) is not accepted
+    expect(
+      await openOutcome(
+        await rogue(async (st) => {
+          await must(
+            st.commit(
+              group(
+                FIXTURE_CAMPAIGN,
+                1,
+                [
+                  write(courtKey, institutionIdentity() as never, {
+                    owner: "gip",
+                    facet: "gip_institution_identity",
+                  }),
+                ],
+                {
+                  owner: "gip",
+                  facet: "gip_institution_identity",
+                  rule: GIP_OFFICE_RULE_THIRTEENTH_SLICE,
+                },
+              ),
+            ),
+          );
+        }),
+      ),
+    ).toMatch(/RULE_DRIFT/);
+  });
+
+  it("an edit of a saved legacy holder office — its citation, or its branch switched to a decision body — is still detected on load", async () => {
+    const edits: Record<string, (fact: any) => void> = {
+      "citation drifted": (f) => (f.provenance.rule.clause = "drifted"),
+      "citation swapped for the current one": (f) =>
+        (f.provenance.rule = structuredClone(GIP_OFFICE_RULE)),
+      "branch switched to a decision body": (f) => {
+        delete f.value.holder_ref;
+        f.value.decision_body_ref = DECISION_BODY_REF_A;
+      },
+      "holder replaced": (f) => (f.value.holder_ref = "holder-ref-forged"),
+    };
+    for (const [name, edit] of Object.entries(edits)) {
+      const dir = await withOffice(officeAuthorityLocus(), GIP_OFFICE_RULE_THIRTEENTH_SLICE);
+      const p = join(dir, stateFile(dir));
+      const j = JSON.parse(readFileSync(p, "utf8"));
+      edit(j.facts.find((f: any) => f.key === magistrateKey));
+      writeFileSync(p, JSON.stringify(j));
+      expect(await openOutcome(dir), name).not.toBe("OK");
+    }
+  }, 120_000);
 });

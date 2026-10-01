@@ -7,7 +7,8 @@ import {
   type CommitGroup,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { canonicalEqual } from "../hash.ts";
+import { GIP_OFFICE_RULE, resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 
 /**
@@ -94,6 +95,15 @@ function checkOffice(group: CommitGroup, state: CampaignState, w: Write): Reject
     });
   }
   const office = parsed.data;
+  // a newly committed office, of either reference branch, carries the CURRENT governing-rule citation: the historical
+  // thirteenth-slice citation is accepted on load for genuine legacy holder offices only and is never stamped on a new write
+  if (!canonicalEqual(group.rule, GIP_OFFICE_RULE)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "an office is committed under the current governing-rule citation of its kind",
+      { key: w.key },
+    );
+  }
   if (w.key !== gipOfficeAuthorityLocusKey(office.institution_id, office.office_id)) {
     return reject(
       "REFERENCE_INVALID",
