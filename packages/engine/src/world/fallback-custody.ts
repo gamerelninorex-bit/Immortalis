@@ -8,6 +8,7 @@ import {
   WORLD_OPERATION_ACCEPT_FALLBACK,
   WorldLocusSchema,
   productionCompletionKey,
+  worldAcceptanceStage,
   worldFallbackEntityKey,
   worldLocusKey,
   worldProfileKey,
@@ -18,6 +19,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { WORLD_FALLBACK_RULE } from "../owners/registry.ts";
+import { stageIdentityViolation } from "../production/admission.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   StageUnresolvedError,
@@ -118,6 +120,12 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
       "an acceptance is exactly the completed durable: the same conserved reference, quantity and condition, once",
     );
   }
+  // available only through its IM-02 stage (the same rule load-time verification applies)
+  const identity = stageIdentityViolation(
+    group,
+    worldAcceptanceStage(entity.accepted_from.operation_id),
+  );
+  if (identity) return reject("REFERENCE_INVALID", identity, { key: w.key });
   return null;
 }
 

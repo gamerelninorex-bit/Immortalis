@@ -13,6 +13,7 @@ import {
   productionObjectId,
   productionOperationKey,
   temporalObjectKey,
+  worldAcceptanceStage,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
@@ -20,7 +21,7 @@ import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { deriveAcceptedEntity } from "../world/fallback-custody.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { productionObjectViolation } from "./admission.ts";
+import { productionObjectViolation, stageIdentityViolation } from "./admission.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Production state still
@@ -197,6 +198,11 @@ export function verifyProductionIntegrity(store: CampaignStore): readonly Integr
         completionFact.key,
         "the operation, claim and envelope were not published atomically in one group",
       );
+    const completionIdentity = stageIdentityViolation(
+      completionFact.provenance,
+      envelope.close_stage,
+    );
+    if (completionIdentity) bad(completionFact.key, completionIdentity);
     if (!cited(completionFact.provenance.group_id) && !unretired)
       bad(
         completionFact.key,
@@ -211,7 +217,12 @@ export function verifyProductionIntegrity(store: CampaignStore): readonly Integr
         entityFact.version !== 1
       )
         bad(entityFact.key, "an accepted entity is exactly the completed durable, accepted once");
-      else if (!cited(entityFact.provenance.group_id) && !unretired)
+      const acceptanceIdentity = stageIdentityViolation(
+        entityFact.provenance,
+        worldAcceptanceStage(op.operation_id),
+      );
+      if (acceptanceIdentity) bad(entityFact.key, acceptanceIdentity);
+      if (entity && !cited(entityFact.provenance.group_id) && !unretired)
         bad(
           entityFact.key,
           "an acceptance is credited by no resolution transaction and its boundary is retired",

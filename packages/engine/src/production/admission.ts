@@ -22,10 +22,12 @@ import {
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
+  type StageKey,
   type TemporalObject,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { stageGroupId, stageIntentId } from "../temporal/identity.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { productionTemporalObject } from "./declaration.ts";
@@ -85,7 +87,7 @@ export function productionGroupCheck(group: CommitGroup, state: CampaignState): 
     claimW[0]!.expected_version > 0 &&
     opW[0]!.expected_version > 0
   ) {
-    return checkCompletion(state, reserveW[0]!, claimW[0]!, opW[0]!, completionW[0]!);
+    return checkCompletion(group, state, reserveW[0]!, claimW[0]!, opW[0]!, completionW[0]!);
   }
   return reject(
     "VALUE_INVALID",
@@ -281,7 +283,36 @@ function checkStart(
   return null;
 }
 
+/**
+ * IM-02 stage identity of a committed owner-stage group (RC-16, RC-04). The coordinator publishes every stage
+ * under the group and intent identity derived from its StageKey alone, caused by the transaction it belongs to;
+ * Production's completion and the custodian's acceptance are lawful ONLY as such stages. This is the one
+ * statement of that rule: raw admission and load-time verification both call it, so they cannot drift.
+ *
+ * It is what distinguishes a stage that genuinely committed inside an IM-02 transaction — including one whose
+ * kernel group never landed because the process was interrupted, which is adopted by identity when the same
+ * transaction is re-presented — from an arbitrary raw publication of an identical group, which carries
+ * whatever identity its caller chose. Canonical time cannot make that distinction: owner stages commit before
+ * the kernel group advances it. Returns a message, or null.
+ */
+export function stageIdentityViolation(
+  group: { readonly group_id: string; readonly intent_id: string; readonly cause: string },
+  stage: StageKey,
+): string | null {
+  const prefix = "transaction:";
+  if (
+    group.group_id !== stageGroupId(stage) ||
+    group.intent_id !== stageIntentId(stage) ||
+    !group.cause.startsWith(prefix) ||
+    group.cause.length === prefix.length
+  ) {
+    return "a completion or acceptance is published only as its IM-02 stage: under the group and intent identity derived from its StageKey, caused by its transaction";
+  }
+  return null;
+}
+
 function checkCompletion(
+  group: CommitGroup,
   state: CampaignState,
   reserveW: Write,
   claimW: Write,
@@ -322,6 +353,10 @@ function checkCompletion(
       "a completion is exactly the declared transformation: the claimed input consumed once, the declared output sealed once",
     );
   }
+  // published only as the IM-02 stage it is: a raw publication of the identical group, under any other
+  // identity, is not a completion (canonical time before the boundary is lawful ONLY for such a stage)
+  const identity = stageIdentityViolation(group, d.envelope.close_stage);
+  if (identity) return reject("REFERENCE_INVALID", identity, { key: completionW.key });
   // it completes only at its engaged, unretired, declared boundary (the object is the engagement)
   const obj = state.facts.get(temporalObjectKey(productionObjectId(op.operation_id)));
   const clock = state.facts.get(TEMPORAL_STATE_KEY);

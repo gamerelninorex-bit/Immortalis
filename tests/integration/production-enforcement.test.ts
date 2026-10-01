@@ -51,6 +51,7 @@ import {
   RESERVE_MAIN,
   SYNTH_REQUESTER_OWNER,
   at,
+  continuationInput,
   instrumentFs,
   prodAdvanceRequest,
   prodPublication,
@@ -644,9 +645,10 @@ describe("IM-11 refuses an unlawful COMPLETION or ACCEPTANCE — even a TAMPERED
     },
   );
 
-  it("a raw acceptance is lawful only as the exact derived entity; a duplicate acceptance and an acceptance with no completion are refused", async () => {
+  it("a raw acceptance, a duplicate and an acceptance with no completion are all refused; the lawful acceptance is the custodian's stage", async () => {
     const s = await seededProductionCampaign(tempDir());
     await startAndRegister(s, REQ_1, 1);
+    // the completion genuinely commits (a stage), but the custodian is absent: completed, NOT available
     const blocked = new TemporalCoordinator(
       s.campaign.store,
       new StageProviderRegistry([productionCompletionProvider]),
@@ -667,10 +669,19 @@ describe("IM-11 refuses an unlawful COMPLETION or ACCEPTANCE — even a TAMPERED
           depends_on: [completion, world, locus].map((f) => f.provenance.group_id),
         },
       );
-    // no completion pinned (a fabricated durable): refused
-    expect((await s.campaign.store.commit(accept(100, entity, 0))).ok).toBe(true); // control: the exact derived entity IS lawful…
+    // a raw acceptance of the EXACT derived entity is not the custodian's stage: refused, nothing available
+    const raw = await s.campaign.store.commit(accept(100, entity, 0));
+    expect(!raw.ok && raw.error.code).toBe("REFERENCE_INVALID");
+    expect(s.production.availability(REQ_1).state).toBe("COMPLETED_PENDING_ACCEPTANCE");
+    // the lawful acceptance: the custodian's stage, resolved by the coordinator's continuation
+    await must(
+      new TemporalCoordinator(s.campaign.store, productionProviders()).continueRemainder(
+        continuationInput("tx-honest"),
+      ),
+    );
+    expect(s.production.availability(REQ_1).state).toBe("ACCEPTED_AVAILABLE");
     const dup = await s.campaign.store.commit(accept(101, entity, 0));
-    expect(dup.ok).toBe(false); // …and a second acceptance of the same reference is not
+    expect(dup.ok).toBe(false); // a second acceptance of the same reference is not credited
     expect(s.campaign.store.listFacts().filter((f) => f.key.includes("/entity/"))).toHaveLength(1);
 
     const s2 = await seededProductionCampaign(tempDir());
