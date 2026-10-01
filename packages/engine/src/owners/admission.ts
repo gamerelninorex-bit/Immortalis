@@ -1,5 +1,6 @@
 import {
   ExistenceContractSchema,
+  OWNER_POPULATION,
   OWNER_TEMPORAL_KERNEL,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
@@ -13,6 +14,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { populationGroupCheck } from "../population/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
@@ -164,6 +166,8 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
     // boundary-index and engaged-object updates).
     if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
+    // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
+    if (group.owner === OWNER_POPULATION) return populationGroupCheck(group, state);
     return null;
   },
 };
@@ -191,6 +195,15 @@ export function identityMismatch(
       return v["object_id"] === ids[0] ? null : "object_id does not match the key";
     case "resolution_transaction":
       return v["transaction_id"] === ids[0] ? null : "transaction_id does not match the key";
+    case "population_ledger":
+    case "population_close":
+      return v["ledger_id"] === ids[0] ? null : "ledger_id does not match the key";
+    case "population_cohort": {
+      const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
+      return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]
+        ? null
+        : "cohort identity does not match the key";
+    }
   }
 }
 

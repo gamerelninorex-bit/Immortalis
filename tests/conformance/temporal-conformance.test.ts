@@ -108,9 +108,11 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
       "world_state",
       "world_state",
     ]);
-    expect(ALL_FACT_KINDS).toHaveLength(8);
+    // the fourth slice adds the three IM-04 Population kinds (one owner, one facet)
+    expect(ALL_FACT_KINDS).toHaveLength(11);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "pc_existence",
+      "population",
       "role_registry",
       "temporal_kernel",
       "world_state",
@@ -134,8 +136,8 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
 
   it("the kernel owns shared orchestration only — none of the substantive owners the IM map reserves", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
+    // (Population is the fourth slice's lawful IM-04 owner; every other substantive owner stays absent.)
     for (const forbidden of [
-      "population",
       "economy",
       "production",
       "health",
@@ -255,12 +257,12 @@ describe("IA-23 / CAL-01 temporal approximation calibration: not used, not inven
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the engine has exactly the commit, owners, persistence, temporal and world modules — no population, economy, actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
+  it("the engine has exactly the commit, owners, persistence, population, temporal and world modules — no economy, actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
     expect(
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
-    ).toEqual(["commit", "owners", "persistence", "temporal", "world"]);
+    ).toEqual(["commit", "owners", "persistence", "population", "temporal", "world"]);
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
       "coordinator.ts",

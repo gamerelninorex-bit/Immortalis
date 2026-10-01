@@ -28,7 +28,9 @@ export interface IntegrityViolation {
     | "TEMPORAL_STATE"
     | "TEMPORAL_INDEX"
     | "TEMPORAL_TRANSACTION"
-    | "TEMPORAL_EVIDENCE";
+    | "TEMPORAL_EVIDENCE"
+    /** IM-04 Population state: see verifyPopulationIntegrity */
+    | "POPULATION_STATE";
   readonly message: string;
 }
 

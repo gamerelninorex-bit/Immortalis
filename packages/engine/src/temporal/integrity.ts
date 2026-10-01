@@ -15,7 +15,7 @@ import {
   type ValueSchema,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { continuationRequestViolation } from "./admission.ts";
+import { continuationRequestViolation, populationReadViolation } from "./admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -222,7 +222,11 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     }
     for (const e of tx.engaged) {
       const o = facts.find((f) => f.key === e.fact_key);
-      if (!o || (e.boundary === "RETIRED" && o.version < e.version_after))
+      if (
+        !o ||
+        ((e.boundary === "RETIRED" || e.boundary === "DUE_RECONCILED") &&
+          o.version < e.version_after)
+      )
         bad(
           key,
           "TEMPORAL_EVIDENCE",
@@ -243,6 +247,8 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
   for (const { fact, value } of objects) {
     if (fact.key !== temporalObjectKey(value.object_id))
       bad(fact.key, "TEMPORAL_INDEX", "object identity differs from its key");
+    const edge = populationReadViolation(value);
+    if (edge) bad(fact.key, "TEMPORAL_EVIDENCE", edge);
     if (!timeAtOrBefore(value.last_resolved_basis, state.canonical_time)) {
       bad(fact.key, "TEMPORAL_STATE", "an object's resolved basis lies after the canonical time");
     }

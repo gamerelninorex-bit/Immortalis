@@ -3,7 +3,8 @@
 // (IM-17) with a prototype structured-file package (Campaign Continuity Foundation), and the
 // specification-backed owner resolution + canonical world/PC/binding path (Canonical World Identity
 // & Owner Foundation: IM-03 owner registry, IM-07 PC existence + binding), and the Turnless Temporal &
-// Resolution Transaction Foundation (IM-02 coordinator over that same commit/persistence substrate).
+// Resolution Transaction Foundation (IM-02 coordinator over that same commit/persistence substrate), and
+// the Population & Cohort Reconciliation Backbone Foundation (IM-04 owner path over that same substrate).
 export * from "./commit/campaign-core.ts";
 export * from "./owners/admission.ts";
 export * from "./owners/extension.ts";
@@ -17,6 +18,13 @@ export * from "./temporal/partition.ts";
 export * from "./temporal/providers.ts";
 export * from "./world/canonical-campaign.ts";
 export * from "./world/integrity.ts";
+export * from "./population/adapter.ts";
+export * from "./population/admission.ts";
+export * from "./population/barrier.ts";
+export * from "./population/declaration.ts";
+export * from "./population/derive.ts";
+export * from "./population/integrity.ts";
+export * from "./population/provider.ts";
 export * from "./persistence/file-package.ts";
 export * from "./persistence/fs-ops.ts";
 export * from "./persistence/store.ts";

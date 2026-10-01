@@ -23,6 +23,7 @@ import {
   type DependencyDeclaration,
   type Failure,
   type OwnerFact,
+  type PendingConsequenceBarrier,
   type Publication,
   type ResolutionRequest,
   type ResolutionTransaction,
@@ -51,11 +52,13 @@ import {
   transactionIntentId,
 } from "./identity.ts";
 import { exactElapsed } from "./partition.ts";
-import type {
-  ResolvedRead,
-  StageProvider,
-  StageProviderRegistry,
-  StageWrite,
+import {
+  StageUnresolvedError,
+  type ConsequenceBarrierEvaluator,
+  type ResolvedRead,
+  type StageProvider,
+  type StageProviderRegistry,
+  type StageWrite,
 } from "./providers.ts";
 
 export type TemporalErrorCode =
@@ -164,10 +167,20 @@ const isStoreFatal = (code: string): boolean =>
 export class TemporalCoordinator {
   readonly #store: CampaignStore;
   readonly #providers: StageProviderRegistry;
+  readonly #barrier: ConsequenceBarrierEvaluator | undefined;
 
-  constructor(store: CampaignStore, providers: StageProviderRegistry) {
+  /**
+   * `barrier` is the IM-04 PCB-01 evaluation seam. Without it, a stage that declares a barrier is not
+   * resolvable (`PROVIDER_ABSENT`): the coordinator never evaluates a Population barrier itself.
+   */
+  constructor(
+    store: CampaignStore,
+    providers: StageProviderRegistry,
+    barrier?: ConsequenceBarrierEvaluator,
+  ) {
     this.#store = store;
     this.#providers = providers;
+    this.#barrier = barrier;
   }
 
   // -- typed reads (by identity; none scans) --------------------------------------------------
@@ -395,6 +408,7 @@ export class TemporalCoordinator {
       unresolved: [],
       resolved: [],
       engagedAll: [],
+      dueEngaged: [],
       recomputed: [],
       adopted: [],
       rejections: [],
@@ -479,11 +493,87 @@ export class TemporalCoordinator {
       }
     }
 
+    // 1b. PCB-01 (F-017; WS-001 §32). Only for an ENGAGED consumer that declares a barrier: ask the
+    // Population adapter whether an eligible, unconsumed consequence envelope that precedes and
+    // materially intersects the consumer's engaged scope makes the next reconciliation due. If so, import
+    // that reconciliation object's declared stage into THIS transient graph (it has no earned boundary and
+    // is not in the index); the consumer then reads its named Close. Otherwise nothing is scanned,
+    // staged or imported and the consumer reads the latest committed close. No cadence, no global scan.
+    const tb = instant[0]!.at;
+    const getFact = (key: string) => this.#store.getFact(key);
+    const barrierOf = new Map<string, { barrier: PendingConsequenceBarrier; due: boolean }>();
+    const barrierBlock = new Map<string, UnresolvedReason>();
+    const dueObjects = new Map<string, { typed: Typed<TemporalObject>; dueFor: StageKey }>();
+    for (const n of [...nodes]) {
+      const barrier = n.declaration.pending_consequence_barrier;
+      if (!barrier) continue;
+      if (!this.#barrier) {
+        barrierBlock.set(n.id, "PROVIDER_ABSENT");
+        continue;
+      }
+      const dueId = barrier.reconciliation_object_id;
+      const typed = this.object(dueId);
+      // Idempotent re-engagement: a reconciliation whose every declared stage already committed under its
+      // derived identity but whose object is still unresolved was interrupted before its transaction
+      // committed. The envelope it consumed is now consumed, so the barrier would read "nothing pending";
+      // yet the transaction that re-presents must still record — and adopt, never recompute — that
+      // reconciliation. Identity, not a fresh evaluation, decides.
+      // An object advances only inside a committed transaction, so version 1 is "never resolved": a
+      // reconciliation object that already resolved is spent and is never selected again.
+      const interrupted =
+        typed !== undefined &&
+        typed.fact.version === 1 &&
+        typed.value.next_boundary === null &&
+        compareTime(typed.value.last_resolved_basis, tb) === -1 &&
+        typed.value.dependencies.every(
+          (d) => this.#store.lookupReceipt(stageIntentId(d.stage)) !== null,
+        );
+      const ev = interrupted
+        ? ({ due: true, envelope_ids: [] } as const)
+        : this.#barrier.evaluate(barrier, tb, getFact);
+      barrierOf.set(n.id, { barrier, due: ev.due });
+      if (!ev.due) continue;
+      const known = dueObjects.get(dueId);
+      if (known) continue;
+      if (
+        !typed ||
+        typed.value.next_boundary !== null ||
+        typed.fact.version !== 1 ||
+        objects.has(dueId) ||
+        compareTime(typed.value.last_resolved_basis, tb) !== -1
+      ) {
+        // no next eligible reconciliation exists to make due: the consumer is not credited
+        barrierBlock.set(n.id, "PREDECESSOR_ABSENT");
+        continue;
+      }
+      dueObjects.set(dueId, { typed, dueFor: n.stage });
+      for (const d of typed.value.dependencies) {
+        const id = stageId(d.stage);
+        if (seenStage.has(id))
+          return failure("OBJECT_INVALID", "a stage is declared by two engaged objects", {
+            stage: d.stage,
+          });
+        seenStage.add(id);
+        nodes.push({
+          id,
+          stage: d.stage,
+          declaration: d,
+          objectKey: temporalObjectKey(dueId),
+          object: typed.value,
+          provider: this.#providers.find(
+            d.stage.owner_operation.owner,
+            d.stage.owner_operation.operation,
+          ),
+          closeGroups: new Map(),
+        });
+      }
+    }
+
     // 2. index the transient graph by stage identity; classify every read as NOW or named CLOSE.
     const producedBy = new Map<string, Node>();
     for (const n of nodes) for (const k of n.declaration.produces) producedBy.set(k, n);
     const edges: GraphEdge[] = [];
-    const pre = new Map<string, UnresolvedReason>();
+    const pre = new Map<string, UnresolvedReason>(barrierBlock);
     const block = (n: Node, reason: UnresolvedReason) => {
       if (!pre.has(n.id)) pre.set(n.id, reason);
     };
@@ -512,7 +602,24 @@ export class TemporalCoordinator {
             mode: r.mode === "AS-OF-NOW" ? "NOW" : "CLOSE",
           });
         } else if (r.mode === "AS-OF-DECLARED-CLOSE") {
-          block(n, "PREDECESSOR_ABSENT");
+          // No engaged producer. Lawful only for a barrier consumer whose barrier found nothing due: it
+          // reads the LATEST committed close, if the Population adapter vouches that the fact is a
+          // stamped close of exactly the named basis for the engaged scope. A missing or stale close is
+          // never read as though it were current.
+          const b = barrierOf.get(n.id);
+          const fact = b && !b.due ? this.#store.getFact(r.source.fact_key) : undefined;
+          if (
+            !b ||
+            b.due ||
+            !canonicalEqual(r.close_basis, b.barrier.close_basis) ||
+            !fact ||
+            fact.owner !== r.source.owner ||
+            !this.#barrier!.closeSourceLawful(b.barrier, fact, getFact)
+          ) {
+            block(n, "PREDECESSOR_ABSENT");
+          } else {
+            n.closeGroups.set(r.source.fact_key, fact.provenance.group_id);
+          }
         } else {
           const fact = this.#store.getFact(r.source.fact_key);
           if (!fact) block(n, "SOURCE_ABSENT");
@@ -533,7 +640,7 @@ export class TemporalCoordinator {
         dead.set(id, "PREDECESSOR_BLOCKED");
         continue;
       }
-      const r = await this.#resolveStage(ctx, n, instant[0]!.at);
+      const r = await this.#resolveStage(ctx, n, tb);
       if (!r.ok) return r;
       if (r.value === "RESOLVED") done.add(id);
       else dead.set(id, r.value);
@@ -553,6 +660,13 @@ export class TemporalCoordinator {
         .every((n) => done.has(n.id));
       ctx.engagedAll.push({ typed, entry: e, retired });
       if (retired) ctx.resolved.push({ typed, entry: e });
+    }
+    // PCB-01 due reconciliations are engaged too: reconciled only when every declared stage committed.
+    for (const [dueId, { typed, dueFor }] of dueObjects) {
+      const resolved = nodes
+        .filter((n) => n.objectKey === temporalObjectKey(dueId))
+        .every((n) => done.has(n.id));
+      ctx.dueEngaged.push({ typed, dueFor, resolved, at: tb });
     }
     return ok(undefined);
   }
@@ -631,6 +745,14 @@ export class TemporalCoordinator {
     }
     const from = node.object.last_resolved_basis;
     const elapsed = exactElapsed(from, tb, ctx.slices);
+    // The owner's own prior state of what it produces: not a read of another stage, so no self-edge. Its
+    // version is an input like any other: if it moved before commit the stage is recomputed in place.
+    const prior = new Map<string, OwnerFact>();
+    for (const key of node.declaration.produces) {
+      const f = this.#store.getFact(key);
+      if (f) prior.set(key, f);
+      inputs.set(key, f?.version ?? 0);
+    }
     let writes: readonly StageWrite[];
     try {
       writes = provider.compute({
@@ -638,8 +760,12 @@ export class TemporalCoordinator {
         produces: node.declaration.produces,
         span: { from, to: tb, elapsed },
         reads,
+        prior,
       });
     } catch (e) {
+      // The owner operation cannot lawfully produce a result at this basis (e.g. mixed-time inputs): fail
+      // closed and publish nothing.
+      if (e instanceof StageUnresolvedError) return unresolved(e.reason);
       // An owner adapter that throws has published nothing; the stage is not credited and the
       // transaction fails closed rather than committing a partial consequence.
       return {
@@ -761,10 +887,10 @@ export class TemporalCoordinator {
       opening: { basis_time: t0, state_version: stateTyped.fact.version },
       requested: req.requested,
       context: req.context,
-      engaged: [...ctx.engagedAll]
-        .sort((a, b) => (a.entry.object_id < b.entry.object_id ? -1 : 1))
-        .map((r) =>
-          r.retired
+      engaged: [
+        ...ctx.engagedAll.map((r) => ({
+          id: r.entry.object_id,
+          e: r.retired
             ? {
                 boundary: "RETIRED" as const,
                 object_id: r.entry.object_id,
@@ -778,7 +904,29 @@ export class TemporalCoordinator {
                 fact_key: temporalObjectKey(r.entry.object_id),
                 version_before: r.typed.fact.version,
               },
-        ),
+        })),
+        ...ctx.dueEngaged.map((d) => {
+          const base = {
+            object_id: d.typed.value.object_id,
+            fact_key: temporalObjectKey(d.typed.value.object_id),
+            version_before: d.typed.fact.version,
+            due_for: d.dueFor,
+            trigger: "PCB-01" as const,
+          };
+          return {
+            id: d.typed.value.object_id,
+            e: d.resolved
+              ? {
+                  boundary: "DUE_RECONCILED" as const,
+                  ...base,
+                  version_after: d.typed.fact.version + 1,
+                }
+              : { boundary: "DUE_UNRESOLVED" as const, ...base },
+          };
+        }),
+      ]
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+        .map((x) => x.e),
       boundaries_crossed: resolved.map((r) => ({
         object_id: r.entry.object_id,
         boundary_id: r.entry.boundary_id,
@@ -827,6 +975,15 @@ export class TemporalCoordinator {
           next_boundary: null,
         },
         expected_version: r.typed.fact.version,
+      });
+    }
+    for (const d of ctx.dueEngaged) {
+      if (!d.resolved) continue;
+      // PCB-01: only the resolved basis moves, to the consumer's boundary instant. No index change.
+      writes.push({
+        key: temporalObjectKey(d.typed.value.object_id),
+        value: { ...d.typed.value, last_resolved_basis: d.at },
+        expected_version: d.typed.fact.version,
       });
     }
     if (resolved.length > 0) {
@@ -970,6 +1127,13 @@ interface Run {
     typed: Typed<TemporalObject>;
     entry: BoundaryIndex["entries"][number];
     retired: boolean;
+  }[];
+  /** PCB-01 due reconciliation objects engaged by a consumer's declared barrier */
+  readonly dueEngaged: {
+    typed: Typed<TemporalObject>;
+    dueFor: StageKey;
+    resolved: boolean;
+    at: CanonicalTime;
   }[];
   readonly recomputed: StageKey[];
   readonly adopted: StageKey[];

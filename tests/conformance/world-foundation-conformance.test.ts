@@ -124,11 +124,13 @@ describe("IA-03 owner exclusivity / no accidental subsystem (world, PC, binding 
 });
 
 describe("no hidden expansion: no unrelated subsystem is registered", () => {
-  it("registers only the three world/PC owners and the IM-02 kernel — no population, economy, relationship, epistemic or host owner", () => {
-    // The Turnless Temporal Foundation (third slice) lawfully adds exactly one owner, the IM-02 kernel
-    // (F-014B §2); the world/PC kinds themselves are unchanged.
+  it("registers only the three world/PC owners, the IM-02 kernel and the IM-04 Population owner — no economy, relationship, epistemic or host owner", () => {
+    // The Turnless Temporal Foundation (third slice) lawfully adds the IM-02 kernel (F-014B §2); the
+    // Population & Cohort Reconciliation Backbone (fourth slice) adds IM-04 Population (WS-001/WS-015);
+    // the world/PC kinds themselves are unchanged.
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "pc_existence",
+      "population",
       "role_registry",
       "temporal_kernel",
       "world_state",

@@ -203,14 +203,68 @@ export function parseStageKey(input: unknown): Result<StageKey, StageKeyErrorCod
  * Close its commit constitutes, if any. This is the object's "dependency declarations" (RC-10); the
  * graph built from them is transient and is never persisted (F-017 §2 DERIVE).
  */
-export const DependencyDeclarationSchema = z.strictObject({
-  stage: StageKeySchema,
-  reads: z.array(TemporalReadDeclarationSchema),
-  /** owner-fact keys the stage's owner operation writes */
-  produces: z.array(Id).min(1),
-  /** when non-null, committing this stage IS the producer's named close (F-017 §3 CLOSE) */
-  declares_close: z.strictObject({ name: Id }).nullable(),
+/**
+ * The discrete Population facets a consumer's CLOSE read may depend on (F-017 PCB-01 / WS-001 §32:
+ * "person-use, membership, presence, eligibility, availability or commitment-feasibility"). A consumer
+ * whose read is a continuous aggregate declares none and has no barrier.
+ */
+export const DISCRETE_POPULATION_FACETS = [
+  "PERSON_USE",
+  "MEMBERSHIP",
+  "PRESENCE",
+  "ELIGIBILITY",
+  "AVAILABILITY",
+  "COMMITMENT_FEASIBILITY",
+] as const;
+
+/**
+ * PCB-01 — Pending Population Consequence Barrier (F-017 §3 at pin 2026-09-25T23:42:27.802Z; WS-001
+ * §32). A consumer that reads a Population close AS-OF-DECLARED-CLOSE and whose answer is discrete
+ * declares the engaged Population scope it depends on, where Population's pending consequence
+ * envelopes are carried, and the (dormant) Population reconciliation object whose declared stage is
+ * the next eligible reconciliation. It is a declaration, not a scheduler: IM-02 evaluates it only
+ * when the consumer is itself engaged, and it makes the reconciliation due only when its frozen
+ * conditions hold. `close_basis` names the Population close the gated CLOSE reads consume.
+ */
+export const PendingConsequenceBarrierSchema = z.strictObject({
+  barrier: z.literal("PCB-01"),
+  population: z.strictObject({ ledger_id: EntityId, cohort_id: EntityId.nullable() }),
+  discrete_facets: z.array(z.enum(DISCRETE_POPULATION_FACETS)).min(1),
+  consequence_sources: z.array(SourceFactRefSchema).min(1),
+  reconciliation_object_id: EntityId,
+  close_basis: CloseBasisSchema,
 });
+export type PendingConsequenceBarrier = z.infer<typeof PendingConsequenceBarrierSchema>;
+
+export const DependencyDeclarationSchema = z
+  .strictObject({
+    stage: StageKeySchema,
+    reads: z.array(TemporalReadDeclarationSchema),
+    /** owner-fact keys the stage's owner operation writes */
+    produces: z.array(Id).min(1),
+    /** when non-null, committing this stage IS the producer's named close (F-017 §3 CLOSE) */
+    declares_close: z.strictObject({ name: Id }).nullable(),
+    /** PCB-01 due-trigger declaration (consumer side); absent for every other stage */
+    pending_consequence_barrier: PendingConsequenceBarrierSchema.optional(),
+  })
+  .superRefine((d, ctx) => {
+    const b = d.pending_consequence_barrier;
+    if (!b) return;
+    const gated = d.reads.some(
+      (r) =>
+        r.mode === READ_MODE_CLOSE &&
+        r.close_basis.name === b.close_basis.name &&
+        r.close_basis.producer.owner === b.close_basis.producer.owner &&
+        r.close_basis.producer.operation === b.close_basis.producer.operation,
+    );
+    if (!gated) {
+      ctx.addIssue({
+        code: "custom",
+        message: "a PCB-01 barrier gates at least one AS-OF-DECLARED-CLOSE read of its close basis",
+        path: ["pending_consequence_barrier"],
+      });
+    }
+  });
 export type DependencyDeclaration = z.infer<typeof DependencyDeclarationSchema>;
 
 export const BoundarySchema = z.strictObject({ boundary_id: Id, at: CanonicalTimeSchema });
@@ -306,6 +360,10 @@ export const UNRESOLVED_REASONS = [
   "VALIDATION_REJECTED",
   /** an engaged predecessor is itself unresolved */
   "PREDECESSOR_BLOCKED",
+  /** a stage's inputs are not established at ONE temporal basis: it fails closed, never mixes times */
+  "BASIS_MISMATCH",
+  /** a read's source value violates its typed contract: nothing is credited from it */
+  "SOURCE_INVALID",
 ] as const;
 export const UnresolvedReasonSchema = z.enum(UNRESOLVED_REASONS);
 export type UnresolvedReason = z.infer<typeof UnresolvedReasonSchema>;
@@ -486,6 +544,29 @@ export const ResolutionTransactionSchema = z
           object_id: EntityId,
           fact_key: Id,
           version_before: Version.min(1),
+        }),
+        /**
+         * PCB-01: a Population reconciliation object with NO earned boundary, engaged only because a
+         * consumer's declared barrier made its reconciliation due. It resolves at the consumer's
+         * boundary instant and records that it did (`version_after`); it was never in the active index.
+         */
+        z.strictObject({
+          boundary: z.literal("DUE_RECONCILED"),
+          object_id: EntityId,
+          fact_key: Id,
+          version_before: Version.min(1),
+          version_after: Version.min(1),
+          due_for: StageKeySchema,
+          trigger: z.literal("PCB-01"),
+        }),
+        /** PCB-01 reconciliation that could not lawfully complete: not credited, not mutated. */
+        z.strictObject({
+          boundary: z.literal("DUE_UNRESOLVED"),
+          object_id: EntityId,
+          fact_key: Id,
+          version_before: Version.min(1),
+          due_for: StageKeySchema,
+          trigger: z.literal("PCB-01"),
         }),
       ]),
     ),

@@ -32,6 +32,7 @@ import {
   type StageOwnerExtension,
 } from "../owners/extension.ts";
 import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
+import { verifyPopulationIntegrity } from "../population/integrity.ts";
 import { verifyTemporalIntegrity } from "../temporal/integrity.ts";
 import {
   createFileCampaign,
@@ -325,7 +326,7 @@ export class CanonicalCampaign {
   }
 }
 
-/** Canonical (world/PC/binding) integrity, then the IM-02 kernel's temporal integrity. */
+/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population integrity. */
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
@@ -335,6 +336,7 @@ function verifyAll(
       isExtensionFact: (f) => extension?.owners.get(f.owner)?.has(f.facet) === true,
     }),
     ...verifyTemporalIntegrity(store),
+    ...verifyPopulationIntegrity(store),
   ];
 }
 
