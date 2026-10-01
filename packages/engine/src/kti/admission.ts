@@ -45,8 +45,8 @@ import {
  *  2. TRANSFER BASIS: the authored programme declaration of one managed transfer, resting on exactly three committed
  *     facts it pins (the development object, the sealed packet and the packet's sealed provenance): the packet is the
  *     named recipient's own sealed Accessible Content Packet formed from a BOUNDED_SHARED_ACCESS event (so KTI consumes it
- *     only AFTER packet formation), the packet supports the object, the source is the true source the provenance records,
- *     and the identity is derived from exactly (source, recipient, object). The recipient is a lawful non-PC subject.
+ *     only AFTER packet formation), the packet supports the object (its payload referent is the canonical object_id),
+ *     and the identity is derived from exactly (source_id, recipient, object). The recipient is a lawful non-PC subject.
  *  3. TRANSFER PACKAGE, only as its IM-02 stage (the KTI result close): exactly what the committed basis, the sealed packet
  *     and the development object determine — read NOW, in declared order — published under the stage identity and the
  *     durable authority of an open transaction. Without a committed basis there is nothing to derive it from, so no
@@ -105,9 +105,11 @@ function checkBasis(group: CommitGroup, state: CampaignState, w: Write): Rejecti
   }
   const secrecy = ktiAccessClassViolation(w.secrecy);
   if (secrecy) return bad(secrecy, { key: w.key });
-  if (b.package_id !== transferPackageId(b.source, b.recipient, b.development_object.object_id)) {
+  if (
+    b.package_id !== transferPackageId(b.source_id, b.recipient, b.development_object.object_id)
+  ) {
     return ref(
-      "the package identity is derived from exactly its source, recipient and development object",
+      "the package identity is derived from exactly its source_id, recipient and development object",
       { key: w.key },
     );
   }

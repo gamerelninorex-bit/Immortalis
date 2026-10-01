@@ -42,7 +42,8 @@ import {
   EVENT_COUNCIL,
   OBJECT_GATE_ROTA,
   OBJECT_OTHER,
-  REFERENT_OTHER,
+  SOURCE_PARTY_MANILA,
+  SOURCE_PARTY_OTHER,
   SOURCE_SCROLL,
   SOURCE_SPEAKER,
   SYNTH_ACCESS_SOURCE_OWNER,
@@ -56,7 +57,8 @@ import {
 
 const A = ACTOR_SMITH;
 const E = EVENT_COUNCIL;
-const source = { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER) };
+const source = SOURCE_PARTY_MANILA;
+const trueSource = { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER) };
 
 const fact = <T>(key: string, owner: string, value: T, version = 1) => ({
   key,
@@ -64,7 +66,7 @@ const fact = <T>(key: string, owner: string, value: T, version = 1) => ({
   version,
   value,
 });
-const packetValue = (referent = "the gate rota", recipient = A): AccessiblePacket => ({
+const packetValue = (referent: string = OBJECT_GATE_ROTA, recipient = A): AccessiblePacket => ({
   recipient,
   payload: { referent, content: "SYNTHETIC FIXTURE: content." },
   presented_attribution: null,
@@ -87,21 +89,21 @@ const inputs = (
   };
 };
 
-describe("transferPackageId: one deterministic identity per source × recipient × development object (acceptance 3)", () => {
+describe("transferPackageId: one deterministic identity per source_id × recipient × development object (acceptance 3)", () => {
   it("is derived from exactly those three and nothing else, and is stable", () => {
     const id = transferPackageId(source, A, OBJECT_GATE_ROTA);
     expect(id).toMatch(/^transfer-[0-9a-f]{64}$/);
-    expect(transferPackageId({ ...source }, A, OBJECT_GATE_ROTA)).toBe(id);
+    expect(transferPackageId(`${source}`, A, OBJECT_GATE_ROTA)).toBe(id);
     expect(transferPackageId(source, ACTOR_SWORD, OBJECT_GATE_ROTA)).not.toBe(id);
     expect(transferPackageId(source, A, OBJECT_OTHER)).not.toBe(id);
-    expect(
-      transferPackageId({ ...source, fact_key: sourceKey(SOURCE_SCROLL) }, A, OBJECT_GATE_ROTA),
-    ).not.toBe(id);
-    expect(transferPackageId({ ...source, owner: "other-owner" }, A, OBJECT_GATE_ROTA)).not.toBe(
-      id,
-    );
-    // an extra property on the source (a version, say) is not an identity dimension
-    expect(transferPackageId({ ...source, version: 7 } as never, A, OBJECT_GATE_ROTA)).toBe(id);
+    // changing the programme source changes the programme
+    expect(transferPackageId(SOURCE_PARTY_OTHER, A, OBJECT_GATE_ROTA)).not.toBe(id);
+  });
+
+  it("the F-014D true source, packet and event are not identity dimensions: the same programme names the same slot whichever packet evidences it", () => {
+    expect(ktiBasis(A, E).package_id).toBe(ktiBasis(A, "event-another").package_id);
+    expect(ktiBasis(A, E).packet).not.toEqual(ktiBasis(A, "event-another").packet);
+    expect(JSON.stringify(ktiBasis(A, E))).not.toContain(trueSource.fact_key);
   });
 
   it("the identity is a valid entity identifier, safe to embed in a key", () => {
@@ -116,18 +118,28 @@ describe("transferPackageId: one deterministic identity per source × recipient 
   });
 });
 
-describe("packetSupportViolation: packet-to-object linkage is explicit and exact (acceptance 3)", () => {
-  it("supports an object only when the packet's subject is the referent the object is identified by, exactly", () => {
-    expect(packetSupportViolation(packetValue("the gate rota"), ktiObject())).toBeNull();
-    expect(packetSupportViolation(packetValue("The gate rota"), ktiObject())).toMatch(
-      /does not support/,
-    );
-    expect(packetSupportViolation(packetValue(REFERENT_OTHER), ktiObject())).toMatch(
-      /does not support/,
-    );
-    expect(packetSupportViolation(packetValue("the gate rota "), ktiObject())).toMatch(
-      /does not support/,
-    );
+describe("packetSupportViolation: packet-to-object linkage is the canonical object_id, as an opaque equality (acceptance 3)", () => {
+  it("supports an object only when the packet's payload referent IS the canonical object_id, exactly", () => {
+    expect(packetSupportViolation(packetValue(OBJECT_GATE_ROTA), ktiObject())).toBeNull();
+    expect(packetSupportViolation(packetValue(OBJECT_OTHER), ktiObject(OBJECT_OTHER))).toBeNull();
+  });
+
+  it("prose, a synonym, another reference scheme, case or whitespace variants and another object's identity all fail closed: nothing is interpreted", () => {
+    for (const referent of [
+      "the gate rota",
+      "the rota of the gate",
+      "gate rota",
+      OBJECT_GATE_ROTA.toUpperCase(),
+      `${OBJECT_GATE_ROTA} `,
+      ` ${OBJECT_GATE_ROTA}`,
+      `${OBJECT_GATE_ROTA}.v2`,
+      `kti/object/${OBJECT_GATE_ROTA}`,
+      OBJECT_OTHER,
+      "",
+    ])
+      expect(packetSupportViolation(packetValue(referent), ktiObject()), referent).toMatch(
+        /does not support/,
+      );
   });
 });
 
@@ -140,7 +152,7 @@ describe("deriveTransferPackage: the package is exactly what the basis, the seal
     expect(d.value).toEqual({
       package_id: b.package_id,
       status: "ACTIVE",
-      source,
+      source_id: source,
       recipient: A,
       development_object: {
         object_id: OBJECT_GATE_ROTA,
@@ -193,7 +205,7 @@ describe("deriveTransferPackage: the package is exactly what the basis, the seal
       code(
         deriveTransferPackage({
           ...inputs(),
-          packet: fact(accessPacketKey(E, A), "epistemic_access", packetValue(REFERENT_OTHER)),
+          packet: fact(accessPacketKey(E, A), "epistemic_access", packetValue(OBJECT_OTHER)),
         }),
       ),
     ).toBe("PACKET_OBJECT_UNSUPPORTED");
@@ -204,13 +216,13 @@ describe("deriveTransferPackage: the package is exactly what the basis, the seal
   });
 });
 
-describe("basisEvidenceViolation: KTI discriminates the event mode and takes only what the sealed provenance records (acceptance 5, 9)", () => {
+describe("basisEvidenceViolation: KTI discriminates the event mode and takes no source from the sealed provenance (acceptance 5, 9)", () => {
   const basis = ktiBasis(A, E);
   const provenance = (over: Partial<SealedEngineProvenance> = {}): SealedEngineProvenance => ({
     event: { fact_key: accessEventKey(E), version: 1 },
     recipient: A,
     packet: { fact_key: accessPacketKey(E, A) },
-    source: { ...source, version: 1 },
+    source: { ...trueSource, version: 1 },
     channel: "SPEECH",
     capability_close: null,
     ...over,
@@ -218,7 +230,7 @@ describe("basisEvidenceViolation: KTI discriminates the event mode and takes onl
   const event = (over: Record<string, unknown> = {}) =>
     fact(accessEventKey(E), "epistemic_access", { ...accessEvent(E, A), ...over } as AccessEvent);
 
-  it("accepts a BOUNDED_SHARED_ACCESS event naming the one recipient, the recorded packet and the recorded source", () => {
+  it("accepts a BOUNDED_SHARED_ACCESS event naming the one recipient, the recorded packet", () => {
     expect(basisEvidenceViolation({ basis, provenance: provenance(), event: event() })).toBeNull();
   });
 
@@ -249,7 +261,7 @@ describe("basisEvidenceViolation: KTI discriminates the event mode and takes onl
     ).toMatch(/one named participant/);
   });
 
-  it("refuses provenance of another packet or recipient, an event that is not the provenance's own and a source the provenance does not record", () => {
+  it("refuses provenance of another packet or recipient, and an event that is not the provenance's own", () => {
     expect(
       basisEvidenceViolation({
         basis,
@@ -278,24 +290,24 @@ describe("basisEvidenceViolation: KTI discriminates the event mode and takes onl
         event: event(),
       }),
     ).toMatch(/own committed Epistemic access event/);
-    expect(
-      basisEvidenceViolation({
-        basis,
-        provenance: provenance({
-          source: { ...source, fact_key: sourceKey(SOURCE_SCROLL), version: 1 },
+  });
+
+  it("the programme source_id is not the F-014D true source: whatever the provenance records, the evidence check neither compares nor requires it", () => {
+    for (const recorded of [
+      { ...trueSource, version: 1 },
+      { owner: "someone", fact_key: "elsewhere/other-carrier", version: 3 },
+      { ...trueSource, fact_key: sourceKey(SOURCE_SCROLL), version: 1 },
+    ])
+      expect(
+        basisEvidenceViolation({
+          basis,
+          provenance: provenance({ source: recorded }),
+          event: event(),
         }),
-        event: event(),
-      }),
-    ).toMatch(/true source the sealed provenance records/);
-    expect(
-      basisEvidenceViolation({
-        basis,
-        provenance: provenance({
-          source: { owner: "someone", fact_key: source.fact_key, version: 1 },
-        }),
-        event: event(),
-      }),
-    ).toMatch(/true source the sealed provenance records/);
+      ).toBeNull();
+    // and the same programme over a different recipient's differently sourced evidence still names its own slot
+    expect(basis.source_id).toBe(SOURCE_PARTY_MANILA);
+    expect(JSON.stringify(basis)).not.toContain(trueSource.fact_key);
   });
 
   it("the provenance key is derived from the packet key alone, and a non-packet key has none", () => {
@@ -649,11 +661,7 @@ describe("the result-close owner operation: pure, fail-closed, inventing nothing
               reads[0]!,
               {
                 read: {} as never,
-                fact: asFact(
-                  accessPacketKey(E, A),
-                  "epistemic_access",
-                  packetValue(REFERENT_OTHER),
-                ),
+                fact: asFact(accessPacketKey(E, A), "epistemic_access", packetValue(OBJECT_OTHER)),
               },
               reads[2]!,
             ],

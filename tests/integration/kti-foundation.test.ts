@@ -39,7 +39,8 @@ import {
   EVENT_SCHEMATIC,
   OBJECT_GATE_ROTA,
   OBJECT_OTHER,
-  REFERENT_OTHER,
+  SOURCE_PARTY_MANILA,
+  SOURCE_PARTY_OTHER,
   SOURCE_SCROLL,
   SOURCE_SPEAKER,
   SYNTH_ACCESS_SOURCE_OWNER,
@@ -48,6 +49,7 @@ import {
   ktiBasis,
   ktiConsumerProvider,
   ktiConsumerResultKey,
+  ktiPayload,
   ktiProviders,
   ktiPublication,
   packetConsumerObject,
@@ -80,6 +82,9 @@ const A = ACTOR_SMITH;
 const defaultId = () => ktiBasis(A, EVENT_COUNCIL).package_id;
 const pkgStage = ktiTransferStage;
 const advance = (s: KtiSeeded, id = "tx-k1", consumer = "k1") => advanceKti(s, id, consumer);
+
+const ktiFacts = (s: KtiSeeded) =>
+  s.campaign.store.listFacts().filter((f) => f.key.startsWith("kti/"));
 
 /** The prerequisite state of every primary scenario: a sealed packet for A, a committed object, an authored basis. */
 async function prepared(s: KtiSeeded) {
@@ -152,14 +157,8 @@ describe("one sealed packet and one committed object: the authored Transfer Pack
       version: 1,
       secrecy: "kti.engine-sealed",
     });
-    // the identity is derived from exactly (source, recipient, development object)
-    expect(basis.package_id).toBe(
-      transferPackageId(
-        { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER) },
-        A,
-        OBJECT_GATE_ROTA,
-      ),
-    );
+    // the identity is derived from exactly (source_id, recipient, development object)
+    expect(basis.package_id).toBe(transferPackageId(SOURCE_PARTY_MANILA, A, OBJECT_GATE_ROTA));
     // it read exactly the three facts it rests on, each at its current version
     const group = s.campaign.store.committedGroup(stored.fact.provenance.intent_id)!;
     expect(group.reads).toEqual([
@@ -177,13 +176,11 @@ describe("one sealed packet and one committed object: the authored Transfer Pack
     const b = ktiBasis(A, EVENT_LATER);
     expect(a.package_id).toBe(b.package_id);
     expect(a.packet).not.toEqual(b.packet);
-    // a different recipient, object or source is a different programme
+    // a different recipient, object or programme source_id is a different programme
     expect(ktiBasis(ACTOR_SWORD, EVENT_COUNCIL).package_id).not.toBe(a.package_id);
     expect(ktiBasis(A, EVENT_COUNCIL, OBJECT_OTHER).package_id).not.toBe(a.package_id);
     expect(
-      ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, {
-        source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-      }).package_id,
+      ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, { source_id: SOURCE_PARTY_OTHER }).package_id,
     ).not.toBe(a.package_id);
   });
 });
@@ -223,7 +220,7 @@ describe("the result close publishes one active Transfer Package as an IM-02 sta
     expect(s.campaign.verify()).toEqual([]);
   });
 
-  it("the package is KTI-owned workflow state: ACTIVE, with the source, recipient, object, packet and basis as references and the close it was published at", async () => {
+  it("the package is KTI-owned workflow state: ACTIVE, with the programme source_id, recipient, object, packet and basis and the close it was published at", async () => {
     const s = await seededKtiCampaign(tempDir());
     const basis = await prepared(s);
     await registerKtiConsumer(s, "k1", basis, 3);
@@ -232,7 +229,7 @@ describe("the result close publishes one active Transfer Package as an IM-02 sta
     expect(pkg).toEqual({
       package_id: basis.package_id,
       status: "ACTIVE",
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER) },
+      source_id: SOURCE_PARTY_MANILA,
       recipient: A,
       development_object: {
         object_id: OBJECT_GATE_ROTA,
@@ -270,10 +267,11 @@ describe("the result close publishes one active Transfer Package as an IM-02 sta
     ]) {
       expect(text, secret).not.toContain(secret);
     }
-    // the only foreign references are the packet (by identity and version) and the true source (owner and key, no version)
+    // the only foreign reference is the packet (by identity and version); the F-014D true source/holder/carrier is nowhere in KTI
     const pkg = s.kti.transferPackage(basis.package_id)!.value;
-    expect(Object.keys(pkg.source).sort()).toEqual(["fact_key", "owner"]);
     expect(Object.keys(pkg.packet).sort()).toEqual(["fact_key", "version"]);
+    expect(text).not.toContain(sourceKey(SOURCE_SPEAKER));
+    expect(text).not.toContain(SYNTH_ACCESS_SOURCE_OWNER);
   });
 
   it("receipt does not become comprehension, competence, reproduction, adoption, adherence, belief, uptake or an encounter row: the only KTI state is the object, the basis and the package", async () => {
@@ -531,16 +529,10 @@ describe("bounded runtime cost: only the causally engaged programme is read or w
     const s = await seededKtiCampaign(tempDir());
     // an unrelated programme for another recipient with a dormant dependent object (never engaged)
     await sealPacket(s, 1, 2, EVENT_SCHEMATIC, ACTOR_OTHER, "seal-other", {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL), version: 1 },
+      payload: ktiPayload(OBJECT_OTHER),
     });
-    await establishObject(s, 1, OBJECT_OTHER, { referent: "the gate rota" });
-    const other = await establishTransfer(s, 2, ACTOR_OTHER, EVENT_SCHEMATIC, OBJECT_OTHER, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-    });
-    const otherBasis = ktiBasis(ACTOR_OTHER, EVENT_SCHEMATIC, OBJECT_OTHER, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-    });
-    expect(otherBasis.package_id).toBe(other.package_id);
+    await establishObject(s, 1, OBJECT_OTHER);
+    const other = await establishTransfer(s, 2, ACTOR_OTHER, EVENT_SCHEMATIC, OBJECT_OTHER);
     await must(
       s.coordinator.registerObject({
         ...temporalPublication(60),
@@ -611,7 +603,7 @@ describe("stage identity is independent of horizon, source churn and slicing (ac
     expect(near.fact.provenance.intent_id).toBe(far.fact.provenance.intent_id);
   });
 
-  it("source-version churn after the basis is history: the package keeps the source reference, the carrier's later version is never read", async () => {
+  it("carrier-version churn after the basis is history: the package keeps its programme source_id, the carrier's later version is never read", async () => {
     const s = await seededKtiCampaign(tempDir());
     const basis = await prepared(s);
     await registerKtiConsumer(s, "k1", basis, 3);
@@ -633,7 +625,7 @@ describe("stage identity is independent of horizon, source churn and slicing (ac
       ),
     );
     expect(new Set(spy.getFacts).has(sourceKey(SOURCE_SPEAKER))).toBe(false);
-    expect(s.kti.transferPackage(basis.package_id)!.value.source).toEqual(basis.source);
+    expect(s.kti.transferPackage(basis.package_id)!.value.source_id).toEqual(basis.source_id);
     expect(s.campaign.verify()).toEqual([]);
   });
 });
@@ -652,19 +644,131 @@ describe("a package's recipient is the packet's named recipient and nothing wide
     expect(s.kti.transferBasis(ktiBasis(ACTOR_OTHER, EVENT_COUNCIL).package_id)).toBeUndefined();
   });
 
-  it("a mismatched referent is not supported: the packet names a different subject than the object is identified by", async () => {
+  it("prose, a synonym or a different referent fails closed: only the canonical object_id as the packet's referent supports the object", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    // a packet whose referent is prose about the very thing the object stands for
+    await sealPacket(s, 1, 2, EVENT_COUNCIL, A, "seal-prose", {
+      payload: ktiPayload(OBJECT_GATE_ROTA, "the gate rota"),
+    });
+    await establishObject(s, 1);
+    const publish = (n: number, transfer: unknown) =>
+      s.kti.establishTransferBasis({ ...ktiPublication(n), transfer });
+    const r = await publish(2, ktiBasis(A, EVENT_COUNCIL));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe("REFERENCE_INVALID");
+      expect(r.error.message).toMatch(/canonical KTI object identity/);
+    }
+    // another object's canonical identity is no better, nor is a case or whitespace variant
+    await establishObject(s, 3, OBJECT_OTHER);
+    expect((await publish(4, ktiBasis(A, EVENT_COUNCIL, OBJECT_OTHER))).ok).toBe(false);
+    await sealPacket(s, 5, 6, EVENT_LATER, A, "seal-variant", {
+      payload: ktiPayload(OBJECT_GATE_ROTA, OBJECT_GATE_ROTA.toUpperCase()),
+    });
+    expect((await publish(7, ktiBasis(A, EVENT_LATER))).ok).toBe(false);
+    expect(ktiFacts(s).map((f) => f.key)).toEqual(
+      [ktiDevelopmentObjectKey(OBJECT_GATE_ROTA), ktiDevelopmentObjectKey(OBJECT_OTHER)].sort(),
+    );
+  });
+
+  it("a packet whose referent is exactly the canonical object_id supports the explicitly established programme", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    const e = await sealPacket(s, 1, 2, EVENT_COUNCIL, A);
+    expect(s.access.packet(EVENT_COUNCIL, A)!.value.payload.referent).toBe(OBJECT_GATE_ROTA);
+    expect(e.payload.referent).toBe(OBJECT_GATE_ROTA);
+    await establishObject(s, 1);
+    const basis = await establishTransfer(s, 2, A, EVENT_COUNCIL);
+    expect(s.kti.transferBasis(basis.package_id)).toBeDefined();
+  });
+});
+
+describe("a formed or received packet is evidence, never a programme: only the explicit KTI establishment creates Class-E state (clarification A)", () => {
+  it("event, packet formation, a committed object and any number of packets create no KTI basis or package", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    await establishObject(s, 1);
+    const before = ktiFacts(s);
+    await sealPacket(s, 1, 2, EVENT_COUNCIL, A);
+    await sealPacket(s, 3, 4, EVENT_LATER, A);
+    await sealPacket(s, 5, 6, EVENT_SCHEMATIC, ACTOR_SWORD, "seal-2");
+    expect(s.access.packet(EVENT_COUNCIL, A)).toBeDefined();
+    expect(s.access.packet(EVENT_SCHEMATIC, ACTOR_SWORD)).toBeDefined();
+    // KTI state is byte-identical: no basis, no package, no programme slot
+    expect(ktiFacts(s)).toEqual(before);
+    expect(ktiFacts(s).map((f) => f.key)).toEqual([ktiDevelopmentObjectKey(OBJECT_GATE_ROTA)]);
+    expect(s.kti.transferBasis(ktiBasis(A, EVENT_COUNCIL).package_id)).toBeUndefined();
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("the adapter has no path that derives a programme from a packet: the basis is an explicit KTI publication carrying the management gate", async () => {
     const s = await seededKtiCampaign(tempDir());
     await sealPacket(s, 1, 2, EVENT_COUNCIL, A);
-    await establishObject(s, 1, OBJECT_OTHER, { referent: REFERENT_OTHER });
+    await establishObject(s, 1);
+    const b = ktiBasis(A, EVENT_COUNCIL);
+    const missingGate: Record<string, unknown> = { ...b };
+    delete missingGate["management"];
+    const r = await s.kti.establishTransferBasis({ ...ktiPublication(2), transfer: missingGate });
+    expect(!r.ok && r.error.code).toBe("INPUT_INVALID");
+    const wrongGate = await s.kti.establishTransferBasis({
+      ...ktiPublication(3),
+      transfer: { ...b, management: "AUTOMATIC_ON_RECEIPT" },
+    });
+    expect(!wrongGate.ok && wrongGate.error.code).toBe("INPUT_INVALID");
+    expect(s.kti.transferBasis(b.package_id)).toBeUndefined();
+  });
+});
+
+describe("the programme source_id is the programme's own identity, not the F-014D true source (clarification C)", () => {
+  it("source_id may lawfully differ from the engine-side true source/holder, which KTI never copies; the package still rests on the packet's lawful provenance", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    const basis = await prepared(s);
+    const provenance = s.access.engineSealedProvenance(EVENT_COUNCIL, A)!.value;
+    expect(provenance.source.fact_key).toBe(sourceKey(SOURCE_SPEAKER));
+    expect(basis.source_id).toBe(SOURCE_PARTY_MANILA);
+    expect(basis.source_id).not.toBe(provenance.source.fact_key);
+    await registerKtiConsumer(s, "k1", basis, 3);
+    await must(advance(s));
+    const pkg = s.kti.transferPackage(basis.package_id)!.value;
+    expect(pkg.source_id).toBe(SOURCE_PARTY_MANILA);
+    const text = JSON.stringify(ktiFacts(s).map((f) => f.value));
+    expect(text).not.toContain(provenance.source.fact_key);
+    expect(text).not.toContain(provenance.source.owner);
+    // the packet reference and its sealed provenance are untouched
+    expect(pkg.packet).toEqual({ fact_key: accessPacketKey(EVENT_COUNCIL, A), version: 1 });
+    expect(s.access.engineSealedProvenance(EVENT_COUNCIL, A)!.value).toEqual(provenance);
+  });
+
+  it("changing source_id changes the programme: the same recipient, object and packet under another source party is its own slot and package", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    const first = await prepared(s);
+    const second = await establishTransfer(s, 3, A, EVENT_COUNCIL, OBJECT_GATE_ROTA, {
+      source_id: SOURCE_PARTY_OTHER,
+    });
+    expect(second.package_id).not.toBe(first.package_id);
+    expect(second.package_id).toBe(transferPackageId(SOURCE_PARTY_OTHER, A, OBJECT_GATE_ROTA));
+    await registerKtiConsumer(s, "k1", first, 5);
+    await registerKtiConsumer(s, "k2", second, 6);
+    await must(advance(s, "tx-k1", "k1"));
+    expect(s.kti.transferPackage(first.package_id)!.value.source_id).toBe(SOURCE_PARTY_MANILA);
+    expect(s.kti.transferPackage(second.package_id)!.value.source_id).toBe(SOURCE_PARTY_OTHER);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("changing the packet or event under the same source_id × recipient × object does not silently create a second slot: the basis is refused and the first stands", async () => {
+    const s = await seededKtiCampaign(tempDir());
+    const first = await prepared(s);
+    // a later event with a different true source, evidencing the same programme
+    await sealPacket(s, 3, 4, EVENT_LATER, A, "seal-later", {
+      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL), version: 1 },
+    });
     const r = await s.kti.establishTransferBasis({
-      ...ktiPublication(2),
-      transfer: ktiBasis(A, EVENT_COUNCIL, OBJECT_OTHER),
+      ...ktiPublication(9),
+      transfer: ktiBasis(A, EVENT_LATER),
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe("REFERENCE_INVALID");
-    expect(
-      s.kti.transferBasis(ktiBasis(A, EVENT_COUNCIL, OBJECT_OTHER).package_id),
-    ).toBeUndefined();
+    expect(s.kti.transferBasis(first.package_id)!.value.packet.fact_key).toBe(
+      accessPacketKey(EVENT_COUNCIL, A),
+    );
+    expect(ktiFacts(s).filter((f) => f.key.endsWith("/basis"))).toHaveLength(1);
   });
 });
 
@@ -677,6 +781,7 @@ describe("a packet whose representational form depended on a Named-Actor capabil
     expect(capBasis.actor_id).toBe(A);
     // the packet forms in an earlier consequence's object, with the capability close declared ahead of it
     const event = await establishAccess(s, 2, EVENT_COUNCIL, A, {
+      payload: ktiPayload(),
       representation: { capability_id: CAP_METALWORKING },
     });
     await must(

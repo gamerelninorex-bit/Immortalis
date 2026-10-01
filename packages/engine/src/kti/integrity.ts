@@ -40,8 +40,8 @@ import {
  *    nothing foreign;
  *  - a transfer basis rests on a development object, a sealed packet and the packet's sealed provenance that were all
  *    committed BEFORE it, at (or, as history, behind) the versions it pins; the packet is the recipient's own and was formed
- *    from a BOUNDED_SHARED_ACCESS event naming that one recipient; the packet supports the object; the source is the true
- *    source the provenance records; the package identity is derived from exactly (source, recipient, object); and the
+ *    from a BOUNDED_SHARED_ACCESS event naming that one recipient; the packet supports the object (its payload referent is the
+ *    canonical object_id); the package identity is derived from exactly (source_id, recipient, object); and the
  *    recipient was no Player Character, no entity under player control and no Population ledger when it was committed;
  *  - a package is exactly what its committed basis, packet and object determine, was committed after all three, only as the
  *    IM-02 stage under a durable transaction authority that read exactly those three facts, and credited by a committed
@@ -126,10 +126,12 @@ export function verifyKtiIntegrity(store: CampaignStore): readonly IntegrityViol
     }
     const secrecy = ktiAccessClassViolation(bf.secrecy);
     if (secrecy) bad(bf.key, secrecy);
-    if (b.package_id !== transferPackageId(b.source, b.recipient, b.development_object.object_id)) {
+    if (
+      b.package_id !== transferPackageId(b.source_id, b.recipient, b.development_object.object_id)
+    ) {
       bad(
         bf.key,
-        "the package identity is derived from exactly its source, recipient and development object",
+        "the package identity is derived from exactly its source_id, recipient and development object",
       );
     }
     const boundary = actorBoundaryViolation(factsBefore(revisionOf(bf)), b.recipient);

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Id, Version } from "./ids.ts";
 import type { StageKey } from "./temporal.ts";
 import { StageKeySchema } from "./temporal.ts";
-import { EntityId, Text } from "./world-foundation.ts";
+import { EntityId } from "./world-foundation.ts";
 
 /**
  * KTI Managed Transfer Package / Result-Close Backbone Foundation — executable contracts.
@@ -88,9 +88,10 @@ export type KtiObjectClass = z.infer<typeof KtiObjectClassSchema>;
 /**
  * One KTI development-object identity: "one canonical identity per materially persistent development object … No
  * faction/object state is stored in A" (Scaling Profile Class A; Concept 2 §9 "the development object definition remains
- * singular"). It carries the object's class and the `referent` it is identified by — the same subject a F-014D packet
- * names as its Content / Referent (F-014D §4.1), which is the only tie the engine can verify between a packet and an
- * object. `materiality` restates the Class-A creation gate ("create only when … materially future-causal").
+ * singular"). It carries the canonical `object_id`, the object's class and the Class-A creation gate ("create only when …
+ * materially future-causal", restated as a literal). It carries no separate label, alias or synonym: the packet → object link
+ * of this bounded foundation is the canonical `object_id` itself (a packet's `payload.referent` must BE the `object_id`; see
+ * the derivation), an opaque canonical-reference equality and never a language match.
  *
  * The object is KTI's own definition: it is not an institution, not an actor, not a Population fact and not a world fact,
  * and the schema has no field in which any of those, a faction/recipient relationship, a competence, a maturity rung or a
@@ -99,7 +100,6 @@ export type KtiObjectClass = z.infer<typeof KtiObjectClassSchema>;
 export const KtiDevelopmentObjectSchema = z.strictObject({
   object_id: EntityId,
   object_class: KtiObjectClassSchema,
-  referent: Text,
   materiality: z.literal("MATERIALLY_FUTURE_CAUSAL"),
 });
 export type KtiDevelopmentObject = z.infer<typeof KtiDevelopmentObjectSchema>;
@@ -107,15 +107,6 @@ export type KtiDevelopmentObject = z.infer<typeof KtiDevelopmentObjectSchema>;
 // ---------------------------------------------------------------------------------------------
 // Class E — the active Transfer Package (Concept 2 §9; Scaling Profile v0.3 Class E).
 // ---------------------------------------------------------------------------------------------
-
-/**
- * The material source of a transfer, REFERENCED and never copied (RC-02 guard): the committed foreign fact the sealed
- * F-014D provenance records as the true source/holder of the packet's access. Owner and key only: no version, no value,
- * no carrier, channel or event (the rest of the sealed provenance stays in F-014D). Engine-side only: it is never an
- * actor-admissible input.
- */
-export const KtiTransferSourceSchema = z.strictObject({ owner: Id, fact_key: Id });
-export type KtiTransferSource = z.infer<typeof KtiTransferSourceSchema>;
 
 /** A reference to the committed development object, by identity and pinned version. */
 export const KtiObjectRefSchema = z.strictObject({
@@ -132,9 +123,14 @@ export const KtiPacketRefSchema = z.strictObject({ fact_key: Id, version: Versio
  * Class E: "one package per materially managed source × recipient × development-object transfer programme while
  * cross-resolution workflow state is required"; Concept 2 §9: "only when the transfer is materially active").
  *
- * `package_id` is deterministic: it is derived from exactly (source, recipient, development object) and nothing else — not
+ * `source_id` is the opaque programme source — the source party / source faction of the deliberate transfer programme
+ * (Concept 2 §9). It is NOT the F-014D true source/holder/carrier recorded in the sealed provenance, may differ from it, and
+ * is an identity dimension parallel to the recipient, never a copied foreign fact value.
+ *
+ * `package_id` is deterministic: it is derived from exactly (source_id, recipient, development object) and nothing else — not
  * the packet, event, time, retry or slice — so a second declaration for the same programme reaches the same, already
- * occupied, slot. The recipient is the one named recipient the packet establishes; there is no faction, cohort, scope,
+ * occupied, slot. The explicit KTI-owner publication of this basis is the establishment of the Class-E workflow record: a
+ * formed or received packet never creates one. The recipient is the one named recipient the packet establishes; there is no faction, cohort, scope,
  * audience, mode or membership field, so no wider recipient can be inferred and BROADCAST_EXPOSURE is unrepresentable
  * (KTI v0.3 §2 mode-consumer invariant).
  *
@@ -144,7 +140,7 @@ export const KtiPacketRefSchema = z.strictObject({ fact_key: Id, version: Versio
 export const KtiTransferBasisSchema = z.strictObject({
   package_id: EntityId,
   management: z.literal("CROSS_RESOLUTION_MANAGED"),
-  source: KtiTransferSourceSchema,
+  source_id: EntityId,
   recipient: EntityId,
   development_object: KtiObjectRefSchema,
   packet: KtiPacketRefSchema,
@@ -153,11 +149,11 @@ export type KtiTransferBasis = z.infer<typeof KtiTransferBasisSchema>;
 
 /**
  * The active Transfer Package: KTI-owned workflow state and nothing else. It states that one materially managed
- * development transfer, from `source` to `recipient`, of `development_object`, is ACTIVE, and it references (never copies)
+ * development transfer, from the programme `source_id` to `recipient`, of `development_object`, is ACTIVE, and it references (never copies)
  * the sealed packet that evidenced the access, the authored basis and the development object it rests on. It holds no
  * comprehension, competence, reproduction, adoption, adherence, belief, diffusion, continuity or retention, no
  * transmitted-means list, bottleneck or burden (no source structure for them is in this slice), no F-014D event or
- * provenance beyond the source reference, and no completion or retirement state: `status` is the single literal ACTIVE.
+ * provenance (in particular no F-014D true source/holder/carrier), and no completion or retirement state: `status` is the single literal ACTIVE.
  *
  * `close` names the KTI result close this record is published at: other owners may read it only AS-OF-DECLARED-CLOSE
  * naming that close (KTI v0.2 §4.2).
@@ -165,7 +161,7 @@ export type KtiTransferBasis = z.infer<typeof KtiTransferBasisSchema>;
 export const KtiTransferPackageSchema = z.strictObject({
   package_id: EntityId,
   status: z.literal("ACTIVE"),
-  source: KtiTransferSourceSchema,
+  source_id: EntityId,
   recipient: EntityId,
   development_object: KtiObjectRefSchema,
   packet: KtiPacketRefSchema,

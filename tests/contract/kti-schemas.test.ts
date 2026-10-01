@@ -37,7 +37,7 @@ const packageValue = () => {
   const b = ktiBasis(A, EVENT_COUNCIL);
   const packet: AccessiblePacket = {
     recipient: A,
-    payload: { referent: "the gate rota", content: "SYNTHETIC FIXTURE: content." },
+    payload: { referent: OBJECT_GATE_ROTA, content: "SYNTHETIC FIXTURE: content." },
     presented_attribution: null,
     access: { result: "RECEIVED", channel: "SPEECH", established_at: { unit: "u", value: 1 } },
     intelligibility: { result: "REPRESENTATION_ACCESSIBLE", basis: "NO_CAPABILITY_DEPENDENCY" },
@@ -105,6 +105,8 @@ const FORBIDDEN_FIELDS = [
   "event_id",
   "provenance",
   "carrier",
+  "true_source",
+  "holder",
   "payload",
   "attribution",
   "capability",
@@ -160,7 +162,7 @@ describe("the development object: KTI's own identity, nothing foreign (acceptanc
   });
 
   it("is strict: every omission and every unmodelled field is refused", () => {
-    for (const k of ["object_id", "object_class", "referent", "materiality"]) {
+    for (const k of ["object_id", "object_class", "materiality"]) {
       const o: Record<string, unknown> = { ...object() };
       delete o[k];
       expect(KtiDevelopmentObjectSchema.safeParse(o).success, k).toBe(false);
@@ -169,8 +171,6 @@ describe("the development object: KTI's own identity, nothing foreign (acceptanc
       object({ object_class: "TECH_TREE_NODE" }),
       object({ object_class: "Navigation" }),
       object({ materiality: "SOMETIMES" }),
-      object({ referent: "" }),
-      object({ referent: " padded " }),
       object({ object_id: "has/slash" }),
       object({ object_id: "" }),
       "object",
@@ -187,8 +187,11 @@ describe("the development object: KTI's own identity, nothing foreign (acceptanc
       "materiality",
       "object_class",
       "object_id",
-      "referent",
     ]);
+    // no separate label, alias or synonym field exists: the canonical object_id is the one reference
+    expect(
+      KtiDevelopmentObjectSchema.safeParse(object({ referent: "the gate rota" })).success,
+    ).toBe(false);
   });
 });
 
@@ -223,7 +226,7 @@ describe("the Transfer Package basis: one named recipient, one sealed packet, no
     for (const k of [
       "package_id",
       "management",
-      "source",
+      "source_id",
       "recipient",
       "development_object",
       "packet",
@@ -236,9 +239,10 @@ describe("the Transfer Package basis: one named recipient, one sealed packet, no
     for (const bad of [
       basis({ management: "TRIVIAL" }),
       basis({ management: undefined }),
-      basis({ source: { ...b.source, version: 1 } }),
-      basis({ source: { owner: "x" } }),
-      basis({ source: { fact_key: "x" } }),
+      basis({ source_id: "" }),
+      basis({ source_id: undefined }),
+      basis({ source_id: { owner: "x", fact_key: "y" } }),
+      basis({ source: { owner: "x", fact_key: "y" } }),
       basis({ packet: { ...b.packet, version: 0 } }),
       basis({ packet: { fact_key: b.packet.fact_key } }),
       basis({ packet: { ...b.packet, event: "e" } }),
@@ -249,7 +253,7 @@ describe("the Transfer Package basis: one named recipient, one sealed packet, no
       [],
     ])
       expect(KtiTransferBasisSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
-    for (const f of FORBIDDEN_FIELDS.filter((f) => !["source", "packet"].includes(f)))
+    for (const f of FORBIDDEN_FIELDS.filter((f) => !["packet"].includes(f)))
       expect(KtiTransferBasisSchema.safeParse(basis({ [f]: "x" })).success, f).toBe(false);
   });
 });
@@ -278,7 +282,7 @@ describe("the active Transfer Package: workflow state only (acceptance 4, 5)", (
   });
 
   it("has no field for comprehension, competence, reproduction, adoption, adherence, belief, diffusion, continuity, headcount, F-014D event or provenance content, or any number", () => {
-    for (const f of FORBIDDEN_FIELDS.filter((f) => !["source", "packet"].includes(f)))
+    for (const f of FORBIDDEN_FIELDS.filter((f) => !["packet"].includes(f)))
       expect(KtiTransferPackageSchema.safeParse({ ...packageValue(), [f]: "x" }).success, f).toBe(
         false,
       );
@@ -289,18 +293,20 @@ describe("the active Transfer Package: workflow state only (acceptance 4, 5)", (
       "package_id",
       "packet",
       "recipient",
-      "source",
+      "source_id",
       "status",
     ]);
-    // the references carry only identity and version, never a copied value
-    expect(Object.keys(KtiTransferPackageSchema.shape.source.shape).sort()).toEqual([
-      "fact_key",
-      "owner",
-    ]);
+    // the references carry only identity and version, never a copied value; the programme source is an opaque identity
     expect(Object.keys(KtiTransferPackageSchema.shape.packet.shape).sort()).toEqual([
       "fact_key",
       "version",
     ]);
+    expect(
+      KtiTransferPackageSchema.safeParse({
+        ...packageValue(),
+        source: { owner: "o", fact_key: "k" },
+      }).success,
+    ).toBe(false);
   });
 
   it("names the KTI result close: any other close name is refused", () => {

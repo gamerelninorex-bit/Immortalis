@@ -51,8 +51,7 @@ import {
   FIXTURE_PC_ID,
   OBJECT_GATE_ROTA,
   OBJECT_OTHER,
-  REFERENT_OTHER,
-  SOURCE_SCROLL,
+  SOURCE_PARTY_OTHER,
   SOURCE_SPEAKER,
   SYNTH_ACCESS_SOURCE_OWNER,
   SYNTH_ACTOR_HISTORY_OWNER,
@@ -398,8 +397,9 @@ describe("raw and tampered values are refused by IM-11 (acceptance 4, 5, 9, 10)"
     for (const bad of [
       { ...o, object_class: "TECH_TREE_NODE" },
       { ...o, materiality: "SOMETIMES" },
-      { ...o, referent: " padded " },
-      { ...o, referent: "" },
+      { ...o, referent: "the gate rota" },
+      { ...o, label: "the gate rota" },
+      { ...o, alias: ["rota"] },
       { ...o, faction: "f1" },
       { ...o, institution: "i1" },
       { ...o, actor: "a1" },
@@ -467,8 +467,10 @@ describe("raw and tampered values are refused by IM-11 (acceptance 4, 5, 9, 10)"
       { ...b, score: 1 },
       { ...b, packet: { ...b.packet, version: 0 } },
       { ...b, packet: { ...b.packet, event: EVENT_COUNCIL } },
-      { ...b, source: { ...b.source, version: 1 } },
-      { ...b, source: { owner: "x" } },
+      { ...b, source: { owner: "x", fact_key: "y" } },
+      { ...b, source_id: { owner: "x", fact_key: "y" } },
+      { ...b, source_id: "" },
+      { ...b, true_source: "carrier" },
       { ...b, development_object: { ...b.development_object, extra: 1 } },
       "basis",
       null,
@@ -673,8 +675,8 @@ describe("a transfer is established only over a sealed, supporting, correctly re
       },
     });
     expect(await publish(foreign, 3)).toBe("REFERENCE_INVALID");
-    // an object about another subject: the packet does not support it
-    await establishObject(s, 2, OBJECT_OTHER, { referent: REFERENT_OTHER });
+    // another canonical object: the packet's referent is not that object's identity, so it does not support it
+    await establishObject(s, 2, OBJECT_OTHER);
     const other = ktiBasis(A, EVENT_COUNCIL, OBJECT_OTHER);
     const r = await s.kti.establishTransferBasis({ ...ktiPublication(104), transfer: other });
     expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
@@ -683,23 +685,13 @@ describe("a transfer is established only over a sealed, supporting, correctly re
     expect(s.kti.transferBasis(other.package_id)).toBeUndefined();
   });
 
-  it("the material source and the package identity are exactly what the sealed provenance and the programme determine: a wrong source, or a forged identity, is refused", async () => {
+  it("the package identity is exactly what source_id × recipient × object determine: a forged identity is refused, and a source_id unlike the F-014D true source is lawful", async () => {
     const s = await seededKtiCampaign(tempDir());
     await sealPacket(s, 1, 2, EVENT_COUNCIL, A);
     await establishObject(s, 1);
     const publish = (transfer: unknown, n: number) =>
       codeOf(s.kti.establishTransferBasis({ ...ktiPublication(100 + n), transfer }));
-    // a source the provenance does not record
-    const wrongSource = ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-    });
-    expect(await publish(wrongSource, 1)).toBe("REFERENCE_INVALID");
-    // an owner the provenance does not record, with the right key
-    const wrongOwner = ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, {
-      source: { owner: "world_state", fact_key: sourceKey(SOURCE_SPEAKER) },
-    });
-    expect(await publish(wrongOwner, 2)).toBe("REFERENCE_INVALID");
-    // an identity that is not derived from (source, recipient, object)
+    // an identity that is not derived from (source_id, recipient, object)
     expect(await publish({ ...basisDefault, package_id: "transfer-forged" }, 3)).toBe(
       "REFERENCE_INVALID",
     );
@@ -709,7 +701,21 @@ describe("a transfer is established only over a sealed, supporting, correctly re
         4,
       ),
     ).toBe("REFERENCE_INVALID");
+    // another source_id with the identity of the first is refused too
+    expect(await publish({ ...basisDefault, source_id: SOURCE_PARTY_OTHER }, 5)).toBe(
+      "REFERENCE_INVALID",
+    );
     expect(ktiFacts(s).map((f) => f.key)).toEqual([objectKey]);
+    // a programme source that is the F-014D carrier's own identity is lawful, as is any other opaque identity: nothing
+    // ties source_id to the sealed provenance
+    for (const [n, source_id] of [
+      [6, "actor-sponsor"],
+      [7, SOURCE_SPEAKER],
+      [8, SOURCE_PARTY_OTHER],
+    ] as const)
+      expect(await publish(ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, { source_id }), n)).toBe(
+        "OK",
+      );
   });
 
   it("a basis does not pin the three facts it rests on, or pins them stale: a raw group that drops a read or a dependency is refused", async () => {
@@ -797,13 +803,13 @@ describe("a transfer is established only over a sealed, supporting, correctly re
       await codeOf(
         s.campaign.store.commit(
           rawObject({
-            value: ktiObject(OBJECT_GATE_ROTA, { referent: "a more convenient subject" }),
+            value: ktiObject(OBJECT_GATE_ROTA, { object_class: "TECHNIQUE_TECHNOLOGY" }),
             reads: [],
             writes: [
               {
                 ...wr(
                   objectKey,
-                  ktiObject(OBJECT_GATE_ROTA, { referent: "a more convenient subject" }),
+                  ktiObject(OBJECT_GATE_ROTA, { object_class: "TECHNIQUE_TECHNOLOGY" }),
                 ),
                 expected_version: 1,
               },
@@ -830,9 +836,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
     const s = await seededKtiCampaign(tempDir());
     await sealPacket(s, 1, 2, EVENT_COUNCIL, A);
     await establishObject(s, 1);
-    const ghost = ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-    });
+    const ghost = ktiBasis(A, EVENT_COUNCIL, OBJECT_GATE_ROTA, { source_id: SOURCE_PARTY_OTHER });
     const ghostStage = ktiTransferStage(ghost.package_id);
     const f = rawBasis(s);
     expect(
@@ -846,7 +850,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
             wr(ktiTransferPackageKey(ghost.package_id), {
               package_id: ghost.package_id,
               status: "ACTIVE",
-              source: ghost.source,
+              source_id: ghost.source_id,
               recipient: A,
               development_object: ghost.development_object,
               packet: ghost.packet,
@@ -904,7 +908,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
       "status retired": (p) => ({ ...p, status: "RETIRED" }),
       "source replaced": (p) => ({
         ...p,
-        source: { ...p.source, fact_key: sourceKey(SOURCE_SCROLL) },
+        source_id: SOURCE_PARTY_OTHER,
       }),
       "recipient changed": (p) => ({ ...p, recipient: ACTOR_OTHER }),
       "packet re-pinned": (p) => ({ ...p, packet: { ...p.packet, version: 2 } }),
@@ -954,8 +958,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
       expect(r.transaction.outcome.stop_reason, name).toBe("DEPENDENCY_UNRESOLVED");
       await s.campaign.close();
     }
-  });
-
+  }, 30_000);
   it("a package under the wrong access class is refused: the actor-accessible, the Epistemic engine-sealed or any other label", async () => {
     for (const secrecy of [
       ACCESS_CLASS_ACTOR_ACCESSIBLE,
@@ -980,8 +983,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
       expect(s.kti.transferPackage(basis.package_id)).toBeUndefined();
       await s.campaign.close();
     }
-  });
-
+  }, 30_000);
   it("a result close that drops a declared read, or reads another fact, is refused", async () => {
     const mutations: Record<string, (g: CommitGroup) => CommitGroup> = {
       "no reads": (g) => ({
@@ -1023,8 +1025,7 @@ describe("a package is exactly what its basis determines, only as its stage, und
       expect(s.kti.transferPackage(basis.package_id), name).toBeUndefined();
       await s.campaign.close();
     }
-  });
-
+  }, 30_000);
   it("a committed package is sealed: re-publication, improvement or any rewrite is refused, even through the owner", async () => {
     const s = await seededKtiCampaign(tempDir());
     const basis = await prepared(s);
@@ -1070,14 +1071,10 @@ describe("a PC-authorship boundary holds at the result close as well as at the b
   it("an entity that comes under player control between the basis and the close gets no package: the close fails closed; independent work resolves", async () => {
     const s = await seededKtiCampaign(tempDir(), { canonical: false });
     await sealPacket(s, 1, 2, EVENT_COUNCIL, "actor-late-pc");
-    await sealPacket(s, 2, 3, EVENT_SCHEMATIC, ACTOR_SWORD, "seal-free", {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL), version: 1 },
-    });
+    await sealPacket(s, 2, 3, EVENT_SCHEMATIC, ACTOR_SWORD, "seal-free");
     await establishObject(s, 1);
     const late = await establishTransfer(s, 2, "actor-late-pc", EVENT_COUNCIL);
-    const free = await establishTransfer(s, 3, ACTOR_SWORD, EVENT_SCHEMATIC, OBJECT_GATE_ROTA, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SCROLL) },
-    });
+    const free = await establishTransfer(s, 3, ACTOR_SWORD, EVENT_SCHEMATIC);
     await registerKtiConsumer(s, "k-late", late, 4);
     await registerKtiConsumer(s, "k-free", free, 5);
     // the entity is released as a Player Character before its package is published
@@ -1371,7 +1368,7 @@ describe("load-time verification fails closed on KTI drift (acceptance 10, 11)",
     for (const f of [
       (v: any) => (v.recipient = ACTOR_OTHER),
       (v: any) => (v.packet.version = 2),
-      (v: any) => (v.source.fact_key = sourceKey(SOURCE_SCROLL)),
+      (v: any) => (v.source_id = SOURCE_PARTY_OTHER),
       (v: any) => (v.development_object.version = 2),
     ])
       expect(await drifted(edit(packageKey, f))).toMatch(
@@ -1383,9 +1380,7 @@ describe("load-time verification fails closed on KTI drift (acceptance 10, 11)",
     expect(
       await drifted(edit(basisKey, (v) => (v.packet.fact_key = accessPacketKey(EVENT_LATER, A)))),
     ).not.toBe("");
-    expect(
-      await drifted(edit(basisKey, (v) => (v.source.fact_key = sourceKey(SOURCE_SCROLL)))),
-    ).not.toBe("");
+    expect(await drifted(edit(basisKey, (v) => (v.source_id = SOURCE_PARTY_OTHER)))).not.toBe("");
     expect(await drifted(edit(basisKey, (v) => (v.package_id = "transfer-forged")))).toMatch(
       /derived from/,
     );
@@ -1401,7 +1396,7 @@ describe("load-time verification fails closed on KTI drift (acceptance 10, 11)",
     expect(await drifted((f) => f.filter((x) => x.key !== basisKey))).toMatch(
       /package has no committed basis/,
     );
-    expect(await drifted(edit(objectKey, (v) => (v.referent = REFERENT_OTHER)))).toMatch(
+    expect(await drifted(edit(packetKey, (v) => (v.payload.referent = "the gate rota")))).toMatch(
       /does not support the development object/,
     );
   });

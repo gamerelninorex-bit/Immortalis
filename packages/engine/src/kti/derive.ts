@@ -16,7 +16,6 @@ import {
   type KtiDevelopmentObject,
   type KtiTransferBasis,
   type KtiTransferPackage,
-  type KtiTransferSource,
   type Result,
   type SealedEngineProvenance,
 } from "@immortalis/contracts";
@@ -44,42 +43,35 @@ export interface KtiFact<T> {
 }
 
 /**
- * The deterministic identity of one Transfer Package programme: exactly (source, recipient, development object) — "one
+ * The deterministic identity of one Transfer Package programme: exactly (source_id, recipient, development object) — "one
  * package per materially managed source × recipient × development-object transfer programme" (Scaling Profile Class E) —
- * and nothing else. The packet, event, time, retry, slice and source version are not identity dimensions, so a second
+ * and nothing else. The packet, event, time, retry, slice and F-014D provenance are not identity dimensions, so a second
  * declaration for the same programme reaches the same slot.
  */
-export const transferPackageId = (
-  source: KtiTransferSource,
-  recipient: string,
-  objectId: string,
-): string =>
-  `transfer-${sha256Canonical({
-    source: { owner: source.owner, fact_key: source.fact_key },
-    recipient,
-    object_id: objectId,
-  })}`;
+export const transferPackageId = (sourceId: string, recipient: string, objectId: string): string =>
+  `transfer-${sha256Canonical({ source_id: sourceId, recipient, object_id: objectId })}`;
 
 /**
- * Packet-to-development-object linkage (explicit, fail closed): the packet supports an object only when the subject the
- * packet names as its Content / Referent (F-014D §4.1) is the referent the development object is identified by, exactly.
- * It is a structural tie of identities, not a semantic match: the engine does not interpret, translate or infer that two
- * different subjects are "about" the same thing.
+ * Packet-to-development-object linkage (explicit, fail closed): for this bounded foundation the packet's Content / Referent
+ * (F-014D §4.1: a bounded claim, observation, record or PAYLOAD REFERENCE) must BE the canonical KTI `object_id`. This is an
+ * opaque canonical-reference equality, not a language match: prose, a synonym, another reference scheme or an ambiguous label
+ * does not support the object, and nothing is interpreted, normalized, mapped or compared fuzzily.
  */
 export function packetSupportViolation(
   packet: AccessiblePacket,
   object: KtiDevelopmentObject,
 ): string | null {
-  return packet.payload.referent === object.referent
+  return packet.payload.referent === object.object_id
     ? null
-    : "the packet does not support the development object: the subject the packet names is not the referent the object is identified by";
+    : "the packet does not support the development object: its payload referent is not the canonical KTI object identity";
 }
 
 /**
  * What the sealed F-014D evidence must say for a basis to rest on it (KTI v2.2 Candidate v0.3 §2 mode-consumer invariant:
  * KTI discriminates every Access / Dissemination Event by immutable mode): the provenance records exactly this packet and
- * recipient, the event it was formed from is a BOUNDED_SHARED_ACCESS event whose one named participant is the recipient,
- * and the true source the provenance records is the source the basis names. Returns a message, or null.
+ * recipient, and the event it was formed from is a committed BOUNDED_SHARED_ACCESS event whose one named participant is the
+ * recipient. The programme `source_id` is NOT compared with the true source the provenance records: they are different
+ * concepts, and nothing of the sealed provenance is copied into KTI. Returns a message, or null.
  */
 export function basisEvidenceViolation(input: {
   readonly basis: KtiTransferBasis;
@@ -105,12 +97,6 @@ export function basisEvidenceViolation(input: {
   }
   if (event.value.participants.length !== 1 || event.value.participants[0] !== basis.recipient) {
     return "the recipient is the one named participant of the access event, never a wider scope";
-  }
-  if (
-    provenance.source.owner !== basis.source.owner ||
-    provenance.source.fact_key !== basis.source.fact_key
-  ) {
-    return "the material source is the true source the sealed provenance records";
   }
   return null;
 }
@@ -139,10 +125,12 @@ export function deriveTransferPackage(input: {
   if (basis.key !== ktiTransferBasisKey(b.package_id)) {
     return fail("BASIS_INVALID", "the basis is at the key derived from its package identity");
   }
-  if (b.package_id !== transferPackageId(b.source, b.recipient, b.development_object.object_id)) {
+  if (
+    b.package_id !== transferPackageId(b.source_id, b.recipient, b.development_object.object_id)
+  ) {
     return fail(
       "BASIS_INVALID",
-      "the package identity is derived from exactly its source, recipient and development object",
+      "the package identity is derived from exactly its source_id, recipient and development object",
     );
   }
   if (
@@ -174,7 +162,7 @@ export function deriveTransferPackage(input: {
   return ok({
     package_id: b.package_id,
     status: "ACTIVE",
-    source: { owner: b.source.owner, fact_key: b.source.fact_key },
+    source_id: b.source_id,
     recipient: b.recipient,
     development_object: { ...b.development_object },
     packet: { ...b.packet },

@@ -43,6 +43,7 @@ import {
   ktiConsumerBoundaryId,
   ktiConsumerObject,
   ktiObject,
+  ktiPayload,
   ktiProviders,
   ktiPublication,
   packetConsumerBoundaryId,
@@ -215,7 +216,10 @@ export async function sealPacket(
   consumerId = `seal-${eventId}`,
   over: Partial<AccessEvent> = {},
 ): Promise<AccessEvent> {
-  const event = await establishAccess(s, n, eventId, recipient, over);
+  const event = await establishAccess(s, n, eventId, recipient, {
+    payload: ktiPayload(),
+    ...over,
+  });
   await must(
     s.coordinator.registerObject({
       ...temporalPublication(tn),

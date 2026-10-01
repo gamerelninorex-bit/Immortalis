@@ -20,13 +20,7 @@ import {
   type WriteAdmission,
 } from "@immortalis/engine";
 import { closeConsumerProvider } from "./actor-fixtures.ts";
-import {
-  EPISTEMIC_FIXTURE_EXTENSION,
-  SOURCE_SPEAKER,
-  SYNTH_ACCESS_SOURCE_OWNER,
-  packetConsumerProvider,
-  sourceKey,
-} from "./epistemic-fixtures.ts";
+import { EPISTEMIC_FIXTURE_EXTENSION, packetConsumerProvider } from "./epistemic-fixtures.ts";
 import { SYNTH_RULE, T0, T1, TB } from "./temporal-fixtures.ts";
 
 /**
@@ -81,9 +75,9 @@ export const KTI_FIXTURE_EXTENSION: StageOwnerExtension = {
 
 export const OBJECT_GATE_ROTA = "kti-object-gate-rota";
 export const OBJECT_OTHER = "kti-object-other-practice";
-/** the subject the default fixture packet names (see `accessEvent`): the referent the default object is identified by */
-export const REFERENT_GATE_ROTA = "the gate rota";
-export const REFERENT_OTHER = "the harvest calendar";
+/** Opaque programme source parties (the Class-E source dimension): never the F-014D true source/holder/carrier. */
+export const SOURCE_PARTY_MANILA = "source-party-manila";
+export const SOURCE_PARTY_OTHER = "source-party-other";
 
 export const ktiConsumerResultKey = (id: string): string => `${KTI_CONSUMER_PREFIX}result/${id}`;
 
@@ -94,27 +88,30 @@ export const ktiPublication = (n: number) => ({
   basis: "kti-fixture-basis",
 });
 
-/** A well-formed Class-A development object whose referent is the subject of the default fixture packet. */
+/** A well-formed Class-A development object: the canonical identity, its class and the materiality gate. */
 export const ktiObject = (
   objectId = OBJECT_GATE_ROTA,
   over: Partial<KtiDevelopmentObject> = {},
 ): KtiDevelopmentObject => ({
   object_id: objectId,
   object_class: "METHOD_PRACTICE",
-  referent: REFERENT_GATE_ROTA,
   materiality: "MATERIALLY_FUTURE_CAUSAL",
   ...over,
 });
 
-/** The default fixture source: the carrier the default access event pins (the true source the provenance records). */
-export const defaultTransferSource = () => ({
-  owner: SYNTH_ACCESS_SOURCE_OWNER,
-  fact_key: sourceKey(SOURCE_SPEAKER),
+/**
+ * The payload an access event carries when its Content / Referent IS the canonical KTI `object_id` (the bounded packet →
+ * object link of this foundation); `content` and the attribution are fixture sentences no KTI rule reads.
+ */
+export const ktiPayload = (objectId = OBJECT_GATE_ROTA, referent: string = objectId) => ({
+  referent,
+  content: "SYNTHETIC FIXTURE: the demonstrated procedure.",
+  presented_attribution: null,
 });
 
 /**
- * A well-formed Transfer Package basis for one recipient, one development object and one sealed packet (by event). The
- * package identity is derived exactly as the owner derives it.
+ * A well-formed Transfer Package basis for one programme source, one recipient, one development object and one sealed packet
+ * (by event). The package identity is derived exactly as the owner derives it.
  */
 export function ktiBasis(
   recipient: string,
@@ -122,16 +119,16 @@ export function ktiBasis(
   objectId = OBJECT_GATE_ROTA,
   over: Partial<KtiTransferBasis> = {},
 ): KtiTransferBasis {
-  const source = over.source ?? defaultTransferSource();
+  const source_id = over.source_id ?? SOURCE_PARTY_MANILA;
   const dev = over.development_object ?? {
     object_id: objectId,
     fact_key: ktiDevelopmentObjectKey(objectId),
     version: 1,
   };
   return {
-    package_id: transferPackageId(source, recipient, dev.object_id),
+    package_id: transferPackageId(source_id, recipient, dev.object_id),
     management: "CROSS_RESOLUTION_MANAGED",
-    source,
+    source_id,
     recipient,
     development_object: dev,
     packet: { fact_key: accessPacketKey(eventId, recipient), version: 1 },
