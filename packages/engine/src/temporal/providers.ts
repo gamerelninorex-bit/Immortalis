@@ -2,9 +2,12 @@ import type {
   CanonicalTime,
   JsonValue,
   OwnerFact,
+  PendingConsequenceBarrier,
+  Pcb01Evidence,
   SourceRef,
   StageKey,
   TemporalRead,
+  UnresolvedReason,
 } from "@immortalis/contracts";
 
 /**
@@ -33,6 +36,26 @@ export interface StageInput {
     readonly elapsed: number;
   };
   readonly reads: readonly ResolvedRead[];
+  /**
+   * The committed current facts of the keys this stage produces (its owner's own prior state), by key.
+   * A stage's own prior state is not a temporal read of another stage; this is how an owner operation
+   * advances its own facts without declaring a self-edge in the graph.
+   */
+  readonly prior: ReadonlyMap<string, OwnerFact>;
+}
+
+/**
+ * An owner operation that cannot lawfully produce a result at this basis throws this: the stage is not
+ * credited, its dependents wait, independent stages proceed (F-017 §4). It is the owner's way to fail
+ * closed, e.g. on mixed-time inputs, without publishing anything.
+ */
+export class StageUnresolvedError extends Error {
+  readonly reason: UnresolvedReason;
+  constructor(reason: UnresolvedReason, message: string) {
+    super(message);
+    this.name = "StageUnresolvedError";
+    this.reason = reason;
+  }
 }
 
 /** One proposed owner write. `expected_version` is the coordinator's, from committed state. */
@@ -71,4 +94,40 @@ export class StageProviderRegistry {
   find(owner: string, operation: string): StageProvider | undefined {
     return this.#byOperation.get(JSON.stringify([owner, operation]));
   }
+}
+
+/**
+ * PCB-01 evaluation seam (IM-02 ↔ IM-04). The coordinator decides WHEN a barrier is consulted — only
+ * for an engaged consumer — and what follows; the Population adapter decides what its own pending
+ * consequences are. Pure reads by identity: it never scans and never writes.
+ */
+export type BarrierEvaluation =
+  | { readonly due: true; readonly envelope_ids: readonly string[] }
+  | { readonly due: false; readonly reason: string };
+
+export interface ConsequenceBarrierEvaluator {
+  evaluate(
+    barrier: PendingConsequenceBarrier,
+    instant: CanonicalTime,
+    getFact: (key: string) => OwnerFact | undefined,
+  ): BarrierEvaluation;
+  /**
+   * The retained evidence of a due reconciliation, derived from what its committed stage group wrote
+   * (`valueOf`), or null when no frozen condition is supported. The same derivation verifies a recorded
+   * claim at admission and on load.
+   */
+  evidence(
+    barrier: PendingConsequenceBarrier,
+    instant: CanonicalTime,
+    valueOf: (key: string) => unknown,
+  ): Pcb01Evidence | null;
+  /**
+   * When no reconciliation is due, the consumer reads the latest committed close. True only if `fact`
+   * is a stamped Population close artifact of the barrier's own close basis and ledger.
+   */
+  closeSourceLawful(
+    barrier: PendingConsequenceBarrier,
+    fact: OwnerFact,
+    getFact: (key: string) => OwnerFact | undefined,
+  ): boolean;
 }

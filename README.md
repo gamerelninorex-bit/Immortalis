@@ -2,7 +2,7 @@
 
 LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core).
 
-**Status: Turnless Temporal & Resolution Transaction Foundation.** Builds on the Campaign Continuity Foundation (see [`docs/campaign-package.md`](docs/campaign-package.md)): a campaign can now hold one World Profile, one bounded locus, one released player-character Existence Contract and one active `role.player_character` binding — each written by the specification-backed owner, with dependency direction and owner exclusivity enforced — and it survives save → close → load → continue (see [`docs/canonical-world-foundation.md`](docs/canonical-world-foundation.md)). On top of that, the IM-02 Temporal / Dependency Coordinator lets the campaign advance from a canonical temporal basis toward a bounded target, resolve only the causally engaged dependency cone (exact NOW / named-CLOSE reads, exact stage identity, a transient non-persisted dependency graph), stop with a lawful remainder and — after save, close and load — continue without drift, all through the same commit/journal/package substrate (see [`docs/temporal-foundation.md`](docs/temporal-foundation.md)). There is no turn counter, tick or phase loop, and CAL-01 is not used (the proof is `EXACT-PARTITION`). No persistence/deployment provider, host protocol, migration, population, economy or other gameplay mechanic exists, and every F-027 open gate remains open.
+**Status: Population & Cohort Reconciliation Backbone Foundation.** Builds on the Campaign Continuity Foundation (see [`docs/campaign-package.md`](docs/campaign-package.md)): a campaign can now hold one World Profile, one bounded locus, one released player-character Existence Contract and one active `role.player_character` binding — each written by the specification-backed owner, with dependency direction and owner exclusivity enforced — and it survives save → close → load → continue (see [`docs/canonical-world-foundation.md`](docs/canonical-world-foundation.md)). On top of that, the IM-02 Temporal / Dependency Coordinator lets the campaign advance from a canonical temporal basis toward a bounded target, resolve only the causally engaged dependency cone (exact NOW / named-CLOSE reads, exact stage identity, a transient non-persisted dependency graph), stop with a lawful remainder and — after save, close and load — continue without drift, all through the same commit/journal/package substrate (see [`docs/temporal-foundation.md`](docs/temporal-foundation.md)). There is no turn counter, tick or phase loop, and CAL-01 is not used (the proof is `EXACT-PARTITION`). The IM-04 Population / Cohort adapter then makes Population the sole Unit/Count custodian of a bounded exact ledger (Closing = Opening + typed Entries − Exits), with sparse Cohorts and an externally qualified derived view composed at one temporal basis, an ordinary reconciliation close read AS-OF-DECLARED-CLOSE by dependent consumers, and the PCB-01 due-trigger that makes an engaged-scope reconciliation due only when its frozen conditions hold — again through the same commit/journal/package substrate (see [`docs/population-foundation.md`](docs/population-foundation.md)). CAL-02 is not used (no labor coefficient or default exists). No persistence/deployment provider, host protocol, migration, labor, production, economy or other gameplay mechanic exists, and every F-027 open gate remains open.
 
 ## Governing specification
 
@@ -12,16 +12,16 @@ LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core)
 
 ## Layout
 
-| Path                       | Purpose                                                                                                   |
-| -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `spec/f027/`               | Version-locked implementation snapshot, acceptance register, open gates                                   |
-| `packages/contracts`       | Executable RC contracts used so far (RC-01/02/03/04/05/07/10/13/16, world/PC/binding and temporal values) |
-| `packages/engine`          | Provider-neutral core: commit core, IM-03 owners, IM-07 PC/binding, IM-02 temporal coordinator, IM-17     |
-| `packages/protocol`        | Host Protocol Gateway and security boundary, IM-15/IM-16 (placeholder)                                    |
-| `packages/testkit`         | Shared deterministic fixtures and evidence helpers (placeholder)                                          |
-| `tests/`                   | unit, contract, conformance, security, integration                                                        |
-| `tools/`                   | `check-spec.ts` spec-lock / register consistency check                                                    |
-| `migrations/`, `releases/` | Inert conventions only                                                                                    |
+| Path                       | Purpose                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `spec/f027/`               | Version-locked implementation snapshot, acceptance register, open gates                                                  |
+| `packages/contracts`       | Executable RC contracts used so far (RC-01/02/03/04/05/07/08/10/12/13/16, world/PC/binding, temporal, Population values) |
+| `packages/engine`          | Provider-neutral core: commit core, IM-03 owners, IM-07 PC/binding, IM-02 temporal coordinator, IM-04 Population, IM-17  |
+| `packages/protocol`        | Host Protocol Gateway and security boundary, IM-15/IM-16 (placeholder)                                                   |
+| `packages/testkit`         | Shared deterministic fixtures and evidence helpers (placeholder)                                                         |
+| `tests/`                   | unit, contract, conformance, security, integration                                                                       |
+| `tools/`                   | `check-spec.ts` spec-lock / register consistency check                                                                   |
+| `migrations/`, `releases/` | Inert conventions only                                                                                                   |
 
 Directories for surfaces not yet used (e.g. `tests/recovery`, `tests/scaling`) are created when first needed.
 

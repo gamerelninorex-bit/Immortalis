@@ -149,13 +149,15 @@ describe("registry: every key space has exactly one owner/facet and there is no 
       expect(FACT_KINDS.filter((k) => k.keyPattern.test(key))).toHaveLength(1);
     }
   });
-  it("registers world_state/{world_profile, world_locus}, pc_existence/existence_contract, role_registry/player_character_binding, the IM-02 kernel temporal_kernel/temporal_coordination, and nothing else", () => {
+  it("registers world_state/{world_profile, world_locus}, pc_existence/existence_contract, role_registry/player_character_binding, the IM-02 kernel temporal_kernel/temporal_coordination, the IM-04 owner population/population_state, and nothing else", () => {
     const flat = [...CANONICAL_OWNER_REGISTRY].map(([o, fs]) => [o, [...fs].sort()]);
     expect(flat).toEqual([
       ["world_state", ["world_locus", "world_profile"]],
       ["pc_existence", ["existence_contract"]],
       ["role_registry", ["player_character_binding"]],
       ["temporal_kernel", ["temporal_coordination"]],
+      // IM-04 (fourth slice): Population is the sole Unit/Count custodian, one facet
+      ["population", ["population_state"]],
     ]);
   });
 });

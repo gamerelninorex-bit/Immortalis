@@ -1,5 +1,7 @@
 import {
   BoundaryIndexSchema,
+  OWNER_POPULATION,
+  POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
@@ -16,11 +18,13 @@ import {
   type CommitGroup,
   type Failure,
   type ResolutionTransaction,
+  type PendingConsequenceBarrier,
   type TemporalObject,
   type TemporalState,
 } from "@immortalis/contracts";
 import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 
@@ -105,6 +109,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
         });
       }
       const o = TemporalObjectSchema.parse(w.value);
+      const edge = populationReadViolation(o);
+      if (edge) return reject("REFERENCE_INVALID", edge, { key: w.key });
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
         (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))
@@ -197,16 +203,25 @@ function checkTransaction(
     }
   }
   // 2. Engaged objects are all recorded (RC-05); exactly the RETIRED ones are touched, each across
-  // the boundary it had earned. A STILL_ACTIVE object is untouched and keeps its boundary.
+  // the boundary it had earned. A STILL_ACTIVE object is untouched and keeps its boundary. A PCB-01
+  // due reconciliation object (no earned boundary) is touched only when it was reconciled.
   const retiredEngaged = tx.engaged.filter((e) => e.boundary === "RETIRED");
-  const activeEngaged = tx.engaged.filter((e) => e.boundary === "STILL_ACTIVE");
-  if (objWs.length !== retiredEngaged.length) {
+  const dueReconciled = tx.engaged.filter((e) => e.boundary === "DUE_RECONCILED");
+  const activeEngaged = tx.engaged.filter(
+    (e) => e.boundary === "STILL_ACTIVE" || e.boundary === "DUE_UNRESOLVED",
+  );
+  if (objWs.length !== retiredEngaged.length + dueReconciled.length) {
     return bad(
-      "the objects written must be exactly the engaged objects whose boundary was retired",
+      "the objects written must be exactly the engaged objects whose boundary was retired or whose due reconciliation completed",
     );
   }
   const priorIndex = readIndex(state);
   for (const e of tx.engaged) {
+    if (e.boundary === "DUE_RECONCILED" || e.boundary === "DUE_UNRESOLVED") {
+      const due = checkDueEngaged(e, tx, state, objWs, priorIndex, bad);
+      if (due) return due;
+      continue;
+    }
     const before = state.facts.get(e.fact_key);
     if (!before || e.fact_key !== temporalObjectKey(e.object_id)) {
       return bad("an engaged reference does not name a committed temporal object", {
@@ -427,6 +442,153 @@ export function continuationRequestViolation(
   const remainder = prior.outcome.remainder;
   if (!remainder || requested.target === null || !timeEquals(remainder.to, requested.target)) {
     return "a continuing transaction must consume exactly the remainder the state holds";
+  }
+  return null;
+}
+
+/**
+ * PCB-01 (F-017; WS-001 §32): a Population reconciliation object that has no earned boundary is engaged
+ * only because a consumer's declared barrier made its reconciliation due. Structural rules, from
+ * committed state alone:
+ *
+ *  - it exists, holds no earned boundary and has no active-index entry (it was never due on its own);
+ *  - the engaged consumer named by `due_for` declares a barrier naming exactly this object, and this
+ *    object declares the stage that is the barrier's named Close;
+ *  - when reconciled, the object is written one version on, ONLY its resolved basis moving — to the
+ *    consumer's boundary instant, which is the single resolution point — with declarations untouched,
+ *    and every stage it declares is a stage the transaction committed;
+ *  - when unresolved, it is untouched and one of its stages is an unresolved dependent.
+ *
+ * Whether the barrier's frozen conditions held is Population's evidence (the committed close consumes
+ * each eligible envelope exactly once, re-derived by Population admission); IM-02 does not parse
+ * Population facts.
+ */
+function checkDueEngaged(
+  e: Extract<
+    ResolutionTransaction["engaged"][number],
+    { boundary: "DUE_RECONCILED" | "DUE_UNRESOLVED" }
+  >,
+  tx: ResolutionTransaction,
+  state: CampaignState,
+  objWs: CommitGroup["writes"],
+  priorIndex: BoundaryIndex,
+  bad: (message: string, details?: Record<string, unknown>) => Rejection,
+): Rejection | null {
+  const ctx = { object_id: e.object_id };
+  const before = state.facts.get(e.fact_key);
+  if (!before || e.fact_key !== temporalObjectKey(e.object_id)) {
+    return bad("an engaged reference does not name a committed temporal object", ctx);
+  }
+  const was: TemporalObject = TemporalObjectSchema.parse(before.value);
+  if (e.version_before !== before.version) {
+    return bad("an engaged object's version_before is not the committed object", ctx);
+  }
+  if (was.next_boundary !== null || priorIndex.entries.some((en) => en.object_id === e.object_id)) {
+    return bad("a PCB-01 due-reconciliation object holds no earned boundary of its own", ctx);
+  }
+  const sameStage = (a: unknown, b: unknown) => canonicalEqual(a, b);
+  let consumerAt: CanonicalTime | undefined;
+  let barrier: PendingConsequenceBarrier | undefined;
+  for (const c of tx.engaged) {
+    if (c.boundary !== "RETIRED" && c.boundary !== "STILL_ACTIVE") continue;
+    const cf = state.facts.get(c.fact_key);
+    if (!cf) continue;
+    const co: TemporalObject = TemporalObjectSchema.parse(cf.value);
+    const decl = co.dependencies.find(
+      (d) =>
+        sameStage(d.stage, e.due_for) &&
+        d.pending_consequence_barrier?.reconciliation_object_id === e.object_id,
+    );
+    if (decl && co.next_boundary) {
+      consumerAt = co.next_boundary.at;
+      barrier = decl.pending_consequence_barrier!;
+    }
+  }
+  if (!consumerAt || !barrier) {
+    return bad(
+      "a due reconciliation names an engaged consumer stage whose barrier declares it",
+      ctx,
+    );
+  }
+  const barrierClose = barrier.close_basis;
+  const closeStage = was.dependencies.find(
+    (d) =>
+      d.declares_close?.name === barrierClose.name &&
+      d.stage.owner_operation.owner === barrierClose.producer.owner &&
+      d.stage.owner_operation.operation === barrierClose.producer.operation,
+  );
+  if (!closeStage) {
+    return bad("the due reconciliation object declares the barrier's named Close", ctx);
+  }
+  if (e.boundary === "DUE_UNRESOLVED") {
+    if (objWs.some((x) => x.key === e.fact_key)) {
+      return bad("an unresolved due reconciliation may not be written", ctx);
+    }
+    const declared = new Set(was.dependencies.map((d) => JSON.stringify(d.stage)));
+    if (!tx.outcome.unresolved_dependents.some((u) => declared.has(JSON.stringify(u.stage)))) {
+      return bad("an unresolved due reconciliation must have an unresolved dependent stage", ctx);
+    }
+    return null;
+  }
+  const w = objWs.find((x) => x.key === e.fact_key);
+  if (!w || w.expected_version !== before.version || e.version_after !== before.version + 1) {
+    return bad("a reconciled due object must be the written object, one version on", ctx);
+  }
+  const now: TemporalObject = TemporalObjectSchema.parse(w.value);
+  if (
+    now.next_boundary !== null ||
+    !timeEquals(now.last_resolved_basis, consumerAt) ||
+    !timeBefore(was.last_resolved_basis, consumerAt)
+  ) {
+    return bad(
+      "a due reconciliation resolves, once, at the consumer's boundary instant (its single resolution point)",
+      ctx,
+    );
+  }
+  if (
+    !canonicalEqual({ ...was, last_resolved_basis: null }, { ...now, last_resolved_basis: null })
+  ) {
+    return bad("a transaction may not change an object's declarations", ctx);
+  }
+  if (!was.dependencies.every((d) => tx.stages.some((s) => sameStage(s.stage, d.stage)))) {
+    return bad("every stage the reconciled due object declares was committed", ctx);
+  }
+  // The due claim must be TRUE: re-derived from the committed Population stage group's own facts (the
+  // single canon), at the consumer's single resolution point. A false, empty or tampered claim fails.
+  const stage = tx.stages.find((s) => sameStage(s.stage, closeStage.stage))!;
+  const valueOf = (key: string) => {
+    const f = state.facts.get(key);
+    return f && f.provenance.group_id === stage.group_id ? f.value : undefined;
+  };
+  const untrue = pcb01EvidenceViolation({
+    recorded: e.evidence,
+    barrier,
+    instant: consumerAt,
+    valueOf,
+  });
+  if (untrue) return bad(untrue, ctx);
+  return null;
+}
+
+/**
+ * The frozen Temporal-Read cut for Population (WS-015 §VIII; WS-001 §32; F-017): Population → dependent
+ * consumer is AS-OF-DECLARED-CLOSE, with Close Basis = the Population ordinary demographic/labor
+ * reconciliation close. A declared read of a Population-owned fact is therefore never AS-OF-NOW and never
+ * names another basis (a requested horizon, a slice, a retry or a source version stands in for none).
+ * Used by registration admission and by load-time verification, so the two cannot drift. Returns a
+ * message, or null.
+ */
+export function populationReadViolation(object: TemporalObject): string | null {
+  for (const d of object.dependencies) {
+    for (const r of d.reads) {
+      if (resolveKey(r.source.fact_key)?.kind.owner !== OWNER_POPULATION) continue;
+      if (r.mode !== "AS-OF-DECLARED-CLOSE") {
+        return "Population → consumer is AS-OF-DECLARED-CLOSE: a Population fact is never read AS-OF-NOW";
+      }
+      if (!canonicalEqual(r.close_basis, POPULATION_CLOSE_BASIS)) {
+        return "a Population fact is read at the Population ordinary reconciliation close, not at another named basis";
+      }
+    }
   }
   return null;
 }

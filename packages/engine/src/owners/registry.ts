@@ -2,16 +2,21 @@ import {
   BoundaryIndexSchema,
   ExistenceContractSchema,
   FACET_EXISTENCE_CONTRACT,
+  CohortFactSchema,
   FACET_PLAYER_CHARACTER_BINDING,
+  FACET_POPULATION_STATE,
   FACET_TEMPORAL_COORDINATION,
   FACET_WORLD_LOCUS,
   FACET_WORLD_PROFILE,
   OWNER_PC_EXISTENCE,
+  OWNER_POPULATION,
   OWNER_ROLE_REGISTRY,
   OWNER_TEMPORAL_KERNEL,
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  PopulationBasisSchema,
+  ReconciliationCloseSchema,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
@@ -68,6 +73,15 @@ export const IR_SOURCE = {
   native_pin: "2026-09-25T00:17:26.287Z",
 } as const;
 
+export const WS001_SOURCE = {
+  artifact: "https://app.notion.com/p/3de20af901e081929b5df2337e4b2cf6",
+  native_pin: "2026-09-25T23:42:28.770Z",
+} as const;
+export const WS015_SOURCE = {
+  artifact: "https://app.notion.com/p/3e120af901e081069cacdd9dcca751ab",
+  native_pin: "2026-09-20T15:53:58.732Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -85,7 +99,15 @@ export const TEMPORAL_FACT_KIND_IDS = [
   "temporal_object",
   "resolution_transaction",
 ] as const;
-export type FactKindId = (typeof FACT_KIND_IDS)[number] | (typeof TEMPORAL_FACT_KIND_IDS)[number];
+export const POPULATION_FACT_KIND_IDS = [
+  "population_ledger",
+  "population_close",
+  "population_cohort",
+] as const;
+export type FactKindId =
+  | (typeof FACT_KIND_IDS)[number]
+  | (typeof TEMPORAL_FACT_KIND_IDS)[number]
+  | (typeof POPULATION_FACT_KIND_IDS)[number];
 
 /**
  * SEALED: create-only canon; overwriting needs an owner-defined amendment mechanism that does not
@@ -256,8 +278,69 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
-/** Every registered kind: the canonical world/PC kinds and the IM-02 kernel kinds. */
-export const ALL_FACT_KINDS: readonly FactKind[] = [...FACT_KINDS, ...TEMPORAL_FACT_KINDS];
+const WS015_LINEAGE =
+  "WS-015 Cohort Reference Architecture Working Operational Draft v1, Sovereign-ratified 2026-09-20 (https://app.notion.com/p/3e120af901e081069cacdd9dcca751ab), consumed with WS-001 Draft 3 §29B at its frozen implementation pin";
+
+/**
+ * IM-04 Population / Cohort Adapter: "Population-owned membership/count/commitment surfaces only".
+ * WS-001 §Resolution Interface ("Population is the sole writer of Population-owned ... Population
+ * Unit/count state") and §29B / WS-015 §III ("Population = Unit/Count Custodian") assign the Unit/Count
+ * ledger, the ordinary reconciliation close and the Population-produced Cohort results to Population.
+ * The three kinds share one owner and facet because one reconciliation publishes them atomically.
+ */
+/**
+ * One governing rule for all Population kinds: a commit group carries one rule, and the ledger, close and
+ * Cohort results of one reconciliation publish atomically, so every version of every Population fact
+ * records the same citation (otherwise a later reconciliation would drift from the establishing rule).
+ */
+export const POPULATION_RULE: SourceRef = rule(
+  WS001_SOURCE,
+  "§1 Resident Population Conservation (Closing = Opening + Entries - Exits); §2 Residence, Presence, Labor, Burden distinct; §29B Externally Qualified Cohort Views; §32 ordinary reconciliation close and PCB-01; §35 Population / Movement Assertions; with WS-015 §III Persistent Cohort Reference Contract, §IV Burden Locus, §VII Single-Basis Derived-View Composition, §VIII Temporal-Read Cut, §IX Count, Range and Intersection Production, §X Overlap and Non-Additivity",
+  [WS015_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+export const POPULATION_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "population_ledger",
+    owner: OWNER_POPULATION,
+    facet: FACET_POPULATION_STATE,
+    im: "IM-04",
+    rc: ["RC-02", "RC-12"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^population/${ID}/ledger$`),
+    valueSchema: PopulationBasisSchema,
+    rule: POPULATION_RULE,
+  },
+  {
+    id: "population_close",
+    owner: OWNER_POPULATION,
+    facet: FACET_POPULATION_STATE,
+    im: "IM-04",
+    rc: ["RC-02", "RC-03", "RC-08"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^population/${ID}/close$`),
+    valueSchema: ReconciliationCloseSchema,
+    rule: POPULATION_RULE,
+  },
+  {
+    id: "population_cohort",
+    owner: OWNER_POPULATION,
+    facet: FACET_POPULATION_STATE,
+    im: "IM-04",
+    rc: ["RC-02", "RC-12"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^population/${ID}/cohort/${ID}$`),
+    valueSchema: CohortFactSchema,
+    rule: POPULATION_RULE,
+  },
+];
+
+/** Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds and the IM-04 Population kinds. */
+export const ALL_FACT_KINDS: readonly FactKind[] = [
+  ...FACT_KINDS,
+  ...TEMPORAL_FACT_KINDS,
+  ...POPULATION_FACT_KINDS,
+];
 
 export const factKind = (id: FactKindId): FactKind => {
   const k = ALL_FACT_KINDS.find((f) => f.id === id);

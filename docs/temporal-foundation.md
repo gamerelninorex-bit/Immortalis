@@ -67,7 +67,7 @@ An unresolved stage is _not credited_, its dependents wait, independent stages p
 
 ## Deliberately not implemented (fail closed, not guessed)
 
-APPROXIMATE-PARTITION and any tolerance (CAL-01); GROUP mechanisms; SEALED/EVENT/CONDITIONAL edges; recurrence and pre-generated boundary history; more than one earned boundary per object; cross-object dependents; stochastic opportunities/hazards and partition-invariant RNG provenance; mortality coverage; compression/re-expansion; same-time contention beyond bookkeeping order; the information/interruption gate and Actionable Knowledge Time; no-active-PC stop predicates beyond the one declared boundary predicate; any real subsystem's temporal declaration; OB-015 live continuation; any host/MCP/projection/NPK layer, provider, production schema, deployment, migration or PF-6/F-028 step.
+APPROXIMATE-PARTITION and any tolerance (CAL-01); GROUP mechanisms; SEALED/EVENT/CONDITIONAL edges; recurrence and pre-generated boundary history; more than one earned boundary per object; cross-object dependents; stochastic opportunities/hazards and partition-invariant RNG provenance; mortality coverage; compression/re-expansion; same-time contention beyond bookkeeping order; the information/interruption gate and Actionable Knowledge Time; no-active-PC stop predicates beyond the one declared boundary predicate; any real subsystem's temporal declaration (the fourth slice adds exactly one, Population's: see `docs/population-foundation.md`); OB-015 live continuation; any host/MCP/projection/NPK layer, provider, production schema, deployment, migration or PF-6/F-028 step.
 
 ## Evidence
 
