@@ -4,9 +4,12 @@
 // Temporal & Resolution Transaction Foundation contracts (RC-03/04/05/10, kernel-owned state), and the
 // Population & Cohort Reconciliation Backbone Foundation contracts (RC-08 envelope, RC-12 PopulationBasis /
 // CohortRef, PCB-01 declaration), and the Production & Resource Conservation Backbone Foundation contracts
-// (Production Reserve, RC-06 Claim, operation, Durable Completion Envelope, World-State fallback entity).
+// (Production Reserve, RC-06 Claim, operation, Durable Completion Envelope, World-State fallback entity), and the
+// Economy Demand → Production Request → Realized Access Backbone Foundation contracts (Demand Envelope with its
+// fixed allocation relation, Economy-owned Production Request, realized access).
 export * from "./campaign-package.ts";
 export * from "./commit.ts";
+export * from "./economy.ts";
 export * from "./ids.ts";
 export * from "./json.ts";
 export * from "./owner-fact.ts";

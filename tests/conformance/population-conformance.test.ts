@@ -103,9 +103,11 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
       ["population_close", "population", "population_state"],
       ["population_cohort", "population", "population_state"],
     ]);
-    // (the fifth slice's four Production kinds and one World-State fallback kind bring the registry to 16)
-    expect(ALL_FACT_KINDS).toHaveLength(16);
+    // (the fifth slice's four Production kinds and one World-State fallback kind bring the registry to 16; the
+    // sixth slice's three Economy kinds bring it to 19)
+    expect(ALL_FACT_KINDS).toHaveLength(19);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
+      "economy",
       "pc_existence",
       "population",
       "production",
@@ -124,11 +126,10 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key))).toHaveLength(1);
   });
 
-  it("no other Population-facing substantive owner exists: no labor, economy, health, military, actor, culture or epistemic owner (Production is the fifth slice's own IM-05 owner)", () => {
+  it("no other Population-facing substantive owner exists: no labor, health, military, actor, culture or epistemic owner (Production is the fifth slice's own IM-05 owner and Economy the sixth slice's own IM-06 owner)", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
     for (const forbidden of [
       "labor",
-      "economy",
       "health",
       "military",
       "actor",
@@ -271,7 +272,7 @@ describe("IA-23/IA-24 CAL-01 and CAL-02 stay unresolved: nothing approximate, no
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the engine's Population module is exactly the IM-04 owner path — no labor, production, economy, logistics, KTI, actor, health, culture, epistemic or host layer", () => {
+  it("the engine's Population module is exactly the IM-04 owner path — no labor, logistics, KTI, actor, health, culture, epistemic or host layer inside it (Production and Economy are their own later modules)", () => {
     expect(readdirSync("packages/engine/src/population").sort()).toEqual([
       "adapter.ts",
       "admission.ts",
@@ -285,7 +286,16 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
-    ).toEqual(["commit", "owners", "persistence", "population", "production", "temporal", "world"]);
+    ).toEqual([
+      "commit",
+      "economy",
+      "owners",
+      "persistence",
+      "population",
+      "production",
+      "temporal",
+      "world",
+    ]);
     expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
     for (const forbidden of ["migrations/manifests/population.json"])
       expect(existsSync(forbidden)).toBe(false);

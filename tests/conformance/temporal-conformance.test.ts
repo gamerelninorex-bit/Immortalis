@@ -109,9 +109,11 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
       "world_state",
     ]);
     // the fourth slice adds the three IM-04 Population kinds (one owner, one facet); the fifth adds the four
-    // IM-05 Production kinds and the one World-State fallback physical-entity kind
-    expect(ALL_FACT_KINDS).toHaveLength(16);
+    // IM-05 Production kinds and the one World-State fallback physical-entity kind; the sixth adds the three
+    // IM-06 Economy kinds (one owner, one facet)
+    expect(ALL_FACT_KINDS).toHaveLength(19);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
+      "economy",
       "pc_existence",
       "population",
       "production",
@@ -138,10 +140,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
 
   it("the kernel owns shared orchestration only — none of the substantive owners the IM map reserves", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
-    // (Population is the fourth slice's lawful IM-04 owner and Production the fifth slice's lawful IM-05
-    // owner; every other substantive owner stays absent.)
+    // (Population is the fourth slice's lawful IM-04 owner, Production the fifth slice's lawful IM-05 owner and
+    // Economy the sixth slice's lawful IM-06 owner; every other substantive owner stays absent.)
     for (const forbidden of [
-      "economy",
       "health",
       "military",
       "actor",
@@ -259,12 +260,21 @@ describe("IA-23 / CAL-01 temporal approximation calibration: not used, not inven
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the engine has exactly the commit, owners, persistence, population, production, temporal and world modules — no economy, actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
+  it("the engine has exactly the commit, economy, owners, persistence, population, production, temporal and world modules — no actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
     expect(
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
-    ).toEqual(["commit", "owners", "persistence", "population", "production", "temporal", "world"]);
+    ).toEqual([
+      "commit",
+      "economy",
+      "owners",
+      "persistence",
+      "population",
+      "production",
+      "temporal",
+      "world",
+    ]);
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
       "coordinator.ts",

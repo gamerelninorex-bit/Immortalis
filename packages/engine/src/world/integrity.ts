@@ -32,7 +32,9 @@ export interface IntegrityViolation {
     /** IM-04 Population state: see verifyPopulationIntegrity */
     | "POPULATION_STATE"
     /** IM-05 Production state and the World-State fallback entity: see verifyProductionIntegrity */
-    | "PRODUCTION_STATE";
+    | "PRODUCTION_STATE"
+    /** IM-06 Economy state: see verifyEconomyIntegrity */
+    | "ECONOMY_STATE";
   readonly message: string;
 }
 

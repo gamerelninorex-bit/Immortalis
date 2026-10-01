@@ -1,14 +1,19 @@
 import {
   BoundaryIndexSchema,
   DurableCompletionEnvelopeSchema,
+  EconomyDemandEnvelopeSchema,
+  EconomyRealizationSchema,
   ExistenceContractSchema,
+  FACET_ECONOMY_STATE,
   FACET_EXISTENCE_CONTRACT,
   FACET_PRODUCTION_STATE,
   FACET_WORLD_FALLBACK_ENTITY,
   FallbackPhysicalEntitySchema,
+  OWNER_ECONOMY,
   OWNER_PRODUCTION,
   ProductionClaimSchema,
   ProductionOperationSchema,
+  ProductionRequestSchema,
   ProductionReserveSchema,
   CohortFactSchema,
   FACET_PLAYER_CHARACTER_BINDING,
@@ -95,6 +100,11 @@ export const WS003_SOURCE = {
   native_pin: "2026-09-25T13:44:44.982Z",
 } as const;
 
+export const WS004_SOURCE = {
+  artifact: "https://app.notion.com/p/3e220af901e081fa9d84caf71a4f4f01",
+  native_pin: "2026-09-24T11:45:02.825Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -124,12 +134,18 @@ export const PRODUCTION_FACT_KIND_IDS = [
   "production_completion",
 ] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
+export const ECONOMY_FACT_KIND_IDS = [
+  "economy_demand",
+  "economy_request",
+  "economy_realization",
+] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
-  | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number];
+  | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
+  | (typeof ECONOMY_FACT_KIND_IDS)[number];
 
 /**
  * SEALED: create-only canon; overwriting needs an owner-defined amendment mechanism that does not
@@ -456,8 +472,65 @@ export const WORLD_FALLBACK_FACT_KINDS: readonly FactKind[] = [
 ];
 
 /**
+ * One governing rule for every Economy kind: the demand and its one Production Request publish atomically, and
+ * each realization is one group, so every version of every Economy fact records the same citation. The clauses
+ * are the ones the state relies on; the Production side of the interface is WS-003 §13A / §14 (already pinned by
+ * the Production rule) and the staged order is F-017's.
+ */
+export const ECONOMY_RULE: SourceRef = rule(
+  WS004_SOURCE,
+  "§2.1 Economy-owned state (Demand Envelopes; allocation claims; realized access conclusions); §2.2 Explicit non-ownership (physical goods and stock, population quantity/membership/Cohort identity); §3 Persistence / Cardinality Rule; §5.1 Demand source; §5.2 Demand Envelope; §5.3 Carrier Cohort; §8 Effective Demand and Allocation Claims (purchasing power cannot create absent goods); §11 Economic Claim / Obligation (not a universal property registry); §20 Commitment and Conservation (Economy never holds a physical reservation); §21 Realized Flow / Delta (delivery/result ref from downstream owner); §27.1 Population / Cohort; §27.2 Production / Resources (demand does not create supply; realized output may not feed the same pre-commit availability test); §27.13 Temporal (no universal economic tick); §27.14 R-T1 / Cycle rule; §33 Turnless Execution",
+  [F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const economyKind = (
+  id: (typeof ECONOMY_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_ECONOMY,
+  facet: FACET_ECONOMY_STATE,
+  im: "IM-06",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: ECONOMY_RULE,
+});
+
+/**
+ * IM-06 Economy / Exchange / Demand Adapter — the bounded Demand → Production Request → Realized Access path
+ * only. WS-004 §2.1 assigns Demand Envelopes, allocation claims and realized-access conclusions to Economy;
+ * WS-003 §13A has the request's SOURCE own the Production Request, so Economy holds it in its own key space.
+ * One owner, one facet, three exclusive create-only key spaces. There is no fallback owner, and no Exchange,
+ * Market, Currency, Credit, Holding/Account, Logistics, KTI or labor kind exists.
+ */
+export const ECONOMY_FACT_KINDS: readonly FactKind[] = [
+  economyKind(
+    "economy_demand",
+    ["RC-02", "RC-12"],
+    new RegExp(`^economy/demand/${ID}$`),
+    EconomyDemandEnvelopeSchema,
+  ),
+  economyKind(
+    "economy_request",
+    ["RC-02"],
+    new RegExp(`^economy/request/${ID}$`),
+    ProductionRequestSchema,
+  ),
+  economyKind(
+    "economy_realization",
+    ["RC-02", "RC-07"],
+    new RegExp(`^economy/realization/${ID}$`),
+    EconomyRealizationSchema,
+  ),
+];
+
+/**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
- * IM-05 Production kinds and the World-State fallback physical-entity kind.
+ * IM-05 Production kinds, the World-State fallback physical-entity kind and the IM-06 Economy kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -465,6 +538,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
+  ...ECONOMY_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

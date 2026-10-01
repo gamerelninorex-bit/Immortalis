@@ -16,6 +16,7 @@ import {
   type SourceFactRef,
   type TemporalObject,
 } from "@immortalis/contracts";
+import { economyRealizationDeclaration } from "../economy/declaration.ts";
 import { completionKeys } from "./derive.ts";
 
 /**
@@ -27,7 +28,9 @@ import { completionKeys } from "./derive.ts";
  *
  * The object is a pure function of the operation and its reserve's locality, so registration admission can
  * demand exactly this object and nothing else (a hand-written object cannot smuggle a different stage, read,
- * boundary or recurrence).
+ * boundary or recurrence). When the operation's request is an Economy request (the Economy slice), the same
+ * object declares ONE more stage — Economy's realized-access record, which reads the custodian's acceptance
+ * (`economy/declaration.ts`); it is the same object, boundary and causal process, never a second one.
  */
 export { productionObjectId, productionProcessId };
 
@@ -73,6 +76,7 @@ export function productionTemporalObject(
 ): TemporalObject {
   const completion = productionCompletionDeclaration(op);
   const acceptance = worldAcceptanceDeclaration(op, locality);
+  const economy = economyRealizationDeclaration(op, locality);
   return {
     object_id: productionObjectId(op.operation_id),
     owning_ref: { owner: OWNER_PRODUCTION, process_id: productionProcessId(op.operation_id) },
@@ -82,7 +86,7 @@ export function productionTemporalObject(
       boundary_id: productionBoundaryId(op.operation_id),
       at: op.timing.completion.at,
     },
-    dependencies: [completion, acceptance],
+    dependencies: economy ? [completion, acceptance, economy] : [completion, acceptance],
     continuation: { resume_from: "LAST_RESOLVED_BASIS", reconciliation_due: [] },
     invalidators: acceptance.reads.map((r) => ({ fact_key: r.source.fact_key })),
     information_latency: { creates_epistemic_interruption: false },

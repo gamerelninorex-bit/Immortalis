@@ -32,6 +32,7 @@ import {
   type StageOwnerExtension,
 } from "../owners/extension.ts";
 import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
+import { verifyEconomyIntegrity } from "../economy/integrity.ts";
 import { verifyPopulationIntegrity } from "../population/integrity.ts";
 import { verifyProductionIntegrity } from "../production/integrity.ts";
 import { verifyTemporalIntegrity } from "../temporal/integrity.ts";
@@ -327,7 +328,7 @@ export class CanonicalCampaign {
   }
 }
 
-/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population and IM-05 Production integrity. */
+/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production and IM-06 Economy integrity. */
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
@@ -339,6 +340,7 @@ function verifyAll(
     ...verifyTemporalIntegrity(store),
     ...verifyPopulationIntegrity(store),
     ...verifyProductionIntegrity(store),
+    ...verifyEconomyIntegrity(store),
   ];
 }
 
