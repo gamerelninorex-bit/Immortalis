@@ -44,6 +44,7 @@ import {
   SYNTH_CRITERION_OWNER,
   advanceToRequest,
   burdenCohort,
+  populationBarrier,
   entryEnvelope,
   exitEnvelope,
   unit,
@@ -1027,5 +1028,217 @@ describe("PCB-01 repair 3/4: the retained proof survives same-unit consequences 
       );
       expect(messages(b)).toMatch(/PCB-01 trigger condition is supported/);
     });
+  });
+});
+
+describe("PCB-01 repair 5: an undeclared source cannot manufacture trigger causality for a declared envelope", () => {
+  const txKey = temporalTransactionKey("tx-consumer-1");
+  const SRC_A = { owner: SYNTH_CAUSE_OWNER, fact_key: registerKey(LEDGER_MAIN) };
+  const SRC_B = { owner: SYNTH_CAUSE_OWNER, fact_key: registerBKey(LEDGER_MAIN) };
+  const dueOf = (tx: any) => tx.engaged.find((e: any) => e.boundary === "DUE_RECONCILED");
+  const homeUnit = () => unit("u-6", "locus-fixture-1", "locus-fixture-1");
+
+  /**
+   * The cross-source same-unit case. The engaged Cohort (view at the canonical locus) does NOT contain u-6.
+   * Population lawfully reads BOTH registers. UNDECLARED register B holds a qualifying ENTRY u-6 (earlier);
+   * DECLARED register A holds a later EXIT u-6. With `independent`, A also holds an Exit of a real member
+   * (u-2), so the reconciliation is due for another valid reason.
+   */
+  async function crossSource(independent: boolean) {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false, extraSources: [SRC_B] });
+    await must(
+      s.campaign.store.commit(
+        syntheticGroup(
+          FIXTURE_CAMPAIGN,
+          SYNTH_CAUSE_OWNER,
+          50,
+          registerBKey(LEDGER_MAIN),
+          register(LEDGER_MAIN, [entryEnvelope("env-b-n", homeUnit(), at(130))]),
+          0,
+        ),
+      ),
+    );
+    await commitRegister(s.campaign.store, 12, [
+      ...(independent ? [exitEnvelope("env-c", "u-2", at(135), "REVERSIBLE_MEMBERSHIP_EXIT")] : []),
+      exitEnvelope("env-a-x", "u-6", at(140)),
+    ]);
+    await commitCriterion(s.campaign.store, 13, POP_TC, ["u-1", "u-3", "u-5", "u-6"]);
+    return s;
+  }
+  type Seeded = Awaited<ReturnType<typeof crossSource>>;
+  const liveDue = (s: Seeded) =>
+    populationBarrierEvaluator.evaluate(populationBarrier(), POP_TC, (k) =>
+      s.campaign.store.getFact(k),
+    );
+  const fake = { envelope_id: "env-a-x", basis: "COHORT_MEMBER_EXIT", source: SRC_A };
+
+  function kernelTamper(inner: CampaignStore, mutate: (tx: any) => void): CampaignStore {
+    return {
+      descriptor: inner.descriptor,
+      head: () => inner.head(),
+      getFact: (k) => inner.getFact(k),
+      listFacts: () => inner.listFacts(),
+      lookupReceipt: (i) => inner.lookupReceipt(i),
+      committedGroup: (i) => inner.committedGroup(i),
+      close: () => inner.close(),
+      commit: (g) => {
+        const group = g as CommitGroup;
+        if (group.owner !== "temporal_kernel" || !group.writes.some((w) => w.key === txKey))
+          return inner.commit(g);
+        return inner.commit(withWrite(group, txKey, (tx) => (mutate(tx), tx)));
+      },
+    };
+  }
+
+  it("the live predicate: the declared Exit of a non-member is not due, whatever an undeclared register holds", async () => {
+    const s = await crossSource(false);
+    expect(liveDue(s).due).toBe(false);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(r.transaction.engaged.map((e) => e.boundary)).toEqual(["RETIRED"]); // no reconciliation forced
+    expect(s.population.ledger(LEDGER_MAIN)!.value.consumed_envelopes).toEqual(["env-a", "env-b"]);
+  });
+
+  it("a lying evaluator cannot make raw kernel admission accept evidence derived from the B → A interaction", async () => {
+    const s = await crossSource(false);
+    const liar: typeof populationBarrierEvaluator = {
+      evaluate: () => ({ due: true, envelope_ids: ["env-a-x"] }),
+      evidence: () => ({
+        scope: { ledger_id: LEDGER_MAIN, cohort_id: COHORT_STATUS_L },
+        instant: POP_TC,
+        triggers: [fake as any],
+      }),
+      closeSourceLawful: (...a) => populationBarrierEvaluator.closeSourceLawful(...a),
+    };
+    const c = new TemporalCoordinator(s.campaign.store, populationProviders(), liar);
+    const r = await c.advance(advanceToRequest("tx-consumer-1", POP_TC));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+    // the Population close that DID commit supports no trigger for this consumer
+    const close = s.population.close(LEDGER_MAIN)!;
+    expect(close.value.consumed_envelopes).toEqual(["env-a-x", "env-b-n"]);
+    const writes = new Map([
+      [closeKey, close.fact.value],
+      [statusKey, s.campaign.store.getFact(statusKey)!.value],
+    ]);
+    expect(
+      populationBarrierEvaluator.evidence(populationBarrier(), POP_TC, (k) => writes.get(k)),
+    ).toBeNull();
+  });
+
+  it("Population still consumes both envelopes, exactly once, when the reconciliation is due for another valid reason", async () => {
+    const s = await crossSource(true);
+    expect(liveDue(s)).toEqual({ due: true, envelope_ids: ["env-c"] });
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    // only the declared, intersecting envelope is a trigger: B's Entry never becomes one, and never makes
+    // A's later Exit of u-6 one
+    expect(dueOf(r.transaction).evidence.triggers).toEqual([
+      { envelope_id: "env-c", basis: "COHORT_MEMBER_EXIT", source: SRC_A },
+    ]);
+    // ...yet Population's authoritative close, conservation and exact-once consumption are intact
+    const close = s.population.close(LEDGER_MAIN)!.value;
+    expect(close.consumed_envelopes).toEqual(["env-a-x", "env-b-n", "env-c"]);
+    expect(close.entries.map((e) => [e.envelope_id, e.source])).toEqual([["env-b-n", SRC_B]]);
+    // application order is by effective point: env-c (135) then env-a-x (140)
+    expect(close.exits.map((e) => [e.envelope_id, e.source])).toEqual([
+      ["env-c", SRC_A],
+      ["env-a-x", SRC_A],
+    ]);
+    expect(close.opening.count + close.entries.length - close.exits.length).toBe(
+      close.closing.count,
+    );
+    expect(s.population.ledger(LEDGER_MAIN)!.value.units.map((u) => u.unit_id)).toEqual([
+      "u-1",
+      "u-3",
+      "u-5",
+    ]);
+    expect(s.population.ledger(LEDGER_MAIN)!.value.consumed_envelopes).toEqual(
+      ["env-a", "env-b", "env-a-x", "env-b-n", "env-c"].sort(),
+    );
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("raw admission refuses persisting the B → A claim as a trigger, and the honest re-presentation adopts the stage exactly once", async () => {
+    const s = await crossSource(true);
+    const lying = new TemporalCoordinator(
+      kernelTamper(s.campaign.store, (tx) => dueOf(tx).evidence.triggers.unshift(fake)),
+      populationProviders(),
+      populationBarrierEvaluator,
+    );
+    const r = await lying.advance(advanceToRequest("tx-consumer-1", POP_TC));
+    expect(r.ok).toBe(false);
+    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+    const honest = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(honest.adopted.map((x) => x.owner_operation.operation)).toContain(
+      "population-reconcile-close",
+    );
+    expect(dueOf(honest.transaction).evidence.triggers.map((t: any) => t.envelope_id)).toEqual([
+      "env-c",
+    ]);
+    expect(s.population.close(LEDGER_MAIN)!.value.consumed_envelopes).toEqual([
+      "env-a-x",
+      "env-b-n",
+      "env-c",
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("load-time verification rejects a persisted false due claim built on the B → A interaction", async () => {
+    const claims: [string, (tx: any) => void][] = [
+      ["the declared Exit as a member exit", (tx) => dueOf(tx).evidence.triggers.unshift(fake)],
+      [
+        "the undeclared Entry as a qualifying entry",
+        (tx) =>
+          dueOf(tx).evidence.triggers.unshift({
+            envelope_id: "env-b-n",
+            basis: "COHORT_QUALIFYING_ENTRY",
+            source: SRC_B,
+          }),
+      ],
+      [
+        "the undeclared Entry re-attributed to the declared register",
+        (tx) =>
+          dueOf(tx).evidence.triggers.unshift({
+            envelope_id: "env-b-n",
+            basis: "COHORT_QUALIFYING_ENTRY",
+            source: SRC_A,
+          }),
+      ],
+    ];
+    for (const [name, mutate] of claims) {
+      const s = await crossSource(true);
+      await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+      const inner = s.campaign.store;
+      const facts = structuredClone([...inner.listFacts()]) as OwnerFact[];
+      mutate(facts.find((f) => f.key === txKey)!.value);
+      const view: CampaignStore = {
+        descriptor: inner.descriptor,
+        head: () => inner.head(),
+        getFact: (k) => inner.getFact(k),
+        listFacts: () => facts,
+        lookupReceipt: (i) => inner.lookupReceipt(i),
+        committedGroup: (i) => inner.committedGroup(i),
+        commit: (g) => inner.commit(g),
+        close: () => inner.close(),
+      };
+      const v = verifyTemporalIntegrity(view);
+      expect(v.map((x) => x.message).join("\n"), name).toMatch(/recorded PCB-01 triggers/);
+      await s.campaign.close();
+    }
+  });
+
+  it("the lawful same-source qualifying Entry → Exit net-zero case keeps both triggers (declared register for both)", async () => {
+    const s = await seededPendingConsumer(tempDir(), { withPending: false });
+    await commitRegister(s.campaign.store, 12, [
+      entryEnvelope("env-n", homeUnit(), at(130)),
+      exitEnvelope("env-x", "u-6", at(140)),
+    ]);
+    await commitCriterion(s.campaign.store, 13, POP_TC, ["u-1", "u-3", "u-5", "u-6"]);
+    const r = await must(s.coordinator.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(dueOf(r.transaction).evidence.triggers).toEqual([
+      { envelope_id: "env-n", basis: "COHORT_QUALIFYING_ENTRY", source: SRC_A },
+      { envelope_id: "env-x", basis: "COHORT_MEMBER_EXIT", source: SRC_A },
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
   });
 });

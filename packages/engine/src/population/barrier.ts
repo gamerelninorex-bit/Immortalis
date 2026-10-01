@@ -90,23 +90,30 @@ export function derivePcbTriggers(
 ): Pcb01Evidence["triggers"] {
   const declared = (s: { owner: string; fact_key: string }) =>
     barrier.consequence_sources.some((d) => d.owner === s.owner && d.fact_key === s.fact_key);
+  // The consumer's DECLARED sources govern the causal state, not just the emitted evidence: only their
+  // envelopes are replayed. Population consumed the others too (they are in the close and in conservation),
+  // but for THIS consumer they neither intersect nor alter the membership against which a declared
+  // envelope is judged — exactly the live predicate, which reads only the declared registers against the
+  // Cohort as it stood before the close.
   const consumed = [
     ...close.entries.map((e) => ({ ...e, kind: "ENTRY" as const })),
     ...close.exits.map((e) => ({ ...e, kind: "EXIT" as const })),
-  ].sort((x, y) =>
-    x.effective_at.value !== y.effective_at.value
-      ? x.effective_at.value - y.effective_at.value
-      : x.envelope_id < y.envelope_id
-        ? -1
-        : 1,
-  );
+  ]
+    .filter((c) => declared(c.source))
+    .sort((x, y) =>
+      x.effective_at.value !== y.effective_at.value
+        ? x.effective_at.value - y.effective_at.value
+        : x.envelope_id < y.envelope_id
+          ? -1
+          : 1,
+    );
   const out: Pcb01Evidence["triggers"] = [];
   const cohortId = barrier.population.cohort_id;
   const trigger = (
     c: (typeof consumed)[number],
     basis: Pcb01Evidence["triggers"][number]["basis"],
   ) => {
-    if (declared(c.source)) out.push({ envelope_id: c.envelope_id, basis, source: c.source });
+    out.push({ envelope_id: c.envelope_id, basis, source: c.source });
   };
   if (cohortId === null) {
     for (const c of consumed) trigger(c, "LEDGER_SCOPE");
