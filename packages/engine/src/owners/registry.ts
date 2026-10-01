@@ -990,7 +990,7 @@ export const GIP_SCOPE_BINDING_RULE: SourceRef = rule(
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
  * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
  * GIP admission refuses every other change to it. The Scope Binding is likewise ADVANCING in kind (a scope, exception or
- * conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed office, at that
+ * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed office, at that
  * office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. There is no fallback
  * owner, and no instrument, procedure,
  * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or

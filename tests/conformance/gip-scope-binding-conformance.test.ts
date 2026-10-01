@@ -238,7 +238,7 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
     );
     // the only optional constructs are the three source-optional fields
     expect(contract.match(/\.optional\(\)/g)).toHaveLength(3);
-    for (const field of ["inheritance_rule", "exceptions", "conflict_refs"])
+    for (const field of ["inheritance_rule", "exception_refs", "priority_or_conflict_rule_ref"])
       expect(contract).toMatch(new RegExp(`${field}: [^\\n]*\\.optional\\(\\)`));
     // the one refinement forbids an explicit undefined and judges nothing about content
     expect(contract.match(/\.refine\(/g)).toHaveLength(1);
@@ -246,15 +246,29 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
   });
 
   it("the contract names no deferred surface: no instrument, validity, lifecycle, applicability, promulgation, holder, body or office-authority field", () => {
-    expect(identifiers(CONTRACT)).not.toMatch(
-      /\b(instrument\w*|validity\w*|lifecycle\w*|applicab\w*|applies|promulgat\w*|holder_ref|decision_body_ref|competence_scope|powers|duties|authority_source_ref|members|membership|population\w*|cohort\w*|status|priority\w*|weight|score|rank|resolved\w*)\b/i,
+    // the source-required opaque field name `priority_or_conflict_rule_ref` is permitted (and only as that one optional field);
+    // every other priority / ranking / resolution notion is still forbidden
+    const text = identifiers(CONTRACT);
+    expect(text.match(/\bpriority_or_conflict_rule_ref\b/g)).toHaveLength(1);
+    expect(text).toMatch(/priority_or_conflict_rule_ref: EntityId\.optional\(\)/);
+    expect(text.replace(/\bpriority_or_conflict_rule_ref\b/g, "")).not.toMatch(
+      /\b(instrument\w*|validity\w*|lifecycle\w*|applicab\w*|applies|promulgat\w*|holder_ref|decision_body_ref|competence_scope|powers|duties|authority_source_ref|members|membership|population\w*|cohort\w*|status|priority\w*|precedence|weight|score|rank\w*|compar\w*|sort\w*|resolv\w*|settle\w*|conflict\w*)\b/i,
     );
   });
 
-  it("the engine never reads, resolves, parses or executes an authored binding value: the scope reference, exceptions, conflicts, condition, inheritance rule, classification and the office's competence_scope are never named", () => {
+  it("no priority calculation, ranking, comparison, resolution or execution mechanism exists: the field name is not even mentioned outside the contract, and nothing computes over it", () => {
     for (const f of ENGINE_SOURCES)
       expect(identifiers(f), f).not.toMatch(
-        /\.(scope_ref|scope_type|target_condition|inheritance_rule|exceptions|conflict_refs|competence_scope|holder_ref|decision_body_ref|authority_source_ref|powers|duties)\b/,
+        /priority\w*|precedence|rank\w*|compar\w*|\bsort\w*|settle\w*|conflictRule|ruleRef/i,
+      );
+    // the one refinement of the contract inspects only whether a value is undefined
+    expect(code(CONTRACT)).toMatch(/Object\.values\(value\)\.every\(\(v\) => v !== undefined\)/);
+  });
+
+  it("the engine never reads, resolves, parses or executes an authored binding value: the scope reference, exception references, priority-or-conflict rule reference, condition, inheritance rule, classification and the office's competence_scope are never named", () => {
+    for (const f of ENGINE_SOURCES)
+      expect(identifiers(f), f).not.toMatch(
+        /\.(scope_ref|scope_type|target_condition|inheritance_rule|exception_refs|priority_or_conflict_rule_ref|exceptions|conflict_refs|competence_scope|holder_ref|decision_body_ref|authority_source_ref|powers|duties)\b/,
       );
     for (const f of [...ENGINE_SOURCES, CONTRACT])
       expect(identifiers(f), f).not.toMatch(
@@ -369,7 +383,7 @@ describe("acceptance-register and open-gate honesty (fifteenth slice)", () => {
       "Administrative Reach",
       "Autonomous Collective choice",
       "institutional KTI consequence",
-      "every post-establishment scope, inheritance, exception or conflict change, replacement or resolution fails closed",
+      "every post-establishment scope, inheritance, exception or priority-or-conflict change, replacement or resolution fails closed",
       "GitHub Issue #11 is untouched",
     ])
       expect(scope).toContain(phrase);

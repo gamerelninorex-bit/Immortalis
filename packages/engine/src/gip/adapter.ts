@@ -83,7 +83,7 @@ export interface TypedScopeBinding {
  * and `scope_binding_id` (GIP Scaling Profile v1.1 §5: retrieval is keyed by the current governance question, never a scan of
  * institutions, offices or bindings). It takes only the read side of a store, so reading grants no write authority, and it
  * returns undefined for a binding that is not established — nothing is created, inferred or defaulted by a read. It reports
- * what the binding record says: it resolves no scope, exception or conflict reference and returns no applicability result.
+ * what the binding record says: it resolves no scope, exception or priority-or-conflict reference and returns no applicability result.
  */
 export function readScopeBinding(
   store: Pick<CampaignStore, "getFact">,
@@ -117,7 +117,7 @@ export function readScopeBinding(
  * adapter writes no actor, decision-body, Population, KTI, Epistemic, Economy or other foreign state.
  *
  * A Scope Binding's one prerequisite is its parent office, read by exact key; the adapter pins it (read at its current version,
- * depended on) and nothing else. The binding's `scope_ref`, exception and conflict references are opaque authored values that
+ * depended on) and nothing else. The binding's `scope_ref`, `exception_refs[]` and `priority_or_conflict_rule_ref` are opaque authored values that
  * are never resolved, and its `target_condition` and `inheritance_rule` are authored text that is never parsed or executed.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
@@ -216,7 +216,7 @@ export class GipAdapter {
    * authored input: nothing is defaulted, guessed from a label or the office's prose, or derived from a holder, a decision body
    * or any foreign owner, and the office's reference branch does not change the key, the prerequisite or the write. If the
    * office is not established, the read is pinned at version zero and admission refuses the group as a missing prerequisite;
-   * nothing is created. There is no update, replacement, inheritance, exception or conflict method: an established binding is
+   * nothing is created. There is no update, replacement, inheritance, exception, priority or conflict method: an established binding is
    * never rewritten.
    */
   async establishScopeBinding(

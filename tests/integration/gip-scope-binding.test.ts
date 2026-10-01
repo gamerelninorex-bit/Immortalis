@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact, group and state values */
 // GIP Authority Scope Binding Backbone Foundation (fifteenth slice) — INITIAL ESTABLISHMENT ONLY of one GIP-owned Scope
 // Binding beneath one exact already-committed Office / Authority Locus (WS-007 §5), under the same GIP owner and facet, the same
-// create-only ADVANCING admission, persistence and recovery path. Every scope, exception and conflict reference is opaque and
+// create-only ADVANCING admission, persistence and recovery path. Every scope, exception and priority-or-conflict rule reference is opaque and
 // never resolved; `target_condition` and `inheritance_rule` are carried text, never executed; no Governance Instrument, validity,
 // applicability result, procedure, vote, exercise, reach, awareness or compliance state is created or inferred; and every
 // post-establishment change is refused.
@@ -25,8 +25,6 @@ import {
 } from "@immortalis/engine";
 import {
   ACTOR_SMITH,
-  CONFLICT_REF_A,
-  CONFLICT_REF_B,
   DECISION_BODY_REF_A,
   EXCEPTION_REF_A,
   EXCEPTION_REF_B,
@@ -39,6 +37,8 @@ import {
   INSTITUTION_GUILD,
   OFFICE_MAGISTRATE,
   OFFICE_TREASURER,
+  PRIORITY_OR_CONFLICT_RULE_REF_A,
+  PRIORITY_OR_CONFLICT_RULE_REF_B,
   SCOPE_BINDING_A,
   SCOPE_BINDING_B,
   SCOPE_BINDING_C,
@@ -366,7 +366,7 @@ describe("retry and replay converge on one binding and one receipt; a conflictin
     expect(gipFacts(s).filter((f) => f.key === bindingKey())).toHaveLength(1);
   });
 
-  it("a conflicting establishment at the same binding identity fails closed and never overwrites: another scope, condition, rule, exception, conflict or even equal content under a new intent", async () => {
+  it("a conflicting establishment at the same binding identity fails closed and never overwrites: another scope, condition, rule, exception, priority-or-conflict rule or even equal content under a new intent", async () => {
     const s = await withOffice();
     await establishScopeBinding(s, 3);
     const head = s.campaign.store.head();
@@ -376,8 +376,8 @@ describe("retry and replay converge on one binding and one receipt; a conflictin
       [5, { target_condition: "SYNTHETIC FIXTURE: another condition." }],
       [6, { scope_type: "SYNTHETIC FIXTURE: another classification." }],
       [7, { inheritance_rule: "SYNTHETIC FIXTURE: an added inheritance rule." }],
-      [8, { exceptions: [EXCEPTION_REF_A] }],
-      [9, { conflict_refs: [CONFLICT_REF_A] }],
+      [8, { exception_refs: [EXCEPTION_REF_A] }],
+      [9, { priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A }],
       [10, {}], // equal content under a new intent is a second writer of the same slot
     ] as const)
       expect(
@@ -479,7 +479,7 @@ describe("distinct bindings under one office are distinct only by their canonica
 });
 
 describe("opaque references and carried text: nothing is looked up, resolved, executed or created", () => {
-  it("whatever scope_ref, exceptions and conflict_refs name — a locus, a world, a Population ledger, an institution, an office, an actor, a body, nothing — establishment reads exactly the one parent office and writes exactly one key", async () => {
+  it("whatever scope_ref, exception_refs and priority_or_conflict_rule_ref name — a locus, a world, a Population ledger, an institution, an office, an actor, a body, nothing — establishment reads exactly the one parent office and writes exactly one key", async () => {
     const s = await seededGipCampaign(tempDir());
     await seedInstitutionLikeNeighbors(s);
     await establishInstitution(s, 1, INSTITUTION_COURT);
@@ -506,8 +506,8 @@ describe("opaque references and carried text: nothing is looked up, resolved, ex
           ...gipPublication(10 + i),
           scope_binding: scopeBinding(INSTITUTION_COURT, OFFICE_MAGISTRATE, `scope-binding-${i}`, {
             scope_ref: ref,
-            exceptions: [ref, FIXTURE_LOCUS_ID],
-            conflict_refs: [ref, INSTITUTION_GUILD],
+            exception_refs: [ref, FIXTURE_LOCUS_ID],
+            priority_or_conflict_rule_ref: ref,
           }),
         }),
       );
@@ -547,7 +547,8 @@ describe("opaque references and carried text: nothing is looked up, resolved, ex
         scope_binding: scopeBinding(INSTITUTION_COURT, OFFICE_MAGISTRATE, SCOPE_BINDING_A, {
           scope_type: "named actor",
           scope_ref: ACTOR_SMITH,
-          exceptions: [ACTOR_SMITH],
+          exception_refs: [ACTOR_SMITH],
+          priority_or_conflict_rule_ref: ACTOR_SMITH,
         }),
       }),
     );
@@ -585,16 +586,15 @@ describe("opaque references and carried text: nothing is looked up, resolved, ex
     expect(gipFacts(s)).toHaveLength(2 + texts.length);
   });
 
-  it("optional inheritance, exception and conflict material is carried only as authored: absent stays absent, empty stays empty, order and repeats are kept", async () => {
+  it("optional inheritance, exception and priority-or-conflict material is carried only as authored: absent stays absent, empty stays empty, order and repeats are kept", async () => {
     const s = await withOffice();
     await establishScopeBinding(s, 3, INSTITUTION_COURT, OFFICE_MAGISTRATE, "binding-min");
     await establishScopeBinding(s, 4, INSTITUTION_COURT, OFFICE_MAGISTRATE, "binding-empty", {
-      exceptions: [],
-      conflict_refs: [],
+      exception_refs: [],
     });
     await establishScopeBinding(s, 5, INSTITUTION_COURT, OFFICE_MAGISTRATE, "binding-order", {
-      exceptions: [EXCEPTION_REF_B, EXCEPTION_REF_A, EXCEPTION_REF_B],
-      conflict_refs: [CONFLICT_REF_B, CONFLICT_REF_A],
+      exception_refs: [EXCEPTION_REF_B, EXCEPTION_REF_A, EXCEPTION_REF_B],
+      priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_B,
       inheritance_rule: "authored",
     });
     const value = (id: string) => s.campaign.store.getFact(bindingKey(id))!.value as any;
@@ -608,16 +608,18 @@ describe("opaque references and carried text: nothing is looked up, resolved, ex
         "target_condition",
       ].sort(),
     );
-    expect(value("binding-empty").exceptions).toEqual([]);
-    expect(value("binding-empty").conflict_refs).toEqual([]);
+    expect(value("binding-empty").exception_refs).toEqual([]);
+    expect(value("binding-empty").priority_or_conflict_rule_ref).toBeUndefined();
     expect(value("binding-empty").inheritance_rule).toBeUndefined();
-    expect(value("binding-order").exceptions).toEqual([
+    expect(value("binding-order").exception_refs).toEqual([
       EXCEPTION_REF_B,
       EXCEPTION_REF_A,
       EXCEPTION_REF_B,
     ]);
-    expect(value("binding-order").conflict_refs).toEqual([CONFLICT_REF_B, CONFLICT_REF_A]);
-    // an exception or conflict reference never becomes a binding or a fact of its own
+    expect(value("binding-order").priority_or_conflict_rule_ref).toBe(
+      PRIORITY_OR_CONFLICT_RULE_REF_B,
+    );
+    // an exception or priority-or-conflict rule reference never becomes a binding or a fact of its own
     expect(gipFacts(s).map((f) => f.key)).toEqual(
       [
         courtKey,
@@ -714,14 +716,14 @@ describe("post-establishment scope mutation and replacement are rejected in this
     ]);
     expect(
       methods.filter((m) =>
-        /update|replace|amend|change|set|remove|revoke|resolve|apply|inherit|except|conflict|merge|split|supersede/i.test(
+        /update|replace|amend|change|set|remove|revoke|resolve|apply|inherit|except|priority|conflict|merge|split|supersede/i.test(
           m,
         ),
       ),
     ).toEqual([]);
   });
 
-  it("every raw expected-version write to an established binding — new scope, condition, rule, exception, conflict or branch — is an unsupported amendment; an occupied create is a version conflict", async () => {
+  it("every raw expected-version write to an established binding — new scope, condition, rule, exception, priority-or-conflict rule or branch — is an unsupported amendment; an occupied create is a version conflict", async () => {
     const s = await withOffice();
     await establishScopeBinding(s, 3);
     const fact = structuredClone(s.campaign.store.getFact(bindingKey())!);
@@ -742,7 +744,7 @@ describe("post-establishment scope mutation and replacement are rejected in this
         }),
         "AMENDMENT_NOT_SUPPORTED",
       ],
-      [1, fullScopeBinding(), "AMENDMENT_NOT_SUPPORTED"], // adding inheritance / exceptions / conflicts
+      [1, fullScopeBinding(), "AMENDMENT_NOT_SUPPORTED"], // adding inheritance / exceptions / a priority-or-conflict rule
       [1, scopeBinding(), "AMENDMENT_NOT_SUPPORTED"], // even an unchanged re-statement
       [2, fullScopeBinding(), "VERSION_CONFLICT"],
       [0, fullScopeBinding(), "VERSION_CONFLICT"],

@@ -30,13 +30,13 @@ import {
   type CampaignStore,
 } from "@immortalis/engine";
 import {
-  CONFLICT_REF_A,
   EXCEPTION_REF_A,
   FIXTURE_CAMPAIGN,
   INSTITUTION_COURT,
   INSTITUTION_GUILD,
   OFFICE_MAGISTRATE,
   OFFICE_TREASURER,
+  PRIORITY_OR_CONFLICT_RULE_REF_A,
   SCOPE_BINDING_A,
   SCOPE_BINDING_B,
   SCOPE_REF_B,
@@ -383,11 +383,20 @@ describe("load fails closed on a corrupted or tampered binding save", () => {
     "target condition rewritten": (f) => (f.value.target_condition = "rewritten"),
     "inheritance rule rewritten": (f) => (f.value.inheritance_rule = "rewritten"),
     "inheritance rule removed": (f) => delete f.value.inheritance_rule,
-    "exception added": (f) => f.value.exceptions.push("exception-ref-forged"),
-    "exceptions emptied": (f) => (f.value.exceptions = []),
-    "exceptions removed": (f) => delete f.value.exceptions,
-    "conflict reference replaced": (f) => (f.value.conflict_refs = ["conflict-ref-forged"]),
-    "optional made null": (f) => (f.value.conflict_refs = null),
+    "exception added": (f) => f.value.exception_refs.push("exception-ref-forged"),
+    "exceptions emptied": (f) => (f.value.exception_refs = []),
+    "exceptions removed": (f) => delete f.value.exception_refs,
+    "exception reference made a single value": (f) =>
+      (f.value.exception_refs = "exception-ref-a-1"),
+    "pre-repair exceptions field added": (f) => (f.value.exceptions = ["exception-ref-a-1"]),
+    "pre-repair conflict_refs field added": (f) => (f.value.conflict_refs = ["x-ref"]),
+    "priority-or-conflict rule reference replaced": (f) =>
+      (f.value.priority_or_conflict_rule_ref = "priority-ref-forged"),
+    "priority-or-conflict rule reference made an array": (f) =>
+      (f.value.priority_or_conflict_rule_ref = ["priority-or-conflict-rule-ref-a-1"]),
+    "priority-or-conflict rule reference removed": (f) =>
+      delete f.value.priority_or_conflict_rule_ref,
+    "optional made null": (f) => (f.value.priority_or_conflict_rule_ref = null),
     "binding identity rewritten": (f) => (f.value.scope_binding_id = "scope-binding-forged"),
     "parent office rewritten": (f) => (f.value.office_id = OFFICE_TREASURER),
     "parent institution rewritten": (f) => (f.value.institution_id = INSTITUTION_GUILD),
@@ -459,7 +468,7 @@ describe("load fails closed on a corrupted or tampered binding save", () => {
     for (const [from, to] of [
       ["scope-ref-a-1", "scope-ref-forged"],
       [EXCEPTION_REF_A, "exception-ref-forged"],
-      [CONFLICT_REF_A, "conflict-ref-forged"],
+      [PRIORITY_OR_CONFLICT_RULE_REF_A, "priority-ref-forged"],
       [
         "SYNTHETIC FIXTURE: an authored target condition",
         "SYNTHETIC FIXTURE: a forged target condition",
@@ -745,7 +754,8 @@ describe("load fails closed on a corrupted or tampered binding save", () => {
       { ...scopeBinding(), instrument_ref: "i-1" },
       { ...scopeBinding(), validity_status: "valid" },
       { ...scopeBinding(), inheritance_rule: null },
-      { ...fullScopeBinding(), exceptions: [{ ref: "x" }] },
+      { ...fullScopeBinding(), exception_refs: [{ ref: "x" }] },
+      { ...fullScopeBinding(), priority_or_conflict_rule_ref: ["x-ref"] },
       scopeBinding(INSTITUTION_COURT, OFFICE_TREASURER), // names another office than its key
       scopeBinding(INSTITUTION_COURT, OFFICE_MAGISTRATE, SCOPE_BINDING_B), // names another binding than its key
     ])

@@ -94,13 +94,13 @@ export const SCOPE_REF_A = "scope-ref-a-1";
 export const SCOPE_REF_B = "scope-ref-b-1";
 export const EXCEPTION_REF_A = "exception-ref-a-1";
 export const EXCEPTION_REF_B = "exception-ref-b-1";
-export const CONFLICT_REF_A = "conflict-ref-a-1";
-export const CONFLICT_REF_B = "conflict-ref-b-1";
+export const PRIORITY_OR_CONFLICT_RULE_REF_A = "priority-or-conflict-rule-ref-a-1";
+export const PRIORITY_OR_CONFLICT_RULE_REF_B = "priority-or-conflict-rule-ref-b-1";
 
 /**
  * A well-formed Authority Scope Binding at the WS-007 §5 minimum: the parent office's identities, the binding's own identity,
  * the authored classification, the opaque scope reference and the authored target condition; the optional inheritance rule,
- * exception references and conflict references are omitted (absent, not empty). The texts are SYNTHETIC FIXTURES carried
+ * exception references and priority-or-conflict rule reference are omitted (absent, not empty). The texts are SYNTHETIC FIXTURES carried
  * verbatim and never interpreted; the references name nothing in this fixture world: no place, population, institution, actor
  * or collective exists behind them. Nothing here is a game rule.
  */
@@ -119,7 +119,7 @@ export const scopeBinding = (
   ...over,
 });
 
-/** The same binding carrying all three optional authored fields (inheritance rule, exception references, conflict references). */
+/** The same binding carrying all three optional authored fields (inheritance rule, exception references, priority-or-conflict rule reference). */
 export const fullScopeBinding = (
   institutionId = INSTITUTION_COURT,
   officeId = OFFICE_MAGISTRATE,
@@ -129,7 +129,7 @@ export const fullScopeBinding = (
   scopeBinding(institutionId, officeId, scopeBindingId, {
     inheritance_rule:
       "SYNTHETIC FIXTURE: an authored inheritance rule, carried and never executed.",
-    exceptions: [EXCEPTION_REF_A, EXCEPTION_REF_B],
-    conflict_refs: [CONFLICT_REF_A],
+    exception_refs: [EXCEPTION_REF_A, EXCEPTION_REF_B],
+    priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A,
     ...over,
   });

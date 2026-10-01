@@ -7,8 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { ScopeBindingSchema, gipScopeBindingKey } from "@immortalis/contracts";
 import {
-  CONFLICT_REF_A,
   EXCEPTION_REF_A,
+  PRIORITY_OR_CONFLICT_RULE_REF_A,
   INSTITUTION_COURT,
   OFFICE_MAGISTRATE,
   SCOPE_BINDING_A,
@@ -36,7 +36,7 @@ describe("the Scope Binding contract is the WS-007 §5 minimum, beneath one exac
 
   it("names exactly the §5 fields, the parent office's identities and nothing else", () => {
     expect(Object.keys(ScopeBindingSchema.shape).sort()).toEqual(
-      [...REQUIRED, "conflict_refs", "exceptions", "inheritance_rule"].sort(),
+      [...REQUIRED, "exception_refs", "inheritance_rule", "priority_or_conflict_rule_ref"].sort(),
     );
   });
 
@@ -44,11 +44,15 @@ describe("the Scope Binding contract is the WS-007 §5 minimum, beneath one exac
     for (const v of [minimum(), full()]) expect(ScopeBindingSchema.parse(v)).toEqual(v);
     expect(Object.keys(ScopeBindingSchema.parse(minimum())).sort()).toEqual(REQUIRED);
     // optional material stays absent when it was not authored, and is carried verbatim when it was
-    const dup = full({ exceptions: [EXCEPTION_REF_A, EXCEPTION_REF_A], conflict_refs: [] });
+    const dup = full({ exception_refs: [EXCEPTION_REF_A, EXCEPTION_REF_A] });
     expect(ScopeBindingSchema.parse(dup)).toEqual(dup);
-    expect(ScopeBindingSchema.parse(full({ exceptions: [] })).exceptions).toEqual([]);
-    const reordered = full({ exceptions: ["z-ref", "a-ref"] });
-    expect(ScopeBindingSchema.parse(reordered).exceptions).toEqual(["z-ref", "a-ref"]);
+    expect(ScopeBindingSchema.parse(full({ exception_refs: [] })).exception_refs).toEqual([]);
+    const reordered = full({ exception_refs: ["z-ref", "a-ref"] });
+    expect(ScopeBindingSchema.parse(reordered).exception_refs).toEqual(["z-ref", "a-ref"]);
+    // the priority-or-conflict rule reference is ONE reference, carried as the same single string
+    expect(ScopeBindingSchema.parse(full()).priority_or_conflict_rule_ref).toBe(
+      PRIORITY_OR_CONFLICT_RULE_REF_A,
+    );
   });
 
   it("is addressed by the exact parent office and its own scope_binding_id: one key, no per-subject dimension", () => {
@@ -103,33 +107,54 @@ describe("every required field is explicit: missing, null, empty and malformed v
 describe("the optional fields are omitted or carried, never defaulted, null, structured or explicitly undefined", () => {
   it("accepts each optional field alone", () => {
     expect(ok(minimum({ inheritance_rule: "authored" }))).toBe(true);
-    expect(ok(minimum({ exceptions: [EXCEPTION_REF_A] }))).toBe(true);
-    expect(ok(minimum({ conflict_refs: [CONFLICT_REF_A] }))).toBe(true);
-    expect(ok(minimum({ exceptions: [], conflict_refs: [] }))).toBe(true);
+    expect(ok(minimum({ exception_refs: [EXCEPTION_REF_A] }))).toBe(true);
+    expect(ok(minimum({ priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A }))).toBe(
+      true,
+    );
+    expect(ok(minimum({ exception_refs: [] }))).toBe(true);
   });
 
   it("an omitted optional field is not materialised by parsing", () => {
     const parsed = ScopeBindingSchema.parse(minimum());
-    for (const k of ["inheritance_rule", "exceptions", "conflict_refs"])
+    for (const k of ["inheritance_rule", "exception_refs", "priority_or_conflict_rule_ref"])
       expect(Object.prototype.hasOwnProperty.call(parsed, k), k).toBe(false);
   });
 
   it("an optional field that is null, explicitly undefined, empty text or the wrong shape is refused", () => {
-    for (const field of ["inheritance_rule", "exceptions", "conflict_refs"]) {
+    for (const field of ["inheritance_rule", "exception_refs", "priority_or_conflict_rule_ref"]) {
       for (const bad of [null, undefined, "", 0, true, {}, { a: 1 }])
         expect(ok(minimum({ [field]: bad })), `${field}=${String(bad)}`).toBe(false);
     }
-    expect(ok(minimum({ exceptions: "a-ref" }))).toBe(false);
-    expect(ok(minimum({ conflict_refs: "a-ref" }))).toBe(false);
+    expect(ok(minimum({ exception_refs: "a-ref" }))).toBe(false);
     expect(ok(minimum({ inheritance_rule: ["rule"] }))).toBe(false);
     expect(ok(minimum({ inheritance_rule: { rule: "x" } }))).toBe(false);
   });
 
-  it("exception and conflict entries are canonical opaque references, not text, objects or nested arrays", () => {
-    for (const field of ["exceptions", "conflict_refs"]) {
-      for (const bad of [[""], [null], [1], [{ ref: "a" }], [["a"]], ["a/b"], ["a b"], [" a"]])
-        expect(ok(minimum({ [field]: bad })), `${field}=${JSON.stringify(bad)}`).toBe(false);
-    }
+  it("exception_refs entries are canonical opaque references, not text, objects or nested arrays", () => {
+    for (const bad of [[""], [null], [1], [{ ref: "a" }], [["a"]], ["a/b"], ["a b"], [" a"]])
+      expect(ok(minimum({ exception_refs: bad })), JSON.stringify(bad)).toBe(false);
+  });
+
+  it("priority_or_conflict_rule_ref is exactly ONE opaque reference: an array of any length (even one), an object, a non-canonical identifier or the pre-repair array form is refused", () => {
+    for (const bad of [
+      [],
+      [PRIORITY_OR_CONFLICT_RULE_REF_A],
+      [PRIORITY_OR_CONFLICT_RULE_REF_A, "other-ref"],
+      { ref: PRIORITY_OR_CONFLICT_RULE_REF_A },
+      "a/b",
+      "a b",
+      " a",
+      "-a",
+    ])
+      expect(ok(minimum({ priority_or_conflict_rule_ref: bad })), JSON.stringify(bad)).toBe(false);
+    expect(ok(minimum({ priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A }))).toBe(
+      true,
+    );
+  });
+
+  it("the pre-repair field names are not fields of the contract: exceptions and conflict_refs fail closed", () => {
+    expect(ok(minimum({ exceptions: [EXCEPTION_REF_A] }))).toBe(false);
+    expect(ok(minimum({ conflict_refs: [PRIORITY_OR_CONFLICT_RULE_REF_A] }))).toBe(false);
   });
 });
 
@@ -157,6 +182,9 @@ describe("unmodelled fields fail closed: every deferred surface is unrepresentab
     target_ids: ["t1"],
     resolved_scope: {},
     priority: 1,
+    priority_rank: 1,
+    conflict_resolution: {},
+    resolved_priority: "x",
     weight: 0.5,
     status: "active",
     history: [],

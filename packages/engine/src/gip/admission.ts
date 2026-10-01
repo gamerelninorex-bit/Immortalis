@@ -40,7 +40,7 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  *     `institution_id`, `office_id` and `scope_binding_id` derive, created once. It rests on exactly one committed fact it
  *     pins — that office, read by exact key at its current version and depended on — whose own Institution Identity ancestry
  *     must still be committed, so a binding cannot precede, or be attached to a different or forged, office. It resolves no
- *     `scope_ref`, exception or conflict reference, reads no foreign owner, parses no `target_condition` or
+ *     `scope_ref`, exception or priority-or-conflict reference, reads no foreign owner, parses no `target_condition` or
  *     `inheritance_rule`, never reads or rewrites the office's own text and writes nothing else. The kind is ADVANCING
  *     because a later lawful cause may change a scope; NO such change exists yet, so every write to a binding other than its
  *     first creation (expected version 0) is refused here as not supported, and a second creation of an occupied slot is
@@ -69,7 +69,7 @@ export function gipGroupCheck(group: CommitGroup, state: CampaignState): Rejecti
       if (w.expected_version !== 0) {
         return reject(
           "AMENDMENT_NOT_SUPPORTED",
-          "a scope binding is created once; no scope, inheritance, exception or conflict change, replacement or resolution is implemented",
+          "a scope binding is created once; no scope, inheritance, exception or priority-or-conflict change, replacement or resolution is implemented",
           { key: w.key },
         );
       }

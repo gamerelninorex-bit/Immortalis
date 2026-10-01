@@ -14,7 +14,7 @@ import { EntityId, Text } from "./world-foundation.ts";
  *
  * A Scope Binding records ONE authored, bounded applicability envelope of ONE already-committed Office / Authority Locus: "this
  * office authority is bound to this authored scope and target condition, with any authored inheritance, exception and
- * conflict material preserved". It is NOT a Governance Instrument, an order-relative validity result, a live applicability
+ * priority-or-conflict material preserved". It is NOT a Governance Instrument, an order-relative validity result, a live applicability
  * result, proof that its target exists or that anyone belongs to it, a decision or exercise of authority, awareness,
  * Administrative Reach, compliance, an Actor / Autonomous Collective choice, a KTI state or a foreign-owner copy.
  *
@@ -53,9 +53,12 @@ const noExplicitUndefined = (value: Record<string, unknown>): boolean =>
  *    Population, Institution, Actor, Autonomous Collective, Culture or other owner is read, and nothing is created from it.
  *  - `target_condition` is authored text, carried and never parsed, executed or compared.
  *  - `inheritance_rule` is optional authored text, carried and never executed (no territorial inheritance is implemented).
- *  - `exceptions[]` and `conflict_refs[]` are optional arrays of OPAQUE authored references, carried exactly as authored (no
- *    minimum count, no uniqueness, no normalisation) and never resolved, applied, ranked or used to settle anything. An
- *    omitted field is absent; an authored empty array is carried as an empty array.
+ *  - `exception_refs[]` is an optional array of OPAQUE authored references, carried exactly as authored (no minimum count, no
+ *    uniqueness, no normalisation) and never resolved or applied. An omitted field is absent; an authored empty array is
+ *    carried as an empty array.
+ *  - `priority_or_conflict_rule_ref` is ONE optional OPAQUE authored reference (a single reference, not an array) to the
+ *    priority / conflict rule, carried exactly as authored and never resolved, compared, ranked, applied or used to settle
+ *    anything: no priority calculation, ranking or conflict resolution exists.
  *
  * No Governance Instrument reference, validity, lifecycle status, applicability result, promulgation, holder, decision-body or
  * `competence_scope` field exists, and the parent office's `competence_scope` is neither read nor copied nor parsed.
@@ -69,8 +72,8 @@ export const ScopeBindingSchema = z
     scope_ref: EntityId,
     target_condition: Text,
     inheritance_rule: Text.optional(),
-    exceptions: z.array(EntityId).optional(),
-    conflict_refs: z.array(EntityId).optional(),
+    exception_refs: z.array(EntityId).optional(),
+    priority_or_conflict_rule_ref: EntityId.optional(),
   })
   .refine(noExplicitUndefined, "an omitted optional field is absent, never an explicit undefined");
 export type ScopeBinding = z.infer<typeof ScopeBindingSchema>;
