@@ -1,4 +1,8 @@
-import type { InstitutionIdentity, OfficeAuthorityLocus } from "@immortalis/contracts";
+import type {
+  InstitutionIdentity,
+  OfficeAuthorityLocusDecisionBody,
+  OfficeAuthorityLocusHolder,
+} from "@immortalis/contracts";
 
 /**
  * SYNTHETIC TEST DATA for the GIP Stable Institution Identity and Office / Authority Locus Backbone Foundations. Every identifier and label below is a
@@ -37,16 +41,11 @@ export const OFFICE_TREASURER = "office-treasurer-1";
 export const AUTHORITY_SOURCE_CHARTER = "authority-source-charter-1";
 export const HOLDER_REF_A = "holder-ref-a-1";
 export const HOLDER_REF_B = "holder-ref-b-1";
+export const DECISION_BODY_REF_A = "decision-body-ref-a-1";
+export const DECISION_BODY_REF_B = "decision-body-ref-b-1";
 
-/**
- * A well-formed Office / Authority Locus, the `holder_ref` branch: every authority, rule and reference value is authored and
- * explicit. The texts are SYNTHETIC FIXTURES carried verbatim and never interpreted; nothing here is a game rule.
- */
-export const officeAuthorityLocus = (
-  institutionId = INSTITUTION_COURT,
-  officeId = OFFICE_MAGISTRATE,
-  over: Partial<OfficeAuthorityLocus> = {},
-): OfficeAuthorityLocus => ({
+/** The authored office fields common to both reference branches (SYNTHETIC FIXTURES, carried verbatim, never interpreted). */
+const officeCommon = (institutionId: string, officeId: string) => ({
   office_id: officeId,
   institution_id: institutionId,
   authority_source_ref: AUTHORITY_SOURCE_CHARTER,
@@ -56,6 +55,33 @@ export const officeAuthorityLocus = (
   selection_rule: "SYNTHETIC FIXTURE: how this test office is filled.",
   succession_rule: "SYNTHETIC FIXTURE: how this test office passes on.",
   removal_rule: "SYNTHETIC FIXTURE: how this test office holder is removed.",
+});
+
+/**
+ * A well-formed Office / Authority Locus, the `holder_ref` branch: every authority, rule and reference value is authored and
+ * explicit. The texts are SYNTHETIC FIXTURES carried verbatim and never interpreted; nothing here is a game rule.
+ */
+export const officeAuthorityLocus = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  over: Partial<OfficeAuthorityLocusHolder> = {},
+): OfficeAuthorityLocusHolder => ({
+  ...officeCommon(institutionId, officeId),
   holder_ref: HOLDER_REF_A,
+  ...over,
+});
+
+/**
+ * A well-formed Office / Authority Locus, the `decision_body_ref` branch: the same authored authority fields as the holder
+ * branch with the opaque decision-body reference in place of `holder_ref`. The reference names nothing in this fixture world:
+ * no decision body, membership, roster or actor exists behind it.
+ */
+export const decisionBodyOfficeAuthorityLocus = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  over: Partial<OfficeAuthorityLocusDecisionBody> = {},
+): OfficeAuthorityLocusDecisionBody => ({
+  ...officeCommon(institutionId, officeId),
+  decision_body_ref: DECISION_BODY_REF_A,
   ...over,
 });

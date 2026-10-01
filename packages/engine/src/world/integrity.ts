@@ -9,7 +9,7 @@ import {
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
 import { couplingBasisViolation, identityMismatch } from "../owners/admission.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { resolveKey, type FactKind } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 
 export interface IntegrityViolation {
@@ -48,6 +48,22 @@ export interface IntegrityViolation {
     /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */
     | "LOGISTICS_STATE";
   readonly message: string;
+}
+
+/**
+ * The governing rule a persisted fact may lawfully carry: the kind's current citation, or — only where the kind registers a
+ * superseded one — exactly that whole historical citation on a fact whose value is of the class it governed. This is the whole
+ * compatibility: no other rule, no partial or altered citation and no other value class is accepted, so an actual rule drift,
+ * tamper, or a fact stamped with an obsolete citation it never lawfully carried still fails closed.
+ */
+function governingRuleLawful(kind: FactKind, fact: OwnerFact): boolean {
+  if (canonicalEqual(fact.provenance.rule, kind.rule)) return true;
+  const legacy = kind.legacyRule;
+  return (
+    legacy !== undefined &&
+    canonicalEqual(fact.provenance.rule, legacy.rule) &&
+    legacy.admits(fact.value)
+  );
 }
 
 /**
@@ -100,7 +116,7 @@ export function verifyCanonicalIntegrity(
     if (kind.lifecycle === "SEALED" && fact.version !== 1) {
       bad(fact.key, "UNSUPPORTED_AMENDMENT", "sealed canon was overwritten");
     }
-    if (!canonicalEqual(fact.provenance.rule, kind.rule)) {
+    if (!governingRuleLawful(kind, fact)) {
       bad(fact.key, "RULE_DRIFT", "governing rule differs from the registered source citation");
     }
     const receipt = store.lookupReceipt(fact.provenance.intent_id);

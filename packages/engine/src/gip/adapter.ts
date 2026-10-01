@@ -55,7 +55,8 @@ export interface TypedOfficeAuthorityLocus {
  * and `office_id` (GIP Scaling Profile v1.1 §5: retrieval is keyed by the current governance question, never a scan of
  * institutions or offices). It takes only the read side of a store, so reading grants no write authority, and it returns
  * undefined for an office that is not established — nothing is created, inferred or defaulted by a read. It reports what the
- * office record says (authority at the office, `holder_ref` a bare reference); it infers no exercise, reach or knowledge.
+ * office record says (authority at the office, `holder_ref` or `decision_body_ref` a bare reference); it infers no exercise,
+ * reach, membership or knowledge.
  */
 export function readOfficeAuthorityLocus(
   store: Pick<CampaignStore, "getFact">,
@@ -82,8 +83,9 @@ export function readOfficeAuthorityLocus(
  * refuses it for a raw commit as well.
  *
  * An office's one prerequisite is its institution's committed Institution Identity, read by exact key; the adapter pins it
- * (read at its current version, depended on) and nothing else. Authority is persisted at the office, `holder_ref` is a bare
- * reference, and the adapter writes no actor, Population, KTI, Epistemic, Economy or other foreign state.
+ * (read at its current version, depended on) and nothing else. Authority is persisted at the office; `holder_ref` or
+ * `decision_body_ref` (exactly one, enforced by the strict office contract) is a bare reference that is never resolved, and the
+ * adapter writes no actor, decision-body, Population, KTI, Epistemic, Economy or other foreign state.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
@@ -135,7 +137,9 @@ export class GipAdapter {
    * Commits the initial establishment of one Office / Authority Locus beneath one already-committed Institution Identity,
    * joined by the exact `institution_id`. It reads exactly that identity (by key, at its current version) and depends on
    * the group that committed it, and writes exactly one create-only office key. Every authority, rule and reference value is
-   * the caller's authored input: nothing is defaulted, guessed from a label or derived from the identity or a holder. If the
+   * the caller's authored input: nothing is defaulted, guessed from a label or derived from the identity, a holder or a decision
+   * body, and the reference branch (`holder_ref` or `decision_body_ref`) does not change the key, the prerequisite or the
+   * write. If the
    * institution is not established, the reads are pinned at version zero and admission refuses the group as a missing
    * prerequisite; nothing is created. There is no update, appointment, removal, succession, delegation or holder-change
    * method: an established office is never rewritten.

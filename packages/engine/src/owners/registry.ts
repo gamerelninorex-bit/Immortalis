@@ -28,6 +28,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   FallbackPhysicalEntitySchema,
   InstitutionIdentitySchema,
+  OfficeAuthorityLocusHolderSchema,
   OfficeAuthorityLocusSchema,
   OWNER_GIP,
   LogisticsCommitmentSchema,
@@ -254,6 +255,16 @@ export interface FactKind {
   readonly valueSchema: ValueSchema;
   /** governing rule recorded in every group that writes this kind (RC-01, RC-07) */
   readonly rule: SourceRef;
+  /**
+   * A SUPERSEDED governing-rule citation under which facts were already committed and must keep loading unchanged. It is a
+   * narrowly bounded historical-provenance compatibility, never a second current rule: new writes must carry `rule`, and a
+   * persisted fact may carry this citation only when it is exactly this whole citation (every field equal) AND its value
+   * satisfies `admits`, the one class of value that was lawful when the citation was current. Anything else is rule drift.
+   */
+  readonly legacyRule?: {
+    readonly rule: SourceRef;
+    readonly admits: (value: unknown) => boolean;
+  };
 }
 
 const rule = (
@@ -920,17 +931,32 @@ export const GIP_RULE: SourceRef = rule(
 );
 
 /**
- * The governing rule for the GIP Office / Authority Locus kind: one group, written once at establishment (the office is
- * ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
- * ones the state relies on: Draft v2.1 §2.1 (GIP owns office powers, duties, succession, appointment, removal and
- * delegation) and §2.2 (explicit non-ownership: no individual motive, loyalty, belief or personality, no population, money,
- * military or logistics capability), §3.2 (the Office / Authority Locus minimum; authority belongs to the office/order, not
- * personally to the current holder; the holder_ref branch only) and §21.1/§21.2 (create only when future causality requires
- * it; update only on a material authority or holder/office change); Scaling Profile v1.1 §3 (Office/Institution × authority
- * relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 (no scan of
- * all institutions/offices).
+ * The governing rule for the GIP Office / Authority Locus kind, as of the fourteenth slice: one group, written once at
+ * establishment (the office is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this
+ * citation. The clauses are the ones the state relies on: Draft v2.1 §2.1 (GIP owns office powers, duties, succession,
+ * appointment, removal and delegation) and §2.2 (explicit non-ownership: no individual motive, loyalty, belief or
+ * personality, no population, money, military or logistics capability), §3.2 (the Office / Authority Locus minimum with its
+ * `holder_ref` OR `decision_body_ref` reference, both branches now implemented; authority belongs to the office/order, not
+ * personally to the current holder) and §21.1/§21.2 (create only when future causality requires it; update only on a material
+ * authority or holder/office change); Scaling Profile v1.1 §3 (Office/Institution × authority relation; authority persisted
+ * once at the office/order, never copied onto holders, actors or subjects) and §5 (no scan of all institutions/offices).
+ * The source artifact, exact native pin and authority lineage are those of the superseded citation, unchanged.
  */
 export const GIP_OFFICE_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (office powers, duties, succession, appointment, removal) and §2.2 Explicit non-ownership (individual motive, loyalty, belief, personality); §3.2 Office / Authority Locus (office_id, institution_id, authority_source_ref, competence_scope, powers[], duties[] where material, selection_rule, succession_rule, removal_rule, holder_ref OR decision_body_ref; authority belongs to the office/order, not personally to the current holder; delegations, concurrence, review/veto/override and conditional authority not implemented); §21.1 Create and §21.2 Update (holder/office and authority change are material updates, not implemented here); with Scaling Profile v1.1 §3 Cardinality basis (Office/Institution × authority relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 Retrieval cost (no scan of all institutions or offices)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * The SUPERSEDED thirteenth-slice governing-rule citation for the GIP Office / Authority Locus, byte-for-byte as every
+ * thirteenth-slice office was committed under it. It implemented only the `holder_ref` branch and says so ("decision_body_ref
+ * not implemented"), which was true provenance for those facts and is NOT true provenance for anything committed since: it is
+ * never stamped on a new write (admission requires `GIP_OFFICE_RULE`) and is accepted on load ONLY for a genuine legacy
+ * holder-branch office (see `FactKind.legacyRule`). Existing saves therefore load unchanged, with no migration or rewriting of
+ * their facts. Its text is frozen: a conformance test pins its hash.
+ */
+export const GIP_OFFICE_RULE_THIRTEENTH_SLICE: SourceRef = rule(
   WS007_SOURCE,
   "Draft v2.1 §2.1 GIP-owned persistent state (office powers, duties, succession, appointment, removal) and §2.2 Explicit non-ownership (individual motive, loyalty, belief, personality); §3.2 Office / Authority Locus (office_id, institution_id, authority_source_ref, competence_scope, powers[], duties[] where material, selection_rule, succession_rule, removal_rule, holder_ref; authority belongs to the office/order, not personally to the current holder; delegations, concurrence, review/veto/override, conditional authority and decision_body_ref not implemented); §21.1 Create and §21.2 Update (holder/office and authority change are material updates, not implemented here); with Scaling Profile v1.1 §3 Cardinality basis (Office/Institution × authority relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 Retrieval cost (no scan of all institutions or offices)",
   [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
@@ -942,7 +968,8 @@ export const GIP_OFFICE_RULE: SourceRef = rule(
  * assigns to GIP. One owner, one facet, two exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
- * only, and GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
+ * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
+ * GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
  * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or
  * property-bag kind.
  */
@@ -968,6 +995,11 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^gip/institution/${ID}/office/${ID}$`),
     valueSchema: OfficeAuthorityLocusSchema,
     rule: GIP_OFFICE_RULE,
+    // only a genuine thirteenth-slice holder-branch office may still carry the superseded citation
+    legacyRule: {
+      rule: GIP_OFFICE_RULE_THIRTEENTH_SLICE,
+      admits: (value) => OfficeAuthorityLocusHolderSchema.safeParse(value).success,
+    },
   },
 ];
 

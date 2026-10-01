@@ -1,11 +1,13 @@
-// Contract evidence for the GIP Office / Authority Locus Backbone Foundation (thirteenth slice): the executable contract is
-// the frozen WS-007 §3.2 minimum, holder_ref branch only — strict, explicit, uninterpreted — and every deferred surface
-// (decision_body_ref, delegation, concurrence, review/veto/override, conditional authority, any transition or exercise state)
-// and every catch-all property has no representation. Register lineage: IA-02 (partial), IA-03 (partial); RC-02; IM-06.
+// Contract evidence for the GIP Office / Authority Locus Backbone Foundation (thirteenth slice, holder_ref branch; the
+// decision_body_ref branch is covered by gip-office-decision-body-schemas.test.ts, fourteenth slice): the executable contract
+// is the frozen WS-007 §3.2 minimum — strict, explicit, uninterpreted — and every deferred surface (delegation, concurrence,
+// review/veto/override, conditional authority, any transition or exercise state) and every catch-all property has no
+// representation. Register lineage: IA-02 (partial), IA-03 (partial); RC-02; IM-06.
 // Source lock: spec/f027/spec-lock.json (F-027 v1.0): WS-007.
 import { describe, expect, it } from "vitest";
 import {
   InstitutionIdentitySchema,
+  OfficeAuthorityLocusHolderSchema,
   OfficeAuthorityLocusSchema,
   gipInstitutionIdentityKey,
   gipOfficeAuthorityLocusKey,
@@ -21,10 +23,10 @@ import {
 
 const office = (over: Record<string, unknown> = {}) => ({ ...officeAuthorityLocus(), ...over });
 
-describe("the Office / Authority Locus has exactly the frozen minimum shape, holder_ref branch (GIP Draft v2.1 §3.2)", () => {
+describe("the Office / Authority Locus holder_ref branch has exactly the frozen minimum shape (GIP Draft v2.1 §3.2)", () => {
   it("accepts one explicit, fully authored office", () => {
     expect(OfficeAuthorityLocusSchema.safeParse(office()).success).toBe(true);
-    expect(Object.keys(OfficeAuthorityLocusSchema.shape).sort()).toEqual([
+    expect(Object.keys(OfficeAuthorityLocusHolderSchema.shape).sort()).toEqual([
       "authority_source_ref",
       "competence_scope",
       "duties",
@@ -39,7 +41,7 @@ describe("the Office / Authority Locus has exactly the frozen minimum shape, hol
   });
 
   it("requires every field: nothing is defaulted, derived or repaired", () => {
-    for (const k of Object.keys(OfficeAuthorityLocusSchema.shape)) {
+    for (const k of Object.keys(OfficeAuthorityLocusHolderSchema.shape)) {
       const v: Record<string, unknown> = office();
       delete v[k];
       expect(OfficeAuthorityLocusSchema.safeParse(v).success, k).toBe(false);
@@ -116,8 +118,9 @@ describe("the Office / Authority Locus has exactly the frozen minimum shape, hol
 });
 
 describe("deferred WS-007 surfaces and catch-all properties are unrepresentable (acceptance 5)", () => {
+  // (the decision_body_ref branch is a lawful alternative to holder_ref; carrying it BESIDE holder_ref is covered by the
+  // exclusivity tests in gip-office-decision-body-schemas.test.ts)
   const forbidden: Record<string, unknown> = {
-    decision_body_ref: "body-1",
     holder_ref_or_body: "x",
     delegations: [],
     delegation: "x",
