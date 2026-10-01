@@ -578,9 +578,6 @@ describe("a missing, mismatched or tampered source office or Scope Binding fails
       governanceInstrument(INSTRUMENT_A, undefined, undefined, undefined, {
         operative_effect: "enacted" as never,
       }),
-      governanceInstrument(INSTRUMENT_A, undefined, undefined, undefined, {
-        validity_by_order: [],
-      }),
     ])
       expect(code(gipInstrumentKey(INSTRUMENT_A), bad), JSON.stringify(bad)).toBe("VALUE_INVALID");
     for (const rule of [
@@ -731,6 +728,28 @@ describe("distinct Instruments are distinct only by their canonical instrument_i
     expect(
       s.campaign.store.listFacts().filter((f) => f.key.includes(GOVERNING_ORDER_REF_A)),
     ).toEqual([]);
+  });
+
+  it("an authored empty validity_by_order[] and repeated governing_order_ref entries are established and read back exactly as authored: no cardinality, uniqueness, merge, reorder or deduplication", async () => {
+    const s = await withBinding();
+    const repeated = [
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "valid" },
+      { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "void" },
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "invalid" },
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "invalid" },
+    ] as const;
+    await establishGovernanceInstrument(s, 4, INSTRUMENT_A, undefined, undefined, undefined, {
+      validity_by_order: [],
+    });
+    await establishGovernanceInstrument(s, 5, INSTRUMENT_B, undefined, undefined, undefined, {
+      validity_by_order: [...repeated],
+    });
+    expect(s.gip.governanceInstrument(INSTRUMENT_A)!.value.validity_by_order).toEqual([]);
+    expect(s.gip.governanceInstrument(INSTRUMENT_B)!.value.validity_by_order).toEqual(repeated);
+    expect(
+      (s.campaign.store.getFact(gipInstrumentKey(INSTRUMENT_B))!.value as any).validity_by_order,
+    ).toEqual(repeated);
+    expect(s.campaign.verify()).toEqual([]);
   });
 
   it("the source office and the Scope Binding are not identity dimensions: the same instrument_id cannot be reused beneath another office or binding", async () => {

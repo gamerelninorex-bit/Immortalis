@@ -179,6 +179,56 @@ describe("save → close → load → continue at every durable cut of the Instr
     await r.campaign.close();
   });
 
+  it("save → close → load preserves an empty validity_by_order[] and repeated governing_order_ref entries exactly as authored, and verification does not treat either as corruption", async () => {
+    const dir = tempDir();
+    const s = await withBindings(dir);
+    const repeated = [
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "valid" },
+      { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "void" },
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "invalid" },
+      { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "invalid" },
+    ] as const;
+    await establishGovernanceInstrument(s, 6, INSTRUMENT_A, undefined, undefined, undefined, {
+      validity_by_order: [],
+    });
+    await establishGovernanceInstrument(
+      s,
+      7,
+      INSTRUMENT_B,
+      INSTITUTION_COURT,
+      OFFICE_TREASURER,
+      undefined,
+      {
+        validity_by_order: [...repeated],
+      },
+    );
+    const saved = structuredClone(gipFacts(s));
+    await s.campaign.close();
+    const r = await reopenGip(dir);
+    expect(r.campaign.verify()).toEqual([]);
+    expect(verifyGipIntegrity(r.campaign.store)).toEqual([]);
+    expect(gipFacts(r)).toEqual(saved);
+    expect(r.gip.governanceInstrument(INSTRUMENT_A)!.value.validity_by_order).toEqual([]);
+    expect(r.gip.governanceInstrument(INSTRUMENT_B)!.value.validity_by_order).toEqual(repeated);
+    // replay of the same intents converges on the same receipts, never a duplicate
+    const again = await must(
+      r.gip.establishGovernanceInstrument({
+        ...gipPublication(7),
+        instrument: governanceInstrument(
+          INSTRUMENT_B,
+          INSTITUTION_COURT,
+          OFFICE_TREASURER,
+          undefined,
+          {
+            validity_by_order: [...repeated],
+          },
+        ),
+      }),
+    );
+    expect(again.replayed).toBe(true);
+    await r.campaign.close();
+  });
+
   it("after a reload every post-establishment change is still refused, and a conflicting establishment still fails closed", async () => {
     const dir = tempDir();
     const s = await withBindings(dir);
@@ -401,11 +451,7 @@ describe("load fails closed on a corrupted or tampered Instrument save", () => {
       (f.value.validity_by_order[0].validity_status = "null_and_void"),
     "validity entry gained a field": (f) =>
       (f.value.validity_by_order[0].lifecycle_status = "active"),
-    "validity entry removed": (f) => (f.value.validity_by_order = []),
     "validity entries made a map": (f) => (f.value.validity_by_order = { a: "valid" }),
-    "validity entry duplicated order": (f) =>
-      (f.value.validity_by_order[1].governing_order_ref =
-        f.value.validity_by_order[0].governing_order_ref),
     "lifecycle rewritten to an unknown literal": (f) => (f.value.lifecycle_status = "enacted"),
     "lifecycle removed": (f) => delete f.value.lifecycle_status,
     "conditional field added": (f) => (f.value.activation_condition = "x-ref"),
@@ -600,6 +646,31 @@ describe("load fails closed on a corrupted or tampered Instrument save", () => {
         );
       }),
     ).toBe("OK");
+  });
+
+  it("a history carrying an empty validity_by_order[] or repeated governing_order_ref entries, built by an admission-free store, loads without corruption (control)", async () => {
+    for (const validity_by_order of [
+      [],
+      [
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "invalid" },
+      ],
+    ])
+      expect(
+        await base(async (s) => {
+          await lawful(s);
+          await must(
+            s.commit(
+              instrument(
+                5,
+                governanceInstrument(INSTRUMENT_A, undefined, undefined, undefined, {
+                  validity_by_order: validity_by_order as never,
+                }),
+              ),
+            ),
+          );
+        }),
+      ).toBe("OK");
   });
 
   it("an Instrument with no committed office or binding, a pin of nothing, one parent only, the wrong pin, a foreign dependency, a second write or a non-create write is detected on load", async () => {

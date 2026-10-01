@@ -336,28 +336,61 @@ describe("validity is order-relative and separate from lifecycle, with the exact
     expect(GovernanceInstrumentSchema.parse(v)).toEqual(v);
   });
 
-  it("fails closed on an empty validity array and on two entries for one governing order (order-relative: one order, one authored status)", () => {
-    expect(ok(instrument({ validity_by_order: [] }))).toBe(false);
-    expect(
-      ok(
-        instrument({
-          validity_by_order: [
-            { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
-            { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "invalid" },
-          ],
-        }),
-      ),
-    ).toBe(false);
-    expect(
-      ok(
-        instrument({
-          validity_by_order: [
-            { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
-            { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
-          ],
-        }),
-      ),
-    ).toBe(false);
+  it("validity_by_order is a mandatory authored array: omitting it entirely fails, while an empty array is accepted and carried as authored (the source defines no minimum cardinality)", () => {
+    const omitted: Record<string, unknown> = instrument();
+    delete omitted["validity_by_order"];
+    expect(ok(omitted)).toBe(false);
+    for (const bad of [null, undefined, "", 0, true, {}])
+      expect(ok(instrument({ validity_by_order: bad })), String(bad)).toBe(false);
+    const empty = instrument({ validity_by_order: [] });
+    expect(ok(empty)).toBe(true);
+    expect(GovernanceInstrumentSchema.parse(empty)).toEqual(empty);
+    expect(GovernanceInstrumentSchema.parse(empty).validity_by_order).toEqual([]);
+  });
+
+  it("repeated governing_order_ref entries are accepted and retained exactly as authored — same or different validity_status — never merged, reordered, deduplicated, reconciled or interpreted", () => {
+    for (const entries of [
+      [
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
+      ],
+      [
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "invalid" },
+      ],
+      [
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "void" },
+        { governing_order_ref: GOVERNING_ORDER_REF_B, validity_status: "valid" },
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" },
+        { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "contested" },
+      ],
+    ]) {
+      const v = instrument({ validity_by_order: entries });
+      expect(ok(v)).toBe(true);
+      expect(GovernanceInstrumentSchema.parse(v).validity_by_order).toEqual(entries);
+    }
+  });
+
+  it("the entry contract stays strict beside the relaxed array: a malformed entry, an unknown validity literal or an extra entry field still fails, repeated or not", () => {
+    const good = { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" };
+    for (const bad of [
+      { governing_order_ref: GOVERNING_ORDER_REF_A },
+      { validity_status: "valid" },
+      { governing_order_ref: "", validity_status: "valid" },
+      { governing_order_ref: "has space", validity_status: "valid" },
+      { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "null_and_void" },
+      { governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "Valid" },
+      { ...good, lifecycle_status: "active" },
+      { ...good, reason: "x" },
+      "valid",
+      null,
+    ]) {
+      expect(ok(instrument({ validity_by_order: [bad] })), JSON.stringify(bad)).toBe(false);
+      expect(ok(instrument({ validity_by_order: [good, bad] })), JSON.stringify(bad)).toBe(false);
+      expect(ok(instrument({ validity_by_order: [good, good, bad] })), JSON.stringify(bad)).toBe(
+        false,
+      );
+    }
   });
 });
 

@@ -343,9 +343,16 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
     expect(contract).not.toMatch(
       /z\.object\(|passthrough|looseObject|z\.record|z\.any|z\.unknown|\.default\(|\.catch\(|discriminatedUnion|\.transform\(|\.superRefine\(|z\.union\(|\.optional\(|\.nullable\(|\.nullish\(/,
     );
-    // exactly two structural refinements: one validity entry per governing order, and the binding belongs to the same authority
-    expect(contract.match(/\.refine\(/g)).toHaveLength(2);
-    expect(contract).toMatch(/\.min\(1\)/);
+    // exactly one structural refinement: the Scope Binding belongs to the same authority as the source authority. No minimum
+    // cardinality, uniqueness, deduplication, merging or conflict-resolution rule exists over validity_by_order[] (the source defines none)
+    expect(contract.match(/\.refine\(/g)).toHaveLength(1);
+    expect(contract).toMatch(
+      /scope_binding_ref must address a Scope Binding of the same authority/,
+    );
+    expect(contract).toMatch(/validity_by_order: z\.array\(InstrumentValidityEntrySchema\),/);
+    expect(contract).not.toMatch(
+      /\.min\(|\.max\(|\.length\(|\.nonempty\(|new Set\(|\.some\(|\.every\(/,
+    );
     // the enumerations are the source's closed sets: z.enum over the exported literal tuples, never a free string
     expect(contract.match(/z\.enum\(/g)).toHaveLength(3);
     expect(contract).not.toMatch(/z\.literal\(/);
@@ -485,6 +492,7 @@ describe("acceptance-register and open-gate honesty (sixteenth slice)", () => {
     const scope = register.find((r) => r.id === "IA-02")!.partial_evidence!.scope;
     for (const phrase of [
       "singular scalar",
+      "introduces no source-undefined minimum cardinality, uniqueness, deduplication, merging or conflict-resolution rule",
       "opaque and never dereferenced",
       "WS-007 §4.3 conditional field",
       "addressable clauses are unsupported in this slice and fail closed",

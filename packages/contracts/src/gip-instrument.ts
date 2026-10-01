@@ -154,11 +154,12 @@ export type InstrumentValidityEntry = z.infer<typeof InstrumentValidityEntrySche
  *  - `authority_basis_ref` is an OPAQUE authored reference, never dereferenced; no authority-basis ontology exists.
  *  - `operative_effect` is ONE singular scalar from the §4.2 classes. It is not an array, and no `operative_effects[]`,
  *    clause or multi-effect surrogate exists (addressable clauses, WS-007 §4.4, are not implemented).
- *  - `validity_by_order[]` is an array of strict entries inside this one Instrument (never one Instrument per order). The
- *    source fixes the entry shape but no count; this contract fails closed on an empty array (a mandatory field must carry
- *    its material, and `unresolved` exists for an undetermined validity) and on two entries for the same
- *    `governing_order_ref` (validity is order-relative: one order has one authored status, never two competing ones). Entries are
- *    carried exactly as authored: never reordered, merged or normalised.
+ *  - `validity_by_order[]` is a REQUIRED authored array of strict entries inside this one Instrument (never one Instrument per
+ *    order). The source fixes the entry shape and the validity literals but defines no minimum cardinality, no uniqueness of
+ *    `governing_order_ref` and no deduplication, merging or conflict-resolution rule, so this contract introduces none: an
+ *    empty array and repeated `governing_order_ref` entries (whatever their `validity_status`) are carried exactly as
+ *    authored, never reordered, merged, deduplicated, reconciled or interpreted. This does not declare a repeated entry
+ *    meaningful; any future restriction requires separately pinned authority.
  *  - `lifecycle_status` is authored; the engine advances none.
  *
  * Not fields: the WS-007 §4.3 conditional fields (`activation_condition`, `effective_from`, `sunset_condition`,
@@ -175,13 +176,9 @@ export const GovernanceInstrumentSchema = z
     authority_basis_ref: EntityId,
     operative_effect: InstrumentOperativeEffect,
     scope_binding_ref: InstrumentScopeBindingRef,
-    validity_by_order: z.array(InstrumentValidityEntrySchema).min(1),
+    validity_by_order: z.array(InstrumentValidityEntrySchema),
     lifecycle_status: InstrumentLifecycleStatus,
   })
-  .refine((v) => {
-    const orders = v.validity_by_order.map((e) => e.governing_order_ref);
-    return new Set(orders).size === orders.length;
-  }, "validity is order-relative: one governing_order_ref has one validity entry")
   .refine((v) => {
     const office = parseInstrumentSourceAuthorityRef(v.source_authority_ref);
     const binding = parseInstrumentScopeBindingRef(v.scope_binding_ref);
