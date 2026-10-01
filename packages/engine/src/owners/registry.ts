@@ -1,7 +1,15 @@
 import {
   BoundaryIndexSchema,
+  DurableCompletionEnvelopeSchema,
   ExistenceContractSchema,
   FACET_EXISTENCE_CONTRACT,
+  FACET_PRODUCTION_STATE,
+  FACET_WORLD_FALLBACK_ENTITY,
+  FallbackPhysicalEntitySchema,
+  OWNER_PRODUCTION,
+  ProductionClaimSchema,
+  ProductionOperationSchema,
+  ProductionReserveSchema,
   CohortFactSchema,
   FACET_PLAYER_CHARACTER_BINDING,
   FACET_POPULATION_STATE,
@@ -82,6 +90,11 @@ export const WS015_SOURCE = {
   native_pin: "2026-09-20T15:53:58.732Z",
 } as const;
 
+export const WS003_SOURCE = {
+  artifact: "https://app.notion.com/p/3e020af901e0819aab34ebd5412b6338",
+  native_pin: "2026-09-25T13:44:44.982Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -104,10 +117,19 @@ export const POPULATION_FACT_KIND_IDS = [
   "population_close",
   "population_cohort",
 ] as const;
+export const PRODUCTION_FACT_KIND_IDS = [
+  "production_reserve",
+  "production_claim",
+  "production_operation",
+  "production_completion",
+] as const;
+export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
-  | (typeof POPULATION_FACT_KIND_IDS)[number];
+  | (typeof POPULATION_FACT_KIND_IDS)[number]
+  | (typeof PRODUCTION_FACT_KIND_IDS)[number]
+  | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number];
 
 /**
  * SEALED: create-only canon; overwriting needs an owner-defined amendment mechanism that does not
@@ -335,11 +357,114 @@ export const POPULATION_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
-/** Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds and the IM-04 Population kinds. */
+const F016_LINEAGE =
+  "F-016 Integrated Review Candidate v0.4 manifest, pin 2026-09-25T13:48:12.575Z (https://app.notion.com/p/3e620af901e0812bb807d234d88fadb6): conformed Production durable-completion and World-State fallback-custodian guards";
+
+/**
+ * One governing rule for every Production kind: a start group and a completion group publish several
+ * Production facts atomically under one rule, so every version of every Production fact records the same
+ * citation. WS-003's "Completed durable output / physical-state handoff" is the F-016-conformed clause.
+ */
+export const PRODUCTION_RULE: SourceRef = rule(
+  WS003_SOURCE,
+  "§2 Authoritative Scope incl. Completed durable output / physical-state handoff (F-016 ratified conformance); §3 Representation Tiers (Tier A embedded, Tier C active marginal resolution object, Tier D exact reserve account); §4 Capability-Access-Reserve-Source Contract; §8 Labor and Specialist Interface (Tier A embedded labor, no marginal labor claim); §9 Shared Constraints and Concurrent Load incl. Scarcity Allocation (no invented priority); §13A Production Request; §14 Consequential Production Resolution Procedure; §15 Validation Checklist; §16 Selected Turnless Temporal Adapter; §19 Interface & Scaling Declaration",
+  [F016_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * The World-State fallback objective physical-entity custodian (IM-03): WG "Ownership Guards — F-016 Ratified
+ * Fallback Objective Physical-Entity Custody" — "after accepted completion of a loose durable with no more-
+ * specific physical custodian — its physical identity, conserved quantity where applicable and physical
+ * condition". It is World-State's fact, never Production's, never a generic Asset or Inventory.
+ */
+export const WORLD_FALLBACK_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: F-016 Ratified Fallback Objective Physical-Entity Custody (accepted completion of a loose durable with no more-specific physical custodian: physical identity, conserved quantity, physical condition); with WS-003 §2 Completed durable output / physical-state handoff and F-017 §5.7 / CG-2 Durable completion/acceptance",
+  [F016_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const productionKind = (
+  id: (typeof PRODUCTION_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_PRODUCTION,
+  facet: FACET_PRODUCTION_STATE,
+  im: "IM-05",
+  rc,
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: PRODUCTION_RULE,
+});
+
+/**
+ * IM-05 Resource / Production / Logistics Adapter — the PRODUCTION part only: "durable completion/acceptance,
+ * timed work, Resource condition". WS-003 §2 assigns production-side Reserve identity/quantity/condition,
+ * transformation/work state, realized output in production and temporary resolution state to Production;
+ * §9/§19 assign open claim references on Production-owned shared constraints to it; §2 (F-016 conformed)
+ * assigns the Durable Completion Envelope to it. One owner, one facet. There is no fallback owner, and no
+ * Logistics, Source, Economy or labor kind exists.
+ */
+export const PRODUCTION_FACT_KINDS: readonly FactKind[] = [
+  productionKind(
+    "production_reserve",
+    ["RC-02", "RC-07"],
+    "ADVANCING",
+    new RegExp(`^production/reserve/${ID}$`),
+    ProductionReserveSchema,
+  ),
+  productionKind(
+    "production_claim",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^production/claim/${ID}$`),
+    ProductionClaimSchema,
+  ),
+  productionKind(
+    "production_operation",
+    ["RC-02", "RC-07", "RC-10"],
+    "ADVANCING",
+    new RegExp(`^production/operation/${ID}$`),
+    ProductionOperationSchema,
+  ),
+  productionKind(
+    "production_completion",
+    ["RC-02", "RC-07"],
+    "SEALED",
+    new RegExp(`^production/completion/${ID}$`),
+    DurableCompletionEnvelopeSchema,
+  ),
+];
+
+/** SEALED: after acceptance no amendment mechanism exists, so the entity is create-only (exactly once). */
+export const WORLD_FALLBACK_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_fallback_entity",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/entity/${ID}$`),
+    valueSchema: FallbackPhysicalEntitySchema,
+    rule: WORLD_FALLBACK_RULE,
+  },
+];
+
+/**
+ * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
+ * IM-05 Production kinds and the World-State fallback physical-entity kind.
+ */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
   ...TEMPORAL_FACT_KINDS,
   ...POPULATION_FACT_KINDS,
+  ...PRODUCTION_FACT_KINDS,
+  ...WORLD_FALLBACK_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

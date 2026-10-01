@@ -59,6 +59,8 @@ export const CommitErrorCodes = [
   "REFERENCE_INVALID",
   /** overwriting sealed canon needs an owner-defined amendment mechanism that is not implemented */
   "AMENDMENT_NOT_SUPPORTED",
+  /** RC-06: a claim the conserved quantity does not support receives no credit; nothing is recorded */
+  "CLAIM_INCOMPATIBLE",
 ] as const;
 export type CommitErrorCode = (typeof CommitErrorCodes)[number];
 
