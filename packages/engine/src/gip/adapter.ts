@@ -1,17 +1,20 @@
 import {
   CANON_WRITE_AUTHORITY,
   InstitutionIdentitySchema,
+  OfficeAuthorityLocusSchema,
   PublicationSchema,
   fail,
   gipInstitutionIdentityKey,
+  gipOfficeAuthorityLocusKey,
   type CommitGroup,
   type InstitutionIdentity,
+  type OfficeAuthorityLocus,
   type OwnerFact,
   type Publication,
   type Result,
   type SchemaIssues,
 } from "@immortalis/contracts";
-import { factKind } from "../owners/registry.ts";
+import { factKind, type FactKindId } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 
 export type GipErrorCode = StoreCommitErrorCode | "INPUT_INVALID";
@@ -41,22 +44,52 @@ export function readInstitutionIdentity(
   return value.success ? { fact, value: value.data } : undefined;
 }
 
+/** A committed Office / Authority Locus read by exact key: the fact (with its provenance) and its typed value. */
+export interface TypedOfficeAuthorityLocus {
+  readonly fact: OwnerFact;
+  readonly value: OfficeAuthorityLocus;
+}
+
+/**
+ * The read path any lawful consumer uses: one committed Office / Authority Locus, by its exact canonical `institution_id`
+ * and `office_id` (GIP Scaling Profile v1.1 §5: retrieval is keyed by the current governance question, never a scan of
+ * institutions or offices). It takes only the read side of a store, so reading grants no write authority, and it returns
+ * undefined for an office that is not established — nothing is created, inferred or defaulted by a read. It reports what the
+ * office record says (authority at the office, `holder_ref` a bare reference); it infers no exercise, reach or knowledge.
+ */
+export function readOfficeAuthorityLocus(
+  store: Pick<CampaignStore, "getFact">,
+  institutionId: string,
+  officeId: string,
+): TypedOfficeAuthorityLocus | undefined {
+  const fact = store.getFact(gipOfficeAuthorityLocusKey(institutionId, officeId));
+  if (!fact) return undefined;
+  const value = OfficeAuthorityLocusSchema.safeParse(fact.value);
+  return value.success ? { fact, value: value.data } : undefined;
+}
+
 /**
  * IM-06 GIP — the authored path of the GIP owner.
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority or a governing rule:
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
- * IM-11/IM-12/IM-17 store (one journal, one canon). There is exactly ONE authored publication: the explicit establishment
- * of one continuing institution's identity. Nothing else creates one — not a label, a population or cohort, a culture, a
- * charter text, a faction, a treaty, a settlement or any organization-like object — and there is no rename, split, merge,
- * abolition, replacement, succession, office, authority, instrument, membership or property method, no tick, scan or
+ * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly TWO authored publications: the explicit establishment
+ * of one continuing institution's identity, and the explicit establishment of one office beneath it. Nothing else creates
+ * either — not a label, a population or cohort, a culture, a charter text, a faction, a treaty, a settlement or any
+ * organization-like object — and there is no rename, split, merge, abolition, replacement, appointment, removal, succession,
+ * delegation, authority amendment, holder replacement, instrument, membership or property method, no tick, scan or
  * scheduler, and no way to write another owner's fact, so no caller can write GIP state out of order; the store's admission
  * refuses it for a raw commit as well.
+ *
+ * An office's one prerequisite is its institution's committed Institution Identity, read by exact key; the adapter pins it
+ * (read at its current version, depended on) and nothing else. Authority is persisted at the office, `holder_ref` is a bare
+ * reference, and the adapter writes no actor, Population, KTI, Epistemic, Economy or other foreign state.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
  * establishment for an already-established institution is refused by the sealed, create-only identity slot and never rewrites
- * it. Nothing is re-rolled or improved: no randomness exists here.
+ * it; a conflicting establishment for an occupied office is likewise refused and never mints a sibling authority, and no
+ * path updates an established office. Nothing is re-rolled or improved: no randomness exists here.
  */
 export class GipAdapter {
   readonly #store: CampaignStore;
@@ -87,7 +120,56 @@ export class GipAdapter {
       return fail("INPUT_INVALID", "institution identity failed validation", {
         issues: issues(institution.error),
       });
-    return this.#publish(p.data, institution.data);
+    const value = institution.data;
+    return this.#publish(
+      p.data,
+      "gip_institution_identity",
+      gipInstitutionIdentityKey(value.institution_id),
+      value,
+      [],
+      [],
+    );
+  }
+
+  /**
+   * Commits the initial establishment of one Office / Authority Locus beneath one already-committed Institution Identity,
+   * joined by the exact `institution_id`. It reads exactly that identity (by key, at its current version) and depends on
+   * the group that committed it, and writes exactly one create-only office key. Every authority, rule and reference value is
+   * the caller's authored input: nothing is defaulted, guessed from a label or derived from the identity or a holder. If the
+   * institution is not established, the reads are pinned at version zero and admission refuses the group as a missing
+   * prerequisite; nothing is created. There is no update, appointment, removal, succession, delegation or holder-change
+   * method: an established office is never rewritten.
+   */
+  async establishOffice(
+    input: Publication & { readonly office: unknown },
+  ): Promise<Result<CommitOutcome, GipErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const office = OfficeAuthorityLocusSchema.safeParse(input.office);
+    if (!office.success)
+      return fail("INPUT_INVALID", "office failed validation", { issues: issues(office.error) });
+    const value = office.data;
+    const prerequisite = this.#store.getFact(gipInstitutionIdentityKey(value.institution_id));
+    return this.#publish(
+      p.data,
+      "gip_office_authority_locus",
+      gipOfficeAuthorityLocusKey(value.institution_id, value.office_id),
+      value,
+      [
+        {
+          key: gipInstitutionIdentityKey(value.institution_id),
+          version: prerequisite?.version ?? 0,
+        },
+      ],
+      prerequisite ? [prerequisite.provenance.group_id] : [],
+    );
   }
 
   // -- typed read, by identity (none scans) ----------------------------------------------------
@@ -97,11 +179,23 @@ export class GipAdapter {
     return readInstitutionIdentity(this.#store, institutionId);
   }
 
+  /** One office of one institution, or undefined. Reading it transfers no GIP write authority. */
+  officeAuthorityLocus(
+    institutionId: string,
+    officeId: string,
+  ): TypedOfficeAuthorityLocus | undefined {
+    return readOfficeAuthorityLocus(this.#store, institutionId, officeId);
+  }
+
   async #publish(
     p: Publication,
-    value: InstitutionIdentity,
+    kindId: FactKindId,
+    key: string,
+    value: InstitutionIdentity | OfficeAuthorityLocus,
+    reads: CommitGroup["reads"],
+    depends_on: readonly string[],
   ): Promise<Result<CommitOutcome, GipErrorCode>> {
-    const kind = factKind("gip_institution_identity");
+    const kind = factKind(kindId);
     const group: CommitGroup = {
       campaign_id: this.#store.head().campaign_id,
       group_id: p.group_id,
@@ -111,11 +205,11 @@ export class GipAdapter {
       cause: p.cause,
       rule: kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
-      reads: [],
-      depends_on: [],
+      reads,
+      depends_on: [...depends_on],
       writes: [
         {
-          key: gipInstitutionIdentityKey(value.institution_id),
+          key,
           owner: kind.owner,
           facet: kind.facet,
           value: value as CommitGroup["writes"][number]["value"],

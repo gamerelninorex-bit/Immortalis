@@ -141,7 +141,7 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
       );
   });
 
-  it("the GIP owner cannot write a foreign key space, nor an unmodelled GIP key (office, instrument, membership, faction…)", async () => {
+  it("the GIP owner cannot write a foreign key space, nor an unmodelled GIP key (instrument, membership, faction, an office's sub-state…)", async () => {
     const s = await seededGipCampaign(tempDir());
     await establishInstitution(s, 1);
     for (const key of [
@@ -160,7 +160,11 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
       "gip/institution",
       "gip/institution/i1",
       "gip/institution/i1/identity/extra",
-      "gip/institution/i1/office/o1",
+      "gip/institution/i1/office",
+      "gip/institution/i1/office/o1/holder",
+      "gip/institution/i1/office/o1/delegation",
+      "gip/institution/i1/office/o1/identity",
+      "gip/institution/i1/office/o1/extra",
       "gip/institution/i1/membership",
       "gip/institution/i1/faction",
       "gip/institution/i1/instrument/x",
@@ -203,14 +207,19 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
     expect(gipFacts(s)).toEqual([]);
   });
 
-  it("the adapter exposes one authored publication and one typed read: no setter, rename, merge, split, abolish, replace, office, membership or scan method", () => {
+  it("the adapter exposes the two authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
     const methods = Object.getOwnPropertyNames(GipAdapter.prototype)
       .filter((m) => m !== "constructor")
       .sort();
-    expect(methods).toEqual(["establishInstitution", "institutionIdentity"]);
+    expect(methods).toEqual([
+      "establishInstitution",
+      "establishOffice",
+      "institutionIdentity",
+      "officeAuthorityLocus",
+    ]);
     expect(
       methods.filter((m) =>
-        /set|update|write|rename|split|merge|abol|replace|succe|office|member|faction|instrument|authority|asset|resource|compet|tick|sweep|scan|list|all/i.test(
+        /set|update|write|rename|split|merge|abol|replace|succe|appoint|remov|deleg|member|faction|instrument|asset|resource|compet|tick|sweep|scan|list|all/i.test(
           m,
         ),
       ),
@@ -440,7 +449,7 @@ describe("the identity is sealed and create-only: no rival writable identity, no
 
   it("admission is pure and total: the group check refuses a non-identity group directly", () => {
     const g = raw({ key: "gip/institution/x/office/o1", value: {} }, 40);
-    expect(gipGroupCheck(g)?.code).toBe("VALUE_INVALID");
+    expect(gipGroupCheck(g, { facts: new Map() } as never)?.code).toBe("VALUE_INVALID");
   });
 });
 
