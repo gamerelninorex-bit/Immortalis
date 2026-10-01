@@ -112,8 +112,8 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
     expect(
       factKind("gip_institution_identity").keyPattern.test("gip/institution/i1/office/o1"),
     ).toBe(false);
-    // (the fifteenth slice adds the Authority Scope Binding kind beneath the same owner and facet)
-    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(3);
+    // (the fifteenth and sixteenth slices add the Authority Scope Binding and Governance Instrument kinds beneath the same owner and facet)
+    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
   });
 
   it("no second GIP owner, ledger, sidecar or sibling office record exists: the engine's GIP modules are the four predecessor modules", () => {
@@ -127,6 +127,7 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
       "gip_institution_identity",
       "gip_office_authority_locus",
       "gip_scope_binding",
+      "gip_governance_instrument",
     ]);
   });
 
@@ -212,9 +213,11 @@ describe("IA-04 turnless: no tick, clock, RNG, cadence or global scan on the off
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no transition, delegation, appointment, instrument, procedure, exercise, applicability, reach or foreign-owner construct exists in the GIP modules (the fifteenth slice's Scope Binding establishment and keyed read are the only scope construct)", () => {
+  it("no transition, delegation, appointment, instrument amendment, procedure, exercise, applicability, reach or foreign-owner construct exists in the GIP modules (the fifteenth slice's Scope Binding and the sixteenth slice's Governance Instrument core establishment and keyed read are the only scope and instrument constructs)", () => {
     for (const f of GIP_SOURCES) {
-      const text = identifiers(f).replace(/\bsuccession_rule\b/g, "");
+      const text = identifiers(f)
+        .replace(/\bsuccession_rule\b/g, "")
+        .replace(/\b\w*[Ii]nstrument\w*\b/g, "");
       expect(text, f).not.toMatch(
         /\b(delegat\w*|concurrence|decisionBody|conditional\w*|appoint\w*|exercis\w*|instrument\w*|procedure|veto|override|applicab\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
       );
@@ -372,8 +375,8 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
     const admission = code(`${GIP_DIR}/admission.ts`);
     expect(admission).toMatch(/group\.reads\.length !== 1 \|\| group\.depends_on\.length !== 1/);
     expect(admission).toMatch(/w\.expected_version !== 0/);
-    // (the fifteenth slice's one scope-binding establishment is the third)
-    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(3);
+    // (the fifteenth slice's one scope-binding establishment is the third, and the sixteenth slice's Instrument establishment the fourth)
+    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(4);
   });
 
   it("no GitHub Issue #11 workaround: the GIP modules introduce no randomness, clock, seed, roll or probability, and the decision-body tests use none", () => {

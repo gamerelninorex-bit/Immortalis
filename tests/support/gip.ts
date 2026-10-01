@@ -6,6 +6,7 @@ import {
   type FileCampaignOptions,
 } from "@immortalis/engine";
 import type {
+  GovernanceInstrument,
   InstitutionIdentity,
   OfficeAuthorityLocusDecisionBody,
   OfficeAuthorityLocusHolder,
@@ -25,6 +26,7 @@ import {
   ktiObject,
   ktiPublication,
   decisionBodyOfficeAuthorityLocus,
+  governanceInstrument,
   ledgerInput,
   officeAuthorityLocus,
   popPublication,
@@ -133,6 +135,27 @@ export async function establishScopeBinding(
   const binding = scopeBinding(institutionId, officeId, scopeBindingId, over);
   await must(s.gip.establishScopeBinding({ ...gipPublication(n), scope_binding: binding }));
   return binding;
+}
+
+/** Commits the one authored initial establishment of a Governance Instrument beneath an office and one of its scope bindings. */
+export async function establishGovernanceInstrument(
+  s: Pick<GipSeeded, "gip">,
+  n: number,
+  instrumentId?: string,
+  institutionId?: string,
+  officeId?: string,
+  scopeBindingId?: string,
+  over: Partial<GovernanceInstrument> = {},
+): Promise<GovernanceInstrument> {
+  const instrument = governanceInstrument(
+    instrumentId,
+    institutionId,
+    officeId,
+    scopeBindingId,
+    over,
+  );
+  await must(s.gip.establishGovernanceInstrument({ ...gipPublication(n), instrument }));
+  return instrument;
 }
 
 /**

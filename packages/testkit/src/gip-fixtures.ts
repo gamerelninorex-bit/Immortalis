@@ -1,4 +1,5 @@
 import type {
+  GovernanceInstrument,
   InstitutionIdentity,
   OfficeAuthorityLocusDecisionBody,
   OfficeAuthorityLocusHolder,
@@ -133,3 +134,48 @@ export const fullScopeBinding = (
     priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A,
     ...over,
   });
+
+export const INSTRUMENT_A = "instrument-a-1";
+export const INSTRUMENT_B = "instrument-b-1";
+export const INSTRUMENT_C = "instrument-c-1";
+export const AUTHORITY_BASIS_REF_A = "authority-basis-ref-a-1";
+export const AUTHORITY_BASIS_REF_B = "authority-basis-ref-b-1";
+export const GOVERNING_ORDER_REF_A = "governing-order-ref-a-1";
+export const GOVERNING_ORDER_REF_B = "governing-order-ref-b-1";
+export const GOVERNING_ORDER_REF_C = "governing-order-ref-c-1";
+
+/** The exact canonical address of one office, as an Instrument's `source_authority_ref` carries it. */
+export const officeRef = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+): string => `gip/institution/${institutionId}/office/${officeId}`;
+
+/** The exact canonical address of one Scope Binding, as an Instrument's `scope_binding_ref` carries it. */
+export const scopeBindingRef = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  scopeBindingId = SCOPE_BINDING_A,
+): string => `${officeRef(institutionId, officeId)}/scope-binding/${scopeBindingId}`;
+
+/**
+ * A well-formed Governance Instrument core record at the WS-007 §4.1 mandatory fields: the exact addresses of its source
+ * office and of that office's Scope Binding, an opaque authority basis, one operative effect and one authored validity entry
+ * under one opaque governing order, and an authored lifecycle status. The references name nothing in this fixture world: no
+ * authority basis, governing order, law, charter or proposal exists behind them. Nothing here is a game rule.
+ */
+export const governanceInstrument = (
+  instrumentId = INSTRUMENT_A,
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  scopeBindingId = SCOPE_BINDING_A,
+  over: Partial<GovernanceInstrument> = {},
+): GovernanceInstrument => ({
+  instrument_id: instrumentId,
+  source_authority_ref: officeRef(institutionId, officeId),
+  authority_basis_ref: AUTHORITY_BASIS_REF_A,
+  operative_effect: "obligation",
+  scope_binding_ref: scopeBindingRef(institutionId, officeId, scopeBindingId),
+  validity_by_order: [{ governing_order_ref: GOVERNING_ORDER_REF_A, validity_status: "valid" }],
+  lifecycle_status: "active",
+  ...over,
+});

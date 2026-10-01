@@ -433,9 +433,11 @@ describe("no post-establishment holder/body switch or body replacement is admitt
         .filter((m) => m !== "constructor")
         .sort(),
     ).toEqual([
+      "establishGovernanceInstrument",
       "establishInstitution",
       "establishOffice",
       "establishScopeBinding",
+      "governanceInstrument",
       "institutionIdentity",
       "officeAuthorityLocus",
       "scopeBinding",
