@@ -179,7 +179,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_PRODUCTION) return productionGroupCheck(group, state);
     // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
     if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
-    // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion.
+    // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
+    // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
       return worldEntityGroupCheck(group, state);
     return null;
@@ -208,6 +209,7 @@ export function identityMismatch(
     case "temporal_object":
       return v["object_id"] === ids[0] ? null : "object_id does not match the key";
     case "resolution_transaction":
+    case "temporal_transaction_authority":
       return v["transaction_id"] === ids[0] ? null : "transaction_id does not match the key";
     case "population_ledger":
     case "population_close":
@@ -234,6 +236,13 @@ export function identityMismatch(
       return v["entity_id"] === ids[1] && locality.world.entity_id === ids[0]
         ? null
         : "entity identity does not match the key";
+    }
+    case "world_entity_transition": {
+      const locus = v["locus"] as { from: { world: { entity_id: string } } };
+      const entity = v["entity"] as { entity_id: string };
+      return entity.entity_id === ids[1] && locus.from.world.entity_id === ids[0]
+        ? null
+        : "transition identity does not match the key";
     }
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };

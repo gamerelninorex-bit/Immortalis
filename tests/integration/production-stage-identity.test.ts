@@ -24,11 +24,14 @@ import {
   worldProfileKey,
   type CommitGroup,
   type OwnerFact,
+  type StageKey,
 } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
+  StageProviderRegistry,
   TemporalCoordinator,
   deriveAcceptedEntity,
+  productionCompletionProvider,
   deriveCompletion,
   factKind,
   stageGroupId,
@@ -344,6 +347,53 @@ function exactAcceptanceOfFuture(): CommitGroup {
     ],
   };
 }
+
+describe("a raw stage that COPIES the derived stage identity and names an arbitrary transaction is refused: no durable transaction authority (Blue review of PR #8)", () => {
+  const forged = (stage: StageKey): Ids => ({
+    group: stageGroupId(stage),
+    intent: stageIntentId(stage),
+    cause: "transaction:forged",
+  });
+
+  it("the exact derived completion with the right StageKey-derived group and intent ids and a forged transaction cause is refused, before and at the boundary, and consumes nothing", async () => {
+    const s = await seededProductionCampaign(tempDir());
+    await startAndRegister(s, REQ_1, 1);
+    const before = prodSummary(s.campaign, s.coordinator);
+    const r = await s.campaign.store.commit(
+      exactCompletion(s.campaign.store, forged(completionStage)),
+    );
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(!r.ok && r.error.message).toMatch(/durable authority of its open transaction/);
+    expect(prodSummary(s.campaign, s.coordinator)).toEqual(before);
+    expect(s.production.availability(REQ_1).state).toBe("NOT_COMPLETED");
+    expect(s.campaign.verify()).toEqual([]);
+    // the honest transaction is unaffected and completes exactly once
+    await must(s.coordinator.advance(prodAdvanceRequest("tx-complete", PROD_T1)));
+    expect(s.production.reserve(RESERVE_MAIN)!.value.consumed).toHaveLength(1);
+    expect(s.production.availability(REQ_1).state).toBe("ACCEPTED_AVAILABLE");
+  });
+
+  it("a raw acceptance of a genuinely committed, still-unaccepted completion that copies the identity and forges the cause is refused", async () => {
+    const s = await seededProductionCampaign(tempDir());
+    await startAndRegister(s, REQ_1, 1);
+    // the completion commits, the acceptance does not (the custodian is absent): completed-but-unaccepted
+    const withoutCustodian = new TemporalCoordinator(
+      s.campaign.store,
+      new StageProviderRegistry([productionCompletionProvider]),
+    );
+    await must(withoutCustodian.advance(prodAdvanceRequest("tx-1", PROD_T1)));
+    expect(s.production.availability(REQ_1).state).toBe("COMPLETED_PENDING_ACCEPTANCE");
+    const r = await s.campaign.store.commit(
+      exactAcceptance(s.campaign.store, forged(acceptanceStage)),
+    );
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(!r.ok && r.error.message).toMatch(
+      /durable authority of its open transaction|depends on the durable authority/,
+    );
+    expect(s.production.availability(REQ_1).state).toBe("COMPLETED_PENDING_ACCEPTANCE");
+    expect(s.campaign.verify()).toEqual([]);
+  });
+});
 
 describe("a genuinely interrupted IM-02 transaction stays recoverable, without duplicates", () => {
   const reference = async () => {

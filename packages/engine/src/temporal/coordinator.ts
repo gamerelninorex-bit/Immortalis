@@ -8,6 +8,7 @@ import {
   TemporalObjectSchema,
   TemporalStateSchema,
   PublicationSchema,
+  temporalTransactionAuthorityKey,
   compareTime,
   fail,
   ok,
@@ -36,6 +37,7 @@ import {
   type TemporalObject,
   type TemporalRead,
   type TemporalState,
+  type TransactionAuthority,
   type UnresolvedDependent,
   type UnresolvedReason,
 } from "@immortalis/contracts";
@@ -48,6 +50,8 @@ import {
   stageGroupId,
   stageId,
   stageIntentId,
+  transactionAuthorityGroupId,
+  transactionAuthorityIntentId,
   transactionCause,
   transactionGroupId,
   transactionIntentId,
@@ -413,6 +417,7 @@ export class TemporalCoordinator {
       recomputed: [],
       adopted: [],
       rejections: [],
+      authority: { current: undefined },
     };
 
     let stop: CanonicalTime | undefined;
@@ -702,7 +707,11 @@ export class TemporalCoordinator {
       const s = this.#stage(ctx, node, tb);
       if (s.kind === "mismatch") return { ok: false, error: s.error };
       if (s.kind === "unresolved") return ok(s.reason);
-      staged = s.staged;
+      // F-014B §6 step 1: the transaction is opened durably BEFORE its first owner stage commits, and the stage
+      // depends on that authority (the group that committed it).
+      const authorized = await this.#authorize(ctx, s.staged);
+      if (!authorized.ok) return authorized;
+      staged = authorized.value;
       await ctx.options.afterStaged?.(node.stage);
       if (!this.#stale(staged)) break;
       ctx.recomputed.push(node.stage);
@@ -843,20 +852,40 @@ export class TemporalCoordinator {
     };
   }
 
-  /** Rebuilds a committed stage's evidence from the journal (IM-12 cold-history lookup). */
+  /**
+   * Rebuilds a committed stage's evidence from the journal (IM-12 cold-history lookup). A committed stage is adopted
+   * by identity — whether it was committed by an earlier attempt of THIS transaction or by an earlier transaction
+   * that stopped with it — but only if it was genuinely authorized: it depends, last, on the durable authority of a
+   * transaction the kernel opened before it. Owner admission already required that when the stage committed.
+   */
   #adopt(node: Node, receipt: CommitReceipt): Result<StageRecord, TemporalErrorCode> {
     const group = this.#store.committedGroup(receipt.intent_id);
     const decl = node.declaration.reads;
+    // declared reads in declared order; dependencies in declared order, then the stage's transaction authority
     if (
       !group ||
       group.group_id !== stageGroupId(node.stage) ||
       group.reads.length !== decl.length ||
-      group.depends_on.length !== decl.length ||
-      group.reads.some((r, i) => r.key !== decl[i]!.source.fact_key)
+      group.depends_on.length !== decl.length + 1 ||
+      decl.some((d, i) => group.reads[i]!.key !== d.source.fact_key)
     ) {
       return failure("OBJECT_INVALID", "a committed stage does not match its declaration", {
         stage: node.stage,
       });
+    }
+    const authGroup = group.depends_on[decl.length]!;
+    const prefix = "transaction-authority-group:";
+    const authFact = authGroup.startsWith(prefix)
+      ? this.#store.getFact(temporalTransactionAuthorityKey(authGroup.slice(prefix.length)))
+      : undefined;
+    if (!authFact || authFact.provenance.group_id !== authGroup) {
+      return failure(
+        "OBJECT_INVALID",
+        "a committed stage was not authorized by an opened transaction",
+        {
+          stage: node.stage,
+        },
+      );
     }
     const reads = decl.map(
       (d, i) =>
@@ -866,6 +895,76 @@ export class TemporalCoordinator {
         }) as TemporalRead,
     );
     return ok(this.#record(node.stage, group, reads, receipt));
+  }
+
+  /** What this request opens: exactly the RC-05 opening fields the kernel already owns. */
+  #authorityValue(ctx: Run): TransactionAuthority {
+    const { req, stateTyped, t0 } = ctx;
+    return {
+      transaction_id: req.transaction_id,
+      cause: req.cause,
+      trigger: req.trigger,
+      continues: req.continues,
+      opening: { basis_time: t0, state_version: stateTyped.fact.version },
+      requested: req.requested,
+      context: req.context,
+      publication: req.publication,
+    };
+  }
+
+  /**
+   * Opens the transaction durably (once per call, by identity): one sealed kernel fact, committed through the same
+   * store and so idempotent and recoverable like every other group. Re-presenting the same request after a crash
+   * reaches the existing receipt; the same identity under a different request is a conflict, never a second opening.
+   */
+  async #openAuthority(ctx: Run): Promise<Result<OwnerFact, TemporalErrorCode>> {
+    if (ctx.authority.current) return ok(ctx.authority.current);
+    const { req, stateTyped } = ctx;
+    const id = req.transaction_id;
+    const key = temporalTransactionAuthorityKey(id);
+    const group = this.#kernelGroup(
+      {
+        group_id: transactionAuthorityGroupId(id),
+        intent_id: transactionAuthorityIntentId(id),
+        cause: transactionCause(id),
+        basis: req.publication.basis,
+        secrecy: req.publication.secrecy,
+      },
+      [{ key, value: this.#authorityValue(ctx), expected_version: 0 }],
+      {
+        reads: [{ key: TEMPORAL_STATE_KEY, version: stateTyped.fact.version }],
+        depends_on: [stateTyped.fact.provenance.group_id],
+      },
+    );
+    const committed = await this.#store.commit(group);
+    if (!committed.ok) {
+      if (isStoreFatal(committed.error.code)) return committed;
+      return failure(
+        "TRANSACTION_CONFLICT",
+        "this transaction identity was opened under a different request",
+        { transaction_id: id, code: committed.error.code },
+      );
+    }
+    const fact = this.#store.getFact(key)!;
+    ctx.authority.current = fact;
+    return ok(fact);
+  }
+
+  /**
+   * Attaches the transaction's durable authority to a staged group as its last group dependency (the group that
+   * committed it). The reads stay exactly the declared reads: owners stamp and re-derive from those.
+   */
+  async #authorize(ctx: Run, staged: Staged): Promise<Result<Staged, TemporalErrorCode>> {
+    const opened = await this.#openAuthority(ctx);
+    if (!opened.ok) return opened;
+    const auth = opened.value;
+    return ok({
+      ...staged,
+      group: {
+        ...staged.group,
+        depends_on: [...staged.group.depends_on, auth.provenance.group_id],
+      },
+    });
   }
 
   // -- commit of the transaction ----------------------------------------------------------------
@@ -1026,6 +1125,15 @@ export class TemporalCoordinator {
         expected_version: indexFact.version,
       });
     }
+    // The sealed record pins the transaction's own durable authority (F-014B §6 step 1; RC-05). Normally it was opened
+    // before its first owner stage; a transaction that only adopts stages an earlier transaction committed opens it
+    // here, so every transaction that cites stages is itself genuinely opened and sealed against what it opened.
+    let auth: OwnerFact | undefined;
+    if (ctx.stages.length > 0) {
+      const opened = await this.#openAuthority(ctx);
+      if (!opened.ok) return opened;
+      auth = opened.value;
+    }
     const group = this.#kernelGroup(
       {
         group_id: transactionGroupId(req.transaction_id),
@@ -1036,8 +1144,15 @@ export class TemporalCoordinator {
       },
       writes,
       {
-        reads: [{ key: TEMPORAL_STATE_KEY, version: stateTyped.fact.version }],
-        depends_on: [stateTyped.fact.provenance.group_id, ...ctx.stages.map((s) => s.group_id)],
+        reads: [
+          { key: TEMPORAL_STATE_KEY, version: stateTyped.fact.version },
+          ...(auth ? [{ key: auth.key, version: auth.version }] : []),
+        ],
+        depends_on: [
+          stateTyped.fact.provenance.group_id,
+          ...(auth ? [auth.provenance.group_id] : []),
+          ...ctx.stages.map((s) => s.group_id),
+        ],
       },
     );
     const committed = await this.#store.commit(group);
@@ -1168,6 +1283,8 @@ interface Run {
   readonly recomputed: StageKey[];
   readonly adopted: StageKey[];
   readonly rejections: { stage: StageKey; code: string }[];
+  /** the transaction's durable authority, once opened (or found already opened) */
+  readonly authority: { current: OwnerFact | undefined };
 }
 
 const kernelRule = (): SourceRef => factKind("temporal_state").rule;

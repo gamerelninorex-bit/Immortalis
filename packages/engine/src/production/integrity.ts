@@ -21,7 +21,7 @@ import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { deriveAcceptedEntity } from "../world/fallback-custody.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { productionObjectViolation, stageIdentityViolation } from "./admission.ts";
+import { journaledStageViolation, productionObjectViolation } from "./admission.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Production state still
@@ -198,9 +198,12 @@ export function verifyProductionIntegrity(store: CampaignStore): readonly Integr
         completionFact.key,
         "the operation, claim and envelope were not published atomically in one group",
       );
-    const completionIdentity = stageIdentityViolation(
-      completionFact.provenance,
+    const completionIdentity = journaledStageViolation(
+      store,
+      byKey,
+      completionFact,
       envelope.close_stage,
+      op.timing.completion.at,
     );
     if (completionIdentity) bad(completionFact.key, completionIdentity);
     if (!cited(completionFact.provenance.group_id) && !unretired)
@@ -217,9 +220,12 @@ export function verifyProductionIntegrity(store: CampaignStore): readonly Integr
         entityFact.version !== 1
       )
         bad(entityFact.key, "an accepted entity is exactly the completed durable, accepted once");
-      const acceptanceIdentity = stageIdentityViolation(
-        entityFact.provenance,
+      const acceptanceIdentity = journaledStageViolation(
+        store,
+        byKey,
+        entityFact,
         worldAcceptanceStage(op.operation_id),
+        op.timing.completion.at,
       );
       if (acceptanceIdentity) bad(entityFact.key, acceptanceIdentity);
       if (entity && !cited(entityFact.provenance.group_id) && !unretired)

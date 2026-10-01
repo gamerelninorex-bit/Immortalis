@@ -57,7 +57,12 @@ function tamperStore(
     close: () => inner.close(),
     commit: (g) => {
       const group = g as CommitGroup;
-      if (group.owner !== "temporal_kernel") return inner.commit(g);
+      // the transaction's opening authority is its own earlier kernel commit: only the transaction group is tampered
+      if (
+        group.owner !== "temporal_kernel" ||
+        group.group_id.startsWith("transaction-authority-group:")
+      )
+        return inner.commit(g);
       n += 1;
       return inner.commit(mutate(group));
     },

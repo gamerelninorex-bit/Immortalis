@@ -5,7 +5,9 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
   temporalObjectKey,
+  temporalTransactionAuthorityKey,
   temporalTransactionKey,
   compareTime,
   timeAtOrBefore,
@@ -24,6 +26,8 @@ import type { IntegrityViolation } from "../world/integrity.ts";
 import {
   stageGroupId,
   stageIntentId,
+  transactionAuthorityGroupId,
+  transactionAuthorityIntentId,
   transactionGroupId,
   transactionIntentId,
 } from "./identity.ts";
@@ -66,7 +70,8 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       id === "temporal_state" ||
       id === "temporal_boundary_index" ||
       id === "temporal_object" ||
-      id === "resolution_transaction"
+      id === "resolution_transaction" ||
+      id === "temporal_transaction_authority"
     );
   });
   if (facts.length === 0) return out;
@@ -84,6 +89,13 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
   if (!state) return out;
   const revisionOf = (f: OwnerFact): number =>
     store.lookupReceipt(f.provenance.intent_id)?.revision ?? -1;
+
+  // the durable authorities, by the group that committed each (a stage depends on that group)
+  const authorities = new Map(
+    facts
+      .filter((f) => resolveKey(f.key)?.kind.id === "temporal_transaction_authority")
+      .map((f) => [f.provenance.group_id, f] as const),
+  );
 
   // transactions, in committed order
   const txFacts = facts
@@ -179,6 +191,32 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       );
     }
     const txRevision = revisionOf(fact);
+    // The transaction was genuinely opened before its owner stages (F-014B §6 step 1; RC-05): its durable authority
+    // exists, repeats exactly what it opened and was committed before its first stage.
+    const authKey = temporalTransactionAuthorityKey(tx.transaction_id);
+    const authFact = facts.find((f) => f.key === authKey);
+    const auth = authFact && parsed(TransactionAuthoritySchema, authFact);
+    if (tx.stages.length > 0) {
+      if (
+        !authFact ||
+        !auth ||
+        auth.transaction_id !== tx.transaction_id ||
+        auth.cause !== tx.cause ||
+        auth.continues !== tx.continues ||
+        !canonicalEqual(auth.trigger, tx.trigger) ||
+        !canonicalEqual(auth.opening, tx.opening) ||
+        !canonicalEqual(auth.requested, tx.requested) ||
+        !canonicalEqual(auth.context, tx.context) ||
+        auth.publication.basis !== fact.basis ||
+        auth.publication.secrecy !== fact.secrecy
+      ) {
+        bad(
+          key,
+          "TEMPORAL_EVIDENCE",
+          "a transaction with owner stages has the durable authority it opened",
+        );
+      }
+    }
     for (const s of tx.stages) {
       const receipt = store.lookupReceipt(s.intent_id);
       const group = store.committedGroup(s.intent_id);
@@ -200,9 +238,11 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       }
       if (receipt.revision >= txRevision)
         stageBad("a stage was committed after the transaction that cites it");
+      // the journaled group: the declared reads and their dependencies in declared order, then a dependency on the
+      // group that committed the durable authority of the transaction that authorized the stage
       if (
         group.reads.length !== s.reads.length ||
-        group.depends_on.length !== s.reads.length ||
+        group.depends_on.length !== s.reads.length + 1 ||
         s.reads.some(
           (r, j) =>
             r.source.fact_key !== group.reads[j]!.key ||
@@ -211,6 +251,13 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
         )
       ) {
         stageBad("the realized reads differ from the journaled group");
+      } else {
+        const stageAuth = authorities.get(group.depends_on[s.reads.length]!);
+        if (!stageAuth) {
+          stageBad("a stage did not depend on the durable authority of an opened transaction");
+        } else if (revisionOf(stageAuth) >= receipt.revision) {
+          stageBad("a stage was committed before its transaction was opened");
+        }
       }
       if (
         s.writes.length !== group.writes.length ||
@@ -279,6 +326,25 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       if (untrue) bad(key, "TEMPORAL_EVIDENCE", `${untrue}: ${e.object_id}`);
     }
   });
+
+  // Every durable authority is the kernel's own opening: committed under the identity derived from its transaction,
+  // at a state that existed. An authority with no sealed transaction is an interrupted opening awaiting its
+  // transaction's re-presentation (the crash window); it authorizes nothing by itself.
+  for (const f of facts.filter(
+    (x) => resolveKey(x.key)?.kind.id === "temporal_transaction_authority",
+  )) {
+    const a = parsed(TransactionAuthoritySchema, f);
+    if (!a) continue;
+    if (
+      f.provenance.group_id !== transactionAuthorityGroupId(a.transaction_id) ||
+      f.provenance.intent_id !== transactionAuthorityIntentId(a.transaction_id)
+    ) {
+      bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was not opened under its derived identity");
+    }
+    if (a.opening.state_version > stateFact.version) {
+      bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was opened at a state that never existed");
+    }
+  }
 
   // objects and the active boundary index agree, both directions, in the state's unit
   const objects = facts

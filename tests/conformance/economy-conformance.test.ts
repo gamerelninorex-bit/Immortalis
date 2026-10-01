@@ -210,12 +210,12 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     ]);
   });
 
-  it("realized access is published only as its IM-02 stage: admission and load verification apply the one existing stageIdentityViolation rule", () => {
+  it("realized access is published only as its IM-02 stage: admission and load verification apply the one existing stage rule (identity and the durable transaction authority)", () => {
     expect(code("packages/engine/src/economy/admission.ts")).toMatch(
-      /stageIdentityViolation\(group, economyRealizationStage\(/,
+      /stageAuthorityViolation\(\s*group,\s*economyRealizationStage\(/,
     );
     expect(code("packages/engine/src/economy/integrity.ts")).toMatch(
-      /stageIdentityViolation\(\s*zf\.provenance,\s*economyRealizationStage/,
+      /journaledStageViolation\(\s*store,\s*byKey,\s*zf,\s*economyRealizationStage/,
     );
     expect(code("packages/engine/src/economy/admission.ts")).not.toMatch(
       /node:fs|setTimeout|Date\.now|new Date|Math\.random/,

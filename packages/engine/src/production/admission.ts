@@ -10,6 +10,7 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
   WORLD_OPERATION_ACCEPT_FALLBACK,
   WorldLocusSchema,
   compareTime,
@@ -21,9 +22,14 @@ import {
   productionOutputReference,
   productionReserveKey,
   temporalObjectKey,
+  temporalTransactionAuthorityKey,
+  temporalTransactionKey,
+  timeAtOrBefore,
   worldLocusKey,
   worldProfileKey,
+  type CanonicalTime,
   type CommitGroup,
+  type OwnerFact,
   type StageKey,
   type TemporalObject,
 } from "@immortalis/contracts";
@@ -32,6 +38,7 @@ import { canonicalEqual } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "../temporal/identity.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
+import type { CampaignStore } from "../persistence/store.ts";
 import { productionTemporalObject } from "./declaration.ts";
 import { deriveCompletion } from "./derive.ts";
 
@@ -317,6 +324,79 @@ export function stageIdentityViolation(
   return null;
 }
 
+/**
+ * The durable pre-stage transaction authority of an IM-02 owner stage (F-014B §2, §6 step 1; RC-05). Identity alone
+ * proves only that a group carries the identifiers derived from its StageKey; any caller can compute those and name an
+ * arbitrary `transaction:<id>`. A stage is lawful only for a transaction the kernel genuinely OPENED before it: the
+ * coordinator commits the transaction's authority (a sealed kernel fact holding the RC-05 opening) before its first
+ * owner stage, and every stage pins and depends on it. This is the one statement of that rule for every IM-02 owner
+ * stage (Production's completion, the custodian's acceptance, Economy's realized access and the entity transition),
+ * so raw admission and load-time verification cannot drift.
+ *
+ * Checked, from committed state alone:
+ *  - the stage identity (`stageIdentityViolation`);
+ *  - the authority named by the cause exists, is that transaction's own and is depended upon by the stage group
+ *    (the group that committed it);
+ *  - at ADMISSION the transaction is still open (not yet committed): a committed transaction authorizes no new stage;
+ *  - the stage lies within what the transaction requested (its target, when it has one).
+ *
+ * The legitimate crash window is preserved: a genuine stage commits before the kernel group, with its authority
+ * already durable, so a stage of an interrupted transaction verifies and is adopted when the same transaction is
+ * re-presented. Returns a message, or null.
+ */
+export function stageAuthorityViolation(
+  group: {
+    readonly group_id: string;
+    readonly intent_id: string;
+    readonly cause: string;
+    readonly depends_on: readonly string[];
+  },
+  stage: StageKey,
+  facts: ReadonlyMap<string, OwnerFact>,
+  at: CanonicalTime,
+  phase: "ADMISSION" | "VERIFICATION",
+): string | null {
+  const identity = stageIdentityViolation(group, stage);
+  if (identity) return identity;
+  const id = group.cause.slice("transaction:".length);
+  const key = temporalTransactionAuthorityKey(id);
+  const fact = facts.get(key);
+  const authority = fact ? TransactionAuthoritySchema.safeParse(fact.value) : undefined;
+  if (!fact || !authority?.success || authority.data.transaction_id !== id) {
+    return "an owner stage commits only under the durable authority of its open transaction: the kernel opens the transaction before its first stage";
+  }
+  // The stage depends on the group that committed the authority (a durable group dependency, RC-07). The reads of a
+  // stage group stay exactly the declared reads its owner stamps and re-derives from.
+  if (!group.depends_on.includes(fact.provenance.group_id)) {
+    return "an owner stage depends on the durable authority of its transaction";
+  }
+  if (phase === "ADMISSION" && facts.has(temporalTransactionKey(id))) {
+    return "a committed transaction authorizes no further owner stage";
+  }
+  const target = authority.data.requested.target;
+  if (target !== null && !timeAtOrBefore(at, target)) {
+    return "an owner stage lies within what its transaction requested";
+  }
+  return null;
+}
+
+/** The load-time form of `stageAuthorityViolation`: reads the stage's journaled group (IM-12), the one durable evidence. */
+export function journaledStageViolation(
+  store: Pick<CampaignStore, "committedGroup">,
+  facts: ReadonlyMap<string, OwnerFact>,
+  fact: OwnerFact,
+  stage: StageKey,
+  at: CanonicalTime,
+): string | null {
+  // the fact's own provenance (what the commit recorded) and the journaled group (the durable evidence) must both be
+  // the stage: the first catches drift of the committed state, the second the authority the stage ran under
+  const identity = stageIdentityViolation(fact.provenance, stage);
+  if (identity) return identity;
+  const group = store.committedGroup(fact.provenance.intent_id);
+  if (!group) return "an owner stage has its journaled group";
+  return stageAuthorityViolation(group, stage, facts, at, "VERIFICATION");
+}
+
 function checkCompletion(
   group: CommitGroup,
   state: CampaignState,
@@ -361,7 +441,13 @@ function checkCompletion(
   }
   // published only as the IM-02 stage it is: a raw publication of the identical group, under any other
   // identity, is not a completion (canonical time before the boundary is lawful ONLY for such a stage)
-  const identity = stageIdentityViolation(group, d.envelope.close_stage);
+  const identity = stageAuthorityViolation(
+    group,
+    d.envelope.close_stage,
+    state.facts,
+    op.timing.completion.at,
+    "ADMISSION",
+  );
   if (identity) return reject("REFERENCE_INVALID", identity, { key: completionW.key });
   // it completes only at its engaged, unretired, declared boundary (the object is the engagement)
   const obj = state.facts.get(temporalObjectKey(productionObjectId(op.operation_id)));

@@ -34,7 +34,9 @@ export interface IntegrityViolation {
     /** IM-05 Production state and the World-State fallback entity: see verifyProductionIntegrity */
     | "PRODUCTION_STATE"
     /** IM-06 Economy state: see verifyEconomyIntegrity */
-    | "ECONOMY_STATE";
+    | "ECONOMY_STATE"
+    /** World-State entity transitions (ECT-01): see verifyEntityTransitionIntegrity */
+    | "ENTITY_TRANSITION_STATE";
   readonly message: string;
 }
 

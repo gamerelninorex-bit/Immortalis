@@ -101,6 +101,8 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
       ["temporal_boundary_index", "temporal_kernel", "temporal_coordination", "ADVANCING"],
       ["temporal_object", "temporal_kernel", "temporal_coordination", "ADVANCING"],
       ["resolution_transaction", "temporal_kernel", "temporal_coordination", "SEALED"],
+      // the durable authority of an OPEN transaction, committed before its first owner stage (F-014B §6 step 1)
+      ["temporal_transaction_authority", "temporal_kernel", "temporal_coordination", "SEALED"],
     ]);
     expect(FACT_KINDS.map((k) => k.owner).sort()).toEqual([
       "pc_existence",
@@ -110,8 +112,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     ]);
     // the fourth slice adds the three IM-04 Population kinds (one owner, one facet); the fifth adds the four
     // IM-05 Production kinds and the one World-State fallback physical-entity kind; the sixth adds the three
-    // IM-06 Economy kinds (one owner, one facet)
-    expect(ALL_FACT_KINDS).toHaveLength(19);
+    // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
+    // (same owner and facet as the fallback entity); the transaction-authority repair adds the one IM-02 kernel kind
+    expect(ALL_FACT_KINDS).toHaveLength(21);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "pc_existence",
@@ -216,7 +219,86 @@ describe("IA-04 turnless causal ordering (foundation aspect): no turn, tick, pha
       ["transactionGroupId", "transactionId: string"],
       ["transactionIntentId", "transactionId: string"],
       ["transactionCause", "transactionId: string"],
+      ["transactionAuthorityGroupId", "transactionId: string"],
+      ["transactionAuthorityIntentId", "transactionId: string"],
     ]);
+  });
+});
+
+describe("IA-03/IA-04/IA-06 durable pre-stage transaction authority (F-014B §2, §6 step 1; RC-05): one shared boundary", () => {
+  it("the coordinator opens the transaction durably BEFORE it commits any owner stage, through the one store, and pins nothing but a group dependency", () => {
+    const text = code("packages/engine/src/temporal/coordinator.ts");
+    const authorize = text.indexOf("await this.#authorize(ctx, s.staged)");
+    const commitStage = text.indexOf("await this.#store.commit(staged.group)");
+    expect(authorize).toBeGreaterThan(-1);
+    expect(commitStage).toBeGreaterThan(authorize);
+    expect(text).toMatch(
+      /depends_on: \[\.\.\.staged\.group\.depends_on, auth\.provenance\.group_id\]/,
+    );
+    // one journal, one store: the opening is an ordinary kernel commit group
+    expect(text).toMatch(/this\.#kernelGroup\(\s*\{\s*group_id: transactionAuthorityGroupId\(id\)/);
+    expect(text).not.toMatch(/node:fs|setTimeout|Date\.now|new Date|Math\.random/);
+  });
+
+  it("every IM-02 owner stage — Production's completion, the custodian's acceptance, Economy's realization and the entity transition — is admitted and verified by the ONE shared stage rule, and none calls the identity-only helper directly", () => {
+    const admitters: [string, RegExp][] = [
+      [
+        "packages/engine/src/production/admission.ts",
+        /stageAuthorityViolation\(\s*group,\s*d\.envelope\.close_stage/,
+      ],
+      [
+        "packages/engine/src/world/fallback-custody.ts",
+        /stageAuthorityViolation\(\s*group,\s*worldAcceptanceStage/,
+      ],
+      [
+        "packages/engine/src/economy/admission.ts",
+        /stageAuthorityViolation\(\s*group,\s*economyRealizationStage/,
+      ],
+      [
+        "packages/engine/src/world/entity-transition.ts",
+        /stageAuthorityViolation\(\s*group,\s*entityTransitionStage/,
+      ],
+    ];
+    for (const [f, re] of admitters) expect(code(f), f).toMatch(re);
+    for (const f of [
+      "packages/engine/src/production/integrity.ts",
+      "packages/engine/src/economy/integrity.ts",
+      "packages/engine/src/world/entity-transition-integrity.ts",
+    ])
+      expect(code(f), f).toMatch(/journaledStageViolation\(/);
+    const direct = walk("packages/engine/src").filter((f) =>
+      /\bstageIdentityViolation\(/.test(code(f)),
+    );
+    // only the shared helper itself (its definition and its two uses inside the shared rule)
+    expect(direct).toEqual(["packages/engine/src/production/admission.ts"]);
+  });
+
+  it("the authority is kernel coordination state only: one sealed IM-02 kind of the existing kernel owner and facet, holding the RC-05 opening fields and nothing substantive", () => {
+    const kind = TEMPORAL_FACT_KINDS.find((k) => k.id === "temporal_transaction_authority")!;
+    expect([kind.owner, kind.facet, kind.im, kind.lifecycle]).toEqual([
+      "temporal_kernel",
+      "temporal_coordination",
+      "IM-02",
+      "SEALED",
+    ]);
+    const contract = code("packages/contracts/src/temporal.ts");
+    const block = contract.slice(
+      contract.indexOf("export const TransactionAuthoritySchema"),
+      contract.indexOf("export type TransactionAuthority"),
+    );
+    for (const field of [
+      "transaction_id",
+      "cause",
+      "trigger",
+      "continues",
+      "opening",
+      "requested",
+      "context",
+      "publication",
+    ])
+      expect(block).toContain(field);
+    for (const word of ["entity_", "locus", "quantity", "tick", "schedule", "interval"])
+      expect(block.toLowerCase(), word).not.toContain(word);
   });
 });
 

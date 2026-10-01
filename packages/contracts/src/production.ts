@@ -346,6 +346,10 @@ export const FallbackPhysicalEntitySchema = z.strictObject({
   quantity: PositiveQuantitySchema,
   /** physical condition: the only writable current condition of the durable */
   condition: Id,
+  /**
+   * The locality the durable was ACCEPTED at: sealed history, never rewritten. The entity's current locus is
+   * resolved from it and from the entity's Entity Transition Close, if one exists (see ./entity-transition.ts).
+   */
   locality: Locality,
   custodian: z.strictObject({
     owner: z.literal(OWNER_WORLD_STATE),

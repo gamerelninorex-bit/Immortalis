@@ -18,8 +18,9 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { WORLD_FALLBACK_RULE } from "../owners/registry.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { WORLD_FALLBACK_RULE, resolveKey } from "../owners/registry.ts";
+import { stageAuthorityViolation } from "../production/admission.ts";
+import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   StageUnresolvedError,
@@ -69,6 +70,9 @@ export function deriveAcceptedEntity(
  * conserved reference: a second acceptance of the same reference is a version conflict.
  */
 export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
+  // the custodian's other fact kind: the one same-entity transition (entity-transition.ts)
+  if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_entity_transition"))
+    return worldTransitionGroupCheck(group, state);
   const bad = (message: string, details?: Record<string, unknown>) =>
     reject("VALUE_INVALID", message, details);
   if (group.writes.length !== 1)
@@ -121,9 +125,12 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
     );
   }
   // available only through its IM-02 stage (the same rule load-time verification applies)
-  const identity = stageIdentityViolation(
+  const identity = stageAuthorityViolation(
     group,
     worldAcceptanceStage(entity.accepted_from.operation_id),
+    state.facts,
+    envelope.data.completed_at,
+    "ADMISSION",
   );
   if (identity) return reject("REFERENCE_INVALID", identity, { key: w.key });
   return null;

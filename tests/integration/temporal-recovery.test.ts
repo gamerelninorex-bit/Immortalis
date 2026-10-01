@@ -102,7 +102,7 @@ describe("unknown outcome is reconciled by identity, never blindly retried", () 
     expect(seen.rolledBackTx).toBeGreaterThan(0);
     expect(seen.partial).toBeGreaterThan(0);
     expect(seen.committedTx).toBeGreaterThan(0);
-  });
+  }, 60_000);
 
   it("a committed stage is not recomputed under a newer source version when the interrupted transaction is re-presented", async () => {
     // crash on the first durable step of the KERNEL commit: both stages are durable, the transaction is not

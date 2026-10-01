@@ -36,6 +36,9 @@ export const TEMPORAL_BOUNDARY_INDEX_KEY = "temporal/boundary-index";
 export const temporalObjectKey = (objectId: string): string => `temporal/object/${objectId}`;
 export const temporalTransactionKey = (transactionId: string): string =>
   `temporal/transaction/${transactionId}`;
+/** The durable authority of one OPEN resolution transaction (F-014B §6 step 1; RC-05): see TransactionAuthority. */
+export const temporalTransactionAuthorityKey = (transactionId: string): string =>
+  `temporal/transaction-authority/${transactionId}`;
 
 // ---------------------------------------------------------------------------------------------
 // Canonical time. An opaque coordinate, not a tick counter: it only moves through a committed
@@ -527,6 +530,33 @@ export const ResolutionRequestSchema = z.strictObject({
   publication: z.strictObject({ basis: Id, secrecy: Id }),
 });
 export type ResolutionRequest = z.infer<typeof ResolutionRequestSchema>;
+
+/**
+ * The durable authority of one OPEN resolution transaction (F-014B §2 "active requested target/condition and
+ * player-facing transaction identity/provenance"; §6 step 1 "open one resolution transaction before resolving the
+ * crossed material causal work"; RC-05). IM-02 commits it BEFORE any owner stage of the transaction commits, and
+ * every IM-02-coordinated owner stage pins and depends on it, so a stage is lawful only for a transaction that was
+ * genuinely opened: reproducing a stage's deterministic identity and naming an arbitrary `transaction:<id>` cause is
+ * not enough. It holds only the RC-05 opening fields the kernel already owns — the identity and cause, the trigger,
+ * the continuation it consumes, the opening basis, the requested target/condition and the active role/permission
+ * context — and nothing substantive: it is kernel coordination state, never a world fact, and it creates no tick,
+ * schedule or polling path. The sealed ResolutionTransaction later committed under the same identity repeats these
+ * fields and is verified against it. Sealed, create-only: an opened transaction can be neither rewritten nor
+ * reopened under another request.
+ */
+export const TransactionAuthoritySchema = z.strictObject({
+  transaction_id: EntityId,
+  cause: Id,
+  trigger: TriggerSchema,
+  continues: EntityId.nullable(),
+  /** opening temporal basis/time: the canonical time and the version of the state it was read at */
+  opening: z.strictObject({ basis_time: CanonicalTimeSchema, state_version: Version.min(1) }),
+  requested: RequestedSchema,
+  context: TransactionContextSchema,
+  /** RC-02 labels the transaction's own records will carry: authored, preserved verbatim, never defaulted */
+  publication: z.strictObject({ basis: Id, secrecy: Id }),
+});
+export type TransactionAuthority = z.infer<typeof TransactionAuthoritySchema>;
 
 export const StageRecordSchema = z.strictObject({
   stage: StageKeySchema,

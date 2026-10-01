@@ -3,6 +3,7 @@ import {
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
   EconomyRealizationSchema,
+  EntityTransitionCloseSchema,
   ExistenceContractSchema,
   FACET_ECONOMY_STATE,
   FACET_EXISTENCE_CONTRACT,
@@ -35,6 +36,7 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
   WorldLocusSchema,
   WorldProfileSchema,
   type SourceRef,
@@ -121,6 +123,7 @@ export const TEMPORAL_FACT_KIND_IDS = [
   "temporal_boundary_index",
   "temporal_object",
   "resolution_transaction",
+  "temporal_transaction_authority",
 ] as const;
 export const POPULATION_FACT_KIND_IDS = [
   "population_ledger",
@@ -134,6 +137,7 @@ export const PRODUCTION_FACT_KIND_IDS = [
   "production_completion",
 ] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
+export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -145,6 +149,7 @@ export type FactKindId =
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
+  | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number];
 
 /**
@@ -314,6 +319,17 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     valueSchema: ResolutionTransactionSchema,
     rule: KERNEL_RULE,
   },
+  {
+    id: "temporal_transaction_authority",
+    owner: OWNER_TEMPORAL_KERNEL,
+    facet: FACET_TEMPORAL_COORDINATION,
+    im: "IM-02",
+    rc: ["RC-02", "RC-05"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^temporal/transaction-authority/${ID}$`),
+    valueSchema: TransactionAuthoritySchema,
+    rule: KERNEL_RULE,
+  },
 ];
 
 const WS015_LINEAGE =
@@ -471,6 +487,39 @@ export const WORLD_FALLBACK_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+const F016_ECT_LINEAGE =
+  "F-016 v0.4 successor delta (George Blue W6-INT1 post-ratification conformance), pin 2026-09-25T13:45:28.162Z (https://app.notion.com/p/3e620af901e0811890f6da9de42ec865): §2 R-1 ECT-01 Entity Continuity / Transition Result, the cause-owner / entity-commit split, and §5 R-4 Entity Transition Close";
+
+/**
+ * The World-State fallback custodian's entity transition (IM-03): WG "Ownership Guards — F-016 Ratified Fallback
+ * Objective Physical-Entity Custody" — the fallback "may carry ... existence/cessation, form/substrate/embodiment,
+ * ... continuity-dependency binding, ... predecessor/successor relation" and "commits existence/cessation/form
+ * exactly once and references that causing result" — with F-016 v0.4 ECT-01 and the Entity Transition Close.
+ */
+export const WORLD_ENTITY_TRANSITION_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: F-016 Ratified Fallback Objective Physical-Entity Custody (continuity-dependency binding; predecessor/successor relation; the fallback never converts causal ownership into entity ownership: the causing owner establishes cause and causal outcome, World-State commits the entity consequence exactly once and references that causing result); with F-016 v0.4 §2 R-1 ECT-01 (same entity continues; provenance; Entity Transition Close) and §5 R-4 Entity Transition Close, and F-017 §3 close vocabulary",
+  [F016_LINEAGE, F016_ECT_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED: one transition per entity, create-only. The accepted entity (WORLD_FALLBACK_FACT_KINDS) is never
+ * amended: its locality stays the historical origin and the transition is the entity's current locus.
+ */
+export const WORLD_ENTITY_TRANSITION_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_entity_transition",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/entity/${ID}/transition$`),
+    valueSchema: EntityTransitionCloseSchema,
+    rule: WORLD_ENTITY_TRANSITION_RULE,
+  },
+];
+
 /**
  * One governing rule for every Economy kind: the demand and its one Production Request publish atomically, and
  * each realization is one group, so every version of every Economy fact records the same citation. The clauses
@@ -530,7 +579,8 @@ export const ECONOMY_FACT_KINDS: readonly FactKind[] = [
 
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
- * IM-05 Production kinds, the World-State fallback physical-entity kind and the IM-06 Economy kinds.
+ * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind and the IM-06
+ * Economy kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -538,6 +588,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
+  ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
 ];
 

@@ -28,7 +28,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { stageAuthorityViolation } from "../production/admission.ts";
 import { deriveEconomyRequest, deriveRealization } from "./derive.ts";
 
 /**
@@ -257,7 +257,13 @@ function checkRealization(group: CommitGroup, state: CampaignState, w: Write): R
   }
   // published only as the IM-02 stage it is (the one rule load-time verification also applies): a raw
   // publication of the identical group under any other identity is not a realization
-  const identity = stageIdentityViolation(group, economyRealizationStage(op.data.operation_id));
+  const identity = stageAuthorityViolation(
+    group,
+    economyRealizationStage(op.data.operation_id),
+    state.facts,
+    op.data.timing.completion.at,
+    "ADMISSION",
+  );
   if (identity) return reject("REFERENCE_INVALID", identity, { key: w.key });
   return null;
 }
