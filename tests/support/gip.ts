@@ -5,7 +5,7 @@ import {
   PopulationAdapter,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { InstitutionIdentity } from "@immortalis/contracts";
+import type { InstitutionIdentity, OfficeAuthorityLocus } from "@immortalis/contracts";
 import {
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
@@ -20,6 +20,7 @@ import {
   ktiObject,
   ktiPublication,
   ledgerInput,
+  officeAuthorityLocus,
   popPublication,
   publication,
 } from "@immortalis/testkit";
@@ -85,6 +86,19 @@ export async function establishInstitution(
   const institution = institutionIdentity(institutionId, over);
   await must(s.gip.establishInstitution({ ...gipPublication(n), institution }));
   return institution;
+}
+
+/** Commits the one authored initial establishment of an office beneath an already-committed institution. */
+export async function establishOffice(
+  s: Pick<GipSeeded, "gip">,
+  n: number,
+  institutionId?: string,
+  officeId?: string,
+  over: Partial<OfficeAuthorityLocus> = {},
+): Promise<OfficeAuthorityLocus> {
+  const office = officeAuthorityLocus(institutionId, officeId, over);
+  await must(s.gip.establishOffice({ ...gipPublication(n), office }));
+  return office;
 }
 
 /**

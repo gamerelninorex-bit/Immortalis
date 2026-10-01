@@ -1,4 +1,5 @@
-// Conformance evidence for the GIP Stable Institution Identity Backbone Foundation (twelfth slice). Each block names its
+// Conformance evidence for the GIP Stable Institution Identity (twelfth slice) and Office / Authority Locus (thirteenth
+// slice, see gip-office-conformance.test.ts for its own proofs) Backbone Foundations. Each block names its
 // register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED (see
 // `partial_evidence`): this slice covers only the aspects it names, and every other F-027 open gate is unchanged.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -9,6 +10,7 @@ import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
   GIP_FACT_KINDS,
+  GIP_OFFICE_RULE,
   GIP_RULE,
   GipAdapter,
   KtiAdapter,
@@ -66,12 +68,15 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
     expect(ws007.primary_im).toBe("IM-06");
     expect(ws007.native_pin).toBe("2026-09-24T01:42:24.952Z");
     for (const kind of GIP_FACT_KINDS) {
-      expect(kind.rule).toEqual(GIP_RULE);
+      expect(kind.rule).toEqual(
+        kind.id === "gip_office_authority_locus" ? GIP_OFFICE_RULE : GIP_RULE,
+      );
       expect(kind.rule.artifact).toBe(ws007.url);
       expect(kind.rule.native_pin).toBe(ws007.native_pin);
       expect(kind.im).toBe("IM-06");
       expect(kind.rule.supersedes).toBeNull();
     }
+    expect(GIP_OFFICE_RULE.authority_lineage).toEqual(GIP_RULE.authority_lineage);
     const lineage = GIP_RULE.authority_lineage.join("\n");
     expect(lineage).toContain(ws007.native_pin);
     expect(lineage).toContain("2026-09-25T00:59:55.526Z"); // GIP Scaling Profile v1.1, Red-confirmed
@@ -101,22 +106,30 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
   });
 });
 
-describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity only", () => {
-  it("registers exactly one new owner, gip, with ONE facet and one exclusive create-only key space", () => {
+describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity and the Office / Authority Locus only", () => {
+  it("registers exactly one new owner, gip, with ONE facet, one exclusive create-only identity key space and one exclusive ADVANCING office key space", () => {
     expect(GIP_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
       ["gip_institution_identity", "gip", "gip_institution_identity", "SEALED"],
+      ["gip_office_authority_locus", "gip", "gip_institution_identity", "ADVANCING"],
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/institution/i1/identity")),
     ).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(1);
-    expect(ALL_FACT_KINDS).toHaveLength(33);
+    expect(
+      ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/institution/i1/office/o1")),
+    ).toHaveLength(1);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(2);
+    expect(ALL_FACT_KINDS).toHaveLength(34);
   });
 
-  it("there is no office, authority, instrument, procedure, membership, faction, asset, resource, KTI, actor, relationship, military, territory or lifecycle kind, and no fallback GIP owner", () => {
+  it("there is no instrument, procedure, membership, faction, asset, resource, KTI, actor, relationship, military, territory or lifecycle kind, and no fallback GIP owner", () => {
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
+      "gip_institution_identity",
+      "gip_office_authority_locus",
+    ]);
     for (const k of GIP_FACT_KINDS)
-      expect(k.id).not.toMatch(
+      expect(k.id.replace("gip_office_authority_locus", "")).not.toMatch(
         /office|authorit|instrument|procedure|member|headcount|faction|asset|resource|treasur|kti|actor|relation|militar|territor|jurisdiction|transition|rename|split|merge|abolish|replace|success|score|level|rank/,
       );
     expect(
@@ -127,12 +140,17 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity 
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06")).toBe(true);
   });
 
-  it("there is no GIP writer other than the one authored publication, and the read is by exact identity", () => {
+  it("there is no GIP writer other than the two authored establishments, and each read is by exact key", () => {
     expect(
       Object.getOwnPropertyNames(GipAdapter.prototype)
         .filter((m) => m !== "constructor")
         .sort(),
-    ).toEqual(["establishInstitution", "institutionIdentity"]);
+    ).toEqual([
+      "establishInstitution",
+      "establishOffice",
+      "institutionIdentity",
+      "officeAuthorityLocus",
+    ]);
   });
 
   it("the GIP owner never writes a foreign key space: no foreign owner or key builder appears in its modules", () => {
@@ -223,12 +241,14 @@ describe("reuse, not fork: IM-03, IM-11, IM-12 and IM-17 are the existing machin
       );
   });
 
-  it("the identity is committed only through the one store.commit seam and reached through the one canonical admission", () => {
+  it("an identity and an office are committed only through the one store.commit seam and reached through the one canonical admission", () => {
     const adapter = code(`${GIP_DIR}/adapter.ts`);
     expect(adapter.match(/\.commit\(/g)).toHaveLength(1);
     expect(adapter).toMatch(/CANON_WRITE_AUTHORITY/);
     const admission = code("packages/engine/src/owners/admission.ts");
-    expect(admission).toMatch(/if \(group\.owner === OWNER_GIP\) return gipGroupCheck\(group\);/);
+    expect(admission).toMatch(
+      /if \(group\.owner === OWNER_GIP\) return gipGroupCheck\(group, state\);/,
+    );
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyGipIntegrity\(store\)/,
     );
@@ -264,18 +284,18 @@ describe("IA-04 turnless: no tick, phase, scheduler, clock, RNG, cadence or glob
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no office, authority, procedure, Governance Instrument, scope binding, political relation, pending decision, reach, stability, faction, membership, KTI, Diplomacy, actor, projection or host construct exists in the GIP modules", () => {
+  it("no procedure, Governance Instrument, scope binding, political relation, pending decision, reach, stability, faction, membership, KTI, Diplomacy, actor, projection or host construct exists in the GIP modules", () => {
     for (const f of GIP_SOURCES) {
       const text = identifiers(f);
       expect(text, f).not.toMatch(
-        /\b(office|offices|authorityLocus|powers|competence|selection|succession|removal|delegation|instrument|instruments|procedure|veto|override|scopeBinding|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|asset|assets|treasury|resource|kti|belief|relationship|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|host)\b/i,
+        /\b(offices|delegation|delegations|delegate\w*|concurrence|decisionBody|conditional\w*|appoint\w*|appointment|exercis\w*|instrument|instruments|procedure|veto|override|scopeBinding|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|asset|assets|treasury|resource|kti|belief|relationship|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|host)\b/i,
       );
     }
   });
 
-  it("no lifecycle transition exists: rename, split, merge, abolition, replacement and succession have no code, status or field", () => {
+  it("no lifecycle transition exists: rename, split, merge, abolition, replacement and succession (beyond the office's authored succession_rule text) have no code, status or field", () => {
     for (const f of GIP_SOURCES) {
-      const text = identifiers(f);
+      const text = identifiers(f).replace(/\bsuccession_rule\b/g, "");
       expect(text, f).not.toMatch(
         /\b(rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)\b|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
       );

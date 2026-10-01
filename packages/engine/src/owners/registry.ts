@@ -28,6 +28,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   FallbackPhysicalEntitySchema,
   InstitutionIdentitySchema,
+  OfficeAuthorityLocusSchema,
   OWNER_GIP,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
@@ -214,7 +215,10 @@ export const KTI_FACT_KIND_IDS = [
   "kti_transfer_basis",
   "kti_transfer_package",
 ] as const;
-export const GIP_FACT_KIND_IDS = ["gip_institution_identity"] as const;
+export const GIP_FACT_KIND_IDS = [
+  "gip_institution_identity",
+  "gip_office_authority_locus",
+] as const;
 export type FactKindId =
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
@@ -916,10 +920,31 @@ export const GIP_RULE: SourceRef = rule(
 );
 
 /**
- * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY part only: "GIP authority/instruments",
- * lowered to the one identity/provenance record the source assigns to GIP. One owner, one facet, one exclusive create-only
- * (SEALED) key space. There is no fallback owner, and no office, authority, instrument, procedure, membership, faction,
- * asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or property-bag kind.
+ * The governing rule for the GIP Office / Authority Locus kind: one group, written once at establishment (the office is
+ * ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
+ * ones the state relies on: Draft v2.1 §2.1 (GIP owns office powers, duties, succession, appointment, removal and
+ * delegation) and §2.2 (explicit non-ownership: no individual motive, loyalty, belief or personality, no population, money,
+ * military or logistics capability), §3.2 (the Office / Authority Locus minimum; authority belongs to the office/order, not
+ * personally to the current holder; the holder_ref branch only) and §21.1/§21.2 (create only when future causality requires
+ * it; update only on a material authority or holder/office change); Scaling Profile v1.1 §3 (Office/Institution × authority
+ * relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 (no scan of
+ * all institutions/offices).
+ */
+export const GIP_OFFICE_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (office powers, duties, succession, appointment, removal) and §2.2 Explicit non-ownership (individual motive, loyalty, belief, personality); §3.2 Office / Authority Locus (office_id, institution_id, authority_source_ref, competence_scope, powers[], duties[] where material, selection_rule, succession_rule, removal_rule, holder_ref; authority belongs to the office/order, not personally to the current holder; delegations, concurrence, review/veto/override, conditional authority and decision_body_ref not implemented); §21.1 Create and §21.2 Update (holder/office and authority change are material updates, not implemented here); with Scaling Profile v1.1 §3 Cardinality basis (Office/Institution × authority relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 Retrieval cost (no scan of all institutions or offices)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY and OFFICE / AUTHORITY LOCUS parts only:
+ * "GIP authority/instruments", lowered to the identity/provenance record and the one office/authority record the source
+ * assigns to GIP. One owner, one facet, two exclusive key spaces. The Institution Identity is SEALED (create-only). The
+ * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
+ * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
+ * only, and GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
+ * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or
+ * property-bag kind.
  */
 export const GIP_FACT_KINDS: readonly FactKind[] = [
   {
@@ -933,13 +958,24 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
     valueSchema: InstitutionIdentitySchema,
     rule: GIP_RULE,
   },
+  {
+    id: "gip_office_authority_locus",
+    owner: OWNER_GIP,
+    facet: FACET_GIP_INSTITUTION_IDENTITY,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^gip/institution/${ID}/office/${ID}$`),
+    valueSchema: OfficeAuthorityLocusSchema,
+    rule: GIP_OFFICE_RULE,
+  },
 ];
 
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
- * and the IM-06 GIP Institution Identity kind.
+ * and the IM-06 GIP Institution Identity and Office / Authority Locus kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,

@@ -18,7 +18,9 @@
 // same substrate), and the KTI Managed Transfer Package / Result-Close Backbone Foundation (IM-09 KTI owner path: one
 // development object, one sealed-packet-evidenced active Transfer Package published at the KTI result close over that
 // same substrate), and the GIP Stable Institution Identity Backbone Foundation (IM-06 GIP owner path: one explicitly
-// established continuing Institution Identity, identity/provenance only, over that same substrate).
+// established continuing Institution Identity, identity/provenance only, over that same substrate), and the GIP Office /
+// Authority Locus Backbone Foundation (the same owner's explicitly established, ADVANCING-compatible office beneath a
+// committed Institution Identity, initial establishment only).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
