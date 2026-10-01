@@ -4,6 +4,7 @@
 export * from "./builders.ts";
 export * from "./canonical-fixtures.ts";
 export * from "./economy-fixtures.ts";
+export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";
 export * from "./in-memory-store.ts";
 export * from "./population-fixtures.ts";

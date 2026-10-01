@@ -45,6 +45,7 @@ import {
   type OpenErrorCode,
 } from "../persistence/file-package.ts";
 import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
+import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
 import { verifyCanonicalIntegrity, type IntegrityViolation } from "./integrity.ts";
 
 /** The owner/facet resolution surface every canonical campaign store is built with. */
@@ -328,7 +329,7 @@ export class CanonicalCampaign {
   }
 }
 
-/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production and IM-06 Economy integrity. */
+/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production, IM-06 Economy and World-State entity-transition integrity. */
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
@@ -341,6 +342,7 @@ function verifyAll(
     ...verifyPopulationIntegrity(store),
     ...verifyProductionIntegrity(store),
     ...verifyEconomyIntegrity(store),
+    ...verifyEntityTransitionIntegrity(store),
   ];
 }
 

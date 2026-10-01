@@ -7,7 +7,9 @@
 // the Population & Cohort Reconciliation Backbone Foundation (IM-04 owner path over that same substrate), and
 // the Production & Resource Conservation Backbone Foundation (IM-05 Production owner path and the World-State
 // fallback physical-entity custodian over that same substrate), and the Economy Demand → Production Request →
-// Realized Access Backbone Foundation (IM-06 Economy owner path over that same substrate).
+// Realized Access Backbone Foundation (IM-06 Economy owner path over that same substrate), and the World-State
+// Entity Continuity / Transition Close Backbone Foundation (ECT-01 same-entity locus transition by the fallback
+// custodian over that same substrate).
 export * from "./commit/campaign-core.ts";
 export * from "./economy/adapter.ts";
 export * from "./economy/admission.ts";
@@ -41,6 +43,9 @@ export * from "./production/derive.ts";
 export * from "./production/integrity.ts";
 export * from "./production/provider.ts";
 export * from "./world/fallback-custody.ts";
+export * from "./world/entity-transition.ts";
+export * from "./world/entity-transition-integrity.ts";
+export * from "./world/entity-transition-provider.ts";
 export * from "./persistence/file-package.ts";
 export * from "./persistence/fs-ops.ts";
 export * from "./persistence/store.ts";

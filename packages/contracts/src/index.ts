@@ -6,10 +6,12 @@
 // CohortRef, PCB-01 declaration), and the Production & Resource Conservation Backbone Foundation contracts
 // (Production Reserve, RC-06 Claim, operation, Durable Completion Envelope, World-State fallback entity), and the
 // Economy Demand → Production Request → Realized Access Backbone Foundation contracts (Demand Envelope with its
-// fixed allocation relation, Economy-owned Production Request, realized access).
+// fixed allocation relation, Economy-owned Production Request, realized access), and the World-State Entity
+// Continuity / Transition Close Backbone Foundation contracts (causing result, ECT-01 same-entity locus transition).
 export * from "./campaign-package.ts";
 export * from "./commit.ts";
 export * from "./economy.ts";
+export * from "./entity-transition.ts";
 export * from "./ids.ts";
 export * from "./json.ts";
 export * from "./owner-fact.ts";

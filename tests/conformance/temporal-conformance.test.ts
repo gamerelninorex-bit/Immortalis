@@ -110,8 +110,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     ]);
     // the fourth slice adds the three IM-04 Population kinds (one owner, one facet); the fifth adds the four
     // IM-05 Production kinds and the one World-State fallback physical-entity kind; the sixth adds the three
-    // IM-06 Economy kinds (one owner, one facet)
-    expect(ALL_FACT_KINDS).toHaveLength(19);
+    // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
+    // (same owner and facet as the fallback entity)
+    expect(ALL_FACT_KINDS).toHaveLength(20);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "pc_existence",

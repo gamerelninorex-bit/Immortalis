@@ -28,6 +28,7 @@ import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { productionObjectViolation } from "../production/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
+import { entityTransitionObjectViolation } from "../world/entity-transition.ts";
 
 type Rejection = Failure<CommitErrorCode>;
 
@@ -114,6 +115,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (edge) return reject("REFERENCE_INVALID", edge, { key: w.key });
       const production = productionObjectViolation(o, state, true);
       if (production) return reject("REFERENCE_INVALID", production, { key: w.key });
+      const transition = entityTransitionObjectViolation(o, state, true);
+      if (transition) return reject("REFERENCE_INVALID", transition, { key: w.key });
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
         (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))
