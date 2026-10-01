@@ -1,6 +1,11 @@
 import {
+  AccessEventSchema,
+  AccessiblePacketSchema,
   BoundaryIndexSchema,
   FACET_ACTOR_PROFILE,
+  FACET_EPISTEMIC_ACCESS,
+  OWNER_EPISTEMIC_ACCESS,
+  SealedEngineProvenanceSchema,
   NamedActorCapabilityBasisSchema,
   NamedActorCapabilitySchema,
   OWNER_NAMED_ACTOR,
@@ -131,6 +136,11 @@ export const WS016_SOURCE = {
   native_pin: "2026-09-24T17:38:59.210Z",
 } as const;
 
+export const F014D_SOURCE = {
+  artifact: "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+  native_pin: "2026-09-24T16:25:17.059Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -176,8 +186,14 @@ export const NAMED_ACTOR_FACT_KIND_IDS = [
   "named_actor_capability_basis",
   "named_actor_capability",
 ] as const;
+export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
+  "epistemic_access_event",
+  "epistemic_accessible_packet",
+  "epistemic_sealed_provenance",
+] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
+  | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
@@ -735,10 +751,70 @@ export const NAMED_ACTOR_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const F014D_LINEAGE =
+  "F-014D Epistemic Access — Working Operational Draft v2 (Epistemic Access, Provenance & Information Channels), Sovereign-ratified 2026-09-20 with the W1-PS2 provenance-split amendment (Sealed Engine Provenance vs Accessible Content Packet) Sovereign-ratified 2026-09-25, at the frozen lock pin 2026-09-24T16:25:17.059Z (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e); Concept v3 https://app.notion.com/p/3e020af901e081fca9c0c7213b720124";
+
+/**
+ * One governing rule for every Epistemic Access kind: the authored BOUNDED_SHARED_ACCESS event and the packet formation
+ * (the actor-safe packet and its engine-only sealed provenance, written together) are each one group. The clauses are the
+ * ones the state relies on (F-014D as the owner that holds the facts; WS-016 §27.1 and F-017 §3 for the capability-close read).
+ */
+export const EPISTEMIC_ACCESS_RULE: SourceRef = rule(
+  F014D_SOURCE,
+  "§2 Ownership Contract (F-014D owns the causal route, source/carrier provenance, actual payload, receipt/access, representational-intelligibility prerequisites and the immutable Access / Dissemination Event modes; it does not own comprehension, inference, credibility, belief, stance, decision, capability, objective truth, KTI state or Temporal Knowledge Time); §2.1 R-T1 (F-014A actor-profile representational capability read AS-OF-DECLARED-CLOSE, Close Basis = F-014A actor-profile capability close, never written by F-014D; the sealed Accessible Content Packet is consumed AS-OF-NOW after packet formation; same-resolution cycle cut; mode-consumer invariant; role-context rule — Sealed Engine Provenance is not an admissible actor input); §4.1 Epistemic Access Packet (Presented Source Attribution vs Sealed Engine Provenance); §4.2 Access / Dissemination Event — BOUNDED_SHARED_ACCESS mode (explicit named participant set; mode fixed at creation and immutable; no cohort backfill); §5 steps 2–4 and 6 (causal route, actual payload, receipt and representational intelligibility distinct from comprehension; persist, compress or discard); §9 Shared / Cohort Access Adapter; §11 conflicting content (Presented Source Attribution vs Sealed Engine Provenance kept separately); §14 Sparse Persistence and Lifecycle (lifecycle change never mutates an event's mode); §18 Named Actor / Actor Fidelity Handoff (Accessible Content Packet excludes Sealed Engine Provenance); §21 Temporal and Causality Rules (no epistemic effect precedes its causal route; resolved past access is not rewritten); §24 Failure Conditions; RC-11 SealedContext / AccessEvent and RC-14 Projection guard",
+  [F014D_LINEAGE, WS016_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const epistemicKind = (
+  id: (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_EPISTEMIC_ACCESS,
+  facet: FACET_EPISTEMIC_ACCESS,
+  im: "IM-10",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: EPISTEMIC_ACCESS_RULE,
+});
+
+/**
+ * IM-10 Epistemic / Access Router — the BOUNDED_SHARED_ACCESS part only: "create and preserve lawful access-event mode,
+ * payload/carrier basis, audience/participant evidence, receipt/comprehension distinctions"; "access/provenance records
+ * where F-014D owns them; never foreign world facts". One owner, one facet, three exclusive create-only (SEALED) key
+ * spaces: the engine-side access event, the actor-safe Accessible Content Packet and the engine-only Sealed Engine
+ * Provenance (the packet and the provenance exist only as the packet-formation stage). There is no fallback owner, and no
+ * broadcast, cohort, retrieval, message, memory, comprehension, credibility, belief, stance, KTI or numeric-score kind.
+ */
+export const EPISTEMIC_ACCESS_FACT_KINDS: readonly FactKind[] = [
+  epistemicKind(
+    "epistemic_access_event",
+    ["RC-11"],
+    new RegExp(`^access/${ID}/event$`),
+    AccessEventSchema,
+  ),
+  epistemicKind(
+    "epistemic_accessible_packet",
+    ["RC-11", "RC-14", "RC-03", "RC-04"],
+    new RegExp(`^access/${ID}/packet/${ID}$`),
+    AccessiblePacketSchema,
+  ),
+  epistemicKind(
+    "epistemic_sealed_provenance",
+    ["RC-11", "RC-09"],
+    new RegExp(`^access/${ID}/provenance/${ID}$`),
+    SealedEngineProvenanceSchema,
+  ),
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
- * Economy kinds, the IM-05 Logistics kinds and the IM-07 Named-Actor capability kinds.
+ * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds and the IM-10 Epistemic Access kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -750,6 +826,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...ECONOMY_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,
+  ...EPISTEMIC_ACCESS_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

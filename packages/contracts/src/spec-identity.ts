@@ -7,10 +7,10 @@ export const BUILD_SPEC_IDENTITY: SpecIdentity = {
   "line": "f027",
   "package_version": "v1.0",
   "package_native_pin": "2026-09-29T00:40:44.707Z",
-  "spec_lock_sha256": "ec67e2dacd81e721f05fc61239391e20abd3916726d20d9e4c3ad3ba702f6b9d",
+  "spec_lock_sha256": "acac16079d66a470001c066d318c7cdc513bf7bd68c574fb138fbfd26b4e68da",
   "snapshot_files": {
     "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-    "spec/f027/acceptance-register.yaml": "e2f23662622aa7cf435bc0b19541258327100a05bccf71f1529c3a94aa9c65e7",
+    "spec/f027/acceptance-register.yaml": "7a0fc93557b198214ea100aa61d98590a1396d35e1c93ae83cd967538d373c91",
     "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
   }
 };

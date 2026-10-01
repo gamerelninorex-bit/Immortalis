@@ -12,7 +12,10 @@
 // custodian over that same substrate), and the Single-Leg Logistics Transfer & Destination Handoff Backbone
 // Foundation (IM-05 Logistics owner path and the single authoritative current-locus resolver over that same
 // substrate), and the Named-Actor Character Capability & Capability-Close Backbone Foundation (IM-07 Named-Actor
-// capability owner path and its declared capability close over that same substrate).
+// capability owner path and its declared capability close over that same substrate), and the Epistemic Access /
+// Sealed Accessible Content Packet Backbone Foundation (IM-10 Epistemic Access owner path: one BOUNDED_SHARED_ACCESS
+// event, the capability-close read, and the separately sealed actor-safe packet and engine-only provenance over that
+// same substrate).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
@@ -26,6 +29,12 @@ export * from "./economy/declaration.ts";
 export * from "./economy/derive.ts";
 export * from "./economy/integrity.ts";
 export * from "./economy/provider.ts";
+export * from "./epistemic/adapter.ts";
+export * from "./epistemic/admission.ts";
+export * from "./epistemic/declaration.ts";
+export * from "./epistemic/derive.ts";
+export * from "./epistemic/integrity.ts";
+export * from "./epistemic/provider.ts";
 export * from "./logistics/adapter.ts";
 export * from "./logistics/admission.ts";
 export * from "./logistics/declaration.ts";

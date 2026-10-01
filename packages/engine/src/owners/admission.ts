@@ -2,6 +2,7 @@ import {
   ExistenceContractSchema,
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_ECONOMY,
+  OWNER_EPISTEMIC_ACCESS,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
   OWNER_POPULATION,
@@ -22,6 +23,7 @@ import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
+import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
@@ -187,6 +189,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
     // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
     if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
+    // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
+    if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -277,6 +281,15 @@ export function identityMismatch(
       return v["actor_id"] === ids[0] && v["capability_id"] === ids[1]
         ? null
         : "actor and capability identity does not match the key";
+    case "epistemic_access_event":
+      return v["event_id"] === ids[0] ? null : "event identity does not match the key";
+    case "epistemic_accessible_packet":
+      return v["recipient"] === ids[1] ? null : "recipient identity does not match the key";
+    case "epistemic_sealed_provenance":
+      return v["recipient"] === ids[1] &&
+        (v["event"] as { fact_key: string }).fact_key === `access/${ids[0]}/event`
+        ? null
+        : "event and recipient identity does not match the key";
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
       return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]

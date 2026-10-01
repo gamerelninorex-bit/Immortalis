@@ -132,6 +132,7 @@ describe("no hidden expansion: no unrelated subsystem is registered", () => {
     // Realized Access Backbone (sixth slice) adds IM-06 Economy (WS-004); the world/PC kinds themselves are unchanged.
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "epistemic_access",
       "logistics",
       "named_actor",
       "pc_existence",

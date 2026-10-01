@@ -105,6 +105,7 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
+      "epistemic_access",
       "logistics",
       "named_actor",
       "pc_existence",
@@ -129,10 +130,12 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
   });
 
   it("no generic or later owner exists: no Asset, Inventory, Logistics, Movement, KTI, Actor, Health, Military, Culture or Epistemic owner", () => {
-    const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => n !== "named_actor").join(" ");
+    const names = [...CANONICAL_OWNER_REGISTRY.keys()]
+      .filter((n) => n !== "named_actor" && n !== "epistemic_access")
+      .join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()]
       .flatMap((f) => [...f])
-      .filter((f) => f !== "actor_profile")
+      .filter((f) => f !== "actor_profile" && f !== "epistemic_access")
       .join(" ");
     for (const forbidden of [
       "asset",
@@ -365,6 +368,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "commit",
       "economy",
+      "epistemic",
       "logistics",
       "owners",
       "persistence",
