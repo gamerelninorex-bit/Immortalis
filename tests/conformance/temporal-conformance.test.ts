@@ -115,7 +115,7 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
     // (same owner and facet as the fallback entity); the transaction-authority repair adds the one IM-02 kernel kind
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(34);
+    expect(ALL_FACT_KINDS).toHaveLength(35);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "epistemic_access",

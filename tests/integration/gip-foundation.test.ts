@@ -212,7 +212,7 @@ describe("nothing creates an institution automatically (acceptance 6)", () => {
     expect(s.gip.institutionIdentity(INSTITUTION_COUNCIL)).toBeUndefined();
   });
 
-  it("the adapter's only writes are the two explicit establishments: it has no derivation from another owner's fact", async () => {
+  it("the adapter's only writes are the three explicit establishments: it has no derivation from another owner's fact", async () => {
     expect(
       Object.getOwnPropertyNames(GipAdapter.prototype)
         .filter((m) => m !== "constructor")
@@ -220,8 +220,10 @@ describe("nothing creates an institution automatically (acceptance 6)", () => {
     ).toEqual([
       "establishInstitution",
       "establishOffice",
+      "establishScopeBinding",
       "institutionIdentity",
       "officeAuthorityLocus",
+      "scopeBinding",
     ]);
   });
 });

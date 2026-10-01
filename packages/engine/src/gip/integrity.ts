@@ -2,9 +2,11 @@ import {
   InstitutionIdentitySchema,
   OWNER_GIP,
   OfficeAuthorityLocusSchema,
+  ScopeBindingSchema,
   TemporalObjectSchema,
   gipInstitutionIdentityKey,
   gipOfficeAuthorityLocusKey,
+  gipScopeBindingKey,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { resolveKey } from "../owners/registry.ts";
@@ -26,6 +28,12 @@ import { gipObjectViolation } from "./declaration.ts";
  *    group that wrote exactly that one key at expected version zero and read and depended on exactly that identity — at the
  *    identity's own version and committing group — and nothing else (so no foreign read, actor, holder state or sibling
  *    authority was part of it); its governing-rule provenance is re-checked with every fact by canonical integrity;
+ *  - an Authority Scope Binding is at the key its exact `institution_id`, `office_id` and `scope_binding_id` derive, is still its
+ *    one first version (no transition is implemented), rests on a committed GIP Office / Authority Locus with that exact
+ *    `institution_id` and `office_id` whose own Institution Identity ancestry is still committed, and was committed by a group
+ *    that wrote exactly that one key at expected version zero and read and depended on exactly that office — at the office's
+ *    own version and committing group — and nothing else (so no foreign read, resolved reference, per-subject copy or sibling
+ *    binding was part of it); its governing-rule provenance is re-checked with every fact by canonical integrity;
  *  - no temporal object declares a GIP stage, close or owned object: GIP has no tick, phase or polling loop.
  *
  * Cost: lists committed facts once per open (a diagnostic path, CAL-06), like the other verifiers.
@@ -62,6 +70,8 @@ export function verifyGipIntegrity(store: CampaignStore): readonly IntegrityViol
       }
     } else if (kindOf(f) === "gip_office_authority_locus") {
       verifyOffice(store, f, bad);
+    } else if (kindOf(f) === "gip_scope_binding") {
+      verifyScopeBinding(store, f, bad);
     } else if (kindOf(f) === "temporal_object") {
       const o = TemporalObjectSchema.safeParse(f.value);
       const violation = o.success ? gipObjectViolation(o.data) : null;
@@ -117,6 +127,80 @@ function verifyOffice(
     bad(
       f.key,
       "an office was established by one create-only write that pinned exactly its committed Institution Identity and nothing else",
+    );
+  }
+}
+
+function verifyScopeBinding(
+  store: CampaignStore,
+  f: OwnerFact,
+  bad: (key: string, message: string) => void,
+): void {
+  const parsed = ScopeBindingSchema.safeParse(f.value);
+  if (!parsed.success) return; // canonical integrity reports a value that violates its contract
+  const binding = parsed.data;
+  if (
+    f.key !==
+    gipScopeBindingKey(binding.institution_id, binding.office_id, binding.scope_binding_id)
+  ) {
+    bad(
+      f.key,
+      "a scope binding is at the key derived from its exact institution_id, office_id and scope_binding_id",
+    );
+    return;
+  }
+  if (f.version !== 1) {
+    bad(
+      f.key,
+      "no scope binding transition is implemented: a binding is still the version it was established as",
+    );
+    return;
+  }
+  const officeKey = gipOfficeAuthorityLocusKey(binding.institution_id, binding.office_id);
+  const office = store.getFact(officeKey);
+  const officeValue = office ? OfficeAuthorityLocusSchema.safeParse(office.value) : undefined;
+  if (
+    !office ||
+    office.owner !== OWNER_GIP ||
+    !officeValue?.success ||
+    officeValue.data.institution_id !== binding.institution_id ||
+    officeValue.data.office_id !== binding.office_id
+  ) {
+    bad(
+      f.key,
+      "a scope binding rests on a committed Office / Authority Locus with its exact institution_id and office_id",
+    );
+    return;
+  }
+  const identity = store.getFact(gipInstitutionIdentityKey(binding.institution_id));
+  const identityValue = identity ? InstitutionIdentitySchema.safeParse(identity.value) : undefined;
+  if (
+    !identity ||
+    identity.owner !== OWNER_GIP ||
+    !identityValue?.success ||
+    identityValue.data.institution_id !== binding.institution_id
+  ) {
+    bad(
+      f.key,
+      "a scope binding's office rests on a committed Institution Identity with its exact institution_id",
+    );
+    return;
+  }
+  const group = store.committedGroup(f.provenance.intent_id);
+  if (
+    !group ||
+    group.writes.length !== 1 ||
+    group.writes[0]!.key !== f.key ||
+    group.writes[0]!.expected_version !== 0 ||
+    group.reads.length !== 1 ||
+    group.reads[0]!.key !== officeKey ||
+    group.reads[0]!.version !== office.version ||
+    group.depends_on.length !== 1 ||
+    group.depends_on[0] !== office.provenance.group_id
+  ) {
+    bad(
+      f.key,
+      "a scope binding was established by one create-only write that pinned exactly its committed parent office and nothing else",
     );
   }
 }

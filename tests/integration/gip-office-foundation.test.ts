@@ -426,8 +426,10 @@ describe("an attempted office update or holder change fails closed: no transitio
     expect(methods).toEqual([
       "establishInstitution",
       "establishOffice",
+      "establishScopeBinding",
       "institutionIdentity",
       "officeAuthorityLocus",
+      "scopeBinding",
     ]);
   });
 

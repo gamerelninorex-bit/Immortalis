@@ -31,6 +31,7 @@ import {
   OfficeAuthorityLocusHolderSchema,
   OfficeAuthorityLocusSchema,
   OWNER_GIP,
+  ScopeBindingSchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   OWNER_ECONOMY,
@@ -219,6 +220,7 @@ export const KTI_FACT_KIND_IDS = [
 export const GIP_FACT_KIND_IDS = [
   "gip_institution_identity",
   "gip_office_authority_locus",
+  "gip_scope_binding",
 ] as const;
 export type FactKindId =
   | (typeof GIP_FACT_KIND_IDS)[number]
@@ -963,13 +965,34 @@ export const GIP_OFFICE_RULE_THIRTEENTH_SLICE: SourceRef = rule(
 );
 
 /**
- * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY and OFFICE / AUTHORITY LOCUS parts only:
- * "GIP authority/instruments", lowered to the identity/provenance record and the one office/authority record the source
- * assigns to GIP. One owner, one facet, two exclusive key spaces. The Institution Identity is SEALED (create-only). The
+ * The governing rule for the GIP Scope Binding kind (fifteenth slice): one group, written once at establishment beneath one
+ * committed Office / Authority Locus (the binding is ADVANCING in kind but no transition exists yet), and every load
+ * re-verifies it against this citation. The clauses are the ones the state relies on: Draft v2.1 §2.1 (GIP owns Scope /
+ * Applicability Bindings) and §2.2 (explicit non-ownership: no geography, population, individual belief, faction posture or
+ * foreign-owner capability), §5 (Scope / Applicability Binding: it answers only where, to whom, or under what condition an
+ * authority/rule legally applies, with its minimum fields) and §21.1/§21.2 (create only when future causality requires it;
+ * update only on a material change); Scaling Profile v1.1 §3 (Scope Binding cardinality: Instrument/authority × bounded
+ * applicability scope; explicit exceptions replace per-place/per-person duplication), §4 (Creation) and §5 (no scan of all
+ * institutions, offices or bindings). The source artifact, exact native pin and authority lineage are those of the other GIP
+ * kinds. The office kind's own citation is neither changed nor reused.
+ */
+export const GIP_SCOPE_BINDING_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (Scope / Applicability Bindings) and §2.2 Explicit non-ownership; §5 Scope / Applicability Binding (scope_binding_id, scope_type, scope_ref, target_condition, optional inheritance_rule, optional exception references, optional priority-or-conflict rule reference; a Scope Binding answers only where, to whom, or under what condition an authority/rule legally applies; applicability query, territorial inheritance, exception and conflict resolution and promulgation not implemented); §21.1 Create and §21.2 Update (scope change is a material update, not implemented here); with Scaling Profile v1.1 §3 Cardinality basis (Scope Binding: Instrument/authority × bounded applicability scope; explicit exceptions replace per-place/per-person duplication), §4 Growth & lifecycle — Creation and §5 Retrieval cost (no scan of all institutions, offices or bindings)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY, OFFICE / AUTHORITY LOCUS and AUTHORITY SCOPE
+ * BINDING parts only: "GIP authority/instruments", lowered to the identity/provenance record, the one office/authority record
+ * and the one Scope Binding of an office that the source assigns to GIP. One owner, one facet, three exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
  * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
- * GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
+ * GIP admission refuses every other change to it. The Scope Binding is likewise ADVANCING in kind (a scope, exception or
+ * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed office, at that
+ * office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. There is no fallback
+ * owner, and no instrument, procedure,
  * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or
  * property-bag kind.
  */
@@ -1001,13 +1024,24 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
       admits: (value) => OfficeAuthorityLocusHolderSchema.safeParse(value).success,
     },
   },
+  {
+    id: "gip_scope_binding",
+    owner: OWNER_GIP,
+    facet: FACET_GIP_INSTITUTION_IDENTITY,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^gip/institution/${ID}/office/${ID}/scope-binding/${ID}$`),
+    valueSchema: ScopeBindingSchema,
+    rule: GIP_SCOPE_BINDING_RULE,
+  },
 ];
 
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
- * and the IM-06 GIP Institution Identity and Office / Authority Locus kinds.
+ * and the IM-06 GIP Institution Identity, Office / Authority Locus and Authority Scope Binding kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,

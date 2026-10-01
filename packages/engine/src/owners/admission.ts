@@ -197,7 +197,7 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
     if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
-    // IM-06 GIP groups: one Institution Identity establishment or one Office / Authority Locus establishment, each created once.
+    // IM-06 GIP groups: one Institution Identity, Office / Authority Locus or Authority Scope Binding establishment, each created once.
     if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
@@ -304,6 +304,12 @@ export function identityMismatch(
       return v["institution_id"] === ids[0] && v["office_id"] === ids[1]
         ? null
         : "institution and office identity does not match the key";
+    case "gip_scope_binding":
+      return v["institution_id"] === ids[0] &&
+        v["office_id"] === ids[1] &&
+        v["scope_binding_id"] === ids[2]
+        ? null
+        : "institution, office and scope binding identity does not match the key";
     case "kti_development_object":
       return v["object_id"] === ids[0]
         ? null

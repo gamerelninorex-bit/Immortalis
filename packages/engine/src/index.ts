@@ -20,7 +20,8 @@
 // same substrate), and the GIP Stable Institution Identity Backbone Foundation (IM-06 GIP owner path: one explicitly
 // established continuing Institution Identity, identity/provenance only, over that same substrate), and the GIP Office /
 // Authority Locus Backbone Foundation (the same owner's explicitly established, ADVANCING-compatible office beneath a
-// committed Institution Identity, initial establishment only).
+// committed Institution Identity, initial establishment only), and the GIP Authority Scope Binding Backbone Foundation (the
+// same owner's explicitly established, ADVANCING-compatible Scope Binding beneath a committed office, initial establishment only).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";

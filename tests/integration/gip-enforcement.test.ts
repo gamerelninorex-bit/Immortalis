@@ -207,15 +207,17 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
     expect(gipFacts(s)).toEqual([]);
   });
 
-  it("the adapter exposes the two authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
+  it("the adapter exposes the three authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
     const methods = Object.getOwnPropertyNames(GipAdapter.prototype)
       .filter((m) => m !== "constructor")
       .sort();
     expect(methods).toEqual([
       "establishInstitution",
       "establishOffice",
+      "establishScopeBinding",
       "institutionIdentity",
       "officeAuthorityLocus",
+      "scopeBinding",
     ]);
     expect(
       methods.filter((m) =>

@@ -2,6 +2,7 @@ import type {
   InstitutionIdentity,
   OfficeAuthorityLocusDecisionBody,
   OfficeAuthorityLocusHolder,
+  ScopeBinding,
 } from "@immortalis/contracts";
 
 /**
@@ -85,3 +86,50 @@ export const decisionBodyOfficeAuthorityLocus = (
   decision_body_ref: DECISION_BODY_REF_A,
   ...over,
 });
+
+export const SCOPE_BINDING_A = "scope-binding-a-1";
+export const SCOPE_BINDING_B = "scope-binding-b-1";
+export const SCOPE_BINDING_C = "scope-binding-c-1";
+export const SCOPE_REF_A = "scope-ref-a-1";
+export const SCOPE_REF_B = "scope-ref-b-1";
+export const EXCEPTION_REF_A = "exception-ref-a-1";
+export const EXCEPTION_REF_B = "exception-ref-b-1";
+export const PRIORITY_OR_CONFLICT_RULE_REF_A = "priority-or-conflict-rule-ref-a-1";
+export const PRIORITY_OR_CONFLICT_RULE_REF_B = "priority-or-conflict-rule-ref-b-1";
+
+/**
+ * A well-formed Authority Scope Binding at the WS-007 §5 minimum: the parent office's identities, the binding's own identity,
+ * the authored classification, the opaque scope reference and the authored target condition; the optional inheritance rule,
+ * exception references and priority-or-conflict rule reference are omitted (absent, not empty). The texts are SYNTHETIC FIXTURES carried
+ * verbatim and never interpreted; the references name nothing in this fixture world: no place, population, institution, actor
+ * or collective exists behind them. Nothing here is a game rule.
+ */
+export const scopeBinding = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  scopeBindingId = SCOPE_BINDING_A,
+  over: Partial<ScopeBinding> = {},
+): ScopeBinding => ({
+  scope_binding_id: scopeBindingId,
+  institution_id: institutionId,
+  office_id: officeId,
+  scope_type: "SYNTHETIC FIXTURE: an authored scope classification.",
+  scope_ref: SCOPE_REF_A,
+  target_condition: "SYNTHETIC FIXTURE: an authored target condition, carried and never executed.",
+  ...over,
+});
+
+/** The same binding carrying all three optional authored fields (inheritance rule, exception references, priority-or-conflict rule reference). */
+export const fullScopeBinding = (
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  scopeBindingId = SCOPE_BINDING_A,
+  over: Partial<ScopeBinding> = {},
+): ScopeBinding =>
+  scopeBinding(institutionId, officeId, scopeBindingId, {
+    inheritance_rule:
+      "SYNTHETIC FIXTURE: an authored inheritance rule, carried and never executed.",
+    exception_refs: [EXCEPTION_REF_A, EXCEPTION_REF_B],
+    priority_or_conflict_rule_ref: PRIORITY_OR_CONFLICT_RULE_REF_A,
+    ...over,
+  });
