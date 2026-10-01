@@ -9,7 +9,9 @@
 // fixed allocation relation, Economy-owned Production Request, realized access), and the World-State Entity
 // Continuity / Transition Close Backbone Foundation contracts (causing result, ECT-01 same-entity locus transition), and
 // the Single-Leg Logistics Transfer & Destination Handoff Backbone Foundation contracts (movement-service request
-// envelope, commitment, transfer record, delivery-complete result).
+// envelope, commitment, transfer record, delivery-complete result), and the Named-Actor Character Capability &
+// Capability-Close Backbone Foundation contracts (establishment basis, persisted capability, capability close).
+export * from "./actor-capability.ts";
 export * from "./campaign-package.ts";
 export * from "./commit.ts";
 export * from "./economy.ts";

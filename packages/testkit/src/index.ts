@@ -1,6 +1,7 @@
 // @immortalis/testkit — shared deterministic fixtures, builders and evidence helpers.
 // Everything here is SYNTHETIC and NON-PRODUCTION. The in-memory store cannot satisfy provider or
 // recovery acceptance (IA-07, CAL-09).
+export * from "./actor-fixtures.ts";
 export * from "./builders.ts";
 export * from "./canonical-fixtures.ts";
 export * from "./economy-fixtures.ts";
