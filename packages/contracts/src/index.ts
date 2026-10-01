@@ -16,7 +16,7 @@
 // Result-Close Backbone Foundation contracts (KTI development-object identity, Transfer Package basis, active Transfer
 // Package published at the KTI result close), and the GIP Stable Institution Identity Backbone Foundation contracts (the
 // strict Institution Identity Reference: institution_id, identity_label, continuing continuity_status), and the GIP Office /
-// Authority Locus Backbone Foundation contracts (the strict WS-007 §3.2 office, holder_ref branch).
+// Authority Locus Backbone Foundation contracts (the strict WS-007 §3.2 office, holder_ref OR decision_body_ref reference branch).
 export * from "./actor-capability.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";

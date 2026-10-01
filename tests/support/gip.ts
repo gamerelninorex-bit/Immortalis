@@ -5,7 +5,11 @@ import {
   PopulationAdapter,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { InstitutionIdentity, OfficeAuthorityLocus } from "@immortalis/contracts";
+import type {
+  InstitutionIdentity,
+  OfficeAuthorityLocusDecisionBody,
+  OfficeAuthorityLocusHolder,
+} from "@immortalis/contracts";
 import {
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
@@ -19,6 +23,7 @@ import {
   institutionIdentity,
   ktiObject,
   ktiPublication,
+  decisionBodyOfficeAuthorityLocus,
   ledgerInput,
   officeAuthorityLocus,
   popPublication,
@@ -88,15 +93,28 @@ export async function establishInstitution(
   return institution;
 }
 
-/** Commits the one authored initial establishment of an office beneath an already-committed institution. */
+/** Commits the one authored initial establishment of an office (holder branch) beneath an already-committed institution. */
 export async function establishOffice(
   s: Pick<GipSeeded, "gip">,
   n: number,
   institutionId?: string,
   officeId?: string,
-  over: Partial<OfficeAuthorityLocus> = {},
-): Promise<OfficeAuthorityLocus> {
+  over: Partial<OfficeAuthorityLocusHolder> = {},
+): Promise<OfficeAuthorityLocusHolder> {
   const office = officeAuthorityLocus(institutionId, officeId, over);
+  await must(s.gip.establishOffice({ ...gipPublication(n), office }));
+  return office;
+}
+
+/** Commits the one authored initial establishment of an office (decision_body_ref branch) beneath an already-committed institution. */
+export async function establishDecisionBodyOffice(
+  s: Pick<GipSeeded, "gip">,
+  n: number,
+  institutionId?: string,
+  officeId?: string,
+  over: Partial<OfficeAuthorityLocusDecisionBody> = {},
+): Promise<OfficeAuthorityLocusDecisionBody> {
+  const office = decisionBodyOfficeAuthorityLocus(institutionId, officeId, over);
   await must(s.gip.establishOffice({ ...gipPublication(n), office }));
   return office;
 }

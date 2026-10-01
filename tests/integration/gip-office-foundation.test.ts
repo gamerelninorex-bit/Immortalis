@@ -210,9 +210,9 @@ describe("the office is readable by exact key and a read grants no GIP write aut
     const s = await withCourt();
     await establishOffice(s, 2);
     const read = s.gip.officeAuthorityLocus(INSTITUTION_COURT, OFFICE_MAGISTRATE)!;
-    expect(read.value.holder_ref).toBe(HOLDER_REF_A);
+    expect((read.value as any).holder_ref).toBe(HOLDER_REF_A);
     expect(Object.keys(read.value).sort()).toEqual(Object.keys(officeAuthorityLocus()).sort());
-    expect(typeof read.value.holder_ref).toBe("string");
+    expect(typeof (read.value as any).holder_ref).toBe("string");
   });
 });
 

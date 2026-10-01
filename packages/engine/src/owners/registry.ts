@@ -925,10 +925,16 @@ export const GIP_RULE: SourceRef = rule(
  * ones the state relies on: Draft v2.1 §2.1 (GIP owns office powers, duties, succession, appointment, removal and
  * delegation) and §2.2 (explicit non-ownership: no individual motive, loyalty, belief or personality, no population, money,
  * military or logistics capability), §3.2 (the Office / Authority Locus minimum; authority belongs to the office/order, not
- * personally to the current holder; the holder_ref branch only) and §21.1/§21.2 (create only when future causality requires
- * it; update only on a material authority or holder/office change); Scaling Profile v1.1 §3 (Office/Institution × authority
- * relation; authority persisted once at the office/order, never copied onto holders, actors or subjects) and §5 (no scan of
- * all institutions/offices).
+ * personally to the current holder; the `holder_ref` OR `decision_body_ref` reference) and §21.1/§21.2 (create only when
+ * future causality requires it; update only on a material authority or holder/office change); Scaling Profile v1.1 §3
+ * (Office/Institution × authority relation; authority persisted once at the office/order, never copied onto holders, actors
+ * or subjects) and §5 (no scan of all institutions/offices).
+ *
+ * FROZEN CITATION. Every committed office records this citation as its governing rule and canonical integrity compares it
+ * whole on every load, so its text is byte-for-byte what the thirteenth slice committed under: the fourteenth slice adds the
+ * `decision_body_ref` branch to the SAME kind and key space under this SAME citation, and editing any byte (including the
+ * thirteenth-slice wording that `decision_body_ref` was "not implemented") would make every existing save fail to load. The
+ * reference branch is therefore carried by the contract, not by this clause (a conformance test pins its hash).
  */
 export const GIP_OFFICE_RULE: SourceRef = rule(
   WS007_SOURCE,
@@ -942,7 +948,8 @@ export const GIP_OFFICE_RULE: SourceRef = rule(
  * assigns to GIP. One owner, one facet, two exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
- * only, and GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
+ * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
+ * GIP admission refuses every other change to it. There is no fallback owner, and no instrument, procedure,
  * membership, faction, asset, resource, KTI, actor, relationship, military, economic, territory, lifecycle-transition or
  * property-bag kind.
  */

@@ -1,6 +1,8 @@
-// Conformance evidence for the GIP Office / Authority Locus Backbone Foundation (thirteenth slice). Each block names its
+// Conformance evidence for the GIP Office / Authority Locus Backbone Foundation (thirteenth slice, holder_ref branch) and, in
+// the final blocks, the GIP Decision-Body Office Reference Branch Foundation (fourteenth slice). Each block names its
 // register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED (see
 // `partial_evidence`): this slice covers only the aspects it names, and every other F-027 open gate is unchanged.
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -157,16 +159,18 @@ describe("IA-03/IA-06 the office joins its institution by exact institution_id a
   });
 });
 
-describe("IA-02 strict executable contract: the §3.2 minimum, holder_ref branch only, nothing uninterpreted is interpreted", () => {
+describe("IA-02 strict executable contract: the §3.2 minimum with exactly one of holder_ref OR decision_body_ref, nothing uninterpreted is interpreted", () => {
   it("the office schema is a strict object with no optional, default, loose or catch-all construct, and the deferred fields are not named in code", () => {
     const contract = code("packages/contracts/src/gip.ts");
-    expect(contract).toMatch(/OfficeAuthorityLocusSchema = z\.strictObject\(/);
+    expect(contract).toMatch(/OfficeAuthorityLocusHolderSchema = z\.strictObject\(/);
+    expect(contract).toMatch(/OfficeAuthorityLocusDecisionBodySchema = z\.strictObject\(/);
+    expect(contract).toMatch(/OfficeAuthorityLocusSchema = z\.union\(/);
     expect(contract).not.toMatch(
       /z\.object\(|passthrough|looseObject|z\.record|z\.any|z\.unknown|\.optional\(|\.default\(|\.catch\(/,
     );
     const text = identifiers("packages/contracts/src/gip.ts");
     expect(text).not.toMatch(
-      /\b(decision_body_ref|delegations|concurrence_requirements|review_veto_override|conditional_authority)\b/,
+      /\b(delegations|concurrence_requirements|review_veto_override|conditional_authority)\b/,
     );
   });
 
@@ -252,7 +256,6 @@ describe("acceptance-register and open-gate honesty (thirteenth slice)", () => {
   it("the Office / Authority Locus evidence names what stays unimplemented and that GitHub Issue #11 is untouched", () => {
     const scope = register.find((r) => r.id === "IA-02")!.partial_evidence!.scope;
     for (const phrase of [
-      "decision_body_ref",
       "delegation",
       "appointment",
       "holder replacement",
@@ -276,5 +279,115 @@ describe("acceptance-register and open-gate honesty (thirteenth slice)", () => {
     expect(statusOf("CAL-01")).toBe("UNCALIBRATED");
     expect(statusOf("CAL-03")).toBe("NO_ADOPTED_PRODUCTION_NUMBER");
     expect(statusOf("OB-016")).toBe("OPEN_CODE_ERA_CONFORMANCE");
+  });
+});
+
+describe("fourteenth slice — the decision_body_ref branch of the same Office / Authority Locus (IA-01, IA-02, IA-03, IA-06, IA-22)", () => {
+  it("no new fact kind, owner, facet or key space exists: the registry still holds exactly the two GIP kinds, and the office kind is unchanged", () => {
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
+      "gip_institution_identity",
+      "gip_office_authority_locus",
+    ]);
+    const office = factKind("gip_office_authority_locus");
+    expect(office.lifecycle).toBe("ADVANCING");
+    expect(office.owner).toBe("gip");
+    expect(office.facet).toBe("gip_institution_identity");
+    expect(office.keyPattern.test("gip/institution/i-1/office/o-1")).toBe(true);
+    expect(office.keyPattern.test("gip/institution/i-1/office/o-1/body/b-1")).toBe(false);
+    expect(office.keyPattern.test("gip/institution/i-1/decision-body/b-1")).toBe(false);
+  });
+
+  it("the governing-rule citation is byte-identical to the one thirteenth-slice offices were committed under, so existing holder-branch saves still load without migration or reinterpretation", () => {
+    // Every committed office records this exact citation and is re-verified against it on load (canonical integrity compares
+    // it whole). It is therefore frozen: changing any byte would invalidate every existing save. This is the sha256 of the
+    // citation as of the thirteenth slice.
+    expect(createHash("sha256").update(JSON.stringify(GIP_OFFICE_RULE)).digest("hex")).toBe(
+      "794f072b5a78d20f054ed809fe62693e1998bcf7eaa6e401d295d592fd9da9c8",
+    );
+  });
+
+  it("decision_body_ref is never read, resolved or dereferenced by any GIP engine module, and no body-side construct exists", () => {
+    for (const f of GIP_SOURCES.filter((f) => !f.endsWith("contracts/src/gip.ts")))
+      expect(identifiers(f), f).not.toMatch(/\bdecision_body_ref\b|decisionBody/i);
+    // the contract names each reference only as the one exclusive field of its branch
+    const contract = identifiers("packages/contracts/src/gip.ts");
+    expect(contract.match(/\bdecision_body_ref\b/g)).toHaveLength(1);
+    expect(contract.match(/\bholder_ref\b/g)).toHaveLength(1);
+  });
+
+  it("there is no source-invented discriminator, refinement or catch-all: the branch is the one reference field present", () => {
+    expect(identifiers("packages/contracts/src/gip.ts")).not.toMatch(
+      /discriminatedUnion|z\.enum\(|\.superRefine\(|\.refine\(|\.transform\(|referenceKind|branchKind/,
+    );
+  });
+
+  it("the engine office path is unchanged in shape: still one establishment method, one create-only write and one pinned prerequisite for both branches", () => {
+    const admission = code(`${GIP_DIR}/admission.ts`);
+    expect(admission).toMatch(/group\.reads\.length !== 1 \|\| group\.depends_on\.length !== 1/);
+    expect(admission).toMatch(/w\.expected_version !== 0/);
+    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(2);
+  });
+
+  it("no GitHub Issue #11 workaround: the GIP modules introduce no randomness, clock, seed, roll or probability, and the decision-body tests use none", () => {
+    const forbidden =
+      /\b(setInterval|setTimeout|Date\.now|new Date|Math\.random|randomUUID|randomBytes|rng|roll\w*|seed\w*|prior|dice|chooser|stochastic|probabilit\w*|uncertain\w*)\b/i;
+    for (const f of GIP_SOURCES) expect(identifiers(f), f).not.toMatch(forbidden);
+    // the tests may name a "seeded" fixture campaign, so only the actual clock / randomness constructs are checked there
+    for (const f of [
+      "tests/contract/gip-office-decision-body-schemas.test.ts",
+      "tests/integration/gip-office-decision-body.test.ts",
+    ])
+      expect(identifiers(f), f).not.toMatch(
+        /\b(setInterval|setTimeout|Date\.now|new Date|Math\.random|randomUUID|randomBytes|performance\.now)\b/,
+      );
+  });
+
+  it.each(["IA-01", "IA-02", "IA-03", "IA-06", "IA-22"])(
+    "%s gained narrowly scoped partial evidence for the decision-body branch, names its tests, and stayed unpromoted",
+    (id) => {
+      const row = register.find((r) => r.id === id)!;
+      expect(row.status).toBe("NOT_IMPLEMENTED");
+      expect(row.evidence).toBeNull();
+      expect(row.partial_evidence?.scope).toMatch(
+        /GIP Decision-Body Office Reference Branch \(fourteenth slice\)/,
+      );
+      expect(row.partial_evidence?.tests.some((t) => /gip-office-decision-body/.test(t))).toBe(
+        true,
+      );
+    },
+  );
+
+  it("only those five rows name the decision-body branch, and the evidence names what stays unrepresentable and that GitHub Issue #11 is untouched", () => {
+    expect(
+      register
+        .filter((r) =>
+          /Decision-Body Office Reference Branch/.test(r.partial_evidence?.scope ?? ""),
+        )
+        .map((r) => r.id)
+        .sort(),
+    ).toEqual(["IA-01", "IA-02", "IA-03", "IA-06", "IA-22"]);
+    const scope = register.find((r) => r.id === "IA-02")!.partial_evidence!.scope;
+    for (const phrase of [
+      "holder_ref OR decision_body_ref",
+      "never resolved against any owner",
+      "membership or roster",
+      "Autonomous Collective or Named-Actor state",
+      "vote",
+      "holder/body switch",
+      "GitHub Issue #11 is untouched",
+    ])
+      expect(scope).toContain(phrase);
+  });
+
+  it("the unrelated gates are untouched: the open-gates and runtime-contract snapshots are byte-identical to the predecessor's, and PF-6/F-028 stays NOT_ACTIVATED_BLOCKED", () => {
+    expect(lock.snapshot_files["spec/f027/open-gates.yaml"]).toBe(
+      "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+    );
+    expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
+      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    );
+    expect(gates.find((g) => g.id === "PF-6/F-028")?.status).toBe("NOT_ACTIVATED_BLOCKED");
+    expect(gates.find((g) => g.id === "PROVIDER")?.status).toBe("NOT_ADOPTED");
+    expect(gates.find((g) => g.id === "DEPLOYMENT")?.status).toBe("NOT_ACTIVATED");
   });
 });

@@ -27,7 +27,8 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  *     and `office_id` derive, created once. It rests on exactly one committed fact it pins — that institution's Institution
  *     Identity, read by exact key at its current version and depended on — so a label, a population, a text or any other
  *     path never substitutes for the canonical identity, and an office cannot precede its institution. It resolves no
- *     `authority_source_ref` or `holder_ref` and reads no actor, so it copies no authority, personality, capability,
+ *     `authority_source_ref`, `holder_ref` or `decision_body_ref` (exactly one reference branch, an opaque reference whichever
+ *     it is; the strict contract refuses both and neither) and reads no actor or decision body, so it copies no authority, personality, capability,
  *     knowledge or permission anywhere and writes nothing else. The kind is ADVANCING because a later lawful cause may move
  *     an office forward under its own expected-version chain; NO such transition exists yet, so every write to an office
  *     other than its first creation (expected version 0) is refused here as not supported, and a second creation of an
@@ -46,7 +47,7 @@ export function gipGroupCheck(group: CommitGroup, state: CampaignState): Rejecti
       if (w.expected_version !== 0) {
         return reject(
           "AMENDMENT_NOT_SUPPORTED",
-          "an office is created once; no appointment, removal, succession, delegation, authority amendment or holder transition is implemented",
+          "an office is created once; no appointment, removal, succession, delegation, authority amendment, holder or decision-body change or holder/body switch is implemented",
           { key: w.key },
         );
       }
