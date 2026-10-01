@@ -133,6 +133,7 @@ describe("no hidden expansion: no unrelated subsystem is registered", () => {
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "epistemic_access",
+      "gip",
       "kti",
       "logistics",
       "named_actor",

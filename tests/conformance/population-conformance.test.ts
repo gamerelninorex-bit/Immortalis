@@ -107,10 +107,11 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
     // sixth slice's three Economy kinds bring it to 19; the seventh slice's one World-State entity-transition kind
     // brings it to 20; the transaction-authority repair's one IM-02 kernel kind brings it to 21)
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(32);
+    expect(ALL_FACT_KINDS).toHaveLength(33);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "epistemic_access",
+      "gip",
       "kti",
       "logistics",
       "named_actor",
@@ -298,6 +299,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "commit",
       "economy",
       "epistemic",
+      "gip",
       "kti",
       "logistics",
       "owners",

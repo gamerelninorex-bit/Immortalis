@@ -3,6 +3,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
+  OWNER_GIP,
   OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
@@ -25,6 +26,7 @@ import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
+import { gipGroupCheck } from "../gip/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
@@ -195,6 +197,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
     if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
+    // IM-06 GIP groups: one Institution Identity establishment, created once, reading and depending on nothing foreign.
+    if (group.owner === OWNER_GIP) return gipGroupCheck(group);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -294,6 +298,8 @@ export function identityMismatch(
         (v["event"] as { fact_key: string }).fact_key === `access/${ids[0]}/event`
         ? null
         : "event and recipient identity does not match the key";
+    case "gip_institution_identity":
+      return v["institution_id"] === ids[0] ? null : "institution_id does not match the key";
     case "kti_development_object":
       return v["object_id"] === ids[0]
         ? null
