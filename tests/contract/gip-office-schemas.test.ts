@@ -47,12 +47,29 @@ describe("the Office / Authority Locus has exactly the frozen minimum shape, hol
     expect(OfficeAuthorityLocusSchema.safeParse({}).success).toBe(false);
   });
 
-  it("an office carries authority and an explicit duty list: powers are non-empty, duties may be explicitly empty (where material)", () => {
-    expect(OfficeAuthorityLocusSchema.safeParse(office({ powers: [] })).success).toBe(false);
-    expect(OfficeAuthorityLocusSchema.safeParse(office({ duties: [] })).success).toBe(true);
+  it("powers[] and duties[] are required arrays of authored text with no invented minimum or uniqueness: empty and repeated entries are accepted as authored", () => {
+    for (const over of [
+      { powers: [] },
+      { duties: [] },
+      { powers: [], duties: [] },
+      { powers: ["a", "a"] },
+      { duties: ["d", "d"] },
+    ])
+      expect(OfficeAuthorityLocusSchema.safeParse(office(over)).success, JSON.stringify(over)).toBe(
+        true,
+      );
+    // the parsed value is the authored value exactly: no normalisation, deduplication or reordering
+    const authored = office({ powers: ["b", "a", "b"], duties: ["z", "z"] });
+    expect(OfficeAuthorityLocusSchema.parse(authored)).toEqual(authored);
+    // still required, and still arrays of authored text
+    for (const k of ["powers", "duties"]) {
+      const v: Record<string, unknown> = office();
+      delete v[k];
+      expect(OfficeAuthorityLocusSchema.safeParse(v).success, k).toBe(false);
+    }
   });
 
-  it("rejects malformed identities, references, texts and repeated entries", () => {
+  it("rejects malformed identities, references and texts", () => {
     for (const bad of [
       office({ office_id: "" }),
       office({ office_id: "two words" }),
@@ -70,16 +87,26 @@ describe("the Office / Authority Locus has exactly the frozen minimum shape, hol
       office({ succession_rule: " x" }),
       office({ removal_rule: "" }),
       office({ powers: [""] }),
-      office({ powers: ["a", "a"] }),
       office({ powers: "tax" }),
-      office({ duties: ["d", "d"] }),
       office({ duties: [" d"] }),
       office({ duties: null }),
     ])
       expect(OfficeAuthorityLocusSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
   });
 
-  it("unknown, unresolved or absent rule semantics have no representation here: a missing or non-text rule fails closed", () => {
+  it("a rule stating that a mechanism is absent, unknown or unresolved is carried verbatim as authored text and never interpreted", () => {
+    for (const rule of ["selection_rule", "succession_rule", "removal_rule"])
+      for (const prose of [
+        "SYNTHETIC FIXTURE: no such mechanism exists.",
+        "SYNTHETIC FIXTURE: unknown.",
+        "SYNTHETIC FIXTURE: unresolved.",
+      ]) {
+        const authored = office({ [rule]: prose });
+        expect(OfficeAuthorityLocusSchema.parse(authored)).toEqual(authored);
+      }
+  });
+
+  it("a missing, null, empty or non-text (structured) rule fails closed: no status vocabulary, special literal or object form exists", () => {
     for (const rule of ["selection_rule", "succession_rule", "removal_rule"])
       for (const v of [undefined, null, "", { status: "unknown" }, ["unknown"], 0, false])
         expect(OfficeAuthorityLocusSchema.safeParse(office({ [rule]: v })).success, rule).toBe(

@@ -92,8 +92,6 @@ export type InstitutionIdentity = z.infer<typeof InstitutionIdentitySchema>;
 export const gipOfficeAuthorityLocusKey = (institutionId: string, officeId: string): string =>
   `gip/institution/${institutionId}/office/${officeId}`;
 
-const unique = <T extends string>(xs: readonly T[]): boolean => new Set(xs).size === xs.length;
-
 /**
  * The frozen WS-007 §3.2 minimum, `holder_ref` branch. Every value is authored and explicit: nothing is defaulted, guessed
  * from a label, synthesized from the Institution Identity or derived from a holder's actor state.
@@ -106,10 +104,13 @@ const unique = <T extends string>(xs: readonly T[]): boolean => new Set(xs).size
  *    inferred from it (a Governance Instrument, constitutive act or law it might name is not implemented).
  *  - `competence_scope`, each of `powers[]` and `duties[]`, and the `selection_rule`, `succession_rule` and `removal_rule`
  *    are authored text exactly as stated. They are carried, never interpreted, executed, compared or generalised: no rule
- *    language, power taxonomy or scope grammar is invented. `powers` is non-empty (an authority locus carries authority);
- *    `duties` is explicit and may be empty ("where material"); neither lists duplicates. Where the source allows a rule to be
- *    absent, unknown or unresolved, this foundation supplies no representation: an unsupported variant fails closed, and the
- *    caller must author an explicit value.
+ *    language, power taxonomy or scope grammar is invented. `powers[]` and `duties[]` are required arrays of authored text
+ *    carried verbatim: the source fixes no minimum count and no uniqueness, so none is imposed (an explicitly authored empty
+ *    array or a repeated entry is carried as authored, never rejected, normalised or deduplicated). Each rule is required
+ *    authored text. Where the source says a selection, succession or removal mechanism does not exist, is unknown or is
+ *    unresolved, that is recorded explicitly: the authored prose stating so is carried verbatim as the rule's text and is not
+ *    interpreted. No status vocabulary or special literal exists, and a missing, null or non-text (structured) rule fails
+ *    closed.
  *  - `holder_ref` is a REFERENCE to the current holder and nothing else. It is not resolved in this foundation (no
  *    actor-existence rule is ratified for it), it copies no authority, personality, capability, knowledge, loyalty,
  *    competence or permission into any actor's state, and it makes no claim that the holder chose, accepted or exercised
@@ -124,8 +125,8 @@ export const OfficeAuthorityLocusSchema = z.strictObject({
   institution_id: EntityId,
   authority_source_ref: EntityId,
   competence_scope: Text,
-  powers: z.array(Text).nonempty().refine(unique, "powers must not repeat an entry"),
-  duties: z.array(Text).refine(unique, "duties must not repeat an entry"),
+  powers: z.array(Text),
+  duties: z.array(Text),
   selection_rule: Text,
   succession_rule: Text,
   removal_rule: Text,

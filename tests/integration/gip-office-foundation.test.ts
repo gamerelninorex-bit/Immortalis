@@ -152,6 +152,36 @@ describe("one explicitly authored office beneath one committed institution commi
   });
 });
 
+describe("authored arrays and rule prose are carried verbatim, never normalised or interpreted", () => {
+  it("an explicitly authored empty powers[], repeated entries and rule prose stating a mechanism is unknown or absent are committed exactly as authored and survive a reload", async () => {
+    const dir = tempDir();
+    const s = await withCourt(dir);
+    const authored = await establishOffice(s, 2, INSTITUTION_COURT, OFFICE_MAGISTRATE, {
+      powers: [],
+      duties: ["SYNTHETIC FIXTURE: a duty.", "SYNTHETIC FIXTURE: a duty."],
+      selection_rule: "SYNTHETIC FIXTURE: no selection mechanism exists.",
+      succession_rule: "SYNTHETIC FIXTURE: unknown.",
+      removal_rule: "SYNTHETIC FIXTURE: unresolved.",
+    });
+    await establishOffice(s, 3, INSTITUTION_COURT, OFFICE_TREASURER, {
+      powers: ["SYNTHETIC FIXTURE: p.", "SYNTHETIC FIXTURE: p."],
+    });
+    expect(s.campaign.store.getFact(magistrateKey)!.value).toEqual(authored);
+    expect((s.campaign.store.getFact(treasurerKey)!.value as any).powers).toEqual([
+      "SYNTHETIC FIXTURE: p.",
+      "SYNTHETIC FIXTURE: p.",
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
+    await s.campaign.close();
+    const r = await reopenGip(dir);
+    expect(r.campaign.verify()).toEqual([]);
+    expect(r.gip.officeAuthorityLocus(INSTITUTION_COURT, OFFICE_MAGISTRATE)?.value).toEqual(
+      authored,
+    );
+    await r.campaign.close();
+  });
+});
+
 describe("the office is readable by exact key and a read grants no GIP write authority", () => {
   it("reads one committed office through the adapter and through the read-only store view, identically", async () => {
     const s = await withCourt();
