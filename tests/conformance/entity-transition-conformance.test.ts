@@ -245,12 +245,12 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     ]);
   });
 
-  it("the transition is published only as its IM-02 stage: admission and load verification apply the one stageIdentityViolation rule", () => {
+  it("the transition is published only as its IM-02 stage: admission and load verification apply the one shared stage rule (identity and the durable transaction authority)", () => {
     expect(code("packages/engine/src/world/entity-transition.ts")).toMatch(
-      /stageIdentityViolation\(group, entityTransitionStage\(causeId\)\)/,
+      /stageAuthorityViolation\(\s*group,\s*entityTransitionStage\(causeId\)/,
     );
     expect(code("packages/engine/src/world/entity-transition-integrity.ts")).toMatch(
-      /stageIdentityViolation\(\s*tf\.provenance,\s*entityTransitionStage/,
+      /journaledStageViolation\(\s*store,\s*byKey,\s*tf,\s*entityTransitionStage/,
     );
   });
 

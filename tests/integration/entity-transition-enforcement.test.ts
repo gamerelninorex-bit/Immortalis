@@ -69,6 +69,7 @@ import {
   acceptCauseRegister,
   acceptEntity,
   commitCause,
+  currentLocusOfRequest,
   entCoordinator,
   entSummary,
   registerConsumer,
@@ -326,7 +327,8 @@ describe("IM-11 refuses an unlawful transition â€” raw or tampered (F-016 v0.4 Â
     });
     const r = await s.campaign.store.commit(honest);
     expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
-    expect(!r.ok && r.error.message).toContain("engaged cause");
+    // refused for want of a durable transaction authority (nothing opened a transaction), before any boundary question
+    expect(!r.ok && r.error.message).toContain("durable authority of its open transaction");
     expect(s.campaign.store.getFact(transitionKey)).toBeUndefined();
   });
 
@@ -454,6 +456,54 @@ describe("IM-11 refuses an unlawful transition â€” raw or tampered (F-016 v0.4 Â
     const raw = await s.campaign.store.commit(mutate(rawTransition(s, 120)));
     expect(raw.ok).toBe(false);
     expect(!raw.ok && raw.error.message).toMatch(message);
+  });
+});
+
+describe("the exact forged-stage hole (Blue review of PR #8): the copied StageKey identity and a forged transaction cause", () => {
+  it("after the temporal object is lawfully registered, a raw stage with the right group and intent ids, the forged cause 'transaction:forged', the correct pinned reads and dependencies and the exact derived value is REFUSED: no transition, the current locus is unchanged, integrity is clean", async () => {
+    const s = await registered();
+    // the state Blue named, exactly: accepted entity, cause and transition object registered; canonical time still
+    // before the outcome's instant; the boundary active and unretired
+    expect(s.coordinator.state()!.value.canonical_time.value).toBeLessThan(ENT_T_EFFECT.value);
+    expect(s.coordinator.object(`obj-entity-transition-${CAUSE_1}`)!.value.next_boundary).toEqual({
+      boundary_id: `boundary-entity-transition-${CAUSE_1}`,
+      at: ENT_T_EFFECT,
+    });
+    const before = entSummary(s.campaign, s.coordinator);
+    const originBefore = currentLocusOfRequest(s.campaign, REQ_1)!;
+    expect(originBefore.current.locus.entity_id).toBe(FIXTURE_LOCUS_ID);
+
+    const forged = rawTransition(s, 130, {
+      group_id: stageGroupId(stage),
+      intent_id: stageIntentId(stage),
+      cause: "transaction:forged",
+    });
+    // everything but the authority is exactly what the coordinator would publish
+    expect(forged.group_id).toBe(stageGroupId(stage));
+    expect(forged.intent_id).toBe(stageIntentId(stage));
+    expect(forged.reads.map((r) => r.key).sort()).toEqual(
+      [ck, entityKey, worldKey, destLocusKey].sort(),
+    );
+    const r = await s.campaign.store.commit(forged);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(!r.ok && r.error.message).toContain("durable authority of its open transaction");
+    // no transition fact, no new commit of any kind, the origin is still the one current locus, and it verifies
+    expect(s.campaign.store.getFact(transitionKey)).toBeUndefined();
+    expect(entSummary(s.campaign, s.coordinator)).toEqual(before);
+    expect(currentLocusOfRequest(s.campaign, REQ_1)!.current.locus.entity_id).toBe(
+      FIXTURE_LOCUS_ID,
+    );
+    expect(currentLocusOfRequest(s.campaign, REQ_1)!.transition).toBeUndefined();
+    expect(s.campaign.verify()).toEqual([]);
+
+    // the lawful transaction is unaffected: it opens its own authority, commits the stage under it, exactly once
+    await must(advanceAll(s, "tx-honest"));
+    const tf = s.campaign.store.getFact(transitionKey)!;
+    expect(tf.provenance.cause).toBe("transaction:tx-honest");
+    expect(s.campaign.store.getFact("temporal/transaction-authority/tx-honest")).toBeDefined();
+    expect(currentLocusOfRequest(s.campaign, REQ_1)!.current.locus.entity_id).toBe(DEST_LOCUS_ID);
+    expect(s.campaign.verify()).toEqual([]);
   });
 });
 

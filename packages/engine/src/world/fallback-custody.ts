@@ -19,7 +19,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { WORLD_FALLBACK_RULE, resolveKey } from "../owners/registry.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { stageAuthorityViolation } from "../production/admission.ts";
 import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
@@ -125,9 +125,12 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
     );
   }
   // available only through its IM-02 stage (the same rule load-time verification applies)
-  const identity = stageIdentityViolation(
+  const identity = stageAuthorityViolation(
     group,
     worldAcceptanceStage(entity.accepted_from.operation_id),
+    state.facts,
+    envelope.data.completed_at,
+    "ADMISSION",
   );
   if (identity) return reject("REFERENCE_INVALID", identity, { key: w.key });
   return null;

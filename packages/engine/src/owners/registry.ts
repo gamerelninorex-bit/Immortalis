@@ -36,6 +36,7 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
   WorldLocusSchema,
   WorldProfileSchema,
   type SourceRef,
@@ -122,6 +123,7 @@ export const TEMPORAL_FACT_KIND_IDS = [
   "temporal_boundary_index",
   "temporal_object",
   "resolution_transaction",
+  "temporal_transaction_authority",
 ] as const;
 export const POPULATION_FACT_KIND_IDS = [
   "population_ledger",
@@ -315,6 +317,17 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     lifecycle: "SEALED",
     keyPattern: new RegExp(`^temporal/transaction/${ID}$`),
     valueSchema: ResolutionTransactionSchema,
+    rule: KERNEL_RULE,
+  },
+  {
+    id: "temporal_transaction_authority",
+    owner: OWNER_TEMPORAL_KERNEL,
+    facet: FACET_TEMPORAL_COORDINATION,
+    im: "IM-02",
+    rc: ["RC-02", "RC-05"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^temporal/transaction-authority/${ID}$`),
+    valueSchema: TransactionAuthoritySchema,
     rule: KERNEL_RULE,
   },
 ];

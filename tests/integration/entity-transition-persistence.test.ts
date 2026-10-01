@@ -96,7 +96,8 @@ describe("save → close → load → continue across the pending transition (ac
       committedGroup: (i) => s.campaign.store.committedGroup(i),
       close: () => s.campaign.store.close(),
       commit: async (g: any) => {
-        if (g.owner === "temporal_kernel") {
+        // the transaction group (not its opening authority, which is an earlier kernel commit)
+        if (g.owner === "temporal_kernel" && g.group_id.startsWith("transaction-group:")) {
           killed++;
           return {
             ok: false,

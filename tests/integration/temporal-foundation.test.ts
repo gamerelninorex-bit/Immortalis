@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   PLAYER_CHARACTER_BINDING_KEY,
   temporalObjectKey,
+  temporalTransactionAuthorityKey,
   temporalTransactionKey,
   type ResolutionTransaction,
 } from "@immortalis/contracts";
@@ -324,13 +325,20 @@ describe("IM-11 / IM-12 / IM-17 are reused, not replaced", () => {
     const spy = spyStore(campaign.store);
     const c = new TemporalCoordinator(spy.store, syntheticProviders());
     const r = await must(c.advance(stopAtBoundaryRequest("tx-1")));
-    // three publications: producer, consumer (each the owner's group), then the kernel's single group
+    // four publications: the kernel opens the transaction (its durable authority) BEFORE any owner stage, then the
+    // producer and the consumer (each the owner's group), then the kernel's single transaction group
     expect(spy.commits.map((g) => g.owner)).toEqual([
+      "temporal_kernel",
       "SYNTHETIC-STAGE-OWNER",
       "SYNTHETIC-STAGE-OWNER",
       "temporal_kernel",
     ]);
-    const kernel = spy.commits[2]!;
+    const opening = spy.commits[0]!;
+    expect(opening.writes.map((w) => w.key)).toEqual(["temporal/transaction-authority/tx-1"]);
+    for (const stageGroup of [spy.commits[1]!, spy.commits[2]!])
+      expect(stageGroup.depends_on).toContain(opening.group_id); // every owner stage depends on the opening
+    const kernel = spy.commits[3]!;
+    expect(kernel.depends_on).toContain(opening.group_id);
     expect(kernel.authority).toEqual({
       role: "role.archivist",
       permission: "permission.canon.write",
@@ -346,7 +354,7 @@ describe("IM-11 / IM-12 / IM-17 are reused, not replaced", () => {
     // the kernel group depends on exactly the stage groups it cites
     for (const s of r.transaction.stages) expect(kernel.depends_on).toContain(s.group_id);
     // the producer's read of the canonical binding is pinned at its committed version (IM-11 reads-current)
-    const producerGroup = spy.commits[0]!;
+    const producerGroup = spy.commits[1]!;
     expect(producerGroup.reads[0]).toEqual({
       key: PLAYER_CHARACTER_BINDING_KEY,
       version: campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!.version,
@@ -416,6 +424,8 @@ describe("causally engaged set and dormant-state economy (brief §4.8, §5.3)", 
           SYNTH_PRODUCER_RESULT_KEY,
           SYNTH_CONSUMER_RESULT_KEY,
           temporalTransactionKey("tx-1"),
+          // the advance reads its own transaction's durable authority, by identity
+          temporalTransactionAuthorityKey("tx-1"),
         ],
         `unexpected read of ${key}`,
       ).toContain(key);

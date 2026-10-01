@@ -7,7 +7,9 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
   compareTime,
+  temporalTransactionAuthorityKey,
   temporalObjectKey,
   temporalTransactionKey,
   timeAtOrBefore,
@@ -29,6 +31,11 @@ import { productionObjectViolation } from "../production/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 import { entityTransitionObjectViolation } from "../world/entity-transition.ts";
+import {
+  transactionAuthorityGroupId,
+  transactionAuthorityIntentId,
+  transactionCause,
+} from "./identity.ts";
 
 type Rejection = Failure<CommitErrorCode>;
 
@@ -57,6 +64,9 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
   const idxW = writes.find((w) => classify(w.key) === "temporal_boundary_index");
   const objWs = writes.filter((w) => classify(w.key) === "temporal_object");
   const txWs = writes.filter((w) => classify(w.key) === "resolution_transaction");
+
+  const authW = writes.find((w) => classify(w.key) === "temporal_transaction_authority");
+  if (authW) return checkAuthority(group, state, authW);
 
   if (txWs.length > 1) return reject("VALUE_INVALID", "one group records at most one transaction");
   const priorStateFact = state.facts.get(TEMPORAL_STATE_KEY);
@@ -130,6 +140,69 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
     }
   }
   return indexConsistency(state, clock, objWs, idxW);
+}
+
+/**
+ * Opening a transaction (F-014B §6 step 1; RC-05): the kernel commits one sealed authority BEFORE any owner stage of
+ * the transaction commits. It is lawful only at the temporal state it read (the opening basis), for a transaction
+ * identity not yet committed, consuming exactly the continuation the state holds, and under the identity derived from
+ * the transaction alone — so retry reaches the same receipt. It writes nothing but itself and moves nothing: canonical
+ * time, the boundary index and every object are untouched.
+ */
+function checkAuthority(
+  group: CommitGroup,
+  state: CampaignState,
+  w: CommitGroup["writes"][number],
+): Rejection | null {
+  const a = TransactionAuthoritySchema.parse(w.value);
+  const bad = (message: string, details?: Record<string, unknown>) =>
+    reject("REFERENCE_INVALID", message, { key: w.key, ...details });
+  if (group.writes.length !== 1) {
+    return reject("VALUE_INVALID", "a transaction is opened by its authority alone");
+  }
+  const id = a.transaction_id;
+  if (
+    group.group_id !== transactionAuthorityGroupId(id) ||
+    group.intent_id !== transactionAuthorityIntentId(id) ||
+    group.cause !== transactionCause(id)
+  ) {
+    return bad("a transaction is opened under the identity derived from the transaction alone");
+  }
+  const pinned = requirePrerequisite(group, state, TEMPORAL_STATE_KEY, "the temporal state");
+  if (isRejection(pinned)) return pinned;
+  const stateFact = state.facts.get(TEMPORAL_STATE_KEY)!;
+  const prior = TemporalStateSchema.parse(stateFact.value);
+  if (
+    a.opening.state_version !== stateFact.version ||
+    !timeEquals(a.opening.basis_time, prior.canonical_time)
+  ) {
+    return bad("a transaction opens at the temporal state it read");
+  }
+  if (state.facts.has(temporalTransactionKey(id))) {
+    return bad("a committed transaction cannot be opened again");
+  }
+  const target = a.requested.target;
+  if (target) {
+    const c = compareTime(prior.canonical_time, target);
+    if (c === null || c === 1) return bad("a target may not precede the canonical time");
+  }
+  const held = prior.continuation;
+  if ((held?.from_transaction ?? null) !== a.continues) {
+    return bad(
+      held
+        ? "a held continuation must be consumed by the next transaction, not abandoned"
+        : "a continuing transaction must consume a continuation the state holds",
+    );
+  }
+  if (held) {
+    const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
+    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    if (!priorTx?.success)
+      return bad("the held continuation's sealed transaction is not committed");
+    const violation = continuationRequestViolation(priorTx.data, a.requested);
+    if (violation) return bad(violation);
+  }
+  return null;
 }
 
 function checkTransaction(
@@ -206,6 +279,31 @@ function checkTransaction(
   for (const s of tx.stages) {
     if (!group.depends_on.includes(s.group_id)) {
       return bad("a cited stage group is not a group dependency", { group_id: s.group_id });
+    }
+  }
+  // The transaction was genuinely opened before its owner stages: its durable authority exists, is pinned and
+  // depended upon, and the sealed record repeats exactly what was opened (F-014B §6 step 1; RC-05).
+  if (tx.stages.length > 0) {
+    const authKey = temporalTransactionAuthorityKey(tx.transaction_id);
+    const auth = requirePrerequisite(group, state, authKey, "the transaction authority");
+    if (isRejection(auth)) return auth;
+    const a = TransactionAuthoritySchema.safeParse(auth.fact.value);
+    const txWrite = group.writes.find((x) => x.key === txKey);
+    if (
+      !a.success ||
+      a.data.transaction_id !== tx.transaction_id ||
+      a.data.cause !== tx.cause ||
+      a.data.continues !== tx.continues ||
+      !canonicalEqual(a.data.trigger, tx.trigger) ||
+      !canonicalEqual(a.data.opening, tx.opening) ||
+      !canonicalEqual(a.data.requested, tx.requested) ||
+      !canonicalEqual(a.data.context, tx.context) ||
+      a.data.publication.basis !== txWrite?.basis ||
+      a.data.publication.secrecy !== txWrite?.secrecy
+    ) {
+      return bad("a transaction repeats exactly what its durable authority opened", {
+        authority: authKey,
+      });
     }
   }
   // 2. Engaged objects are all recorded (RC-05); exactly the RETIRED ones are touched, each across

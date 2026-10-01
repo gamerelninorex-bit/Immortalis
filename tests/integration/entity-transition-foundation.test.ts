@@ -309,13 +309,17 @@ describe("unrelated state is untouched; nothing is scanned (acceptance 12)", () 
     expect(spy.getFacts.some((k) => k.includes("reserve-other"))).toBe(false);
     expect(s.campaign.store.getFact(otherEntityKey)).toEqual(otherBefore);
     expect(s.campaign.store.getFact(transitionKeyOf(REQ_2))).toBeUndefined();
-    // the only new facts are the transition, the retired object's advance, the state and the transaction
+    // the only new facts are the transition, the transaction's opening authority, the retired object's advance, the state and the transaction
     const added = s.campaign.store
       .listFacts()
       .map((f) => f.key)
       .filter((k) => !keysBefore.includes(k));
     expect(added.sort()).toEqual(
-      [transitionKeyOf(REQ_1), "temporal/transaction/tx-transition"].sort(),
+      [
+        transitionKeyOf(REQ_1),
+        "temporal/transaction-authority/tx-transition",
+        "temporal/transaction/tx-transition",
+      ].sort(),
     );
   });
 });

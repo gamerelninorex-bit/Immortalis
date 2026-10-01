@@ -584,6 +584,30 @@ describe("IM-11 refuses a realization that the accepted chain does not determine
     expect(s.campaign.verify()).toEqual([]);
   });
 
+  it("a raw realization that COPIES the derived stage identity and names an arbitrary transaction is refused: no durable transaction authority (Blue review of PR #8)", async () => {
+    const s = await acceptedNotRealized();
+    const before = econSummary(s.campaign, s.coordinator);
+    const forged = rawRealization(s, 103, {
+      group_id: stageGroupId(stage),
+      intent_id: stageIntentId(stage),
+      cause: "transaction:forged",
+    }).group;
+    const r = await s.campaign.store.commit(forged);
+    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
+    expect(!r.ok && r.error.message).toMatch(/durable authority of its open transaction/);
+    expect(s.economy.access(DEMAND_1)).toEqual({ state: "DEMAND_OPEN" });
+    expect(econSummary(s.campaign, s.coordinator)).toEqual(before);
+    expect(s.campaign.verify()).toEqual([]);
+    // the honest continuation still records access exactly once
+    await must(
+      new TemporalCoordinator(s.campaign.store, econCoordinatorProviders()).continueRemainder(
+        continuationInput("tx-honest"),
+      ),
+    );
+    expect(s.economy.access(DEMAND_1).state).toBe("REALIZED_ACCESS");
+    expect(s.economy.realization(DEMAND_1)!.fact.version).toBe(1);
+  });
+
   it("Production completion alone cannot be realized: with no acceptance there is no entity to read, whoever publishes", async () => {
     const s = await seededEconomyCampaign(tempDir());
     await issueStartRegister(s, DEMAND_1, 1);

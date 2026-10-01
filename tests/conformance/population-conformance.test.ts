@@ -105,8 +105,8 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
     ]);
     // (the fifth slice's four Production kinds and one World-State fallback kind bring the registry to 16; the
     // sixth slice's three Economy kinds bring it to 19; the seventh slice's one World-State entity-transition kind
-    // brings it to 20)
-    expect(ALL_FACT_KINDS).toHaveLength(20);
+    // brings it to 20; the transaction-authority repair's one IM-02 kernel kind brings it to 21)
+    expect(ALL_FACT_KINDS).toHaveLength(21);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "pc_existence",

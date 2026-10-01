@@ -13,7 +13,7 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { journaledStageViolation } from "../production/admission.ts";
 import {
   causeSourceViolation,
   deriveEntityTransition,
@@ -112,7 +112,13 @@ export function verifyEntityTransitionIntegrity(
         bad(tf.key, "a transition is exactly what the committed cause determines for the entity");
       }
     }
-    const identity = stageIdentityViolation(tf.provenance, entityTransitionStage(t.cause.cause_id));
+    const identity = journaledStageViolation(
+      store,
+      byKey,
+      tf,
+      entityTransitionStage(t.cause.cause_id),
+      cause.timing.occurs_at,
+    );
     if (identity) bad(tf.key, identity);
     if (!canonicalEqual(t.close.stage, entityTransitionStage(t.cause.cause_id))) {
       bad(tf.key, "the Entity Transition Close is the stage derived from the cause");

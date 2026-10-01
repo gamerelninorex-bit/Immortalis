@@ -243,16 +243,16 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     ]);
   });
 
-  it("a completion and an acceptance are published only as their IM-02 stage: admission and load verification apply the one stageIdentityViolation rule, built on the existing derived stage identity", () => {
+  it("a completion and an acceptance are published only as their IM-02 stage: admission and load verification apply the one stage rule (identity and the durable transaction authority), built on the existing derived stage identity", () => {
     expect(code("packages/engine/src/production/admission.ts")).toMatch(
-      /stageIdentityViolation\(group, d\.envelope\.close_stage\)/,
+      /stageAuthorityViolation\(\s*group,\s*d\.envelope\.close_stage/,
     );
     expect(code("packages/engine/src/world/fallback-custody.ts")).toMatch(
-      /stageIdentityViolation\(\s*group,\s*worldAcceptanceStage/,
+      /stageAuthorityViolation\(\s*group,\s*worldAcceptanceStage/,
     );
     const integrity = code("packages/engine/src/production/integrity.ts");
-    expect(integrity).toMatch(/stageIdentityViolation\(\s*completionFact\.provenance/);
-    expect(integrity).toMatch(/stageIdentityViolation\(\s*entityFact\.provenance/);
+    expect(integrity).toMatch(/journaledStageViolation\(\s*store,\s*byKey,\s*completionFact/);
+    expect(integrity).toMatch(/journaledStageViolation\(\s*store,\s*byKey,\s*entityFact/);
     const admission = code("packages/engine/src/production/admission.ts");
     expect(admission).toMatch(/stageGroupId\(stage\)/);
     expect(admission).toMatch(/stageIntentId\(stage\)/);

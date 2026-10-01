@@ -43,7 +43,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { stageAuthorityViolation } from "../production/admission.ts";
 
 /**
  * The World-State entity-continuity seam (IM-03; WG "Ownership Guards — F-016 Ratified Fallback Objective
@@ -450,7 +450,13 @@ export function worldTransitionGroupCheck(
     );
   }
   // published only as its IM-02 stage (the one rule load-time verification also applies)
-  const identity = stageIdentityViolation(group, entityTransitionStage(causeId));
+  const identity = stageAuthorityViolation(
+    group,
+    entityTransitionStage(causeId),
+    state.facts,
+    cause.data.timing.occurs_at,
+    "ADMISSION",
+  );
   if (identity) return ref(identity, { key: w.key });
   // it commits only at its engaged, unretired, declared boundary (the object is the engagement)
   const obj = state.facts.get(temporalObjectKey(entityTransitionObjectId(causeId)));

@@ -24,7 +24,7 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
-import { stageIdentityViolation } from "../production/admission.ts";
+import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { deriveEconomyRequest, deriveRealization } from "./derive.ts";
 
@@ -192,9 +192,12 @@ export function verifyEconomyIntegrity(store: CampaignStore): readonly Integrity
     if (!derived.ok || !canonicalEqual(derived.value, r)) {
       bad(zf.key, "a realized access is exactly what the accepted chain determines");
     }
-    const identity = stageIdentityViolation(
-      zf.provenance,
+    const identity = journaledStageViolation(
+      store,
+      byKey,
+      zf,
       economyRealizationStage(r.production.operation.operation_id),
+      op.timing.completion.at,
     );
     if (identity) bad(zf.key, identity);
     const obj = parsed(

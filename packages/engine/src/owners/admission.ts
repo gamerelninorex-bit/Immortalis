@@ -209,6 +209,7 @@ export function identityMismatch(
     case "temporal_object":
       return v["object_id"] === ids[0] ? null : "object_id does not match the key";
     case "resolution_transaction":
+    case "temporal_transaction_authority":
       return v["transaction_id"] === ids[0] ? null : "transaction_id does not match the key";
     case "population_ledger":
     case "population_close":

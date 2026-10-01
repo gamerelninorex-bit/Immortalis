@@ -19,3 +19,9 @@ export const transactionGroupId = (transactionId: string): string =>
 export const transactionIntentId = (transactionId: string): string =>
   `transaction-intent:${transactionId}`;
 export const transactionCause = (transactionId: string): string => `transaction:${transactionId}`;
+
+/** The durable authority a transaction opens before its first owner stage commits: identities derived from the transaction alone. */
+export const transactionAuthorityGroupId = (transactionId: string): string =>
+  `transaction-authority-group:${transactionId}`;
+export const transactionAuthorityIntentId = (transactionId: string): string =>
+  `transaction-authority-intent:${transactionId}`;
