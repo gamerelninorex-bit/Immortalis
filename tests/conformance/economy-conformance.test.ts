@@ -105,6 +105,7 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "logistics",
+      "named_actor",
       "pc_existence",
       "population",
       "production",
@@ -128,8 +129,11 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
   });
 
   it("no generic or later owner exists: no Asset, Inventory, Market, Exchange, Currency, Credit, Holding, Labor, Logistics, KTI, Actor, Health, Military, Culture or Epistemic owner", () => {
-    const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
-    const facets = [...CANONICAL_OWNER_REGISTRY.values()].flatMap((f) => [...f]).join(" ");
+    const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => n !== "named_actor").join(" ");
+    const facets = [...CANONICAL_OWNER_REGISTRY.values()]
+      .flatMap((f) => [...f])
+      .filter((f) => f !== "actor_profile")
+      .join(" ");
     for (const forbidden of [
       "asset",
       "inventory",
@@ -325,6 +329,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
     ).toEqual([
+      "actor",
       "commit",
       "economy",
       "logistics",

@@ -107,10 +107,11 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
     // sixth slice's three Economy kinds bring it to 19; the seventh slice's one World-State entity-transition kind
     // brings it to 20; the transaction-authority repair's one IM-02 kernel kind brings it to 21)
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(24);
+    expect(ALL_FACT_KINDS).toHaveLength(26);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
       "economy",
       "logistics",
+      "named_actor",
       "pc_existence",
       "population",
       "production",
@@ -130,7 +131,7 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
   });
 
   it("no other Population-facing substantive owner exists: no labor, health, military, actor, culture or epistemic owner (Production is the fifth slice's own IM-05 owner and Economy the sixth slice's own IM-06 owner)", () => {
-    const names = [...CANONICAL_OWNER_REGISTRY.keys()].join(" ");
+    const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => n !== "named_actor").join(" ");
     for (const forbidden of [
       "labor",
       "health",
@@ -289,6 +290,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
     ).toEqual([
+      "actor",
       "commit",
       "economy",
       "logistics",

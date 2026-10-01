@@ -3,6 +3,7 @@ import {
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_ECONOMY,
   OWNER_LOGISTICS,
+  OWNER_NAMED_ACTOR,
   OWNER_POPULATION,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
@@ -19,6 +20,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { namedActorGroupCheck } from "../actor/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
@@ -183,6 +185,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
     // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
     if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
+    // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
+    if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -268,6 +272,11 @@ export function identityMismatch(
         ? null
         : "delivery identity does not match the key";
     }
+    case "named_actor_capability_basis":
+    case "named_actor_capability":
+      return v["actor_id"] === ids[0] && v["capability_id"] === ids[1]
+        ? null
+        : "actor and capability identity does not match the key";
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
       return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]

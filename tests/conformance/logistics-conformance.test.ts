@@ -351,6 +351,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
         .sort(),
     ).toEqual([
+      "actor",
       "commit",
       "economy",
       "logistics",

@@ -11,7 +11,14 @@
 // Entity Continuity / Transition Close Backbone Foundation (ECT-01 same-entity locus transition by the fallback
 // custodian over that same substrate), and the Single-Leg Logistics Transfer & Destination Handoff Backbone
 // Foundation (IM-05 Logistics owner path and the single authoritative current-locus resolver over that same
-// substrate).
+// substrate), and the Named-Actor Character Capability & Capability-Close Backbone Foundation (IM-07 Named-Actor
+// capability owner path and its declared capability close over that same substrate).
+export * from "./actor/adapter.ts";
+export * from "./actor/admission.ts";
+export * from "./actor/declaration.ts";
+export * from "./actor/derive.ts";
+export * from "./actor/integrity.ts";
+export * from "./actor/provider.ts";
 export * from "./commit/campaign-core.ts";
 export * from "./economy/adapter.ts";
 export * from "./economy/admission.ts";

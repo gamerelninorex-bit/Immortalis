@@ -1,5 +1,9 @@
 import {
   BoundaryIndexSchema,
+  FACET_ACTOR_PROFILE,
+  NamedActorCapabilityBasisSchema,
+  NamedActorCapabilitySchema,
+  OWNER_NAMED_ACTOR,
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
   EconomyRealizationSchema,
@@ -117,6 +121,16 @@ export const WS010_SOURCE = {
   native_pin: "2026-09-25T02:18:10.619Z",
 } as const;
 
+export const WS006_SOURCE = {
+  artifact: "https://app.notion.com/p/3e520af901e081619a59c069a36db420",
+  native_pin: "2026-09-25T00:18:36.828Z",
+} as const;
+
+export const WS016_SOURCE = {
+  artifact: "https://app.notion.com/p/3e220af901e08168b37ccee101d23e49",
+  native_pin: "2026-09-24T17:38:59.210Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -158,8 +172,13 @@ export const LOGISTICS_FACT_KIND_IDS = [
   "logistics_transfer",
   "logistics_delivery",
 ] as const;
+export const NAMED_ACTOR_FACT_KIND_IDS = [
+  "named_actor_capability_basis",
+  "named_actor_capability",
+] as const;
 export type FactKindId =
   | (typeof FACT_KIND_IDS)[number]
+  | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
@@ -658,10 +677,68 @@ export const LOGISTICS_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const WS016_LINEAGE =
+  "WS-016 Character Capability Protocol v1 — Concept and Working Operational Draft v1, Sovereign-ratified 2026-09-25 (OB-047), with the Blue Bounded Integration Map (F-014A bounded amendment) at the frozen lock pin 2026-09-24T17:38:59.210Z (https://app.notion.com/p/3e220af901e08168b37ccee101d23e49); Concept https://app.notion.com/p/3e220af901e08127a01ce75d75b26783, Operational Draft https://app.notion.com/p/3e220af901e081b881b0ec8b719c0b90";
+const WS006_LINEAGE =
+  "WS-006 Named Actors — F-014A v3.3 Holder-Relative Referent Keying Amendment, Sovereign-ratified 2026-09-25, with the W3-CP3 PC-Control Handover interface note, at the frozen lock pin 2026-09-25T00:18:36.828Z (https://app.notion.com/p/3e520af901e081619a59c069a36db420); inherits the F-014A v3.2 Character Capability amendment";
+
+/**
+ * One governing rule for every Named-Actor kind: the authored establishment basis and the capability-close
+ * publication are each one group, and a capability always cites the one basis it was derived from, so every version
+ * of every Named-Actor fact records the same citation. The clauses are the ones the state relies on (WS-016 as the
+ * shared protocol, WS-006 / F-014A as the owner that holds the facts).
+ */
+export const NAMED_ACTOR_RULE: SourceRef = rule(
+  WS016_SOURCE,
+  "§2 Runtime Ownership (Named-Actor capability facts remain owned by F-014A / the lawful Named-Actor owner; no consumer acquires write authority); §3 Minimal Persistent Capability Record (capability, optional comparative marker, provenance pointer, capability-close reference; no fatigue, injury, equipment, observer reputation, KTI corpus, office, relationship or situational state); §4 Persistence Gate (Named Actor: role-defining, recurring, materially consequential or repeatedly required); §6 Grade Semantics (C/B/A/S qualitative, never converted to a number); §7 EX Adapter (EX is not S+); §16 Named-Actor Capability Establishment Adapter (established from lawful pre-existing causes, persisted before the dependent action; no separate RNG); §17 Named-Actor Rarity Guard; §20 Aggregate Boundary and §28 Aggregate Boundary / §28.1 Single-Contribution Rule (no individual sheet for cohorts, populations, institutions or anonymous individuals; promotion changes representation, not headcount); §23 Equipment / Borrowed-Power Guard; §25 Observer / Reputation / Cover Interface (one authoritative capability truth); §27 Temporal / Turnless Behavior and §27.1 Capability Visibility / No Same-Resolution Feedback (cross-owner reads AS-OF-DECLARED-CLOSE); §32 Failure Conditions; with WS-006 / F-014A v3.3 §6 Two-Target Write Rule and the W3-CP3 PC-Control Handover interface note (F-014A is writable only while the entity is under lawful non-PC actor ownership)",
+  [WS016_LINEAGE, WS006_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const namedActorKind = (
+  id: (typeof NAMED_ACTOR_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_NAMED_ACTOR,
+  facet: FACET_ACTOR_PROFILE,
+  im: "IM-07",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: NAMED_ACTOR_RULE,
+});
+
+/**
+ * IM-07 Actor / ACS / Capability Adapter — the NAMED-ACTOR CAPABILITY part only: "capabilities/mastery ... only
+ * source-assigned actor/collective/capability facets". WS-016 §2 / the Integration Map §3 assign sparse durable
+ * personal mastery of a consequential non-PC Named Actor to F-014A's actor-profile. One owner, one facet, two
+ * exclusive actor/capability-keyed key spaces, both create-only (SEALED): the authored establishment basis, and the
+ * persisted capability, which exists only as its IM-02 stage — the owner's declared capability close. There is no
+ * fallback owner, and no personality, goal, relationship, belief, mandate, development, loss, lifecycle, KTI,
+ * aggregate, PC-capability or numeric-rank kind.
+ */
+export const NAMED_ACTOR_FACT_KINDS: readonly FactKind[] = [
+  namedActorKind(
+    "named_actor_capability_basis",
+    ["RC-02", "RC-09"],
+    new RegExp(`^actor/${ID}/capability-basis/${ID}$`),
+    NamedActorCapabilityBasisSchema,
+  ),
+  namedActorKind(
+    "named_actor_capability",
+    ["RC-02", "RC-03", "RC-04"],
+    new RegExp(`^actor/${ID}/capability/${ID}$`),
+    NamedActorCapabilitySchema,
+  ),
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
- * Economy kinds and the IM-05 Logistics kinds.
+ * Economy kinds, the IM-05 Logistics kinds and the IM-07 Named-Actor capability kinds.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -672,6 +749,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
+  ...NAMED_ACTOR_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {
