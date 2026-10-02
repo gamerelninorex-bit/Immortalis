@@ -1,4 +1,4 @@
-import type { ExternalRecognition } from "@immortalis/contracts";
+import type { ExternalRecognition, ExternalizedClaimDispute } from "@immortalis/contracts";
 
 /**
  * SYNTHETIC TEST DATA for the Diplomacy External Recognition Core Backbone Foundation. Every identifier and text below is a
@@ -61,5 +61,52 @@ export const fullExternalRecognition = (
     withdrawal_or_supersession_condition:
       "SYNTHETIC FIXTURE: an authored withdrawal or supersession condition, carried and never evaluated.",
     successor_rule_ref: SUCCESSOR_RULE_REF_A,
+    ...over,
+  });
+
+export const DISPUTE_A = "dispute-a-1";
+export const DISPUTE_B = "dispute-b-1";
+export const DISPUTE_C = "dispute-c-1";
+export const DISPUTE_PARTY_REF_A = "dispute-party-ref-a-1";
+export const DISPUTE_PARTY_REF_B = "dispute-party-ref-b-1";
+export const DISPUTE_UNDERLYING_SUBJECT_REF_A = "dispute-underlying-subject-ref-a-1";
+export const DISPUTE_INTERPRETATION_ISSUE_REF_A = "dispute-interpretation-issue-ref-a-1";
+export const DISPUTE_INSTRUMENT_OR_CLAUSE_REF_A = "dispute-instrument-or-clause-ref-a-1";
+export const DISPUTE_ADJUDICATION_BASIS_REF_A = "dispute-adjudication-basis-ref-a-1";
+export const DISPUTE_PROVENANCE_REF_A = "dispute-provenance-ref-a-1";
+
+/**
+ * A well-formed Externalized Claim / Dispute at the WS-008 §7 minimum: every required field, with the optional
+ * `requested_remedy_or_demand`, `interpretation_issue_ref`, `instrument_or_clause_ref` and `adjudication_basis_ref` and the
+ * conditional `dependency_refs[]` and `effect_on` all omitted (absent, not empty). The references name nothing in this fixture
+ * world: no underlying claim, party, instrument, clause or adjudication exists behind them. Nothing here is a game rule.
+ */
+export const externalizedClaimDispute = (
+  disputeId = DISPUTE_A,
+  over: Partial<ExternalizedClaimDispute> = {},
+): ExternalizedClaimDispute => ({
+  dispute_id: disputeId,
+  party_refs: [DISPUTE_PARTY_REF_A, DISPUTE_PARTY_REF_B],
+  underlying_subject_ref: DISPUTE_UNDERLYING_SUBJECT_REF_A,
+  communicated_position_entries: [
+    "SYNTHETIC FIXTURE: one authored communicated position entry.",
+    { authored: "SYNTHETIC FIXTURE: another authored entry, carried as given." },
+  ],
+  status: "SYNTHETIC FIXTURE: an authored status.",
+  provenance_ref: DISPUTE_PROVENANCE_REF_A,
+  ...over,
+});
+
+/** The same dispute carrying every optional §7 field (no `dependency_refs[]`, no `effect_on`). */
+export const fullExternalizedClaimDispute = (
+  disputeId = DISPUTE_A,
+  over: Partial<ExternalizedClaimDispute> = {},
+): ExternalizedClaimDispute =>
+  externalizedClaimDispute(disputeId, {
+    requested_remedy_or_demand:
+      "SYNTHETIC FIXTURE: an authored remedy or demand, carried and never evaluated.",
+    interpretation_issue_ref: DISPUTE_INTERPRETATION_ISSUE_REF_A,
+    instrument_or_clause_ref: DISPUTE_INSTRUMENT_OR_CLAUSE_REF_A,
+    adjudication_basis_ref: DISPUTE_ADJUDICATION_BASIS_REF_A,
     ...over,
   });

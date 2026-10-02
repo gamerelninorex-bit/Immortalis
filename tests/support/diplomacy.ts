@@ -4,7 +4,7 @@ import {
   GipAdapter,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { ExternalRecognition } from "@immortalis/contracts";
+import type { ExternalRecognition, ExternalizedClaimDispute } from "@immortalis/contracts";
 import {
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
@@ -12,6 +12,7 @@ import {
   FIXTURE_WORLD_ID,
   diplomacyPublication,
   externalRecognition,
+  externalizedClaimDispute,
   fixtureContract,
   fixtureInsertionFact,
   fixtureLocus,
@@ -90,8 +91,22 @@ export async function establishExternalRecognition(
   return recognition;
 }
 
+/** Commits the one authored initial establishment of an Externalized Claim / Dispute. */
+export async function establishExternalizedClaimDispute(
+  s: Pick<DiplomacySeeded, "diplomacy">,
+  n: number,
+  disputeId?: string,
+  over: Partial<ExternalizedClaimDispute> = {},
+): Promise<ExternalizedClaimDispute> {
+  const dispute = externalizedClaimDispute(disputeId, over);
+  await must(
+    s.diplomacy.establishExternalizedClaimDispute({ ...diplomacyPublication(n), dispute }),
+  );
+  return dispute;
+}
+
 /**
- * Commits a GIP institution and an office: the one mutable-looking implemented owner state a recognition can name in
+ * Commits a GIP institution and an office: the one mutable-looking implemented owner state a recognition or dispute can name in
  * `dependency_refs[]` in these tests (the office is a real committed fact of another owner, referenced and never copied).
  */
 export async function establishGipAuthority(

@@ -1,12 +1,16 @@
 import {
   CANON_WRITE_AUTHORITY,
   ExternalRecognitionSchema,
+  ExternalizedClaimDisputeSchema,
   PublicationSchema,
+  diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  disputeDependencyKeys,
   fail,
   recognitionDependencyKeys,
   type CommitGroup,
   type ExternalRecognition,
+  type ExternalizedClaimDispute,
   type OwnerFact,
   type Publication,
   type Result,
@@ -72,13 +76,58 @@ export function readExternalRecognition(
   };
 }
 
+/** Whether the registered dependencies of a Claim / Dispute are still the versions it was established against (same rule as recognition). */
+export type DisputeDependencyState = RecognitionDependencyState;
+
+/** A committed Externalized Claim / Dispute read by identity: the fact (with its provenance), its typed value and its dependency state. */
+export interface TypedExternalizedClaimDispute {
+  readonly fact: OwnerFact;
+  readonly value: ExternalizedClaimDispute;
+  readonly dependencies: DisputeDependencyState;
+}
+
+/**
+ * The read path any lawful consumer uses: one committed Externalized Claim / Dispute, by its exact canonical `dispute_id`
+ * (WS-008 §29.7: no all-pairs scan; no all-disputes scan). It takes only the read side of a store, so reading grants no write
+ * authority, and it returns undefined for a dispute that is not established — nothing is created, inferred or defaulted by a
+ * read. It reports what the record says: it dereferences no reference, creates or mutates no underlying claim, infers no private
+ * belief, future behavior or objective truth, creates no receipt and re-resolves nothing; where the record registered
+ * dependencies it reports, from those exact keys alone, whether an upstream write has moved any of them (WS-008 §29.3:
+ * invalidated before it may be read as current).
+ */
+export function readExternalizedClaimDispute(
+  store: Pick<CampaignStore, "getFact" | "committedGroup">,
+  disputeId: string,
+): TypedExternalizedClaimDispute | undefined {
+  const fact = store.getFact(diplomacyDisputeKey(disputeId));
+  if (!fact) return undefined;
+  const parsed = ExternalizedClaimDisputeSchema.safeParse(fact.value);
+  if (!parsed.success) return undefined;
+  const invalidated: string[] = [];
+  const keys = disputeDependencyKeys(parsed.data);
+  if (keys.length > 0) {
+    const pins = store.committedGroup(fact.provenance.intent_id)?.reads ?? [];
+    for (const key of keys) {
+      const pinned = pins.find((r) => r.key === key)?.version;
+      if (pinned === undefined || (store.getFact(key)?.version ?? 0) !== pinned)
+        invalidated.push(key);
+    }
+  }
+  return {
+    fact,
+    value: parsed.data,
+    dependencies: { current: invalidated.length === 0, invalidated },
+  };
+}
+
 /**
  * IM-06 Diplomacy — the authored path of the Diplomacy owner.
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority or a governing rule:
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
- * IM-11/IM-12/IM-17 store (one journal, one canon). There is exactly ONE authored publication: the explicit initial
- * establishment of one External Recognition. Nothing else creates one — not contact, trade, negotiation, treaty-making,
+ * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly TWO authored publications: the explicit initial
+ * establishment of one External Recognition and the explicit initial establishment of one Externalized Claim / Dispute (see
+ * `establishExternalizedClaimDispute`). Nothing else creates a recognition — not contact, trade, negotiation, treaty-making,
  * conduct, silence or absence — and there is no withdrawal, suspension, supersession, succession, status-change,
  * re-resolution or retirement method, no negotiation, Instrument, Clause, Binding Entry, Relation Edge or reciprocal-record
  * method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write Diplomacy state
@@ -163,10 +212,78 @@ export class DiplomacyAdapter {
     return this.#store.commit(group);
   }
 
+  /**
+   * Commits the initial establishment of one Externalized Claim / Dispute. It writes exactly one create-only key derived from
+   * its `dispute_id` alone. Every value is the caller's authored input: nothing is defaulted (`effect_on` included), inferred
+   * or calculated, no underlying claim or other foreign-owner fact is created or mutated, no receipt is created and no
+   * reference is dereferenced. If the record names `dependency_refs[]`, it reads exactly those facts (by key, at their current
+   * versions) and depends on the groups that committed them; a dependency that is not committed is pinned at version zero and
+   * admission refuses the group as a missing prerequisite, nothing being created. A record without them reads and depends on
+   * nothing. A conflicting establishment at an occupied `dispute_id` is refused and never overwrites it; a retry of the same
+   * intent converges on the original receipt (RC-16).
+   */
+  async establishExternalizedClaimDispute(
+    input: Publication & { readonly dispute: unknown },
+  ): Promise<Result<CommitOutcome, DiplomacyErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const dispute = ExternalizedClaimDisputeSchema.safeParse(input.dispute);
+    if (!dispute.success)
+      return fail("INPUT_INVALID", "externalized claim / dispute failed validation", {
+        issues: issues(dispute.error),
+      });
+    const value = dispute.data;
+    const reads: CommitGroup["reads"][number][] = [];
+    const dependsOn = new Set<string>();
+    for (const key of disputeDependencyKeys(value)) {
+      const dependency = this.#store.getFact(key);
+      reads.push({ key, version: dependency?.version ?? 0 });
+      if (dependency) dependsOn.add(dependency.provenance.group_id);
+    }
+    const kind = factKind("diplomacy_claim_dispute");
+    const group: CommitGroup = {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads,
+      depends_on: [...dependsOn],
+      writes: [
+        {
+          key: diplomacyDisputeKey(value.dispute_id),
+          owner: kind.owner,
+          facet: kind.facet,
+          value: value as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: p.data.basis,
+          secrecy: p.data.secrecy,
+          expected_version: 0,
+        },
+      ],
+    };
+    return this.#store.commit(group);
+  }
+
   // -- typed read, by identity (none scans) ----------------------------------------------------
 
   /** One External Recognition, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
   externalRecognition(recognitionId: string): TypedExternalRecognition | undefined {
     return readExternalRecognition(this.#store, recognitionId);
+  }
+
+  /** One Externalized Claim / Dispute, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
+  externalizedClaimDispute(disputeId: string): TypedExternalizedClaimDispute | undefined {
+    return readExternalizedClaimDispute(this.#store, disputeId);
   }
 }

@@ -200,9 +200,17 @@ describe("IA-01 source/version fidelity (Diplomacy External Recognition registra
   });
 });
 
-describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recognition only; a separate owner from GIP and Economy", () => {
-  it("registers exactly one new owner, diplomacy, with ONE facet and one exclusive ADVANCING key space keyed by recognition_id alone", () => {
-    expect(DIPLOMACY_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.im, k.lifecycle])).toEqual([
+describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recognition (and, from the eighteenth slice, the Externalized Claim / Dispute); a separate owner from GIP and Economy", () => {
+  it("registers one owner, diplomacy, with the External Recognition facet and one exclusive ADVANCING key space keyed by recognition_id alone (the eighteenth slice adds one more facet)", () => {
+    expect(
+      DIPLOMACY_FACT_KINDS.filter((k) => k.id === "diplomacy_external_recognition").map((k) => [
+        k.id,
+        k.owner,
+        k.facet,
+        k.im,
+        k.lifecycle,
+      ]),
+    ).toEqual([
       [
         "diplomacy_external_recognition",
         "diplomacy",
@@ -212,15 +220,15 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
       ],
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set(["diplomacy_external_recognition"]),
+      new Set(["diplomacy_external_recognition", "diplomacy_externalized_claim_dispute"]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(1);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(2);
     // distinct from GIP and Economy, and neither of them gained a facet or kind
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "economy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(37);
+    expect(ALL_FACT_KINDS).toHaveLength(38);
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("diplomacy/recognition/r1")).map((k) => k.id),
     ).toEqual(["diplomacy_external_recognition"]);
@@ -232,11 +240,12 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(other))).toEqual([]);
   });
 
-  it("there is no Relation Edge, Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, claim, dispute, compliance, score or fallback Diplomacy kind", () => {
+  it("there is no Relation Edge, Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, compliance, score or fallback Diplomacy kind (the Claim / Dispute kind is the eighteenth slice's own)", () => {
     for (const k of ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy"))
-      expect(k.id).toBe("diplomacy_external_recognition");
+      expect(["diplomacy_external_recognition", "diplomacy_claim_dispute"]).toContain(k.id);
     expect(ALL_FACT_KINDS.map((k) => k.id).filter((id) => /diplomacy/.test(id))).toEqual([
       "diplomacy_external_recognition",
+      "diplomacy_claim_dispute",
     ]);
   });
 
@@ -252,16 +261,22 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
     const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(1);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(1);
+    // one commit per authored establishment: the recognition and (eighteenth slice) the claim / dispute
+    expect(adapter.match(/\.commit\(/g)).toHaveLength(2);
+    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(2);
   });
 
-  it("the Diplomacy adapter has exactly one authored writer and one keyed read: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
+  it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
     expect(
       Object.getOwnPropertyNames(DiplomacyAdapter.prototype)
         .filter((m) => m !== "constructor")
         .sort(),
-    ).toEqual(["establishExternalRecognition", "externalRecognition"]);
+    ).toEqual([
+      "establishExternalRecognition",
+      "establishExternalizedClaimDispute",
+      "externalRecognition",
+      "externalizedClaimDispute",
+    ]);
   });
 
   it("no foreign-owner construct exists in the Diplomacy modules or contract: no other owner's key builder, schema, reader or constant is named", () => {
