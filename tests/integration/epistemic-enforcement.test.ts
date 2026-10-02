@@ -80,6 +80,8 @@ import {
 } from "../support/epistemic.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const A = ACTOR_SMITH;
 const C = CAP_METALWORKING;
@@ -327,15 +329,8 @@ describe("owner exclusivity: only the Epistemic owner writes Epistemic state —
   });
 
   it("the adapter exposes one authored publication and typed reads: no packet writer, setter, broadcast, lowering, retrieval, reclassification or comprehension method", () => {
-    const methods = Object.getOwnPropertyNames(EpistemicAccessAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "engineSealedProvenance",
-      "establishBoundedSharedAccess",
-      "event",
-      "packet",
-    ]);
+    const methods = adapterMethods(EpistemicAccessAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("EpistemicAccessAdapter"));
     expect(
       methods.filter((m) =>
         /set|update|write|broadcast|lower|retriev|reclass|comprehen|infer|believe|credib|copy|transfer|tick|sweep|expose/i.test(

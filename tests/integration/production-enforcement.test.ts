@@ -70,6 +70,8 @@ import {
 } from "../support/production.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const LOCALITY = { worldId: FIXTURE_WORLD_ID, locusId: FIXTURE_LOCUS_ID };
 const entityKey = (op: string) => worldFallbackEntityKey(FIXTURE_WORLD_ID, `durable:${op}`);
@@ -292,19 +294,8 @@ describe("Production-owned state cannot be authoritatively written by anyone els
   });
 
   it("the adapter exposes no Reserve/claim/output writer, no release and no way to publish a durable", () => {
-    const methods = Object.getOwnPropertyNames(ProductionAdapter.prototype).filter(
-      (m) => m !== "constructor",
-    );
-    expect(methods.sort()).toEqual([
-      "acceptedEntity",
-      "availability",
-      "claim",
-      "completion",
-      "establishReserve",
-      "operation",
-      "reserve",
-      "startOperation",
-    ]);
+    const methods = adapterMethods(ProductionAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("ProductionAdapter"));
     expect(methods.filter((m) => /^(set|update|write|release|cancel|publish)/i.test(m))).toEqual(
       [],
     );

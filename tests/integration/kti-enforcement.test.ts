@@ -88,6 +88,8 @@ import {
 } from "../support/kti.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const A = ACTOR_SMITH;
 const objectKey = ktiDevelopmentObjectKey(OBJECT_GATE_ROTA);
@@ -370,16 +372,8 @@ describe("owner exclusivity: only the KTI owner writes KTI state — not the Epi
   });
 
   it("the adapter exposes two authored publications and typed reads: no package writer, setter, completion, retirement, competence, adoption, broadcast or lowering method", () => {
-    const methods = Object.getOwnPropertyNames(KtiAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "developmentObject",
-      "establishDevelopmentObject",
-      "establishTransferBasis",
-      "transferBasis",
-      "transferPackage",
-    ]);
+    const methods = adapterMethods(KtiAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("KtiAdapter"));
     expect(
       methods.filter((m) =>
         /set|update|write|complete|retire|close|fail|abandon|compet|adopt|reproduc|diffus|broadcast|lower|encounter|comprehen|infer|belief|copy|tick|sweep|expose|train/i.test(

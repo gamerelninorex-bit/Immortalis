@@ -34,6 +34,8 @@ import {
 } from "../support/gip.ts";
 import { codeOf, must, spyStore } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const guildKey = gipInstitutionIdentityKey(INSTITUTION_GUILD);
@@ -213,20 +215,7 @@ describe("nothing creates an institution automatically (acceptance 6)", () => {
   });
 
   it("the adapter's only writes are the four explicit establishments: it has no derivation from another owner's fact", async () => {
-    expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
   });
 });
 

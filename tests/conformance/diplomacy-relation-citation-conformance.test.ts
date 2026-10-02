@@ -4,7 +4,6 @@
 // The historical citation is preserved byte-for-byte and accepted on load only through the existing FactKind.legacyRule
 // mechanism; the current citation is the only one a new write may carry; the executable Relation Edge surface is unchanged.
 // Register lineage: IA-01, IA-02 (partial; none promoted). IA-07 stays BLOCKED. GitHub Issue #11 is untouched.
-import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -19,8 +18,12 @@ import {
   factKind,
 } from "@immortalis/engine";
 import { fullRelationEdge, relationEdge } from "@immortalis/testkit";
+import { sha } from "../support/f027.ts";
+import {
+  EXPECTED_LEGACY_RULE_KIND_IDS,
+  EXPECTED_LEGACY_RULE_SOURCE_SLOTS,
+} from "../support/expected-surface.ts";
 
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const relation = factKind("diplomacy_relation_edge");
 const DIPLOMACY_DIR = "packages/engine/src/diplomacy";
 const ENGINE_DIPLOMACY = readdirSync(DIPLOMACY_DIR).map((f) => join(DIPLOMACY_DIR, f));
@@ -159,14 +162,13 @@ describe("IA-01 registration: one historical entry, through the existing legacyR
   });
 
   it("the compatibility is not generalized: three kinds in all, no second slot on the Relation Edge kind, and the load check is unchanged", () => {
+    // (the inventory is the central oracle's, EXPECTED_LEGACY_RULE_*: this suite states the claim against it, not a literal)
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
-      "gip_office_authority_locus",
-      "gip_governance_instrument",
-      "diplomacy_relation_edge",
+      ...EXPECTED_LEGACY_RULE_KIND_IDS,
     ]);
-    const registry = readFileSync("packages/engine/src/owners/registry.ts", "utf8");
-    // the FactKind field plus the three entries
-    expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(4);
+    expect(
+      readFileSync("packages/engine/src/owners/registry.ts", "utf8").match(/legacyRule\s*[?]?:/g),
+    ).toHaveLength(EXPECTED_LEGACY_RULE_SOURCE_SLOTS);
     expect(readFileSync("packages/engine/src/world/integrity.ts", "utf8")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );

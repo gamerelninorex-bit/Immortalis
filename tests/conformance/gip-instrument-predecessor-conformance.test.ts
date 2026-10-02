@@ -4,11 +4,9 @@
 // historical compatibility, and nothing dereferences, joins on or acts on the reference. Each block names its register ID;
 // governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED: this slice adds only the bounded
 // partial evidence it names.
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   GIP_FACT_KINDS,
@@ -20,6 +18,7 @@ import {
   GIP_SCOPE_BINDING_RULE,
   GipAdapter,
   factKind,
+  CANONICAL_OWNER_REGISTRY,
 } from "@immortalis/engine";
 import {
   GovernanceInstrumentCoreSchema,
@@ -32,32 +31,22 @@ import {
   governanceInstrument,
   governanceInstrumentWithPredecessor,
 } from "@immortalis/testkit";
+import { code, lock, register, sha } from "../support/f027.ts";
+import {
+  EXPECTED_LEGACY_RULE_KIND_IDS,
+  EXPECTED_LEGACY_RULE_SOURCE_SLOTS,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
-  snapshot_files: Record<string, string>;
-};
-
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const GIP_DIR = "packages/engine/src/gip";
 const ENGINE_GIP = readdirSync(GIP_DIR).map((f) => join(GIP_DIR, f));
 const CONTRACT = "packages/contracts/src/gip-instrument.ts";
@@ -171,13 +160,12 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
   });
 
   it("only those two GIP kinds (and, from the twenty-third slice, the Diplomacy Relation Edge kind) register a superseded citation; the compatibility is not generalized (no new framework, field or registry)", () => {
+    // (the inventory is the central oracle's, EXPECTED_LEGACY_RULE_*: this suite states the claim against it, not a literal)
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
-      "gip_office_authority_locus",
-      "gip_governance_instrument",
-      "diplomacy_relation_edge",
+      ...EXPECTED_LEGACY_RULE_KIND_IDS,
     ]);
     const registry = code("packages/engine/src/owners/registry.ts");
-    expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(4); // the FactKind field, and the three entries
+    expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(EXPECTED_LEGACY_RULE_SOURCE_SLOTS);
     expect(code("packages/engine/src/world/integrity.ts")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );
@@ -243,14 +231,19 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
 
 describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space, adapter class or method", () => {
   it("the GIP kinds, owner, facet, lifecycle classification and the whole kind registry are exactly as before (the Instrument stays ADVANCING)", () => {
-    expect(GIP_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
-      ["gip_institution_identity", "gip", "gip_institution_identity", "SEALED"],
-      ["gip_office_authority_locus", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_scope_binding", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_governance_instrument", "gip", "gip_institution_identity", "ADVANCING"],
-    ]);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
+    // (the exact kind inventory and the whole kind registry are the central oracle's: registered-surface-conformance;
+    // what stays here is each GIP kind's own owner, facet and lifecycle classification)
+    for (const k of GIP_FACT_KINDS)
+      expect([k.id, k.owner, k.facet]).toEqual([k.id, "gip", "gip_institution_identity"]);
+    expect(factKind("gip_institution_identity").lifecycle).toBe("SEALED");
+    for (const id of [
+      "gip_office_authority_locus",
+      "gip_scope_binding",
+      "gip_governance_instrument",
+    ] as const)
+      expect(factKind(id).lifecycle, id).toBe("ADVANCING");
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
   });
 
   it("the Instrument key space is unchanged and the key is derived from instrument_id alone", () => {
@@ -261,20 +254,13 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
   });
 
   it("the GIP adapter has no new method: no predecessor setter, reader, resolver, successor link or join", () => {
+    // (the whole adapter surface is the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+      adapterMethods(GipAdapter).filter((m) =>
+        /predecessor|^set|resolv|successor|join|link/i.test(m),
+      ),
+    ).toEqual([]);
   });
 
   it("the engine GIP module set is unchanged: no new file, no new temporal construct, and admission still pins exactly two prerequisites", () => {

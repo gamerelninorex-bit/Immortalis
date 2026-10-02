@@ -3,11 +3,9 @@
 // boundary, not functionality). Each block names its register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows
 // stay NOT_IMPLEMENTED/BLOCKED (see `partial_evidence`): this slice covers only the aspects it names, and every other F-027 open
 // gate is unchanged.
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
@@ -20,32 +18,9 @@ import {
   WS008_SOURCE,
   factKind,
 } from "@immortalis/engine";
+import { code, gates, lock, register, sha } from "../support/f027.ts";
+import { expectedKindIds, expectedOwnerFacetSet } from "../support/expected-surface.ts";
 
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  snapshot_files: Record<string, string>;
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
-
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
@@ -53,7 +28,6 @@ const identifiers = (file: string): string =>
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``")
     .replace(/z\.infer/g, "z.type");
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 
 const DIPLOMACY_DIR = "packages/engine/src/diplomacy";
 const CONTRACT = "packages/contracts/src/diplomacy-framework.ts";
@@ -196,32 +170,16 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Framew
         k.lifecycle,
       ]),
     ).toEqual([["diplomacy_framework", "diplomacy", "diplomacy_framework", "IM-06", "ADVANCING"]]);
-    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set([
-        "diplomacy_external_recognition",
-        "diplomacy_externalized_claim_dispute",
-        "diplomacy_relation_edge",
-        "diplomacy_framework",
-      ]),
+    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(expectedOwnerFacetSet("diplomacy"));
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "diplomacy" }),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(4);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
-    // no other owner gained a kind or facet
-    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
-    expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "economy")).toHaveLength(3);
+    // (no other owner gained a kind or facet, and the global count: the central oracle, registered-surface-conformance)
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("diplomacy/framework/f1")).map((k) => k.id),
     ).toEqual(["diplomacy_framework"]);
-    for (const other of [
-      "diplomacy/framework/f1/x",
-      "diplomacy/framework",
-      "diplomacy/frameworks/f1",
-      "diplomacy/framework-index/f1",
-      "diplomacy/framework/f1/members",
-    ])
-      expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(other))).toEqual([]);
+    // (malformed and unregistered sibling key spaces resolve to no kind: UNREGISTERED_DIPLOMACY_KEY_PROBES, checked
+    // centrally in registered-surface-conformance and refused by the owner integration suites)
   });
 
   it("the Diplomacy modules are still exactly the four owner-path modules: no second Diplomacy module, ledger, index, sidecar or persistence path exists", () => {
@@ -276,9 +234,9 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Framew
     const admission = code(`${DIPLOMACY_DIR}/admission.ts`);
     expect(admission).toMatch(/diplomacy_framework/);
     expect(admission).toMatch(/function checkFramework\(/);
-    // one create-only guard per kind: recognition, dispute, relation edge and framework
-    expect(admission.match(/expected_version !== 0/g)).toHaveLength(4);
-    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(4);
+    // (one create-only guard and amendment refusal per authored kind: the central oracle's admission cardinality)
+    expect(admission).toMatch(/expected_version !== 0/);
+    expect(admission).toMatch(/AMENDMENT_NOT_SUPPORTED/);
     const body = /function checkFramework\([\s\S]*?\n}\n/.exec(admission)![0];
     expect(body).toMatch(/group\.reads\.length !== 0 \|\| group\.depends_on\.length !== 0/);
     expect(body).not.toMatch(/requirePrerequisite|checkDependencyPins/);
@@ -288,8 +246,7 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Framew
 
   it("the adapter has exactly one framework writer and one keyed read, and one commit per authored establishment", () => {
     const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(4);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
+    // (one commit per authored establishment across the whole adapter: the central oracle's writer/commit cardinality)
     expect(adapter.match(/async establishDiplomaticFramework\(/g)).toHaveLength(1);
     expect(adapter.match(/\bdiplomaticFramework\(\s*frameworkId: string\)/g)).toHaveLength(1);
   });

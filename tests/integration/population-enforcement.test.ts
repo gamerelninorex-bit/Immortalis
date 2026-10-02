@@ -70,6 +70,8 @@ import {
 } from "../support/population.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 /** A store whose Population groups are altered on the way in, to prove IM-11 (not the operation) refuses them. */
 function tamperStore(
@@ -219,18 +221,7 @@ describe("Population-owned count and membership cannot be written by anyone else
   });
 
   it("the adapter exposes no ledger/count/result writer", () => {
-    const proto = Object.getOwnPropertyNames(PopulationAdapter.prototype).sort();
-    expect(proto).toEqual(
-      [
-        "close",
-        "cohort",
-        "cohortView",
-        "constructor",
-        "establishLedger",
-        "instantiateCohort",
-        "ledger",
-      ].sort(),
-    );
+    expect(adapterMethods(PopulationAdapter)).toEqual(expectedAdapterMethods("PopulationAdapter"));
   });
 });
 

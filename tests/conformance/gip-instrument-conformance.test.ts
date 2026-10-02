@@ -3,11 +3,9 @@
 // already-committed Scope Binding of that same office. Each block names its register ID; governing lock: spec/f027/spec-lock.json
 // (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED (see `partial_evidence`): this slice covers only the aspects it names, and
 // every other F-027 open gate is unchanged.
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
@@ -22,32 +20,15 @@ import {
   WS007_SOURCE,
   factKind,
 } from "@immortalis/engine";
+import { code, gates, lock, register, sha } from "../support/f027.ts";
+import {
+  EXPECTED_LEGACY_RULE_KIND_IDS,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  snapshot_files: Record<string, string>;
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
-
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
@@ -55,7 +36,6 @@ const identifiers = (file: string): string =>
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``")
     .replace(/z\.infer/g, "z.type");
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 
 const GIP_DIR = "packages/engine/src/gip";
 const CONTRACT = "packages/contracts/src/gip-instrument.ts";
@@ -146,10 +126,9 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
   });
 
   it("the historical-compatibility hatch is the existing fact-kind mechanism: the office kind and (twenty-first slice) the Instrument kind have one, and admission stamps only the current citation", () => {
+    // (the inventory is the central oracle's, EXPECTED_LEGACY_RULE_KIND_IDS: stated against it, not a literal)
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
-      "gip_office_authority_locus",
-      "gip_governance_instrument",
-      "diplomacy_relation_edge", // twenty-third slice: the Relation Edge's superseded nineteenth-slice citation
+      ...EXPECTED_LEGACY_RULE_KIND_IDS,
     ]);
     expect(instrument.legacyRule!.rule).toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
     expect(code(`${GIP_DIR}/admission.ts`)).toMatch(
@@ -243,7 +222,6 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       "gip_institution_identity",
       "ADVANCING",
     ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/instrument/n1")).map((k) => k.id),
     ).toEqual(["gip_governance_instrument"]);
@@ -267,14 +245,9 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
   });
 
   it("the registry holds exactly four GIP kinds and no clause, procedure, order, relation, status, membership, faction or fallback kind", () => {
-    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
-      "gip_institution_identity",
-      "gip_office_authority_locus",
-      "gip_scope_binding",
-      "gip_governance_instrument",
-    ]);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
+    // (the exact GIP kind inventory is the central oracle's: stated against it, not a literal)
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06" && k.owner === "gip")).toBe(true);
     expect(
       [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) =>
@@ -296,26 +269,17 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       expect(code(f), f).not.toMatch(
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
-    const adapter = code(`${GIP_DIR}/adapter.ts`);
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(1);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
+    // (the GIP adapter's commit and writer cardinality are the central oracle's: registered-surface-conformance)
   });
 
   it("the GIP adapter has exactly four authored writers and four keyed reads: no Instrument update, enactment, validity, lifecycle, clause or applicability method", () => {
+    // (the whole adapter surface is the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+      adapterMethods(GipAdapter).filter((m) =>
+        /update|enact|validity|lifecycle|clause|applicab/i.test(m),
+      ),
+    ).toEqual([]);
   });
 
   it("admission authorizes initial establishment only, pins exactly the source office and the Scope Binding, and the wiring into predecessor modules is the existing registry, dispatch and load verification", () => {

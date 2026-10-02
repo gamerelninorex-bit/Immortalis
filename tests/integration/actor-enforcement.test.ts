@@ -63,6 +63,8 @@ import {
 } from "../support/actor.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const A = ACTOR_SMITH;
 const C = CAP_METALWORKING;
@@ -237,10 +239,8 @@ describe("owner exclusivity: only the Named-Actor owner writes Named-Actor state
 
   it("the Named-Actor adapter exposes one authored publication and no capability writer, setter, development, loss or lifecycle method", async () => {
     const { NamedActorAdapter } = await import("@immortalis/engine");
-    const methods = Object.getOwnPropertyNames(NamedActorAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual(["basis", "capability", "establishCapabilityBasis"]);
+    const methods = adapterMethods(NamedActorAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("NamedActorAdapter"));
     expect(
       methods.filter((m) =>
         /set|update|write|develop|promote|lose|loss|decay|train|advance|grade|rank|tick|sweep|copy|transfer/i.test(

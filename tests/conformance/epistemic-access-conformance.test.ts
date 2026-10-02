@@ -5,7 +5,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
@@ -18,38 +17,19 @@ import {
   epistemicPacketProvider,
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
-
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  incorporated_tranches: { title: string; url: string; native_pin: string }[];
-  snapshot_files: Record<string, string>;
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
+import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  expectedAdapterMethods,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
     return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") ? [p] : [];
   });
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
@@ -119,13 +99,17 @@ describe("IA-03 owner exclusivity: the Epistemic owner holds sparse access/prove
       ["epistemic_accessible_packet", "epistemic_access", "epistemic_access", "SEALED"],
       ["epistemic_sealed_provenance", "epistemic_access", "epistemic_access", "SEALED"],
     ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("epistemic_access")).toEqual(new Set(["epistemic_access"]));
+    expect(CANONICAL_OWNER_REGISTRY.get("epistemic_access")).toEqual(
+      expectedOwnerFacetSet("epistemic_access"),
+    );
     for (const key of ["access/e/event", "access/e/packet/r", "access/e/provenance/r"])
       expect(
         ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)),
         key,
       ).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "epistemic_access")).toHaveLength(3);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "epistemic_access").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "epistemic_access" }),
+    );
   });
 
   it("the actor-safe packet and the engine-only provenance are separate kinds with separate key spaces; nothing is a broadcast, cohort, retrieval, message, memory, comprehension, credibility, belief, stance, KTI or numeric-score kind, and there is no fallback epistemic owner", () => {
@@ -143,15 +127,8 @@ describe("IA-03 owner exclusivity: the Epistemic owner holds sparse access/prove
   });
 
   it("there is no Epistemic writer other than the authored event: the packet and the provenance are the formation operation only the IM-02 coordinator resolves", () => {
-    const methods = Object.getOwnPropertyNames(EpistemicAccessAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "engineSealedProvenance",
-      "establishBoundedSharedAccess",
-      "event",
-      "packet",
-    ]);
+    const methods = adapterMethods(EpistemicAccessAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("EpistemicAccessAdapter"));
     expect(epistemicPacketProvider.owner).toBe("epistemic_access");
     expect(epistemicPacketProvider.operation).toBe("epistemic-form-accessible-packet");
   });
@@ -166,11 +143,7 @@ describe("IA-03 owner exclusivity: the Epistemic owner holds sparse access/prove
   });
 
   it("the Named-Actor owner's own surface is unchanged: it has no Epistemic part and no new writer", () => {
-    expect(
-      Object.getOwnPropertyNames(NamedActorAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual(["basis", "capability", "establishCapabilityBasis"]);
+    expect(adapterMethods(NamedActorAdapter)).toEqual(expectedAdapterMethods("NamedActorAdapter"));
     for (const f of walk("packages/engine/src/actor"))
       expect(code(f), f).not.toMatch(
         /epistemic|OWNER_EPISTEMIC_ACCESS|accessEventKey|accessPacket/i,
@@ -259,20 +232,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyEpistemicIntegrity\(store\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("the packet is formed only as its IM-02 stage: admission and load verification apply the one shared stage rule (identity and the durable transaction authority), not a copy", () => {

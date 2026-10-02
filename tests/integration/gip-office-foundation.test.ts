@@ -43,6 +43,8 @@ import {
 import { establishBasis, seededActorCampaign } from "../support/actor.ts";
 import { codeOf, must, spyStore } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const guildKey = gipInstitutionIdentityKey(INSTITUTION_GUILD);
@@ -420,19 +422,8 @@ describe("retry and recovery converge on the one office; a conflicting establish
 
 describe("an attempted office update or holder change fails closed: no transition is implemented", () => {
   it("the adapter exposes no method that moves an office: the only office writer is the initial establishment", () => {
-    const methods = Object.getOwnPropertyNames(GipAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+    const methods = adapterMethods(GipAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("GipAdapter"));
   });
 
   it("a raw expected-version write to an established office is refused as an unsupported amendment by GIP admission: holder, power, rule, source", async () => {

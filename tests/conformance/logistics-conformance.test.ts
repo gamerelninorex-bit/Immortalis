@@ -5,7 +5,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
@@ -18,38 +17,19 @@ import {
   logisticsRetirementProvider,
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
-
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  incorporated_tranches: { title: string; url: string; native_pin: string }[];
-  snapshot_files: Record<string, string>;
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
+import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  expectedAdapterMethods,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
     return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") ? [p] : [];
   });
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 const LOGISTICS_DIR = "packages/engine/src/logistics";
 const LOGISTICS_SOURCES = [
   ...readdirSync(LOGISTICS_DIR).map((f) => join(LOGISTICS_DIR, f)),
@@ -102,7 +82,7 @@ describe("IA-03 owner exclusivity: Logistics owns movement-service state only", 
       ["logistics_transfer", "logistics", "logistics_state", "ADVANCING"],
       ["logistics_delivery", "logistics", "logistics_state", "SEALED"],
     ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("logistics")).toEqual(new Set(["logistics_state"]));
+    expect(CANONICAL_OWNER_REGISTRY.get("logistics")).toEqual(expectedOwnerFacetSet("logistics"));
     for (const key of [
       "logistics/commitment/w/e",
       "logistics/transfer/w/e",
@@ -115,23 +95,16 @@ describe("IA-03 owner exclusivity: Logistics owns movement-service state only", 
         key,
       ).toHaveLength(1);
     // no Logistics key lives outside the entity-keyed spaces, and no Route Family / hub / carrier / inventory kind exists
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics")).toHaveLength(3);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "logistics" }),
+    );
     for (const k of ALL_FACT_KINDS)
       expect(k.id).not.toMatch(/route|hub|carrier|capacity|inventory|asset|recurring/);
   });
 
   it("there is no Logistics writer other than the commitment and the dispatch: the delivery result and the retirement are owner operations only the IM-02 coordinator resolves", () => {
-    const methods = Object.getOwnPropertyNames(LogisticsAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "commitMovement",
-      "commitment",
-      "currentLocus",
-      "delivery",
-      "dispatch",
-      "transfer",
-    ]);
+    const methods = adapterMethods(LogisticsAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("LogisticsAdapter"));
     expect(
       methods
         .filter((m) =>
@@ -213,20 +186,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyLogisticsIntegrity\(store\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("both Logistics stages are published only as IM-02 stages: admission and load verification apply the one shared stage rule (identity and the durable transaction authority)", () => {

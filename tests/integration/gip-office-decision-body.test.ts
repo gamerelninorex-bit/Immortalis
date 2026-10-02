@@ -60,6 +60,8 @@ import {
 import { establishBasis, seededActorCampaign } from "../support/actor.ts";
 import { codeOf, must, spyStore } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const magistrateKey = gipOfficeAuthorityLocusKey(INSTITUTION_COURT, OFFICE_MAGISTRATE);
@@ -428,20 +430,7 @@ function rawGroup(
 
 describe("no post-establishment holder/body switch or body replacement is admitted", () => {
   it("the adapter exposes no method that moves an office: the only office writer is the initial establishment", () => {
-    expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
   });
 
   it("every raw expected-version write to an established decision-body office — a new body, a switch to a holder, a changed power — is an unsupported amendment; an occupied create is a version conflict", async () => {

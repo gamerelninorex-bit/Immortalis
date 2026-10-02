@@ -33,6 +33,8 @@ import {
 import { establishInstitution, gipFacts, seededGipCampaign } from "../support/gip.ts";
 import { codeOf, must, seededTemporalCampaign } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const guildKey = gipInstitutionIdentityKey(INSTITUTION_GUILD);
@@ -209,19 +211,8 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
   });
 
   it("the adapter exposes the four authored establishments and their typed reads: no setter, rename, merge, split, abolish, replace, appointment, removal, succession, delegation, membership or scan method", () => {
-    const methods = Object.getOwnPropertyNames(GipAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+    const methods = adapterMethods(GipAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       // (the sixteenth slice's Governance Instrument establishment and keyed read are the only instrument methods)
       methods
