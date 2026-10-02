@@ -154,22 +154,27 @@ export function readRelationEdge(
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
  * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly THREE authored publications: the explicit initial
  * establishment of one External Recognition, the explicit initial establishment of one Externalized Claim / Dispute (see
- * `establishExternalizedClaimDispute`) and the explicit initial establishment of one Relation Edge (see `establishRelationEdge`). Nothing else creates a recognition — not contact, trade, negotiation, treaty-making,
- * conduct, silence or absence — and there is no withdrawal, suspension, supersession, succession, status-change,
- * re-resolution or retirement method, no negotiation, Instrument, Clause, Binding Entry, Relation Edge or reciprocal-record
- * method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write Diplomacy state
- * out of order; the store's admission refuses it for a raw commit as well.
+ * `establishExternalizedClaimDispute`) and the explicit initial establishment of one Relation Edge (see `establishRelationEdge`).
+ * Nothing else creates a recognition — not contact, trade, negotiation, treaty-making, conduct, silence or absence — and there is
+ * no withdrawal, suspension, supersession, succession, status-change, re-resolution or retirement method, no post-establishment
+ * Relation Edge mutation (rupture, suspension, restoration, retirement or other lifecycle change), no derived-index or
+ * Recognition / Claim-Dispute association method, no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework or
+ * reciprocal-record method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write
+ * Diplomacy state out of order; the store's admission refuses it for a raw commit as well.
  *
- * Every reference (`recognizer_ref`, `recognized_referent_ref`, `authority_basis_ref`, `instrument_or_act_ref`, `provenance_ref`,
- * `successor_rule_ref`) is an opaque authored value that is never dereferenced. `dependency_refs[]` is the one exception that
- * binds the group: where the authored record names mutable implemented owner facts, the adapter pins each of them (read at its
- * current version, depended on through its committing group) through the existing commit-group machinery and nothing else; a
- * record that names none pins nothing.
+ * Every reference an authored record carries (for a recognition `recognizer_ref`, `recognized_referent_ref`,
+ * `authority_basis_ref`, `instrument_or_act_ref`, `provenance_ref` and `successor_rule_ref`; for a claim / dispute its party,
+ * subject, interpretation, instrument-or-clause, adjudication and provenance references; for a relation edge its `party_refs[]`
+ * and `provenance_ref`) is an opaque authored value that is never dereferenced. `dependency_refs[]` exists only on the
+ * Recognition and Claim / Dispute records, and there it is the one exception that binds the group: where the authored record
+ * names mutable implemented owner facts, the adapter pins each of them (read at its current version, depended on through its
+ * committing group) through the existing commit-group machinery and nothing else; a record that names none pins nothing. A
+ * Relation Edge has no `dependency_refs[]`: its group reads and depends on nothing.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
- * establishment at an occupied `recognition_id` is refused and never overwrites it. Nothing is re-rolled or improved: no
- * randomness exists here.
+ * establishment at an occupied canonical identity (`recognition_id`, `dispute_id` or `relation_id`) is refused and never
+ * overwrites it. Nothing is re-rolled or improved: no randomness exists here.
  */
 export class DiplomacyAdapter {
   readonly #store: CampaignStore;
