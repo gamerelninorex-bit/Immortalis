@@ -101,11 +101,11 @@ describe("a complete recognition is carried exactly as authored (IA-02)", () => 
     }
   });
 
-  it("an omitted optional field is absent, never an explicit undefined, and a null is not a substitute for absence", () => {
-    for (const f of SOURCE_OPTIONAL_OR_CONDITIONAL) {
+  it("an omitted optional field is absent, never an explicit undefined; a null is not a substitute for absence on the reference and array fields", () => {
+    for (const f of SOURCE_OPTIONAL_OR_CONDITIONAL)
       expect(parses({ ...externalRecognition(), [f]: undefined }), `${f} undefined`).toBe(false);
+    for (const f of ["successor_rule_ref", "dependency_refs"])
       expect(parses({ ...externalRecognition(), [f]: null }), `${f} null`).toBe(false);
-    }
   });
 
   it("source identifiers are never replaced by aliases or normalized names", () => {
@@ -265,14 +265,33 @@ describe("references are directional, singular, opaque authored values (IA-02)",
         ).toBe(false);
   });
 
-  it("recognition_scope stays one singular authored scalar: an array of scopes, a structure or a score is not a scope", () => {
-    expect(
-      ExternalRecognitionSchema.parse(
-        externalRecognition(RECOGNITION_A, { recognition_scope: "boundary west of the river" }),
-      ).recognition_scope,
-    ).toBe("boundary west of the river");
-    for (const bad of [["a", "b"], ["a"], [], { scope: "a" }, 0.9, 1, null, ""])
+  it("recognition_scope is required and singular, and its source-undefined subtype is not narrowed: any canonical JSON value is carried exactly as authored", () => {
+    for (const ok of [
+      "boundary west of the river",
+      "  padded and  spaced  ",
+      "",
+      0,
+      0.9,
+      -3,
+      true,
+      false,
+      null,
+      ["a", "b"],
+      [],
+      { scope: "a", nested: { b: [1, 2] } },
+    ])
+      expect(
+        ExternalRecognitionSchema.parse(
+          externalRecognition(RECOGNITION_A, { recognition_scope: ok as never }),
+        ).recognition_scope,
+        JSON.stringify(ok),
+      ).toEqual(ok);
+    // required, and only a canonical JSON value (finite numbers; nothing undefined or non-plain)
+    for (const bad of [undefined, NaN, Infinity, () => 1, new Map(), Symbol("x"), 1n])
       expect(parses({ ...externalRecognition(), recognition_scope: bad })).toBe(false);
+    const missing: any = externalRecognition();
+    delete missing.recognition_scope;
+    expect(parses(missing)).toBe(false);
   });
 
   it("recognition_id is a key-safe canonical identity; the other values are not identity dimensions", () => {
@@ -282,27 +301,51 @@ describe("references are directional, singular, opaque authored values (IA-02)",
   });
 });
 
-describe("effective_from is one authored scalar, carried and never scheduled (IA-02)", () => {
-  it("a string or a finite number is carried exactly; no structure, null, boolean or non-finite value is", () => {
-    for (const ok of ["2026-10-02T00:00:00Z", "the third winter", 1204, 0, -3, 1.5])
+describe("effective_from is required and carried exactly as authored, never scheduled (IA-02)", () => {
+  it("its source-undefined subtype is not narrowed: any canonical JSON value is carried exactly; only absence or a non-canonical value is refused", () => {
+    for (const ok of [
+      "2026-10-02T00:00:00Z",
+      "the third winter",
+      "",
+      " x ",
+      1204,
+      0,
+      -3,
+      1.5,
+      true,
+      null,
+      ["a"],
+      { at: "a" },
+    ])
       expect(
-        ExternalRecognitionSchema.parse(externalRecognition(RECOGNITION_A, { effective_from: ok }))
-          .effective_from,
-      ).toBe(ok);
-    for (const bad of [null, true, ["a"], { at: "a" }, "", " x", NaN, Infinity, undefined])
+        ExternalRecognitionSchema.parse(
+          externalRecognition(RECOGNITION_A, { effective_from: ok as never }),
+        ).effective_from,
+        JSON.stringify(ok),
+      ).toEqual(ok);
+    for (const bad of [NaN, Infinity, undefined, new Map(), () => 1])
       expect(parses({ ...externalRecognition(), effective_from: bad })).toBe(false);
+    const missing: any = externalRecognition();
+    delete missing.effective_from;
+    expect(parses(missing)).toBe(false);
   });
 });
 
-describe("withdrawal_or_supersession_condition is optional authored text, carried and never evaluated", () => {
-  it("text is preserved verbatim; a structure or empty text is not text", () => {
+describe("withdrawal_or_supersession_condition is optional and carried exactly as authored, never evaluated", () => {
+  it("absent stays absent; when present its source-undefined subtype is not narrowed and any canonical JSON value is preserved verbatim", () => {
     const text = "SYNTHETIC: withdrawn if the referent dissolves; superseded by a later act.";
+    for (const ok of [text, "", " x ", 5, 0, false, null, ["a"], [], { c: "a" }])
+      expect(
+        ExternalRecognitionSchema.parse(
+          externalRecognition(RECOGNITION_A, { withdrawal_or_supersession_condition: ok as never }),
+        ).withdrawal_or_supersession_condition,
+        JSON.stringify(ok),
+      ).toEqual(ok);
     expect(
-      ExternalRecognitionSchema.parse(
-        externalRecognition(RECOGNITION_A, { withdrawal_or_supersession_condition: text }),
-      ).withdrawal_or_supersession_condition,
-    ).toBe(text);
-    for (const bad of ["", " x ", ["a"], { c: "a" }, 5])
+      "withdrawal_or_supersession_condition" in
+        ExternalRecognitionSchema.parse(externalRecognition()),
+    ).toBe(false);
+    for (const bad of [undefined, NaN, Infinity, new Map(), () => 1])
       expect(parses({ ...externalRecognition(), withdrawal_or_supersession_condition: bad })).toBe(
         false,
       );

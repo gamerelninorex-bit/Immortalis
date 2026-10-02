@@ -190,21 +190,42 @@ describe("one External Recognition can be established, exactly as authored", () 
     }
   });
 
-  it("recognition_scope stays one singular scalar, and effective_from is carried faithfully (string or number) and schedules nothing", async () => {
+  it("recognition_scope, effective_from and withdrawal_or_supersession_condition are carried exactly as authored whatever canonical JSON value they hold, and schedule or evaluate nothing", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
-    await establishExternalRecognition(s, 1, RECOGNITION_A, {
-      recognition_scope: "one scope",
-      effective_from: "after the harvest",
-    });
-    await establishExternalRecognition(s, 2, RECOGNITION_B, { effective_from: 1204 });
-    const a = s.diplomacy.externalRecognition(RECOGNITION_A)!.value;
-    const b = s.diplomacy.externalRecognition(RECOGNITION_B)!.value;
-    expect([a.recognition_scope, a.effective_from, b.effective_from]).toEqual([
-      "one scope",
-      "after the harvest",
-      1204,
-    ]);
-    expect(typeof a.recognition_scope).toBe("string");
+    const authored = [
+      {
+        recognition_scope: "one scope",
+        effective_from: "after the harvest",
+        withdrawal_or_supersession_condition: "when the referent dissolves",
+      },
+      {
+        recognition_scope: { region: "west", exceptions: ["a", "b"], depth: 2 },
+        effective_from: 1204,
+        withdrawal_or_supersession_condition: ["on succession", { or: "supersession" }],
+      },
+      { recognition_scope: ["a"], effective_from: { era: "third", year: 4 } },
+      { recognition_scope: 0.9, effective_from: null, withdrawal_or_supersession_condition: null },
+      { recognition_scope: "", effective_from: false, withdrawal_or_supersession_condition: "" },
+    ] as const;
+    let n = 0;
+    for (const over of authored) {
+      n++;
+      await establishExternalRecognition(s, n, `value-${n}`, over as never);
+    }
+    n = 0;
+    for (const over of authored) {
+      n++;
+      const typed = s.diplomacy.externalRecognition(`value-${n}`)!;
+      for (const [field, value] of Object.entries(over)) {
+        expect((typed.value as any)[field], `${n} ${field}`).toEqual(value);
+        expect((typed.fact.value as any)[field], `${n} ${field} (fact)`).toEqual(value);
+      }
+      // absent stays absent
+      expect("withdrawal_or_supersession_condition" in typed.value).toBe(
+        "withdrawal_or_supersession_condition" in over,
+      );
+    }
+    expect(s.campaign.verify()).toEqual([]);
     // nothing of the temporal kernel was touched or created
     expect(
       s.campaign.store
@@ -646,10 +667,15 @@ describe("a missing or malformed field fails closed, and aliases never substitut
     delete missing.continuity_basis;
     const aliased = { ...v, scope: v.recognition_scope };
     delete aliased.recognition_scope;
+    const noScope = { ...v };
+    delete noScope.recognition_scope;
+    const noEffective = { ...v };
+    delete noEffective.effective_from;
     for (const [name, value] of [
       ["missing continuity_basis", missing],
       ["scope alias", aliased],
-      ["array scope", { ...v, recognition_scope: ["a", "b"] }],
+      ["missing recognition_scope", noScope],
+      ["missing effective_from", noEffective],
       ["array recognizer", { ...v, recognizer_ref: ["a"] }],
       ["closed-set junk field", { ...v, reciprocal_of: RECOGNITION_B }],
     ] as const)

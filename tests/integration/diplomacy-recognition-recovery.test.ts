@@ -91,7 +91,9 @@ describe("save → close → load → continue at every durable cut of the estab
     const authored = fullExternalRecognition(RECOGNITION_A, {
       recognition_status: "contested_or_unresolved",
       continuity_basis: "dynastic_line",
-      effective_from: 1204,
+      recognition_scope: { region: "west", exceptions: ["a", "b"] },
+      effective_from: { era: "third", year: 4 },
+      withdrawal_or_supersession_condition: ["on succession", null],
     });
     await must(
       s.diplomacy.establishExternalRecognition({
@@ -341,14 +343,13 @@ describe("load fails closed on a corrupted or tampered recognition save", () => 
     "recognizer made an array": (f) => (f.value.recognizer_ref = [f.value.recognizer_ref]),
     "referent made an array": (f) =>
       (f.value.recognized_referent_ref = [f.value.recognized_referent_ref]),
-    "scope made an array": (f) => (f.value.recognition_scope = [f.value.recognition_scope]),
+    "scope removed": (f) => delete f.value.recognition_scope,
     "status made an array": (f) => (f.value.recognition_status = ["recognized"]),
     "status removed": (f) => delete f.value.recognition_status,
     "continuity basis removed": (f) => delete f.value.continuity_basis,
     "continuity basis made an array": (f) => (f.value.continuity_basis = ["office"]),
     "authority basis removed": (f) => delete f.value.authority_basis_ref,
     "effective_from removed": (f) => delete f.value.effective_from,
-    "effective_from made structured": (f) => (f.value.effective_from = { at: "x" }),
     "act reference removed": (f) => delete f.value.instrument_or_act_ref,
     "provenance reference removed": (f) => delete f.value.provenance_ref,
     "successor rule made an array": (f) => (f.value.successor_rule_ref = ["r"]),
@@ -647,7 +648,11 @@ describe("load fails closed on a corrupted or tampered recognition save", () => 
       ).toMatch(/RULE_DRIFT/);
     for (const bad of [
       { ...externalRecognition(), reciprocal_recognition_ref: "x" },
-      { ...externalRecognition(), recognition_scope: ["a", "b"] },
+      (() => {
+        const noScope: any = externalRecognition();
+        delete noScope.recognition_scope;
+        return noScope;
+      })(),
       { ...externalRecognition(), scope: "x" },
       externalRecognition(RECOGNITION_B), // names another recognition than its key
     ])

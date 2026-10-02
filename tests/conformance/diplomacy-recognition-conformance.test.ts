@@ -306,6 +306,17 @@ describe("IA-02 strict executable contract: the WS-008 fields, nothing uninterpr
     );
   });
 
+  it("the source-undefined value surfaces (recognition_scope, effective_from, withdrawal_or_supersession_condition) use the canonical JSON representation, with no narrower subtype imposed", () => {
+    const contract = identifiers(CONTRACT);
+    expect(contract).toMatch(/\brecognition_scope: JsonValueSchema,/);
+    expect(contract).toMatch(/\beffective_from: JsonValueSchema,/);
+    expect(contract).toMatch(
+      /\bwithdrawal_or_supersession_condition: JsonValueSchema\.optional\(\),/,
+    );
+    // no text, number, string, union or refinement subtype appears anywhere on the contract
+    expect(contract).not.toMatch(/\bText\b|\bz\.(string|number|union|boolean)\b/);
+  });
+
   it("the engine never reads, dereferences, resolves, compares or executes an authored recognition value: only recognition_id and the dependency keys are named", () => {
     for (const f of ENGINE_SOURCES.filter((f) => !f.endsWith("declaration.ts"))) {
       const text = identifiers(f);
@@ -424,11 +435,12 @@ describe("acceptance-register and open-gate honesty (seventeenth slice)", () => 
     for (const phrase of [
       "no GIP-office-only restriction on recognizer_ref",
       "no invented closed set and no alias normalisation",
-      "recognition_scope stays one singular scalar",
+      "recognition_scope is required and singular, its source-undefined subtype is not narrowed (any canonical JSON value is carried exactly as authored)",
       "opaque and never dereferenced",
       "dependency_refs[] stays conditional with no invented minimum, uniqueness or deduplication",
       "a baseline record invents no dependency",
-      "effective_from is a carried scalar that schedules nothing",
+      "effective_from is required and carried exactly as authored (any canonical JSON value, with no source-undefined subtype imposed) and schedules nothing",
+      "withdrawal_or_supersession_condition is optional (absent stays absent; when present, any canonical JSON value is carried exactly as authored, with no source-undefined subtype imposed)",
       "no recognition is inferred from silence, contact, trade, negotiation, treaty-making or conduct",
       "no reciprocal record is created",
       "every post-establishment recognition mutation fails closed as unsupported",

@@ -5,7 +5,7 @@ import { OWNER_DIPLOMACY, type TemporalObject } from "@immortalis/contracts";
  * its canonical commit (WS-008 v1.1 §24 invariants 19-20: "Stable state carries forward", "No universal diplomacy tick"; §29.7:
  * "no universal diplomacy tick, no automatic relationship refresh, and no global dependency watcher"), so Diplomacy has NO owner
  * operation, stage, declared close, tick, phase, polling loop or standing object in this foundation: an External Recognition is
- * committed by its explicit authored establishment only. `effective_from` is a carried scalar and schedules nothing. Later
+ * committed by its explicit authored establishment only. `effective_from` is a carried authored value and schedules nothing. Later
  * Diplomacy interfaces declare their own F-017 temporal semantics when they exist; this foundation invents none.
  *
  * Returns a message when a temporal object declares a stage owned by Diplomacy or claims to produce a Diplomacy key — both would

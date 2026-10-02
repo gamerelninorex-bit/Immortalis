@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Id } from "./ids.ts";
-import { EntityId, Text } from "./world-foundation.ts";
+import { JsonValueSchema } from "./json.ts";
+import { EntityId } from "./world-foundation.ts";
 
 /**
  * Diplomacy External Recognition Core Backbone Foundation — executable contract (seventeenth bounded slice).
@@ -84,13 +85,19 @@ export const EXAMPLE_CONTINUITY_BASES = ["personal", "office", "represented_enti
  *    status, claim, boundary, belligerency, framework membership or another setting-valid referent"), and in particular does
  *    not restrict `recognizer_ref` to a GIP office. Neither is resolved or validated against any owner, and nothing is minted,
  *    altered or backfilled in a foreign owner because a reference names it. No reciprocal record is implied.
- *  - `recognition_scope` is ONE singular authored scalar. It is never an array, and no global recognition score exists.
+ *  - `recognition_scope` is REQUIRED and singular: one authored value, carried exactly as authored. WS-008 fixes its name and that
+ *    it is a single scope of the recognition; it fixes no concrete subtype, so none is imposed — the value is any canonical JSON
+ *    value (the repository's weakest canonical representation, `JsonValueSchema`). It is never parsed, normalised, compared,
+ *    interpreted or turned into a score, and no global recognition score exists.
  *  - `recognition_status` is ONE authored named value. The listed values (LISTED_RECOGNITION_STATUSES) round-trip exactly; the
  *    set is not closed, no alias is normalised into them, and no value is rejected for being unlisted.
  *  - `authority_basis_ref` is an OPAQUE authored reference, never dereferenced to infer, manufacture or re-prove authority.
- *  - `effective_from` is ONE authored scalar carried faithfully: a string or a finite number, never parsed, compared,
- *    scheduled or turned into a Temporal boundary. No future activation is scheduled.
- *  - `withdrawal_or_supersession_condition` is OPTIONAL authored text, carried and never evaluated. Absent is absent.
+ *  - `effective_from` is REQUIRED and singular: one authored value, carried exactly as authored. WS-008 fixes its name, not its
+ *    subtype, so none is imposed (any canonical JSON value, `JsonValueSchema`). It is never parsed, compared, scheduled or turned
+ *    into a Temporal boundary. No future activation is scheduled.
+ *  - `withdrawal_or_supersession_condition` is OPTIONAL: absent is absent, and when present it is one authored value carried
+ *    exactly as authored. WS-008 fixes only that the field is optional, so no subtype is imposed (any canonical JSON value,
+ *    `JsonValueSchema`); it is never parsed, evaluated or executed.
  *  - `instrument_or_act_ref` is an OPAQUE authored reference to the external act or instrument supplying the recognition
  *    basis; no Diplomatic Instrument is manufactured merely to satisfy it.
  *  - `provenance_ref` is an OPAQUE authored source reference, distinct from the engine's own rule/spec provenance metadata.
@@ -113,11 +120,11 @@ export const ExternalRecognitionSchema = z
     recognition_id: EntityId,
     recognizer_ref: Id,
     recognized_referent_ref: Id,
-    recognition_scope: Text,
+    recognition_scope: JsonValueSchema,
     recognition_status: Id,
     authority_basis_ref: Id,
-    effective_from: z.union([Text, z.number().refine(Number.isFinite, "numbers must be finite")]),
-    withdrawal_or_supersession_condition: Text.optional(),
+    effective_from: JsonValueSchema,
+    withdrawal_or_supersession_condition: JsonValueSchema.optional(),
     instrument_or_act_ref: Id,
     provenance_ref: Id,
     continuity_basis: Id,
