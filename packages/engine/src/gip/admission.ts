@@ -54,13 +54,15 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  *     because a later lawful cause may change a scope; NO such change exists yet, so every write to a binding other than its
  *     first creation (expected version 0) is refused here as not supported, and a second creation of an occupied slot is
  *     refused by the store's version chain. No sibling record, per-subject copy, instrument or applicability result is made.
- *  4. GOVERNANCE INSTRUMENT CORE: one authored Instrument, at the one key its canonical `instrument_id` alone derives, created
+ *  4. GOVERNANCE INSTRUMENT (the core plus the one optional `predecessor_instrument_ref`): one authored Instrument, at the one key its canonical `instrument_id` alone derives, created
  *     once. It rests on exactly two committed facts it pins — the Office / Authority Locus its `source_authority_ref`
  *     addresses and the Scope Binding its `scope_binding_ref` addresses, each read by exact key at its current version and
  *     depended on — where that binding belongs to that same office, and whose Institution Identity ancestry must still be
  *     committed, so an Instrument cannot precede, or be attached to a different or forged, authority or binding. It
  *     dereferences no `authority_basis_ref` or `governing_order_ref`, reads no holder or decision body, calculates no validity
- *     or lifecycle, applies no decision procedure, carries no conditional field or clause and writes nothing else. The kind
+ *     or lifecycle, applies no decision procedure, carries no conditional field other than the one optional, opaque
+ *     `predecessor_instrument_ref` (a bare authored reference: never dereferenced, never read, no dependency, and no read or
+ *     write of the predecessor it names) and no clause, and writes nothing else. The kind
  *     is ADVANCING because a later lawful cause may change validity or lifecycle; NO such change exists yet, so every write
  *     to an Instrument other than its first creation (expected version 0) is refused here as not supported, and a second
  *     creation of an occupied slot is refused by the store's version chain. No sibling record, per-recipient, per-subject or

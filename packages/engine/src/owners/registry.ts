@@ -38,6 +38,7 @@ import {
   OfficeAuthorityLocusSchema,
   OWNER_DIPLOMACY,
   OWNER_GIP,
+  GovernanceInstrumentCoreSchema,
   GovernanceInstrumentSchema,
   ScopeBindingSchema,
   LogisticsCommitmentSchema,
@@ -1003,35 +1004,52 @@ export const GIP_SCOPE_BINDING_RULE: SourceRef = rule(
 );
 
 /**
- * The governing rule for the GIP Governance Instrument kind (sixteenth slice): one group, written once at establishment
- * beneath one committed Office / Authority Locus and one committed Scope Binding of that same office (the Instrument is
- * ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
- * ones the state relies on: Draft v2.1 §2.1 (GIP owns Governance Instruments) and §2.2 (explicit non-ownership), §4.1 (the
- * mandatory fields, the validity entry, the core validity and lifecycle literals; validity is order-relative and is not
- * lifecycle/force), §4.2 (the operative-effect classes), §21.1/§21.2 (create only when future causality requires it; update
- * only on a material change); Concept Amendment v2.1 A7 (validity-by-order and lifecycle/operative status are separate
- * dimensions); Scaling Profile v1.1 §3 (Instrument/Clause cardinality: the Instrument unit only), §4 (Creation) and §5 (no
- * scan of all institutions, offices, bindings, instruments, orders, recipients or subjects). The source artifact, exact native
- * pin and authority lineage are those of the other GIP kinds. No other kind's citation is changed or reused.
+ * The SUPERSEDED sixteenth-slice governing-rule citation for the GIP Governance Instrument, byte-for-byte as every
+ * sixteenth-slice Instrument was committed under it. It implemented only the core record and says so ("§4.3 conditional
+ * fields and §4.4 addressable clauses not implemented"), which was true provenance for those facts and is NOT true
+ * provenance for anything committed since: it is never stamped on a new write (admission requires `GIP_INSTRUMENT_RULE`) and
+ * is accepted on load ONLY for a genuine core-only Instrument (see `FactKind.legacyRule`), so a fact under it that carries
+ * `predecessor_instrument_ref` - a field it never authorized - is rule drift. Existing saves therefore load unchanged, with no
+ * migration, rewriting or re-citation of their facts. Its text is frozen: a conformance test pins its hash.
  */
-export const GIP_INSTRUMENT_RULE: SourceRef = rule(
+export const GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE: SourceRef = rule(
   WS007_SOURCE,
   "Draft v2.1 §2.1 GIP-owned persistent state (Governance Instruments) and §2.2 Explicit non-ownership; §4.1 Mandatory fields (instrument_id, source_authority_ref, authority_basis_ref, operative_effect, scope_binding_ref, validity_by_order[] with governing_order_ref and validity_status, lifecycle_status; core validity_status and lifecycle_status literals; validity is order-relative and lifecycle/force is not validity), §4.2 Operative-effect classes; §4.3 conditional fields and §4.4 addressable clauses not implemented; §21.1 Create and §21.2 Update (validity or lifecycle change is a material update, not implemented here); with Concept Amendment v2.1 A7 (validity-by-order and lifecycle are separate dimensions) and Scaling Profile v1.1 §3 Cardinality basis (Instrument/Clause: the Instrument unit only), §4 Growth & lifecycle — Creation and §5 Retrieval cost (no scan of all institutions, offices, bindings, instruments, orders, recipients or subjects)",
   [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
 );
 
 /**
+ * The governing rule for the GIP Governance Instrument kind, as of the twenty-first slice: one group, written once at
+ * establishment beneath one committed Office / Authority Locus and one committed Scope Binding of that same office (the
+ * Instrument is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The
+ * clauses are the ones the state relies on: Draft v2.1 §2.1 (GIP owns Governance Instruments) and §2.2 (explicit
+ * non-ownership), §4.1 (the mandatory fields, the validity entry, the core validity and lifecycle literals; validity is
+ * order-relative and is not lifecycle/force), §4.2 (the operative-effect classes), §4.3 (ONLY the optional singular opaque
+ * `predecessor_instrument_ref`; every other conditional field stays unimplemented), §21.1/§21.2 (create only when future
+ * causality requires it; update only on a material change); Concept Amendment v2.1 A7 (validity-by-order and
+ * lifecycle/operative status are separate dimensions); Scaling Profile v1.1 §3 (Instrument/Clause cardinality: the Instrument
+ * unit only), §4 (Creation) and §5 (no scan of all institutions, offices, bindings, instruments, orders, recipients or
+ * subjects). The source artifact, exact native pin and authority lineage are those of the other GIP kinds and of the
+ * superseded sixteenth-slice citation, unchanged. No other kind's citation is changed or reused.
+ */
+export const GIP_INSTRUMENT_RULE: SourceRef = rule(
+  WS007_SOURCE,
+  "Draft v2.1 §2.1 GIP-owned persistent state (Governance Instruments) and §2.2 Explicit non-ownership; §4.1 Mandatory fields (instrument_id, source_authority_ref, authority_basis_ref, operative_effect, scope_binding_ref, validity_by_order[] with governing_order_ref and validity_status, lifecycle_status; core validity_status and lifecycle_status literals; validity is order-relative and lifecycle/force is not validity), §4.2 Operative-effect classes; §4.3 conditional fields (only the optional singular opaque predecessor_instrument_ref is implemented; it is a representational lineage pointer, never dereferenced, and creates no dependency, supersession, lifecycle or validity change; every other §4.3 conditional field not implemented) and §4.4 addressable clauses not implemented; §21.1 Create and §21.2 Update (validity or lifecycle change is a material update, not implemented here); with Concept Amendment v2.1 A7 (validity-by-order and lifecycle are separate dimensions) and Scaling Profile v1.1 §3 Cardinality basis (Instrument/Clause: the Instrument unit only), §4 Growth & lifecycle — Creation and §5 Retrieval cost (no scan of all institutions, offices, bindings, instruments, orders, recipients or subjects)",
+  [WS007_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
  * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY, OFFICE / AUTHORITY LOCUS, AUTHORITY SCOPE
- * BINDING and GOVERNANCE INSTRUMENT CORE parts only: "GIP authority/instruments", lowered to the identity/provenance record,
- * the one office/authority record, the one Scope Binding of an office and the one Instrument core record that the source
- * assigns to GIP. One owner, one facet, four exclusive key spaces. The Institution Identity is SEALED (create-only). The
+ * BINDING and GOVERNANCE INSTRUMENT parts only (the Instrument core plus its one optional `predecessor_instrument_ref`):
+ * "GIP authority/instruments", lowered to the identity/provenance record, the one office/authority record, the one Scope
+ * Binding of an office and the one Instrument record that the source assigns to GIP. One owner, one facet, four exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
  * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
  * GIP admission refuses every other change to it. The Scope Binding is likewise ADVANCING in kind (a scope, exception or
  * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed
  * office, at that office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. The
- * Governance Instrument core is ADVANCING in kind (a later validity or lifecycle change is lawful work, WS-007 §4.1) and
+ * Governance Instrument is ADVANCING in kind (a later validity or lifecycle change is lawful work, WS-007 §4.1) and
  * establishment-only here: it lives at its own `gip/instrument/<instrument_id>` key (the canonical identity is the exact
  * `instrument_id` alone), rests on one committed office and one committed Scope Binding of that same office, and GIP admission
  * refuses every other change to it. There is no fallback owner, and no procedure,
@@ -1087,6 +1105,11 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^gip/instrument/${ID}$`),
     valueSchema: GovernanceInstrumentSchema,
     rule: GIP_INSTRUMENT_RULE,
+    // only a genuine sixteenth-slice core-only Instrument may still carry the superseded citation
+    legacyRule: {
+      rule: GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
+      admits: (value) => GovernanceInstrumentCoreSchema.safeParse(value).success,
+    },
   },
 ];
 

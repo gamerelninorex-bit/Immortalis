@@ -13,6 +13,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   GIP_FACT_KINDS,
   GIP_INSTRUMENT_RULE,
+  GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
   GIP_OFFICE_RULE,
   GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
@@ -84,7 +85,6 @@ const SOURCE_CONDITIONAL = [
   "promulgation_act_ref",
   "individual_notice_requirement_ref",
   "appeal_review_override",
-  "predecessor_instrument_ref",
   "supersession_ref",
   "provenance_note",
 ];
@@ -113,7 +113,7 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
       "instrument_id, source_authority_ref, authority_basis_ref, operative_effect, scope_binding_ref, validity_by_order[] with governing_order_ref and validity_status, lifecycle_status",
       "validity is order-relative and lifecycle/force is not validity",
       "§4.2 Operative-effect classes",
-      "§4.3 conditional fields and §4.4 addressable clauses not implemented",
+      "every other §4.3 conditional field not implemented) and §4.4 addressable clauses not implemented",
       "§21.1 Create and §21.2 Update",
       "Concept Amendment v2.1 A7",
       "Scaling Profile v1.1 §3 Cardinality basis (Instrument/Clause: the Instrument unit only)",
@@ -122,9 +122,12 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
       expect(GIP_INSTRUMENT_RULE.clause).toContain(c);
   });
 
-  it("the new citation is pinned, and the identity, office (and its historical compatibility) and binding citations are byte-for-byte unchanged", () => {
-    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+  it("the current citation is the pinned twenty-first-slice successor, the sixteenth-slice one is preserved byte-for-byte, and the identity, office (and its historical compatibility) and binding citations are unchanged", () => {
+    expect(sha(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE)).toBe(
       "6230c2ab55fd0c4dfcdbd37911afdfcd766e8cd26996fb6ccc70a2c246d9e294",
+    );
+    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+      "e71c37c3ddbe51a43dd3c74c6ba33e3f31cc7e0fc89a4aee4ec4248316482af4",
     );
     expect(sha(GIP_SCOPE_BINDING_RULE)).toBe(
       "a05c6a641840f7f9e55fce85cf9949fa7fca621119ca92248731db7c2ca93876",
@@ -142,22 +145,21 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
     expect(factKind("gip_institution_identity").rule).toEqual(GIP_RULE);
   });
 
-  it("the historical-compatibility hatch is exactly as the predecessor left it: only the office kind has one, and an Instrument has none", () => {
+  it("the historical-compatibility hatch is the existing fact-kind mechanism: the office kind and (twenty-first slice) the Instrument kind have one, and admission stamps only the current citation", () => {
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
+      "gip_governance_instrument",
     ]);
-    expect(instrument.legacyRule).toBeUndefined();
+    expect(instrument.legacyRule!.rule).toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
     expect(code(`${GIP_DIR}/admission.ts`)).toMatch(
       /canonicalEqual\(group\.rule, GIP_INSTRUMENT_RULE\)/,
     );
-    expect(identifiers(`${GIP_DIR}/admission.ts`)).not.toMatch(/THIRTEENTH/);
+    expect(identifiers(`${GIP_DIR}/admission.ts`)).not.toMatch(/THIRTEENTH|SIXTEENTH/);
   });
 
   it("the source identifiers are reproduced exactly: the contract names exactly the seven §4.1 fields, singular operative_effect, validity_by_order and the two entry fields", () => {
     const contract = code(CONTRACT);
-    const body = /GovernanceInstrumentSchema = z\s*\.strictObject\(\{([\s\S]*?)\}\)/.exec(
-      contract,
-    )!;
+    const body = /const InstrumentCoreShape = \{([\s\S]*?)\n\};/.exec(contract)!;
     const fields = [...body[1]!.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]);
     expect(fields).toEqual(SOURCE_FIELDS);
     const entry = /InstrumentValidityEntrySchema = z\.strictObject\(\{([\s\S]*?)\}\)/.exec(
@@ -336,22 +338,29 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
 });
 
 describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing uninterpreted is interpreted, nothing deferred is invented", () => {
-  it("the schema is one strict object, with no optional field, default, catch, loose, record, any, unknown, discriminator, transform or union", () => {
+  it("the schemas are strict objects, with exactly one optional field (predecessor_instrument_ref, twenty-first slice) and no default, catch, loose, record, any, unknown, discriminator, transform or union", () => {
     const contract = code(CONTRACT);
+    expect(contract).toMatch(/GovernanceInstrumentCoreSchema = z\s*\.strictObject\(/);
     expect(contract).toMatch(/GovernanceInstrumentSchema = z\s*\.strictObject\(/);
     expect(contract).toMatch(/InstrumentValidityEntrySchema = z\.strictObject\(/);
     expect(contract).not.toMatch(
-      /z\.object\(|passthrough|looseObject|z\.record|z\.any|z\.unknown|\.default\(|\.catch\(|discriminatedUnion|\.transform\(|\.superRefine\(|z\.union\(|\.optional\(|\.nullable\(|\.nullish\(/,
+      /z\.object\(|passthrough|looseObject|z\.record|z\.any|z\.unknown|\.default\(|\.catch\(|discriminatedUnion|\.transform\(|\.superRefine\(|z\.union\(|\.nullable\(|\.nullish\(/,
     );
-    // exactly one structural refinement: the Scope Binding belongs to the same authority as the source authority. No minimum
-    // cardinality, uniqueness, deduplication, merging or conflict-resolution rule exists over validity_by_order[] (the source defines none)
-    expect(contract.match(/\.refine\(/g)).toHaveLength(1);
+    expect(contract.match(/\.optional\(/g)).toHaveLength(1);
+    expect(contract).toMatch(/predecessor_instrument_ref: EntityId\.optional\(\),/);
+    // the same-authority structural refinement (once on the historical core shape, once on the current one) plus the one
+    // explicit-undefined refusal on the current one. No minimum cardinality, uniqueness, deduplication, merging or
+    // conflict-resolution rule exists over validity_by_order[] (the source defines none)
+    expect(contract.match(/\.refine\(/g)).toHaveLength(3);
     expect(contract).toMatch(
       /scope_binding_ref must address a Scope Binding of the same authority/,
     );
     expect(contract).toMatch(/validity_by_order: z\.array\(InstrumentValidityEntrySchema\),/);
-    expect(contract).not.toMatch(
-      /\.min\(|\.max\(|\.length\(|\.nonempty\(|new Set\(|\.some\(|\.every\(/,
+    expect(contract).not.toMatch(/\.min\(|\.max\(|\.length\(|\.nonempty\(|new Set\(|\.some\(/);
+    // the one `.every(` is the explicit-undefined refusal over the object's own keys, never over validity_by_order[]
+    expect(contract.match(/\.every\(/g)).toHaveLength(1);
+    expect(contract).toMatch(
+      /noExplicitUndefined = \(value: Record<string, unknown>\): boolean =>\s*Object\.keys\(value\)\.every\(\(k\) => value\[k\] !== undefined\);/,
     );
     // the enumerations are the source's closed sets: z.enum over the exported literal tuples, never a free string
     expect(contract.match(/z\.enum\(/g)).toHaveLength(3);
@@ -360,7 +369,9 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 
   it("the contract carries no WS-007 §4.3 conditional field, clause, procedure, applicability, promulgation or calculation construct (the source names appear only in the documenting comments)", () => {
     const text = identifiers(CONTRACT);
+    // the twenty-first slice implements exactly one §4.3 field; every other one stays unrepresentable
     for (const f of SOURCE_CONDITIONAL) expect(text, f).not.toContain(f);
+    expect(text.match(/predecessor_instrument_ref/g)).toHaveLength(1);
     expect(text).not.toMatch(
       /\b(clauses?|clause_\w+|applicab\w*|applies|procedure|vote\w*|enact\w*|promulgat\w*|disseminat\w*|reach|implement\w*|complian\w*|enforce\w*|calculat\w*|derive\w*|compute\w*|resolv\w*|status_change\w*|legal\w*|current_force|force)\b/i,
     );
@@ -398,8 +409,12 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 
   it("no governing-order, authority-basis, procedure, vote, applicability, promulgation, Reach, implementation or compliance construct was added to the GIP modules", () => {
     for (const f of SOURCES) {
-      // the authored field names that the earlier slices carry (`succession_rule`, `inheritance_rule`) are carried, never acted on
-      const text = identifiers(f).replace(/\b(succession|inheritance)_rule\b/g, "");
+      // the authored field names that the earlier slices carry (`succession_rule`, `inheritance_rule`) and the one §4.3 field the
+      // twenty-first slice carries (`predecessor_instrument_ref`) are carried, never acted on
+      const text = identifiers(f).replace(
+        /\b(succession_rule|inheritance_rule|predecessor_instrument_ref)\b/g,
+        "",
+      );
       expect(text, f).not.toMatch(
         /\b(governingOrder\w*|authorityBasis\w*|constitution\w*|charter\w*|applicab\w*|procedure|vote\w*|veto|override|exercis\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|promulgat\w*|awareness|complian\w*|enforce\w*|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|inherit\w*|precedence|decisionBody|delegat\w*|appoint\w*|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|supersede\w*|projection|npk|llm|prompt)\b/i,
       );

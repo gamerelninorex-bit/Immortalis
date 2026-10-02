@@ -102,14 +102,14 @@ export function readScopeBinding(
   return value.success ? { fact, value: value.data } : undefined;
 }
 
-/** A committed Governance Instrument core record read by exact key: the fact (with its provenance) and its typed value. */
+/** A committed Governance Instrument record read by exact key: the fact (with its provenance) and its typed value. */
 export interface TypedGovernanceInstrument {
   readonly fact: OwnerFact;
   readonly value: GovernanceInstrument;
 }
 
 /**
- * The read path any lawful consumer uses: one committed Governance Instrument core record, by its exact canonical
+ * The read path any lawful consumer uses: one committed Governance Instrument record, by its exact canonical
  * `instrument_id` (GIP Scaling Profile v1.1 §5: retrieval is keyed by the current governance question, never a scan of
  * institutions, offices, bindings, instruments, orders, recipients or subjects). It takes only the read side of a store, so
  * reading grants no write authority, and it returns undefined for an Instrument that is not established — nothing is created,
@@ -133,7 +133,7 @@ export function readGovernanceInstrument(
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
  * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly FOUR authored publications: the explicit establishment
  * of one continuing institution's identity, the explicit establishment of one office beneath it, the explicit establishment
- * of one scope binding beneath that office, and the explicit establishment of one Governance Instrument core record beneath
+ * of one scope binding beneath that office, and the explicit establishment of one Governance Instrument record beneath
  * that office and one of its scope bindings. Nothing else creates
  * either — not a label, a population or cohort, a culture, a charter text, a faction, a treaty, a settlement or any
  * organization-like object — and there is no rename, split, merge, abolition, replacement, appointment, removal, succession,
@@ -153,7 +153,8 @@ export function readGovernanceInstrument(
  * A Governance Instrument's two prerequisites are its source office and its Scope Binding of that same office, each read by exact
  * key; the adapter pins them (each read at its current version, depended on) and nothing else. Its `authority_basis_ref` and each
  * `governing_order_ref` are opaque authored values that are never dereferenced, and its validity and lifecycle are authored values
- * that the engine never calculates, advances or applies: establishment here is not enactment and runs no decision procedure.
+ * that the engine never calculates, advances or applies: establishment here is not enactment and runs no decision procedure. An
+ * optional `predecessor_instrument_ref` is likewise an opaque authored reference that is never dereferenced and adds no prerequisite.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
@@ -285,13 +286,15 @@ export class GipAdapter {
   }
 
   /**
-   * Commits the initial establishment of one Governance Instrument core record beneath one already-committed Office / Authority
+   * Commits the initial establishment of one Governance Instrument record beneath one already-committed Office / Authority
    * Locus and one already-committed Scope Binding of that same office, each addressed by the exact reference the Instrument
    * itself carries. It reads exactly those two facts (by key, at their current versions), depends on the groups that
    * committed them, and writes exactly one create-only Instrument key derived from its `instrument_id` alone. Every value is the
    * caller's authored input: nothing is defaulted, inferred or calculated, and the office's reference branch does not change
    * the key, the prerequisites or the write. If a prerequisite is not established, its read is pinned at version zero and
-   * admission refuses the group as a missing prerequisite; nothing is created. There is no update, validity, lifecycle, clause,
+   * admission refuses the group as a missing prerequisite; nothing is created. An optional `predecessor_instrument_ref` is
+   * carried as authored like every other value: it adds no read, dependency or write, and the predecessor it names is never
+   * looked up. There is no update, validity, lifecycle, clause,
    * amendment or enactment method: an established Instrument is never rewritten.
    */
   async establishGovernanceInstrument(
@@ -363,7 +366,7 @@ export class GipAdapter {
     return readScopeBinding(this.#store, institutionId, officeId, scopeBindingId);
   }
 
-  /** One Governance Instrument core record, or undefined. Reading it transfers no GIP write authority and resolves nothing. */
+  /** One Governance Instrument record, or undefined. Reading it transfers no GIP write authority and resolves nothing. */
   governanceInstrument(instrumentId: string): TypedGovernanceInstrument | undefined {
     return readGovernanceInstrument(this.#store, instrumentId);
   }

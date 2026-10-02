@@ -6,6 +6,7 @@
 // Source lock: spec/f027/spec-lock.json (F-027 v1.0): WS-007.
 import { describe, expect, it } from "vitest";
 import {
+  GovernanceInstrumentCoreSchema,
   GovernanceInstrumentSchema,
   INSTRUMENT_LIFECYCLE_STATUSES,
   INSTRUMENT_OPERATIVE_EFFECTS,
@@ -42,9 +43,13 @@ const FIELDS = [
 ];
 
 describe("the Instrument contract is the WS-007 §4.1 mandatory fields, exactly as the source names them", () => {
-  it("accepts a well-formed Instrument and names exactly the seven source identifiers and nothing else", () => {
+  it("accepts a well-formed Instrument and names exactly the seven source identifiers plus the one optional twenty-first-slice field, and nothing else", () => {
     expect(ok(instrument())).toBe(true);
-    expect(Object.keys(GovernanceInstrumentSchema.shape).sort()).toEqual([...FIELDS].sort());
+    expect(Object.keys(GovernanceInstrumentSchema.shape).sort()).toEqual(
+      [...FIELDS, "predecessor_instrument_ref"].sort(),
+    );
+    // the historical core shape is exactly the seven §4.1 fields
+    expect(Object.keys(GovernanceInstrumentCoreSchema.shape).sort()).toEqual([...FIELDS].sort());
     // the identifiers are the source's own: singular `operative_effect`, `validity_by_order` (the source's `validity_by_order[]`)
     for (const wrong of [
       "operative_effects",
@@ -394,7 +399,7 @@ describe("validity is order-relative and separate from lifecycle, with the exact
   });
 });
 
-describe("the WS-007 §4.3 conditional fields and §4.4 clauses are unsupported in this slice and fail closed", () => {
+describe("every WS-007 §4.3 conditional field other than predecessor_instrument_ref, and every §4.4 clause, is unsupported and fails closed", () => {
   const CONDITIONAL = [
     "activation_condition",
     "effective_from",
@@ -407,7 +412,6 @@ describe("the WS-007 §4.3 conditional fields and §4.4 clauses are unsupported 
     "promulgation_act_ref",
     "individual_notice_requirement_ref",
     "appeal_review_override",
-    "predecessor_instrument_ref",
     "supersession_ref",
     "provenance_note",
   ];
