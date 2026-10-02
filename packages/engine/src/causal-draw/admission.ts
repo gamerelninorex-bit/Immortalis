@@ -15,7 +15,11 @@ import { canonicalEqual } from "../hash.ts";
 import { CAUSAL_DRAW_RULE, resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { cdDigest } from "./canon.ts";
-import { deriveResultRecord, precommitRecordViolation } from "./derive.ts";
+import {
+  causalDrawMetadataViolation,
+  deriveResultRecord,
+  precommitRecordViolation,
+} from "./derive.ts";
 
 /**
  * IM-11 admission for the infrastructure-only `causal_draw_kernel / draw_provenance` owner (F-027-CD1 §§3, 10, 12, 13).
@@ -30,6 +34,9 @@ import { deriveResultRecord, precommitRecordViolation } from "./derive.ts";
  *  2. RESULT (CDO-01): exactly what CDA-01 derives from the committed precommit — the group reads and depends on that
  *     precommit, and the selected candidate must re-derive. Without a committed precommit nothing can be derived, so
  *     no caller or raw commit can conjure a result.
+ *
+ * Both records carry the fixed CDP-01 / CDO-01 OwnerFact metadata (`unit = null`, the kind's exact `basis`, `secrecy =
+ * "engine-internal"`); a write with any other value is refused here, so a raw commit cannot bypass it.
  *
  * Authority (role.archivist + permission.canon.write) is enforced by the commit core. Per CDO-01, result publication
  * deliberately does NOT revalidate the currency of `owner_rule_ref` or `input_refs[]`: those were frozen at precommit.
@@ -82,6 +89,8 @@ function groupIdentityViolation(
 function checkPrecommit(group: CommitGroup, state: CampaignState, w: Write): Rejection | null {
   const p = CausalDrawPrecommitSchema.parse(w.value);
   const digest = digestOfKey(w.key);
+  const metadata = causalDrawMetadataViolation("causal_draw_precommit", w);
+  if (metadata) return bad(metadata, { key: w.key });
   if (w.key !== causalDrawPrecommitKey(cdDigest(p.draw_key))) {
     return ref("the precommit is at the key its draw identity derives", { key: w.key });
   }
@@ -125,6 +134,8 @@ function checkPrecommit(group: CommitGroup, state: CampaignState, w: Write): Rej
 function checkResult(group: CommitGroup, state: CampaignState, w: Write): Rejection | null {
   const r = CausalDrawResultSchema.parse(w.value);
   const digest = digestOfKey(w.key);
+  const metadata = causalDrawMetadataViolation("causal_draw_result", w);
+  if (metadata) return bad(metadata, { key: w.key });
   if (w.key !== causalDrawResultKey(digest) || r.draw_id !== causalDrawId(digest)) {
     return ref("the result is at the key its draw identity derives", { key: w.key });
   }

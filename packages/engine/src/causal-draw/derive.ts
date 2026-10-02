@@ -1,5 +1,8 @@
 import {
   CAUSAL_DRAW_ALGORITHM_ID,
+  CAUSAL_DRAW_PRECOMMIT_BASIS,
+  CAUSAL_DRAW_RESULT_BASIS,
+  CAUSAL_DRAW_SECRECY,
   CausalDrawPrecommitSchema,
   causalDrawId,
   causalDrawPrecommitKey,
@@ -19,6 +22,25 @@ import { CAUSAL_DRAW_ALGORITHMS, type CausalDrawAlgorithm } from "./sampler.ts";
  * One statement of each Causal Draw derivation rule, used by the adapter, IM-11 admission and load verification, so the
  * three cannot drift (the same shape as the other owners' `derive.ts`). Pure: no clock, no entropy, no store.
  */
+
+/**
+ * CDP-01 / CDO-01: the OwnerFact metadata of Causal Draw evidence is fixed per record kind — `unit = null`, the kind's
+ * exact `basis` label, and `secrecy = "engine-internal"`. One statement of the rule, used by admission (a raw commit
+ * cannot bypass it) and by load verification (persisted drift is not lawful evidence). Returns a message, or null.
+ */
+export function causalDrawMetadataViolation(
+  kind: "causal_draw_precommit" | "causal_draw_result",
+  meta: { readonly unit: string | null; readonly basis: string; readonly secrecy: string },
+): string | null {
+  if (meta.unit !== null) return "Causal Draw evidence has no unit: unit is null";
+  const basis =
+    kind === "causal_draw_precommit" ? CAUSAL_DRAW_PRECOMMIT_BASIS : CAUSAL_DRAW_RESULT_BASIS;
+  if (meta.basis !== basis) return `the basis of this Causal Draw record is exactly "${basis}"`;
+  if (meta.secrecy !== CAUSAL_DRAW_SECRECY) {
+    return `Causal Draw evidence is engine-internal: secrecy is exactly "${CAUSAL_DRAW_SECRECY}"`;
+  }
+  return null;
+}
 
 /** A message when a precommit record is internally inconsistent with the `draw_key_digest` of its key, or null. */
 export function precommitRecordViolation(

@@ -14,7 +14,11 @@ import { canonicalEqual } from "../hash.ts";
 import { CAUSAL_DRAW_RULE, resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { deriveResultRecord, precommitRecordViolation } from "./derive.ts";
+import {
+  causalDrawMetadataViolation,
+  deriveResultRecord,
+  precommitRecordViolation,
+} from "./derive.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Causal Draw evidence is neither
@@ -22,6 +26,7 @@ import { deriveResultRecord, precommitRecordViolation } from "./derive.ts";
  * integrity failure, not a reason to sample again"). Replay proves the HISTORY is intact and canonical integrity proves
  * each fact's owner, schema, key identity, sealing and governing rule; this proves the evidence still tells one story:
  *
+ *  - every record carries the fixed OwnerFact metadata (`unit = null`, its kind's exact basis, `secrecy = "engine-internal"`);
  *  - a precommit's record is internally consistent (draw key ↔ key ↔ draw_id, a lawful normalized specification, its
  *    digest, a well-formed 32-byte seed), was committed under the deterministic RC-16 identities, and pinned every
  *    declared input fact at the declared version;
@@ -67,6 +72,15 @@ export function verifyCausalDrawIntegrity(store: CampaignStore): readonly Integr
     }
     return group;
   };
+
+  // CDP-01 / CDO-01: the fixed OwnerFact metadata is verified independently of the value, the journal and the hashes
+  for (const f of [...precommits, ...results]) {
+    const metadata = causalDrawMetadataViolation(
+      kindOf(f) === "causal_draw_precommit" ? "causal_draw_precommit" : "causal_draw_result",
+      f,
+    );
+    if (metadata) bad(f.key, metadata);
+  }
 
   for (const pf of precommits) {
     const digest = resolveKey(pf.key)!.ids[0]!;

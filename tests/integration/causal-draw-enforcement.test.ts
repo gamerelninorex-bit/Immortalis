@@ -140,6 +140,21 @@ async function precommitOnly(seed = SEED_1) {
   return { s, d, prior, pre, lawful, group };
 }
 
+/** The write metadata CDP-01 / CDO-01 fix per record kind, varied one dimension at a time. */
+const metadataForgeries = (basis: string): Record<string, [Record<string, unknown>, RegExp]> => ({
+  "a unit instead of null": [{ unit: "kg" }, /unit is null/],
+  "a unit that looks like an absence": [{ unit: "null" }, /unit is null/],
+  "another basis": [{ basis: "test-basis" }, /basis of this Causal Draw record is exactly/],
+  "the other record kind's basis": [
+    { basis: basis === "causal-draw-precommit" ? "causal-draw-result" : "causal-draw-precommit" },
+    /basis of this Causal Draw record is exactly/,
+  ],
+  "the basis in another case": [{ basis: basis.toUpperCase() }, /basis of this Causal Draw record/],
+  "a player-visible secrecy class": [{ secrecy: "player-visible" }, /engine-internal/],
+  "a public secrecy class": [{ secrecy: "public" }, /engine-internal/],
+  "the secrecy class in another case": [{ secrecy: "ENGINE-INTERNAL" }, /engine-internal/],
+});
+
 const code = async (s: DrawSeeded, g: unknown) => {
   const r = await s.campaign.store.commit(g);
   return r.ok ? "OK" : r.error.code;
@@ -376,6 +391,35 @@ describe("a well-formed precommit is lawful by raw commit; every forgery of it i
     await s.campaign.close();
   });
 
+  it("refuses an otherwise-valid precommit whose unit, basis or secrecy is not the F-027-CD1 value, by a RAW commit, and writes nothing", async () => {
+    const s = await seededDrawCampaign(tempDir());
+    const { group, d } = precommitOf(s);
+    const before = s.campaign.store.head();
+    for (const [name, [patch, message]] of Object.entries(
+      metadataForgeries("causal-draw-precommit"),
+    )) {
+      const r = await s.campaign.store.commit(patchWrite(group, patch));
+      expect(r.ok, name).toBe(false);
+      expect(r.ok ? "" : r.error.code, name).toBe("VALUE_INVALID");
+      expect(r.ok ? "" : r.error.message, name).toMatch(message);
+    }
+    // several wrong dimensions at once are refused too
+    expect(await code(s, patchWrite(group, { unit: "kg", basis: "x", secrecy: "public" }))).toBe(
+      "VALUE_INVALID",
+    );
+    expect(s.campaign.store.getFact(causalDrawPrecommitKey(d))).toBeUndefined();
+    expect(s.campaign.store.head().journal_head_sha256).toBe(before.journal_head_sha256);
+    // control: the unforged group, differing from each forgery only in that metadata, is lawful
+    expect(await code(s, group)).toBe("OK");
+    const f = s.campaign.store.getFact(causalDrawPrecommitKey(d))!;
+    expect([f.unit, f.basis, f.secrecy]).toEqual([
+      null,
+      "causal-draw-precommit",
+      "engine-internal",
+    ]);
+    await s.campaign.close();
+  });
+
   it("refuses an input ref that does not name the committed fact: its owner or its committing group", async () => {
     const s = await seededDrawCampaign(tempDir());
     const spec = defaultSpecification(s);
@@ -444,6 +488,27 @@ describe("a result is exactly what CDA-01 derives from its committed precommit, 
       expect(await code(s, patchValue(group, patch)), name).toBe("VALUE_INVALID");
     }
     expect(s.campaign.store.getFact(group.writes[0]!.key)).toBeUndefined();
+    await s.campaign.close();
+  });
+
+  it("refuses an otherwise-valid result whose unit, basis or secrecy is not the F-027-CD1 value, by a RAW commit, and writes nothing", async () => {
+    const { s, d, group } = await precommitOnly();
+    for (const [name, [patch, message]] of Object.entries(
+      metadataForgeries("causal-draw-result"),
+    )) {
+      const r = await s.campaign.store.commit(patchWrite(group, patch));
+      expect(r.ok, name).toBe(false);
+      expect(r.ok ? "" : r.error.code, name).toBe("VALUE_INVALID");
+      expect(r.ok ? "" : r.error.message, name).toMatch(message);
+    }
+    expect(await code(s, patchWrite(group, { unit: "kg", basis: "x", secrecy: "public" }))).toBe(
+      "VALUE_INVALID",
+    );
+    expect(s.campaign.store.getFact(causalDrawResultKey(d))).toBeUndefined();
+    // control: the unforged group, differing from each forgery only in that metadata, is lawful
+    expect(await code(s, group)).toBe("OK");
+    const f = s.campaign.store.getFact(causalDrawResultKey(d))!;
+    expect([f.unit, f.basis, f.secrecy]).toEqual([null, "causal-draw-result", "engine-internal"]);
     await s.campaign.close();
   });
 
@@ -587,6 +652,38 @@ describe("load-time integrity: malformed or non-rederivable Causal Draw evidence
     expect(p.campaign.verify()).toEqual([]);
     await s.campaign.close();
     await p.campaign.close();
+  });
+
+  it("detects metadata drift by the Causal Draw verifier ITSELF: the fixed unit, basis and secrecy of each record kind, with every other check satisfied", async () => {
+    const { s, out } = await completed();
+    const drift: Record<string, [Record<string, unknown>, RegExp]> = {
+      "a unit instead of null": [{ unit: "kg" }, /unit is null/],
+      "another basis": [{ basis: "test-basis" }, /basis of this Causal Draw record is exactly/],
+      "the other kind's basis": [{ basis: "SWAP" }, /basis of this Causal Draw record is exactly/],
+      "a non-internal secrecy class": [{ secrecy: "public" }, /engine-internal/],
+    };
+    for (const key of [out.precommit.key, out.result.key]) {
+      const own = key === out.precommit.key ? "causal-draw-precommit" : "causal-draw-result";
+      const other =
+        own === "causal-draw-precommit" ? "causal-draw-result" : "causal-draw-precommit";
+      for (const [name, [patch, message]] of Object.entries(drift)) {
+        const applied = patch["basis"] === "SWAP" ? { basis: other } : patch;
+        // only the OwnerFact metadata is altered: the value, the journal group, the receipts and every hash are untouched
+        const view = viewWith(s.campaign.store, (facts) =>
+          facts.map((f) => (f.key === key ? { ...f, ...applied } : f)),
+        );
+        const found = verifyCausalDrawIntegrity(view);
+        expect(
+          found.map((v) => v.key),
+          `${key}: ${name}`,
+        ).toEqual([key]);
+        expect(found[0]!.code).toBe("CAUSAL_DRAW_STATE");
+        expect(found[0]!.message, `${key}: ${name}`).toMatch(message);
+      }
+    }
+    // the unaltered evidence is clean, so each finding above is attributable to the metadata alone
+    expect(verifyCausalDrawIntegrity(s.campaign.store)).toEqual([]);
+    await s.campaign.close();
   });
 
   it("detects a result that is not what CDA-01 derives from its committed seed (a different selection, sample or count)", async () => {
