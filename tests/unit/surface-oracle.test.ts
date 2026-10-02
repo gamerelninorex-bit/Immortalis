@@ -12,8 +12,13 @@ import {
   EXPECTED_LEGACY_RULE_KIND_IDS,
   EXPECTED_LEGACY_RULE_SOURCE_SLOTS,
   EXPECTED_OWNER_FACETS,
+  LAWFUL_SIBLING_IDENTIFIERS,
   REGISTRY_SOURCE,
   UNREGISTERED_DIPLOMACY_KEY_PROBES,
+  expectedAdapterMethods,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  stripLawfulSiblingIdentifiers,
   type ExpectedAdapterSurface,
   type ExpectedFactKind,
 } from "../support/expected-surface.ts";
@@ -463,6 +468,39 @@ describe("edits to the oracle are caught against the real production surface: th
       }).surface,
       "DiplomacyAdapter",
       ".commit( calls",
+    );
+  });
+});
+
+describe("the oracle accessors and the lawful-sibling vocabulary", () => {
+  it("accessors return the oracle's own data, and refuse an adapter the oracle does not know", () => {
+    expect(expectedKindIds({ owner: "diplomacy" })).toEqual([
+      "diplomacy_external_recognition",
+      "diplomacy_claim_dispute",
+      "diplomacy_relation_edge",
+      "diplomacy_framework",
+    ]);
+    expect(expectedKindIds({ group: "FACT_KINDS" })).toHaveLength(4);
+    expect(expectedKindIds({})).toHaveLength(EXPECTED_FACT_KINDS.length);
+    expect(expectedOwnerFacetSet("gip")).toEqual(new Set(["gip_institution_identity"]));
+    expect(expectedOwnerFacetSet("no_such_owner")).toEqual(new Set());
+    expect(expectedAdapterMethods("KtiAdapter")).toContain("establishTransferBasis");
+    expect(() => expectedAdapterMethods("TradeAdapter")).toThrow(/no expected adapter surface/);
+  });
+
+  it("only acknowledged siblings are stripped: an unregistered neighbour's vocabulary still survives for the forbidden-construct scan to catch", () => {
+    expect(
+      Object.keys(LAWFUL_SIBLING_IDENTIFIERS).every((id) => expectedKindIds({}).includes(id)),
+    ).toBe(true);
+    expect(
+      stripLawfulSiblingIdentifiers("establishRelationEdge diplomacy_framework relationId"),
+    ).toBe("  ");
+    const survivors =
+      "DiplomacyChannel establishChannel diplomacy_channel Negotiation framework_extension";
+    expect(stripLawfulSiblingIdentifiers(survivors)).toBe(survivors);
+    // whole-word only: a longer identifier that merely contains a lawful token is not stripped
+    expect(stripLawfulSiblingIdentifiers("relationship frameworkAmendment")).toBe(
+      "relationship frameworkAmendment",
     );
   });
 });
