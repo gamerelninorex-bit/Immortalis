@@ -1,12 +1,19 @@
 import {
   ExternalRecognitionSchema,
+  ExternalizedClaimDisputeSchema,
+  diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  disputeDependencyKeys,
   recognitionDependencyKeys,
   type CommitGroup,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { DIPLOMACY_RECOGNITION_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  DIPLOMACY_CLAIM_DISPUTE_RULE,
+  DIPLOMACY_RECOGNITION_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 
 /**
@@ -31,6 +38,18 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  * as not supported, and a second creation of an occupied slot is refused by the store's version chain. No sibling record,
  * reciprocal recognition, per-recipient copy, Relation Edge, Instrument or score is made.
  *
+ * EXTERNALIZED CLAIM / DISPUTE CORE (eighteenth slice): one authored claim / dispute record, at the one key its canonical
+ * `dispute_id` alone derives, created once, under the claim / dispute citation. It is the owner's OWN authored statement that a
+ * position was externally communicated: it dereferences no `party_refs[]`, `underlying_subject_ref`, `interpretation_issue_ref`,
+ * `instrument_or_clause_ref`, `adjudication_basis_ref` or `provenance_ref`, restricts no party class, closes no `status` set,
+ * imposes no schema on `communicated_position_entries[]`, no array minimum, uniqueness or ordering, defaults no `effect_on`,
+ * creates or mutates no underlying claim or other foreign-owner state, infers no private belief, future behavior or objective
+ * truth, creates no receipt event and writes nothing else. The only cross-fact rule is the same WS-008 §29.3 rule as above for
+ * `dependency_refs[]`. The kind is ADVANCING; NO post-establishment change exists yet (status change, new or changed position,
+ * remedy change, interpretation or adjudication update, effect resolution, dependency-driven re-resolution, conversion, merger,
+ * settlement, retirement or deletion), so every write to a dispute other than its first creation is refused here as not
+ * supported, and a second creation of an occupied slot is refused by the store's version chain.
+ *
  * A retry of the same intent is reconciled by the store by identity (RC-16).
  */
 export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
@@ -46,10 +65,20 @@ export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): R
       }
       return checkRecognition(group, state, w);
     }
+    if (resolveKey(w.key)?.kind.id === "diplomacy_claim_dispute") {
+      if (w.expected_version !== 0) {
+        return reject(
+          "AMENDMENT_NOT_SUPPORTED",
+          "an Externalized Claim / Dispute is created once; no status change, new or changed communicated position, remedy change, interpretation or adjudication update, effect resolution, dependency-driven re-resolution, conversion, merger, settlement, retirement or deletion is implemented",
+          { key: w.key },
+        );
+      }
+      return checkDispute(group, state, w);
+    }
   }
   return reject(
     "VALUE_INVALID",
-    "Diplomacy state changes only by one External Recognition establishment, created once",
+    "Diplomacy state changes only by one External Recognition or one Externalized Claim / Dispute establishment, each created once",
   );
 }
 
@@ -77,8 +106,57 @@ function checkRecognition(group: CommitGroup, state: CampaignState, w: Write): R
       { key: w.key },
     );
   }
-  // WS-008 §29.3: the registered dependencies are exactly the facts the record names, each pinned by exact key
-  const keys = recognitionDependencyKeys(recognition);
+  return checkDependencyPins(
+    group,
+    state,
+    w,
+    recognitionDependencyKeys(recognition),
+    "an External Recognition",
+  );
+}
+
+function checkDispute(group: CommitGroup, state: CampaignState, w: Write): Rejection | null {
+  const parsed = ExternalizedClaimDisputeSchema.safeParse(w.value);
+  if (!parsed.success) {
+    return reject("VALUE_INVALID", "the Externalized Claim / Dispute violates its contract", {
+      key: w.key,
+    });
+  }
+  const dispute = parsed.data;
+  if (!canonicalEqual(group.rule, DIPLOMACY_CLAIM_DISPUTE_RULE)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "an Externalized Claim / Dispute is committed under the governing-rule citation of its kind",
+      { key: w.key },
+    );
+  }
+  if (w.key !== diplomacyDisputeKey(dispute.dispute_id)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "an Externalized Claim / Dispute is at the key derived from its exact dispute_id",
+      { key: w.key },
+    );
+  }
+  return checkDependencyPins(
+    group,
+    state,
+    w,
+    disputeDependencyKeys(dispute),
+    "an Externalized Claim / Dispute",
+  );
+}
+
+/**
+ * WS-008 §29.3: the registered dependencies are exactly the facts the record names, each pinned by exact key. A baseline record
+ * with no `dependency_refs[]` reads and depends on nothing, so no dependency is invented.
+ */
+function checkDependencyPins(
+  group: CommitGroup,
+  state: CampaignState,
+  w: Write,
+  keys: readonly string[],
+  what: string,
+): Rejection | null {
   const committedBy = new Set<string>();
   for (const key of keys) {
     const pinned = requirePrerequisite(
@@ -97,7 +175,7 @@ function checkRecognition(group: CommitGroup, state: CampaignState, w: Write): R
   ) {
     return reject(
       "REFERENCE_INVALID",
-      "an External Recognition reads and depends on exactly the committed facts its dependency_refs[] names and nothing else; a baseline record with none reads and depends on nothing",
+      `${what} reads and depends on exactly the committed facts its dependency_refs[] names and nothing else; a baseline record with none reads and depends on nothing`,
       { key: w.key },
     );
   }

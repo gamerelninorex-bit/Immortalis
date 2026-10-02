@@ -174,7 +174,8 @@ describe("registry: every key space has exactly one owner/facet and there is no 
       // IM-06 (twelfth slice): the GIP owner, one Institution Identity facet; there is no fallback GIP owner
       ["gip", ["gip_institution_identity"]],
       // IM-06 (seventeenth slice): the Diplomacy owner, one External Recognition facet; there is no fallback Diplomacy owner
-      ["diplomacy", ["diplomacy_external_recognition"]],
+      // IM-06 (eighteenth slice): the same Diplomacy owner gains one exclusive Externalized Claim / Dispute facet; no second owner
+      ["diplomacy", ["diplomacy_external_recognition", "diplomacy_externalized_claim_dispute"]],
     ]);
   });
 });

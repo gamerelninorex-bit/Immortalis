@@ -688,11 +688,16 @@ describe("a missing or malformed field fails closed, and aliases never substitut
 });
 
 describe("only the establishment is supported: every post-establishment mutation is refused", () => {
-  it("the adapter exposes one writer and one keyed read: no withdrawal, suspension, supersession, succession, status-change, re-resolution or retirement method", () => {
+  it("the adapter exposes one recognition writer and one keyed read (the eighteenth slice adds only the claim / dispute pair): no withdrawal, suspension, supersession, succession, status-change, re-resolution or retirement method", () => {
     const methods = Object.getOwnPropertyNames(DiplomacyAdapter.prototype)
       .filter((m) => m !== "constructor")
       .sort();
-    expect(methods).toEqual(["establishExternalRecognition", "externalRecognition"]);
+    expect(methods).toEqual([
+      "establishExternalRecognition",
+      "establishExternalizedClaimDispute",
+      "externalRecognition",
+      "externalizedClaimDispute",
+    ]);
   });
 
   it("every raw expected-version write to an established recognition — a status change, withdrawal, new scope, new referent — is an unsupported amendment; an occupied create is a version conflict", async () => {
@@ -802,7 +807,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, claim, dispute or compliance key space exists: each is outside every registered key space", async () => {
+  it("no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, claim or compliance key space exists (the dispute key space is the eighteenth slice's own): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
@@ -815,7 +820,6 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy/binding/b1",
       "diplomacy/framework/f1",
       "diplomacy/claim/c1",
-      "diplomacy/dispute/d1",
       "diplomacy/compliance/c1",
       "diplomacy/recognition",
       "diplomacy/recognition/r1/reciprocal",
@@ -827,6 +831,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       ).toBe("KEY_NOT_ADMITTED");
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual([
       "diplomacy_external_recognition",
+      "diplomacy_claim_dispute",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

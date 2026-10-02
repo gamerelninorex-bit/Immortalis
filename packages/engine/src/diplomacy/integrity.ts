@@ -1,7 +1,10 @@
 import {
   ExternalRecognitionSchema,
+  ExternalizedClaimDisputeSchema,
   TemporalObjectSchema,
+  diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  disputeDependencyKeys,
   recognitionDependencyKeys,
   type OwnerFact,
 } from "@immortalis/contracts";
@@ -25,6 +28,9 @@ import { diplomacyObjectViolation } from "./declaration.ts";
  *    and a dependency still at its pinned version is the very fact (and committing group) the record was established against.
  *    A dependency that has since advanced is NOT corruption: it is the upstream write that invalidates the conclusion, which
  *    the keyed read reports;
+ *  - the same holds for an Externalized Claim / Dispute: it is at the key its exact `dispute_id` derives, is still its one first
+ *    version, was committed by one create-only write of its own key (so no underlying claim, foreign fact, Relation Edge,
+ *    Instrument, receipt event or sibling dispute was part of it), and its dependency pins are intact exactly as above;
  *  - its governing-rule provenance is re-checked with every fact by canonical integrity;
  *  - no temporal object declares a Diplomacy stage, close or owned object: Diplomacy has no tick, phase, scheduler, watcher or
  *    polling loop.
@@ -39,6 +45,8 @@ export function verifyDiplomacyIntegrity(store: CampaignStore): readonly Integri
   for (const f of store.listFacts()) {
     if (kindOf(f) === "diplomacy_external_recognition") {
       verifyRecognition(store, f, bad);
+    } else if (kindOf(f) === "diplomacy_claim_dispute") {
+      verifyDispute(store, f, bad);
     } else if (kindOf(f) === "temporal_object") {
       const o = TemporalObjectSchema.safeParse(f.value);
       const violation = o.success ? diplomacyObjectViolation(o.data) : null;
@@ -77,12 +85,71 @@ function verifyRecognition(
     bad(f.key, "an External Recognition was established by one create-only write of its own key");
     return;
   }
-  const keys = recognitionDependencyKeys(recognition);
+  verifyDependencyPins(
+    store,
+    f,
+    group,
+    recognitionDependencyKeys(recognition),
+    "an External Recognition",
+    bad,
+  );
+}
+
+function verifyDispute(
+  store: CampaignStore,
+  f: OwnerFact,
+  bad: (key: string, message: string) => void,
+): void {
+  const parsed = ExternalizedClaimDisputeSchema.safeParse(f.value);
+  if (!parsed.success) return; // canonical integrity reports a value that violates its contract
+  const dispute = parsed.data;
+  if (f.key !== diplomacyDisputeKey(dispute.dispute_id)) {
+    bad(f.key, "an Externalized Claim / Dispute is at the key derived from its exact dispute_id");
+    return;
+  }
+  if (f.version !== 1) {
+    bad(
+      f.key,
+      "no claim / dispute transition is implemented: an Externalized Claim / Dispute is still the version it was established as",
+    );
+    return;
+  }
+  const group = store.committedGroup(f.provenance.intent_id);
+  if (
+    !group ||
+    group.writes.length !== 1 ||
+    group.writes[0]!.key !== f.key ||
+    group.writes[0]!.expected_version !== 0
+  ) {
+    bad(
+      f.key,
+      "an Externalized Claim / Dispute was established by one create-only write of its own key",
+    );
+    return;
+  }
+  verifyDependencyPins(
+    store,
+    f,
+    group,
+    disputeDependencyKeys(dispute),
+    "an Externalized Claim / Dispute",
+    bad,
+  );
+}
+
+function verifyDependencyPins(
+  store: CampaignStore,
+  f: OwnerFact,
+  group: NonNullable<ReturnType<CampaignStore["committedGroup"]>>,
+  keys: readonly string[],
+  what: string,
+  bad: (key: string, message: string) => void,
+): void {
   if (keys.length === 0) {
     if (group.reads.length !== 0 || group.depends_on.length !== 0) {
       bad(
         f.key,
-        "an External Recognition with no dependency_refs[] was established reading and depending on nothing: no dependency is invented",
+        `${what} with no dependency_refs[] was established reading and depending on nothing: no dependency is invented`,
       );
     }
     return;
@@ -107,7 +174,7 @@ function verifyRecognition(
   if (!pinsOk) {
     bad(
       f.key,
-      "an External Recognition with dependency_refs[] was established reading exactly the committed facts they name, at versions no later than committed, and depending on the groups that committed them",
+      `${what} with dependency_refs[] was established reading exactly the committed facts they name, at versions no later than committed, and depending on the groups that committed them`,
     );
   }
 }

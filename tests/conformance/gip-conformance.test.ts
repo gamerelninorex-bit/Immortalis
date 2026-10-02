@@ -138,7 +138,7 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
     ).toHaveLength(1);
     expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/instrument/n1"))).toHaveLength(1);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS).toHaveLength(37);
+    expect(ALL_FACT_KINDS).toHaveLength(38);
   });
 
   it("there is no instrument clause or amendment, procedure, membership, faction, asset, resource, KTI, actor, relationship, military, territory or lifecycle kind, and no fallback GIP owner", () => {

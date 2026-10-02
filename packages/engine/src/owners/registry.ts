@@ -21,7 +21,9 @@ import {
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   ExternalRecognitionSchema,
+  ExternalizedClaimDisputeSchema,
   FACET_DIPLOMACY_EXTERNAL_RECOGNITION,
+  FACET_DIPLOMACY_EXTERNALIZED_CLAIM_DISPUTE,
   FACET_ECONOMY_STATE,
   FACET_GIP_INSTITUTION_IDENTITY,
   FACET_EXISTENCE_CONTRACT,
@@ -232,7 +234,10 @@ export const GIP_FACT_KIND_IDS = [
   "gip_scope_binding",
   "gip_governance_instrument",
 ] as const;
-export const DIPLOMACY_FACT_KIND_IDS = ["diplomacy_external_recognition"] as const;
+export const DIPLOMACY_FACT_KIND_IDS = [
+  "diplomacy_external_recognition",
+  "diplomacy_claim_dispute",
+] as const;
 export type FactKindId =
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
   | (typeof GIP_FACT_KIND_IDS)[number]
@@ -1116,6 +1121,23 @@ export const DIPLOMACY_RECOGNITION_RULE: SourceRef = rule(
 );
 
 /**
+ * The governing rule for the Diplomacy Externalized Claim / Dispute kind (eighteenth slice): one group, written once at
+ * establishment (the record is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this
+ * citation. The clauses are the ones the state relies on: WS-008 v1.1 §§2-3 (Diplomacy owns the fact that a position was
+ * externally communicated; the underlying substantive claim stays with its authoritative owner), §7 (Claim / Dispute: the minimum
+ * entry), §§19-24 (invariants: no private belief or objective truth is inferred from a communicated position; stable state
+ * carries forward; no universal diplomacy tick), §29.3 (R-3: `dependency_refs[]` where the conclusion is derived from another
+ * owner's mutable state; no universal watcher), §29.4 (`effect_on`: `issuance`, `addressee_receipt`,
+ * `instrument_or_setting_specified`; no default, and no receipt created) and §29.7 (no all-pairs scan); F-016 Phase 2C and F-017
+ * (lawful Actor / ACS / GIP authority precedes the communicated act, which precedes the Diplomacy record).
+ */
+export const DIPLOMACY_CLAIM_DISPUTE_RULE: SourceRef = rule(
+  WS008_SOURCE,
+  "v1.1 §§2-3 Diplomacy-owned persistent state (the fact that a position was externally communicated; the underlying substantive claim stays with its authoritative owner); §7 Claim / Dispute (minimum entry: dispute_id, party_refs[], underlying_subject_ref, communicated_position_entries[], optional requested_remedy_or_demand, optional interpretation_issue_ref, optional instrument_or_clause_ref, optional adjudication_basis_ref, status, provenance_ref); §§19-24 Required Invariants (stable state carries forward; no universal diplomacy tick); §29.3 R-3 Dependency registration and invalidation (dependency_refs[] where the persisted conclusion is derived from another owner's mutable state; no universal watcher); §29.4 effect_on (issuance, addressee_receipt, instrument_or_setting_specified; no default; no receipt created or inferred); §29.7 R-7 (no all-pairs scan); post-establishment status change, new or changed position, remedy change, interpretation or adjudication update, effect resolution, dependency-driven re-resolution, conversion, merger, settlement and retirement not implemented",
+  [WS008_LINEAGE, F016_PHASE_2C_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
  * IM-06 Economy / GIP / Diplomacy Adapter — the DIPLOMACY EXTERNAL RECOGNITION CORE part only: "Diplomacy commitment-of-record",
  * lowered to the one directional, scoped recognition record that the source assigns to Diplomacy. One owner (distinct from GIP
  * and Economy), one External Recognition facet, one exclusive key space. The kind is ADVANCING, because WS-008 explicitly permits
@@ -1136,6 +1158,17 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
     valueSchema: ExternalRecognitionSchema,
     rule: DIPLOMACY_RECOGNITION_RULE,
   },
+  {
+    id: "diplomacy_claim_dispute",
+    owner: OWNER_DIPLOMACY,
+    facet: FACET_DIPLOMACY_EXTERNALIZED_CLAIM_DISPUTE,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^diplomacy/dispute/${ID}$`),
+    valueSchema: ExternalizedClaimDisputeSchema,
+    rule: DIPLOMACY_CLAIM_DISPUTE_RULE,
+  },
 ];
 
 /**
@@ -1143,7 +1176,7 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
  * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
- * and the IM-06 Diplomacy External Recognition kind.
+ * the IM-06 Diplomacy External Recognition kind and the IM-06 Diplomacy Externalized Claim / Dispute kind.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
