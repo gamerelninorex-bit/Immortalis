@@ -2,7 +2,8 @@ import { z } from "zod";
 import { EntityId } from "./world-foundation.ts";
 
 /**
- * GIP Governance Instrument Core Backbone Foundation — executable contract (sixteenth bounded slice).
+ * GIP Governance Instrument Core Backbone Foundation — executable contract (sixteenth bounded slice), extended in the
+ * twenty-first bounded slice by the one optional WS-007 §4.3 `predecessor_instrument_ref`.
  *
  * Governing sources (exact pins live in the owner registry and spec/f027/spec-lock.json):
  *   WS-007 Government / Institutions / Politics (frozen F-027 pin 2026-09-24T01:42:24.952Z): the Sovereign-ratified GIP
@@ -143,9 +144,36 @@ export const InstrumentValidityEntrySchema = z.strictObject({
 });
 export type InstrumentValidityEntry = z.infer<typeof InstrumentValidityEntrySchema>;
 
+/** An authored optional field is either omitted or carried: an explicit `undefined` (which has no canonical form) is refused. */
+const noExplicitUndefined = (value: Record<string, unknown>): boolean =>
+  Object.keys(value).every((k) => value[k] !== undefined);
+
+/** The exact join of the two references: the Scope Binding belongs to the same office authority the Instrument names. */
+const sameAuthority = (v: {
+  readonly source_authority_ref: string;
+  readonly scope_binding_ref: string;
+}): boolean => {
+  const office = parseInstrumentSourceAuthorityRef(v.source_authority_ref);
+  const binding = parseInstrumentScopeBindingRef(v.scope_binding_ref);
+  return (
+    office !== undefined &&
+    binding !== undefined &&
+    binding.institution_id === office.institution_id &&
+    binding.office_id === office.office_id
+  );
+};
+const SAME_AUTHORITY_MESSAGE =
+  "scope_binding_ref must address a Scope Binding of the same authority as source_authority_ref";
+
 /**
- * The WS-007 §4.1 mandatory fields — and only those. Validity is order-relative and separate from lifecycle: the two
- * dimensions are independent authored values, and no lifecycle value rewrites any validity entry.
+ * The WS-007 §4.1 mandatory fields — and only those: the HISTORICAL sixteenth-slice core-only Instrument value shape. It is
+ * the class of value that existed under the sixteenth-slice governing-rule citation (`GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE`),
+ * and the only class of value that citation may still be carried by on load (see `FactKind.legacyRule`). It never authorized
+ * `predecessor_instrument_ref` or any other §4.3 field, so a value carrying one is not of this class. New writes use
+ * `GovernanceInstrumentSchema`, never this one.
+ *
+ * Validity is order-relative and separate from lifecycle: the two dimensions are independent authored values, and no
+ * lifecycle value rewrites any validity entry.
  *
  *  - `instrument_id` is the canonical identity.
  *  - `source_authority_ref` is the exact address of one committed Office / Authority Locus (holder or decision-body branch
@@ -161,32 +189,47 @@ export type InstrumentValidityEntry = z.infer<typeof InstrumentValidityEntrySche
  *    authored, never reordered, merged, deduplicated, reconciled or interpreted. This does not declare a repeated entry
  *    meaningful; any future restriction requires separately pinned authority.
  *  - `lifecycle_status` is authored; the engine advances none.
+ */
+const InstrumentCoreShape = {
+  instrument_id: EntityId,
+  source_authority_ref: InstrumentSourceAuthorityRef,
+  authority_basis_ref: EntityId,
+  operative_effect: InstrumentOperativeEffect,
+  scope_binding_ref: InstrumentScopeBindingRef,
+  validity_by_order: z.array(InstrumentValidityEntrySchema),
+  lifecycle_status: InstrumentLifecycleStatus,
+};
+export const GovernanceInstrumentCoreSchema = z
+  .strictObject(InstrumentCoreShape)
+  .refine(sameAuthority, SAME_AUTHORITY_MESSAGE);
+export type GovernanceInstrumentCore = z.infer<typeof GovernanceInstrumentCoreSchema>;
+
+/**
+ * One Governance Instrument, in the frozen shape of this foundation: the §4.1 mandatory fields above, unchanged, plus the one
+ * optional WS-007 §4.3 conditional field `predecessor_instrument_ref` (twenty-first slice) and no other §4.3 field.
  *
- * Not fields: the WS-007 §4.3 conditional fields (`activation_condition`, `effective_from`, `sunset_condition`,
+ * `predecessor_instrument_ref` is ONE optional OPAQUE authored reference (a single reference, never an array or map) in the
+ * same canonical opaque-reference representation as the other GIP reference fields (`EntityId`): the authored pointer from
+ * this Instrument toward a predecessor Instrument identity/source. It is a representational lineage pointer and nothing
+ * else. It is carried exactly as authored (no normalisation, expansion, alias or derived surrogate), never dereferenced on
+ * establishment, read, recovery or integrity verification, and never required to name an existing fact. It is not an identity
+ * dimension (the key is derived from `instrument_id` alone), registers no dependency, reads and writes no predecessor, creates
+ * no successor pointer, supersession act, lifecycle advancement, validity change or reciprocal edge, and nothing (legal
+ * continuity, authority, recognition, applicability, implementation, enforcement or knowledge) is inferred from it. An
+ * omitted field is absent: no default is synthesized, and null or an explicit undefined fails closed.
+ *
+ * Not fields: every OTHER WS-007 §4.3 conditional field (`activation_condition`, `effective_from`, `sunset_condition`,
  * `renewal_rule`, `implementation_assignment_ref`, `administrative_path_ref`, `sanction_or_remedy`,
  * `institutional_promulgation_or_publication_requirement`, `promulgation_act_ref`, `individual_notice_requirement_ref`,
- * `appeal_review_override`, `predecessor_instrument_ref`, `supersession_ref`, `provenance_note`) — outside this bounded slice,
- * so an Instrument that needs one is unsupported and fails closed rather than being omitted, inferred or flattened; and no
- * `institution_id`, `office_id`, `scope_binding_id`, discriminator, generic `status`, `legal_status` or other convenience field.
+ * `appeal_review_override`, `supersession_ref`, `provenance_note`) — outside this bounded slice, so an Instrument that needs
+ * one is unsupported and fails closed rather than being omitted, inferred or flattened; and no `institution_id`, `office_id`,
+ * `scope_binding_id`, discriminator, generic `status`, `legal_status` or other convenience field.
  */
 export const GovernanceInstrumentSchema = z
   .strictObject({
-    instrument_id: EntityId,
-    source_authority_ref: InstrumentSourceAuthorityRef,
-    authority_basis_ref: EntityId,
-    operative_effect: InstrumentOperativeEffect,
-    scope_binding_ref: InstrumentScopeBindingRef,
-    validity_by_order: z.array(InstrumentValidityEntrySchema),
-    lifecycle_status: InstrumentLifecycleStatus,
+    ...InstrumentCoreShape,
+    predecessor_instrument_ref: EntityId.optional(),
   })
-  .refine((v) => {
-    const office = parseInstrumentSourceAuthorityRef(v.source_authority_ref);
-    const binding = parseInstrumentScopeBindingRef(v.scope_binding_ref);
-    return (
-      office !== undefined &&
-      binding !== undefined &&
-      binding.institution_id === office.institution_id &&
-      binding.office_id === office.office_id
-    );
-  }, "scope_binding_ref must address a Scope Binding of the same authority as source_authority_ref");
+  .refine(sameAuthority, SAME_AUTHORITY_MESSAGE)
+  .refine(noExplicitUndefined, "an omitted optional field is absent, never an explicit undefined");
 export type GovernanceInstrument = z.infer<typeof GovernanceInstrumentSchema>;

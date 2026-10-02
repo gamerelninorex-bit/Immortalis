@@ -108,9 +108,10 @@ describe("IA-01 source/version fidelity (GIP Authority Scope Binding registratio
     expect(factKind("gip_institution_identity").rule).toEqual(GIP_RULE);
   });
 
-  it("the historical-compatibility hatch is exactly as the predecessor left it: only the office kind has one, and a binding has none", () => {
+  it("the historical-compatibility hatch is exactly as the predecessor left it: the office kind and (twenty-first slice) the Instrument kind have one, and a binding has none", () => {
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
+      "gip_governance_instrument", // twenty-first slice: the Instrument's superseded sixteenth-slice citation
     ]);
     expect(binding.legacyRule).toBeUndefined();
     const admission = code(`${GIP_DIR}/admission.ts`);

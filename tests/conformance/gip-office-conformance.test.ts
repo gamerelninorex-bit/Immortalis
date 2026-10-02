@@ -339,9 +339,10 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
     );
   });
 
-  it("the historical compatibility is narrow: exactly one kind registers a superseded citation, only that whole citation, and only for the holder-branch value class", () => {
+  it("the historical compatibility is narrow: the office kind registers its superseded citation (alongside the Instrument's, twenty-first slice), only that whole citation, and only for the holder-branch value class", () => {
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
+      "gip_governance_instrument", // twenty-first slice: the Instrument's superseded sixteenth-slice citation
     ]);
     const legacy = factKind("gip_office_authority_locus").legacyRule!;
     expect(legacy.rule).toEqual(GIP_OFFICE_RULE_THIRTEENTH_SLICE);

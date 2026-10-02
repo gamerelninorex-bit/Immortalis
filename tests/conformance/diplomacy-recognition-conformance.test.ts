@@ -14,6 +14,7 @@ import {
   DIPLOMACY_RECOGNITION_RULE,
   DiplomacyAdapter,
   GIP_INSTRUMENT_RULE,
+  GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
   GIP_OFFICE_RULE,
   GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
@@ -131,7 +132,7 @@ describe("IA-01 source/version fidelity (Diplomacy External Recognition registra
     expect(sha(DIPLOMACY_RECOGNITION_RULE)).toBe(
       "baf7fc4dfc91a5062ae4169cc7f430cb63a24f8d553b2a5cde61150f7f872764",
     );
-    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+    expect(sha(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE)).toBe(
       "6230c2ab55fd0c4dfcdbd37911afdfcd766e8cd26996fb6ccc70a2c246d9e294",
     );
     expect(sha(GIP_SCOPE_BINDING_RULE)).toBe(

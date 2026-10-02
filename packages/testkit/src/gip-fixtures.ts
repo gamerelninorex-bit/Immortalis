@@ -194,3 +194,25 @@ export const governanceInstrument = (
   lifecycle_status: "active",
   ...over,
 });
+
+/**
+ * Opaque authored `predecessor_instrument_ref` values (SYNTHETIC FIXTURES). Nothing exists behind them: no predecessor
+ * Instrument, law, charter or succession is created, read or implied by carrying one, and neither value is required to name
+ * any committed fact.
+ */
+export const PREDECESSOR_INSTRUMENT_REF_A = "predecessor-instrument-ref-a-1";
+export const PREDECESSOR_INSTRUMENT_REF_B = "predecessor-instrument-ref-b-1";
+
+/** A well-formed Governance Instrument that also carries the optional, opaque `predecessor_instrument_ref`. */
+export const governanceInstrumentWithPredecessor = (
+  instrumentId = INSTRUMENT_A,
+  predecessorInstrumentRef = PREDECESSOR_INSTRUMENT_REF_A,
+  institutionId = INSTITUTION_COURT,
+  officeId = OFFICE_MAGISTRATE,
+  scopeBindingId = SCOPE_BINDING_A,
+  over: Partial<GovernanceInstrument> = {},
+): GovernanceInstrument =>
+  governanceInstrument(instrumentId, institutionId, officeId, scopeBindingId, {
+    predecessor_instrument_ref: predecessorInstrumentRef,
+    ...over,
+  });
