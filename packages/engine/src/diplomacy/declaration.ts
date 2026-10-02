@@ -1,7 +1,7 @@
 import { OWNER_DIPLOMACY, type TemporalObject } from "@immortalis/contracts";
 
 /**
- * The registration rule for the Diplomacy side of the temporal declaration. A stable External Recognition or Externalized Claim / Dispute carries forward after
+ * The registration rule for the Diplomacy side of the temporal declaration. A stable External Recognition, Externalized Claim / Dispute or Relation Edge carries forward after
  * its canonical commit (WS-008 v1.1 §24 invariants 19-20: "Stable state carries forward", "No universal diplomacy tick"; §29.7:
  * "no universal diplomacy tick, no automatic relationship refresh, and no global dependency watcher"), so Diplomacy has NO owner
  * operation, stage, declared close, tick, phase, polling loop or standing object in this foundation: an External Recognition is
@@ -17,11 +17,11 @@ export function diplomacyObjectViolation(object: TemporalObject): string | null 
       d.stage.owner_operation.owner === OWNER_DIPLOMACY ||
       d.produces.some((k) => k.startsWith("diplomacy/"))
     ) {
-      return "Diplomacy declares no stage, close or operation: an External Recognition or Externalized Claim / Dispute is committed only by its explicit establishment";
+      return "Diplomacy declares no stage, close or operation: an External Recognition, Externalized Claim / Dispute or Relation Edge is committed only by its explicit establishment";
     }
   }
   if (object.owning_ref.owner === OWNER_DIPLOMACY) {
-    return "Diplomacy owns no temporal object: a stable recognition or claim / dispute carries forward without a Diplomacy tick, phase, scheduler, watcher or standing object";
+    return "Diplomacy owns no temporal object: a stable recognition, claim / dispute or relation edge carries forward without a Diplomacy tick, phase, scheduler, watcher or standing object";
   }
   return null;
 }

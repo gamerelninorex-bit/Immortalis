@@ -1,8 +1,10 @@
 import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  RelationEdgeSchema,
   diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  diplomacyRelationKey,
   disputeDependencyKeys,
   recognitionDependencyKeys,
   type CommitGroup,
@@ -12,6 +14,7 @@ import { canonicalEqual } from "../hash.ts";
 import {
   DIPLOMACY_CLAIM_DISPUTE_RULE,
   DIPLOMACY_RECOGNITION_RULE,
+  DIPLOMACY_RELATION_EDGE_RULE,
   resolveKey,
 } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
@@ -50,6 +53,18 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  * settlement, retirement or deletion), so every write to a dispute other than its first creation is refused here as not
  * supported, and a second creation of an occupied slot is refused by the store's version chain.
  *
+ * RELATION EDGE AUTHORITATIVE CORE (nineteenth slice): one authored relation edge, at the one key its canonical `relation_id`
+ * alone derives, created once, under the relation edge citation. It is the owner's OWN authored statement that an external
+ * relation materially continues: it dereferences no `party_refs[]` or `provenance_ref`, closes no `relation_scope`,
+ * `rupture_or_suspension_status` or `lifecycle_status` set, imposes no array minimum, uniqueness or ordering, defaults nothing,
+ * stores no derived channel, recognition, claim / dispute, instrument or framework reference array (the contract is strict, so
+ * such a field is refused), associates no existing Recognition or Claim / Dispute record, creates or mutates no foreign-owner
+ * state and writes nothing else. The record is an authored Diplomacy fact, not a conclusion derived from another owner's mutable
+ * state, so the group reads and depends on nothing: no dependency is invented. The kind is ADVANCING; NO post-establishment
+ * change exists yet (rupture, suspension, restoration, retirement or any lifecycle transition), so every write to a relation
+ * edge other than its first creation is refused here as not supported, and a second creation of an occupied slot is refused by
+ * the store's version chain.
+ *
  * A retry of the same intent is reconciled by the store by identity (RC-16).
  */
 export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
@@ -75,10 +90,20 @@ export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): R
       }
       return checkDispute(group, state, w);
     }
+    if (resolveKey(w.key)?.kind.id === "diplomacy_relation_edge") {
+      if (w.expected_version !== 0) {
+        return reject(
+          "AMENDMENT_NOT_SUPPORTED",
+          "a Relation Edge is created once; no rupture, suspension, restoration, retirement or other lifecycle change is implemented",
+          { key: w.key },
+        );
+      }
+      return checkRelationEdge(group, w);
+    }
   }
   return reject(
     "VALUE_INVALID",
-    "Diplomacy state changes only by one External Recognition or one Externalized Claim / Dispute establishment, each created once",
+    "Diplomacy state changes only by one External Recognition, one Externalized Claim / Dispute or one Relation Edge establishment, each created once",
   );
 }
 
@@ -144,6 +169,37 @@ function checkDispute(group: CommitGroup, state: CampaignState, w: Write): Rejec
     disputeDependencyKeys(dispute),
     "an Externalized Claim / Dispute",
   );
+}
+
+function checkRelationEdge(group: CommitGroup, w: Write): Rejection | null {
+  const parsed = RelationEdgeSchema.safeParse(w.value);
+  if (!parsed.success) {
+    return reject("VALUE_INVALID", "the Relation Edge violates its contract", { key: w.key });
+  }
+  const edge = parsed.data;
+  if (!canonicalEqual(group.rule, DIPLOMACY_RELATION_EDGE_RULE)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Relation Edge is committed under the governing-rule citation of its kind",
+      { key: w.key },
+    );
+  }
+  if (w.key !== diplomacyRelationKey(edge.relation_id)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Relation Edge is at the key derived from its exact relation_id",
+      { key: w.key },
+    );
+  }
+  // an authored Diplomacy fact, not a conclusion derived from another owner's mutable state: nothing is read or depended on
+  if (group.reads.length !== 0 || group.depends_on.length !== 0) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Relation Edge is an authored fact: it reads and depends on nothing, so no dependency is invented",
+      { key: w.key },
+    );
+  }
+  return null;
 }
 
 /**

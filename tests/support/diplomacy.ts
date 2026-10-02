@@ -4,7 +4,11 @@ import {
   GipAdapter,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { ExternalRecognition, ExternalizedClaimDispute } from "@immortalis/contracts";
+import type {
+  ExternalRecognition,
+  ExternalizedClaimDispute,
+  RelationEdge,
+} from "@immortalis/contracts";
 import {
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
@@ -21,6 +25,7 @@ import {
   institutionIdentity,
   officeAuthorityLocus,
   publication,
+  relationEdge,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
 
@@ -103,6 +108,18 @@ export async function establishExternalizedClaimDispute(
     s.diplomacy.establishExternalizedClaimDispute({ ...diplomacyPublication(n), dispute }),
   );
   return dispute;
+}
+
+/** Commits the one authored initial establishment of a Relation Edge. */
+export async function establishRelationEdge(
+  s: Pick<DiplomacySeeded, "diplomacy">,
+  n: number,
+  relationId?: string,
+  over: Partial<RelationEdge> = {},
+): Promise<RelationEdge> {
+  const relation = relationEdge(relationId, over);
+  await must(s.diplomacy.establishRelationEdge({ ...diplomacyPublication(n), relation }));
+  return relation;
 }
 
 /**

@@ -22,8 +22,10 @@ import {
   ExistenceContractSchema,
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  RelationEdgeSchema,
   FACET_DIPLOMACY_EXTERNAL_RECOGNITION,
   FACET_DIPLOMACY_EXTERNALIZED_CLAIM_DISPUTE,
+  FACET_DIPLOMACY_RELATION_EDGE,
   FACET_ECONOMY_STATE,
   FACET_GIP_INSTITUTION_IDENTITY,
   FACET_EXISTENCE_CONTRACT,
@@ -237,6 +239,7 @@ export const GIP_FACT_KIND_IDS = [
 export const DIPLOMACY_FACT_KIND_IDS = [
   "diplomacy_external_recognition",
   "diplomacy_claim_dispute",
+  "diplomacy_relation_edge",
 ] as const;
 export type FactKindId =
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
@@ -1138,13 +1141,31 @@ export const DIPLOMACY_CLAIM_DISPUTE_RULE: SourceRef = rule(
 );
 
 /**
+ * The governing rule for the Diplomacy Relation Edge kind (nineteenth slice): one group, written once at establishment (the record
+ * is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
+ * ones the state relies on: WS-008 v1.1 §§2.1-2.2 (Diplomacy owns the durable fact that an external relation materially
+ * continues), §4 (the sparse Relation Edge, not a duplicate ledger and not a universal relationship score), §5.1 (the Relation
+ * Edge minimum surface: relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional
+ * provenance_ref, lifecycle_status), §24 (invariants: stable state carries forward; no universal diplomacy tick) and §§29.3/29.7
+ * (R-3 / R-7: the channel, recognition, active claim / dispute, instrument and framework reference arrays are derived,
+ * non-authoritative indexes rebuilt from source records, never a second writable ledger; no all-pairs scan); F-016 Phase 2C and
+ * F-017 lineage. No Recognition or Claim / Dispute citation is reused as if it governed the Edge.
+ */
+export const DIPLOMACY_RELATION_EDGE_RULE: SourceRef = rule(
+  WS008_SOURCE,
+  "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (the durable fact that an external relation materially continues); §4 Relation Edge (a sparse continuity object, not a duplicate ledger and not a universal relationship, trust or reputation score); §5.1 Relation Edge minimum surface (relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status); §24 Required Invariants (stable state carries forward; no universal diplomacy tick); §§29.3/29.7 R-3 / R-7 (channel_refs[], recognition_refs[], active_claim_dispute_refs[], instrument_refs[] and framework_refs[] are derived, non-authoritative indexes rebuilt from source records and are not authored persistent fields; no all-pairs scan; no universal watcher); post-establishment rupture, suspension, restoration, retirement and lifecycle mutation, and any derived index or Recognition / Claim-Dispute association, not implemented",
+  [WS008_LINEAGE, F016_PHASE_2C_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
  * IM-06 Economy / GIP / Diplomacy Adapter — the DIPLOMACY EXTERNAL RECOGNITION CORE part only: "Diplomacy commitment-of-record",
  * lowered to the one directional, scoped recognition record that the source assigns to Diplomacy. One owner (distinct from GIP
  * and Economy), one External Recognition facet, one exclusive key space. The kind is ADVANCING, because WS-008 explicitly permits
  * later withdrawal, suspension, succession / continuity consequences and cold-history retirement under the owner's own
  * expected-version chain; this foundation implements initial authored establishment only, and Diplomacy admission refuses every
- * other change. There is no fallback owner, and no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry,
- * Framework, claim, dispute, compliance, score or reciprocal kind.
+ * other change. The nineteenth slice adds the Relation Edge authoritative core and the eighteenth the Claim / Dispute kind under the
+ * same owner. There is no fallback owner, and no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework,
+ * compliance, score or reciprocal kind, and no derived Relation Edge index kind.
  */
 export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
   {
@@ -1169,6 +1190,17 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
     valueSchema: ExternalizedClaimDisputeSchema,
     rule: DIPLOMACY_CLAIM_DISPUTE_RULE,
   },
+  {
+    id: "diplomacy_relation_edge",
+    owner: OWNER_DIPLOMACY,
+    facet: FACET_DIPLOMACY_RELATION_EDGE,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^diplomacy/relation/${ID}$`),
+    valueSchema: RelationEdgeSchema,
+    rule: DIPLOMACY_RELATION_EDGE_RULE,
+  },
 ];
 
 /**
@@ -1176,7 +1208,7 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
  * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
- * the IM-06 Diplomacy External Recognition kind and the IM-06 Diplomacy Externalized Claim / Dispute kind.
+ * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind and the IM-06 Diplomacy Relation Edge kind.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,

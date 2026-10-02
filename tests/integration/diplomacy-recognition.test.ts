@@ -695,8 +695,10 @@ describe("only the establishment is supported: every post-establishment mutation
     expect(methods).toEqual([
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
+      "establishRelationEdge",
       "externalRecognition",
       "externalizedClaimDispute",
+      "relationEdge",
     ]);
   });
 
@@ -807,11 +809,12 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, claim or compliance key space exists (the dispute key space is the eighteenth slice's own): each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, claim or compliance key space exists (the dispute and Relation Edge key spaces are the eighteenth and nineteenth slices' own): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
-      "diplomacy/relation/r1",
+      "diplomacy/relation",
+      "diplomacy/relation/r1/x",
       "diplomacy/edge/r1",
       "diplomacy/channel/c1",
       "diplomacy/negotiation/n1",
@@ -832,6 +835,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual([
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
+      "diplomacy_relation_edge",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

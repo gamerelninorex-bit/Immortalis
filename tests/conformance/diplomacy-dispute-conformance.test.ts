@@ -209,11 +209,16 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
         "ADVANCING",
       ],
     ]);
+    // the nineteenth slice adds one more facet (the Relation Edge) under the same owner
     expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set(["diplomacy_external_recognition", "diplomacy_externalized_claim_dispute"]),
+      new Set([
+        "diplomacy_external_recognition",
+        "diplomacy_externalized_claim_dispute",
+        "diplomacy_relation_edge",
+      ]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(2);
-    expect(ALL_FACT_KINDS).toHaveLength(38);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(3);
+    expect(ALL_FACT_KINDS).toHaveLength(39);
     // no other owner gained a kind or facet
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
@@ -226,7 +231,8 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
       "diplomacy/dispute/d1/x",
       "diplomacy/dispute",
       "diplomacy/claim/d1",
-      "diplomacy/relation/d1",
+      "diplomacy/relation",
+      "diplomacy/relation/d1/x",
     ])
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(other))).toEqual([]);
   });
@@ -250,10 +256,16 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
     );
   });
 
-  it("no Relation Edge, Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, treaty, receipt, trust or reputation construct was added", () => {
+  it("no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, treaty, receipt, trust or reputation construct was added, and the dispute contract names no Relation Edge (the Relation Edge is the nineteenth slice's own)", () => {
     for (const f of [...ENGINE_SOURCES, CONTRACT]) {
       // the only permitted `instrument` / `clause` token is the source field instrument_or_clause_ref
-      const text = identifiers(f).replace(/instrument_or_clause_ref/g, "");
+      let text = identifiers(f).replace(/instrument_or_clause_ref/g, "");
+      // the Diplomacy engine modules (not the dispute contract) carry the nineteenth slice's own Relation Edge identifiers
+      if (f !== CONTRACT)
+        text = text.replace(
+          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge)\b/g,
+          "",
+        );
       expect(text, f).not.toMatch(
         /\b(\w*[Rr]elation\w*|\w*[Cc]hannel\w*|\w*[Nn]egotiat\w*|\w*[Ii]nstrument\w*|\w*[Cc]lause\w*|\w*[Bb]inding\w*|\w*[Ff]ramework\w*|\w*[Tt]reaty\w*|\w*[Rr]eceipt\w*|\w*[Ss]ymmetric\w*|\w*[Tt]rust\w*|\w*[Rr]eputation\w*|\w*[Ii]nfluence\w*|\w*[Ww]arscore\w*|\w*[Ss]core\w*)\b/,
       );
@@ -263,8 +275,9 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
   it("admission authorizes initial establishment only for the dispute, pins exactly the facts dependency_refs[] names, and is wired through the existing registry, dispatch and load verification", () => {
     const admission = code(`${DIPLOMACY_DIR}/admission.ts`);
     expect(admission).toMatch(/diplomacy_claim_dispute/);
-    expect(admission.match(/expected_version !== 0/g)).toHaveLength(2);
-    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(2);
+    // one create-only guard per kind: recognition, dispute and (nineteenth slice) relation edge
+    expect(admission.match(/expected_version !== 0/g)).toHaveLength(3);
+    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(3);
     expect(admission).toMatch(/requirePrerequisite/);
     expect(code(`${DIPLOMACY_DIR}/integrity.ts`)).toMatch(/diplomacy_claim_dispute/);
     expect(code("packages/engine/src/owners/admission.ts")).toMatch(

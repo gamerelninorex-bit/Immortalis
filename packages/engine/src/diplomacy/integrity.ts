@@ -1,9 +1,11 @@
 import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  RelationEdgeSchema,
   TemporalObjectSchema,
   diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  diplomacyRelationKey,
   disputeDependencyKeys,
   recognitionDependencyKeys,
   type OwnerFact,
@@ -31,6 +33,9 @@ import { diplomacyObjectViolation } from "./declaration.ts";
  *  - the same holds for an Externalized Claim / Dispute: it is at the key its exact `dispute_id` derives, is still its one first
  *    version, was committed by one create-only write of its own key (so no underlying claim, foreign fact, Relation Edge,
  *    Instrument, receipt event or sibling dispute was part of it), and its dependency pins are intact exactly as above;
+ *  - a Relation Edge is at the key its exact `relation_id` derives, is still its one first version, and was committed by one
+ *    create-only write of its own key that read and depended on nothing (so no Recognition, Claim / Dispute, foreign fact, derived
+ *    index or sibling edge was part of it, and no dependency was invented);
  *  - its governing-rule provenance is re-checked with every fact by canonical integrity;
  *  - no temporal object declares a Diplomacy stage, close or owned object: Diplomacy has no tick, phase, scheduler, watcher or
  *    polling loop.
@@ -47,6 +52,8 @@ export function verifyDiplomacyIntegrity(store: CampaignStore): readonly Integri
       verifyRecognition(store, f, bad);
     } else if (kindOf(f) === "diplomacy_claim_dispute") {
       verifyDispute(store, f, bad);
+    } else if (kindOf(f) === "diplomacy_relation_edge") {
+      verifyRelationEdge(store, f, bad);
     } else if (kindOf(f) === "temporal_object") {
       const o = TemporalObjectSchema.safeParse(f.value);
       const violation = o.success ? diplomacyObjectViolation(o.data) : null;
@@ -135,6 +142,43 @@ function verifyDispute(
     "an Externalized Claim / Dispute",
     bad,
   );
+}
+
+function verifyRelationEdge(
+  store: CampaignStore,
+  f: OwnerFact,
+  bad: (key: string, message: string) => void,
+): void {
+  const parsed = RelationEdgeSchema.safeParse(f.value);
+  if (!parsed.success) return; // canonical integrity reports a value that violates its contract
+  const edge = parsed.data;
+  if (f.key !== diplomacyRelationKey(edge.relation_id)) {
+    bad(f.key, "a Relation Edge is at the key derived from its exact relation_id");
+    return;
+  }
+  if (f.version !== 1) {
+    bad(
+      f.key,
+      "no relation edge transition is implemented: a Relation Edge is still the version it was established as",
+    );
+    return;
+  }
+  const group = store.committedGroup(f.provenance.intent_id);
+  if (
+    !group ||
+    group.writes.length !== 1 ||
+    group.writes[0]!.key !== f.key ||
+    group.writes[0]!.expected_version !== 0
+  ) {
+    bad(f.key, "a Relation Edge was established by one create-only write of its own key");
+    return;
+  }
+  if (group.reads.length !== 0 || group.depends_on.length !== 0) {
+    bad(
+      f.key,
+      "a Relation Edge was established reading and depending on nothing: no dependency is invented",
+    );
+  }
 }
 
 function verifyDependencyPins(
