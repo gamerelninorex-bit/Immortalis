@@ -201,7 +201,7 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
     // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
     if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
-    // IM-06 Diplomacy groups: one External Recognition or Externalized Claim / Dispute establishment, created once.
+    // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute or Relation Edge establishment, created once.
     if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
@@ -320,6 +320,8 @@ export function identityMismatch(
       return v["recognition_id"] === ids[0] ? null : "recognition_id does not match the key";
     case "diplomacy_claim_dispute":
       return v["dispute_id"] === ids[0] ? null : "dispute_id does not match the key";
+    case "diplomacy_relation_edge":
+      return v["relation_id"] === ids[0] ? null : "relation_id does not match the key";
     case "kti_development_object":
       return v["object_id"] === ids[0]
         ? null

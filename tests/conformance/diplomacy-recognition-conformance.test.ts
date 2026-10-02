@@ -219,33 +219,43 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         "ADVANCING",
       ],
     ]);
+    // the eighteenth and nineteenth slices add one facet each (Claim / Dispute, Relation Edge) under the same owner
     expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set(["diplomacy_external_recognition", "diplomacy_externalized_claim_dispute"]),
+      new Set([
+        "diplomacy_external_recognition",
+        "diplomacy_externalized_claim_dispute",
+        "diplomacy_relation_edge",
+      ]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(2);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(3);
     // distinct from GIP and Economy, and neither of them gained a facet or kind
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "economy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(38);
+    expect(ALL_FACT_KINDS).toHaveLength(39);
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("diplomacy/recognition/r1")).map((k) => k.id),
     ).toEqual(["diplomacy_external_recognition"]);
     for (const other of [
       "diplomacy/recognition/r1/x",
       "diplomacy/recognition",
-      "diplomacy/relation/r1",
+      "diplomacy/relation/r1/x",
     ])
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(other))).toEqual([]);
   });
 
-  it("there is no Relation Edge, Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, compliance, score or fallback Diplomacy kind (the Claim / Dispute kind is the eighteenth slice's own)", () => {
+  it("there is no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, compliance, score, derived-index or fallback Diplomacy kind (the Claim / Dispute and Relation Edge kinds are the eighteenth and nineteenth slices' own)", () => {
     for (const k of ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy"))
-      expect(["diplomacy_external_recognition", "diplomacy_claim_dispute"]).toContain(k.id);
+      expect([
+        "diplomacy_external_recognition",
+        "diplomacy_claim_dispute",
+        "diplomacy_relation_edge",
+      ]).toContain(k.id);
     expect(ALL_FACT_KINDS.map((k) => k.id).filter((id) => /diplomacy/.test(id))).toEqual([
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
+      "diplomacy_relation_edge",
     ]);
   });
 
@@ -261,12 +271,12 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
     const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    // one commit per authored establishment: the recognition and (eighteenth slice) the claim / dispute
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(2);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(2);
+    // one commit per authored establishment: the recognition, (eighteenth slice) the claim / dispute and (nineteenth slice) the relation edge
+    expect(adapter.match(/\.commit\(/g)).toHaveLength(3);
+    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(3);
   });
 
-  it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
+  it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice and the relation edge pair of the nineteenth: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
     expect(
       Object.getOwnPropertyNames(DiplomacyAdapter.prototype)
         .filter((m) => m !== "constructor")
@@ -274,8 +284,10 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
     ).toEqual([
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
+      "establishRelationEdge",
       "externalRecognition",
       "externalizedClaimDispute",
+      "relationEdge",
     ]);
   });
 
@@ -286,10 +298,16 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
       );
   });
 
-  it("no Relation Edge, Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, treaty, reciprocal, trust or reputation construct was added", () => {
+  it("no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, treaty, reciprocal, trust or reputation construct was added, and the recognition contract names no Relation Edge (the Relation Edge is the nineteenth slice's own)", () => {
     for (const f of SOURCES) {
       // the only permitted `instrument` token is the source field instrument_or_act_ref
-      const text = identifiers(f).replace(/instrument_or_act_ref/g, "");
+      let text = identifiers(f).replace(/instrument_or_act_ref/g, "");
+      // the Diplomacy engine modules (not the recognition contract) carry the nineteenth slice's own Relation Edge identifiers
+      if (f !== CONTRACT)
+        text = text.replace(
+          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge)\b/g,
+          "",
+        );
       expect(text, f).not.toMatch(
         /\b(\w*[Rr]elation\w*|\w*[Cc]hannel\w*|\w*[Nn]egotiat\w*|\w*[Ii]nstrument\w*|\w*[Cc]lause\w*|\w*[Bb]inding\w*|\w*[Ff]ramework\w*|\w*[Tt]reaty\w*|\w*[Rr]eciprocal\w*|\w*[Ss]ymmetric\w*|\w*[Tt]rust\w*|\w*[Rr]eputation\w*|\w*[Ii]nfluence\w*|\w*[Ww]arscore\w*|\w*[Ss]core\w*)\b/,
       );

@@ -759,8 +759,10 @@ describe("only the establishment is supported: every post-establishment mutation
     ).toEqual([
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
+      "establishRelationEdge",
       "externalRecognition",
       "externalizedClaimDispute",
+      "relationEdge",
     ]);
   });
 
@@ -837,7 +839,11 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
   it("the dispute facet belongs to the one Diplomacy owner: the recognition facet cannot write the dispute key space and vice versa", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set(["diplomacy_external_recognition", "diplomacy_externalized_claim_dispute"]),
+      new Set([
+        "diplomacy_external_recognition",
+        "diplomacy_externalized_claim_dispute",
+        "diplomacy_relation_edge",
+      ]),
     );
     const recognitionOnDisputeKey = raw(401, externalRecognition(), {
       facet: "diplomacy_external_recognition",
@@ -886,11 +892,12 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, compliance or receipt key space exists: each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, compliance or receipt key space exists (the Relation Edge key space is the nineteenth slice's own, so only malformed relation paths are probed): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
-      "diplomacy/relation/r1",
+      "diplomacy/relation",
+      "diplomacy/relation/r1/x",
       "diplomacy/edge/r1",
       "diplomacy/channel/c1",
       "diplomacy/negotiation/n1",
@@ -912,6 +919,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual([
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
+      "diplomacy_relation_edge",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

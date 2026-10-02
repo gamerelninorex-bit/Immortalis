@@ -3,8 +3,10 @@ import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
   PublicationSchema,
+  RelationEdgeSchema,
   diplomacyDisputeKey,
   diplomacyRecognitionKey,
+  diplomacyRelationKey,
   disputeDependencyKeys,
   fail,
   recognitionDependencyKeys,
@@ -13,6 +15,7 @@ import {
   type ExternalizedClaimDispute,
   type OwnerFact,
   type Publication,
+  type RelationEdge,
   type Result,
   type SchemaIssues,
 } from "@immortalis/contracts";
@@ -120,14 +123,38 @@ export function readExternalizedClaimDispute(
   };
 }
 
+/** A committed Relation Edge read by identity: the fact (with its provenance) and its typed value. */
+export interface TypedRelationEdge {
+  readonly fact: OwnerFact;
+  readonly value: RelationEdge;
+}
+
+/**
+ * The read path any lawful consumer uses: one committed Relation Edge, by its exact canonical `relation_id` (WS-008 §29.7: no
+ * all-pairs scan; no all-relations scan). It takes only the read side of a store, so reading grants no write authority, and it
+ * returns undefined for a relation that is not established — nothing is created, inferred or defaulted by a read. It reports
+ * what the record says: it dereferences no reference, derives no channel, recognition, claim / dispute, instrument or framework
+ * index, matches no Recognition or Claim / Dispute record to the edge and re-resolves nothing.
+ */
+export function readRelationEdge(
+  store: Pick<CampaignStore, "getFact">,
+  relationId: string,
+): TypedRelationEdge | undefined {
+  const fact = store.getFact(diplomacyRelationKey(relationId));
+  if (!fact) return undefined;
+  const parsed = RelationEdgeSchema.safeParse(fact.value);
+  if (!parsed.success) return undefined;
+  return { fact, value: parsed.data };
+}
+
 /**
  * IM-06 Diplomacy — the authored path of the Diplomacy owner.
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority or a governing rule:
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
- * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly TWO authored publications: the explicit initial
- * establishment of one External Recognition and the explicit initial establishment of one Externalized Claim / Dispute (see
- * `establishExternalizedClaimDispute`). Nothing else creates a recognition — not contact, trade, negotiation, treaty-making,
+ * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly THREE authored publications: the explicit initial
+ * establishment of one External Recognition, the explicit initial establishment of one Externalized Claim / Dispute (see
+ * `establishExternalizedClaimDispute`) and the explicit initial establishment of one Relation Edge (see `establishRelationEdge`). Nothing else creates a recognition — not contact, trade, negotiation, treaty-making,
  * conduct, silence or absence — and there is no withdrawal, suspension, supersession, succession, status-change,
  * re-resolution or retirement method, no negotiation, Instrument, Clause, Binding Entry, Relation Edge or reciprocal-record
  * method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write Diplomacy state
@@ -275,6 +302,60 @@ export class DiplomacyAdapter {
     return this.#store.commit(group);
   }
 
+  /**
+   * Commits the initial establishment of one Relation Edge. It writes exactly one create-only key derived from its `relation_id`
+   * alone. Every value is the caller's authored input: nothing is defaulted, inferred or calculated, no reference is
+   * dereferenced, no derived channel / recognition / claim-dispute / instrument / framework index is written, no existing
+   * Recognition or Claim / Dispute is associated, and no foreign-owner fact is created or mutated. The group reads and depends
+   * on nothing. A conflicting establishment at an occupied `relation_id` is refused and never overwrites it; a retry of the same
+   * intent converges on the original receipt (RC-16).
+   */
+  async establishRelationEdge(
+    input: Publication & { readonly relation: unknown },
+  ): Promise<Result<CommitOutcome, DiplomacyErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const relation = RelationEdgeSchema.safeParse(input.relation);
+    if (!relation.success)
+      return fail("INPUT_INVALID", "relation edge failed validation", {
+        issues: issues(relation.error),
+      });
+    const value = relation.data;
+    const kind = factKind("diplomacy_relation_edge");
+    const group: CommitGroup = {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [],
+      depends_on: [],
+      writes: [
+        {
+          key: diplomacyRelationKey(value.relation_id),
+          owner: kind.owner,
+          facet: kind.facet,
+          value: value as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: p.data.basis,
+          secrecy: p.data.secrecy,
+          expected_version: 0,
+        },
+      ],
+    };
+    return this.#store.commit(group);
+  }
+
   // -- typed read, by identity (none scans) ----------------------------------------------------
 
   /** One External Recognition, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
@@ -285,5 +366,10 @@ export class DiplomacyAdapter {
   /** One Externalized Claim / Dispute, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
   externalizedClaimDispute(disputeId: string): TypedExternalizedClaimDispute | undefined {
     return readExternalizedClaimDispute(this.#store, disputeId);
+  }
+
+  /** One Relation Edge, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
+  relationEdge(relationId: string): TypedRelationEdge | undefined {
+    return readRelationEdge(this.#store, relationId);
   }
 }

@@ -1,4 +1,8 @@
-import type { ExternalRecognition, ExternalizedClaimDispute } from "@immortalis/contracts";
+import type {
+  ExternalRecognition,
+  ExternalizedClaimDispute,
+  RelationEdge,
+} from "@immortalis/contracts";
 
 /**
  * SYNTHETIC TEST DATA for the Diplomacy External Recognition Core Backbone Foundation. Every identifier and text below is a
@@ -108,5 +112,40 @@ export const fullExternalizedClaimDispute = (
     interpretation_issue_ref: DISPUTE_INTERPRETATION_ISSUE_REF_A,
     instrument_or_clause_ref: DISPUTE_INSTRUMENT_OR_CLAUSE_REF_A,
     adjudication_basis_ref: DISPUTE_ADJUDICATION_BASIS_REF_A,
+    ...over,
+  });
+
+export const RELATION_A = "relation-a-1";
+export const RELATION_B = "relation-b-1";
+export const RELATION_C = "relation-c-1";
+export const RELATION_PARTY_REF_A = "relation-party-ref-a-1";
+export const RELATION_PARTY_REF_B = "relation-party-ref-b-1";
+export const RELATION_PROVENANCE_REF_A = "relation-provenance-ref-a-1";
+
+/**
+ * A well-formed Relation Edge at the WS-008 §5.1 authored core: every required field, with the optional
+ * `rupture_or_suspension_status` and `provenance_ref` omitted (absent, not empty). The party references name nothing in this
+ * fixture world: no diplomatic party, Recognition, Claim / Dispute, Channel, Instrument or Framework exists behind them, and no
+ * derived reference array is part of the record. Nothing here is a game rule.
+ */
+export const relationEdge = (
+  relationId = RELATION_A,
+  over: Partial<RelationEdge> = {},
+): RelationEdge => ({
+  relation_id: relationId,
+  party_refs: [RELATION_PARTY_REF_A, RELATION_PARTY_REF_B],
+  relation_scope: "SYNTHETIC FIXTURE: an authored relation scope.",
+  lifecycle_status: "SYNTHETIC FIXTURE: an authored lifecycle status.",
+  ...over,
+});
+
+/** The same relation edge carrying both optional fields. */
+export const fullRelationEdge = (
+  relationId = RELATION_A,
+  over: Partial<RelationEdge> = {},
+): RelationEdge =>
+  relationEdge(relationId, {
+    rupture_or_suspension_status: "SYNTHETIC FIXTURE: an authored rupture or suspension status.",
+    provenance_ref: RELATION_PROVENANCE_REF_A,
     ...over,
   });
