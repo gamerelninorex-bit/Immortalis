@@ -15,11 +15,12 @@ import { INSTITUTION_COURT, institutionIdentity } from "@immortalis/testkit";
 
 const identity = (over: Record<string, unknown> = {}) => ({ ...institutionIdentity(), ...over });
 
-describe("the Institution Identity Reference has exactly the frozen minimum shape (GIP Draft v2.1 §3.1)", () => {
-  it("accepts one canonical identity, its authored label and the CONTINUING status", () => {
+describe("the Institution Identity Reference has exactly the frozen minimum shape plus the one optional constitutive_source_ref (GIP Draft v2.1 §3.1)", () => {
+  it("accepts one canonical identity, its authored label and the CONTINUING status (the optional constitutive_source_ref is the twentieth slice's: see gip-constitutive-source-schemas.test.ts)", () => {
     const r = InstitutionIdentitySchema.safeParse(identity());
     expect(r.success).toBe(true);
     expect(Object.keys(InstitutionIdentitySchema.shape).sort()).toEqual([
+      "constitutive_source_ref",
       "continuity_status",
       "identity_label",
       "institution_id",
@@ -70,13 +71,13 @@ describe("only an institution entering as a CONTINUING current institution is re
       ).toBe(false);
   });
 
-  it("predecessor, successor and constitutive-source references have no field: they belong to later transitions and acts", () => {
+  it("predecessor and successor references have no field: they belong to later transitions; a constitutive_source_ref is only the optional singular opaque one", () => {
     for (const extra of [
       { predecessor_ids: [] },
       { predecessor_ids: ["institution-old"] },
       { successor_ids: ["institution-new"] },
-      { constitutive_source_ref: "charter-1" },
       { constitutive_source_ref: null },
+      { constitutive_source_ref: ["charter-1"] },
     ])
       expect(
         InstitutionIdentitySchema.safeParse(identity(extra)).success,

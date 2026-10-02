@@ -250,7 +250,11 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 10)"
     "identity rewritten": (f) => (f.value.institution_id = "institution-forged"),
     "predecessor added": (f) => (f.value.predecessor_ids = ["institution-old"]),
     "successor added": (f) => (f.value.successor_ids = ["institution-new"]),
-    "constitutive source added": (f) => (f.value.constitutive_source_ref = "charter-1"),
+    "constitutive source malformed": (f) => (f.value.constitutive_source_ref = "two words"),
+    "constitutive source made plural": (f) => (f.value.constitutive_source_ref = ["charter-1"]),
+    "constitutive source aliased": (f) => (f.value.constitutive_source_refs = ["charter-1"]),
+    "constitutive source added to a legacy identity": (f) =>
+      (f.value.constitutive_source_ref = "charter-1"),
     "office added": (f) => (f.value.office = "office-1"),
     "membership added": (f) => (f.value.members = ["actor-1"]),
     "faction added": (f) => (f.value.faction = "faction-1"),

@@ -248,7 +248,8 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
 describe("the GIP contract is qualitative: no score, number, threshold, default or free property (IA-02)", () => {
   it("no GIP module defines a numeric value, rate, threshold, modifier, probability, score or default", () => {
     for (const f of GIP_SOURCES) {
-      const text = identifiers(f);
+      // the twentieth slice's one optional WS-007 §3.1 field is the single permitted `.optional(` of the GIP contract
+      const text = identifiers(f).replace(/\bconstitutive_source_ref: EntityId\.optional\(\)/g, "");
       expect(text, f).not.toMatch(
         /z\.(number|bigint|int|float)\b|\.(min|max|gt|gte|lt|lte)\(\s*\d|\b(weight|rate|ratio|threshold|modifier|probability|score|percent|level|rank|tier)\b|\.default\(|\.catch\(|\.optional\(|\.passthrough\(|z\.record\(|z\.any\(|z\.unknown\(|looseObject/i,
       );
@@ -325,7 +326,11 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 
   it("no lifecycle transition exists: rename, split, merge, abolition, replacement and succession (beyond the office's authored succession_rule text) have no code, status or field", () => {
     for (const f of GIP_SOURCES) {
-      const text = identifiers(f).replace(/\bsuccession_rule\b/g, "");
+      // the office's `succession_rule` text and the Institution Identity's twentieth-slice optional `constitutive_source_ref` are the
+      // two permitted names
+      const text = identifiers(f)
+        .replace(/\bsuccession_rule\b/g, "")
+        .replace(/\bconstitutive_source_ref\b/g, "");
       expect(text, f).not.toMatch(
         /\b(rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)\b|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
       );

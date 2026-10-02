@@ -62,20 +62,35 @@ export const gipInstitutionIdentityKey = (institutionId: string): string =>
  */
 export const GIP_CONTINUITY_CONTINUING = "continuing";
 
+/** An authored optional field is either omitted or carried: an explicit `undefined` (which has no canonical form) is refused. */
+const noExplicitUndefined = (value: Record<string, unknown>): boolean =>
+  Object.keys(value).every((k) => value[k] !== undefined);
+
 /**
- * One Institution Identity Reference, in the frozen minimum shape: `institution_id` (the canonical, stable identity),
- * `identity_label` (the authored label the identity is known by) and the current `continuity_status`. The label is a
- * label only: it creates nothing, is not an identity dimension and is never matched against another owner's text.
+ * One Institution Identity Reference, in the frozen shape of this foundation: `institution_id` (the canonical, stable
+ * identity), `identity_label` (the authored label the identity is known by), the current `continuity_status` and the
+ * optional `constitutive_source_ref`. The label is a label only: it creates nothing, is not an identity dimension and is
+ * never matched against another owner's text.
  *
- * `constitutive_source_ref` is optional in the source ("where material") and is not a field here: the constitutive acts and
- * Governance Instruments it would point at are not implemented, and the source fixes no other lawful referent. The record's
- * provenance is the committed fact's own (the causally addressed group, its cause and its governing source citation).
+ * `constitutive_source_ref` (WS-007 §3.1, optional "where material") is ONE optional OPAQUE authored reference (a single
+ * reference, not an array) in the same canonical opaque-reference representation as the other GIP reference fields. It is a
+ * provenance pointer and nothing else: it is carried exactly as authored (no alias, normalisation, expansion or derived
+ * surrogate), never dereferenced on establishment or read, never required to name an existing fact, and subject to no
+ * referent-type restriction. It is not an identity dimension (the key is derived from `institution_id` alone), creates no
+ * Governance Instrument, constitutive act, office, institution or authority, registers no dependency, copies nothing from
+ * its referent, and nothing (legality, validity, authority, continuity, succession, recognition, implementation or
+ * knowledge) is inferred from it. An omitted field is absent: no default is synthesized, and null or an explicit undefined
+ * fails closed. The record's provenance is the committed fact's own (the causally addressed group, its cause and its
+ * governing source citation).
  */
-export const InstitutionIdentitySchema = z.strictObject({
-  institution_id: EntityId,
-  identity_label: Text,
-  continuity_status: z.literal(GIP_CONTINUITY_CONTINUING),
-});
+export const InstitutionIdentitySchema = z
+  .strictObject({
+    institution_id: EntityId,
+    identity_label: Text,
+    continuity_status: z.literal(GIP_CONTINUITY_CONTINUING),
+    constitutive_source_ref: EntityId.optional(),
+  })
+  .refine(noExplicitUndefined, "an omitted optional field is absent, never an explicit undefined");
 export type InstitutionIdentity = z.infer<typeof InstitutionIdentitySchema>;
 
 // ---------------------------------------------------------------------------------------------

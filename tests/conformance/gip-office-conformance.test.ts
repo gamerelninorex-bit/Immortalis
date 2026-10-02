@@ -168,7 +168,11 @@ describe("IA-03/IA-06 the office joins its institution by exact institution_id a
 
 describe("IA-02 strict executable contract: the §3.2 minimum with exactly one of holder_ref OR decision_body_ref, nothing uninterpreted is interpreted", () => {
   it("the office schema is a strict object with no optional, default, loose or catch-all construct, and the deferred fields are not named in code", () => {
-    const contract = code("packages/contracts/src/gip.ts");
+    // (the Institution Identity's twentieth-slice `constitutive_source_ref` is the one optional construct of the file, and it is not the office's)
+    const contract = code("packages/contracts/src/gip.ts").replace(
+      /\bconstitutive_source_ref: EntityId\.optional\(\)/g,
+      "",
+    );
     expect(contract).toMatch(/OfficeAuthorityLocusHolderSchema = z\.strictObject\(/);
     expect(contract).toMatch(/OfficeAuthorityLocusDecisionBodySchema = z\.strictObject\(/);
     expect(contract).toMatch(/OfficeAuthorityLocusSchema = z\.union\(/);
@@ -217,6 +221,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     for (const f of GIP_SOURCES) {
       const text = identifiers(f)
         .replace(/\bsuccession_rule\b/g, "")
+        .replace(/\bconstitutive_source_ref\b/g, "")
         .replace(/\b\w*[Ii]nstrument\w*\b/g, "");
       expect(text, f).not.toMatch(
         /\b(delegat\w*|concurrence|decisionBody|conditional\w*|appoint\w*|exercis\w*|instrument\w*|procedure|veto|override|applicab\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|projection|npk|llm|prompt|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*)\b/i,
@@ -366,7 +371,13 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
   });
 
   it("there is no source-invented discriminator, refinement or catch-all: the branch is the one reference field present", () => {
-    expect(identifiers("packages/contracts/src/gip.ts")).not.toMatch(
+    // (the Institution Identity's twentieth-slice explicit-undefined refusal is its own, not an office branch refinement)
+    expect(
+      identifiers("packages/contracts/src/gip.ts").replace(
+        /\.refine\(noExplicitUndefined, ""\)/g,
+        "",
+      ),
+    ).not.toMatch(
       /discriminatedUnion|z\.enum\(|\.superRefine\(|\.refine\(|\.transform\(|referenceKind|branchKind/,
     );
   });

@@ -292,6 +292,7 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
       // (the sixteenth slice's Governance Instrument core identifiers are the one permitted instrument construct)
       const text = identifiers(f)
         .replace(/\b(succession|inheritance)_rule\b/g, "")
+        .replace(/\bconstitutive_source_ref\b/g, "")
         .replace(/\b\w*[Ii]nstrument\w*\b/g, "");
       expect(text, f).not.toMatch(
         /\b(applicab\w*|procedure|vote\w*|veto|override|exercis\w*|politicalRelation|pendingDecision|administrativeReach|implementationStatus|promulgat\w*|awareness|complian\w*|enforce\w*|stability|legitimacy|recognition|faction|membership|members|headcount|population|treaty|diplomacy|treasury|kti|militar\w*|territory|jurisdiction|inherit\w*|precedence|decisionBody|delegat\w*|appoint\w*|rename\w*|split\w*|merge\w*|abolish\w*|replac(e|ed|ement)|succe(ed|ssor|ssion)\w*|predecessor\w*|successor\w*|constitutive\w*|supersede\w*|projection|npk|llm|prompt)\b/i,
