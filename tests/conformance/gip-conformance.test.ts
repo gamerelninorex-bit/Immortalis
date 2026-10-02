@@ -14,10 +14,11 @@ import {
   GIP_INSTRUMENT_RULE,
   GIP_SCOPE_BINDING_RULE,
   GipAdapter,
-  KtiAdapter,
   WS007_SOURCE,
+  factKind,
 } from "@immortalis/engine";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -92,13 +93,17 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
 
 describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity, the Office / Authority Locus, the Authority Scope Binding and the Governance Instrument core only", () => {
   it("registers exactly one new owner, gip, with ONE facet, one exclusive create-only identity key space and exclusive ADVANCING office and scope-binding key spaces", () => {
-    expect(GIP_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
-      ["gip_institution_identity", "gip", "gip_institution_identity", "SEALED"],
-      ["gip_office_authority_locus", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_scope_binding", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_governance_instrument", "gip", "gip_institution_identity", "ADVANCING"],
-    ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
+    // (the exact GIP kind inventory, the owner → facet registration and the global count are the central oracle's:
+    // registered-surface-conformance; what stays here is each kind's own owner, facet and lifecycle classification)
+    for (const k of GIP_FACT_KINDS)
+      expect([k.id, k.owner, k.facet]).toEqual([k.id, "gip", "gip_institution_identity"]);
+    expect(factKind("gip_institution_identity").lifecycle).toBe("SEALED");
+    for (const id of [
+      "gip_office_authority_locus",
+      "gip_scope_binding",
+      "gip_governance_instrument",
+    ] as const)
+      expect(factKind(id).lifecycle, id).toBe("ADVANCING");
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/institution/i1/identity")),
     ).toHaveLength(1);
@@ -111,17 +116,9 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       ),
     ).toHaveLength(1);
     expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/instrument/n1"))).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
   });
 
   it("there is no instrument clause or amendment, procedure, membership, faction, asset, resource, KTI, actor, relationship, military, territory or lifecycle kind, and no fallback GIP owner", () => {
-    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
-      "gip_institution_identity",
-      "gip_office_authority_locus",
-      "gip_scope_binding",
-      "gip_governance_instrument",
-    ]);
     for (const k of GIP_FACT_KINDS)
       expect(
         k.id
@@ -140,20 +137,17 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
   });
 
   it("there is no GIP writer other than the four authored establishments, and each read is by exact key", () => {
+    // (the whole adapter surface is the central oracle's: registered-surface-conformance) — every mutating verb is an
+    // authored initial establishment, and no other writer-shaped method exists
     expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+      adapterMethods(GipAdapter).filter(
+        (m) =>
+          !/^establish[A-Z]/.test(m) &&
+          /^(set|update|write|amend|replace|rename|merge|split|abolish|remove|delete|apply)/i.test(
+            m,
+          ),
+      ),
+    ).toEqual([]);
   });
 
   it("the GIP owner never writes a foreign key space: no foreign owner or key builder appears in its modules", () => {
@@ -165,17 +159,7 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
   });
 
   it("the predecessor owners' own surfaces are unchanged: no GIP part and no new writer", () => {
-    expect(
-      Object.getOwnPropertyNames(KtiAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "developmentObject",
-      "establishDevelopmentObject",
-      "establishTransferBasis",
-      "transferBasis",
-      "transferPackage",
-    ]);
+    // (the KTI adapter's own whole surface is the central oracle's: registered-surface-conformance)
     for (const f of [
       ...walk("packages/engine/src/epistemic"),
       ...walk("packages/engine/src/actor"),

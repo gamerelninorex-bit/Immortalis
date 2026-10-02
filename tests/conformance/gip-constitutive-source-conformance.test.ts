@@ -7,9 +7,10 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ALL_FACT_KINDS, GIP_FACT_KINDS, GIP_RULE, GipAdapter } from "@immortalis/engine";
+import { GIP_FACT_KINDS, GIP_RULE, GipAdapter, factKind } from "@immortalis/engine";
 import { InstitutionIdentitySchema, gipInstitutionIdentityKey } from "@immortalis/contracts";
 import { code, lock, register } from "../support/f027.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
@@ -78,14 +79,17 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
 
 describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space, adapter class or method", () => {
   it("the GIP kinds, owner, facet and the whole kind registry are exactly as before", () => {
-    expect(GIP_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
-      ["gip_institution_identity", "gip", "gip_institution_identity", "SEALED"],
-      ["gip_office_authority_locus", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_scope_binding", "gip", "gip_institution_identity", "ADVANCING"],
-      ["gip_governance_instrument", "gip", "gip_institution_identity", "ADVANCING"],
-    ]);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
+    // (the exact kind inventory and the whole kind registry are the central oracle's: registered-surface-conformance;
+    // what stays here is each GIP kind's own owner, facet and lifecycle classification)
+    for (const k of GIP_FACT_KINDS)
+      expect([k.id, k.owner, k.facet]).toEqual([k.id, "gip", "gip_institution_identity"]);
+    expect(factKind("gip_institution_identity").lifecycle).toBe("SEALED");
+    for (const id of [
+      "gip_office_authority_locus",
+      "gip_scope_binding",
+      "gip_governance_instrument",
+    ] as const)
+      expect(factKind(id).lifecycle, id).toBe("ADVANCING");
   });
 
   it("the identity key space is unchanged and the key is derived from institution_id alone", () => {
@@ -96,20 +100,10 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
   });
 
   it("the GIP adapter has no new method: no constitutive-source setter, reader, resolver or join", () => {
+    // (the whole adapter surface is the central oracle's: registered-surface-conformance)
     expect(
-      Object.getOwnPropertyNames(GipAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "establishGovernanceInstrument",
-      "establishInstitution",
-      "establishOffice",
-      "establishScopeBinding",
-      "governanceInstrument",
-      "institutionIdentity",
-      "officeAuthorityLocus",
-      "scopeBinding",
-    ]);
+      adapterMethods(GipAdapter).filter((m) => /constitutive|source|^set|resolv|join/i.test(m)),
+    ).toEqual([]);
   });
 
   it("the engine GIP module set is unchanged: no new file, and no new temporal construct", () => {

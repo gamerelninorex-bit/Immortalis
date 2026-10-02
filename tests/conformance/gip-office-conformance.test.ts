@@ -14,9 +14,12 @@ import {
   GIP_RULE,
   WS007_SOURCE,
   factKind,
+  GipAdapter,
 } from "@immortalis/engine";
 import { decisionBodyOfficeAuthorityLocus, officeAuthorityLocus } from "@immortalis/testkit";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { EXPECTED_LEGACY_RULE_KIND_IDS, expectedKindIds } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
@@ -87,8 +90,10 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
     expect(
       factKind("gip_institution_identity").keyPattern.test("gip/institution/i1/office/o1"),
     ).toBe(false);
-    // (the fifteenth and sixteenth slices add the Authority Scope Binding and Governance Instrument kinds beneath the same owner and facet)
-    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
+    // (the GIP kind inventory is the central oracle's: stated against it, not a literal)
+    expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "gip" }),
+    );
   });
 
   it("no second GIP owner, ledger, sidecar or sibling office record exists: the engine's GIP modules are the four predecessor modules", () => {
@@ -97,12 +102,6 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
       "admission.ts",
       "declaration.ts",
       "integrity.ts",
-    ]);
-    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual([
-      "gip_institution_identity",
-      "gip_office_authority_locus",
-      "gip_scope_binding",
-      "gip_governance_instrument",
     ]);
   });
 
@@ -273,10 +272,10 @@ describe("acceptance-register and open-gate honesty (thirteenth slice)", () => {
 
 describe("fourteenth slice — the decision_body_ref branch of the same Office / Authority Locus (IA-01, IA-02, IA-03, IA-06, IA-22)", () => {
   it("the decision-body branch added no fact kind, owner, facet or key space: the identity and office kinds are the same two (the fifteenth slice later adds only the scope-binding kind), and the office kind is unchanged", () => {
-    expect(GIP_FACT_KINDS.map((k) => k.id).slice(0, 2)).toEqual([
-      "gip_institution_identity",
-      "gip_office_authority_locus",
-    ]);
+    // (the exact GIP kind inventory and order are the central oracle's: stated against it, not a literal)
+    expect(GIP_FACT_KINDS.map((k) => k.id).slice(0, 2)).toEqual(
+      expectedKindIds({ group: "GIP_FACT_KINDS" }).slice(0, 2),
+    );
     const office = factKind("gip_office_authority_locus");
     expect(office.lifecycle).toBe("ADVANCING");
     expect(office.owner).toBe("gip");
@@ -315,10 +314,9 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
   });
 
   it("the historical compatibility is narrow: the office kind registers its superseded citation (alongside the Instrument's, twenty-first slice), only that whole citation, and only for the holder-branch value class", () => {
+    // (the inventory is the central oracle's, EXPECTED_LEGACY_RULE_KIND_IDS: stated against it, not a literal)
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
-      "gip_office_authority_locus",
-      "gip_governance_instrument", // twenty-first slice: the Instrument's superseded sixteenth-slice citation
-      "diplomacy_relation_edge", // twenty-third slice: the Relation Edge's superseded nineteenth-slice citation
+      ...EXPECTED_LEGACY_RULE_KIND_IDS,
     ]);
     const legacy = factKind("gip_office_authority_locus").legacyRule!;
     expect(legacy.rule).toEqual(GIP_OFFICE_RULE_THIRTEENTH_SLICE);
@@ -363,8 +361,8 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
     const admission = code(`${GIP_DIR}/admission.ts`);
     expect(admission).toMatch(/group\.reads\.length !== 1 \|\| group\.depends_on\.length !== 1/);
     expect(admission).toMatch(/w\.expected_version !== 0/);
-    // (the fifteenth slice's one scope-binding establishment is the third, and the sixteenth slice's Instrument establishment the fourth)
-    expect(code(`${GIP_DIR}/adapter.ts`).match(/async establish\w+\(/g)).toHaveLength(4);
+    // (the GIP adapter's writer cardinality is the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter).filter((m) => /^establishOffice$/.test(m))).toHaveLength(1);
   });
 
   it("no GitHub Issue #11 workaround: the GIP modules introduce no randomness, clock, seed, roll or probability, and the decision-body tests use none", () => {

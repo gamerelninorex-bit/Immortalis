@@ -558,3 +558,65 @@ export const UNREGISTERED_DIPLOMACY_KEY_PROBES: readonly string[] = [
   "diplomacy/receipt/r1",
   "diplomacy/vote/v1",
 ];
+
+/**
+ * Accessors over the data above, for suites whose own claim is about an inventory ("exactly these kinds"): they
+ * compare production to THIS oracle, never to a literal repeated in the suite. They import nothing.
+ */
+export const expectedKindIds = (by: { group?: string; owner?: string }): string[] =>
+  EXPECTED_FACT_KINDS.filter(
+    (k) =>
+      (by.group === undefined || k.group === by.group) &&
+      (by.owner === undefined || k.owner === by.owner),
+  ).map((k) => k.id);
+
+export const expectedOwnerFacetSet = (owner: string): Set<string> =>
+  new Set(EXPECTED_OWNER_FACETS[owner] ?? []);
+
+/**
+ * Identifiers that belong to a LAWFUL registered Diplomacy sibling. Slices that must prove they did not construct a
+ * forbidden neighbour (relation, framework, …) in their own modules and contract strip these tokens first, so the
+ * sibling's own vocabulary is not mistaken for a forbidden construct. A newly registered sibling is acknowledged here,
+ * once, instead of in every earlier Diplomacy suite's own copy of this list.
+ */
+export const LAWFUL_SIBLING_IDENTIFIERS: Readonly<Record<string, readonly string[]>> = {
+  diplomacy_relation_edge: [
+    "RelationEdgeSchema",
+    "RelationEdge",
+    "TypedRelationEdge",
+    "readRelationEdge",
+    "relationEdge",
+    "establishRelationEdge",
+    "checkRelationEdge",
+    "verifyRelationEdge",
+    "diplomacyRelationKey",
+    "DIPLOMACY_RELATION_EDGE_RULE",
+    "relation_id",
+    "relationId",
+    "relation",
+    "diplomacy_relation_edge",
+  ],
+  diplomacy_framework: [
+    "DiplomaticFrameworkSchema",
+    "DiplomaticFramework",
+    "TypedDiplomaticFramework",
+    "readDiplomaticFramework",
+    "diplomaticFramework",
+    "establishDiplomaticFramework",
+    "checkFramework",
+    "verifyFramework",
+    "diplomacyFrameworkKey",
+    "DIPLOMACY_FRAMEWORK_RULE",
+    "framework_id",
+    "frameworkId",
+    "framework",
+    "diplomacy_framework",
+  ],
+};
+
+/** Removes every lawful-sibling identifier (whole-word) from an identifier-only source text. */
+export const stripLawfulSiblingIdentifiers = (text: string): string =>
+  text.replace(
+    new RegExp(`\\b(${Object.values(LAWFUL_SIBLING_IDENTIFIERS).flat().join("|")})\\b`, "g"),
+    "",
+  );

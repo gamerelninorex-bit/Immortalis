@@ -22,6 +22,12 @@ import {
   factKind,
 } from "@immortalis/engine";
 import { code, gates, lock, register, sha } from "../support/f027.ts";
+import {
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  stripLawfulSiblingIdentifiers,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
@@ -194,46 +200,24 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
       ],
     ]);
     // the eighteenth and nineteenth slices add one facet each (Claim / Dispute, Relation Edge) under the same owner
-    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set([
-        "diplomacy_external_recognition",
-        "diplomacy_externalized_claim_dispute",
-        "diplomacy_relation_edge",
-        "diplomacy_framework",
-      ]),
+    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(expectedOwnerFacetSet("diplomacy"));
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "diplomacy" }),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(4);
-    // distinct from GIP and Economy, and neither of them gained a facet or kind
-    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
-    expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "economy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
+    // (no other owner gained a kind or facet, and the global count: the central oracle, registered-surface-conformance)
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("diplomacy/recognition/r1")).map((k) => k.id),
     ).toEqual(["diplomacy_external_recognition"]);
-    for (const other of [
-      "diplomacy/recognition/r1/x",
-      "diplomacy/recognition",
-      "diplomacy/relation/r1/x",
-    ])
-      expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(other))).toEqual([]);
+    // (malformed and unregistered sibling key spaces resolve to no kind: UNREGISTERED_DIPLOMACY_KEY_PROBES, checked
+    // centrally in registered-surface-conformance and refused by the owner integration suites)
   });
 
   it("there is no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, compliance, score, derived-index or fallback Diplomacy kind (the Claim / Dispute and Relation Edge kinds are the eighteenth and nineteenth slices' own)", () => {
     for (const k of ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy"))
-      expect([
-        "diplomacy_external_recognition",
-        "diplomacy_claim_dispute",
-        "diplomacy_relation_edge",
-        "diplomacy_framework",
-      ]).toContain(k.id);
-    expect(ALL_FACT_KINDS.map((k) => k.id).filter((id) => /diplomacy/.test(id))).toEqual([
-      "diplomacy_external_recognition",
-      "diplomacy_claim_dispute",
-      "diplomacy_relation_edge",
-      "diplomacy_framework",
-    ]);
+      expect(expectedKindIds({ owner: "diplomacy" })).toContain(k.id);
+    expect(ALL_FACT_KINDS.map((k) => k.id).filter((id) => /diplomacy/.test(id))).toEqual(
+      expectedKindIds({ owner: "diplomacy" }),
+    );
   });
 
   it("no second Diplomacy module, ledger, sidecar or persistence path exists: the engine's Diplomacy modules are exactly the four owner-path modules", () => {
@@ -247,27 +231,20 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
       expect(code(f), f).not.toMatch(
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
-    const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    // one commit per authored establishment: the recognition, (eighteenth slice) the claim / dispute, (nineteenth slice) the relation edge and (twenty-second slice) the framework
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(4);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
+    // (one commit per authored establishment across the whole adapter: the central oracle's writer/commit cardinality)
   });
 
   it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice and the relation edge pair of the nineteenth: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
-    expect(
-      Object.getOwnPropertyNames(DiplomacyAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "diplomaticFramework",
-      "establishDiplomaticFramework",
+    // (the whole adapter surface is the central oracle's: registered-surface-conformance) — the recognition pair is
+    // still exactly one writer and one keyed read, and nothing here updates, withdraws, suspends, supersedes or retires
+    const methods = adapterMethods(DiplomacyAdapter);
+    expect(methods.filter((m) => /recognition/i.test(m))).toEqual([
       "establishExternalRecognition",
-      "establishExternalizedClaimDispute",
-      "establishRelationEdge",
       "externalRecognition",
-      "externalizedClaimDispute",
-      "relationEdge",
     ]);
+    expect(
+      methods.filter((m) => /update|withdraw|suspend|supersed|succe|resolv|retire/i.test(m)),
+    ).toEqual([]);
   });
 
   it("no foreign-owner construct exists in the Diplomacy modules or contract: no other owner's key builder, schema, reader or constant is named", () => {
@@ -281,12 +258,8 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
     for (const f of SOURCES) {
       // the only permitted `instrument` token is the source field instrument_or_act_ref
       let text = identifiers(f).replace(/instrument_or_act_ref/g, "");
-      // the Diplomacy engine modules (not the recognition contract) carry the nineteenth and twenty-second slices' own Relation Edge and Framework identifiers
-      if (f !== CONTRACT)
-        text = text.replace(
-          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge|DiplomaticFrameworkSchema|DiplomaticFramework|TypedDiplomaticFramework|readDiplomaticFramework|diplomaticFramework|establishDiplomaticFramework|checkFramework|verifyFramework|diplomacyFrameworkKey|DIPLOMACY_FRAMEWORK_RULE|framework_id|frameworkId|framework|diplomacy_framework)\b/g,
-          "",
-        );
+      // the Diplomacy engine modules (not the recognition contract) carry the lawful registered siblings' own identifiers (the central oracle's LAWFUL_SIBLING_IDENTIFIERS)
+      if (f !== CONTRACT) text = stripLawfulSiblingIdentifiers(text);
       expect(text, f).not.toMatch(
         /\b(\w*[Rr]elation\w*|\w*[Cc]hannel\w*|\w*[Nn]egotiat\w*|\w*[Ii]nstrument\w*|\w*[Cc]lause\w*|\w*[Bb]inding\w*|\w*[Ff]ramework\w*|\w*[Tt]reaty\w*|\w*[Rr]eciprocal\w*|\w*[Ss]ymmetric\w*|\w*[Tt]rust\w*|\w*[Rr]eputation\w*|\w*[Ii]nfluence\w*|\w*[Ww]arscore\w*|\w*[Ss]core\w*)\b/,
       );
