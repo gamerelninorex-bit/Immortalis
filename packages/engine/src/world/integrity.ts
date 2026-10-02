@@ -48,7 +48,9 @@ export interface IntegrityViolation {
     /** IM-09 KTI state (managed Transfer Package): see verifyKtiIntegrity */
     | "KTI_STATE"
     /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */
-    | "LOGISTICS_STATE";
+    | "LOGISTICS_STATE"
+    /** IM-12 Causal Draw provenance (F-027-CD1 precommit / result): see verifyCausalDrawIntegrity */
+    | "CAUSAL_DRAW_STATE";
   readonly message: string;
 }
 

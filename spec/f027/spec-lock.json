@@ -209,9 +209,51 @@
       "primary_im": "IM-07"
     }
   ],
+  "implementation_authority_addenda": [
+    {
+      "id": "F-027-CD1",
+      "title": "F-027-CD1 Causal Draw Implementation-Authority Addendum v1.0 — Twenty-Fifth Blue Freeze — 2026-10-02",
+      "version": "v1.0",
+      "url": "https://app.notion.com/p/3ed20af901e08176abe1c203943294b1",
+      "native_pin": "2026-10-02T15:11:03.450Z",
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "supersedes": null,
+      "superseded_by": null,
+      "composition_note": "Candidate composed implementation authority is F-027 v1.0 + F-027-CD1 v1.0. Historical F-027 v1.0 is neither rewritten nor silently superseded; the package, tranches, frozen sources and every pin above are unchanged.",
+      "primary_im": "IM-12",
+      "governing_decision": {
+        "url": "https://app.notion.com/p/3ed20af901e08198a108d327b4a776ce",
+        "native_pin": "2026-10-02T13:52:36.839Z"
+      },
+      "preflight": {
+        "url": "https://app.notion.com/p/3ed20af901e081349d1bc09e76e40615",
+        "native_pin": "2026-10-02T14:05:02.361Z"
+      },
+      "review": {
+        "kind": "independent Red delta review",
+        "verdict": "PASS",
+        "scope": "this exact native pin",
+        "unchanged_since_clearance": true
+      },
+      "scope": "Neutral Causal Draw engine foundation only: CausalDrawKey and draw_id (CD-CANON-1), CausalDrawSpecification and CDS-02 normalization, the CDR-01 deterministic-first gate, CDE-01 secure 32-byte entropy and precommitment, CDA-01 IMMORTALIS_WEIGHTED_FINITE_V1, create-only precommit and result records under causal_draw_kernel / draw_provenance (infrastructure-only RC-09 evidence owner/facet), CDR-02 replay/recovery and CDV-01 historical algorithm verification.",
+      "does_not": [
+        "enable WS-016 BOUNDED_PRIOR_RANDOMIZED (it remains ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED)",
+        "close GitHub Issue #11 (it remains OPEN)",
+        "resolve Legacy L-29, L-30 or L-31 (they remain Requires Decision)",
+        "define candidate meaning, causal weighting, resulting world-state effects, grades or EX semantics",
+        "add Temporal-specific stochastic mechanics, provider adoption, IA-07 work or PF-6/F-028"
+      ],
+      "source_validation": "Live Notion page fetched 2026-10-02; the page_last_edited_at value observed equals the cleared native pin above."
+    }
+  ],
   "snapshot_files": {
     "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-    "spec/f027/acceptance-register.yaml": "84a52b588b75dac5912d9ddd7770109420362471ec186f26f2ddec526cb9f6b1",
+    "spec/f027/acceptance-register.yaml": "d474c452faae86ed504a7f1a4f194377a38c7f7f81a791faa4e42019547f82ca",
     "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
   },
   "hash_algorithm": "sha256 over file bytes with CRLF normalized to LF",
@@ -227,6 +269,7 @@
     "'latest Notion' is never an implicit build input.",
     "A newer timestamp does not silently supersede this lock.",
     "Changing this file is a substantive PR requiring exact-version review.",
-    "Code built against a different spec lock is a different review object."
+    "Code built against a different spec lock is a different review object.",
+    "An implementation-authority addendum composes with the package it names; it never rewrites or silently supersedes it, and its exact native pin is the only version the repository builds against."
   ]
 }
