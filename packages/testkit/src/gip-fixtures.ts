@@ -27,7 +27,7 @@ export const gipPublication = (n: number) => ({
   secrecy: "gip-fixture-visibility",
 });
 
-/** A well-formed Institution Identity Reference: the canonical identity, its authored label, and CONTINUING. */
+/** A well-formed Institution Identity Reference at its minimum: the canonical identity, its authored label, and CONTINUING (no constitutive source). */
 export const institutionIdentity = (
   institutionId = INSTITUTION_COURT,
   over: Partial<InstitutionIdentity> = {},
@@ -37,6 +37,21 @@ export const institutionIdentity = (
   continuity_status: "continuing",
   ...over,
 });
+
+/**
+ * Opaque authored `constitutive_source_ref` values (SYNTHETIC FIXTURES). Nothing exists behind them: no constitutive act,
+ * charter, Governance Instrument or other source is created, read or implied by carrying one.
+ */
+export const CONSTITUTIVE_SOURCE_A = "constitutive-source-a-1";
+export const CONSTITUTIVE_SOURCE_B = "constitutive-source-b-1";
+
+/** A well-formed Institution Identity Reference that also carries the optional, opaque `constitutive_source_ref`. */
+export const institutionIdentityWithConstitutiveSource = (
+  institutionId = INSTITUTION_COURT,
+  constitutiveSourceRef = CONSTITUTIVE_SOURCE_A,
+  over: Partial<InstitutionIdentity> = {},
+): InstitutionIdentity =>
+  institutionIdentity(institutionId, { constitutive_source_ref: constitutiveSourceRef, ...over });
 
 export const OFFICE_MAGISTRATE = "office-magistrate-1";
 export const OFFICE_TREASURER = "office-treasurer-1";

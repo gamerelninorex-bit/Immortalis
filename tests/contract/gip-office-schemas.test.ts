@@ -185,7 +185,9 @@ describe("the office key is derived from the exact institution_id and office_id 
   });
 
   it("the Institution Identity contract is untouched: it is still identity/provenance only and gained no office field", () => {
+    // (the twentieth slice added only the optional `constitutive_source_ref`: still no office field)
     expect(Object.keys(InstitutionIdentitySchema.shape).sort()).toEqual([
+      "constitutive_source_ref",
       "continuity_status",
       "identity_label",
       "institution_id",
