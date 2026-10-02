@@ -1167,19 +1167,41 @@ export const DIPLOMACY_CLAIM_DISPUTE_RULE: SourceRef = rule(
 );
 
 /**
- * The governing rule for the Diplomacy Relation Edge kind (nineteenth slice): one group, written once at establishment (the record
- * is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
- * ones the state relies on: WS-008 v1.1 §§2.1-2.2 (Diplomacy owns the durable fact that an external relation materially
- * continues), §4 (the sparse Relation Edge, not a duplicate ledger and not a universal relationship score), §5.1 (the Relation
- * Edge minimum surface: relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional
- * provenance_ref, lifecycle_status), §24 (invariants: stable state carries forward; no universal diplomacy tick) and §§29.3/29.7
- * (R-3 / R-7: the channel, recognition, active claim / dispute, instrument and framework reference arrays are derived,
- * non-authoritative indexes rebuilt from source records, never a second writable ledger; no all-pairs scan); F-016 Phase 2C and
- * F-017 lineage. No Recognition or Claim / Dispute citation is reused as if it governed the Edge.
+ * The SUPERSEDED nineteenth-slice governing-rule citation for the Diplomacy Relation Edge, byte-for-byte as every Relation Edge
+ * committed since the nineteenth slice was committed under it. It mislabels WS-008 §4 as "Relation Edge" (the frozen source's §4
+ * is the Diplomatic Relevance / Reach Gate; the Relation Edge is §5.1), which is a provenance-labeling defect and not a
+ * difference in the authored value: it is never stamped on a new write (admission requires `DIPLOMACY_RELATION_EDGE_RULE`) and
+ * is accepted on load ONLY as this exact whole citation on a value satisfying the one strict Relation Edge schema (see
+ * `FactKind.legacyRule`). Existing saves therefore load unchanged, with no migration, rewriting or re-citation of their facts.
+ * Its text is frozen and must never be "corrected": a conformance test pins its hash.
+ */
+export const DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE: SourceRef = rule(
+  WS008_SOURCE,
+  "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (the durable fact that an external relation materially continues); §4 Relation Edge (a sparse continuity object, not a duplicate ledger and not a universal relationship, trust or reputation score); §5.1 Relation Edge minimum surface (relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status); §24 Required Invariants (stable state carries forward; no universal diplomacy tick); §§29.3/29.7 R-3 / R-7 (channel_refs[], recognition_refs[], active_claim_dispute_refs[], instrument_refs[] and framework_refs[] are derived, non-authoritative indexes rebuilt from source records and are not authored persistent fields; no all-pairs scan; no universal watcher); post-establishment rupture, suspension, restoration, retirement and lifecycle mutation, and any derived index or Recognition / Claim-Dispute association, not implemented",
+  [WS008_LINEAGE, F016_PHASE_2C_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * The governing rule for the Diplomacy Relation Edge kind: one group, written once at establishment (the record is ADVANCING in
+ * kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the ones the state
+ * relies on: WS-008 v1.1 §§2.1-2.2 (Diplomacy owns the durable fact that an external relation materially continues), §4 (the
+ * Diplomatic Relevance / Reach Gate: no all-pairs scan, a plausible reach / relevance path is the source gate and no persistent
+ * diplomatic-capacity score is created; this record implements no Reach calculation), §5.1 (the Diplomatic Relation Edge: the
+ * sparse future-causal continuity edge, its minimum surface relation_id, party_refs[], relation_scope, optional
+ * rupture_or_suspension_status, optional provenance_ref, lifecycle_status, and its character as not a duplicate ledger), §24
+ * (invariants: stable state carries forward; no universal diplomacy tick) and §§29.3/29.7 (R-3 / R-7: the channel, recognition,
+ * active claim / dispute, instrument and framework reference arrays are derived, non-authoritative indexes rebuilt from source
+ * records, never a second writable ledger; no all-pairs scan); F-016 Phase 2C and F-017 lineage. No Recognition or Claim /
+ * Dispute citation is reused as if it governed the Edge.
+ *
+ * This is the twenty-third-slice source-fidelity repair of the nineteenth-slice citation
+ * (`DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE`), which attributed the Relation Edge to §4. Only that attribution is
+ * corrected: the source artifact, exact native pin, authority lineage, effective basis, `supersedes` treatment and every
+ * executable boundary are unchanged. This is the sole citation a new Relation Edge write may carry.
  */
 export const DIPLOMACY_RELATION_EDGE_RULE: SourceRef = rule(
   WS008_SOURCE,
-  "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (the durable fact that an external relation materially continues); §4 Relation Edge (a sparse continuity object, not a duplicate ledger and not a universal relationship, trust or reputation score); §5.1 Relation Edge minimum surface (relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status); §24 Required Invariants (stable state carries forward; no universal diplomacy tick); §§29.3/29.7 R-3 / R-7 (channel_refs[], recognition_refs[], active_claim_dispute_refs[], instrument_refs[] and framework_refs[] are derived, non-authoritative indexes rebuilt from source records and are not authored persistent fields; no all-pairs scan; no universal watcher); post-establishment rupture, suspension, restoration, retirement and lifecycle mutation, and any derived index or Recognition / Claim-Dispute association, not implemented",
+  "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (the durable fact that an external relation materially continues); §4 Diplomatic Relevance / Reach Gate (no all-pairs scan; a plausible reach / relevance path is the source gate; no persistent diplomatic-capacity score is created; no Reach calculation implemented); §5.1 Diplomatic Relation Edge (a sparse future-causal continuity edge, not a duplicate ledger; minimum surface: relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status); §24 Required Invariants (stable state carries forward; no universal diplomacy tick); §§29.3/29.7 R-3 / R-7 (channel_refs[], recognition_refs[], active_claim_dispute_refs[], instrument_refs[] and framework_refs[] are derived, non-authoritative indexes rebuilt from source records and are not authored persistent fields; no all-pairs scan; no universal watcher); post-establishment rupture, suspension, restoration, retirement and lifecycle mutation, and any derived index or Recognition / Claim-Dispute association, not implemented",
   [WS008_LINEAGE, F016_PHASE_2C_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
 );
 
@@ -1248,6 +1270,11 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^diplomacy/relation/${ID}$`),
     valueSchema: RelationEdgeSchema,
     rule: DIPLOMACY_RELATION_EDGE_RULE,
+    // a nineteenth-slice Relation Edge may still carry the superseded (mislabeled §4) citation; the authored schema is the same
+    legacyRule: {
+      rule: DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE,
+      admits: (value) => RelationEdgeSchema.safeParse(value).success,
+    },
   },
   {
     id: "diplomacy_framework",
