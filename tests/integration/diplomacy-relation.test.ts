@@ -631,6 +631,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
         "diplomacy_external_recognition",
         "diplomacy_externalized_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]),
     );
   });
@@ -668,7 +669,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, compliance, derived-index or sibling key space exists: each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, compliance, derived-index or sibling key space exists (the Framework key space is the twenty-second slice's own, so only malformed framework paths are probed): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
@@ -686,7 +687,8 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy/instrument/i1",
       "diplomacy/instrument/i1/clause/c1",
       "diplomacy/binding/b1",
-      "diplomacy/framework/f1",
+      "diplomacy/framework",
+      "diplomacy/framework/f1/x",
       "diplomacy/compliance/c1",
       "diplomacy/receipt/r1",
     ])
@@ -697,6 +699,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
       "diplomacy_relation_edge",
+      "diplomacy_framework",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

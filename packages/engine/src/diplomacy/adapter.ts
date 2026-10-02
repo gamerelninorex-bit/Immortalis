@@ -2,15 +2,18 @@ import {
   CANON_WRITE_AUTHORITY,
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  DiplomaticFrameworkSchema,
   PublicationSchema,
   RelationEdgeSchema,
   diplomacyDisputeKey,
+  diplomacyFrameworkKey,
   diplomacyRecognitionKey,
   diplomacyRelationKey,
   disputeDependencyKeys,
   fail,
   recognitionDependencyKeys,
   type CommitGroup,
+  type DiplomaticFramework,
   type ExternalRecognition,
   type ExternalizedClaimDispute,
   type OwnerFact,
@@ -147,33 +150,61 @@ export function readRelationEdge(
   return { fact, value: parsed.data };
 }
 
+/** A committed Diplomatic Framework read by identity: the fact (with its provenance) and its typed value. */
+export interface TypedDiplomaticFramework {
+  readonly fact: OwnerFact;
+  readonly value: DiplomaticFramework;
+}
+
+/**
+ * The read path any lawful consumer uses: one committed Diplomatic Framework, by its exact canonical `framework_id` (WS-008 §29.7:
+ * no all-pairs scan; no all-frameworks scan). It takes only the read side of a store, so reading grants no write authority, and
+ * it returns undefined for a Framework that is not established — nothing is created, inferred or defaulted by a read. It reports
+ * what the record says: it dereferences no member, charter, instrument, commitment, decision-rule or provenance reference,
+ * computes no vote, tally, quorum or collective decision, validates no member decision, derives no Relation Edge index and
+ * re-resolves nothing.
+ */
+export function readDiplomaticFramework(
+  store: Pick<CampaignStore, "getFact">,
+  frameworkId: string,
+): TypedDiplomaticFramework | undefined {
+  const fact = store.getFact(diplomacyFrameworkKey(frameworkId));
+  if (!fact) return undefined;
+  const parsed = DiplomaticFrameworkSchema.safeParse(fact.value);
+  if (!parsed.success) return undefined;
+  return { fact, value: parsed.data };
+}
+
 /**
  * IM-06 Diplomacy — the authored path of the Diplomacy owner.
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority or a governing rule:
  * those come from the specification-backed registry, and the publication is made by the archivist path through the existing
- * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly THREE authored publications: the explicit initial
+ * IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly FOUR authored publications: the explicit initial
  * establishment of one External Recognition, the explicit initial establishment of one Externalized Claim / Dispute (see
- * `establishExternalizedClaimDispute`) and the explicit initial establishment of one Relation Edge (see `establishRelationEdge`).
+ * `establishExternalizedClaimDispute`), the explicit initial establishment of one Relation Edge (see `establishRelationEdge`) and
+ * the explicit initial establishment of one Diplomatic Framework (see `establishDiplomaticFramework`).
  * Nothing else creates a recognition — not contact, trade, negotiation, treaty-making, conduct, silence or absence — and there is
  * no withdrawal, suspension, supersession, succession, status-change, re-resolution or retirement method, no post-establishment
- * Relation Edge mutation (rupture, suspension, restoration, retirement or other lifecycle change), no derived-index or
- * Recognition / Claim-Dispute association method, no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework or
- * reciprocal-record method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write
+ * Relation Edge or Framework mutation (rupture, suspension, restoration, retirement, amendment, membership admission, exit,
+ * suspension, expulsion, succession, dissolution or other lifecycle change), no framework decision, vote, tally or member-fault
+ * propagation method, no derived-index or Recognition / Claim-Dispute / Relation Edge association method, no Channel,
+ * Negotiation, Instrument, Clause, Binding Entry or reciprocal-record method, no tick, scan, scheduler or watcher, and no way to write another owner's fact, so no caller can write
  * Diplomacy state out of order; the store's admission refuses it for a raw commit as well.
  *
  * Every reference an authored record carries (for a recognition `recognizer_ref`, `recognized_referent_ref`,
  * `authority_basis_ref`, `instrument_or_act_ref`, `provenance_ref` and `successor_rule_ref`; for a claim / dispute its party,
  * subject, interpretation, instrument-or-clause, adjudication and provenance references; for a relation edge its `party_refs[]`
- * and `provenance_ref`) is an opaque authored value that is never dereferenced. `dependency_refs[]` exists only on the
+ * and `provenance_ref`; for a Framework its `member_refs[]`, `charter_or_instrument_refs[]`, `collective_decision_rule_ref`,
+ * `shared_commitment_refs[]` and `provenance_ref`) is an opaque authored value that is never dereferenced. `dependency_refs[]` exists only on the
  * Recognition and Claim / Dispute records, and there it is the one exception that binds the group: where the authored record
  * names mutable implemented owner facts, the adapter pins each of them (read at its current version, depended on through its
  * committing group) through the existing commit-group machinery and nothing else; a record that names none pins nothing. A
- * Relation Edge has no `dependency_refs[]`: its group reads and depends on nothing.
+ * Relation Edge and a Framework have no `dependency_refs[]`: their groups read and depend on nothing.
  *
  * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): identical input
  * reaches the original receipt, and a changed input is refused as a conflict rather than silently reusing it. A conflicting
- * establishment at an occupied canonical identity (`recognition_id`, `dispute_id` or `relation_id`) is refused and never
+ * establishment at an occupied canonical identity (`recognition_id`, `dispute_id`, `relation_id` or `framework_id`) is refused and never
  * overwrites it. Nothing is re-rolled or improved: no randomness exists here.
  */
 export class DiplomacyAdapter {
@@ -361,6 +392,62 @@ export class DiplomacyAdapter {
     return this.#store.commit(group);
   }
 
+  /**
+   * Commits the initial establishment of one Diplomatic Framework. It writes exactly one create-only key derived from its
+   * `framework_id` alone. Every value is the caller's authored input: nothing is defaulted (`collective_decision_rule_ref`
+   * included), inferred or calculated, no member, charter, instrument, commitment, decision-rule or provenance reference is
+   * dereferenced, no vote, tally, quorum or framework action is computed, no Relation Edge `framework_refs[]` or other derived
+   * index is written, no Relation Edge, Recognition, Claim / Dispute or sibling Diplomacy record is created, associated or
+   * rewritten, and no foreign-owner fact is created or mutated. The group reads and depends on nothing. A conflicting
+   * establishment at an occupied `framework_id` is refused and never overwrites it; a retry of the same intent converges on the
+   * original receipt (RC-16).
+   */
+  async establishDiplomaticFramework(
+    input: Publication & { readonly framework: unknown },
+  ): Promise<Result<CommitOutcome, DiplomacyErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const framework = DiplomaticFrameworkSchema.safeParse(input.framework);
+    if (!framework.success)
+      return fail("INPUT_INVALID", "diplomatic framework failed validation", {
+        issues: issues(framework.error),
+      });
+    const value = framework.data;
+    const kind = factKind("diplomacy_framework");
+    const group: CommitGroup = {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [],
+      depends_on: [],
+      writes: [
+        {
+          key: diplomacyFrameworkKey(value.framework_id),
+          owner: kind.owner,
+          facet: kind.facet,
+          value: value as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: p.data.basis,
+          secrecy: p.data.secrecy,
+          expected_version: 0,
+        },
+      ],
+    };
+    return this.#store.commit(group);
+  }
+
   // -- typed read, by identity (none scans) ----------------------------------------------------
 
   /** One External Recognition, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
@@ -376,5 +463,10 @@ export class DiplomacyAdapter {
   /** One Relation Edge, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
   relationEdge(relationId: string): TypedRelationEdge | undefined {
     return readRelationEdge(this.#store, relationId);
+  }
+
+  /** One Diplomatic Framework, or undefined. Reading it transfers no Diplomacy write authority and resolves nothing. */
+  diplomaticFramework(frameworkId: string): TypedDiplomaticFramework | undefined {
+    return readDiplomaticFramework(this.#store, frameworkId);
   }
 }

@@ -1,8 +1,10 @@
 import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  DiplomaticFrameworkSchema,
   RelationEdgeSchema,
   diplomacyDisputeKey,
+  diplomacyFrameworkKey,
   diplomacyRecognitionKey,
   diplomacyRelationKey,
   disputeDependencyKeys,
@@ -13,6 +15,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   DIPLOMACY_CLAIM_DISPUTE_RULE,
+  DIPLOMACY_FRAMEWORK_RULE,
   DIPLOMACY_RECOGNITION_RULE,
   DIPLOMACY_RELATION_EDGE_RULE,
   resolveKey,
@@ -65,6 +68,20 @@ import { isRejection, reject, requirePrerequisite, type Rejection } from "../own
  * edge other than its first creation is refused here as not supported, and a second creation of an occupied slot is refused by
  * the store's version chain.
  *
+ * FRAMEWORK AUTHORITATIVE CORE (twenty-second slice): one authored Diplomatic Framework, at the one key its canonical `framework_id`
+ * alone derives, created once, under the Framework citation. It is the owner's OWN authored statement of one durable multi-party
+ * external arrangement: it dereferences no `member_refs[]`, `charter_or_instrument_refs[]`, `collective_decision_rule_ref`,
+ * `shared_commitment_refs[]` or `provenance_ref`, closes no `framework_basis`, `membership_rules`, `entry_exit_rules` or
+ * `lifecycle_status` set, imposes no array minimum, uniqueness, ordering, deduplication or reciprocal-copy rule, defaults nothing
+ * (an absent `collective_decision_rule_ref` stays absent), computes no vote, tally, quorum or collective decision, validates no
+ * member decision, propagates no member fault, creates no GIP institution, ACS, Instrument, Clause, Recognition, Claim / Dispute
+ * or Relation Edge association, stores no Relation Edge `framework_refs[]` index, creates or mutates no foreign-owner state and
+ * writes nothing else. The record is an authored Diplomacy fact, not a conclusion derived from another owner's mutable state, so
+ * the group reads and depends on nothing: no dependency is invented. The kind is ADVANCING; NO post-establishment change exists
+ * yet (amendment, membership admission, exit, suspension, expulsion, succession, dissolution or any lifecycle transition), so
+ * every write to a Framework other than its first creation is refused here as not supported, and a second creation of an
+ * occupied slot is refused by the store's version chain.
+ *
  * A retry of the same intent is reconciled by the store by identity (RC-16).
  */
 export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
@@ -100,10 +117,20 @@ export function diplomacyGroupCheck(group: CommitGroup, state: CampaignState): R
       }
       return checkRelationEdge(group, w);
     }
+    if (resolveKey(w.key)?.kind.id === "diplomacy_framework") {
+      if (w.expected_version !== 0) {
+        return reject(
+          "AMENDMENT_NOT_SUPPORTED",
+          "a Diplomatic Framework is created once; no amendment, membership admission, exit, suspension, expulsion, succession, dissolution or other lifecycle change is implemented",
+          { key: w.key },
+        );
+      }
+      return checkFramework(group, w);
+    }
   }
   return reject(
     "VALUE_INVALID",
-    "Diplomacy state changes only by one External Recognition, one Externalized Claim / Dispute or one Relation Edge establishment, each created once",
+    "Diplomacy state changes only by one External Recognition, one Externalized Claim / Dispute, one Relation Edge or one Diplomatic Framework establishment, each created once",
   );
 }
 
@@ -196,6 +223,39 @@ function checkRelationEdge(group: CommitGroup, w: Write): Rejection | null {
     return reject(
       "REFERENCE_INVALID",
       "a Relation Edge is an authored fact: it reads and depends on nothing, so no dependency is invented",
+      { key: w.key },
+    );
+  }
+  return null;
+}
+
+function checkFramework(group: CommitGroup, w: Write): Rejection | null {
+  const parsed = DiplomaticFrameworkSchema.safeParse(w.value);
+  if (!parsed.success) {
+    return reject("VALUE_INVALID", "the Diplomatic Framework violates its contract", {
+      key: w.key,
+    });
+  }
+  const framework = parsed.data;
+  if (!canonicalEqual(group.rule, DIPLOMACY_FRAMEWORK_RULE)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Diplomatic Framework is committed under the governing-rule citation of its kind",
+      { key: w.key },
+    );
+  }
+  if (w.key !== diplomacyFrameworkKey(framework.framework_id)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Diplomatic Framework is at the key derived from its exact framework_id",
+      { key: w.key },
+    );
+  }
+  // an authored Diplomacy fact, not a conclusion derived from another owner's mutable state: nothing is read or depended on
+  if (group.reads.length !== 0 || group.depends_on.length !== 0) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a Diplomatic Framework is an authored fact: it reads and depends on nothing, so no dependency is invented",
       { key: w.key },
     );
   }

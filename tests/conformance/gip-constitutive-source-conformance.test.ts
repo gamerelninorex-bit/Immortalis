@@ -102,7 +102,7 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
       ["gip_scope_binding", "gip", "gip_institution_identity", "ADVANCING"],
       ["gip_governance_instrument", "gip", "gip_institution_identity", "ADVANCING"],
     ]);
-    expect(ALL_FACT_KINDS).toHaveLength(39);
+    expect(ALL_FACT_KINDS).toHaveLength(40);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
   });
 

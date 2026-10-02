@@ -216,10 +216,11 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
         "diplomacy_external_recognition",
         "diplomacy_externalized_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(39);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(4);
+    expect(ALL_FACT_KINDS).toHaveLength(40);
     // no other owner gained a kind or facet
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
@@ -261,10 +262,10 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
     for (const f of [...ENGINE_SOURCES, CONTRACT]) {
       // the only permitted `instrument` / `clause` token is the source field instrument_or_clause_ref
       let text = identifiers(f).replace(/instrument_or_clause_ref/g, "");
-      // the Diplomacy engine modules (not the dispute contract) carry the nineteenth slice's own Relation Edge identifiers
+      // the Diplomacy engine modules (not the dispute contract) carry the nineteenth and twenty-second slices' own Relation Edge and Framework identifiers
       if (f !== CONTRACT)
         text = text.replace(
-          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge)\b/g,
+          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge|DiplomaticFrameworkSchema|DiplomaticFramework|TypedDiplomaticFramework|readDiplomaticFramework|diplomaticFramework|establishDiplomaticFramework|checkFramework|verifyFramework|diplomacyFrameworkKey|DIPLOMACY_FRAMEWORK_RULE|framework_id|frameworkId|framework|diplomacy_framework)\b/g,
           "",
         );
       expect(text, f).not.toMatch(
@@ -276,9 +277,9 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
   it("admission authorizes initial establishment only for the dispute, pins exactly the facts dependency_refs[] names, and is wired through the existing registry, dispatch and load verification", () => {
     const admission = code(`${DIPLOMACY_DIR}/admission.ts`);
     expect(admission).toMatch(/diplomacy_claim_dispute/);
-    // one create-only guard per kind: recognition, dispute and (nineteenth slice) relation edge
-    expect(admission.match(/expected_version !== 0/g)).toHaveLength(3);
-    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(3);
+    // one create-only guard per kind: recognition, dispute, (nineteenth slice) relation edge and (twenty-second slice) framework
+    expect(admission.match(/expected_version !== 0/g)).toHaveLength(4);
+    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(4);
     expect(admission).toMatch(/requirePrerequisite/);
     expect(code(`${DIPLOMACY_DIR}/integrity.ts`)).toMatch(/diplomacy_claim_dispute/);
     expect(code("packages/engine/src/owners/admission.ts")).toMatch(

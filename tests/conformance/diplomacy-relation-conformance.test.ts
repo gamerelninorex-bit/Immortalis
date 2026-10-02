@@ -223,10 +223,11 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Relati
         "diplomacy_external_recognition",
         "diplomacy_externalized_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(39);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(4);
+    expect(ALL_FACT_KINDS).toHaveLength(40);
     // no other owner gained a kind or facet
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
@@ -296,9 +297,9 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Relati
     const admission = code(`${DIPLOMACY_DIR}/admission.ts`);
     expect(admission).toMatch(/diplomacy_relation_edge/);
     expect(admission).toMatch(/function checkRelationEdge\(/);
-    // one create-only guard per kind: recognition, dispute and relation edge
-    expect(admission.match(/expected_version !== 0/g)).toHaveLength(3);
-    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(3);
+    // one create-only guard per kind: recognition, dispute, relation edge and (twenty-second slice) framework
+    expect(admission.match(/expected_version !== 0/g)).toHaveLength(4);
+    expect(admission.match(/AMENDMENT_NOT_SUPPORTED/g)).toHaveLength(4);
     const body = /function checkRelationEdge\([\s\S]*?\n}\n/.exec(admission)![0];
     expect(body).toMatch(/group\.reads\.length !== 0 \|\| group\.depends_on\.length !== 0/);
     expect(body).not.toMatch(/requirePrerequisite|checkDependencyPins/);
@@ -310,8 +311,8 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Relati
 
   it("the adapter has exactly one relation writer and one keyed read, and one commit per authored establishment", () => {
     const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(3);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(3);
+    expect(adapter.match(/\.commit\(/g)).toHaveLength(4);
+    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
     expect(adapter.match(/async establishRelationEdge\(/g)).toHaveLength(1);
     expect(adapter.match(/\brelationEdge\(\s*relationId: string\)/g)).toHaveLength(1);
   });

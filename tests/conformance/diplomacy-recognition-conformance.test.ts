@@ -226,15 +226,16 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         "diplomacy_external_recognition",
         "diplomacy_externalized_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]),
     );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(3);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy")).toHaveLength(4);
     // distinct from GIP and Economy, and neither of them gained a facet or kind
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(new Set(["gip_institution_identity"]));
     expect(CANONICAL_OWNER_REGISTRY.get("economy")).toEqual(new Set(["economy_state"]));
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "economy")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(39);
+    expect(ALL_FACT_KINDS).toHaveLength(40);
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("diplomacy/recognition/r1")).map((k) => k.id),
     ).toEqual(["diplomacy_external_recognition"]);
@@ -252,11 +253,13 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         "diplomacy_external_recognition",
         "diplomacy_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]).toContain(k.id);
     expect(ALL_FACT_KINDS.map((k) => k.id).filter((id) => /diplomacy/.test(id))).toEqual([
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
       "diplomacy_relation_edge",
+      "diplomacy_framework",
     ]);
   });
 
@@ -272,9 +275,9 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
     const adapter = code(`${DIPLOMACY_DIR}/adapter.ts`);
-    // one commit per authored establishment: the recognition, (eighteenth slice) the claim / dispute and (nineteenth slice) the relation edge
-    expect(adapter.match(/\.commit\(/g)).toHaveLength(3);
-    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(3);
+    // one commit per authored establishment: the recognition, (eighteenth slice) the claim / dispute, (nineteenth slice) the relation edge and (twenty-second slice) the framework
+    expect(adapter.match(/\.commit\(/g)).toHaveLength(4);
+    expect(adapter.match(/async establish\w+\(/g)).toHaveLength(4);
   });
 
   it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice and the relation edge pair of the nineteenth: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
@@ -283,6 +286,8 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
         .filter((m) => m !== "constructor")
         .sort(),
     ).toEqual([
+      "diplomaticFramework",
+      "establishDiplomaticFramework",
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
       "establishRelationEdge",
@@ -303,10 +308,10 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
     for (const f of SOURCES) {
       // the only permitted `instrument` token is the source field instrument_or_act_ref
       let text = identifiers(f).replace(/instrument_or_act_ref/g, "");
-      // the Diplomacy engine modules (not the recognition contract) carry the nineteenth slice's own Relation Edge identifiers
+      // the Diplomacy engine modules (not the recognition contract) carry the nineteenth and twenty-second slices' own Relation Edge and Framework identifiers
       if (f !== CONTRACT)
         text = text.replace(
-          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge)\b/g,
+          /\b(RelationEdgeSchema|RelationEdge|TypedRelationEdge|readRelationEdge|relationEdge|establishRelationEdge|checkRelationEdge|verifyRelationEdge|diplomacyRelationKey|DIPLOMACY_RELATION_EDGE_RULE|relation_id|relationId|relation|diplomacy_relation_edge|DiplomaticFrameworkSchema|DiplomaticFramework|TypedDiplomaticFramework|readDiplomaticFramework|diplomaticFramework|establishDiplomaticFramework|checkFramework|verifyFramework|diplomacyFrameworkKey|DIPLOMACY_FRAMEWORK_RULE|framework_id|frameworkId|framework|diplomacy_framework)\b/g,
           "",
         );
       expect(text, f).not.toMatch(
