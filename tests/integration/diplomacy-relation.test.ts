@@ -58,6 +58,11 @@ import {
 import { seedInstitutionLikeNeighbors } from "../support/gip.ts";
 import { codeOf, must, spyStore } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import {
+  UNREGISTERED_DIPLOMACY_KEY_PROBES,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+} from "../support/expected-surface.ts";
 
 const key = (id = RELATION_A) => diplomacyRelationKey(id);
 const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
@@ -626,14 +631,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
         "KEY_NOT_ADMITTED",
       );
     expect(diplomacyFacts(s)).toEqual([]);
-    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(
-      new Set([
-        "diplomacy_external_recognition",
-        "diplomacy_externalized_claim_dispute",
-        "diplomacy_relation_edge",
-        "diplomacy_framework",
-      ]),
-    );
+    expect(CANONICAL_OWNER_REGISTRY.get("diplomacy")).toEqual(expectedOwnerFacetSet("diplomacy"));
   });
 
   it("no other registered owner may write the relation key space, and the Diplomacy owner may write no other owner's key space", async () => {
@@ -669,38 +667,16 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, compliance, derived-index or sibling key space exists (the Framework key space is the twenty-second slice's own, so only malformed framework paths are probed): each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, compliance or other unregistered sibling key space, and no malformed Diplomacy path, exists: each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
-    for (const k of [
-      "diplomacy/relation",
-      "diplomacy/relation/r1/x",
-      "diplomacy/relation/r1/channels",
-      "diplomacy/relation/r1/recognitions",
-      "diplomacy/relation/r1/claim-disputes",
-      "diplomacy/relation/r1/instruments",
-      "diplomacy/relation/r1/frameworks",
-      "diplomacy/relation-index/r1",
-      "diplomacy/edge/r1",
-      "diplomacy/channel/c1",
-      "diplomacy/negotiation/n1",
-      "diplomacy/instrument/i1",
-      "diplomacy/instrument/i1/clause/c1",
-      "diplomacy/binding/b1",
-      "diplomacy/framework",
-      "diplomacy/framework/f1/x",
-      "diplomacy/compliance/c1",
-      "diplomacy/receipt/r1",
-    ])
+    for (const k of UNREGISTERED_DIPLOMACY_KEY_PROBES)
       expect(await codeOf(s.campaign.store.commit(raw(++n, relationEdge(), { key: k }))), k).toBe(
         "KEY_NOT_ADMITTED",
       );
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual([
-      "diplomacy_external_recognition",
-      "diplomacy_claim_dispute",
-      "diplomacy_relation_edge",
-      "diplomacy_framework",
-    ]);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "diplomacy").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "diplomacy" }),
+    );
     expect(diplomacyFacts(s)).toEqual([]);
   });
 

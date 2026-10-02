@@ -85,6 +85,8 @@ import {
 } from "../support/economy.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
+import { expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const LOCALITY = { worldId: FIXTURE_WORLD_ID, locusId: FIXTURE_LOCUS_ID };
 const opId = operationOf(DEMAND_1);
@@ -340,10 +342,8 @@ describe("Economy-owned state cannot be authoritatively written by anyone else (
   });
 
   it("the Economy adapter exposes no setter, no satisfaction marker, no supply or stock writer and no release", () => {
-    const methods = Object.getOwnPropertyNames(EconomyAdapter.prototype).filter(
-      (m) => m !== "constructor",
-    );
-    expect(methods.sort()).toEqual(["access", "demand", "issueDemand", "realization", "request"]);
+    const methods = adapterMethods(EconomyAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("EconomyAdapter"));
     expect(
       methods.filter((m) => /^(set|update|write|release|cancel|publish|satisfy|fulfil)/i.test(m)),
     ).toEqual([]);
