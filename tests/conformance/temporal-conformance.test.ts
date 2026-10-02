@@ -115,8 +115,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
     // IM-06 Economy kinds (one owner, one facet); the seventh adds the one World-State entity-transition kind
     // (same owner and facet as the fallback entity); the transaction-authority repair adds the one IM-02 kernel kind
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(36);
+    expect(ALL_FACT_KINDS).toHaveLength(37);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
+      "diplomacy",
       "economy",
       "epistemic_access",
       "gip",
@@ -350,6 +351,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "actor",
       "commit",
+      "diplomacy",
       "economy",
       "epistemic",
       "gip",

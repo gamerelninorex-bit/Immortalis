@@ -411,6 +411,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "actor",
       "commit",
+      "diplomacy",
       "economy",
       "epistemic",
       "gip",

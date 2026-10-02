@@ -43,6 +43,8 @@ export interface IntegrityViolation {
     | "EPISTEMIC_ACCESS_STATE"
     /** IM-06 GIP state (Institution Identity): see verifyGipIntegrity */
     | "GIP_STATE"
+    /** IM-06 Diplomacy state (External Recognition): see verifyDiplomacyIntegrity */
+    | "DIPLOMACY_STATE"
     /** IM-09 KTI state (managed Transfer Package): see verifyKtiIntegrity */
     | "KTI_STATE"
     /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */

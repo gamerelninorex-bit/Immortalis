@@ -271,7 +271,7 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       "gip_governance_instrument",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "gip")).toHaveLength(4);
-    expect(ALL_FACT_KINDS).toHaveLength(36);
+    expect(ALL_FACT_KINDS).toHaveLength(37);
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06" && k.owner === "gip")).toBe(true);
     expect(
       [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) =>

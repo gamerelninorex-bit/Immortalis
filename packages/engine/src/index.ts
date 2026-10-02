@@ -23,7 +23,8 @@
 // committed Institution Identity, initial establishment only), and the GIP Authority Scope Binding Backbone Foundation (the
 // same owner's explicitly established, ADVANCING-compatible Scope Binding beneath a committed office, initial establishment only), and the GIP
 // Governance Instrument Core Backbone Foundation (the same owner's explicitly established, ADVANCING-compatible core Instrument beneath a
-// committed office and one of its Scope Bindings, initial establishment only).
+// committed office and one of its Scope Bindings, initial establishment only), and the Diplomacy External Recognition Core Backbone Foundation (IM-06 Diplomacy owner
+// path: one explicitly established, ADVANCING-compatible, directional and scoped External Recognition over that same substrate, initial establishment only).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
@@ -31,6 +32,10 @@ export * from "./actor/derive.ts";
 export * from "./actor/integrity.ts";
 export * from "./actor/provider.ts";
 export * from "./commit/campaign-core.ts";
+export * from "./diplomacy/adapter.ts";
+export * from "./diplomacy/admission.ts";
+export * from "./diplomacy/declaration.ts";
+export * from "./diplomacy/integrity.ts";
 export * from "./economy/adapter.ts";
 export * from "./economy/admission.ts";
 export * from "./economy/declaration.ts";

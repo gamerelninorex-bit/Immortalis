@@ -104,6 +104,7 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
       ["world_fallback_entity", "world_state", "world_fallback_physical_entity", "SEALED"],
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
+      "diplomacy",
       "economy",
       "epistemic_access",
       "gip",
@@ -369,6 +370,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ).toEqual([
       "actor",
       "commit",
+      "diplomacy",
       "economy",
       "epistemic",
       "gip",

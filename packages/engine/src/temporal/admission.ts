@@ -29,6 +29,7 @@ import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { namedActorObjectViolation } from "../actor/declaration.ts";
 import { epistemicObjectViolation } from "../epistemic/declaration.ts";
+import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipObjectViolation } from "../gip/declaration.ts";
 import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
@@ -142,6 +143,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (kti) return reject("REFERENCE_INVALID", kti, { key: w.key });
       const gip = gipObjectViolation(o);
       if (gip) return reject("REFERENCE_INVALID", gip, { key: w.key });
+      const diplomacy = diplomacyObjectViolation(o);
+      if (diplomacy) return reject("REFERENCE_INVALID", diplomacy, { key: w.key });
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
         (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))
