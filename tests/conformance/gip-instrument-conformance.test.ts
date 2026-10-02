@@ -149,6 +149,7 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
       "gip_governance_instrument",
+      "diplomacy_relation_edge", // twenty-third slice: the Relation Edge's superseded nineteenth-slice citation
     ]);
     expect(instrument.legacyRule!.rule).toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
     expect(code(`${GIP_DIR}/admission.ts`)).toMatch(

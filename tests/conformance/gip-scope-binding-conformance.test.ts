@@ -112,6 +112,7 @@ describe("IA-01 source/version fidelity (GIP Authority Scope Binding registratio
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
       "gip_governance_instrument", // twenty-first slice: the Instrument's superseded sixteenth-slice citation
+      "diplomacy_relation_edge", // twenty-third slice: the Relation Edge's superseded nineteenth-slice citation
     ]);
     expect(binding.legacyRule).toBeUndefined();
     const admission = code(`${GIP_DIR}/admission.ts`);

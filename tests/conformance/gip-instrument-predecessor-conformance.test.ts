@@ -170,13 +170,14 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
     expect(factKind("gip_scope_binding").legacyRule).toBeUndefined();
   });
 
-  it("only those two kinds register a superseded citation; the compatibility is not generalized (no new framework, field or registry)", () => {
+  it("only those two GIP kinds (and, from the twenty-third slice, the Diplomacy Relation Edge kind) register a superseded citation; the compatibility is not generalized (no new framework, field or registry)", () => {
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       "gip_office_authority_locus",
       "gip_governance_instrument",
+      "diplomacy_relation_edge",
     ]);
     const registry = code("packages/engine/src/owners/registry.ts");
-    expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(3); // the FactKind field, and the two entries
+    expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(4); // the FactKind field, and the three entries
     expect(code("packages/engine/src/world/integrity.ts")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );

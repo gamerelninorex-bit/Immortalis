@@ -16,6 +16,7 @@ import {
   DIPLOMACY_FRAMEWORK_RULE,
   DIPLOMACY_RECOGNITION_RULE,
   DIPLOMACY_RELATION_EDGE_RULE,
+  DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE,
   WS008_SOURCE,
   factKind,
 } from "@immortalis/engine";
@@ -126,8 +127,13 @@ describe("IA-01 source/version fidelity (Diplomacy Framework registration and li
     expect(sha(DIPLOMACY_CLAIM_DISPUTE_RULE)).toBe(
       "021cc0b4ddc153606f1a02767fff507e54276b6818889ed244866f539f56d630",
     );
-    expect(sha(DIPLOMACY_RELATION_EDGE_RULE)).toBe(
+    // twenty-third slice: the Relation Edge citation's §4 attribution was corrected; the nineteenth-slice value is preserved
+    // byte-for-byte as the historical constant (its original hash), and the corrected current value is pinned
+    expect(sha(DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE)).toBe(
       "5f4503e087b9601134f6988c1865e76d00723610933f0ae8b9a4837b29fbcce7",
+    );
+    expect(sha(DIPLOMACY_RELATION_EDGE_RULE)).toBe(
+      "2773a95cccc8671238fa29406bdaa7ee23ca8fcc2f46763a37f299919783162a",
     );
     expect(factKind("diplomacy_external_recognition").rule).toEqual(DIPLOMACY_RECOGNITION_RULE);
     expect(factKind("diplomacy_claim_dispute").rule).toEqual(DIPLOMACY_CLAIM_DISPUTE_RULE);

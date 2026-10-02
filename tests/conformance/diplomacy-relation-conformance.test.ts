@@ -15,6 +15,7 @@ import {
   DIPLOMACY_FACT_KINDS,
   DIPLOMACY_RECOGNITION_RULE,
   DIPLOMACY_RELATION_EDGE_RULE,
+  DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE,
   GIP_INSTRUMENT_RULE,
   GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
   GIP_OFFICE_RULE,
@@ -110,8 +111,10 @@ describe("IA-01 source/version fidelity (Diplomacy Relation Edge registration an
   it("the rule names the clauses the state relies on: §§2.1-2.2, §4, §5.1, §24, §§29.3/29.7 and what stays unimplemented", () => {
     for (const c of [
       "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (the durable fact that an external relation materially continues)",
-      "§4 Relation Edge (a sparse continuity object, not a duplicate ledger and not a universal relationship, trust or reputation score)",
-      "§5.1 Relation Edge minimum surface (relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status)",
+      // twenty-third slice: §4 is the Diplomatic Relevance / Reach Gate and §5.1 the Diplomatic Relation Edge (the original §4
+      // "Relation Edge" label is preserved as DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE)
+      "§4 Diplomatic Relevance / Reach Gate (no all-pairs scan; a plausible reach / relevance path is the source gate; no persistent diplomatic-capacity score is created; no Reach calculation implemented)",
+      "§5.1 Diplomatic Relation Edge (a sparse future-causal continuity edge, not a duplicate ledger; minimum surface: relation_id, party_refs[], relation_scope, optional rupture_or_suspension_status, optional provenance_ref, lifecycle_status)",
       "§24 Required Invariants",
       "§§29.3/29.7 R-3 / R-7 (channel_refs[], recognition_refs[], active_claim_dispute_refs[], instrument_refs[] and framework_refs[] are derived, non-authoritative indexes rebuilt from source records and are not authored persistent fields; no all-pairs scan; no universal watcher)",
       "post-establishment rupture, suspension, restoration, retirement and lifecycle mutation, and any derived index or Recognition / Claim-Dispute association, not implemented",
@@ -147,9 +150,11 @@ describe("IA-01 source/version fidelity (Diplomacy Relation Edge registration an
     expect(factKind("gip_institution_identity").rule).toEqual(GIP_RULE);
   });
 
-  it("no historical-compatibility hatch exists for the relation edge kind: it has exactly one current citation", () => {
-    expect(relation.legacyRule).toBeUndefined();
-    for (const k of ALL_FACT_KINDS.filter((k) => k.legacyRule)) expect(k.id).not.toBe(relation.id);
+  it("the relation edge kind has exactly one current citation and, from the twenty-third slice, exactly one load-only historical entry (its preserved nineteenth-slice citation)", () => {
+    expect(relation.rule).toBe(DIPLOMACY_RELATION_EDGE_RULE);
+    expect(Object.keys(relation.legacyRule ?? {}).sort()).toEqual(["admits", "rule"]);
+    expect(relation.legacyRule!.rule).toBe(DIPLOMACY_RELATION_EDGE_RULE_NINETEENTH_SLICE);
+    expect(relation.legacyRule!.rule).not.toEqual(relation.rule);
   });
 
   it("the contract names every authored WS-008 §5.1 identifier exactly, in code, and no alias or normalized variant", () => {

@@ -8,8 +8,8 @@ import { EntityId } from "./world-foundation.ts";
  *
  * Governing sources (exact pins live in the owner registry and spec/f027/spec-lock.json):
  *   WS-008 Diplomacy / Inter-Faction Relations v1.1 (frozen F-027 pin 2026-09-24T07:01:45.312Z): §§2.1–2.2 (ownership: Diplomacy
- *     owns the durable fact that an external relation materially continues), §4 (the sparse Relation Edge), §5.1 (the Relation
- *     Edge minimum surface), §24 (invariants) and §§29.3/29.7 (R-3 / R-7: reference and index arrays are derived,
+ *     owns the durable fact that an external relation materially continues), §4 (the Diplomatic Relevance / Reach Gate: no all-pairs
+ *     scan; not implemented here), §5.1 (the Diplomatic Relation Edge and its minimum surface), §24 (invariants) and §§29.3/29.7 (R-3 / R-7: reference and index arrays are derived,
  *     non-authoritative indexes rebuilt from source records; no all-pairs scan)
  *   F-016 Phase 2C and F-017 Whole-Engine Dependency Graph v0.3: the Actor/Faction/GIP/Diplomacy reconciliation and dependency
  *     lineage
