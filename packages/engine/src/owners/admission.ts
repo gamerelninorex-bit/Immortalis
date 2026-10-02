@@ -1,6 +1,7 @@
 import {
   ExistenceContractSchema,
   FACET_WORLD_FALLBACK_ENTITY,
+  OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
@@ -25,6 +26,7 @@ import {
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
+import { causalDrawGroupCheck } from "../causal-draw/admission.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
@@ -203,6 +205,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
     // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute, Relation Edge or Framework establishment, created once.
     if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
+    // IM-12 Causal Draw provenance groups (F-027-CD1): one precommit or one result, each created once and re-derived.
+    if (group.owner === OWNER_CAUSAL_DRAW_KERNEL) return causalDrawGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -331,6 +335,9 @@ export function identityMismatch(
     case "kti_transfer_basis":
     case "kti_transfer_package":
       return v["package_id"] === ids[0] ? null : "package identity does not match the key";
+    case "causal_draw_precommit":
+    case "causal_draw_result":
+      return v["draw_id"] === `cdraw:v1:${ids[0]}` ? null : "draw_id does not match the key";
     case "population_cohort": {
       const ref = v["ref"] as { cohort_id: string; scope: { ledger_id: string } };
       return ref.cohort_id === ids[1] && ref.scope.ledger_id === ids[0]

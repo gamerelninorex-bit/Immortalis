@@ -27,6 +27,13 @@ const REQUIRED_GATES = [
   "DEPLOYMENT",
   "PF-6/F-028",
 ];
+/**
+ * Implementation-authority addenda the lock must pin, by id, at their exact native pin. An addendum COMPOSES with the
+ * package it names (F-027 v1.0 + the addendum); it never rewrites or silently supersedes it.
+ */
+export const REQUIRED_ADDENDA: Readonly<Record<string, string>> = {
+  "F-027-CD1": "2026-10-02T15:11:03.450Z",
+};
 const pad = (n: number) => String(n).padStart(2, "0");
 const range = (prefix: string, n: number) =>
   Array.from({ length: n }, (_, i) => `${prefix}-${pad(i + 1)}`);
@@ -55,7 +62,18 @@ export function checkSpec(root: string): string[] {
   let lock: {
     snapshot_files?: Record<string, string>;
     frozen_sources?: unknown[];
-    package?: { native_pin?: string };
+    package?: { version?: string; native_pin?: string };
+    implementation_authority_addenda?: {
+      id?: unknown;
+      url?: unknown;
+      native_pin?: unknown;
+      relation?: unknown;
+      supersedes?: unknown;
+      superseded_by?: unknown;
+      composed_with?: { id?: unknown; version?: unknown; package_native_pin?: unknown };
+    }[];
+    supersedes?: unknown;
+    superseded_by?: unknown;
   };
   try {
     lock = JSON.parse(read("spec/f027/spec-lock.json"));
@@ -66,6 +84,48 @@ export function checkSpec(root: string): string[] {
   if (!lock.package?.native_pin) errors.push("spec-lock.json: package.native_pin missing");
   if (!Array.isArray(lock.frozen_sources) || lock.frozen_sources.length !== 23) {
     errors.push("spec-lock.json: frozen_sources must list exactly the 23 frozen entrypoints");
+  }
+
+  const addenda = lock.implementation_authority_addenda ?? [];
+  for (const [id, pin] of Object.entries(REQUIRED_ADDENDA)) {
+    const matches = addenda.filter((a) => a.id === id);
+    if (matches.length !== 1) {
+      errors.push(
+        `spec-lock.json: implementation authority addendum ${id} appears ${matches.length} times (expected 1)`,
+      );
+      continue;
+    }
+    const a = matches[0]!;
+    if (a.native_pin !== pin) errors.push(`spec-lock.json: ${id} must be pinned at exactly ${pin}`);
+    if (typeof a.url !== "string" || a.url.length === 0)
+      errors.push(`spec-lock.json: ${id} has no url`);
+    if (a.relation !== "COMPOSES_WITH")
+      errors.push(`spec-lock.json: ${id} must COMPOSE with F-027, not replace it`);
+    if (a.supersedes !== null || a.superseded_by !== null) {
+      errors.push(
+        `spec-lock.json: ${id} may not supersede or be superseded (historical F-027 v1.0 stays authoritative)`,
+      );
+    }
+    const w = a.composed_with;
+    if (
+      w?.id !== "F-027" ||
+      w.version !== lock.package?.version ||
+      w.package_native_pin !== lock.package?.native_pin
+    ) {
+      errors.push(
+        `spec-lock.json: ${id} must name the F-027 package version and native pin it composes with`,
+      );
+    }
+  }
+  for (const a of addenda) {
+    if (typeof a.id !== "string" || !(a.id in REQUIRED_ADDENDA)) {
+      errors.push(`spec-lock.json: unexpected implementation authority addendum ${String(a.id)}`);
+    }
+  }
+  if (addenda.length > 0 && (lock.supersedes != null || lock.superseded_by != null)) {
+    errors.push(
+      "spec-lock.json: the F-027 package is composed with its addenda and may not be superseded",
+    );
   }
 
   const snapshot = lock.snapshot_files ?? {};

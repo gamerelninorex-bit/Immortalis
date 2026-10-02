@@ -24,13 +24,23 @@
 // same owner's explicitly established, ADVANCING-compatible Scope Binding beneath a committed office, initial establishment only), and the GIP
 // Governance Instrument Core Backbone Foundation (the same owner's explicitly established, ADVANCING-compatible core Instrument beneath a
 // committed office and one of its Scope Bindings, initial establishment only), and the Diplomacy External Recognition Core Backbone Foundation (IM-06 Diplomacy owner
-// path: one explicitly established, ADVANCING-compatible, directional and scoped External Recognition over that same substrate, initial establishment only).
+// path: one explicitly established, ADVANCING-compatible, directional and scoped External Recognition over that same substrate, initial establishment only), and the
+// F-027-CD1 Causal Draw foundation (the infrastructure-only IM-12 `causal_draw_kernel / draw_provenance` owner path: neutral CD-CANON-1 identity, CDS-02 normalization,
+// the CDR-01 gate, secure precommitted entropy, IMMORTALIS_WEIGHTED_FINITE_V1, and the create-only precommit/result records over that same substrate).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
 export * from "./actor/derive.ts";
 export * from "./actor/integrity.ts";
 export * from "./actor/provider.ts";
+export * from "./causal-draw/adapter.ts";
+export * from "./causal-draw/admission.ts";
+export * from "./causal-draw/canon.ts";
+export * from "./causal-draw/derive.ts";
+export * from "./causal-draw/integrity.ts";
+export * from "./causal-draw/ports.ts";
+export * from "./causal-draw/prior.ts";
+export * from "./causal-draw/sampler.ts";
 export * from "./commit/campaign-core.ts";
 export * from "./diplomacy/adapter.ts";
 export * from "./diplomacy/admission.ts";

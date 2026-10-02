@@ -311,6 +311,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
         .sort(),
     ).toEqual([
       "actor",
+      "causal-draw",
       "commit",
       "diplomacy",
       "economy",

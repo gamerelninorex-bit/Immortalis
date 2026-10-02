@@ -345,6 +345,24 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "DIPLOMACY_FACT_KINDS",
     exampleKey: "diplomacy/framework/f1",
   },
+  {
+    id: "causal_draw_precommit",
+    owner: "causal_draw_kernel",
+    facet: "draw_provenance",
+    lifecycle: "SEALED",
+    group: "CAUSAL_DRAW_FACT_KINDS",
+    exampleKey:
+      "causal-draw/0000000000000000000000000000000000000000000000000000000000000000/precommit",
+  },
+  {
+    id: "causal_draw_result",
+    owner: "causal_draw_kernel",
+    facet: "draw_provenance",
+    lifecycle: "SEALED",
+    group: "CAUSAL_DRAW_FACT_KINDS",
+    exampleKey:
+      "causal-draw/0000000000000000000000000000000000000000000000000000000000000000/result",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -367,6 +385,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "diplomacy_relation_edge",
     "diplomacy_framework",
   ],
+  causal_draw_kernel: ["draw_provenance"],
 };
 
 /**
@@ -413,6 +432,19 @@ export interface ExpectedAdapterSurface {
 
 /** Every exported `*Adapter` / `*Coordinator` class of the engine and its whole public surface. */
 export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterSurface>> = {
+  /**
+   * The infrastructure-only Causal Draw owner path (F-027-CD1): ONE operation (`draw`) and two typed reads by identity.
+   * There is no establish-style writer, no precommit/result writer and no re-draw: every record is published through the
+   * adapter's single `.commit(` call.
+   */
+  CausalDrawAdapter: {
+    methods: ["draw", "precommit", "result"],
+    source: {
+      file: "packages/engine/src/causal-draw/adapter.ts",
+      commitCalls: 1,
+      establishWriters: [],
+    },
+  },
   DiplomacyAdapter: {
     methods: [
       "diplomaticFramework",

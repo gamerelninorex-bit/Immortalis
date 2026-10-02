@@ -1,5 +1,9 @@
 import {
   AccessEventSchema,
+  CausalDrawPrecommitSchema,
+  CausalDrawResultSchema,
+  FACET_DRAW_PROVENANCE,
+  OWNER_CAUSAL_DRAW_KERNEL,
   AccessiblePacketSchema,
   BoundaryIndexSchema,
   FACET_ACTOR_PROFILE,
@@ -183,6 +187,16 @@ export const F014B_SOURCE = {
   native_pin: "2026-09-25T23:42:29.547Z",
 } as const;
 
+/**
+ * F-027-CD1 — Causal Draw Implementation-Authority Addendum v1.0 (Twenty-Fifth Blue Freeze), pinned at the exact cleared
+ * native pin and recorded in spec/f027/spec-lock.json `implementation_authority_addenda`. It composes WITH F-027 v1.0; it
+ * does not rewrite or supersede it.
+ */
+export const F027_CD1_SOURCE = {
+  artifact: "https://app.notion.com/p/3ed20af901e08176abe1c203943294b1",
+  native_pin: "2026-10-02T15:11:03.450Z",
+} as const;
+
 export const FACT_KIND_IDS = [
   "world_profile",
   "world_locus",
@@ -245,7 +259,9 @@ export const DIPLOMACY_FACT_KIND_IDS = [
   "diplomacy_relation_edge",
   "diplomacy_framework",
 ] as const;
+export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_result"] as const;
 export type FactKindId =
+  | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
@@ -818,6 +834,62 @@ export const NAMED_ACTOR_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const CAUSAL_DRAW_LINEAGE =
+  "F-027 v1.0 + F-027-CD1 v1.0 composed implementation authority: F-027 Final Package v1.0 pin 2026-09-29T00:40:44.707Z (https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639) composed with the Causal Draw Implementation-Authority Addendum, pinned in spec/f027/spec-lock.json `implementation_authority_addenda`; historical F-027 v1.0 is neither rewritten nor superseded";
+const CAUSAL_DRAW_RED_CLEARANCE =
+  "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
+
+/**
+ * One governing rule for both Causal Draw kinds: the precommit and the result are each one group governed by the pinned
+ * F-027-CD1 v1.0 SourceRef (CDP-01 "The precommit commit is governed by the pinned F-027-CD1 v1.0 SourceRef"; CDO-01 and
+ * CDC-01 carry the same pair). `supersedes` is null: CD1 composes with F-027, it replaces nothing.
+ */
+export const CAUSAL_DRAW_RULE: SourceRef = {
+  artifact: F027_CD1_SOURCE.artifact,
+  native_pin: F027_CD1_SOURCE.native_pin,
+  clause:
+    "§3 Authority and ownership boundary (causal_draw_kernel / draw_provenance, infrastructure-only RC-09 evidence owner/facet); §4 CDK-01 CausalDrawKey; §5 CDK-02 CD-CANON-1 and draw_id; §6 CDS-01; §7 CDS-02 prior normalization; §8 CDR-01 deterministic-first gate; §9 CDE-01 entropy and precommitment; §10 CDP-01 durable precommit record; §11 CDA-01 IMMORTALIS_WEIGHTED_FINITE_V1; §12 CDO-01 durable result record; §13 CDC-01 RC-09 / RC-16 composition; §14 CDR-02 retry, replay, recovery and partition law; §15 CDV-01 algorithm/version compatibility",
+  authority_lineage: [CAUSAL_DRAW_LINEAGE, CAUSAL_DRAW_RED_CLEARANCE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "pinned-by-spec-lock",
+  supersedes: null,
+};
+
+const causalDrawKind = (
+  id: (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_CAUSAL_DRAW_KERNEL,
+  facet: FACET_DRAW_PROVENANCE,
+  im: "IM-12",
+  rc: ["RC-02", "RC-09", "RC-16"],
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: CAUSAL_DRAW_RULE,
+});
+
+/**
+ * F-027-CD1 §3: `causal_draw_kernel / draw_provenance`, an INFRASTRUCTURE-ONLY RC-09 evidence owner/facet. IM-03 routes
+ * only the two Causal Draw provenance key spaces below to it; IM-12 retains the committed evidence; IM-11/IM-17
+ * publish and persist it. Both kinds are SEALED, i.e. create-only (`expected_version = 0`; no update, replacement or
+ * deletion after commitment). This registration creates no authority to write any substantive world fact and is not a
+ * generic fallback owner: the keys are `causal-draw/<64 lowercase hex>/precommit` and `.../result`, nothing else.
+ */
+export const CAUSAL_DRAW_FACT_KINDS: readonly FactKind[] = [
+  causalDrawKind(
+    "causal_draw_precommit",
+    /^causal-draw\/([0-9a-f]{64})\/precommit$/,
+    CausalDrawPrecommitSchema,
+  ),
+  causalDrawKind(
+    "causal_draw_result",
+    /^causal-draw\/([0-9a-f]{64})\/result$/,
+    CausalDrawResultSchema,
+  ),
+];
+
 const F014D_LINEAGE =
   "F-014D Epistemic Access — Working Operational Draft v2 (Epistemic Access, Provenance & Information Channels), Sovereign-ratified 2026-09-20 with the W1-PS2 provenance-split amendment (Sealed Engine Provenance vs Accessible Content Packet) Sovereign-ratified 2026-09-25, at the frozen lock pin 2026-09-24T16:25:17.059Z (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e); Concept v3 https://app.notion.com/p/3e020af901e081fca9c0c7213b720124";
 
@@ -1294,7 +1366,8 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
  * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
- * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind, the IM-06 Diplomacy Relation Edge kind and the IM-06 Diplomacy Framework kind.
+ * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind, the IM-06 Diplomacy Relation Edge kind and the IM-06 Diplomacy Framework kind,
+ * and the infrastructure-only IM-12 Causal Draw precommit and result kinds (F-027-CD1).
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -1310,6 +1383,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...KTI_FACT_KINDS,
   ...GIP_FACT_KINDS,
   ...DIPLOMACY_FACT_KINDS,
+  ...CAUSAL_DRAW_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {
