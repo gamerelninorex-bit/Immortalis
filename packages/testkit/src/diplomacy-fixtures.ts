@@ -1,4 +1,5 @@
 import type {
+  DiplomaticFramework,
   ExternalRecognition,
   ExternalizedClaimDispute,
   RelationEdge,
@@ -147,5 +148,47 @@ export const fullRelationEdge = (
   relationEdge(relationId, {
     rupture_or_suspension_status: "SYNTHETIC FIXTURE: an authored rupture or suspension status.",
     provenance_ref: RELATION_PROVENANCE_REF_A,
+    ...over,
+  });
+
+export const FRAMEWORK_A = "framework-a-1";
+export const FRAMEWORK_B = "framework-b-1";
+export const FRAMEWORK_C = "framework-c-1";
+export const FRAMEWORK_MEMBER_REF_A = "framework-member-ref-a-1";
+export const FRAMEWORK_MEMBER_REF_B = "framework-member-ref-b-1";
+export const FRAMEWORK_CHARTER_REF_A = "framework-charter-ref-a-1";
+export const FRAMEWORK_COMMITMENT_REF_A = "framework-commitment-ref-a-1";
+export const FRAMEWORK_DECISION_RULE_REF_A = "framework-decision-rule-ref-a-1";
+export const FRAMEWORK_PROVENANCE_REF_A = "framework-provenance-ref-a-1";
+
+/**
+ * A well-formed Diplomatic Framework at the WS-008 §16 authored core: every required field, with the conditional
+ * `collective_decision_rule_ref` omitted (absent, not empty). The references name nothing in this fixture world: no member,
+ * charter, instrument, commitment, decision rule or provenance object exists behind them, and no Relation Edge, Recognition,
+ * Claim / Dispute or derived index is part of the record. Nothing here is a game rule.
+ */
+export const diplomaticFramework = (
+  frameworkId = FRAMEWORK_A,
+  over: Partial<DiplomaticFramework> = {},
+): DiplomaticFramework => ({
+  framework_id: frameworkId,
+  framework_basis: "SYNTHETIC FIXTURE: an authored framework basis.",
+  member_refs: [FRAMEWORK_MEMBER_REF_A, FRAMEWORK_MEMBER_REF_B],
+  charter_or_instrument_refs: [FRAMEWORK_CHARTER_REF_A],
+  membership_rules: "SYNTHETIC FIXTURE: authored membership rules.",
+  entry_exit_rules: "SYNTHETIC FIXTURE: authored entry and exit rules.",
+  shared_commitment_refs: [FRAMEWORK_COMMITMENT_REF_A],
+  lifecycle_status: "SYNTHETIC FIXTURE: an authored lifecycle status.",
+  provenance_ref: FRAMEWORK_PROVENANCE_REF_A,
+  ...over,
+});
+
+/** The same Framework carrying the conditional collective decision rule reference. */
+export const fullDiplomaticFramework = (
+  frameworkId = FRAMEWORK_A,
+  over: Partial<DiplomaticFramework> = {},
+): DiplomaticFramework =>
+  diplomaticFramework(frameworkId, {
+    collective_decision_rule_ref: FRAMEWORK_DECISION_RULE_REF_A,
     ...over,
   });

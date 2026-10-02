@@ -23,9 +23,11 @@ import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
   RelationEdgeSchema,
+  DiplomaticFrameworkSchema,
   FACET_DIPLOMACY_EXTERNAL_RECOGNITION,
   FACET_DIPLOMACY_EXTERNALIZED_CLAIM_DISPUTE,
   FACET_DIPLOMACY_RELATION_EDGE,
+  FACET_DIPLOMACY_FRAMEWORK,
   FACET_ECONOMY_STATE,
   FACET_GIP_INSTITUTION_IDENTITY,
   FACET_EXISTENCE_CONTRACT,
@@ -241,6 +243,7 @@ export const DIPLOMACY_FACT_KIND_IDS = [
   "diplomacy_external_recognition",
   "diplomacy_claim_dispute",
   "diplomacy_relation_edge",
+  "diplomacy_framework",
 ] as const;
 export type FactKindId =
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
@@ -1181,14 +1184,36 @@ export const DIPLOMACY_RELATION_EDGE_RULE: SourceRef = rule(
 );
 
 /**
+ * The governing rule for the Diplomacy Framework kind (twenty-second slice): one group, written once at establishment (the record
+ * is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The clauses are the
+ * ones the state relies on: WS-008 v1.1 §§2.1-2.2 (Diplomacy owns diplomatic Framework membership and external charter /
+ * instrument references; internal institutional procedure, private motive and population membership are never Diplomacy's), §4
+ * (the Relevance / Reach gate: no all-pairs scan), §16 (Diplomatic Frameworks: the durable multi-party external arrangement where
+ * one shared object avoids pairwise duplication, and its minimum fields framework_id, framework_basis, member_refs[],
+ * charter_or_instrument_refs[], membership_rules, entry_exit_rules, collective_decision_rule_ref where external framework action
+ * requires one, shared_commitment_refs[], lifecycle_status and provenance_ref), §§19-24 (the runtime master sequence and the
+ * required invariants, notably Framework membership != autonomous collective agency, one member's breach != framework-wide
+ * breach, stable state carries forward and no universal diplomacy tick), §29.3 (R-3: `dependency_refs[]` only for a conclusion
+ * derived from another owner's mutable state; this authored core is not one), §29.5 (R-5: the Framework collective decision
+ * owner is a hard ownership boundary, not behavior of this record) and §29.7 (R-7 / S-1: a shared Framework replaces duplicated
+ * pairwise treaty structure; no all-pairs scan); F-016 Phase 2C and F-017 lineage. No Recognition, Claim / Dispute or Relation
+ * Edge citation is reused as if it governed the Framework.
+ */
+export const DIPLOMACY_FRAMEWORK_RULE: SourceRef = rule(
+  WS008_SOURCE,
+  "v1.1 §§2.1-2.2 Diplomacy-owned persistent state (diplomatic Framework membership and external charter / instrument references) and Explicit non-ownership; §4 Diplomatic Relevance / Reach Gate (no all-pairs scan); §16 Diplomatic Frameworks (a durable multi-party external arrangement where one shared object avoids pairwise duplication; minimum fields: framework_id, framework_basis, member_refs[], charter_or_instrument_refs[], membership_rules, entry_exit_rules, collective_decision_rule_ref where external framework action requires one, shared_commitment_refs[], lifecycle_status, provenance_ref; the Framework owns external membership and commitment structure only); §§19-24 Runtime Master Sequence through Required Invariants (Framework membership != autonomous collective agency; one member's breach != framework-wide breach; stable state carries forward; no universal diplomacy tick); §29.3 R-3 Dependency registration and invalidation (dependency_refs[] only where a persisted conclusion is derived from another owner's mutable state; the authored Framework core is not one); §29.5 R-5 Framework collective decision owner (GIP owns the procedure of a GIP-owned framework institution, a promoted autonomous collective resolves its own decision, and only otherwise may Diplomacy later apply the charter rule mechanically; ownership boundary only, nothing computed); §29.7 R-7 / S-1 Interface & Scaling Declaration (a shared Framework replaces duplicated pairwise treaty structure; no all-pairs scan; no universal watcher); post-establishment amendment, membership admission, exit, suspension, expulsion, succession or dissolution, framework decision execution, member-fault propagation, derived Relation Edge framework_refs[] index and any Recognition / Claim-Dispute / Instrument association not implemented",
+  [WS008_LINEAGE, F016_PHASE_2C_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
  * IM-06 Economy / GIP / Diplomacy Adapter — the DIPLOMACY EXTERNAL RECOGNITION CORE part only: "Diplomacy commitment-of-record",
  * lowered to the one directional, scoped recognition record that the source assigns to Diplomacy. One owner (distinct from GIP
  * and Economy), one External Recognition facet, one exclusive key space. The kind is ADVANCING, because WS-008 explicitly permits
  * later withdrawal, suspension, succession / continuity consequences and cold-history retirement under the owner's own
  * expected-version chain; this foundation implements initial authored establishment only, and Diplomacy admission refuses every
- * other change. The nineteenth slice adds the Relation Edge authoritative core and the eighteenth the Claim / Dispute kind under the
- * same owner. There is no fallback owner, and no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework,
- * compliance, score or reciprocal kind, and no derived Relation Edge index kind.
+ * other change. The nineteenth slice adds the Relation Edge authoritative core, the eighteenth the Claim / Dispute kind and the
+ * twenty-second the Framework authoritative core under the same owner. There is no fallback owner, and no Channel, Negotiation
+ * Record, Instrument, Clause, Binding Entry, compliance, score or reciprocal kind, and no derived Relation Edge index kind.
  */
 export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
   {
@@ -1224,6 +1249,17 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
     valueSchema: RelationEdgeSchema,
     rule: DIPLOMACY_RELATION_EDGE_RULE,
   },
+  {
+    id: "diplomacy_framework",
+    owner: OWNER_DIPLOMACY,
+    facet: FACET_DIPLOMACY_FRAMEWORK,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^diplomacy/framework/${ID}$`),
+    valueSchema: DiplomaticFrameworkSchema,
+    rule: DIPLOMACY_FRAMEWORK_RULE,
+  },
 ];
 
 /**
@@ -1231,7 +1267,7 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
  * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
- * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind and the IM-06 Diplomacy Relation Edge kind.
+ * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind, the IM-06 Diplomacy Relation Edge kind and the IM-06 Diplomacy Framework kind.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,

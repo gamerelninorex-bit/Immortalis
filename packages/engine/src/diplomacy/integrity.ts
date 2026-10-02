@@ -1,9 +1,11 @@
 import {
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
+  DiplomaticFrameworkSchema,
   RelationEdgeSchema,
   TemporalObjectSchema,
   diplomacyDisputeKey,
+  diplomacyFrameworkKey,
   diplomacyRecognitionKey,
   diplomacyRelationKey,
   disputeDependencyKeys,
@@ -36,6 +38,9 @@ import { diplomacyObjectViolation } from "./declaration.ts";
  *  - a Relation Edge is at the key its exact `relation_id` derives, is still its one first version, and was committed by one
  *    create-only write of its own key that read and depended on nothing (so no Recognition, Claim / Dispute, foreign fact, derived
  *    index or sibling edge was part of it, and no dependency was invented);
+ *  - a Diplomatic Framework is at the key its exact `framework_id` derives, is still its one first version, and was committed by one
+ *    create-only write of its own key that read and depended on nothing (so no Relation Edge, Recognition, Claim / Dispute,
+ *    foreign fact, derived index, sibling Framework or member copy was part of it, and no dependency was invented);
  *  - its governing-rule provenance is re-checked with every fact by canonical integrity;
  *  - no temporal object declares a Diplomacy stage, close or owned object: Diplomacy has no tick, phase, scheduler, watcher or
  *    polling loop.
@@ -54,6 +59,8 @@ export function verifyDiplomacyIntegrity(store: CampaignStore): readonly Integri
       verifyDispute(store, f, bad);
     } else if (kindOf(f) === "diplomacy_relation_edge") {
       verifyRelationEdge(store, f, bad);
+    } else if (kindOf(f) === "diplomacy_framework") {
+      verifyFramework(store, f, bad);
     } else if (kindOf(f) === "temporal_object") {
       const o = TemporalObjectSchema.safeParse(f.value);
       const violation = o.success ? diplomacyObjectViolation(o.data) : null;
@@ -177,6 +184,43 @@ function verifyRelationEdge(
     bad(
       f.key,
       "a Relation Edge was established reading and depending on nothing: no dependency is invented",
+    );
+  }
+}
+
+function verifyFramework(
+  store: CampaignStore,
+  f: OwnerFact,
+  bad: (key: string, message: string) => void,
+): void {
+  const parsed = DiplomaticFrameworkSchema.safeParse(f.value);
+  if (!parsed.success) return; // canonical integrity reports a value that violates its contract
+  const framework = parsed.data;
+  if (f.key !== diplomacyFrameworkKey(framework.framework_id)) {
+    bad(f.key, "a Diplomatic Framework is at the key derived from its exact framework_id");
+    return;
+  }
+  if (f.version !== 1) {
+    bad(
+      f.key,
+      "no framework transition is implemented: a Diplomatic Framework is still the version it was established as",
+    );
+    return;
+  }
+  const group = store.committedGroup(f.provenance.intent_id);
+  if (
+    !group ||
+    group.writes.length !== 1 ||
+    group.writes[0]!.key !== f.key ||
+    group.writes[0]!.expected_version !== 0
+  ) {
+    bad(f.key, "a Diplomatic Framework was established by one create-only write of its own key");
+    return;
+  }
+  if (group.reads.length !== 0 || group.depends_on.length !== 0) {
+    bad(
+      f.key,
+      "a Diplomatic Framework was established reading and depending on nothing: no dependency is invented",
     );
   }
 }

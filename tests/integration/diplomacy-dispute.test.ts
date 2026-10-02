@@ -757,6 +757,8 @@ describe("only the establishment is supported: every post-establishment mutation
         .filter((m) => m !== "constructor")
         .sort(),
     ).toEqual([
+      "diplomaticFramework",
+      "establishDiplomaticFramework",
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
       "establishRelationEdge",
@@ -843,6 +845,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
         "diplomacy_external_recognition",
         "diplomacy_externalized_claim_dispute",
         "diplomacy_relation_edge",
+        "diplomacy_framework",
       ]),
     );
     const recognitionOnDisputeKey = raw(401, externalRecognition(), {
@@ -892,7 +895,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, compliance or receipt key space exists (the Relation Edge key space is the nineteenth slice's own, so only malformed relation paths are probed): each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, compliance or receipt key space exists (the Relation Edge and Framework key spaces are the nineteenth and twenty-second slices' own, so only malformed relation and framework paths are probed): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
@@ -904,7 +907,8 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy/instrument/i1",
       "diplomacy/instrument/i1/clause/c1",
       "diplomacy/binding/b1",
-      "diplomacy/framework/f1",
+      "diplomacy/framework",
+      "diplomacy/framework/f1/x",
       "diplomacy/claim/c1",
       "diplomacy/compliance/c1",
       "diplomacy/receipt/r1",
@@ -920,6 +924,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
       "diplomacy_relation_edge",
+      "diplomacy_framework",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

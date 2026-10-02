@@ -693,6 +693,8 @@ describe("only the establishment is supported: every post-establishment mutation
       .filter((m) => m !== "constructor")
       .sort();
     expect(methods).toEqual([
+      "diplomaticFramework",
+      "establishDiplomaticFramework",
       "establishExternalRecognition",
       "establishExternalizedClaimDispute",
       "establishRelationEdge",
@@ -809,7 +811,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
     expect(diplomacyFacts(s)).toEqual([]);
   });
 
-  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, Framework, claim or compliance key space exists (the dispute and Relation Edge key spaces are the eighteenth and nineteenth slices' own): each is outside every registered key space", async () => {
+  it("no Channel, Negotiation Record, Instrument, Clause, Binding Entry, claim or compliance key space exists (the dispute, Relation Edge and Framework key spaces are the eighteenth, nineteenth and twenty-second slices' own, so only malformed framework paths are probed): each is outside every registered key space", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     let n = 500;
     for (const k of [
@@ -821,7 +823,8 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy/instrument/i1",
       "diplomacy/instrument/i1/clause/c1",
       "diplomacy/binding/b1",
-      "diplomacy/framework/f1",
+      "diplomacy/framework",
+      "diplomacy/framework/f1/x",
       "diplomacy/claim/c1",
       "diplomacy/compliance/c1",
       "diplomacy/recognition",
@@ -836,6 +839,7 @@ describe("owner exclusivity and no collateral Diplomacy or foreign structure", (
       "diplomacy_external_recognition",
       "diplomacy_claim_dispute",
       "diplomacy_relation_edge",
+      "diplomacy_framework",
     ]);
     expect(diplomacyFacts(s)).toEqual([]);
   });

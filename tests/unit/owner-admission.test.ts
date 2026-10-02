@@ -181,6 +181,7 @@ describe("registry: every key space has exactly one owner/facet and there is no 
         [
           "diplomacy_external_recognition",
           "diplomacy_externalized_claim_dispute",
+          "diplomacy_framework",
           "diplomacy_relation_edge",
         ],
       ],

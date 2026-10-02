@@ -5,6 +5,7 @@ import {
   type FileCampaignOptions,
 } from "@immortalis/engine";
 import type {
+  DiplomaticFramework,
   ExternalRecognition,
   ExternalizedClaimDispute,
   RelationEdge,
@@ -22,6 +23,7 @@ import {
   fixtureLocus,
   fixtureWorld,
   gipPublication,
+  diplomaticFramework,
   institutionIdentity,
   officeAuthorityLocus,
   publication,
@@ -120,6 +122,18 @@ export async function establishRelationEdge(
   const relation = relationEdge(relationId, over);
   await must(s.diplomacy.establishRelationEdge({ ...diplomacyPublication(n), relation }));
   return relation;
+}
+
+/** Commits the one authored initial establishment of a Diplomatic Framework. */
+export async function establishDiplomaticFramework(
+  s: Pick<DiplomacySeeded, "diplomacy">,
+  n: number,
+  frameworkId?: string,
+  over: Partial<DiplomaticFramework> = {},
+): Promise<DiplomaticFramework> {
+  const framework = diplomaticFramework(frameworkId, over);
+  await must(s.diplomacy.establishDiplomaticFramework({ ...diplomacyPublication(n), framework }));
+  return framework;
 }
 
 /**

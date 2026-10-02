@@ -21,12 +21,14 @@
 // GIP Governance Instrument Core Backbone Foundation contract (the strict WS-007 §4.1 core Instrument beneath one office and one of its Scope Bindings), and the
 // Diplomacy External Recognition Core Backbone Foundation contract (the strict WS-008 §6 recognition entry with the v1.1 §29.2/§29.3 overlay fields), and the
 // Diplomacy Externalized Claim / Dispute Core Backbone Foundation contract (the strict WS-008 §7 claim/dispute entry with the v1.1 §29.3/§29.4 overlay fields), and the
-// Diplomacy Relation Edge Authoritative Core Backbone Foundation contract (the strict WS-008 §5.1 authoritative core; the derived reference/index arrays are not writable).
+// Diplomacy Relation Edge Authoritative Core Backbone Foundation contract (the strict WS-008 §5.1 authoritative core; the derived reference/index arrays are not writable), and the
+// Diplomacy Framework Authoritative Core Backbone Foundation contract (the strict WS-008 §16 Framework minimum surface; initial authored establishment only).
 export * from "./actor-capability.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
 export * from "./commit.ts";
 export * from "./diplomacy-dispute.ts";
+export * from "./diplomacy-framework.ts";
 export * from "./diplomacy-recognition.ts";
 export * from "./diplomacy-relation.ts";
 export * from "./economy.ts";
