@@ -1,6 +1,7 @@
 import {
   ExistenceContractSchema,
   FACET_WORLD_FALLBACK_ENTITY,
+  OWNER_DIPLOMACY,
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_GIP,
@@ -24,6 +25,7 @@ import {
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
+import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
@@ -199,6 +201,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
     // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
     if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
+    // IM-06 Diplomacy groups: one External Recognition establishment, created once.
+    if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -312,6 +316,8 @@ export function identityMismatch(
         : "institution, office and scope binding identity does not match the key";
     case "gip_governance_instrument":
       return v["instrument_id"] === ids[0] ? null : "instrument_id does not match the key";
+    case "diplomacy_external_recognition":
+      return v["recognition_id"] === ids[0] ? null : "recognition_id does not match the key";
     case "kti_development_object":
       return v["object_id"] === ids[0]
         ? null

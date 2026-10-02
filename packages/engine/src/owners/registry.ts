@@ -20,6 +20,8 @@ import {
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
+  ExternalRecognitionSchema,
+  FACET_DIPLOMACY_EXTERNAL_RECOGNITION,
   FACET_ECONOMY_STATE,
   FACET_GIP_INSTITUTION_IDENTITY,
   FACET_EXISTENCE_CONTRACT,
@@ -30,6 +32,7 @@ import {
   InstitutionIdentitySchema,
   OfficeAuthorityLocusHolderSchema,
   OfficeAuthorityLocusSchema,
+  OWNER_DIPLOMACY,
   OWNER_GIP,
   GovernanceInstrumentSchema,
   ScopeBindingSchema,
@@ -163,6 +166,11 @@ export const WS007_SOURCE = {
   native_pin: "2026-09-24T01:42:24.952Z",
 } as const;
 
+export const WS008_SOURCE = {
+  artifact: "https://app.notion.com/p/3e220af901e081fd8594d6f2e6c453f6",
+  native_pin: "2026-09-24T07:01:45.312Z",
+} as const;
+
 export const F014B_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
   native_pin: "2026-09-25T23:42:29.547Z",
@@ -224,7 +232,9 @@ export const GIP_FACT_KIND_IDS = [
   "gip_scope_binding",
   "gip_governance_instrument",
 ] as const;
+export const DIPLOMACY_FACT_KIND_IDS = ["diplomacy_external_recognition"] as const;
 export type FactKindId =
+  | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
   | (typeof KTI_FACT_KIND_IDS)[number]
@@ -1072,11 +1082,68 @@ export const GIP_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+const WS008_LINEAGE =
+  "WS-008 Diplomacy / Inter-Faction Relations — Sovereign-ratified Working Operational Draft v1.1 (Blue-Red consensus successor with the §29 bounded Red-audit repair overlay), frozen F-027 source at the lock pin 2026-09-24T07:01:45.312Z (https://app.notion.com/p/3e220af901e081fd8594d6f2e6c453f6)";
+const GIP_CONCEPT_AMENDMENT_LINEAGE =
+  "GIP Concept Amendment v2.1, pin 2026-09-24T01:42:22.902Z (https://app.notion.com/p/3e120af901e08184b49ac542f45296d9): evaluator belief/acceptance/contest stays outside the formal external-recognition fact; pure external recognition stays in Diplomacy, not GIP, with WS-007 at its frozen pin 2026-09-24T01:42:24.952Z (https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521)";
+const F016_PHASE_2C_LINEAGE =
+  "F-016 Phase 2C Actor / Faction / GIP / Diplomacy reconciliation, pin 2026-09-21T23:21:44.154Z (https://app.notion.com/p/3e220af901e081118f77f0b9327dbeea): external sovereign / inter-faction recognition belongs to Diplomacy; GIP supplies the pre-decision authority; later domestic incorporation is a distinct stage";
+
+/**
+ * The governing rule for the Diplomacy External Recognition kind (seventeenth slice): one group, written once at establishment
+ * (the recognition is ADVANCING in kind but no transition exists yet), and every load re-verifies it against this citation. The
+ * clauses are the ones the state relies on: WS-008 v1.1 §2.1 (Diplomacy owns directional and scoped external recognition state)
+ * and §2.2 (explicit non-ownership: internal jurisdiction and domestic incorporation are GIP's; belief, knowledge and receipt,
+ * objective geography / control and a universal trust, reputation or influence meter are never Diplomacy's), §6 (External
+ * Recognition: directional and scoped; the minimum recognition entry; the possible `recognition_status` values; silence creates
+ * no record; "Existence != claim != recognition != control"), §24 invariants 7-8, §29.2 (R-2: `continuity_basis`, and
+ * `successor_rule_ref` where one is supplied; no invented succession law), §29.3 (R-3: `dependency_refs[]` where the conclusion
+ * is derived from another owner's mutable state; no universal watcher), §29.7 (recognition is directional, scoped and sparse; a
+ * framework clause or sourced setting convention may carry recognition once for a defined member set; no all-pairs scan) and
+ * §29.8 m-4 (no implied recognition by conduct) and m-7 (cold-history retention, not implemented); F-016 Phase 2C and F-017
+ * (GIP authority precedes Diplomacy; a later incorporation result never rewrites the earlier external act).
+ */
+export const DIPLOMACY_RECOGNITION_RULE: SourceRef = rule(
+  WS008_SOURCE,
+  "v1.1 §2.1 Diplomacy-owned persistent state (directional and scoped external recognition state) and §2.2 Explicit non-ownership; §6 External Recognition (minimum recognition entry: recognition_id, recognizer_ref, recognized_referent_ref, recognition_scope, recognition_status, authority_basis_ref, effective_from, optional withdrawal_or_supersession_condition, instrument_or_act_ref, provenance_ref; possible recognition_status values; recognition is directional and scoped; silence or absence creates no record; Existence != claim != recognition != control); §24 Required Invariants 7-8; §29.2 R-2 Continuity and succession (continuity_basis; successor_rule_ref where supplied); §29.3 R-3 Dependency registration and invalidation (dependency_refs[] where the persisted conclusion is derived from another owner's mutable state; no universal watcher); §29.7 R-7 / S-1 Recognition scaling (directional, scoped, sparse; no all-pairs scan); §29.8 m-4 No implied recognition by conduct; post-establishment status change, withdrawal resolution, succession application, dependency-driven re-resolution and cold-history retirement not implemented",
+  [
+    WS008_LINEAGE,
+    GIP_CONCEPT_AMENDMENT_LINEAGE,
+    F016_PHASE_2C_LINEAGE,
+    F017_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * IM-06 Economy / GIP / Diplomacy Adapter — the DIPLOMACY EXTERNAL RECOGNITION CORE part only: "Diplomacy commitment-of-record",
+ * lowered to the one directional, scoped recognition record that the source assigns to Diplomacy. One owner (distinct from GIP
+ * and Economy), one External Recognition facet, one exclusive key space. The kind is ADVANCING, because WS-008 explicitly permits
+ * later withdrawal, suspension, succession / continuity consequences and cold-history retirement under the owner's own
+ * expected-version chain; this foundation implements initial authored establishment only, and Diplomacy admission refuses every
+ * other change. There is no fallback owner, and no Relation Edge, Channel, Negotiation Record, Instrument, Clause, Binding Entry,
+ * Framework, claim, dispute, compliance, score or reciprocal kind.
+ */
+export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "diplomacy_external_recognition",
+    owner: OWNER_DIPLOMACY,
+    facet: FACET_DIPLOMACY_EXTERNAL_RECOGNITION,
+    im: "IM-06",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^diplomacy/recognition/${ID}$`),
+    valueSchema: ExternalRecognitionSchema,
+    rule: DIPLOMACY_RECOGNITION_RULE,
+  },
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
  * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
- * and the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds.
+ * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
+ * and the IM-06 Diplomacy External Recognition kind.
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
@@ -1091,6 +1158,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...EPISTEMIC_ACCESS_FACT_KINDS,
   ...KTI_FACT_KINDS,
   ...GIP_FACT_KINDS,
+  ...DIPLOMACY_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {
