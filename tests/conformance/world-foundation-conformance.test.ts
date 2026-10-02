@@ -12,6 +12,7 @@ import {
   WG_SOURCE,
 } from "@immortalis/engine";
 import { gates, lock, register } from "../support/f027.ts";
+import { EXPECTED_OWNER_FACETS, expectedKindIds } from "../support/expected-surface.ts";
 
 describe("IA-01 source/version fidelity (owner-registration aspect)", () => {
   it("every owner/facet registration cites a frozen source at its exact spec-locked pin", () => {
@@ -108,22 +109,10 @@ describe("no hidden expansion: no unrelated subsystem is registered", () => {
     // the Production & Resource Conservation Backbone (fifth slice) adds IM-05 Production (WS-003) and
     // World-State's fallback physical-entity facet (WG, F-016 R-1); the Economy Demand → Production Request →
     // Realized Access Backbone (sixth slice) adds IM-06 Economy (WS-004); the world/PC kinds themselves are unchanged.
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
-      "diplomacy",
-      "economy",
-      "epistemic_access",
-      "gip",
-      "kti",
-      "logistics",
-      "named_actor",
-      "pc_existence",
-      "population",
-      "production",
-      "role_registry",
-      "temporal_kernel",
-      "world_state",
-    ]);
-    expect(FACT_KINDS).toHaveLength(4);
+    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
+      Object.keys(EXPECTED_OWNER_FACETS).sort(),
+    );
+    expect(FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "FACT_KINDS" }));
   });
 });
 

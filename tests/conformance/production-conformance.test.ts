@@ -21,6 +21,8 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { EXPECTED_OWNER_FACETS, expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -99,21 +101,9 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
       ["world_fallback_entity", "world_state", "world_fallback_physical_entity", "SEALED"],
     ]);
     // (the sixth slice's Economy is the one later registered owner)
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
-      "diplomacy",
-      "economy",
-      "epistemic_access",
-      "gip",
-      "kti",
-      "logistics",
-      "named_actor",
-      "pc_existence",
-      "population",
-      "production",
-      "role_registry",
-      "temporal_kernel",
-      "world_state",
-    ]);
+    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
+      Object.keys(EXPECTED_OWNER_FACETS).sort(),
+    );
     for (const key of [
       "production/reserve/r",
       "production/claim/c",
@@ -158,20 +148,7 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
   });
 
   it("the Production adapter has no writer for Reserve quantity, claims, transformation or output, and the custodian has no adapter at all", () => {
-    expect(
-      Object.getOwnPropertyNames(ProductionAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "acceptedEntity",
-      "availability",
-      "claim",
-      "completion",
-      "establishReserve",
-      "operation",
-      "reserve",
-      "startOperation",
-    ]);
+    expect(adapterMethods(ProductionAdapter)).toEqual(expectedAdapterMethods("ProductionAdapter"));
     expect(code("packages/engine/src/world/fallback-custody.ts")).not.toMatch(/\bclass\b/);
     expect(worldFallbackAcceptanceProvider.owner).toBe("world_state");
     expect(productionCompletionProvider.owner).toBe("production");
@@ -211,20 +188,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/temporal/admission.ts")).toMatch(
       /productionObjectViolation\(o, state, true\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("a completion and an acceptance are published only as their IM-02 stage: admission and load verification apply the one stage rule (identity and the durable transaction authority), built on the existing derived stage identity", () => {

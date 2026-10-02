@@ -26,6 +26,7 @@ import {
   expectedKindIds,
   expectedOwnerFacetSet,
   stripLawfulSiblingIdentifiers,
+  expectedAdapterMethods,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
@@ -237,6 +238,7 @@ describe("IA-03 owner exclusivity: the Diplomacy owner holds the External Recogn
   it("the Diplomacy adapter has exactly the recognition writer and read plus the claim / dispute pair of the eighteenth slice and the relation edge pair of the nineteenth: no update, withdrawal, suspension, supersession, succession, re-resolution or retirement method", () => {
     // (the whole adapter surface is the central oracle's: registered-surface-conformance) — the recognition pair is
     // still exactly one writer and one keyed read, and nothing here updates, withdraws, suspends, supersedes or retires
+    expect(adapterMethods(DiplomacyAdapter)).toEqual(expectedAdapterMethods("DiplomacyAdapter"));
     const methods = adapterMethods(DiplomacyAdapter);
     expect(methods.filter((m) => /recognition/i.test(m))).toEqual([
       "establishExternalRecognition",

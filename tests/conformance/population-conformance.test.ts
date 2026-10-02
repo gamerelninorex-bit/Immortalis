@@ -18,6 +18,12 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  EXPECTED_FACT_KINDS,
+  EXPECTED_OWNER_FACETS,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -82,22 +88,10 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
     // sixth slice's three Economy kinds bring it to 19; the seventh slice's one World-State entity-transition kind
     // brings it to 20; the transaction-authority repair's one IM-02 kernel kind brings it to 21)
     // (the eighth slice's three Logistics kinds bring the registry to 24)
-    expect(ALL_FACT_KINDS).toHaveLength(40);
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
-      "diplomacy",
-      "economy",
-      "epistemic_access",
-      "gip",
-      "kti",
-      "logistics",
-      "named_actor",
-      "pc_existence",
-      "population",
-      "production",
-      "role_registry",
-      "temporal_kernel",
-      "world_state",
-    ]);
+    expect(ALL_FACT_KINDS).toHaveLength(EXPECTED_FACT_KINDS.length);
+    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
+      Object.keys(EXPECTED_OWNER_FACETS).sort(),
+    );
     const probes = [
       "population/l/ledger",
       "population/l/close",
@@ -128,17 +122,8 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
   });
 
   it("the adapter has no ledger, count or Cohort-result writer, and no retire/rebind/registration mechanism", () => {
-    const methods = Object.getOwnPropertyNames(PopulationAdapter.prototype).filter(
-      (m) => m !== "constructor",
-    );
-    expect(methods.sort()).toEqual([
-      "close",
-      "cohort",
-      "cohortView",
-      "establishLedger",
-      "instantiateCohort",
-      "ledger",
-    ]);
+    const methods = adapterMethods(PopulationAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("PopulationAdapter"));
     expect(
       methods.filter((m) => /set|update|write|retire|rebind|register|cancel/i.test(m)),
     ).toEqual([]);
@@ -181,20 +166,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
       /populationGroupCheck\(group, state\)/,
     );
     expect(populationStageProvider.owner).toBe("population");
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 });
 

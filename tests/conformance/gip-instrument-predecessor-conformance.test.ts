@@ -18,6 +18,7 @@ import {
   GIP_SCOPE_BINDING_RULE,
   GipAdapter,
   factKind,
+  CANONICAL_OWNER_REGISTRY,
 } from "@immortalis/engine";
 import {
   GovernanceInstrumentCoreSchema,
@@ -34,6 +35,9 @@ import { code, lock, register, sha } from "../support/f027.ts";
 import {
   EXPECTED_LEGACY_RULE_KIND_IDS,
   EXPECTED_LEGACY_RULE_SOURCE_SLOTS,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
@@ -238,6 +242,8 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
       "gip_governance_instrument",
     ] as const)
       expect(factKind(id).lifecycle, id).toBe("ADVANCING");
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
   });
 
   it("the Instrument key space is unchanged and the key is derived from instrument_id alone", () => {
@@ -249,6 +255,7 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
 
   it("the GIP adapter has no new method: no predecessor setter, reader, resolver, successor link or join", () => {
     // (the whole adapter surface is the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       adapterMethods(GipAdapter).filter((m) =>
         /predecessor|^set|resolv|successor|join|link/i.test(m),

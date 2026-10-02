@@ -18,6 +18,8 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { EXPECTED_OWNER_FACETS, expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -77,21 +79,9 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
     expect(WORLD_FALLBACK_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle])).toEqual([
       ["world_fallback_entity", "world_state", "world_fallback_physical_entity", "SEALED"],
     ]);
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
-      "diplomacy",
-      "economy",
-      "epistemic_access",
-      "gip",
-      "kti",
-      "logistics",
-      "named_actor",
-      "pc_existence",
-      "population",
-      "production",
-      "role_registry",
-      "temporal_kernel",
-      "world_state",
-    ]);
+    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
+      Object.keys(EXPECTED_OWNER_FACETS).sort(),
+    );
     for (const key of [
       "world/w/entity/durable:o",
       "world/w/entity/durable:o/transition",
@@ -143,20 +133,7 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
     expect(worldEntityTransitionProvider.owner).toBe("world_state");
     expect(worldEntityTransitionProvider.operation).toBe("world-state-commit-entity-transition");
     // Production's adapter is unchanged: it can still only read the accepted entity
-    expect(
-      Object.getOwnPropertyNames(ProductionAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "acceptedEntity",
-      "availability",
-      "claim",
-      "completion",
-      "establishReserve",
-      "operation",
-      "reserve",
-      "startOperation",
-    ]);
+    expect(adapterMethods(ProductionAdapter)).toEqual(expectedAdapterMethods("ProductionAdapter"));
   });
 
   it("the accepted entity is not amended: the fallback custody module and Production are untouched in behavior, the entity kind is still SEALED and create-only", () => {
@@ -213,20 +190,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyEntityTransitionIntegrity\(store\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("the transition is published only as its IM-02 stage: admission and load verification apply the one shared stage rule (identity and the durable transaction authority)", () => {

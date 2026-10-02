@@ -19,6 +19,13 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  EXPECTED_FACT_KINDS,
+  expectedAdapterMethods,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -92,14 +99,16 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
       ["kti_transfer_basis", "kti", "kti_development", "SEALED"],
       ["kti_transfer_package", "kti", "kti_development", "SEALED"],
     ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("kti")).toEqual(new Set(["kti_development"]));
+    expect(CANONICAL_OWNER_REGISTRY.get("kti")).toEqual(expectedOwnerFacetSet("kti"));
     for (const key of ["kti/object/o", "kti/transfer/p/basis", "kti/transfer/p/package"])
       expect(
         ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)),
         key,
       ).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "kti")).toHaveLength(3);
-    expect(ALL_FACT_KINDS).toHaveLength(40);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "kti").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "kti" }),
+    );
+    expect(ALL_FACT_KINDS).toHaveLength(EXPECTED_FACT_KINDS.length);
   });
 
   it("there is no relationship, encounter, intelligibility, competence, adoption, diffusion, doctrine, institution, Population, headcount or numeric kind, and no fallback KTI owner", () => {
@@ -114,16 +123,8 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
   });
 
   it("there is no KTI writer other than the two authored publications: the package is the result-close operation only the IM-02 coordinator resolves", () => {
-    const methods = Object.getOwnPropertyNames(KtiAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual([
-      "developmentObject",
-      "establishDevelopmentObject",
-      "establishTransferBasis",
-      "transferBasis",
-      "transferPackage",
-    ]);
+    const methods = adapterMethods(KtiAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("KtiAdapter"));
     expect(ktiTransferResultCloseProvider.owner).toBe("kti");
     expect(ktiTransferResultCloseProvider.operation).toBe("kti-publish-transfer-result-close");
   });
@@ -147,16 +148,10 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
   });
 
   it("the Epistemic, Named-Actor and other predecessor owners' own surfaces are unchanged: no KTI part and no new writer", () => {
-    expect(
-      Object.getOwnPropertyNames(EpistemicAccessAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual(["engineSealedProvenance", "establishBoundedSharedAccess", "event", "packet"]);
-    expect(
-      Object.getOwnPropertyNames(NamedActorAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual(["basis", "capability", "establishCapabilityBasis"]);
+    expect(adapterMethods(EpistemicAccessAdapter)).toEqual(
+      expectedAdapterMethods("EpistemicAccessAdapter"),
+    );
+    expect(adapterMethods(NamedActorAdapter)).toEqual(expectedAdapterMethods("NamedActorAdapter"));
     for (const f of [
       ...walk("packages/engine/src/epistemic"),
       ...walk("packages/engine/src/actor"),
@@ -257,20 +252,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyKtiIntegrity\(store\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("the package is published only as its IM-02 stage: admission and load verification apply the one shared stage rule (identity and the durable transaction authority), not a copy", () => {

@@ -7,9 +7,20 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { GIP_FACT_KINDS, GIP_RULE, GipAdapter, factKind } from "@immortalis/engine";
+import {
+  GIP_FACT_KINDS,
+  GIP_RULE,
+  GipAdapter,
+  factKind,
+  CANONICAL_OWNER_REGISTRY,
+} from "@immortalis/engine";
 import { InstitutionIdentitySchema, gipInstitutionIdentityKey } from "@immortalis/contracts";
 import { code, lock, register } from "../support/f027.ts";
+import {
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
@@ -90,6 +101,8 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
       "gip_governance_instrument",
     ] as const)
       expect(factKind(id).lifecycle, id).toBe("ADVANCING");
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
   });
 
   it("the identity key space is unchanged and the key is derived from institution_id alone", () => {
@@ -101,6 +114,7 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
 
   it("the GIP adapter has no new method: no constitutive-source setter, reader, resolver or join", () => {
     // (the whole adapter surface is the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       adapterMethods(GipAdapter).filter((m) => /constitutive|source|^set|resolv|join/i.test(m)),
     ).toEqual([]);

@@ -620,3 +620,9 @@ export const stripLawfulSiblingIdentifiers = (text: string): string =>
     new RegExp(`\\b(${Object.values(LAWFUL_SIBLING_IDENTIFIERS).flat().join("|")})\\b`, "g"),
     "",
   );
+
+export const expectedAdapterMethods = (className: string): string[] => {
+  const s = EXPECTED_ADAPTER_SURFACES[className];
+  if (!s) throw new Error(`no expected adapter surface for ${className}`);
+  return [...s.methods];
+};

@@ -18,7 +18,12 @@ import {
   factKind,
 } from "@immortalis/engine";
 import { code, gates, lock, register, sha } from "../support/f027.ts";
-import { EXPECTED_LEGACY_RULE_KIND_IDS, expectedKindIds } from "../support/expected-surface.ts";
+import {
+  EXPECTED_LEGACY_RULE_KIND_IDS,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
@@ -135,6 +140,7 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
 
   it("the registry holds exactly the four GIP kinds (the sixteenth slice adds only the Governance Instrument core) and no clause, validity, procedure, relation, path, status, membership, faction or fallback kind", () => {
     // (the exact GIP kind inventory is the central oracle's: stated against it, not a literal)
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
     expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
     expect(GIP_FACT_KINDS.every((k) => k.im === "IM-06" && k.owner === "gip")).toBe(true);
     expect(
@@ -161,6 +167,7 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
 
   it("the GIP adapter has exactly four authored writers (the sixteenth slice adds the Instrument establishment) and four keyed reads: no scope update, replacement, resolution or applicability method", () => {
     // (the whole adapter surface and its writer/commit cardinality are the central oracle's: registered-surface-conformance)
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       adapterMethods(GipAdapter).filter((m) => /update|replace|resolv|applicab/i.test(m)),
     ).toEqual([]);

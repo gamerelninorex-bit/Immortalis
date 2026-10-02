@@ -17,6 +17,8 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { EXPECTED_OWNER_FACETS, expectedAdapterMethods } from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -76,21 +78,9 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
       ["economy_request", "economy", "economy_state", "SEALED"],
       ["economy_realization", "economy", "economy_state", "SEALED"],
     ]);
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual([
-      "diplomacy",
-      "economy",
-      "epistemic_access",
-      "gip",
-      "kti",
-      "logistics",
-      "named_actor",
-      "pc_existence",
-      "population",
-      "production",
-      "role_registry",
-      "temporal_kernel",
-      "world_state",
-    ]);
+    expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
+      Object.keys(EXPECTED_OWNER_FACETS).sort(),
+    );
     for (const key of [
       "economy/demand/d",
       "economy/request/request:d",
@@ -138,11 +128,7 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
   });
 
   it("the Economy adapter has no satisfaction, supply, stock or amendment writer, and realized access is only an owner operation", () => {
-    expect(
-      Object.getOwnPropertyNames(EconomyAdapter.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual(["access", "demand", "issueDemand", "realization", "request"]);
+    expect(adapterMethods(EconomyAdapter)).toEqual(expectedAdapterMethods("EconomyAdapter"));
     expect(economyRealizationProvider.owner).toBe("economy");
     expect(economyRealizationProvider.operation).toBe("economy-record-realized-access");
   });
@@ -178,20 +164,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/temporal/coordinator.ts")).not.toMatch(
       /economy|Economy|production|Production/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("realized access is published only as its IM-02 stage: admission and load verification apply the one existing stage rule (identity and the durable transaction authority)", () => {

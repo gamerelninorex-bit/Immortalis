@@ -18,6 +18,12 @@ import {
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  expectedAdapterMethods,
+  expectedKindIds,
+  expectedOwnerFacetSet,
+} from "../support/expected-surface.ts";
+import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -82,13 +88,17 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
       ["named_actor_capability_basis", "named_actor", "actor_profile", "SEALED"],
       ["named_actor_capability", "named_actor", "actor_profile", "SEALED"],
     ]);
-    expect(CANONICAL_OWNER_REGISTRY.get("named_actor")).toEqual(new Set(["actor_profile"]));
+    expect(CANONICAL_OWNER_REGISTRY.get("named_actor")).toEqual(
+      expectedOwnerFacetSet("named_actor"),
+    );
     for (const key of ["actor/a/capability-basis/c", "actor/a/capability/c"])
       expect(
         ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)),
         key,
       ).toHaveLength(1);
-    expect(ALL_FACT_KINDS.filter((k) => k.owner === "named_actor")).toHaveLength(2);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "named_actor").map((k) => k.id)).toEqual(
+      expectedKindIds({ owner: "named_actor" }),
+    );
   });
 
   it("there is no personality, goal, relationship, belief, mandate, development, loss, lifecycle, KTI, aggregate, PC-capability or numeric-rank kind, and no fallback actor owner", () => {
@@ -107,10 +117,8 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
   });
 
   it("there is no Named-Actor writer other than the authored basis: the capability is the close operation only the IM-02 coordinator resolves", () => {
-    const methods = Object.getOwnPropertyNames(NamedActorAdapter.prototype)
-      .filter((m) => m !== "constructor")
-      .sort();
-    expect(methods).toEqual(["basis", "capability", "establishCapabilityBasis"]);
+    const methods = adapterMethods(NamedActorAdapter);
+    expect(methods).toEqual(expectedAdapterMethods("NamedActorAdapter"));
     expect(namedActorCapabilityCloseProvider.owner).toBe("named_actor");
     expect(namedActorCapabilityCloseProvider.operation).toBe(
       "named-actor-publish-capability-close",
@@ -193,20 +201,9 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
       /verifyNamedActorIntegrity\(store\)/,
     );
-    expect(
-      Object.getOwnPropertyNames(TemporalCoordinator.prototype)
-        .filter((m) => m !== "constructor")
-        .sort(),
-    ).toEqual([
-      "advance",
-      "boundaryIndex",
-      "continueRemainder",
-      "establishCanonicalTime",
-      "object",
-      "registerObject",
-      "state",
-      "transaction",
-    ]);
+    expect(adapterMethods(TemporalCoordinator)).toEqual(
+      expectedAdapterMethods("TemporalCoordinator"),
+    );
   });
 
   it("the capability close is published only as its IM-02 stage: admission and load verification apply the one shared stage rule (identity and the durable transaction authority), not a copy", () => {

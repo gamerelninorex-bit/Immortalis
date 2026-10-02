@@ -18,6 +18,11 @@ import {
   factKind,
 } from "@immortalis/engine";
 import { code, gates, lock, register } from "../support/f027.ts";
+import {
+  expectedKindIds,
+  expectedOwnerFacetSet,
+  expectedAdapterMethods,
+} from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
 const walk = (dir: string): string[] =>
@@ -104,6 +109,8 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       "gip_governance_instrument",
     ] as const)
       expect(factKind(id).lifecycle, id).toBe("ADVANCING");
+    expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
+    expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
     expect(
       ALL_FACT_KINDS.filter((k) => k.keyPattern.test("gip/institution/i1/identity")),
     ).toHaveLength(1);
@@ -139,6 +146,7 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
   it("there is no GIP writer other than the four authored establishments, and each read is by exact key", () => {
     // (the whole adapter surface is the central oracle's: registered-surface-conformance) — every mutating verb is an
     // authored initial establishment, and no other writer-shaped method exists
+    expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       adapterMethods(GipAdapter).filter(
         (m) =>
