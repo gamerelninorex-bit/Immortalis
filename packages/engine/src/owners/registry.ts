@@ -1040,16 +1040,16 @@ export const GIP_INSTRUMENT_RULE: SourceRef = rule(
 
 /**
  * IM-06 Economy / GIP / Diplomacy Adapter — the GIP STABLE INSTITUTION IDENTITY, OFFICE / AUTHORITY LOCUS, AUTHORITY SCOPE
- * BINDING and GOVERNANCE INSTRUMENT CORE parts only: "GIP authority/instruments", lowered to the identity/provenance record,
- * the one office/authority record, the one Scope Binding of an office and the one Instrument core record that the source
- * assigns to GIP. One owner, one facet, four exclusive key spaces. The Institution Identity is SEALED (create-only). The
+ * BINDING and GOVERNANCE INSTRUMENT parts only (the Instrument core plus its one optional `predecessor_instrument_ref`):
+ * "GIP authority/instruments", lowered to the identity/provenance record, the one office/authority record, the one Scope
+ * Binding of an office and the one Instrument record that the source assigns to GIP. One owner, one facet, four exclusive key spaces. The Institution Identity is SEALED (create-only). The
  * Office / Authority Locus is ADVANCING, because an office can later lawfully change holder, powers, delegation or
  * appointment/removal state under the owner's own expected-version chain; this foundation implements initial establishment
  * only (with either the `holder_ref` or the `decision_body_ref` reference branch, one key space and one kind for both), and
  * GIP admission refuses every other change to it. The Scope Binding is likewise ADVANCING in kind (a scope, exception or
  * priority-or-conflict change is later lawful work) and establishment-only here: it lives beneath exactly one committed
  * office, at that office's key plus its own `scope_binding_id`, and GIP admission refuses every other change to it. The
- * Governance Instrument core is ADVANCING in kind (a later validity or lifecycle change is lawful work, WS-007 §4.1) and
+ * Governance Instrument is ADVANCING in kind (a later validity or lifecycle change is lawful work, WS-007 §4.1) and
  * establishment-only here: it lives at its own `gip/instrument/<instrument_id>` key (the canonical identity is the exact
  * `instrument_id` alone), rests on one committed office and one committed Scope Binding of that same office, and GIP admission
  * refuses every other change to it. There is no fallback owner, and no procedure,
