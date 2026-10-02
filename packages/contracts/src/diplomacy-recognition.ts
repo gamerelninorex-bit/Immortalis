@@ -75,6 +75,30 @@ export const LISTED_RECOGNITION_STATUSES = [
  */
 export const EXAMPLE_CONTINUITY_BASES = ["personal", "office", "represented_entity"] as const;
 
+/** A canonical JSON scalar: a string, a finite number, a boolean or null. No array, no object, no finer subtype. */
+const JsonScalarSchema = z.union([
+  z.null(),
+  z.boolean(),
+  z.number().refine(Number.isFinite, "numbers must be finite"),
+  z.string(),
+]);
+
+/**
+ * `effective_from`: ONE authored canonical JSON scalar (the brief fixes it as a scalar and fixes no finer subtype), carried
+ * exactly as authored. Arrays and objects are not scalars.
+ */
+export const EffectiveFromSchema = JsonScalarSchema;
+
+/**
+ * `recognition_scope`: ONE authored singular scope value (the brief requires it to stay singular and fixes no subtype). A
+ * canonical JSON scalar or a canonical JSON object is one value, carried exactly as authored; an array is multiplicity and is
+ * refused. No text-only or closed-vocabulary subtype is imposed.
+ */
+export const RecognitionScopeSchema = z.union([
+  JsonScalarSchema,
+  z.record(z.string(), JsonValueSchema),
+]);
+
 /**
  * The WS-008 §6 minimum recognition entry plus the v1.1 repair overlay (§29.2, §29.3) — and only those. Every value is
  * authored and explicit: nothing is defaulted, inferred, derived, dereferenced or normalised.
@@ -85,16 +109,18 @@ export const EXAMPLE_CONTINUITY_BASES = ["personal", "office", "represented_enti
  *    status, claim, boundary, belligerency, framework membership or another setting-valid referent"), and in particular does
  *    not restrict `recognizer_ref` to a GIP office. Neither is resolved or validated against any owner, and nothing is minted,
  *    altered or backfilled in a foreign owner because a reference names it. No reciprocal record is implied.
- *  - `recognition_scope` is REQUIRED and singular: one authored value, carried exactly as authored. WS-008 fixes its name and that
- *    it is a single scope of the recognition; it fixes no concrete subtype, so none is imposed — the value is any canonical JSON
- *    value (the repository's weakest canonical representation, `JsonValueSchema`). It is never parsed, normalised, compared,
- *    interpreted or turned into a score, and no global recognition score exists.
+ *  - `recognition_scope` is REQUIRED and SINGULAR: one authored scope value, carried exactly as authored. WS-008 and the brief fix
+ *    it as singular source material and fix no concrete subtype, so none is imposed: any canonical JSON scalar (string, finite
+ *    number, boolean, null) or any canonical JSON object is one scope value (`RecognitionScopeSchema`). Array-valued
+ *    multiplicity is refused — a list of scopes is not one scope. It is never parsed, normalised, compared, interpreted or turned
+ *    into a score, and no global recognition score exists.
  *  - `recognition_status` is ONE authored named value. The listed values (LISTED_RECOGNITION_STATUSES) round-trip exactly; the
  *    set is not closed, no alias is normalised into them, and no value is rejected for being unlisted.
  *  - `authority_basis_ref` is an OPAQUE authored reference, never dereferenced to infer, manufacture or re-prove authority.
- *  - `effective_from` is REQUIRED and singular: one authored value, carried exactly as authored. WS-008 fixes its name, not its
- *    subtype, so none is imposed (any canonical JSON value, `JsonValueSchema`). It is never parsed, compared, scheduled or turned
- *    into a Temporal boundary. No future activation is scheduled.
+ *  - `effective_from` is REQUIRED and an authored SCALAR (the brief's word): one canonical JSON scalar — a string, a finite number,
+ *    a boolean or null (`EffectiveFromSchema`) — carried exactly as authored. No arrays or objects, and no finer subtype
+ *    (text, date, timestamp, Temporal point) is imposed. It is never parsed, compared, scheduled or turned into a Temporal
+ *    boundary. No future activation is scheduled.
  *  - `withdrawal_or_supersession_condition` is OPTIONAL: absent is absent, and when present it is one authored value carried
  *    exactly as authored. WS-008 fixes only that the field is optional, so no subtype is imposed (any canonical JSON value,
  *    `JsonValueSchema`); it is never parsed, evaluated or executed.
@@ -120,10 +146,10 @@ export const ExternalRecognitionSchema = z
     recognition_id: EntityId,
     recognizer_ref: Id,
     recognized_referent_ref: Id,
-    recognition_scope: JsonValueSchema,
+    recognition_scope: RecognitionScopeSchema,
     recognition_status: Id,
     authority_basis_ref: Id,
-    effective_from: JsonValueSchema,
+    effective_from: EffectiveFromSchema,
     withdrawal_or_supersession_condition: JsonValueSchema.optional(),
     instrument_or_act_ref: Id,
     provenance_ref: Id,

@@ -190,7 +190,7 @@ describe("one External Recognition can be established, exactly as authored", () 
     }
   });
 
-  it("recognition_scope, effective_from and withdrawal_or_supersession_condition are carried exactly as authored whatever canonical JSON value they hold, and schedule or evaluate nothing", async () => {
+  it("recognition_scope (one scalar or object), effective_from (one scalar) and withdrawal_or_supersession_condition (any canonical JSON value) are carried exactly as authored, and schedule or evaluate nothing", async () => {
     const s = await seededDiplomacyCampaign(tempDir());
     const authored = [
       {
@@ -203,7 +203,7 @@ describe("one External Recognition can be established, exactly as authored", () 
         effective_from: 1204,
         withdrawal_or_supersession_condition: ["on succession", { or: "supersession" }],
       },
-      { recognition_scope: ["a"], effective_from: { era: "third", year: 4 } },
+      { recognition_scope: { era: "third", year: 4 }, effective_from: true },
       { recognition_scope: 0.9, effective_from: null, withdrawal_or_supersession_condition: null },
       { recognition_scope: "", effective_from: false, withdrawal_or_supersession_condition: "" },
     ] as const;
@@ -674,6 +674,9 @@ describe("a missing or malformed field fails closed, and aliases never substitut
     for (const [name, value] of [
       ["missing continuity_basis", missing],
       ["scope alias", aliased],
+      ["array-valued recognition_scope", { ...v, recognition_scope: ["a", "b"] }],
+      ["structured effective_from", { ...v, effective_from: { at: "x" } }],
+      ["array effective_from", { ...v, effective_from: ["x"] }],
       ["missing recognition_scope", noScope],
       ["missing effective_from", noEffective],
       ["array recognizer", { ...v, recognizer_ref: ["a"] }],

@@ -301,20 +301,27 @@ describe("IA-02 strict executable contract: the WS-008 fields, nothing uninterpr
   it("the contract is strict and closed to unmodelled fields: no loose, passthrough, catchall, record, any, unknown, default, transform or discriminated union", () => {
     const contract = identifiers(CONTRACT);
     expect(contract).toMatch(/z\s*\.strictObject\(/);
+    // the only record is the singular structured-scope member, whose values are canonical JSON
+    expect(contract.match(/\bz\.record\(/g)).toHaveLength(1);
+    expect(contract).toMatch(/z\.record\(z\.string\(\), JsonValueSchema\)/);
     expect(contract).not.toMatch(
-      /\.(passthrough|loose|catchall|default|catch|transform|preprocess|pipe)\(|z\.(record|any|unknown|discriminatedUnion|lazy|map|set)\b/,
+      /\.(passthrough|loose|catchall|default|catch|transform|preprocess|pipe)\(|z\.(any|unknown|discriminatedUnion|lazy|map|set)\b/,
     );
   });
 
-  it("the source-undefined value surfaces (recognition_scope, effective_from, withdrawal_or_supersession_condition) use the canonical JSON representation, with no narrower subtype imposed", () => {
+  it("recognition_scope stays singular and effective_from stays a scalar, with no text-only subtype; withdrawal_or_supersession_condition is the broad canonical JSON value", () => {
     const contract = identifiers(CONTRACT);
-    expect(contract).toMatch(/\brecognition_scope: JsonValueSchema,/);
-    expect(contract).toMatch(/\beffective_from: JsonValueSchema,/);
+    expect(contract).toMatch(/\brecognition_scope: RecognitionScopeSchema,/);
+    expect(contract).toMatch(/\beffective_from: EffectiveFromSchema,/);
     expect(contract).toMatch(
       /\bwithdrawal_or_supersession_condition: JsonValueSchema\.optional\(\),/,
     );
-    // no text, number, string, union or refinement subtype appears anywhere on the contract
-    expect(contract).not.toMatch(/\bText\b|\bz\.(string|number|union|boolean)\b/);
+    // no text subtype, length, pattern or trimming rule appears anywhere on the contract
+    expect(contract).not.toMatch(
+      /\bText\b|\.(min|max|length|regex|trim|startsWith)\(|\bz\.(date|coerce)\b/,
+    );
+    // the scope union has no array member: multiplicity is refused
+    expect(contract).not.toMatch(/\bz\.array\(\s*(?:RecognitionScope|JsonScalar)/);
   });
 
   it("the engine never reads, dereferences, resolves, compares or executes an authored recognition value: only recognition_id and the dependency keys are named", () => {
@@ -435,11 +442,11 @@ describe("acceptance-register and open-gate honesty (seventeenth slice)", () => 
     for (const phrase of [
       "no GIP-office-only restriction on recognizer_ref",
       "no invented closed set and no alias normalisation",
-      "recognition_scope is required and singular, its source-undefined subtype is not narrowed (any canonical JSON value is carried exactly as authored)",
+      "recognition_scope is required and singular (one canonical JSON scalar or object carried exactly as authored, array-valued multiplicity refused, no text-only or closed-vocabulary subtype imposed)",
       "opaque and never dereferenced",
       "dependency_refs[] stays conditional with no invented minimum, uniqueness or deduplication",
       "a baseline record invents no dependency",
-      "effective_from is required and carried exactly as authored (any canonical JSON value, with no source-undefined subtype imposed) and schedules nothing",
+      "effective_from is a required authored scalar carried exactly as authored (a string, finite number, boolean or null; no array or object; no finer subtype imposed) and schedules nothing",
       "withdrawal_or_supersession_condition is optional (absent stays absent; when present, any canonical JSON value is carried exactly as authored, with no source-undefined subtype imposed)",
       "no recognition is inferred from silence, contact, trade, negotiation, treaty-making or conduct",
       "no reciprocal record is created",

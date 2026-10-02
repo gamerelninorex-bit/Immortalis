@@ -265,7 +265,7 @@ describe("references are directional, singular, opaque authored values (IA-02)",
         ).toBe(false);
   });
 
-  it("recognition_scope is required and singular, and its source-undefined subtype is not narrowed: any canonical JSON value is carried exactly as authored", () => {
+  it("recognition_scope is required and singular: any one canonical JSON scalar or object is carried exactly as authored, no text-only subtype is imposed, and array-valued multiplicity is refused", () => {
     for (const ok of [
       "boundary west of the river",
       "  padded and  spaced  ",
@@ -276,8 +276,7 @@ describe("references are directional, singular, opaque authored values (IA-02)",
       true,
       false,
       null,
-      ["a", "b"],
-      [],
+      {},
       { scope: "a", nested: { b: [1, 2] } },
     ])
       expect(
@@ -286,7 +285,13 @@ describe("references are directional, singular, opaque authored values (IA-02)",
         ).recognition_scope,
         JSON.stringify(ok),
       ).toEqual(ok);
-    // required, and only a canonical JSON value (finite numbers; nothing undefined or non-plain)
+    // a list of scopes is multiplicity, not one scope
+    for (const many of [[], ["a"], ["a", "b"], [{ scope: "a" }], [["a"]], [null]])
+      expect(
+        parses({ ...externalRecognition(), recognition_scope: many }),
+        JSON.stringify(many),
+      ).toBe(false);
+    // required, and only canonical JSON (finite numbers; nothing undefined or non-plain)
     for (const bad of [undefined, NaN, Infinity, () => 1, new Map(), Symbol("x"), 1n])
       expect(parses({ ...externalRecognition(), recognition_scope: bad })).toBe(false);
     const missing: any = externalRecognition();
@@ -301,8 +306,8 @@ describe("references are directional, singular, opaque authored values (IA-02)",
   });
 });
 
-describe("effective_from is required and carried exactly as authored, never scheduled (IA-02)", () => {
-  it("its source-undefined subtype is not narrowed: any canonical JSON value is carried exactly; only absence or a non-canonical value is refused", () => {
+describe("effective_from is a required authored scalar, carried exactly and never scheduled (IA-02)", () => {
+  it("any canonical JSON scalar (string, finite number, boolean, null) is carried exactly, with no finer subtype imposed; arrays, objects and non-canonical values are refused", () => {
     for (const ok of [
       "2026-10-02T00:00:00Z",
       "the third winter",
@@ -313,18 +318,28 @@ describe("effective_from is required and carried exactly as authored, never sche
       -3,
       1.5,
       true,
+      false,
       null,
-      ["a"],
-      { at: "a" },
     ])
       expect(
         ExternalRecognitionSchema.parse(
           externalRecognition(RECOGNITION_A, { effective_from: ok as never }),
         ).effective_from,
         JSON.stringify(ok),
-      ).toEqual(ok);
-    for (const bad of [NaN, Infinity, undefined, new Map(), () => 1])
-      expect(parses({ ...externalRecognition(), effective_from: bad })).toBe(false);
+      ).toBe(ok);
+    for (const bad of [
+      [],
+      ["a"],
+      { at: "a" },
+      {},
+      NaN,
+      Infinity,
+      undefined,
+      new Map(),
+      () => 1,
+      1n,
+    ])
+      expect(parses({ ...externalRecognition(), effective_from: bad }), String(bad)).toBe(false);
     const missing: any = externalRecognition();
     delete missing.effective_from;
     expect(parses(missing)).toBe(false);
