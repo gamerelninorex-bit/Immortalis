@@ -13,6 +13,7 @@ export interface ObservedFactKind {
   readonly id: string;
   readonly owner: string;
   readonly facet: string;
+  readonly lifecycle: string;
   readonly keyPattern: RegExp;
   readonly legacyRule?: unknown;
 }
@@ -49,6 +50,8 @@ export function findInventoryDrift(
     if (!a) continue;
     if (a.owner !== e.owner) out.push(`${e.id}: owner expected ${e.owner}, found ${a.owner}`);
     if (a.facet !== e.facet) out.push(`${e.id}: facet expected ${e.facet}, found ${a.facet}`);
+    if (a.lifecycle !== e.lifecycle)
+      out.push(`${e.id}: lifecycle expected ${e.lifecycle}, found ${a.lifecycle}`);
   }
   const owners = new Set([...expected.map((k) => k.owner), ...actual.map((k) => k.owner)]);
   for (const owner of owners) {

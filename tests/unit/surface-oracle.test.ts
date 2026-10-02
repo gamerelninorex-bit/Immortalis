@@ -41,6 +41,7 @@ function synthetic(): ObservedFactKind[] {
     id: e.id,
     owner: e.owner,
     facet: e.facet,
+    lifecycle: e.lifecycle,
     keyPattern: new RegExp(`^${escapeRe(e.exampleKey)}$`),
     ...(EXPECTED_LEGACY_RULE_KIND_IDS.includes(e.id) ? { legacyRule: {} } : {}),
   }));
@@ -48,6 +49,7 @@ function synthetic(): ObservedFactKind[] {
 const kind = (over: Partial<ObservedFactKind> & { id: string }): ObservedFactKind => ({
   owner: "diplomacy",
   facet: "diplomacy_framework",
+  lifecycle: "ADVANCING",
   keyPattern: /^diplomacy\/never-matches$/,
   ...over,
 });
@@ -204,6 +206,19 @@ describe("the finders report nothing for an exact match and report each kind of 
       ),
       "kti_transfer_basis",
       "facet expected kti_development",
+    );
+  });
+
+  it("a changed lifecycle classification is reported", () => {
+    hasFinding(
+      findInventoryDrift(
+        EXPECTED_FACT_KINDS,
+        synthetic().map((k) =>
+          k.id === "gip_governance_instrument" ? { ...k, lifecycle: "SEALED" } : k,
+        ),
+      ),
+      "gip_governance_instrument",
+      "lifecycle expected ADVANCING, found SEALED",
     );
   });
 
@@ -382,6 +397,7 @@ describe("edits to the oracle are caught against the real production surface: th
       id: "diplomacy_channel",
       owner: "diplomacy",
       facet: "diplomacy_channel",
+      lifecycle: "ADVANCING",
       group: "DIPLOMACY_FACT_KINDS",
       exampleKey: "diplomacy/channel/c1",
     };

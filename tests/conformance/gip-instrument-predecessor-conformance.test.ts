@@ -4,11 +4,9 @@
 // historical compatibility, and nothing dereferences, joins on or acts on the reference. Each block names its register ID;
 // governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED: this slice adds only the bounded
 // partial evidence it names.
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   ALL_FACT_KINDS,
   GIP_FACT_KINDS,
@@ -32,32 +30,14 @@ import {
   governanceInstrument,
   governanceInstrumentWithPredecessor,
 } from "@immortalis/testkit";
+import { code, lock, register, sha } from "../support/f027.ts";
 
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
-  snapshot_files: Record<string, string>;
-};
-
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const GIP_DIR = "packages/engine/src/gip";
 const ENGINE_GIP = readdirSync(GIP_DIR).map((f) => join(GIP_DIR, f));
 const CONTRACT = "packages/contracts/src/gip-instrument.ts";

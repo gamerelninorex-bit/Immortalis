@@ -4,7 +4,6 @@
 // The historical citation is preserved byte-for-byte and accepted on load only through the existing FactKind.legacyRule
 // mechanism; the current citation is the only one a new write may carry; the executable Relation Edge surface is unchanged.
 // Register lineage: IA-01, IA-02 (partial; none promoted). IA-07 stays BLOCKED. GitHub Issue #11 is untouched.
-import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -19,8 +18,8 @@ import {
   factKind,
 } from "@immortalis/engine";
 import { fullRelationEdge, relationEdge } from "@immortalis/testkit";
+import { sha } from "../support/f027.ts";
 
-const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const relation = factKind("diplomacy_relation_edge");
 const DIPLOMACY_DIR = "packages/engine/src/diplomacy";
 const ENGINE_DIPLOMACY = readdirSync(DIPLOMACY_DIR).map((f) => join(DIPLOMACY_DIR, f));

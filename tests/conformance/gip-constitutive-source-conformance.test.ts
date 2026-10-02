@@ -7,28 +7,10 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { ALL_FACT_KINDS, GIP_FACT_KINDS, GIP_RULE, GipAdapter } from "@immortalis/engine";
 import { InstitutionIdentitySchema, gipInstitutionIdentityKey } from "@immortalis/contracts";
+import { code, lock, register } from "../support/f027.ts";
 
-type Row = {
-  id: string;
-  status: string;
-  evidence: unknown;
-  partial_evidence?: { scope: string; tests: string[] };
-};
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as { rows: Row[] }
-).rows;
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
-  snapshot_files: Record<string, string>;
-};
-
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)

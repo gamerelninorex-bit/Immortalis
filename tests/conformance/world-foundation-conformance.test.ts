@@ -4,7 +4,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
   CANONICAL_OWNER_REGISTRY,
   FACT_KINDS,
@@ -12,28 +11,7 @@ import {
   IR_SOURCE,
   WG_SOURCE,
 } from "@immortalis/engine";
-
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  governance_references: { title: string; url: string; native_pin: string }[];
-  incorporated_tranches: { title: string; url: string; native_pin: string }[];
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as {
-    rows: {
-      id: string;
-      status: string;
-      evidence: unknown;
-      partial_evidence?: { scope: string; tests: string[] };
-    }[];
-  }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
+import { gates, lock, register } from "../support/f027.ts";
 
 describe("IA-01 source/version fidelity (owner-registration aspect)", () => {
   it("every owner/facet registration cites a frozen source at its exact spec-locked pin", () => {

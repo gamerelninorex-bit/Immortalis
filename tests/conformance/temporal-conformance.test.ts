@@ -4,7 +4,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { TemporalObjectSchema } from "@immortalis/contracts";
 import {
   ALL_FACT_KINDS,
@@ -15,38 +14,13 @@ import {
   TEMPORAL_FACT_KINDS,
 } from "@immortalis/engine";
 import { engagedObject } from "@immortalis/testkit";
-
-interface Lock {
-  frozen_sources: { id: string; url: string; native_pin: string; primary_im: string }[];
-  incorporated_tranches: { title: string; url: string; native_pin: string }[];
-}
-const lock = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as Lock;
-const register = (
-  parse(readFileSync("spec/f027/acceptance-register.yaml", "utf8")) as {
-    rows: {
-      id: string;
-      status: string;
-      evidence: unknown;
-      partial_evidence?: { scope: string; tests: string[] };
-    }[];
-  }
-).rows;
-const gates = (
-  parse(readFileSync("spec/f027/open-gates.yaml", "utf8")) as {
-    gates: { id: string; status: string }[];
-  }
-).gates;
+import { code, gates, lock, register } from "../support/f027.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
     return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") ? [p] : [];
   });
-/** Source with comments removed, so that prose explaining a prohibition is not mistaken for code. */
-const code = (file: string): string =>
-  readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 const TEMPORAL_SOURCES = [
   ...walk("packages/engine/src/temporal"),
   "packages/contracts/src/temporal.ts",
