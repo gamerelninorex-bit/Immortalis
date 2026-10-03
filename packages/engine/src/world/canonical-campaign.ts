@@ -3,6 +3,8 @@ import {
   ExistenceContractSchema,
   InsertionFactSchema,
   BindingTargetSchema,
+  ExistingActorCouplingSchema,
+  ExistingActorCouplingTargetSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   PublicationSchema,
@@ -11,10 +13,12 @@ import {
   fail,
   ok,
   pcExistenceContractKey,
+  worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
   type ExistenceContract,
+  type ExistingActorCoupling,
   type OwnerFact,
   type PlayerCharacterBinding,
   type Publication,
@@ -53,6 +57,8 @@ import {
   type OpenErrorCode,
 } from "../persistence/file-package.ts";
 import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
+import { deriveExistingActorCoupling } from "./actor-coupling.ts";
+import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
 import { verifyCanonicalIntegrity, type IntegrityViolation } from "./integrity.ts";
 
@@ -76,6 +82,18 @@ export interface BindPcInput extends Publication {
    * is rejected, because no other bridge or precedence class is implemented.
    */
   readonly insertion: unknown;
+}
+
+/**
+ * What an existing-actor coupling names (see ExistingActorCouplingTargetSchema): the actor, the established world and locus,
+ * and the pins of the actor's own already-committed Named-Actor state. There is no insertion fact, bridge, player-authored
+ * statement or PC reference: the coupling is authoritative pre-existing world state, never newly authored insertion.
+ */
+export interface CoupleExistingActorInput extends Publication {
+  readonly actor_id: string;
+  readonly world_id: string;
+  readonly locus_id: string;
+  readonly actor_state: unknown;
 }
 
 export type CanonicalCommitCode = StoreCommitErrorCode | "INPUT_INVALID";
@@ -265,6 +283,42 @@ export class CanonicalCampaign {
     );
   }
 
+  /**
+   * World-State fallback custody: the ONE authoritative current coupling of an already-existing, lawfully non-PC actor to an
+   * established locus of an established world. It reads and depends on the actor's own Named-Actor state, the world and the
+   * locus (never copied) and is rejected unless the actor already exists as a non-PC actor; it never creates a prerequisite.
+   *
+   * It is a PREREQUISITE only. It binds no `role.player_character`, writes no Existence Contract, closes no owner, moves no
+   * capability and is not the first-ACTIVATION insertion path; the Existing-Actor → PC handover that may later consume it is
+   * not implemented. The version pins of the world and locus are mechanical; nothing else is inferred or defaulted.
+   */
+  coupleExistingActor(
+    input: CoupleExistingActorInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const target = ExistingActorCouplingTargetSchema.safeParse({
+      actor_id: input.actor_id,
+      world_id: input.world_id,
+      locus_id: input.locus_id,
+      actor_state: input.actor_state,
+    });
+    if (!target.success) return Promise.resolve(inputInvalid("coupling target", target.error));
+    const coupling = ExistingActorCouplingSchema.safeParse(
+      deriveExistingActorCoupling(target.data, (key) => this.store.getFact(key)?.version ?? 0),
+    );
+    if (!coupling.success) return Promise.resolve(inputInvalid("coupling", coupling.error));
+    return this.#publish(
+      input,
+      "world_actor_coupling",
+      worldActorCouplingKey(target.data.actor_id),
+      coupling.data,
+      [
+        ...coupling.data.actor_state.map((s) => s.fact_key),
+        coupling.data.coupling.world.fact_key,
+        coupling.data.coupling.locus.fact_key,
+      ],
+    );
+  }
+
   // -- reads (typed, by identity) ---------------------------------------------------------------
 
   world(worldId: string): Typed<WorldProfile> | undefined {
@@ -275,6 +329,10 @@ export class CanonicalCampaign {
   }
   playerCharacter(pcId: string): Typed<ExistenceContract> | undefined {
     return this.#typed(pcExistenceContractKey(pcId), ExistenceContractSchema);
+  }
+  /** The actor's one authoritative current coupling to a world locus, or undefined when none is established. */
+  existingActorCoupling(actorId: string): Typed<ExistingActorCoupling> | undefined {
+    return this.#typed(worldActorCouplingKey(actorId), ExistingActorCouplingSchema);
   }
   /** The operative binding, or undefined for the NULL state (no active PC). */
   binding(): Typed<PlayerCharacterBinding> | undefined {
@@ -356,6 +414,7 @@ function verifyAll(
     ...verifyProductionIntegrity(store),
     ...verifyEconomyIntegrity(store),
     ...verifyEntityTransitionIntegrity(store),
+    ...verifyExistingActorCouplingIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),

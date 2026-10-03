@@ -231,6 +231,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "rejection.ts",
     ]);
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
+      "actor-coupling-integrity.ts",
+      "actor-coupling.ts",
       "canonical-campaign.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
@@ -322,7 +324,7 @@ describe("the ownership cutover stays the binding commit: no handover, carry-for
     );
     expect(verifier).not.toMatch(/pc_capability|pcCapability|OWNER_PC_EXISTENCE/);
     const kinds = /EXISTING_ACTOR_SOURCE_KINDS[^=]*=\s*new Set\(\[([^\]]*)\]\)/.exec(
-      code("packages/engine/src/owners/admission.ts"),
+      code("packages/engine/src/actor/derive.ts"),
     )![1]!;
     expect([...kinds.matchAll(/"([^"]+)"/g)].map((m) => m[1])).toEqual([
       "named_actor_capability_basis",

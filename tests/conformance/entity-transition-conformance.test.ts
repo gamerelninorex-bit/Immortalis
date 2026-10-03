@@ -296,6 +296,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 
   it("the world module set is exactly the canonical path, the fallback custody and the entity-transition seam; no other engine directory was added", () => {
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
+      "actor-coupling-integrity.ts",
+      "actor-coupling.ts",
       "canonical-campaign.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",

@@ -19,6 +19,7 @@ import {
   WorldLocusSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
+  worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
@@ -29,6 +30,7 @@ import {
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
+import { existingActorSourceViolation } from "../actor/derive.ts";
 import { causalDrawGroupCheck } from "../causal-draw/admission.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
@@ -106,12 +108,6 @@ export function existingActorBindingViolation(contractValue: unknown): string | 
   return "the Existence Contract compiles an already-existing actor: ordinary first ACTIVATION is not the Existing-Actor → PC handover, which is not implemented, so the actor's prior owner remains the writable owner";
 }
 
-/** The kinds of committed Named-Actor state that identify an already-existing actor as the source of a compilation. */
-const EXISTING_ACTOR_SOURCE_KINDS: ReadonlySet<string> = new Set([
-  "named_actor_capability_basis",
-  "named_actor_capability",
-]);
-
 /**
  * The single statement of what an existing-actor compilation must be, given committed facts (PC-Control Handover Contract
  * v1 "Existing Actor → PC" 1, 3, 4 and "Existing-Actor Confirmation Surface"; I-002 §2 and §7). Used by admission when the
@@ -152,29 +148,31 @@ export function existingActorCompilationViolation(
   ) {
     return "an existing-actor compilation is no player-authorship pass over already-established state: every claim is SAFELY-INHERITED and there are no player overrides";
   }
-  for (const pin of compilation.source_state) {
-    const resolved = resolveKey(pin.fact_key);
-    if (
-      !resolved ||
-      !EXISTING_ACTOR_SOURCE_KINDS.has(resolved.kind.id) ||
-      resolved.kind.owner !== OWNER_NAMED_ACTOR ||
-      resolved.ids[0] !== contract.pc_id
-    ) {
-      return `a source is the identified actor's own committed Named-Actor state: ${pin.fact_key}`;
-    }
-    const fact = facts.get(pin.fact_key);
-    if (!fact || fact.owner !== pin.owner || fact.owner !== OWNER_NAMED_ACTOR) {
-      return `a source is committed and owned by the Named-Actor owner it names: ${pin.fact_key}`;
-    }
-    if (fact.version !== pin.version) {
-      return `a source is pinned at its exact committed version: ${pin.fact_key}`;
-    }
-  }
-  return null;
+  return existingActorSourceViolation(contract.pc_id, compilation.source_state, facts);
+}
+
+/**
+ * An identity already coupled to a world locus as an existing non-PC actor (the Existing-Actor World-State Coupling Anchor)
+ * is under lawful non-PC ownership, so it cannot be re-authored as a FRESH Player Character: that would be a blank-slate
+ * authorship pass over already-established state and, with a first ACTIVATION, a second authoritative current locus for the
+ * same identity. Only the explicit existing-actor compilation (the Handover Contract's compile step) may name it. Returns a
+ * message when `contract` is a fresh contract for an identity that is already coupled, else null.
+ */
+export function coupledActorFreshContractViolation(
+  contract: ExistenceContract,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "has">,
+): string | null {
+  if (contract.existing_actor_compilation !== undefined) return null;
+  return facts.has(worldActorCouplingKey(contract.pc_id))
+    ? "the identity is already coupled to a world locus as an existing non-PC actor: a fresh Player Character cannot re-author it, and only the existing-actor compilation may name it"
+    : null;
 }
 
 function checkExistenceContract(group: CommitGroup, state: CampaignState, value: unknown) {
   const contract = ExistenceContractSchema.parse(value);
+  const coupled = coupledActorFreshContractViolation(contract, state.facts);
+  if (coupled)
+    return reject("REFERENCE_INVALID", coupled, { key: pcExistenceContractKey(contract.pc_id) });
   if (contract.existing_actor_compilation === undefined) return null;
   // the sources are foreign facts: read at their current version and depended on, never copied
   for (const pin of contract.existing_actor_compilation.source_state) {
@@ -383,6 +381,8 @@ export function identityMismatch(
         ? null
         : "transition identity does not match the key";
     }
+    case "world_actor_coupling":
+      return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
     case "logistics_commitment": {
       const moved = v["moved"] as { entity_id: string };
       const origin = v["origin"] as { world: { entity_id: string } };

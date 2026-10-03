@@ -24,8 +24,10 @@
 // Diplomacy Relation Edge Authoritative Core Backbone Foundation contract (the strict WS-008 §5.1 authoritative core; the derived reference/index arrays are not writable), and the
 // Diplomacy Framework Authoritative Core Backbone Foundation contract (the strict WS-008 §16 Framework minimum surface; initial authored establishment only), and the
 // F-027-CD1 Causal Draw foundation contracts (CausalDrawKey, CausalDrawSpecification, the SEALED precommit and result records, the refusal vocabulary), and the
-// I-002 PC Capability Profile / PC Capability Close Receiving Foundation contracts (the received PC capability basis and the persisted PC capability published at the PC Capability Close).
+// I-002 PC Capability Profile / PC Capability Close Receiving Foundation contracts (the received PC capability basis and the persisted PC capability published at the PC Capability Close), and the
+// Existing-Actor World-State Coupling Anchor Foundation contract (the World-State fallback custodian's one current actor↔locus/world coupling fact; a prerequisite only, never the PC handover).
 export * from "./actor-capability.ts";
+export * from "./actor-coupling.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
 export * from "./causal-draw.ts";

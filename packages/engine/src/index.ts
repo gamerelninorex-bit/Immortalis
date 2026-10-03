@@ -113,6 +113,8 @@ export * from "./world/fallback-custody.ts";
 export * from "./world/entity-transition.ts";
 export * from "./world/entity-transition-integrity.ts";
 export * from "./world/entity-transition-provider.ts";
+export * from "./world/actor-coupling.ts";
+export * from "./world/actor-coupling-integrity.ts";
 export * from "./persistence/file-package.ts";
 export * from "./persistence/fs-ops.ts";
 export * from "./persistence/store.ts";
