@@ -1,5 +1,6 @@
 import {
   CANON_WRITE_AUTHORITY,
+  ExistenceContractSchema,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
   pcExistenceContractKey,
@@ -8,7 +9,11 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { couplingBasisViolation, identityMismatch } from "../owners/admission.ts";
+import {
+  couplingBasisViolation,
+  existingActorCompilationViolation,
+  identityMismatch,
+} from "../owners/admission.ts";
 import { resolveKey, type FactKind } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 
@@ -149,6 +154,30 @@ export function verifyCanonicalIntegrity(
         bad(fact.key, "REFERENCE_INVALID", "locus world reference does not match its key");
       }
       needs(fact, worldProfileKey(locus.world.entity_id));
+    } else if (kind.id === "pc_existence_contract") {
+      const contract = ExistenceContractSchema.parse(parsed.data);
+      if (contract.existing_actor_compilation !== undefined) {
+        // an existing-actor compilation is re-verified from committed state: the pinned actor state was committed before it,
+        // and the compilation read that exact state and depended on the group that committed it (never copied)
+        const group = store.committedGroup(fact.provenance.intent_id);
+        for (const pin of contract.existing_actor_compilation.source_state) {
+          const source = needs(fact, pin.fact_key);
+          if (
+            source &&
+            (!group ||
+              !group.reads.some((r) => r.key === source.key && r.version === pin.version) ||
+              !group.depends_on.includes(source.provenance.group_id))
+          ) {
+            bad(
+              fact.key,
+              "REFERENCE_INVALID",
+              "an existing-actor compilation read the exact pinned actor state and depended on the group that committed it",
+            );
+          }
+        }
+        const violation = existingActorCompilationViolation(contract, facts);
+        if (violation) bad(fact.key, "REFERENCE_INVALID", violation);
+      }
     } else if (kind.id === "player_character_binding") {
       const b = PlayerCharacterBindingSchema.parse(parsed.data);
       const worldKey = worldProfileKey(b.coupling.world.entity_id);

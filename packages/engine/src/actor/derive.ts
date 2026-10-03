@@ -2,6 +2,7 @@ import {
   ACTOR_PROFILE_CAPABILITY_CLOSE,
   CausalDrawPrecommitSchema,
   CausalDrawResultSchema,
+  ExistenceContractSchema,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_NAMED_ACTOR,
   PLAYER_CHARACTER_BINDING_KEY,
@@ -75,7 +76,12 @@ export function deriveCapability(
  * By identity only — no scan:
  *
  *  - an identity that has an I-002 Existence Contract is a Player Character, never a Named Actor: its capability
- *    belongs to the PC owner (no PC capability is implemented here), so the actor owner must not author it;
+ *    belongs to the PC owner (no PC capability is implemented here), so the actor owner must not author it — EXCEPT
+ *    the identity whose contract is explicitly classified as the compilation of an already-existing actor
+ *    (`existing_actor_compilation`; PC-Control Handover Contract v1 "Single Commit Point": "Before that commit, the
+ *    current owner remains writable"). Such a contract is no control cutover: the actor stays under lawful non-PC
+ *    ownership until the Role Registry binding commit, which this boundary still honours below. A contract that does not
+ *    parse as a released Existence Contract is no exception and fails closed;
  *  - the identity the Role Registry binding currently names as the active PC is under lawful player control;
  *  - an identity that is a Population ledger's own is an aggregate, which is never given an individual mastery sheet.
  *
@@ -85,8 +91,12 @@ export function actorBoundaryViolation(
   facts: Pick<ReadonlyMap<string, OwnerFact>, "get" | "has">,
   actorId: string,
 ): string | null {
-  if (facts.has(pcExistenceContractKey(actorId))) {
-    return "the identity is a Player Character: its capability belongs to the PC owner, the Named-Actor owner authors nothing for it";
+  const contract = facts.get(pcExistenceContractKey(actorId));
+  if (contract !== undefined) {
+    const parsed = ExistenceContractSchema.safeParse(contract.value);
+    if (!parsed.success || parsed.data.existing_actor_compilation === undefined) {
+      return "the identity is a Player Character: its capability belongs to the PC owner, the Named-Actor owner authors nothing for it";
+    }
   }
   const binding = facts.get(PLAYER_CHARACTER_BINDING_KEY);
   const bound = binding ? PlayerCharacterBindingSchema.safeParse(binding.value) : undefined;

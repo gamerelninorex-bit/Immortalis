@@ -141,6 +141,47 @@ export const ContactSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("NO_CONTACT"), statement: ClaimSchema }),
 ]);
 
+/**
+ * The explicit identification of an Existence Contract that COMPILES an already-existing, lawfully non-PC actor into the
+ * minimum I-002 form, instead of generating a fresh Player Character (PC-Control Handover Contract v1, W3-CP3 Blue Repair
+ * Overlay, "Existing Actor → PC" steps 1, 3, 4; "Single Commit Point"). Its presence is the whole distinction, and it is
+ * strict so that no other classification can be stated (in particular no binding mode, readiness condition, score or timer:
+ * this slice emits no I-002 v2.4 DEFERRED / ACTIVE-LIMITED binding mode, because none of its ownership semantics depends on one).
+ *
+ * `source_state` pins the already-existing authoritative actor/entity state the compilation was made from, by exact owner,
+ * fact key and version. Foreign facts are referenced and never copied (RC-02 guard), so nothing of the foreign owner's state
+ * can be carried in this value. Which owners'/kinds' facts may serve as a source, and that each is the identified actor's
+ * own committed state, is verified by admission and load verification (they know the registry); the schema fixes only the
+ * shape.
+ *
+ * What the classification does NOT do: it does not transfer, end or copy the prior owner's writable state — the binding
+ * commit is the only control/ownership cutover, and that Role Registry transition is not implemented here.
+ */
+export const EXISTING_ACTOR_COMPILATION = "EXISTING_ACTOR_COMPILATION";
+
+export const ExistingActorSourcePinSchema = z.strictObject({
+  owner: Id,
+  fact_key: Id,
+  version: Version.min(1),
+});
+export type ExistingActorSourcePin = z.infer<typeof ExistingActorSourcePinSchema>;
+
+export const ExistingActorCompilationSchema = z
+  .strictObject({
+    classification: z.literal(EXISTING_ACTOR_COMPILATION),
+    source_state: z.array(ExistingActorSourcePinSchema).min(1),
+  })
+  .superRefine((c, ctx) => {
+    if (new Set(c.source_state.map((s) => s.fact_key)).size !== c.source_state.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "a source fact is pinned once",
+        path: ["source_state"],
+      });
+    }
+  });
+export type ExistingActorCompilation = z.infer<typeof ExistingActorCompilationSchema>;
+
 export const PLAYER_CHOICE_AUTHORITY = {
   role: "role.player",
   permission: "permission.player_choice.commit",
@@ -165,6 +206,12 @@ export const ExistenceContractSchema = z.strictObject({
   }),
   /** §4.6 entry-envelope boundary; empty = nothing accompanies the PC */
   entry_envelope: z.strictObject({ items: z.array(ClaimSchema) }),
+  /**
+   * Present only for the compilation of an already-existing non-PC actor (see ExistingActorCompilationSchema); absent for a
+   * freshly generated Player Character, whose serialization is unchanged. Optional by encoding, not by meaning: the field's
+   * absence is the fresh-generation classification.
+   */
+  existing_actor_compilation: ExistingActorCompilationSchema.optional(),
   /**
    * Generation Hand-Off (§21, §26): the contract is RELEASED only with the Character Mirror
    * acceptance record. The engine records what was displayed and accepted verbatim; whether that

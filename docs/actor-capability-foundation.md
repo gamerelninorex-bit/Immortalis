@@ -36,7 +36,7 @@ Nothing new is persisted outside the existing campaign package. Both Named-Actor
 
 By identity, with no scan (`actorBoundaryViolation`), at the basis and again at the close (so an entity that comes under player control between the two gets no capability and its close fails closed, while independent valid work in the same instant still resolves), and re-checked on load by receipt order:
 
-- an identity with an I-002 Existence Contract is a **Player Character**, released or bound: its capability belongs to the PC owner, which this slice does not implement;
+- an identity with an I-002 Existence Contract is a **Player Character**, released or bound: its capability belongs to the PC owner, which this slice does not implement; _(Amended by the twenty-ninth slice, `docs/existing-actor-compilation-foundation.md`: the one exception is a contract that carries the explicit `existing_actor_compilation` classification, which leaves the prior non-PC owner writable until the Role Registry binding commit.)_
 - the identity the Role Registry binding names as the active PC is under lawful player control (WS-006 W3-CP3);
 - an identity that is a **Population ledger** is an aggregate, never given an individual mastery record (WS-016 §20/§28).
 
