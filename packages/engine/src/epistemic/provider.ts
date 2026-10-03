@@ -6,6 +6,7 @@ import {
   FACET_EPISTEMIC_ACCESS,
   NamedActorCapabilitySchema,
   OWNER_EPISTEMIC_ACCESS,
+  PcCapabilitySchema,
 } from "@immortalis/contracts";
 import { EPISTEMIC_ACCESS_RULE } from "../owners/registry.ts";
 import {
@@ -18,6 +19,7 @@ import {
   deriveAccessProducts,
   eventRecipient,
   formationKeys,
+  isPcRecipientEvent,
   type CapabilityCloseRead,
 } from "./derive.ts";
 
@@ -25,7 +27,8 @@ import {
  * IM-10 — the one Epistemic Access owner operation (F-014D §5 steps 2–4, §18), exposed to the IM-02 coordinator through
  * the owner-adapter seam: it forms one recipient's Accessible Content Packet and its Sealed Engine Provenance at once.
  * Pure and deterministic: identical input, identical writes; nothing is drawn, rolled or defaulted. It reads exactly the
- * committed event and, where the payload's form depends on one, the recipient's capability AS-OF-DECLARED-CLOSE, and
+ * committed event and, where the payload's form depends on one, the recipient's capability AS-OF-DECLARED-CLOSE (the
+ * Named-Actor owner's, or — for the active Player Character — the PC owner's at the PC Capability Close), and
  * invents nothing: no comprehension, inference, credibility, belief or number. It throws StageUnresolvedError (nothing
  * published, nothing credited, dependents wait) when its sources do not lawfully support a packet.
  */
@@ -62,7 +65,9 @@ export const epistemicPacketProvider: StageProvider = {
     let capability: CapabilityCloseRead | null = null;
     if (input.reads.length === 2) {
       const capFact = input.reads[1]!.fact;
-      const cap = NamedActorCapabilitySchema.safeParse(capFact.value);
+      const cap = (
+        isPcRecipientEvent(event.data) ? PcCapabilitySchema : NamedActorCapabilitySchema
+      ).safeParse(capFact.value);
       if (!cap.success) throw unresolved("SOURCE_INVALID", "the capability violates its contract");
       capability = {
         fact: { key: capFact.key, owner: capFact.owner, version: capFact.version, value: cap.data },

@@ -10,6 +10,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   EPISTEMIC_ACCESS_FACT_KINDS,
   EPISTEMIC_ACCESS_RULE,
+  EPISTEMIC_ACCESS_RULE_TENTH_SLICE,
   EpistemicAccessAdapter,
   F014D_SOURCE,
   NamedActorAdapter,
@@ -17,7 +18,8 @@ import {
   epistemicPacketProvider,
 } from "@immortalis/engine";
 import { PACKAGE_FORMAT_VERSION } from "@immortalis/contracts";
-import { code, gates, lock, register } from "../support/f027.ts";
+import { accessEvent } from "@immortalis/testkit";
+import { code, gates, lock, register, sha } from "../support/f027.ts";
 import {
   expectedAdapterMethods,
   expectedKindIds,
@@ -67,6 +69,88 @@ describe("IA-01 source/version fidelity (Epistemic Access registration aspect)",
       t.title.includes("Runtime Contract & Translation"),
     )!;
     expect(lineage).toContain(tranche.native_pin);
+  });
+
+  it("the superseded tenth-slice citation is preserved byte-for-byte as each kind's one historical entry; the current citation extends it with the active-PC route and cites I-002, F-016 PCC and the Role Registry", () => {
+    // frozen: the hash of the Epistemic rule exactly as every save committed before the active-PC slice carries it
+    expect(sha(EPISTEMIC_ACCESS_RULE_TENTH_SLICE)).toBe(
+      "cf1c02a8ba37b289d8ecbeb04e98ee503753e2a0311464de3989a882376adad5",
+    );
+    expect(sha(EPISTEMIC_ACCESS_RULE)).not.toBe(sha(EPISTEMIC_ACCESS_RULE_TENTH_SLICE));
+    for (const field of ["artifact", "native_pin", "effective_basis", "supersedes"] as const)
+      expect(EPISTEMIC_ACCESS_RULE[field]).toEqual(EPISTEMIC_ACCESS_RULE_TENTH_SLICE[field]);
+    expect(EPISTEMIC_ACCESS_RULE.clause.startsWith(EPISTEMIC_ACCESS_RULE_TENTH_SLICE.clause)).toBe(
+      true,
+    );
+    for (const cited of ["role.player_character", "PCC-01 to PCC-03", '"PC Capability Close"'])
+      expect(EPISTEMIC_ACCESS_RULE.clause, cited).toContain(cited);
+    const lineage = EPISTEMIC_ACCESS_RULE.authority_lineage.join("\n");
+    for (const pin of [
+      "2026-09-25T00:15:54.536Z", // I-002
+      "2026-09-21T23:18:36.650Z", // F-016 Phase 2B PCC
+      "2026-09-25T08:21:22.816Z", // Canonical Role Registry v1
+    ])
+      expect(lineage, pin).toContain(pin);
+    for (const pin of [
+      "2026-09-25T00:15:54.536Z",
+      "2026-09-21T23:18:36.650Z",
+      "2026-09-25T08:21:22.816Z",
+    ])
+      expect(EPISTEMIC_ACCESS_RULE_TENTH_SLICE.authority_lineage.join("\n")).not.toContain(pin);
+    for (const kind of EPISTEMIC_ACCESS_FACT_KINDS) {
+      expect(kind.rule).toBe(EPISTEMIC_ACCESS_RULE);
+      expect(kind.legacyRule!.rule).toBe(EPISTEMIC_ACCESS_RULE_TENTH_SLICE);
+      expect(Object.keys(kind.legacyRule!).sort()).toEqual(["admits", "rule"]);
+    }
+  });
+
+  it("each historical entry admits only its predecessor value class: no PC-role event, no PC Capability Close packet, no PC capability provenance", () => {
+    const [event, packet, prov] = EPISTEMIC_ACCESS_FACT_KINDS.map((k) => k.legacyRule!.admits);
+    const named = accessEvent("e1", "actor-a");
+    expect(event!(named)).toBe(true);
+    expect(event!({ ...named, recipient_role: "role.player_character" })).toBe(false);
+    const base = {
+      recipient: "r",
+      payload: { referent: "x", content: "y" },
+      presented_attribution: null,
+      access: { result: "RECEIVED", channel: "SPEECH", established_at: named.established_at },
+    };
+    const referenced = (name: string) => ({
+      ...base,
+      intelligibility: {
+        result: "REPRESENTATION_ACCESSIBLE",
+        basis: "ESTABLISHED_CAPABILITY",
+        capability: {
+          capability_id: "c",
+          fact_key: "k",
+          version: 1,
+          close: { name, group_id: "g" },
+        },
+      },
+    });
+    expect(
+      packet!({
+        ...base,
+        intelligibility: { result: "REPRESENTATION_ACCESSIBLE", basis: "NO_CAPABILITY_DEPENDENCY" },
+      }),
+    ).toBe(true);
+    expect(packet!(referenced("actor-profile-capability-close"))).toBe(true);
+    expect(packet!(referenced("PC Capability Close"))).toBe(false);
+    const provenance = (capability_close: unknown) => ({
+      event: { fact_key: "access/e/event", version: 1 },
+      recipient: "r",
+      packet: { fact_key: "access/e/packet/r" },
+      source: { owner: "o", fact_key: "k", version: 1 },
+      channel: "SPEECH",
+      capability_close,
+    });
+    expect(prov!(provenance(null))).toBe(true);
+    expect(
+      prov!(provenance({ fact_key: "actor/r/capability/c", version: 1, committed_by: "g" })),
+    ).toBe(true);
+    expect(
+      prov!(provenance({ fact_key: "pc/r/capability/c", version: 1, committed_by: "g" })),
+    ).toBe(false);
   });
 
   it("the rule names the clauses the state relies on: ownership, R-T1, the event, the hot path, provenance separation, the handoff, causality and the failure conditions", () => {
@@ -255,6 +339,31 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
         /namedActorCapabilityDeclaration|namedActorCapabilityCloseProvider|NAMED_ACTOR_OPERATION_PUBLISH_CAPABILITY_CLOSE|READ_MODE_CLOSE|declares_close: \{/,
       );
     expect(code(`${EPISTEMIC_DIR}/declaration.ts`)).toMatch(/declares_close: null/);
+  });
+
+  it("the active-PC capability is read only through the existing PC close-read builder and classified only by the committed Role Registry binding: the Epistemic modules never receive, declare, close or key a PC capability, and the Named-Actor boundary is reused, not relaxed", () => {
+    expect(code(`${EPISTEMIC_DIR}/declaration.ts`)).toMatch(/pcCapabilityCloseRead\(/);
+    for (const f of EPISTEMIC_SOURCES.filter((f) => !/contracts/.test(f)))
+      expect(code(f), f).not.toMatch(
+        /pcCapabilityDeclaration|pcCapabilityCloseProvider|PcCapabilityAdapter|receiveCapabilityBasis|pcCapabilityBasisKey|PcCapabilityBasisSchema|PC_OPERATION_|PC_CAPABILITY_RULE|FACET_PC_CAPABILITY_PROFILE|pcExistenceContractKey|ExistenceContractSchema/,
+      );
+    // classification: the Role Registry binding by identity in the one derive module; the Named-Actor boundary is called, never copied
+    const derive = code(`${EPISTEMIC_DIR}/derive.ts`);
+    expect(derive).toMatch(/PLAYER_CHARACTER_BINDING_KEY/);
+    expect(derive).toMatch(/actorBoundaryViolation\(/);
+    for (const f of EPISTEMIC_SOURCES.filter((f) => !/derive\.ts$|contracts/.test(f)))
+      expect(code(f), f).not.toMatch(/actorBoundaryViolation|PLAYER_CHARACTER_BINDING_KEY/);
+    // the Named-Actor and PC-capability owners' own modules know nothing of the Epistemic role assertion
+    for (const f of [
+      ...walk("packages/engine/src/actor"),
+      ...walk("packages/engine/src/pc-capability"),
+    ])
+      expect(code(f), f).not.toMatch(/RECIPIENT_ROLE|recipient_role|recipientBoundaryViolation/);
+    // the role is a literal assertion, not state: the only occurrences in the contract are the constant and the optional field
+    const contract = code("packages/contracts/src/epistemic-access.ts");
+    expect(contract).toMatch(
+      /recipient_role: z\.literal\(RECIPIENT_ROLE_PLAYER_CHARACTER\)\.optional\(\)/,
+    );
   });
 
   it("a packet stage's identity is its StageKey alone: no horizon, version, retry, consumer or slice participates", () => {

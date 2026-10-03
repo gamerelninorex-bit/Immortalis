@@ -4,6 +4,7 @@ import {
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
+  PcCapabilitySchema,
   ResolutionTransactionSchema,
   SealedEngineProvenanceSchema,
   TEMPORAL_STATE_KEY,
@@ -14,19 +15,24 @@ import {
   accessPacketKey,
   accessPacketStage,
   accessProvenanceKey,
-  actorCapabilityKey,
   temporalTransactionAuthorityKey,
   timeAtOrBefore,
   type OwnerFact,
 } from "@immortalis/contracts";
-import { actorBoundaryViolation } from "../actor/derive.ts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_RULE_TENTH_SLICE, resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { epistemicObjectViolation } from "./declaration.ts";
-import { deriveAccessProducts, eventRecipient, sourceOwnerViolation } from "./derive.ts";
+import {
+  deriveAccessProducts,
+  eventRecipient,
+  eventSourceViolation,
+  isPcRecipientEvent,
+  recipientBoundaryViolation,
+  requiredCapability,
+} from "./derive.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Epistemic Access state still tells one
@@ -34,9 +40,10 @@ import { deriveAccessProducts, eventRecipient, sourceOwnerViolation } from "./de
  * owner, schema, key identity and governing rule; this proves the facts still cohere:
  *
  *  - an access event rests on a source that is committed, owned by the source it names, foreign and not kernel,
- *    Epistemic or Named-Actor state, at (or, as history, behind) the version pinned and committed BEFORE the event; its
- *    recipient was no Player Character, no entity under player control and no Population ledger when the event was
- *    committed; it is engine-sealed, and its access time does not lie in the future of the canonical basis;
+ *    Epistemic or Named-Actor state (nor, for an active-PC event, a PC capability key), at (or, as history, behind) the
+ *    version pinned and committed BEFORE the event; its recipient was, when the event was committed, either (no role
+ *    asserted) no Player Character, no entity under player control and no Population ledger, or (the active-PC role
+ *    asserted) exactly the entity the Role Registry binding then named and no Population ledger; it is engine-sealed, and its access time does not lie in the future of the canonical basis;
  *  - a packet and its Sealed Engine Provenance exist together, in one group, each carrying its own access class (the
  *    packet actor-accessible, the provenance engine-sealed); the packet is exactly what its committed event (and capability
  *    close) determines, the provenance is exactly the engine-side record of that formation, and they were committed after
@@ -108,9 +115,9 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     if (ef.secrecy !== ACCESS_CLASS_ENGINE_SEALED) {
       bad(ef.key, "an access event is engine-side: it carries the engine-sealed access class");
     }
-    const boundary = actorBoundaryViolation(factsBefore(revisionOf(ef)), eventRecipient(e));
+    const boundary = recipientBoundaryViolation(factsBefore(revisionOf(ef)), e);
     if (boundary) bad(ef.key, boundary);
-    const foreign = sourceOwnerViolation(e.source.owner);
+    const foreign = eventSourceViolation(e);
     if (foreign) bad(ef.key, foreign);
     const src = byKey.get(e.source.fact_key);
     if (!src || src.owner !== e.source.owner || src.version < e.source.version) {
@@ -160,11 +167,28 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         "the packet and its sealed provenance are written together, each with its own access class",
       );
     }
+    // the superseded governing-rule citation is true provenance only for facts of a Named-Actor recipient's event
+    if (
+      isPcRecipientEvent(event.data) &&
+      [pf, provFact].some(
+        (f) => f && canonicalEqual(f.provenance.rule, EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+      )
+    ) {
+      bad(
+        pf.key,
+        "an active-PC recipient's packet and provenance carry the current governing-rule citation, never the superseded one",
+      );
+    }
     let capability = null;
-    if (event.data.representation) {
-      const capKey = actorCapabilityKey(recipient, event.data.representation.capability_id);
-      const capFact = byKey.get(capKey);
-      const cap = capFact ? NamedActorCapabilitySchema.safeParse(capFact.value) : undefined;
+    const required = requiredCapability(event.data);
+    if (required) {
+      const capFact = byKey.get(required.key);
+      const cap = capFact
+        ? (isPcRecipientEvent(event.data)
+            ? PcCapabilitySchema
+            : NamedActorCapabilitySchema
+          ).safeParse(capFact.value)
+        : undefined;
       if (!capFact || !cap?.success) {
         bad(pf.key, "a packet depends on a capability that is not committed");
         continue;
@@ -200,7 +224,7 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         bad(pf.key, "the sealed provenance is exactly the engine-side record of its packet");
       }
     }
-    const boundary = actorBoundaryViolation(factsBefore(revisionOf(pf)), recipient);
+    const boundary = recipientBoundaryViolation(factsBefore(revisionOf(pf)), event.data);
     if (boundary) bad(pf.key, boundary);
     // formed only as its IM-02 stage, under the durable authority of the transaction that opened it
     const stage = accessPacketStage(eventId, recipient);
@@ -223,9 +247,7 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
       );
       if (identity) bad(pf.key, identity);
       const readKeys = group.reads.map((r) => r.key);
-      const expectedKeys = event.data.representation
-        ? [eventFact.key, actorCapabilityKey(recipient, event.data.representation.capability_id)]
-        : [eventFact.key];
+      const expectedKeys = required ? [eventFact.key, required.key] : [eventFact.key];
       if (!canonicalEqual(readKeys, expectedKeys)) {
         bad(pf.key, "a formation read exactly its event and, if required, the capability close");
       }

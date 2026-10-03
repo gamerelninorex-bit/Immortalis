@@ -297,7 +297,8 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
       ...walk("packages/engine/src/economy"),
       ...walk("packages/engine/src/logistics"),
       ...walk("packages/engine/src/actor"),
-      ...walk("packages/engine/src/epistemic"),
+      // the Epistemic owner's active-PC path (F-014D PC-recipient slice) is the one lawful wiring: it is bounded in
+      // epistemic-access-conformance.test.ts, which names exactly what it may touch of the PC capability
       ...walk("packages/engine/src/kti"),
       ...walk("packages/engine/src/causal-draw"),
       "packages/engine/src/world/fallback-custody.ts",
@@ -423,12 +424,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     }
   });
 
-  it("no Epistemic, KTI, Insertion, projection, host or provider surface was wired to the PC capability: the only cross-owner read form is the declared-close builder", () => {
-    for (const f of [
-      ...walk("packages/engine/src/epistemic"),
-      ...walk("packages/engine/src/kti"),
-      "packages/protocol/src/index.ts",
-    ])
+  it("no KTI, Insertion, projection, host or provider surface was wired to the PC capability: the only cross-owner read form is the declared-close builder (the Epistemic active-PC path is bounded in its own conformance file)", () => {
+    for (const f of [...walk("packages/engine/src/kti"), "packages/protocol/src/index.ts"])
       expect(code(f), f).not.toMatch(/pcCapabilityCloseRead|PC_CAPABILITY_CLOSE|pc_capability/);
   });
 });

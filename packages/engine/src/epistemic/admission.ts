@@ -4,6 +4,7 @@ import {
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
+  PcCapabilitySchema,
   SealedEngineProvenanceSchema,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
@@ -11,18 +12,23 @@ import {
   accessPacketKey,
   accessPacketStage,
   accessProvenanceKey,
-  actorCapabilityKey,
   timeAtOrBefore,
   type AccessEvent,
   type CommitGroup,
 } from "@immortalis/contracts";
-import { actorBoundaryViolation } from "../actor/derive.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_RULE, resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
-import { deriveAccessProducts, eventRecipient, sourceOwnerViolation } from "./derive.ts";
+import {
+  deriveAccessProducts,
+  eventRecipient,
+  eventSourceViolation,
+  isPcRecipientEvent,
+  recipientBoundaryViolation,
+  requiredCapability,
+} from "./derive.ts";
 
 /**
  * IM-11 admission for the IM-10 Epistemic Access owner (IM-03 owner resolution; F-014D §§2, 2.1, 4.1, 4.2, 5, 9, 11, 14,
@@ -32,7 +38,8 @@ import { deriveAccessProducts, eventRecipient, sourceOwnerViolation } from "./de
  * by the owner registry before this runs; this enforces that even the Epistemic owner can change its state in exactly two
  * lawful ways, each create-only and re-derived:
  *
- *  1. ACCESS EVENT: one BOUNDED_SHARED_ACCESS event for one named non-PC recipient, resting on a committed foreign
+ *  1. ACCESS EVENT: one BOUNDED_SHARED_ACCESS event for one named recipient — a non-PC Named-Actor subject, or the active
+ *     Player Character the committed Role Registry binding names (and only when the event asserts that role) — resting on a committed foreign
  *     source/carrier fact that is PINNED (read at its current version and depended on) and never copied, established at
  *     or before the canonical basis (no future access), stamped engine-sealed.
  *  2. PACKET FORMATION, only as its IM-02 stage: exactly the two surfaces the committed event (and the committed
@@ -43,9 +50,20 @@ import { deriveAccessProducts, eventRecipient, sourceOwnerViolation } from "./de
  */
 export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
   const kindOf = (key: string) => resolveKey(key)?.kind.id;
+  // a new write carries the CURRENT governing-rule citation: the superseded one is accepted on load for predecessor facts
+  // only, so a raw commit cannot stamp it on an active-PC fact
+  const rule = () =>
+    canonicalEqual(group.rule, EPISTEMIC_ACCESS_RULE)
+      ? null
+      : ref(
+          "an Epistemic fact is committed under the current governing-rule citation of its kind",
+          {
+            key: group.writes[0]!.key,
+          },
+        );
   if (group.writes.length === 1 && group.writes[0]!.expected_version === 0) {
     const w = group.writes[0]!;
-    if (kindOf(w.key) === "epistemic_access_event") return checkEvent(group, state, w);
+    if (kindOf(w.key) === "epistemic_access_event") return rule() ?? checkEvent(group, state, w);
   }
   if (
     group.writes.length === 2 &&
@@ -53,7 +71,7 @@ export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): R
     kindOf(group.writes[0]!.key) === "epistemic_accessible_packet" &&
     kindOf(group.writes[1]!.key) === "epistemic_sealed_provenance"
   ) {
-    return checkFormation(group, state, group.writes[0]!, group.writes[1]!);
+    return rule() ?? checkFormation(group, state, group.writes[0]!, group.writes[1]!);
   }
   return reject(
     "VALUE_INVALID",
@@ -86,10 +104,11 @@ function checkEvent(group: CommitGroup, state: CampaignState, w: Write): Rejecti
       key: w.key,
     });
   }
-  // the recipient is a lawful Named-Actor subject: no Player Character, no entity under player control, no aggregate
-  const boundary = actorBoundaryViolation(state.facts, eventRecipient(e));
+  // the recipient is a lawful Named-Actor subject (no Player Character, no entity under player control, no aggregate) or,
+  // only when the event asserts the role, exactly the active Player Character the Role Registry binding names
+  const boundary = recipientBoundaryViolation(state.facts, e);
   if (boundary) return reject("KEY_NOT_ADMITTED", boundary, { key: w.key });
-  const foreign = sourceOwnerViolation(e.source.owner);
+  const foreign = eventSourceViolation(e);
   if (foreign) return ref(foreign, { key: e.source.fact_key });
   // the causal route rests on a committed fact of its own owner, pinned at its current version and depended on
   const pinned = requirePrerequisite(group, state, e.source.fact_key, "the source/carrier");
@@ -163,17 +182,18 @@ function checkFormation(
   if (!event.success || eventRecipient(event.data) !== recipient) {
     return ref("the event names this recipient and is a valid access event", { key: eventKey });
   }
-  // the Player-Character / aggregate boundary holds at formation as well: an entity that came under player control
-  // between the event and the formation is no longer a lawful Named-Actor subject
-  const boundary = actorBoundaryViolation(state.facts, recipient);
+  // the Player-Character / aggregate boundary holds at formation as well, in the class the event asserted: an entity that
+  // came under player control between a Named-Actor event and the formation is no longer a lawful Named-Actor subject, and
+  // an event that asserts the active-PC role forms only while the Role Registry binding names its recipient
+  const boundary = recipientBoundaryViolation(state.facts, event.data);
   if (boundary) return reject("KEY_NOT_ADMITTED", boundary, { key: packetW.key });
   const e: AccessEvent = event.data;
 
   // exactly the declared reads, in declared order, each at its current version and depended on (RC-07)
   const expected = [eventKey];
-  const needsCapability = e.representation !== null;
-  if (needsCapability)
-    expected.push(actorCapabilityKey(recipient, e.representation!.capability_id));
+  const needed = requiredCapability(e);
+  const needsCapability = needed !== null;
+  if (needed) expected.push(needed.key);
   if (
     group.reads.length !== expected.length ||
     expected.some((k, i) => group.reads[i]!.key !== k) ||
@@ -185,14 +205,16 @@ function checkFormation(
     })
   ) {
     return ref(
-      "a formation reads exactly its event (NOW) and, where the payload's form depends on one, the recipient's capability at its declared close, each at its current version",
+      "a formation reads exactly its event (NOW) and, where the payload's form depends on one, the recipient's capability at its owner's declared close, each at its current version",
       { key: packetW.key },
     );
   }
   let capability = null;
   if (needsCapability) {
     const capFact = state.facts.get(expected[1]!)!;
-    const cap = NamedActorCapabilitySchema.safeParse(capFact.value);
+    const cap = (isPcRecipientEvent(e) ? PcCapabilitySchema : NamedActorCapabilitySchema).safeParse(
+      capFact.value,
+    );
     if (!cap.success) return bad("the capability violates its contract", { key: capFact.key });
     capability = {
       fact: { key: capFact.key, owner: capFact.owner, version: capFact.version, value: cap.data },

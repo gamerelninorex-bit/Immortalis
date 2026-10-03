@@ -5,6 +5,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ACCESS_CHANNELS,
+  ACTOR_PROFILE_CAPABILITY_CLOSE,
+  PC_CAPABILITY_CLOSE,
+  PlayerCharacterBindingSchema,
+  RECIPIENT_ROLE_PLAYER_CHARACTER,
   ACCESS_CLASS_ACTOR_ACCESSIBLE,
   ACCESS_CLASS_ENGINE_SEALED,
   AccessEventSchema,
@@ -311,5 +315,59 @@ describe("Sealed Engine Provenance is a separate engine-only surface (acceptance
     expect(ACCESS_CLASS_ENGINE_SEALED).not.toBe(ACCESS_CLASS_ACTOR_ACCESSIBLE);
     expect(ACCESS_CLASS_ENGINE_SEALED).toBe("epistemic.engine-sealed");
     expect(ACCESS_CLASS_ACTOR_ACCESSIBLE).toBe("epistemic.actor-accessible");
+  });
+});
+
+describe("the active-PC recipient role is one literal assertion, never state (F-014D §4.2 explicit participant; Role Registry slot)", () => {
+  it("`recipient_role` is optional, exactly the Role Registry slot literal, and the event stays one-recipient and strict: no PC state, group or audience field", () => {
+    expect(RECIPIENT_ROLE_PLAYER_CHARACTER).toBe("role.player_character");
+    expect(PlayerCharacterBindingSchema.shape.binding_slot.value).toBe(
+      RECIPIENT_ROLE_PLAYER_CHARACTER,
+    );
+    // an event committed before the path existed parses unchanged, with no role key
+    const legacy = accessEvent("e1", ACTOR_SMITH);
+    expect("recipient_role" in legacy).toBe(false);
+    expect(AccessEventSchema.safeParse(legacy).success).toBe(true);
+    expect(
+      AccessEventSchema.safeParse({ ...legacy, recipient_role: "role.player_character" }).success,
+    ).toBe(true);
+    for (const bad of [
+      "role.npc",
+      "role.player",
+      "player_character",
+      null,
+      true,
+      ["role.player_character"],
+    ])
+      expect(AccessEventSchema.safeParse({ ...legacy, recipient_role: bad }).success).toBe(false);
+    for (const extra of [
+      { pc_state: {} },
+      { recipient_roles: ["role.player_character"] },
+      { audience: "role.player_character" },
+    ])
+      expect(AccessEventSchema.safeParse({ ...legacy, ...extra }).success).toBe(false);
+    expect(
+      AccessEventSchema.safeParse({
+        ...legacy,
+        recipient_role: "role.player_character",
+        participants: [ACTOR_SMITH, "pc-two"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("a capability reference names exactly one of the two closes, both literal, and carries no marker", () => {
+    const reference = (name: unknown) => ({
+      result: "REPRESENTATION_ACCESSIBLE",
+      basis: "ESTABLISHED_CAPABILITY",
+      capability: { capability_id: "c", fact_key: "k", version: 1, close: { name, group_id: "g" } },
+    });
+    for (const name of [ACTOR_PROFILE_CAPABILITY_CLOSE, PC_CAPABILITY_CLOSE])
+      expect(RepresentationalIntelligibilitySchema.safeParse(reference(name)).success).toBe(true);
+    expect(PC_CAPABILITY_CLOSE).toBe("PC Capability Close");
+    for (const name of ["pc-capability-close", "PC capability close", "", "capability-close"])
+      expect(RepresentationalIntelligibilitySchema.safeParse(reference(name)).success).toBe(false);
+    const withMarker = reference(PC_CAPABILITY_CLOSE);
+    (withMarker.capability as Record<string, unknown>).marker = "C";
+    expect(RepresentationalIntelligibilitySchema.safeParse(withMarker).success).toBe(false);
   });
 });

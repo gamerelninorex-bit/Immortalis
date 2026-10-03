@@ -4,6 +4,7 @@ import {
   type CommitGroup,
   type DependencyDeclaration,
   type NamedActorCapabilityBasis,
+  type PcCapabilityBasis,
   type ResolutionRequest,
   type TemporalObject,
 } from "@immortalis/contracts";
@@ -14,11 +15,14 @@ import {
   epistemicPacketRead,
   namedActorCapabilityCloseProvider,
   namedActorCapabilityDeclaration,
+  pcCapabilityCloseProvider,
+  pcCapabilityDeclaration,
   type StageOwnerExtension,
   type StageProvider,
   type WriteAdmission,
 } from "@immortalis/engine";
 import { ACTOR_FIXTURE_EXTENSION, closeConsumerProvider } from "./actor-fixtures.ts";
+import { pcCloseConsumerProvider } from "./pc-capability-fixtures.ts";
 import { SYNTH_RULE, T0, T1, TB } from "./temporal-fixtures.ts";
 
 /**
@@ -151,6 +155,16 @@ export const accessEvent = (
   ...over,
 });
 
+/**
+ * The same event for the one canonically bound active Player Character: the event asserts the `role.player_character`
+ * recipient role, which admission, registration and load verification check against the committed Role Registry binding.
+ */
+export const pcAccessEvent = (
+  eventId: string,
+  pcId: string,
+  over: Partial<AccessEvent> = {},
+): AccessEvent => accessEvent(eventId, pcId, { recipient_role: "role.player_character", ...over });
+
 export const accessPublication = (n: number) => ({
   group_id: `access-group-${n}`,
   intent_id: `access-intent-${n}`,
@@ -204,6 +218,9 @@ export const packetConsumerProvider: StageProvider = {
 export const epistemicProviders = (): StageProviderRegistry =>
   new StageProviderRegistry([
     namedActorCapabilityCloseProvider,
+    pcCapabilityCloseProvider,
+    // a PC-side fixture reader (no Epistemic part), so a PC Capability Close can resolve in an earlier transaction
+    pcCloseConsumerProvider,
     // the Named-Actor fixture consumer (a capability reader with no Epistemic part), so a capability close can resolve in
     // an earlier transaction than the packet that later adopts it
     closeConsumerProvider,
@@ -223,14 +240,15 @@ export const packetConsumerBoundaryId = (consumerId: string): string =>
   `packet-consumer-boundary-${consumerId}`;
 
 /**
- * The engaged object of one dependent consequence: ONE earned boundary (a test coordinate), the actor owner's capability
- * close declared ahead of it where the payload's form depends on a capability (`basis`), the Epistemic packet formation,
- * and the consumer stage that reads the formed packet. `over` lets a test add further (or replace) fields.
+ * The engaged object of one dependent consequence: ONE earned boundary (a test coordinate), the capability owner's close
+ * declared ahead of it where the payload's form depends on a capability (`basis`: the Named-Actor owner's, or the PC
+ * owner's PC Capability Close for a PC basis), the Epistemic packet formation, and the consumer stage that reads the
+ * formed packet. `over` lets a test add further (or replace) fields.
  */
 export function packetConsumerObject(
   consumerId: string,
   event: AccessEvent,
-  basis: NamedActorCapabilityBasis | null = null,
+  basis: NamedActorCapabilityBasis | PcCapabilityBasis | null = null,
   over: Partial<TemporalObject> = {},
 ): TemporalObject {
   return {
@@ -242,7 +260,13 @@ export function packetConsumerObject(
     last_resolved_basis: T0,
     next_boundary: { boundary_id: packetConsumerBoundaryId(consumerId), at: TB },
     dependencies: [
-      ...(basis ? [namedActorCapabilityDeclaration(basis)] : []),
+      ...(basis
+        ? [
+            "pc_id" in basis
+              ? pcCapabilityDeclaration(basis)
+              : namedActorCapabilityDeclaration(basis),
+          ]
+        : []),
       epistemicPacketDeclaration(event),
       packetConsumerDeclaration(consumerId, event.event_id, event.participants[0]!),
     ],

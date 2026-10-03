@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ACTOR_PROFILE_CAPABILITY_CLOSE } from "./actor-capability.ts";
 import { Id, Version } from "./ids.ts";
+import { PC_CAPABILITY_CLOSE } from "./pc-capability.ts";
 import type { StageKey } from "./temporal.ts";
 import { CanonicalTimeSchema } from "./temporal.ts";
 import { EntityId, Text } from "./world-foundation.ts";
@@ -48,6 +49,14 @@ export const MODE_BOUNDED_SHARED_ACCESS = "BOUNDED_SHARED_ACCESS";
  * approximated by copying the payload to recipients.
  */
 export const MODE_BROADCAST_EXPOSURE = "BROADCAST_EXPOSURE";
+
+/**
+ * The Role Registry slot the one canonically bound active Player Character occupies (the literal `binding_slot` of the Role
+ * Registry binding fact). An event may name it as its recipient role (F-014D §4.2 explicit named participant); it is only an
+ * assertion that admission, registration and load verification check against the committed Role Registry binding by
+ * identity, never a classification the event can establish by itself and never PC state.
+ */
+export const RECIPIENT_ROLE_PLAYER_CHARACTER = "role.player_character";
 
 export const accessEventKey = (eventId: string): string => `access/${eventId}/event`;
 export const accessPacketKey = (eventId: string, recipientId: string): string =>
@@ -108,16 +117,19 @@ export const AccessPayloadSchema = z.strictObject({
 export type AccessPayload = z.infer<typeof AccessPayloadSchema>;
 
 /**
- * One BOUNDED_SHARED_ACCESS event for an explicit, named participant set. The set is exactly one named non-PC recipient
- * in this construction: there is no cohort/scene identifier, membership reference, office, group or audience field, so
+ * One BOUNDED_SHARED_ACCESS event for an explicit, named participant set. The set is exactly one named recipient in this
+ * construction — a non-PC Named-Actor subject, or (only when `recipient_role` names `role.player_character`) the entity the
+ * canonical Role Registry binding names as the active Player Character: there is no cohort/scene identifier, membership reference, office, group or audience field, so
  * bare membership or authority cannot manufacture receipt (F-014D §2, §5 step 2, §9, §24) and a later roster cannot
  * backfill earlier participation (§4.2, §21.12). The mode is a literal fixed at creation; the fact is sealed
  * (create-only), so it can neither be reclassified nor have its participant reference rewritten (§4.2, §14).
  *
- * `representation` names the one Named-Actor capability, if any, on which the payload's representational form
- * (language, notation, decoding) depends (F-014D §4.1 "Representational Intelligibility", §5 step 4); null states that the
- * payload's form depends on no Named-Actor capability. It is a requirement on the payload, never a capability, a level
- * or a score.
+ * `representation` names the one capability, if any, on which the payload's representational form (language, notation,
+ * decoding) depends (F-014D §4.1 "Representational Intelligibility", §5 step 4); null states that the payload's form depends
+ * on no capability. It is a requirement on the payload, never a capability, a level or a score. Which owner's capability it
+ * names follows the recipient and is never a fallback: a Named-Actor recipient's Named-Actor capability, or the active
+ * Player Character's I-002 PC capability read at the PC Capability Close (F-016 Phase 2B PCC-03). Absent `recipient_role`
+ * (every event committed before the active-PC path existed) the recipient is a Named-Actor subject, unchanged.
  */
 export const AccessEventSchema = z
   .strictObject({
@@ -130,6 +142,7 @@ export const AccessEventSchema = z
     established_at: CanonicalTimeSchema,
     payload: AccessPayloadSchema,
     representation: z.strictObject({ capability_id: EntityId }).nullable(),
+    recipient_role: z.literal(RECIPIENT_ROLE_PLAYER_CHARACTER).optional(),
   })
   .superRefine((e, ctx) => {
     if (e.payload.content.includes(e.source.fact_key)) {
@@ -163,13 +176,18 @@ export type AccessEvent = z.infer<typeof AccessEventSchema>;
 /**
  * The authoritative capability-state reference an intelligibility result rests on: the committed fact, the version and
  * the capability close it was read at (F-014D §2.1: AS-OF-DECLARED-CLOSE, Close Basis = F-014A actor-profile capability
- * close). A reference, never a copy: no marker, grade or capability value travels in the packet (RC-02 guard).
+ * close for a Named-Actor recipient; "PC Capability Close" for the active Player Character, F-016 Phase 2B PCC-02/PCC-03).
+ * A reference, never a copy: no marker, grade or capability value travels in the packet (RC-02 guard). Which close name
+ * is lawful follows the owner of the referenced fact and is re-derived, never chosen by the packet.
  */
 export const CapabilityCloseReferenceSchema = z.strictObject({
   capability_id: EntityId,
   fact_key: Id,
   version: Version.min(1),
-  close: z.strictObject({ name: z.literal(ACTOR_PROFILE_CAPABILITY_CLOSE), group_id: Id }),
+  close: z.strictObject({
+    name: z.enum([ACTOR_PROFILE_CAPABILITY_CLOSE, PC_CAPABILITY_CLOSE]),
+    group_id: Id,
+  }),
 });
 export type CapabilityCloseReference = z.infer<typeof CapabilityCloseReferenceSchema>;
 
