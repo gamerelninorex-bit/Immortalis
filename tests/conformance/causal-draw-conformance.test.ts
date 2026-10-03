@@ -161,9 +161,8 @@ describe("IA-03 owner exclusivity: an infrastructure-only owner, not a substanti
     expect(expectedAdapterMethods("CausalDrawAdapter")).toEqual(["draw", "precommit", "result"]);
   });
 
-  it("no predecessor owner module knows the Causal Draw layer: the temporal coordinator, the Named-Actor modules and every other owner path are unchanged in this respect", () => {
+  it("no other owner module knows the Causal Draw layer: the temporal coordinator and every owner path except the Named-Actor consumer (WS-016 CD-CC-01) are unchanged in this respect", () => {
     const owners = [
-      "actor",
       "diplomacy",
       "economy",
       "epistemic",
@@ -349,7 +348,7 @@ describe("CDA-01: the algorithm's literal specification", () => {
 });
 
 describe("explicit exclusions: nothing outside the bounded slice was implemented or enabled", () => {
-  it("WS-016 BOUNDED_PRIOR_RANDOMIZED still fails closed as ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED and writes nothing", async () => {
+  it("WS-016 BOUNDED_PRIOR_RANDOMIZED is made only through the Named-Actor owner's own draw-backed operation: the plain establishment path refuses it and writes nothing", async () => {
     const store = createInMemoryCampaign({
       campaignId: "c-ws016",
       owners: CANONICAL_OWNER_REGISTRY,
@@ -364,11 +363,13 @@ describe("explicit exclusions: nothing outside the bounded slice was implemented
       },
     });
     expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error.code).toBe("ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED");
+    expect(r.ok ? "" : r.error.code).toBe("INPUT_INVALID");
     expect(store.head().journal_entries).toBe(before);
     expect(code("packages/engine/src/actor/adapter.ts")).toContain(
-      "ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED",
+      "establishRandomizedCapabilityBasis",
     );
+    // the neutral layer names no consumer: the dependency runs from the Named-Actor owner to Causal Draw, never back
+    for (const f of DRAW_SOURCES) expect(code(f), f).not.toMatch(/named_actor|NamedActor|actor\//);
   });
 
   it("Legacy L-29, L-30 and L-31 remain Requires Decision; no gate is resolved, closed or passed", () => {

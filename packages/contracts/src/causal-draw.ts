@@ -155,10 +155,10 @@ export type CausalDrawSpecification = z.infer<typeof CausalDrawSpecificationSche
 // CDP-01 — the SEALED / create-only precommit record
 // ---------------------------------------------------------------------------------------------
 
-const DrawIdSchema = z.string().regex(/^cdraw:v1:[0-9a-f]{64}$/);
+export const CausalDrawIdSchema = z.string().regex(/^cdraw:v1:[0-9a-f]{64}$/);
 
 export const CausalDrawPrecommitSchema = z.strictObject({
-  draw_id: DrawIdSchema,
+  draw_id: CausalDrawIdSchema,
   draw_key: CausalDrawKeySchema,
   spec_digest: Sha256,
   /** the full normalized CausalDrawSpecification (CDS-02) */
@@ -175,7 +175,7 @@ export type CausalDrawPrecommit = z.infer<typeof CausalDrawPrecommitSchema>;
 // ---------------------------------------------------------------------------------------------
 
 export const CausalDrawResultSchema = z.strictObject({
-  draw_id: DrawIdSchema,
+  draw_id: CausalDrawIdSchema,
   spec_digest: Sha256,
   precommit_key: DrawIdent,
   precommit_version: PositiveSafeIntegerSchema,

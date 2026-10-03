@@ -429,7 +429,7 @@ describe("lawful establishment: causally determined from committed, pinned, fore
     expect(s.actors.basis(A, C)).toBeUndefined();
   });
 
-  it("the genuine-uncertainty branch fails closed — an Implementation Escalation, never a roll or a default", async () => {
+  it("the genuine-uncertainty branch is not a plain basis: the plain path refuses it — it is fixed only by its Causal Draw — and writes nothing, rolls nothing, defaults nothing", async () => {
     const s = await seededActorCampaign(tempDir());
     const before = s.campaign.store.head();
     const uncertain = {
@@ -444,9 +444,10 @@ describe("lawful establishment: causally determined from committed, pinned, fore
       capability: uncertain,
     });
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.error.code).toBe("ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED");
-    expect(!r.ok && r.error.message).toMatch(/Implementation Escalation/);
+    expect(!r.ok && r.error.code).toBe("INPUT_INVALID");
+    expect(!r.ok && r.error.message).toMatch(/establishRandomizedCapabilityBasis/);
     expect(s.campaign.store.head()).toEqual(before);
+    expect(s.entropy.calls()).toBe(0);
     expect(s.actors.basis(A, C)).toBeUndefined();
     expect(s.actors.capability(A, C)).toBeUndefined();
   });

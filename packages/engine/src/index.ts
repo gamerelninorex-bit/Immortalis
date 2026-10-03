@@ -33,6 +33,7 @@ export * from "./actor/declaration.ts";
 export * from "./actor/derive.ts";
 export * from "./actor/integrity.ts";
 export * from "./actor/provider.ts";
+export * from "./actor/randomized.ts";
 export * from "./causal-draw/adapter.ts";
 export * from "./causal-draw/admission.ts";
 export * from "./causal-draw/canon.ts";

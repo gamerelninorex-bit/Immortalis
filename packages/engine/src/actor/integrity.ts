@@ -7,6 +7,9 @@ import {
   actorCapabilityBasisKey,
   actorCapabilityKey,
   actorCapabilityStage,
+  causalDrawPrecommitKey,
+  causalDrawResultGroupId,
+  causalDrawResultKey,
   temporalTransactionAuthorityKey,
   type OwnerFact,
 } from "@immortalis/contracts";
@@ -16,7 +19,14 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { namedActorObjectViolation } from "./declaration.ts";
-import { actorBoundaryViolation, causeOwnerViolation, deriveCapability } from "./derive.ts";
+import {
+  actorBoundaryViolation,
+  capabilityDrawDigest,
+  causeOwnerViolation,
+  deriveCapability,
+  isRandomizedBasis,
+  randomizedEstablishmentViolation,
+} from "./derive.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Named-Actor capability state still
@@ -26,6 +36,10 @@ import { actorBoundaryViolation, causeOwnerViolation, deriveCapability } from ".
  *  - an establishment basis cites causes that are committed, owned by the source they name, foreign and not kernel
  *    state, at (or, as history, behind) the versions pinned, all committed BEFORE the basis; and its actor was no
  *    Player Character, no entity under player control and no Population ledger when the basis was committed;
+ *  - a RANDOMIZED basis is exactly what its committed Causal Draw determines (the same re-derivation admission uses): the
+ *    stable draw of its slot, a prior defined by the Named-Actor owner from exactly its causes, a marker that is the
+ *    owner's reading of the selected candidate, a result committed before the basis, and a committing group that read
+ *    that exact result and depended on its group; and a deterministic basis never sidestepped a committed draw;
  *  - a capability is exactly what its committed basis determines (the same re-derivation admission uses), names the
  *    close stage derived from its actor and capability, was committed after its basis, under no boundary violation,
  *    only as its IM-02 stage under a durable transaction authority, and is credited by a committed
@@ -105,6 +119,44 @@ export function verifyNamedActorIntegrity(store: CampaignStore): readonly Integr
       // ordering is against the version pinned: a source that has since advanced was re-committed legitimately later
       if (f.version === cause.version && revisionOf(f) >= revisionOf(bf)) {
         bad(bf.key, `a cause was not committed before the basis that cites it: ${cause.fact_key}`);
+      }
+    }
+    const digest = capabilityDrawDigest(b.actor_id, b.capability_id);
+    if (isRandomizedBasis(b)) {
+      const violation = randomizedEstablishmentViolation(b, byKey);
+      if (violation) {
+        bad(bf.key, violation);
+        continue;
+      }
+      const result = byKey.get(causalDrawResultKey(digest))!;
+      if (revisionOf(result) >= revisionOf(bf)) {
+        bad(
+          bf.key,
+          "the Causal Draw result was not committed before the establishment that reads it",
+        );
+      }
+      const group = store.committedGroup(bf.provenance.intent_id);
+      if (
+        !group ||
+        !group.reads.some((r) => r.key === result.key && r.version === result.version) ||
+        !group.depends_on.includes(causalDrawResultGroupId(digest))
+      ) {
+        bad(
+          bf.key,
+          "a randomized establishment read the exact Causal Draw result and depended on its canonical result group",
+        );
+      }
+    } else {
+      // a deterministic basis never sidesteps Causal Draw evidence that already existed for its slot
+      for (const key of [causalDrawPrecommitKey(digest), causalDrawResultKey(digest)]) {
+        const evidence = byKey.get(key);
+        if (evidence && revisionOf(evidence) < revisionOf(bf)) {
+          bad(
+            bf.key,
+            "a deterministic basis was committed over an existing Causal Draw for its slot",
+          );
+          break;
+        }
       }
     }
   }

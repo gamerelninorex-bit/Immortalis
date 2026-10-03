@@ -3,8 +3,10 @@ import {
   actorCapabilityBasisKey,
   actorCapabilityKey,
   type CommitGroup,
+  type ComparativeMarker,
   type DependencyDeclaration,
   type NamedActorCapabilityBasis,
+  type NamedActorRandomizedEstablishment,
   type ResolutionRequest,
   type TemporalObject,
 } from "@immortalis/contracts";
@@ -146,6 +148,40 @@ export const capabilityBasis = (
   },
   ...over,
 });
+
+/**
+ * A synthetic authoring input for the randomized establishment branch (WS-016 §16 steps 3–4): the smallest relevant
+ * established causes and a bounded prior over lawful possibilities. The possibilities and weights are TEST COORDINATES,
+ * not IMMORTALIS canon: no engine rule reads them, and none is a default.
+ */
+export const randomizedEstablishment = (
+  actorId: string,
+  capabilityId: string,
+  over: Partial<NamedActorRandomizedEstablishment> = {},
+  historyIds: readonly string[] = [`${actorId}-biography`, `${actorId}-occupation`],
+): NamedActorRandomizedEstablishment => ({
+  actor_id: actorId,
+  capability_id: capabilityId,
+  materiality: "ROLE_DEFINING",
+  causes: capabilityBasis(actorId, capabilityId, {}, historyIds).establishment.causes,
+  prior: [
+    { marker: "C", weight: "3" },
+    { marker: "B", weight: "1" },
+  ],
+  ...over,
+});
+
+/**
+ * A prior so lopsided that the draw lands on `marker` for any seed in practice (the other possibilities weigh 1 against
+ * 10^40), so a test can exercise every marker form deterministically without choosing the engine's selection.
+ */
+export const dominantPrior = (
+  marker: ComparativeMarker | null,
+  others: readonly (ComparativeMarker | null)[] = ["C"],
+): NamedActorRandomizedEstablishment["prior"] => [
+  { marker, weight: `1${"0".repeat(40)}` },
+  ...others.map((o) => ({ marker: o, weight: "1" })),
+];
 
 export const actorPublication = (n: number) => ({
   group_id: `actor-group-${n}`,

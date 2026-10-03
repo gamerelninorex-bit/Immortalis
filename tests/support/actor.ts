@@ -5,7 +5,10 @@ import {
   type CampaignStore,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { NamedActorCapabilityBasis } from "@immortalis/contracts";
+import type {
+  NamedActorCapabilityBasis,
+  NamedActorRandomizedEstablishment,
+} from "@immortalis/contracts";
 import {
   ACTOR_FIXTURE_EXTENSION,
   ACTOR_OTHER,
@@ -27,6 +30,10 @@ import {
   fixtureWorld,
   historyGroup,
   publication,
+  randomizedEstablishment,
+  seededEntropy,
+  RESOLVER,
+  SEED_1,
   temporalPublication,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
@@ -35,6 +42,8 @@ export interface ActorSeeded {
   readonly campaign: CanonicalCampaign;
   readonly coordinator: TemporalCoordinator;
   readonly actors: NamedActorAdapter;
+  /** the trusted-runtime entropy fixture behind the actor owner's Causal Draws; counts how often it was asked */
+  readonly entropy: ReturnType<typeof seededEntropy>;
 }
 
 export const actorCoordinator = (store: CampaignStore): TemporalCoordinator =>
@@ -43,14 +52,19 @@ export const actorCoordinator = (store: CampaignStore): TemporalCoordinator =>
 export interface ActorSeedOptions {
   readonly buildId?: string;
   readonly fs?: FileCampaignOptions["fs"];
+  readonly entropy?: ReturnType<typeof seededEntropy>;
   /** also establish the world, locus, a released PC and its active binding (default true) */
   readonly canonical?: boolean;
 }
 
-const wire = (campaign: CanonicalCampaign): ActorSeeded => ({
+const wire = (
+  campaign: CanonicalCampaign,
+  entropy: ReturnType<typeof seededEntropy> = seededEntropy(SEED_1),
+): ActorSeeded => ({
   campaign,
+  entropy,
   coordinator: actorCoordinator(campaign.store),
-  actors: new NamedActorAdapter(campaign.store),
+  actors: new NamedActorAdapter(campaign.store, { entropy }),
 });
 
 /** The history ids a basis built by `capabilityBasis(actor, …)` pins by default. */
@@ -93,16 +107,20 @@ export async function seededActorCampaign(
   for (const actor of [ACTOR_SMITH, ACTOR_SWORD, ACTOR_OTHER])
     for (const id of defaultHistoryIds(actor))
       await must(campaign.store.commit(historyGroup(FIXTURE_CAMPAIGN, n++, id)));
-  const s = wire(campaign);
+  const s = wire(campaign, o.entropy);
   await must(s.coordinator.establishCanonicalTime({ ...temporalPublication(1), time: T0 }));
   return s;
 }
 
-export async function reopenActor(dir: string, buildId = "actor-reopen"): Promise<ActorSeeded> {
+export async function reopenActor(
+  dir: string,
+  buildId = "actor-reopen",
+  entropy?: ReturnType<typeof seededEntropy>,
+): Promise<ActorSeeded> {
   const campaign = await must(
     CanonicalCampaign.open(dir, { buildId, extension: ACTOR_FIXTURE_EXTENSION }),
   );
-  return wire(campaign);
+  return wire(campaign, entropy);
 }
 
 /** Commits the authored establishment basis of one capability (the actor owner's only authored publication). */
@@ -116,6 +134,27 @@ export async function establishBasis(
   const basis = capabilityBasis(actorId, capabilityId, over);
   await must(s.actors.establishCapabilityBasis({ ...actorPublication(n), capability: basis }));
   return basis;
+}
+
+/**
+ * Commits the randomized establishment of one capability (WS-016 §16 steps 3–4): the owner's bounded prior is drawn by
+ * the Causal Draw, then the owner's own basis is committed by reference to that result. Returns the committed basis.
+ */
+export async function establishRandomized(
+  s: ActorSeeded,
+  n: number,
+  over: Partial<NamedActorRandomizedEstablishment> = {},
+  actorId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+): Promise<NamedActorCapabilityBasis> {
+  await must(
+    s.actors.establishRandomizedCapabilityBasis({
+      ...actorPublication(n),
+      capability: randomizedEstablishment(actorId, capabilityId, over),
+      resolution: RESOLVER,
+    }),
+  );
+  return s.actors.basis(actorId, capabilityId)!.value;
 }
 
 /** Registers the engaged object of one dependent consequence that materially requires the capability. */
