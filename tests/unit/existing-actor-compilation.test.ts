@@ -330,7 +330,7 @@ describe("ACCEPTED_GENERATION_HISTORY refuses an existing-actor compilation", ()
       facts(contractFact(existingActorContract(A))),
     );
     expect(refused).toMatch(/compiles an already-existing actor/);
-    expect(refused).toMatch(/not implemented/);
+    expect(refused).toMatch(/EXISTING_ACTOR_CARRY_FORWARD/);
   });
 
   it("the same basis over a fresh contract is accepted exactly as before (unchanged)", () => {

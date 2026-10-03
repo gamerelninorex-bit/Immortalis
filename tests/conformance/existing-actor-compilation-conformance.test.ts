@@ -305,12 +305,20 @@ describe("the ownership cutover stays the binding commit: no handover, carry-for
 
   it("no carry-forward, unresolved-capability, world-prior, PC-to-non-PC, replacement, fork, Intrinsic Amendment or exposure construct was added anywhere", () => {
     for (const f of TOUCHED) {
-      expect(code(f).toLowerCase(), f).not.toMatch(
-        /carry[-_ ]?forward(?!, which is not implemented)|unresolved_capability|world[-_ ]prior|pc_to_non_pc|handover_commit|succession|fork_branch|intrinsic_amendment|broadcast_exposure|exposure_event/,
+      // The thirty-second slice adds the ONE distinct EXISTING_ACTOR_CARRY_FORWARD establishment to the PC capability
+      // derivation (its own conformance suite judges it); every other construct stays absent here, and nowhere else in
+      // the files this slice touched did a carry-forward appear.
+      const lowered = code(f).toLowerCase();
+      const text =
+        f === "packages/engine/src/pc-capability/derive.ts"
+          ? lowered.replaceAll(/carry[-_ ]?forward/g, "")
+          : lowered;
+      expect(text, f).not.toMatch(
+        /carry[-_ ]?forward|unresolved_capability|world[-_ ]prior|pc_to_non_pc|handover_commit|succession|fork_branch|intrinsic_amendment|broadcast_exposure|exposure_event/,
       );
     }
     const refusal = code("packages/engine/src/pc-capability/derive.ts");
-    expect(refusal).toContain("which is not implemented");
+    expect(refusal).toContain("EXISTING_ACTOR_CARRY_FORWARD establishment");
   });
 
   it("the existing-actor refusals read only identity and the committed contract: ordinary activation and the PC capability receipt copy no actor state", () => {

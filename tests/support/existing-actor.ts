@@ -14,6 +14,7 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   actorCapabilityBasisKey,
   actorCapabilityKey,
+  pcCapabilityBasisKey,
   pcExistenceContractKey,
   worldActorCouplingKey,
   worldLocusKey,
@@ -22,6 +23,7 @@ import {
   type ExistenceContract,
   type ExistingActorSourcePin,
   type NamedActorCapabilityBasis,
+  type TemporalObject,
 } from "@immortalis/contracts";
 import {
   ACTOR_FIXTURE_EXTENSION,
@@ -33,15 +35,22 @@ import {
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
   T0,
+  at,
   actorProviders,
   actorPublication,
   capabilityBasis,
+  capabilityConsumerObject,
+  consumerAdvanceRequest,
+  consumerBoundaryId,
+  consumerObjectId,
+  continuationInput,
   fixtureContract,
   fixtureInsertionFact,
   fixtureLocus,
   fixtureWorld,
   group,
   historyGroup,
+  pcCapabilityConsumerObject,
   write,
   publication,
   seededEntropy,
@@ -49,6 +58,7 @@ import {
   temporalPublication,
 } from "@immortalis/testkit";
 import { defaultHistoryIds } from "./actor.ts";
+import { pcCapabilityCoordinator } from "./pc-capability.ts";
 import { must } from "./temporal.ts";
 
 /**
@@ -60,14 +70,20 @@ export interface ExistingActorSeeded {
   readonly coordinator: TemporalCoordinator;
   readonly actors: NamedActorAdapter;
   readonly pcs: PcCapabilityAdapter;
+  /** the trusted-runtime entropy fixture behind the actor owner's Causal Draws; counts how often it was asked */
+  readonly entropy: ReturnType<typeof seededEntropy>;
 }
 
-export const wireExistingActor = (campaign: CanonicalCampaign): ExistingActorSeeded => ({
-  campaign,
-  coordinator: new TemporalCoordinator(campaign.store, actorProviders()),
-  actors: new NamedActorAdapter(campaign.store, { entropy: seededEntropy(SEED_1) }),
-  pcs: new PcCapabilityAdapter(campaign.store),
-});
+export const wireExistingActor = (campaign: CanonicalCampaign): ExistingActorSeeded => {
+  const entropy = seededEntropy(SEED_1);
+  return {
+    campaign,
+    coordinator: new TemporalCoordinator(campaign.store, actorProviders()),
+    actors: new NamedActorAdapter(campaign.store, { entropy }),
+    pcs: new PcCapabilityAdapter(campaign.store),
+    entropy,
+  };
+};
 
 export interface ExistingActorSeedOptions {
   readonly buildId?: string;
@@ -392,6 +408,201 @@ export function rawHandover(
       owner: "role_registry",
       facet: "player_character_binding",
       rule: factKind("player_character_binding").rule,
+      reads: keys.map((k) => ({ key: k, version: version(k) })),
+      depends_on: [
+        ...new Set(
+          keys.flatMap((k) => (store.getFact(k) ? [store.getFact(k)!.provenance.group_id] : [])),
+        ),
+      ],
+      ...groupOver,
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Established existing-actor capability → PC capability carry-forward support
+// ---------------------------------------------------------------------------------------------
+
+export const carryPublication = (n: number) => ({
+  group_id: `carry-group-${n}`,
+  intent_id: `carry-intent-${n}`,
+  cause: `carry-cause-${n}`,
+  basis: "fixture-basis",
+  secrecy: "fixture-visibility",
+});
+
+/** The only input a caller presents for a carry-forward: the identity and the capability (never a marker). */
+export const carryInput = (n: number, pcId = ACTOR_SMITH, capabilityId = CAP_METALWORKING) => ({
+  ...carryPublication(n),
+  carry: { pc_id: pcId, capability_id: capabilityId },
+});
+
+/** Carries the handed-over actor's already-authoritative capability through the one distinct publication path. */
+export async function carryForward(
+  s: Pick<ExistingActorSeeded, "pcs">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+) {
+  return s.pcs.carryForwardActorCapability(carryInput(n, pcId, capabilityId));
+}
+
+/**
+ * Resolves one dependent consequence through the coordinator: registers its engaged object with a boundary AFTER the current
+ * canonical time, and runs the transaction that resolves it (consuming a held remainder first, if an earlier stop left one:
+ * RC-04 continuity).
+ */
+async function resolveConsumer(
+  coordinator: TemporalCoordinator,
+  tn: number,
+  consumerId: string,
+  txId: string,
+  makeObject: (over: Partial<TemporalObject>) => TemporalObject,
+) {
+  const state = coordinator.state()!.value;
+  const now = state.canonical_time;
+  await must(
+    coordinator.registerObject({
+      ...temporalPublication(tn),
+      object: makeObject({
+        last_resolved_basis: now,
+        next_boundary: { boundary_id: consumerBoundaryId(consumerId), at: at(now.value + 20) },
+      }),
+    }),
+  );
+  return must(
+    state.continuation
+      ? coordinator.continueRemainder(continuationInput(txId))
+      : coordinator.advance(
+          consumerAdvanceRequest(txId, consumerId, {
+            requested: {
+              target: at(now.value + 100),
+              condition: {
+                kind: "STOP_AFTER_BOUNDARY",
+                object_id: consumerObjectId(consumerId),
+                boundary_id: consumerBoundaryId(consumerId),
+              },
+            },
+          }),
+        ),
+  );
+}
+
+/**
+ * Makes the actor's capability AUTHORITATIVE the lawful pre-handover way: the actor owner's declared capability close,
+ * resolved by the IM-02 coordinator inside the engaged object of a dependent consequence. Returns the committed capability.
+ * (`tn` numbers the temporal publication; the consequence reads it AS-OF-DECLARED-CLOSE.)
+ */
+export async function closeActorCapability(
+  s: Pick<ExistingActorSeeded, "actors" | "coordinator">,
+  tn: number,
+  actorId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  consumerId = `actor-consumer-${actorId}-${capabilityId}`,
+) {
+  const basis = s.actors.basis(actorId, capabilityId)!.value;
+  await resolveConsumer(s.coordinator, tn, consumerId, `tx-actor-close-${tn}`, (over) =>
+    capabilityConsumerObject(consumerId, basis, over),
+  );
+  return s.actors.capability(actorId, capabilityId)!;
+}
+
+/**
+ * Everything the handover consumes, with the actor's capability already AUTHORITATIVE (its basis established and closed
+ * before the cutover). The binding slot is still NULL.
+ */
+export async function readyForCarryForward(
+  s: Pick<ExistingActorSeeded, "campaign" | "actors" | "coordinator">,
+  actorId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<NamedActorCapabilityBasis> = {},
+): Promise<void> {
+  await establishActorBasis(s, 1, actorId, capabilityId, over);
+  await must(coupleActor(s, 1, actorId));
+  await must(
+    compileExistingActor(
+      s,
+      1,
+      existingActorContract(actorId, [actorBasisPin(actorId, capabilityId)]),
+    ),
+  );
+  await closeActorCapability(s, 10, actorId, capabilityId);
+}
+
+/**
+ * The PC Capability Close of a carried-forward capability, resolved by the existing IM-02 coordinator inside the engaged
+ * object of a later dependent consequence (a fresh consumer id, with a boundary after the current canonical time).
+ */
+export async function closePcCapability(
+  s: Pick<ExistingActorSeeded, "pcs" | "campaign">,
+  tn: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  consumerId = `pc-consumer-${pcId}-${capabilityId}`,
+) {
+  const basis = s.pcs.basis(pcId, capabilityId)!.value;
+  const transaction = await resolveConsumer(
+    pcCapabilityCoordinator(s.campaign.store),
+    tn,
+    consumerId,
+    `tx-pc-close-${tn}`,
+    (over) => pcCapabilityConsumerObject(consumerId, basis, over),
+  );
+  return { transaction, capability: s.pcs.capability(pcId, capabilityId) };
+}
+
+/**
+ * A raw (store-level) carry-forward basis group, built mechanically from the committed facts exactly as
+ * `carryForwardActorCapability` would build it, then optionally edited, so a test can present a fabricated or tampered
+ * carry-forward to a store that has admission but is reached without the owner path. `edit` mutates the basis value;
+ * `groupOver` replaces group fields (reads, depends_on, rule, …).
+ */
+export function rawCarryBasis(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  edit: (value: any) => void = () => undefined,
+  groupOver: Partial<CommitGroup> = {},
+): CommitGroup {
+  const store = s.campaign.store;
+  const version = (k: string) => store.getFact(k)?.version ?? 0;
+  const source = store.getFact(actorCapabilityKey(pcId, capabilityId));
+  const value: any = {
+    pc_id: pcId,
+    capability_id: capabilityId,
+    marker: (source?.value as { marker?: unknown } | undefined)?.marker ?? null,
+    establishment: {
+      method: "EXISTING_ACTOR_CARRY_FORWARD",
+      handover: {
+        fact_key: PLAYER_CHARACTER_BINDING_KEY,
+        version: version(PLAYER_CHARACTER_BINDING_KEY),
+      },
+      source: {
+        fact_key: actorCapabilityKey(pcId, capabilityId),
+        version: version(actorCapabilityKey(pcId, capabilityId)),
+      },
+    },
+  };
+  edit(value);
+  const keys = [
+    pcExistenceContractKey(pcId),
+    PLAYER_CHARACTER_BINDING_KEY,
+    actorCapabilityKey(pcId, capabilityId),
+  ];
+  return group(
+    FIXTURE_CAMPAIGN,
+    n,
+    [
+      write(pcCapabilityBasisKey(pcId, capabilityId), value as never, {
+        owner: "pc_existence",
+        facet: "pc_capability_profile",
+      }),
+    ],
+    {
+      owner: "pc_existence",
+      facet: "pc_capability_profile",
+      rule: factKind("pc_capability_basis").rule,
       reads: keys.map((k) => ({ key: k, version: version(k) })),
       depends_on: [
         ...new Set(

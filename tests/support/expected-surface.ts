@@ -545,12 +545,14 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     ],
   },
   /**
-   * The PC capability profile receiving path of the one I-002 PC owner: ONE authored publication (`receiveCapabilityBasis`,
-   * which is deliberately not an `establish…` writer: the PC owner receives an already-established fact and establishes
-   * nothing) and two typed reads by identity. The persisted capability is no method: it is the IM-02 PC Capability Close stage.
+   * The PC capability profile receiving path of the one I-002 PC owner: two receiving publications — the fresh-PC
+   * `receiveCapabilityBasis` and the distinct existing-actor `carryForwardActorCapability` (thirty-second slice), neither of
+   * which is an `establish…` writer: the PC owner receives an already-established fact and establishes or resolves nothing —
+   * and two typed reads by identity. Both publications share the one private commit helper. The persisted capability is no
+   * method: it is the IM-02 PC Capability Close stage.
    */
   PcCapabilityAdapter: {
-    methods: ["basis", "capability", "receiveCapabilityBasis"],
+    methods: ["basis", "capability", "carryForwardActorCapability", "receiveCapabilityBasis"],
     source: {
       file: "packages/engine/src/pc-capability/adapter.ts",
       commitCalls: 1,
