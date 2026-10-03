@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests build and tamper with arbitrary fact values */
 import {
   CanonicalCampaign,
   NamedActorAdapter,
+  factKind,
   PcCapabilityAdapter,
   TemporalCoordinator,
   type CampaignStore,
@@ -8,8 +10,15 @@ import {
 } from "@immortalis/engine";
 import {
   EXISTING_ACTOR_COMPILATION,
+  EXISTING_ACTOR_HANDOVER,
+  PLAYER_CHARACTER_BINDING_KEY,
   actorCapabilityBasisKey,
   actorCapabilityKey,
+  pcExistenceContractKey,
+  worldActorCouplingKey,
+  worldLocusKey,
+  worldProfileKey,
+  type CommitGroup,
   type ExistenceContract,
   type ExistingActorSourcePin,
   type NamedActorCapabilityBasis,
@@ -31,7 +40,9 @@ import {
   fixtureInsertionFact,
   fixtureLocus,
   fixtureWorld,
+  group,
   historyGroup,
+  write,
   publication,
   seededEntropy,
   SEED_1,
@@ -263,4 +274,131 @@ export async function coupleActor(
   over: Parameters<typeof couplingInput>[2] = {},
 ) {
   return s.campaign.coupleExistingActor(couplingInput(n, actorId, over));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Existing-Actor → PC Role Registry handover support
+// ---------------------------------------------------------------------------------------------
+
+export const handoverPublication = (n: number) => ({
+  group_id: `handover-group-${n}`,
+  intent_id: `handover-intent-${n}`,
+  cause: `handover-cause-${n}`,
+  basis: "fixture-basis",
+  secrecy: "fixture-visibility",
+});
+
+/** The input a caller presents for the handover: the actor and the world/locus it claims (which must equal its coupling). */
+export const handoverInput = (
+  n: number,
+  pcId = ACTOR_SMITH,
+  over: Partial<{ world_id: string; locus_id: string }> = {},
+) => ({
+  ...handoverPublication(n),
+  pc_id: pcId,
+  world_id: FIXTURE_WORLD_ID,
+  locus_id: FIXTURE_LOCUS_ID,
+  ...over,
+});
+
+/** Hands the compiled, coupled existing actor over through the one distinct publication path (`handoverExistingActor`). */
+export async function handoverActor(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  over: Parameters<typeof handoverInput>[2] = {},
+) {
+  return s.campaign.handoverExistingActor(handoverInput(n, pcId, over));
+}
+
+/**
+ * Everything the handover consumes, committed in the lawful order: the actor's own Named-Actor state, its World-State coupling
+ * and its I-002 compilation (all through their own owners' paths). The binding slot is still NULL.
+ */
+export async function readyForHandover(
+  s: Pick<ExistingActorSeeded, "campaign" | "actors">,
+  actorId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+): Promise<void> {
+  await establishActorBasis(s, 1, actorId, capabilityId);
+  await must(coupleActor(s, 1, actorId));
+  await must(
+    compileExistingActor(
+      s,
+      1,
+      existingActorContract(actorId, [actorBasisPin(actorId, capabilityId)]),
+    ),
+  );
+}
+
+/**
+ * A raw (store-level) Existing-Actor → PC handover group, built mechanically from the committed facts exactly as
+ * `handoverExistingActor` would build it, then optionally edited, so a test can present a fabricated or tampered handover to a
+ * store that has admission but is reached without the owner path.
+ */
+export function rawHandover(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  edit: (value: any) => void = () => undefined,
+  groupOver: Partial<CommitGroup> = {},
+): CommitGroup {
+  const store = s.campaign.store;
+  const pcKey = pcExistenceContractKey(pcId);
+  const wKey = worldProfileKey(FIXTURE_WORLD_ID);
+  const lKey = worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID);
+  const cKey = worldActorCouplingKey(pcId);
+  const version = (k: string) => store.getFact(k)?.version ?? 0;
+  const sources: readonly ExistingActorSourcePin[] =
+    s.campaign.playerCharacter(pcId)?.value.existing_actor_compilation?.source_state ?? [];
+  const value: any = {
+    binding_slot: "role.player_character",
+    active_pc: { fact_key: pcKey, entity_id: pcId },
+    coupling: {
+      world: { fact_key: wKey, entity_id: FIXTURE_WORLD_ID },
+      locus: { fact_key: lKey, entity_id: FIXTURE_LOCUS_ID },
+    },
+    transition: {
+      type: EXISTING_ACTOR_HANDOVER,
+      basis: {
+        pinned_versions: {
+          pc: version(pcKey),
+          world: version(wKey),
+          locus: version(lKey),
+          coupling: version(cKey),
+        },
+      },
+    },
+    prior_binding: null,
+    replacement_binding: null,
+    intrinsic_authority_migration: [
+      { owner: "world_state", fact_key: cKey, version: version(cKey) },
+      ...sources.map((p) => ({ ...p })),
+    ],
+    writer: { role: "role.archivist", permission: "permission.canon.write" },
+  };
+  edit(value);
+  const keys = [pcKey, wKey, lKey, cKey, ...sources.map((p) => p.fact_key)];
+  return group(
+    FIXTURE_CAMPAIGN,
+    n,
+    [
+      write(PLAYER_CHARACTER_BINDING_KEY, value as never, {
+        owner: "role_registry",
+        facet: "player_character_binding",
+      }),
+    ],
+    {
+      owner: "role_registry",
+      facet: "player_character_binding",
+      rule: factKind("player_character_binding").rule,
+      reads: keys.map((k) => ({ key: k, version: version(k) })),
+      depends_on: [
+        ...new Set(
+          keys.flatMap((k) => (store.getFact(k) ? [store.getFact(k)!.provenance.group_id] : [])),
+        ),
+      ],
+      ...groupOver,
+    },
+  );
 }

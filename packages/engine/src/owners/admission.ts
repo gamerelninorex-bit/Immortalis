@@ -1,5 +1,7 @@
 import {
+  EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
+  ExistingActorCouplingSchema,
   FACET_PC_CAPABILITY_PROFILE,
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_CAUSAL_DRAW_KERNEL,
@@ -42,6 +44,7 @@ import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
+import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
@@ -79,6 +82,9 @@ export function couplingBasisViolation(
   binding: PlayerCharacterBinding,
   facts: { readonly pc: OwnerFact; readonly world: OwnerFact; readonly locus: OwnerFact },
 ): string | null {
+  if (binding.transition.type === EXISTING_ACTOR_HANDOVER) {
+    return "the binding is not a first ACTIVATION: the Existing-Actor → PC handover is judged by its own rule";
+  }
   if (!ExistenceContractSchema.safeParse(facts.pc.value).success) {
     return "the PC existence contract is not a released Existence Contract";
   }
@@ -98,14 +104,14 @@ export function couplingBasisViolation(
 /**
  * The ordinary activation path is the FIRST `ACTIVATION` of a freshly generated PC on its explicit, player-authored, native
  * coupling basis. An Existence Contract that compiles an already-existing non-PC actor is a different classification whose
- * control cutover is the Existing-Actor → PC Role Registry handover (PC-Control Handover Contract v1, "Single Commit
- * Point"): not implemented, so this path refuses it rather than reuse a first-activation basis that would present the
- * actor's established state as player-authored. Returns a message for such a contract, or null.
+ * control cutover is the distinct Existing-Actor → PC Role Registry handover (PC-Control Handover Contract v1, "Single Commit
+ * Point"; see `existingActorHandoverViolation`): this path refuses it rather than reuse a first-activation basis that would
+ * present the actor's established state as player-authored. Returns a message for such a contract, or null.
  */
 export function existingActorBindingViolation(contractValue: unknown): string | null {
   const contract = ExistenceContractSchema.safeParse(contractValue);
   if (!contract.success || contract.data.existing_actor_compilation === undefined) return null;
-  return "the Existence Contract compiles an already-existing actor: ordinary first ACTIVATION is not the Existing-Actor → PC handover, which is not implemented, so the actor's prior owner remains the writable owner";
+  return "the Existence Contract compiles an already-existing actor: ordinary first ACTIVATION is not the Existing-Actor → PC handover, which is its own EXISTING_ACTOR_HANDOVER transition, so the actor's prior owner remains the writable owner";
 }
 
 /**
@@ -149,6 +155,94 @@ export function existingActorCompilationViolation(
     return "an existing-actor compilation is no player-authorship pass over already-established state: every claim is SAFELY-INHERITED and there are no player overrides";
   }
   return existingActorSourceViolation(contract.pc_id, compilation.source_state, facts);
+}
+
+/** The exact references an Existing-Actor → PC handover must carry (RC-13 `intrinsic_authority_migration`), in order. */
+export function expectedHandoverMigration(
+  coupling: OwnerFact,
+  contract: ExistenceContract,
+): readonly { owner: string; fact_key: string; version: number }[] {
+  return [
+    { owner: coupling.owner, fact_key: coupling.key, version: coupling.version },
+    ...(contract.existing_actor_compilation?.source_state.map((s) => ({ ...s })) ?? []),
+  ];
+}
+
+/**
+ * The single statement of what the Existing-Actor → PC Role Registry handover must be, given the committed facts as they
+ * stood BEFORE the binding commit (PC-Control Handover Contract v1 "Single Commit Point", "Existing Actor → PC" 1–5; IR §5
+ * item 3 and §6 Step 6; RC-13 migration data; WG "existing-actor → PC" clause). Used by admission when the binding is
+ * written and again by load verification, so the two cannot drift. It judges identity, ownership and provenance only:
+ *
+ *  - the PC's contract is a released I-002 Existence Contract carrying the explicit `EXISTING_ACTOR_COMPILATION`
+ *    classification for this same identity, and the compilation still holds against committed state (so a fresh PC, a
+ *    missing or malformed compilation, or one whose pinned actor state is stale or foreign, cannot be handed over);
+ *  - the same actor's already-committed World-State coupling exists and is the authoritative world/locus basis: it still
+ *    holds as an existing non-PC actor's coupling (`existingActorCouplingViolation`, the one statement the coupling
+ *    uses) and the binding's world and locus are EXACTLY the coupling's. No placement is created, inferred or accepted
+ *    from the caller, so there is no rival placement;
+ *  - the basis pins the exact committed versions of the contract, world, locus and coupling it consumed;
+ *  - the migration data is exactly the references to the established state consumed — the coupling and the compilation's
+ *    pinned actor state — each at its exact committed version; nothing is copied and nothing is invented.
+ *
+ * It never writes, ends or copies anything: the actor's prior facts stay where and as committed (provenance/history), and
+ * no capability moves. Returns a message, or null when the handover holds (or the binding is no handover).
+ */
+export function existingActorHandoverViolation(
+  binding: PlayerCharacterBinding,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get" | "has">,
+): string | null {
+  const t = binding.transition;
+  if (t.type !== EXISTING_ACTOR_HANDOVER) return null;
+  const actorId = binding.active_pc.entity_id;
+  const pcFact = facts.get(pcExistenceContractKey(actorId));
+  const contract = pcFact ? ExistenceContractSchema.safeParse(pcFact.value) : undefined;
+  if (!pcFact || !contract?.success) {
+    return "the PC existence contract is not a released Existence Contract";
+  }
+  if (contract.data.existing_actor_compilation === undefined) {
+    return "the Existence Contract is no existing-actor compilation: a freshly generated PC's control begins with ordinary ACTIVATION, never the handover";
+  }
+  const compilation = existingActorCompilationViolation(contract.data, facts);
+  if (compilation) return compilation;
+
+  const couplingKey = worldActorCouplingKey(actorId);
+  const couplingFact = facts.get(couplingKey);
+  const coupling = couplingFact
+    ? ExistingActorCouplingSchema.safeParse(couplingFact.value)
+    : undefined;
+  if (!couplingFact || !coupling?.success) {
+    return "the actor's authoritative World-State coupling is not committed: the handover consumes it and never creates or infers a placement";
+  }
+  const held = existingActorCouplingViolation(couplingKey, coupling.data, facts);
+  if (held) return `the actor's committed coupling does not hold: ${held}`;
+  if (
+    !canonicalEqual(binding.coupling.world, coupling.data.coupling.world) ||
+    !canonicalEqual(binding.coupling.locus, coupling.data.coupling.locus)
+  ) {
+    return "the handover's actor, world and locus are exactly the committed coupling's: a rival placement is not accepted";
+  }
+  const world = facts.get(binding.coupling.world.fact_key);
+  const locus = facts.get(binding.coupling.locus.fact_key);
+  if (!world || !locus) return "the coupled world and locus are committed";
+  const pins = t.basis.pinned_versions;
+  if (
+    pins.pc !== pcFact.version ||
+    pins.world !== world.version ||
+    pins.locus !== locus.version ||
+    pins.coupling !== couplingFact.version
+  ) {
+    return "the handover was not established against the committed contract, world, locus and coupling versions";
+  }
+  if (
+    !canonicalEqual(
+      binding.intrinsic_authority_migration,
+      expectedHandoverMigration(couplingFact, contract.data),
+    )
+  ) {
+    return "the handover's migration data is exactly the exact references to the coupling and the compilation's pinned actor state it consumed";
+  }
+  return null;
 }
 
 /**
@@ -200,8 +294,11 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
   // Prerequisites are checked in dependency order: PC and world before the locus that hangs off it.
   const pc = requirePrerequisite(group, state, pcKey, "the released PC existence contract");
   if (isRejection(pc)) return pc;
-  const existingActor = existingActorBindingViolation(pc.fact.value);
-  if (existingActor) return reject("REFERENCE_INVALID", existingActor, { key: pcKey });
+  const handover = b.transition.type === EXISTING_ACTOR_HANDOVER;
+  if (!handover) {
+    const existingActor = existingActorBindingViolation(pc.fact.value);
+    if (existingActor) return reject("REFERENCE_INVALID", existingActor, { key: pcKey });
+  }
   const world = requirePrerequisite(group, state, worldKey, "the world profile");
   if (isRejection(world)) return world;
   const locus = requirePrerequisite(group, state, locusKey, "the world locus");
@@ -212,6 +309,33 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
     return reject("REFERENCE_INVALID", "the locus does not belong to the world being coupled", {
       key: locusKey,
     });
+  }
+  if (handover) {
+    // The handover consumes already-established foreign state: the actor's committed coupling and the state migrated by
+    // reference. Each is read at its current version and depended on (never copied, never created here); the group
+    // writes only the binding, which is the one commit point (Single Commit Point).
+    const couplingKey = worldActorCouplingKey(b.active_pc.entity_id);
+    const coupling = requirePrerequisite(
+      group,
+      state,
+      couplingKey,
+      "the actor's committed World-State coupling",
+    );
+    if (isRejection(coupling)) return coupling;
+    for (const ref of b.intrinsic_authority_migration) {
+      if (ref.fact_key === couplingKey) continue;
+      const migrated = requirePrerequisite(
+        group,
+        state,
+        ref.fact_key,
+        "the established state the handover migrates by reference",
+      );
+      if (isRejection(migrated)) return migrated;
+    }
+    const violation = existingActorHandoverViolation(b, state.facts);
+    return violation
+      ? reject("REFERENCE_INVALID", violation, { key: PLAYER_CHARACTER_BINDING_KEY })
+      : null;
   }
   const insufficient = couplingBasisViolation(b, {
     pc: pc.fact,
@@ -245,8 +369,12 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  *  6. Existing-actor compilation: a contract carrying the explicit `existing_actor_compilation` classification must pin
  *     (read and depend on) the identified actor's own committed Named-Actor state and carry only SAFELY-INHERITED claims
  *     (see existingActorCompilationViolation); ordinary first ACTIVATION refuses such a contract (see
- *     existingActorBindingViolation), because the binding commit is the control cutover and the Existing-Actor → PC handover
- *     that would make it lawful is not implemented.
+ *     existingActorBindingViolation), because the binding commit is the control cutover and only the distinct
+ *     Existing-Actor → PC handover transition makes it lawful.
+ *  7. Existing-actor handover: a binding whose transition is `EXISTING_ACTOR_HANDOVER` must consume the same actor's committed
+ *     World-State coupling as its authoritative world/locus basis and migrate exact references to the established state
+ *     by reference (see existingActorHandoverViolation). It is the single commit point after which the Named-Actor
+ *     boundary (`actorBoundaryViolation`) refuses further actor-side writes; nothing before it changes that owner.
  *
  * Pure: a function of (group, state) only.
  */
