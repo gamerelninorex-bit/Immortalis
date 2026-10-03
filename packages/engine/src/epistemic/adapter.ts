@@ -89,16 +89,19 @@ export class EpistemicAccessAdapter {
     const prior = this.#store.committedGroup(p.data.intent_id);
     let reads: CommitGroup["reads"];
     let depends_on: readonly string[];
+    let rule: CommitGroup["rule"] | undefined;
     if (prior && prior.writes.some((w) => w.key === key)) {
-      // reconcile by identity: rebuild on the committed basis
+      // reconcile by identity: rebuild on the committed basis, under the citation it was committed with (a save from before
+      // the active-PC extension carries the superseded one)
       reads = prior.reads;
       depends_on = prior.depends_on;
+      rule = prior.rule;
     } else {
       const sourceFact = this.#store.getFact(e.source.fact_key);
       reads = [{ key: e.source.fact_key, version: sourceFact?.version ?? 0 }];
       depends_on = sourceFact ? [sourceFact.provenance.group_id] : [];
     }
-    return this.#publish(p.data, key, e, reads, depends_on);
+    return this.#publish(p.data, key, e, reads, depends_on, rule);
   }
 
   // -- typed reads, by identity (none scans) ---------------------------------------------------
@@ -145,6 +148,7 @@ export class EpistemicAccessAdapter {
     value: unknown,
     reads: CommitGroup["reads"],
     depends_on: readonly string[],
+    committedRule?: CommitGroup["rule"],
   ): Promise<Result<CommitOutcome, EpistemicAccessErrorCode>> {
     const kind = factKind("epistemic_access_event");
     const group: CommitGroup = {
@@ -154,7 +158,7 @@ export class EpistemicAccessAdapter {
       owner: kind.owner,
       facet: kind.facet,
       cause: p.cause,
-      rule: kind.rule,
+      rule: committedRule ?? kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...depends_on],

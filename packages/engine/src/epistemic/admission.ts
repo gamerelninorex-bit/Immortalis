@@ -18,7 +18,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_RULE, resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import {
@@ -50,9 +50,20 @@ import {
  */
 export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
   const kindOf = (key: string) => resolveKey(key)?.kind.id;
+  // a new write carries the CURRENT governing-rule citation: the superseded one is accepted on load for predecessor facts
+  // only, so a raw commit cannot stamp it on an active-PC fact
+  const rule = () =>
+    canonicalEqual(group.rule, EPISTEMIC_ACCESS_RULE)
+      ? null
+      : ref(
+          "an Epistemic fact is committed under the current governing-rule citation of its kind",
+          {
+            key: group.writes[0]!.key,
+          },
+        );
   if (group.writes.length === 1 && group.writes[0]!.expected_version === 0) {
     const w = group.writes[0]!;
-    if (kindOf(w.key) === "epistemic_access_event") return checkEvent(group, state, w);
+    if (kindOf(w.key) === "epistemic_access_event") return rule() ?? checkEvent(group, state, w);
   }
   if (
     group.writes.length === 2 &&
@@ -60,7 +71,7 @@ export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): R
     kindOf(group.writes[0]!.key) === "epistemic_accessible_packet" &&
     kindOf(group.writes[1]!.key) === "epistemic_sealed_provenance"
   ) {
-    return checkFormation(group, state, group.writes[0]!, group.writes[1]!);
+    return rule() ?? checkFormation(group, state, group.writes[0]!, group.writes[1]!);
   }
   return reject(
     "VALUE_INVALID",

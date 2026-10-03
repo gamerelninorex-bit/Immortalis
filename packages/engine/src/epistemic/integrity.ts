@@ -20,7 +20,7 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_RULE_TENTH_SLICE, resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -165,6 +165,18 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
       bad(
         pf.key,
         "the packet and its sealed provenance are written together, each with its own access class",
+      );
+    }
+    // the superseded governing-rule citation is true provenance only for facts of a Named-Actor recipient's event
+    if (
+      isPcRecipientEvent(event.data) &&
+      [pf, provFact].some(
+        (f) => f && canonicalEqual(f.provenance.rule, EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+      )
+    ) {
+      bad(
+        pf.key,
+        "an active-PC recipient's packet and provenance carry the current governing-rule citation, never the superseded one",
       );
     }
     let capability = null;

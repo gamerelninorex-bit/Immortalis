@@ -419,6 +419,9 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
 export const EXPECTED_LEGACY_RULE_KIND_IDS: readonly string[] = [
   "pc_capability_basis", // thirty-second-slice citation, superseded (existing-actor world-prior slice)
   "pc_capability", // thirty-second-slice citation, superseded (existing-actor world-prior slice)
+  "epistemic_access_event", // tenth-slice citation, superseded (active-PC recipient slice)
+  "epistemic_accessible_packet", // tenth-slice citation, superseded (active-PC recipient slice)
+  "epistemic_sealed_provenance", // tenth-slice citation, superseded (active-PC recipient slice)
   "gip_office_authority_locus", // thirteenth-slice citation, superseded
   "gip_governance_instrument", // sixteenth-slice citation, superseded (twenty-first slice)
   "diplomacy_relation_edge", // nineteenth-slice citation, superseded (twenty-third slice)
