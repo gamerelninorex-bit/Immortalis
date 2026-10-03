@@ -116,7 +116,7 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
     ]);
   });
 
-  it("there is no Named-Actor writer other than the authored basis: the capability is the close operation only the IM-02 coordinator resolves", () => {
+  it("there is no Named-Actor writer other than the two authored bases: the capability is the close operation only the IM-02 coordinator resolves", () => {
     const methods = adapterMethods(NamedActorAdapter);
     expect(methods).toEqual(expectedAdapterMethods("NamedActorAdapter"));
     expect(namedActorCapabilityCloseProvider.owner).toBe("named_actor");
@@ -292,15 +292,29 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     }
   });
 
-  it("the only mention of randomization is the refusal of the uncertainty branch: no RNG, roll, prior or seed is implemented (an Implementation Escalation)", () => {
+  it("Character Capability owns no RNG: the randomized branch reaches the shared Causal Draw only, with no sampler, entropy, hash primitive, clock or default prior of its own (CD-CC-01)", () => {
     for (const f of ACTOR_SOURCES) {
-      const text = code(f).replace(
-        /BOUNDED_PRIOR_RANDOMIZED|ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED/g,
-        "",
+      const text = code(f);
+      expect(text, f).not.toMatch(
+        /Math\.random|node:crypto|randomBytes|randomUUID|getRandomValues|createHmac|createHash|\bseed\b|\broll\b|distribution|Date\.now|new Date|performance\.now/i,
       );
-      expect(text, f).not.toMatch(/random|\bseed\b|\broll\b|distribution|weighting/i);
     }
-    expect(code(`${ACTOR_DIR}/adapter.ts`)).toMatch(/ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED/);
+    // the shared layer is named only by the owner operation, the narrow ports, the shared derivation and load verification
+    // (admission reaches it through the shared derivation, never directly)
+    const naming = ACTOR_SOURCES.filter((f) =>
+      /causal-draw|CausalDraw|causalDraw/.test(code(f)),
+    ).map((f) => f.replace(`${ACTOR_DIR}/`, ""));
+    expect(naming.sort()).toEqual([
+      "adapter.ts",
+      "derive.ts",
+      "integrity.ts",
+      "packages/contracts/src/actor-capability.ts",
+      "randomized.ts",
+    ]);
+    // the only entropy-shaped thing the adapter holds is the trusted runtime's source, passed through untouched
+    const adapter = code(`${ACTOR_DIR}/adapter.ts`);
+    expect(adapter).toContain("new CausalDrawAdapter(");
+    expect(adapter).not.toMatch(/Uint8Array|Buffer|crypto|options\.entropy\(/);
   });
 
   it("the Named-Actor module set is exactly the IM-07 owner path; no other engine directory beyond the ninth slice's was added", () => {
@@ -311,6 +325,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "derive.ts",
       "integrity.ts",
       "provider.ts",
+      "randomized.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")

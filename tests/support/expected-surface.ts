@@ -513,7 +513,12 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     methods: ["commitMovement", "commitment", "currentLocus", "delivery", "dispatch", "transfer"],
   },
   NamedActorAdapter: {
-    methods: ["basis", "capability", "establishCapabilityBasis"],
+    methods: [
+      "basis",
+      "capability",
+      "establishCapabilityBasis",
+      "establishRandomizedCapabilityBasis",
+    ],
   },
   PopulationAdapter: {
     methods: ["close", "cohort", "cohortView", "establishLedger", "instantiateCohort", "ledger"],

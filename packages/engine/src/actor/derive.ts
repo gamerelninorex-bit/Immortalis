@@ -1,19 +1,32 @@
 import {
   ACTOR_PROFILE_CAPABILITY_CLOSE,
+  CausalDrawPrecommitSchema,
+  CausalDrawResultSchema,
+  OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_NAMED_ACTOR,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   actorCapabilityBasisKey,
   actorCapabilityStage,
+  causalDrawId,
+  causalDrawPrecommitKey,
+  causalDrawResultGroupId,
+  causalDrawResultKey,
   fail,
+  namedActorCapabilityDrawKey,
   ok,
+  parseCapabilityCandidateId,
   pcExistenceContractKey,
   populationLedgerKey,
+  type BoundedPriorRandomizedEstablishment,
   type NamedActorCapability,
   type NamedActorCapabilityBasis,
   type OwnerFact,
   type Result,
 } from "@immortalis/contracts";
+import { cdDigest } from "../causal-draw/canon.ts";
+import { canonicalEqual } from "../hash.ts";
+import { NAMED_ACTOR_RULE } from "../owners/registry.ts";
 
 /**
  * Pure derivations of the Named-Actor capability path (WS-016 §3, §16, §27.1; WS-006 / F-014A v3.3 and the W3-CP3
@@ -93,6 +106,113 @@ export function causeOwnerViolation(owner: string): string | null {
   }
   if (owner === "temporal_kernel") {
     return "kernel coordination state is no causal input to a mastery";
+  }
+  if (owner === OWNER_CAUSAL_DRAW_KERNEL) {
+    return "Causal Draw provenance is engine-internal evidence, no causal input to a mastery: only a randomized establishment references its own draw";
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The randomized establishment branch (WS-016 §16 steps 3–4; F-027-CD1 CD-CC-01)
+// ---------------------------------------------------------------------------------------------
+
+export type RandomizedBasis = NamedActorCapabilityBasis & {
+  readonly establishment: BoundedPriorRandomizedEstablishment;
+};
+
+export const isRandomizedBasis = (b: NamedActorCapabilityBasis): b is RandomizedBasis =>
+  b.establishment.method === "BOUNDED_PRIOR_RANDOMIZED";
+
+/** `draw_key_digest` of the one Causal Draw that may fix this actor/capability's establishment basis. */
+export const capabilityDrawDigest = (actorId: string, capabilityId: string): string =>
+  cdDigest(namedActorCapabilityDrawKey(actorId, capabilityId));
+
+/**
+ * Whether Causal Draw evidence already exists for the establishment slot of this actor/capability. Once it does, the
+ * slot can be filled only by the establishment that reads that draw: the deterministic path cannot sidestep a committed
+ * draw (F-027-CD1 CDR-01 step 4 "an independently established result while a precommit exists" is a conflict, so the
+ * owner refuses to create one).
+ */
+export function capabilityDrawStateExists(
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "has">,
+  actorId: string,
+  capabilityId: string,
+): boolean {
+  const digest = capabilityDrawDigest(actorId, capabilityId);
+  return facts.has(causalDrawPrecommitKey(digest)) || facts.has(causalDrawResultKey(digest));
+}
+
+/**
+ * The single statement of what a randomized establishment must be, given the committed Causal Draw evidence: the draw is
+ * the one stable draw of THIS actor/capability slot, its prior is the Named-Actor owner's (owner rule, the pinned causes
+ * as the exact inputs, every candidate a lawful marker of this owner's meaning), and the marker is exactly the owner's
+ * reading of the candidate the committed result selected. Used by the owner operation, IM-11 admission and load
+ * verification, so the three cannot drift. Returns a message, or null.
+ *
+ * It judges structure and provenance only. Whether the causes warrant a given possibility — the §17 rarity guard, the
+ * sparse-evidence rule — is the owner's authoring judgment, exactly as for a causally determined basis: no source
+ * supplies a rule from causes to weights, and the engine does not invent one.
+ */
+export function randomizedEstablishmentViolation(
+  basis: RandomizedBasis,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): string | null {
+  const digest = capabilityDrawDigest(basis.actor_id, basis.capability_id);
+  const draw = basis.establishment.draw;
+  if (draw.draw_id !== causalDrawId(digest)) {
+    return "the draw is not the stable Causal Draw of this actor and capability";
+  }
+  if (draw.result.fact_key !== causalDrawResultKey(digest)) {
+    return "the draw result is read at the key its draw identity derives";
+  }
+  const resultFact = facts.get(draw.result.fact_key);
+  const result = resultFact ? CausalDrawResultSchema.safeParse(resultFact.value) : undefined;
+  if (!resultFact || !result?.success) return "the Causal Draw result is not committed";
+  if (resultFact.version !== draw.result.version) {
+    return "the establishment reads the committed Causal Draw result at its exact version";
+  }
+  if (resultFact.provenance.group_id !== causalDrawResultGroupId(digest)) {
+    return "the Causal Draw result was not committed under its canonical result group";
+  }
+  const precommitFact = facts.get(causalDrawPrecommitKey(digest));
+  const precommit = precommitFact
+    ? CausalDrawPrecommitSchema.safeParse(precommitFact.value)
+    : undefined;
+  if (!precommit?.success) return "the Causal Draw precommit is not committed";
+  const p = precommit.data;
+  if (result.data.draw_id !== draw.draw_id || result.data.spec_digest !== p.spec_digest) {
+    return "the Causal Draw result and precommit describe different draws";
+  }
+  const spec = p.normalized_spec;
+  if (
+    !canonicalEqual(spec.draw_key, namedActorCapabilityDrawKey(basis.actor_id, basis.capability_id))
+  ) {
+    return "the prior was not defined by the Named-Actor establishment operation for this actor and capability";
+  }
+  if (!canonicalEqual(spec.owner_rule_ref, NAMED_ACTOR_RULE)) {
+    return "the prior was not defined under the Named-Actor owner's governing rule";
+  }
+  const pin = (r: { owner: string; fact_key: string; version: number }) =>
+    `${r.owner}\u0000${r.fact_key}\u0000${r.version}`;
+  const causes = new Set(basis.establishment.causes.map(pin));
+  const inputs = new Set(spec.input_refs.map(pin));
+  if (causes.size !== inputs.size || [...causes].some((c) => !inputs.has(c))) {
+    return "the prior was computed from exactly the pinned causes";
+  }
+  const markers = spec.candidates.map((c) => parseCapabilityCandidateId(c.candidate_id));
+  if (markers.some((m) => m === undefined)) {
+    return "every candidate of the prior is a lawful possibility of the Character Capability owner";
+  }
+  const selected = parseCapabilityCandidateId(result.data.selected_candidate_id);
+  if (
+    !selected ||
+    !spec.candidates.some((c) => c.candidate_id === result.data.selected_candidate_id)
+  ) {
+    return "the selected candidate is not a possibility of the prior";
+  }
+  if (!canonicalEqual(selected.marker, basis.marker)) {
+    return "the marker is exactly the owner's reading of the candidate the committed draw selected";
   }
   return null;
 }

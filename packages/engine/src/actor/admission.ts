@@ -13,7 +13,14 @@ import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
-import { actorBoundaryViolation, causeOwnerViolation, deriveCapability } from "./derive.ts";
+import {
+  actorBoundaryViolation,
+  capabilityDrawStateExists,
+  causeOwnerViolation,
+  deriveCapability,
+  isRandomizedBasis,
+  randomizedEstablishmentViolation,
+} from "./derive.ts";
 
 /**
  * IM-11 admission for the IM-07 Named-Actor capability owner (IM-03 owner resolution; WS-016 §§2, 3, 4, 16, 20, 27.1,
@@ -23,9 +30,14 @@ import { actorBoundaryViolation, causeOwnerViolation, deriveCapability } from ".
  * World-State, Logistics or foreign key) is enforced by the owner registry before this runs; this enforces that even
  * the Named-Actor owner can change its state in exactly two lawful ways, each create-only and re-derived:
  *
- *  1. ESTABLISHMENT BASIS: the authored record of one capability of one Named Actor — causally determined from
- *     committed foreign facts that are PINNED (read at their current version and depended on) and never copied, for
- *     an identity that is no Player Character, no entity under player control and no Population ledger.
+ *  1. ESTABLISHMENT BASIS: the authored record of one capability of one Named Actor — established from committed
+ *     foreign facts that are PINNED (read at their current version and depended on) and never copied, for an identity
+ *     that is no Player Character, no entity under player control and no Population ledger. It is either causally
+ *     determined by those causes, or — only where genuine uncertainty remained — randomized within the owner's bounded
+ *     prior by a COMMITTED Causal Draw (F-027-CD1 CD-CC-01): the group then reads that exact result fact/version and
+ *     depends on its canonical result group, and the marker is re-derived as the owner's reading of the selected
+ *     candidate. Once Causal Draw evidence exists for the slot, only the establishment that reads it may fill the slot,
+ *     so the randomized path can be neither bypassed nor redrawn.
  *  2. CAPABILITY CLOSE, only as its IM-02 stage: exactly what the committed basis determines, published under the
  *     stage identity and the durable authority of an open transaction. Without a committed basis there is nothing to
  *     derive it from, so no consequence, caller or raw commit can conjure a capability.
@@ -57,6 +69,15 @@ function checkBasis(group: CommitGroup, state: CampaignState, w: Write): Rejecti
   }
   const boundary = actorBoundaryViolation(state.facts, b.actor_id);
   if (boundary) return reject("KEY_NOT_ADMITTED", boundary, { key: w.key });
+  if (
+    !isRandomizedBasis(b) &&
+    capabilityDrawStateExists(state.facts, b.actor_id, b.capability_id)
+  ) {
+    return ref(
+      "Causal Draw evidence exists for this establishment: only the establishment that reads the committed draw may fill the slot",
+      { key: w.key },
+    );
+  }
   for (const cause of b.establishment.causes) {
     const foreign = causeOwnerViolation(cause.owner);
     if (foreign) return ref(foreign, { key: cause.fact_key });
@@ -68,6 +89,18 @@ function checkBasis(group: CommitGroup, state: CampaignState, w: Write): Rejecti
         { key: cause.fact_key },
       );
     }
+  }
+  if (isRandomizedBasis(b)) {
+    // the committed draw result is a prerequisite: read at its exact version, its result group depended on
+    const result = requirePrerequisite(
+      group,
+      state,
+      b.establishment.draw.result.fact_key,
+      "the committed Causal Draw result",
+    );
+    if (isRejection(result)) return result;
+    const violation = randomizedEstablishmentViolation(b, state.facts);
+    if (violation) return bad(violation, { key: w.key });
   }
   return null;
 }

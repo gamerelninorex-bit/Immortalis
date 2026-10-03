@@ -8,14 +8,19 @@ import {
   CAPABILITY_GRADES,
   ComparativeMarkerSchema,
   NAMED_ACTOR_MATERIALITY,
+  NAMED_ACTOR_OPERATION_ESTABLISH_CAPABILITY_BASIS,
   NamedActorCapabilityBasisSchema,
+  NamedActorRandomizedEstablishmentSchema,
   NamedActorCapabilitySchema,
   actorCapabilityBasisKey,
   actorCapabilityKey,
   actorCapabilityStage,
+  capabilityCandidateId,
+  namedActorCapabilityDrawKey,
+  parseCapabilityCandidateId,
   parseStageKey,
 } from "@immortalis/contracts";
-import { capabilityBasis, historyKey } from "@immortalis/testkit";
+import { capabilityBasis, historyKey, randomizedEstablishment } from "@immortalis/testkit";
 import { deriveCapability } from "@immortalis/engine";
 
 const basis = (over: Record<string, unknown> = {}) => ({ ...capabilityBasis("a1", "c1"), ...over });
@@ -232,33 +237,160 @@ describe("the establishment basis is sparse and strict (acceptance 1, 2, 3, 6)",
       ).toBe(false);
   });
 
-  it("the only establishment method is CAUSALLY_DETERMINED: the uncertainty / randomization branch is unrepresentable", () => {
+  it("exactly two establishment methods are representable — CAUSALLY_DETERMINED and the draw-backed BOUNDED_PRIOR_RANDOMIZED — and no roll, default or need-driven method", () => {
     const with_ = (establishment: unknown) => basis({ establishment });
     const causes = basis().establishment.causes;
+    const draw = {
+      draw_id: `cdraw:v1:${"a".repeat(64)}`,
+      result: { fact_key: `causal-draw/${"a".repeat(64)}/result`, version: 1 },
+    };
     expect(
       NamedActorCapabilityBasisSchema.safeParse(with_({ method: "CAUSALLY_DETERMINED", causes }))
         .success,
     ).toBe(true);
-    for (const method of [
-      "BOUNDED_PRIOR_RANDOMIZED",
-      "RANDOM",
-      "ROLL",
-      "NARRATIVE_NEED",
-      "DEFAULT",
-      "",
-      undefined,
-    ])
+    expect(
+      NamedActorCapabilityBasisSchema.safeParse(
+        with_({ method: "BOUNDED_PRIOR_RANDOMIZED", causes, draw }),
+      ).success,
+    ).toBe(true);
+    for (const method of ["RANDOM", "ROLL", "NARRATIVE_NEED", "DEFAULT", "", undefined])
       expect(
-        NamedActorCapabilityBasisSchema.safeParse(with_({ method, causes })).success,
+        NamedActorCapabilityBasisSchema.safeParse(with_({ method, causes, draw })).success,
         String(method),
       ).toBe(false);
-    for (const extra of ["prior", "weights", "seed", "roll", "distribution", "bound"])
+    // the randomized method is representable only with its draw pointer; the deterministic one only without
+    expect(
+      NamedActorCapabilityBasisSchema.safeParse(
+        with_({ method: "BOUNDED_PRIOR_RANDOMIZED", causes }),
+      ).success,
+    ).toBe(false);
+    expect(
+      NamedActorCapabilityBasisSchema.safeParse(
+        with_({ method: "CAUSALLY_DETERMINED", causes, draw }),
+      ).success,
+    ).toBe(false);
+    // …and nothing of the sampler is stored on the record: no prior, weight, seed, sample, roll or probability
+    for (const extra of [
+      "prior",
+      "weights",
+      "seed",
+      "roll",
+      "distribution",
+      "bound",
+      "probability",
+    ]) {
       expect(
         NamedActorCapabilityBasisSchema.safeParse(
           with_({ method: "CAUSALLY_DETERMINED", causes, [extra]: 1 }),
         ).success,
         extra,
       ).toBe(false);
+      expect(
+        NamedActorCapabilityBasisSchema.safeParse(
+          with_({ method: "BOUNDED_PRIOR_RANDOMIZED", causes, draw, [extra]: 1 }),
+        ).success,
+        extra,
+      ).toBe(false);
+      expect(
+        NamedActorCapabilityBasisSchema.safeParse(
+          with_({
+            method: "BOUNDED_PRIOR_RANDOMIZED",
+            causes,
+            draw: { ...draw, [extra]: 1 },
+          }),
+        ).success,
+        `draw.${extra}`,
+      ).toBe(false);
+    }
+    for (const bad of [
+      { ...draw, draw_id: "cdraw:v1:short" },
+      { ...draw, result: { ...draw.result, version: 0 } },
+      { ...draw, result: { fact_key: "", version: 1 } },
+    ])
+      expect(
+        NamedActorCapabilityBasisSchema.safeParse(
+          with_({ method: "BOUNDED_PRIOR_RANDOMIZED", causes, draw: bad }),
+        ).success,
+      ).toBe(false);
+  });
+
+  it("the randomized authoring input is the owner's prior and its causes only: markers and relative integer weights, no default, score or result", () => {
+    const input = randomizedEstablishment("a1", "c1");
+    expect(NamedActorRandomizedEstablishmentSchema.safeParse(input).success).toBe(true);
+    // the cardinality of the prior is the Causal Draw gate's to refuse (with its own codes), not this schema's
+    for (const prior of [[], [{ marker: "C", weight: "1" }]])
+      expect(NamedActorRandomizedEstablishmentSchema.safeParse({ ...input, prior }).success).toBe(
+        true,
+      );
+    for (const weight of ["0", "-1", "1.5", "1e3", "01", "", 3, null, undefined])
+      expect(
+        NamedActorRandomizedEstablishmentSchema.safeParse({
+          ...input,
+          prior: [{ marker: "C", weight }],
+        }).success,
+        String(weight),
+      ).toBe(false);
+    for (const marker of ["S+", "D", "EX", 3, { ex: "" }, { level: 1 }, undefined])
+      expect(
+        NamedActorRandomizedEstablishmentSchema.safeParse({
+          ...input,
+          prior: [{ marker, weight: "1" }],
+        }).success,
+        JSON.stringify(marker),
+      ).toBe(false);
+    for (const extra of ["marker", "potential", "level", "percent", "seed", "default", "result"])
+      expect(
+        NamedActorRandomizedEstablishmentSchema.safeParse({ ...input, [extra]: "C" }).success,
+        extra,
+      ).toBe(false);
+    expect(
+      NamedActorRandomizedEstablishmentSchema.safeParse({
+        ...input,
+        prior: [{ marker: "C", weight: "1", percent: 10 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      NamedActorRandomizedEstablishmentSchema.safeParse({ ...input, causes: [] }).success,
+    ).toBe(false);
+    expect(
+      NamedActorRandomizedEstablishmentSchema.safeParse({
+        ...input,
+        causes: [input.causes[0], input.causes[0]],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("the stable draw key of a slot has exactly the four CDK-01 dimensions and nothing incidental", () => {
+    const key = namedActorCapabilityDrawKey("a1", "c1");
+    expect(Object.keys(key).sort()).toEqual([
+      "causal_process_id",
+      "opportunity_id",
+      "owner_operation",
+      "prospective_result_id",
+    ]);
+    expect(key.prospective_result_id).toBe(actorCapabilityBasisKey("a1", "c1"));
+    expect(key.owner_operation).toEqual({
+      owner: "named_actor",
+      operation: NAMED_ACTOR_OPERATION_ESTABLISH_CAPABILITY_BASIS,
+    });
+    expect(namedActorCapabilityDrawKey("a1", "c1")).toEqual(key);
+    expect(namedActorCapabilityDrawKey("a1", "c2")).not.toEqual(key);
+    expect(namedActorCapabilityDrawKey("a2", "c1")).not.toEqual(key);
+    expect(JSON.stringify(key)).not.toMatch(/retry|request|attempt|horizon|model|provider|clock/i);
+  });
+
+  it("a candidate id is the canonical encoding of one lawful marker — C, B, A, S, EX with its descriptor, or ungraded — and of nothing else", () => {
+    for (const marker of [...CAPABILITY_GRADES, { ex: "descriptor" }, null] as const) {
+      const id = capabilityCandidateId(marker);
+      expect(parseCapabilityCandidateId(id)).toEqual({ marker });
+      expect(capabilityCandidateId(marker)).toBe(id);
+    }
+    const ids = [...CAPABILITY_GRADES, { ex: "S" }, null].map((m) => capabilityCandidateId(m));
+    expect(new Set(ids).size).toBe(ids.length);
+    // EX is not S+: an EX candidate never reads as a grade
+    expect(parseCapabilityCandidateId(capabilityCandidateId({ ex: "S" }))).toEqual({
+      marker: { ex: "S" },
+    });
   });
 
   it("a basis needs at least one pinned cause, cites each once, and a cause carries a reference — never a copied value", () => {
