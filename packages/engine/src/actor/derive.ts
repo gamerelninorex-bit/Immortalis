@@ -20,6 +20,7 @@ import {
   pcExistenceContractKey,
   populationLedgerKey,
   type BoundedPriorRandomizedEstablishment,
+  type ExistingActorSourcePin,
   type NamedActorCapability,
   type NamedActorCapabilityBasis,
   type OwnerFact,
@@ -27,7 +28,7 @@ import {
 } from "@immortalis/contracts";
 import { cdDigest } from "../causal-draw/canon.ts";
 import { canonicalEqual } from "../hash.ts";
-import { NAMED_ACTOR_RULE } from "../owners/registry.ts";
+import { NAMED_ACTOR_RULE, resolveKey } from "../owners/registry.ts";
 
 /**
  * Pure derivations of the Named-Actor capability path (WS-016 §3, §16, §27.1; WS-006 / F-014A v3.3 and the W3-CP3
@@ -105,6 +106,45 @@ export function actorBoundaryViolation(
   }
   if (facts.has(populationLedgerKey(actorId))) {
     return "the identity is a Population ledger: an aggregate is never given an individual Character Capability record";
+  }
+  return null;
+}
+
+/** The kinds of committed Named-Actor state that identify an already-existing actor as the source of a compilation or coupling. */
+const EXISTING_ACTOR_SOURCE_KINDS: ReadonlySet<string> = new Set([
+  "named_actor_capability_basis",
+  "named_actor_capability",
+]);
+
+/**
+ * The single statement of what makes committed state the OWN, already-existing, non-PC state of one actor (shared by the
+ * existing-actor I-002 compilation and the existing-actor World-State coupling, so the two cannot drift): every pin is a
+ * Named-Actor owner fact of an accepted source kind whose key identity is `actorId`, owned by the owner the pin names, and
+ * committed at exactly the version pinned. A pin to another actor's state, to the PC owner's, to any other owner's or to
+ * another version fails closed. Returns a message, or null when every pin holds.
+ */
+export function existingActorSourceViolation(
+  actorId: string,
+  pins: readonly ExistingActorSourcePin[],
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): string | null {
+  for (const pin of pins) {
+    const resolved = resolveKey(pin.fact_key);
+    if (
+      !resolved ||
+      !EXISTING_ACTOR_SOURCE_KINDS.has(resolved.kind.id) ||
+      resolved.kind.owner !== OWNER_NAMED_ACTOR ||
+      resolved.ids[0] !== actorId
+    ) {
+      return `a source is the identified actor's own committed Named-Actor state: ${pin.fact_key}`;
+    }
+    const fact = facts.get(pin.fact_key);
+    if (!fact || fact.owner !== pin.owner || fact.owner !== OWNER_NAMED_ACTOR) {
+      return `a source is committed and owned by the Named-Actor owner it names: ${pin.fact_key}`;
+    }
+    if (fact.version !== pin.version) {
+      return `a source is pinned at its exact committed version: ${pin.fact_key}`;
+    }
   }
   return null;
 }

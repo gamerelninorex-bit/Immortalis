@@ -212,6 +212,7 @@ export function existingActorSummary(
     objects: under(/^temporal\/object\//),
     transactions: under(/^temporal\/transaction\//),
     contract: under(/^pc\/[^/]+\/existence-contract$/),
+    coupling: under(/^world-state\/actor\//),
     pc_capability: under(/^pc\/[^/]+\/capability/),
     binding: under(/^role-registry\//),
     actor: under(/^actor\//),
@@ -223,3 +224,43 @@ export function existingActorSummary(
 }
 
 export type { CampaignStore };
+
+// ---------------------------------------------------------------------------------------------
+// Existing-Actor World-State Coupling Anchor support
+// ---------------------------------------------------------------------------------------------
+
+export const couplingPublication = (n: number) => ({
+  group_id: `couple-group-${n}`,
+  intent_id: `couple-intent-${n}`,
+  cause: `couple-cause-${n}`,
+  basis: "fixture-basis",
+  secrecy: "fixture-visibility",
+});
+
+/** The input a caller presents to couple an existing actor to the fixture world's locus (identities and actor-state pins only). */
+export const couplingInput = (
+  n: number,
+  actorId = ACTOR_SMITH,
+  over: Partial<{
+    world_id: string;
+    locus_id: string;
+    actor_state: unknown;
+  }> = {},
+) => ({
+  ...couplingPublication(n),
+  actor_id: actorId,
+  world_id: FIXTURE_WORLD_ID,
+  locus_id: FIXTURE_LOCUS_ID,
+  actor_state: [actorBasisPin(actorId)] as unknown,
+  ...over,
+});
+
+/** Couples the existing actor through the one World-State publication path (`coupleExistingActor`). */
+export async function coupleActor(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  actorId = ACTOR_SMITH,
+  over: Parameters<typeof couplingInput>[2] = {},
+) {
+  return s.campaign.coupleExistingActor(couplingInput(n, actorId, over));
+}

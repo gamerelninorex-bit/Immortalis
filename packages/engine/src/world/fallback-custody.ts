@@ -20,6 +20,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { WORLD_FALLBACK_RULE, resolveKey } from "../owners/registry.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
+import { worldActorCouplingGroupCheck } from "./actor-coupling.ts";
 import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
@@ -70,6 +71,9 @@ export function deriveAcceptedEntity(
  * conserved reference: a second acceptance of the same reference is a version conflict.
  */
 export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
+  // the custodian's fact kind for an existing non-PC actor's one current locus coupling (actor-coupling.ts)
+  if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_actor_coupling"))
+    return worldActorCouplingGroupCheck(group, state);
   // the custodian's other fact kind: the one same-entity transition (entity-transition.ts)
   if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_entity_transition"))
     return worldTransitionGroupCheck(group, state);

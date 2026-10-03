@@ -42,6 +42,8 @@ export interface IntegrityViolation {
     | "ECONOMY_STATE"
     /** World-State entity transitions (ECT-01): see verifyEntityTransitionIntegrity */
     | "ENTITY_TRANSITION_STATE"
+    /** World-State existing-actor coupling anchors: see verifyExistingActorCouplingIntegrity */
+    | "ACTOR_COUPLING_STATE"
     /** IM-07 Named-Actor capability state: see verifyNamedActorIntegrity */
     | "NAMED_ACTOR_STATE"
     /** IM-07 PC capability profile state (a facet of the one PC owner): see verifyPcCapabilityIntegrity */

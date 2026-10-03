@@ -25,6 +25,7 @@ import {
   EconomyDemandEnvelopeSchema,
   EconomyRealizationSchema,
   EntityTransitionCauseSchema,
+  ExistingActorCouplingSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   ExternalRecognitionSchema,
@@ -226,6 +227,7 @@ export const PRODUCTION_FACT_KIND_IDS = [
 ] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
+export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -278,6 +280,7 @@ export type FactKindId =
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
+  | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
 
@@ -656,6 +659,45 @@ export const WORLD_ENTITY_TRANSITION_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world/${ID}/entity/${ID}/transition$`),
     valueSchema: EntityTransitionCloseSchema,
     rule: WORLD_ENTITY_TRANSITION_RULE,
+  },
+];
+
+const WS006_ACTOR_COUPLING_LINEAGE = `WS-006 / F-014A v3.3 §6 Two-Target Write Rule (physical location attaches to the true affected entity/domain, never to the actor-side record), spec-locked pin ${WS006_SOURCE.native_pin} (${WS006_SOURCE.artifact}); IR Player–World Insertion §5 item 3 and §17 (world placement/overlap → World owner), spec-locked pin ${IR_SOURCE.native_pin} (${IR_SOURCE.artifact}); I-002 §4.3 (position and other world-locus differences belong to Insertion/world/runtime owners), spec-locked pin ${I002_SOURCE.native_pin} (${I002_SOURCE.artifact})`;
+const HANDOVER_SEAM_LINEAGE =
+  'PC-CONTROL HANDOVER CONTRACT v1 — W3-CP3 Blue Repair Overlay, observed native pin 2026-09-25T00:16:16.544Z (https://app.notion.com/p/3e520af901e081c0b84cc5cb7f301a0e), cited as the seam rule only ("Before that commit, the current owner remains writable") and NOT a spec-lock pin';
+
+/**
+ * The World-State fallback custodian's current actor↔locus/world coupling of one already-existing, lawfully non-PC actor
+ * (IM-03): WG "Ownership Guards — World Generation May Own: ... world-side environmental, geographic, topological and other
+ * general world-state facts not owned by a more specific subsystem" and "F-016 Ratified Fallback Objective Physical-Entity
+ * Custody" (physical/entity identity or reference; continuity-dependency binding), with WS-006 / F-014A v3.3 §6 (physical
+ * location is a world/entity-side fact, never an actor-side record), IR §5 item 3 / §17 (an authoritative world fact already
+ * established; world placement → World owner) and the Handover Contract's single commit point (the coupling is a prerequisite:
+ * it binds nothing and moves no ownership).
+ */
+export const WORLD_ACTOR_COUPLING_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact: physical/entity identity or reference, continuity-dependency binding); Interface Handoffs — To Insertion/Reconciliation (latent/realized local state needed for coupling)",
+  [WS006_ACTOR_COUPLING_LINEAGE, HANDOVER_SEAM_LINEAGE, F016_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED: one current coupling per actor identity (across every world), create-only. Relocating the actor needs a
+ * successor mechanism that does not exist, so a second coupling is a version conflict, never a sibling truth. It is the
+ * custodian's own fact kind (same owner and facet as the fallback entity and its transition): it is NOT a fallback
+ * physical entity and no Production durable path is used.
+ */
+export const WORLD_ACTOR_COUPLING_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_actor_coupling",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/coupling$`),
+    valueSchema: ExistingActorCouplingSchema,
+    rule: WORLD_ACTOR_COUPLING_RULE,
   },
 ];
 
@@ -1447,6 +1489,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...PRODUCTION_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
+  ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,

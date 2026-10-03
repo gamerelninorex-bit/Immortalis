@@ -170,6 +170,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world/w1/entity/e1/transition",
   },
   {
+    id: "world_actor_coupling",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_ACTOR_COUPLING_FACT_KINDS",
+    exampleKey: "world-state/actor/a1/coupling",
+  },
+  {
     id: "economy_demand",
     owner: "economy",
     facet: "economy_state",

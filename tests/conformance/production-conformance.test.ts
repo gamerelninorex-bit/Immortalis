@@ -295,6 +295,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ]);
     // (the seventh slice's World-State entity-transition seam is the one later module of the world directory)
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
+      "actor-coupling-integrity.ts",
+      "actor-coupling.ts",
       "canonical-campaign.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
