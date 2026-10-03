@@ -2,11 +2,17 @@ import {
   CanonicalCampaign,
   EpistemicAccessAdapter,
   NamedActorAdapter,
+  PcCapabilityAdapter,
   TemporalCoordinator,
   type CampaignStore,
   type FileCampaignOptions,
 } from "@immortalis/engine";
-import type { AccessEvent, NamedActorCapabilityBasis } from "@immortalis/contracts";
+import type {
+  AccessEvent,
+  ExistenceContract,
+  NamedActorCapabilityBasis,
+  PcCapabilityBasis,
+} from "@immortalis/contracts";
 import {
   ACTOR_OTHER,
   ACTOR_SMITH,
@@ -31,6 +37,8 @@ import {
   fixtureWorld,
   historyGroup,
   packetConsumerObject,
+  pcCapabilityBasis,
+  pcCapabilityPublication,
   publication,
   sourceGroup,
   temporalPublication,
@@ -42,6 +50,7 @@ export interface EpistemicSeeded {
   readonly campaign: CanonicalCampaign;
   readonly coordinator: TemporalCoordinator;
   readonly actors: NamedActorAdapter;
+  readonly pcs: PcCapabilityAdapter;
   readonly access: EpistemicAccessAdapter;
 }
 
@@ -53,12 +62,15 @@ export interface EpistemicSeedOptions {
   readonly fs?: FileCampaignOptions["fs"];
   /** also establish the world, locus, a released PC and its active binding (default true) */
   readonly canonical?: boolean;
+  /** the released PC's Existence Contract (default `fixtureContract()`; a PC capability basis needs accepted claims) */
+  readonly pcContract?: ExistenceContract;
 }
 
 const wire = (campaign: CanonicalCampaign): EpistemicSeeded => ({
   campaign,
   coordinator: epistemicCoordinator(campaign.store),
   actors: new NamedActorAdapter(campaign.store),
+  pcs: new PcCapabilityAdapter(campaign.store),
   access: new EpistemicAccessAdapter(campaign.store),
 });
 
@@ -82,7 +94,12 @@ export async function seededEpistemicCampaign(
   if (o.canonical !== false) {
     await must(campaign.establishWorld({ ...publication(1), world: fixtureWorld() }));
     await must(campaign.establishLocus({ ...publication(2), locus: fixtureLocus() }));
-    await must(campaign.releasePlayerCharacter({ ...publication(3), contract: fixtureContract() }));
+    await must(
+      campaign.releasePlayerCharacter({
+        ...publication(3),
+        contract: o.pcContract ?? fixtureContract(),
+      }),
+    );
     await must(
       campaign.bindPlayerCharacter({
         ...publication(4),
@@ -140,12 +157,25 @@ export async function establishCapability(
   return basis;
 }
 
+/** Receives the basis of one already-established PC capability (the PC owner's only authored publication). */
+export async function establishPcCapability(
+  s: EpistemicSeeded,
+  n: number,
+  pcId = FIXTURE_PC_ID,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcCapabilityBasis> = {},
+): Promise<PcCapabilityBasis> {
+  const basis = pcCapabilityBasis(pcId, capabilityId, over);
+  await must(s.pcs.receiveCapabilityBasis({ ...pcCapabilityPublication(n), capability: basis }));
+  return basis;
+}
+
 /** Registers the engaged object of one dependent consequence that materially requires the recipient's packet. */
 export async function registerPacketConsumer(
   s: EpistemicSeeded,
   consumerId: string,
   event: AccessEvent,
-  basis: NamedActorCapabilityBasis | null,
+  basis: NamedActorCapabilityBasis | PcCapabilityBasis | null,
   tn: number,
 ): Promise<void> {
   await must(

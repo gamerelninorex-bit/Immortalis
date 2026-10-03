@@ -19,7 +19,13 @@ import {
 import { namedActorCapabilityCloseRead } from "../actor/declaration.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { eventRecipient, formationKeys } from "./derive.ts";
+import { pcCapabilityCloseRead } from "../pc-capability/declaration.ts";
+import {
+  eventRecipient,
+  formationKeys,
+  isPcRecipientEvent,
+  recipientBoundaryViolation,
+} from "./derive.ts";
 
 /**
  * Builders and the registration rule for the Epistemic side of the temporal declaration (RC-10 dependency declarations;
@@ -66,9 +72,10 @@ export const epistemicPacketRead = (
 
 /**
  * The one stage whose commit forms the packet of one event/recipient: it reads its committed event (NOW) and, where the
- * payload's form depends on a Named-Actor capability, that capability AS-OF-DECLARED-CLOSE, naming the actor owner's
- * declared capability close (F-014D §2.1: Close Basis = F-014A actor-profile capability close). It writes the actor-safe
- * packet and the Sealed Engine Provenance together.
+ * payload's form depends on a capability, that capability AS-OF-DECLARED-CLOSE, naming the declared close of the owner that
+ * holds it for this recipient (F-014D §2.1: Close Basis = F-014A actor-profile capability close for a Named-Actor
+ * recipient; "PC Capability Close" for the active Player Character, F-016 Phase 2B PCC-03, through the existing PC
+ * close-read builder). It writes the actor-safe packet and the Sealed Engine Provenance together.
  */
 export function epistemicPacketDeclaration(event: AccessEvent): DependencyDeclaration {
   const recipient = eventRecipient(event);
@@ -77,7 +84,11 @@ export function epistemicPacketDeclaration(event: AccessEvent): DependencyDeclar
     reads: [
       epistemicEventRead(event.event_id),
       ...(event.representation
-        ? [namedActorCapabilityCloseRead(recipient, event.representation.capability_id)]
+        ? [
+            isPcRecipientEvent(event)
+              ? pcCapabilityCloseRead(recipient, event.representation.capability_id)
+              : namedActorCapabilityCloseRead(recipient, event.representation.capability_id),
+          ]
         : []),
     ],
     produces: [...formationKeys(event.event_id, recipient)],
@@ -93,7 +104,8 @@ export function epistemicPacketDeclaration(event: AccessEvent): DependencyDeclar
  *  - no object is owned by the Epistemic owner (a packet is formed only inside the object of the dependent consequence
  *    that materially requires it);
  *  - every Epistemic stage is exactly the declaration derived from a COMMITTED, valid access event (so a consequence can
- *    never conjure access: without a committed event there is nothing to declare);
+ *    never conjure access: without a committed event there is nothing to declare), and an active-PC event's stage is
+ *    declared only while the committed Role Registry binding names its recipient;
  *  - the event is read only by that stage; Sealed Engine Provenance is read by NO declared stage (it is available only
  *    to lawful engine-side consumers through the owner's typed read, never as an actor-side input); every other read of
  *    an Epistemic fact is the packet, AS-OF-NOW, by a stage that is not itself an Epistemic stage;
@@ -135,6 +147,9 @@ export function epistemicObjectViolation(
       }
       if (!canonicalEqual(d, epistemicPacketDeclaration(event.data))) {
         return "an Epistemic stage is exactly the declaration derived from its committed event";
+      }
+      if (isPcRecipientEvent(event.data) && recipientBoundaryViolation(state.facts, event.data)) {
+        return "an Epistemic packet for the active Player Character is declared only while the Role Registry binding role.player_character names that recipient";
       }
     }
     for (const r of d.reads) {

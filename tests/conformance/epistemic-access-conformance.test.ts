@@ -257,6 +257,31 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(code(`${EPISTEMIC_DIR}/declaration.ts`)).toMatch(/declares_close: null/);
   });
 
+  it("the active-PC capability is read only through the existing PC close-read builder and classified only by the committed Role Registry binding: the Epistemic modules never receive, declare, close or key a PC capability, and the Named-Actor boundary is reused, not relaxed", () => {
+    expect(code(`${EPISTEMIC_DIR}/declaration.ts`)).toMatch(/pcCapabilityCloseRead\(/);
+    for (const f of EPISTEMIC_SOURCES.filter((f) => !/contracts/.test(f)))
+      expect(code(f), f).not.toMatch(
+        /pcCapabilityDeclaration|pcCapabilityCloseProvider|PcCapabilityAdapter|receiveCapabilityBasis|pcCapabilityBasisKey|PcCapabilityBasisSchema|PC_OPERATION_|PC_CAPABILITY_RULE|FACET_PC_CAPABILITY_PROFILE|pcExistenceContractKey|ExistenceContractSchema/,
+      );
+    // classification: the Role Registry binding by identity in the one derive module; the Named-Actor boundary is called, never copied
+    const derive = code(`${EPISTEMIC_DIR}/derive.ts`);
+    expect(derive).toMatch(/PLAYER_CHARACTER_BINDING_KEY/);
+    expect(derive).toMatch(/actorBoundaryViolation\(/);
+    for (const f of EPISTEMIC_SOURCES.filter((f) => !/derive\.ts$|contracts/.test(f)))
+      expect(code(f), f).not.toMatch(/actorBoundaryViolation|PLAYER_CHARACTER_BINDING_KEY/);
+    // the Named-Actor and PC-capability owners' own modules know nothing of the Epistemic role assertion
+    for (const f of [
+      ...walk("packages/engine/src/actor"),
+      ...walk("packages/engine/src/pc-capability"),
+    ])
+      expect(code(f), f).not.toMatch(/RECIPIENT_ROLE|recipient_role|recipientBoundaryViolation/);
+    // the role is a literal assertion, not state: the only occurrences in the contract are the constant and the optional field
+    const contract = code("packages/contracts/src/epistemic-access.ts");
+    expect(contract).toMatch(
+      /recipient_role: z\.literal\(RECIPIENT_ROLE_PLAYER_CHARACTER\)\.optional\(\)/,
+    );
+  });
+
   it("a packet stage's identity is its StageKey alone: no horizon, version, retry, consumer or slice participates", () => {
     const contract = code("packages/contracts/src/epistemic-access.ts");
     const stage = /accessPacketStage = [\s\S]*?\}\);/.exec(contract)![0];
