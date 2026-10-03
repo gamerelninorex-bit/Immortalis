@@ -187,7 +187,11 @@ export class CanonicalCampaign {
     return this.#publish(input, "world_locus", key, locus.data, [locus.data.world.fact_key]);
   }
 
-  /** I-002: one released Existence Contract, under PC-existence ownership. Depends on nothing. */
+  /**
+   * I-002: one released Existence Contract, under PC-existence ownership. A freshly generated PC depends on nothing; a
+   * contract that explicitly compiles an already-existing actor (`existing_actor_compilation`) reads and depends on the
+   * pinned actor state, which is never copied, and leaves that actor's prior owner writable (it is no binding).
+   */
   releasePlayerCharacter(
     input: ReleasePcInput,
   ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
@@ -198,7 +202,8 @@ export class CanonicalCampaign {
       "pc_existence_contract",
       pcExistenceContractKey(contract.data.pc_id),
       contract.data,
-      [],
+      // a fresh PC depends on nothing; an existing-actor compilation pins (reads and depends on) the actor's own state
+      contract.data.existing_actor_compilation?.source_state.map((s) => s.fact_key) ?? [],
     );
   }
 

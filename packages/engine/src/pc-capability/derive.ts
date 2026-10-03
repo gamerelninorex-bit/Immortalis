@@ -109,6 +109,9 @@ export function pcCapabilityEstablishmentViolation(
   if (!contract.success || contract.data.pc_id !== basis.pc_id) {
     return "the PC's Existence Contract is not a released Existence Contract of this PC";
   }
+  if (contract.data.existing_actor_compilation !== undefined) {
+    return "the Existence Contract compiles an already-existing actor: ACCEPTED_GENERATION_HISTORY would present the actor's inherited mastery as player-authored, Mirror-derived mastery, and carrying an actor's capability into the PC is the existing-actor-to-PC carry-forward, which is not implemented";
+  }
   if (fact.version !== e.contract.version) {
     return "the establishment is pinned to the committed Existence Contract at its exact version";
   }

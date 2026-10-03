@@ -22,6 +22,7 @@ import {
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
+  type ExistenceContract,
   type OwnerFact,
   type PlayerCharacterBinding,
 } from "@immortalis/contracts";
@@ -79,6 +80,8 @@ export function couplingBasisViolation(
   if (!ExistenceContractSchema.safeParse(facts.pc.value).success) {
     return "the PC existence contract is not a released Existence Contract";
   }
+  const existingActor = existingActorBindingViolation(facts.pc.value);
+  if (existingActor) return existingActor;
   const pins = binding.transition.basis.pinned_versions;
   if (
     pins.pc !== facts.pc.version ||
@@ -88,6 +91,100 @@ export function couplingBasisViolation(
     return "the coupling basis was not established against the committed PC, world and locus versions";
   }
   return null;
+}
+
+/**
+ * The ordinary activation path is the FIRST `ACTIVATION` of a freshly generated PC on its explicit, player-authored, native
+ * coupling basis. An Existence Contract that compiles an already-existing non-PC actor is a different classification whose
+ * control cutover is the Existing-Actor → PC Role Registry handover (PC-Control Handover Contract v1, "Single Commit
+ * Point"): not implemented, so this path refuses it rather than reuse a first-activation basis that would present the
+ * actor's established state as player-authored. Returns a message for such a contract, or null.
+ */
+export function existingActorBindingViolation(contractValue: unknown): string | null {
+  const contract = ExistenceContractSchema.safeParse(contractValue);
+  if (!contract.success || contract.data.existing_actor_compilation === undefined) return null;
+  return "the Existence Contract compiles an already-existing actor: ordinary first ACTIVATION is not the Existing-Actor → PC handover, which is not implemented, so the actor's prior owner remains the writable owner";
+}
+
+/** The kinds of committed Named-Actor state that identify an already-existing actor as the source of a compilation. */
+const EXISTING_ACTOR_SOURCE_KINDS: ReadonlySet<string> = new Set([
+  "named_actor_capability_basis",
+  "named_actor_capability",
+]);
+
+/**
+ * The single statement of what an existing-actor compilation must be, given committed facts (PC-Control Handover Contract
+ * v1 "Existing Actor → PC" 1, 3, 4 and "Existing-Actor Confirmation Surface"; I-002 §2 and §7). Used by admission when the
+ * contract is written and again by verifyCanonicalIntegrity on every load, so the two cannot drift. It judges identity and
+ * provenance only, never the sufficiency of the compilation:
+ *
+ *  - every pinned source is the identified actor's OWN committed state: a Named-Actor owner fact of an accepted source kind
+ *    whose key identity is this contract's `pc_id`, owned by the owner the pin names, at exactly the version pinned. So a
+ *    fresh Player Character, which has no such state, cannot state the classification, and a pin to another actor's state,
+ *    to the PC owner's own state or to any other owner's state fails closed;
+ *  - the compilation is no blank-slate player-authorship pass (Existing Actor → PC step 4: "Do not open a fresh
+ *    biography-authorship pass for already-established world history"; Confirmation Surface: undisplayed compiled detail
+ *    is SAFELY-INHERITED / compiler-owned inference, not player-authored): every claim is SAFELY-INHERITED and there are
+ *    no player overrides.
+ *
+ * Returns a message, or null when the compilation holds (or the contract is no compilation).
+ */
+export function existingActorCompilationViolation(
+  contract: ExistenceContract,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): string | null {
+  const compilation = contract.existing_actor_compilation;
+  if (compilation === undefined) return null;
+  const claims = [
+    contract.identity_agency,
+    ...(contract.contact.kind === "CONTACT_ANCHOR"
+      ? contract.contact.surfaces
+      : [contract.contact.statement]),
+    contract.embodiment_topology,
+    contract.continuity_rule,
+    ...contract.baseline_exception.safely_inherited,
+    ...contract.baseline_exception.player_overrides,
+    ...contract.entry_envelope.items,
+  ];
+  if (
+    contract.baseline_exception.player_overrides.length > 0 ||
+    claims.some((c) => c.provenance !== "SAFELY-INHERITED")
+  ) {
+    return "an existing-actor compilation is no player-authorship pass over already-established state: every claim is SAFELY-INHERITED and there are no player overrides";
+  }
+  for (const pin of compilation.source_state) {
+    const resolved = resolveKey(pin.fact_key);
+    if (
+      !resolved ||
+      !EXISTING_ACTOR_SOURCE_KINDS.has(resolved.kind.id) ||
+      resolved.kind.owner !== OWNER_NAMED_ACTOR ||
+      resolved.ids[0] !== contract.pc_id
+    ) {
+      return `a source is the identified actor's own committed Named-Actor state: ${pin.fact_key}`;
+    }
+    const fact = facts.get(pin.fact_key);
+    if (!fact || fact.owner !== pin.owner || fact.owner !== OWNER_NAMED_ACTOR) {
+      return `a source is committed and owned by the Named-Actor owner it names: ${pin.fact_key}`;
+    }
+    if (fact.version !== pin.version) {
+      return `a source is pinned at its exact committed version: ${pin.fact_key}`;
+    }
+  }
+  return null;
+}
+
+function checkExistenceContract(group: CommitGroup, state: CampaignState, value: unknown) {
+  const contract = ExistenceContractSchema.parse(value);
+  if (contract.existing_actor_compilation === undefined) return null;
+  // the sources are foreign facts: read at their current version and depended on, never copied
+  for (const pin of contract.existing_actor_compilation.source_state) {
+    const source = requirePrerequisite(group, state, pin.fact_key, "the existing actor's state");
+    if (isRejection(source)) return source;
+  }
+  const violation = existingActorCompilationViolation(contract, state.facts);
+  return violation
+    ? reject("REFERENCE_INVALID", violation, { key: pcExistenceContractKey(contract.pc_id) })
+    : null;
 }
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
@@ -105,6 +202,8 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
   // Prerequisites are checked in dependency order: PC and world before the locus that hangs off it.
   const pc = requirePrerequisite(group, state, pcKey, "the released PC existence contract");
   if (isRejection(pc)) return pc;
+  const existingActor = existingActorBindingViolation(pc.fact.value);
+  if (existingActor) return reject("REFERENCE_INVALID", existingActor, { key: pcKey });
   const world = requirePrerequisite(group, state, worldKey, "the world profile");
   if (isRejection(world)) return world;
   const locus = requirePrerequisite(group, state, locusKey, "the world locus");
@@ -144,6 +243,12 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  *     there, explicit player-authored) pinned to those exact facts; coexistence of the PC, world and
  *     locus is not itself a lawful basis (see couplingBasisViolation). A binding without it is
  *     rejected by the typed value (VALUE_INVALID), so a raw store.commit cannot bypass the rule.
+ *
+ *  6. Existing-actor compilation: a contract carrying the explicit `existing_actor_compilation` classification must pin
+ *     (read and depend on) the identified actor's own committed Named-Actor state and carry only SAFELY-INHERITED claims
+ *     (see existingActorCompilationViolation); ordinary first ACTIVATION refuses such a contract (see
+ *     existingActorBindingViolation), because the binding commit is the control cutover and the Existing-Actor → PC handover
+ *     that would make it lawful is not implemented.
  *
  * Pure: a function of (group, state) only.
  */
@@ -368,6 +473,8 @@ function dependencyCheck(
   switch (kind.id) {
     case "world_locus":
       return checkLocus(group, state, key, value);
+    case "pc_existence_contract":
+      return checkExistenceContract(group, state, value);
     case "player_character_binding":
       return checkBinding(group, state, value);
     default:
