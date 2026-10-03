@@ -1,7 +1,10 @@
 import {
   OWNER_PC_EXISTENCE,
   actorCapabilityKey,
+  causalDrawPrecommitKey,
+  causalDrawResultKey,
   PLAYER_CHARACTER_BINDING_KEY,
+  PcCapabilityBasisHistoricalSchema,
   PcCapabilityBasisSchema,
   PcCapabilitySchema,
   ResolutionTransactionSchema,
@@ -14,7 +17,7 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE, resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -26,6 +29,7 @@ import {
   pcCapabilityBoundaryViolation,
   pcCapabilityEstablishmentViolation,
 } from "./derive.ts";
+import { isPcRandomizedBasis, pcCapabilityDrawDigest } from "./randomized.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's PC capability state still tells one
@@ -37,7 +41,12 @@ import {
  *    depended on the group that committed it; and when it was committed the Named-Actor owner did not already hold the
  *    identity's capability and the identity was no Population ledger. A carry-forward basis instead pins the committed
  *    EXISTING_ACTOR_HANDOVER binding and the identity's own Named-Actor capability (each read at its exact version, depended
- *    on, committed before the basis), carries that capability's marker exactly, and the source precedes the handover;
+ *    on, committed before the basis), carries that capability's marker exactly, and the source precedes the handover; a
+ *    WORLD-PRIOR basis pins the handover and its causes (each committed before the basis, owned by the source it names and
+ *    not behind its pin) and, if randomized, is exactly what its committed Causal Draw determines (the stable draw of its
+ *    slot, a prior defined by the PC owner from exactly its causes, a marker that is the owner's reading of the selected
+ *    candidate, a result committed before the basis whose canonical group the basis read and depended on), while no other
+ *    establishment was committed over Causal Draw evidence that already existed for its slot;
  *  - a capability is exactly what its committed basis determines (the same re-derivation admission uses), names the close
  *    stage derived from its PC and capability, was committed after its basis, under no boundary violation, only as its
  *    IM-02 stage under a durable transaction authority, and is credited by a committed ResolutionTransaction — or by an
@@ -109,6 +118,31 @@ export function verifyPcCapabilityIntegrity(store: CampaignStore): readonly Inte
         bad(bf.key, `${need.what} is not committed`);
         continue;
       }
+      if (need.cause) {
+        // a cause is judged at the version it pinned: the source may have advanced since, which is legitimate history
+        if (target.owner !== need.cause.owner || target.version < need.cause.version) {
+          bad(
+            bf.key,
+            `a cause is committed, owned by its named source and not behind its pin: ${need.key}`,
+          );
+          continue;
+        }
+        const exact = target.version === need.cause.version;
+        if (exact && revisionOf(target) >= revisionOf(bf)) {
+          bad(bf.key, `${need.what} was not committed before the basis that cites it`);
+        }
+        if (
+          !group ||
+          !group.reads.some((r) => r.key === target.key && r.version === need.cause!.version) ||
+          (exact && !group.depends_on.includes(target.provenance.group_id))
+        ) {
+          bad(
+            bf.key,
+            `a received basis read the exact fact it cites and depended on the group that committed it: ${need.key}`,
+          );
+        }
+        continue;
+      }
       if (revisionOf(target) >= revisionOf(bf)) {
         bad(bf.key, `${need.what} was not committed before the basis that cites it`);
       }
@@ -121,6 +155,17 @@ export function verifyPcCapabilityIntegrity(store: CampaignStore): readonly Inte
           bf.key,
           `a received basis read the exact fact it cites and depended on the group that committed it: ${need.key}`,
         );
+      }
+    }
+    if (!isPcRandomizedBasis(b)) {
+      // no other establishment sidesteps Causal Draw evidence that already existed for its slot
+      const digest = pcCapabilityDrawDigest(b.pc_id, b.capability_id);
+      for (const key of [causalDrawPrecommitKey(digest), causalDrawResultKey(digest)]) {
+        const evidence = byKey.get(key);
+        if (evidence && revisionOf(evidence) < revisionOf(bf)) {
+          bad(bf.key, "a basis was committed over an existing Causal Draw for its slot");
+          break;
+        }
       }
     }
     if (carried) {
@@ -184,6 +229,16 @@ export function verifyPcCapabilityIntegrity(store: CampaignStore): readonly Inte
       pcBasisIsCarryForward(basis.data),
     );
     if (boundary) bad(cf.key, boundary);
+    // the superseded governing-rule citation is true provenance only for the close of a predecessor basis
+    if (
+      canonicalEqual(cf.provenance.rule, PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE) &&
+      !PcCapabilityBasisHistoricalSchema.safeParse(basis.data).success
+    ) {
+      bad(
+        cf.key,
+        "the close of a world-prior basis carries the current governing-rule citation, never the superseded one",
+      );
+    }
     // published only as its IM-02 stage, under the durable authority of the transaction that opened it
     const group = store.committedGroup(cf.provenance.intent_id);
     const authId = group?.cause.slice("transaction:".length);
