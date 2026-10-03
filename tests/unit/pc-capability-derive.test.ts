@@ -6,6 +6,9 @@ import {
   PC_CAPABILITY_CLOSE,
   actorCapabilityBasisKey,
   actorCapabilityKey,
+  causalDrawPrecommitKey,
+  causalDrawResultKey,
+  namedActorCapabilityDrawKey,
   pcCapabilityBasisKey,
   pcCapabilityKey,
   pcCapabilityStage,
@@ -16,6 +19,7 @@ import {
 } from "@immortalis/contracts";
 import {
   StageUnresolvedError,
+  cdDigest,
   derivePcCapability,
   isPcCapabilityKey,
   pcCapabilityBoundaryViolation,
@@ -235,12 +239,23 @@ describe("pcCapabilityBoundaryViolation: one owner per capability, never an aggr
       /Population ledger/,
     );
   });
-  it("is by identity only: it asks three keys and scans nothing", () => {
+  it("is by identity only: it asks five keys (the Named-Actor basis, capability and Causal Draw evidence, and the Population ledger) and scans nothing", () => {
     const asked: string[] = [];
     pcCapabilityBoundaryViolation({ has: (k: string) => (asked.push(k), false) }, P, C);
+    const draw = cdDigest(namedActorCapabilityDrawKey(P, C));
     expect(asked.sort()).toEqual(
-      [actorCapabilityBasisKey(P, C), actorCapabilityKey(P, C), populationLedgerKey(P)].sort(),
+      [
+        actorCapabilityBasisKey(P, C),
+        actorCapabilityKey(P, C),
+        causalDrawPrecommitKey(draw),
+        causalDrawResultKey(draw),
+        populationLedgerKey(P),
+      ].sort(),
     );
+    // a carry-forward is the identity's own predecessor state: it asks only about the aggregate
+    const carried: string[] = [];
+    pcCapabilityBoundaryViolation({ has: (k: string) => (carried.push(k), false) }, P, C, true);
+    expect(carried).toEqual([populationLedgerKey(P)]);
   });
 });
 

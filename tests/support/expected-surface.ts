@@ -417,6 +417,8 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
  * A fact kind joins this list only through a slice that is explicitly authorized to register a historical citation.
  */
 export const EXPECTED_LEGACY_RULE_KIND_IDS: readonly string[] = [
+  "pc_capability_basis", // thirty-second-slice citation, superseded (existing-actor world-prior slice)
+  "pc_capability", // thirty-second-slice citation, superseded (existing-actor world-prior slice)
   "gip_office_authority_locus", // thirteenth-slice citation, superseded
   "gip_governance_instrument", // sixteenth-slice citation, superseded (twenty-first slice)
   "diplomacy_relation_edge", // nineteenth-slice citation, superseded (twenty-third slice)
@@ -545,18 +547,30 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     ],
   },
   /**
-   * The PC capability profile receiving path of the one I-002 PC owner: two receiving publications — the fresh-PC
+   * The PC capability profile path of the one I-002 PC owner: two receiving publications — the fresh-PC
    * `receiveCapabilityBasis` and the distinct existing-actor `carryForwardActorCapability` (thirty-second slice), neither of
-   * which is an `establish…` writer: the PC owner receives an already-established fact and establishes or resolves nothing —
-   * and two typed reads by identity. Both publications share the one private commit helper. The persisted capability is no
+   * which is an `establish…` writer: the PC owner receives an already-established fact and resolves nothing — the two
+   * existing-actor world-prior establishments of a capability still unresolved at handover (`establishExistingActorCapabilityBasis`
+   * where the causes suffice, `establishExistingActorRandomizedCapabilityBasis` where a Causal Draw fixes the marker), and two
+   * typed reads by identity. All four publications share the one private commit helper. The persisted capability is no
    * method: it is the IM-02 PC Capability Close stage.
    */
   PcCapabilityAdapter: {
-    methods: ["basis", "capability", "carryForwardActorCapability", "receiveCapabilityBasis"],
+    methods: [
+      "basis",
+      "capability",
+      "carryForwardActorCapability",
+      "establishExistingActorCapabilityBasis",
+      "establishExistingActorRandomizedCapabilityBasis",
+      "receiveCapabilityBasis",
+    ],
     source: {
       file: "packages/engine/src/pc-capability/adapter.ts",
       commitCalls: 1,
-      establishWriters: [],
+      establishWriters: [
+        "establishExistingActorCapabilityBasis",
+        "establishExistingActorRandomizedCapabilityBasis",
+      ],
     },
   },
   PopulationAdapter: {

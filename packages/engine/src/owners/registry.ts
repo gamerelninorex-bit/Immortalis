@@ -19,6 +19,7 @@ import {
   NamedActorCapabilitySchema,
   OWNER_NAMED_ACTOR,
   FACET_PC_CAPABILITY_PROFILE,
+  PcCapabilityBasisHistoricalSchema,
   PcCapabilityBasisSchema,
   PcCapabilitySchema,
   DurableCompletionEnvelopeSchema,
@@ -886,6 +887,33 @@ const I002_LINEAGE =
 const F016_PHASE_2B_PCC_LINEAGE =
   'F-016 Phase 2B §H F-014D CF-2 — PC-Side Capability Cut, pin 2026-09-21T23:18:36.650Z (https://app.notion.com/p/3e220af901e0819daaa4d1cab6cc493e): PCC-01 authoritative PC mastery owner (I-002 / PC-side character-local capability state), PCC-02 the producer close named "PC Capability Close" (a temporal/provenance boundary only, not a new subsystem or duplicate capability state), PCC-03 cross-owner reads AS-OF-DECLARED-CLOSE with Close Basis PC Capability Close; with Phase 2A §G PC-01 (owner identified) and Phase 2B §I KC-T1';
 
+const CAUSAL_DRAW_LINEAGE =
+  "F-027 v1.0 + F-027-CD1 v1.0 composed implementation authority: F-027 Final Package v1.0 pin 2026-09-29T00:40:44.707Z (https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639) composed with the Causal Draw Implementation-Authority Addendum, pinned in spec/f027/spec-lock.json `implementation_authority_addenda`; historical F-027 v1.0 is neither rewritten nor superseded";
+const I002_EXISTING_ACTOR_OVERLAY_LINEAGE =
+  "I-002 v2.1 Character Capability Integration Amendment with its W3-CP3 Composition & Existing-Actor Handover Overlay, observed native pin 2026-09-25T00:15:56.531Z (https://app.notion.com/p/3e220af901e081029b1bd0ea0421d554), and WS-016 Working Operational Draft v1 §16 at its last-edit pin 2026-09-25T00:18:34.584Z (https://app.notion.com/p/3e220af901e081b881b0ec8b719c0b90), each cited for the existing-actor world-prior route and NOT spec-lock pins";
+
+/**
+ * The SUPERSEDED thirty-second-slice governing-rule citation for the PC capability kinds, byte-for-byte as every PC capability
+ * basis and PC Capability Close committed before the existing-actor world-prior slice was committed under it. It cites
+ * neither the PC-Control Handover Contract v1 / I-002 v2.1 existing-actor overlay's world-prior route nor WS-016 §16 nor
+ * F-027-CD1, which was true provenance for those facts and is NOT true provenance for a world-prior establishment: it is
+ * never stamped on a new write (admission requires `PC_CAPABILITY_RULE`) and is accepted on load ONLY for a PC capability
+ * basis of the two predecessor establishments, or a PC capability whose basis is one (see `FactKind.legacyRule`). Existing
+ * saves therefore load unchanged, with no migration, rewriting or re-citation of their facts. Its text is frozen: a
+ * conformance test pins its hash.
+ */
+export const PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE: SourceRef = rule(
+  WS016_SOURCE,
+  "Blue Bounded Integration Map §2 I-002 — BOUNDED AMENDMENT (a compact PC Capability Profile companion state under I-002 ownership for current durable personal mastery; I-002 owns the authoritative current PC mastery fact because it owns the PC's canonical current intrinsic state; KTI does not acquire the PC's personal C/B/A/S/EX fact; no duplicate KTI copy of the personal grade; sparse persistence — current materially useful capability facts only, no exhaustive skill list); WS-016 Draft §2 Runtime Ownership (PC capability facts remain owned by I-002 / the current lawful PC-state owner; no consumer acquires write authority), §3 Minimal Persistent Capability Record (capability, optional comparative marker, provenance pointer, capability-close reference; no fatigue, injury, equipment, observer reputation, KTI corpus, office, relationship or situational state), §4 Persistence Gate (Player Character: explicitly authored or strongly established by accepted generation history), §6 Grade Semantics (C/B/A/S qualitative, never converted to a number), §7 EX Adapter (EX is not S+), §11 PC Generation / Authorship Interface (the compiler derives from accepted claims; no grade from fame or reputation alone; GM/Narrative may not invent PC mastery), §13 PC Deferred-Derivation Adapter and §15 (not implemented: unaccepted or hypothetical content cannot ground a capability), §23 Equipment / Borrowed-Power Guard, §25 one authoritative capability truth, §27 Temporal / Turnless Behavior and §27.1 Capability Visibility / No Same-Resolution Feedback (each actor owner commits persisted capability facts at its declared capability close; every cross-owner consumer reads AS-OF-DECLARED-CLOSE), §28 Aggregate Boundary (agency, not body count), §32 Failure Conditions (duplicate ownership of PC or Named-Actor state, retroactive PC rescue capability); with F-016 Phase 2B PCC-01 to PCC-03 (PC Capability Close)",
+  [
+    WS016_LINEAGE,
+    I002_LINEAGE,
+    F016_PHASE_2B_PCC_LINEAGE,
+    F017_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
 /**
  * One governing rule for both PC capability kinds: the received establishment basis and the PC Capability Close publication
  * are each one group, and a capability always cites the one basis it was derived from, so every version of every PC
@@ -893,13 +921,21 @@ const F016_PHASE_2B_PCC_LINEAGE =
  * frozen WS-016 integration map pin that carries the ratified I-002 bounded amendment (the I-002 page at its own lock pin
  * does not yet contain that amendment text, so the I-002 pin is cited in the lineage and never as the origin of the
  * capability clauses).
+ *
+ * This is the existing-actor world-prior extension of the thirty-second-slice citation
+ * (`PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE`): the same source artifact, exact native pin, effective basis and clauses, with the
+ * existing-actor route added — the PC-Control Handover Contract v1 and the I-002 v2.1 overlay that invoke WS-016 §16, and
+ * F-027-CD1 CD-CC-01 for the Causal Draw consumption. It is the sole citation a new PC capability write may carry.
  */
 export const PC_CAPABILITY_RULE: SourceRef = rule(
   WS016_SOURCE,
-  "Blue Bounded Integration Map §2 I-002 — BOUNDED AMENDMENT (a compact PC Capability Profile companion state under I-002 ownership for current durable personal mastery; I-002 owns the authoritative current PC mastery fact because it owns the PC's canonical current intrinsic state; KTI does not acquire the PC's personal C/B/A/S/EX fact; no duplicate KTI copy of the personal grade; sparse persistence — current materially useful capability facts only, no exhaustive skill list); WS-016 Draft §2 Runtime Ownership (PC capability facts remain owned by I-002 / the current lawful PC-state owner; no consumer acquires write authority), §3 Minimal Persistent Capability Record (capability, optional comparative marker, provenance pointer, capability-close reference; no fatigue, injury, equipment, observer reputation, KTI corpus, office, relationship or situational state), §4 Persistence Gate (Player Character: explicitly authored or strongly established by accepted generation history), §6 Grade Semantics (C/B/A/S qualitative, never converted to a number), §7 EX Adapter (EX is not S+), §11 PC Generation / Authorship Interface (the compiler derives from accepted claims; no grade from fame or reputation alone; GM/Narrative may not invent PC mastery), §13 PC Deferred-Derivation Adapter and §15 (not implemented: unaccepted or hypothetical content cannot ground a capability), §23 Equipment / Borrowed-Power Guard, §25 one authoritative capability truth, §27 Temporal / Turnless Behavior and §27.1 Capability Visibility / No Same-Resolution Feedback (each actor owner commits persisted capability facts at its declared capability close; every cross-owner consumer reads AS-OF-DECLARED-CLOSE), §28 Aggregate Boundary (agency, not body count), §32 Failure Conditions (duplicate ownership of PC or Named-Actor state, retroactive PC rescue capability); with F-016 Phase 2B PCC-01 to PCC-03 (PC Capability Close)",
+  "Blue Bounded Integration Map §2 I-002 — BOUNDED AMENDMENT (a compact PC Capability Profile companion state under I-002 ownership for current durable personal mastery; I-002 owns the authoritative current PC mastery fact because it owns the PC's canonical current intrinsic state; KTI does not acquire the PC's personal C/B/A/S/EX fact; no duplicate KTI copy of the personal grade; sparse persistence — current materially useful capability facts only, no exhaustive skill list); WS-016 Draft §2 Runtime Ownership (PC capability facts remain owned by I-002 / the current lawful PC-state owner; no consumer acquires write authority), §3 Minimal Persistent Capability Record (capability, optional comparative marker, provenance pointer, capability-close reference; no fatigue, injury, equipment, observer reputation, KTI corpus, office, relationship or situational state), §4 Persistence Gate (Player Character: explicitly authored or strongly established by accepted generation history), §6 Grade Semantics (C/B/A/S qualitative, never converted to a number), §7 EX Adapter (EX is not S+), §11 PC Generation / Authorship Interface (the compiler derives from accepted claims; no grade from fame or reputation alone; GM/Narrative may not invent PC mastery), §13 PC Deferred-Derivation Adapter and §15 (not implemented: unaccepted or hypothetical content cannot ground a capability), §23 Equipment / Borrowed-Power Guard, §25 one authoritative capability truth, §27 Temporal / Turnless Behavior and §27.1 Capability Visibility / No Same-Resolution Feedback (each actor owner commits persisted capability facts at its declared capability close; every cross-owner consumer reads AS-OF-DECLARED-CLOSE), §28 Aggregate Boundary (agency, not body count), §32 Failure Conditions (duplicate ownership of PC or Named-Actor state, retroactive PC rescue capability); WS-016 Draft §16 Named-Actor Capability Establishment Adapter steps 1–5 as invoked for an already-existing actor that becomes the PC by the PC-Control Handover Contract v1 \"Existing Actor → PC\" item 2 and the I-002 v2.1 W3-CP3 existing-actor overlay (every already-established capability fact is carried; a capability still unresolved at handover remains UNRESOLVED, binding forces no eager close; on a later material trigger the branch-invariant world-prior method, preference-blind, from established world/actor causes — deterministic when the smallest causes sufficiently determine the capability, otherwise a bounded prior fixed by the simulation's existing uncertainty mechanism — committed at the I-002 capability close before the dependent resolution and recorded as compiled I-002 material; never the accepted-Mirror derivation route), with F-027-CD1 CD-CC-01 (the neutral Causal Draw selects an opaque candidate only within the owner's branch-invariant bounded prior; the owner commits its own basis by reference to the committed draw result); with F-016 Phase 2B PCC-01 to PCC-03 (PC Capability Close)",
   [
     WS016_LINEAGE,
     I002_LINEAGE,
+    I002_EXISTING_ACTOR_OVERLAY_LINEAGE,
+    HANDOVER_SEAM_LINEAGE,
+    CAUSAL_DRAW_LINEAGE,
     F016_PHASE_2B_PCC_LINEAGE,
     F017_LINEAGE,
     RUNTIME_TRANSLATION_LINEAGE,
@@ -929,26 +965,40 @@ const pcCapabilityKind = (
  * I-002 as a companion state, so this is a second FACET of the one existing PC owner (`pc_existence`), never a second PC
  * capability owner and never the Named-Actor owner. Two exclusive pc/<pc>/capability[-basis]/<capability> key spaces, both
  * create-only (SEALED): the received establishment basis, and the persisted capability, which exists only as its IM-02
- * stage — the PC Capability Close. There is no fallback owner, and no development, loss, deferred derivation, handover,
- * transfer, lifecycle, KTI, aggregate, randomized or numeric-rank kind.
+ * stage — the PC Capability Close. There is no fallback owner, and no development, loss, deferred derivation, transfer,
+ * lifecycle, KTI, aggregate or numeric-rank kind. A PC capability fact committed under the superseded citation still loads
+ * (`legacyRule`): the capability record is unchanged, and a basis may carry it only with a predecessor establishment.
  */
 export const PC_CAPABILITY_FACT_KINDS: readonly FactKind[] = [
-  pcCapabilityKind(
-    "pc_capability_basis",
-    ["RC-02"],
-    new RegExp(`^pc/${ID}/capability-basis/${ID}$`),
-    PcCapabilityBasisSchema,
-  ),
-  pcCapabilityKind(
-    "pc_capability",
-    ["RC-02", "RC-03", "RC-04"],
-    new RegExp(`^pc/${ID}/capability/${ID}$`),
-    PcCapabilitySchema,
-  ),
+  {
+    ...pcCapabilityKind(
+      "pc_capability_basis",
+      ["RC-02"],
+      new RegExp(`^pc/${ID}/capability-basis/${ID}$`),
+      PcCapabilityBasisSchema,
+    ),
+    // only a basis of the two historical establishments may still carry the superseded citation
+    legacyRule: {
+      rule: PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE,
+      admits: (value) => PcCapabilityBasisHistoricalSchema.safeParse(value).success,
+    },
+  },
+  {
+    ...pcCapabilityKind(
+      "pc_capability",
+      ["RC-02", "RC-03", "RC-04"],
+      new RegExp(`^pc/${ID}/capability/${ID}$`),
+      PcCapabilitySchema,
+    ),
+    // the capability record is unchanged; the load verifier ties it to a historical basis (a close of a world-prior basis
+    // never carries the superseded citation)
+    legacyRule: {
+      rule: PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE,
+      admits: (value) => PcCapabilitySchema.safeParse(value).success,
+    },
+  },
 ];
 
-const CAUSAL_DRAW_LINEAGE =
-  "F-027 v1.0 + F-027-CD1 v1.0 composed implementation authority: F-027 Final Package v1.0 pin 2026-09-29T00:40:44.707Z (https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639) composed with the Causal Draw Implementation-Authority Addendum, pinned in spec/f027/spec-lock.json `implementation_authority_addenda`; historical F-027 v1.0 is neither rewritten nor superseded";
 const CAUSAL_DRAW_RED_CLEARANCE =
   "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
 

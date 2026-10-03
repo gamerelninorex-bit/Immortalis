@@ -259,13 +259,22 @@ describe("owner exclusivity: only the one PC owner's capability facet writes PC 
     const { PcCapabilityAdapter } = await import("@immortalis/engine");
     const methods = adapterMethods(PcCapabilityAdapter);
     expect(methods).toEqual(expectedAdapterMethods("PcCapabilityAdapter"));
+    // the two existing-actor world-prior establishments (thirty-third slice) are the only authorized methods that name a random
+    // branch: the PC owner fixes a still-unresolved capability by its causes, or within its bounded prior by the neutral Causal Draw
+    const worldPrior = [
+      "establishExistingActorCapabilityBasis",
+      "establishExistingActorRandomizedCapabilityBasis",
+    ];
     expect(
-      methods.filter((m) =>
-        /set|update|write|develop|promote|lose|loss|decay|train|advance|grade|rank|tick|sweep|copy|transfer|derive|handover|amend|revel|draw|random/i.test(
-          m,
+      methods
+        .filter((m) => !worldPrior.includes(m))
+        .filter((m) =>
+          /set|update|write|develop|promote|lose|loss|decay|train|advance|grade|rank|tick|sweep|copy|transfer|derive|handover|amend|revel|draw|random/i.test(
+            m,
+          ),
         ),
-      ),
     ).toEqual([]);
+    expect(methods.filter((m) => worldPrior.includes(m))).toEqual(worldPrior);
   });
 });
 

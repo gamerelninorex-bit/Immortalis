@@ -10,6 +10,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   PC_CAPABILITY_FACT_KINDS,
   PC_CAPABILITY_RULE,
+  PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE,
   WS016_SOURCE,
 } from "@immortalis/engine";
 import {
@@ -38,7 +39,7 @@ describe("IA-01 source/version fidelity: the composed authority lineage is cited
     });
   });
 
-  it("the PC capability kinds' registration and governing rule are byte-identical: no existing save's provenance changes", () => {
+  it("the PC capability kinds' registration is unchanged, and every existing save's provenance is preserved by the one historical-rule entry of each kind", () => {
     expect(
       PC_CAPABILITY_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle, k.im, k.rc]),
     ).toEqual([
@@ -61,16 +62,21 @@ describe("IA-01 source/version fidelity: the composed authority lineage is cited
     ]);
     for (const k of PC_CAPABILITY_FACT_KINDS) {
       expect(k.rule).toEqual(PC_CAPABILITY_RULE);
-      expect(k.legacyRule).toBeUndefined();
+      // the thirty-second-slice citation is preserved whole, so a save written under it loads unchanged
+      expect(k.legacyRule!.rule).toEqual(PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE);
     }
     expect(PC_CAPABILITY_RULE.artifact).toBe(pin("WS-016").url);
     expect(PC_CAPABILITY_RULE.native_pin).toBe(pin("WS-016").native_pin);
     expect(PC_CAPABILITY_RULE.effective_basis).toBe("pinned-by-spec-lock");
     expect(PC_CAPABILITY_RULE.supersedes).toBeNull();
-    // the overlays are cited in docs and comments, never stamped into provenance
-    const lineage = PC_CAPABILITY_RULE.authority_lineage.join("\n");
-    for (const overlay of ["3e520af901e081c0b84cc5cb7f301a0e", "2026-09-25T00:16:16.544Z"])
-      expect(lineage).not.toContain(overlay);
+    // the overlays are NOT lock pins, and the superseded citation never named them; the current one cites them (existing-actor
+    // world-prior slice), so a world-prior fact's provenance names the authority that governs it
+    const legacy = PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE.authority_lineage.join("\n");
+    const current = PC_CAPABILITY_RULE.authority_lineage.join("\n");
+    for (const overlay of ["3e520af901e081c0b84cc5cb7f301a0e", "2026-09-25T00:16:16.544Z"]) {
+      expect(legacy).not.toContain(overlay);
+      expect(current).toContain(overlay);
+    }
   });
 
   it("the overlays are not lock pins: the lock, Runtime Contract and open-gate snapshots are untouched", () => {
@@ -157,6 +163,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "derive.ts",
       "integrity.ts",
       "provider.ts",
+      "randomized.ts",
     ]);
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",
@@ -203,6 +210,11 @@ describe("the carry-forward is a distinct inherited establishment, exact, and re
     const a = text.search(/export function pcCarryForwardViolation/);
     return text.slice(a, text.search(/export const pcBasisIsCarryForward/));
   })();
+  const cutover = (() => {
+    const text = code(DERIVE);
+    const a = text.search(/export function pcHandoverViolation/);
+    return text.slice(a, text.search(/export function pcCarryForwardViolation/));
+  })();
   const builder = (() => {
     const text = code(DERIVE);
     const a = text.search(/export function deriveCarryForwardBasis/);
@@ -215,7 +227,8 @@ describe("the carry-forward is a distinct inherited establishment, exact, and re
       expect(text).not.toMatch(
         /\b(setInterval|setTimeout|Date\.now|new Date|performance\.now|Math\.random|randomUUID|randomBytes|globalTick|cadence|sweep|periodic|listFacts|node:fs|writeFile|appendFile|causalDraw|CausalDraw|entropy|seed|weight|prior)\b/,
       );
-    for (const f of PC_SOURCES)
+    // the close and the temporal declaration never learned the world-prior route (it is received by the basis path only)
+    for (const f of PC_SOURCES.filter((f) => /provider|declaration/.test(f)))
       expect(code(f), f).not.toMatch(
         /world[-_ ]prior|causalDraw|CausalDraw|entropy|BOUNDED_PRIOR|CAUSALLY_DETERMINED/,
       );
@@ -239,8 +252,10 @@ describe("the carry-forward is a distinct inherited establishment, exact, and re
   });
 
   it("the handover is the cutover basis: the rule consults the committed binding for the EXISTING_ACTOR_HANDOVER of this identity, and the owner path accepts no insertion, versions or marker", () => {
-    expect(rule).toContain("PLAYER_CHARACTER_BINDING_KEY");
-    expect(rule).toContain("EXISTING_ACTOR_HANDOVER");
+    // the one cutover statement, shared with the world-prior establishments so the two cannot drift
+    expect(rule).toContain("pcHandoverViolation(");
+    expect(cutover).toContain("PLAYER_CHARACTER_BINDING_KEY");
+    expect(cutover).toContain("EXISTING_ACTOR_HANDOVER");
     expect(adapter).toContain("PcCapabilityCarryForwardInputSchema");
     expect(adapter).toContain("deriveCarryForwardBasis");
   });

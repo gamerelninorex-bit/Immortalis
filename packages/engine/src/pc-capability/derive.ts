@@ -3,11 +3,15 @@ import {
   ExistenceContractSchema,
   FACET_ACTOR_PROFILE,
   NamedActorCapabilitySchema,
+  OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_NAMED_ACTOR,
   OWNER_PC_EXISTENCE,
   OWNER_ROLE_REGISTRY,
+  OWNER_TEMPORAL_KERNEL,
   PC_ESTABLISHMENT_ACCEPTED_GENERATION_HISTORY,
+  PC_ESTABLISHMENT_EXISTING_ACTOR_BOUNDED_PRIOR_RANDOMIZED,
   PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD,
+  PC_ESTABLISHMENT_EXISTING_ACTOR_CAUSALLY_DETERMINED,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   actorCapabilityBasisKey,
@@ -25,10 +29,18 @@ import {
   type PcCapability,
   type PcCapabilityBasis,
   type PcClaimLocator,
+  type PcExistingActorBoundedPriorRandomizedEstablishment,
   type PcExistingActorCarryForwardEstablishment,
+  type PcExistingActorCausallyDeterminedEstablishment,
   type Result,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { resolveKey } from "../owners/registry.ts";
+import {
+  isPcRandomizedBasis,
+  pcRandomizedEstablishmentViolation,
+  predecessorActorDrawStateExists,
+} from "./randomized.ts";
 
 /**
  * Pure derivations of the PC capability path (WS-016 §3, §4, §11, §27.1; the Integration Map §2 I-002 bounded
@@ -112,6 +124,12 @@ export function pcCapabilityEstablishmentViolation(
   if (e.method === PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD) {
     return pcCarryForwardViolation(basis, e, facts);
   }
+  if (
+    e.method === PC_ESTABLISHMENT_EXISTING_ACTOR_CAUSALLY_DETERMINED ||
+    e.method === PC_ESTABLISHMENT_EXISTING_ACTOR_BOUNDED_PRIOR_RANDOMIZED
+  ) {
+    return pcExistingActorWorldPriorViolation(basis, e, facts);
+  }
   if (e.contract.fact_key !== pcExistenceContractKey(basis.pc_id)) {
     return "the establishment pins this PC's own Existence Contract: a PC capability is established from its own accepted generation history";
   }
@@ -133,6 +151,49 @@ export function pcCapabilityEstablishmentViolation(
     if (pcClaimAt(contract.data, claim) === undefined) {
       return `the cited claim is not an accepted claim of the Existence Contract: ${claim.section}[${claim.index}]`;
     }
+  }
+  return null;
+}
+
+/**
+ * The single statement of the cutover every existing-actor establishment rests on (PC-Control Handover Contract v1 "Single
+ * Commit Point"; shared by the carry-forward and the world-prior methods, so the two cannot drift): the cited fact is the
+ * committed Role Registry binding, at the version pinned, whose transition is the EXISTING_ACTOR_HANDOVER of THIS identity (an
+ * ordinary ACTIVATION, another identity or an absent binding is no basis), and it consumed THIS identity's released
+ * existing-actor compilation contract at its committed version. Returns a message, or null.
+ */
+export function pcHandoverViolation(
+  pcId: string,
+  handover: { readonly version: number },
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): string | null {
+  const binding = facts.get(PLAYER_CHARACTER_BINDING_KEY);
+  const bound = binding ? PlayerCharacterBindingSchema.safeParse(binding.value) : undefined;
+  if (!binding || binding.owner !== OWNER_ROLE_REGISTRY || !bound?.success) {
+    return "the Existing-Actor → PC handover is not committed: an existing-actor establishment has no cutover basis, and an actor's capability is never carried or established into a PC that was not handed over";
+  }
+  if (binding.version !== handover.version) {
+    return "an existing-actor establishment is pinned to the committed handover binding at its exact version";
+  }
+  if (
+    bound.data.transition.type !== EXISTING_ACTOR_HANDOVER ||
+    bound.data.active_pc.entity_id !== pcId
+  ) {
+    return "the committed binding is not the EXISTING_ACTOR_HANDOVER of this identity: an ordinary ACTIVATION, or another identity's binding, is no basis for an existing-actor establishment";
+  }
+  const contract = facts.get(pcExistenceContractKey(pcId));
+  const parsed = contract ? ExistenceContractSchema.safeParse(contract.value) : undefined;
+  if (
+    !contract ||
+    contract.owner !== OWNER_PC_EXISTENCE ||
+    !parsed?.success ||
+    parsed.data.pc_id !== pcId ||
+    parsed.data.existing_actor_compilation === undefined
+  ) {
+    return "the PC's Existence Contract is not the released existing-actor compilation of this identity";
+  }
+  if (bound.data.transition.basis.pinned_versions.pc !== contract.version) {
+    return "the handover consumed the Existence Contract at the version committed now";
   }
   return null;
 }
@@ -161,34 +222,8 @@ export function pcCarryForwardViolation(
   e: PcExistingActorCarryForwardEstablishment,
   facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
 ): string | null {
-  const binding = facts.get(PLAYER_CHARACTER_BINDING_KEY);
-  const bound = binding ? PlayerCharacterBindingSchema.safeParse(binding.value) : undefined;
-  if (!binding || binding.owner !== OWNER_ROLE_REGISTRY || !bound?.success) {
-    return "the Existing-Actor → PC handover is not committed: a carry-forward has no cutover basis, and an actor's capability is never carried into a PC that was not handed over";
-  }
-  if (binding.version !== e.handover.version) {
-    return "the carry-forward is pinned to the committed handover binding at its exact version";
-  }
-  if (
-    bound.data.transition.type !== EXISTING_ACTOR_HANDOVER ||
-    bound.data.active_pc.entity_id !== basis.pc_id
-  ) {
-    return "the committed binding is not the EXISTING_ACTOR_HANDOVER of this identity: an ordinary ACTIVATION, or another identity's binding, is no basis for carrying an actor's capability";
-  }
-  const contract = facts.get(pcExistenceContractKey(basis.pc_id));
-  const parsed = contract ? ExistenceContractSchema.safeParse(contract.value) : undefined;
-  if (
-    !contract ||
-    contract.owner !== OWNER_PC_EXISTENCE ||
-    !parsed?.success ||
-    parsed.data.pc_id !== basis.pc_id ||
-    parsed.data.existing_actor_compilation === undefined
-  ) {
-    return "the PC's Existence Contract is not the released existing-actor compilation of this identity";
-  }
-  if (bound.data.transition.basis.pinned_versions.pc !== contract.version) {
-    return "the handover consumed the Existence Contract at the version committed now";
-  }
+  const handover = pcHandoverViolation(basis.pc_id, e.handover, facts);
+  if (handover) return handover;
   if (e.source.fact_key !== actorCapabilityKey(basis.pc_id, basis.capability_id)) {
     return "the source is this identity's own Named-Actor capability for this capability (a basis, another identity or another capability is no source)";
   }
@@ -265,23 +300,156 @@ export const pcBasisIsCarryForward = (basis: PcCapabilityBasis): boolean =>
   basis.establishment.method === PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD;
 
 /**
- * The committed facts a received basis must read at their current version and depend on (pinned, never copied): the PC's
- * Existence Contract for a fresh PC; for a carry-forward additionally the handover binding and the source capability.
+ * The causes of a world-prior establishment are foreign, committed facts referenced and never copied (WS-016 §16 step 1
+ * "the smallest relevant established causes"): never the Causal Draw layer's engine-internal evidence, never kernel
+ * coordination state, never the PC's own capability state (circular), and never the predecessor Named-Actor's capability state
+ * — an already-authoritative actor capability is carried forward exactly by its own establishment and is never a cause to
+ * re-resolve. Returns a message, or null.
  */
-export function pcBasisPrerequisites(
+export function pcCauseViolation(cause: { owner: string; fact_key: string }): string | null {
+  if (cause.owner === OWNER_CAUSAL_DRAW_KERNEL) {
+    return "Causal Draw provenance is engine-internal evidence, no causal input to a mastery: only a randomized establishment references its own draw";
+  }
+  if (cause.owner === OWNER_TEMPORAL_KERNEL) {
+    return "kernel coordination state is no causal input to a mastery";
+  }
+  const kind = resolveKey(cause.fact_key)?.kind.id;
+  if (kind === "pc_capability_basis" || kind === "pc_capability") {
+    return "a PC capability is never a cause of a PC capability";
+  }
+  if (kind === "named_actor_capability_basis" || kind === "named_actor_capability") {
+    return "the predecessor Named-Actor capability state is cold provenance, no cause: an already-authoritative actor capability is carried forward exactly, never re-resolved";
+  }
+  return null;
+}
+
+/**
+ * The single statement of what an existing-actor WORLD-PRIOR establishment must be, given the committed facts (PC-Control
+ * Handover Contract v1 "Existing Actor → PC" 2; I-002 v2.1 W3-CP3 existing-actor overlay; WS-016 §16; F-027-CD1 CD-CC-01). It
+ * judges identity, ownership and provenance only — never sufficiency, and it invents nothing:
+ *
+ *  - the cutover basis is the committed EXISTING_ACTOR_HANDOVER of THIS identity at the version pinned (shared with the
+ *    carry-forward: `pcHandoverViolation`);
+ *  - every cause is a lawful foreign cause (`pcCauseViolation`);
+ *  - a randomized establishment is exactly what its committed Causal Draw determines (`pcRandomizedEstablishmentViolation`).
+ *
+ * Whether the capability was genuinely unfixed at handover is a fact of the Named-Actor owner's state at the time of the write
+ * (the boundary below), and whether each cause is current is judged where the write is judged (admission against the current
+ * state, load against the order of commit): a cause may legitimately advance later. Returns a message, or null.
+ */
+export function pcExistingActorWorldPriorViolation(
   basis: PcCapabilityBasis,
-): readonly { readonly key: string; readonly what: string }[] {
+  e:
+    | PcExistingActorCausallyDeterminedEstablishment
+    | PcExistingActorBoundedPriorRandomizedEstablishment,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): string | null {
+  const handover = pcHandoverViolation(basis.pc_id, e.handover, facts);
+  if (handover) return handover;
+  for (const cause of e.causes) {
+    const foreign = pcCauseViolation(cause);
+    if (foreign) return foreign;
+  }
+  if (isPcRandomizedBasis(basis)) return pcRandomizedEstablishmentViolation(basis, facts);
+  return null;
+}
+
+/**
+ * The handover reference an existing-actor establishment cites, read MECHANICALLY: the committed binding at its exact version.
+ * Fails closed before the ownership cutover (whether the binding IS the handover of this identity is `pcHandoverViolation`).
+ */
+export function pcHandoverPin(
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): Result<
+  { readonly fact_key: typeof PLAYER_CHARACTER_BINDING_KEY; readonly version: number },
+  "PREREQUISITE_MISSING"
+> {
+  const binding = facts.get(PLAYER_CHARACTER_BINDING_KEY);
+  return binding
+    ? ok({ fact_key: PLAYER_CHARACTER_BINDING_KEY, version: binding.version })
+    : fail(
+        "PREREQUISITE_MISSING",
+        "the Existing-Actor → PC handover is not committed: nothing is established for an existing actor before the ownership cutover",
+      );
+}
+
+/**
+ * The basis an existing-actor WORLD-PRIOR establishment determines, built MECHANICALLY around what the owner authored: the
+ * caller's causes and marker (or, for the randomized branch, the marker the owner read off the committed draw's selected
+ * candidate and the pointer to that committed result) are placed unchanged; the handover reference is the committed binding at
+ * its exact version, read here. Nothing is resolved, defaulted or regraded. Fails closed before the ownership cutover. Admission
+ * and load verification re-derive with `pcExistingActorWorldPriorViolation`.
+ */
+export function deriveWorldPriorBasis(
+  pcId: string,
+  capabilityId: string,
+  resolved: {
+    readonly marker: PcCapabilityBasis["marker"];
+    readonly causes: PcExistingActorCausallyDeterminedEstablishment["causes"];
+    readonly draw?: PcExistingActorBoundedPriorRandomizedEstablishment["draw"];
+  },
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
+): Result<unknown, "PREREQUISITE_MISSING"> {
+  const pinned = pcHandoverPin(facts);
+  if (!pinned.ok) return pinned;
+  const handover = pinned.value;
+  return ok({
+    pc_id: pcId,
+    capability_id: capabilityId,
+    marker: resolved.marker,
+    establishment: resolved.draw
+      ? {
+          method: PC_ESTABLISHMENT_EXISTING_ACTOR_BOUNDED_PRIOR_RANDOMIZED,
+          handover,
+          causes: resolved.causes,
+          draw: resolved.draw,
+        }
+      : {
+          method: PC_ESTABLISHMENT_EXISTING_ACTOR_CAUSALLY_DETERMINED,
+          handover,
+          causes: resolved.causes,
+        },
+  });
+}
+
+/**
+ * The committed facts a received basis must read at their current version and depend on (pinned, never copied): the PC's
+ * Existence Contract for a fresh PC; for a carry-forward additionally the handover binding and the source capability; for a
+ * world-prior establishment the contract, the handover binding, each cause (a `cause` entry: pinned at the version cited, which
+ * a later advance of the source legitimately outlives) and, if randomized, the committed Causal Draw result.
+ */
+export function pcBasisPrerequisites(basis: PcCapabilityBasis): readonly {
+  readonly key: string;
+  readonly what: string;
+  readonly cause?: { readonly owner: string; readonly version: number };
+}[] {
   const e = basis.establishment;
   if (e.method === PC_ESTABLISHMENT_ACCEPTED_GENERATION_HISTORY) {
     return [{ key: e.contract.fact_key, what: "the PC's released Existence Contract" }];
   }
-  return [
+  const handover = [
     {
       key: pcExistenceContractKey(basis.pc_id),
       what: "the PC's released existing-actor Existence Contract",
     },
     { key: e.handover.fact_key, what: "the committed Existing-Actor → PC handover binding" },
-    { key: e.source.fact_key, what: "the actor's committed Named-Actor capability" },
+  ];
+  if (e.method === PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD) {
+    return [
+      ...handover,
+      { key: e.source.fact_key, what: "the actor's committed Named-Actor capability" },
+    ];
+  }
+  return [
+    ...handover,
+    ...e.causes.map((c) => ({
+      key: c.fact_key,
+      what: "a causal input",
+      cause: { owner: c.owner, version: c.version },
+    })),
+    ...(e.method === PC_ESTABLISHMENT_EXISTING_ACTOR_BOUNDED_PRIOR_RANDOMIZED
+      ? [{ key: e.draw.result.fact_key, what: "the committed Causal Draw result" }]
+      : []),
   ];
 }
 
@@ -310,6 +478,9 @@ export function pcCapabilityBoundaryViolation(
       facts.has(actorCapabilityKey(pcId, capabilityId)))
   ) {
     return "the identity's capability is already held by the Named-Actor owner: a capability has one owner, and an existing actor's capability enters the PC only by the distinct EXISTING_ACTOR_CARRY_FORWARD after the handover";
+  }
+  if (!carriedForward && predecessorActorDrawStateExists(facts, pcId, capabilityId)) {
+    return "the predecessor Named-Actor owner already began a Causal Draw for this capability: a draw is fixed once and is never re-drawn, re-opened or bypassed across the cutover (recovering an interrupted pre-handover establishment is not implemented)";
   }
   if (facts.has(populationLedgerKey(pcId))) {
     return "the identity is a Population ledger: an aggregate is never given an individual Character Capability record";

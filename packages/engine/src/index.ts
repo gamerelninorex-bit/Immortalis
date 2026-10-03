@@ -42,6 +42,7 @@ export * from "./pc-capability/declaration.ts";
 export * from "./pc-capability/derive.ts";
 export * from "./pc-capability/integrity.ts";
 export * from "./pc-capability/provider.ts";
+export * from "./pc-capability/randomized.ts";
 export * from "./causal-draw/adapter.ts";
 export * from "./causal-draw/admission.ts";
 export * from "./causal-draw/canon.ts";

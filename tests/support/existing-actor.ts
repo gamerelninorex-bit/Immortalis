@@ -1,10 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests build and tamper with arbitrary fact values */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
+  CANONICAL_OWNER_REGISTRY,
   CanonicalCampaign,
+  CausalDrawAdapter,
+  createFileCampaign,
   NamedActorAdapter,
   factKind,
   PcCapabilityAdapter,
   TemporalCoordinator,
+  pcCapabilityDrawDigest as pcCapabilityDrawDigestOf,
+  pcCapabilityDrawSpecification,
+  pcRuleAuthority,
+  pcSlotInspector,
   type CampaignStore,
   type FileCampaignOptions,
 } from "@immortalis/engine";
@@ -14,6 +23,9 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   actorCapabilityBasisKey,
   actorCapabilityKey,
+  causalDrawResultGroupId,
+  causalDrawResultKey,
+  parseCapabilityCandidateId,
   pcCapabilityBasisKey,
   pcExistenceContractKey,
   worldActorCouplingKey,
@@ -23,6 +35,8 @@ import {
   type ExistenceContract,
   type ExistingActorSourcePin,
   type NamedActorCapabilityBasis,
+  type PcExistingActorEstablishmentInput,
+  type PcExistingActorRandomizedEstablishmentInput,
   type TemporalObject,
 } from "@immortalis/contracts";
 import {
@@ -51,6 +65,8 @@ import {
   group,
   historyGroup,
   pcCapabilityConsumerObject,
+  randomizedEstablishment,
+  RESOLVER,
   write,
   publication,
   seededEntropy,
@@ -60,6 +76,7 @@ import {
 import { defaultHistoryIds } from "./actor.ts";
 import { pcCapabilityCoordinator } from "./pc-capability.ts";
 import { must } from "./temporal.ts";
+import { tempDir } from "./tmp.ts";
 
 /**
  * SYNTHETIC TEST SUPPORT for the existing-actor I-002 compilation slice. The owners are the real ones; only the history
@@ -70,17 +87,19 @@ export interface ExistingActorSeeded {
   readonly coordinator: TemporalCoordinator;
   readonly actors: NamedActorAdapter;
   readonly pcs: PcCapabilityAdapter;
-  /** the trusted-runtime entropy fixture behind the actor owner's Causal Draws; counts how often it was asked */
+  /** the trusted-runtime entropy fixture behind the actor's and the PC owner's Causal Draws; counts how often it was asked */
   readonly entropy: ReturnType<typeof seededEntropy>;
 }
 
-export const wireExistingActor = (campaign: CanonicalCampaign): ExistingActorSeeded => {
-  const entropy = seededEntropy(SEED_1);
+export const wireExistingActor = (
+  campaign: CanonicalCampaign,
+  entropy: ReturnType<typeof seededEntropy> = seededEntropy(SEED_1),
+): ExistingActorSeeded => {
   return {
     campaign,
     coordinator: new TemporalCoordinator(campaign.store, actorProviders()),
     actors: new NamedActorAdapter(campaign.store, { entropy }),
-    pcs: new PcCapabilityAdapter(campaign.store),
+    pcs: new PcCapabilityAdapter(campaign.store, { entropy }),
     entropy,
   };
 };
@@ -88,6 +107,8 @@ export const wireExistingActor = (campaign: CanonicalCampaign): ExistingActorSee
 export interface ExistingActorSeedOptions {
   readonly buildId?: string;
   readonly fs?: FileCampaignOptions["fs"];
+  /** the trusted-runtime entropy behind both owners' Causal Draws (default: the first fixture seed) */
+  readonly entropy?: ReturnType<typeof seededEntropy>;
 }
 
 /**
@@ -113,7 +134,7 @@ export async function seededExistingActorCampaign(
   for (const actor of [ACTOR_SMITH, ACTOR_SWORD, ACTOR_OTHER])
     for (const id of defaultHistoryIds(actor))
       await must(campaign.store.commit(historyGroup(FIXTURE_CAMPAIGN, n++, id)));
-  const s = wireExistingActor(campaign);
+  const s = wireExistingActor(campaign, o.entropy);
   await must(s.coordinator.establishCanonicalTime({ ...temporalPublication(1), time: T0 }));
   return s;
 }
@@ -121,9 +142,11 @@ export async function seededExistingActorCampaign(
 export async function reopenExistingActor(
   dir: string,
   buildId = "existing-actor-reopen",
+  entropy?: ReturnType<typeof seededEntropy>,
 ): Promise<ExistingActorSeeded> {
   return wireExistingActor(
     await must(CanonicalCampaign.open(dir, { buildId, extension: ACTOR_FIXTURE_EXTENSION })),
+    entropy,
   );
 }
 
@@ -612,4 +635,251 @@ export function rawCarryBasis(
       ...groupOver,
     },
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Existing-actor capability unresolved at handover → PC material-trigger world-prior resolution support
+// ---------------------------------------------------------------------------------------------
+
+export const worldPriorPublication = (n: number) => ({
+  group_id: `world-prior-group-${n}`,
+  intent_id: `world-prior-intent-${n}`,
+  cause: `world-prior-cause-${n}`,
+  basis: "fixture-basis",
+  secrecy: "fixture-visibility",
+});
+
+/** The synthetic established world/actor causes of the identity (the committed history facts of the seeded campaign). */
+export const worldPriorCauses = (pcId = ACTOR_SMITH, capabilityId = CAP_METALWORKING) =>
+  randomizedEstablishment(pcId, capabilityId).causes;
+
+/** What the PC owner is told when the causes suffice: identity, capability, pinned causes and the authored marker. */
+export const worldPriorInput = (
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcExistingActorEstablishmentInput> = {},
+): PcExistingActorEstablishmentInput => ({
+  pc_id: pcId,
+  capability_id: capabilityId,
+  causes: worldPriorCauses(pcId, capabilityId),
+  marker: "C",
+  ...over,
+});
+
+/** What the PC owner decides before any draw: the causes and a bounded prior (SYNTHETIC test coordinates, never a default). */
+export const worldPriorRandomizedInput = (
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcExistingActorRandomizedEstablishmentInput> = {},
+): PcExistingActorRandomizedEstablishmentInput => ({
+  pc_id: pcId,
+  capability_id: capabilityId,
+  causes: worldPriorCauses(pcId, capabilityId),
+  prior: [
+    { marker: "C", weight: "3" },
+    { marker: "B", weight: "1" },
+  ],
+  ...over,
+});
+
+/** Establishes the unresolved capability by its causes (nothing is drawn) through the one distinct publication path. */
+export async function establishWorldPrior(
+  s: Pick<ExistingActorSeeded, "pcs">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcExistingActorEstablishmentInput> = {},
+) {
+  return s.pcs.establishExistingActorCapabilityBasis({
+    ...worldPriorPublication(n),
+    capability: worldPriorInput(pcId, capabilityId, over),
+  });
+}
+
+/** Establishes the unresolved capability within the owner's bounded prior, fixed by a committed Causal Draw. */
+export async function establishWorldPriorRandomized(
+  s: Pick<ExistingActorSeeded, "pcs">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcExistingActorRandomizedEstablishmentInput> = {},
+) {
+  return s.pcs.establishExistingActorRandomizedCapabilityBasis({
+    ...worldPriorPublication(n),
+    capability: worldPriorRandomizedInput(pcId, capabilityId, over),
+    resolution: RESOLVER,
+  });
+}
+
+/**
+ * A handed-over existing actor whose capability `capabilityId` (default: swordsmanship) was NEVER fixed before the handover:
+ * the actor's other state (a basis for another capability, so the compilation and coupling have their pinned source) is
+ * committed, the actor is compiled, coupled and handed over, and nothing is represented for `capabilityId`.
+ */
+export async function handedOverWithUnresolvedCapability(
+  s: Pick<ExistingActorSeeded, "campaign" | "actors">,
+  actorId = ACTOR_SMITH,
+  otherCapabilityId = CAP_METALWORKING,
+): Promise<void> {
+  await readyForHandover(s, actorId, otherCapabilityId);
+  await must(handoverActor(s, 1, actorId));
+}
+
+/** A Causal Draw adapter wired with the PC owner's typed ports over `store` (for a draw made without the owner's operation). */
+export const pcDrawAdapter = (
+  store: CampaignStore,
+  entropy: ReturnType<typeof seededEntropy> = seededEntropy(SEED_1),
+): CausalDrawAdapter =>
+  new CausalDrawAdapter(store, {
+    slotInspectors: new Map([["pc_existence", pcSlotInspector(store)]]),
+    ruleAuthority: pcRuleAuthority,
+    entropy,
+  });
+
+/** The committed-by references a draw over these causes pins (each cause's current committing group). */
+export const worldPriorRefs = (
+  store: CampaignStore,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+) =>
+  worldPriorCauses(pcId, capabilityId).map((c) => ({
+    owner: c.owner,
+    fact_key: c.fact_key,
+    version: c.version,
+    committed_by: store.getFact(c.fact_key)!.provenance.group_id,
+  }));
+
+/** Commits ONLY the Causal Draw (precommit and result) of the PC slot: the draw the owner's own operation would make. */
+export async function drawPcSlot(
+  store: CampaignStore,
+  entropy: ReturnType<typeof seededEntropy> = seededEntropy(SEED_1),
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  over: Partial<PcExistingActorRandomizedEstablishmentInput> = {},
+) {
+  return pcDrawAdapter(store, entropy).draw({
+    specification: pcCapabilityDrawSpecification(
+      worldPriorRandomizedInput(pcId, capabilityId, over),
+      worldPriorRefs(store, pcId, capabilityId),
+    ),
+    resolution: RESOLVER,
+  });
+}
+
+/**
+ * A raw (store-level) world-prior basis group, built mechanically from the committed facts exactly as the owner operation
+ * would build it, then optionally edited, so a test can present a fabricated or tampered establishment to a store that has
+ * admission but is reached without the owner path. `randomized` reads the committed Causal Draw result of the slot (the draw
+ * must already be committed); `edit` mutates the basis value; `groupOver` replaces group fields (reads, depends_on, rule, …).
+ */
+export function rawWorldPriorBasis(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  capabilityId = CAP_METALWORKING,
+  o: { randomized?: boolean; edit?: (value: any) => void; groupOver?: Partial<CommitGroup> } = {},
+): CommitGroup {
+  const store = s.campaign.store;
+  const version = (k: string) => store.getFact(k)?.version ?? 0;
+  const causes = worldPriorCauses(pcId, capabilityId);
+  const handover = {
+    fact_key: PLAYER_CHARACTER_BINDING_KEY,
+    version: version(PLAYER_CHARACTER_BINDING_KEY),
+  };
+  const resultKey = causalDrawResultKey(pcCapabilityDrawDigestOf(pcId, capabilityId));
+  const result = store.getFact(resultKey);
+  const value: any = o.randomized
+    ? {
+        pc_id: pcId,
+        capability_id: capabilityId,
+        marker:
+          parseCapabilityCandidateId((result?.value as any)?.selected_candidate_id ?? "")?.marker ??
+          null,
+        establishment: {
+          method: "EXISTING_ACTOR_BOUNDED_PRIOR_RANDOMIZED",
+          handover,
+          causes,
+          draw: {
+            draw_id: (result?.value as any)?.draw_id,
+            result: { fact_key: resultKey, version: version(resultKey) },
+          },
+        },
+      }
+    : {
+        pc_id: pcId,
+        capability_id: capabilityId,
+        marker: "C",
+        establishment: { method: "EXISTING_ACTOR_CAUSALLY_DETERMINED", handover, causes },
+      };
+  o.edit?.(value);
+  const keys = [
+    pcExistenceContractKey(pcId),
+    PLAYER_CHARACTER_BINDING_KEY,
+    ...causes.map((c) => c.fact_key),
+    ...(o.randomized ? [resultKey] : []),
+  ];
+  return group(
+    FIXTURE_CAMPAIGN,
+    n,
+    [
+      write(pcCapabilityBasisKey(pcId, capabilityId), value as never, {
+        owner: "pc_existence",
+        facet: "pc_capability_profile",
+      }),
+    ],
+    {
+      owner: "pc_existence",
+      facet: "pc_capability_profile",
+      rule: factKind("pc_capability_basis").rule,
+      reads: keys.map((k) => ({ key: k, version: version(k) })),
+      depends_on: [
+        ...new Set(
+          keys.flatMap((k) => (store.getFact(k) ? [store.getFact(k)!.provenance.group_id] : [])),
+        ),
+      ],
+      ...o.groupOver,
+    },
+  );
+}
+
+/** The canonical result group of the PC slot's draw (re-exported from the contracts for tests). */
+export const pcDrawResultGroup = (pcId = ACTOR_SMITH, capabilityId = CAP_METALWORKING): string =>
+  causalDrawResultGroupId(pcCapabilityDrawDigestOf(pcId, capabilityId));
+
+/**
+ * A package built by a store with NO admission: the committed groups of a lawful, closed package `srcDir`, replayed in journal
+ * order into a fresh store (`mutate` may alter or drop each group; `append` may add what no lawful path could write). The
+ * result is a consistent, replayable history that is not canonical, so only the load verifiers can refuse it.
+ */
+export async function rogueReplay(
+  srcDir: string,
+  mutate: (g: CommitGroup, index: number) => CommitGroup | null = (g) => g,
+  append: (store: CampaignStore) => Promise<void> = async () => undefined,
+): Promise<string> {
+  const entries = readFileSync(join(srcDir, "journal.jsonl"), "utf8")
+    .split("\n")
+    .filter((l) => l.length > 0)
+    .map((l) => JSON.parse(l) as { group: CommitGroup; receipt: { group_sha256: string } });
+  const dir = tempDir();
+  const store = await must(
+    createFileCampaign(dir, {
+      campaignId: FIXTURE_CAMPAIGN,
+      owners: new Map([...CANONICAL_OWNER_REGISTRY, ...ACTOR_FIXTURE_EXTENSION.owners]),
+    }),
+  );
+  // a mutated group has a new receipt digest; later groups that cite it (a transaction's stage references) follow it
+  const renamed = new Map<string, string>();
+  for (const [i, e] of entries.entries()) {
+    let text = JSON.stringify(e.group);
+    for (const [from, to] of renamed) text = text.replaceAll(from, to);
+    const g = mutate(JSON.parse(text) as CommitGroup, i);
+    if (!g) continue;
+    const committed = await must(store.commit(g));
+    if (committed.receipt.group_sha256 !== e.receipt.group_sha256) {
+      renamed.set(e.receipt.group_sha256, committed.receipt.group_sha256);
+    }
+  }
+  await append(store);
+  await store.close();
+  return dir;
 }

@@ -12,6 +12,7 @@ import {
   NAMED_ACTOR_FACT_KINDS,
   PC_CAPABILITY_FACT_KINDS,
   PC_CAPABILITY_RULE,
+  PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE,
   PcCapabilityAdapter,
   TemporalCoordinator,
   WS016_SOURCE,
@@ -57,7 +58,12 @@ describe("IA-01 source/version fidelity (PC capability registration aspect)", ()
       expect(kind.rule.native_pin).toBe(ws016.native_pin);
       expect(kind.im).toBe("IM-07");
       expect(kind.rule.supersedes).toBeNull();
-      expect(kind.legacyRule).toBeUndefined();
+      // the superseded thirty-second-slice citation is the one registered historical-compatibility entry of each kind
+      // (existing-actor world-prior slice): the same artifact, pin and effective basis, never the current citation
+      expect(kind.legacyRule!.rule).toEqual(PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE);
+      expect(kind.legacyRule!.rule.artifact).toBe(ws016.url);
+      expect(kind.legacyRule!.rule.native_pin).toBe(ws016.native_pin);
+      expect(kind.legacyRule!.rule).not.toEqual(kind.rule);
     }
     const lineage = PC_CAPABILITY_RULE.authority_lineage.join("\n");
     expect(lineage).toContain(i002.native_pin);
@@ -217,10 +223,11 @@ describe("the frozen Character Capability semantics are qualitative: no hidden n
   it("the marker is the Character Capability protocol's own schema, imported unchanged: the PC contract defines no marker, grade list or EX shape of its own", () => {
     const contract = code("packages/contracts/src/pc-capability.ts");
     expect(contract).toMatch(
-      /import \{ ComparativeMarkerSchema \} from "\.\/actor-capability\.ts"/,
+      /import \{[^}]*\bComparativeMarkerSchema,[^}]*\} from "\.\/actor-capability\.ts"/,
     );
     expect(contract).not.toMatch(/z\.enum\(\["C"|CAPABILITY_GRADES|ExMarkerSchema|\bex:/);
-    expect(contract.match(/ComparativeMarkerSchema/g)?.length).toBe(3);
+    // the import plus the marker of the basis, the historical basis, the capability and the deterministic authoring input
+    expect(contract.match(/ComparativeMarkerSchema/g)?.length).toBe(5);
   });
 });
 
@@ -316,13 +323,15 @@ describe("IA-04 turnless: no tick, phase, scheduler, clock, RNG, cadence or glob
       expect(code(f), f).not.toMatch(/matrix|roster|allPcs|forEachPc|for \(const pc of/i);
   });
 
-  it("PC capability owns no RNG and reaches no Causal Draw: randomization is not a PC establishment method", () => {
+  it("PC capability owns no RNG of its own: no entropy primitive, seed or sampler exists in any PC module, and the close and the temporal declaration never reach Causal Draw", () => {
     for (const f of PC_SOURCES) {
       const text = code(f);
       expect(text, f).not.toMatch(
-        /Math\.random|node:crypto|randomBytes|getRandomValues|createHmac|createHash|\bseed\b|distribution|causal-draw|CausalDraw|causalDraw/i,
+        /Math\.random|node:crypto|randomBytes|getRandomValues|createHmac|createHash|\bseed\b|distribution/i,
       );
     }
+    for (const f of PC_SOURCES.filter((f) => /provider|declaration/.test(f)))
+      expect(code(f), f).not.toMatch(/causal-draw|CausalDraw|causalDraw/i);
   });
 });
 
@@ -335,6 +344,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "derive.ts",
       "integrity.ts",
       "provider.ts",
+      "randomized.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")
