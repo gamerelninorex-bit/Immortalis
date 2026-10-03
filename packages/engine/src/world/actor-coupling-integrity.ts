@@ -1,10 +1,7 @@
 import { ExistingActorCouplingSchema, type OwnerFact } from "@immortalis/contracts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
-import {
-  couplingActorStillNonPcViolation,
-  existingActorCouplingViolation,
-} from "./actor-coupling.ts";
+import { existingActorCouplingViolation } from "./actor-coupling.ts";
 import type { IntegrityViolation } from "./integrity.ts";
 
 /**
@@ -16,9 +13,11 @@ import type { IntegrityViolation } from "./integrity.ts";
  *    coupling read it at exactly the version pinned and depended on the group that committed it (referenced, never copied);
  *  - the same single rule admission applies (`existingActorCouplingViolation`) holds against the facts as they stood
  *    BEFORE the coupling, so the actor was already an existing non-PC actor when it was coupled;
- *  - whatever the later commit order, the coupled identity is still no Player Character other than by the explicit
- *    existing-actor compilation: a fresh Existence Contract or a binding naming it would be a rival owner and a second
- *    authoritative current locus, and fails the open.
+ *
+ * Whether the coupled identity is still no Player Character other than by the explicit existing-actor compilation (and the
+ * one lawful Existing-Actor → PC handover that consumes this coupling) is a statement about the Role Registry binding, so
+ * it is made by canonical integrity (`verifyCanonicalIntegrity`, world_actor_coupling branch), under the same
+ * `ACTOR_COUPLING_STATE` code.
  *
  * Cost: lists committed facts once per open (a diagnostic path, CAL-06), like the other verifiers.
  */
@@ -53,8 +52,6 @@ export function verifyExistingActorCouplingIntegrity(
     const revision = revisionOf(cf);
     const violation = existingActorCouplingViolation(cf.key, c, factsBefore(revision));
     if (violation) bad(cf.key, violation);
-    const now = couplingActorStillNonPcViolation(c.actor_id, byKey);
-    if (now) bad(cf.key, now);
 
     const group = store.committedGroup(cf.provenance.intent_id);
     const pins = [

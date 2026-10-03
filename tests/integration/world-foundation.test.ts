@@ -251,7 +251,9 @@ describe("the binding consumes an explicit, already-established IR coupling basi
       type: "ACTIVATION",
       basis: { ...fixtureInsertionFact(), pinned_versions: pins },
     });
-    expect(b.value.transition.basis.statement).toBe(fixtureInsertionFact().statement);
+    expect((b.value.transition.basis as { statement: string }).statement).toBe(
+      fixtureInsertionFact().statement,
+    );
     // the pins are the versions of the committed prerequisites, not constants
     expect(c.store.getFact(PC)?.version).toBe(pins.pc);
     expect(c.store.getFact(WORLD)?.version).toBe(pins.world);
@@ -272,9 +274,9 @@ describe("the binding consumes an explicit, already-established IR coupling basi
         }),
       }),
     );
-    expect(a.binding()?.value.transition.basis.statement).not.toBe(
-      b.binding()?.value.transition.basis.statement,
-    );
+    const statementOf = (c: typeof a) =>
+      (c.binding()?.value.transition.basis as { statement: string }).statement;
+    expect(statementOf(a)).not.toBe(statementOf(b));
     await a.close();
     await b.close();
   });

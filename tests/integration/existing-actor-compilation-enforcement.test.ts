@@ -347,7 +347,7 @@ describe("ordinary Role Registry activation rejects the existing-actor compilati
     const r = await s.campaign.bindPlayerCharacter(bindingInput(A, 4));
     expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
     expect(!r.ok && r.error.message).toMatch(
-      /Existing-Actor → PC handover, which is not implemented/,
+      /Existing-Actor → PC handover, which is its own EXISTING_ACTOR_HANDOVER transition/,
     );
     expect(s.campaign.store.head()).toEqual(head);
     expect(s.campaign.binding()).toBeUndefined();

@@ -284,7 +284,7 @@ describe("existingActorCompilationViolation: what a compilation must be, from co
 describe("ordinary activation refuses an existing-actor compilation", () => {
   it("existingActorBindingViolation names a compilation and nothing else", () => {
     expect(existingActorBindingViolation(existingActorContract(A))).toMatch(
-      /Existing-Actor → PC handover, which is not implemented/,
+      /Existing-Actor → PC handover, which is its own EXISTING_ACTOR_HANDOVER transition/,
     );
     expect(existingActorBindingViolation(fixtureContract())).toBeNull();
     // a malformed value is refused by the typed-contract rule, not misread here

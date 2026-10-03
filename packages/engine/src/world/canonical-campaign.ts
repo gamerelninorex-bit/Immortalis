@@ -1,10 +1,13 @@
 import {
   CANON_WRITE_AUTHORITY,
+  EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
   InsertionFactSchema,
+  OWNER_WORLD_STATE,
   BindingTargetSchema,
   ExistingActorCouplingSchema,
   ExistingActorCouplingTargetSchema,
+  HandoverTargetSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   PublicationSchema,
@@ -57,6 +60,7 @@ import {
   type OpenErrorCode,
 } from "../persistence/file-package.ts";
 import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
+import { expectedHandoverMigration } from "../owners/admission.ts";
 import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
@@ -94,6 +98,17 @@ export interface CoupleExistingActorInput extends Publication {
   readonly world_id: string;
   readonly locus_id: string;
   readonly actor_state: unknown;
+}
+
+/**
+ * What an Existing-Actor → PC handover names: the actor (the PC identity), and the world and locus it claims to be coupled
+ * to — which must equal the actor's committed coupling exactly. There is no insertion fact, bridge, placement or
+ * player-authored statement: the committed coupling is the authoritative basis, and a rival placement is not accepted.
+ */
+export interface HandoverExistingActorInput extends Publication {
+  readonly pc_id: string;
+  readonly world_id: string;
+  readonly locus_id: string;
 }
 
 export type CanonicalCommitCode = StoreCommitErrorCode | "INPUT_INVALID";
@@ -280,6 +295,76 @@ export class CanonicalCampaign {
       PLAYER_CHARACTER_BINDING_KEY,
       parsed.data,
       [pcKey, worldKey, locusKey],
+    );
+  }
+
+  /**
+   * The Existing-Actor → PC Role Registry handover (PC-Control Handover Contract v1 "Single Commit Point" and "Existing
+   * Actor → PC"; IR §5 item 3 / §6 Step 6; RC-13): the single binding commit that is the control/writability cutover of an
+   * already-existing, lawfully non-PC actor. It is a distinct path from `bindPlayerCharacter` (the first ACTIVATION of a
+   * freshly generated PC) and does not widen it.
+   *
+   * It consumes, and never creates or infers, the already-committed state it rests on: the released I-002 Existence
+   * Contract that compiles THIS actor, and the actor's World-State coupling as the authoritative world/locus basis. The
+   * caller names identities only; everything else is mechanical (committed versions and the exact references migrated by
+   * reference). Admission rejects the commit unless it is the exact lawful handover. Nothing is copied into the Role
+   * Registry, no ledger or owner is invented, and no capability is moved, closed or resolved: the actor's prior facts stay
+   * as committed provenance/history, and after this commit the Named-Actor owner writes nothing further for the identity.
+   */
+  handoverExistingActor(
+    input: HandoverExistingActorInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, ...named } = input;
+    const ids = HandoverTargetSchema.safeParse(named);
+    if (!ids.success) return Promise.resolve(inputInvalid("handover", ids.error));
+    const pcKey = pcExistenceContractKey(ids.data.pc_id);
+    const worldKey = worldProfileKey(ids.data.world_id);
+    const locusKey = worldLocusKey(ids.data.world_id, ids.data.locus_id);
+    const couplingKey = worldActorCouplingKey(ids.data.pc_id);
+    const versionOf = (key: string): number => this.store.getFact(key)?.version ?? 0;
+    const contractFact = this.store.getFact(pcKey);
+    const contract = contractFact
+      ? ExistenceContractSchema.safeParse(contractFact.value)
+      : undefined;
+    const couplingFact = this.store.getFact(couplingKey);
+    // a missing referent is pinned at 0 and admission rejects it (PREREQUISITE_MISSING); it is never created here
+    const migration =
+      couplingFact && contract?.success
+        ? expectedHandoverMigration(couplingFact, contract.data)
+        : [{ owner: OWNER_WORLD_STATE, fact_key: couplingKey, version: versionOf(couplingKey) }];
+    const binding: PlayerCharacterBinding = {
+      binding_slot: "role.player_character",
+      active_pc: { fact_key: pcKey, entity_id: ids.data.pc_id },
+      coupling: {
+        world: { fact_key: worldKey, entity_id: ids.data.world_id },
+        locus: { fact_key: locusKey, entity_id: ids.data.locus_id },
+      },
+      transition: {
+        type: EXISTING_ACTOR_HANDOVER,
+        basis: {
+          pinned_versions: {
+            pc: versionOf(pcKey),
+            world: versionOf(worldKey),
+            locus: versionOf(locusKey),
+            coupling: versionOf(couplingKey),
+          },
+        },
+      },
+      prior_binding: null,
+      replacement_binding: null,
+      intrinsic_authority_migration: migration.map((m) => ({ ...m })),
+      writer: { role: "role.archivist", permission: "permission.canon.write" },
+    };
+    const parsed = PlayerCharacterBindingSchema.safeParse(binding);
+    if (!parsed.success) return Promise.resolve(inputInvalid("binding", parsed.error));
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "player_character_binding",
+      PLAYER_CHARACTER_BINDING_KEY,
+      parsed.data,
+      [pcKey, worldKey, locusKey, couplingKey, ...migration.map((m) => m.fact_key)].filter(
+        (k, i, all) => all.indexOf(k) === i,
+      ),
     );
   }
 

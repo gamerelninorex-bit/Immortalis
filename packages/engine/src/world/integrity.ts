@@ -1,9 +1,13 @@
 import {
   CANON_WRITE_AUTHORITY,
+  EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
+  ExistingActorCouplingSchema,
+  PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   WorldLocusSchema,
   pcExistenceContractKey,
+  worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
   type OwnerFact,
@@ -12,9 +16,11 @@ import { canonicalEqual } from "../hash.ts";
 import {
   couplingBasisViolation,
   existingActorCompilationViolation,
+  existingActorHandoverViolation,
   identityMismatch,
 } from "../owners/admission.ts";
 import { resolveKey, type FactKind } from "../owners/registry.ts";
+import { couplingActorStillNonPcViolation } from "./actor-coupling.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 
 export interface IntegrityViolation {
@@ -77,6 +83,24 @@ function governingRuleLawful(kind: FactKind, fact: OwnerFact): boolean {
     canonicalEqual(fact.provenance.rule, legacy.rule) &&
     legacy.admits(fact.value)
   );
+}
+
+/** The committed facts as they stood BEFORE `revision`: a write is judged at the time it was made (shared by load verifiers). */
+export function factsBefore(
+  revision: number,
+  all: ReadonlyMap<string, OwnerFact>,
+  revisionOf: (f: OwnerFact) => number,
+): Pick<ReadonlyMap<string, OwnerFact>, "get" | "has"> {
+  return {
+    get: (k) => {
+      const f = all.get(k);
+      return f && revisionOf(f) < revision ? f : undefined;
+    },
+    has: (k) => {
+      const f = all.get(k);
+      return f !== undefined && revisionOf(f) < revision;
+    },
+  };
 }
 
 /**
@@ -180,6 +204,40 @@ export function verifyCanonicalIntegrity(
         const violation = existingActorCompilationViolation(contract, facts);
         if (violation) bad(fact.key, "REFERENCE_INVALID", violation);
       }
+    } else if (kind.id === "world_actor_coupling") {
+      // Whatever the later commit order, the coupled identity is still no Player Character other than by the explicit
+      // existing-actor compilation: a fresh Existence Contract or a binding naming it would be a rival owner and a second
+      // authoritative current locus. The ONE lawful exception is the exact Existing-Actor → PC handover that consumed THIS
+      // coupling at the version committed here (Single Commit Point), judged against the facts as they stood before the
+      // binding. Fresh activation, a mismatched actor/world/locus, a stale version, a fabricated handover and a rival
+      // coupling still fail the open.
+      const coupling = ExistingActorCouplingSchema.parse(parsed.data);
+      const bindingFact = facts.get(PLAYER_CHARACTER_BINDING_KEY);
+      const bound = bindingFact
+        ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
+        : undefined;
+      const apart = {
+        get: (k: string) => (k === PLAYER_CHARACTER_BINDING_KEY ? undefined : facts.get(k)),
+        has: (k: string) => k !== PLAYER_CHARACTER_BINDING_KEY && facts.has(k),
+      };
+      const now = couplingActorStillNonPcViolation(coupling.actor_id, apart);
+      if (now) bad(fact.key, "ACTOR_COUPLING_STATE", now);
+      if (bindingFact && bound?.success && bound.data.active_pc.entity_id === coupling.actor_id) {
+        const consumed =
+          bound.data.transition.type === EXISTING_ACTOR_HANDOVER &&
+          bound.data.transition.basis.pinned_versions.coupling === fact.version &&
+          existingActorHandoverViolation(
+            bound.data,
+            factsBefore(revisionOf(bindingFact), facts, revisionOf),
+          ) === null;
+        if (!consumed) {
+          bad(
+            fact.key,
+            "ACTOR_COUPLING_STATE",
+            "the coupled actor is the bound PC otherwise than by the exact lawful Existing-Actor → PC handover consuming this coupling",
+          );
+        }
+      }
     } else if (kind.id === "player_character_binding") {
       const b = PlayerCharacterBindingSchema.parse(parsed.data);
       const worldKey = worldProfileKey(b.coupling.world.entity_id);
@@ -202,7 +260,38 @@ export function verifyCanonicalIntegrity(
       }
       // The retained IR coupling basis is re-verified against the committed facts it cites: a binding
       // is not accepted merely because its prerequisites happen to exist and precede it.
-      if (pcFact && worldFact && locusFact) {
+      if (b.transition.type === EXISTING_ACTOR_HANDOVER) {
+        // An Existing-Actor → PC handover is re-verified against the facts as they stood BEFORE the binding commit: the
+        // coupling and every migrated reference were committed before it, the binding read the exact pinned versions and
+        // depended on the groups that committed them (referenced, never copied), and the one handover rule admission
+        // applies holds.
+        const group = store.committedGroup(fact.provenance.intent_id);
+        const couplingKey = worldActorCouplingKey(b.active_pc.entity_id);
+        const referenced = [
+          { key: couplingKey, version: b.transition.basis.pinned_versions.coupling },
+          ...b.intrinsic_authority_migration.map((m) => ({ key: m.fact_key, version: m.version })),
+        ];
+        for (const pin of referenced) {
+          const target = needs(fact, pin.key);
+          if (
+            target &&
+            (!group ||
+              !group.reads.some((r) => r.key === pin.key && r.version === pin.version) ||
+              !group.depends_on.includes(target.provenance.group_id))
+          ) {
+            bad(
+              fact.key,
+              "REFERENCE_INVALID",
+              `an existing-actor handover read the exact pinned fact and depended on the group that committed it: ${pin.key}`,
+            );
+          }
+        }
+        const violation = existingActorHandoverViolation(
+          b,
+          factsBefore(revisionOf(fact), facts, revisionOf),
+        );
+        if (violation) bad(fact.key, "REFERENCE_INVALID", violation);
+      } else if (pcFact && worldFact && locusFact) {
         const insufficient = couplingBasisViolation(b, {
           pc: pcFact,
           world: worldFact,
