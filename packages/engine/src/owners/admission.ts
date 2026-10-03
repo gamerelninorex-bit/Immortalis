@@ -1,5 +1,6 @@
 import {
   ExistenceContractSchema,
+  FACET_PC_CAPABILITY_PROFILE,
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
@@ -9,6 +10,7 @@ import {
   OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
+  OWNER_PC_EXISTENCE,
   OWNER_POPULATION,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
@@ -33,6 +35,7 @@ import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
+import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
@@ -197,6 +200,9 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
     // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
     if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
+    // IM-07 PC capability profile groups (a facet of the one I-002 PC owner): a received basis and a PC Capability Close are each re-derived.
+    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_CAPABILITY_PROFILE)
+      return pcCapabilityGroupCheck(group, state);
     // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
@@ -297,6 +303,11 @@ export function identityMismatch(
       return v["actor_id"] === ids[0] && v["capability_id"] === ids[1]
         ? null
         : "actor and capability identity does not match the key";
+    case "pc_capability_basis":
+    case "pc_capability":
+      return v["pc_id"] === ids[0] && v["capability_id"] === ids[1]
+        ? null
+        : "PC and capability identity does not match the key";
     case "epistemic_access_event":
       return v["event_id"] === ids[0] ? null : "event identity does not match the key";
     case "epistemic_accessible_packet":

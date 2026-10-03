@@ -234,6 +234,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "actor/a1/capability/c1",
   },
   {
+    id: "pc_capability_basis",
+    owner: "pc_existence",
+    facet: "pc_capability_profile",
+    lifecycle: "SEALED",
+    group: "PC_CAPABILITY_FACT_KINDS",
+    exampleKey: "pc/p1/capability-basis/c1",
+  },
+  {
+    id: "pc_capability",
+    owner: "pc_existence",
+    facet: "pc_capability_profile",
+    lifecycle: "SEALED",
+    group: "PC_CAPABILITY_FACT_KINDS",
+    exampleKey: "pc/p1/capability/c1",
+  },
+  {
     id: "epistemic_access_event",
     owner: "epistemic_access",
     facet: "epistemic_access",
@@ -368,7 +384,7 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
 /** The owner → facet registration, written out independently of the kind table above. */
 export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> = {
   world_state: ["world_profile", "world_locus", "world_fallback_physical_entity"],
-  pc_existence: ["existence_contract"],
+  pc_existence: ["existence_contract", "pc_capability_profile"],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
   population: ["population_state"],
@@ -519,6 +535,19 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "establishCapabilityBasis",
       "establishRandomizedCapabilityBasis",
     ],
+  },
+  /**
+   * The PC capability profile receiving path of the one I-002 PC owner: ONE authored publication (`receiveCapabilityBasis`,
+   * which is deliberately not an `establish…` writer: the PC owner receives an already-established fact and establishes
+   * nothing) and two typed reads by identity. The persisted capability is no method: it is the IM-02 PC Capability Close stage.
+   */
+  PcCapabilityAdapter: {
+    methods: ["basis", "capability", "receiveCapabilityBasis"],
+    source: {
+      file: "packages/engine/src/pc-capability/adapter.ts",
+      commitCalls: 1,
+      establishWriters: [],
+    },
   },
   PopulationAdapter: {
     methods: ["close", "cohort", "cohortView", "establishLedger", "instantiateCohort", "ledger"],

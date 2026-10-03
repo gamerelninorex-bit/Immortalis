@@ -26,7 +26,9 @@
 // committed office and one of its Scope Bindings, initial establishment only), and the Diplomacy External Recognition Core Backbone Foundation (IM-06 Diplomacy owner
 // path: one explicitly established, ADVANCING-compatible, directional and scoped External Recognition over that same substrate, initial establishment only), and the
 // F-027-CD1 Causal Draw foundation (the infrastructure-only IM-12 `causal_draw_kernel / draw_provenance` owner path: neutral CD-CANON-1 identity, CDS-02 normalization,
-// the CDR-01 gate, secure precommitted entropy, IMMORTALIS_WEIGHTED_FINITE_V1, and the create-only precommit/result records over that same substrate).
+// the CDR-01 gate, secure precommitted entropy, IMMORTALIS_WEIGHTED_FINITE_V1, and the create-only precommit/result records over that same substrate), and the
+// I-002 PC Capability Profile / PC Capability Close Receiving Foundation (IM-07: the PC capability profile facet of the one existing PC owner — one received, already-established
+// durable personal mastery fact, published at the PC Capability Close and read cross-owner only AS-OF-DECLARED-CLOSE, over that same substrate; initial establishment only).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
@@ -34,6 +36,12 @@ export * from "./actor/derive.ts";
 export * from "./actor/integrity.ts";
 export * from "./actor/provider.ts";
 export * from "./actor/randomized.ts";
+export * from "./pc-capability/adapter.ts";
+export * from "./pc-capability/admission.ts";
+export * from "./pc-capability/declaration.ts";
+export * from "./pc-capability/derive.ts";
+export * from "./pc-capability/integrity.ts";
+export * from "./pc-capability/provider.ts";
 export * from "./causal-draw/adapter.ts";
 export * from "./causal-draw/admission.ts";
 export * from "./causal-draw/canon.ts";
