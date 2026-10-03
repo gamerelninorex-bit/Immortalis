@@ -1,5 +1,7 @@
 import {
   OWNER_PC_EXISTENCE,
+  actorCapabilityKey,
+  PLAYER_CHARACTER_BINDING_KEY,
   PcCapabilityBasisSchema,
   PcCapabilitySchema,
   ResolutionTransactionSchema,
@@ -19,6 +21,8 @@ import type { IntegrityViolation } from "../world/integrity.ts";
 import { isPcCapabilityKey, pcCapabilityObjectViolation } from "./declaration.ts";
 import {
   derivePcCapability,
+  pcBasisIsCarryForward,
+  pcBasisPrerequisites,
   pcCapabilityBoundaryViolation,
   pcCapabilityEstablishmentViolation,
 } from "./derive.ts";
@@ -31,7 +35,9 @@ import {
  *  - a received basis pins its own PC's released Existence Contract (committed, owned by the PC owner, at the version
  *    pinned, committed BEFORE the basis) and cites only accepted claims of it, and its group read that exact contract and
  *    depended on the group that committed it; and when it was committed the Named-Actor owner did not already hold the
- *    identity's capability and the identity was no Population ledger;
+ *    identity's capability and the identity was no Population ledger. A carry-forward basis instead pins the committed
+ *    EXISTING_ACTOR_HANDOVER binding and the identity's own Named-Actor capability (each read at its exact version, depended
+ *    on, committed before the basis), carries that capability's marker exactly, and the source precedes the handover;
  *  - a capability is exactly what its committed basis determines (the same re-derivation admission uses), names the close
  *    stage derived from its PC and capability, was committed after its basis, under no boundary violation, only as its
  *    IM-02 stage under a durable transaction authority, and is credited by a committed ResolutionTransaction — or by an
@@ -95,25 +101,45 @@ export function verifyPcCapabilityIntegrity(store: CampaignStore): readonly Inte
       bad(bf.key, established);
       continue;
     }
-    const contract = byKey.get(b.establishment.contract.fact_key)!;
-    if (revisionOf(contract) >= revisionOf(bf)) {
-      bad(bf.key, "the Existence Contract was not committed before the basis that cites it");
-    }
+    const carried = pcBasisIsCarryForward(b);
     const group = store.committedGroup(bf.provenance.intent_id);
-    if (
-      !group ||
-      !group.reads.some((r) => r.key === contract.key && r.version === contract.version) ||
-      !group.depends_on.includes(contract.provenance.group_id)
-    ) {
-      bad(
-        bf.key,
-        "a received basis read the exact Existence Contract and depended on the group that committed it",
-      );
+    for (const need of pcBasisPrerequisites(b)) {
+      const target = byKey.get(need.key);
+      if (!target) {
+        bad(bf.key, `${need.what} is not committed`);
+        continue;
+      }
+      if (revisionOf(target) >= revisionOf(bf)) {
+        bad(bf.key, `${need.what} was not committed before the basis that cites it`);
+      }
+      if (
+        !group ||
+        !group.reads.some((r) => r.key === target.key && r.version === target.version) ||
+        !group.depends_on.includes(target.provenance.group_id)
+      ) {
+        bad(
+          bf.key,
+          `a received basis read the exact fact it cites and depended on the group that committed it: ${need.key}`,
+        );
+      }
+    }
+    if (carried) {
+      // The carried source is the actor's already-authoritative pre-handover capability: it must have been committed
+      // BEFORE the handover binding (the cutover), which in turn precedes the carry-forward.
+      const binding = byKey.get(PLAYER_CHARACTER_BINDING_KEY);
+      const source = byKey.get(actorCapabilityKey(b.pc_id, b.capability_id));
+      if (binding && source && revisionOf(source) >= revisionOf(binding)) {
+        bad(
+          bf.key,
+          "the carried Named-Actor capability was not committed before the handover that is the ownership cutover",
+        );
+      }
     }
     const boundary = pcCapabilityBoundaryViolation(
       factsBefore(revisionOf(bf)),
       b.pc_id,
       b.capability_id,
+      carried,
     );
     if (boundary) bad(bf.key, boundary);
   }
@@ -155,6 +181,7 @@ export function verifyPcCapabilityIntegrity(store: CampaignStore): readonly Inte
       factsBefore(revisionOf(cf)),
       c.pc_id,
       c.capability_id,
+      pcBasisIsCarryForward(basis.data),
     );
     if (boundary) bad(cf.key, boundary);
     // published only as its IM-02 stage, under the durable authority of the transaction that opened it

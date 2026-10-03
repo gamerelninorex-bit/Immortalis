@@ -57,7 +57,7 @@ Fresh-PC activation, the Existence Contract and compilation behavior, the coupli
 
 ## Capability is provenance only
 
-The binding references the actor's committed state by `{owner, fact_key, version}` and holds no capability. No PC capability fact, PC Capability Close or `ACCEPTED_GENERATION_HISTORY` basis is produced; nothing is copied into the Role Registry; unresolved inherited capability is not resolved; Causal Draw and the world-prior method are not invoked. Established-capability carry-forward into `pc_existence / pc_capability_profile` is the next bounded slice.
+The binding references the actor's committed state by `{owner, fact_key, version}` and holds no capability. No PC capability fact, PC Capability Close or `ACCEPTED_GENERATION_HISTORY` basis is produced; nothing is copied into the Role Registry; unresolved inherited capability is not resolved; Causal Draw and the world-prior method are not invoked. Established-capability carry-forward into `pc_existence / pc_capability_profile` is the thirty-second bounded slice (`docs/pc-capability-carry-forward-foundation.md`); this slice's own behavior is unchanged.
 
 ## Construction decisions that are technical encodings, not new semantics
 

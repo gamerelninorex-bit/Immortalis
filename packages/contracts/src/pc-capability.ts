@@ -3,7 +3,7 @@ import { ComparativeMarkerSchema } from "./actor-capability.ts";
 import { Id, Version } from "./ids.ts";
 import type { StageKey } from "./temporal.ts";
 import { StageKeySchema } from "./temporal.ts";
-import { EntityId, OWNER_PC_EXISTENCE } from "./world-foundation.ts";
+import { EntityId, OWNER_PC_EXISTENCE, PLAYER_CHARACTER_BINDING_KEY } from "./world-foundation.ts";
 
 /**
  * I-002 PC Capability Profile / PC Capability Close Receiving Foundation — executable contracts.
@@ -96,20 +96,25 @@ export const PcClaimLocatorSchema = z.strictObject({
 });
 export type PcClaimLocator = z.infer<typeof PcClaimLocatorSchema>;
 
+/** The fresh-PC establishment: the capability is authored in, or strongly established by, the PC's accepted generation history. */
+export const PC_ESTABLISHMENT_ACCEPTED_GENERATION_HISTORY = "ACCEPTED_GENERATION_HISTORY";
 /**
- * The only establishment this slice can receive: the capability is explicitly authored or strongly established by
- * ACCEPTED generation history (WS-016 §4 PC gate, first alternative; §11), as the claims of the released Existence
- * Contract it is pinned to. The record holds a pointer to that committed contract (at the version it was read) and
- * locators of the accepted claims that establish the mastery, and nothing else.
- *
- * Unrepresentable by design, so each fails closed on the strict schema: deferred derivation from verbatim generation
- * provenance (§13, §15 delegated branches), the C+/EX/deferred persistence gates, later development or loss through
- * the Intrinsic Amendment Event (§18), existing-actor handover (W3-CP3), transfer, lifecycle (§21–22) and any randomized
- * or Causal-Draw capability.
+ * The distinct inherited-mastery establishment of an already-existing actor that has lawfully undergone the
+ * EXISTING_ACTOR_HANDOVER (PC-Control Handover Contract v1 "Existing Actor → PC"; Single Commit Point). It is never player
+ * authored and never Character-Mirror-derived generation history, and it is not a resolution: it only carries the
+ * actor's own already-authoritative `named_actor_capability` across the ownership cutover.
  */
-export const PcCapabilityEstablishmentSchema = z
+export const PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD = "EXISTING_ACTOR_CARRY_FORWARD";
+
+/**
+ * The fresh-PC establishment (unchanged): the capability is explicitly authored or strongly established by ACCEPTED
+ * generation history (WS-016 §4 PC gate, first alternative; §11), as the claims of the released Existence Contract it is
+ * pinned to. The record holds a pointer to that committed contract (at the version it was read) and locators of the
+ * accepted claims that establish the mastery, and nothing else.
+ */
+export const PcAcceptedGenerationHistoryEstablishmentSchema = z
   .strictObject({
-    method: z.literal("ACCEPTED_GENERATION_HISTORY"),
+    method: z.literal(PC_ESTABLISHMENT_ACCEPTED_GENERATION_HISTORY),
     contract: z.strictObject({ fact_key: Id, version: Version.min(1) }),
     claims: z.array(PcClaimLocatorSchema).min(1),
   })
@@ -119,7 +124,61 @@ export const PcCapabilityEstablishmentSchema = z
       ctx.addIssue({ code: "custom", message: "a claim is cited once", path: ["claims"] });
     }
   });
+export type PcAcceptedGenerationHistoryEstablishment = z.infer<
+  typeof PcAcceptedGenerationHistoryEstablishmentSchema
+>;
+
+/**
+ * The inherited-mastery establishment: exact provenance references, never a copy and never a resolution. It cites
+ *
+ *  - `handover`: the committed Role Registry binding at `role-registry/binding/role.player_character` at the version
+ *    read — the control/writability cutover (the binding's transition must be the EXISTING_ACTOR_HANDOVER of this same
+ *    identity; its `ACTIVATION` is no basis); and
+ *  - `source`: the same identity/capability's committed Named-Actor capability (`actor/<id>/capability/<capability>`) at
+ *    the version read — the already-authoritative pre-handover fact, which stays exactly where it was committed as cold
+ *    provenance/history.
+ *
+ * The marker is NOT carried in this record: the enclosing basis's marker must equal the source's marker exactly
+ * (re-derived at admission and at load), so there is no reroll, world-prior, Causal Draw, accepted-Mirror derivation,
+ * regrading or recalibration here. A mere `named_actor_capability_basis` is no source: the key is the capability's.
+ */
+export const PcExistingActorCarryForwardEstablishmentSchema = z.strictObject({
+  method: z.literal(PC_ESTABLISHMENT_EXISTING_ACTOR_CARRY_FORWARD),
+  handover: z.strictObject({
+    fact_key: z.literal(PLAYER_CHARACTER_BINDING_KEY),
+    version: Version.min(1),
+  }),
+  source: z.strictObject({ fact_key: Id, version: Version.min(1) }),
+});
+export type PcExistingActorCarryForwardEstablishment = z.infer<
+  typeof PcExistingActorCarryForwardEstablishmentSchema
+>;
+
+/**
+ * The two lawful establishments of a received PC capability basis, each its own method and provenance path:
+ * ACCEPTED_GENERATION_HISTORY (a freshly generated PC) and EXISTING_ACTOR_CARRY_FORWARD (an actor already handed over).
+ *
+ * Unrepresentable by design, so each fails closed on the strict schema: deferred or unresolved inherited capability
+ * derivation (§13, §15 delegated branches), world-prior construction or Causal Draw for an inherited capability, the
+ * C+/EX/deferred persistence gates, later development or loss through the Intrinsic Amendment Event (§18),
+ * PC → non-PC transfer or resumption, lifecycle (§21–22) and any randomized capability.
+ */
+export const PcCapabilityEstablishmentSchema = z.discriminatedUnion("method", [
+  PcAcceptedGenerationHistoryEstablishmentSchema,
+  PcExistingActorCarryForwardEstablishmentSchema,
+]);
 export type PcCapabilityEstablishment = z.infer<typeof PcCapabilityEstablishmentSchema>;
+
+/**
+ * The ONLY authored input of a carry-forward: which identity's already-authoritative capability is carried. Nothing else is
+ * presentable — no marker, grade, prior, claim, version, binding or source reference: the marker, versions and provenance
+ * references are mechanical, read from committed state, so there is nothing to resolve, reroll or regrade.
+ */
+export const PcCapabilityCarryForwardInputSchema = z.strictObject({
+  pc_id: EntityId,
+  capability_id: EntityId,
+});
+export type PcCapabilityCarryForwardInput = z.infer<typeof PcCapabilityCarryForwardInputSchema>;
 
 /**
  * The received, sealed record of one already-established PC capability, committed BEFORE any dependent consequence can
