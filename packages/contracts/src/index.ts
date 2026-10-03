@@ -23,7 +23,8 @@
 // Diplomacy Externalized Claim / Dispute Core Backbone Foundation contract (the strict WS-008 §7 claim/dispute entry with the v1.1 §29.3/§29.4 overlay fields), and the
 // Diplomacy Relation Edge Authoritative Core Backbone Foundation contract (the strict WS-008 §5.1 authoritative core; the derived reference/index arrays are not writable), and the
 // Diplomacy Framework Authoritative Core Backbone Foundation contract (the strict WS-008 §16 Framework minimum surface; initial authored establishment only), and the
-// F-027-CD1 Causal Draw foundation contracts (CausalDrawKey, CausalDrawSpecification, the SEALED precommit and result records, the refusal vocabulary).
+// F-027-CD1 Causal Draw foundation contracts (CausalDrawKey, CausalDrawSpecification, the SEALED precommit and result records, the refusal vocabulary), and the
+// I-002 PC Capability Profile / PC Capability Close Receiving Foundation contracts (the received PC capability basis and the persisted PC capability published at the PC Capability Close).
 export * from "./actor-capability.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
@@ -43,6 +44,7 @@ export * from "./json.ts";
 export * from "./kti.ts";
 export * from "./logistics.ts";
 export * from "./owner-fact.ts";
+export * from "./pc-capability.ts";
 export * from "./population.ts";
 export * from "./production.ts";
 export * from "./result.ts";

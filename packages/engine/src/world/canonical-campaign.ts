@@ -33,6 +33,7 @@ import {
 } from "../owners/extension.ts";
 import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
 import { verifyNamedActorIntegrity } from "../actor/integrity.ts";
+import { verifyPcCapabilityIntegrity } from "../pc-capability/integrity.ts";
 import { verifyCausalDrawIntegrity } from "../causal-draw/integrity.ts";
 import { verifyEconomyIntegrity } from "../economy/integrity.ts";
 import { verifyEpistemicIntegrity } from "../epistemic/integrity.ts";
@@ -336,7 +337,7 @@ export class CanonicalCampaign {
   }
 }
 
-/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production, IM-06 Economy, World-State entity-transition, IM-05 Logistics, IM-07 Named-Actor capability, IM-10 Epistemic Access, IM-09 KTI, IM-06 GIP Institution Identity, IM-06 Diplomacy External Recognition and IM-12 Causal Draw provenance integrity. */
+/** Canonical (world/PC/binding) integrity, the IM-02 kernel's temporal integrity, then IM-04 Population, IM-05 Production, IM-06 Economy, World-State entity-transition, IM-05 Logistics, IM-07 Named-Actor capability, IM-07 PC capability profile, IM-10 Epistemic Access, IM-09 KTI, IM-06 GIP Institution Identity, IM-06 Diplomacy External Recognition and IM-12 Causal Draw provenance integrity. */
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
@@ -352,6 +353,7 @@ function verifyAll(
     ...verifyEntityTransitionIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
+    ...verifyPcCapabilityIntegrity(store),
     ...verifyEpistemicIntegrity(store),
     ...verifyKtiIntegrity(store),
     ...verifyGipIntegrity(store),

@@ -39,6 +39,8 @@ export interface IntegrityViolation {
     | "ENTITY_TRANSITION_STATE"
     /** IM-07 Named-Actor capability state: see verifyNamedActorIntegrity */
     | "NAMED_ACTOR_STATE"
+    /** IM-07 PC capability profile state (a facet of the one PC owner): see verifyPcCapabilityIntegrity */
+    | "PC_CAPABILITY_STATE"
     /** IM-10 Epistemic Access state: see verifyEpistemicIntegrity */
     | "EPISTEMIC_ACCESS_STATE"
     /** IM-06 GIP state (Institution Identity): see verifyGipIntegrity */

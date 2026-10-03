@@ -18,6 +18,9 @@ import {
   NamedActorCapabilityBasisSchema,
   NamedActorCapabilitySchema,
   OWNER_NAMED_ACTOR,
+  FACET_PC_CAPABILITY_PROFILE,
+  PcCapabilityBasisSchema,
+  PcCapabilitySchema,
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
   EconomyRealizationSchema,
@@ -237,6 +240,7 @@ export const NAMED_ACTOR_FACT_KIND_IDS = [
   "named_actor_capability_basis",
   "named_actor_capability",
 ] as const;
+export const PC_CAPABILITY_FACT_KIND_IDS = ["pc_capability_basis", "pc_capability"] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
   "epistemic_accessible_packet",
@@ -268,6 +272,7 @@ export type FactKindId =
   | (typeof KTI_FACT_KIND_IDS)[number]
   | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
+  | (typeof PC_CAPABILITY_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
@@ -834,6 +839,72 @@ export const NAMED_ACTOR_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const I002_LINEAGE =
+  "I-002 Player Character Generation — Working Operational Draft v2, Sovereign-ratified within W3-CP3 / OB-044 2026-09-25, at the frozen lock pin 2026-09-25T00:15:54.536Z (https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718): §2 Ownership Contract (the Existence Contract owns the canonical current intrinsic PC state), §4 Minimum Existence Contract, §21 Generation Hand-Off Test, §26 Sparse Persistence; the ratified I-002 v2.1 Character Capability bounded amendment is the one recorded in the Blue Bounded Integration Map §2 cited above";
+const F016_PHASE_2B_PCC_LINEAGE =
+  'F-016 Phase 2B §H F-014D CF-2 — PC-Side Capability Cut, pin 2026-09-21T23:18:36.650Z (https://app.notion.com/p/3e220af901e0819daaa4d1cab6cc493e): PCC-01 authoritative PC mastery owner (I-002 / PC-side character-local capability state), PCC-02 the producer close named "PC Capability Close" (a temporal/provenance boundary only, not a new subsystem or duplicate capability state), PCC-03 cross-owner reads AS-OF-DECLARED-CLOSE with Close Basis PC Capability Close; with Phase 2A §G PC-01 (owner identified) and Phase 2B §I KC-T1';
+
+/**
+ * One governing rule for both PC capability kinds: the received establishment basis and the PC Capability Close publication
+ * are each one group, and a capability always cites the one basis it was derived from, so every version of every PC
+ * capability fact records the same citation. The clauses are the ones the state relies on. The primary source is the
+ * frozen WS-016 integration map pin that carries the ratified I-002 bounded amendment (the I-002 page at its own lock pin
+ * does not yet contain that amendment text, so the I-002 pin is cited in the lineage and never as the origin of the
+ * capability clauses).
+ */
+export const PC_CAPABILITY_RULE: SourceRef = rule(
+  WS016_SOURCE,
+  "Blue Bounded Integration Map §2 I-002 — BOUNDED AMENDMENT (a compact PC Capability Profile companion state under I-002 ownership for current durable personal mastery; I-002 owns the authoritative current PC mastery fact because it owns the PC's canonical current intrinsic state; KTI does not acquire the PC's personal C/B/A/S/EX fact; no duplicate KTI copy of the personal grade; sparse persistence — current materially useful capability facts only, no exhaustive skill list); WS-016 Draft §2 Runtime Ownership (PC capability facts remain owned by I-002 / the current lawful PC-state owner; no consumer acquires write authority), §3 Minimal Persistent Capability Record (capability, optional comparative marker, provenance pointer, capability-close reference; no fatigue, injury, equipment, observer reputation, KTI corpus, office, relationship or situational state), §4 Persistence Gate (Player Character: explicitly authored or strongly established by accepted generation history), §6 Grade Semantics (C/B/A/S qualitative, never converted to a number), §7 EX Adapter (EX is not S+), §11 PC Generation / Authorship Interface (the compiler derives from accepted claims; no grade from fame or reputation alone; GM/Narrative may not invent PC mastery), §13 PC Deferred-Derivation Adapter and §15 (not implemented: unaccepted or hypothetical content cannot ground a capability), §23 Equipment / Borrowed-Power Guard, §25 one authoritative capability truth, §27 Temporal / Turnless Behavior and §27.1 Capability Visibility / No Same-Resolution Feedback (each actor owner commits persisted capability facts at its declared capability close; every cross-owner consumer reads AS-OF-DECLARED-CLOSE), §28 Aggregate Boundary (agency, not body count), §32 Failure Conditions (duplicate ownership of PC or Named-Actor state, retroactive PC rescue capability); with F-016 Phase 2B PCC-01 to PCC-03 (PC Capability Close)",
+  [
+    WS016_LINEAGE,
+    I002_LINEAGE,
+    F016_PHASE_2B_PCC_LINEAGE,
+    F017_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+const pcCapabilityKind = (
+  id: (typeof PC_CAPABILITY_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_PC_EXISTENCE,
+  facet: FACET_PC_CAPABILITY_PROFILE,
+  im: "IM-07",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: PC_CAPABILITY_RULE,
+});
+
+/**
+ * IM-07 Actor / ACS / Capability Adapter — the PC CAPABILITY PROFILE part only: "capabilities/mastery ... only
+ * source-assigned actor/collective/capability facets". The Integration Map §2 assigns the PC's durable personal mastery to
+ * I-002 as a companion state, so this is a second FACET of the one existing PC owner (`pc_existence`), never a second PC
+ * capability owner and never the Named-Actor owner. Two exclusive pc/<pc>/capability[-basis]/<capability> key spaces, both
+ * create-only (SEALED): the received establishment basis, and the persisted capability, which exists only as its IM-02
+ * stage — the PC Capability Close. There is no fallback owner, and no development, loss, deferred derivation, handover,
+ * transfer, lifecycle, KTI, aggregate, randomized or numeric-rank kind.
+ */
+export const PC_CAPABILITY_FACT_KINDS: readonly FactKind[] = [
+  pcCapabilityKind(
+    "pc_capability_basis",
+    ["RC-02"],
+    new RegExp(`^pc/${ID}/capability-basis/${ID}$`),
+    PcCapabilityBasisSchema,
+  ),
+  pcCapabilityKind(
+    "pc_capability",
+    ["RC-02", "RC-03", "RC-04"],
+    new RegExp(`^pc/${ID}/capability/${ID}$`),
+    PcCapabilitySchema,
+  ),
+];
+
 const CAUSAL_DRAW_LINEAGE =
   "F-027 v1.0 + F-027-CD1 v1.0 composed implementation authority: F-027 Final Package v1.0 pin 2026-09-29T00:40:44.707Z (https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639) composed with the Causal Draw Implementation-Authority Addendum, pinned in spec/f027/spec-lock.json `implementation_authority_addenda`; historical F-027 v1.0 is neither rewritten nor superseded";
 const CAUSAL_DRAW_RED_CLEARANCE =
@@ -1364,7 +1435,7 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
- * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
+ * Economy kinds, the IM-05 Logistics kinds, the IM-07 Named-Actor capability kinds, the IM-07 PC capability profile kinds (a facet of the one PC owner), the IM-10 Epistemic Access kinds, the IM-09 KTI kinds
  * the IM-06 GIP Institution Identity, Office / Authority Locus, Authority Scope Binding and Governance Instrument kinds
  * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind, the IM-06 Diplomacy Relation Edge kind and the IM-06 Diplomacy Framework kind,
  * and the infrastructure-only IM-12 Causal Draw precommit and result kinds (F-027-CD1).
@@ -1379,6 +1450,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...ECONOMY_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,
+  ...PC_CAPABILITY_FACT_KINDS,
   ...EPISTEMIC_ACCESS_FACT_KINDS,
   ...KTI_FACT_KINDS,
   ...GIP_FACT_KINDS,

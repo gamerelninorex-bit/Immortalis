@@ -103,7 +103,9 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
 
   it("there is no personality, goal, relationship, belief, mandate, development, loss, lifecycle, KTI, aggregate, PC-capability or numeric-rank kind, and no fallback actor owner", () => {
     // (the eleventh slice's IM-09 KTI owner is the lawful, separate owner of exactly the development kinds this guard names)
-    for (const k of ALL_FACT_KINDS.filter((k) => k.owner !== "kti"))
+    // (the twenty-eighth slice's PC capability profile is the lawful, separate FACET of the one I-002 PC owner `pc_existence`: the
+    // `pc_capab…` kinds are exactly the PC-capability kinds this guard names, and are held by that owner, never by the actor owner)
+    for (const k of ALL_FACT_KINDS.filter((k) => k.owner !== "kti" && k.owner !== "pc_existence"))
       expect(k.id).not.toMatch(
         /personality|goal|loyalty|relationship|belief|stance|mandate|development|loss|lifecycle|kti|cohort_capab|aggregate|skill|level|xp|rank|pc_capab|holder|referent|alias/,
       );
@@ -182,7 +184,10 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
     ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
-    expect(classes.filter((c) => /Actor|Capability/.test(c!))).toEqual(["NamedActorAdapter"]);
+    expect(classes.filter((c) => /Actor|Capability/.test(c!))).toEqual([
+      "NamedActorAdapter",
+      "PcCapabilityAdapter",
+    ]);
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
       "file-package.ts",
@@ -342,6 +347,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "kti",
       "logistics",
       "owners",
+      "pc-capability",
       "persistence",
       "population",
       "production",

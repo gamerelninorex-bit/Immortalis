@@ -149,12 +149,13 @@ describe("registry: every key space has exactly one owner/facet and there is no 
       expect(FACT_KINDS.filter((k) => k.keyPattern.test(key))).toHaveLength(1);
     }
   });
-  it("registers world_state/{world_profile, world_locus}, pc_existence/existence_contract, role_registry/player_character_binding, the IM-02 kernel temporal_kernel/temporal_coordination, the IM-04 owner population/population_state, the IM-05 owner production/production_state, the IM-06 owner economy/economy_state, the IM-05 Logistics owner logistics/logistics_state, the IM-07 Named-Actor owner named_actor/actor_profile, the IM-10 Epistemic Access owner epistemic_access/epistemic_access, the IM-09 KTI owner kti/kti_development, the IM-06 GIP owner gip/gip_institution_identity, the IM-06 Diplomacy owner diplomacy/diplomacy_external_recognition, the infrastructure-only IM-12 Causal Draw owner causal_draw_kernel/draw_provenance, the World-State fallback physical-entity facet, and nothing else", () => {
+  it("registers world_state/{world_profile, world_locus}, pc_existence/{existence_contract, pc_capability_profile}, role_registry/player_character_binding, the IM-02 kernel temporal_kernel/temporal_coordination, the IM-04 owner population/population_state, the IM-05 owner production/production_state, the IM-06 owner economy/economy_state, the IM-05 Logistics owner logistics/logistics_state, the IM-07 Named-Actor owner named_actor/actor_profile, the IM-10 Epistemic Access owner epistemic_access/epistemic_access, the IM-09 KTI owner kti/kti_development, the IM-06 GIP owner gip/gip_institution_identity, the IM-06 Diplomacy owner diplomacy/diplomacy_external_recognition, the infrastructure-only IM-12 Causal Draw owner causal_draw_kernel/draw_provenance, the World-State fallback physical-entity facet, and nothing else", () => {
     const flat = [...CANONICAL_OWNER_REGISTRY].map(([o, fs]) => [o, [...fs].sort()]);
     expect(flat).toEqual([
       // the fifth slice adds World-State's fallback physical-entity custody (WG, F-016 R-1) as one more facet
       ["world_state", ["world_fallback_physical_entity", "world_locus", "world_profile"]],
-      ["pc_existence", ["existence_contract"]],
+      // IM-07 (twenty-eighth slice): the PC capability profile is a second FACET of the one existing PC owner, never a second PC owner
+      ["pc_existence", ["existence_contract", "pc_capability_profile"]],
       ["role_registry", ["player_character_binding"]],
       ["temporal_kernel", ["temporal_coordination"]],
       // IM-04 (fourth slice): Population is the sole Unit/Count custodian, one facet

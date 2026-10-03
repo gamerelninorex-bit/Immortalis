@@ -14,6 +14,7 @@ export * from "./gip-fixtures.ts";
 export * from "./in-memory-store.ts";
 export * from "./kti-fixtures.ts";
 export * from "./logistics-fixtures.ts";
+export * from "./pc-capability-fixtures.ts";
 export * from "./population-fixtures.ts";
 export * from "./production-fixtures.ts";
 export * from "./temporal-fixtures.ts";

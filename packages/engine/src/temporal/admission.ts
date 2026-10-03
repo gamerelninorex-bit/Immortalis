@@ -28,6 +28,7 @@ import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts"
 import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { namedActorObjectViolation } from "../actor/declaration.ts";
+import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
 import { epistemicObjectViolation } from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipObjectViolation } from "../gip/declaration.ts";
@@ -137,6 +138,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (logistics) return reject("REFERENCE_INVALID", logistics, { key: w.key });
       const namedActor = namedActorObjectViolation(o, state, true);
       if (namedActor) return reject("REFERENCE_INVALID", namedActor, { key: w.key });
+      const pcCapability = pcCapabilityObjectViolation(o, state, true);
+      if (pcCapability) return reject("REFERENCE_INVALID", pcCapability, { key: w.key });
       const epistemic = epistemicObjectViolation(o, state, true);
       if (epistemic) return reject("REFERENCE_INVALID", epistemic, { key: w.key });
       const kti = ktiObjectViolation(o, state, true);
