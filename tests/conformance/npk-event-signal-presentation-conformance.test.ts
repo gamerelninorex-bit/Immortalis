@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import * as engine from "@immortalis/engine";
 import * as contracts from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 const MODULE = "packages/engine/src/presentation/event-signal.ts";
 const CONTRACT = "packages/contracts/src/presentation.ts";
@@ -208,8 +209,8 @@ describe("IA-17 the presentation contract has no field for sealed, hidden, cogni
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no protocol/MCP/host exposure, NPK scene generation, memory, natural-language input, goal routing, setup/observer projection, PRA, provider, deployment, migration, PF-6/F-028 or Causal Draw change", () => {
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+  it("no protocol/MCP/host exposure beyond the one thirty-seventh-slice read, NPK scene generation, memory, natural-language input, goal routing, setup/observer projection, PRA, provider, deployment, migration, PF-6/F-028 or Causal Draw change", () => {
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     for (const absent of [
       "migrations/manifests/presentation.json",
       "migrations/manifests/projection.json",
@@ -231,7 +232,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       );
   });
 
-  it("the presentation is neither a protocol nor a host surface: the protocol package exports nothing and the module names no tool, endpoint, session or authentication", () => {
+  it("the presentation is neither a protocol nor a host surface itself (the thirty-seventh slice's separate protocol module consumes it): the module names no tool, endpoint, session or authentication", () => {
     const src = identifiers(MODULE) + identifiers(CONTRACT);
     expect(src).not.toMatch(
       /\bmcp\b|\bendpoint\b|\bsession\b|\bauth\w*\b|\btoken\b|\btool\b|\bcampaignId\b/i,

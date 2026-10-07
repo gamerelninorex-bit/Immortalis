@@ -3,7 +3,7 @@
 // already-committed Scope Binding of that same office. Each block names its register ID; governing lock: spec/f027/spec-lock.json
 // (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED (see `partial_evidence`): this slice covers only the aspects it names, and
 // every other F-027 open gate is unchanged.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -28,6 +28,7 @@ import {
   expectedAdapterMethods,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
@@ -388,7 +389,7 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 
   it("no migration, provider, protocol or host surface was added for the Instrument", () => {
     expect(existsSync("migrations/manifests/gip.json")).toBe(false);
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
   });
 });
 

@@ -5,5 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@immortalis/contracts": "workspace:*",
+    "@immortalis/engine": "workspace:*"
   }
 }

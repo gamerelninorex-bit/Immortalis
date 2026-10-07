@@ -57,7 +57,14 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
-  packages/protocol: {}
+  packages/protocol:
+    dependencies:
+      '@immortalis/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@immortalis/engine':
+        specifier: workspace:*
+        version: link:../engine
 
   packages/testkit:
     dependencies:
