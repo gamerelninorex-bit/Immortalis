@@ -220,6 +220,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc-capability",
       "persistence",
       "population",
+      "presentation",
       "production",
       "projection",
       "temporal",

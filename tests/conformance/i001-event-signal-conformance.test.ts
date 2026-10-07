@@ -60,6 +60,7 @@ describe("IA-03 owner exclusivity: the projection adds no owner, facet, key spac
     ).toEqual([
       "EVENT_SIGNAL_DERIVATION_STEPS",
       "deriveEventSignalProjection",
+      "presentEventSignal",
       "traceEventSignalDerivation",
     ]);
     const src = identifiers(MODULE);
@@ -166,11 +167,10 @@ describe("IA-13 / IA-17 the projection contract has no field for sealed, hidden,
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("no NPK/presentation, protocol/MCP, natural-language input, goal routing, setup projection, PRA, cognition, memory, broadcast, provider, deployment, migration, PF-6 or Causal Draw change", () => {
+  it("no NPK scene generation, protocol/MCP, natural-language input, goal routing, setup projection, PRA, cognition, memory, broadcast, provider, deployment, migration, PF-6 or Causal Draw change", () => {
     expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
     for (const absent of [
       "migrations/manifests/projection.json",
-      "packages/engine/src/presentation",
       "packages/engine/src/npk",
       "packages/engine/src/memory",
     ])

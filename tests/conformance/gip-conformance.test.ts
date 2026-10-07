@@ -341,6 +341,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "pc-capability",
       "persistence",
       "population",
+      "presentation",
       "production",
       "projection",
       "temporal",

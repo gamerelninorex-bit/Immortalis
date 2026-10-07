@@ -26,7 +26,8 @@
 // F-027-CD1 Causal Draw foundation contracts (CausalDrawKey, CausalDrawSpecification, the SEALED precommit and result records, the refusal vocabulary), and the
 // I-002 PC Capability Profile / PC Capability Close Receiving Foundation contracts (the received PC capability basis and the persisted PC capability published at the PC Capability Close), and the
 // Existing-Actor World-State Coupling Anchor Foundation contract (the World-State fallback custodian's one current actor↔locus/world coupling fact; a prerequisite only, never the PC handover), and the
-// I-001 Active-PC Event-Signal Projection contract (IM-13/RC-14: the strict, disposable, non-canonical projection of one current Accessible Content Packet; never state).
+// I-001 Active-PC Event-Signal Projection contract (IM-13/RC-14: the strict, disposable, non-canonical projection of one current Accessible Content Packet; never state), and the
+// NPK Event-Signal Presentation contract (IM-14: the strict, disposable, non-canonical rendering of exactly one lawful Event-Signal Projection; never state).
 export * from "./actor-capability.ts";
 export * from "./actor-coupling.ts";
 export * from "./epistemic-access.ts";
@@ -49,6 +50,7 @@ export * from "./logistics.ts";
 export * from "./owner-fact.ts";
 export * from "./pc-capability.ts";
 export * from "./population.ts";
+export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./production.ts";
 export * from "./result.ts";
