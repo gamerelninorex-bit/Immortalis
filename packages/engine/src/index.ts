@@ -29,7 +29,8 @@
 // the CDR-01 gate, secure precommitted entropy, IMMORTALIS_WEIGHTED_FINITE_V1, and the create-only precommit/result records over that same substrate), and the
 // I-002 PC Capability Profile / PC Capability Close Receiving Foundation (IM-07: the PC capability profile facet of the one existing PC owner — one received, already-established
 // durable personal mastery fact, published at the PC Capability Close and read cross-owner only AS-OF-DECLARED-CLOSE, over that same substrate; initial establishment only), and the
-// I-001 Active-PC Event-Signal Projection Foundation (IM-13: one pure, read-only, disposable projection of the one current Accessible Content Packet of the canonically active Player Character; no owner, no write, no time).
+// I-001 Active-PC Event-Signal Projection Foundation (IM-13: one pure, read-only, disposable projection of the one current Accessible Content Packet of the canonically active Player Character; no owner, no write, no time), and the
+// NPK Event-Signal Presentation Foundation (IM-14: one pure, disposable rendering of exactly one lawful Event-Signal Projection; no input but the projection, no owner, no write, no time).
 export * from "./actor/adapter.ts";
 export * from "./actor/admission.ts";
 export * from "./actor/declaration.ts";
@@ -118,6 +119,7 @@ export * from "./world/entity-transition-provider.ts";
 export * from "./world/actor-coupling.ts";
 export * from "./world/actor-coupling-integrity.ts";
 export * from "./projection/event-signal.ts";
+export * from "./presentation/event-signal.ts";
 export * from "./persistence/file-package.ts";
 export * from "./persistence/fs-ops.ts";
 export * from "./persistence/store.ts";
