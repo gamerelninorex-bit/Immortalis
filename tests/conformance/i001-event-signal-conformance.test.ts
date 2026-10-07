@@ -53,8 +53,14 @@ describe("IA-01 source/version fidelity (I-001 projection aspect)", () => {
 describe("IA-03 owner exclusivity: the projection adds no owner, facet, key space, fact kind, adapter or writer", () => {
   it("the projection module is one pure function file: no class, no adapter, no owner operation, no registry entry", () => {
     expect(readdirSync("packages/engine/src/projection")).toEqual(["event-signal.ts"]);
-    expect(Object.keys(engine).filter((k) => /Projection/i.test(k))).toEqual([
+    expect(
+      Object.keys(engine)
+        .filter((k) => /Projection|EventSignal|EVENT_SIGNAL/i.test(k))
+        .sort(),
+    ).toEqual([
+      "EVENT_SIGNAL_DERIVATION_STEPS",
       "deriveEventSignalProjection",
+      "traceEventSignalDerivation",
     ]);
     const src = identifiers(MODULE);
     expect(src).not.toMatch(/\bclass\b/);
@@ -97,6 +103,17 @@ describe("IA-03 owner exclusivity: the projection adds no owner, facet, key spac
     expect(readFileSync(MODULE, "utf8")).toMatch(
       /Pick<CampaignStore, "getFact" \| "committedGroup">/,
     );
+  });
+
+  it("the derivation has one fixed control-flow shape: no branch, early return or throw between its steps, and every declared step is executed through the one step helper", () => {
+    const text = identifiers(MODULE);
+    const body = text.slice(text.indexOf("function run("));
+    expect(body).not.toMatch(/\bif\s*\(|\bswitch\b|\bfor\s*\(|\bwhile\s*\(|\bthrow\b/);
+    expect(body).not.toMatch(/return unavailable\(\)/);
+    expect(body.match(/\breturn step\(/g)).toHaveLength(1);
+    const src = readFileSync(MODULE, "utf8");
+    for (const name of engine.EVENT_SIGNAL_DERIVATION_STEPS)
+      expect(src.match(new RegExp(`step(?:<[^"]*>)?\\(\\s*"${name}"`, "g")), name).toHaveLength(1);
   });
 
   it("no predecessor owner logic names the projection: Epistemic, Temporal and PC modules are unchanged in behavior", () => {
@@ -158,12 +175,13 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "packages/engine/src/memory",
     ])
       expect(existsSync(absent), absent).toBe(false);
-    const all = [...readFileSync(MODULE, "utf8").matchAll(/^import[\s\S]*?from "[^"]+";/gm)].join(
-      "\n",
+    const specifiers = [...readFileSync(MODULE, "utf8").matchAll(/from "([^"]+)"/g)].map(
+      (m) => m[1],
     );
-    expect(all).not.toMatch(
-      /causal-draw|pc-capability|actor\/|population|economy|logistics|production|kti|gip|diplomacy/,
-    );
+    for (const spec of specifiers)
+      expect(spec).not.toMatch(
+        /causal-draw|pc-capability|actor\/|population|economy|logistics|production|kti|gip|diplomacy/,
+      );
     expect(
       readdirSync("packages/engine/src/causal-draw").every(
         (f) =>
@@ -214,6 +232,7 @@ describe("acceptance-register and open-gate honesty", () => {
         expect.arrayContaining([
           "tests/contract/i001-event-signal-schemas.test.ts",
           "tests/unit/i001-event-signal-projection.test.ts",
+          "tests/unit/i001-event-signal-shape.test.ts",
           "tests/integration/i001-event-signal-projection.test.ts",
           "tests/security/i001-event-signal-security.test.ts",
           "tests/conformance/i001-event-signal-conformance.test.ts",

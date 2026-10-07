@@ -10,7 +10,11 @@ import {
   pcCapabilityKey,
   type OwnerFact,
 } from "@immortalis/contracts";
-import { deriveEventSignalProjection, type ProjectionStateView } from "@immortalis/engine";
+import {
+  deriveEventSignalProjection,
+  traceEventSignalDerivation,
+  type ProjectionStateView,
+} from "@immortalis/engine";
 import {
   ACTOR_SMITH,
   CAP_METALWORKING,
@@ -173,6 +177,40 @@ describe("one opaque refusal: no code, message, detail or shape distinguishes a 
     expect(JSON.stringify(project(viewOf(t), EVENT_SIGNAL))).toBe(
       JSON.stringify(project(viewOf(t), "never-existed")),
     );
+  });
+});
+
+describe("no concealed cause leaks through the read/control-flow shape (RC-14 timing/control-flow)", () => {
+  it("a stored non-current packet and a never-existing event make the same reads and run the same steps", async () => {
+    const t = await seedSignal();
+    await formPcArrival(t);
+    await formPcArrival(t, {
+      eventId: EVENT_OTHER,
+      consumer: "c2",
+      tx: "tx-2",
+      continues: "tx-1",
+      n: 10,
+      boundaryAt: 170,
+    });
+    const run = (eventId: string) => {
+      const calls: string[] = [];
+      const view: ProjectionStateView = {
+        getFact: (k) => {
+          calls.push("getFact");
+          return viewOf(t).getFact(k);
+        },
+        committedGroup: (id) => {
+          calls.push("committedGroup");
+          return viewOf(t).committedGroup(id);
+        },
+      };
+      const traced = traceEventSignalDerivation(view, { event_id: eventId, recipient_id: PC });
+      return { calls, steps: traced.steps, result: JSON.stringify(traced.result) };
+    };
+    const stored = run(EVENT_SIGNAL);
+    const never = run("never-existed");
+    expect(stored.calls).toHaveLength(8);
+    expect(stored).toEqual(never);
   });
 });
 

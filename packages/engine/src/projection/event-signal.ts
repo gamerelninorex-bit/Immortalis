@@ -6,6 +6,7 @@ import {
   EventSignalRequestSchema,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_TEMPORAL_KERNEL,
+  PLAYER_CHARACTER_BINDING_KEY,
   PROJECTION_EVENT_SIGNAL,
   PROJECTION_UNAVAILABLE,
   PROJECTION_UNAVAILABLE_MESSAGE,
@@ -19,8 +20,10 @@ import {
   compareTime,
   fail,
   ok,
+  populationLedgerKey,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
+  type AccessEvent,
   type EventSignalProjection,
   type OwnerFact,
   type Result,
@@ -63,6 +66,17 @@ import { stageGroupId, transactionAuthorityGroupId } from "../temporal/identity.
  * current arrival, a tampered or unlawful input, malformed input — yields the SAME refusal (`PROJECTION_UNAVAILABLE`, one
  * message, no details), so neither an error code, a message nor a detail distinguishes a hidden fact from an absent one
  * (I-001 §4 step 3; RC-14: "internal validator failures ... do not leak").
+ *
+ * The control flow is ALSO the same for every cause (RC-14 / IM-13: concealed causes do not leak through timing or
+ * control-flow). The derivation has ONE fixed shape: exactly eight identity reads (seven `getFact`, one `committedGroup`) in
+ * one fixed order, then every named step runs, in one fixed order, whatever any earlier step found. There is no early
+ * return, no short-circuit between steps, and no read whose existence depends on an earlier result: where a read's identity
+ * would depend on a value that is absent or invalid, a fixed sentinel identity (one that can name no committed fact) is read
+ * instead, so the read still happens. Each step is individually guarded, so an internal failure or a throwing view degrades
+ * that step to "not satisfied" and the remaining steps still run. Only after every step has run is one verdict taken. The
+ * ordered step names are exported (`EVENT_SIGNAL_DERIVATION_STEPS`) and the steps actually executed are observable through
+ * `traceEventSignalDerivation`, so tests assert the shape directly. This is a deterministic bounded shape, not a wall-clock
+ * constant-time claim: the cost of validating differently sized authored text is not equalized.
  */
 
 /** Read-only access to committed facts by identity: the only capability the projection is given. */
@@ -72,11 +86,68 @@ export type EventSignalErrorCode = typeof PROJECTION_UNAVAILABLE;
 
 const unavailable = () => fail(PROJECTION_UNAVAILABLE, PROJECTION_UNAVAILABLE_MESSAGE);
 
-/** The fact, only if it is committed and written by the owner that owns that key space. */
-const ownedFact = (view: ProjectionStateView, key: string, owner: string): OwnerFact | null => {
-  const fact = view.getFact(key);
-  return fact && fact.key === key && fact.owner === owner ? fact : null;
+/**
+ * The one fixed shape of every derivation, in execution order: the request is parsed, the eight identity reads are made,
+ * the four committed values are parsed, the four checks are evaluated, the candidate projection is composed and the verdict
+ * is taken. Every name appears exactly once in every run, for every cause.
+ */
+export const EVENT_SIGNAL_DERIVATION_STEPS = [
+  "request",
+  "read:binding",
+  "read:ledger",
+  "read:event",
+  "read:packet",
+  "read:state",
+  "read:transaction",
+  "read:authority",
+  "read:formation",
+  "parse:event",
+  "parse:packet",
+  "parse:state",
+  "parse:transaction",
+  "check:recipient",
+  "check:packet",
+  "check:arrival",
+  "check:formation",
+  "compose",
+  "verdict",
+] as const;
+export type EventSignalDerivationStep = (typeof EVENT_SIGNAL_DERIVATION_STEPS)[number];
+
+/**
+ * Sentinel identities: an EntityId must start with an alphanumeric character, so `-` can never be a committed event, recipient
+ * or transaction identity. A read that would otherwise depend on an absent or invalid value reads this instead, so the read
+ * still occurs (and finds nothing). They are never returned or observable by a caller.
+ */
+const ABSENT_ID = "-";
+/** A fixed, valid-shaped stand-in event so the recipient-boundary evaluation runs identically with or without a real event. */
+const ABSENT_EVENT: AccessEvent = {
+  event_id: ABSENT_ID,
+  mode: "BOUNDED_SHARED_ACCESS",
+  participants: [ABSENT_ID],
+  source: { owner: ABSENT_ID, fact_key: ABSENT_ID, version: 1 },
+  channel: "SPEECH",
+  established_at: { unit: ABSENT_ID, value: 0 },
+  payload: { referent: ABSENT_ID, content: ABSENT_ID, presented_attribution: null },
+  representation: null,
+  recipient_role: RECIPIENT_ROLE_PLAYER_CHARACTER,
 };
+
+/** The fact, only if it is committed under exactly this key and written by the owner that owns that key space. */
+const owned = (fact: OwnerFact | undefined, key: string, owner: string): OwnerFact | null =>
+  fact && fact.key === key && fact.owner === owner ? fact : null;
+
+/** The identity of the latest sealed transaction named by the temporal state, or the sentinel when there is none. */
+const lastTransactionOf = (stateFact: OwnerFact | undefined): string => {
+  const state = TemporalStateSchema.safeParse(stateFact?.value);
+  return state.success && state.data.last_transaction !== null
+    ? state.data.last_transaction
+    : ABSENT_ID;
+};
+
+/** Every condition is evaluated before any is consulted: a conjunction with no short-circuit between its operands. */
+const all = (...conditions: boolean[]): boolean =>
+  conditions.reduce((a, c) => (a ? c : false), true);
 
 /**
  * Derives the Event-Signal Projection of one Accessible Content Packet, or refuses with the one opaque refusal.
@@ -86,109 +157,180 @@ export function deriveEventSignalProjection(
   view: ProjectionStateView,
   request: unknown,
 ): Result<EventSignalProjection, EventSignalErrorCode> {
-  try {
-    return derive(view, request);
-  } catch {
-    // an internal failure is never an observable cause (RC-14): it is the same refusal
-    return unavailable();
-  }
+  return run(view, request, []);
 }
 
-function derive(
+/**
+ * The same derivation, additionally returning the ordered names of the steps it actually executed. It exists so the
+ * control-flow shape can be asserted directly (never wall-clock timing); it returns the identical result and makes the
+ * identical reads.
+ */
+export function traceEventSignalDerivation(
   view: ProjectionStateView,
   request: unknown,
+): {
+  readonly result: Result<EventSignalProjection, EventSignalErrorCode>;
+  readonly steps: readonly EventSignalDerivationStep[];
+} {
+  const steps: EventSignalDerivationStep[] = [];
+  return { result: run(view, request, steps), steps };
+}
+
+function run(
+  view: ProjectionStateView,
+  request: unknown,
+  trace: EventSignalDerivationStep[],
 ): Result<EventSignalProjection, EventSignalErrorCode> {
-  const req = EventSignalRequestSchema.safeParse(request);
-  if (!req.success) return unavailable();
-  const { event_id: eventId, recipient_id: recipient } = req.data;
-  const facts = {
-    get: (k: string) => view.getFact(k),
-    has: (k: string) => view.getFact(k) !== undefined,
+  /** Executes one named step unconditionally; an internal failure degrades that step to its fallback, never the flow. */
+  const step = <T>(name: EventSignalDerivationStep, fallback: T, fn: () => T): T => {
+    trace.push(name);
+    try {
+      return fn();
+    } catch {
+      return fallback;
+    }
   };
 
-  // 1. the engine-side event is read ONLY to classify the packet's recipient path; nothing of it reaches the output.
-  //    It must be the active-PC path (the event asserts `role.player_character`), and the committed Role Registry binding
-  //    must still name the recipient NOW (I-001 §4 step 1: resolve the active viewpoint first). A Named-Actor packet is
-  //    never projected as the PC's, and a PC who is no longer (or never was) the bound one gets nothing.
-  const eventFact = ownedFact(view, accessEventKey(eventId), OWNER_EPISTEMIC_ACCESS);
-  const event = eventFact ? AccessEventSchema.safeParse(eventFact.value) : undefined;
-  if (!event?.success || event.data.event_id !== eventId) return unavailable();
-  if (!isPcRecipientEvent(event.data) || eventRecipient(event.data) !== recipient)
-    return unavailable();
-  if (recipientBoundaryViolation(facts, event.data) !== null) return unavailable();
-
-  // 2. the actor-safe packet, by identity: the one surface an actor-side consumer may read (F-014D §2.1, §18)
-  const packetKey = accessPacketKey(eventId, recipient);
-  const packetFact = ownedFact(view, packetKey, OWNER_EPISTEMIC_ACCESS);
-  const packet = packetFact ? AccessiblePacketSchema.safeParse(packetFact.value) : undefined;
-  if (!packetFact || !packet?.success) return unavailable();
-  const p = packet.data;
-  if (packetFact.secrecy !== ACCESS_CLASS_ACTOR_ACCESSIBLE || p.recipient !== recipient)
-    return unavailable();
-  // the packet is exactly the event's received route and payload (a tampered packet is no arrival)
-  const e = event.data;
-  if (
-    p.payload.referent !== e.payload.referent ||
-    p.payload.content !== e.payload.content ||
-    p.presented_attribution !== e.payload.presented_attribution ||
-    p.access.channel !== e.channel ||
-    !canonicalEqual(p.access.established_at, e.established_at)
-  ) {
-    return unavailable();
-  }
-
-  // 3. current arrival: the packet was formed by a stage of the latest sealed resolution transaction (see header)
-  const stateFact = ownedFact(view, TEMPORAL_STATE_KEY, OWNER_TEMPORAL_KERNEL);
-  const state = stateFact ? TemporalStateSchema.safeParse(stateFact.value) : undefined;
-  if (!state?.success || state.data.last_transaction === null) return unavailable();
-  const txFact = ownedFact(
-    view,
-    temporalTransactionKey(state.data.last_transaction),
-    OWNER_TEMPORAL_KERNEL,
-  );
-  const tx = txFact ? ResolutionTransactionSchema.safeParse(txFact.value) : undefined;
-  if (!tx?.success || tx.data.transaction_id !== state.data.last_transaction) return unavailable();
-  if (compareTime(tx.data.outcome.actual_stop, state.data.canonical_time) !== 0)
-    return unavailable();
-  // an arrival cannot lie in the future of the canonical clock
-  const arrived = compareTime(p.access.established_at, state.data.canonical_time);
-  if (arrived !== -1 && arrived !== 0) return unavailable();
-  const stage = accessPacketStage(eventId, recipient);
-  const formed = tx.data.stages.find((s) => canonicalEqual(s.stage, stage));
-  if (
-    !formed ||
-    formed.group_id !== stageGroupId(stage) ||
-    formed.group_id !== packetFact.provenance.group_id ||
-    !formed.writes.some((w) => w.key === packetKey && w.version === packetFact.version)
-  ) {
-    return unavailable();
-  }
-  // ... and it was FORMED by that transaction, not merely re-engaged (adopted by identity) by it: the committed formation
-  // group's last dependency is the durable authority of the transaction that opened it
-  const authorityGroup = transactionAuthorityGroupId(state.data.last_transaction);
-  const authority = ownedFact(
-    view,
-    temporalTransactionAuthorityKey(state.data.last_transaction),
-    OWNER_TEMPORAL_KERNEL,
-  );
-  const group = view.committedGroup(packetFact.provenance.intent_id);
-  if (
-    authority?.provenance.group_id !== authorityGroup ||
-    !group ||
-    group.group_id !== formed.group_id ||
-    group.depends_on[group.depends_on.length - 1] !== authorityGroup
-  ) {
-    return unavailable();
-  }
-
-  // 4. compose the smallest faithful projection, from the actor-safe packet alone (I-001 §4 step 4; §9)
-  const projection = EventSignalProjectionSchema.safeParse({
-    projection: PROJECTION_EVENT_SIGNAL,
-    disposable: true,
-    viewpoint: { role: RECIPIENT_ROLE_PLAYER_CHARACTER, entity_id: p.recipient },
-    contact: { channel: p.access.channel },
-    payload: { referent: p.payload.referent, content: p.payload.content },
-    presented_attribution: p.presented_attribution,
+  const req = step<{ event_id: string; recipient_id: string } | null>("request", null, () => {
+    const parsed = EventSignalRequestSchema.safeParse(request);
+    return parsed.success ? parsed.data : null;
   });
-  return projection.success ? ok(projection.data) : unavailable();
+  const eventId = req?.event_id ?? ABSENT_ID;
+  const recipient = req?.recipient_id ?? ABSENT_ID;
+  const packetKey = accessPacketKey(eventId, recipient);
+
+  // -- the eight identity reads: always these, always in this order ----------------------------------------------------
+  const binding = step("read:binding", undefined, () => view.getFact(PLAYER_CHARACTER_BINDING_KEY));
+  const ledger = step("read:ledger", undefined, () => view.getFact(populationLedgerKey(recipient)));
+  const eventFact = step("read:event", undefined, () => view.getFact(accessEventKey(eventId)));
+  const packetFact = step("read:packet", undefined, () => view.getFact(packetKey));
+  const stateFact = step("read:state", undefined, () => view.getFact(TEMPORAL_STATE_KEY));
+  const txFact = step("read:transaction", undefined, () =>
+    view.getFact(temporalTransactionKey(lastTransactionOf(stateFact))),
+  );
+  const authorityFact = step("read:authority", undefined, () =>
+    view.getFact(temporalTransactionAuthorityKey(lastTransactionOf(stateFact))),
+  );
+  const formationGroup = step("read:formation", null, () =>
+    view.committedGroup(packetFact?.provenance.intent_id ?? ABSENT_ID),
+  );
+
+  // -- parse every committed value, whether or not it exists ----------------------------------------------------------
+  const event = step("parse:event", undefined, () => {
+    const o = owned(eventFact, accessEventKey(eventId), OWNER_EPISTEMIC_ACCESS);
+    const parsed = AccessEventSchema.safeParse(o?.value);
+    return parsed.success && o ? parsed.data : undefined;
+  });
+  const packet = step("parse:packet", undefined, () => {
+    const o = owned(packetFact, packetKey, OWNER_EPISTEMIC_ACCESS);
+    const parsed = AccessiblePacketSchema.safeParse(o?.value);
+    return parsed.success && o ? parsed.data : undefined;
+  });
+  const state = step("parse:state", undefined, () => {
+    const o = owned(stateFact, TEMPORAL_STATE_KEY, OWNER_TEMPORAL_KERNEL);
+    const parsed = TemporalStateSchema.safeParse(o?.value);
+    return parsed.success && o ? parsed.data : undefined;
+  });
+  const lastTransaction = lastTransactionOf(stateFact);
+  const tx = step("parse:transaction", undefined, () => {
+    const o = owned(txFact, temporalTransactionKey(lastTransaction), OWNER_TEMPORAL_KERNEL);
+    const parsed = ResolutionTransactionSchema.safeParse(o?.value);
+    return parsed.success && o ? parsed.data : undefined;
+  });
+
+  // -- the four checks: each runs for every cause ---------------------------------------------------------------------
+  // 1. the engine-side event classifies the recipient path (it is never projected); the committed Role Registry binding must
+  //    name the recipient NOW (I-001 §4 step 1). A Named-Actor packet is never the PC's.
+  const recipientOk = step("check:recipient", false, () => {
+    const e = event ?? ABSENT_EVENT;
+    const prefetched = {
+      get: (k: string) => (k === PLAYER_CHARACTER_BINDING_KEY ? binding : undefined),
+      has: (k: string) => k === populationLedgerKey(recipient) && ledger !== undefined,
+    };
+    return all(
+      event !== undefined,
+      e.event_id === eventId,
+      isPcRecipientEvent(e),
+      eventRecipient(e) === recipient,
+      recipientBoundaryViolation(prefetched, e) === null,
+    );
+  });
+  // 2. the actor-safe packet is the only content source and is exactly the event's received route and payload
+  const packetOk = step("check:packet", false, () => {
+    const e = event ?? ABSENT_EVENT;
+    const p = packet;
+    return all(
+      p !== undefined,
+      owned(packetFact, packetKey, OWNER_EPISTEMIC_ACCESS)?.secrecy ===
+        ACCESS_CLASS_ACTOR_ACCESSIBLE,
+      p?.recipient === recipient,
+      p?.payload.referent === e.payload.referent,
+      p?.payload.content === e.payload.content,
+      p?.presented_attribution === e.payload.presented_attribution,
+      p?.access.channel === e.channel,
+      p !== undefined && canonicalEqual(p.access.established_at, e.established_at),
+    );
+  });
+  // 3. current arrival: the packet's formation is recorded by the latest sealed resolution transaction, and the arrival does
+  //    not lie in the future of the canonical clock (see header)
+  const stage = accessPacketStage(eventId, recipient);
+  const formed = tx?.stages.find((s) => canonicalEqual(s.stage, stage));
+  const arrivalOk = step("check:arrival", false, () =>
+    all(
+      state !== undefined,
+      state?.last_transaction !== null,
+      tx !== undefined,
+      tx?.transaction_id === lastTransaction,
+      state !== undefined &&
+        tx !== undefined &&
+        compareTime(tx.outcome.actual_stop, state.canonical_time) === 0,
+      state !== undefined &&
+        packet !== undefined &&
+        [-1, 0].includes(compareTime(packet.access.established_at, state.canonical_time) ?? 2),
+      formed !== undefined,
+      formed?.group_id === stageGroupId(stage),
+      formed?.group_id === packetFact?.provenance.group_id,
+      formed?.writes.some((w) => w.key === packetKey && w.version === packetFact?.version) === true,
+    ),
+  );
+  // 4. ... and it was FORMED by that transaction, not merely re-engaged (adopted by identity) by it: the committed formation
+  //    group's last dependency is the durable authority of the transaction that opened it
+  const formationOk = step("check:formation", false, () => {
+    const authorityGroup = transactionAuthorityGroupId(lastTransaction);
+    const authority = owned(
+      authorityFact,
+      temporalTransactionAuthorityKey(lastTransaction),
+      OWNER_TEMPORAL_KERNEL,
+    );
+    return all(
+      authority?.provenance.group_id === authorityGroup,
+      formationGroup !== null,
+      formationGroup?.group_id === formed?.group_id,
+      formationGroup?.depends_on[(formationGroup?.depends_on.length ?? 1) - 1] === authorityGroup,
+    );
+  });
+
+  // -- the candidate projection is composed for every cause (from the packet alone, or from a fixed stand-in), then judged --
+  const candidate = step("compose", undefined, () => {
+    const parsed = EventSignalProjectionSchema.safeParse({
+      projection: PROJECTION_EVENT_SIGNAL,
+      disposable: true,
+      viewpoint: {
+        role: RECIPIENT_ROLE_PLAYER_CHARACTER,
+        entity_id: packet?.recipient ?? ABSENT_ID,
+      },
+      contact: { channel: packet?.access.channel ?? ABSENT_EVENT.channel },
+      payload: {
+        referent: packet?.payload.referent ?? ABSENT_ID,
+        content: packet?.payload.content ?? ABSENT_ID,
+      },
+      presented_attribution: packet?.presented_attribution ?? null,
+    });
+    return parsed.success ? parsed.data : undefined;
+  });
+  return step("verdict", unavailable(), () =>
+    candidate !== undefined && all(req !== null, recipientOk, packetOk, arrivalOk, formationOk)
+      ? ok(candidate)
+      : unavailable(),
+  );
 }
