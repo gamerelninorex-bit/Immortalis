@@ -53,6 +53,7 @@ export * from "./population.ts";
 export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./production.ts";
+export * from "./protocol.ts";
 export * from "./result.ts";
 export * from "./source-ref.ts";
 export * from "./spec-identity-schema.ts";

@@ -6,11 +6,14 @@ import * as protocol from "@immortalis/protocol";
 import * as testkit from "@immortalis/testkit";
 
 describe("workspace wiring", () => {
-  it("resolves all four packages; protocol still exposes nothing (no host operations exist)", () => {
+  it("resolves all four packages; protocol exposes exactly the trusted-context binder and the one host read operation", () => {
     expect(Object.keys(contracts).length).toBeGreaterThan(0);
     expect(Object.keys(engine).length).toBeGreaterThan(0);
     expect(Object.keys(testkit).length).toBeGreaterThan(0);
-    expect(Object.keys(protocol)).toEqual([]);
+    expect(Object.keys(protocol).sort()).toEqual([
+      "bindTrustedEventSignalContext",
+      "readCurrentEventSignalPresentation",
+    ]);
   });
 
   it("pins the runtime declared in .nvmrc to the engines range", () => {

@@ -21,6 +21,7 @@ import {
   expectedAdapterMethods,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -338,7 +339,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "partition.ts",
       "providers.ts",
     ]);
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
   });
 
   it("the campaign package format and persistence contract gained no second journal, save or recovery identity", () => {

@@ -30,6 +30,7 @@ import {
   expectedOwnerFacetSet,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -371,7 +372,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "temporal",
       "world",
     ]);
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
   });
 
   it("no cognition, personality, goal, relationship, belief, mandate, development, handover, transfer, deferred-derivation, Revelation, KTI, epistemic, collective, institution, Population consequence, body or lifecycle construct exists in the PC capability modules", () => {

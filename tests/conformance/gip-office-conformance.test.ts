@@ -3,7 +3,7 @@
 // register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The rows stay NOT_IMPLEMENTED/BLOCKED (see
 // `partial_evidence`): this slice covers only the aspects it names, and every other F-027 open gate is unchanged.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,6 +20,7 @@ import { decisionBodyOfficeAuthorityLocus, officeAuthorityLocus } from "@immorta
 import { code, gates, lock, register } from "../support/f027.ts";
 import { EXPECTED_LEGACY_RULE_KIND_IDS, expectedKindIds } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
@@ -205,7 +206,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 
   it("no migration, provider, protocol or host surface was added for the office", () => {
     expect(existsSync("migrations/manifests/gip.json")).toBe(false);
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
   });
 });
 

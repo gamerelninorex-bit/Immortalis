@@ -24,6 +24,7 @@ import {
   expectedAdapterMethods,
 } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -347,7 +348,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "temporal",
       "world",
     ]);
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     for (const forbidden of ["migrations/manifests/gip.json"])
       expect(existsSync(forbidden)).toBe(false);
   });

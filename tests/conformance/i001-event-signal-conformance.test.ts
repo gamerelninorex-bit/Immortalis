@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as engine from "@immortalis/engine";
 import * as contracts from "@immortalis/contracts";
 import { code, gates, lock, register } from "../support/f027.ts";
+import { PROTOCOL_ONLY_EVENT_SIGNAL_READ, protocolIndexExports } from "../support/protocol.ts";
 
 const MODULE = "packages/engine/src/projection/event-signal.ts";
 const CONTRACT = "packages/contracts/src/projection.ts";
@@ -168,7 +169,7 @@ describe("IA-13 / IA-17 the projection contract has no field for sealed, hidden,
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
   it("no NPK scene generation, protocol/MCP, natural-language input, goal routing, setup projection, PRA, cognition, memory, broadcast, provider, deployment, migration, PF-6 or Causal Draw change", () => {
-    expect(readFileSync("packages/protocol/src/index.ts", "utf8")).not.toMatch(/export (?!\{\})/);
+    expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     for (const absent of [
       "migrations/manifests/projection.json",
       "packages/engine/src/npk",
