@@ -304,7 +304,7 @@ describe("IA-23 / CAL-01 temporal approximation calibration: not used, not inven
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the engine has exactly the commit, economy, owners, persistence, population, production, temporal and world modules — no actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
+  it("the engine has exactly the commit, economy, owners, persistence, population, production, projection, temporal and world modules — no actor, health, military, epistemic, recurrence, scheduler, host or provider layer", () => {
     expect(
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
@@ -324,6 +324,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "persistence",
       "population",
       "production",
+      "projection",
       "temporal",
       "world",
     ]);
