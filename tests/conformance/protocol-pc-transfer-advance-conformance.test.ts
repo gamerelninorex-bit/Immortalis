@@ -101,6 +101,7 @@ describe("existing owners, the Temporal kernel, the relocation gateway and the f
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
+      "null-pc-ooc-advance.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

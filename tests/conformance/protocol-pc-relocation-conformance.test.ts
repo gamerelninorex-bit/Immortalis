@@ -87,6 +87,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
+      "null-pc-ooc-advance.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
