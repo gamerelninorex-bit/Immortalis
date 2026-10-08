@@ -241,6 +241,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "entity-transition.ts",
       "fallback-custody.ts",
       "integrity.ts",
+      "pc-locus-custody-integrity.ts",
+      "pc-locus-custody.ts",
     ]);
     expect(readdirSync("packages/engine/src/actor").sort()).toEqual([
       "adapter.ts",

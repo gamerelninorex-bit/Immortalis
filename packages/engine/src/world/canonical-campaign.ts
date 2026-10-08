@@ -7,6 +7,8 @@ import {
   BindingTargetSchema,
   ExistingActorCouplingSchema,
   ExistingActorCouplingTargetSchema,
+  PcPhysicalLocusCustodySchema,
+  PcPhysicalLocusCustodyTargetSchema,
   HandoverTargetSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
@@ -18,10 +20,12 @@ import {
   pcExistenceContractKey,
   worldActorCouplingKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
   type CommitGroup,
   type ExistenceContract,
   type ExistingActorCoupling,
+  type PcPhysicalLocusCustody,
   type OwnerFact,
   type PlayerCharacterBinding,
   type Publication,
@@ -63,6 +67,8 @@ import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.t
 import { expectedHandoverMigration } from "../owners/admission.ts";
 import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
+import { derivePcPhysicalLocusCustody } from "./pc-locus-custody.ts";
+import { verifyPcPhysicalLocusCustodyIntegrity } from "./pc-locus-custody-integrity.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
 import { verifyCanonicalIntegrity, type IntegrityViolation } from "./integrity.ts";
 
@@ -109,6 +115,14 @@ export interface HandoverExistingActorInput extends Publication {
   readonly pc_id: string;
   readonly world_id: string;
   readonly locus_id: string;
+}
+
+/**
+ * What a post-handover physical-locus custody establishment names: the canonical PC identity only. There is no world, locus,
+ * placement, destination or movement field: the stationary locus is read from the handover's consumed coupling.
+ */
+export interface EstablishPcLocusCustodyInput extends Publication {
+  readonly pc_id: string;
 }
 
 export type CanonicalCommitCode = StoreCommitErrorCode | "INPUT_INVALID";
@@ -404,6 +418,41 @@ export class CanonicalCampaign {
     );
   }
 
+  /**
+   * World-State fallback custody: the ONE authoritative stationary current physical locus of the ACTIVE Player Character,
+   * established immediately after the completed Existing-Actor → PC handover (frozen Post-Handover Physical Locus Ownership
+   * contract §§4–7, 9, 13). The locus is taken only from the handover's consumed `world_actor_coupling` (never from the
+   * binding's referent, never from the caller); the binding and the coupling are read and depended on, never rewritten. It is
+   * rejected unless the active binding is the lawful completed handover of this PC, and it moves, requests and dispatches
+   * nothing: there is no later mutation, relocation or Logistics admission here.
+   */
+  establishPcPhysicalLocusCustody(
+    input: EstablishPcLocusCustodyInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, ...named } = input;
+    const target = PcPhysicalLocusCustodyTargetSchema.safeParse(named);
+    if (!target.success) return Promise.resolve(inputInvalid("custody target", target.error));
+    const derived = derivePcPhysicalLocusCustody(target.data.pc_id, this.store);
+    if (!derived.ok) {
+      return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    }
+    const custody = PcPhysicalLocusCustodySchema.safeParse(derived.value);
+    if (!custody.success) return Promise.resolve(inputInvalid("custody", custody.error));
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "world_pc_locus_custody",
+      worldPcLocusCustodyKey(target.data.pc_id),
+      custody.data,
+      [
+        pcExistenceContractKey(target.data.pc_id),
+        PLAYER_CHARACTER_BINDING_KEY,
+        worldActorCouplingKey(target.data.pc_id),
+        custody.data.stationary_locus.world.fact_key,
+        custody.data.stationary_locus.locus.fact_key,
+      ],
+    );
+  }
+
   // -- reads (typed, by identity) ---------------------------------------------------------------
 
   world(worldId: string): Typed<WorldProfile> | undefined {
@@ -418,6 +467,14 @@ export class CanonicalCampaign {
   /** The actor's one authoritative current coupling to a world locus, or undefined when none is established. */
   existingActorCoupling(actorId: string): Typed<ExistingActorCoupling> | undefined {
     return this.#typed(worldActorCouplingKey(actorId), ExistingActorCouplingSchema);
+  }
+  /**
+   * The active PC's one stationary physical-locus custody record, or undefined when none is established. This (while stationary)
+   * is the only current-locus answer by PC identity: it never falls back to the Role Registry binding's referent or to the
+   * consumed coupling, which are provenance and not current physical truth.
+   */
+  pcPhysicalLocusCustody(pcId: string): Typed<PcPhysicalLocusCustody> | undefined {
+    return this.#typed(worldPcLocusCustodyKey(pcId), PcPhysicalLocusCustodySchema);
   }
   /** The operative binding, or undefined for the NULL state (no active PC). */
   binding(): Typed<PlayerCharacterBinding> | undefined {
@@ -500,6 +557,7 @@ function verifyAll(
     ...verifyEconomyIntegrity(store),
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),
+    ...verifyPcPhysicalLocusCustodyIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),

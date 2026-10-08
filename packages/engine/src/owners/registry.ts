@@ -75,6 +75,7 @@ import {
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  PcPhysicalLocusCustodySchema,
   PopulationBasisSchema,
   ReconciliationCloseSchema,
   ResolutionTransactionSchema,
@@ -230,6 +231,7 @@ export const PRODUCTION_FACT_KIND_IDS = [
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
+export const WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS = ["world_pc_locus_custody"] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -283,6 +285,7 @@ export type FactKindId =
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
+  | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
 
@@ -700,6 +703,50 @@ export const WORLD_ACTOR_COUPLING_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world-state/actor/${ID}/coupling$`),
     valueSchema: ExistingActorCouplingSchema,
     rule: WORLD_ACTOR_COUPLING_RULE,
+  },
+];
+
+const PC_LOCUS_CONTRACT_LINEAGE =
+  "ACTIVE-PC POST-HANDOVER PHYSICAL LOCUS OWNERSHIP & RELOCATION CONTRACT (Blue bounded design resolution, Red-cleared, Sovereign-ratified and frozen), frozen pin 2026-10-08T01:25:36.611Z (https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d), cited as the ownership rule only (§4 ownership matrix, §5 Role Registry locus semantics: the binding's coupling.world/coupling.locus is a binding-time referent, never current physical truth; §6 the consumed world_actor_coupling stays immutable provenance; §7 World-State fallback custody is the lawful owner class of the active PC's objective physical locus; §9 rival-current-locus invariant; §13 persistence and custody) and NOT a spec-lock pin";
+
+/**
+ * The World-State fallback custodian's one stationary current physical-locus record of the ACTIVE Player Character, established
+ * after the completed Existing-Actor → PC handover (IM-03): WG "Ownership Guards — World Generation May Own: ... world-side
+ * environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem" and "F-016
+ * Ratified Fallback Objective Physical-Entity Custody" (physical/entity identity or reference; continuity-dependency binding),
+ * with WS-006 / F-014A v3.3 §6 (physical location is a world/entity-side fact, never an actor-side or control-binding record),
+ * IR §5 item 3 / §17 (world placement → World owner), I-002 §4.3 (position is not I-002 state) and the frozen Post-Handover
+ * Physical Locus Ownership contract (the lineage constant above).
+ */
+export const WORLD_PC_LOCUS_CUSTODY_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact: physical/entity identity or reference, continuity-dependency binding); Interface Handoffs — To Insertion/Reconciliation (latent/realized local state needed for coupling)",
+  [
+    WS006_ACTOR_COUPLING_LINEAGE,
+    HANDOVER_SEAM_LINEAGE,
+    PC_LOCUS_CONTRACT_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * SEALED: one stationary physical-locus custody record per PC identity, create-only. Relocation needs a successor mechanism that
+ * does not exist, so a second record is a version conflict, never a sibling truth. It is the custodian's own fact kind (same
+ * owner and facet as the fallback entity, its transition and the actor coupling): it is NOT a fallback physical entity, no
+ * Production durable path is used, and it never touches the Role Registry binding or the consumed actor coupling.
+ */
+export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_pc_locus_custody",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/pc/${ID}/locus-custody$`),
+    valueSchema: PcPhysicalLocusCustodySchema,
+    rule: WORLD_PC_LOCUS_CUSTODY_RULE,
   },
 ];
 
@@ -1611,6 +1658,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
+  ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,

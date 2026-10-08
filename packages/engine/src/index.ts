@@ -118,6 +118,8 @@ export * from "./world/entity-transition-integrity.ts";
 export * from "./world/entity-transition-provider.ts";
 export * from "./world/actor-coupling.ts";
 export * from "./world/actor-coupling-integrity.ts";
+export * from "./world/pc-locus-custody.ts";
+export * from "./world/pc-locus-custody-integrity.ts";
 export * from "./projection/event-signal.ts";
 export * from "./presentation/event-signal.ts";
 export * from "./persistence/file-package.ts";

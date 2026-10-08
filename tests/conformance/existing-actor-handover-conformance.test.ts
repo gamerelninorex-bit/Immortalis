@@ -120,6 +120,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "entity-transition.ts",
       "fallback-custody.ts",
       "integrity.ts",
+      "pc-locus-custody-integrity.ts",
+      "pc-locus-custody.ts",
     ]);
   });
 
