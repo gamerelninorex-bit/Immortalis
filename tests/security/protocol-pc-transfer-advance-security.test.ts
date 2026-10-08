@@ -197,7 +197,7 @@ describe("IA-19 / IA-20: every refusal is the same refusal, and a success reveal
     const d = await relocated();
     await must(advanceToDelivery(d, "tx-foreign"));
     refusals.add(await call(trustedAdvance(d), ADVANCE_REQUEST()));
-    // a held remainder offered a "new" choice that re-uses the previous choice's trigger, and a conflicting identity
+    // a held remainder offered to a wrong PC, and a conflicting identity
     const e = await relocated();
     const restore = refuseDeliveryStage(e);
     expect(await call(trustedAdvance(e), ADVANCE_REQUEST())).toBe(OK);
@@ -205,9 +205,8 @@ describe("IA-19 / IA-20: every refusal is the same refusal, and a success reveal
     refusals.add(
       await call(
         trustedAdvance(e, {
-          transaction: advanceTransaction("tx-pc-second-choice", {
-            trigger: advanceTransaction().trigger,
-          }),
+          pc_id: "pc-someone-else",
+          transaction: advanceTransaction("tx-pc-second-choice"),
         }),
         ADVANCE_REQUEST(),
       ),

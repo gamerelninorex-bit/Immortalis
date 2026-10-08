@@ -294,7 +294,7 @@ describe("acceptance 3: every unlawful, stale or unfounded attempt fails closed 
     expect(authorityCensus(s)).toMatchObject({ destination: 1, total: 1 });
   });
 
-  it("a dependency the kernel cannot honestly resolve stops the transaction before delivery: committed as a transaction, never as an arrival, and a held continuation is not abandoned", async () => {
+  it("a dependency the kernel cannot honestly resolve stops the transaction before delivery: committed as a transaction, never as an arrival, and the held continuation is not abandoned by a replay", async () => {
     const s = await relocated();
     const restore = refuseDeliveryStage(s);
     expect(await advance(trustedAdvance(s))).toEqual(ADVANCE_COMMITTED);
@@ -313,20 +313,9 @@ describe("acceptance 3: every unlawful, stale or unfounded attempt fails closed 
     expect(authorityCensus(s)).toMatchObject({ logistics: 1, total: 1 });
     expect(s.coordinator.state()!.value.continuation).not.toBeNull();
     expect(s.coordinator.boundaryIndex().entries).toHaveLength(1);
-    // the same choice re-presented replays the same transaction and writes nothing; the held remainder is never abandoned, and a
-    // new identity that re-uses the previous choice's trigger is not a new player choice (see the continuation block below)
+    // the same choice re-presented replays the same transaction and writes nothing; the held remainder is never abandoned (a
+    // distinct, newly authorized choice consuming it is covered by the continuation tests)
     expect(await unchanged(s, () => advance(trustedAdvance(s)))).toEqual(ADVANCE_COMMITTED);
-    expect(
-      await unchanged(s, () =>
-        advance(
-          trustedAdvance(s, {
-            transaction: advanceTransaction("tx-pc-second-choice", {
-              trigger: advanceTransaction().trigger,
-            }),
-          }),
-        ),
-      ),
-    ).toEqual(REFUSED);
     expect(s.campaign.verify()).toEqual([]);
   });
 

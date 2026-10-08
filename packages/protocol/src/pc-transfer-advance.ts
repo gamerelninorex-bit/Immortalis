@@ -58,8 +58,11 @@ import {
  * With no held continuation the request is initial (`continues` null). When a truthful committed `DEPENDENCY_UNRESOLVED`
  * transaction of exactly this PC delivery holds the journey, the NEW player-authorized transaction this context carries consumes
  * it: `continues` is the held `from_transaction` and `requested` is the prior request verbatim (never a target, never a new
- * condition); any other held continuation (target-based, another object, no unresolved dependents, a trigger the previous choice
- * already used) is refused. The host cannot tell the two cases apart. It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics and World-State stage
+ * condition); any other held continuation (target-based, another object, no unresolved dependents) is refused. Provenance
+ * (`cause`, `trigger`) is the trusted side's to state: it is never compared with the held transaction's, so a distinct choice may
+ * lawfully share a trigger reference with the previous one; only the distinct, immutable `transaction_id` identifies the choice. The host cannot tell the two cases apart.
+ *
+ * It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics and World-State stage
  * providers, so the kernel alone selects what is due (every earlier or independent due world process included), resolves the
  * dependency closure in its own order — Logistics delivery, World-State destination custody, Logistics retirement — and records
  * the one transaction. It invents no time, route, duration, target, willingness or arrival, skips nothing, suppresses nothing and
@@ -305,12 +308,7 @@ export async function advanceConfirmedPcTransferToDelivery(
         // a held continuation is consumed whole by a NEW player-authorized transaction or it stays; only the restricted one this
         // gateway itself requested is eligible, and its request is carried forward verbatim (never a target, never a new condition)
         const prior = coordinator.transaction(held.from_transaction)?.value;
-        if (
-          held.toward !== null ||
-          !prior ||
-          !isHeldPcContinuation(prior, requested) ||
-          prior.trigger.ref === transaction.trigger.ref
-        )
+        if (held.toward !== null || !prior || !isHeldPcContinuation(prior, requested))
           return refusal();
         continues = held.from_transaction;
       }

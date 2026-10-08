@@ -60,6 +60,9 @@ const relocated = (dir?: string) => relocatedCampaign(() => custodiedCampaign(di
 const adv = (s: PcMoveSeeded, id: string) =>
   advance(trustedAdvance(s, { transaction: advanceTransaction(id) }));
 
+const adv2 = (s: PcMoveSeeded, id: string, over: Record<string, unknown>) =>
+  advance(trustedAdvance(s, { transaction: advanceTransaction(id, over) }));
+
 /** a PC whose first player-authorized advance committed a truthful `DEPENDENCY_UNRESOLVED` stop: the delivery owner refused */
 async function held(dir?: string): Promise<{ s: PcMoveSeeded; restore: () => void }> {
   const s = await relocated(dir);
@@ -209,20 +212,49 @@ describe("acceptance 3: every unlawful held-continuation attempt fails closed wi
     expect(await unchanged(s, () => advance({} as never))).toEqual(REFUSED);
   });
 
-  it("a new transaction that re-uses the previous choice's trigger is not a new player choice", async () => {
+  it("provenance is the trusted side's: a distinct choice that shares the previous choice's trigger (and cause) continues exactly the held transaction", async () => {
+    const { s, restore } = await held();
+    const shared = {
+      cause: advanceTransaction().cause,
+      trigger: advanceTransaction().trigger,
+    };
+    // a new immutable transaction identity with the same legitimate trigger reference: still blocked, so a truthful second stop
+    expect(await adv2(s, TX2, shared)).toEqual(ADVANCE_COMMITTED);
+    const tx2 = s.coordinator.transaction(TX2)!.value;
+    expect(tx2.trigger).toEqual(s.coordinator.transaction(ADVANCE_TX)!.value.trigger);
+    expect(tx2.continues).toBe(ADVANCE_TX);
+    expect(tx2.requested).toEqual(PRIOR_REQUESTED);
+    expect(tx2.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
+    expect(s.coordinator.state()!.value.continuation).toMatchObject({ from_transaction: TX2 });
+    expect(s.campaign.pcCurrentLocus(PC)).toMatchObject({ phase: "IN_TRANSFER" });
+    // …and once the blocker has lawfully cleared, a third distinct choice sharing it still resolves exactly the second
+    restore();
+    expect(await adv2(s, TX3, shared)).toEqual(ADVANCE_COMMITTED);
+    const tx3 = s.coordinator.transaction(TX3)!.value;
+    expect(tx3.continues).toBe(TX2);
+    expect(tx3.requested).toEqual(PRIOR_REQUESTED);
+    expect(tx3.trigger).toEqual(tx2.trigger);
+    expect(s.campaign.pcCurrentLocus(PC)).toMatchObject({ phase: "DESTINATION_COMMITTED" });
+    expect(authorityCensus(s)).toMatchObject({ destination: 1, total: 1 });
+    expect(s.coordinator.state()!.value.canonical_time).toEqual(LOG_T_DELIVERY);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("sharing provenance never relaxes identity: the shared-trigger identity replays itself, and a different intent under that identity is a conflict", async () => {
     const { s, restore } = await held();
     restore();
+    const shared = { trigger: advanceTransaction().trigger };
+    expect(await adv2(s, TX2, shared)).toEqual(ADVANCE_COMMITTED);
+    expect(await unchanged(s, () => adv2(s, TX2, shared))).toEqual(ADVANCE_COMMITTED);
     expect(
       await unchanged(s, () =>
-        advance(
-          trustedAdvance(s, {
-            transaction: advanceTransaction(TX2, { trigger: advanceTransaction().trigger }),
-          }),
-        ),
+        adv2(s, TX2, { trigger: { kind: "player-advance-choice", ref: "other" } }),
       ),
     ).toEqual(REFUSED);
-    // …and with a fresh trigger the very same identity is accepted
-    expect(await adv(s, TX2)).toEqual(ADVANCE_COMMITTED);
+    // the original choice's own identity can never be re-used as a continuation with different provenance
+    expect(await unchanged(s, () => adv2(s, ADVANCE_TX, { cause: "another-cause" }))).toEqual(
+      REFUSED,
+    );
   });
 
   it("malformed or over-claiming host requests are refused, however a continuation is held", async () => {

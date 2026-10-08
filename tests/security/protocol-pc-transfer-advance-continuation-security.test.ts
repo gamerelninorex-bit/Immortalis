@@ -101,16 +101,16 @@ describe("IA-18 / IA-28: no host field selects a continuation, a request, a targ
     expect(movementSummary(s)).toEqual(before);
   });
 
-  it("a refusal never reveals that a continuation was held: a held and an unheld campaign refuse the same bytes", async () => {
+  it("a refusal never reveals that a continuation was held: a held and an unheld campaign refuse the same bytes, and a shared trigger reference is not a refusal reason", async () => {
     const { s, restore } = await held();
     restore();
     const fresh = await relocated();
     expect(await call(s, TX2, "nope")).toBe(await call(fresh, TX2, "nope"));
-    // a re-used trigger on a held journey is the one refusal as well
-    const reused = trustedAdvance(s, {
+    // a shared trigger reference is not a refusal reason: the same held journey continues, with the same neutral status
+    const shared = trustedAdvance(s, {
       transaction: advanceTransaction(TX2, { trigger: advanceTransaction().trigger }),
     });
-    expect(JSON.stringify(await advance(reused))).toBe(ADVANCE_REFUSAL);
+    expect(JSON.stringify(await advance(shared))).toBe(OK);
   });
 });
 
