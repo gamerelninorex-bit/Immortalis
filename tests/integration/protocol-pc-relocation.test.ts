@@ -1,7 +1,10 @@
-// Trusted, player-confirmed active-PC single-leg relocation gateway (forty-first bounded slice) — the real path over the real
-// owners. A trusted context binds the confirmed choice and the declared delivery boundary; the one allowlisted operation drives
-// the EXISTING PC commitment → PC-owned request → Logistics commitment → dispatch chain to lawful in-transfer custody and nothing
-// further. Arrival remains the existing Temporal → Logistics delivery → World-State destination → retirement machinery.
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests swap the campaign store to simulate a refusing Temporal kernel */
+// Trusted, player-confirmed active-PC single-leg relocation gateway (forty-first bounded slice) with Temporal enrollment (forty-second
+// bounded slice) — the real path over the real owners. A trusted context binds the confirmed choice and the declared delivery
+// boundary; the one allowlisted operation drives the EXISTING PC commitment → PC-owned request → Logistics commitment → dispatch
+// chain to lawful in-transfer custody, then registers that SAME transfer's one already-defined Temporal object, once, and nothing
+// further. Arrival remains the existing Temporal → Logistics delivery → World-State destination → retirement machinery, which a
+// separate advance drives.
 // Register lineage: IA-01/02/03/04/06/14/18/19/20/28 (partial, no status change); RC-02/04/07/10/13/15/16; IM-02/03/05/07/11/12/15/16/17.
 // Local success is NOT provider/recovery acceptance (IA-07 BLOCKED).
 import { describe, expect, it } from "vitest";
@@ -9,19 +12,21 @@ import {
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   PLAYER_CHARACTER_BINDING_KEY,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
   PcMovementCommitmentSchema,
   TEMPORAL_STATE_KEY,
   MovementServiceRequestSchema,
+  logisticsBoundaryId,
   logisticsDeliveryKey,
   pcExistenceContractKey,
   pcMovementCommitmentKey,
   pcMovementRequestKey,
-  temporalObjectKey,
   worldActorCouplingKey,
   worldEntityTransitionKey,
   worldFallbackEntityKey,
   worldPcLocusCustodyKey,
 } from "@immortalis/contracts";
+import { logisticsTemporalObject } from "@immortalis/engine";
 import { ACTOR_OTHER, LOG_T_DELIVERY } from "@immortalis/testkit";
 import { handedOverCampaign } from "../support/pc-locus-custody.ts";
 import {
@@ -44,6 +49,8 @@ import {
 } from "../support/pc-movement.ts";
 import {
   RELOCATION_KEYS,
+  RELOCATION_TEMPORAL_KEYS,
+  RELOCATION_TEMPORAL_OBJECT_KEY,
   confirmedChoice,
   crashBefore,
   loseReplyAfter,
@@ -71,8 +78,8 @@ const unchanged = async (s: PcMoveSeeded, attempt: () => Promise<unknown>): Prom
   return r;
 };
 
-describe("acceptance 1: a trusted, confirmed choice crosses the seam and lawfully starts exactly the existing single-leg transfer", () => {
-  it("commits the PC commitment and request, then Logistics' commitment and dispatch: in transfer, one authority, and no time advanced", async () => {
+describe("acceptance 1: a trusted, confirmed choice crosses the seam, lawfully starts exactly the existing single-leg transfer and enrolls that same transfer once with the Temporal kernel", () => {
+  it("commits the PC commitment and request, Logistics' commitment and dispatch, then the transfer's one Temporal object: in transfer, one authority, and no time advanced", async () => {
     const s = await custodiedCampaign();
     const before = snapshotFacts(s);
     const clock = s.campaign.store.getFact(TEMPORAL_STATE_KEY)!;
@@ -80,10 +87,10 @@ describe("acceptance 1: a trusted, confirmed choice crosses the seam and lawfull
     const r = await relocate(trustedRelocation(s));
     expect(r).toEqual(COMMITTED);
 
-    // exactly the four existing facts were added; nothing that existed changed
+    // exactly the four existing facts, the one object and its boundary index were added; nothing that existed changed
     const after = snapshotFacts(s);
     expect([...after.keys()].filter((k) => !before.has(k)).sort()).toEqual(
-      [...RELOCATION_KEYS].sort(),
+      [...RELOCATION_KEYS, ...RELOCATION_TEMPORAL_KEYS].sort(),
     );
     for (const [k, f] of before) expect(after.get(k), k).toEqual(f);
     for (const k of protectedKeys) expect(after.get(k)).toEqual(before.get(k));
@@ -120,19 +127,31 @@ describe("acceptance 1: a trusted, confirmed choice crosses the seam and lawfull
       total: 1,
     });
 
-    // no time advanced, nothing registered with the Temporal kernel, no delivery, destination or fallback entity
+    // the one registered object is exactly the one the existing helper derives from the committed commitment and transfer
+    expect(s.coordinator.object(`obj-logistics-${REQUEST_ID}`)!.value).toEqual(
+      logisticsTemporalObject(c, t),
+    );
+    expect(s.campaign.store.getFact(RELOCATION_TEMPORAL_OBJECT_KEY)).toMatchObject({
+      owner: "temporal_kernel",
+      facet: "temporal_coordination",
+    });
+    // and it earns exactly one due-boundary entry, at the explicitly declared delivery boundary
+    expect(s.coordinator.boundaryIndex().entries).toEqual([
+      {
+        object_id: `obj-logistics-${REQUEST_ID}`,
+        boundary_id: logisticsBoundaryId(REQUEST_ID),
+        at: LOG_T_DELIVERY,
+      },
+    ]);
+    // no time advanced, no stage resolved, no delivery, destination or fallback entity
     expect(s.campaign.store.getFact(TEMPORAL_STATE_KEY)).toEqual(clock);
     expect(
       s.campaign.store
         .listFacts()
-        .filter(
-          (f) =>
-            f.key.startsWith("temporal/") && f.key !== TEMPORAL_STATE_KEY && !before.has(f.key),
-        ),
-    ).toEqual([]);
-    expect(
-      s.campaign.store.getFact(temporalObjectKey(`obj-logistics-${REQUEST_ID}`)),
-    ).toBeUndefined();
+        .filter((f) => f.key.startsWith("temporal/") && !before.has(f.key))
+        .map((f) => f.key)
+        .sort(),
+    ).toEqual([...RELOCATION_TEMPORAL_KEYS].sort());
     expect(s.campaign.store.getFact(logisticsDeliveryKey(W, PC))).toBeUndefined();
     expect(s.campaign.store.getFact(worldEntityTransitionKey(W, PC))).toBeUndefined();
     expect(s.campaign.store.getFact(worldFallbackEntityKey(W, PC))).toBeUndefined();
@@ -142,13 +161,13 @@ describe("acceptance 1: a trusted, confirmed choice crosses the seam and lawfull
   it("the existing explicit Temporal delivery and destination path then completes by its normal machinery", async () => {
     const s = await custodiedCampaign();
     expect(await relocate(trustedRelocation(s))).toEqual(COMMITTED);
-    await registerPcTransfer(s, 5);
-    // registering the object is not arrival either
+    // enrolling the object is not arrival either
     expect(s.campaign.pcCurrentLocus(PC)).toMatchObject({
       phase: "IN_TRANSFER",
       authority: "LOGISTICS",
     });
     await must(advanceToDelivery(s));
+    expect(s.coordinator.boundaryIndex().entries).toEqual([]);
     const where = s.campaign.pcCurrentLocus(PC)!;
     expect(where).toMatchObject({
       phase: "DESTINATION_COMMITTED",
@@ -285,7 +304,6 @@ describe("acceptance 2: nothing is written from a forged, unauthorized, mismatch
       ),
     ).toEqual(JSON.parse(RELOCATION_REFUSAL));
     // and after arrival
-    await registerPcTransfer(c, 5);
     await must(advanceToDelivery(c));
     expect(
       await unchanged(c, () =>
@@ -355,7 +373,7 @@ describe("acceptance 3: existing ownership, key spaces, cardinality and provenan
     }
   });
 
-  it("only the existing Logistics owns the in-transfer locus: the gateway wrote no World-State, Temporal or rival locus fact", async () => {
+  it("only the existing Logistics owns the in-transfer locus: the gateway wrote no World-State or rival locus fact, and no Temporal fact beyond the one object and its index", async () => {
     const s = await custodiedCampaign();
     const before = snapshotFacts(s);
     await relocate(trustedRelocation(s));
@@ -365,6 +383,8 @@ describe("acceptance 3: existing ownership, key spaces, cardinality and provenan
       "logistics/logistics_state",
       "pc_existence/pc_voluntary_commitment",
       "pc_existence/pc_voluntary_commitment",
+      "temporal_kernel/temporal_coordination",
+      "temporal_kernel/temporal_coordination",
     ]);
   });
 });
@@ -384,17 +404,23 @@ describe("acceptance 4: retry, duplicate calls, lost replies and crashes reconci
     expect(await relocate(ctx)).toEqual(COMMITTED);
     expect(await unchanged(s, () => relocate(ctx))).toEqual(COMMITTED);
     expect(await unchanged(s, () => relocate(trustedRelocation(s)))).toEqual(COMMITTED);
-    await registerPcTransfer(s, 5);
     await must(advanceToDelivery(s));
+    // the resolved boundary is not re-created or re-run by a replay
     expect(await unchanged(s, () => relocate(ctx))).toEqual(COMMITTED);
+    expect(await unchanged(s, () => relocate(trustedRelocation(s)))).toEqual(COMMITTED);
+    expect(s.coordinator.boundaryIndex().entries).toEqual([]);
     expect(s.campaign.pcCurrentLocus(PC)!.phase).toBe("DESTINATION_COMMITTED");
     expect(s.campaign.verify()).toEqual([]);
   });
 
-  for (const step of [0, 1, 2, 3]) {
-    const name = ["PC commitment", "PC request", "Logistics commitment", "Logistics dispatch"][
-      step
-    ]!;
+  for (const step of [0, 1, 2, 3, 4]) {
+    const name = [
+      "PC commitment",
+      "PC request",
+      "Logistics commitment",
+      "Logistics dispatch",
+      "Temporal registration",
+    ][step]!;
 
     it(`a crash before the ${name} commits is unknown, leaves only the earlier steps, and the same request converges on the uninterrupted run`, async () => {
       const ref = await reference();
@@ -406,6 +432,8 @@ describe("acceptance 4: retry, duplicate calls, lost replies and crashes reconci
       expect(RELOCATION_KEYS.filter((k) => s.campaign.store.getFact(k))).toEqual(
         RELOCATION_KEYS.slice(0, step),
       );
+      // nothing of the Temporal registration committed, however many movement steps did
+      expect(RELOCATION_TEMPORAL_KEYS.filter((k) => s.campaign.store.getFact(k))).toEqual([]);
       expect(authorityCensus(s).total).toBe(1);
       expect(s.campaign.verify()).toEqual([]);
       expect(await relocate(trustedRelocation(s))).toEqual(COMMITTED);
@@ -423,11 +451,15 @@ describe("acceptance 4: retry, duplicate calls, lost replies and crashes reconci
       expect(RELOCATION_KEYS.filter((k) => s.campaign.store.getFact(k))).toEqual(
         RELOCATION_KEYS.slice(0, step + 1),
       );
+      expect(RELOCATION_TEMPORAL_KEYS.filter((k) => s.campaign.store.getFact(k))).toEqual(
+        step === 4 ? RELOCATION_TEMPORAL_KEYS : [],
+      );
       expect(await relocate(trustedRelocation(s))).toEqual(COMMITTED);
       expect(movementSummary(s).head.state_sha256).toBe(ref.head.state_sha256);
       expect(
         s.campaign.store.listFacts().filter((f) => f.key.startsWith("logistics/")),
       ).toHaveLength(2);
+      expect(s.coordinator.boundaryIndex().entries).toHaveLength(1);
       expect(authorityCensus(s)).toMatchObject({ logistics: 1, total: 1 });
       expect(s.campaign.verify()).toEqual([]);
     });
@@ -442,11 +474,13 @@ describe("acceptance 4: retry, duplicate calls, lost replies and crashes reconci
       const reopened = await reopenMovement(dir);
       expect(reopened.campaign.verify()).toEqual([]);
       expect(authorityCensus(reopened).total).toBe(1);
-      expect(reopened.campaign.pcCurrentLocus(PC)!.phase).toBe("STATIONARY_AT_ORIGIN");
+      expect(reopened.campaign.pcCurrentLocus(PC)!.phase).toBe(
+        step === 4 ? "IN_TRANSFER" : "STATIONARY_AT_ORIGIN",
+      );
+      expect(reopened.coordinator.boundaryIndex().entries).toEqual([]);
       expect(await relocate(trustedRelocation(reopened))).toEqual(COMMITTED);
       expect(movementSummary(reopened).head.state_sha256).toBe(ref.head.state_sha256);
       // and the arrival path completes by its normal machinery after the reload
-      await registerPcTransfer(reopened, 5);
       await must(advanceToDelivery(reopened));
       expect(reopened.campaign.pcCurrentLocus(PC)!.phase).toBe("DESTINATION_COMMITTED");
       expect(reopened.campaign.verify()).toEqual([]);
@@ -480,5 +514,130 @@ describe("acceptance 4: retry, duplicate calls, lost replies and crashes reconci
     const a = await reference();
     const b = await reference();
     expect(a.head.state_sha256).toBe(b.head.state_sha256);
+  });
+});
+
+describe("acceptance 5: Temporal enrollment is registered once by identity, and fails closed on every mismatch", () => {
+  it("the gateway's registered object and boundary index equal the manual owner-path registration fact for fact", async () => {
+    const viaGateway = await custodiedCampaign();
+    expect(await relocate(trustedRelocation(viaGateway))).toEqual(COMMITTED);
+    const manual = await custodiedCampaign();
+    await must(commitMove(manual, 1));
+    await must(requestMove(manual, 2));
+    await must(logisticsCommit(manual, 3));
+    await must(logisticsDispatch(manual, 4));
+    await registerPcTransfer(manual, 5);
+    for (const k of RELOCATION_TEMPORAL_KEYS) {
+      const a = viaGateway.campaign.store.getFact(k)!;
+      const b = manual.campaign.store.getFact(k)!;
+      expect({ owner: a.owner, facet: a.facet, version: a.version, value: a.value }, k).toEqual({
+        owner: b.owner,
+        facet: b.facet,
+        version: b.version,
+        value: b.value,
+      });
+    }
+  });
+
+  it("save → close → reopen after enrollment conserves one locus authority and one boundary, a retry writes nothing, and the normal advance still completes arrival", async () => {
+    const dir = tempDir();
+    const s = await custodiedCampaign(dir);
+    expect(await relocate(trustedRelocation(s))).toEqual(COMMITTED);
+    const summary = movementSummary(s);
+    await s.campaign.close();
+    const reopened = await reopenMovement(dir);
+    expect(reopened.campaign.verify()).toEqual([]);
+    expect(reopened.campaign.pcCurrentLocus(PC)).toMatchObject({
+      phase: "IN_TRANSFER",
+      authority: "LOGISTICS",
+    });
+    expect(reopened.coordinator.boundaryIndex().entries).toHaveLength(1);
+    expect(authorityCensus(reopened)).toMatchObject({ logistics: 1, total: 1 });
+    expect(await unchanged(reopened, () => relocate(trustedRelocation(reopened)))).toEqual(
+      COMMITTED,
+    );
+    expect(movementSummary(reopened)).toEqual(summary);
+    await must(advanceToDelivery(reopened));
+    expect(reopened.campaign.pcCurrentLocus(PC)!.phase).toBe("DESTINATION_COMMITTED");
+    expect(await unchanged(reopened, () => relocate(trustedRelocation(reopened)))).toEqual(
+      COMMITTED,
+    );
+    expect(reopened.campaign.verify()).toEqual([]);
+    await reopened.campaign.close();
+  });
+
+  it("a rival object already registered for the transfer, by any other identity, is never duplicated or repaired: the outcome stays unknown and nothing is written", async () => {
+    const s = await custodiedCampaign();
+    const restore = crashBefore(s, 4);
+    expect(await relocate(trustedRelocation(s))).toMatchObject({ ok: false });
+    restore();
+    await registerPcTransfer(s, 5);
+    const r = await unchanged(s, () => relocate(trustedRelocation(s)));
+    expect(r).toMatchObject({ ok: false, error: { code: "RELOCATION_OUTCOME_UNKNOWN" } });
+    expect(s.coordinator.boundaryIndex().entries).toHaveLength(1);
+    expect(authorityCensus(s)).toMatchObject({ logistics: 1, total: 1 });
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("a registration group the Temporal kernel refuses after the transfer committed is the unknown outcome, never a safely absent movement, and the transfer is not rolled back", async () => {
+    const s = await custodiedCampaign();
+    // the kernel's own admission refuses the registration (the object write conflicts): the transfer stands
+    const real = s.campaign.store;
+    (s.campaign as any).store = new Proxy(real, {
+      get(target, prop) {
+        if (prop === "commit")
+          return async (g: any) =>
+            g.writes.some((w: any) => w.key === RELOCATION_TEMPORAL_OBJECT_KEY)
+              ? { ok: false, error: { code: "VERSION_CONFLICT", message: "refused" } }
+              : target.commit(g);
+        const v = Reflect.get(target, prop, target);
+        return typeof v === "function" ? v.bind(target) : v;
+      },
+    });
+    const r = await relocate(trustedRelocation(s));
+    (s.campaign as any).store = real;
+    expect(r).toMatchObject({ ok: false, error: { code: "RELOCATION_OUTCOME_UNKNOWN" } });
+    expect(JSON.stringify(r)).not.toContain("refused");
+    expect(RELOCATION_KEYS.filter((k) => s.campaign.store.getFact(k))).toEqual(RELOCATION_KEYS);
+    expect(s.campaign.store.getFact(TEMPORAL_BOUNDARY_INDEX_KEY)).toBeUndefined();
+    expect(s.campaign.pcCurrentLocus(PC)).toMatchObject({
+      phase: "IN_TRANSFER",
+      authority: "LOGISTICS",
+    });
+    // the same request then reconciles by identity
+    expect(await relocate(trustedRelocation(s))).toEqual(COMMITTED);
+    expect(s.coordinator.boundaryIndex().entries).toHaveLength(1);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("a committed registration group under the gateway's identity that is not this transfer's object is not reconciled as enrollment", async () => {
+    const s = await custodiedCampaign();
+    const restore = crashBefore(s, 4);
+    expect(await relocate(trustedRelocation(s))).toMatchObject({ ok: false });
+    restore();
+    // a foreign kernel publication occupies the gateway's registration intent without being the transfer's object
+    await must(
+      s.coordinator.registerObject({
+        group_id: "pc-relocation-group:temporal:" + PC,
+        intent_id: "pc-relocation-intent:temporal:" + PC,
+        cause: "rival",
+        basis: "fixture-basis",
+        secrecy: "fixture-visibility",
+        object: {
+          object_id: "obj-rival",
+          owning_ref: { owner: "temporal_kernel", process_id: "rival" },
+          last_resolved_basis: s.coordinator.state()!.value.canonical_time,
+          partition: { class: "EXACT-PARTITION" },
+          next_boundary: null,
+          dependencies: [],
+          continuation: { resume_from: "LAST_RESOLVED_BASIS", reconciliation_due: [] },
+          invalidators: [],
+          information_latency: { creates_epistemic_interruption: false },
+        },
+      }),
+    );
+    const r = await unchanged(s, () => relocate(trustedRelocation(s)));
+    expect(r).toMatchObject({ ok: false, error: { code: "RELOCATION_OUTCOME_UNKNOWN" } });
+    expect(s.coordinator.boundaryIndex().entries).toEqual([]);
   });
 });

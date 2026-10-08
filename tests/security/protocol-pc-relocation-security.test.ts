@@ -194,8 +194,8 @@ describe("IA-19 / IA-20: every refusal is the same refusal, and a success reveal
   });
 });
 
-describe("IA-20: the only writes are the four existing owner publications, by the archivist path, under identities derived from the PC", () => {
-  it("exactly four canonical groups commit, each under canon-write authority, and none is player-authored or host-named", async () => {
+describe("IA-20: the only writes are the four existing owner publications and the one Temporal registration, by the archivist path, under identities derived from the PC", () => {
+  it("exactly five canonical groups commit, each under canon-write authority, and none is player-authored or host-named", async () => {
     const s = await custodiedCampaign();
     const spy = spyStore(s.campaign.store);
     (s.campaign as any).store = spy.store;
@@ -205,11 +205,16 @@ describe("IA-20: the only writes are the four existing owner publications, by th
       "pc_existence",
       "logistics",
       "logistics",
+      "temporal_kernel",
     ]);
     for (const g of spy.commits) {
       expect(g.authority).toEqual(CANON_WRITE_AUTHORITY);
-      expect(g.group_id).toMatch(/^pc-relocation-group:(commitment|request|movement|dispatch):/);
-      expect(g.intent_id).toMatch(/^pc-relocation-intent:(commitment|request|movement|dispatch):/);
+      expect(g.group_id).toMatch(
+        /^pc-relocation-group:(commitment|request|movement|dispatch|temporal):/,
+      );
+      expect(g.intent_id).toMatch(
+        /^pc-relocation-intent:(commitment|request|movement|dispatch|temporal):/,
+      );
     }
     expect(spy.listCalls()).toBe(0);
   });

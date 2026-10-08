@@ -3,8 +3,12 @@ import {
   PLAYER_CHOICE_AUTHORITY,
   logisticsCommitmentKey,
   logisticsTransferKey,
+  logisticsObjectId,
   pcMovementCommitmentKey,
+  pcMovementRequestId,
   pcMovementRequestKey,
+  temporalObjectKey,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
   type CanonicalTime,
   type CommitGroup,
   type PcMovementCommitInput,
@@ -63,12 +67,22 @@ export const RELOCATION_KEYS = [
   logisticsTransferKey(W, PC),
 ];
 
-/** The four groups the gateway commits, in order: PC commitment, PC request, Logistics commitment, Logistics dispatch. */
+/** The two Temporal facts the gateway's registration leaves behind: the transfer's one object and the boundary index it enters. */
+export const RELOCATION_TEMPORAL_OBJECT_KEY = temporalObjectKey(
+  logisticsObjectId(pcMovementRequestId(PC)),
+);
+export const RELOCATION_TEMPORAL_KEYS = [
+  RELOCATION_TEMPORAL_OBJECT_KEY,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
+];
+
+/** The five groups the gateway commits, in order: PC commitment, PC request, Logistics commitment, Logistics dispatch, Temporal registration. */
 export const stepPredicates: readonly ((g: CommitGroup) => boolean)[] = [
   (g) => g.writes.some((w) => w.key === pcMovementCommitmentKey(PC)),
   (g) => g.writes.some((w) => w.key === pcMovementRequestKey(PC)),
   (g) => g.writes.some((w) => w.key === logisticsCommitmentKey(W, PC)),
   (g) => g.writes.some((w) => w.key === logisticsTransferKey(W, PC)),
+  (g) => g.writes.some((w) => w.key === RELOCATION_TEMPORAL_OBJECT_KEY),
 ];
 
 /** Swap the campaign's store for one that commits NOTHING (an unknown outcome) for the first group the predicate names. */

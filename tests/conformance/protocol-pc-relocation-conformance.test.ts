@@ -1,5 +1,6 @@
 // Conformance evidence for the Trusted Confirmed Active-PC Single-Leg Movement Gateway (forty-first bounded slice, IM-15 / IM-16
-// over the fortieth-slice PC → Logistics → World-State chain). Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with
+// over the fortieth-slice PC → Logistics → World-State chain) and its Temporal enrollment (forty-second bounded slice: the same
+// transfer's one already-defined Logistics temporal object, registered once through the existing TemporalCoordinator). Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with
 // F-027-CD1 v1.0), unchanged. No register row, status, source pin, gate or lock moved; this slice adds code, tests and a document
 // only. The frozen Active-PC Post-Handover Physical Locus Ownership & Relocation Contract (pin 2026-10-08T01:25:36.611Z) is cited,
 // never added to the lock. Authentication, sessions and the confirmation interaction are neither implemented nor claimed. Local
@@ -30,7 +31,7 @@ const walk = (d: string): string[] =>
     e.isDirectory() ? walk(`${d}/${e.name}`) : e.name.endsWith(".ts") ? [`${d}/${e.name}`] : [],
   );
 
-/** Every module the gateway composes or must leave untouched, as it stood at the forty-first base (main 8c7d8c3). */
+/** Every module the gateway composes or must leave untouched, as it stood at the forty-second base (main d8307d5). */
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
@@ -112,7 +113,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
 });
 
 describe("the module composes the existing owner paths only, and takes no authority from the host", () => {
-  it("imports the contracts and the engine only, and from the engine only the Logistics adapter and the campaign type", () => {
+  it("imports the contracts and the engine only, and from the engine only the Logistics adapter, the existing Temporal coordinator and its helper, and the campaign type", () => {
     expect(specifiersOf(MODULE).sort()).toEqual(["@immortalis/contracts", "@immortalis/engine"]);
     const engineImport = readFileSync(MODULE, "utf8").match(
       /import \{([^}]*)\} from "@immortalis\/engine"/,
@@ -123,7 +124,13 @@ describe("the module composes the existing owner paths only, and takes no author
         .map((n) => n.trim())
         .filter(Boolean)
         .sort(),
-    ).toEqual(["LogisticsAdapter", "type CanonicalCampaign"]);
+    ).toEqual([
+      "LogisticsAdapter",
+      "StageProviderRegistry",
+      "TemporalCoordinator",
+      "logisticsTemporalObject",
+      "type CanonicalCampaign",
+    ]);
   });
 
   it("invokes each of the four existing owner publications exactly once, in their ratified order", () => {
@@ -141,6 +148,22 @@ describe("the module composes the existing owner paths only, and takes no author
     // the PC-side publications are named in the campaign facade and called once each in the step list
     expect(src.match(/campaign\.commitPcVoluntaryMovement\(/g)).toHaveLength(2);
     expect(src.match(/campaign\.establishPcMovementRequest\(/g)).toHaveLength(2);
+  });
+
+  it("registers the transfer's object exactly once, after the dispatch, by the existing helper and coordinator, and hand-writes no object, stage, read or boundary", () => {
+    const src = identifiers(MODULE);
+    expect(src.match(/\.registerObject\(/g)).toHaveLength(1);
+    expect(src.match(/logisticsTemporalObject\(/g)).toHaveLength(1);
+    expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
+    expect(src.lastIndexOf("logistics.dispatch(")).toBeLessThan(
+      src.indexOf("await enrollTransfer("),
+    );
+    // the registered object is the helper's, untouched: nothing here spreads, shortens or authors one
+    expect(src).not.toMatch(
+      /next_boundary|dependencies|continuation|invalidators|information_latency|partition|last_resolved_basis|boundary_id|\.at\b|dependsOn|declares_close|EXACT-PARTITION/,
+    );
+    // identity is the PC's alone, through the same derived publication shape as the four movement steps
+    expect(code(MODULE)).toMatch(/publication\("temporal"\)/);
   });
 
   it("states no authority itself: the player's role and permission, the canon-write authority and every owner or fact literal are absent", () => {
@@ -184,12 +207,15 @@ describe("the module composes the existing owner paths only, and takes no author
   });
 });
 
-describe("the gateway advances no time, registers nothing, plans no route and holds no state of its own", () => {
-  it("reaches no coordinator, temporal registration, advance, scheduler, clock, store write, listing or scan", () => {
+describe("the gateway advances no time, resolves nothing, plans no route and holds no state of its own", () => {
+  it("reaches no advance, continuation, time establishment, resolution, scheduler, clock, listing or scan; its one store write is the replay of its own committed registration", () => {
     const src = identifiers(MODULE);
     expect(src).not.toMatch(
-      /\.advance\b|\.register\w*|TemporalCoordinator|registerObject|logisticsTemporalObject|\.listFacts\b|\.head\b|\.verify\b|\.close\b|\.save\b|\.load\b|\.commit\b|\.getFact\b|\.committedGroup\b|CausalDraw|schedul|setTimeout|setInterval|\bnew Date\b|retry|\bcache\b|localStorage/i,
+      /\.advance\b|continueRemainder|establishCanonicalTime|\.boundaryIndex\b|\.transaction\b|\.listFacts\b|\.head\b|\.verify\b|\.close\b|\.save\b|\.load\b|\.getFact\b|CausalDraw|schedul|setTimeout|setInterval|\bnew Date\b|retry|\bcache\b|localStorage/i,
     );
+    expect(src.match(/store\.commit\(/g)).toEqual(["store.commit("]);
+    expect(src).toMatch(/store\.commit\(prior\)/);
+    expect(src.match(/\.committedGroup\(/g)).toHaveLength(1);
     expect(src).not.toMatch(
       /route|path\w*find|distance|speed|duration|calibrat|carrier|passenger|hazard|obstacle|rollback|cancel|divert/i,
     );
@@ -199,6 +225,7 @@ describe("the gateway advances no time, registers nothing, plans no route and ho
     const src = identifiers(MODULE);
     expect(src.match(/^(?:let|var)\s/gm)).toBeNull();
     expect(src.match(/^const \w+ = new \w+/gm)).toEqual(["const bindings = new WeakMap"]);
+    expect(src).not.toMatch(/^export (?:const|let|var) /m);
   });
 
   it("no node built-in, network, filesystem, MCP, HTTP or provider library is imported, and no server or transport file exists", () => {
@@ -236,7 +263,10 @@ describe("the gateway advances no time, registers nothing, plans no route and ho
       "RELOCATION_UNAVAILABLE",
       "RELOCATION_OUTCOME_UNKNOWN",
       "Not implemented",
-      "does not register",
+      "2026-10-08T06:07:17.605Z",
+      "d8307d513493ea50a2bbc583f1fb4a99ddfcaed1",
+      "Temporal enrollment",
+      "advances no time",
       "PF-6/F-028",
     ])
       expect(doc, text).toContain(text);
