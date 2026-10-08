@@ -149,6 +149,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_fallback_entity",
       "world_entity_transition",
       "world_actor_coupling",
+      "world_pc_locus_custody",
     ]);
     expect([...expectedKindIds({ owner: "world_state" })].sort()).toEqual(
       ALL_FACT_KINDS.filter((k) => k.owner === "world_state")
@@ -179,6 +180,8 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "entity-transition.ts",
       "fallback-custody.ts",
       "integrity.ts",
+      "pc-locus-custody-integrity.ts",
+      "pc-locus-custody.ts",
     ]);
     for (const f of COUPLING_MODULES) {
       expect(code(f), f).not.toMatch(/\b(?:export )?class\s+\w+/);

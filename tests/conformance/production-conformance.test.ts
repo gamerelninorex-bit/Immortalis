@@ -304,6 +304,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "entity-transition.ts",
       "fallback-custody.ts",
       "integrity.ts",
+      "pc-locus-custody-integrity.ts",
+      "pc-locus-custody.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")

@@ -511,6 +511,8 @@ export function identityMismatch(
     }
     case "world_actor_coupling":
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
+    case "world_pc_locus_custody":
+      return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
     case "logistics_commitment": {
       const moved = v["moved"] as { entity_id: string };
       const origin = v["origin"] as { world: { entity_id: string } };

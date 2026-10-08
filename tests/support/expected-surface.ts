@@ -178,6 +178,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world-state/actor/a1/coupling",
   },
   {
+    id: "world_pc_locus_custody",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_PC_LOCUS_CUSTODY_FACT_KINDS",
+    exampleKey: "world-state/pc/p1/locus-custody",
+  },
+  {
     id: "economy_demand",
     owner: "economy",
     facet: "economy_state",
