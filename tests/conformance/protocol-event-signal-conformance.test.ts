@@ -72,8 +72,12 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
     );
   });
 
-  it("the protocol package is two modules, re-exports exactly the one, and depends on the contracts and engine only", () => {
-    expect(readdirSync("packages/protocol/src").sort()).toEqual(["event-signal.ts", "index.ts"]);
+  it("the protocol package is the index and the two operation modules, re-exports exactly those, and depends on the contracts and engine only", () => {
+    expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "causal-event-signal.ts",
+      "event-signal.ts",
+      "index.ts",
+    ]);
     expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     const pkg = JSON.parse(readFileSync("packages/protocol/package.json", "utf8")) as {
       dependencies: Record<string, string>;
@@ -83,7 +87,9 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "@immortalis/engine": "workspace:*",
     });
     expect(Object.keys(protocol).sort()).toEqual([
+      "bindTrustedCausalEventSignalContext",
       "bindTrustedEventSignalContext",
+      "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
     ]);
   });

@@ -26,10 +26,12 @@ const recordingView = () => {
   return { view, reads };
 };
 
-describe("the protocol package exposes exactly one host operation", () => {
-  it("has the trusted-side binder and the single read operation, and nothing else", () => {
+describe("the protocol package exposes exactly the event-addressed read and the causal delivery", () => {
+  it("has the two trusted-side binders and the two operations, and nothing else", () => {
     expect(Object.keys(protocol).sort()).toEqual([
+      "bindTrustedCausalEventSignalContext",
       "bindTrustedEventSignalContext",
+      "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
     ]);
     expect(readCurrentEventSignalPresentation.length).toBe(2);
