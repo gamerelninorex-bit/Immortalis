@@ -191,6 +191,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
   it("no adapter, class or directory was added, and the registered adapter surfaces are unchanged", () => {
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES).sort()).toEqual([
       "CausalDrawAdapter",
+      "CultureAdapter",
       "DiplomacyAdapter",
       "EconomyAdapter",
       "EpistemicAccessAdapter",
@@ -212,6 +213,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "diplomacy",
       "economy",
       "epistemic",

@@ -111,7 +111,7 @@ describe("IA-03 owner exclusivity: the Named-Actor owner holds sparse durable pe
         /personality|goal|loyalty|relationship|belief|stance|mandate|development|loss|lifecycle|kti|cohort_capab|aggregate|skill|level|xp|rank|pc_capab|holder|referent|alias/,
       );
     const names = [...CANONICAL_OWNER_REGISTRY.keys()].filter(
-      (n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti",
+      (n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti" && n !== "culture",
     );
     for (const n of names) expect(n).not.toMatch(/actor|character|capability|skill/);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => /actor/.test(n))).toEqual([
@@ -341,6 +341,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "diplomacy",
       "economy",
       "epistemic",

@@ -32,6 +32,7 @@ import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
 import { epistemicObjectViolation } from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipObjectViolation } from "../gip/declaration.ts";
+import { cultureObjectViolation } from "../culture/declaration.ts";
 import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
 import { productionObjectViolation } from "../production/admission.ts";
@@ -144,6 +145,8 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (epistemic) return reject("REFERENCE_INVALID", epistemic, { key: w.key });
       const kti = ktiObjectViolation(o, state, true);
       if (kti) return reject("REFERENCE_INVALID", kti, { key: w.key });
+      const culture = cultureObjectViolation(o, state, true);
+      if (culture) return reject("REFERENCE_INVALID", culture, { key: w.key });
       const gip = gipObjectViolation(o);
       if (gip) return reject("REFERENCE_INVALID", gip, { key: w.key });
       const diplomacy = diplomacyObjectViolation(o);

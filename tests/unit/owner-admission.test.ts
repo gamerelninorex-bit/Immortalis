@@ -172,6 +172,8 @@ describe("registry: every key space has exactly one owner/facet and there is no 
       ["epistemic_access", ["epistemic_access"]],
       // IM-09 (eleventh slice): the KTI owner, one facet; there is no fallback KTI owner
       ["kti", ["kti_development"]],
+      // IM-09 (forty-sixth slice): the Culture & Society owner, one facet; there is no fallback Culture owner
+      ["culture", ["culture_social"]],
       // IM-06 (twelfth slice): the GIP owner, one Institution Identity facet; there is no fallback GIP owner
       ["gip", ["gip_institution_identity"]],
       // IM-06 (seventeenth slice): the Diplomacy owner, one External Recognition facet; there is no fallback Diplomacy owner

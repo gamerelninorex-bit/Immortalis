@@ -1,5 +1,9 @@
 import {
   AccessEventSchema,
+  CultureSharedMeaningSchema,
+  CultureUpdateContextSchema,
+  FACET_CULTURE_SOCIAL,
+  OWNER_CULTURE,
   CausalDrawPrecommitSchema,
   CausalDrawResultSchema,
   FACET_DRAW_PROVENANCE,
@@ -147,6 +151,16 @@ export const WS015_SOURCE = {
   native_pin: "2026-09-20T15:53:58.732Z",
 } as const;
 
+/**
+ * WS-005 Culture & Society — the frozen F-027 lock pin: the Blue post-ratification closeout (working design saturated) that
+ * composes the Sovereign-ratified Concept v2, Operational Draft v2 and Scaling Profile v2 with the conformed F-016/F-017
+ * successor deltas. `spec/f027/spec-lock.json` `frozen_sources` WS-005 is the authority; a conformance test cross-checks it.
+ */
+export const WS005_SOURCE = {
+  artifact: "https://app.notion.com/p/3e720af901e0813b82f5ca864ad8daff",
+  native_pin: "2026-09-26T07:23:03.549Z",
+} as const;
+
 export const WS003_SOURCE = {
   artifact: "https://app.notion.com/p/3e020af901e0819aab34ebd5412b6338",
   native_pin: "2026-09-25T13:44:44.982Z",
@@ -261,6 +275,7 @@ export const KTI_FACT_KIND_IDS = [
   "kti_transfer_basis",
   "kti_transfer_package",
 ] as const;
+export const CULTURE_FACT_KIND_IDS = ["culture_update_context", "culture_shared_meaning"] as const;
 export const GIP_FACT_KIND_IDS = [
   "gip_institution_identity",
   "gip_office_authority_locus",
@@ -280,6 +295,7 @@ export type FactKindId =
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
   | (typeof KTI_FACT_KIND_IDS)[number]
+  | (typeof CULTURE_FACT_KIND_IDS)[number]
   | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof PC_CAPABILITY_FACT_KIND_IDS)[number]
@@ -1347,6 +1363,65 @@ export const KTI_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const WS005_LINEAGE =
+  "WS-005 Culture & Society — frozen F-027 source: Blue post-ratification closeout, pin 2026-09-26T07:23:03.549Z (https://app.notion.com/p/3e720af901e0813b82f5ca864ad8daff), composing the Sovereign-ratified Concept v2 (substantive pin 2026-09-26T06:43:39.156Z, https://app.notion.com/p/3e720af901e081009232f2efa9b7a1ff), Operational Draft v2 (conformed pin 2026-09-26T07:22:08.130Z, https://app.notion.com/p/3e720af901e0817abf2df04f13bd90ad) and Scaling Profile v2 (conformed pin 2026-09-26T07:23:21.709Z, https://app.notion.com/p/3e720af901e081ca9ab5f8eeb1fafdd1), ratified without modification (https://app.notion.com/p/3e720af901e0817b9d55d4c5a5093fe8, pin 2026-09-26T07:14:10.463Z), with the conformed F-016 (https://app.notion.com/p/3e720af901e08112801dc2021204acbe) and F-017 (https://app.notion.com/p/3e720af901e081b2bcd6fd38e2e327e8) Culture successor deltas, both pin 2026-09-26T07:20:59.108Z";
+
+/**
+ * One governing rule for every Culture kind: the sealed Social Update Context (CS-UPD) and the shared meaning/norm committed
+ * at the Communicative Convention Close are each one group. The clauses are the ones the state relies on: Draft v2 §1 (Culture
+ * is the sole writer of admitted continuing social meaning; the minimum-information contract, not a fixed schema), §2
+ * (admission and deletion: a fact is persisted only under the deletion test; no state on mere contact, policy enactment,
+ * stereotype or world truth), §3 (the sealed, causally engaged Social Update Context; each input one declared read), §4.5
+ * (commit once; a meaning or norm change declares the Communicative Convention Close) and §8 (validation and failure
+ * behaviour: unresolved, never a substitute writer); Concept v2 §§1-2, 4 and 8; Scaling Profile v2 §§2-4 (cardinality basis,
+ * lifecycle, no global scan); F-016/F-017 successor delta CS-UPD (CONDITIONAL, source-preserving read basis) and Register §3's
+ * Communicative Convention Close (as already implemented by IM-02).
+ */
+export const CULTURE_RULE: SourceRef = rule(
+  WS005_SOURCE,
+  "Draft v2 §1 Runtime scope and owned working state (Culture is the sole writer of admitted continuing social meaning/norm; a retained fact carries only its necessary referent(s), scope, social meaning, context, establishment and current material status, provenance where causal, uncertainty/contestation where material and lifecycle; a minimum-information contract, not a fixed schema); §2 Admission and deletion (persist a Culture fact only if continuing social recognition/meaning has independent causal inertia, no other owner can reconstruct it faithfully or cheaply, and it may materially alter a later answer; establish no state on mere contact, hypothetical possibility, cultural stereotype, world truth or policy enactment alone); §3 Trigger and input assembly (a sealed, causally engaged Social Update Context, CS-UPD: each input identifies its source fact/owner and exactly one lawful basis, AS-OF-NOW only after its owner commit or AS-OF-DECLARED-CLOSE at that owner's specifically named close; downstream consequences cannot backfill the sealed context); §4.5 Commit once (a meaning, norm, identity/status meaning, practice or convention change declares the Communicative Convention Close; the Social Relation Close, relations and aggregate positions are not implemented); §8 Validation, invalidation and failure behavior (an unresolved or bounded conclusion, never a substitute writer, speculative group percentage or world-wide culture update); with Concept v2 §§1-2, 4 and 8 anti-imports and Scaling Profile v2 §§2-4 (cardinality basis: admitted material scope × referent × context distinctions; no global social scan; no periodic drift tick); cohort-key re-binding, contestation, retirement, relation/position and the Social Relation Close not implemented",
+  [WS005_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const cultureKind = (
+  id: (typeof CULTURE_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_CULTURE,
+  facet: FACET_CULTURE_SOCIAL,
+  im: "IM-09",
+  rc,
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: CULTURE_RULE,
+});
+
+/**
+ * IM-09 Culture / KTI / Social-Meaning Adapter — the CULTURE ESTABLISHED SHARED MEANING / NORM part only: "sparse cultural
+ * meanings". One owner, one facet, two exclusive create-only (SEALED) key spaces: the authored, sealed Social Update Context
+ * and the shared meaning/norm, which exists only as the Culture owner's declared Communicative Convention Close (an IM-02
+ * stage). There is no fallback owner, and no relation, position, precedence, lineage, convention-lowering, Cohort-attachment,
+ * contestation, retirement, prevalence, count or numeric kind.
+ */
+export const CULTURE_FACT_KINDS: readonly FactKind[] = [
+  cultureKind(
+    "culture_update_context",
+    ["RC-02", "RC-07", "RC-11"],
+    new RegExp(`^culture/update/${ID}/context$`),
+    CultureUpdateContextSchema,
+  ),
+  cultureKind(
+    "culture_shared_meaning",
+    ["RC-02", "RC-03", "RC-04", "RC-11"],
+    new RegExp(`^culture/meaning/${ID}$`),
+    CultureSharedMeaningSchema,
+  ),
+];
+
 const WS007_LINEAGE =
   "WS-007 Government / Institutions / Politics — frozen F-027 source: the Sovereign-ratified GIP Working Operational Draft v2.1, pin 2026-09-24T01:42:24.952Z (https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521), paired with the GIP Scaling Profile v1.1, Red-confirmed at pin 2026-09-25T00:59:55.526Z (https://app.notion.com/p/3e620af901e0812d85efd4438089f417), and the OB-046 closed record confirming WS-007 Current-Saturated / Working Design Saturated in its local scope (https://app.notion.com/p/3e520af901e081e5be76efd3902a180c)";
 
@@ -1722,6 +1797,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...PC_MOVEMENT_FACT_KINDS,
   ...EPISTEMIC_ACCESS_FACT_KINDS,
   ...KTI_FACT_KINDS,
+  ...CULTURE_FACT_KINDS,
   ...GIP_FACT_KINDS,
   ...DIPLOMACY_FACT_KINDS,
   ...CAUSAL_DRAW_FACT_KINDS,

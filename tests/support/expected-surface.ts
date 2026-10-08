@@ -330,6 +330,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "kti/transfer/t1/package",
   },
   {
+    id: "culture_update_context",
+    owner: "culture",
+    facet: "culture_social",
+    lifecycle: "SEALED",
+    group: "CULTURE_FACT_KINDS",
+    exampleKey: "culture/update/u1/context",
+  },
+  {
+    id: "culture_shared_meaning",
+    owner: "culture",
+    facet: "culture_social",
+    lifecycle: "SEALED",
+    group: "CULTURE_FACT_KINDS",
+    exampleKey: "culture/meaning/u1",
+  },
+  {
     id: "gip_institution_identity",
     owner: "gip",
     facet: "gip_institution_identity",
@@ -426,6 +442,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
   named_actor: ["actor_profile"],
   epistemic_access: ["epistemic_access"],
   kti: ["kti_development"],
+  culture: ["culture_social"],
   gip: ["gip_institution_identity"],
   diplomacy: [
     "diplomacy_external_recognition",
@@ -523,6 +540,18 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       file: "packages/engine/src/diplomacy/admission.ts",
       createOnlyGuards: 4,
       amendmentRefusals: 4,
+    },
+  },
+  /**
+   * The Culture & Society owner path (forty-sixth slice): ONE authored publication — the sealed Social Update Context — and two
+   * typed reads by identity. The shared meaning/norm is no method: it is the IM-02 Communicative Convention Close stage.
+   */
+  CultureAdapter: {
+    methods: ["sealUpdateContext", "sharedMeaning", "updateContext"],
+    source: {
+      file: "packages/engine/src/culture/adapter.ts",
+      commitCalls: 1,
+      establishWriters: [],
     },
   },
   EconomyAdapter: {

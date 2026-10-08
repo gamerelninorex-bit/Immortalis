@@ -119,7 +119,7 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
       );
     expect(
       [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => /kti|knowledge|technolog|culture/.test(n)),
-    ).toEqual(["kti"]);
+    ).toEqual(["kti", "culture"]); // culture: the forty-sixth slice's own IM-09 Culture & Society owner
     expect(KTI_FACT_KINDS.every((k) => k.im === "IM-09")).toBe(true);
   });
 
@@ -413,6 +413,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "diplomacy",
       "economy",
       "epistemic",
