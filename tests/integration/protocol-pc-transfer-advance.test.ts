@@ -313,11 +313,18 @@ describe("acceptance 3: every unlawful, stale or unfounded attempt fails closed 
     expect(authorityCensus(s)).toMatchObject({ logistics: 1, total: 1 });
     expect(s.coordinator.state()!.value.continuation).not.toBeNull();
     expect(s.coordinator.boundaryIndex().entries).toHaveLength(1);
-    // the same choice re-presented replays the same transaction and writes nothing; a NEW identity cannot abandon the held remainder
+    // the same choice re-presented replays the same transaction and writes nothing; the held remainder is never abandoned, and a
+    // new identity that re-uses the previous choice's trigger is not a new player choice (see the continuation block below)
     expect(await unchanged(s, () => advance(trustedAdvance(s)))).toEqual(ADVANCE_COMMITTED);
     expect(
       await unchanged(s, () =>
-        advance(trustedAdvance(s, { transaction: advanceTransaction("tx-pc-second-choice") })),
+        advance(
+          trustedAdvance(s, {
+            transaction: advanceTransaction("tx-pc-second-choice", {
+              trigger: advanceTransaction().trigger,
+            }),
+          }),
+        ),
       ),
     ).toEqual(REFUSED);
     expect(s.campaign.verify()).toEqual([]);

@@ -171,7 +171,7 @@ describe("the module composes the existing kernel and owner providers only, and 
     );
   });
 
-  it("drives the one existing advance exactly once, with no target, no continuation and the existing stop condition, and reaches no other kernel entry", () => {
+  it("drives the one existing advance exactly once, with no target, only the derived or held continuation and the existing stop condition, and reaches no other kernel entry", () => {
     const src = identifiers(MODULE);
     expect(src.match(/\.advance\(/g)).toHaveLength(1);
     expect(src).not.toMatch(
@@ -180,10 +180,11 @@ describe("the module composes the existing kernel and owner providers only, and 
     const call = readFileSync(MODULE, "utf8").match(
       /coordinator\.advance\(\{[\s\S]*?\}\s*satisfies ResolutionRequest\)/,
     )![0];
-    expect(call).toContain("continues: null");
-    expect(call).toContain("target: null");
-    expect(call).toContain('kind: "STOP_AFTER_BOUNDARY"');
-    expect(call.match(/target:\s*(\w+)/)![1]).toBe("null");
+    expect(call).toContain("continues,");
+    expect(call).toContain("requested,");
+    expect(src).toMatch(/const requested = \{ target: null, condition \} as const/);
+    expect(src).toMatch(/const condition = \{ kind: "", \.\.\.own \} as const/);
+    expect(readFileSync(MODULE, "utf8")).toContain('kind: "STOP_AFTER_BOUNDARY"');
     expect(identifiers(MODULE).match(/\btarget\b/g)).toHaveLength(1);
   });
 
