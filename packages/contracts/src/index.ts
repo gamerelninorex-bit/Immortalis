@@ -27,11 +27,13 @@
 // I-002 PC Capability Profile / PC Capability Close Receiving Foundation contracts (the received PC capability basis and the persisted PC capability published at the PC Capability Close), and the
 // Existing-Actor World-State Coupling Anchor Foundation contract (the World-State fallback custodian's one current actor↔locus/world coupling fact; a prerequisite only, never the PC handover), and the
 // Active-PC Post-Handover Physical Locus Custody contract (the World-State custodian's one stationary current physical-locus fact of the active PC, established from the completed handover; never movement, never the Role Registry binding), and the
+// Active-PC Voluntary Movement Commitment contracts (the PC-side commitment-of-record and the PC-owned Movement Service Request; willingness only, never a world result), and the
 // I-001 Active-PC Event-Signal Projection contract (IM-13/RC-14: the strict, disposable, non-canonical projection of one current Accessible Content Packet; never state), and the
 // NPK Event-Signal Presentation contract (IM-14: the strict, disposable, non-canonical rendering of exactly one lawful Event-Signal Projection; never state).
 export * from "./actor-capability.ts";
 export * from "./actor-coupling.ts";
 export * from "./pc-locus-custody.ts";
+export * from "./pc-movement.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
 export * from "./causal-draw.ts";

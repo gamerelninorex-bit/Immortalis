@@ -1,7 +1,6 @@
 import {
   EntityTransitionCauseSchema,
   FACET_WORLD_FALLBACK_ENTITY,
-  FallbackPhysicalEntitySchema,
   OWNER_WORLD_STATE,
   WORLD_OPERATION_COMMIT_ENTITY_TRANSITION,
   compareTime,
@@ -15,6 +14,7 @@ import {
   type StageWrite,
 } from "../temporal/providers.ts";
 import { deriveEntityTransition } from "./entity-transition.ts";
+import { parsePhysicalSubject, physicalSubjectOf } from "./physical-subject.ts";
 
 /**
  * The IM-02 owner-adapter operation of the World-State fallback custodian's entity transition (F-016 v0.4 §2 R-1:
@@ -37,11 +37,14 @@ export const worldEntityTransitionProvider: StageProvider = {
   operation: WORLD_OPERATION_COMMIT_ENTITY_TRANSITION,
   rule: WORLD_ENTITY_TRANSITION_RULE,
   compute(input: StageInput): readonly StageWrite[] {
-    const entities = input.reads.filter(
-      (r) =>
+    // the physical subject: an accepted fallback entity, or the active PC's physical-locus custody record
+    const entities = input.reads.filter((r) => {
+      const kind = resolveKey(r.fact.key)?.kind.id;
+      return (
         r.fact.owner === OWNER_WORLD_STATE &&
-        resolveKey(r.fact.key)?.kind.id === "world_fallback_entity",
-    );
+        (kind === "world_fallback_entity" || kind === "world_pc_locus_custody")
+      );
+    });
     // the causing result lives in its source's own key space: the one read no registered key space holds — or,
     // for a movement Logistics committed to, Logistics' own registered delivery-complete result
     const causes = input.reads.filter((r) => {
@@ -55,14 +58,12 @@ export const worldEntityTransitionProvider: StageProvider = {
       );
     const entityFact = entities[0]!.fact;
     const causeFact = causes[0]!.fact;
-    const entity = FallbackPhysicalEntitySchema.safeParse(entityFact.value);
+    const entity = parsePhysicalSubject(entityFact.value);
     const cause = EntityTransitionCauseSchema.safeParse(causeFact.value);
-    if (!entity.success || !cause.success)
+    if (!entity || !cause.success)
       throw unresolved("SOURCE_INVALID", "the cause or the entity violates its typed contract");
-    const key = worldEntityTransitionKey(
-      entity.data.locality.world.entity_id,
-      entity.data.entity_id,
-    );
+    const subject = physicalSubjectOf(entity);
+    const key = worldEntityTransitionKey(subject.locality.world.entity_id, subject.entity_id);
     if (input.produces.length !== 1 || input.produces[0] !== key)
       throw unresolved("SOURCE_INVALID", "the transition does not write its entity's own slot");
     if (input.prior.has(key)) {
@@ -78,7 +79,7 @@ export const worldEntityTransitionProvider: StageProvider = {
         version: causeFact.version,
         value: cause.data,
       },
-      entity: { key: entityFact.key, version: entityFact.version, value: entity.data },
+      entity: { key: entityFact.key, version: entityFact.version, value: entity },
       at: input.span.to,
     });
     if (!derived.ok) throw unresolved("SOURCE_INVALID", derived.error.message);

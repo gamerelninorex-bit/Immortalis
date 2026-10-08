@@ -20,6 +20,9 @@ import {
   NamedActorCapabilitySchema,
   OWNER_NAMED_ACTOR,
   FACET_PC_CAPABILITY_PROFILE,
+  FACET_PC_VOLUNTARY_COMMITMENT,
+  MovementServiceRequestSchema,
+  PcMovementCommitmentSchema,
   PcCapabilityBasisHistoricalSchema,
   PcCapabilityBasisSchema,
   PcCapabilitySchema,
@@ -247,6 +250,7 @@ export const NAMED_ACTOR_FACT_KIND_IDS = [
   "named_actor_capability",
 ] as const;
 export const PC_CAPABILITY_FACT_KIND_IDS = ["pc_capability_basis", "pc_capability"] as const;
+export const PC_MOVEMENT_FACT_KIND_IDS = ["pc_movement_commitment", "pc_movement_request"] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
   "epistemic_accessible_packet",
@@ -279,6 +283,7 @@ export type FactKindId =
   | (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number]
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof PC_CAPABILITY_FACT_KIND_IDS)[number]
+  | (typeof PC_MOVEMENT_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
@@ -1047,6 +1052,57 @@ export const PC_CAPABILITY_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+const PC_MOVEMENT_WS010_LINEAGE = `WS-010 Logistics §3.1 Movement Service Request (an interface envelope, not Logistics-owned state: it lives with the requesting owner and transfers no ownership of the moved thing), §10.2 identity, quantity and condition stay with the substantive owner, spec-locked pin ${WS010_SOURCE.native_pin} (${WS010_SOURCE.artifact})`;
+
+/**
+ * The PC-side voluntary-movement commitment-of-record and the PC-owned Movement Service Request derived from it (IM-07): the
+ * frozen Post-Handover Physical Locus Ownership & Relocation Contract §4 (voluntary movement intent originates only with
+ * role.player + permission.player_choice.commit), §8 (precondition: a player-owned movement commitment where movement is
+ * voluntary), §10 (request ownership and physical-subject ownership stay separate: a voluntary movement request is PC/player-side)
+ * and §14 (a voluntary commitment absent or not player-owned fails closed), with I-002 as the current lawful PC-state owner
+ * (intrinsic identity and agency; position and the movement result are never I-002 state, I-002 §4.3) and WS-010 §3.1.
+ */
+export const PC_MOVEMENT_RULE: SourceRef = rule(
+  I002_SOURCE,
+  "§2 canonical current PC state is owned by I-002 (intrinsic identity, agency and embodiment topology; the player's voluntary commitment is authored willingness only, never a world result); §4.3 position and other world-locus differences are not I-002 state; with the frozen Post-Handover Physical Locus Ownership & Relocation Contract §4 / §8 / §10 / §14 (the PC-side, player-owned voluntary movement commitment and the PC-owned Movement Service Request)",
+  [PC_MOVEMENT_WS010_LINEAGE, PC_LOCUS_CONTRACT_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+const pcMovementKind = (
+  id: (typeof PC_MOVEMENT_FACT_KIND_IDS)[number],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_PC_EXISTENCE,
+  facet: FACET_PC_VOLUNTARY_COMMITMENT,
+  im: "IM-07",
+  rc: ["RC-02"],
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: PC_MOVEMENT_RULE,
+});
+
+/**
+ * Two SEALED, create-only PC-side kinds in a third facet of the one existing PC owner (`pc_existence`), at ONE slot per PC
+ * identity: the player's voluntary-movement commitment-of-record, and the PC-owned Movement Service Request (exactly the existing
+ * WS-010 §3.1 envelope). One slot per PC is the one-journey constraint of this tranche: a second voluntary movement of the same
+ * PC is a version conflict, never a sibling truth. Neither kind is Logistics state, World-State state or a world result.
+ */
+export const PC_MOVEMENT_FACT_KINDS: readonly FactKind[] = [
+  pcMovementKind(
+    "pc_movement_commitment",
+    new RegExp(`^pc/${ID}/movement/commitment$`),
+    PcMovementCommitmentSchema,
+  ),
+  pcMovementKind(
+    "pc_movement_request",
+    new RegExp(`^pc/${ID}/movement/request$`),
+    MovementServiceRequestSchema,
+  ),
+];
+
 const CAUSAL_DRAW_RED_CLEARANCE =
   "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
 
@@ -1663,6 +1719,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,
   ...PC_CAPABILITY_FACT_KINDS,
+  ...PC_MOVEMENT_FACT_KINDS,
   ...EPISTEMIC_ACCESS_FACT_KINDS,
   ...KTI_FACT_KINDS,
   ...GIP_FACT_KINDS,

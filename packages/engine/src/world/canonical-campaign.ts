@@ -9,6 +9,10 @@ import {
   ExistingActorCouplingTargetSchema,
   PcPhysicalLocusCustodySchema,
   PcPhysicalLocusCustodyTargetSchema,
+  MovementServiceRequestSchema,
+  PcMovementCommitInputSchema,
+  PcMovementCommitmentSchema,
+  PcMovementRequestTargetSchema,
   HandoverTargetSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
@@ -18,6 +22,8 @@ import {
   fail,
   ok,
   pcExistenceContractKey,
+  pcMovementCommitmentKey,
+  pcMovementRequestKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
@@ -25,6 +31,8 @@ import {
   type CommitGroup,
   type ExistenceContract,
   type ExistingActorCoupling,
+  type MovementServiceRequest,
+  type PcMovementCommitment,
   type PcPhysicalLocusCustody,
   type OwnerFact,
   type PlayerCharacterBinding,
@@ -67,6 +75,9 @@ import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.t
 import { expectedHandoverMigration } from "../owners/admission.ts";
 import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
+import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
+import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
+import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
 import { derivePcPhysicalLocusCustody } from "./pc-locus-custody.ts";
 import { verifyPcPhysicalLocusCustodyIntegrity } from "./pc-locus-custody-integrity.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
@@ -122,6 +133,22 @@ export interface HandoverExistingActorInput extends Publication {
  * placement, destination or movement field: the stationary locus is read from the handover's consumed coupling.
  */
 export interface EstablishPcLocusCustodyInput extends Publication {
+  readonly pc_id: string;
+}
+
+/**
+ * What a player's voluntary-movement commitment names (I-001's minimum structured movement intent, already lowered): the PC, ONE
+ * already-established destination locus and the authored authority (role.player + permission.player_choice.commit, supplied and
+ * never defaulted). There is no route, duration, cost, arrival, leg or success field: the player authors willingness only.
+ */
+export interface CommitPcVoluntaryMovementInput extends Publication {
+  readonly pc_id: string;
+  readonly destination: unknown;
+  readonly authored_under: unknown;
+}
+
+/** What a PC-owned Movement Service Request establishment names: the canonical PC identity only. */
+export interface EstablishPcMovementRequestInput extends Publication {
   readonly pc_id: string;
 }
 
@@ -453,6 +480,83 @@ export class CanonicalCampaign {
     );
   }
 
+  /**
+   * I-002 (the current lawful PC-state owner): the player's voluntary-movement COMMITMENT-OF-RECORD for the active PC (frozen
+   * Post-Handover contract §4, §8, §14). It states willingness only: one relocation of the continuing PC to one already-established
+   * lawful locus of its own world, authored under role.player + permission.player_choice.commit. It is not a world result, not a
+   * Logistics commitment and not arrival, and it invents no route, duration, cost or success. Everything else is read from committed
+   * state (the pins are mechanical); admission fails it closed unless the very PC is the active handed-over PC, its stationary
+   * custody is the one authority and the destination is an established distinct locus. One slot per PC: a second journey conflicts.
+   */
+  commitPcVoluntaryMovement(
+    input: CommitPcVoluntaryMovementInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, ...named } = input;
+    const target = PcMovementCommitInputSchema.safeParse(named);
+    if (!target.success) return Promise.resolve(inputInvalid("movement commitment", target.error));
+    const derived = derivePcMovementCommitment(target.data, this.store);
+    if (!derived.ok) {
+      return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    }
+    const commitment = PcMovementCommitmentSchema.safeParse(derived.value);
+    if (!commitment.success) return Promise.resolve(inputInvalid("commitment", commitment.error));
+    const d = commitment.data.intent.destination;
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "pc_movement_commitment",
+      pcMovementCommitmentKey(target.data.pc_id),
+      commitment.data,
+      [
+        pcExistenceContractKey(target.data.pc_id),
+        PLAYER_CHARACTER_BINDING_KEY,
+        worldPcLocusCustodyKey(target.data.pc_id),
+        d.world.fact_key,
+        d.locus.fact_key,
+      ],
+    );
+  }
+
+  /**
+   * The PC-OWNED Movement Service Request (WS-010 §3.1; frozen Post-Handover contract §10): exactly the existing envelope, derived
+   * mechanically from the PC's committed commitment-of-record and held in the PC-state owner's own key space. It is rejected unless
+   * the commitment-of-record is committed and still holds; Logistics and World-State create no willingness. Naming the PC as the moved
+   * subject is a REFERENCE to its physical custody record: no fallback entity is created and no ownership of the locus moves.
+   */
+  establishPcMovementRequest(
+    input: EstablishPcMovementRequestInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, ...named } = input;
+    const target = PcMovementRequestTargetSchema.safeParse(named);
+    if (!target.success) return Promise.resolve(inputInvalid("movement request", target.error));
+    const commitmentFact = this.store.getFact(pcMovementCommitmentKey(target.data.pc_id));
+    const commitment = commitmentFact
+      ? PcMovementCommitmentSchema.safeParse(commitmentFact.value)
+      : undefined;
+    if (!commitmentFact || !commitment?.success) {
+      return Promise.resolve(
+        fail(
+          "PREREQUISITE_MISSING",
+          "no player movement commitment-of-record is committed for this PC: a request is never created without willingness",
+        ),
+      );
+    }
+    const request = MovementServiceRequestSchema.safeParse(
+      derivePcMovementRequest(commitment.data),
+    );
+    if (!request.success) return Promise.resolve(inputInvalid("request", request.error));
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "pc_movement_request",
+      pcMovementRequestKey(target.data.pc_id),
+      request.data,
+      [
+        pcMovementCommitmentKey(target.data.pc_id),
+        request.data.subject.fact_key,
+        request.data.destination.locus.fact_key,
+      ],
+    );
+  }
+
   // -- reads (typed, by identity) ---------------------------------------------------------------
 
   world(worldId: string): Typed<WorldProfile> | undefined {
@@ -475,6 +579,26 @@ export class CanonicalCampaign {
    */
   pcPhysicalLocusCustody(pcId: string): Typed<PcPhysicalLocusCustody> | undefined {
     return this.#typed(worldPcLocusCustodyKey(pcId), PcPhysicalLocusCustodySchema);
+  }
+  /** The PC's voluntary-movement commitment-of-record (willingness only, never a world result), or undefined when none. */
+  pcMovementCommitment(pcId: string): Typed<PcMovementCommitment> | undefined {
+    return this.#typed(pcMovementCommitmentKey(pcId), PcMovementCommitmentSchema);
+  }
+  /** The PC-owned Movement Service Request, or undefined when none is established. */
+  pcMovementRequest(pcId: string): Typed<MovementServiceRequest> | undefined {
+    return this.#typed(pcMovementRequestKey(pcId), MovementServiceRequestSchema);
+  }
+  /**
+   * Where is the active PC now? ONE authority at every durable cut, by PC identity (frozen Post-Handover contract §9): the
+   * stationary World-State custody record, or Logistics while an active transfer owns the in-transfer locus, or the destination
+   * World-State committed (ECT-01). It never reads the Role Registry binding's referent or the consumed actor coupling. Undefined
+   * when the PC has no physical-locus custody record.
+   */
+  pcCurrentLocus(pcId: string): ResolvedEntityLocus | undefined {
+    const custody = this.pcPhysicalLocusCustody(pcId);
+    return custody
+      ? resolveEntityLocus(this.store, custody.value.stationary_locus.world.entity_id, pcId)
+      : undefined;
   }
   /** The operative binding, or undefined for the NULL state (no active PC). */
   binding(): Typed<PlayerCharacterBinding> | undefined {
@@ -558,6 +682,7 @@ function verifyAll(
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
+    ...verifyPcMovementIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),

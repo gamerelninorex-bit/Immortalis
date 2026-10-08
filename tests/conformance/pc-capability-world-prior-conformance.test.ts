@@ -179,11 +179,14 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, cl
     expect([...CANONICAL_OWNER_REGISTRY.get("pc_existence")!].sort()).toEqual([
       "existence_contract",
       "pc_capability_profile",
+      "pc_voluntary_commitment",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "pc_existence").map((k) => k.id)).toEqual([
       "pc_existence_contract",
       "pc_capability_basis",
       "pc_capability",
+      "pc_movement_commitment",
+      "pc_movement_request",
     ]);
     expect(existsSync("migrations/manifests/pc-capability-world-prior.json")).toBe(false);
   });

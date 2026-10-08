@@ -42,8 +42,12 @@ export const logisticsDeliveryProvider: StageProvider = {
   operation: LOGISTICS_OPERATION_ESTABLISH_DELIVERY,
   rule: LOGISTICS_RULE,
   compute(input: StageInput): readonly StageWrite[] {
-    // the one read: the request, in its source's own key space (no registered key space holds it)
-    const requests = input.reads.filter((r) => resolveKey(r.fact.key) === null);
+    // the one read: the request, in its source's own key space (no registered key space holds it) — or, for the active PC, the
+    // PC-owned request in the PC-state owner's own request slot
+    const requests = input.reads.filter((r) => {
+      const kind = resolveKey(r.fact.key)?.kind.id;
+      return kind === undefined || kind === "pc_movement_request";
+    });
     if (input.reads.length !== 1 || requests.length !== 1)
       throw unresolved("SOURCE_ABSENT", "a delivery reads exactly one movement request");
     const requestFact = requests[0]!.fact;

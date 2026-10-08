@@ -307,6 +307,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "integrity.ts",
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
+      "physical-subject.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")
@@ -324,6 +325,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "logistics",
       "owners",
       "pc-capability",
+      "pc-movement",
       "persistence",
       "population",
       "presentation",

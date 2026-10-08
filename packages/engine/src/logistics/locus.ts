@@ -11,7 +11,7 @@ import {
   type LogisticsTransfer,
   type OwnerFact,
 } from "@immortalis/contracts";
-import { entityCurrentLocus } from "../world/entity-transition.ts";
+import { subjectCurrentLocus } from "../world/entity-transition.ts";
 
 /**
  * Where is this entity currently? ONE lawful answer at every stage (WS-010 §10.1, §27: an active moved object may
@@ -54,7 +54,7 @@ export function resolveEntityLocus(
   worldId: string,
   entityId: string,
 ): ResolvedEntityLocus | undefined {
-  const current = entityCurrentLocus(source, worldId, entityId);
+  const current = subjectCurrentLocus(source, worldId, entityId);
   if (!current) return undefined;
   const transferFact = source.getFact(logisticsTransferKey(worldId, entityId));
   const transfer = transferFact ? LogisticsTransferSchema.parse(transferFact.value) : undefined;

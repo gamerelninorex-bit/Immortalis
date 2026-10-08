@@ -237,6 +237,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "integrity.ts",
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
+      "physical-subject.ts",
     ]);
     for (const f of MODULES) {
       expect(code(f), f).not.toMatch(/\b(?:export )?class\s+\w+/);
@@ -334,7 +335,16 @@ describe("the custody is stationary only: no movement, request, Logistics, Tempo
       "packages/contracts/src/entity-transition.ts",
       "packages/contracts/src/actor-coupling.ts",
     ];
-    for (const f of files)
+    // The fortieth slice (Active-PC Voluntary Movement) intentionally consumes the custody record through exactly three narrow
+    // seams, each admitting it as the moved physical subject of the EXISTING Logistics / ECT-01 machinery: the Logistics
+    // derivations (the key of the subject and the PC-owned request rule) and the ECT-01 transition derivation and provider (the
+    // subject's record). Every other predecessor module still names no custody construct.
+    const FORTIETH_SLICE_SEAMS = [
+      "packages/engine/src/logistics/derive.ts",
+      "packages/engine/src/world/entity-transition.ts",
+      "packages/engine/src/world/entity-transition-provider.ts",
+    ];
+    for (const f of files.filter((x) => !FORTIETH_SLICE_SEAMS.includes(x)))
       expect(code(f), f).not.toMatch(
         /PcPhysicalLocusCustody|pcPhysicalLocusCustody|world_pc_locus_custody|worldPcLocusCustody|pc-locus-custody/,
       );

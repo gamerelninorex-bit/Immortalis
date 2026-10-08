@@ -1,7 +1,6 @@
 import {
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
-  FallbackPhysicalEntitySchema,
   ResolutionTransactionSchema,
   TemporalObjectSchema,
   entityTransitionStage,
@@ -22,6 +21,7 @@ import {
   movementGuardViolation,
 } from "./entity-transition.ts";
 import type { IntegrityViolation } from "./integrity.ts";
+import { parsePhysicalSubject } from "./physical-subject.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's entity transitions still tell
@@ -80,7 +80,7 @@ export function verifyEntityTransitionIntegrity(
     const causeFact = byKey.get(t.cause.fact_key);
     const entityFact = byKey.get(t.entity.fact_key);
     const cause = parsed(causeFact, EntityTransitionCauseSchema);
-    const entity = parsed(entityFact, FallbackPhysicalEntitySchema);
+    const entity = entityFact ? parsePhysicalSubject(entityFact.value) : undefined;
     if (!causeFact || !entityFact || !cause || !entity) {
       bad(tf.key, "a transition has no committed causing result or accepted entity");
       continue;

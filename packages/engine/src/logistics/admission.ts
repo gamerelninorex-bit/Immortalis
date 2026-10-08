@@ -1,7 +1,6 @@
 import {
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
-  FallbackPhysicalEntitySchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   MovementServiceRequestSchema,
@@ -30,7 +29,13 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
+import { pcMovementRequestViolation } from "../pc-movement/derive.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
+import {
+  isPcSubjectKey,
+  isPhysicalSubjectKey,
+  parsePhysicalSubject,
+} from "../world/physical-subject.ts";
 import {
   deriveCommitment,
   deriveDelivery,
@@ -114,7 +119,7 @@ function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Re
     w.key !== logisticsCommitmentKey(world, c.moved.entity_id) ||
     c.commitment_id !== logisticsCommitmentId(rid) ||
     c.delivery.boundary_id !== logisticsBoundaryId(rid) ||
-    c.moved.fact_key !== worldFallbackEntityKey(world, c.moved.entity_id)
+    !isPhysicalSubjectKey(c.moved.fact_key, world, c.moved.entity_id)
   ) {
     return ref(
       "the commitment is at the key derived from its entity, with identities from its request",
@@ -146,9 +151,21 @@ function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Re
   // the moved entity: World-State's accepted fallback entity, pinned (identity, quantity and condition stay there)
   const entityP = requirePrerequisite(group, state, c.moved.fact_key, "the accepted entity");
   if (isRejection(entityP)) return entityP;
-  const entity = FallbackPhysicalEntitySchema.safeParse(entityP.fact.value);
-  if (!entity.success || entityP.fact.version !== c.moved.version) {
+  const entity = parsePhysicalSubject(entityP.fact.value);
+  if (!entity || entityP.fact.version !== c.moved.version) {
     return ref("the entity is pinned at its current version", { key: c.moved.fact_key });
+  }
+  // The active PC is admitted as the moved subject only from its lawful physical custodian (its World-State custody record), by the
+  // PC-owned request the player's commitment-of-record determines, with the whole PC-side chain still current and the PC
+  // represented by no rival authority (frozen Post-Handover contract §9, §10, §14); a fallback entity is never manufactured for it.
+  if (isPcSubjectKey(c.moved.fact_key, c.moved.entity_id)) {
+    const chain = pcMovementRequestViolation(requestP.fact.key, request.data, state.facts);
+    if (chain) return ref(chain, { key: c.request.fact_key });
+    if (state.facts.has(worldFallbackEntityKey(world, c.moved.entity_id))) {
+      return ref("another current-locus authority exists for the PC: a fallback entity", {
+        key: c.moved.fact_key,
+      });
+    }
   }
   // the destination is an established locus of the entity's world: a commitment creates none
   const dest = c.destination;
@@ -179,7 +196,7 @@ function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Re
       version: requestP.fact.version,
       value: request.data,
     },
-    entity: { key: entityP.fact.key, version: entityP.fact.version, value: entity.data },
+    entity: { key: entityP.fact.key, version: entityP.fact.version, value: entity },
     transitioned: state.facts.has(worldEntityTransitionKey(world, c.moved.entity_id)),
     now,
     delivery_at: c.delivery.at,
