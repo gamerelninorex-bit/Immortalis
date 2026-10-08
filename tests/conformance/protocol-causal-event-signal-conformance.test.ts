@@ -49,6 +49,7 @@ describe("existing path and predecessors are untouched: the operation consumes t
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
+      "pc-relocation.ts",
     ]);
     const pkg = JSON.parse(readFileSync("packages/protocol/package.json", "utf8")) as {
       dependencies: Record<string, string>;
