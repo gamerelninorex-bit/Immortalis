@@ -209,16 +209,12 @@ describe("IA-18 / IA-28: host input cannot supply authority, identity, time, tar
 });
 
 describe("IA-19 / IA-20: every refusal is the same refusal, and a success reveals only the minimum status", () => {
-  it("each distinct cause — past target, wrong unit, nothing due, held continuation, conflicting identity, forbidden permission, active PC, no basis — yields byte-identical refusals that name no cause", async () => {
+  it("each distinct cause — past target, wrong unit, held continuation, conflicting identity, forbidden permission, active PC, no basis — yields byte-identical refusals that name no cause", async () => {
     const refusals = new Set<string>();
     const a = await due();
     // a past target and a target in another unit
     for (const target of [at(PROD_T0.value - 1), { unit: "other-unit", value: 1 }])
       refusals.add(await call(trustedNullPcAdvance(a, { target }), NULL_PC_REQUEST()));
-    // a target before the due boundary (nothing due at or before it)
-    refusals.add(
-      await call(trustedNullPcAdvance(a, { target: at(PROD_T0.value + 50) }), NULL_PC_REQUEST()),
-    );
     // a forbidden permission is an inert context
     refusals.add(
       await call(
@@ -266,6 +262,26 @@ describe("IA-19 / IA-20: every refusal is the same refusal, and a success reveal
     expect(first).not.toMatch(
       /owner|key|revision|sha256|provenance|sealed|event|recipient|replayed|receipt|stop|reason|time|boundary|reached|attain|logistics|world/i,
     );
+  });
+
+  it("the presence or absence of due work is not a host-visible signal: a quiet carry, an empty index and a resolved boundary are byte-identical successes", async () => {
+    const quiet = await due();
+    const resolved = await due();
+    const empty = await seededNullPcCampaign(tempDir());
+    const q = await call(
+      trustedNullPcAdvance(quiet, { target: at(PROD_T0.value + 50) }),
+      NULL_PC_REQUEST(),
+    );
+    const r = await call(trustedNullPcAdvance(resolved), NULL_PC_REQUEST());
+    const e = await call(
+      trustedNullPcAdvance(empty, { target: at(PROD_T0.value + 100) }),
+      NULL_PC_REQUEST(),
+    );
+    expect([q, r, e]).toEqual([OK, OK, OK]);
+    // a quiet carry and an empty index record the kernel's exact carry, not a stop on work
+    expect(quiet.coordinator.transaction(NULL_PC_TX)!.value.engaged).toEqual([]);
+    expect(empty.coordinator.transaction(NULL_PC_TX)!.value.engaged).toEqual([]);
+    expect(resolved.coordinator.transaction(NULL_PC_TX)!.value.engaged.length).toBeGreaterThan(0);
   });
 
   it("an unresolved stop and a reached target are byte-identical to the host: the stop reason is not a side channel", async () => {

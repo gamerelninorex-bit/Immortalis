@@ -89,6 +89,11 @@ const summary = (s: LogSeeded) => {
   void head;
   return JSON.stringify(stable(rest));
 };
+const addedKeys = (s: LogSeeded, before: Set<string>): string[] =>
+  s.campaign.store
+    .listFacts()
+    .map((f) => f.key)
+    .filter((k) => !before.has(k));
 const headRevision = (s: LogSeeded) => s.campaign.store.head().revision;
 const literal = (target = PROD_T1, id = NULL_PC_TX) => {
   const t = nullPcTransaction(id) as any;
@@ -166,8 +171,8 @@ describe("authority: a genuine OOC choice in the NULL state advances real, alrea
     expect(tx.requested).toEqual({ target: LOG_T_DELIVERY, condition: null });
     expect(tx.outcome.actual_stop).toEqual(LOG_T_DELIVERY);
     expect(s.coordinator.boundaryIndex().entries).toEqual([]);
-    // a second, new OOC choice with a further target: nothing is registered and due, so it is not an empty-clock button
-    const before = summary(s);
+    // a second, new OOC choice with a further target while the active index is empty: the kernel's exact lazy carry, not a refusal
+    const keysBefore = new Set(s.campaign.store.listFacts().map((f) => f.key));
     expect(
       await advanceNull(
         trustedNullPcAdvance(s, {
@@ -175,8 +180,13 @@ describe("authority: a genuine OOC choice in the NULL state advances real, alrea
           transaction: nullPcTransaction("tx-null-pc-2"),
         }),
       ),
-    ).toEqual(JSON.parse(NULL_PC_REFUSAL));
-    expect(summary(s)).toBe(before);
+    ).toEqual(NULL_PC_COMMITTED);
+    const quiet = s.coordinator.transaction("tx-null-pc-2")!.value;
+    expect(quiet.requested).toEqual({ target: PROD_T1, condition: null });
+    expect(quiet.outcome.stop_reason).toBe("TARGET_REACHED");
+    expect(quiet.outcome.actual_stop).toEqual(PROD_T1);
+    expect(s.coordinator.state()?.value.canonical_time).toEqual(PROD_T1);
+    expect(addedKeys(s, keysBefore).every((k) => k.startsWith("temporal/"))).toBe(true);
   });
 
   it("does not skip unrelated registered due work: every due transfer at or before the target is resolved by its own owner path in one transaction", async () => {
@@ -215,15 +225,89 @@ describe("authority: a genuine OOC choice in the NULL state advances real, alrea
     expect(s.coordinator.transaction(NULL_PC_TX)!.value.engaged).toHaveLength(2);
   });
 
-  it("only registered work at or before the target is resolved: a target that precedes the due boundary is refused and writes nothing", async () => {
+  it("a valid future target strictly before the earliest due boundary is the kernel's exact lazy carry: committed, no owner effect, the pending boundary and transfer untouched", async () => {
     const s = await dueCampaign();
-    const before = summary(s);
-    const rev = headRevision(s);
-    expect(await advanceNull(trustedNullPcAdvance(s, { target: at(PROD_T0.value + 50) }))).toEqual(
-      JSON.parse(NULL_PC_REFUSAL),
+    const target = at(PROD_T0.value + 50);
+    expect(target.value).toBeLessThan(LOG_T_DELIVERY.value);
+    const keysBefore = new Set(s.campaign.store.listFacts().map((f) => f.key));
+    const ownerBefore = JSON.stringify(
+      s.campaign.store.listFacts().filter((f) => !f.key.startsWith("temporal/")),
     );
+    const indexBefore = JSON.stringify(s.coordinator.boundaryIndex());
+    expect(await advanceNull(trustedNullPcAdvance(s, { target }))).toEqual(NULL_PC_COMMITTED);
+    const tx = s.coordinator.transaction(NULL_PC_TX)!.value;
+    expect(tx.requested).toEqual({ target, condition: null });
+    expect(tx.continues).toBeNull();
+    expect(tx.outcome.stop_reason).toBe("TARGET_REACHED");
+    expect(tx.outcome.actual_stop).toEqual(target);
+    expect(tx.outcome.unresolved_dependents).toEqual([]);
+    expect(tx.engaged).toEqual([]);
+    expect(s.coordinator.state()?.value.canonical_time).toEqual(target);
+    expect(s.coordinator.state()?.value.continuation).toBeNull();
+    // nothing but the kernel's own coordination facts was written: no owner fact, no process, no recomputed boundary
+    expect(addedKeys(s, keysBefore).every((k) => k.startsWith("temporal/"))).toBe(true);
+    expect(
+      JSON.stringify(s.campaign.store.listFacts().filter((f) => !f.key.startsWith("temporal/"))),
+    ).toBe(ownerBefore);
+    expect(JSON.stringify(s.coordinator.boundaryIndex())).toBe(indexBefore);
+    expect(s.logistics.transfer(FIXTURE_WORLD_ID, entity)?.value.state.status).toBe("IN_TRANSFER");
+    // replay is byte-identical and writes nothing
+    const after = summary(s);
+    expect(await advanceNull(trustedNullPcAdvance(s, { target }))).toEqual(NULL_PC_COMMITTED);
+    expect(summary(s)).toBe(after);
+    // the due work was not skipped or consumed: a later, new choice resolves it through the real owners
+    expect(
+      await advanceNull(
+        trustedNullPcAdvance(s, {
+          target: PROD_T1,
+          transaction: nullPcTransaction("tx-null-pc-2"),
+        }),
+      ),
+    ).toEqual(NULL_PC_COMMITTED);
+    expect(s.logistics.transfer(FIXTURE_WORLD_ID, entity)?.value.state.status).not.toBe(
+      "IN_TRANSFER",
+    );
+    expect(s.coordinator.boundaryIndex().entries).toEqual([]);
+  });
+
+  it("an empty active boundary index is not a refusal ground: a valid future target commits the exact lazy carry and nothing else", async () => {
+    const dir = tempDir();
+    const s = await seededNullPcCampaign(dir);
+    expect(s.coordinator.boundaryIndex().entries).toEqual([]);
+    expect(s.campaign.binding()).toBeUndefined();
+    const keysBefore = new Set(s.campaign.store.listFacts().map((f) => f.key));
+    const target = at(PROD_T0.value + 100);
+    const result = JSON.stringify(await advanceNull(trustedNullPcAdvance(s, { target })));
+    expect(result).toBe(JSON.stringify(NULL_PC_COMMITTED));
+    const tx = s.coordinator.transaction(NULL_PC_TX)!.value;
+    expect(tx.outcome.stop_reason).toBe("TARGET_REACHED");
+    expect(tx.outcome.actual_stop).toEqual(target);
+    expect(s.coordinator.state()?.value.canonical_time).toEqual(target);
+    expect(addedKeys(s, keysBefore).every((k) => k.startsWith("temporal/"))).toBe(true);
+    // fact-for-fact the manual kernel advance of the same literal request
+    const manual = await seededNullPcCampaign(tempDir());
+    expect((await manual.coordinator.advance(literal(target))).ok).toBe(true);
+    expect(summary(s)).toBe(summary(manual));
+    // identity replay, in process and after save → close → reopen, writes nothing
+    const committed = summary(s);
+    expect(JSON.stringify(await advanceNull(trustedNullPcAdvance(s, { target })))).toBe(result);
+    expect(summary(s)).toBe(committed);
+    await s.campaign.store.close();
+    const reopened = await reopenLogistics(dir);
+    expect(JSON.stringify(await advanceNull(trustedNullPcAdvance(reopened, { target })))).toBe(
+      result,
+    );
+    expect(summary(reopened)).toBe(committed);
+  });
+
+  it("the quiet carry is still bounded by the kernel: a past or wrong-unit target on an empty index is refused and writes nothing", async () => {
+    const s = await seededNullPcCampaign(tempDir());
+    const before = summary(s);
+    for (const target of [at(PROD_T0.value - 1), { unit: "other-unit", value: 999999 }])
+      expect(await advanceNull(trustedNullPcAdvance(s, { target }))).toEqual(
+        JSON.parse(NULL_PC_REFUSAL),
+      );
     expect(summary(s)).toBe(before);
-    expect(headRevision(s)).toBe(rev);
   });
 });
 

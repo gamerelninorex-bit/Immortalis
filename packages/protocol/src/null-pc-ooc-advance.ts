@@ -9,7 +9,6 @@ import {
   ResolutionRequestSchema,
   fail,
   ok,
-  timeAtOrBefore,
   type CanonicalTime,
   type NullPcOocAdvanceReceipt,
   type ResolutionRequest,
@@ -66,10 +65,12 @@ import {
  * (`DEPENDENCY_UNRESOLVED` with a held continuation); the requested time is never reported as reached by this module, because
  * only the kernel's recorded transaction says what was reached.
  *
- * It is not an empty-clock button: the operation is refused unless the kernel's own active boundary index holds registered work
- * that is already due at or before the chosen target. A held continuation is neither consumed, cancelled nor overwritten — this
- * slice implements the initial branch only (`continues` null); while the Temporal state holds one, a new target is refused, and
- * the kernel's own `CONTINUATION_HELD` guard stays the final authority.
+ * It adds no admission rule about what is due. When the chosen target is valid and no registered material boundary is due by it
+ * (an empty active index, or a target strictly before the earliest earned boundary), the unchanged request goes to the kernel,
+ * which performs F-014B §6's exact lazy carry of stable state to the target with no owner effect and no invented process; the
+ * presence or absence of due work is therefore never a host-visible difference. A held continuation is neither consumed,
+ * cancelled nor overwritten — this slice implements the initial branch only (`continues` null); while the Temporal state holds
+ * one, a new target is refused, and the kernel's own `CONTINUATION_HELD` guard stays the final authority.
  *
  * Retry is by identity (RC-16): the transaction identity is the trusted side's, stable across retries and reopen. A transaction
  * that already committed is replayed by the kernel against the same literal request and writes nothing; committed stages are
@@ -209,9 +210,6 @@ export async function advanceNullPcOocToTarget(
       const state = coordinator.state()?.value;
       // a held continuation is consumed or it stays; this slice never resumes or abandons one
       if (!state || state.continuation !== null) return refusal();
-      // not an empty-clock button: registered work must already be due at or before the chosen target
-      if (!coordinator.boundaryIndex().entries.some((e) => timeAtOrBefore(e.at, target)))
-        return refusal();
     }
     const advanced = await coordinator.advance({
       ...transaction,

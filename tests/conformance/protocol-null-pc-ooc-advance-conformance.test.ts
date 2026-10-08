@@ -205,6 +205,17 @@ describe("the module composes the existing kernel and shipped owner providers on
     expect(src).not.toMatch(/STOP_AFTER_BOUNDARY|\bkind\s*:|object_id|boundary_id/);
   });
 
+  it("adds no due-work admission rule: it never reads the boundary index or compares times, so absence of due work is never a refusal ground (F47-R1)", () => {
+    const src = identifiers(MODULE);
+    expect(src).not.toMatch(
+      /boundaryIndex|timeAtOrBefore|timeBefore|compareTime|timeEquals|\.entries\b|\bobject\(/,
+    );
+    expect(src.match(/return refusal\(\)/g)).toHaveLength(4);
+    expect(readFileSync(MODULE, "utf8")).not.toMatch(
+      /empty-clock button: the operation is refused/,
+    );
+  });
+
   it("proves the NULL state before it reads any Temporal state, and refuses while the state holds a continuation", () => {
     const src = identifiers(MODULE);
     const nullCheck = src.indexOf("campaign.binding() !== undefined");
