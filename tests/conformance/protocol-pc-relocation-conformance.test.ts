@@ -88,6 +88,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "event-signal.ts",
       "index.ts",
       "pc-relocation.ts",
+      "pc-transfer-advance.ts",
     ]);
     expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     expect(protocolIndexExports()).toContain('export * from "./pc-relocation.ts";');

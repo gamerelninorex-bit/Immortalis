@@ -57,6 +57,7 @@ export * from "./population.ts";
 export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./production.ts";
+export * from "./protocol-advance.ts";
 export * from "./protocol-causal.ts";
 export * from "./protocol-relocation.ts";
 export * from "./protocol.ts";
