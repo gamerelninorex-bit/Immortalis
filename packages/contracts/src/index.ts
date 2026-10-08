@@ -58,6 +58,7 @@ export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./production.ts";
 export * from "./protocol-causal.ts";
+export * from "./protocol-relocation.ts";
 export * from "./protocol.ts";
 export * from "./result.ts";
 export * from "./source-ref.ts";

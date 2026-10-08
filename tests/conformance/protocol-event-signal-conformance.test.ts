@@ -77,6 +77,7 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
+      "pc-relocation.ts",
     ]);
     expect(protocolIndexExports()).toEqual(PROTOCOL_ONLY_EVENT_SIGNAL_READ);
     const pkg = JSON.parse(readFileSync("packages/protocol/package.json", "utf8")) as {
@@ -88,7 +89,9 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
     });
     expect(Object.keys(protocol).sort()).toEqual([
       "bindTrustedCausalEventSignalContext",
+      "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedEventSignalContext",
+      "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
     ]);
