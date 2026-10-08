@@ -6,12 +6,14 @@ import * as protocol from "@immortalis/protocol";
 import * as testkit from "@immortalis/testkit";
 
 describe("workspace wiring", () => {
-  it("resolves all four packages; protocol exposes exactly the trusted-context binder and the one host read operation", () => {
+  it("resolves all four packages; protocol exposes exactly the two trusted-context binders and the two host operations", () => {
     expect(Object.keys(contracts).length).toBeGreaterThan(0);
     expect(Object.keys(engine).length).toBeGreaterThan(0);
     expect(Object.keys(testkit).length).toBeGreaterThan(0);
     expect(Object.keys(protocol).sort()).toEqual([
+      "bindTrustedCausalEventSignalContext",
       "bindTrustedEventSignalContext",
+      "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
     ]);
   });
