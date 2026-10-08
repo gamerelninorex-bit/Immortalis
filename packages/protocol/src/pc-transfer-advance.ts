@@ -17,6 +17,7 @@ import {
   pcMovementRequestKey,
   type PcTransferAdvanceReceipt,
   type ResolutionRequest,
+  type ResolutionTransaction,
   type Result,
 } from "@immortalis/contracts";
 import {
@@ -52,16 +53,26 @@ import {
  *
  * The operation freshly re-reads the committed owner state — the operative PC binding, the PC's physical-locus custody, the
  * Logistics commitment and transfer, and the Temporal kernel's registered object, its earned boundary and the active boundary
- * index — and only then builds the one existing `ResolutionRequestSchema` request: no target (condition only), `continues` null,
- * and the existing `STOP_AFTER_BOUNDARY` condition for the PC's committed Logistics object and its one registered boundary, taken
- * from that object. It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics and World-State stage
+ * index — and only then builds the one existing `ResolutionRequestSchema` request: no target (condition only) and the existing
+ * `STOP_AFTER_BOUNDARY` condition for the PC's committed Logistics object and its one registered boundary, taken from that object.
+ * With no held continuation the request is initial (`continues` null). When a truthful committed `DEPENDENCY_UNRESOLVED`
+ * transaction of exactly this PC delivery holds the journey, the NEW player-authorized transaction this context carries consumes
+ * it: `continues` is the held `from_transaction` and `requested` is the prior request verbatim (never a target, never a new
+ * condition); any other held continuation (target-based, another object, no unresolved dependents) is refused. Provenance
+ * (`cause`, `trigger`) is the trusted side's to state: it is never compared with the held transaction's, so a distinct choice may
+ * lawfully share a trigger reference with the previous one; only the distinct, immutable `transaction_id` identifies the choice. The host cannot tell the two cases apart.
+ *
+ * It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics and World-State stage
  * providers, so the kernel alone selects what is due (every earlier or independent due world process included), resolves the
  * dependency closure in its own order — Logistics delivery, World-State destination custody, Logistics retirement — and records
  * the one transaction. It invents no time, route, duration, target, willingness or arrival, skips nothing, suppresses nothing and
- * repairs nothing; a held continuation is neither cancelled, overwritten nor continued.
+ * repairs nothing; a held continuation is neither cancelled nor overwritten, and only ever consumed whole by the kernel's own
+ * continuation admission (IM-11 stays the final authority). A dependency that still cannot be resolved commits another truthful
+ * `DEPENDENCY_UNRESOLVED` transaction with one new held remainder; nothing here loops, retries or creates a player choice.
  *
  * Retry is by identity (RC-16): the transaction identity is the trusted side's, stable across retries and reopen. A transaction
- * that already committed is replayed by the kernel against the same literal request and writes nothing; committed stages are
+ * that already committed is replayed by the kernel against the same literal request (its `continues` read back from the
+ * committed record and verified to be the PC delivery continuation) and writes nothing; committed stages are
  * adopted, never recomputed. The only things returned are one of three minimum statuses; every refusal is the same refusal, so no
  * cause, owner, state, stop reason or hidden-state existence can be distinguished. A committed status means the temporal
  * transaction committed, nothing more. Transport- and provider-neutral: a plain function over values.
@@ -228,6 +239,22 @@ function earnedStop(
 }
 
 /**
+ * Whether `prior` is the committed Temporal transaction a PC delivery continuation may consume: it requested exactly this PC's
+ * condition-only `STOP_AFTER_BOUNDARY` (no target) and stopped with unresolved dependents, so the kernel's own rule
+ * (`continuationRequestViolation`) requires the continuation to carry that request forward unchanged.
+ */
+function isHeldPcContinuation(
+  prior: ResolutionTransaction | undefined,
+  requested: ResolutionRequest["requested"],
+): boolean {
+  return (
+    prior !== undefined &&
+    canonicalEqual(prior.requested, requested) &&
+    prior.outcome.unresolved_dependents.length > 0
+  );
+}
+
+/**
  * The one host operation. `context` is the trusted, separately player-authorized binding; `request` is the untrusted host input.
  */
 export async function advanceConfirmedPcTransferToDelivery(
@@ -251,21 +278,45 @@ export async function advanceConfirmedPcTransferToDelivery(
         logisticsRetirementProvider,
       ]),
     );
-    // a transaction that already committed under this identity is replayed by the kernel against the same literal request, derived
-    // from the PC's identity alone (the boundary has since been resolved, so there is nothing left to re-read); otherwise the stop
-    // is the one the committed state freshly earns now
     const requestId = pcMovementRequestId(pcId);
-    const stop = coordinator.transaction(transaction.transaction_id)
-      ? { object_id: logisticsObjectId(requestId), boundary_id: logisticsBoundaryId(requestId) }
-      : earnedStop(campaign, coordinator, pcId);
-    if (!stop) return refusal();
+    const own = {
+      object_id: logisticsObjectId(requestId),
+      boundary_id: logisticsBoundaryId(requestId),
+    };
+    const condition = { kind: "STOP_AFTER_BOUNDARY", ...own } as const;
+    const requested = { target: null, condition } as const;
+    let continues: string | null;
+    const existing = coordinator.transaction(transaction.transaction_id)?.value;
+    if (existing) {
+      // a transaction that already committed under this identity is replayed by the kernel against the SAME literal request it
+      // submitted: the requested stop is derived from the PC's identity alone (the boundary has since been resolved, so there is
+      // nothing left to re-read) and `continues` is read back from the committed record, verified to be exactly the PC delivery
+      // continuation (or the initial branch) before the kernel compares the rest. A differing intent is the kernel's conflict.
+      continues = existing.continues;
+      if (
+        continues !== null &&
+        !isHeldPcContinuation(coordinator.transaction(continues)?.value, requested)
+      )
+        return refusal();
+    } else {
+      const stop = earnedStop(campaign, coordinator, pcId);
+      if (!stop) return refusal();
+      const held = coordinator.state()?.value.continuation ?? null;
+      if (held === null) {
+        continues = null;
+      } else {
+        // a held continuation is consumed whole by a NEW player-authorized transaction or it stays; only the restricted one this
+        // gateway itself requested is eligible, and its request is carried forward verbatim (never a target, never a new condition)
+        const prior = coordinator.transaction(held.from_transaction)?.value;
+        if (held.toward !== null || !prior || !isHeldPcContinuation(prior, requested))
+          return refusal();
+        continues = held.from_transaction;
+      }
+    }
     const advanced = await coordinator.advance({
       ...transaction,
-      continues: null,
-      requested: {
-        target: null,
-        condition: { kind: "STOP_AFTER_BOUNDARY", ...stop },
-      },
+      continues,
+      requested,
     } satisfies ResolutionRequest);
     if (advanced.ok) return ok({ status: PC_TRANSFER_ADVANCE_COMMITTED });
     // anything short of success is "unavailable" only if nothing at all was committed; otherwise only reconciliation can say
