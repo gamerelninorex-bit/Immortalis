@@ -44,6 +44,7 @@ describe("only the gateway operation changed: the host contract, the kernel, the
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
+      "null-pc-ooc-advance.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
