@@ -266,6 +266,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "pc/p1/capability/c1",
   },
   {
+    id: "pc_movement_commitment",
+    owner: "pc_existence",
+    facet: "pc_voluntary_commitment",
+    lifecycle: "SEALED",
+    group: "PC_MOVEMENT_FACT_KINDS",
+    exampleKey: "pc/p1/movement/commitment",
+  },
+  {
+    id: "pc_movement_request",
+    owner: "pc_existence",
+    facet: "pc_voluntary_commitment",
+    lifecycle: "SEALED",
+    group: "PC_MOVEMENT_FACT_KINDS",
+    exampleKey: "pc/p1/movement/request",
+  },
+  {
     id: "epistemic_access_event",
     owner: "epistemic_access",
     facet: "epistemic_access",
@@ -400,7 +416,7 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
 /** The owner → facet registration, written out independently of the kind table above. */
 export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> = {
   world_state: ["world_profile", "world_locus", "world_fallback_physical_entity"],
-  pc_existence: ["existence_contract", "pc_capability_profile"],
+  pc_existence: ["existence_contract", "pc_capability_profile", "pc_voluntary_commitment"],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
   population: ["population_state"],

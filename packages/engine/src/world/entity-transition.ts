@@ -29,8 +29,10 @@ import {
   worldEntityTransitionKey,
   worldFallbackEntityKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
   ENTITY_TRANSITION_OBJECT_PREFIX,
+  PcPhysicalLocusCustodySchema,
   ENTITY_TRANSITION_PROCESS_PREFIX,
   READ_MODE_NOW,
   type CanonicalTime,
@@ -50,6 +52,13 @@ import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
+import {
+  isPhysicalSubjectKey,
+  parsePhysicalSubject,
+  physicalSubjectOf,
+  type PhysicalSubject,
+  type PhysicalSubjectValue,
+} from "./physical-subject.ts";
 
 /**
  * The World-State entity-continuity seam (IM-03; WG "Ownership Guards — F-016 Ratified Fallback Objective
@@ -75,8 +84,11 @@ export interface EntityFactPin<T> {
 export interface EntityTransitionPrior {
   /** the causing result, in its own owner's key space */
   readonly cause: EntityFactPin<EntityTransitionCause> & { readonly owner: string };
-  /** the accepted fallback entity being transitioned */
-  readonly entity: EntityFactPin<FallbackPhysicalEntity>;
+  /**
+   * the physical subject being transitioned: an accepted fallback entity, or the active PC's physical-locus custody record
+   * (the continuing PC reference, admitted only as the consequence of its own Logistics delivery)
+   */
+  readonly entity: EntityFactPin<PhysicalSubjectValue>;
   /** the instant the stage resolved at */
   readonly at: CanonicalTime;
 }
@@ -170,7 +182,7 @@ export function deriveEntityTransition(
   const { cause, entity } = p;
   const refuse = (message: string) => fail("NOT_TRANSITIONABLE", message);
   const c = cause.value;
-  const e = entity.value;
+  const e = physicalSubjectOf(entity.value);
 
   const source = causeSourceViolation(cause.key, cause.owner, c);
   if (source) return refuse(source);
@@ -188,11 +200,17 @@ export function deriveEntityTransition(
   )
     return refuse("an outcome takes effect after the basis it was established at");
   if (
-    entity.key !== worldFallbackEntityKey(e.locality.world.entity_id, e.entity_id) ||
+    entity.key !== e.key ||
     c.subject.fact_key !== entity.key ||
     c.subject.entity_id !== e.entity_id
   )
     return refuse("the causing result names this accepted entity, by its own key");
+  // The active PC changes physical locus only as the consequence of its own voluntary movement's Logistics delivery-complete
+  // result: no other causing result may move it (frozen Post-Handover contract §8, §9, §16: no generic PC relocation).
+  if (e.kind === "ACTIVE_PC" && cause.owner !== OWNER_LOGISTICS)
+    return refuse(
+      "the active PC changes physical locus only through its own voluntary movement's Logistics delivery-complete result",
+    );
   const to = c.outcome.destination;
   if (
     to.world.fact_key !== worldProfileKey(to.world.entity_id) ||
@@ -278,6 +296,65 @@ export function entityCurrentLocus(
     transition,
     origin: entity.locality,
     current: currentLocusOf(entity, transition?.value),
+  };
+}
+
+/**
+ * The current STATIONARY locus of a physical subject of either kind, by identity (no scan). A fallback entity answers exactly as
+ * `entityCurrentLocus` does. The active PC's custody record answers the same way: the destination of its Entity Transition
+ * Close when one exists, else the stationary locus the custody record holds (history that stays true). A subject that is BOTH
+ * (rival records under one identity) has no unique authority and answers nothing, so a consumer fails closed.
+ */
+export interface SubjectCurrentLocus {
+  readonly subject: PhysicalSubject;
+  readonly record: { readonly fact: OwnerFact };
+  readonly transition:
+    { readonly fact: OwnerFact; readonly value: EntityTransitionClose } | undefined;
+  /** where the subject stationarily was: history that stays true after a transition */
+  readonly origin: LocusRef;
+  /** the one authoritative stationary locus (the destination once World-State has committed it) */
+  readonly current: LocusRef;
+}
+
+/**
+ * Reads the subject's World-State record and its transition by identity (no scan) and resolves its current STATIONARY locus: the
+ * transition's destination when one exists, else the locality it was held at. A fallback entity answers exactly as before. A PC
+ * custody record answers the same way; a subject that is BOTH (rival records under one identity) has no unique authority and
+ * answers nothing, so a consumer fails closed.
+ */
+export function subjectCurrentLocus(
+  source: { getFact(key: string): OwnerFact | undefined },
+  worldId: string,
+  entityId: string,
+): SubjectCurrentLocus | undefined {
+  const fallback = entityCurrentLocus(source, worldId, entityId);
+  const custodyFact = source.getFact(worldPcLocusCustodyKey(entityId));
+  const custody = custodyFact
+    ? PcPhysicalLocusCustodySchema.safeParse(custodyFact.value)
+    : undefined;
+  const pc =
+    custodyFact && custody?.success && custody.data.stationary_locus.world.entity_id === worldId;
+  if (fallback && pc) return undefined;
+  if (fallback) {
+    return {
+      subject: physicalSubjectOf(fallback.entity.value),
+      record: { fact: fallback.entity.fact },
+      transition: fallback.transition,
+      origin: fallback.origin,
+      current: fallback.current,
+    };
+  }
+  if (!pc || !custodyFact || !custody?.success) return undefined;
+  const transitionFact = source.getFact(worldEntityTransitionKey(worldId, entityId));
+  const transition = transitionFact
+    ? { fact: transitionFact, value: EntityTransitionCloseSchema.parse(transitionFact.value) }
+    : undefined;
+  return {
+    subject: physicalSubjectOf(custody.data),
+    record: { fact: custodyFact },
+    transition,
+    origin: custody.data.stationary_locus,
+    current: transition ? transition.value.locus.to : custody.data.stationary_locus,
   };
 }
 
@@ -479,7 +556,7 @@ export function worldTransitionGroupCheck(
   if (
     w.key !== worldEntityTransitionKey(t.locus.from.world.entity_id, t.entity.entity_id) ||
     t.transition_id !== entityTransitionId(causeId) ||
-    t.entity.fact_key !== worldFallbackEntityKey(t.locus.from.world.entity_id, t.entity.entity_id)
+    !isPhysicalSubjectKey(t.entity.fact_key, t.locus.from.world.entity_id, t.entity.entity_id)
   ) {
     return ref(
       "the transition is at the key derived from its entity, and its identity from its cause",
@@ -511,8 +588,8 @@ export function worldTransitionGroupCheck(
     return ref("the entity is pinned at its current version", { key: t.entity.fact_key });
   }
   const cause = EntityTransitionCauseSchema.safeParse(causeP.fact.value);
-  const entity = FallbackPhysicalEntitySchema.safeParse(entityP.fact.value);
-  if (!cause.success || !entity.success) {
+  const entity = parsePhysicalSubject(entityP.fact.value);
+  if (!cause.success || !entity) {
     return ref("a transition reads a causing result and an accepted entity");
   }
   const derived = deriveEntityTransition({
@@ -522,7 +599,7 @@ export function worldTransitionGroupCheck(
       version: causeP.fact.version,
       value: cause.data,
     },
-    entity: { key: entityP.fact.key, version: entityP.fact.version, value: entity.data },
+    entity: { key: entityP.fact.key, version: entityP.fact.version, value: entity },
     at: t.closed_at,
   });
   if (!derived.ok) return bad(derived.error.message, { key: w.key });

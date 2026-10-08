@@ -11,6 +11,7 @@ import {
   worldAcceptanceStage,
   worldFallbackEntityKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
   type CommitGroup,
   type DurableCompletionEnvelope,
@@ -125,6 +126,15 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
     return reject(
       "REFERENCE_INVALID",
       "the accepted entity lives at the destination the completion named",
+    );
+  }
+  // One authority answers "where is it?" (frozen Post-Handover contract §9): a conserved reference that is an active PC's
+  // identity is never also a Production-accepted fallback entity, so no rival physical subject exists beside the PC's custody
+  if (state.facts.has(worldPcLocusCustodyKey(entity.entity_id))) {
+    return reject(
+      "REFERENCE_INVALID",
+      "an active PC's identity is never accepted as a fallback physical entity: its physical-locus custody is the one authority",
+      { key: w.key },
     );
   }
   if (!canonicalEqual(entity, deriveAcceptedEntity(envelope.data, completion.fact.version))) {

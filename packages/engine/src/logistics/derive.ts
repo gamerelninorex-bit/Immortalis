@@ -3,6 +3,7 @@ import {
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   OWNER_LOGISTICS,
+  OWNER_PC_EXISTENCE,
   OWNER_WORLD_STATE,
   FACET_WORLD_FALLBACK_ENTITY,
   FALLBACK_BASIS,
@@ -18,14 +19,15 @@ import {
   logisticsTransferId,
   logisticsTransferKey,
   ok,
+  pcMovementRequestKey,
   worldEntityTransitionKey,
   worldFallbackEntityKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
   type CanonicalTime,
   type EntityTransitionCause,
   type EntityTransitionClose,
-  type FallbackPhysicalEntity,
   type LogisticsCommitment,
   type LogisticsTransfer,
   type MovementServiceRequest,
@@ -33,6 +35,7 @@ import {
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
+import { physicalSubjectOf, type PhysicalSubjectValue } from "../world/physical-subject.ts";
 
 /**
  * Pure derivations of the Logistics side of the single-leg transfer (WS-010 §3.2, §3.4, §9, §10.1, §10.4, §23).
@@ -73,6 +76,18 @@ export function requestSourceViolation(
   owner: string,
   request: MovementServiceRequest,
 ): string | null {
+  // The one registered key space a request may live in: the active PC's own Movement Service Request, held by the PC-state owner
+  // at its one slot (WS-010 §3.1: the request is with its requester; the frozen Post-Handover contract §10: a voluntary movement
+  // request is PC/player-side). It is never Logistics' or World-State's.
+  if (resolveKey(key)?.kind.id === "pc_movement_request") {
+    if (
+      owner !== OWNER_PC_EXISTENCE ||
+      request.source.owner !== owner ||
+      key !== pcMovementRequestKey(request.subject.entity_id)
+    )
+      return "a PC-owned movement request is the PC-state owner's own fact at the PC's own request slot";
+    return null;
+  }
   if (resolveKey(key) !== null || owner === OWNER_LOGISTICS || owner === OWNER_WORLD_STATE)
     return "a movement request is its source's own fact, never Logistics' or another registered owner's";
   if (request.source.owner !== owner) return "a movement request is written by the source it names";
@@ -81,11 +96,14 @@ export function requestSourceViolation(
 
 export interface CommitmentPrior {
   readonly request: LogisticsFact<MovementServiceRequest>;
-  /** the accepted fallback entity to be moved */
+  /**
+   * the physical subject to be moved: an accepted fallback entity, or (admitted from the lawful PC physical custodian, never a
+   * fabricated fallback entity) the active PC's stationary physical-locus custody record
+   */
   readonly entity: {
     readonly key: string;
     readonly version: number;
-    readonly value: FallbackPhysicalEntity;
+    readonly value: PhysicalSubjectValue;
   };
   /** whether World-State has already committed a transition for the entity (its one slot is spent) */
   readonly transitioned: boolean;
@@ -109,15 +127,21 @@ export function deriveCommitment(
   const { request, entity } = p;
   const refuse = (message: string) => fail("NOT_COMMITTABLE", message);
   const r = request.value;
-  const e = entity.value;
+  const e = physicalSubjectOf(entity.value);
   const source = requestSourceViolation(request.key, request.owner, r);
   if (source) return refuse(source);
   if (
-    entity.key !== worldFallbackEntityKey(e.locality.world.entity_id, e.entity_id) ||
+    entity.key !== e.key ||
     r.subject.fact_key !== entity.key ||
     r.subject.entity_id !== e.entity_id
   )
     return refuse("the request names this accepted entity, by its own key");
+  // request ownership and physical-subject ownership stay separate (frozen contract §10): the active PC is moved only by its OWN
+  // PC-owned request, and a PC-owned request moves only its own PC
+  if (e.kind === "ACTIVE_PC" && request.key !== pcMovementRequestKey(e.entity_id))
+    return refuse("the active PC is moved only by its own PC-owned Movement Service Request");
+  if (e.kind === "FALLBACK_ENTITY" && request.owner === OWNER_PC_EXISTENCE)
+    return refuse("a PC-owned Movement Service Request moves only the PC that owns it");
   const to = r.destination;
   if (
     to.world.fact_key !== worldProfileKey(to.world.entity_id) ||
@@ -237,7 +261,10 @@ export function deriveDelivery(
 ): Result<EntityTransitionCause, "NOT_DELIVERABLE"> {
   const refuse = (message: string) => fail("NOT_DELIVERABLE", message);
   const world = worldOf(s);
-  if (s.subject.fact_key !== worldFallbackEntityKey(world, s.subject.entity_id))
+  if (
+    s.subject.fact_key !== worldFallbackEntityKey(world, s.subject.entity_id) &&
+    s.subject.fact_key !== worldPcLocusCustodyKey(s.subject.entity_id)
+  )
     return refuse("the delivery names its entity by its own key, in the destination's world");
   const value = EntityTransitionCauseSchema.safeParse({
     cause_id: logisticsDeliveryId(s.request_id),

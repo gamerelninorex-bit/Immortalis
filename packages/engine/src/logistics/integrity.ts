@@ -1,7 +1,6 @@
 import {
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
-  FallbackPhysicalEntitySchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   MovementServiceRequestSchema,
@@ -25,6 +24,7 @@ import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
+import { parsePhysicalSubject } from "../world/physical-subject.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { logisticsObjectViolation } from "./declaration.ts";
 import {
@@ -105,7 +105,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     const requestFact = byKey.get(c.request.fact_key);
     const request = parsed(requestFact, MovementServiceRequestSchema);
     const entityFact = byKey.get(c.moved.fact_key);
-    const entity = parsed(entityFact, FallbackPhysicalEntitySchema);
+    const entity = entityFact ? parsePhysicalSubject(entityFact.value) : undefined;
     if (!requestFact || !request || !entityFact || !entity) {
       bad(cf.key, "a commitment has no committed request or accepted entity");
       continue;

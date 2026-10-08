@@ -2,7 +2,6 @@ import {
   CANON_WRITE_AUTHORITY,
   CommitMovementInputSchema,
   DispatchMovementInputSchema,
-  FallbackPhysicalEntitySchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
   MovementServiceRequestSchema,
@@ -22,6 +21,7 @@ import {
   type SchemaIssues,
 } from "@immortalis/contracts";
 import { factKind } from "../owners/registry.ts";
+import { parsePhysicalSubject } from "../world/physical-subject.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { deriveCommitment, deriveTransfer } from "./derive.ts";
 import { logisticsFactsOf, resolveEntityLocus, type ResolvedEntityLocus } from "./locus.ts";
@@ -88,10 +88,8 @@ export class LogisticsAdapter {
     const world = r.destination.world.entity_id;
     const slot = logisticsCommitmentKey(world, r.subject.entity_id);
     const entityFact = this.#store.getFact(r.subject.fact_key);
-    const entity = entityFact
-      ? FallbackPhysicalEntitySchema.safeParse(entityFact.value)
-      : undefined;
-    if (!entityFact || !entity?.success) {
+    const entity = entityFact ? parsePhysicalSubject(entityFact.value) : undefined;
+    if (!entityFact || !entity) {
       return fail("PREREQUISITE_MISSING", "the entity to move is not an accepted entity", {
         key: r.subject.fact_key,
       });
@@ -149,7 +147,7 @@ export class LogisticsAdapter {
         version: requestVersion,
         value: r,
       },
-      entity: { key: entityFact.key, version: entityVersion, value: entity.data },
+      entity: { key: entityFact.key, version: entityVersion, value: entity },
       transitioned,
       now,
       delivery_at: i.data.delivery_at,

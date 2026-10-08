@@ -3,6 +3,7 @@ import {
   ExistenceContractSchema,
   ExistingActorCouplingSchema,
   FACET_PC_CAPABILITY_PROFILE,
+  FACET_PC_VOLUNTARY_COMMITMENT,
   FACET_WORLD_FALLBACK_ENTITY,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
@@ -23,6 +24,7 @@ import {
   pcExistenceContractKey,
   worldActorCouplingKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
   type CommitGroup,
   type ExistenceContract,
@@ -41,6 +43,7 @@ import { gipGroupCheck } from "../gip/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
+import { pcMovementGroupCheck } from "../pc-movement/derive.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
@@ -434,6 +437,9 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-07 PC capability profile groups (a facet of the one I-002 PC owner): a received basis and a PC Capability Close are each re-derived.
     if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_CAPABILITY_PROFILE)
       return pcCapabilityGroupCheck(group, state);
+    // IM-07 PC movement groups (a third facet of the one I-002 PC owner): the player's commitment-of-record and the PC-owned request are each re-derived.
+    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_VOLUNTARY_COMMITMENT)
+      return pcMovementGroupCheck(group, state);
     // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
@@ -522,7 +528,9 @@ export function identityMismatch(
     }
     case "logistics_transfer": {
       const moved = v["moved"] as { fact_key: string; entity_id: string };
-      return moved.entity_id === ids[1] && moved.fact_key === `world/${ids[0]}/entity/${ids[1]}`
+      return moved.entity_id === ids[1] &&
+        (moved.fact_key === `world/${ids[0]}/entity/${ids[1]}` ||
+          moved.fact_key === worldPcLocusCustodyKey(ids[1]!))
         ? null
         : "transfer identity does not match the key";
     }
@@ -543,6 +551,12 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["capability_id"] === ids[1]
         ? null
         : "PC and capability identity does not match the key";
+    case "pc_movement_commitment":
+      return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
+    case "pc_movement_request":
+      return (v["subject"] as { entity_id: string }).entity_id === ids[0]
+        ? null
+        : "PC identity does not match the key";
     case "epistemic_access_event":
       return v["event_id"] === ids[0] ? null : "event identity does not match the key";
     case "epistemic_accessible_packet":

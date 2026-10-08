@@ -128,3 +128,6 @@ export * from "./persistence/store.ts";
 export * from "./compat.ts";
 export * from "./hash.ts";
 export * from "./version.ts";
+export * from "./pc-movement/derive.ts";
+export * from "./pc-movement/integrity.ts";
+export * from "./world/physical-subject.ts";

@@ -182,6 +182,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "integrity.ts",
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
+      "physical-subject.ts",
     ]);
     for (const f of COUPLING_MODULES) {
       expect(code(f), f).not.toMatch(/\b(?:export )?class\s+\w+/);
