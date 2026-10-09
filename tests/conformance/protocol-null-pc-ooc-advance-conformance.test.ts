@@ -44,7 +44,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/temporal/admission.ts":
-    "1f3a78ddc4ea6878479daebc4979c00d9d060c370558df3c22c548820661f06c",
+    "37c000fc69aef1a547131c83da0cb6de432b18c2515cb86ad00066e241f83d65",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -56,7 +56,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "22b4580ee7c0b7dcf0361ec62689c369551e0a87b56cb817cd606a22f5007c76",
   "packages/engine/src/temporal/coordinator.ts":
-    "911fcebf9192ddd4e4b620c738ffbfa5f3fb7a9daee47131b880117dfc67f2f5",
+    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/engine/src/world/canonical-campaign.ts":
     "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
   "packages/engine/src/world/entity-transition-provider.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "b7364efd63f70a249e42e97b2c036af80d5bb15dbecc07dae57ae25657174e4b",
+    "b8144367498d35d0c1797afdc35b9f49911bb1749f2eee1bbcca37601f9e2083",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -163,6 +163,7 @@ describe("the module composes the existing kernel and shipped owner providers on
       "TemporalCoordinator",
       "economyRealizationProvider",
       "epistemicPacketProvider",
+      "gipSunsetExpiryProvider",
       "ktiTransferResultCloseProvider",
       "logisticsDeliveryProvider",
       "logisticsRetirementProvider",
@@ -177,12 +178,12 @@ describe("the module composes the existing kernel and shipped owner providers on
     ]);
   });
 
-  it("registers exactly the eleven real shipped owner stage providers (no fixture, no wrapper, no new provider) with the existing Population barrier evaluator", () => {
+  it("registers exactly the twelve real shipped owner stage providers (the sunset slice's GIP sunset provider is the twelfth; no fixture, no wrapper, no new provider of this gateway) with the existing Population barrier evaluator", () => {
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
     expect(src).toMatch(
-      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*\]\)/,
+      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
     );
     expect(src).toMatch(
       /new TemporalCoordinator\(\s*store,\s*ownerProviders\(\),\s*populationBarrierEvaluator,?\s*\)/,

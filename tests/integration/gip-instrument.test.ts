@@ -966,14 +966,21 @@ describe("post-establishment Instrument mutation is unsupported in this slice", 
       .sort();
     expect(methods.filter((m) => /instrument/i.test(m))).toEqual([
       "establishGovernanceInstrument",
+      "establishSunsetInstrument",
       "governanceInstrument",
     ]);
+    // (the sunset slice's sunset-bearing establishment, its enrollment completion and its keyed receipt read are the only
+    // sunset methods; the lifecycle close itself is GIP's Temporal stage, not an adapter method)
     expect(
-      methods.filter((m) =>
-        /update|replace|amend|change|set|remove|revoke|enact|repeal|suspend|supersede|advance|calculate|derive|resolve|apply|promulgate|disseminate|implement|enforce|merge|split|expire|terminate|activate|invalidate/i.test(
-          m,
+      methods
+        .filter(
+          (m) => !/^(establishSunsetInstrument|completeSunsetEnrollment|sunsetEnrollment)$/.test(m),
+        )
+        .filter((m) =>
+          /update|replace|amend|change|set|remove|revoke|enact|repeal|suspend|supersede|advance|calculate|derive|resolve|apply|promulgate|disseminate|implement|enforce|merge|split|expire|terminate|activate|invalidate/i.test(
+            m,
+          ),
         ),
-      ),
     ).toEqual([]);
   });
 

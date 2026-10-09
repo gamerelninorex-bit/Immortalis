@@ -1,9 +1,13 @@
 import { z } from "zod";
+import { OWNER_GIP } from "./gip.ts";
+import { CanonicalTimeSchema } from "./temporal.ts";
 import { EntityId } from "./world-foundation.ts";
 
 /**
  * GIP Governance Instrument Core Backbone Foundation — executable contract (sixteenth bounded slice), extended in the
- * twenty-first bounded slice by the one optional WS-007 §4.3 `predecessor_instrument_ref`.
+ * twenty-first bounded slice by the one optional WS-007 §4.3 `predecessor_instrument_ref` and in the GIP sunset bounded
+ * slice by the one optional WS-007 §4.3 `sunset_condition` (an exact canonical instant) with its earned-boundary lifecycle
+ * close (`active` → `expired` and nothing else).
  *
  * Governing sources (exact pins live in the owner registry and spec/f027/spec-lock.json):
  *   WS-007 Government / Institutions / Politics (frozen F-027 pin 2026-09-24T01:42:24.952Z): the Sovereign-ratified GIP
@@ -205,8 +209,37 @@ export const GovernanceInstrumentCoreSchema = z
 export type GovernanceInstrumentCore = z.infer<typeof GovernanceInstrumentCoreSchema>;
 
 /**
- * One Governance Instrument, in the frozen shape of this foundation: the §4.1 mandatory fields above, unchanged, plus the one
- * optional WS-007 §4.3 conditional field `predecessor_instrument_ref` (twenty-first slice) and no other §4.3 field.
+ * The twenty-first-slice Instrument value shape: the §4.1 mandatory fields plus the one optional `predecessor_instrument_ref`
+ * and NO other §4.3 field. It is the class of value that existed under the twenty-first-slice governing-rule citation
+ * (`GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE`) and the only class of value that citation may still be carried by on load (see
+ * `FactKind.laterLegacyRules`). It never authorized `sunset_condition`, so a value carrying one is not of this class. New
+ * writes use `GovernanceInstrumentSchema`, never this one.
+ */
+export const GovernanceInstrumentPredecessorSchema = z
+  .strictObject({
+    ...InstrumentCoreShape,
+    predecessor_instrument_ref: EntityId.optional(),
+  })
+  .refine(sameAuthority, SAME_AUTHORITY_MESSAGE)
+  .refine(noExplicitUndefined, "an omitted optional field is absent, never an explicit undefined");
+export type GovernanceInstrumentPredecessor = z.infer<typeof GovernanceInstrumentPredecessorSchema>;
+
+/**
+ * WS-007 §4.3 `sunset_condition`, the sunset-slice conditional field: the exact, objectively known instant at which an
+ * Instrument's operative lifecycle ends, in the campaign's one canonical time unit (`CanonicalTimeSchema`, the same opaque
+ * coordinate the Temporal kernel keeps). The source lists no fixed wire shape for it; this encoding carries ONLY the exactly
+ * timed, unambiguous subset. A contingent, subjective, externally evidenced, disputed or uncomputable condition, a natural-language
+ * date, a duration, a calendar term or any derived value has no representation here and fails closed. It is not an `expires_at`,
+ * a `renewal_rule` or an `activation_condition`, and it is never reinterpreted: it is compared with canonical time and with
+ * nothing else.
+ */
+export const InstrumentSunsetCondition = CanonicalTimeSchema;
+export type InstrumentSunsetCondition = z.infer<typeof InstrumentSunsetCondition>;
+
+/**
+ * One Governance Instrument, in the frozen shape of this foundation: the §4.1 mandatory fields above, unchanged, plus the
+ * optional WS-007 §4.3 conditional field `predecessor_instrument_ref` (twenty-first slice) and the optional `sunset_condition`
+ * (sunset slice) and no other §4.3 field.
  *
  * `predecessor_instrument_ref` is ONE optional OPAQUE authored reference (a single reference, never an array or map) in the
  * same canonical opaque-reference representation as the other GIP reference fields (`EntityId`): the authored pointer from
@@ -218,8 +251,13 @@ export type GovernanceInstrumentCore = z.infer<typeof GovernanceInstrumentCoreSc
  * continuity, authority, recognition, applicability, implementation, enforcement or knowledge) is inferred from it. An
  * omitted field is absent: no default is synthesized, and null or an explicit undefined fails closed.
  *
- * Not fields: every OTHER WS-007 §4.3 conditional field (`activation_condition`, `effective_from`, `sunset_condition`,
- * `renewal_rule`, `implementation_assignment_ref`, `administrative_path_ref`, `sanction_or_remedy`,
+ * `sunset_condition` is ONE optional exact canonical instant (`InstrumentSunsetCondition`). An Instrument that carries it is
+ * lawfully established only together with its Temporal enrollment receipt (`SunsetEnrollmentSchema`), and its one lifecycle
+ * transition, `active` → `expired`, is committed only by GIP's own stage at the earned boundary the Temporal kernel owns. It is
+ * not an identity dimension, and it never rewrites `validity_by_order[]`, `operative_effect` or any other field.
+ *
+ * Not fields: every OTHER WS-007 §4.3 conditional field (`activation_condition`, `effective_from`, `renewal_rule`,
+ * `implementation_assignment_ref`, `administrative_path_ref`, `sanction_or_remedy`,
  * `institutional_promulgation_or_publication_requirement`, `promulgation_act_ref`, `individual_notice_requirement_ref`,
  * `appeal_review_override`, `supersession_ref`, `provenance_note`) — outside this bounded slice, so an Instrument that needs
  * one is unsupported and fails closed rather than being omitted, inferred or flattened; and no `institution_id`, `office_id`,
@@ -229,7 +267,71 @@ export const GovernanceInstrumentSchema = z
   .strictObject({
     ...InstrumentCoreShape,
     predecessor_instrument_ref: EntityId.optional(),
+    sunset_condition: InstrumentSunsetCondition.optional(),
   })
   .refine(sameAuthority, SAME_AUTHORITY_MESSAGE)
   .refine(noExplicitUndefined, "an omitted optional field is absent, never an explicit undefined");
 export type GovernanceInstrument = z.infer<typeof GovernanceInstrumentSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Sunset enrollment (sunset slice). GIP publication and Temporal boundary registration are two owners' commits;
+// the receipt below is GIP's own durable, pending-until-registered record that a committed sunset-bearing Instrument has
+// not yet been registered, so the interval between the two commits can neither lose the sunset nor be crossed.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/**
+ * The ONE sunset enrollment receipt slot of the campaign (a fixed key, one slot): the most recent sunset-bearing Instrument's
+ * enrollment. A new sunset-bearing Instrument may be established only once the previous receipt's Temporal object is
+ * registered, so at most one enrollment is ever in flight and the receipt is found by key — never by scanning Instruments.
+ */
+export const GIP_SUNSET_ENROLLMENT_KEY = "gip/sunset-enrollment";
+
+/**
+ * GIP's enrollment receipt for one sunset-bearing Instrument: which Instrument, the exact sunset instant copied from its
+ * `sunset_condition`, and the canonical time at which GIP committed the Instrument (the Temporal object's resolved basis).
+ * It carries no `due` flag, no status and no result: whether the Instrument is enrolled is read from the Temporal kernel's
+ * own object, and whether it has expired from the Instrument itself.
+ */
+export const SunsetEnrollmentSchema = z.strictObject({
+  instrument_id: EntityId,
+  sunset_at: CanonicalTimeSchema,
+  basis_time: CanonicalTimeSchema,
+});
+export type SunsetEnrollment = z.infer<typeof SunsetEnrollmentSchema>;
+
+/**
+ * GIP's Temporal identities for one sunset-bearing Instrument (RC-04, RC-10; technical encodings): the temporal object, its
+ * causal process, its one earned boundary, GIP's one owner operation and its stage. The stage identity is
+ * (causal process, owner operation, prospective result) and nothing else: no horizon, source version or retry appears in it.
+ */
+export const GIP_SUNSET_PROCESS_PREFIX = "gip-instrument-sunset:";
+export const gipSunsetProcessId = (instrumentId: string): string =>
+  `${GIP_SUNSET_PROCESS_PREFIX}${instrumentId}`;
+export const GIP_SUNSET_OBJECT_PREFIX = "obj-gip-sunset-";
+export const gipSunsetObjectId = (instrumentId: string): string =>
+  `${GIP_SUNSET_OBJECT_PREFIX}${instrumentId}`;
+export const gipSunsetBoundaryId = (instrumentId: string): string =>
+  `boundary-gip-sunset-${instrumentId}`;
+/** The Instrument a GIP sunset object or causal-process identity was derived from, or null when it is not a GIP sunset identity. */
+export const gipSunsetInstrumentOfObject = (objectId: string): string | null =>
+  objectId.startsWith(GIP_SUNSET_OBJECT_PREFIX) && objectId.length > GIP_SUNSET_OBJECT_PREFIX.length
+    ? objectId.slice(GIP_SUNSET_OBJECT_PREFIX.length)
+    : null;
+export const gipSunsetInstrumentOfProcess = (processId: string): string | null =>
+  processId.startsWith(GIP_SUNSET_PROCESS_PREFIX) &&
+  processId.length > GIP_SUNSET_PROCESS_PREFIX.length
+    ? processId.slice(GIP_SUNSET_PROCESS_PREFIX.length)
+    : null;
+export const GIP_OPERATION_EXPIRE_AT_SUNSET = "gip-expire-instrument-at-sunset";
+export const gipSunsetStage = (instrumentId: string) =>
+  ({
+    causal_process_id: gipSunsetProcessId(instrumentId),
+    owner_operation: { owner: OWNER_GIP, operation: GIP_OPERATION_EXPIRE_AT_SUNSET },
+    prospective_result_id: `instrument-expired:${instrumentId}`,
+  }) as const;
+
+/** The publication identities of the Temporal registration of one Instrument's sunset, derived from the Instrument alone (RC-16). */
+export const gipSunsetRegistrationGroupId = (instrumentId: string): string =>
+  `gip-sunset-registration-group:${instrumentId}`;
+export const gipSunsetRegistrationIntentId = (instrumentId: string): string =>
+  `gip-sunset-registration-intent:${instrumentId}`;

@@ -158,10 +158,22 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
     for (const f of SOURCES)
-      expect(code(f), f).not.toMatch(
+      expect(
+        // (the one shipped Temporal stage provider, the registry the adapter hands the kernel's own coordinator and the shared
+        // load-time stage-identity check are the permitted names: they persist nothing)
+        code(f)
+          .replace(
+            /\bgipSunsetExpiryProvider\b|\bStageProvider\w*|\bjournaledStageViolation\b/g,
+            "",
+          )
+          .replace(/"\.\.\/temporal\/providers\.ts"/g, '""'),
+        f,
+      ).not.toMatch(
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
   });
@@ -225,7 +237,11 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
 
   it("no priority calculation, ranking, comparison, resolution or execution mechanism exists: the field name is not even mentioned outside the contract, and nothing computes over it", () => {
     for (const f of ENGINE_SOURCES)
-      expect(identifiers(f), f).not.toMatch(
+      expect(
+        // (`compareTime` compares the Instrument sunset with canonical time - never a binding's priority or conflict rule)
+        identifiers(f).replace(/\bcompareTime\b/g, ""),
+        f,
+      ).not.toMatch(
         /priority\w*|precedence|rank\w*|compar\w*|\bsort\w*|settle\w*|conflictRule|ruleRef/i,
       );
     // the one refinement of the contract inspects only whether a value is undefined
@@ -245,9 +261,10 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
 
   it("no cross-owner construct exists in the GIP modules: no foreign owner, key builder or reader is named", () => {
     const foreign =
-      /actorBoundaryViolation|actorCapability|namedActor|OWNER_NAMED_ACTOR|OWNER_POPULATION|OWNER_KTI|OWNER_EPISTEMIC_ACCESS|OWNER_ECONOMY|OWNER_PRODUCTION|OWNER_LOGISTICS|OWNER_WORLD_STATE|OWNER_TEMPORAL_KERNEL|OWNER_PC_EXISTENCE|OWNER_ROLE_REGISTRY|accessEventKey|ktiTransfer|ktiDevelopmentObjectKey|populationLedgerKey|pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|worldFallbackEntityKey|temporalObjectKey/;
+      /actorBoundaryViolation|actorCapability|namedActor|OWNER_NAMED_ACTOR|OWNER_POPULATION|OWNER_KTI|OWNER_EPISTEMIC_ACCESS|OWNER_ECONOMY|OWNER_PRODUCTION|OWNER_LOGISTICS|OWNER_WORLD_STATE|OWNER_TEMPORAL_KERNEL|OWNER_PC_EXISTENCE|OWNER_ROLE_REGISTRY|accessEventKey|ktiTransfer|ktiDevelopmentObjectKey|populationLedgerKey|pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|worldFallbackEntityKey/;
     for (const f of [...ENGINE_SOURCES.filter((f) => !f.endsWith("integrity.ts")), CONTRACT])
       expect(code(f), f).not.toMatch(foreign);
+    // (the one permitted foreign name is the Temporal kernel's sunset-object key, READ for existence - gip-conformance.test.ts)
   });
 
   it("no instrument, validity, applicability, procedure, vote, exercise, reach, awareness, compliance, transition or foreign-owner construct was added to the GIP modules", () => {
@@ -271,20 +288,23 @@ describe("IA-02 strict executable contract: the §5 minimum, nothing uninterpret
 });
 
 describe("IA-04 turnless / IA-22 dormant economy: no new stage, tick, clock, RNG or scan on the binding path; no Issue #11 workaround", () => {
-  it("no new GIP temporal stage, Close Basis, scheduler, boundary or Temporal Object: the temporal registration guard is untouched and forbids them", () => {
+  it("the binding adds no GIP temporal stage, Close Basis, scheduler or Temporal Object: the only GIP temporal construct is the sunset slice's Instrument sunset stage, which names no Scope Binding of its own", () => {
     const declaration = code(`${GIP_DIR}/declaration.ts`);
-    expect(declaration).not.toMatch(/StageProvider|READ_MODE|declares_close:\s*\{|Stage\(/);
-    expect(readdirSync(GIP_DIR)).not.toContain("provider.ts");
-    for (const f of SOURCES.filter((f) => !f.endsWith("declaration.ts")))
+    expect(declaration).not.toMatch(/declares_close:\s*\{|StageProvider\b/);
+    expect(declaration.match(/gipSunsetStage\(/g)).toHaveLength(1);
+    for (const f of SOURCES)
       expect(identifiers(f), f).not.toMatch(
-        /\b(StageProvider|StageKey|TemporalCoordinator|ResolutionRequest|CloseBasis|dueAt|schedule\w*|boundary|nextTick)\b/,
+        /\b(ResolutionRequest|CloseBasis|dueAt|schedule\w*|nextTick)\b/,
       );
   });
 
   it("the GIP modules and contract contain no timer, clock, RNG, scheduler, sweep or polling construct, and nothing is randomized or defaulted", () => {
     const forbidden =
       /\b(setInterval|setTimeout|setImmediate|Date\.now|new Date|performance\.now|process\.hrtime|Math\.random|randomUUID|randomBytes|randomInt|globalTick|tickCount|turnCounter|phaseOrder|runPhase|advanceTick|globalPass|pollInterval|cadence|refresh|sweep|periodic|annual|random\w*|rng|roll\w*|seed\w*|prior|dice|chooser|sample\w*|stochastic|probabilit\w*|uncertain\w*)\b/i;
-    for (const f of SOURCES) expect(identifiers(f), f).not.toMatch(forbidden);
+    // (`input.prior` is the Temporal seam's name for an owner's own committed prior state - the sunset slice's sunset stage
+    // advances the Instrument - never a probabilistic prior)
+    for (const f of SOURCES)
+      expect(identifiers(f).replace(/\binput\.prior\b/g, ""), f).not.toMatch(forbidden);
     // the tests may name a "seeded" fixture campaign, so only the actual clock / randomness constructs are checked there
     for (const f of [
       "tests/contract/gip-scope-binding-schemas.test.ts",

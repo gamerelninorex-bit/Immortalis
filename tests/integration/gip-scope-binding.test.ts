@@ -715,11 +715,16 @@ describe("post-establishment scope mutation and replacement are rejected in this
       "scopeBinding",
     ]);
     expect(
-      methods.filter((m) =>
-        /update|replace|amend|change|set|remove|revoke|resolve|apply|inherit|except|priority|conflict|merge|split|supersede/i.test(
-          m,
+      methods
+        // (the sunset slice's sunset-bearing Instrument methods name an Instrument, not a binding)
+        .filter(
+          (m) => !/^(establishSunsetInstrument|completeSunsetEnrollment|sunsetEnrollment)$/.test(m),
+        )
+        .filter((m) =>
+          /update|replace|amend|change|set|remove|revoke|resolve|apply|inherit|except|priority|conflict|merge|split|supersede/i.test(
+            m,
+          ),
         ),
-      ),
     ).toEqual([]);
   });
 

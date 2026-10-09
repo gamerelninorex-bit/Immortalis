@@ -51,7 +51,7 @@ describe("the optional predecessor_instrument_ref is the one added WS-007 §4.3 
     }
   });
 
-  it("the strict shape is exactly the eight-field Twenty-First-slice write surface; the seven core fields stay required", () => {
+  it("the strict shape is the eight-field Twenty-First-slice surface plus the sunset slice's sunset_condition; the seven core fields stay required", () => {
     expect(Object.keys(GovernanceInstrumentSchema.shape).sort()).toEqual([
       "authority_basis_ref",
       "instrument_id",
@@ -60,6 +60,7 @@ describe("the optional predecessor_instrument_ref is the one added WS-007 §4.3 
       "predecessor_instrument_ref",
       "scope_binding_ref",
       "source_authority_ref",
+      "sunset_condition",
       "validity_by_order",
     ]);
     for (const k of [
@@ -217,6 +218,8 @@ describe("the historical sixteenth-slice core shape stays exactly the seven §4.
   });
 });
 
+// (`sunset_condition` is no longer in this list: the sunset slice added it as an exact CanonicalTime instant only, and the
+// twenty-first-slice class of value, GovernanceInstrumentPredecessorSchema, still refuses it: gip-sunset-schemas.test.ts)
 describe("every other §4.3 conditional field and every §4.4 clause stays unrepresentable beside a predecessor reference", () => {
   const withRef = (over: Record<string, unknown>) =>
     instrument({ predecessor_instrument_ref: PREDECESSOR_INSTRUMENT_REF_A, ...over });
@@ -224,7 +227,6 @@ describe("every other §4.3 conditional field and every §4.4 clause stays unrep
   it.each([
     "activation_condition",
     "effective_from",
-    "sunset_condition",
     "renewal_rule",
     "implementation_assignment_ref",
     "administrative_path_ref",

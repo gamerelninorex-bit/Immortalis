@@ -43,10 +43,10 @@ const FIELDS = [
 ];
 
 describe("the Instrument contract is the WS-007 §4.1 mandatory fields, exactly as the source names them", () => {
-  it("accepts a well-formed Instrument and names exactly the seven source identifiers plus the one optional twenty-first-slice field, and nothing else", () => {
+  it("accepts a well-formed Instrument and names exactly the seven source identifiers plus the two optional later-slice fields (predecessor_instrument_ref, sunset_condition), and nothing else", () => {
     expect(ok(instrument())).toBe(true);
     expect(Object.keys(GovernanceInstrumentSchema.shape).sort()).toEqual(
-      [...FIELDS, "predecessor_instrument_ref"].sort(),
+      [...FIELDS, "predecessor_instrument_ref", "sunset_condition"].sort(),
     );
     // the historical core shape is exactly the seven §4.1 fields
     expect(Object.keys(GovernanceInstrumentCoreSchema.shape).sort()).toEqual([...FIELDS].sort());
@@ -399,11 +399,12 @@ describe("validity is order-relative and separate from lifecycle, with the exact
   });
 });
 
-describe("every WS-007 §4.3 conditional field other than predecessor_instrument_ref, and every §4.4 clause, is unsupported and fails closed", () => {
+describe("every WS-007 §4.3 conditional field other than predecessor_instrument_ref and sunset_condition, and every §4.4 clause, is unsupported and fails closed", () => {
+  // (`sunset_condition` joined the strict shape in the sunset slice, as an exact CanonicalTime instant only:
+  // tests/contract/gip-sunset-schemas.test.ts)
   const CONDITIONAL = [
     "activation_condition",
     "effective_from",
-    "sunset_condition",
     "renewal_rule",
     "implementation_assignment_ref",
     "administrative_path_ref",

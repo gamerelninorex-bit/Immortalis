@@ -94,9 +94,13 @@ function governingRuleLawful(kind: FactKind, fact: OwnerFact): boolean {
   }
   const legacy = kind.legacyRule;
   return (
-    legacy !== undefined &&
-    canonicalEqual(fact.provenance.rule, legacy.rule) &&
-    legacy.admits(fact.value)
+    (legacy !== undefined &&
+      canonicalEqual(fact.provenance.rule, legacy.rule) &&
+      legacy.admits(fact.value)) ||
+    (kind.laterLegacyRules?.some(
+      (later) => canonicalEqual(fact.provenance.rule, later.rule) && later.admits(fact.value),
+    ) ??
+      false)
   );
 }
 

@@ -56,7 +56,7 @@ describe("IA-01 source/version fidelity (GIP registration aspect)", () => {
           ? GIP_OFFICE_RULE
           : kind.id === "gip_scope_binding"
             ? GIP_SCOPE_BINDING_RULE
-            : kind.id === "gip_governance_instrument"
+            : kind.id === "gip_governance_instrument" || kind.id === "gip_sunset_enrollment"
               ? GIP_INSTRUMENT_RULE
               : GIP_RULE,
       );
@@ -162,9 +162,22 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
   it("the GIP owner never writes a foreign key space: no foreign owner or key builder appears in its modules", () => {
     for (const f of GIP_SOURCES.filter((f) => !/integrity/.test(f))) {
       expect(code(f), f).not.toMatch(
-        /pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|populationLedgerKey|worldFallbackEntityKey|actorCapability|accessEventKey|accessPacketKey|accessProvenanceKey|ktiDevelopmentObjectKey|ktiTransfer|temporalObjectKey|OWNER_POPULATION|OWNER_WORLD_STATE|OWNER_NAMED_ACTOR|OWNER_ECONOMY|OWNER_LOGISTICS|OWNER_PRODUCTION|OWNER_EPISTEMIC_ACCESS|OWNER_KTI|OWNER_TEMPORAL_KERNEL/,
+        /pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|populationLedgerKey|worldFallbackEntityKey|actorCapability|accessEventKey|accessPacketKey|accessProvenanceKey|ktiDevelopmentObjectKey|ktiTransfer|OWNER_POPULATION|OWNER_WORLD_STATE|OWNER_NAMED_ACTOR|OWNER_ECONOMY|OWNER_LOGISTICS|OWNER_PRODUCTION|OWNER_EPISTEMIC_ACCESS|OWNER_KTI|OWNER_TEMPORAL_KERNEL/,
       );
     }
+  });
+
+  it("the only foreign key builder a GIP module names is the Temporal kernel's sunset-object key, to READ whether the kernel registered it: GIP never writes a kernel key (sunset slice)", () => {
+    const naming = GIP_SOURCES.filter((f) => /temporalObjectKey/.test(code(f))).sort();
+    expect(naming).toEqual([
+      `${GIP_DIR}/adapter.ts`,
+      `${GIP_DIR}/admission.ts`,
+      `${GIP_DIR}/declaration.ts`,
+      `${GIP_DIR}/integrity.ts`,
+    ]);
+    // the adapter writes through its own publication only; the kernel object is registered by the kernel's own coordinator
+    expect(code(`${GIP_DIR}/adapter.ts`)).toMatch(/registerObject\(/);
+    expect(code(`${GIP_DIR}/adapter.ts`)).not.toMatch(/OWNER_TEMPORAL_KERNEL|FACET_TEMPORAL/);
   });
 
   it("the predecessor owners' own surfaces are unchanged: no GIP part and no new writer", () => {
@@ -177,11 +190,17 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       ...walk("packages/engine/src/production"),
       ...walk("packages/engine/src/economy"),
       ...walk("packages/engine/src/logistics"),
-      "packages/engine/src/temporal/coordinator.ts",
       "packages/engine/src/world/fallback-custody.ts",
       "packages/engine/src/world/entity-transition.ts",
     ])
       expect(code(f), f).not.toMatch(/OWNER_GIP|FACET_GIP|GipAdapter|gipInstitution|gip\//);
+    // the coordinator names GIP only through the sunset slice's one refusal guard (an unregistered sunset is not crossed)
+    const coordinator = code("packages/engine/src/temporal/coordinator.ts");
+    expect(coordinator).not.toMatch(/OWNER_GIP|FACET_GIP|GipAdapter|gipInstitution|gipInstrument/);
+    expect(coordinator.match(/\bgip[A-Z]\w*/g)).toEqual([
+      "gipEnrollmentPendingViolation",
+      "gipEnrollmentPendingViolation",
+    ]);
   });
 
   it("the GIP wiring into predecessor modules is exactly the registry, the one canonical admission dispatch, load verification and the temporal registration guard", () => {
@@ -233,7 +252,17 @@ describe("the GIP contract is qualitative: no score, number, threshold, default 
 describe("reuse, not fork: IM-03, IM-11, IM-12 and IM-17 are the existing machinery", () => {
   it("there is no second journal, save, sidecar, provider or storage: the GIP modules persist nothing themselves", () => {
     for (const f of GIP_SOURCES)
-      expect(code(f), f).not.toMatch(
+      expect(
+        // (the sunset slice's one shipped Temporal stage provider, the registry the adapter hands the kernel's own
+        // coordinator and the shared load-time stage-identity check are the permitted names: they persist nothing)
+        code(f)
+          .replace(
+            /\bgipSunsetExpiryProvider\b|\bStageProvider\w*|\bjournaledStageViolation\b/g,
+            "",
+          )
+          .replace(/"\.\.\/temporal\/providers\.ts"/g, '""'),
+        f,
+      ).not.toMatch(
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
   });
@@ -270,13 +299,22 @@ describe("IA-04 turnless: no tick, phase, scheduler, clock, RNG, cadence or glob
       );
   });
 
-  it("GIP declares no operation, stage provider, close or temporal object: the only temporal code is the refusal guard", () => {
+  it("GIP declares exactly ONE operation, ONE stage, ONE shipped stage provider and ONE kind of temporal object (an Instrument's sunset), and still no close, tick, phase or scheduler (sunset slice)", () => {
     const declaration = code(`${GIP_DIR}/declaration.ts`);
-    expect(declaration).not.toMatch(/StageProvider|READ_MODE|declares_close:\s*\{|Stage\(/);
-    expect(identifiers(`${GIP_DIR}/adapter.ts`)).not.toMatch(
-      /TemporalCoordinator|StageKey|ResolutionRequest/,
+    // no close is declared, and exactly one stage is built
+    expect(declaration).not.toMatch(/declares_close:\s*\{/);
+    expect(declaration.match(/gipSunsetStage\(/g)).toHaveLength(1);
+    expect(declaration).toMatch(/declares_close: null/);
+    expect(declaration).not.toMatch(/READ_MODE_CLOSE|AS-OF-DECLARED-CLOSE/);
+    // the adapter hands the kernel's coordinator an EMPTY registry: registration resolves nothing
+    const adapter = identifiers(`${GIP_DIR}/adapter.ts`);
+    expect(adapter).not.toMatch(/StageKey|ResolutionRequest|\.advance\(|continueRemainder/);
+    expect(adapter).toMatch(/new StageProviderRegistry\(\)/);
+    // exactly one provider module, exactly one provider
+    expect(readdirSync(GIP_DIR)).toContain("provider.ts");
+    expect(code(`${GIP_DIR}/provider.ts`).match(/export const \w+: StageProvider/g)).toHaveLength(
+      1,
     );
-    expect(readdirSync(GIP_DIR)).not.toContain("provider.ts");
   });
 });
 
@@ -312,7 +350,12 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 
   it("no randomization of any kind exists: no RNG, roll, bounded prior, seed, chooser or default (GitHub Issue #11 stays open and unimplemented)", () => {
     for (const f of GIP_SOURCES)
-      expect(identifiers(f), f).not.toMatch(
+      expect(
+        // (`input.prior` is the Temporal seam's name for an owner's own committed prior state - the Instrument's current fact
+        // the sunset stage advances, `committedBefore` the adapter's journal lookup - never a probabilistic prior)
+        identifiers(f).replace(/\binput\.prior\b/g, ""),
+        f,
+      ).not.toMatch(
         /\b(random\w*|rng|roll\w*|seed\w*|prior|dice|chooser|sample\w*|stochastic|probabilit\w*|uncertain\w*|blocked-spec)\b/i,
       );
   });
@@ -322,7 +365,9 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")

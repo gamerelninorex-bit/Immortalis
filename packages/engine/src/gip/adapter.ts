@@ -1,17 +1,26 @@
 import {
   CANON_WRITE_AUTHORITY,
+  GIP_SUNSET_ENROLLMENT_KEY,
   GovernanceInstrumentSchema,
   InstitutionIdentitySchema,
   OfficeAuthorityLocusSchema,
   PublicationSchema,
   ScopeBindingSchema,
+  SunsetEnrollmentSchema,
+  TEMPORAL_STATE_KEY,
+  TemporalStateSchema,
   fail,
   gipInstitutionIdentityKey,
   gipInstrumentKey,
   gipOfficeAuthorityLocusKey,
   gipScopeBindingKey,
+  gipSunsetObjectId,
+  gipSunsetRegistrationGroupId,
+  gipSunsetRegistrationIntentId,
+  ok,
   parseInstrumentScopeBindingRef,
   parseInstrumentSourceAuthorityRef,
+  temporalObjectKey,
   type CommitGroup,
   type GovernanceInstrument,
   type InstitutionIdentity,
@@ -21,11 +30,29 @@ import {
   type Publication,
   type Result,
   type SchemaIssues,
+  type SunsetEnrollment,
 } from "@immortalis/contracts";
+import { canonicalEqual } from "../hash.ts";
 import { factKind, type FactKindId } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
+import { StageProviderRegistry } from "../temporal/providers.ts";
+import { TemporalCoordinator, type TemporalErrorCode } from "../temporal/coordinator.ts";
+import { gipSunsetTemporalObject } from "./declaration.ts";
 
-export type GipErrorCode = StoreCommitErrorCode | "INPUT_INVALID";
+export type GipErrorCode = StoreCommitErrorCode | TemporalErrorCode | "INPUT_INVALID";
+
+/** The two owners' commits of one sunset-bearing Instrument: GIP's publication, then the Temporal kernel's registration. */
+export interface SunsetEnrollmentOutcome {
+  readonly instrument: CommitOutcome;
+  readonly registration: CommitOutcome;
+}
+
+/** GIP's enrollment receipt, and whether the Temporal kernel has registered the Instrument's sunset object yet. */
+export interface TypedSunsetEnrollment {
+  readonly fact: OwnerFact;
+  readonly value: SunsetEnrollment;
+  readonly registered: boolean;
+}
 
 const issues = (e: SchemaIssues) =>
   e.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`);
@@ -315,6 +342,11 @@ export class GipAdapter {
         issues: issues(instrument.error),
       });
     const value = instrument.data;
+    if (value.sunset_condition !== undefined)
+      return fail(
+        "INPUT_INVALID",
+        "an Instrument that carries a sunset_condition is established only together with its Temporal enrollment, by establishSunsetInstrument",
+      );
     // the contract's own cross-check guarantees both references parse and name one authority
     const office = parseInstrumentSourceAuthorityRef(value.source_authority_ref)!;
     const binding = parseInstrumentScopeBindingRef(value.scope_binding_ref)!;
@@ -340,6 +372,155 @@ export class GipAdapter {
         ...(bindingFact ? [bindingFact.provenance.group_id] : []),
       ],
     );
+  }
+
+  /**
+   * Commits one sunset-bearing Governance Instrument (WS-007 §4.3 `sunset_condition`: an exact canonical instant), then enrolls
+   * its sunset with the Temporal kernel. The two are DISTINCT owners' commits, so the protocol is: (1) GIP publishes, in one
+   * create-only group, the Instrument and GIP's own enrollment receipt for that sunset (fixed key `gip/sunset-enrollment`), after
+   * which the sunset is a durable, known-unregistered material term - canonical time cannot be requested or committed past it; (2)
+   * the Temporal kernel registers exactly the object `gipSunsetTemporalObject` derives from the committed Instrument and receipt,
+   * under identities derived from the Instrument alone. The registration is not an execution: it resolves no stage, advances no
+   * time and expires nothing.
+   *
+   * A crash, a lost reply or a restart between the two leaves the receipt unregistered: re-presenting the SAME intent (or calling
+   * `completeSunsetEnrollment`) replays what committed by identity and registers the rest, exactly once. A changed input for
+   * the committed identity is a conflict. Nothing here scans Instruments, supplies a due flag or fabricates a Temporal receipt.
+   */
+  async establishSunsetInstrument(
+    input: Publication & { readonly instrument: unknown },
+  ): Promise<Result<SunsetEnrollmentOutcome, GipErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const instrument = GovernanceInstrumentSchema.safeParse(input.instrument);
+    if (!instrument.success)
+      return fail("INPUT_INVALID", "governance instrument failed validation", {
+        issues: issues(instrument.error),
+      });
+    const value = instrument.data;
+    if (value.sunset_condition === undefined)
+      return fail(
+        "INPUT_INVALID",
+        "a sunset-bearing Instrument carries a sunset_condition: an Instrument without one is established by establishGovernanceInstrument",
+      );
+    const published = await this.#publishSunsetInstrument(p.data, value);
+    if (!published.ok) return published;
+    const registered = await this.#registerSunset(p.data, value.instrument_id);
+    if (!registered.ok) return registered;
+    return ok({ instrument: published.value, registration: registered.value });
+  }
+
+  /**
+   * Completes the enrollment GIP's receipt records as unregistered (the recovery path when the original intent is no longer in
+   * hand): it registers exactly the object derived from the receipt's committed Instrument and nothing else, under the same
+   * derived identities, and replays a registration that already committed. With no unregistered receipt there is nothing to
+   * complete and nothing is written.
+   */
+  async completeSunsetEnrollment(p: Publication): Promise<Result<CommitOutcome, GipErrorCode>> {
+    const parsed = PublicationSchema.safeParse(p);
+    if (!parsed.success)
+      return fail("INPUT_INVALID", "publication failed validation", {
+        issues: issues(parsed.error),
+      });
+    const receipt = this.sunsetEnrollment();
+    if (!receipt)
+      return fail("INPUT_INVALID", "GIP holds no sunset enrollment receipt to complete");
+    return this.#registerSunset(parsed.data, receipt.value.instrument_id);
+  }
+
+  async #publishSunsetInstrument(
+    p: Publication,
+    value: GovernanceInstrument,
+  ): Promise<Result<CommitOutcome, GipErrorCode>> {
+    const sunset = value.sunset_condition!;
+    // the same intent presented again after it committed is replayed from the journal: the receipt it pinned (the canonical time
+    // and the slot version of that moment) are history, not fresh input
+    const committedBefore = this.#store.committedGroup(p.intent_id);
+    const priorInstrument = committedBefore?.writes[0];
+    if (
+      committedBefore &&
+      priorInstrument &&
+      committedBefore.group_id === p.group_id &&
+      committedBefore.cause === p.cause &&
+      priorInstrument.basis === p.basis &&
+      priorInstrument.secrecy === p.secrecy &&
+      canonicalEqual(priorInstrument.value, value)
+    ) {
+      return this.#commit(committedBefore);
+    }
+    const temporal = this.#store.getFact(TEMPORAL_STATE_KEY);
+    const state = temporal ? TemporalStateSchema.safeParse(temporal.value) : undefined;
+    if (!state?.success)
+      return fail("PREREQUISITE_MISSING", "no canonical temporal basis is established", {
+        key: TEMPORAL_STATE_KEY,
+      });
+    const receipt: SunsetEnrollment = {
+      instrument_id: value.instrument_id,
+      sunset_at: sunset,
+      basis_time: state.data.canonical_time,
+    };
+    const slot = this.#store.getFact(GIP_SUNSET_ENROLLMENT_KEY);
+    return this.#publish(
+      p,
+      "gip_governance_instrument",
+      gipInstrumentKey(value.instrument_id),
+      value,
+      ...this.#instrumentPins(value),
+      {
+        key: GIP_SUNSET_ENROLLMENT_KEY,
+        kind: "gip_sunset_enrollment",
+        value: receipt,
+        expected_version: slot?.version ?? 0,
+      },
+    );
+  }
+
+  /**
+   * Registers the sunset object of a committed Instrument with the Temporal kernel, or replays the registration that already
+   * committed. The object is derived, never authored: from the committed Instrument and GIP's receipt for it.
+   */
+  async #registerSunset(
+    p: Publication,
+    instrumentId: string,
+  ): Promise<Result<CommitOutcome, GipErrorCode>> {
+    const publication = {
+      group_id: gipSunsetRegistrationGroupId(instrumentId),
+      intent_id: gipSunsetRegistrationIntentId(instrumentId),
+      cause: p.cause,
+      basis: p.basis,
+      secrecy: p.secrecy,
+    };
+    const coordinator = new TemporalCoordinator(this.#store, new StageProviderRegistry());
+    const registeredBefore = this.#store.committedGroup(publication.intent_id);
+    if (registeredBefore) {
+      // a registration that already committed (a retry, a lost reply, a reopened campaign, or a boundary since resolved) is
+      // replayed by its immutable identity, never re-derived against a newer state and never registered twice
+      const objectKey = temporalObjectKey(gipSunsetObjectId(instrumentId));
+      if (
+        registeredBefore.group_id !== publication.group_id ||
+        !registeredBefore.writes.some((w) => w.key === objectKey)
+      )
+        return fail("INPUT_INVALID", "the committed registration is not this Instrument's");
+      return this.#commit(registeredBefore);
+    }
+    const instrument = this.governanceInstrument(instrumentId);
+    const receiptFact = this.#store.getFact(GIP_SUNSET_ENROLLMENT_KEY);
+    const receipt = receiptFact ? SunsetEnrollmentSchema.safeParse(receiptFact.value) : undefined;
+    if (!instrument || !receipt?.success || receipt.data.instrument_id !== instrumentId)
+      return fail(
+        "PREREQUISITE_MISSING",
+        "a sunset is registered only for the committed Instrument GIP's enrollment receipt names",
+      );
+    const object = gipSunsetTemporalObject(instrument.value, receipt.data.basis_time);
+    if (!object) return fail("INPUT_INVALID", "the committed Instrument earns no sunset object");
+    return coordinator.registerObject({ ...publication, object });
   }
 
   // -- typed read, by identity (none scans) ----------------------------------------------------
@@ -371,6 +552,48 @@ export class GipAdapter {
     return readGovernanceInstrument(this.#store, instrumentId);
   }
 
+  /**
+   * GIP's sunset enrollment receipt and whether the Temporal kernel holds the Instrument's sunset object yet, or undefined when
+   * no sunset-bearing Instrument was ever established. One read of one fixed key, plus one by-identity existence check; it
+   * scans nothing and grants no write authority.
+   */
+  sunsetEnrollment(): TypedSunsetEnrollment | undefined {
+    const fact = this.#store.getFact(GIP_SUNSET_ENROLLMENT_KEY);
+    const value = fact ? SunsetEnrollmentSchema.safeParse(fact.value) : undefined;
+    if (!fact || !value?.success) return undefined;
+    return {
+      fact,
+      value: value.data,
+      registered:
+        this.#store.getFact(temporalObjectKey(gipSunsetObjectId(value.data.instrument_id))) !==
+        undefined,
+    };
+  }
+
+  #instrumentPins(value: GovernanceInstrument): [CommitGroup["reads"], readonly string[]] {
+    // the contract's own cross-check guarantees both references parse and name one authority
+    const office = parseInstrumentSourceAuthorityRef(value.source_authority_ref)!;
+    const binding = parseInstrumentScopeBindingRef(value.scope_binding_ref)!;
+    const officeKey = gipOfficeAuthorityLocusKey(office.institution_id, office.office_id);
+    const bindingKey = gipScopeBindingKey(
+      binding.institution_id,
+      binding.office_id,
+      binding.scope_binding_id,
+    );
+    const officeFact = this.#store.getFact(officeKey);
+    const bindingFact = this.#store.getFact(bindingKey);
+    return [
+      [
+        { key: officeKey, version: officeFact?.version ?? 0 },
+        { key: bindingKey, version: bindingFact?.version ?? 0 },
+      ],
+      [
+        ...(officeFact ? [officeFact.provenance.group_id] : []),
+        ...(bindingFact ? [bindingFact.provenance.group_id] : []),
+      ],
+    ];
+  }
+
   async #publish(
     p: Publication,
     kindId: FactKindId,
@@ -378,6 +601,12 @@ export class GipAdapter {
     value: InstitutionIdentity | OfficeAuthorityLocus | ScopeBinding | GovernanceInstrument,
     reads: CommitGroup["reads"],
     depends_on: readonly string[],
+    enrollment?: {
+      readonly key: string;
+      readonly kind: FactKindId;
+      readonly value: SunsetEnrollment;
+      readonly expected_version: number;
+    },
   ): Promise<Result<CommitOutcome, GipErrorCode>> {
     const kind = factKind(kindId);
     const group: CommitGroup = {
@@ -402,8 +631,27 @@ export class GipAdapter {
           secrecy: p.secrecy,
           expected_version: 0,
         },
+        ...(enrollment
+          ? [
+              {
+                key: enrollment.key,
+                owner: factKind(enrollment.kind).owner,
+                facet: factKind(enrollment.kind).facet,
+                value: enrollment.value as CommitGroup["writes"][number]["value"],
+                unit: null,
+                basis: p.basis,
+                secrecy: p.secrecy,
+                expected_version: enrollment.expected_version,
+              },
+            ]
+          : []),
       ],
     };
+    return this.#commit(group);
+  }
+
+  /** The one path every GIP publication takes to the store. */
+  #commit(group: CommitGroup): Promise<Result<CommitOutcome, GipErrorCode>> {
     return this.#store.commit(group);
   }
 }

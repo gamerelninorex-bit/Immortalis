@@ -12,6 +12,7 @@ import {
   GIP_FACT_KINDS,
   GIP_INSTRUMENT_RULE,
   GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
+  GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE,
   GIP_OFFICE_RULE,
   GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
@@ -68,11 +69,11 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
     expect(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE.clause).not.toContain("predecessor_instrument_ref");
   });
 
-  it("the current Instrument rule is the pinned successor: the same source, pin, basis and lineage, covering the core plus ONLY the optional predecessor_instrument_ref", () => {
-    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+  it("the twenty-first-slice Instrument rule (the current citation until the sunset slice, now preserved byte-for-byte as the historical constant, its sha256 pinned) is the successor of the sixteenth: the same source, pin, basis and lineage, covering the core plus ONLY the optional predecessor_instrument_ref", () => {
+    expect(sha(GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE)).toBe(
       "e71c37c3ddbe51a43dd3c74c6ba33e3f31cc7e0fc89a4aee4ec4248316482af4",
     );
-    expect(GIP_INSTRUMENT_RULE).not.toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
+    expect(GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE).not.toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
     for (const k of [
       "artifact",
       "native_pin",
@@ -80,9 +81,11 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
       "effective_basis",
       "supersedes",
     ] as const)
-      expect(GIP_INSTRUMENT_RULE[k], k).toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE[k]);
-    expect(GIP_INSTRUMENT_RULE.native_pin).toBe("2026-09-24T01:42:24.952Z");
-    const clause = GIP_INSTRUMENT_RULE.clause;
+      expect(GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE[k], k).toEqual(
+        GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE[k],
+      );
+    expect(GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE.native_pin).toBe("2026-09-24T01:42:24.952Z");
+    const clause = GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE.clause;
     // the core and the unchanged clauses are still cited
     for (const c of [
       "§4.1 Mandatory fields",
@@ -159,7 +162,7 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
     expect(factKind("gip_scope_binding").legacyRule).toBeUndefined();
   });
 
-  it("only those two GIP kinds (and, from the twenty-third slice, the Diplomacy Relation Edge kind) register a superseded citation; the compatibility is not generalized (no new framework, field or registry)", () => {
+  it("only those two GIP kinds (and, from the twenty-third slice, the Diplomacy Relation Edge kind) register a superseded citation; the compatibility is not generalized (no new framework or registry; the sunset slice's one further superseded citation of the Instrument kind is the single `laterLegacyRules` entry)", () => {
     // (the inventory is the central oracle's, EXPECTED_LEGACY_RULE_*: this suite states the claim against it, not a literal)
     expect(ALL_FACT_KINDS.filter((k) => k.legacyRule).map((k) => k.id)).toEqual([
       ...EXPECTED_LEGACY_RULE_KIND_IDS,
@@ -173,8 +176,9 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
 
   it("the contract reproduces the one source identifier verbatim: it is named once as code, with no renamed, plural or aliased form", () => {
     const contract = code(CONTRACT);
-    expect(contract.match(/\bpredecessor_instrument_ref\b/g)).toHaveLength(1);
-    expect(contract).toMatch(/predecessor_instrument_ref: EntityId\.optional\(\),/);
+    // (named twice as code: the twenty-first-slice value class and the current strict shape)
+    expect(contract.match(/\bpredecessor_instrument_ref\b/g)).toHaveLength(2);
+    expect(contract.match(/predecessor_instrument_ref: EntityId\.optional\(\),/g)).toHaveLength(2);
     expect(contract).not.toMatch(
       /predecessor_instrument_(refs|ids|id)\b|predecessor_(ref|refs|id|ids)\b|predecessorInstrument|supersession_ref|successor_/,
     );
@@ -186,7 +190,13 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
     for (const f of ENGINE_GIP) expect(code(f), f).not.toMatch(/predecessor/i);
     // no owner/registry code branches on it either: the Instrument kind is validated by the one strict schema alone (the
     // governing-rule citation string, which names the field, is the only mention outside the contract)
-    expect(identifiers("packages/engine/src/owners/registry.ts")).not.toMatch(/predecessor/i);
+    // (the registry names the twenty-first-slice VALUE CLASS only to register its historical citation: `admits` is the class schema)
+    expect(
+      identifiers("packages/engine/src/owners/registry.ts").replace(
+        /\bGovernanceInstrumentPredecessorSchema\b/g,
+        "",
+      ),
+    ).not.toMatch(/predecessor/i);
     expect(identifiers("packages/engine/src/owners/admission.ts")).not.toMatch(/predecessor/i);
     expect(identifiers("packages/engine/src/world/integrity.ts")).not.toMatch(/predecessor/i);
   });
@@ -204,6 +214,7 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
       "predecessor_instrument_ref",
       "scope_binding_ref",
       "source_authority_ref",
+      "sunset_condition",
       "validity_by_order",
     ]);
   });
@@ -213,7 +224,6 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
     for (const f of [
       "activation_condition",
       "effective_from",
-      "sunset_condition",
       "renewal_rule",
       "implementation_assignment_ref",
       "administrative_path_ref",
@@ -226,6 +236,7 @@ describe("IA-02 no silent semantic invention: the field is one optional opaque r
       "provenance_note",
     ])
       expect(text, f).not.toContain(f);
+    // (`sunset_condition` joined the strict shape in the sunset slice: gip-sunset-conformance.test.ts)
   });
 });
 
@@ -268,7 +279,9 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
     const admission = code(`${GIP_DIR}/admission.ts`);
     expect(admission).toMatch(/group\.reads\.length !== 2 \|\| group\.depends_on\.length !== 2/);

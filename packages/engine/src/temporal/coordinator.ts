@@ -42,6 +42,7 @@ import {
   type UnresolvedReason,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
 import { continuationRequestViolation } from "./admission.ts";
 import { factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
@@ -78,6 +79,7 @@ export type TemporalErrorCode =
   | "UNIT_MISMATCH"
   | "CONDITION_NOT_REACHABLE"
   | "OBJECT_INVALID"
+  | "ENROLLMENT_PENDING"
   | "EXECUTION_INVALID"
   | "PROVIDER_FAILED"
   | "STAGE_OUTPUT_MISMATCH";
@@ -352,6 +354,14 @@ export class TemporalCoordinator {
           "a target may not precede the canonical time: nothing is rewound",
         );
     }
+    // Canonical time may not be requested past a material sunset GIP has committed but not yet registered here: nothing would
+    // engage it, so the advance is refused before anything is opened - before any transaction authority or owner stage can commit
+    // (a request with no target is refused whole while an enrollment is pending). Completing GIP's enrollment lifts the refusal.
+    const unregistered = gipEnrollmentPendingViolation(
+      { get: (k) => this.#store.getFact(k), has: (k) => this.#store.getFact(k) !== undefined },
+      target,
+    );
+    if (unregistered) return failure("ENROLLMENT_PENDING", unregistered);
     // A held continuation is consumed or it stays. This slice authorizes continuation and has no
     // cancellation/supersession mechanism, so unrelated progress cannot silently abandon it.
     const held = state.continuation;
