@@ -38,6 +38,7 @@ export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
 export * from "./causal-draw.ts";
 export * from "./commit.ts";
+export * from "./culture-adjudication.ts";
 export * from "./diplomacy-dispute.ts";
 export * from "./diplomacy-framework.ts";
 export * from "./diplomacy-recognition.ts";
