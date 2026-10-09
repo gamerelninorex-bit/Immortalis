@@ -442,6 +442,7 @@ export const cjaAuthoredOf = (r: CjaDecisionRecord): CjaAuthoredJudgment => ({
 /** The read-only history the proofs consult: the journal's exact group by intent and the receipt's revision. */
 export interface CjaJournal {
   committedGroup(intentId: string): CommitGroup | null;
+  committedGroupById?(groupId: string): CommitGroup | null;
   lookupReceipt(intentId: string): { readonly revision: number } | null;
 }
 
@@ -514,6 +515,27 @@ export function cjaSealedProofViolation(
         return v(
           "HISTORICAL_SOURCE_PROOF_MISSING",
           `a sealed input was not committed before the sealed context: ${s.fact_key}`,
+        );
+      }
+    }
+    if (journal) {
+      // F-49-R1: the cited group must itself have WRITTEN this exact (owner, key, version) in the immutable journal — whether
+      // or not the source has since advanced. The context's `depends_on` only proves the group exists.
+      const author = journal.committedGroupById?.(s.committed_by_group_id) ?? null;
+      const wrote = author?.writes.some(
+        (w) => w.key === s.fact_key && w.owner === s.owner && w.expected_version + 1 === s.version,
+      );
+      if (!author || !wrote) {
+        return v(
+          "HISTORICAL_SOURCE_PROOF_MISSING",
+          `the journal does not show the cited group committing the cited source version: ${s.fact_key}`,
+        );
+      }
+      const authored = journal.lookupReceipt(author.intent_id)?.revision;
+      if (authored === undefined || authored >= contextRevision) {
+        return v(
+          "HISTORICAL_SOURCE_PROOF_MISSING",
+          `the cited source version was not committed before the sealed context: ${s.fact_key}`,
         );
       }
     }

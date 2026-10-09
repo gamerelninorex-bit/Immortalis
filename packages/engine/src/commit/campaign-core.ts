@@ -175,6 +175,12 @@ export class CampaignCore {
     return this.#byIntent.get(intentId)?.group ?? null;
   }
 
+  /** The exact group committed under `group_id` (hash-chained journal evidence), or null. An exact-key lookup, never a scan. */
+  lookupGroupById(groupId: string): CommitGroup | null {
+    const intent = this.#byGroup.get(groupId);
+    return intent === undefined ? null : this.lookupGroup(intent);
+  }
+
   /** Re-registers an already-committed entry (used when replaying a journal on load). */
   adopt(entry: JournalEntry, nextState: CampaignState): void {
     this.#state = nextState;

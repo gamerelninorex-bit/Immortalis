@@ -556,6 +556,10 @@ class FilePackageStore implements FileCampaignStore {
     return this.#core.lookupGroup(intentId);
   }
 
+  committedGroupById(groupId: string): CommitGroup | null {
+    return this.#core.lookupGroupById(groupId);
+  }
+
   commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
     const run = this.#queue.then(() => this.#commit(group));
     this.#queue = run.catch(() => undefined);

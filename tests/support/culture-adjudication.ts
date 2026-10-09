@@ -121,6 +121,7 @@ export function crashBefore(inner: CampaignStore, block: (g: any) => boolean): C
     listFacts: () => inner.listFacts(),
     lookupReceipt: (i) => inner.lookupReceipt(i),
     committedGroup: (i) => inner.committedGroup(i),
+    committedGroupById: (i) => inner.committedGroupById?.(i) ?? null,
     close: () => inner.close(),
     commit: async (g: any) =>
       block(g)
@@ -154,6 +155,10 @@ export function spyStore(inner: CampaignStore) {
     listFacts: () => (calls.push("listFacts"), inner.listFacts()),
     lookupReceipt: (i) => (calls.push("lookupReceipt"), inner.lookupReceipt(i)),
     committedGroup: (i) => (calls.push("committedGroup"), inner.committedGroup(i)),
+    committedGroupById: (i) => (
+      calls.push("committedGroupById"),
+      inner.committedGroupById?.(i) ?? null
+    ),
     close: () => inner.close(),
     commit: (g: any) => (calls.push("commit"), inner.commit(g)),
   };

@@ -64,6 +64,7 @@ export function createInMemoryCampaign(params: {
     listFacts: () => stateToFile(core.state).facts,
     lookupReceipt: (intentId: string): CommitReceipt | null => core.lookupReceipt(intentId),
     committedGroup: (intentId: string): CommitGroup | null => core.lookupGroup(intentId),
+    committedGroupById: (groupId: string): CommitGroup | null => core.lookupGroupById(groupId),
     commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
       const run = queue.then(async () => {
         const prepared = core.prepare(group);

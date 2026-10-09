@@ -129,6 +129,7 @@ describe("CJA1 recovery — load integrity detects a record that no longer tells
       listFacts: () => inner.listFacts().map(rewrite),
       lookupReceipt: (i) => inner.lookupReceipt(i),
       committedGroup: (i) => inner.committedGroup(i),
+      committedGroupById: (i) => inner.committedGroupById?.(i) ?? null,
       close: () => inner.close(),
       commit: (g) => inner.commit(g),
     };

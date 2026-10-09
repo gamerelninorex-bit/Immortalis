@@ -36,8 +36,11 @@ asserted. No register row is advanced.
 2. "Ambiguous Unicode" is implemented as lone surrogates (ill-formed UTF-16) only; no normalization policy is invented.
 3. "Contradictory evidence must be accounted for" is read as: every `CONTRADICTS` input must be cited by at least one finding.
 4. The vouch literal is `live_population_admission: false` with reconciliation `NOT_DUE | DUE_COMPLETED`.
-5. Historical proof of a cited source = the sealed context's journaled group (`committedGroup(context intent)`) reading each
-   source at its cited version and depending on its group; no group-id journal index is assumed.
+5. Historical proof of a cited source = (a) the sealed context's journaled group reading each source at its cited version and
+   depending on the cited group, AND (b) the immutable journal showing that exact cited group WRITING `(owner, key, version)`
+   (`write.expected_version + 1 === version`) before the context (review F49-R1). (b) uses a new read-only, exact-key
+   `CampaignStore.committedGroupById` (optional; a store lacking it fails the proof closed). Raw admission has no journal, so
+   (b) is enforced by the adapter and by load integrity, not by admission.
 6. The Cohort constituency is verified by the port attestation, the registry key kind and the fixed Population close basis;
    it is not re-read live.
 7. `NOT_SUPPORTED` / `UNRESOLVED` carry no extra coherence rules beyond what CJA1 §6.3 states.
