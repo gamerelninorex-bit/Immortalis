@@ -20,12 +20,14 @@
     "test:conformance": "vitest run --project conformance",
     "test:security": "vitest run --project security",
     "test:integration": "vitest run --project integration",
+    "operator": "node --disable-warning=ExperimentalWarning --experimental-strip-types packages/operator/src/bin.ts",
     "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:spec && pnpm run test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@immortalis/contracts": "workspace:*",
     "@immortalis/engine": "workspace:*",
+    "@immortalis/operator": "workspace:*",
     "@immortalis/protocol": "workspace:*",
     "@immortalis/testkit": "workspace:*",
     "@types/node": "22.20.4",
