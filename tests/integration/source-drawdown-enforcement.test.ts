@@ -34,6 +34,7 @@ import {
   factKind,
   stageGroupId,
   stageIntentId,
+  verifySourceDrawdownIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
 import {
@@ -48,10 +49,12 @@ import {
   SRC_MATERIAL,
   SRC_REQ_1,
   SRC_REQ_2,
+  SRC_REQ_3,
   SRC_RESERVE,
   SRC_RESERVE_OTHER,
   SRC_SOURCE_KEY,
   SRC_SOURCE_OTHER,
+  SRC_TB,
   SRC_UNIT,
   basisInput,
   drawdownAdvanceRequest,
@@ -69,6 +72,7 @@ import {
 } from "@immortalis/testkit";
 import {
   drawSummary,
+  registerExtraction,
   seededDrawdownCampaign,
   startAndRegisterExtraction,
   type DrawSeeded,
@@ -468,58 +472,6 @@ describe("insufficient material and conflicting claims: no partial fill, no seco
     expect(s.drawdown.account(FIXTURE_WORLD_ID, SRC_SOURCE_KEY)).toBeUndefined();
   });
 
-  it("two requests that together exceed the source: the first committed is protected, the second receives no credit (commit order is no priority beyond what is already committed)", async () => {
-    for (const [first, second] of [
-      [SRC_REQ_1, SRC_REQ_2],
-      [SRC_REQ_2, SRC_REQ_1],
-    ] as const) {
-      const s = await seededDrawdownCampaign(tempDir());
-      await startAndRegisterExtraction(s, first, 1);
-      const before = snapshot(s);
-      const e = await fail(
-        s.drawdown.startExtraction({
-          ...drawdownPublication(44),
-          start: startExtractionInput(reqKey(second)),
-        }),
-      );
-      expect(e.code).toBe("CLAIM_INCOMPATIBLE");
-      expect(e.details).toMatchObject({
-        reason: "INSUFFICIENT_RECOVERABLE",
-        unclaimed: 2,
-        requested: 3,
-      });
-      expect(snapshot(s)).toEqual(before);
-      expect(
-        s.drawdown
-          .account(FIXTURE_WORLD_ID, SRC_SOURCE_KEY)!
-          .value.open.map((o) => o.extraction_id),
-      ).toEqual([first]);
-    }
-  });
-
-  it("a concurrent double draw: two simultaneous starts that cannot both be supported commit exactly one, and the other records nothing", async () => {
-    const s = await seededDrawdownCampaign(tempDir());
-    const results = await Promise.all([
-      s.drawdown.startExtraction({
-        ...drawdownPublication(45),
-        start: startExtractionInput(reqKey(SRC_REQ_1)),
-      }),
-      s.drawdown.startExtraction({
-        ...drawdownPublication(46),
-        start: startExtractionInput(reqKey(SRC_REQ_2)),
-      }),
-    ]);
-    expect(results.filter((r) => r.ok)).toHaveLength(1);
-    const lost = results.find((r) => !r.ok)!;
-    expect(!lost.ok && ["CLAIM_INCOMPATIBLE", "VERSION_CONFLICT"]).toContain(
-      !lost.ok && lost.error.code,
-    );
-    const open = s.drawdown.account(FIXTURE_WORLD_ID, SRC_SOURCE_KEY)!.value.open;
-    expect(open).toHaveLength(1);
-    expect(srcOf(s).value.recoverable.amount).toBe(5);
-    expect(s.campaign.verify()).toEqual([]);
-  });
-
   it("two requests the source jointly supports both complete at ONE boundary, each exactly once, whatever the stage order", async () => {
     const s = await seededDrawdownCampaign(tempDir(), {
       requests: [
@@ -555,6 +507,260 @@ describe("insufficient material and conflicting claims: no partial fill, no seco
     expect(MATERIAL_CLASS).not.toBe(SRC_MATERIAL);
     expect(MATERIAL_UNIT).not.toBe(SRC_UNIT);
     expect(snapshot(s)).toEqual(before);
+  });
+});
+
+const reqStart = (n: number, id: string, boundary = SRC_TB) => ({
+  ...drawdownPublication(n),
+  start: startExtractionInput(reqKey(id), { boundary_at: boundary }),
+});
+
+/** Everything substantive about the drawdown, with no identity of any group or fact version in it. */
+function substance(s: DrawSeeded, ids: string[]) {
+  const src = srcOf(s).value;
+  return {
+    source: src,
+    reserve: s.drawdown.reserve(SRC_RESERVE)!.value,
+    open: s.drawdown.account(FIXTURE_WORLD_ID, SRC_SOURCE_KEY)?.value.open ?? null,
+    standing: Object.fromEntries(ids.map((id) => [id, s.drawdown.phase(id)])),
+    deltas: ids.map((id) => s.drawdown.sourceDelta(id) !== undefined),
+  };
+}
+
+describe("same-instant scarcity (F-017 v0.3 §4 Same-time contention): arrival and processing order decide nothing", () => {
+  it("incompatible simultaneous claims are ALL contested whatever order they arrive in: no first-come winner, identical substance", async () => {
+    const views: unknown[] = [];
+    const afters: unknown[] = [];
+    for (const order of [
+      [SRC_REQ_1, SRC_REQ_2],
+      [SRC_REQ_2, SRC_REQ_1],
+    ]) {
+      const s = await seededDrawdownCampaign(tempDir());
+      let n = 0;
+      for (const id of order) {
+        // each claim is recorded: a claim of the same instant is not refused for arriving second, nor credited for arriving first
+        await must(s.drawdown.startExtraction(reqStart(60 + n++, id)));
+        await registerExtraction(s, id, 80 + n);
+      }
+      expect(s.drawdown.phase(SRC_REQ_1)).toBe("CONTESTED");
+      expect(s.drawdown.phase(SRC_REQ_2)).toBe("CONTESTED");
+      views.push(substance(s, [SRC_REQ_1, SRC_REQ_2]));
+      // the contested claims do not proceed: no Source Delta, no delivery, no Reserve credit, in any processing order
+      const r = await must(s.coordinator.advance(drawdownAdvanceRequest("tx-contest")));
+      expect(r.transaction.stages).toEqual([]);
+      expect(r.rejections.map((x) => x.code)).toEqual(["CLAIM_INCOMPATIBLE", "CLAIM_INCOMPATIBLE"]);
+      const unresolved = r.transaction.outcome.unresolved_dependents;
+      // each claim's emit stage is refused by Production's admission; its dependents wait; nothing else is touched
+      expect(
+        unresolved
+          .filter((u) => u.reason === "VALIDATION_REJECTED")
+          .map((u) => u.stage.prospective_result_id),
+      ).toEqual([`source-delta:${SRC_REQ_1}`, `source-delta:${SRC_REQ_2}`]);
+      expect(
+        unresolved.filter((u) => u.reason !== "VALIDATION_REJECTED").map((u) => u.reason),
+      ).toEqual(Array(4).fill("PREDECESSOR_BLOCKED"));
+      expect(r.transaction.engaged.map((e) => e.boundary)).not.toContain("RETIRED");
+      expect(srcOf(s).value.recoverable.amount).toBe(5);
+      expect(s.drawdown.reserve(SRC_RESERVE)!.value.quantity.amount).toBe(0);
+      expect(s.drawdown.sourceDelta(SRC_REQ_1)).toBeUndefined();
+      expect(s.drawdown.sourceDelta(SRC_REQ_2)).toBeUndefined();
+      expect(s.campaign.verify()).toEqual([]);
+      afters.push(substance(s, [SRC_REQ_1, SRC_REQ_2]));
+    }
+    expect(views[1]).toEqual(views[0]);
+    expect(afters[1]).toEqual(afters[0]);
+    expect((views[0] as any).open.map((o: any) => o.extraction_id)).toEqual([SRC_REQ_1, SRC_REQ_2]);
+  });
+
+  it("three simultaneous claims that cannot all be supported are all contested in every one of the six arrival orders", async () => {
+    const ids = [SRC_REQ_1, SRC_REQ_2, SRC_REQ_3];
+    const perms = [
+      [0, 1, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+      [2, 1, 0],
+    ];
+    const seen: unknown[] = [];
+    for (const p of perms) {
+      const s = await seededDrawdownCampaign(tempDir(), {
+        requests: ids.map((id) => ({ id, amount: 2 })),
+      });
+      let n = 0;
+      for (const i of p) await must(s.drawdown.startExtraction(reqStart(70 + n++, ids[i]!)));
+      for (const id of ids) expect(s.drawdown.phase(id)).toBe("CONTESTED");
+      seen.push(substance(s, ids));
+    }
+    for (const v of seen) expect(v).toEqual(seen[0]);
+  });
+
+  it("an incompatible simultaneous claim contests a claim that was supported alone a moment before (the first arrival keeps no standing)", async () => {
+    const s = await seededDrawdownCampaign(tempDir());
+    await must(s.drawdown.startExtraction(reqStart(61, SRC_REQ_1)));
+    expect(s.drawdown.phase(SRC_REQ_1)).toBe("COMMITTED");
+    await must(s.drawdown.startExtraction(reqStart(62, SRC_REQ_2)));
+    expect(s.drawdown.phase(SRC_REQ_1)).toBe("CONTESTED");
+    expect(s.drawdown.phase(SRC_REQ_2)).toBe("CONTESTED");
+  });
+
+  it("jointly supportable simultaneous claims are all credited, whatever order: contention law does not starve supportable claims", async () => {
+    const results: unknown[] = [];
+    for (const order of [
+      [SRC_REQ_1, SRC_REQ_2],
+      [SRC_REQ_2, SRC_REQ_1],
+    ]) {
+      const s = await seededDrawdownCampaign(tempDir(), {
+        requests: [
+          { id: SRC_REQ_1, amount: 3 },
+          { id: SRC_REQ_2, amount: 2 },
+        ],
+      });
+      let n = 0;
+      for (const id of order) {
+        await must(s.drawdown.startExtraction(reqStart(63 + n++, id)));
+        await registerExtraction(s, id, 90 + n);
+      }
+      expect(s.drawdown.phase(SRC_REQ_1)).toBe("COMMITTED");
+      expect(s.drawdown.phase(SRC_REQ_2)).toBe("COMMITTED");
+      await must(s.coordinator.advance(drawdownAdvanceRequest("tx-both")));
+      expect(s.drawdown.phase(SRC_REQ_1)).toBe("CREDITED");
+      expect(s.drawdown.phase(SRC_REQ_2)).toBe("CREDITED");
+      results.push(substance(s, [SRC_REQ_1, SRC_REQ_2]));
+      expect(s.campaign.verify()).toEqual([]);
+    }
+    expect(results[1]).toEqual(results[0]);
+  });
+
+  it("a genuinely EARLIER committed claim keeps its material: a later-instant incompatible claim receives no credit and records nothing", async () => {
+    const s = await seededDrawdownCampaign(tempDir());
+    await startAndRegisterExtraction(s, SRC_REQ_1, 1); // instant 100, 3 of 5
+    await must(s.coordinator.advance(drawdownAdvanceRequest("tx-later", at(120)))); // canonical time moves on
+    const before = snapshot(s);
+    const e = await fail(s.drawdown.startExtraction(reqStart(64, SRC_REQ_2, srcAt(200))));
+    expect(e.code).toBe("CLAIM_INCOMPATIBLE");
+    expect(e.details).toMatchObject({
+      reason: "INSUFFICIENT_RECOVERABLE",
+      unclaimed: 2,
+      requested: 3,
+    });
+    expect(snapshot(s)).toEqual(before);
+    expect(s.drawdown.phase(SRC_REQ_1)).toBe("COMMITTED"); // and it is untouched: still supported
+  });
+
+  it("earlier precedence and same-instant contention compose: the earlier claim is credited, the incompatible simultaneous pair after it stay contested in either order", async () => {
+    const outcomes: unknown[] = [];
+    for (const pair of [
+      [SRC_REQ_2, SRC_REQ_3],
+      [SRC_REQ_3, SRC_REQ_2],
+    ]) {
+      const s = await seededDrawdownCampaign(tempDir(), {
+        requests: [
+          { id: SRC_REQ_1, amount: 3 },
+          { id: SRC_REQ_2, amount: 2 },
+          { id: SRC_REQ_3, amount: 2 },
+        ],
+      });
+      await startAndRegisterExtraction(s, SRC_REQ_1, 1); // instant 100, boundary 140
+      await must(s.coordinator.advance(drawdownAdvanceRequest("tx-t", at(120))));
+      let n = 0;
+      for (const id of pair) {
+        await must(s.drawdown.startExtraction(reqStart(65 + n++, id, srcAt(200)))); // instant 120: room is 5 − 3 = 2
+        await registerExtraction(s, id, 95 + n);
+      }
+      expect(s.drawdown.phase(SRC_REQ_2)).toBe("CONTESTED");
+      expect(s.drawdown.phase(SRC_REQ_3)).toBe("CONTESTED");
+      await must(s.coordinator.advance(drawdownAdvanceRequest("tx-after", srcAt(300))));
+      expect(s.drawdown.phase(SRC_REQ_1)).toBe("CREDITED");
+      expect(srcOf(s).value.recoverable.amount).toBe(2);
+      expect(s.drawdown.reserve(SRC_RESERVE)!.value.quantity.amount).toBe(3);
+      outcomes.push(substance(s, [SRC_REQ_1, SRC_REQ_2, SRC_REQ_3]));
+      expect(s.campaign.verify()).toEqual([]);
+    }
+    expect(outcomes[1]).toEqual(outcomes[0]);
+  });
+
+  it("simultaneous concurrent starts: the only transient refusal is a retriable version race, never a scarcity verdict, and both end contested", async () => {
+    const s = await seededDrawdownCampaign(tempDir());
+    const results = await Promise.all([
+      s.drawdown.startExtraction(reqStart(66, SRC_REQ_1)),
+      s.drawdown.startExtraction(reqStart(67, SRC_REQ_2)),
+    ]);
+    for (const r of results) if (!r.ok) expect(r.error.code).toBe("VERSION_CONFLICT");
+    // a refused-for-version-race start is simply presented again
+    if (!results[0].ok) await must(s.drawdown.startExtraction(reqStart(66, SRC_REQ_1)));
+    if (!results[1].ok) await must(s.drawdown.startExtraction(reqStart(67, SRC_REQ_2)));
+    expect(s.drawdown.phase(SRC_REQ_1)).toBe("CONTESTED");
+    expect(s.drawdown.phase(SRC_REQ_2)).toBe("CONTESTED");
+    expect(srcOf(s).value.recoverable.amount).toBe(5);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("a contested claim cannot be forced through: its Source Delta is refused by Production's own admission, and no later stage can follow", async () => {
+    const s = await seededDrawdownCampaign(tempDir());
+    for (const [i, id] of [SRC_REQ_1, SRC_REQ_2].entries()) {
+      await must(s.drawdown.startExtraction(reqStart(68 + i, id)));
+      await registerExtraction(s, id, 85 + i);
+    }
+    const ex = s.campaign.store.getFact(productionExtractionKey(SRC_REQ_1))!;
+    const delta = deriveSourceDelta({
+      key: ex.key,
+      version: ex.version,
+      value: ProductionExtractionSchema.parse(ex.value),
+    });
+    const kind = factKind("production_source_delta");
+    const stage = productionSourceDeltaStage(SRC_REQ_1);
+    const before = snapshot(s);
+    const r = await s.campaign.store.commit({
+      campaign_id: FIXTURE_CAMPAIGN,
+      group_id: stageGroupId(stage),
+      intent_id: stageIntentId(stage),
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: "transaction:tx-forged",
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [{ key: ex.key, version: ex.version }],
+      depends_on: [ex.provenance.group_id],
+      writes: [write(productionSourceDeltaKey(SRC_REQ_1), delta, 0, kind.owner, kind.facet)],
+    });
+    expect(r.ok).toBe(false);
+    expect(snapshot(s)).toEqual(before);
+    expect(s.drawdown.sourceDelta(SRC_REQ_1)).toBeUndefined();
+  });
+  it("the load-time verifier reports a Source Delta that exists for a contested claim", async () => {
+    const s = await seededDrawdownCampaign(tempDir());
+    for (const [i, id] of [SRC_REQ_1, SRC_REQ_2].entries())
+      await must(s.drawdown.startExtraction(reqStart(72 + i, id)));
+    const store = s.campaign.store;
+    expect(verifySourceDrawdownIntegrity(store)).toEqual([]);
+    const ex = store.getFact(productionExtractionKey(SRC_REQ_1))!;
+    const forged = {
+      ...ex,
+      key: productionSourceDeltaKey(SRC_REQ_1),
+      version: 1,
+      value: deriveSourceDelta({
+        key: ex.key,
+        version: ex.version,
+        value: ProductionExtractionSchema.parse(ex.value),
+      }),
+    } as never;
+    const view: CampaignStore = {
+      ...store,
+      descriptor: store.descriptor,
+      head: () => store.head(),
+      getFact: (k) => store.getFact(k),
+      listFacts: () => [...store.listFacts(), forged],
+      lookupReceipt: (i) => store.lookupReceipt(i),
+      committedGroup: (i) => store.committedGroup(i),
+      commit: (g) => store.commit(g),
+      close: () => store.close(),
+    };
+    expect(
+      verifySourceDrawdownIntegrity(view).some((v) =>
+        /contested yet a Source Delta/.test(v.message),
+      ),
+    ).toBe(true);
   });
 });
 

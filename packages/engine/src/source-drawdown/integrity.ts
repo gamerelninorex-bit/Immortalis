@@ -28,7 +28,13 @@ import { journaledStageViolation, stageAuthorityViolation } from "../production/
 import { stageIntentId } from "../temporal/identity.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { extractionObjectViolation } from "./declaration.ts";
-import { deriveSourceDelta, pinned } from "./derive.ts";
+import {
+  claimRoom,
+  claimStanding,
+  deriveSourceDelta,
+  pinned,
+  undeliveredCommitments,
+} from "./derive.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's exact-drawdown state still tells one
@@ -331,8 +337,6 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
       bad(af.key, "an account is a committed Source Condition's own, by its resolution key");
       continue;
     }
-    const delivered = new Set(src.delivered.map((d) => d.delivery_id));
-    let claimed = 0;
     for (const o of a.open) {
       const ex = at(productionExtractionKey(o.extraction_id), ProductionExtractionSchema)?.value;
       if (!ex || ex.account.fact_key !== af.key || !canonicalEqual(ex.quantity, o.quantity))
@@ -340,13 +344,23 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
           af.key,
           `commitment ${o.extraction_id} is not an extraction on this key of that quantity`,
         );
-      if (!delivered.has(o.extraction_id)) claimed += o.quantity.amount;
     }
-    if (claimed > src.recoverable.amount)
-      bad(
-        af.key,
-        "the open commitments exceed what the Source Condition still holds: one quantity supports two uses",
-      );
+    // no claim exceeds what strictly earlier instants left (genuine causal precedence), and an incompatible same-instant set
+    // is contested as a whole: nothing of a contested claim may have proceeded (F-017 v0.3 §4 Same-time contention)
+    const commitments = undeliveredCommitments((k) => byKey.get(k), src, a);
+    for (const c of commitments) {
+      const room = c.at === null ? null : claimRoom(src, commitments, c.at);
+      if (room === null || room < c.amount)
+        bad(
+          af.key,
+          `commitment ${c.id} exceeds what earlier commitments leave of the Source Condition: one quantity supports two uses`,
+        );
+      if (
+        claimStanding(src, commitments, c) === "CONTESTED" &&
+        byKey.has(productionSourceDeltaKey(c.id))
+      )
+        bad(af.key, `commitment ${c.id} is contested yet a Source Delta was emitted for it`);
+    }
   }
   for (const rf of ofKind("production_reserve")) {
     const r = pinned(rf, ProductionReserveSchema)?.value;

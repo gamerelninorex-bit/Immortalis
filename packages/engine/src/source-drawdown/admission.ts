@@ -39,9 +39,11 @@ import {
   deriveReserveInflow,
   deriveSourceDelta,
   parseAccount,
+  claimRoom,
+  claimStanding,
   pendingDrawdown,
   pinned,
-  unclaimedRecoverable,
+  undeliveredCommitments,
 } from "./derive.ts";
 
 /**
@@ -392,17 +394,21 @@ function checkStart(
         { reason: "SOURCE_DELIVERY_PENDING", pending },
       );
   }
-  // RC-06 analogue: the source's still-unclaimed exact quantity must support the commitment, or it receives no credit
-  const free = unclaimedRecoverable(s, was);
-  if (free < e.quantity.amount)
+  // RC-06 analogue under F-017 v0.3 §4 "Same-time contention". A claim made against material that STRICTLY EARLIER canonical
+  // instants already committed receives no credit (genuine causal precedence). Claims of the SAME instant have no precedence
+  // over one another: arrival and processing order decide nothing, so such a claim is recorded and its standing is derived
+  // from the whole set (jointly supportable: all credited; incompatible: all contested, none credited — see claimStanding).
+  const earlier = was ? undeliveredCommitments((k) => state.facts.get(k), s, was) : [];
+  const room = claimRoom(s, earlier, e.timing.started_at);
+  if (room === null || room < e.quantity.amount)
     return reject(
       "CLAIM_INCOMPATIBLE",
-      "the Source Condition's unclaimed recoverable quantity does not support this extraction: an incompatible request against already-committed material receives no credit and no partial fill",
+      "the Source Condition's material not already committed by earlier instants does not support this extraction: an incompatible request against already-committed material receives no credit and no partial fill",
       {
         reason: "INSUFFICIENT_RECOVERABLE",
         key: srcPin.fact.key,
         recoverable: s.recoverable.amount,
-        unclaimed: free,
+        unclaimed: room ?? 0,
         requested: e.quantity.amount,
       },
     );
@@ -475,6 +481,15 @@ function checkDelta(group: CommitGroup, state: CampaignState, w: Write): Rejecti
   const entry = account.open.find((o) => o.extraction_id === id);
   if (!entry || !canonicalEqual(entry.quantity, e.data.quantity))
     return ref("the key's account holds this extraction's commitment");
+  // incompatible same-instant claims are all contested: none proceeds, whatever order they are processed in (F-017 v0.3 §4)
+  const commitments = undeliveredCommitments((k) => state.facts.get(k), src.value, account);
+  const mine = commitments.find((c) => c.id === id);
+  if (!mine || claimStanding(src.value, commitments, mine) !== "SUPPORTED")
+    return reject(
+      "CLAIM_INCOMPATIBLE",
+      "this extraction is incompatible with other claims of the same canonical instant on the same scarce material: with no owner allocation, priority or neutral rule none is credited, and the conflict stays unresolved",
+      { reason: "CONTESTED_SAME_INSTANT_CLAIM" },
+    );
   // one authoritative pending representation per key: a new drawdown is emitted only onto a key with none undelivered
   const pending = pendingDrawdown((k) => state.facts.get(k), account).filter((x) => x !== id);
   if (pending.length > 0)

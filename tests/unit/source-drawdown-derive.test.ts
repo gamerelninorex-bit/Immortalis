@@ -24,7 +24,9 @@ import {
   deriveSourceDelta,
   productionReserveInflowProvider,
   productionSourceDeltaProvider,
-  unclaimedRecoverable,
+  claimRoom,
+  claimStanding,
+  undeliveredCommitments,
   worldSourceDeliveryProvider,
 } from "@immortalis/engine";
 
@@ -275,12 +277,65 @@ describe("Production's Reserve inflow", () => {
   });
 });
 
-describe("what is unclaimed on a key counts each unit once", () => {
-  it("excludes commitments World-State has already netted out", () => {
-    expect(unclaimedRecoverable(source(), undefined)).toBe(5);
-    expect(unclaimedRecoverable(source(), account)).toBe(2); // 5 recoverable − 3 committed
+describe("claim standing is a function of the SET of claims: arrival or processing order decides nothing (F-017 v0.3 §4)", () => {
+  const c = (id: string, amount: number, at: number) => ({ id, amount, at: t(at) });
+  const standings = (cs: ReturnType<typeof c>[], recoverable = 5) => {
+    const src = source({
+      recoverable: q(recoverable),
+      establishment: { kind: "INITIAL_SETTING_FACT", statement: "s", quantity: q(recoverable) },
+    });
+    return Object.fromEntries(cs.map((x) => [x.id, claimStanding(src, cs, x)]));
+  };
+  const permutations = <T>(xs: T[]): T[][] =>
+    xs.length <= 1
+      ? [xs]
+      : xs.flatMap((x, i) =>
+          permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]),
+        );
+
+  it("jointly supportable claims of one instant are all supported, in any order", () => {
+    for (const p of permutations([c("a", 3, 100), c("b", 2, 100)]))
+      expect(standings(p)).toEqual({ a: "SUPPORTED", b: "SUPPORTED" });
+  });
+  it("incompatible claims of one instant are ALL contested, in any order: no first-come winner", () => {
+    for (const p of permutations([c("a", 3, 100), c("b", 3, 100)]))
+      expect(standings(p)).toEqual({ a: "CONTESTED", b: "CONTESTED" });
+    for (const p of permutations([c("a", 2, 100), c("b", 2, 100), c("d", 2, 100)]))
+      expect(standings(p)).toEqual({ a: "CONTESTED", b: "CONTESTED", d: "CONTESTED" });
+  });
+  it("a strictly earlier instant is genuine causal precedence: it protects its material, and the later claim is the one that is short", () => {
+    for (const p of permutations([c("a", 3, 100), c("b", 3, 120)])) {
+      const src = source();
+      expect(claimRoom(src, p, t(120))).toBe(2);
+      expect(claimRoom(src, p, t(100))).toBe(5);
+      expect(standings(p)).toEqual({ a: "SUPPORTED", b: "CONTESTED" });
+    }
+  });
+  it("a claim of a later instant does not disturb the standing of an earlier one", () => {
+    for (const p of permutations([c("a", 3, 100), c("b", 2, 100), c("d", 2, 120), c("e", 2, 120)]))
+      expect(standings(p)).toEqual({
+        a: "SUPPORTED",
+        b: "SUPPORTED",
+        d: "CONTESTED",
+        e: "CONTESTED",
+      });
+  });
+  it("fails closed when instants are not comparable", () => {
+    const src = source();
+    const odd = { id: "o", amount: 1, at: { unit: "other", value: 1 } };
+    expect(claimStanding(src, [c("a", 1, 100), odd], c("a", 1, 100))).toBe("CONTESTED");
+    expect(
+      claimStanding(src, [{ id: "n", amount: 1, at: null }], { id: "n", amount: 1, at: null }),
+    ).toBe("CONTESTED");
+  });
+  it("counts commitments World-State already netted out once: a delivered claim is out of `recoverable` and out of the set", () => {
+    const get = (k: string) =>
+      k === productionExtractionKey("x-1") ? fact(k, extraction, "production") : undefined;
+    expect(undeliveredCommitments(get, source(), account)).toEqual([
+      { id: "x-1", amount: 3, at: t(100) },
+    ]);
     const net = delivered().source;
-    expect(unclaimedRecoverable(net, account)).toBe(2); // delivered: already out of `recoverable`, not claimed twice
+    expect(undeliveredCommitments(get, net, account)).toEqual([]);
   });
 });
 

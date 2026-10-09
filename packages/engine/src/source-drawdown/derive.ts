@@ -214,6 +214,11 @@ export type ExtractionPhase =
   | "ABSENT"
   /** committed and protecting its source quantity; nothing has physically changed */
   | "COMMITTED"
+  /**
+   * committed, but incompatible with other claims of the SAME canonical instant for the same scarce material: none of
+   * them is credited and none proceeds, whatever order they arrived or are processed in (F-017 v0.3 §4 Same-time contention)
+   */
+  | "CONTESTED"
   /** the Production-caused Source Delta exists and is undelivered: the key's Pending Drawdown */
   | "PENDING_DELIVERY"
   /** World-State delivered it (the source is net of it); the Reserve is not yet credited */
@@ -235,9 +240,92 @@ export function extractionPhase(get: Get, extractionId: string): ExtractionPhase
   if (src?.success && src.data.delivered.some((d) => d.delivery_id === extractionId))
     return "DELIVERED_AWAITING_CREDIT";
   const delta = get(productionSourceDeltaKey(extractionId));
-  return delta && SourceDeltaSchema.safeParse(delta.value).success
-    ? "PENDING_DELIVERY"
-    : "COMMITTED";
+  if (delta && SourceDeltaSchema.safeParse(delta.value).success) return "PENDING_DELIVERY";
+  const account = parseAccount(get(ex.data.account.fact_key));
+  if (src?.success && account) {
+    const mine = undeliveredCommitments(get, src.data, account).find((c) => c.id === extractionId);
+    if (
+      mine &&
+      claimStanding(src.data, undeliveredCommitments(get, src.data, account), mine) === "CONTESTED"
+    )
+      return "CONTESTED";
+  }
+  return "COMMITTED";
+}
+
+/** One open, not-yet-netted commitment on a key, with the canonical instant it was made at. */
+export interface Commitment {
+  readonly id: string;
+  readonly amount: number;
+  /** the canonical instant of the commitment (its extraction's `started_at`); null when it cannot be read */
+  readonly at: CanonicalTime | null;
+}
+
+/**
+ * The open commitments of a key that World-State has not already netted out of the recoverable amount, each with the
+ * canonical instant it was made at (read by identity from its sealed extraction).
+ */
+export function undeliveredCommitments(
+  get: Get,
+  source: WorldSourceCondition,
+  account: SourceAccount,
+): Commitment[] {
+  const delivered = new Set(source.delivered.map((d) => d.delivery_id));
+  return account.open
+    .filter((o) => !delivered.has(o.extraction_id))
+    .map((o) => {
+      const f = get(productionExtractionKey(o.extraction_id));
+      const ex = f ? ProductionExtractionSchema.safeParse(f.value) : undefined;
+      return {
+        id: o.extraction_id,
+        amount: o.quantity.amount,
+        at: ex?.success ? ex.data.timing.started_at : null,
+      };
+    });
+}
+
+/**
+ * The material a claim made at `at` can rest on: the net recoverable amount less every commitment made at a STRICTLY
+ * EARLIER canonical instant (genuine causal precedence: those claims were already committed when this instant arrived).
+ * Null when some commitment's instant is not comparable with `at`.
+ */
+export function claimRoom(
+  source: WorldSourceCondition,
+  commitments: readonly Commitment[],
+  at: CanonicalTime,
+): number | null {
+  let earlier = 0;
+  for (const d of commitments) {
+    if (d.at === null) return null;
+    const c = compareTime(d.at, at);
+    if (c === null) return null;
+    if (c === -1) earlier += d.amount;
+  }
+  return source.recoverable.amount - earlier;
+}
+
+export type ClaimStanding = "SUPPORTED" | "CONTESTED";
+
+/**
+ * F-017 v0.3 §4 "Same-time contention": for a conserved quantity with no owner allocation, priority or neutral rule, claim
+ * arrival or processing order decides nothing. Standing is therefore a function of the SET of claims alone. A claim is
+ * SUPPORTED when the claims of its own canonical instant, taken together, fit in what strictly earlier commitments leave
+ * (jointly supportable claims are all credited); otherwise EVERY claim of that instant is CONTESTED — none is credited,
+ * none proceeds, and the conflict is preserved unresolved for the lawful owner/chooser. No priority, allocator or tie-break
+ * exists, so reversing the arrival or processing order cannot change any claim's standing.
+ */
+export function claimStanding(
+  source: WorldSourceCondition,
+  commitments: readonly Commitment[],
+  claim: Commitment,
+): ClaimStanding {
+  if (claim.at === null) return "CONTESTED";
+  const room = claimRoom(source, commitments, claim.at);
+  if (room === null) return "CONTESTED";
+  let same = 0;
+  for (const d of commitments)
+    if (d.at !== null && compareTime(d.at, claim.at) === 0) same += d.amount;
+  return same <= room ? "SUPPORTED" : "CONTESTED";
 }
 
 /**
@@ -248,22 +336,6 @@ export function pendingDrawdown(get: Get, account: SourceAccount): readonly stri
   return account.open
     .map((o) => o.extraction_id)
     .filter((id) => extractionPhase(get, id) === "PENDING_DELIVERY");
-}
-
-/**
- * The quantity of a Source Condition not yet protected by an open commitment: the net recoverable amount less every open
- * commitment World-State has not already netted out. A delivered commitment is already out of `recoverable`, so it is
- * excluded — each unit is counted once.
- */
-export function unclaimedRecoverable(
-  source: WorldSourceCondition,
-  account: SourceAccount | undefined,
-): number {
-  const delivered = new Set(source.delivered.map((d) => d.delivery_id));
-  const claimed = (account?.open ?? [])
-    .filter((o) => !delivered.has(o.extraction_id))
-    .reduce((n, o) => n + o.quantity.amount, 0);
-  return source.recoverable.amount - claimed;
 }
 
 export const parseAccount = (f: OwnerFact | undefined): SourceAccount | undefined => {
