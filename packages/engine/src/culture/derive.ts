@@ -1,58 +1,72 @@
 import {
   ACCESS_CLASS_CULTURE_ENGINE_SIDE,
+  CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
   COMMUNICATIVE_CONVENTION_CLOSE,
-  CultureEvidenceReadingSchema,
+  CJA_OPPORTUNITY_ID,
+  CULTURE_SLOT_PREFIX,
+  CjaDecisionRecordSchema,
   OWNER_CULTURE,
+  OWNER_CULTURE_ADJUDICATION_KERNEL,
+  cjaDecisionKey,
   cultureConventionStage,
   cultureUpdateContextKey,
   fail,
   ok,
-  type CultureCanonicalRef,
-  type CultureInput,
+  type CjaDistinction,
+  type CjaSealedInputRef,
   type CultureSharedMeaning,
   type CultureUpdateContext,
   type OwnerFact,
   type Result,
 } from "@immortalis/contracts";
-import { sha256Canonical } from "../hash.ts";
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { ALL_FACT_KINDS, resolveKey, type FactKindId } from "../owners/registry.ts";
+import {
+  cjaCausalProcessId,
+  cjaConstituencyViolation,
+  cjaCultureUpdateId,
+  cjaDistinctionDigest,
+  cjaRecordViolation,
+  cjaSourceViolation,
+} from "../culture-adjudication/derive.ts";
 
 /**
  * Pure derivations of the Culture established shared meaning / norm path (WS-005 Draft v2 §§1-4, 8; Concept v2 §§1-2, 4, 8;
- * Scaling Profile v2 §§2-4). Each is the single statement of its rule: the owner operation computes with it and IM-11
- * admission and load-time verification re-derive with it, so a committed shared meaning/norm is exactly what its sealed
- * Social Update Context and the committed evidence it pins determine — and nothing else.
+ * Scaling Profile v2 §§2-4; merged F-027-CJA1). Each is the single statement of its rule: the owner operation computes with it
+ * and IM-11 admission and load-time verification re-derive with it, so a committed shared meaning/norm is exactly what its
+ * sealed Social Update Context and its ONE committed ESTABLISH_SUPPORTED adjudication decision determine — and nothing else.
  *
  * They invent nothing: no meaning, norm, class of meanings, prevalence, percentage, count, score, strength, adoption, belief,
- * motive, number, default, roll or threshold. The evidence is read for the referent, scope, context and manifestation it
- * states, and nothing is inferred from its mere existence, from contact, from a policy, from a packet or its refusal, from a
- * KTI receipt or from a Cohort count.
+ * motive, number, default, roll or threshold. The manifestation is the GM's, copied verbatim from the committed decision; the
+ * evidence is never re-read at the close.
  */
 
-/** A committed fact read by identity: its key, the owner that wrote it, the version it was read at and its value. */
+/** A committed fact read by identity: its key, owner, version, committing group and value. */
 export interface CultureFact<T> {
   readonly key: string;
   readonly owner: string;
   readonly version: number;
+  readonly group_id: string;
   readonly value: T;
 }
 
 /**
- * The deterministic identity of one update slot: exactly (referent, scope, context) — "admitted material (scope, referent,
- * context) distinctions" (Scaling Profile v2 §2 cardinality basis) — and nothing else. The evidence, the manifestation, the
- * time, the retry and the slice are not identity dimensions, so a second sealing for the same distinction reaches the same,
- * occupied slot instead of overwriting it or creating a sibling.
+ * The Culture STATE SLOT of one material distinction: exactly (referent, scope, context) — "admitted material (scope,
+ * referent, context) distinctions" (Scaling Profile v2 §2 cardinality basis) — and nothing else. The trigger, the evidence,
+ * the manifestation, the time, the retry and the slice are not identity dimensions. It is NOT the update identity.
  */
-export const cultureUpdateId = (referentKey: string, scopeKey: string, context: string): string =>
-  `culture-update-${sha256Canonical({ referent: referentKey, scope: scopeKey, context })}`;
+export const cultureSlotId = (d: CjaDistinction): string =>
+  `${CULTURE_SLOT_PREFIX}${sha256Canonical({
+    referent_key: d.referent_key,
+    scope_key: d.scope_key,
+    context_id: d.context_id,
+  })}`;
 
 /**
  * The canonical authorities a referent or scope can be bound to in this slice: a committed World-State locus (a place) or a
  * committed GIP Institution Identity (an institution). Both are items the source itself lists as materially established
- * referents ("good, role, group, practice, institution, place, symbol, channel or other setting-valid object"). Any other
- * kind — and in particular a Population Cohort (the optional Cohort attachment is not introduced; no headcount substitutes
- * for it) — cannot be bound and fails closed (brief §3: "Where a needed scope or referent cannot be bound to existing
- * canonical authority, fail closed").
+ * referents. Any other kind — and in particular a Population Cohort, which is the separate participating constituency — cannot
+ * be bound as a referent or scope and fails closed.
  */
 export const CULTURE_BINDABLE_KIND_IDS: readonly FactKindId[] = [
   "world_locus",
@@ -61,21 +75,17 @@ export const CULTURE_BINDABLE_KIND_IDS: readonly FactKindId[] = [
 
 /**
  * A referent or scope must be an existing, committed canonical fact of a bindable kind, held by its own registered owner and
- * facet, valid against its own contract. `mode` "SEAL" additionally requires the pinned version to be the current one (the
- * context is sealed against what exists); "HISTORY" accepts a pin at or behind the current version (a load judges history).
- * Returns a message, or null.
+ * facet, valid against its own contract. Returns a message, or null.
  */
 export function canonicalBindingViolation(
   facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
-  ref: CultureCanonicalRef,
-  mode: "SEAL" | "HISTORY",
+  key: string,
 ): string | null {
-  const resolved = resolveKey(ref.fact_key);
-  const kind = resolved?.kind;
+  const kind = resolveKey(key)?.kind;
   if (!kind || !CULTURE_BINDABLE_KIND_IDS.includes(kind.id)) {
     return "a referent or scope binds only to a committed canonical World-State locus or GIP Institution Identity: anything else cannot be bound to existing canonical authority";
   }
-  const fact = facts.get(ref.fact_key);
+  const fact = facts.get(key);
   if (!fact) return "the referent or scope is not a committed canonical fact";
   if (fact.owner !== kind.owner || fact.facet !== kind.facet) {
     return "the referent or scope is held by its own registered canonical owner";
@@ -83,44 +93,141 @@ export function canonicalBindingViolation(
   if (!kind.valueSchema.safeParse(fact.value).success) {
     return "the referent or scope violates its own canonical contract";
   }
-  if (mode === "SEAL" ? fact.version !== ref.version : fact.version < ref.version) {
-    return mode === "SEAL"
-      ? "the referent or scope is pinned at its current version"
-      : "the referent or scope is not behind the version the context pins";
-  }
   return null;
 }
 
 /**
  * What one engaged input must be for the context to rest on it, judged without reading its value: a fact of a non-Culture
  * owner (Culture is never its own evidence, and a Culture result is never an input to the update that produces it), outside
- * every Culture key space, carrying exactly one lawful read basis. A declared-close basis would need a registered producer
- * close; none is registered for any evidence owner, so it is CONDITIONAL and stops the dependent conclusion
+ * every Culture and adjudication key space, carrying exactly one lawful read basis. A declared-close basis would need a
+ * registered producer close; none is registered for any evidence owner, so it is CONDITIONAL and stops at SEAL
  * (F-017 successor delta, CS-UPD). Returns a message, or null.
  */
-export function inputBasisViolation(input: CultureInput): string | null {
-  if (input.owner === OWNER_CULTURE || input.fact_key.startsWith("culture/")) {
-    return "the Culture owner is never its own evidence: an input is a non-Culture owner's committed fact";
+export function inputBasisViolation(input: CjaSealedInputRef): string | null {
+  if (
+    input.owner === OWNER_CULTURE ||
+    input.fact_key.startsWith("culture/") ||
+    input.owner === OWNER_CULTURE_ADJUDICATION_KERNEL
+  ) {
+    return "the Culture owner is never its own evidence: an input is a foreign owner's committed fact";
   }
   if (input.read.basis !== "AS-OF-NOW") {
-    return "an AS-OF-DECLARED-CLOSE input needs its owner's registered, specifically named close: none is registered, so the dependent conclusion is CONDITIONAL and stops";
+    return "an AS-OF-DECLARED-CLOSE input needs its owner's registered, specifically named close: none is registered, so the dependent conclusion is CONDITIONAL and stops at seal";
+  }
+  return null;
+}
+
+/** The ordered, de-duplicated keys a context's group pins: referent, scope, each engaged input, then the Cohort. */
+export const contextPinnedKeys = (c: CultureUpdateContext): readonly string[] => [
+  ...new Set([
+    c.distinction.referent_key,
+    c.distinction.scope_key,
+    ...c.inputs.map((i) => i.fact_key),
+    c.constituency.cohort_fact_key,
+  ]),
+];
+
+/**
+ * A sealed context's own consistency, independent of any store: its identities re-derive from its fields; its inputs are
+ * distinct foreign upstream references with the one registered basis; its trigger is one of them; its constituency is a
+ * well-formed Cohort scope at the named Population close, vouched LIVE. Outcome-neutral: it judges nothing about what the
+ * sources establish. Returns a message, or null.
+ */
+export function cultureContextViolation(c: CultureUpdateContext): string | null {
+  if (c.causal_process_id !== cjaCausalProcessId(c.trigger_ref)) {
+    return "the causal process is derived from the one committed trigger_ref";
+  }
+  const derived = cjaCultureUpdateId({
+    causal_process_id: c.causal_process_id,
+    opportunity_id: CJA_OPPORTUNITY_ID,
+    distinction_digest: cjaDistinctionDigest(c.distinction),
+    owner_operation_id: CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
+  });
+  if (c.update_id !== derived) {
+    return "the update identity is derived from the trigger, the fixed opportunity, the distinction and the Communicative Convention Close operation";
+  }
+  if (c.slot_id !== cultureSlotId(c.distinction)) {
+    return "the Culture state slot is derived from exactly the referent, scope and context";
+  }
+  const sources = cjaSourceViolation({
+    source_refs: c.inputs,
+    trigger_ref: c.trigger_ref,
+    context_ref: {
+      owner: OWNER_CULTURE,
+      fact_key: cultureUpdateContextKey(c.update_id),
+      version: 1,
+      committed_by_group_id: "",
+    },
+  });
+  if (sources) return sources.message;
+  for (const i of c.inputs) {
+    const basis = inputBasisViolation(i);
+    if (basis) return basis;
+  }
+  const scope = cjaConstituencyViolation(c.constituency);
+  if (scope) return scope.message;
+  if (!c.constituency.close_vouch.live_population_admission) {
+    return "a Culture context rests on a LIVE Population close-vouch: a test-owned stand-in vouch is never accepted as a live PCB-01 attestation";
   }
   return null;
 }
 
 /**
- * The shared meaning/norm this sealed context and the committed evidence it pins determine, published at the Communicative
+ * The agreement between a committed adjudication decision and the sealed context it adjudicated: every identity and every
+ * sealed reference the decision carries is exactly the context's own, and the decision's context reference is this very
+ * context fact at its version and committing group. Returns a message, or null.
+ */
+export function decisionContextViolation(
+  context: CultureFact<CultureUpdateContext>,
+  decision: CultureFact<unknown>,
+): string | null {
+  const c = context.value;
+  if (
+    decision.owner !== OWNER_CULTURE_ADJUDICATION_KERNEL ||
+    decision.key !== cjaDecisionKey(c.update_id)
+  ) {
+    return "the decision is the adjudication kernel's committed record of exactly this update";
+  }
+  const parsed = CjaDecisionRecordSchema.safeParse(decision.value);
+  if (!parsed.success) return "the decision violates its adjudication record contract";
+  const r = parsed.data;
+  if (cjaRecordViolation(r) !== null) return "the decision is not a lawful adjudication record";
+  const q = r.culture_question;
+  const same =
+    r.culture_update_id === c.update_id &&
+    r.causal_process_id === c.causal_process_id &&
+    r.opportunity_id === c.opportunity_id &&
+    r.owner_operation_id === c.owner_operation_id &&
+    q.referent_key === c.distinction.referent_key &&
+    q.scope_key === c.distinction.scope_key &&
+    q.context_id === c.distinction.context_id &&
+    q.consumer_question === c.consumer_question &&
+    canonicalEqual(r.trigger_ref, c.trigger_ref) &&
+    canonicalEqual(r.source_refs, c.inputs) &&
+    canonicalEqual(r.constituency_ref, c.constituency) &&
+    canonicalEqual(r.context_ref, {
+      owner: context.owner,
+      fact_key: context.key,
+      version: context.version,
+      committed_by_group_id: context.group_id,
+    });
+  return same
+    ? null
+    : "the decision adjudicated exactly this sealed context: its update, trigger, sources, constituency and context reference are the context's own";
+}
+
+/**
+ * The shared meaning/norm this sealed context and its ONE committed decision determine, published at the Communicative
  * Convention Close. Fails closed (never degrades to a partial or guessed fact) when the context is not exactly the sealed
- * Culture fact of its own identity, when an input is not exactly the committed fact it pins at its version, when an input
- * has no lawful basis, when a fact does not state — as exactly the Culture-defined reading — a CONTINUING shared recognition
- * for this very referent, scope and context, or when the evidence does not agree on a single manifestation (contestation is
- * not implemented, so a disagreeing set establishes nothing).
+ * Culture fact of its own identity, when the decision is not the committed adjudication of exactly this context, or when the
+ * decision is not ESTABLISH_SUPPORTED: NOT_SUPPORTED, UNRESOLVED and DERIVE_WITHOUT_PERSISTENCE create no Culture fact. The
+ * manifestation is the one the immutable judgment authored.
  */
 export function deriveSharedMeaning(input: {
   readonly context: CultureFact<CultureUpdateContext>;
-  readonly evidence: readonly CultureFact<unknown>[];
+  readonly decision: CultureFact<unknown>;
 }): Result<CultureSharedMeaning> {
-  const { context, evidence } = input;
+  const { context, decision } = input;
   const c = context.value;
   if (context.owner !== OWNER_CULTURE) {
     return fail("CONTEXT_INVALID", "the update context is the Culture owner's own fact");
@@ -128,70 +235,37 @@ export function deriveSharedMeaning(input: {
   if (context.key !== cultureUpdateContextKey(c.update_id)) {
     return fail("CONTEXT_INVALID", "the context is at the key derived from its update identity");
   }
-  if (c.update_id !== cultureUpdateId(c.referent.fact_key, c.scope.fact_key, c.context)) {
+  const contextViolation = cultureContextViolation(c);
+  if (contextViolation) return fail("CONTEXT_INVALID", contextViolation);
+  const mismatch = decisionContextViolation(context, decision);
+  if (mismatch) return fail("DECISION_INVALID", mismatch);
+  const record = CjaDecisionRecordSchema.parse(decision.value);
+  if (record.verdict !== "ESTABLISH_SUPPORTED" || record.candidate_manifestation === null) {
     return fail(
-      "CONTEXT_INVALID",
-      "the update identity is derived from exactly its referent, scope and context",
-    );
-  }
-  if (new Set(c.inputs.map((i) => i.fact_key)).size !== c.inputs.length) {
-    return fail("CONTEXT_INVALID", "an input is engaged once: a fact is not counted twice");
-  }
-  if (evidence.length !== c.inputs.length) {
-    return fail("EVIDENCE_INVALID", "the evidence is exactly the inputs the context seals");
-  }
-  const manifestations = new Set<string>();
-  for (const [i, inp] of c.inputs.entries()) {
-    const fact = evidence[i]!;
-    const basis = inputBasisViolation(inp);
-    if (basis) return fail("EVIDENCE_BASIS_UNREGISTERED", basis, { key: inp.fact_key });
-    if (fact.key !== inp.fact_key || fact.owner !== inp.owner || fact.version !== inp.version) {
-      return fail(
-        "EVIDENCE_INVALID",
-        "an input is the committed fact of its owner at the version the context sealed",
-        { key: inp.fact_key },
-      );
-    }
-    const reading = CultureEvidenceReadingSchema.safeParse(fact.value);
-    if (!reading.success) {
-      return fail(
-        "EVIDENCE_NOT_ESTABLISHING",
-        "the input does not state a continuing shared recognition: contact, policy, packet or receipt facts are not evidence of a shared meaning or norm",
-        { key: inp.fact_key },
-      );
-    }
-    const r = reading.data;
-    if (
-      r.referent !== c.referent.fact_key ||
-      r.scope !== c.scope.fact_key ||
-      r.context !== c.context
-    ) {
-      return fail(
-        "EVIDENCE_NOT_ESTABLISHING",
-        "the input is evidence for exactly the sealed referent, scope and context",
-        { key: inp.fact_key },
-      );
-    }
-    manifestations.add(r.manifestation);
-  }
-  if (manifestations.size !== 1) {
-    return fail(
-      "EVIDENCE_DISAGREES",
-      "the evidence does not agree on one manifestation: contestation is not implemented, so nothing is established",
+      "DECISION_NOT_ESTABLISHING",
+      `a ${record.verdict} decision creates no Culture fact: only an ESTABLISH_SUPPORTED judgment fills an empty slot`,
     );
   }
   return ok({
-    update_id: c.update_id,
+    slot_id: c.slot_id,
     status: "ESTABLISHED",
-    referent: { ...c.referent },
-    scope: { ...c.scope },
-    context: c.context,
-    manifestation: [...manifestations][0]!,
+    referent_key: c.distinction.referent_key,
+    scope_key: c.distinction.scope_key,
+    context_id: c.distinction.context_id,
+    manifestation: record.candidate_manifestation,
     establishment: {
-      update: { fact_key: context.key, version: context.version },
-      evidence: c.inputs.map((inp) => structuredClone(inp)),
+      update_id: c.update_id,
+      context: { fact_key: context.key, version: context.version },
+      decision: {
+        fact_key: decision.key,
+        version: decision.version,
+        decision_id: record.decision_id,
+      },
     },
-    close: { name: COMMUNICATIVE_CONVENTION_CLOSE, stage: cultureConventionStage(c.update_id) },
+    close: {
+      name: COMMUNICATIVE_CONVENTION_CLOSE,
+      stage: cultureConventionStage(c.update_id, c.slot_id),
+    },
   });
 }
 

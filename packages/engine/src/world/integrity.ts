@@ -71,7 +71,9 @@ export interface IntegrityViolation {
     /** IM-05 Logistics state (single-leg transfer): see verifyLogisticsIntegrity */
     | "LOGISTICS_STATE"
     /** IM-12 Causal Draw provenance (F-027-CD1 precommit / result): see verifyCausalDrawIntegrity */
-    | "CAUSAL_DRAW_STATE";
+    | "CAUSAL_DRAW_STATE"
+    /** IM-12 Culture adjudication provenance (F-027-CJA1 decision record): see verifyCultureAdjudicationIntegrity */
+    | "CULTURE_ADJUDICATION_STATE";
   readonly message: string;
 }
 

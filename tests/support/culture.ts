@@ -1,43 +1,74 @@
 import {
   CanonicalCampaign,
   CultureAdapter,
-  GipAdapter,
+  CultureAdjudicationAdapter,
+  CultureContextAttestor,
+  PopulationAdapter,
+  PopulationScopeCloseVerifier,
   TemporalCoordinator,
+  populationBarrierEvaluator,
   type CampaignStore,
   type FileCampaignOptions,
 } from "@immortalis/engine";
 import {
+  CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
+  OWNER_CULTURE,
+  populationCohortKey,
   worldLocusKey,
   type CanonicalTime,
-  type CultureInput,
+  type CjaContextAttestation,
   type CultureUpdateContext,
   type ResolutionRequest,
   type TemporalObject,
 } from "@immortalis/contracts";
 import {
-  CULTURE_FIXTURE_EXTENSION,
+  CJA_TEST_RULE,
+  COHORT_BURDEN_L,
+  COHORT_BURDEN_M,
+  CRITERION_KEY,
+  CULTURE_CONSEQUENCE_SOURCES,
   CULTURE_CONTEXT_MARKET,
+  CULTURE_FIXTURE_EXTENSION,
+  DEFAULT_OBSERVATIONS,
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
-  MANIFESTATION_A,
-  T0,
+  GM_OPERATION,
+  LEDGER_MAIN,
+  PLACE_L,
+  PLACE_M,
+  POP_TP,
+  SYNTH_CAUSE_OWNER,
+  SYNTH_CRITERION_OWNER,
+  TEST_CONSUMER_QUESTION,
   at,
+  advanceToRequest,
+  burdenCohort,
+  criterion,
   cultureConsumerBoundaryId,
   cultureConsumerObject,
-  cultureContext,
-  culturePublication,
   cultureProviders,
-  evidenceInput,
-  evidenceReading,
   fixtureLocus,
   fixtureWorld,
-  gipPublication,
-  institutionIdentity,
+  ledgerInput,
+  observationGroup,
+  observationKey,
+  popClose1Object,
+  popClose2Object,
+  popPublication,
   publication,
-  socialEvidenceGroup,
+  register,
+  registerKey,
+  scriptedJudgment,
+  statusViewCohort,
+  syntheticGroup,
   temporalPublication,
-  INSTITUTION_COURT,
+  type ScriptedKind,
+  type TestObservation,
+  exitEnvelope,
+  entryEnvelope,
+  unit,
+  POP_T0,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
 
@@ -45,12 +76,17 @@ export const SECOND_LOCUS_ID = "locus-fixture-2";
 /** The bound referent (a committed World-State locus) and scope (a second one) of the primary scenario. */
 export const REFERENT_KEY = worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID);
 export const SCOPE_KEY = worldLocusKey(FIXTURE_WORLD_ID, SECOND_LOCUS_ID);
-export const INSTITUTION_KEY = `gip/institution/${INSTITUTION_COURT}/identity`;
+/** the ONE RC-12 Cohort scope of the primary scenario */
+export const COHORT_KEY = populationCohortKey(LEDGER_MAIN, COHORT_BURDEN_L);
 
 export interface CultureSeeded {
   readonly campaign: CanonicalCampaign;
   readonly coordinator: TemporalCoordinator;
   readonly culture: CultureAdapter;
+  /** the REAL Port A */
+  readonly attestor: CultureContextAttestor;
+  /** the merged CJA1 adjudication adapter, wired to the real attestor */
+  readonly gm: CultureAdjudicationAdapter;
 }
 
 export interface CultureSeedOptions {
@@ -59,17 +95,39 @@ export interface CultureSeedOptions {
 }
 
 export const cultureCoordinator = (store: CampaignStore): TemporalCoordinator =>
-  new TemporalCoordinator(store, cultureProviders());
+  new TemporalCoordinator(store, cultureProviders(), populationBarrierEvaluator);
 
-const wire = (campaign: CanonicalCampaign): CultureSeeded => ({
-  campaign,
-  coordinator: cultureCoordinator(campaign.store),
-  culture: new CultureAdapter(campaign.store),
-});
+export const populationScope = (store: Pick<CampaignStore, "getFact">) =>
+  new PopulationScopeCloseVerifier(store, { consequenceSources: CULTURE_CONSEQUENCE_SOURCES });
+
+export const gmAdapter = (store: CampaignStore, attestor = new CultureContextAttestor(store)) =>
+  new CultureAdjudicationAdapter(store, {
+    contextPort: attestor,
+    consumer: {
+      owner: OWNER_CULTURE,
+      operation: CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
+    },
+    rule: CJA_TEST_RULE,
+  });
+
+const wire = (campaign: CanonicalCampaign): CultureSeeded => {
+  const attestor = new CultureContextAttestor(campaign.store);
+  return {
+    campaign,
+    coordinator: cultureCoordinator(campaign.store),
+    culture: new CultureAdapter(campaign.store, {
+      populationScope: populationScope(campaign.store),
+    }),
+    attestor,
+    gm: gmAdapter(campaign.store, attestor),
+  };
+};
 
 /**
- * The prerequisite canonical campaign (a world and two loci: the referent and the scope) and the canonical temporal basis
- * T0. No evidence, context or shared meaning exists yet, and nothing is resolved.
+ * The prerequisite canonical campaign: a world and two loci (the referent and the scope); the Population proof's synthetic
+ * parties (the Criterion Owner's fact, the causal owner's register, one ledger and its Cohorts); the canonical temporal basis;
+ * and ordinary Population close #1 RESOLVED at TP, so a REAL Cohort stamped by a REAL close exists. No observation, context,
+ * decision or shared meaning exists yet.
  */
 export async function seededCultureCampaign(
   dir: string,
@@ -91,8 +149,52 @@ export async function seededCultureCampaign(
       locus: fixtureLocus({ locus_id: SECOND_LOCUS_ID }),
     }),
   );
+  const store = campaign.store;
+  await must(
+    store.commit(
+      syntheticGroup(
+        FIXTURE_CAMPAIGN,
+        SYNTH_CRITERION_OWNER,
+        1,
+        CRITERION_KEY,
+        criterion(POP_TP, ["u-1", "u-2", "u-5"]),
+        0,
+      ),
+    ),
+  );
+  await must(
+    store.commit(
+      syntheticGroup(
+        FIXTURE_CAMPAIGN,
+        SYNTH_CAUSE_OWNER,
+        2,
+        registerKey(LEDGER_MAIN),
+        register(LEDGER_MAIN, ORDINARY_ENVELOPES()),
+        0,
+      ),
+    ),
+  );
+  const population = new PopulationAdapter(store);
+  await must(population.establishLedger({ ...popPublication(1), ledger: ledgerInput() }));
+  await must(
+    population.instantiateCohort({
+      ...popPublication(3),
+      ref: burdenCohort(COHORT_BURDEN_L, PLACE_L),
+    }),
+  );
+  await must(
+    population.instantiateCohort({
+      ...popPublication(4),
+      ref: burdenCohort(COHORT_BURDEN_M, PLACE_M),
+    }),
+  );
+  await must(population.instantiateCohort({ ...popPublication(5), ref: statusViewCohort() }));
   const s = wire(campaign);
-  await must(s.coordinator.establishCanonicalTime({ ...temporalPublication(1), time: T0 }));
+  await must(s.coordinator.establishCanonicalTime({ ...temporalPublication(1), time: POP_T0 }));
+  await must(
+    s.coordinator.registerObject({ ...temporalPublication(2), object: popClose1Object() }),
+  );
+  await must(s.coordinator.advance(advanceToRequest("tx-pop-1", POP_TP)));
   return s;
 }
 
@@ -106,48 +208,113 @@ export async function reopenCulture(
   return wire(campaign);
 }
 
-/** Commits one fact of the synthetic social-evidence source (the committed evidence an input may then pin). */
-export async function commitEvidence(
-  s: CultureSeeded,
-  n: number,
-  id: string,
-  value: unknown = evidenceReading(REFERENT_KEY, SCOPE_KEY),
-): Promise<void> {
-  await must(s.campaign.store.commit(socialEvidenceGroup(FIXTURE_CAMPAIGN, n, id, value)));
-}
+/** Ordinary envelopes already committed before close #1: Entry u-5, Exit (cessation) u-4. */
+export const ORDINARY_ENVELOPES = () => [
+  entryEnvelope("env-a", unit("u-5", PLACE_L, PLACE_L), at(110)),
+  exitEnvelope("env-b", "u-4", at(115)),
+];
 
-/** Commits a GIP Institution Identity (a second bindable canonical authority). */
-export async function commitInstitution(s: CultureSeeded, n: number): Promise<void> {
-  const gip = new GipAdapter(s.campaign.store);
+/** Commits (as the causal owner) the register carrying `extra` beside the ordinary envelopes: new pending consequences. */
+export async function commitPending(
+  store: CampaignStore,
+  n: number,
+  extra: ReturnType<typeof entryEnvelope>[],
+): Promise<void> {
+  const cur = store.getFact(registerKey(LEDGER_MAIN));
   await must(
-    gip.establishInstitution({
-      ...gipPublication(n),
-      institution: institutionIdentity(INSTITUTION_COURT),
-    }),
+    store.commit(
+      syntheticGroup(
+        FIXTURE_CAMPAIGN,
+        SYNTH_CAUSE_OWNER,
+        n,
+        registerKey(LEDGER_MAIN),
+        register(LEDGER_MAIN, [...ORDINARY_ENVELOPES(), ...extra]),
+        cur?.version ?? 0,
+      ),
+    ),
   );
 }
 
-/** Seals the primary scenario's context over the given evidence ids (default: one well-formed evidence). */
-export function primaryContext(
-  inputs: readonly CultureInput[] = [evidenceInput("ev1")],
-  over: Partial<CultureUpdateContext> & { readonly contextName?: string } = {},
-): CultureUpdateContext {
-  return cultureContext(REFERENT_KEY, SCOPE_KEY, inputs, over);
-}
+/** A pending Exit of a current member of the burden Cohort, effective BEFORE the canonical time and absent from close #1. */
+export const lateExit = () =>
+  exitEnvelope("env-late", "u-1", at(118), "REVERSIBLE_MEMBERSHIP_EXIT");
 
-export async function sealContext(
+/** Commits the synthetic observations (acts / participants / exposure only), ids in order. */
+export async function commitObservations(
   s: CultureSeeded,
-  n: number,
-  context: CultureUpdateContext = primaryContext(),
-): Promise<CultureUpdateContext> {
-  await must(s.culture.sealUpdateContext({ ...culturePublication(n), context }));
-  return context;
+  observations: readonly TestObservation[] = DEFAULT_OBSERVATIONS,
+  start = 1,
+): Promise<void> {
+  let n = start;
+  for (const ob of observations) {
+    await must(s.campaign.store.commit(observationGroup(FIXTURE_CAMPAIGN, n++, ob.id, ob.value)));
+  }
 }
 
-/** One evidence fact and the context that seals it: the prerequisite of the primary scenario. */
-export async function preparedCulture(s: CultureSeeded): Promise<CultureUpdateContext> {
-  await commitEvidence(s, 1, "ev1");
-  return sealContext(s, 1);
+/** The primary seal request: the four observations (the first is the trigger), the burden Cohort, the referent and scope. */
+export const sealRequest = (
+  over: Partial<{
+    referent_key: string;
+    scope_key: string;
+    context_id: string;
+    inputs: unknown[];
+    trigger_fact_key: string;
+    cohort_fact_key: string;
+    consumer_question: string;
+  }> = {},
+) => ({
+  referent_key: REFERENT_KEY,
+  scope_key: SCOPE_KEY,
+  context_id: CULTURE_CONTEXT_MARKET,
+  inputs: DEFAULT_OBSERVATIONS.map((ob) => ({
+    fact_key: observationKey(ob.id),
+    read: { basis: "AS-OF-NOW" },
+  })),
+  trigger_fact_key: observationKey("obs-trigger"),
+  cohort_fact_key: COHORT_KEY,
+  consumer_question: TEST_CONSUMER_QUESTION,
+  ...over,
+});
+
+export const seal = (s: CultureSeeded, request: unknown = sealRequest(), n = 1) =>
+  s.culture.sealUpdateContext({ basis: `culture-fixture-basis-${n}`, request });
+
+/** The Culture contexts committed so far, as {update id, value}. */
+export const sealedContexts = (s: CultureSeeded) =>
+  s.campaign.store
+    .listFacts()
+    .filter((f) => /^culture\/update\/[0-9a-f]{64}\/context$/.test(f.key))
+    .map((f) => ({
+      updateId: f.key.split("/")[2]!,
+      fact: f,
+      value: f.value as CultureUpdateContext,
+    }));
+
+/** Observations committed, context sealed: the prerequisite of every adjudication. Returns the sealed context. */
+export async function preparedCulture(s: CultureSeeded) {
+  await commitObservations(s);
+  await must(seal(s));
+  return sealedContexts(s)[0]!;
+}
+
+export const attestationOf = (s: CultureSeeded, updateId: string): CjaContextAttestation => {
+  const r = s.attestor.attest(updateId);
+  if (r.status !== "ATTESTED") throw new Error("no context attested");
+  return r.attestation as CjaContextAttestation;
+};
+
+/** The scripted GM judges the sealed context of `updateId` under the trusted operation precondition. */
+export const judge = (s: CultureSeeded, updateId: string, kind: ScriptedKind = "positive") =>
+  s.gm.adjudicate({
+    operation: GM_OPERATION,
+    judgment: scriptedJudgment(attestationOf(s, updateId), kind),
+  });
+
+/** The full authored pipeline up to (not including) the temporal close: observations, seal and one judgment. */
+export async function judgedCulture(s: CultureSeeded, kind: ScriptedKind = "positive") {
+  const ctx = await preparedCulture(s);
+  await must(judge(s, ctx.updateId, kind));
+  return ctx;
 }
 
 /** A test coordinate strictly after the current canonical time: an engaged object's earned boundary must lie in the future. */
@@ -189,6 +356,7 @@ export const cultureConsumerObjectAt = (
   over: Partial<TemporalObject> = {},
 ): TemporalObject =>
   cultureConsumerObject(consumerId, context, {
+    last_resolved_basis: s.coordinator.state()!.value.canonical_time,
     next_boundary: { boundary_id: cultureConsumerBoundaryId(consumerId), at: boundaryAfterNow(s) },
     ...over,
   });
@@ -228,10 +396,10 @@ export function cultureSummary(campaign: CanonicalCampaign, coordinator: Tempora
     objects: under(/^temporal\/object\//),
     transactions: under(/^temporal\/transaction\//),
     culture: under(/^culture\//),
+    adjudication: under(/^adjudication-culture\//),
     consumer: under(/^synthetic-culture-result-consumer\//),
-    evidence: under(/^synthetic-social-evidence\//),
+    observations: under(/^synthetic-cja-observation\//),
     world: under(/^world\//),
-    gip: under(/^gip\//),
     population: under(/^population\//),
     receipts: facts
       .map((f) => campaign.store.lookupReceipt(f.provenance.intent_id))
@@ -239,4 +407,45 @@ export function cultureSummary(campaign: CanonicalCampaign, coordinator: Tempora
   };
 }
 
-export { CULTURE_CONTEXT_MARKET, MANIFESTATION_A, FIXTURE_CAMPAIGN };
+export { CULTURE_CONTEXT_MARKET, FIXTURE_CAMPAIGN };
+
+/** The Criterion Owner establishes its fact for `point` (create or advance). */
+export async function commitCriterionAt(
+  store: CampaignStore,
+  n: number,
+  point: CanonicalTime,
+  ids: string[],
+): Promise<void> {
+  const cur = store.getFact(CRITERION_KEY);
+  await must(
+    store.commit(
+      syntheticGroup(
+        FIXTURE_CAMPAIGN,
+        SYNTH_CRITERION_OWNER,
+        n,
+        CRITERION_KEY,
+        criterion(point, ids),
+        cur?.version ?? 0,
+      ),
+    ),
+  );
+}
+
+/**
+ * A SECOND ordinary Population reconciliation, resolved at 140 on its own earned boundary: the Population ledger, close and
+ * Cohorts advance to new versions and consume any pending consequence. After it, nothing is due.
+ */
+export async function completePopulationClose2(s: CultureSeeded, n = 40): Promise<void> {
+  const to = at(140);
+  await commitCriterionAt(s.campaign.store, n, to, ["u-1", "u-2", "u-5"]);
+  await must(
+    s.coordinator.registerObject({
+      ...temporalPublication(n),
+      object: popClose2Object({
+        last_resolved_basis: POP_TP,
+        next_boundary: { boundary_id: "boundary-pop-close-2", at: to },
+      }),
+    }),
+  );
+  await must(s.coordinator.advance(advanceToRequest(`tx-pop-${n}`, to)));
+}

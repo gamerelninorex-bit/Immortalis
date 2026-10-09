@@ -1,267 +1,214 @@
-// Contract evidence for the Culture & Society Established Shared Meaning / Norm Result-Close Backbone Foundation (forty-sixth
-// slice): the executable contracts are strict and minimal, Culture holds the ratified minimum-information contract and no
-// prevalence, percentage, count, score, adoption, belief, motive, Cohort attachment or number, no class of meanings or norms is
-// asserted, and the Social Relation Close, relations and positions have no representation. Register lineage: IA-02 (partial),
-// IA-03 (partial), IA-04 (partial); RC-02, RC-03, RC-04; IM-09. Source lock: spec/f027/spec-lock.json (F-027 v1.0): WS-005.
+// Culture & Society Established Shared Meaning / Norm — executable contracts (amended forty-sixth slice). The sealed context is
+// OUTCOME-NEUTRAL: it holds no verdict, no "recognition" conclusion, no manifestation and no admission flag; the shared meaning
+// carries only the ratified minimum and the GM judgment's manifestation. Every schema is strict.
 import { describe, expect, it } from "vitest";
 import {
-  ACCESS_CLASS_CULTURE_ENGINE_SIDE,
   COMMUNICATIVE_CONVENTION_CLOSE,
-  CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
-  CultureEvidenceReadingSchema,
-  CultureInputSchema,
+  CultureSealRequestSchema,
   CultureSharedMeaningSchema,
   CultureUpdateContextSchema,
-  FACET_CULTURE_SOCIAL,
-  OWNER_CULTURE,
   cultureConventionStage,
   cultureSharedMeaningKey,
   cultureUpdateContextKey,
-  parseStageKey,
 } from "@immortalis/contracts";
-import { deriveSharedMeaning } from "@immortalis/engine";
 import {
   CULTURE_CONTEXT_MARKET,
-  evidenceInput,
-  evidenceReading,
-  socialEvidenceKey,
+  DEFAULT_OBSERVATIONS,
+  TEST_CONSUMER_QUESTION,
+  TEST_MANIFESTATION,
+  testConstituency,
 } from "@immortalis/testkit";
-import { REFERENT_KEY, SCOPE_KEY, primaryContext } from "../support/culture.ts";
+import { cultureSlotId } from "@immortalis/engine";
+import { sealRequest } from "../support/culture.ts";
 
-const context = (over: Record<string, unknown> = {}) => ({ ...primaryContext(), ...over });
-const meaning = () => {
-  const c = primaryContext();
-  const d = deriveSharedMeaning({
-    context: {
-      key: cultureUpdateContextKey(c.update_id),
-      owner: OWNER_CULTURE,
-      version: 1,
-      value: c,
+const U = "a".repeat(64);
+const distinction = { referent_key: "r", scope_key: "s", context_id: "c" };
+const slot = cultureSlotId(distinction);
+const liveConstituency = () => ({
+  ...testConstituency(),
+  close_vouch: {
+    port: "PopulationCloseScopeVerifier" as const,
+    live_population_admission: true as const,
+    reconciliation: "NOT_DUE" as const,
+    evidence: {
+      ledger_id: "ledger-main",
+      cohort_id: "cohort-status-l",
+      close_fact_key: "population/ledger-main/close",
+      close_version: 2,
+      instant: { unit: "u", value: 1 },
+      consequence_sources: [{ owner: "o", fact_key: "k" }],
     },
-    evidence: [
-      {
-        key: socialEvidenceKey("ev1"),
-        owner: c.inputs[0]!.owner,
-        version: 1,
-        value: evidenceReading(REFERENT_KEY, SCOPE_KEY),
-      },
-    ],
-  });
-  if (!d.ok) throw new Error("fixture");
-  return d.value;
-};
-const FORBIDDEN_FIELDS = [
-  "manifestation_asserted",
-  "norm",
-  "meaning_class",
-  "prevalence",
-  "percentage",
-  "share",
-  "count",
-  "headcount",
-  "score",
-  "strength",
-  "level",
-  "adoption",
-  "belief",
-  "stance",
-  "motive",
-  "loyalty",
-  "obedience",
-  "compulsion",
-  "legality",
-  "authority",
-  "competence",
-  "comprehension",
-  "cohort",
-  "cohort_ref",
-  "population",
-  "members",
-  "relation",
-  "position",
-  "social_relation_close",
-  "retired",
-  "contested",
-  "uncertainty",
-  "probability",
-  "weight",
-  "number",
-];
-
-describe("identifiers, key spaces and the stage are technical encodings of the owner's assignment", () => {
-  it("one owner, one facet, an engine-side class, two exclusive key spaces and a stage derived from the update identity alone", () => {
-    expect(OWNER_CULTURE).toBe("culture");
-    expect(FACET_CULTURE_SOCIAL).toBe("culture_social");
-    expect(ACCESS_CLASS_CULTURE_ENGINE_SIDE).toBe("culture.engine-sealed");
-    expect(COMMUNICATIVE_CONVENTION_CLOSE).toBe("communicative-convention-close");
-    expect(cultureUpdateContextKey("u1")).toBe("culture/update/u1/context");
-    expect(cultureSharedMeaningKey("u1")).toBe("culture/meaning/u1");
-    const stage = cultureConventionStage("u1");
-    expect(stage).toEqual({
-      causal_process_id: "culture-update/u1",
-      owner_operation: {
-        owner: "culture",
-        operation: CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
-      },
-      prospective_result_id: "culture/meaning/u1",
-    });
-    expect(parseStageKey(stage).ok).toBe(true);
-  });
+  },
+});
+const context = () => ({
+  update_id: U,
+  slot_id: slot,
+  distinction,
+  trigger_ref: { owner: "o", fact_key: "k", version: 1, committed_by_group_id: "g" },
+  causal_process_id: "cjadj:trigger:v1:x",
+  opportunity_id: "CJA_V1_SINGLE_EVALUATION",
+  owner_operation_id: "culture-commit-communicative-convention-close",
+  inputs: [
+    {
+      owner: "o",
+      fact_key: "k",
+      version: 1,
+      read: { basis: "AS-OF-NOW" as const },
+      committed_by_group_id: "g",
+    },
+  ],
+  constituency: liveConstituency(),
+  consumer_question: TEST_CONSUMER_QUESTION,
 });
 
-describe("the sealed Social Update Context is strict and carries no asserted meaning (CS-UPD)", () => {
-  it("accepts the lawful context and round-trips it", () => {
-    const c = primaryContext();
-    expect(CultureUpdateContextSchema.parse(c)).toEqual(c);
-    expect(c.referent.fact_key).toBe(REFERENT_KEY);
-    expect(c.context).toBe(CULTURE_CONTEXT_MARKET);
+describe("the sealed Social Update Context is strict and outcome-neutral", () => {
+  it("accepts a well-formed context", () => {
+    expect(CultureUpdateContextSchema.safeParse(context()).success).toBe(true);
   });
 
-  it("rejects every unmodelled, forbidden or asserted field", () => {
-    for (const f of FORBIDDEN_FIELDS)
-      expect(CultureUpdateContextSchema.safeParse(context({ [f]: "x" })).success, f).toBe(false);
-    expect(CultureUpdateContextSchema.safeParse(context({ manifestation: "m" })).success).toBe(
+  it("has no field for a verdict, manifestation, recognition conclusion, admission flag, count, roster or number", () => {
+    for (const extra of [
+      "verdict",
+      "manifestation",
+      "candidate_manifestation",
+      "recognition",
+      "admission",
+      "members",
+      "count",
+      "prevalence",
+      "score",
+      "role",
+      "permission",
+    ]) {
+      expect(CultureUpdateContextSchema.safeParse({ ...context(), [extra]: "x" }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("requires a Cohort constituency, the fixed opportunity and the Culture close operation", () => {
+    const without: Record<string, unknown> = { ...context() };
+    delete without["constituency"];
+    expect(CultureUpdateContextSchema.safeParse(without).success).toBe(false);
+    expect(CultureUpdateContextSchema.safeParse({ ...context(), constituency: null }).success).toBe(
       false,
     );
-  });
-
-  it("requires at least one engaged input and every mandatory field, and refuses an empty or malformed identity", () => {
-    expect(CultureUpdateContextSchema.safeParse(context({ inputs: [] })).success).toBe(false);
-    for (const f of ["update_id", "admission", "referent", "scope", "context", "inputs"]) {
-      const rest = Object.fromEntries(Object.entries(primaryContext()).filter(([k]) => k !== f));
-      expect(CultureUpdateContextSchema.safeParse(rest).success, f).toBe(false);
-    }
-    for (const bad of ["", "has space", "slash/inside", " lead"])
-      expect(CultureUpdateContextSchema.safeParse(context({ update_id: bad })).success, bad).toBe(
-        false,
-      );
-  });
-
-  it("the admission gate is the three restated literals: any false, missing or extra member is refused", () => {
-    const a = primaryContext().admission;
-    for (const k of Object.keys(a))
-      expect(
-        CultureUpdateContextSchema.safeParse(context({ admission: { ...a, [k]: false } })).success,
-        k,
-      ).toBe(false);
     expect(
-      CultureUpdateContextSchema.safeParse(context({ admission: { ...a, extra: true } })).success,
+      CultureUpdateContextSchema.safeParse({ ...context(), opportunity_id: "OTHER" }).success,
     ).toBe(false);
-    expect(CultureUpdateContextSchema.safeParse(context({ admission: {} })).success).toBe(false);
-  });
-
-  it("an input carries exactly one read basis: AS-OF-NOW alone, or AS-OF-DECLARED-CLOSE with its producer's named close — never both, neither or a third", () => {
-    const now = evidenceInput("ev1");
-    expect(CultureInputSchema.safeParse(now).success).toBe(true);
-    const close = evidenceInput("ev1", {
-      read: {
-        basis: "AS-OF-DECLARED-CLOSE",
-        close_basis: { name: "some-close", producer: { owner: "o", operation: "p" } },
-      },
-    });
-    expect(CultureInputSchema.safeParse(close).success).toBe(true);
-    for (const read of [
-      { basis: "AS-OF-NOW", close_basis: { name: "c", producer: { owner: "o", operation: "p" } } },
-      { basis: "AS-OF-DECLARED-CLOSE" },
-      { basis: "AS-OF-LATER" },
-      { basis: "AS-OF-NOW", at: 5 },
-      {},
-    ])
-      expect(CultureInputSchema.safeParse({ ...now, read }).success, JSON.stringify(read)).toBe(
-        false,
-      );
-    for (const f of ["value", "count", "reading", "copy"])
-      expect(CultureInputSchema.safeParse({ ...now, [f]: 1 }).success, f).toBe(false);
-  });
-
-  it("a referent and a scope are single pinned canonical references: not arrays, not Cohort references with a count", () => {
-    for (const f of ["referent", "scope"] as const) {
-      const base = primaryContext()[f];
-      expect(CultureUpdateContextSchema.safeParse(context({ [f]: [base] })).success, f).toBe(false);
-      expect(
-        CultureUpdateContextSchema.safeParse(context({ [f]: { ...base, count: 3 } })).success,
-        f,
-      ).toBe(false);
-      expect(
-        CultureUpdateContextSchema.safeParse(context({ [f]: { fact_key: base.fact_key } })).success,
-        f,
-      ).toBe(false);
-      expect(
-        CultureUpdateContextSchema.safeParse(context({ [f]: { ...base, version: 0 } })).success,
-        f,
-      ).toBe(false);
-    }
-  });
-});
-
-describe("the evidence reading is exactly the Culture-defined minimum", () => {
-  it("accepts the lawful reading and nothing wider", () => {
-    const r = evidenceReading(REFERENT_KEY, SCOPE_KEY);
-    expect(CultureEvidenceReadingSchema.parse(r)).toEqual(r);
-    for (const f of FORBIDDEN_FIELDS)
-      expect(CultureEvidenceReadingSchema.safeParse({ ...r, [f]: 1 }).success, f).toBe(false);
-    for (const recognition of ["ONCE", "CONTINUING", "contested", "", 1, null])
-      expect(CultureEvidenceReadingSchema.safeParse({ ...r, recognition }).success).toBe(false);
-  });
-});
-
-describe("the shared meaning/norm is strict, sparse and derived from the context and the evidence alone", () => {
-  it("accepts exactly the derived fact and round-trips it", () => {
-    const m = meaning();
-    expect(CultureSharedMeaningSchema.parse(m)).toEqual(m);
-    expect(m.status).toBe("ESTABLISHED");
-    expect(m.close.name).toBe(COMMUNICATIVE_CONVENTION_CLOSE);
-    expect(m.establishment.evidence).toEqual(primaryContext().inputs);
-  });
-
-  it("rejects every unmodelled or forbidden field: no prevalence, percentage, count, score, strength, adoption, belief, motive, Cohort, relation or position", () => {
-    for (const f of FORBIDDEN_FIELDS)
-      expect(CultureSharedMeaningSchema.safeParse({ ...meaning(), [f]: 1 }).success, f).toBe(false);
-  });
-
-  it("the status is the single literal ESTABLISHED and the close is the Communicative Convention Close alone", () => {
-    for (const status of ["RETIRED", "ACTIVE", "CONTESTED", "ARCHIVED", "established", "", null])
-      expect(
-        CultureSharedMeaningSchema.safeParse({ ...meaning(), status }).success,
-        String(status),
-      ).toBe(false);
-    for (const name of [
-      "social-relation-close",
-      "kti-result-close",
-      "",
-      "Communicative Convention Close",
-    ])
-      expect(
-        CultureSharedMeaningSchema.safeParse({
-          ...meaning(),
-          close: { name, stage: meaning().close.stage },
-        }).success,
-        name,
-      ).toBe(false);
-  });
-
-  it("the manifestation is one opaque identifier: not an array, a number, an object or a vocabulary entry the engine interprets", () => {
-    for (const manifestation of [["a"], 3, { name: "a" }, "", "has space", null])
-      expect(CultureSharedMeaningSchema.safeParse({ ...meaning(), manifestation }).success).toBe(
-        false,
-      );
-    // any opaque identifier is carried verbatim: there is no closed list of meanings or norms
-    for (const manifestation of ["taboo", "prestige", "manifestation-7", "x1"])
-      expect(CultureSharedMeaningSchema.parse({ ...meaning(), manifestation }).manifestation).toBe(
-        manifestation,
-      );
-  });
-
-  it("requires every field of the minimum, and at least one pinned piece of evidence", () => {
-    for (const f of Object.keys(meaning())) {
-      const rest = Object.fromEntries(Object.entries(meaning()).filter(([k]) => k !== f));
-      expect(CultureSharedMeaningSchema.safeParse(rest).success, f).toBe(false);
-    }
     expect(
-      CultureSharedMeaningSchema.safeParse({
-        ...meaning(),
-        establishment: { ...meaning().establishment, evidence: [] },
+      CultureUpdateContextSchema.safeParse({ ...context(), owner_operation_id: "other" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a lone surrogate and a non-hex update identity", () => {
+    expect(
+      CultureUpdateContextSchema.safeParse({ ...context(), consumer_question: "x\ud800" }).success,
+    ).toBe(false);
+    expect(
+      CultureUpdateContextSchema.safeParse({ ...context(), update_id: "nothex" }).success,
+    ).toBe(false);
+  });
+
+  it("a live vouch needs its evidence; a bare `true` has no representation", () => {
+    const c = context();
+    const bare = { ...c.constituency.close_vouch, evidence: undefined };
+    delete (bare as { evidence?: unknown }).evidence;
+    expect(
+      CultureUpdateContextSchema.safeParse({
+        ...c,
+        constituency: { ...c.constituency, close_vouch: bare },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("the seal request carries keys and read bases only", () => {
+  it("accepts the primary request", () => {
+    expect(CultureSealRequestSchema.safeParse(sealRequest()).success).toBe(true);
+    expect(sealRequest().inputs).toHaveLength(DEFAULT_OBSERVATIONS.length);
+  });
+  it("has no field for a version, committing group, identity, owner, vouch, verdict or manifestation", () => {
+    for (const extra of [
+      "update_id",
+      "slot_id",
+      "version",
+      "committed_by_group_id",
+      "constituency",
+      "close_vouch",
+      "owner",
+      "verdict",
+      "manifestation",
+    ]) {
+      expect(CultureSealRequestSchema.safeParse({ ...sealRequest(), [extra]: "x" }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      CultureSealRequestSchema.safeParse({
+        ...sealRequest(),
+        inputs: [{ fact_key: "k", read: { basis: "AS-OF-NOW" }, version: 3 }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("the shared meaning carries the ratified minimum only", () => {
+  const meaning = () => ({
+    slot_id: slot,
+    status: "ESTABLISHED" as const,
+    referent_key: "r",
+    scope_key: "s",
+    context_id: "c",
+    manifestation: TEST_MANIFESTATION,
+    establishment: {
+      update_id: U,
+      context: { fact_key: cultureUpdateContextKey(U), version: 1 },
+      decision: {
+        fact_key: `adjudication-culture/${U}/decision`,
+        version: 1,
+        decision_id: `cjadj:v1:${U}`,
+      },
+    },
+    close: { name: COMMUNICATIVE_CONVENTION_CLOSE, stage: cultureConventionStage(U, slot) },
+  });
+  it("accepts the established meaning", () => {
+    expect(CultureSharedMeaningSchema.safeParse(meaning()).success).toBe(true);
+  });
+  it("has no status other than ESTABLISHED and no prevalence, count, strength, adoption, belief, Cohort value or number", () => {
+    expect(
+      CultureSharedMeaningSchema.safeParse({ ...meaning(), status: "CONTESTED" }).success,
+    ).toBe(false);
+    for (const extra of [
+      "prevalence",
+      "count",
+      "strength",
+      "adoption",
+      "belief",
+      "members",
+      "cohort",
+      "evidence",
+      "uncertainty",
+    ]) {
+      expect(CultureSharedMeaningSchema.safeParse({ ...meaning(), [extra]: 1 }).success).toBe(
+        false,
+      );
+    }
+  });
+  it("is keyed by the Culture state slot while its stage is keyed by update and slot", () => {
+    expect(cultureSharedMeaningKey(slot)).toBe(`culture/meaning/${slot}`);
+    const stage = cultureConventionStage(U, slot);
+    expect(stage.causal_process_id).toBe(`culture-update/${U}`);
+    expect(stage.prospective_result_id).toBe(cultureSharedMeaningKey(slot));
+    // a different update of the SAME slot is a different stage over the same slot
+    expect(cultureConventionStage("b".repeat(64), slot).causal_process_id).not.toBe(
+      stage.causal_process_id,
+    );
+  });
+  it("the slot is exactly referent × scope × context and nothing else", () => {
+    expect(cultureSlotId(distinction)).toBe(slot);
+    expect(cultureSlotId({ ...distinction, context_id: "other" })).not.toBe(slot);
+    expect(slot).toMatch(/^culture-slot-[0-9a-f]{64}$/);
+    expect(CULTURE_CONTEXT_MARKET).toBeTruthy();
   });
 });

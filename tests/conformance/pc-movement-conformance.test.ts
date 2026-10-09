@@ -181,6 +181,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       [
         "causal_draw_kernel",
         "culture",
+        "culture_adjudication_kernel",
         "diplomacy",
         "economy",
         "epistemic_access",

@@ -100,7 +100,12 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
   it("no generic or later owner exists: no Asset, Inventory, Logistics, Movement, KTI, Actor, Health, Military, Culture or Epistemic owner", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()]
       .filter(
-        (n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti" && n !== "culture",
+        (n) =>
+          n !== "named_actor" &&
+          n !== "epistemic_access" &&
+          n !== "kti" &&
+          n !== "culture" &&
+          n !== "culture_adjudication_kernel",
       )
       .join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()]
@@ -326,6 +331,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "causal-draw",
       "commit",
       "culture",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",

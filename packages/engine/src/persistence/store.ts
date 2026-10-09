@@ -64,6 +64,12 @@ export interface CampaignStore {
    * hash-chained journal, or null. Read-only evidence; it is the same record the receipt attests.
    */
   committedGroup(intentId: string): CommitGroup | null;
+  /**
+   * The exact group committed under `groupId` (the same hash-chained record, by its group identity), or null. Read-only
+   * evidence for historical-source proofs (F-027-CJA1): an exact-key lookup, never a scan. OPTIONAL so that a store without
+   * it fails every dependent historical proof CLOSED rather than being assumed truthful.
+   */
+  committedGroupById?(groupId: string): CommitGroup | null;
   /** Releases the campaign. Committed state is already durable; close never "saves". */
   close(): Promise<void>;
 }

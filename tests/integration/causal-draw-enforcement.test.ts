@@ -688,11 +688,15 @@ describe("load-time integrity: malformed or non-rederivable Causal Draw evidence
 
   it("detects a result that is not what CDA-01 derives from its committed seed (a different selection, sample or count)", async () => {
     const { s, out } = await completed();
+    // each patch must DIFFER from the committed value: the fixture group numbers shift whenever another suite registers fact
+    // kinds, which moves the (deterministic) sample, so a hard-coded literal could coincide with the real one
+    const actual = s.campaign.store.getFact(out.result.key)!.value as Record<string, string>;
+    const other = (v: string, candidates: string[]) => candidates.find((c) => c !== v)!;
     for (const patch of [
       { selected_candidate_id: "synthetic-candidate-zzz" },
-      { accepted_sample: "5" },
-      { rejected_attempts: "9" },
-      { total_weight: "8" },
+      { accepted_sample: other(actual["accepted_sample"]!, ["5", "4"]) },
+      { rejected_attempts: other(actual["rejected_attempts"]!, ["9", "8"]) },
+      { total_weight: other(actual["total_weight"]!, ["8", "7"]) },
     ]) {
       const view = viewWith(s.campaign.store, (facts) =>
         facts.map((f) =>

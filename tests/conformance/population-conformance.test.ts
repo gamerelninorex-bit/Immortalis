@@ -107,7 +107,12 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
   it("no other Population-facing substantive owner exists: no labor, health, military, actor, culture or epistemic owner (Production is the fifth slice's own IM-05 owner and Economy the sixth slice's own IM-06 owner)", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()]
       .filter(
-        (n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti" && n !== "culture",
+        (n) =>
+          n !== "named_actor" &&
+          n !== "epistemic_access" &&
+          n !== "kti" &&
+          n !== "culture" &&
+          n !== "culture_adjudication_kernel",
       )
       .join(" ");
     for (const forbidden of [
@@ -252,6 +257,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "causal-draw",
       "commit",
       "culture",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",

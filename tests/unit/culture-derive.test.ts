@@ -1,354 +1,241 @@
-// Unit evidence for the pure Culture derivations (forty-sixth slice): the update identity, the canonical binding of a referent
-// and scope, the input read basis, the single statement of the shared meaning/norm, the registration rule's builders and the
-// one owner operation failing closed. Register lineage: IA-02, IA-03, IA-04 (partial); RC-02, RC-03, RC-04; IM-09.
-import { describe, expect, it } from "vitest";
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests mutate values structurally */
+// Culture derivations (pure): the context's own consistency, the agreement between a decision and the context it adjudicated,
+// and the shared meaning that ONLY an ESTABLISH_SUPPORTED decision determines. No store, no clock, no model.
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   COMMUNICATIVE_CONVENTION_CLOSE,
   OWNER_CULTURE,
+  OWNER_CULTURE_ADJUDICATION_KERNEL,
+  cjaDecisionKey,
   cultureConventionStage,
-  cultureUpdateContextKey,
+  type CjaContextAttestation,
   type CultureUpdateContext,
-  type OwnerFact,
 } from "@immortalis/contracts";
 import {
-  StageUnresolvedError,
+  buildCjaRecord,
   canonicalBindingViolation,
   cultureAccessClassViolation,
-  cultureConventionCloseProvider,
-  cultureConventionDeclaration,
-  cultureUpdateId,
+  cultureContextViolation,
+  cultureSlotId,
+  decisionContextViolation,
   deriveSharedMeaning,
   inputBasisViolation,
+  type CultureFact,
 } from "@immortalis/engine";
+import { TEST_MANIFESTATION, scriptedJudgment, type ScriptedKind } from "@immortalis/testkit";
 import {
-  CULTURE_CONTEXT_MARKET,
-  CULTURE_CONTEXT_OTHER,
-  MANIFESTATION_A,
-  MANIFESTATION_B,
-  SYNTH_SOCIAL_EVIDENCE_OWNER,
-  evidenceInput,
-  evidenceReading,
-  socialEvidenceKey,
-} from "@immortalis/testkit";
-import { INSTITUTION_KEY, REFERENT_KEY, SCOPE_KEY, primaryContext } from "../support/culture.ts";
+  SCOPE_KEY,
+  REFERENT_KEY,
+  attestationOf,
+  preparedCulture,
+  seededCultureCampaign,
+} from "../support/culture.ts";
+import { tempDir } from "../support/tmp.ts";
 
-const ctx = (c: CultureUpdateContext = primaryContext()) => ({
-  key: cultureUpdateContextKey(c.update_id),
-  owner: OWNER_CULTURE,
-  version: 1,
-  value: c,
-});
-const ev = (
-  id: string,
-  value: unknown = evidenceReading(REFERENT_KEY, SCOPE_KEY),
-  version = 1,
-) => ({
-  key: socialEvidenceKey(id),
-  owner: SYNTH_SOCIAL_EVIDENCE_OWNER,
-  version,
-  value,
-});
-const derive = (c: CultureUpdateContext, evidence: ReturnType<typeof ev>[]) =>
-  deriveSharedMeaning({ context: ctx(c), evidence });
+let ctxFact: CultureFact<CultureUpdateContext>;
+let att: CjaContextAttestation;
+let campaignFacts: Map<string, any>;
+const clone = <T>(x: T): T => structuredClone(x);
 
-describe("the update identity", () => {
-  it("is exactly referent × scope × context, deterministic, and distinct per dimension", () => {
-    const a = cultureUpdateId(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET);
-    expect(a).toBe(cultureUpdateId(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET));
-    expect(a).toMatch(/^culture-update-[0-9a-f]{64}$/);
-    expect(
-      new Set([
-        a,
-        cultureUpdateId(SCOPE_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET),
-        cultureUpdateId(REFERENT_KEY, REFERENT_KEY, CULTURE_CONTEXT_MARKET),
-        cultureUpdateId(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_OTHER),
-        cultureUpdateId(SCOPE_KEY, REFERENT_KEY, CULTURE_CONTEXT_MARKET),
-      ]).size,
-    ).toBe(5);
-  });
+beforeAll(async () => {
+  const s = await seededCultureCampaign(tempDir());
+  const ctx = await preparedCulture(s);
+  att = attestationOf(s, ctx.updateId);
+  ctxFact = {
+    key: ctx.fact.key,
+    owner: ctx.fact.owner,
+    version: ctx.fact.version,
+    group_id: ctx.fact.provenance.group_id,
+    value: ctx.value,
+  };
+  campaignFacts = new Map(s.campaign.store.listFacts().map((f) => [f.key, f]));
 });
 
-describe("binding a referent and a scope to existing canonical authority", () => {
-  const fact = (key: string, over: Partial<OwnerFact> = {}): OwnerFact =>
-    ({
-      key,
-      owner: "world_state",
-      facet: "world_locus",
-      version: 1,
-      value: {
-        locus_id: "l",
-        world: { fact_key: "world/w/profile", entity_id: "w" },
-        designation: "d",
-        constraints: [],
-      },
-      unit: null,
-      basis: "b",
-      secrecy: "s",
-      provenance: { group_id: "g", intent_id: "i", cause: "c", rule: {} as never },
-      ...over,
-    }) as OwnerFact;
-  const facts = (...fs: OwnerFact[]) => new Map(fs.map((f) => [f.key, f]));
-  const ref = (key: string, version = 1) => ({ fact_key: key, version });
+const decisionFor = (
+  kind: ScriptedKind,
+  over: (r: any) => void = () => undefined,
+): CultureFact<unknown> => {
+  const record: any = clone(buildCjaRecord(att, scriptedJudgment(att, kind)));
+  over(record);
+  return {
+    key: cjaDecisionKey(ctxFact.value.update_id),
+    owner: OWNER_CULTURE_ADJUDICATION_KERNEL,
+    version: 1,
+    group_id: "cjadj:group:v1:x",
+    value: record,
+  };
+};
+const mutCtx = (f: (c: any) => void): CultureUpdateContext => {
+  const c: any = clone(ctxFact.value);
+  f(c);
+  return c;
+};
 
-  it("accepts a committed World-State locus at its current version, and a historical pin at or behind it", () => {
-    const f = fact("world/w/locus/l");
-    expect(canonicalBindingViolation(facts(f), ref(f.key), "SEAL")).toBeNull();
-    const advanced = fact("world/w/locus/l", { version: 3 });
-    expect(canonicalBindingViolation(facts(advanced), ref(f.key), "SEAL")).not.toBeNull();
-    expect(canonicalBindingViolation(facts(advanced), ref(f.key, 1), "HISTORY")).toBeNull();
-    expect(canonicalBindingViolation(facts(f), ref(f.key, 2), "HISTORY")).not.toBeNull();
+describe("the sealed context's own consistency", () => {
+  it("accepts the sealed context", () => {
+    expect(cultureContextViolation(ctxFact.value)).toBeNull();
   });
-
-  it("refuses an absent fact, an unbindable kind, a foreign owner or facet and a value that violates its own contract", () => {
-    const f = fact("world/w/locus/l");
-    expect(canonicalBindingViolation(facts(), ref(f.key), "SEAL")).toMatch(/not a committed/);
-    for (const key of [
-      "population/l/cohort/c",
-      "population/l/ledger",
-      "kti/object/o",
-      "temporal/state",
-      "nothing",
-      "culture/meaning/u",
-    ])
-      expect(canonicalBindingViolation(facts(fact(key)), ref(key), "SEAL"), key).toMatch(
-        /cannot be bound|existing canonical authority/,
-      );
-    expect(
-      canonicalBindingViolation(facts(fact(f.key, { owner: "kti" })), ref(f.key), "SEAL"),
-    ).toMatch(/own registered/);
-    expect(
-      canonicalBindingViolation(facts(fact(f.key, { facet: "x" })), ref(f.key), "SEAL"),
-    ).toMatch(/own registered/);
-    expect(
-      canonicalBindingViolation(
-        facts(fact(f.key, { value: { locus_id: "l" } })),
-        ref(f.key),
-        "SEAL",
-      ),
-    ).toMatch(/own canonical contract/);
-  });
-
-  it("names the two bindable kinds the source lists as referents: a place and an institution", () => {
-    expect(INSTITUTION_KEY).toMatch(/^gip\/institution\/.+\/identity$/);
-    expect(
-      canonicalBindingViolation(
-        facts(
-          fact(INSTITUTION_KEY, {
-            owner: "gip",
-            facet: "gip_institution_identity",
-            value: { institution_id: "i", identity_label: "l", continuity_status: "continuing" },
-          }),
-        ),
-        ref(INSTITUTION_KEY),
-        "SEAL",
-      ),
-    ).toBeNull();
-  });
-});
-
-describe("the input read basis", () => {
-  it("accepts a non-Culture owner's fact read AS-OF-NOW, and refuses the Culture owner, its key space and an unregistered close", () => {
-    expect(inputBasisViolation(evidenceInput("ev1"))).toBeNull();
-    expect(inputBasisViolation(evidenceInput("ev1", { owner: "culture" }))).toMatch(
-      /never its own evidence/,
-    );
-    expect(inputBasisViolation(evidenceInput("ev1", { fact_key: "culture/meaning/u" }))).toMatch(
-      /never its own evidence/,
-    );
-    expect(
-      inputBasisViolation(
-        evidenceInput("ev1", {
-          read: {
-            basis: "AS-OF-DECLARED-CLOSE",
-            close_basis: { name: "n", producer: { owner: "o", operation: "p" } },
-          },
+  it.each([
+    ["a tampered update identity", (c: any) => (c.update_id = "f".repeat(64))],
+    [
+      "a tampered causal process",
+      (c: any) => (c.causal_process_id = "cjadj:trigger:v1:" + "0".repeat(64)),
+    ],
+    ["a tampered state slot", (c: any) => (c.slot_id = "culture-slot-" + "0".repeat(64))],
+    ["a trigger that is not an engaged input", (c: any) => (c.trigger_ref.version = 9)],
+    ["a Culture-owned input", (c: any) => (c.inputs[1].owner = OWNER_CULTURE)],
+    [
+      "an adjudication-record input",
+      (c: any) => (c.inputs[1].fact_key = "adjudication-culture/" + "a".repeat(64) + "/decision"),
+    ],
+    [
+      "an unregistered AS-OF-DECLARED-CLOSE input",
+      (c: any) =>
+        (c.inputs[1].read = {
+          basis: "AS-OF-DECLARED-CLOSE",
+          close_basis: { name: "n", producer: { owner: c.inputs[1].owner, operation: "n" } },
         }),
-      ),
-    ).toMatch(/CONDITIONAL/);
-  });
-  it("the access class is exactly the owner's", () => {
-    expect(cultureAccessClassViolation("culture.engine-sealed")).toBeNull();
-    for (const s of [
-      "",
-      "epistemic.actor-accessible",
-      "culture.actor-accessible",
-      "kti.engine-sealed",
-    ])
-      expect(cultureAccessClassViolation(s)).not.toBeNull();
+    ],
+    ["a duplicated input", (c: any) => (c.inputs[1] = clone(c.inputs[0]))],
+    [
+      "a non-Cohort constituency",
+      (c: any) => (c.constituency.cohort_fact_key = "world/not-a-cohort"),
+    ],
+    ["another close basis", (c: any) => (c.constituency.close_basis.name = "other-close")],
+    [
+      "a stand-in (non-live) close vouch",
+      (c: any) =>
+        (c.constituency.close_vouch = {
+          port: "PopulationCloseScopeVerifier",
+          live_population_admission: false,
+          reconciliation: "NOT_DUE",
+        }),
+    ],
+    [
+      "a live vouch naming another ledger",
+      (c: any) => (c.constituency.close_vouch.evidence.ledger_id = "ledger-other"),
+    ],
+  ])("refuses %s", (_n, f) => {
+    expect(cultureContextViolation(mutCtx(f))).not.toBeNull();
   });
 });
 
-describe("the shared meaning/norm is exactly what the context and the evidence determine", () => {
-  it("derives the one fact and nothing else from one reading", () => {
-    const r = derive(primaryContext(), [ev("ev1")]);
-    expect(r.ok && r.value).toEqual({
-      update_id: primaryContext().update_id,
+describe("input and binding rules", () => {
+  it("an engaged input is a foreign owner's fact on the AS-OF-NOW basis", () => {
+    expect(inputBasisViolation(ctxFact.value.inputs[0]!)).toBeNull();
+    expect(
+      inputBasisViolation({ ...ctxFact.value.inputs[0]!, owner: OWNER_CULTURE }),
+    ).not.toBeNull();
+    expect(
+      inputBasisViolation({ ...ctxFact.value.inputs[0]!, fact_key: "culture/x" }),
+    ).not.toBeNull();
+  });
+  it("a referent and scope bind only to a committed locus or institution; a Cohort or an absent fact cannot be bound", () => {
+    expect(canonicalBindingViolation(campaignFacts, REFERENT_KEY)).toBeNull();
+    expect(canonicalBindingViolation(campaignFacts, SCOPE_KEY)).toBeNull();
+    expect(
+      canonicalBindingViolation(campaignFacts, ctxFact.value.constituency.cohort_fact_key),
+    ).not.toBeNull();
+    expect(canonicalBindingViolation(campaignFacts, "world/absent")).not.toBeNull();
+  });
+  it("a Culture fact is engine-side", () => {
+    expect(cultureAccessClassViolation("culture.engine-sealed")).toBeNull();
+    expect(cultureAccessClassViolation("public")).not.toBeNull();
+  });
+  it("the state slot is the distinction alone — never the trigger or the evidence", () => {
+    expect(cultureSlotId(ctxFact.value.distinction)).toBe(ctxFact.value.slot_id);
+  });
+});
+
+describe("a decision must be the adjudication of exactly this context", () => {
+  const record = (over: (r: any) => void) => decisionFor("positive", over);
+  it("agrees for the scripted decision", () => {
+    expect(decisionContextViolation(ctxFact, decisionFor("positive"))).toBeNull();
+  });
+  it.each([
+    ["another update", (r: any) => (r.culture_update_id = "f".repeat(64))],
+    ["another trigger", (r: any) => (r.trigger_ref.version = 3)],
+    ["other sources", (r: any) => (r.source_refs[0].version = 3)],
+    ["another constituency", (r: any) => (r.constituency_ref.cohort_version = 99)],
+    ["another distinction", (r: any) => (r.culture_question.context_id = "other")],
+    ["another context group", (r: any) => (r.context_ref.committed_by_group_id = "other")],
+    ["another context version", (r: any) => (r.context_ref.version = 2)],
+  ])("refuses a decision citing %s", (_n, f) => {
+    expect(decisionContextViolation(ctxFact, record(f))).not.toBeNull();
+  });
+  it("refuses a malformed record and a foreign owner or key", () => {
+    expect(
+      decisionContextViolation(ctxFact, { ...decisionFor("positive"), value: { junk: 1 } }),
+    ).not.toBeNull();
+    expect(
+      decisionContextViolation(ctxFact, { ...decisionFor("positive"), owner: OWNER_CULTURE }),
+    ).not.toBeNull();
+    expect(
+      decisionContextViolation(ctxFact, {
+        ...decisionFor("positive"),
+        key: "adjudication-culture/" + "b".repeat(64) + "/decision",
+      }),
+    ).not.toBeNull();
+  });
+});
+
+describe("only an ESTABLISH_SUPPORTED decision determines a shared meaning", () => {
+  it("derives exactly the meaning the context and decision determine, with the GM's manifestation verbatim", () => {
+    const r = deriveSharedMeaning({ context: ctxFact, decision: decisionFor("positive") });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toEqual({
+      slot_id: ctxFact.value.slot_id,
       status: "ESTABLISHED",
-      referent: { fact_key: REFERENT_KEY, version: 1 },
-      scope: { fact_key: SCOPE_KEY, version: 1 },
-      context: CULTURE_CONTEXT_MARKET,
-      manifestation: MANIFESTATION_A,
+      referent_key: REFERENT_KEY,
+      scope_key: SCOPE_KEY,
+      context_id: ctxFact.value.distinction.context_id,
+      manifestation: TEST_MANIFESTATION,
       establishment: {
-        update: { fact_key: cultureUpdateContextKey(primaryContext().update_id), version: 1 },
-        evidence: primaryContext().inputs,
+        update_id: ctxFact.value.update_id,
+        context: { fact_key: ctxFact.key, version: 1 },
+        decision: {
+          fact_key: cjaDecisionKey(ctxFact.value.update_id),
+          version: 1,
+          decision_id: `cjadj:v1:${ctxFact.value.update_id}`,
+        },
       },
       close: {
         name: COMMUNICATIVE_CONVENTION_CLOSE,
-        stage: cultureConventionStage(primaryContext().update_id),
+        stage: cultureConventionStage(ctxFact.value.update_id, ctxFact.value.slot_id),
       },
     });
   });
-
-  it("several agreeing readings give the same fact; the manifestation is read from the evidence, never from the context", () => {
-    const c = primaryContext([evidenceInput("ev1"), evidenceInput("ev2")]);
-    const r = derive(c, [ev("ev1"), ev("ev2")]);
-    expect(r.ok && r.value.manifestation).toBe(MANIFESTATION_A);
-    const other = derive(c, [
-      ev("ev1", evidenceReading(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET, MANIFESTATION_B)),
-      ev("ev2", evidenceReading(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET, MANIFESTATION_B)),
-    ]);
-    expect(other.ok && other.value.manifestation).toBe(MANIFESTATION_B);
-  });
-
-  it("fails closed, with the specific code, on each way the evidence can fail to establish it", () => {
-    const code = (r: ReturnType<typeof derive>) => (r.ok ? "OK" : r.error.code);
-    const one = primaryContext();
-    expect(code(derive(one, [ev("ev1", { kind: "CONTACT" })]))).toBe("EVIDENCE_NOT_ESTABLISHING");
-    expect(code(derive(one, [ev("ev1", evidenceReading(REFERENT_KEY, REFERENT_KEY))]))).toBe(
-      "EVIDENCE_NOT_ESTABLISHING",
-    );
+  it.each(["not_supported", "unresolved", "derive"] as const)(
+    "a %s decision creates no Culture fact (a typed non-establishing result, not a refusal of the context)",
+    (kind) => {
+      const r = deriveSharedMeaning({ context: ctxFact, decision: decisionFor(kind) });
+      expect(!r.ok && r.error.code).toBe("DECISION_NOT_ESTABLISHING");
+    },
+  );
+  it("fails closed on a context that is not the Culture owner's own, mis-keyed or inconsistent", () => {
     expect(
-      code(
-        derive(one, [ev("ev1", evidenceReading(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_OTHER))]),
-      ),
-    ).toBe("EVIDENCE_NOT_ESTABLISHING");
-    expect(code(derive(one, [ev("ev1", undefined, 2)]))).toBe("EVIDENCE_INVALID");
-    expect(code(derive(one, []))).toBe("EVIDENCE_INVALID");
-    expect(code(derive(one, [ev("ev9")]))).toBe("EVIDENCE_INVALID");
-    expect(
-      code(
-        derive(primaryContext([evidenceInput("ev1"), evidenceInput("ev1")]), [
-          ev("ev1"),
-          ev("ev1"),
-        ]),
-      ),
-    ).toBe("CONTEXT_INVALID");
-    expect(
-      code(
-        derive(primaryContext([evidenceInput("ev1")], { update_id: "culture-update-forged" }), [
-          ev("ev1"),
-        ]),
-      ),
-    ).toBe("CONTEXT_INVALID");
-    const c2 = primaryContext([evidenceInput("ev1"), evidenceInput("ev2")]);
-    expect(
-      code(
-        derive(c2, [
-          ev("ev1"),
-          ev(
-            "ev2",
-            evidenceReading(REFERENT_KEY, SCOPE_KEY, CULTURE_CONTEXT_MARKET, MANIFESTATION_B),
-          ),
-        ]),
-      ),
-    ).toBe("EVIDENCE_DISAGREES");
-    const closeInput = primaryContext([
-      evidenceInput("ev1", {
-        read: {
-          basis: "AS-OF-DECLARED-CLOSE",
-          close_basis: { name: "n", producer: { owner: "o", operation: "p" } },
-        },
-      }),
-    ]);
-    expect(code(derive(closeInput, [ev("ev1")]))).toBe("EVIDENCE_BASIS_UNREGISTERED");
-    expect(
-      deriveSharedMeaning({ context: { ...ctx(), owner: "kti" }, evidence: [ev("ev1")] }).ok,
+      deriveSharedMeaning({
+        context: { ...ctxFact, owner: "other" },
+        decision: decisionFor("positive"),
+      }).ok,
     ).toBe(false);
     expect(
       deriveSharedMeaning({
-        context: { ...ctx(), key: "culture/update/x/context" },
-        evidence: [ev("ev1")],
+        context: { ...ctxFact, key: "culture/update/" + "c".repeat(64) + "/context" },
+        decision: decisionFor("positive"),
+      }).ok,
+    ).toBe(false);
+    expect(
+      deriveSharedMeaning({
+        context: { ...ctxFact, value: mutCtx((c) => (c.slot_id = "culture-slot-x")) },
+        decision: decisionFor("positive"),
       }).ok,
     ).toBe(false);
   });
-});
-
-describe("the registration builders", () => {
-  it("declare the stage from the sealed context alone: the context first, then each pinned input, all AS-OF-NOW, producing exactly the meaning slot", () => {
-    const c = primaryContext([evidenceInput("ev1"), evidenceInput("ev2")]);
-    const d = cultureConventionDeclaration(c)!;
-    expect(d.stage).toEqual(cultureConventionStage(c.update_id));
-    expect(d.reads.map((r) => [r.mode, r.source.owner, r.source.fact_key])).toEqual([
-      ["AS-OF-NOW", "culture", cultureUpdateContextKey(c.update_id)],
-      ["AS-OF-NOW", SYNTH_SOCIAL_EVIDENCE_OWNER, socialEvidenceKey("ev1")],
-      ["AS-OF-NOW", SYNTH_SOCIAL_EVIDENCE_OWNER, socialEvidenceKey("ev2")],
-    ]);
-    expect(d.produces).toEqual([`culture/meaning/${c.update_id}`]);
-    expect(d.declares_close).toEqual({ name: COMMUNICATIVE_CONVENTION_CLOSE });
-  });
-});
-
-describe("the one owner operation fails closed with StageUnresolvedError and publishes nothing", () => {
-  const input = (over: Record<string, unknown> = {}) => {
-    const c = primaryContext();
-    const cf = ctx(c);
-    const fact = (f: { key: string; owner: string; version: number; value: unknown }) =>
-      ({
-        key: f.key,
-        owner: f.owner,
-        facet: "f",
-        version: f.version,
-        value: f.value,
-        unit: null,
-        basis: "culture-fixture-basis",
-        secrecy: "s",
-        provenance: { group_id: "g", intent_id: "i", cause: "c", rule: {} as never },
-      }) as unknown as OwnerFact;
-    return {
-      stage: cultureConventionStage(c.update_id),
-      produces: [`culture/meaning/${c.update_id}`],
-      span: { from: { unit: "u", value: 1 }, to: { unit: "u", value: 2 }, elapsed: 1 },
-      reads: [cf, ev("ev1")].map((f) => ({ read: {} as never, fact: fact(f) })),
-      prior: new Map<string, OwnerFact>(),
-      ...over,
-    };
-  };
-
-  it("writes exactly the one derived fact, stamped with the owner's access class and the context's authored basis label", () => {
-    const writes = cultureConventionCloseProvider.compute(input());
-    expect(writes).toHaveLength(1);
-    expect(writes[0]).toMatchObject({
-      unit: null,
-      basis: "culture-fixture-basis",
-      secrecy: "culture.engine-sealed",
-    });
-  });
-
-  it("is unresolved on a missing or invalid source, a foreign or extra slot, a prior fact and a non-establishing reading", () => {
-    const base = input();
-    const cases: Record<string, unknown> = {
-      "no inputs": { ...base, reads: base.reads.slice(0, 1) },
-      "invalid context": {
-        ...base,
-        reads: [
-          { ...base.reads[0]!, fact: { ...base.reads[0]!.fact, value: { x: 1 } } },
-          base.reads[1],
-        ],
-      },
-      "foreign slot": { ...base, produces: ["culture/meaning/another"] },
-      "two slots": { ...base, produces: [...base.produces, "culture/meaning/another"] },
-      "already committed": { ...base, prior: new Map([[base.produces[0]!, base.reads[0]!.fact]]) },
-      "contact reading": {
-        ...base,
-        reads: [
-          base.reads[0],
-          { ...base.reads[1]!, fact: { ...base.reads[1]!.fact, value: { kind: "CONTACT" } } },
-        ],
-      },
-    };
-    for (const [name, i] of Object.entries(cases))
-      expect(() => cultureConventionCloseProvider.compute(i as never), name).toThrow(
-        StageUnresolvedError,
-      );
+  it("the same sealed context and judgment always yield the same meaning (deterministic)", () => {
+    const a = deriveSharedMeaning({ context: ctxFact, decision: decisionFor("positive") });
+    const b = deriveSharedMeaning({ context: clone(ctxFact), decision: decisionFor("positive") });
+    expect(a).toEqual(b);
   });
 });

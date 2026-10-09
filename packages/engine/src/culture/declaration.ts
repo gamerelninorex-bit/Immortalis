@@ -3,6 +3,8 @@ import {
   COMMUNICATIVE_CONVENTION_CLOSE,
   CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
   CultureUpdateContextSchema,
+  OWNER_CULTURE_ADJUDICATION_KERNEL,
+  cjaDecisionKey,
   OWNER_CULTURE,
   READ_MODE_CLOSE,
   READ_MODE_NOW,
@@ -34,13 +36,19 @@ import { canonicalEqual } from "../hash.ts";
 
 const ID = "[A-Za-z0-9][A-Za-z0-9._:-]*";
 const KEY_SPACES = {
-  context: new RegExp(`^culture/update/(${ID})/context$`),
+  context: new RegExp(`^culture/update/([0-9a-f]{64})/context$`),
   meaning: new RegExp(`^culture/meaning/(${ID})$`),
 } as const;
 
-/** The update identity a Culture meaning key names, or null. */
-export const updateOfMeaningKey = (key: string): string | null => {
+/** The Culture state slot a Culture meaning key names, or null. */
+export const slotOfMeaningKey = (key: string): string | null => {
   const m = KEY_SPACES.meaning.exec(key);
+  return m ? m[1]! : null;
+};
+
+/** The update identity a Culture close stage's causal process names, or null. */
+export const updateOfCloseStage = (causalProcessId: string): string | null => {
+  const m = /^culture-update\/([0-9a-f]{64})$/.exec(causalProcessId);
   return m ? m[1]! : null;
 };
 
@@ -51,26 +59,26 @@ const cultureNowRead = (key: string): TemporalReadDeclaration => ({
 });
 
 /**
- * The one stage whose commit is the Communicative Convention Close of one update: it reads its sealed context (NOW) and each
- * engaged evidence input the context pins (NOW, after its owner's commit — the only basis this slice registers) in the
- * context's order, and writes the shared meaning/norm. It declares the Communicative Convention Close (F-017 §3 CLOSE).
- * Null when an input carries no registered basis (CONDITIONAL: the dependent conclusion stops, nothing is declared).
+ * The one stage whose commit is the Communicative Convention Close of one update: it reads EXACTLY two facts, both
+ * AS-OF-NOW — its sealed context and the committed immutable adjudication decision of that update — and writes the shared
+ * meaning/norm into the update's Culture state slot. It declares the Communicative Convention Close (F-017 §3 CLOSE). It
+ * reads NO foreign observation, trigger or Cohort: those were sealed and adjudicated beforehand and are never re-read, so later
+ * source or Population version churn cannot strand it. The decision need not exist when the object registers (the context
+ * must): an absent decision leaves the stage unresolved, never a false negative.
  */
-export function cultureConventionDeclaration(
-  context: CultureUpdateContext,
-): DependencyDeclaration | null {
-  if (context.inputs.some((i) => i.read.basis !== "AS-OF-NOW")) return null;
+export function cultureConventionDeclaration(context: CultureUpdateContext): DependencyDeclaration {
+  const decisionKey = cjaDecisionKey(context.update_id);
   return {
-    stage: cultureConventionStage(context.update_id),
+    stage: cultureConventionStage(context.update_id, context.slot_id),
     reads: [
       cultureNowRead(cultureUpdateContextKey(context.update_id)),
-      ...context.inputs.map((i): TemporalReadDeclaration => ({
+      {
         mode: READ_MODE_NOW,
-        source: { owner: i.owner, fact_key: i.fact_key },
-        invalidators: [],
-      })),
+        source: { owner: OWNER_CULTURE_ADJUDICATION_KERNEL, fact_key: decisionKey },
+        invalidators: [{ fact_key: decisionKey }],
+      },
     ],
-    produces: [cultureSharedMeaningKey(context.update_id)],
+    produces: [cultureSharedMeaningKey(context.slot_id)],
     declares_close: { name: COMMUNICATIVE_CONVENTION_CLOSE },
   };
 }
@@ -81,15 +89,15 @@ export function cultureConventionDeclaration(
  * instantaneous graph; the close that precedes it is stage order, not a third lag. Only the fact is readable: never the
  * sealed context or its evidence.
  */
-export const cultureSharedMeaningNowRead = (updateId: string): TemporalReadDeclaration =>
-  cultureNowRead(cultureSharedMeaningKey(updateId));
+export const cultureSharedMeaningNowRead = (slotId: string): TemporalReadDeclaration =>
+  cultureNowRead(cultureSharedMeaningKey(slotId));
 
 /**
  * The AS-OF-DECLARED-CLOSE form of the same read, naming the Culture owner's declared Communicative Convention Close (LC-03:
  * "AS-OF-DECLARED-CLOSE: Communicative Convention Close").
  */
-export function cultureConventionCloseRead(updateId: string): TemporalReadDeclaration {
-  const key = cultureSharedMeaningKey(updateId);
+export function cultureConventionCloseRead(slotId: string): TemporalReadDeclaration {
+  const key = cultureSharedMeaningKey(slotId);
   return {
     mode: READ_MODE_CLOSE,
     source: { owner: OWNER_CULTURE, fact_key: key },
@@ -141,7 +149,7 @@ export function cultureObjectViolation(
       ) {
         return "the Culture owner declares exactly one stage: the Communicative Convention Close";
       }
-      const updateId = updateOfMeaningKey(d.stage.prospective_result_id);
+      const updateId = updateOfCloseStage(d.stage.causal_process_id);
       const contextFact = updateId ? state.facts.get(cultureUpdateContextKey(updateId)) : undefined;
       const context = contextFact
         ? CultureUpdateContextSchema.safeParse(contextFact.value)
@@ -150,7 +158,7 @@ export function cultureObjectViolation(
         return "a Culture close is declared only for a committed sealed Social Update Context: a consequence cannot create the update it needs";
       }
       const expected = cultureConventionDeclaration(context.data);
-      if (!expected || !canonicalEqual(d, expected)) {
+      if (!canonicalEqual(d, expected)) {
         return "a Culture stage is exactly the declaration derived from its sealed Social Update Context";
       }
     }
@@ -159,7 +167,7 @@ export function cultureObjectViolation(
       if (r.source.owner !== OWNER_CULTURE && !r.source.fact_key.startsWith("culture/")) continue;
       if (r.source.owner !== OWNER_CULTURE)
         return "a Culture key space is read as its owner's fact";
-      const id = updateOfMeaningKey(r.source.fact_key);
+      const id = slotOfMeaningKey(r.source.fact_key);
       if (!id || KEY_SPACES.context.test(r.source.fact_key)) {
         return "the sealed Social Update Context is not a cross-owner read: a shared meaning/norm is visible only after the Communicative Convention Close";
       }

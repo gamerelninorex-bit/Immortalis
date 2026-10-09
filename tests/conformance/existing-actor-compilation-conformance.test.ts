@@ -192,6 +192,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES).sort()).toEqual([
       "CausalDrawAdapter",
       "CultureAdapter",
+      "CultureAdjudicationAdapter",
       "DiplomacyAdapter",
       "EconomyAdapter",
       "EpistemicAccessAdapter",
@@ -214,6 +215,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "causal-draw",
       "commit",
       "culture",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",

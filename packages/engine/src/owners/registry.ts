@@ -4,6 +4,9 @@ import {
   CultureUpdateContextSchema,
   FACET_CULTURE_SOCIAL,
   OWNER_CULTURE,
+  CjaDecisionRecordSchema,
+  FACET_ADJUDICATION_PROVENANCE,
+  OWNER_CULTURE_ADJUDICATION_KERNEL,
   CausalDrawPrecommitSchema,
   CausalDrawResultSchema,
   FACET_DRAW_PROVENANCE,
@@ -221,6 +224,20 @@ export const F027_CD1_SOURCE = {
   native_pin: "2026-10-02T15:11:03.450Z",
 } as const;
 
+/**
+ * F-027-CJA1 — Culture Judgment Adjudication v1.1, the Sovereign-approved (9 October 2026) bounded interpretive-provenance
+ * addendum. It is NOT native-pinned and NOT in `spec/f027/spec-lock.json`: `artifact` is the Sovereign-approval record that
+ * attaches the full text and `native_pin` is the observed last-edit stamp of that record at construction. Both are a
+ * provisional reference, never a promoted authority status.
+ */
+export const F027_CJA1_SOURCE = {
+  artifact: "https://app.notion.com/p/3f420af901e0815dae8ac3912a1214fe",
+  native_pin: "2026-10-09T00:48:10.413Z",
+} as const;
+/** SHA-256 of the exact approved v1.1 TXT (the original local file, trailing newline included). */
+export const F027_CJA1_TEXT_SHA256 =
+  "b099a6dea0b225790b944e019a27c3b87714a269720073344ea1229b4b617c67";
+
 export const FACT_KIND_IDS = [
   "world_profile",
   "world_locus",
@@ -289,8 +306,10 @@ export const DIPLOMACY_FACT_KIND_IDS = [
   "diplomacy_framework",
 ] as const;
 export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_result"] as const;
+export const CULTURE_ADJUDICATION_FACT_KIND_IDS = ["culture_adjudication_decision"] as const;
 export type FactKindId =
   | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
+  | (typeof CULTURE_ADJUDICATION_FACT_KIND_IDS)[number]
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
@@ -1173,6 +1192,56 @@ export const CAUSAL_DRAW_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const CJA1_LINEAGE =
+  "F-027-CJA1 Culture Judgment Adjudication, BLUE-reconciled v1.1 bounded implementation-authority addendum (TXT SHA-256 b099a6dea0b225790b944e019a27c3b87714a269720073344ea1229b4b617c67), Sovereign-approved 2026-10-09 (https://app.notion.com/p/3f420af901e0815dae8ac3912a1214fe) on the two bounded decisions only: not native-pinned, not in the F-027 spec lock, not RED-confirmed at v1.1; its identifiers are PROPOSED technical encodings, not frozen Culture identifiers. Implemented here as the consumer-free prerequisite under the bounded direct-repair work order of 2026-10-09 (https://app.notion.com/p/3f420af901e081bb88fcebfc9edf0801); composes with, and does not amend, frozen Culture & Society v2 (Concept https://app.notion.com/p/3e720af901e081009232f2efa9b7a1ff, Operational Draft https://app.notion.com/p/3e720af901e0817abf2df04f13bd90ad) and the F-027-CD1 pattern (not authority)";
+
+/**
+ * One governing rule for the adjudication kind: the create-only RC-09 judgment record is one group governed by the
+ * Sovereign-approved CJA1 v1.1 text. `effective_basis` states exactly what that is: approved, not native-pinned, not
+ * spec-locked. `supersedes` is null.
+ */
+export const CJA1_RULE: SourceRef = {
+  artifact: F027_CJA1_SOURCE.artifact,
+  native_pin: F027_CJA1_SOURCE.native_pin,
+  clause:
+    "§2 Non-substantive RC-09 adjudication provenance (culture_adjudication_kernel / adjudication_provenance, infrastructure-only; one create-only record per culture update id regardless of outcome); §3 CJA-ID1 identity contract (trigger_ref, causal_process_id, fixed opportunity CJA_V1_SINGLE_EVALUATION, distinction_digest, culture_update_id, decision id/key/group/intent; canonical plain-JSON hashing with ill-formed Unicode refused before serialization); §6 CJA-R1 adjudication record (exact citation closure, verdict/finding coherence, structural refusal distinct from substantive verdicts); §7 CJA-OP1 authority, creation and atomic publication (trusted in-process role.gm + permission.rule.adjudicate checked first, archivist publication, stable RC-16 identity); §9.1 consumer-free prerequisite with the CultureAdjudicationContextPort and PopulationCloseScopeVerifier boundaries; §10.A acceptance; §11 refusal classes; no Culture manifestation, Population Cohort, GIP, KTI, ASR, belief, economic or world fact is written",
+  authority_lineage: [CJA1_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-approved-not-native-pinned-not-spec-locked",
+  supersedes: null,
+};
+
+const cjaKind = (
+  id: (typeof CULTURE_ADJUDICATION_FACT_KIND_IDS)[number],
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_CULTURE_ADJUDICATION_KERNEL,
+  facet: FACET_ADJUDICATION_PROVENANCE,
+  im: "IM-12",
+  rc: ["RC-02", "RC-09", "RC-16"],
+  lifecycle: "SEALED",
+  keyPattern,
+  valueSchema,
+  rule: CJA1_RULE,
+});
+
+/**
+ * CJA1 §2.1: `culture_adjudication_kernel / adjudication_provenance`, an INFRASTRUCTURE-ONLY RC-09 adjudication-provenance
+ * owner/facet, distinct from `causal_draw_kernel`. IM-03 routes only the dedicated key space
+ * `adjudication-culture/<64 lowercase hex>/decision` to it; IM-12 retains the committed record; IM-11/IM-17 publish and
+ * persist it. The kind is SEALED, i.e. create-only. This registration is not a substantive Culture owner, creates no authority
+ * to write any Culture manifestation, Population, GIP, KTI, ASR, belief, economic or world fact, and is not a generic
+ * fallback owner.
+ */
+export const CULTURE_ADJUDICATION_FACT_KINDS: readonly FactKind[] = [
+  cjaKind(
+    "culture_adjudication_decision",
+    /^adjudication-culture\/([0-9a-f]{64})\/decision$/,
+    CjaDecisionRecordSchema,
+  ),
+];
+
 const F014D_LINEAGE =
   "F-014D Epistemic Access — Working Operational Draft v2 (Epistemic Access, Provenance & Information Channels), Sovereign-ratified 2026-09-20 with the W1-PS2 provenance-split amendment (Sealed Engine Provenance vs Accessible Content Packet) Sovereign-ratified 2026-09-25, at the frozen lock pin 2026-09-24T16:25:17.059Z (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e); Concept v3 https://app.notion.com/p/3e020af901e081fca9c0c7213b720124";
 
@@ -1379,8 +1448,8 @@ const WS005_LINEAGE =
  */
 export const CULTURE_RULE: SourceRef = rule(
   WS005_SOURCE,
-  "Draft v2 §1 Runtime scope and owned working state (Culture is the sole writer of admitted continuing social meaning/norm; a retained fact carries only its necessary referent(s), scope, social meaning, context, establishment and current material status, provenance where causal, uncertainty/contestation where material and lifecycle; a minimum-information contract, not a fixed schema); §2 Admission and deletion (persist a Culture fact only if continuing social recognition/meaning has independent causal inertia, no other owner can reconstruct it faithfully or cheaply, and it may materially alter a later answer; establish no state on mere contact, hypothetical possibility, cultural stereotype, world truth or policy enactment alone); §3 Trigger and input assembly (a sealed, causally engaged Social Update Context, CS-UPD: each input identifies its source fact/owner and exactly one lawful basis, AS-OF-NOW only after its owner commit or AS-OF-DECLARED-CLOSE at that owner's specifically named close; downstream consequences cannot backfill the sealed context); §4.5 Commit once (a meaning, norm, identity/status meaning, practice or convention change declares the Communicative Convention Close; the Social Relation Close, relations and aggregate positions are not implemented); §8 Validation, invalidation and failure behavior (an unresolved or bounded conclusion, never a substitute writer, speculative group percentage or world-wide culture update); with Concept v2 §§1-2, 4 and 8 anti-imports and Scaling Profile v2 §§2-4 (cardinality basis: admitted material scope × referent × context distinctions; no global social scan; no periodic drift tick); cohort-key re-binding, contestation, retirement, relation/position and the Social Relation Close not implemented",
-  [WS005_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  "Draft v2 §1 Runtime scope and owned working state (Culture is the sole writer of admitted continuing social meaning/norm; a retained fact carries only its necessary referent(s), scope, social meaning, context, establishment and current material status, provenance where causal, uncertainty/contestation where material and lifecycle; a minimum-information contract, not a fixed schema); §2 Admission and deletion (persist a Culture fact only if continuing social recognition/meaning has independent causal inertia, no other owner can reconstruct it faithfully or cheaply, and it may materially alter a later answer; establish no state on mere contact, hypothetical possibility, cultural stereotype, world truth or policy enactment alone); §3 Trigger and input assembly (a sealed, causally engaged Social Update Context, CS-UPD: each input identifies its source fact/owner and exactly one lawful basis, AS-OF-NOW only after its owner commit or AS-OF-DECLARED-CLOSE at that owner's specifically named close; downstream consequences cannot backfill the sealed context); §4.5 Commit once (a meaning, norm, identity/status meaning, practice or convention change declares the Communicative Convention Close; the Social Relation Close, relations and aggregate positions are not implemented); §8 Validation, invalidation and failure behavior (an unresolved or bounded conclusion, never a substitute writer, speculative group percentage or world-wide culture update); with Concept v2 §§1-2, 4 and 8 anti-imports and Scaling Profile v2 §§2-4 (cardinality basis: admitted material scope × referent × context distinctions; no global social scan; no periodic drift tick); cohort-key re-binding, contestation, retirement, relation/position and the Social Relation Close not implemented; the Communicative Convention Close reads exactly two AS-OF-NOW facts, the sealed context and the committed F-027-CJA1 adjudication decision (Sovereign-approved bounded technical source, not native-pinned and not spec-locked), and only an ESTABLISH_SUPPORTED decision may fill an empty slot",
+  [WS005_LINEAGE, F017_LINEAGE, CJA1_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
 );
 
 const cultureKind = (
@@ -1411,7 +1480,7 @@ export const CULTURE_FACT_KINDS: readonly FactKind[] = [
   cultureKind(
     "culture_update_context",
     ["RC-02", "RC-07", "RC-11"],
-    new RegExp(`^culture/update/${ID}/context$`),
+    new RegExp("^culture/update/([0-9a-f]{64})/context$"),
     CultureUpdateContextSchema,
   ),
   cultureKind(
@@ -1801,6 +1870,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...GIP_FACT_KINDS,
   ...DIPLOMACY_FACT_KINDS,
   ...CAUSAL_DRAW_FACT_KINDS,
+  ...CULTURE_ADJUDICATION_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

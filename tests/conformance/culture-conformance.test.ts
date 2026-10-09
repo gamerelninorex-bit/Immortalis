@@ -1,5 +1,6 @@
 // Conformance evidence for the Culture & Society Established Shared Meaning / Norm Result-Close Backbone Foundation
-// (forty-sixth slice). Each block names its register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The frozen
+// (forty-sixth slice, amended same-PR recovery over the merged F-027-CJA1 adjudication record; CJA1 is Sovereign-approved,
+// NOT native-pinned and NOT spec-locked, and nothing here promotes it). Each block names its register ID; governing lock: spec/f027/spec-lock.json (F-027 v1.0). The frozen
 // spec files — the lock, the acceptance register, the open gates and the Runtime Contract — are byte-identical to the base:
 // this slice promotes no row and changes no gate, and every other F-027 open gate is unchanged.
 import { createHash } from "node:crypto";
@@ -121,7 +122,10 @@ describe("IA-03 owner exclusivity: the Culture owner holds the sealed Social Upd
       ["culture_shared_meaning", "culture", "culture_social", "SEALED"],
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("culture")).toEqual(expectedOwnerFacetSet("culture"));
-    for (const key of ["culture/update/u/context", "culture/meaning/u"])
+    for (const key of [
+      `culture/update/${"a".repeat(64)}/context`,
+      "culture/meaning/culture-slot-u",
+    ])
       expect(
         ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)),
         key,
@@ -141,7 +145,7 @@ describe("IA-03 owner exclusivity: the Culture owner holds the sealed Social Upd
       [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) =>
         /kti|knowledge|technolog|culture|society|social|language|religion|opinion/.test(n),
       ),
-    ).toEqual(["kti", "culture"]);
+    ).toEqual(["kti", "culture", "culture_adjudication_kernel"]);
     expect(CULTURE_FACT_KINDS.every((k) => k.im === "IM-09")).toBe(true);
   });
 
@@ -162,11 +166,20 @@ describe("IA-03 owner exclusivity: the Culture owner holds the sealed Social Upd
     }
   });
 
-  it("Culture reads no Epistemic, KTI, Population, Economy, GIP or Actor state at all: the only foreign facts it consults are the committed evidence it pins and the two canonical authorities a referent or scope binds to", () => {
+  it("Culture reads no Epistemic, KTI, Economy, GIP or Actor state at all, and touches Population ONLY in the one live Port B module, through Population's own barrier evaluator and contracts", () => {
     for (const f of CULTURE_SOURCES.filter((f) => !/contracts/.test(f)))
       expect(identifiers(f), f).not.toMatch(
-        /OWNER_(POPULATION|ECONOMY|PRODUCTION|LOGISTICS|NAMED_ACTOR|EPISTEMIC_ACCESS|KTI|GIP|DIPLOMACY)|AccessEventSchema|AccessiblePacketSchema|Kti\w*Schema|PopulationBasis|CohortFact/,
+        /OWNER_(ECONOMY|PRODUCTION|LOGISTICS|NAMED_ACTOR|EPISTEMIC_ACCESS|KTI|GIP|DIPLOMACY)|AccessEventSchema|AccessiblePacketSchema|Kti\w*Schema|PopulationBasis/,
       );
+    for (const f of CULTURE_SOURCES.filter((f) => !/contracts|population-scope/.test(f)))
+      expect(identifiers(f), f).not.toMatch(
+        /OWNER_POPULATION|CohortFact|populationBarrierEvaluator|ReconciliationClose/,
+      );
+    const scope = code(`${CULTURE_DIR}/population-scope.ts`);
+    expect(scope).toMatch(/populationBarrierEvaluator\.evaluate\(/);
+    expect(scope).toMatch(/populationBarrierEvaluator\.closeSourceLawful\(/);
+    // the verifier asks Population; it never writes, forges a close or invents a producer
+    expect(scope).not.toMatch(/\.commit\(|POPULATION_OPERATION_RECONCILE|declares_close/);
   });
 
   it("the predecessor owners' own surfaces and modules are unchanged: none names the Culture owner or its keys", () => {
@@ -190,9 +203,11 @@ describe("IA-03 owner exclusivity: the Culture owner holds the sealed Social Upd
   it("the evidence source and the result consumer are clearly synthetic testkit parties and production code never imports the testkit or names a synthetic owner", () => {
     const fixtures = readFileSync("packages/testkit/src/culture-fixtures.ts", "utf8");
     expect(fixtures).toMatch(/SYNTHETIC TEST DATA/);
-    expect(fixtures).toMatch(/SYNTHETIC-SOCIAL-EVIDENCE-SOURCE/);
     expect(fixtures).toMatch(/SYNTHETIC-CULTURE-RESULT-CONSUMER/);
-    expect(fixtures).toMatch(/REGISTERS NO LIVE PRODUCER/);
+    expect(fixtures).toMatch(/NOT synthetic[\s\S]*live[\s\S]*in @immortalis\/engine/);
+    expect(readFileSync("packages/testkit/src/culture-adjudication-fixtures.ts", "utf8")).toMatch(
+      /SYNTHETIC-CJA-OBSERVATION-SOURCE/,
+    );
     for (const f of [...walk("packages/engine/src"), ...walk("packages/contracts/src")]) {
       const text = readFileSync(f, "utf8");
       expect(text, f).not.toMatch(/@immortalis\/testkit/);
@@ -209,9 +224,9 @@ describe("the Culture contracts are qualitative: no score, number, threshold, pe
         (m) => m[1],
       );
       // 0/1/2: versions, indices, capture-group indices, the pair of bindable kinds and list-size bounds; 5: diagnostic
-      // issue-list length (as elsewhere)
+      // issue-list length (as elsewhere); 64: the SHA-256 hex width of an update identity
       expect(
-        numbers.filter((n) => !["0", "1", "2", "5"].includes(n!)),
+        numbers.filter((n) => !["0", "1", "2", "5", "64"].includes(n!)),
         f,
       ).toEqual([]);
       expect(text, f).not.toMatch(
@@ -227,28 +242,39 @@ describe("the Culture contracts are qualitative: no score, number, threshold, pe
     const contract = code("packages/contracts/src/culture.ts");
     expect(contract).not.toMatch(/z\.enum\(/);
     expect(contract).toMatch(/manifestation: EntityId/);
-    // the single literals are the ones the source names: the establishment status, the close, the admission gate and the
-    // engineer-chosen recognition marker of the evidence reading
+    // the single literals are the ones the source names: the read bases, the establishment status, the close, the fixed CJA1
+    // opportunity and this owner's close operation. No conclusion-shaped marker, no admission flag.
     const literals = [...contract.matchAll(/z\.literal\(([^)]*)\)/g)].map((m) => m[1]).sort();
     expect(literals).toEqual(
       [
         '"AS-OF-DECLARED-CLOSE"',
         '"AS-OF-NOW"',
-        '"CONTINUING_SHARED_RECOGNITION"',
         '"ESTABLISHED"',
+        "CJA_OPPORTUNITY_ID",
         "COMMUNICATIVE_CONVENTION_CLOSE",
-        "true",
-        "true",
-        "true",
+        "CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE",
       ].sort(),
+    );
+    expect(contract).not.toMatch(
+      /CONTINUING_SHARED_RECOGNITION|CultureEvidenceReading|CultureAdmissionTest|independent_causal_inertia/,
     );
   });
 
-  it("no module reads the evidence beyond the Culture-defined reading: no count, share, headcount, free text or world truth is read from it", () => {
+  it("the close reads NO evidence at all: the manifestation is copied verbatim from the committed decision, and no foreign value (count, share, headcount, roster, free text, world truth) is read anywhere in the derivation", () => {
     const derive = code(`${CULTURE_DIR}/derive.ts`);
-    expect(derive).toMatch(/CultureEvidenceReadingSchema\.safeParse/);
-    for (const field of ["\\.count", "\\.share", "headcount", "\\.membership", "\\.members"])
+    expect(derive).toMatch(/manifestation: record\.candidate_manifestation/);
+    for (const field of [
+      "\\.count",
+      "\\.share",
+      "headcount",
+      "\\.membership",
+      "\\.members",
+      "recognition",
+    ])
       expect(derive, field).not.toMatch(new RegExp(field));
+    const provider = code(`${CULTURE_DIR}/provider.ts`);
+    expect(provider).toMatch(/input\.reads\.length !== 2/);
+    expect(provider).not.toMatch(/reads\.slice|reads\.map|reads\[[2-9]\]/);
   });
 });
 
@@ -267,7 +293,11 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
     ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
-    expect(classes.filter((c) => /Culture|Society|Social/.test(c!))).toEqual(["CultureAdapter"]);
+    expect(classes.filter((c) => /Culture|Society|Social/.test(c!)).sort()).toEqual([
+      "CultureAdapter",
+      "CultureAdjudicationAdapter",
+      "CultureContextAttestor",
+    ]);
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
       "file-package.ts",
@@ -315,9 +345,12 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
       );
   });
 
-  it("every evidence input is declared AS-OF-NOW after its owner's commit: no other basis is registered, and a declared-close input safe-stops its dependent conclusion", () => {
+  it("the close declares EXACTLY two AS-OF-NOW reads (context, decision) and no new Temporal read class; an input with any other basis safe-stops at SEAL", () => {
     const declaration = code(`${CULTURE_DIR}/declaration.ts`);
-    expect(declaration).toMatch(/i\.read\.basis !== "AS-OF-NOW"\)\) return null/);
+    expect(declaration).toMatch(
+      /reads: \[\s*cultureNowRead\(cultureUpdateContextKey\(context\.update_id\)\),\s*\{\s*mode: READ_MODE_NOW,/,
+    );
+    expect(declaration.match(/mode: READ_MODE_NOW/g)).toHaveLength(2);
     expect(code(`${CULTURE_DIR}/derive.ts`)).toMatch(/input\.read\.basis !== "AS-OF-NOW"/);
   });
 
@@ -329,13 +362,30 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     );
   });
 
-  it("the update identity is derived from exactly referent, scope and context: no evidence, manifestation, time, retry or version participates", () => {
+  it("the Culture STATE SLOT is derived from exactly referent, scope and context — no trigger, evidence, manifestation, time, retry or version participates — and is distinct from the CJA1 update identity", () => {
     const derive = code(`${CULTURE_DIR}/derive.ts`);
-    const id = /cultureUpdateId = [\s\S]*?\}\)\}`;/.exec(derive)![0];
-    expect(id).toMatch(/referent/);
-    expect(id).toMatch(/scope/);
-    expect(id).toMatch(/context/);
-    expect(id).not.toMatch(/evidence|manifestation|version|retry|time|slice|horizon|input/i);
+    const id = /cultureSlotId = [\s\S]*?\}\)\}`;/.exec(derive)![0];
+    expect(id).toMatch(/referent_key/);
+    expect(id).toMatch(/scope_key/);
+    expect(id).toMatch(/context_id/);
+    expect(id).not.toMatch(
+      /trigger|evidence|manifestation|version|retry|time|slice|horizon|input/i,
+    );
+    expect(derive).toMatch(/cjaCultureUpdateId\(\{/);
+    expect(derive).not.toMatch(/function cultureUpdateId|const cultureUpdateId/);
+  });
+
+  it("CJA1 is reused, not forked or promoted: the Culture modules import the merged adjudication derivations, and the spec lock does not mention CJA1", () => {
+    expect(code(`${CULTURE_DIR}/derive.ts`)).toMatch(
+      /from "\.\.\/culture-adjudication\/derive\.ts"/,
+    );
+    expect(code(`${CULTURE_DIR}/adapter.ts`)).toMatch(
+      /from "\.\.\/culture-adjudication\/ports\.ts"/,
+    );
+    expect(JSON.stringify(lock)).not.toContain("CJA1");
+    expect(CULTURE_RULE.authority_lineage.join("\n")).toContain(
+      "not native-pinned, not in the F-027 spec lock",
+    );
   });
 
   it("the temporal coordinator itself was not changed to know the Culture owner", () => {
@@ -430,6 +480,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "declaration.ts",
       "derive.ts",
       "integrity.ts",
+      "population-scope.ts",
+      "ports.ts",
       "provider.ts",
     ]);
     expect(
@@ -441,6 +493,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "causal-draw",
       "commit",
       "culture",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",

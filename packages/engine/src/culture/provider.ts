@@ -5,7 +5,9 @@ import {
   CultureUpdateContextSchema,
   FACET_CULTURE_SOCIAL,
   OWNER_CULTURE,
+  cjaDecisionKey,
   cultureSharedMeaningKey,
+  cultureUpdateContextKey,
 } from "@immortalis/contracts";
 import { CULTURE_RULE } from "../owners/registry.ts";
 import {
@@ -19,10 +21,12 @@ import { deriveSharedMeaning } from "./derive.ts";
 /**
  * IM-09 — the one Culture owner operation (WS-005 Draft v2 §4.5), exposed to the IM-02 coordinator through the owner-adapter
  * seam: it commits one established shared meaning/norm at the Culture owner's declared Communicative Convention Close. Pure
- * and deterministic: identical input, identical writes; nothing is drawn, rolled or defaulted. It reads exactly the committed
- * sealed context and the committed evidence inputs the context pins, in order, and invents nothing: no meaning, norm,
- * prevalence, adoption, belief, motive or number. It throws StageUnresolvedError (nothing committed, nothing credited,
- * dependents wait) when its sources do not lawfully establish a shared meaning/norm — the "unresolved, write nothing" outcome.
+ * and deterministic: identical input, identical writes; nothing is drawn, rolled or defaulted, and NO model is called. It reads
+ * EXACTLY two facts, both AS-OF-NOW — the committed sealed context and the committed immutable adjudication decision — and
+ * invents nothing: no meaning, norm, prevalence, adoption, belief, motive or number. The manifestation is the one the GM's
+ * judgment authored. It throws StageUnresolvedError (nothing committed, nothing credited, dependents wait) when its sources do
+ * not lawfully establish a shared meaning/norm: an absent or malformed decision, and every NOT_SUPPORTED, UNRESOLVED or
+ * DERIVE_WITHOUT_PERSISTENCE decision, write NO Culture fact.
  */
 const unresolved = (reason: ConstructorParameters<typeof StageUnresolvedError>[0], msg: string) =>
   new StageUnresolvedError(reason, msg);
@@ -33,38 +37,52 @@ export const cultureConventionCloseProvider: StageProvider = {
   operation: CULTURE_OPERATION_COMMIT_COMMUNICATIVE_CONVENTION_CLOSE,
   rule: CULTURE_RULE,
   compute(input: StageInput): readonly StageWrite[] {
-    if (input.reads.length < 2)
+    if (input.reads.length !== 2) {
       throw unresolved(
         "SOURCE_ABSENT",
-        "a Communicative Convention Close reads exactly its sealed context and its engaged evidence",
+        "a Communicative Convention Close reads exactly its sealed context and its committed adjudication decision",
       );
+    }
     const contextFact = input.reads[0]!.fact;
+    const decisionFact = input.reads[1]!.fact;
     const context = CultureUpdateContextSchema.safeParse(contextFact.value);
     if (!context.success) throw unresolved("SOURCE_INVALID", "the context violates its contract");
-    const key = cultureSharedMeaningKey(context.data.update_id);
+    const c = context.data;
+    if (
+      contextFact.key !== cultureUpdateContextKey(c.update_id) ||
+      decisionFact.key !== cjaDecisionKey(c.update_id)
+    ) {
+      throw unresolved(
+        "SOURCE_INVALID",
+        "the close reads the context and decision of its own update",
+      );
+    }
+    const key = cultureSharedMeaningKey(c.slot_id);
     if (input.produces.length !== 1 || input.produces[0] !== key)
       throw unresolved("SOURCE_INVALID", "the close does not write its own meaning slot");
     if (input.prior.has(key))
-      throw unresolved("SOURCE_INVALID", "the shared meaning is already committed at its close");
+      throw unresolved(
+        "SOURCE_INVALID",
+        "the Culture slot is occupied: occupied-slot evolution is deferred and never overwritten",
+      );
     const derived = deriveSharedMeaning({
       context: {
         key: contextFact.key,
         owner: contextFact.owner,
         version: contextFact.version,
-        value: context.data,
+        group_id: contextFact.provenance.group_id,
+        value: c,
       },
-      evidence: input.reads.slice(1).map((r) => ({
-        key: r.fact.key,
-        owner: r.fact.owner,
-        version: r.fact.version,
-        value: r.fact.value,
-      })),
+      decision: {
+        key: decisionFact.key,
+        owner: decisionFact.owner,
+        version: decisionFact.version,
+        group_id: decisionFact.provenance.group_id,
+        value: decisionFact.value,
+      },
     });
     if (!derived.ok) {
-      throw unresolved(
-        derived.error.code === "EVIDENCE_BASIS_UNREGISTERED" ? "SOURCE_ABSENT" : "SOURCE_INVALID",
-        derived.error.message,
-      );
+      throw unresolved("SOURCE_INVALID", derived.error.message);
     }
     CultureSharedMeaningSchema.parse(derived.value);
     return [

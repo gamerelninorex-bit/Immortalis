@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "c4606c78b87b880018cb7fd0f50e7462f4e0e27c56c12be19820736c9b390128",
+    "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
   "packages/engine/src/logistics/derive.ts":
@@ -64,7 +64,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "61ee32056b8fdd2f85018b26303eba88a4e116665f10c4e49eb7c9cd70625025",
+    "e71a16ba1882e636d218fe5580aa1cf22bef473594258797603e110d04587afc",
   "packages/engine/src/temporal/coordinator.ts":
     "911fcebf9192ddd4e4b620c738ffbfa5f3fb7a9daee47131b880117dfc67f2f5",
   "packages/engine/src/projection/event-signal.ts":

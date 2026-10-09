@@ -335,7 +335,8 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     facet: "culture_social",
     lifecycle: "SEALED",
     group: "CULTURE_FACT_KINDS",
-    exampleKey: "culture/update/u1/context",
+    exampleKey:
+      "culture/update/0000000000000000000000000000000000000000000000000000000000000000/context",
   },
   {
     id: "culture_shared_meaning",
@@ -427,6 +428,15 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey:
       "causal-draw/0000000000000000000000000000000000000000000000000000000000000000/result",
   },
+  {
+    id: "culture_adjudication_decision",
+    owner: "culture_adjudication_kernel",
+    facet: "adjudication_provenance",
+    lifecycle: "SEALED",
+    group: "CULTURE_ADJUDICATION_FACT_KINDS",
+    exampleKey:
+      "adjudication-culture/0000000000000000000000000000000000000000000000000000000000000000/decision",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -451,6 +461,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "diplomacy_framework",
   ],
   causal_draw_kernel: ["draw_provenance"],
+  culture_adjudication_kernel: ["adjudication_provenance"],
 };
 
 /**
@@ -511,6 +522,19 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     methods: ["draw", "precommit", "result"],
     source: {
       file: "packages/engine/src/causal-draw/adapter.ts",
+      commitCalls: 1,
+      establishWriters: [],
+    },
+  },
+  /**
+   * The infrastructure-only Culture adjudication-record owner path (F-027-CJA1): ONE operation (`adjudicate`) and one typed
+   * read by identity. No record writer, amender or Culture-fact writer exists: every record is published through the
+   * adapter's single `.commit(` call.
+   */
+  CultureAdjudicationAdapter: {
+    methods: ["adjudicate", "decision"],
+    source: {
+      file: "packages/engine/src/culture-adjudication/adapter.ts",
       commitCalls: 1,
       establishWriters: [],
     },

@@ -1,622 +1,320 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and meaning values */
-// Culture & Society — save → close → load → continue across every meaningful durable cut of the update lifecycle, a failure at
-// every durable step of the multi-step boundaries this slice introduces (the evidence-pinning context seal, then the
-// Communicative Convention Close transaction: authority, Culture stage, consuming stage, kernel group), and load-time failure
-// on a corrupted or inconsistent save. The Culture path reuses the existing persistence, receipts, journal and stage-identity
-// machinery: after any crash, retry, replay or reload the context and the meaning each exist exactly once, keep their
-// identity, their pinned evidence and their close evidence, and are never re-published, improved or re-rolled (no randomness
-// exists).
-// Register lineage: IA-06, IA-16 (partial), IA-22 (partial), IA-30 (partial); RC-04, RC-05, RC-11, RC-16; IM-02, IM-03, IM-09,
-// IM-12, IM-17. Local success is NOT provider/recovery acceptance (IA-07 BLOCKED).
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact values and groups */
+// Culture recovery — later ordinary source and Population version churn never strands, renames, invalidates or rerolls the
+// sealed judgment; RC-16 retries and reopen never re-adjudicate or duplicate; load integrity (the Culture and CJA1
+// verifiers, from committed state and the journal alone) fails a corrupt decision, context, source group or Cohort group.
 import { describe, expect, it } from "vitest";
 import {
-  COMMUNICATIVE_CONVENTION_CLOSE,
-  cultureConventionStage,
+  cjaDecisionKey,
   cultureSharedMeaningKey,
   cultureUpdateContextKey,
+  type CjaDecisionRecord,
 } from "@immortalis/contracts";
 import {
-  CANONICAL_OWNER_REGISTRY,
-  CULTURE_RULE,
-  CanonicalCampaign,
   CultureAdapter,
-  createFileCampaign,
-  stageGroupId,
-  stageIntentId,
+  verifyCultureAdjudicationIntegrity,
+  verifyCultureIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
+import { observationGroup, observationKey } from "@immortalis/testkit";
 import {
-  CULTURE_FIXTURE_EXTENSION,
   FIXTURE_CAMPAIGN,
-  at,
-  cultureConsumerResultKey,
-  culturePublication,
-  evidenceInput,
-  group,
-  socialEvidenceKey,
-  write,
-} from "@immortalis/testkit";
-import {
-  REFERENT_KEY,
-  SCOPE_KEY,
-  commitEvidence,
-  cultureCoordinator,
-  cultureSummary,
-  primaryContext,
+  advanceCulture,
+  completePopulationClose2,
+  commitPending,
+  judge,
+  judgedCulture,
+  lateExit,
   registerCultureConsumer,
   reopenCulture,
-  requestTo,
-  sealContext,
+  seal,
+  sealedContexts,
   seededCultureCampaign,
+  commitObservations,
+  populationScope,
+  sealRequest,
   type CultureSeeded,
 } from "../support/culture.ts";
+import { crashBefore, lostReply } from "../support/culture-adjudication.ts";
 import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 
-const context = primaryContext();
-const ctxKey = cultureUpdateContextKey(context.update_id);
-const meaningKey = cultureSharedMeaningKey(context.update_id);
-const evKey = socialEvidenceKey("ev1");
-const stage = cultureConventionStage(context.update_id);
-// the consumer's one earned boundary: the seeded canonical time is 100, so the consequence is due at 110 (deterministic)
-const request = () => requestTo("tx-1", at(110));
-const advance = (s: Pick<CultureSeeded, "coordinator">) => s.coordinator.advance(request());
+const cultureKeys = (s: CultureSeeded) =>
+  s.campaign.store
+    .listFacts()
+    .filter((f) => f.key.startsWith("culture/") || f.key.startsWith("adjudication-culture/"))
+    .map((f) => f.key);
 
-/** A store that "crashes" (nothing committed, unknown outcome) before the first group the predicate names. */
-function crashBefore(inner: CampaignStore, block: (g: any) => boolean): CampaignStore {
-  return {
-    descriptor: inner.descriptor,
-    head: () => inner.head(),
-    getFact: (k) => inner.getFact(k),
-    listFacts: () => inner.listFacts(),
-    lookupReceipt: (i) => inner.lookupReceipt(i),
-    committedGroup: (i) => inner.committedGroup(i),
-    close: () => inner.close(),
-    commit: async (g: any) =>
-      block(g)
-        ? ({ ok: false, error: { code: "UNKNOWN_OUTCOME", message: "crash" } } as never)
-        : inner.commit(g),
-  };
-}
-/** A store that COMMITS the group the predicate names and then loses the reply (unknown outcome). */
-function lostReply(inner: CampaignStore, block: (g: any) => boolean): CampaignStore {
-  return {
-    ...crashBefore(inner, () => false),
-    commit: async (g: any) => {
-      const r = await inner.commit(g);
-      return block(g)
-        ? ({ ok: false, error: { code: "UNKNOWN_OUTCOME", message: "lost reply" } } as never)
-        : r;
-    },
-  };
-}
-const isStageGroup = (g: any) => g.writes.some((w: any) => w.key === meaningKey);
-const isConsumerGroup = (g: any) =>
-  g.writes.some((w: any) => w.key === cultureConsumerResultKey("c1"));
-const isKernelGroup = (g: any) => g.group_id.startsWith("transaction-group:");
-const isAuthorityGroup = (g: any) => g.group_id.startsWith("transaction-authority-group:");
-const isContextGroup = (g: any) => g.writes.some((w: any) => w.key === ctxKey);
+describe("ordinary version churn after seal never invalidates the sealed truth", () => {
+  it("a foreign source advancing and a second Population reconciliation after seal and judgment leave the same sealed close, reading exactly two facts", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s);
+    const decisionBefore = s.gm.decision(ctx.updateId)!;
+    // real source churn: a cited observation advances to v2 ...
+    await must(
+      s.campaign.store.commit(
+        observationGroup(
+          FIXTURE_CAMPAIGN,
+          90,
+          "obs-repeat",
+          { kind: "OBSERVED_ACT", later: true },
+          1,
+        ),
+      ),
+    );
+    // ... and real Population churn: a pending consequence is consumed by a second reconciliation (Cohort/close/ledger advance)
+    await commitPending(s.campaign.store, 60, [lateExit()]);
+    const cohortBefore = s.campaign.store.getFact(ctx.value.constituency.cohort_fact_key)!.version;
+    await completePopulationClose2(s);
+    expect(s.campaign.store.getFact(observationKey("obs-repeat"))!.version).toBe(2);
+    expect(
+      s.campaign.store.getFact(ctx.value.constituency.cohort_fact_key)!.version,
+    ).toBeGreaterThan(cohortBefore);
 
-/** The lifecycle as ordered steps, each idempotent in intent: the evidence is committed first, Culture state follows it. */
-const steps = {
-  evidence: (s: CultureSeeded) => commitEvidence(s, 1, "ev1"),
-  context: (s: CultureSeeded) => sealContext(s, 1, context).then(() => undefined),
-  register: (s: CultureSeeded) => registerCultureConsumer(s, "c1", context, 2),
-  advance: (s: CultureSeeded) => must(advance(s)).then(() => undefined),
-};
-const prepare = async (s: CultureSeeded) => {
-  await steps.evidence(s);
-  await steps.context(s);
-  await steps.register(s);
-};
+    await registerCultureConsumer(s, "c1", ctx.value, 70);
+    const r = await must(advanceCulture(s, "tx-c1", "c1"));
+    expect(r.transaction.outcome.unresolved_dependents).toEqual([]);
+    const meaning = s.culture.sharedMeaning(ctx.value.slot_id)!;
+    expect(meaning.value.establishment.update_id).toBe(ctx.updateId);
+    expect(
+      s.campaign.store.committedGroup(meaning.fact.provenance.intent_id)!.reads.map((x) => x.key),
+    ).toEqual([cultureUpdateContextKey(ctx.updateId), cjaDecisionKey(ctx.updateId)]);
+    // the decision is the same immutable record: never renamed, rerolled or re-adjudicated
+    expect(s.gm.decision(ctx.updateId)).toEqual(decisionBefore);
+    expect(s.campaign.verify()).toEqual([]);
+    expect(verifyCultureIntegrity(s.campaign.store)).toEqual([]);
+    expect(verifyCultureAdjudicationIntegrity(s.campaign.store)).toEqual([]);
+  });
 
-/** The deterministic reference: the whole lifecycle, uninterrupted. */
-async function referenceRun() {
-  const s = await seededCultureCampaign(tempDir());
-  await prepare(s);
-  await must(advance(s));
-  const head = s.campaign.store.head();
-  const summary = cultureSummary(s.campaign, s.coordinator);
-  await s.campaign.close();
-  return { head, summary };
-}
-const same = (head: ReturnType<CampaignStore["head"]>, ref: ReturnType<CampaignStore["head"]>) => {
-  expect(head.state_sha256).toBe(ref.state_sha256);
-  expect(head.journal_entries).toBe(ref.journal_entries);
-  expect(head.journal_head_sha256).toBe(ref.journal_head_sha256);
-};
-const versions = (s: CultureSeeded) => {
-  const f = (k: string) => s.campaign.store.getFact(k)?.version ?? 0;
-  return {
-    evidence: f(evKey),
-    context: f(ctxKey),
-    meaning: f(meaningKey),
-    consumer: f(cultureConsumerResultKey("c1")),
-  };
-};
+  it("retrying the seal and the judgment after the world has moved replays the originals by identity", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s);
+    await must(
+      s.campaign.store.commit(
+        observationGroup(
+          FIXTURE_CAMPAIGN,
+          91,
+          "obs-repeat",
+          { kind: "OBSERVED_ACT", later: true },
+          1,
+        ),
+      ),
+    );
+    const again = await must(seal(s));
+    expect(again.replayed).toBe(true);
+    const judged = await must(judge(s, ctx.updateId, "positive"));
+    expect(judged.disposition).toBe("REPLAYED");
+    expect(cultureKeys(s)).toEqual(
+      [cultureUpdateContextKey(ctx.updateId), cjaDecisionKey(ctx.updateId)].sort(),
+    );
+    // a changed judgment for the same immutable update is a conflict that replaces nothing
+    const changed = await judge(s, ctx.updateId, "not_supported");
+    expect(!changed.ok && changed.error.code).toBe("DECISION_CONFLICT");
+  });
+});
 
-type Cut = {
-  name: string;
-  build: (s: CultureSeeded) => Promise<void>;
-  /** the remaining lifecycle steps that finish it */
-  rest: (keyof typeof steps)[];
-  versions: ReturnType<typeof versions>;
-};
-const cuts: Cut[] = [
-  {
-    name: "canonical world and temporal basis committed, no evidence yet",
-    build: async () => {},
-    rest: ["evidence", "context", "register", "advance"],
-    versions: { evidence: 0, context: 0, meaning: 0, consumer: 0 },
-  },
-  {
-    name: "evidence committed, no sealed context yet",
-    build: steps.evidence,
-    rest: ["context", "register", "advance"],
-    versions: { evidence: 1, context: 0, meaning: 0, consumer: 0 },
-  },
-  {
-    name: "context sealed, its consequence not yet registered",
-    build: async (s) => {
-      await steps.evidence(s);
-      await steps.context(s);
-    },
-    rest: ["register", "advance"],
-    versions: { evidence: 1, context: 1, meaning: 0, consumer: 0 },
-  },
-  {
-    name: "consequence registered, boundary not yet resolved",
-    build: prepare,
-    rest: ["advance"],
-    versions: { evidence: 1, context: 1, meaning: 0, consumer: 0 },
-  },
-  {
-    name: "Communicative Convention Close committed, consuming stage not",
-    build: async (s) => {
-      await prepare(s);
-      const r = await cultureCoordinator(crashBefore(s.campaign.store, isConsumerGroup)).advance(
-        request(),
-      );
-      expect(r.ok).toBe(false);
-    },
-    rest: ["advance"],
-    versions: { evidence: 1, context: 1, meaning: 1, consumer: 0 },
-  },
-  {
-    name: "all stages committed, the kernel transaction not",
-    build: async (s) => {
-      await prepare(s);
-      await cultureCoordinator(crashBefore(s.campaign.store, isKernelGroup)).advance(request());
-    },
-    rest: ["advance"],
-    versions: { evidence: 1, context: 1, meaning: 1, consumer: 1 },
-  },
-  {
-    name: "completed and sealed by its transaction",
-    build: async (s) => {
-      await prepare(s);
-      await steps.advance(s);
-    },
-    rest: [],
-    versions: { evidence: 1, context: 1, meaning: 1, consumer: 1 },
-  },
-];
+describe("save, close and reopen", () => {
+  it("a reopened campaign keeps context, decision and (after the close) meaning; nothing is re-adjudicated or duplicated; a second consumer adopts the fact", async () => {
+    const dir = tempDir();
+    const s = await seededCultureCampaign(dir);
+    const ctx = await judgedCulture(s);
+    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    await must(advanceCulture(s, "tx-c1", "c1"));
+    const head = s.campaign.store.head();
+    await s.campaign.store.close();
 
-describe("save → close → load → continue at every durable cut of the update lifecycle (acceptance: durability across reload)", () => {
-  for (const cut of cuts) {
-    it(`${cut.name}: reloads unchanged, verifies, and the continuation converges on the uninterrupted result`, async () => {
-      const ref = await referenceRun();
+    const r = await reopenCulture(dir);
+    expect(r.campaign.store.head().journal_head_sha256).toBe(head.journal_head_sha256);
+    expect(r.campaign.verify()).toEqual([]);
+    expect(r.culture.sharedMeaning(ctx.value.slot_id)!.value.manifestation).toBe(
+      "manifestation-visitor-first-seating",
+    );
+    const replay = await must(judge(r, ctx.updateId, "positive"));
+    expect(replay.disposition).toBe("REPLAYED");
+    expect(r.campaign.store.head().journal_entries).toBe(head.journal_entries);
+    const sealAgain = await must(seal(r));
+    expect(sealAgain.replayed).toBe(true);
+    await registerCultureConsumer(r, "c2", ctx.value, 11);
+    await must(advanceCulture(r, "tx-c2", "c2"));
+    expect(cultureKeys(r)).toHaveLength(3);
+    expect(r.campaign.verify()).toEqual([]);
+  });
+
+  it("a lost reply and a crash at the seal reconcile by the deterministic identity", async () => {
+    for (const wrap of [lostReply, crashBefore]) {
       const dir = tempDir();
       const s = await seededCultureCampaign(dir);
-      await cut.build(s);
-      expect(versions(s)).toEqual(cut.versions);
-      const before = cultureSummary(s.campaign, s.coordinator);
-      expect(s.campaign.verify()).toEqual([]);
-      await s.campaign.close();
-      const r = await reopenCulture(dir);
-      expect(r.campaign.verify()).toEqual([]);
-      expect(cultureSummary(r.campaign, r.coordinator)).toEqual(before);
-      expect(versions(r)).toEqual(cut.versions);
-      // continue: whatever the cut, finishing the lifecycle reaches the reference result
-      for (const step of cut.rest) await steps[step](r);
-      if (cut.rest.length === 0) expect((await must(advance(r))).replayed).toBe(true);
-      same(r.campaign.store.head(), ref.head);
-      expect(cultureSummary(r.campaign, r.coordinator)).toEqual(ref.summary);
-      expect(r.campaign.verify()).toEqual([]);
-      await r.campaign.close();
-    });
-  }
-
-  it("the established fact is addressably readable after a reload and continues: identity, pinned evidence and close evidence are preserved; nothing is re-published", async () => {
-    const dir = tempDir();
-    const s = await seededCultureCampaign(dir);
-    await prepare(s);
-    await must(advance(s));
-    const meaning = structuredClone(s.campaign.store.getFact(meaningKey)!);
-    const ctx = structuredClone(s.campaign.store.getFact(ctxKey)!);
-    const evidence = structuredClone(s.campaign.store.getFact(evKey)!);
-    const receipt = s.campaign.store.lookupReceipt(stageIntentId(stage))!;
-    await s.campaign.close();
-    const r = await reopenCulture(dir);
-    expect(r.campaign.store.getFact(meaningKey)).toEqual(meaning);
-    expect(r.campaign.store.getFact(ctxKey)).toEqual(ctx);
-    expect(r.campaign.store.getFact(evKey)).toEqual(evidence);
-    expect(r.campaign.store.lookupReceipt(stageIntentId(stage))).toEqual(receipt);
-    const m = r.culture.sharedMeaning(context.update_id)!;
-    expect(m.close_group).toBe(stageGroupId(stage));
-    expect(m.value.close).toEqual({ name: COMMUNICATIVE_CONVENTION_CLOSE, stage });
-    expect(m.value.establishment.update).toEqual({ fact_key: ctxKey, version: 1 });
-    expect(m.value.establishment.evidence).toEqual(context.inputs);
-    expect(m.value.referent).toEqual({ fact_key: REFERENT_KEY, version: 1 });
-    expect(m.value.scope).toEqual({ fact_key: SCOPE_KEY, version: 1 });
-    // the saved Culture state is engine-sealed and holds no evidence content
-    expect(m.fact.secrecy).toBe("culture.engine-sealed");
-    expect(JSON.stringify(m.value)).not.toContain("CONTINUING_SHARED_RECOGNITION");
-    // idempotent recovery: continuing replays; no group is committed again, and the slot stays occupied
-    const again = await must(advance(r));
-    expect(again.replayed).toBe(true);
-    expect(r.campaign.store.getFact(meaningKey)).toEqual(meaning);
-    const dup = await r.culture.sealUpdateContext({ ...culturePublication(77), context });
-    expect(dup.ok).toBe(false);
-    // a later change is a new cause, never a silent overwrite of the same result identity
-    expect(r.campaign.store.getFact(meaningKey)!.version).toBe(1);
-    await r.campaign.close();
-  });
-});
-
-describe("a failure at EVERY durable step converges by identity (acceptance: idempotence / recovery / no duplicate effect)", () => {
-  const converge = async (
-    build: (s: CultureSeeded) => Promise<void>,
-    finish: (s: CultureSeeded) => Promise<void>,
-  ) => {
-    const ref = await referenceRun();
-    const dir = tempDir();
-    const s = await seededCultureCampaign(dir);
-    await build(s);
-    await s.campaign.close();
-    const r = await reopenCulture(dir);
-    await finish(r);
-    same(r.campaign.store.head(), ref.head);
-    expect(cultureSummary(r.campaign, r.coordinator)).toEqual(ref.summary);
-    expect(r.campaign.verify()).toEqual([]);
-    await r.campaign.close();
-  };
-
-  it("the CONTEXT seal: a crash before it, and a lost reply after it, converge on one sealed context", async () => {
-    // crash before the group takes effect
-    {
-      const s = await seededCultureCampaign(tempDir());
-      await steps.evidence(s);
-      const adapter = new CultureAdapter(crashBefore(s.campaign.store, isContextGroup));
-      const r = await adapter.sealUpdateContext({ ...culturePublication(1), context });
-      expect(!r.ok && r.error.code).toBe("UNKNOWN_OUTCOME");
-      expect(s.campaign.store.getFact(ctxKey)).toBeUndefined();
-      await steps.context(s);
-      expect(s.campaign.store.getFact(ctxKey)!.version).toBe(1);
-      await s.campaign.close();
-    }
-    // lost reply AFTER it took effect: re-presenting converges on the existing result
-    {
-      const s = await seededCultureCampaign(tempDir());
-      await steps.evidence(s);
-      const adapter = new CultureAdapter(lostReply(s.campaign.store, isContextGroup));
-      const lost = await adapter.sealUpdateContext({ ...culturePublication(1), context });
-      expect(!lost.ok && lost.error.code).toBe("UNKNOWN_OUTCOME");
-      const committed = structuredClone(s.campaign.store.getFact(ctxKey)!);
-      expect(committed.version).toBe(1);
-      const head = s.campaign.store.head();
-      const replay = await must(
-        new CultureAdapter(s.campaign.store).sealUpdateContext({
-          ...culturePublication(1),
-          context,
-        }),
-      );
-      expect(replay.replayed).toBe(true);
-      expect(s.campaign.store.head()).toEqual(head);
-      expect(s.campaign.store.getFact(ctxKey)).toEqual(committed);
-      // a CHANGED intent under the same identity is a conflict, never a silent reuse of the old receipt
-      const changed = await s.culture.sealUpdateContext({
-        ...culturePublication(1),
-        context: primaryContext([evidenceInput("ev1")], { contextName: "another-context" }),
+      await commitObservations(s);
+      const blocked = wrap(s.campaign.store, (g: any) =>
+        g.group_id.startsWith("culture:context:group:v1:"),
+      ) as CampaignStore;
+      const flaky = new CultureAdapter(blocked, {
+        populationScope: populationScope(s.campaign.store),
       });
-      expect(changed.ok).toBe(false);
-      expect(s.culture.updateContext(context.update_id)!.value).toEqual(context);
-      await s.campaign.close();
+      const first = await flaky.sealUpdateContext({
+        basis: "b",
+        request: sealRequest(),
+      });
+      expect(!first.ok && first.error.code).toBe("UNKNOWN_OUTCOME");
+      await s.campaign.store.close();
+      const r = await reopenCulture(dir);
+      const retry = await must(seal(r));
+      expect(retry.replayed).toBe(wrap === lostReply);
+      expect(sealedContexts(r)).toHaveLength(1);
+      expect(r.campaign.verify()).toEqual([]);
     }
-  });
-
-  it("the CLOSE TRANSACTION: a crash before each durable step (authority, Culture stage, consuming stage, kernel group) converges on the identical campaign", async () => {
-    for (const [name, block] of [
-      ["authority", isAuthorityGroup],
-      ["Culture stage", isStageGroup],
-      ["consuming stage", isConsumerGroup],
-      ["kernel group", isKernelGroup],
-    ] as const) {
-      await converge(
-        async (s) => {
-          await prepare(s);
-          const r = await cultureCoordinator(crashBefore(s.campaign.store, block)).advance(
-            request(),
-          );
-          expect(r.ok, name).toBe(false);
-        },
-        async (s) => void (await must(advance(s))),
-      );
-    }
-  });
-
-  it("the CLOSE TRANSACTION: a lost reply after each durable step converges, and a committed result is adopted, never recomputed or re-published", async () => {
-    for (const [name, block] of [
-      ["Culture stage", isStageGroup],
-      ["consuming stage", isConsumerGroup],
-      ["kernel group", isKernelGroup],
-    ] as const) {
-      await converge(
-        async (s) => {
-          await prepare(s);
-          const r = await cultureCoordinator(lostReply(s.campaign.store, block)).advance(request());
-          expect(r.ok, name).toBe(false);
-          if (name === "Culture stage") expect(s.campaign.store.getFact(meaningKey)).toBeDefined();
-        },
-        async (s) => {
-          const r = await must(advance(s));
-          if (name !== "kernel group") expect(r.adopted.length).toBeGreaterThan(0);
-          if (name === "Culture stage") expect(r.adopted).toContainEqual(stage);
-        },
-      );
-    }
-  });
-
-  it("an UNKNOWN outcome is reconciled by identity before any retry can create another result: no sibling meaning, no second close, no improved fact", async () => {
-    const s = await seededCultureCampaign(tempDir());
-    await prepare(s);
-    await cultureCoordinator(lostReply(s.campaign.store, isStageGroup)).advance(request());
-    const receipt = s.campaign.store.lookupReceipt(stageIntentId(stage))!;
-    const meaning = structuredClone(s.campaign.store.getFact(meaningKey)!);
-    for (let i = 0; i < 3; i++) await must(advance(s));
-    expect(s.campaign.store.lookupReceipt(stageIntentId(stage))).toEqual(receipt);
-    expect(s.campaign.store.getFact(meaningKey)).toEqual(meaning);
-    expect(
-      s.campaign.store.listFacts().filter((f) => f.key.startsWith("culture/meaning/")),
-    ).toHaveLength(1);
-    expect(s.campaign.store.getFact(meaningKey)!.version).toBe(1);
-    expect(s.campaign.store.getFact(meaningKey)!.provenance.group_id).toBe(stageGroupId(stage));
-    await s.campaign.close();
   });
 });
 
-describe("load fails closed on a corrupted or inconsistent save (acceptance: durability across reload)", () => {
-  async function saved(): Promise<string> {
-    const dir = tempDir();
-    const s = await seededCultureCampaign(dir);
-    await prepare(s);
-    await must(advance(s));
-    await s.campaign.close();
-    return dir;
-  }
-  const stateFile = (d: string) => readdirSync(d).find((f) => f.startsWith("state."))!;
-  const openOutcome = async (dir: string) => {
-    const r = await CanonicalCampaign.open(dir, { extension: CULTURE_FIXTURE_EXTENSION });
-    if (r.ok) {
-      await r.value.close();
-      return "OK";
-    }
-    return r.error.code === "CANON_INTEGRITY"
-      ? (r.error.details?.["violations"] as { code: string }[]).map((v) => v.code).join(",")
-      : r.error.code;
-  };
+/** a rogue view of the store: the same campaign with one fact rewritten and/or the journal's group lookups lied about */
+const rogue = (
+  inner: CampaignStore,
+  o: {
+    fact?: (f: any) => any;
+    groupById?: (id: string) => string;
+    group?: (g: any) => any;
+  },
+): CampaignStore => ({
+  descriptor: inner.descriptor,
+  head: () => inner.head(),
+  getFact: (k) => (o.fact ? o.fact(inner.getFact(k)) : inner.getFact(k)),
+  listFacts: () => (o.fact ? inner.listFacts().map((f) => o.fact!(f)) : inner.listFacts()),
+  lookupReceipt: (i) => inner.lookupReceipt(i),
+  committedGroup: (i) => {
+    const g = inner.committedGroup(i);
+    return o.group && g ? o.group(structuredClone(g)) : g;
+  },
+  committedGroupById: (id) => inner.committedGroupById!(o.groupById ? o.groupById(id) : id),
+  close: () => inner.close(),
+  commit: (g) => inner.commit(g),
+});
 
-  it("a valid saved campaign opens", async () => {
-    expect(await openOutcome(await saved())).toBe("OK");
+describe("load integrity fails a corrupt decision, context, source group or Cohort group", () => {
+  const closed = async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s);
+    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    await must(advanceCulture(s, "tx-c1", "c1"));
+    return { s, ctx };
+  };
+  const bothViolations = (store: CampaignStore) => [
+    ...verifyCultureIntegrity(store),
+    ...verifyCultureAdjudicationIntegrity(store),
+  ];
+
+  it("the untampered closed campaign is clean", async () => {
+    const { s } = await closed();
+    expect(bothViolations(s.campaign.store)).toEqual([]);
   });
 
-  const savedEdits: Record<string, [string, (fact: any) => void]> = {
-    "meaning status retired": [meaningKey, (f) => (f.value.status = "RETIRED")],
-    "meaning manifestation changed": [
-      meaningKey,
-      (f) => (f.value.manifestation = "manifestation-b"),
+  it.each([
+    [
+      "a decision whose verdict no longer coheres",
+      (v: any) => (v.verdict = "DERIVE_WITHOUT_PERSISTENCE"),
+      "decision",
     ],
-    "meaning referent swapped": [meaningKey, (f) => (f.value.referent.fact_key = SCOPE_KEY)],
-    "meaning evidence re-pinned": [
-      meaningKey,
-      (f) => (f.value.establishment.evidence[0].version = 9),
+    [
+      "a decision citing another context group",
+      (v: any) => (v.context_ref.committed_by_group_id = "other"),
+      "decision",
     ],
-    "meaning close renamed": [meaningKey, (f) => (f.value.close.name = "social-relation-close")],
-    "meaning identity forged": [meaningKey, (f) => (f.value.update_id = "culture-update-forged")],
-    "prevalence added to the meaning": [meaningKey, (f) => (f.value.prevalence = 0.7)],
-    "cohort added to the meaning": [
-      meaningKey,
-      (f) => (f.value.cohort = "population/l1/cohort/c1"),
+    ["a decision with a dropped assessment", (v: any) => v.assessment.pop(), "decision"],
+    ["a context with a rewritten trigger", (v: any) => (v.trigger_ref.version = 9), "context"],
+    [
+      "a context with a rewritten slot",
+      (v: any) => (v.slot_id = "culture-slot-" + "1".repeat(64)),
+      "context",
     ],
-    "meaning class opened": [meaningKey, (f) => (f.secrecy = "epistemic.actor-accessible")],
-    "meaning owner changed": [meaningKey, (f) => (f.owner = "world_state")],
-    "meaning facet changed": [meaningKey, (f) => (f.facet = "meaning")],
-    "meaning version changed": [meaningKey, (f) => (f.version = 2)],
-    "meaning provenance group altered": [meaningKey, (f) => (f.provenance.group_id = "raw-group")],
-    "context scope swapped": [ctxKey, (f) => (f.value.scope.fact_key = REFERENT_KEY)],
-    "context input dropped": [ctxKey, (f) => (f.value.inputs = [])],
-    "context input basis changed": [
-      ctxKey,
-      (f) =>
-        (f.value.inputs[0].read = {
-          basis: "AS-OF-DECLARED-CLOSE",
-          close_basis: { name: "c", producer: { owner: "o", operation: "p" } },
+    [
+      "a context with a stand-in vouch",
+      (v: any) =>
+        (v.constituency.close_vouch = {
+          port: "PopulationCloseScopeVerifier",
+          live_population_admission: false,
+          reconciliation: "NOT_DUE",
         }),
+      "context",
     ],
-    "context manifestation asserted": [ctxKey, (f) => (f.value.manifestation = "manifestation-a")],
-    "context admission toggled": [
-      ctxKey,
-      (f) => (f.value.admission.may_alter_later_answer = false),
+    [
+      "a meaning with another manifestation",
+      (v: any) => (v.manifestation = "manifestation-forged"),
+      "meaning",
     ],
-    "context identity forged": [ctxKey, (f) => (f.value.update_id = "culture-update-forged")],
-    "context class opened": [ctxKey, (f) => (f.secrecy = "epistemic.actor-accessible")],
-  };
+  ])("reports %s", async (_n, edit, which) => {
+    const { s, ctx } = await closed();
+    const key =
+      which === "decision"
+        ? cjaDecisionKey(ctx.updateId)
+        : which === "context"
+          ? cultureUpdateContextKey(ctx.updateId)
+          : cultureSharedMeaningKey(ctx.value.slot_id);
+    const view = rogue(s.campaign.store, {
+      fact: (f) => {
+        if (!f || f.key !== key) return f;
+        const c = structuredClone(f);
+        edit(c.value);
+        return c;
+      },
+    });
+    expect(bothViolations(view).length).toBeGreaterThan(0);
+  });
 
-  it("an edit of the saved meaning or context — owner, facet, schema, class, status, references, identity or provenance — is not silently normalized", async () => {
-    for (const [name, [key, edit]] of Object.entries(savedEdits)) {
-      const dir = await saved();
-      const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
-      edit(j.facts.find((f: any) => f.key === key));
-      writeFileSync(p, JSON.stringify(j));
-      expect(await openOutcome(dir), name).not.toBe("OK");
-    }
-  }, 60_000);
+  it("reports a source version the journal does not show its cited group writing", async () => {
+    const { s, ctx } = await closed();
+    const cited = ctx.value.inputs[1]!.committed_by_group_id;
+    const other = ctx.value.inputs[2]!.committed_by_group_id;
+    const view = rogue(s.campaign.store, { groupById: (id) => (id === cited ? other : id) });
+    const bad = verifyCultureIntegrity(view);
+    expect(bad.some((b) => b.message.includes("HISTORICAL_SOURCE_PROOF_MISSING"))).toBe(true);
+  });
 
-  it("an edit of the saved evidence underneath the Culture state is not silently normalized either", async () => {
-    const edits: Record<string, (fact: any) => void> = {
-      "evidence manifestation changed": (f) => (f.value.manifestation = "manifestation-b"),
-      "evidence no longer continuing": (f) => (f.value.recognition = "ONCE"),
-      "evidence referent changed": (f) => (f.value.referent = SCOPE_KEY),
+  it("reports a Cohort whose cited reconciliation group the journal does not show writing it", async () => {
+    const { s, ctx } = await closed();
+    const cited = ctx.value.constituency.committed_by_group_id;
+    const other = ctx.value.inputs[0]!.committed_by_group_id;
+    const view = rogue(s.campaign.store, { groupById: (id) => (id === cited ? other : id) });
+    const bad = verifyCultureIntegrity(view);
+    expect(bad.some((b) => b.message.includes("HISTORICAL_SOURCE_PROOF_MISSING"))).toBe(true);
+  });
+
+  it("reports a context group that no longer reads exactly what the context pins", async () => {
+    const { s, ctx } = await closed();
+    const view = rogue(s.campaign.store, {
+      group: (g) =>
+        g.group_id.startsWith("culture:context:group:v1:") ? { ...g, reads: g.reads.slice(1) } : g,
+    });
+    expect(verifyCultureIntegrity(view).length).toBeGreaterThan(0);
+    expect(ctx.updateId).toBeTruthy();
+  });
+
+  it("reports a close that read more than its context and decision", async () => {
+    const { s } = await closed();
+    const view = rogue(s.campaign.store, {
+      group: (g) =>
+        g.writes?.[0]?.key?.startsWith("culture/meaning/")
+          ? { ...g, reads: [...g.reads, { key: observationKey("obs-trigger"), version: 1 }] }
+          : g,
+    });
+    expect(verifyCultureIntegrity(view).length).toBeGreaterThan(0);
+  });
+
+  it("reports a meaning that rests on no decision", async () => {
+    const { s, ctx } = await closed();
+    const view = rogue(s.campaign.store, {
+      fact: (f) => f,
+    });
+    const nodec: CampaignStore = {
+      ...view,
+      listFacts: () => view.listFacts().filter((f) => f.key !== cjaDecisionKey(ctx.updateId)),
     };
-    for (const [name, edit] of Object.entries(edits)) {
-      const dir = await saved();
-      const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
-      edit(j.facts.find((f: any) => f.key === evKey));
-      writeFileSync(p, JSON.stringify(j));
-      expect(await openOutcome(dir), name).not.toBe("OK");
-    }
+    expect(verifyCultureIntegrity(nodec).length).toBeGreaterThan(0);
   });
 
-  it("a journal edit of the context's or evidence's committed group fails replay", async () => {
-    const dir = await saved();
-    const journal = join(dir, "journal.jsonl");
-    const text = readFileSync(journal, "utf8");
-    expect(text).toContain("CONTINUING_SHARED_RECOGNITION");
-    writeFileSync(
-      journal,
-      text.replace("CONTINUING_SHARED_RECOGNITION", "CONTINUING_SHARED_RECOGNITION "),
-    );
-    expect(await openOutcome(dir)).not.toBe("OK");
-  });
-
-  it("a build that does not register the Culture owner cannot open the campaign", async () => {
-    const dir = await saved();
-    const r = await CanonicalCampaign.open(dir);
-    expect(r.ok).toBe(false);
-  });
-
-  /** A history built by a store with NO admission: consistent and replayable, but not canonical. */
-  async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
-    const dir = tempDir();
-    const s = await must(
-      createFileCampaign(dir, {
-        campaignId: FIXTURE_CAMPAIGN,
-        owners: new Map([...CANONICAL_OWNER_REGISTRY, ...CULTURE_FIXTURE_EXTENSION.owners]),
-      }),
-    );
-    await build(s);
-    await s.close();
-    return dir;
-  }
-  const put = (n: number, key: string, value: unknown, over: any = {}, groupOver: any = {}) =>
-    group(
-      FIXTURE_CAMPAIGN,
-      n,
-      [
-        write(key, value as never, {
-          owner: "culture",
-          facet: "culture_social",
-          secrecy: "culture.engine-sealed",
-          ...over,
-        }),
-      ],
-      { owner: "culture", facet: "culture_social", rule: CULTURE_RULE, ...groupOver },
-    );
-
-  it("a context with no committed referent, scope or evidence, and a meaning with no context, are CULTURE_STATE", async () => {
-    expect(
-      await openOutcome(
-        await rogue(async (s) => {
-          await must(s.commit(put(1, ctxKey, context)));
-        }),
-      ),
-    ).toMatch(/CULTURE_STATE/);
-    expect(
-      await openOutcome(
-        await rogue(async (s) => {
-          await must(
-            s.commit(
-              put(1, meaningKey, {
-                update_id: context.update_id,
-                status: "ESTABLISHED",
-                referent: context.referent,
-                scope: context.scope,
-                context: context.context,
-                manifestation: "manifestation-a",
-                establishment: {
-                  update: { fact_key: ctxKey, version: 1 },
-                  evidence: context.inputs,
-                },
-                close: { name: COMMUNICATIVE_CONVENTION_CLOSE, stage },
-              }),
-            ),
-          );
-        }),
-      ),
-    ).toMatch(/CULTURE_STATE/);
-  });
-
-  it("owner drift, rule drift, an unregistered Culture key, an overwritten seal and a malformed value are each detected on load", async () => {
-    expect(
-      await openOutcome(
-        await rogue(
-          async (s) =>
-            void (await must(s.commit(put(1, "culture/relation/r1", { prevalence: 0.5 })))),
-        ),
-      ),
-    ).toBe("UNREGISTERED_KEY");
-    expect(
-      await openOutcome(
-        await rogue(
-          async (s) =>
-            void (await must(
-              s.commit(
-                put(
-                  1,
-                  ctxKey,
-                  context,
-                  { owner: "world_state", facet: "world_profile" },
-                  { owner: "world_state", facet: "world_profile" },
-                ),
-              ),
-            )),
-        ),
-      ),
-    ).toMatch(/WRONG_OWNER_FACET/);
-    expect(
-      await openOutcome(
-        await rogue(
-          async (s) =>
-            void (await must(
-              s.commit(
-                put(1, ctxKey, context, {}, { rule: { ...CULTURE_RULE, clause: "drifted" } }),
-              ),
-            )),
-        ),
-      ),
-    ).toMatch(/RULE_DRIFT/);
-    for (const bad of [
-      { ...context, prevalence: 0.5 },
-      { ...context, inputs: [] },
-      { ...context, update_id: "" },
-    ])
-      expect(
-        await openOutcome(
-          await rogue(async (s) => void (await must(s.commit(put(1, ctxKey, bad))))),
-        ),
-        JSON.stringify(bad).slice(0, 60),
-      ).toMatch(/VALUE_INVALID/);
-    expect(
-      await openOutcome(
-        await rogue(async (s) => {
-          await must(s.commit(put(1, ctxKey, context)));
-          await must(s.commit(put(2, ctxKey, context, { expected_version: 1 })));
-        }),
-      ),
-    ).toMatch(/UNSUPPORTED_AMENDMENT/);
+  it("a stored decision record of another verdict does not fabricate a meaning: no decision of an ESTABLISH_SUPPORTED verdict, no fact", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s, "not_supported");
+    const rec = s.gm.decision(ctx.updateId)!.value as CjaDecisionRecord;
+    expect(rec.verdict).toBe("NOT_SUPPORTED");
+    expect(s.culture.sharedMeaning(ctx.value.slot_id)).toBeUndefined();
+    expect(bothViolations(s.campaign.store)).toEqual([]);
   });
 });
