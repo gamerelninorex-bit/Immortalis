@@ -74,7 +74,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/population/barrier.ts":
     "f9e49354a379144fb3244ce33b2f758f4eb459aabd8aeb13183168eabdfeec1b",
   "packages/engine/src/epistemic/provider.ts":
-    "9c466eb200236486ca5700c8c431451a0d374ec9392b600236b8ee825cb813d7",
+    "e1af594293a649bb61c9a79bd22366f1f9b86bfb15df846d75df7486a448e009",
   "packages/engine/src/kti/provider.ts":
     "515db339766dd1ed18fde72d1698b13747b103b73449963b6f8dbdeff4d2f50e",
   "packages/engine/src/actor/provider.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "e71a16ba1882e636d218fe5580aa1cf22bef473594258797603e110d04587afc",
+    "b7364efd63f70a249e42e97b2c036af80d5bb15dbecc07dae57ae25657174e4b",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

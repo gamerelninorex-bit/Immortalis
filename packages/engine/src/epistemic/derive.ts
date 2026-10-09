@@ -1,5 +1,6 @@
 import {
   ACTOR_PROFILE_CAPABILITY_CLOSE,
+  MODE_BROADCAST_EXPOSURE,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_NAMED_ACTOR,
   OWNER_PC_EXISTENCE,
@@ -19,8 +20,10 @@ import {
   pcCapabilityKey,
   pcCapabilityStage,
   populationLedgerKey,
+  type AccessDisseminationEvent,
   type AccessEvent,
   type AccessiblePacket,
+  type BroadcastExposureEvent,
   type NamedActorCapability,
   type OwnerFact,
   type PcCapability,
@@ -30,6 +33,7 @@ import {
 } from "@immortalis/contracts";
 import { actorBoundaryViolation } from "../actor/derive.ts";
 import { canonicalEqual } from "../hash.ts";
+import { resolveKey } from "../owners/registry.ts";
 import { isPcCapabilityKey } from "../pc-capability/declaration.ts";
 import { stageGroupId } from "../temporal/identity.ts";
 
@@ -262,6 +266,51 @@ export function sourceOwnerViolation(owner: string): string | null {
   }
   if (owner === OWNER_NAMED_ACTOR) {
     return "a Named-Actor capability is read only at its close as a representational requirement, never as an information source";
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// BROADCAST_EXPOSURE (F-014D §4.4) — event-only. These are the single statements of its source and audience rules, used by
+// IM-11 admission and by load verification alike.
+// ---------------------------------------------------------------------------------------------
+
+/** True when the Access / Dissemination Event is the BROADCAST_EXPOSURE mode: never a recipient event, never receipt. */
+export const isBroadcastEvent = (
+  event: AccessDisseminationEvent,
+): event is BroadcastExposureEvent => event.mode === MODE_BROADCAST_EXPOSURE;
+
+/**
+ * The fact kinds whose committed fact already identifies a coarse area or population, and so may be an event's audience
+ * REFERENCE: a World-State locus, a Population ledger or a Population Cohort. They are foreign scope-reference owners, not
+ * evidence of individual audience receipt (brief; F-014D §4.4). Nothing else — not a PC, an Existence Contract, a Named-Actor
+ * fact, an Epistemic fact, a kernel fact or any roster — is an audience authority.
+ */
+export const AUDIENCE_FACT_KIND_IDS: readonly string[] = [
+  "world_locus",
+  "population_ledger",
+  "population_cohort",
+];
+
+/**
+ * The structural rules a BROADCAST_EXPOSURE event's two foreign references must satisfy, judged on the event alone (no
+ * state): the source is a foreign fact under the existing source rule; the audience names a lawful audience fact kind of the
+ * owner it claims; the two are different facts, so the carrier cannot also be the audience authority. Returns a message, or
+ * null. Whether each is committed, owned and pinned at its current version is judged against state by the caller.
+ */
+export function broadcastReferenceViolation(event: BroadcastExposureEvent): string | null {
+  const source = sourceOwnerViolation(event.source.owner);
+  if (source) return source;
+  const resolved = resolveKey(event.audience.fact_key);
+  if (
+    !resolved ||
+    !AUDIENCE_FACT_KIND_IDS.includes(resolved.kind.id) ||
+    resolved.kind.owner !== event.audience.owner
+  ) {
+    return "the audience is a coarse reference to an authoritative World-State locus or Population ledger or Cohort, never a list of individuals, an actor, a Player Character or any other fact";
+  }
+  if (event.source.fact_key === event.audience.fact_key) {
+    return "the source/carrier and the audience authority are different facts";
   }
   return null;
 }

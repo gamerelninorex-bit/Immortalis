@@ -1,6 +1,7 @@
 import {
   ACCESS_CLASS_ACTOR_ACCESSIBLE,
   ACCESS_CLASS_ENGINE_SEALED,
+  AccessDisseminationEventSchema,
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
@@ -13,17 +14,25 @@ import {
   accessPacketStage,
   accessProvenanceKey,
   timeAtOrBefore,
+  timeEquals,
   type AccessEvent,
+  type BroadcastExposureEvent,
   type CommitGroup,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { EPISTEMIC_ACCESS_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  EPISTEMIC_ACCESS_BROADCAST_RULE,
+  EPISTEMIC_ACCESS_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import {
+  broadcastReferenceViolation,
   deriveAccessProducts,
   eventRecipient,
+  isBroadcastEvent,
   eventSourceViolation,
   isPcRecipientEvent,
   recipientBoundaryViolation,
@@ -42,6 +51,10 @@ import {
  *     Player Character the committed Role Registry binding names (and only when the event asserts that role) — resting on a committed foreign
  *     source/carrier fact that is PINNED (read at its current version and depended on) and never copied, established at
  *     or before the canonical basis (no future access), stamped engine-sealed.
+ *  1b. BROADCAST_EXPOSURE EVENT (F-014D §4.4), the same key, the other immutable mode: one event-only record resting on a
+ *     committed foreign source/carrier AND a committed authoritative World-State locus or Population ledger/Cohort audience
+ *     REFERENCE, each PINNED (read at its current version and depended on, never copied), under its own governing-rule
+ *     citation, no future dissemination basis, engine-sealed. It forms no packet, names no recipient and writes nothing else.
  *  2. PACKET FORMATION, only as its IM-02 stage: exactly the two surfaces the committed event (and the committed
  *     capability, read at its declared close, where the payload's form depends on one) determine — the actor-safe
  *     Accessible Content Packet and the engine-only Sealed Engine Provenance — written together, once, under the stage
@@ -61,9 +74,23 @@ export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): R
             key: group.writes[0]!.key,
           },
         );
+  // a BROADCAST_EXPOSURE event carries its own current citation and no other
+  const broadcastRule = (g: CommitGroup, w: CommitGroup["writes"][number]) =>
+    canonicalEqual(g.rule, EPISTEMIC_ACCESS_BROADCAST_RULE)
+      ? null
+      : ref(
+          "a BROADCAST_EXPOSURE event is committed under the governing-rule citation of its mode",
+          { key: w.key },
+        );
   if (group.writes.length === 1 && group.writes[0]!.expected_version === 0) {
     const w = group.writes[0]!;
-    if (kindOf(w.key) === "epistemic_access_event") return rule() ?? checkEvent(group, state, w);
+    if (kindOf(w.key) === "epistemic_access_event") {
+      const parsed = AccessDisseminationEventSchema.safeParse(w.value);
+      if (parsed.success && isBroadcastEvent(parsed.data)) {
+        return broadcastRule(group, w) ?? checkBroadcastEvent(group, state, w, parsed.data);
+      }
+      return rule() ?? checkEvent(group, state, w);
+    }
   }
   if (
     group.writes.length === 2 &&
@@ -134,6 +161,80 @@ function checkEvent(group: CommitGroup, state: CampaignState, w: Write): Rejecti
   return null;
 }
 
+/**
+ * A BROADCAST_EXPOSURE event: the source/carrier and the audience authority are each a committed, foreign, correctly owned
+ * fact pinned at its current version (so neither can be stale, uncommitted, or a later roster read back into an earlier
+ * event), the references are lawful kinds, and the dissemination basis is not in the future. Exactly those two reads and
+ * the groups that committed them: no other read or dependency can ride on it.
+ */
+function checkBroadcastEvent(
+  group: CommitGroup,
+  state: CampaignState,
+  w: Write,
+  e: BroadcastExposureEvent,
+): Rejection | null {
+  if (w.key !== accessEventKey(e.event_id)) {
+    return ref("the event is at the key derived from its identity", { key: w.key });
+  }
+  if (w.secrecy !== ACCESS_CLASS_ENGINE_SEALED) {
+    return bad("an access event is engine-side: it carries the engine-sealed access class", {
+      key: w.key,
+    });
+  }
+  const violation = broadcastReferenceViolation(e);
+  if (violation) return ref(violation, { key: w.key });
+  const refs = [
+    { pin: e.source, what: "the source/carrier" },
+    { pin: e.audience, what: "the audience authority" },
+  ] as const;
+  if (
+    group.reads.length !== refs.length ||
+    refs.some((r, i) => group.reads[i]!.key !== r.pin.fact_key)
+  ) {
+    return ref(
+      "a broadcast event reads exactly its source/carrier and its audience authority, in that order",
+      { key: w.key },
+    );
+  }
+  const groups = new Set<string>();
+  for (const { pin, what } of refs) {
+    const pinned = requirePrerequisite(group, state, pin.fact_key, what);
+    if (isRejection(pinned)) return pinned;
+    if (pinned.fact.owner !== pin.owner || pinned.fact.version !== pin.version) {
+      return ref(
+        `${what} is its owner's own committed fact, pinned at its current version and never copied`,
+        { key: pin.fact_key },
+      );
+    }
+    groups.add(pinned.fact.provenance.group_id);
+  }
+  if (group.depends_on.length !== groups.size || group.depends_on.some((g) => !groups.has(g))) {
+    return ref(
+      "a broadcast event depends on exactly the groups that committed its two references",
+      {
+        key: w.key,
+      },
+    );
+  }
+  // F-014D §21.1, §21.11–12: no dissemination effect lies in the future of the canonical basis, and no foreign record carries
+  // a past-basis time stamp, so the pinned source and audience cannot be shown to have existed AS OF an earlier basis. An
+  // earlier basis would let evidence committed after it establish the earlier event, so only the CURRENT canonical basis is
+  // admitted: an unverifiable historical-basis claim fails closed rather than being certified.
+  const now = canonicalTime(state);
+  if (!now) {
+    return reject("PREREQUISITE_MISSING", "no canonical temporal basis is established", {
+      key: TEMPORAL_STATE_KEY,
+    });
+  }
+  if (!timeEquals(e.dissemination_basis, now)) {
+    return ref(
+      "a broadcast is based at the current canonical basis only: its source and audience carry no past-basis time stamp, so an earlier or future basis cannot be verified",
+      { key: w.key },
+    );
+  }
+  return null;
+}
+
 function checkFormation(
   group: CommitGroup,
   state: CampaignState,
@@ -175,6 +276,14 @@ function checkFormation(
     return reject(
       "PREREQUISITE_MISSING",
       "a packet forms only from a committed access event: access cannot be conjured",
+      { key: eventKey },
+    );
+  }
+  const dissemination = AccessDisseminationEventSchema.safeParse(eventFact.value);
+  if (dissemination.success && isBroadcastEvent(dissemination.data)) {
+    return reject(
+      "VALUE_INVALID",
+      "a BROADCAST_EXPOSURE event is never individual receipt: no packet or sealed provenance forms from it, however lowering might later be established",
       { key: eventKey },
     );
   }

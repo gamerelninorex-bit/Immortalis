@@ -4,7 +4,8 @@ import { Id, Version } from "./ids.ts";
 import { PC_CAPABILITY_CLOSE } from "./pc-capability.ts";
 import type { StageKey } from "./temporal.ts";
 import { CanonicalTimeSchema } from "./temporal.ts";
-import { EntityId, Text } from "./world-foundation.ts";
+import { OWNER_POPULATION } from "./population.ts";
+import { EntityId, OWNER_WORLD_STATE, Text } from "./world-foundation.ts";
 
 /**
  * Epistemic Access / Sealed Accessible Content Packet Backbone Foundation — executable contracts.
@@ -44,9 +45,12 @@ export const ACCESS_CLASS_ACTOR_ACCESSIBLE = "epistemic.actor-accessible";
 /** The one Access / Dissemination Event mode this construction can create (F-014D §4.2, §9). */
 export const MODE_BOUNDED_SHARED_ACCESS = "BOUNDED_SHARED_ACCESS";
 /**
- * Named ONLY so that a request for it is refused precisely. It has no schema, no key and no lowering here (F-014D §4.4:
- * broadcast is not receipt; large-scale audience, reach and individual lowering are out of scope), and it is never
- * approximated by copying the payload to recipients.
+ * The second Access / Dissemination Event mode (F-014D §4.4): ONE immutable engine-side event for public or very large
+ * dissemination, retained INSTEAD OF recipient copies. It is event-only: it is never an individual receipt, an Accessible
+ * Content Packet, access-established evidence, Temporal Knowledge Time, comprehension input, KTI receipt or actor-access
+ * state, and it writes no Population, Culture or KTI aggregate-exposure state (§2.1 mode-consumer invariant, §4.4, §13).
+ * Individual lowering from it (event-basis reach, presence, attention, §21.11) is NOT implemented and has no
+ * representation here: every recipient/packet consumer discriminates on the mode and refuses it.
  */
 export const MODE_BROADCAST_EXPOSURE = "BROADCAST_EXPOSURE";
 
@@ -117,6 +121,28 @@ export const AccessPayloadSchema = z.strictObject({
 export type AccessPayload = z.infer<typeof AccessPayloadSchema>;
 
 /**
+ * A payload never carries the engine reference of its true source (RC-02 guard; F-014D §2.1 role-context rule): shared by
+ * every event mode, so neither can place the sealed source identity in actor-reachable prose.
+ */
+function payloadCarriesNoSourceReference(
+  e: { source: { fact_key: string }; payload: AccessPayload },
+  ctx: z.RefinementCtx,
+): void {
+  const refer = (text: string | null, path: string) => {
+    if (text?.includes(e.source.fact_key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "a payload does not carry the engine reference of its true source",
+        path: ["payload", path],
+      });
+    }
+  };
+  refer(e.payload.content, "content");
+  refer(e.payload.referent, "referent");
+  refer(e.payload.presented_attribution, "presented_attribution");
+}
+
+/**
  * One BOUNDED_SHARED_ACCESS event for an explicit, named participant set. The set is exactly one named recipient in this
  * construction — a non-PC Named-Actor subject, or (only when `recipient_role` names `role.player_character`) the entity the
  * canonical Role Registry binding names as the active Player Character: there is no cohort/scene identifier, membership reference, office, group or audience field, so
@@ -144,30 +170,75 @@ export const AccessEventSchema = z
     representation: z.strictObject({ capability_id: EntityId }).nullable(),
     recipient_role: z.literal(RECIPIENT_ROLE_PLAYER_CHARACTER).optional(),
   })
-  .superRefine((e, ctx) => {
-    if (e.payload.content.includes(e.source.fact_key)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "a payload does not carry the engine reference of its true source",
-        path: ["payload", "content"],
-      });
-    }
-    if (e.payload.referent.includes(e.source.fact_key)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "a payload does not carry the engine reference of its true source",
-        path: ["payload", "referent"],
-      });
-    }
-    if (e.payload.presented_attribution?.includes(e.source.fact_key)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "a presented attribution does not carry the engine reference of its true source",
-        path: ["payload", "presented_attribution"],
-      });
-    }
-  });
+  .superRefine(payloadCarriesNoSourceReference);
 export type AccessEvent = z.infer<typeof AccessEventSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// The Access / Dissemination Event (F-014D §4.4) — BROADCAST_EXPOSURE mode, event-only.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The coarse audience REFERENCE of a BROADCAST_EXPOSURE event: one committed, authoritative foreign fact that already
+ * identifies an area or population — a World-State locus, or a Population ledger or Cohort — pinned at the version it was
+ * read at and never copied (RC-02 guard). It is a reference to the owner's identity, never a roster: there is no member,
+ * recipient, snapshot, count or per-individual field, so it cannot establish individual receipt and no later roster can
+ * stand in for it (F-014D §4.4, §4.2, §21.12). Which facts are lawful audience authorities is re-derived from the owner
+ * registry by identity (the key must name one of those fact kinds and its owner), never chosen by the event.
+ */
+export const AccessAudienceRefSchema = z.strictObject({
+  owner: z.enum([OWNER_WORLD_STATE, OWNER_POPULATION]),
+  fact_key: Id,
+  version: Version.min(1),
+});
+export type AccessAudienceRef = z.infer<typeof AccessAudienceRefSchema>;
+
+/**
+ * The reach and channel conditions of the dissemination as AUTHORED (F-014D §4.4 "reach/channel conditions"): bounded prose
+ * recorded exactly and read by no engine rule. The sources define no vocabulary, scale, range, threshold or evaluation for
+ * reach, presence or attention, so none is invented here; they are retained so that a LATER, separate and not-implemented
+ * event-basis lowering has the original conditions, never an engine verdict. They are not a receipt determination.
+ */
+export const AccessReachSchema = z.strictObject({
+  channel: Text,
+  conditions: Text,
+});
+export type AccessReach = z.infer<typeof AccessReachSchema>;
+
+/**
+ * One BROADCAST_EXPOSURE event (F-014D §4.4): event identity and causal basis (the pinned foreign source/carrier and the
+ * dissemination basis time), the actual payload with the Presented Source Attribution, the reach/channel conditions, the
+ * coarse authoritative audience reference, and the material exclusions or known exceptions (an empty list states there are
+ * none; the engine derives none). The mode is a literal fixed at creation and the fact is sealed (create-only), so it can
+ * be neither reclassified nor have its audience reference rewritten (§4.4, §14).
+ *
+ * There is NO participant, recipient, packet, receipt, access-established time, comprehension, Knowledge Time, KTI, Population
+ * or Culture field, and `participants` is unmodelled: a dual-mode value is rejected by the strict shape, and a broadcast
+ * event is never approximated by copying it to recipients. `dissemination_basis` is the causal basis time of the
+ * dissemination — deliberately NOT named an access-established time, because this event establishes no access.
+ */
+export const BroadcastExposureEventSchema = z
+  .strictObject({
+    event_id: EntityId,
+    mode: z.literal(MODE_BROADCAST_EXPOSURE),
+    source: AccessSourcePinSchema,
+    dissemination_basis: CanonicalTimeSchema,
+    payload: AccessPayloadSchema,
+    reach: AccessReachSchema,
+    audience: AccessAudienceRefSchema,
+    exceptions: z.array(Text),
+  })
+  .superRefine(payloadCarriesNoSourceReference);
+export type BroadcastExposureEvent = z.infer<typeof BroadcastExposureEventSchema>;
+
+/**
+ * The Access / Dissemination Event family under the one canonical key `access/<event>/event`: exactly one of the two
+ * immutable modes, discriminated on the literal `mode`. The BOUNDED_SHARED_ACCESS branch is `AccessEventSchema`, unchanged.
+ */
+export const AccessDisseminationEventSchema = z.discriminatedUnion("mode", [
+  AccessEventSchema,
+  BroadcastExposureEventSchema,
+]);
+export type AccessDisseminationEvent = z.infer<typeof AccessDisseminationEventSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // The Accessible Content Packet (F-014D §18) — actor-safe.

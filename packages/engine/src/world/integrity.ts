@@ -85,6 +85,13 @@ export interface IntegrityViolation {
  */
 function governingRuleLawful(kind: FactKind, fact: OwnerFact): boolean {
   if (canonicalEqual(fact.provenance.rule, kind.rule)) return true;
+  if (
+    kind.alternateRules?.some(
+      (alt) => canonicalEqual(fact.provenance.rule, alt.rule) && alt.admits(fact.value),
+    )
+  ) {
+    return true;
+  }
   const legacy = kind.legacyRule;
   return (
     legacy !== undefined &&

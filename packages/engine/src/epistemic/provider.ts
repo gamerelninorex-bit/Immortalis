@@ -1,4 +1,5 @@
 import {
+  AccessDisseminationEventSchema,
   AccessEventSchema,
   ACCESS_CLASS_ACTOR_ACCESSIBLE,
   ACCESS_CLASS_ENGINE_SEALED,
@@ -19,6 +20,7 @@ import {
   deriveAccessProducts,
   eventRecipient,
   formationKeys,
+  isBroadcastEvent,
   isPcRecipientEvent,
   type CapabilityCloseRead,
 } from "./derive.ts";
@@ -47,6 +49,13 @@ export const epistemicPacketProvider: StageProvider = {
         "a packet reads its event and at most one capability close",
       );
     const eventFact = input.reads[0]!.fact;
+    const dissemination = AccessDisseminationEventSchema.safeParse(eventFact.value);
+    if (dissemination.success && isBroadcastEvent(dissemination.data)) {
+      throw unresolved(
+        "SOURCE_INVALID",
+        "a BROADCAST_EXPOSURE event is never individual receipt: no packet forms from it",
+      );
+    }
     const event = AccessEventSchema.safeParse(eventFact.value);
     if (!event.success) throw unresolved("SOURCE_INVALID", "the event violates its contract");
     const keys = formationKeys(event.data.event_id, eventRecipient(event.data));

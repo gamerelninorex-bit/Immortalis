@@ -1,6 +1,7 @@
 import {
   ACCESS_CLASS_ACTOR_ACCESSIBLE,
   ACCESS_CLASS_ENGINE_SEALED,
+  AccessDisseminationEventSchema,
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
@@ -17,17 +18,24 @@ import {
   accessProvenanceKey,
   temporalTransactionAuthorityKey,
   timeAtOrBefore,
+  type BroadcastExposureEvent,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { EPISTEMIC_ACCESS_RULE_TENTH_SLICE, resolveKey } from "../owners/registry.ts";
+import {
+  EPISTEMIC_ACCESS_BROADCAST_RULE,
+  EPISTEMIC_ACCESS_RULE_TENTH_SLICE,
+  resolveKey,
+} from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { epistemicObjectViolation } from "./declaration.ts";
 import {
+  broadcastReferenceViolation,
   deriveAccessProducts,
   eventRecipient,
+  isBroadcastEvent,
   eventSourceViolation,
   isPcRecipientEvent,
   recipientBoundaryViolation,
@@ -104,7 +112,64 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
   const clock = byKey.get(TEMPORAL_STATE_KEY);
   const time = clock ? TemporalStateSchema.safeParse(clock.value) : undefined;
 
+  /**
+   * A BROADCAST_EXPOSURE event: event-only. Its source/carrier and its audience authority are each committed, owned by the
+   * owner the event names, not behind the pinned version, and were committed BEFORE the event (so neither is post-basis
+   * evidence or a later roster read back into it); the group that committed it read exactly those two facts at exactly the
+   * pinned versions; it is engine-sealed, under its own governing-rule citation, and its dissemination basis does not lie
+   * in the future of the canonical basis.
+   */
+  const verifyBroadcastEvent = (ef: OwnerFact, e: BroadcastExposureEvent) => {
+    if (ef.key !== accessEventKey(e.event_id)) {
+      bad(ef.key, "an event is at the key derived from its identity");
+      return;
+    }
+    if (ef.secrecy !== ACCESS_CLASS_ENGINE_SEALED) {
+      bad(ef.key, "an access event is engine-side: it carries the engine-sealed access class");
+    }
+    if (!canonicalEqual(ef.provenance.rule, EPISTEMIC_ACCESS_BROADCAST_RULE)) {
+      bad(ef.key, "a BROADCAST_EXPOSURE event carries the governing-rule citation of its mode");
+    }
+    const violation = broadcastReferenceViolation(e);
+    if (violation) bad(ef.key, violation);
+    for (const [what, pin] of [
+      ["source/carrier", e.source],
+      ["audience authority", e.audience],
+    ] as const) {
+      const fact = byKey.get(pin.fact_key);
+      if (!fact || fact.owner !== pin.owner || fact.version < pin.version) {
+        bad(
+          ef.key,
+          `the ${what} is committed, owned by its named owner and not behind its pin: ${pin.fact_key}`,
+        );
+      } else if (fact.version === pin.version && revisionOf(fact) >= revisionOf(ef)) {
+        bad(ef.key, `the ${what} was not committed before the event that rests on it`);
+      }
+    }
+    const group = store.committedGroup(ef.provenance.intent_id);
+    if (
+      !group ||
+      !canonicalEqual(
+        group.reads.map((r) => [r.key, r.version]),
+        [
+          [e.source.fact_key, e.source.version],
+          [e.audience.fact_key, e.audience.version],
+        ],
+      )
+    ) {
+      bad(ef.key, "a broadcast event was committed reading exactly its source and audience pins");
+    }
+    if (!time?.success || !timeAtOrBefore(e.dissemination_basis, time.data.canonical_time)) {
+      bad(ef.key, "dissemination is based at or before the canonical basis, never in its future");
+    }
+  };
+
   for (const ef of events) {
+    const dissemination = AccessDisseminationEventSchema.safeParse(ef.value);
+    if (dissemination.success && isBroadcastEvent(dissemination.data)) {
+      verifyBroadcastEvent(ef, dissemination.data);
+      continue;
+    }
     const parsed = AccessEventSchema.safeParse(ef.value);
     if (!parsed.success) continue;
     const e = parsed.data;
@@ -150,6 +215,16 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
       );
     }
     const eventFact = byKey.get(accessEventKey(eventId));
+    const dissemination = eventFact
+      ? AccessDisseminationEventSchema.safeParse(eventFact.value)
+      : undefined;
+    if (dissemination?.success && isBroadcastEvent(dissemination.data)) {
+      bad(
+        pf.key,
+        "a BROADCAST_EXPOSURE event is never individual receipt: no packet exists for it",
+      );
+      continue;
+    }
     const event = eventFact ? AccessEventSchema.safeParse(eventFact.value) : undefined;
     if (!eventFact || !event?.success || eventRecipient(event.data) !== recipient) {
       bad(pf.key, "a packet has no committed event naming its recipient");
