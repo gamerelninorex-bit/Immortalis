@@ -1,3 +1,4 @@
+import { cpSync } from "node:fs";
 import {
   CanonicalCampaign,
   ProductionAdapter,
@@ -34,6 +35,7 @@ import {
   temporalPublication,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
+import { tempDir } from "./tmp.ts";
 
 export interface DrawSeeded {
   readonly campaign: CanonicalCampaign;
@@ -68,6 +70,26 @@ export async function seededDrawdownCampaign(
   dir: string,
   o: DrawSeedOptions = {},
 ): Promise<DrawSeeded> {
+  // The seed is a fixed history of a dozen durable commits. Replaying it from a saved copy reaches the identical campaign
+  // (same journal, same state) without repeating the durable writes in every test; a custom `fs` (fault injection) seeds directly.
+  if (o.fs) return seedDrawdownCampaign(dir, o);
+  const key = JSON.stringify([o.requests, o.omitSource, o.omitBasis, o.otherSource]);
+  let template = templates.get(key);
+  if (!template) {
+    template = (async () => {
+      const saved = tempDir("immortalis-draw-template-");
+      await (await seedDrawdownCampaign(saved, o)).campaign.close();
+      return saved;
+    })();
+    templates.set(key, template);
+  }
+  cpSync(await template, dir, { recursive: true });
+  return reopenDrawdown(dir, o.buildId ?? "draw-seed");
+}
+
+const templates = new Map<string, Promise<string>>();
+
+async function seedDrawdownCampaign(dir: string, o: DrawSeedOptions): Promise<DrawSeeded> {
   const campaign = await must(
     CanonicalCampaign.create(dir, {
       campaignId: FIXTURE_CAMPAIGN,

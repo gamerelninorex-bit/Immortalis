@@ -54,6 +54,12 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
   const bad = (key: string, message: string) =>
     out.push({ key, code: "SOURCE_DRAWDOWN_STATE", message });
   const all = store.listFacts();
+  // a campaign with no drawdown state (the common case) costs one cheap key scan, not a registry resolution per fact
+  const concerned = (key: string): boolean =>
+    key.startsWith("production/extraction") ||
+    key.startsWith("production/source-") ||
+    /^world\/[^/]+\/source(-delivery)?\//.test(key);
+  if (!all.some((f) => concerned(f.key))) return out;
   const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));
   const kindOf = (f: OwnerFact) => resolveKey(f.key)?.kind.id;
   const ofKind = (id: string) => all.filter((f) => kindOf(f) === id);
@@ -63,17 +69,6 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
   const extractions = ofKind("production_extraction");
   const deltas = ofKind("production_source_delta");
   const accounts = ofKind("production_source_account");
-  if (
-    sources.length +
-      deliveries.length +
-      bases.length +
-      extractions.length +
-      deltas.length +
-      accounts.length ===
-    0
-  )
-    return out;
-
   const at = <T>(
     key: string,
     schema: { safeParse(v: unknown): { success: boolean; data?: T } },

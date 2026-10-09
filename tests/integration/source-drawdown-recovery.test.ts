@@ -7,6 +7,7 @@
 // identical campaign.
 // Register lineage: IA-04, IA-06 (partial), IA-22 (reused); RC-05, RC-07, RC-10, RC-16; IM-02, IM-05, IM-11, IM-12, IM-17.
 // Local success is NOT provider/recovery acceptance (IA-07 BLOCKED).
+import { cpSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   CanonicalCampaign,
@@ -318,10 +319,15 @@ describe("one authoritative pending representation per key", () => {
 
 describe("unknown outcome is reconciled by identity: a failure at EVERY durable step of the whole transaction", () => {
   it("converges on the identical campaign with one delta, one delivery, one inflow and one decrement", async () => {
-    const seed = async (dir: string) => {
-      const s = await seededDrawdownCampaign(dir);
+    // the started-and-registered campaign is built once; every run below starts from a saved copy of it
+    const savedStart = tempDir();
+    {
+      const s = await seededDrawdownCampaign(savedStart);
       await startAndRegisterExtraction(s, SRC_REQ_1, 1);
       await s.campaign.close();
+    }
+    const seed = async (dir: string) => {
+      cpSync(savedStart, dir, { recursive: true });
     };
     const refDir = tempDir();
     await seed(refDir);
