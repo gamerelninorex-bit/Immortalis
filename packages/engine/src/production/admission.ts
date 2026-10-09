@@ -18,6 +18,7 @@ import {
   productionClaimId,
   productionClaimKey,
   productionCompletionKey,
+  productionExtractionKey,
   productionObjectId,
   productionOutputReference,
   productionReserveKey,
@@ -39,6 +40,7 @@ import { stageGroupId, stageIntentId } from "../temporal/identity.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore } from "../persistence/store.ts";
+import { concernsExtraction, extractionObjectViolation } from "../source-drawdown/declaration.ts";
 import { productionTemporalObject } from "./declaration.ts";
 import { deriveCompletion } from "./derive.ts";
 
@@ -149,6 +151,12 @@ function checkStart(
   const claim = ProductionClaimSchema.parse(claimW.value);
   const next = ProductionReserveSchema.parse(reserveW.value);
   const opId = op.operation_id;
+  // a request fixes ONE use: it never also fixes an exact finite raw-source extraction
+  if (state.facts.has(productionExtractionKey(opId))) {
+    return reject("VERSION_CONFLICT", "a request fixes one use: it already fixes an extraction", {
+      operation_id: opId,
+    });
+  }
 
   // identities: derived from the operation identity alone
   if (
@@ -483,6 +491,8 @@ export function productionObjectViolation(
   state: Pick<CampaignState, "facts">,
   registered: boolean,
 ): string | null {
+  // an exact finite raw-source extraction's object (by identity, process or any stage it declares) is judged by its own rule
+  if (concernsExtraction(o)) return extractionObjectViolation(o, state, registered);
   const stageOwners = o.dependencies.map((d) => d.stage.owner_operation);
   const concerned =
     o.owning_ref.owner === OWNER_PRODUCTION ||

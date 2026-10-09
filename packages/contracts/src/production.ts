@@ -119,7 +119,7 @@ export type ProductionRequest = z.infer<typeof ProductionRequestSchema>;
 // ---------------------------------------------------------------------------------------------
 // Production Reserve (WS-003 §2, §4, §10 Tier D): the production-side physical reserve identity, quantity and
 // condition while held by Production. Conservation is a property of the value:
-//   established = held + Σ consumed       (each consuming operation recorded once)
+//   established + Σ inflows = held + Σ consumed   (each consuming operation, each credited inflow recorded once)
 // ---------------------------------------------------------------------------------------------
 
 export const ProductionReserveSchema = z
@@ -132,6 +132,14 @@ export const ProductionReserveSchema = z
     quantity: ProductionQuantitySchema,
     /** exactly-once consumption record: one entry per consuming operation */
     consumed: z.array(z.strictObject({ operation_id: EntityId, quantity: PositiveQuantitySchema })),
+    /**
+     * exactly-once inflow record: one entry per credited, already-delivered raw-material inflow, by the identity of the
+     * operation that caused it (see ./source-drawdown.ts). Absent = none. A Reserve is never credited from nowhere:
+     * established + Σ inflows = held + Σ consumed.
+     */
+    inflows: z
+      .array(z.strictObject({ inflow_id: EntityId, quantity: PositiveQuantitySchema }))
+      .optional(),
     /** qualitative condition label while held by Production */
     condition: Id,
     /** attached to the canonical world/locus: referenced, never copied */
@@ -149,12 +157,20 @@ export const ProductionReserveSchema = z
       ctx.addIssue({ code: "custom", message, path });
     if (!sortedUnique(r.consumed.map((c) => c.operation_id)))
       bad("consumption is recorded once per operation, sorted", ["consumed"]);
+    const inflows = r.inflows ?? [];
+    if (!sortedUnique(inflows.map((c) => c.inflow_id)))
+      bad("inflow is recorded once per cause, sorted", ["inflows"]);
     const unit = r.established.unit;
-    if (r.quantity.unit !== unit || r.consumed.some((c) => c.quantity.unit !== unit))
+    if (
+      r.quantity.unit !== unit ||
+      r.consumed.some((c) => c.quantity.unit !== unit) ||
+      inflows.some((c) => c.quantity.unit !== unit)
+    )
       bad("a reserve is accounted in one unit", ["quantity"]);
     const spent = r.consumed.reduce((n, c) => n + c.quantity.amount, 0);
-    if (r.established.amount - spent !== r.quantity.amount)
-      bad("established quantity = held quantity + consumed quantity", ["quantity"]);
+    const received = inflows.reduce((n, c) => n + c.quantity.amount, 0);
+    if (r.established.amount + received - spent !== r.quantity.amount)
+      bad("established quantity + inflow = held quantity + consumed quantity", ["quantity"]);
   });
 export type ProductionReserve = z.infer<typeof ProductionReserveSchema>;
 

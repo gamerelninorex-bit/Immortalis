@@ -64,7 +64,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition.ts":
     "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
   "packages/engine/src/world/canonical-campaign.ts":
-    "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
+    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
   "packages/engine/src/logistics/declaration.ts":
@@ -76,7 +76,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "b8144367498d35d0c1797afdc35b9f49911bb1749f2eee1bbcca37601f9e2083",
+    "f5664f8bd7d39fb3bbe076d5aa2f587c79db76838d7d796e93e5a40215ab509e",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":

@@ -154,6 +154,38 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "production/completion/c1",
   },
   {
+    id: "production_extraction_basis",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "SOURCE_DRAWDOWN_FACT_KINDS",
+    exampleKey: "production/extraction-basis/b1",
+  },
+  {
+    id: "production_extraction",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "SOURCE_DRAWDOWN_FACT_KINDS",
+    exampleKey: "production/extraction/x1",
+  },
+  {
+    id: "production_source_delta",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "SOURCE_DRAWDOWN_FACT_KINDS",
+    exampleKey: "production/source-delta/x1",
+  },
+  {
+    id: "production_source_account",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "ADVANCING",
+    group: "SOURCE_DRAWDOWN_FACT_KINDS",
+    exampleKey: "production/source-account/w1/s1",
+  },
+  {
     id: "world_fallback_entity",
     owner: "world_state",
     facet: "world_fallback_physical_entity",
@@ -445,11 +477,32 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey:
       "adjudication-culture/0000000000000000000000000000000000000000000000000000000000000000/decision",
   },
+  {
+    id: "world_source_condition",
+    owner: "world_state",
+    facet: "world_source_condition",
+    lifecycle: "ADVANCING",
+    group: "WORLD_SOURCE_CONDITION_FACT_KINDS",
+    exampleKey: "world/w1/source/s1",
+  },
+  {
+    id: "world_source_delivery",
+    owner: "world_state",
+    facet: "world_source_condition",
+    lifecycle: "SEALED",
+    group: "WORLD_SOURCE_CONDITION_FACT_KINDS",
+    exampleKey: "world/w1/source-delivery/x1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
 export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> = {
-  world_state: ["world_profile", "world_locus", "world_fallback_physical_entity"],
+  world_state: [
+    "world_profile",
+    "world_locus",
+    "world_fallback_physical_entity",
+    "world_source_condition",
+  ],
   pc_existence: ["existence_contract", "pc_capability_profile", "pc_voluntary_commitment"],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
@@ -675,6 +728,21 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   },
   PopulationAdapter: {
     methods: ["close", "cohort", "cohortView", "establishLedger", "instantiateCohort", "ledger"],
+  },
+  SourceDrawdownAdapter: {
+    methods: [
+      "account",
+      "basis",
+      "delivery",
+      "establishBasis",
+      "extraction",
+      "phase",
+      "reserve",
+      "sourceCondition",
+      "sourceDelta",
+      "startExtraction",
+      "temporalObject",
+    ],
   },
   ProductionAdapter: {
     methods: [

@@ -44,6 +44,8 @@ export interface IntegrityViolation {
     | "POPULATION_STATE"
     /** IM-05 Production state and the World-State fallback entity: see verifyProductionIntegrity */
     | "PRODUCTION_STATE"
+    /** IM-05/IM-03 exact finite raw-source drawdown (Source Condition, Source Delta, delivery, Reserve inflow): see verifySourceDrawdownIntegrity */
+    | "SOURCE_DRAWDOWN_STATE"
     /** IM-06 Economy state: see verifyEconomyIntegrity */
     | "ECONOMY_STATE"
     /** World-State entity transitions (ECT-01): see verifyEntityTransitionIntegrity */

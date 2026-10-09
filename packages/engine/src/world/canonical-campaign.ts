@@ -1,6 +1,7 @@
 import {
   CANON_WRITE_AUTHORITY,
   EXISTING_ACTOR_HANDOVER,
+  EstablishSourceConditionInputSchema,
   ExistenceContractSchema,
   InsertionFactSchema,
   OWNER_WORLD_STATE,
@@ -19,6 +20,7 @@ import {
   PublicationSchema,
   WorldLocusSchema,
   WorldProfileSchema,
+  WorldSourceConditionSchema,
   fail,
   ok,
   pcExistenceContractKey,
@@ -28,6 +30,7 @@ import {
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
+  worldSourceConditionKey,
   type CommitGroup,
   type ExistenceContract,
   type ExistingActorCoupling,
@@ -42,6 +45,7 @@ import {
   type ValueSchema,
   type WorldLocus,
   type WorldProfile,
+  type WorldSourceCondition,
 } from "@immortalis/contracts";
 import type { FactKindId } from "../owners/registry.ts";
 import { canonicalAdmission } from "../owners/admission.ts";
@@ -64,6 +68,7 @@ import { verifyKtiIntegrity } from "../kti/integrity.ts";
 import { verifyLogisticsIntegrity } from "../logistics/integrity.ts";
 import { verifyPopulationIntegrity } from "../population/integrity.ts";
 import { verifyProductionIntegrity } from "../production/integrity.ts";
+import { verifySourceDrawdownIntegrity } from "../source-drawdown/integrity.ts";
 import { verifyTemporalIntegrity } from "../temporal/integrity.ts";
 import {
   createFileCampaign,
@@ -93,6 +98,7 @@ export const CANONICAL_STORE_BINDINGS = {
 
 export type EstablishWorldInput = Publication & { readonly world: unknown };
 export type EstablishLocusInput = Publication & { readonly locus: unknown };
+export type EstablishSourceConditionPublication = Publication & { readonly source: unknown };
 export type ReleasePcInput = Publication & { readonly contract: unknown };
 export interface BindPcInput extends Publication {
   readonly pc_id: string;
@@ -261,6 +267,50 @@ export class CanonicalCampaign {
     if (!locus.success) return Promise.resolve(inputInvalid("locus", locus.error));
     const key = worldLocusKey(locus.data.world.entity_id, locus.data.locus_id);
     return this.#publish(input, "world_locus", key, locus.data, [locus.data.world.fact_key]);
+  }
+
+  /**
+   * WG / WS-003 §4A: the canonical World-State Source Condition of one source-resolution key at an established locus — an
+   * exact, finite recoverable amount of one material in one unit, with its physically relevant access facts, committed as
+   * an INITIAL SETTING FACT under World-State ownership BEFORE any extraction. It reads and depends on the world and locus
+   * (never creating them). The caller authors the setting fact; it can neither state a remainder nor a delivery (the
+   * Source Condition is created whole and thereafter changes only by World-State's delivery of an actual Production-caused
+   * Source Delta), and an estimated, latent, ranged or unestablished condition has no representation.
+   */
+  establishSourceCondition(
+    input: EstablishSourceConditionPublication,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const s = EstablishSourceConditionInputSchema.safeParse(input.source);
+    if (!s.success) return Promise.resolve(inputInvalid("source condition", s.error));
+    const worldKey = worldProfileKey(s.data.world_id);
+    const locusKey = worldLocusKey(s.data.world_id, s.data.locus_id);
+    const value = WorldSourceConditionSchema.safeParse({
+      source_key: s.data.source_key,
+      locality: {
+        world: { fact_key: worldKey, entity_id: s.data.world_id },
+        locus: { fact_key: locusKey, entity_id: s.data.locus_id },
+      },
+      dimension: s.data.dimension,
+      material_class: s.data.material_class,
+      depth: "EXACT_FINITE",
+      establishment: {
+        kind: "INITIAL_SETTING_FACT",
+        statement: s.data.statement,
+        quantity: s.data.quantity,
+      },
+      recoverable: s.data.quantity,
+      delivered: [],
+      access_facts: s.data.access_facts,
+      exhaustion: null,
+    });
+    if (!value.success) return Promise.resolve(inputInvalid("source condition", value.error));
+    return this.#publish(
+      input,
+      "world_source_condition",
+      worldSourceConditionKey(s.data.world_id, s.data.source_key),
+      value.data,
+      [worldKey, locusKey],
+    );
   }
 
   /**
@@ -567,6 +617,10 @@ export class CanonicalCampaign {
   locus(worldId: string, locusId: string): Typed<WorldLocus> | undefined {
     return this.#typed(worldLocusKey(worldId, locusId), WorldLocusSchema);
   }
+  /** The World-State Source Condition, net of every delivery World-State has committed, or undefined when none is established. */
+  sourceCondition(worldId: string, sourceKey: string): Typed<WorldSourceCondition> | undefined {
+    return this.#typed(worldSourceConditionKey(worldId, sourceKey), WorldSourceConditionSchema);
+  }
   playerCharacter(pcId: string): Typed<ExistenceContract> | undefined {
     return this.#typed(pcExistenceContractKey(pcId), ExistenceContractSchema);
   }
@@ -680,6 +734,7 @@ function verifyAll(
     ...verifyTemporalIntegrity(store),
     ...verifyPopulationIntegrity(store),
     ...verifyProductionIntegrity(store),
+    ...verifySourceDrawdownIntegrity(store),
     ...verifyEconomyIntegrity(store),
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),

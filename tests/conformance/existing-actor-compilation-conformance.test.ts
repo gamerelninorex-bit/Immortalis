@@ -203,6 +203,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "PcCapabilityAdapter",
       "PopulationAdapter",
       "ProductionAdapter",
+      "SourceDrawdownAdapter",
       "TemporalCoordinator",
     ]);
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");
@@ -230,6 +231,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "presentation",
       "production",
       "projection",
+      "source-drawdown",
       "temporal",
       "world",
     ]);
@@ -251,6 +253,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "source-condition.ts",
     ]);
     expect(readdirSync("packages/engine/src/actor").sort()).toEqual([
       "adapter.ts",

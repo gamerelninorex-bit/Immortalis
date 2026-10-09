@@ -212,6 +212,8 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "world_entity_transition",
       "world_actor_coupling",
       "world_pc_locus_custody",
+      "world_source_condition",
+      "world_source_delivery",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics").map((k) => k.id)).toEqual([
       "logistics_commitment",
