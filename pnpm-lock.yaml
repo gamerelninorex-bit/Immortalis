@@ -17,6 +17,9 @@ importers:
       '@immortalis/engine':
         specifier: workspace:*
         version: link:packages/engine
+      '@immortalis/operator':
+        specifier: workspace:*
+        version: link:packages/operator
       '@immortalis/protocol':
         specifier: workspace:*
         version: link:packages/protocol
@@ -56,6 +59,21 @@ importers:
       '@immortalis/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/operator:
+    dependencies:
+      '@immortalis/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@immortalis/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@immortalis/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/protocol:
     dependencies:
