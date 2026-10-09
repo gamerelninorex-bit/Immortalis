@@ -60,6 +60,7 @@ export * from "./population.ts";
 export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./production.ts";
+export * from "./source-drawdown.ts";
 export * from "./protocol-advance.ts";
 export * from "./protocol-null-pc-advance.ts";
 export * from "./protocol-causal.ts";

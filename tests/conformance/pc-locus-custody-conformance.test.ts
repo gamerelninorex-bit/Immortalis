@@ -196,6 +196,8 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_entity_transition",
       "world_actor_coupling",
       "world_pc_locus_custody",
+      "world_source_condition",
+      "world_source_delivery",
     ]);
     expect([...expectedKindIds({ owner: "world_state" })].sort()).toEqual(
       ALL_FACT_KINDS.filter((k) => k.owner === "world_state")
@@ -209,6 +211,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_fallback_physical_entity",
       "world_locus",
       "world_profile",
+      "world_source_condition",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.get("role_registry")!]).toEqual([
       "player_character_binding",
@@ -238,6 +241,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "source-condition.ts",
     ]);
     for (const f of MODULES) {
       expect(code(f), f).not.toMatch(/\b(?:export )?class\s+\w+/);

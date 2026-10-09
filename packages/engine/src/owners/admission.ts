@@ -5,6 +5,7 @@ import {
   FACET_PC_CAPABILITY_PROFILE,
   FACET_PC_VOLUNTARY_COMMITMENT,
   FACET_WORLD_FALLBACK_ENTITY,
+  FACET_WORLD_SOURCE_CONDITION,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
   OWNER_ECONOMY,
@@ -50,9 +51,11 @@ import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
 import { pcMovementGroupCheck } from "../pc-movement/derive.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
+import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
+import { worldSourceGroupCheck } from "../world/source-condition.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
 
@@ -431,7 +434,10 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
     if (group.owner === OWNER_POPULATION) return populationGroupCheck(group, state);
     // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
-    if (group.owner === OWNER_PRODUCTION) return productionGroupCheck(group, state);
+    if (group.owner === OWNER_PRODUCTION)
+      return group.writes.some((w) => isDrawdownProductionKey(w.key))
+        ? sourceDrawdownGroupCheck(group, state)
+        : productionGroupCheck(group, state);
     // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
     if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
     // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
@@ -463,6 +469,9 @@ export const canonicalAdmission: WriteAdmission = {
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
       return worldEntityGroupCheck(group, state);
+    // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
+      return worldSourceGroupCheck(group, state);
     return null;
   },
 };
@@ -501,6 +510,31 @@ export function identityMismatch(
     case "production_operation":
     case "production_completion":
       return v["operation_id"] === ids[0] ? null : "operation_id does not match the key";
+    case "production_extraction_basis":
+      return v["basis_id"] === ids[0] ? null : "basis_id does not match the key";
+    case "production_extraction":
+      return v["extraction_id"] === ids[0] ? null : "extraction_id does not match the key";
+    case "production_source_delta":
+      return v["delta_id"] === ids[0] ? null : "delta_id does not match the key";
+    case "production_source_account": {
+      const source = v["source"] as { source_key: string };
+      const locality = v["locality"] as { world: { entity_id: string } };
+      return source.source_key === ids[1] && locality.world.entity_id === ids[0]
+        ? null
+        : "source-resolution key does not match the account key";
+    }
+    case "world_source_condition": {
+      const locality = v["locality"] as { world: { entity_id: string } };
+      return v["source_key"] === ids[1] && locality.world.entity_id === ids[0]
+        ? null
+        : "source-resolution key does not match the key";
+    }
+    case "world_source_delivery": {
+      const source = v["source"] as { fact_key: string };
+      return v["delivery_id"] === ids[1] && source.fact_key.startsWith(`world/${ids[0]}/source/`)
+        ? null
+        : "delivery identity does not match the key";
+    }
     case "economy_demand":
       return v["demand_envelope_id"] === ids[0]
         ? null

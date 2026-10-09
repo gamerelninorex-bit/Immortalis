@@ -508,6 +508,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "presentation",
       "production",
       "projection",
+      "source-drawdown",
       "temporal",
       "world",
     ]);

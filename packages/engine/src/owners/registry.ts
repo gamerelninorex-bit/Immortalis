@@ -56,6 +56,13 @@ import {
   FACET_LOGISTICS_STATE,
   FACET_PRODUCTION_STATE,
   FACET_WORLD_FALLBACK_ENTITY,
+  FACET_WORLD_SOURCE_CONDITION,
+  ExtractionBasisSchema,
+  ProductionExtractionSchema,
+  SourceAccountSchema,
+  SourceDeltaSchema,
+  WorldSourceConditionSchema,
+  WorldSourceDeliverySchema,
   FallbackPhysicalEntitySchema,
   InstitutionIdentitySchema,
   OfficeAuthorityLocusHolderSchema,
@@ -267,6 +274,16 @@ export const PRODUCTION_FACT_KIND_IDS = [
   "production_operation",
   "production_completion",
 ] as const;
+export const SOURCE_DRAWDOWN_FACT_KIND_IDS = [
+  "production_extraction_basis",
+  "production_extraction",
+  "production_source_delta",
+  "production_source_account",
+] as const;
+export const WORLD_SOURCE_CONDITION_FACT_KIND_IDS = [
+  "world_source_condition",
+  "world_source_delivery",
+] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
@@ -328,6 +345,8 @@ export type FactKindId =
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
+  | (typeof SOURCE_DRAWDOWN_FACT_KIND_IDS)[number]
+  | (typeof WORLD_SOURCE_CONDITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
@@ -626,6 +645,32 @@ export const WORLD_FALLBACK_RULE: SourceRef = rule(
   [F016_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
 );
 
+const WS003_SOURCE_LINEAGE =
+  "WS-003 Production & Resources §4A Source Stock / Renewal Execution Contract and §4B Source Boundary Basis (Source Delta channel, Pending Drawdown, Delivery, Calibration), spec-locked pin " +
+  `${WS003_SOURCE.native_pin} (${WS003_SOURCE.artifact}); WG World Generation & World-State Kernel "Ownership Guards — World Generation May Own" and "Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners", spec-locked pin ${WG_SOURCE.native_pin} (${WG_SOURCE.artifact})`;
+
+/**
+ * One governing rule for every Production kind of an exact finite raw-source drawdown: the basis, the extraction, the
+ * Source Delta, the per-key account and the Reserve inflow. WS-003 §4A/§4B are the governing clauses; the existing
+ * Production rule (which cites no source clause) is unchanged, so every already-committed Production fact keeps loading.
+ */
+export const PRODUCTION_SOURCE_DRAWDOWN_RULE: SourceRef = rule(
+  WS003_SOURCE,
+  "§4 Capability-Access-Reserve-Source Contract (Capability is not inventory; Access is not capability; Source Stock is not Reserve); §4A Source Stock / Renewal Execution Contract (separate truth from estimate; resolve Production capability/access; emit the Production-caused Source Delta; source owner resolves dynamics; conserve produced material; type exhaustion explicitly); §4B Source Boundary Basis (Source Delta channel, Pending Drawdown held once as discrete residue per source-owner resolution key, delivery transfer-and-advance, watermark); §8 Labor and Specialist Interface (Tier A embedded labor, no marginal labor claim); §10; §14 Consequential Production Resolution Procedure steps 6 and 10-12; §15 Validation Checklist; §16 Selected Turnless Temporal Adapter",
+  [WS003_SOURCE_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * The World-State Source Condition owner (WS-003 §4A "Identify owner ... Do not create a rival geology/ecology ledger
+ * inside Production"; "Source owner resolves dynamics"): the exact finite Source Condition, established as an initial
+ * setting fact, and the delivery record by which it consumes an actual Production-caused Source Delta.
+ */
+export const WORLD_SOURCE_CONDITION_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own (world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem; integration of committed outputs from functional owners into the persistent world representation without duplicating their internal state); World Generation May Not Own (Production functional state); Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners (provide physical world conditions and receive their lawful state changes); with WS-003 §4A Source Stock / Renewal Execution Contract (Source Condition is world truth; Production does not compute the resulting authoritative source condition) and §4B Source Boundary Basis (delivery; the owner returns Source Condition net of all delivered drawdown)",
+  [WS003_SOURCE_LINEAGE, F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
 const productionKind = (
   id: (typeof PRODUCTION_FACT_KIND_IDS)[number],
   rc: readonly string[],
@@ -653,13 +698,26 @@ const productionKind = (
  * Logistics, Source, Economy or labor kind exists.
  */
 export const PRODUCTION_FACT_KINDS: readonly FactKind[] = [
-  productionKind(
-    "production_reserve",
-    ["RC-02", "RC-07"],
-    "ADVANCING",
-    new RegExp(`^production/reserve/${ID}$`),
-    ProductionReserveSchema,
-  ),
+  {
+    ...productionKind(
+      "production_reserve",
+      ["RC-02", "RC-07"],
+      "ADVANCING",
+      new RegExp(`^production/reserve/${ID}$`),
+      ProductionReserveSchema,
+    ),
+    // the Reserve inflow group (a stage of an exact finite raw-source drawdown) is written under the drawdown rule: a
+    // Reserve may carry that citation only when it holds a credited inflow (WS-003 §4A "Conserve produced material")
+    alternateRules: [
+      {
+        rule: PRODUCTION_SOURCE_DRAWDOWN_RULE,
+        admits: (value) => {
+          const r = ProductionReserveSchema.safeParse(value);
+          return r.success && (r.data.inflows ?? []).length > 0;
+        },
+      },
+    ],
+  },
   productionKind(
     "production_claim",
     ["RC-02", "RC-06"],
@@ -681,6 +739,88 @@ export const PRODUCTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^production/completion/${ID}$`),
     DurableCompletionEnvelopeSchema,
   ),
+];
+
+const drawdownKind = (
+  id: (typeof SOURCE_DRAWDOWN_FACT_KIND_IDS)[number],
+  rc: readonly string[],
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_PRODUCTION,
+  facet: FACET_PRODUCTION_STATE,
+  im: "IM-05",
+  rc,
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: PRODUCTION_SOURCE_DRAWDOWN_RULE,
+});
+
+/**
+ * IM-05 — the Production part of an exact finite raw-source drawdown: Production's own Capability / Access basis (SEALED),
+ * the extraction (SEALED, the pinned request and the commitment), the Production-caused Source Delta (SEALED, the key's
+ * Pending Drawdown while undelivered) and the per-key account (ADVANCING: opened by the first admission, closed per
+ * delivery). Same owner and facet as the rest of Production: no new Production owner exists, and the source truth is not
+ * Production's.
+ */
+export const SOURCE_DRAWDOWN_FACT_KINDS: readonly FactKind[] = [
+  drawdownKind(
+    "production_extraction_basis",
+    ["RC-02"],
+    "SEALED",
+    new RegExp(`^production/extraction-basis/${ID}$`),
+    ExtractionBasisSchema,
+  ),
+  drawdownKind(
+    "production_extraction",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/extraction/${ID}$`),
+    ProductionExtractionSchema,
+  ),
+  drawdownKind(
+    "production_source_delta",
+    ["RC-02", "RC-07"],
+    "SEALED",
+    new RegExp(`^production/source-delta/${ID}$`),
+    SourceDeltaSchema,
+  ),
+  drawdownKind(
+    "production_source_account",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^production/source-account/${ID}/${ID}$`),
+    SourceAccountSchema,
+  ),
+];
+
+/** World-State's Source Condition facet: the ADVANCING Source Condition and its SEALED delivery record. */
+export const WORLD_SOURCE_CONDITION_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_source_condition",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_SOURCE_CONDITION,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^world/${ID}/source/${ID}$`),
+    valueSchema: WorldSourceConditionSchema,
+    rule: WORLD_SOURCE_CONDITION_RULE,
+  },
+  {
+    id: "world_source_delivery",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_SOURCE_CONDITION,
+    im: "IM-03",
+    rc: ["RC-02", "RC-07"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/source-delivery/${ID}$`),
+    valueSchema: WorldSourceDeliverySchema,
+    rule: WORLD_SOURCE_CONDITION_RULE,
+  },
 ];
 
 /** SEALED: after acceptance no amendment mechanism exists, so the entity is create-only (exactly once). */
@@ -1937,6 +2077,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...TEMPORAL_FACT_KINDS,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
+  ...SOURCE_DRAWDOWN_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
@@ -1953,6 +2094,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...DIPLOMACY_FACT_KINDS,
   ...CAUSAL_DRAW_FACT_KINDS,
   ...CULTURE_ADJUDICATION_FACT_KINDS,
+  ...WORLD_SOURCE_CONDITION_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

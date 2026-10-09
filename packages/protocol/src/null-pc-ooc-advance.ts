@@ -28,6 +28,9 @@ import {
   populationBarrierEvaluator,
   populationStageProvider,
   productionCompletionProvider,
+  productionReserveInflowProvider,
+  productionSourceDeltaProvider,
+  worldSourceDeliveryProvider,
   worldEntityTransitionProvider,
   worldFallbackAcceptanceProvider,
   type CanonicalCampaign,
@@ -166,6 +169,9 @@ const AMBIGUOUS = new Set(["UNKNOWN_OUTCOME", "STORE_POISONED", "STORE_CLOSED"])
 const ownerProviders = (): StageProviderRegistry =>
   new StageProviderRegistry([
     productionCompletionProvider,
+    productionSourceDeltaProvider,
+    worldSourceDeliveryProvider,
+    productionReserveInflowProvider,
     worldFallbackAcceptanceProvider,
     economyRealizationProvider,
     worldEntityTransitionProvider,

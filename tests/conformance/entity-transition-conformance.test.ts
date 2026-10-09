@@ -321,6 +321,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "source-condition.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")
@@ -346,6 +347,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "presentation",
       "production",
       "projection",
+      "source-drawdown",
       "temporal",
       "world",
     ]);

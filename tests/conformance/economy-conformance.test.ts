@@ -115,7 +115,9 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
           f !== "actor_profile" &&
           f !== "epistemic_access" &&
           f !== "kti_development" &&
-          f !== "culture_social",
+          f !== "culture_social" &&
+          // (the exact finite raw-source drawdown slice's World-State Source Condition facet is lawful: WS-003 §4A)
+          f !== "world_source_condition",
       )
       .join(" ");
     for (const forbidden of [
@@ -317,6 +319,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "presentation",
       "production",
       "projection",
+      "source-drawdown",
       "temporal",
       "world",
     ]);

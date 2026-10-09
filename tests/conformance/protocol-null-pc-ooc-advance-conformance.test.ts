@@ -58,7 +58,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/engine/src/world/canonical-campaign.ts":
-    "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
+    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/fallback-custody.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "b8144367498d35d0c1797afdc35b9f49911bb1749f2eee1bbcca37601f9e2083",
+    "f5664f8bd7d39fb3bbe076d5aa2f587c79db76838d7d796e93e5a40215ab509e",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -172,18 +172,21 @@ describe("the module composes the existing kernel and shipped owner providers on
       "populationBarrierEvaluator",
       "populationStageProvider",
       "productionCompletionProvider",
+      "productionReserveInflowProvider",
+      "productionSourceDeltaProvider",
       "type CanonicalCampaign",
       "worldEntityTransitionProvider",
       "worldFallbackAcceptanceProvider",
+      "worldSourceDeliveryProvider",
     ]);
   });
 
-  it("registers exactly the twelve real shipped owner stage providers (the sunset slice's GIP sunset provider is the twelfth; no fixture, no wrapper, no new provider of this gateway) with the existing Population barrier evaluator", () => {
+  it("registers exactly the fifteen real shipped owner stage providers (the sunset slice's GIP sunset provider is the twelfth; the exact finite raw-source drawdown slice's three are the others; no fixture, no wrapper, no new provider of this gateway) with the existing Population barrier evaluator", () => {
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
     expect(src).toMatch(
-      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
+      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*productionSourceDeltaProvider,\s*worldSourceDeliveryProvider,\s*productionReserveInflowProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
     );
     expect(src).toMatch(
       /new TemporalCoordinator\(\s*store,\s*ownerProviders\(\),\s*populationBarrierEvaluator,?\s*\)/,

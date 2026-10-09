@@ -19,4 +19,5 @@ export * from "./logistics-fixtures.ts";
 export * from "./pc-capability-fixtures.ts";
 export * from "./population-fixtures.ts";
 export * from "./production-fixtures.ts";
+export * from "./source-drawdown-fixtures.ts";
 export * from "./temporal-fixtures.ts";
