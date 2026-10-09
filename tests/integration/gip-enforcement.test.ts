@@ -214,9 +214,15 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
     const methods = adapterMethods(GipAdapter);
     expect(methods).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
-      // (the sixteenth slice's Governance Instrument establishment and keyed read are the only instrument methods)
+      // (the sixteenth slice's Governance Instrument establishment and keyed read are the only instrument methods, beside the
+      // sunset slice's sunset-bearing establishment with its enrollment completion and keyed receipt read)
       methods
-        .filter((m) => !/^(establishGovernanceInstrument|governanceInstrument)$/.test(m))
+        .filter(
+          (m) =>
+            !/^(establishGovernanceInstrument|governanceInstrument|establishSunsetInstrument|completeSunsetEnrollment|sunsetEnrollment)$/.test(
+              m,
+            ),
+        )
         .filter((m) =>
           /set|update|write|rename|split|merge|abol|replace|succe|appoint|remov|deleg|member|faction|instrument|asset|resource|compet|tick|sweep|scan|list|all/i.test(
             m,
@@ -514,16 +520,17 @@ describe("GIP has no tick, phase, polling loop, stage or special owner close (ac
   it("the guard is the one registration rule: a GIP stage, GIP-produced key or GIP-owned object is a violation, anything else is not", () => {
     const base = dormantObject();
     const dep = base.dependencies[0]!;
-    expect(gipObjectViolation(base)).toBeNull();
+    const state = { facts: new Map<string, OwnerFact>() };
+    expect(gipObjectViolation(base, state)).toBeNull();
     expect(
-      gipObjectViolation({ ...base, dependencies: [{ ...dep, stage: stage("gip") }] }),
+      gipObjectViolation({ ...base, dependencies: [{ ...dep, stage: stage("gip") }] }, state),
     ).toMatch(/no stage, close or operation/);
     expect(
-      gipObjectViolation({ ...base, dependencies: [{ ...dep, produces: [courtKey] }] }),
+      gipObjectViolation({ ...base, dependencies: [{ ...dep, produces: [courtKey] }] }, state),
     ).toMatch(/no stage, close or operation/);
-    expect(gipObjectViolation({ ...base, owning_ref: { owner: "gip", process_id: "p" } })).toMatch(
-      /no temporal object/,
-    );
+    expect(
+      gipObjectViolation({ ...base, owning_ref: { owner: "gip", process_id: "p" } }, state),
+    ).toMatch(/no temporal object/);
   });
 });
 

@@ -589,6 +589,9 @@ export function identityMismatch(
         : "institution, office and scope binding identity does not match the key";
     case "gip_governance_instrument":
       return v["instrument_id"] === ids[0] ? null : "instrument_id does not match the key";
+    case "gip_sunset_enrollment":
+      // a fixed key space of one slot: the key embeds no identity
+      return null;
     case "diplomacy_external_recognition":
       return v["recognition_id"] === ids[0] ? null : "recognition_id does not match the key";
     case "diplomacy_claim_dispute":

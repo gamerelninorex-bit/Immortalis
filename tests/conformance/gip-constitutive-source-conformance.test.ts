@@ -125,7 +125,9 @@ describe("IA-03 owner/key exclusivity: no new owner, facet, fact kind, key space
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
   });
 });

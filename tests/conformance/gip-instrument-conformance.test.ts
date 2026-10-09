@@ -12,6 +12,7 @@ import {
   GIP_FACT_KINDS,
   GIP_INSTRUMENT_RULE,
   GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
+  GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE,
   GIP_OFFICE_RULE,
   GIP_OFFICE_RULE_THIRTEENTH_SLICE,
   GIP_RULE,
@@ -54,10 +55,10 @@ const SOURCE_FIELDS = [
   "validity_by_order",
   "lifecycle_status",
 ];
+// (the twenty-first slice implements `predecessor_instrument_ref` and the sunset-slice `sunset_condition`: neither is in this list)
 const SOURCE_CONDITIONAL = [
   "activation_condition",
   "effective_from",
-  "sunset_condition",
   "renewal_rule",
   "implementation_assignment_ref",
   "administrative_path_ref",
@@ -103,12 +104,16 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
       expect(GIP_INSTRUMENT_RULE.clause).toContain(c);
   });
 
-  it("the current citation is the pinned twenty-first-slice successor, the sixteenth-slice one is preserved byte-for-byte, and the identity, office (and its historical compatibility) and binding citations are unchanged", () => {
+  it("the current citation is the pinned sunset-slice successor, the sixteenth- and twenty-first-slice ones are preserved byte-for-byte, and the identity, office (and its historical compatibility) and binding citations are unchanged", () => {
     expect(sha(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE)).toBe(
       "6230c2ab55fd0c4dfcdbd37911afdfcd766e8cd26996fb6ccc70a2c246d9e294",
     );
-    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+    // the twenty-first-slice citation: the value this very hash pinned as the CURRENT citation before the sunset slice
+    expect(sha(GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE)).toBe(
       "e71c37c3ddbe51a43dd3c74c6ba33e3f31cc7e0fc89a4aee4ec4248316482af4",
+    );
+    expect(sha(GIP_INSTRUMENT_RULE)).toBe(
+      "200a5489f3bc70e1f05e84a6ac4dab603284658d8cc4664642715ddd4d453564",
     );
     expect(sha(GIP_SCOPE_BINDING_RULE)).toBe(
       "a05c6a641840f7f9e55fce85cf9949fa7fca621119ca92248731db7c2ca93876",
@@ -132,10 +137,14 @@ describe("IA-01 source/version fidelity (GIP Governance Instrument registration 
       ...EXPECTED_LEGACY_RULE_KIND_IDS,
     ]);
     expect(instrument.legacyRule!.rule).toEqual(GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE);
+    // (the sunset slice's second superseded citation sits in the same kind, beside - never instead of - the first)
+    expect(instrument.laterLegacyRules!.map((l) => l.rule)).toEqual([
+      GIP_INSTRUMENT_RULE_TWENTY_FIRST_SLICE,
+    ]);
     expect(code(`${GIP_DIR}/admission.ts`)).toMatch(
       /canonicalEqual\(group\.rule, GIP_INSTRUMENT_RULE\)/,
     );
-    expect(identifiers(`${GIP_DIR}/admission.ts`)).not.toMatch(/THIRTEENTH|SIXTEENTH/);
+    expect(identifiers(`${GIP_DIR}/admission.ts`)).not.toMatch(/THIRTEENTH|SIXTEENTH|TWENTY_FIRST/);
   });
 
   it("the source identifiers are reproduced exactly: the contract names exactly the seven §4.1 fields, singular operative_effect, validity_by_order and the two entry fields", () => {
@@ -245,7 +254,7 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       expect(k.keyPattern.test("gip/instrument/n1"), k.id).toBe(false);
   });
 
-  it("the registry holds exactly four GIP kinds and no clause, procedure, order, relation, status, membership, faction or fallback kind", () => {
+  it("the registry holds exactly the five GIP kinds (the sunset slice adds only GIP's sunset enrollment receipt) and no clause, procedure, order, relation, status, membership, faction or fallback kind", () => {
     // (the exact GIP kind inventory is the central oracle's: stated against it, not a literal)
     expect(CANONICAL_OWNER_REGISTRY.get("gip")).toEqual(expectedOwnerFacetSet("gip"));
     expect(GIP_FACT_KINDS.map((k) => k.id)).toEqual(expectedKindIds({ group: "GIP_FACT_KINDS" }));
@@ -259,26 +268,38 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
     ).toEqual(["gip"]);
   });
 
-  it("no second GIP module, ledger, sidecar or persistence path exists: the engine's GIP modules are the four predecessor modules", () => {
+  it("no second GIP ledger, sidecar or persistence path exists: the engine's GIP modules are the four predecessor modules plus the sunset slice's derivation and its one stage provider", () => {
     expect(readdirSync(GIP_DIR).sort()).toEqual([
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
     for (const f of SOURCES)
-      expect(code(f), f).not.toMatch(
+      expect(
+        // (the one shipped Temporal stage provider, the registry the adapter hands the kernel's own coordinator and the shared
+        // load-time stage-identity check are the permitted names: they persist nothing)
+        code(f)
+          .replace(
+            /\bgipSunsetExpiryProvider\b|\bStageProvider\w*|\bjournaledStageViolation\b/g,
+            "",
+          )
+          .replace(/"\.\.\/temporal\/providers\.ts"/g, '""'),
+        f,
+      ).not.toMatch(
         /node:fs|node:path|writeFile|appendFile|readFile|createWriteStream|JSON\.stringify|localStorage|indexedDB|sqlite|journal|sidecar|provider/i,
       );
     // (the GIP adapter's commit and writer cardinality are the central oracle's: registered-surface-conformance)
   });
 
-  it("the GIP adapter has exactly four authored writers and four keyed reads: no Instrument update, enactment, validity, lifecycle, clause or applicability method", () => {
+  it("the GIP adapter has its authored writers and keyed reads: no Instrument update, enactment, validity, lifecycle, clause or applicability method (the lifecycle close is GIP's Temporal stage, never an adapter method)", () => {
     // (the whole adapter surface is the central oracle's: registered-surface-conformance)
     expect(adapterMethods(GipAdapter)).toEqual(expectedAdapterMethods("GipAdapter"));
     expect(
       adapterMethods(GipAdapter).filter((m) =>
-        /update|enact|validity|lifecycle|clause|applicab/i.test(m),
+        /update|enact|validity|lifecycle|clause|applicab|expire|advance/i.test(m),
       ),
     ).toEqual([]);
   });
@@ -299,7 +320,7 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
     ]);
     const verifier = code(`${GIP_DIR}/integrity.ts`);
     expect(verifier.match(/listFacts\(/g)).toHaveLength(1);
-    expect(verifier).toMatch(/verifyInstrument\(store, f, bad\)/);
+    expect(verifier).toMatch(/verifyInstrument\(store, f, byKey, bad\)/);
   });
 });
 
@@ -312,12 +333,15 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
     expect(contract).not.toMatch(
       /z\.object\(|passthrough|looseObject|z\.record|z\.any|z\.unknown|\.default\(|\.catch\(|discriminatedUnion|\.transform\(|\.superRefine\(|z\.union\(|\.nullable\(|\.nullish\(/,
     );
-    expect(contract.match(/\.optional\(/g)).toHaveLength(1);
-    expect(contract).toMatch(/predecessor_instrument_ref: EntityId\.optional\(\),/);
+    // (the twenty-first-slice value class and the current shape each carry the one predecessor reference; the current shape alone
+    // carries the sunset slice's sunset_condition)
+    expect(contract.match(/\.optional\(/g)).toHaveLength(3);
+    expect(contract.match(/predecessor_instrument_ref: EntityId\.optional\(\),/g)).toHaveLength(2);
+    expect(contract).toMatch(/sunset_condition: InstrumentSunsetCondition\.optional\(\),/);
     // the same-authority structural refinement (once on the historical core shape, once on the current one) plus the one
     // explicit-undefined refusal on the current one. No minimum cardinality, uniqueness, deduplication, merging or
     // conflict-resolution rule exists over validity_by_order[] (the source defines none)
-    expect(contract.match(/\.refine\(/g)).toHaveLength(3);
+    expect(contract.match(/\.refine\(/g)).toHaveLength(5);
     expect(contract).toMatch(
       /scope_binding_ref must address a Scope Binding of the same authority/,
     );
@@ -335,9 +359,10 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 
   it("the contract carries no WS-007 §4.3 conditional field, clause, procedure, applicability, promulgation or calculation construct (the source names appear only in the documenting comments)", () => {
     const text = identifiers(CONTRACT);
-    // the twenty-first slice implements exactly one §4.3 field; every other one stays unrepresentable
+    // the twenty-first and sunset slices implement exactly two §4.3 fields; every other one stays unrepresentable
     for (const f of SOURCE_CONDITIONAL) expect(text, f).not.toContain(f);
-    expect(text.match(/predecessor_instrument_ref/g)).toHaveLength(1);
+    expect(text.match(/predecessor_instrument_ref/g)).toHaveLength(2);
+    expect(text.match(/\bsunset_condition\b/g)).toHaveLength(1);
     expect(text).not.toMatch(
       /\b(clauses?|clause_\w+|applicab\w*|applies|procedure|vote\w*|enact\w*|promulgat\w*|disseminat\w*|reach|implement\w*|complian\w*|enforce\w*|calculat\w*|derive\w*|compute\w*|resolv\w*|status_change\w*|legal\w*|current_force|force)\b/i,
     );
@@ -348,8 +373,14 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
   it("the engine never reads, dereferences, resolves, calculates or executes an authored Instrument value: basis, orders, validity, lifecycle and effect are never named", () => {
     for (const f of ENGINE_SOURCES)
       expect(identifiers(f), f).not.toMatch(
-        /\.(authority_basis_ref|governing_order_ref|validity_by_order|validity_status|lifecycle_status|operative_effect)\b/,
+        /\.(authority_basis_ref|governing_order_ref|validity_by_order|validity_status|operative_effect)\b/,
       );
+    // the sunset slice reads `lifecycle_status` in exactly the lifecycle modules - the derivation of the one active to
+    // expired transition, its admission/verification and the sunset gates - and nowhere else
+    for (const f of ENGINE_SOURCES.filter(
+      (f) => !/(derive|admission|integrity|declaration)\.ts$/.test(f),
+    ))
+      expect(identifiers(f), f).not.toMatch(/\.lifecycle_status\b/);
     for (const f of ENGINE_SOURCES)
       expect(identifiers(f), f).not.toMatch(
         /\b(switch|JSON\.parse|eval|Function|split|replaceAll)\b|\.split\(|\.trim\(|\.toLowerCase\(|\.toUpperCase\(|\.includes\(|\.startsWith\(\s*[^"')]|localeCompare|RegExp\(|\.match\(|\.matchAll\(|\.test\(/,
@@ -368,9 +399,10 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 
   it("no cross-owner construct exists in the GIP modules: no foreign owner, key builder or reader is named", () => {
     const foreign =
-      /actorBoundaryViolation|actorCapability|namedActor|OWNER_NAMED_ACTOR|OWNER_POPULATION|OWNER_KTI|OWNER_EPISTEMIC_ACCESS|OWNER_ECONOMY|OWNER_PRODUCTION|OWNER_LOGISTICS|OWNER_WORLD_STATE|OWNER_TEMPORAL_KERNEL|OWNER_PC_EXISTENCE|OWNER_ROLE_REGISTRY|accessEventKey|ktiTransfer|ktiDevelopmentObjectKey|populationLedgerKey|pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|worldFallbackEntityKey|temporalObjectKey/;
+      /actorBoundaryViolation|actorCapability|namedActor|OWNER_NAMED_ACTOR|OWNER_POPULATION|OWNER_KTI|OWNER_EPISTEMIC_ACCESS|OWNER_ECONOMY|OWNER_PRODUCTION|OWNER_LOGISTICS|OWNER_WORLD_STATE|OWNER_TEMPORAL_KERNEL|OWNER_PC_EXISTENCE|OWNER_ROLE_REGISTRY|accessEventKey|ktiTransfer|ktiDevelopmentObjectKey|populationLedgerKey|pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|worldFallbackEntityKey/;
     for (const f of [...ENGINE_SOURCES.filter((f) => !f.endsWith("integrity.ts")), CONTRACT])
       expect(code(f), f).not.toMatch(foreign);
+    // (the one permitted foreign name is the Temporal kernel's sunset-object key, READ for existence - gip-conformance.test.ts)
   });
 
   it("no governing-order, authority-basis, procedure, vote, applicability, promulgation, Reach, implementation or compliance construct was added to the GIP modules", () => {
@@ -394,20 +426,25 @@ describe("IA-02 strict executable contract: the §4.1 mandatory fields, nothing 
 });
 
 describe("IA-04 turnless / IA-22 dormant economy: no new stage, tick, clock, RNG or scan on the Instrument path; no Issue #11 workaround", () => {
-  it("no new GIP temporal stage, Close Basis, scheduler, boundary or Temporal Object: the temporal registration guard is untouched and forbids them", () => {
+  it("the only GIP temporal construct is the one sunset stage of an Instrument that carries a sunset_condition: no Close Basis, scheduler, tick, renewal or activation exists, and the registration guard admits exactly the derived sunset object", () => {
     const declaration = code(`${GIP_DIR}/declaration.ts`);
-    expect(declaration).not.toMatch(/StageProvider|READ_MODE|declares_close:\s*\{|Stage\(/);
-    expect(readdirSync(GIP_DIR)).not.toContain("provider.ts");
-    for (const f of SOURCES.filter((f) => !f.endsWith("declaration.ts")))
+    expect(declaration).not.toMatch(/declares_close:\s*\{|CLOSE|StageProvider\b/);
+    expect(declaration.match(/gipSunsetStage\(/g)).toHaveLength(1);
+    expect(code(`${GIP_DIR}/provider.ts`).match(/export const \w+: StageProvider/g)).toHaveLength(
+      1,
+    );
+    for (const f of SOURCES)
       expect(identifiers(f), f).not.toMatch(
-        /\b(StageProvider|StageKey|TemporalCoordinator|ResolutionRequest|CloseBasis|dueAt|schedule\w*|boundary|nextTick|activation\w*|expir\w*|sunset\w*|renew\w*)\b/,
+        /\b(ResolutionRequest|CloseBasis|dueAt|schedule\w*|nextTick|activation\w*|renew\w*)\b/,
       );
   });
 
   it("the GIP modules and contract contain no timer, clock, RNG, scheduler, sweep or polling construct, and nothing is randomized or defaulted", () => {
     const forbidden =
       /\b(setInterval|setTimeout|setImmediate|Date\.now|new Date|performance\.now|process\.hrtime|Math\.random|randomUUID|randomBytes|randomInt|globalTick|tickCount|turnCounter|phaseOrder|runPhase|advanceTick|globalPass|pollInterval|cadence|refresh|sweep|periodic|annual|random\w*|rng|roll\w*|seed\w*|prior|dice|chooser|sample\w*|stochastic|probabilit\w*|uncertain\w*)\b/i;
-    for (const f of SOURCES) expect(identifiers(f), f).not.toMatch(forbidden);
+    // (`input.prior` is the Temporal seam's name for the owner's own committed prior state: the Instrument a stage advances)
+    for (const f of SOURCES)
+      expect(identifiers(f).replace(/\binput\.prior\b/g, ""), f).not.toMatch(forbidden);
     for (const f of [
       "tests/contract/gip-instrument-schemas.test.ts",
       "tests/integration/gip-instrument.test.ts",

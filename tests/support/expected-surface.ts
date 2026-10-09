@@ -379,6 +379,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "gip/instrument/n1",
   },
   {
+    id: "gip_sunset_enrollment",
+    owner: "gip",
+    facet: "gip_institution_identity",
+    lifecycle: "ADVANCING",
+    group: "GIP_FACT_KINDS",
+    exampleKey: "gip/sunset-enrollment",
+  },
+  {
     id: "diplomacy_external_recognition",
     owner: "diplomacy",
     facet: "diplomacy_external_recognition",
@@ -594,14 +602,17 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   },
   GipAdapter: {
     methods: [
+      "completeSunsetEnrollment",
       "establishGovernanceInstrument",
       "establishInstitution",
       "establishOffice",
       "establishScopeBinding",
+      "establishSunsetInstrument",
       "governanceInstrument",
       "institutionIdentity",
       "officeAuthorityLocus",
       "scopeBinding",
+      "sunsetEnrollment",
     ],
     source: {
       file: "packages/engine/src/gip/adapter.ts",
@@ -611,6 +622,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
         "establishInstitution",
         "establishOffice",
         "establishScopeBinding",
+        "establishSunsetInstrument",
       ],
     },
   },

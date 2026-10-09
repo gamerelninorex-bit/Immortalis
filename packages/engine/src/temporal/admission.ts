@@ -31,7 +31,7 @@ import { namedActorObjectViolation } from "../actor/declaration.ts";
 import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
 import { epistemicObjectViolation } from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
-import { gipObjectViolation } from "../gip/declaration.ts";
+import { gipEnrollmentPendingViolation, gipObjectViolation } from "../gip/declaration.ts";
 import { cultureObjectViolation } from "../culture/declaration.ts";
 import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
@@ -147,7 +147,7 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (kti) return reject("REFERENCE_INVALID", kti, { key: w.key });
       const culture = cultureObjectViolation(o, state, true);
       if (culture) return reject("REFERENCE_INVALID", culture, { key: w.key });
-      const gip = gipObjectViolation(o);
+      const gip = gipObjectViolation(o, state, true);
       if (gip) return reject("REFERENCE_INVALID", gip, { key: w.key });
       const diplomacy = diplomacyObjectViolation(o);
       if (diplomacy) return reject("REFERENCE_INVALID", diplomacy, { key: w.key });
@@ -262,6 +262,10 @@ function checkTransaction(
   ) {
     return bad("the new canonical time must be exactly this transaction's actual stop");
   }
+  // GIP's enrollment of a committed sunset-bearing Instrument that is not yet registered with this kernel: canonical time may not
+  // reach that sunset, because nothing in the active index would engage it (F-014B: no advance silently passes material work)
+  const unregisteredSunset = gipEnrollmentPendingViolation(state.facts, tx.outcome.actual_stop);
+  if (unregisteredSunset) return bad(unregisteredSunset);
   // 5. continuation is the outcome; a continuing transaction consumes the remainder the state holds.
   const { remainder, unresolved_dependents } = tx.outcome;
   const expectedContinuation =

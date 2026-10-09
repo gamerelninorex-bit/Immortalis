@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  GIP_SUNSET_ENROLLMENT_KEY,
   PLAYER_CHARACTER_BINDING_KEY,
   temporalObjectKey,
   temporalTransactionAuthorityKey,
@@ -426,6 +427,9 @@ describe("causally engaged set and dormant-state economy (brief §4.8, §5.3)", 
           temporalTransactionKey("tx-1"),
           // the advance reads its own transaction's durable authority, by identity
           temporalTransactionAuthorityKey("tx-1"),
+          // and GIP's one fixed-key enrollment receipt: a target is refused while a committed sunset is not yet registered
+          // (sunset slice); a single keyed read, never a scan of Instruments
+          GIP_SUNSET_ENROLLMENT_KEY,
         ],
         `unexpected read of ${key}`,
       ).toContain(key);

@@ -102,7 +102,9 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
+      "derive.ts",
       "integrity.ts",
+      "provider.ts",
     ]);
   });
 
@@ -173,7 +175,10 @@ describe("IA-04 turnless: no tick, clock, RNG, cadence or global scan on the off
   it("the GIP modules contain no timer, clock, RNG, scheduler, sweep or polling construct, and nothing is randomized or defaulted", () => {
     const forbidden =
       /\b(setInterval|setTimeout|setImmediate|Date\.now|new Date|performance\.now|process\.hrtime|Math\.random|randomUUID|randomBytes|randomInt|globalTick|tickCount|turnCounter|phaseOrder|runPhase|advanceTick|globalPass|pollInterval|cadence|refresh|sweep|periodic|annual|random\w*|rng|roll\w*|seed\w*|prior|dice|chooser|sample\w*|stochastic|probabilit\w*|uncertain\w*)\b/i;
-    for (const f of GIP_SOURCES) expect(identifiers(f), f).not.toMatch(forbidden);
+    // (`input.prior` is the Temporal seam's name for an owner's own committed prior state - the sunset slice's sunset stage
+    // advances the Instrument - never a probabilistic prior)
+    for (const f of GIP_SOURCES)
+      expect(identifiers(f).replace(/\binput\.prior\b/g, ""), f).not.toMatch(forbidden);
   });
 
   it("only the diagnostic integrity verifier lists facts: the establish and read paths never scan all institutions or offices", () => {
@@ -184,10 +189,10 @@ describe("IA-04 turnless: no tick, clock, RNG, cadence or global scan on the off
     expect(code(`${GIP_DIR}/integrity.ts`).match(/listFacts\(/g)).toHaveLength(1);
   });
 
-  it("the temporal registration guard still forbids any GIP stage, close or owned object: the office adds none", () => {
+  it("the office adds no GIP stage, close or owned object: the only GIP temporal construct is the sunset slice's Instrument sunset stage, which names no office of its own", () => {
     const declaration = code(`${GIP_DIR}/declaration.ts`);
-    expect(declaration).not.toMatch(/StageProvider|READ_MODE|declares_close:\s*\{|Stage\(/);
-    expect(readdirSync(GIP_DIR)).not.toContain("provider.ts");
+    expect(declaration).not.toMatch(/declares_close:\s*\{|StageProvider\b/);
+    expect(declaration.match(/gipSunsetStage\(/g)).toHaveLength(1);
   });
 });
 
@@ -369,7 +374,10 @@ describe("fourteenth slice — the decision_body_ref branch of the same Office /
   it("no GitHub Issue #11 workaround: the GIP modules introduce no randomness, clock, seed, roll or probability, and the decision-body tests use none", () => {
     const forbidden =
       /\b(setInterval|setTimeout|Date\.now|new Date|Math\.random|randomUUID|randomBytes|rng|roll\w*|seed\w*|prior|dice|chooser|stochastic|probabilit\w*|uncertain\w*)\b/i;
-    for (const f of GIP_SOURCES) expect(identifiers(f), f).not.toMatch(forbidden);
+    // (`input.prior` is the Temporal seam's name for an owner's own committed prior state - the sunset slice's sunset stage
+    // advances the Instrument - never a probabilistic prior)
+    for (const f of GIP_SOURCES)
+      expect(identifiers(f).replace(/\binput\.prior\b/g, ""), f).not.toMatch(forbidden);
     // the tests may name a "seeded" fixture campaign, so only the actual clock / randomness constructs are checked there
     for (const f of [
       "tests/contract/gip-office-decision-body-schemas.test.ts",

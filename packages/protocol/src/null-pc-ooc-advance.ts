@@ -19,6 +19,7 @@ import {
   TemporalCoordinator,
   economyRealizationProvider,
   epistemicPacketProvider,
+  gipSunsetExpiryProvider,
   ktiTransferResultCloseProvider,
   logisticsDeliveryProvider,
   logisticsRetirementProvider,
@@ -175,6 +176,7 @@ const ownerProviders = (): StageProviderRegistry =>
     ktiTransferResultCloseProvider,
     namedActorCapabilityCloseProvider,
     pcCapabilityCloseProvider,
+    gipSunsetExpiryProvider,
   ]);
 
 /**

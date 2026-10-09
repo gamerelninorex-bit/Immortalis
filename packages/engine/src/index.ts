@@ -73,6 +73,8 @@ export * from "./epistemic/provider.ts";
 export * from "./gip/adapter.ts";
 export * from "./gip/admission.ts";
 export * from "./gip/declaration.ts";
+export * from "./gip/derive.ts";
+export * from "./gip/provider.ts";
 export * from "./gip/integrity.ts";
 export * from "./culture/adapter.ts";
 export * from "./culture/admission.ts";
