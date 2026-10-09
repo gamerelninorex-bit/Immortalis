@@ -58,7 +58,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "911fcebf9192ddd4e4b620c738ffbfa5f3fb7a9daee47131b880117dfc67f2f5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "fc4b9c18ad6e05a19840e328041b8b17c4c39c486671f2d7920a080d2ba910f0",
+    "9351f09fb9b6251590702236d611854ad05bd84ce480b2c8ecc228c02e39f5b7",
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/fallback-custody.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "c9c6a95b0cc6afdf183c6dae7442d10bd36f6867f1601765d094c63ed19d9a97",
+    "e2b42c5c454a2cfd2a569015701eb93766d3de6e1cf454b285a512c13f7135d7",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

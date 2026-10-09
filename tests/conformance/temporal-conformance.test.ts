@@ -119,7 +119,13 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
 
   it("the kernel owns shared orchestration only — none of the substantive owners the IM map reserves", () => {
     const names = [...CANONICAL_OWNER_REGISTRY.keys()]
-      .filter((n) => n !== "named_actor" && n !== "epistemic_access" && n !== "kti")
+      .filter(
+        (n) =>
+          n !== "named_actor" &&
+          n !== "epistemic_access" &&
+          n !== "kti" &&
+          n !== "culture_adjudication_kernel",
+      )
       .join(" ");
     // (Population is the fourth slice's lawful IM-04 owner, Production the fifth slice's lawful IM-05 owner and
     // Economy the sixth slice's lawful IM-06 owner; every other substantive owner stays absent.)
@@ -314,6 +320,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",

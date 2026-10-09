@@ -10,6 +10,7 @@ import {
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_GIP,
+  OWNER_CULTURE_ADJUDICATION_KERNEL,
   OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
@@ -40,6 +41,7 @@ import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
+import { cultureAdjudicationGroupCheck } from "../culture-adjudication/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
@@ -450,6 +452,9 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
     // IM-12 Causal Draw provenance groups (F-027-CD1): one precommit or one result, each created once and re-derived.
     if (group.owner === OWNER_CAUSAL_DRAW_KERNEL) return causalDrawGroupCheck(group, state);
+    // IM-12 Culture adjudication provenance groups (F-027-CJA1): one decision record, created once and re-derived.
+    if (group.owner === OWNER_CULTURE_ADJUDICATION_KERNEL)
+      return cultureAdjudicationGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -595,6 +600,8 @@ export function identityMismatch(
     case "kti_transfer_basis":
     case "kti_transfer_package":
       return v["package_id"] === ids[0] ? null : "package identity does not match the key";
+    case "culture_adjudication_decision":
+      return v["culture_update_id"] === ids[0] ? null : "culture_update_id does not match the key";
     case "causal_draw_precommit":
     case "causal_draw_result":
       return v["draw_id"] === `cdraw:v1:${ids[0]}` ? null : "draw_id does not match the key";

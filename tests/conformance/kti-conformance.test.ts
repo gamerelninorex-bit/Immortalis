@@ -118,7 +118,9 @@ describe("IA-03 owner exclusivity: the KTI owner holds the development object, t
         /relationship|encounter|exposure|intelligib|compet|adopt|adher|diffus|doctrine|institution|population|headcount|reproduc|continuity|score|level|rank|broadcast|cohort|audience/,
       );
     expect(
-      [...CANONICAL_OWNER_REGISTRY.keys()].filter((n) => /kti|knowledge|technolog|culture/.test(n)),
+      [...CANONICAL_OWNER_REGISTRY.keys()].filter(
+        (n) => /kti|knowledge|technolog|culture/.test(n) && n !== "culture_adjudication_kernel",
+      ),
     ).toEqual(["kti"]);
     expect(KTI_FACT_KINDS.every((k) => k.im === "IM-09")).toBe(true);
   });
@@ -413,6 +415,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture-adjudication",
       "diplomacy",
       "economy",
       "epistemic",
