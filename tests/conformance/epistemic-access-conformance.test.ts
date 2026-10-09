@@ -403,8 +403,9 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
   it("no comprehension, recognition, inference, credibility, belief, stance, goal, relationship, mandate, KTI, broadcast lowering, cohort membership, message travel, courier, durable-record, memory, monitoring, relay, deception, narrative, projection or host construct exists in the Epistemic modules", () => {
     for (const f of EPISTEMIC_SOURCES) {
       const text = identifiers(f)
-        // the BROADCAST_EXPOSURE mode is named only so that a request for it is refused precisely
-        .replace(/MODE_BROADCAST_EXPOSURE|BROADCAST_EXPOSURE_UNSUPPORTED/g, "")
+        // the event-only BROADCAST_EXPOSURE mode (F-014D §4.4) is in scope: only its own identifiers (broadcast, audience
+        // reference, reach/channel conditions) are exempt; lowering, receipt, cohort or membership expansion stay forbidden
+        .replace(/\b\w*(broadcast|audience|reach)\w*\b/gi, "")
         .toLowerCase();
       for (const word of [
         "comprehen",
@@ -451,13 +452,34 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     }
   });
 
-  it("the only mention of broadcast is the refusal of that mode: it has no schema, key, kind or lowering, and is never approximated by recipient copying", () => {
+  it("BROADCAST_EXPOSURE is an event-only mode: a strict schema with no recipient, packet, receipt, access-time or downstream field; every recipient and packet path refuses it and nothing lowers, expands or copies it", () => {
     const contract = code("packages/contracts/src/epistemic-access.ts");
     expect(contract).toMatch(/MODE_BROADCAST_EXPOSURE = "BROADCAST_EXPOSURE"/);
-    expect(contract).not.toMatch(/z\.literal\(MODE_BROADCAST_EXPOSURE\)|literal\("BROADCAST/);
+    const schema = contract.slice(
+      contract.indexOf("export const BroadcastExposureEventSchema"),
+      contract.indexOf("export type BroadcastExposureEvent"),
+    );
+    expect(schema).toMatch(/z\.literal\(MODE_BROADCAST_EXPOSURE\)/);
+    expect(schema).toMatch(/strictObject/);
+    for (const field of [
+      "participants",
+      "recipient",
+      "established_at",
+      "channel: Access",
+      "packet",
+      "capability",
+      "representation",
+    ])
+      expect(schema, field).not.toContain(field);
+    // the recipient-set method still refuses the mode precisely; formation, registration and the owner operation refuse it
     expect(code(`${EPISTEMIC_DIR}/adapter.ts`)).toMatch(/BROADCAST_EXPOSURE_UNSUPPORTED/);
-    for (const f of EPISTEMIC_SOURCES.filter((f) => !/adapter\.ts$|epistemic-access\.ts$/.test(f)))
-      expect(code(f), f).not.toMatch(/BROADCAST/);
+    for (const f of ["admission.ts", "declaration.ts", "provider.ts", "integrity.ts"])
+      expect(code(`${EPISTEMIC_DIR}/${f}`), f).toMatch(/isBroadcastEvent/);
+    // no lowering, expansion, copy or approximation exists anywhere in the Epistemic modules
+    for (const f of EPISTEMIC_SOURCES)
+      expect(identifiers(f), f).not.toMatch(
+        /lowerBroadcast|lowerTo|expandAudience|expandRecipients|audienceMembers|copyToRecipients|approximate/i,
+      );
   });
 
   it("no randomization of any kind exists: no RNG, roll, bounded prior, seed, chooser or default (GitHub Issue #11 stays open and unimplemented)", () => {

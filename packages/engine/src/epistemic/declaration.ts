@@ -1,4 +1,5 @@
 import {
+  AccessDisseminationEventSchema,
   AccessEventSchema,
   BoundaryIndexSchema,
   EPISTEMIC_OPERATION_FORM_ACCESSIBLE_PACKET,
@@ -23,6 +24,7 @@ import { pcCapabilityCloseRead } from "../pc-capability/declaration.ts";
 import {
   eventRecipient,
   formationKeys,
+  isBroadcastEvent,
   isPcRecipientEvent,
   recipientBoundaryViolation,
 } from "./derive.ts";
@@ -134,6 +136,12 @@ export function epistemicObjectViolation(
       }
       const target = packetOfKey(d.stage.prospective_result_id);
       const eventFact = target ? state.facts.get(accessEventKey(target.eventId)) : undefined;
+      const dissemination = eventFact
+        ? AccessDisseminationEventSchema.safeParse(eventFact.value)
+        : undefined;
+      if (dissemination?.success && isBroadcastEvent(dissemination.data)) {
+        return "a BROADCAST_EXPOSURE event is never individual receipt: no packet formation is declared from it";
+      }
       const event = eventFact ? AccessEventSchema.safeParse(eventFact.value) : undefined;
       if (
         !target ||

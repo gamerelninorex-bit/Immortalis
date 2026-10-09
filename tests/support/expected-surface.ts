@@ -582,7 +582,15 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     methods: ["access", "demand", "issueDemand", "realization", "request"],
   },
   EpistemicAccessAdapter: {
-    methods: ["engineSealedProvenance", "establishBoundedSharedAccess", "event", "packet"],
+    methods: [
+      "broadcastExposure",
+      "disseminationEvent",
+      "engineSealedProvenance",
+      "establishBoundedSharedAccess",
+      "establishBroadcastExposure",
+      "event",
+      "packet",
+    ],
   },
   GipAdapter: {
     methods: [

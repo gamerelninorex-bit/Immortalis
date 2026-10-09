@@ -1,4 +1,6 @@
 import {
+  AccessDisseminationEventSchema,
+  BroadcastExposureEventSchema,
   AccessEventSchema,
   CultureSharedMeaningSchema,
   CultureUpdateContextSchema,
@@ -360,6 +362,15 @@ export interface FactKind {
     readonly rule: SourceRef;
     readonly admits: (value: unknown) => boolean;
   };
+  /**
+   * A CURRENT governing-rule citation that is the only lawful one for one value class of a kind that holds more than one
+   * (e.g. an Access / Dissemination Event of a distinct mode): a fact of that class carries exactly this whole citation, and
+   * its owner's admission requires it for a new write. It is additive: it supersedes nothing and never relaxes `rule`.
+   */
+  readonly alternateRules?: readonly {
+    readonly rule: SourceRef;
+    readonly admits: (value: unknown) => boolean;
+  }[];
 }
 
 const rule = (
@@ -1287,6 +1298,20 @@ export const EPISTEMIC_ACCESS_RULE: SourceRef = rule(
   ],
 );
 
+/**
+ * The governing-rule citation of a BROADCAST_EXPOSURE Access / Dissemination Event (F-014D §4.4): the same source artifact,
+ * exact native pin and effective basis as `EPISTEMIC_ACCESS_RULE`, with the clauses THIS mode relies on and nothing of the
+ * recipient-event path's capability close or Player Character route (a broadcast event reads no capability and names no
+ * recipient). It is the only citation a new BROADCAST_EXPOSURE event may carry; `EPISTEMIC_ACCESS_RULE` is unchanged and remains
+ * the only citation of every BOUNDED_SHARED_ACCESS event, packet and provenance, so no existing fact is rewritten, re-cited or
+ * migrated.
+ */
+export const EPISTEMIC_ACCESS_BROADCAST_RULE: SourceRef = rule(
+  F014D_SOURCE,
+  "§2 Ownership Contract (F-014D owns the causal route, source/carrier provenance, actual payload and the immutable Access / Dissemination Event modes; it does not own individual receipt of an unlowered broadcast, comprehension, inference, credibility, belief, stance, decision, KTI state or Temporal Knowledge Time); §2.1 mode-consumer invariant (an unlowered BROADCAST_EXPOSURE event is never itself individual receipt or access-established evidence, and every consumer of an Access / Dissemination Event discriminates on mode) and role-context rule (Sealed Engine Provenance is not an admissible actor input); §4.4 Access / Dissemination Event — BROADCAST_EXPOSURE mode (one immutable event retaining event identity and causal basis, payload/provenance, reach/channel conditions, an authoritative area/cohort/population audience reference and material exclusions or known exceptions, instead of recipient copies; individual receipt is lowered only when consequential, using event-basis reach, presence, attention/channel conditions and §21.11, which is NOT implemented here; it creates no individual belief, memory or competence and writes no Population, Culture or KTI aggregate-exposure state); §4.2 and §21.12 (the mode and the original audience reference are fixed at creation from event-basis evidence and never reclassified; a later live roster never backfills earlier participation); §5 steps 2 and 6 (causal route; persist, compress or discard); §9 and §13 (an unlowered BROADCAST_EXPOSURE event is not individual receipt evidence and copies no aggregate state); §14 Sparse Persistence and Lifecycle (lifecycle change never mutates an event's mode or audience reference; cold-provenance retirement is NOT implemented); §21 Temporal and Causality Rules (no epistemic effect precedes its causal route; no post-basis knowledge); §23 Scaling Rules (no per-recipient copies, roster expansion or world scan); §24 Failure Conditions; RC-11 SealedContext / AccessEvent and RC-14 Projection guard; foreign World-State locus and Population ledger/Cohort identities are scope references only, never evidence of individual receipt",
+  [F014D_LINEAGE],
+);
+
 const epistemicKind = (
   id: (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number],
   rc: readonly string[],
@@ -1318,8 +1343,14 @@ export const EPISTEMIC_ACCESS_FACT_KINDS: readonly FactKind[] = [
       "epistemic_access_event",
       ["RC-11"],
       new RegExp(`^access/${ID}/event$`),
-      AccessEventSchema,
+      AccessDisseminationEventSchema,
     ),
+    alternateRules: [
+      {
+        rule: EPISTEMIC_ACCESS_BROADCAST_RULE,
+        admits: (value) => BroadcastExposureEventSchema.safeParse(value).success,
+      },
+    ],
     // only an event that asserts no active-PC recipient role may still carry the superseded citation
     legacyRule: {
       rule: EPISTEMIC_ACCESS_RULE_TENTH_SLICE,

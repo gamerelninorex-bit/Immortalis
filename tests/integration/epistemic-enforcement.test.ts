@@ -328,7 +328,7 @@ describe("owner exclusivity: only the Epistemic owner writes Epistemic state —
     expect(accessFacts(s)).toEqual([]);
   });
 
-  it("the adapter exposes one authored publication and typed reads: no packet writer, setter, broadcast, lowering, retrieval, reclassification or comprehension method", () => {
+  it("the adapter exposes two authored event publications (one per immutable mode) and typed reads: no packet writer, setter, broadcast lowering, retrieval, reclassification or comprehension method", () => {
     const methods = adapterMethods(EpistemicAccessAdapter);
     expect(methods).toEqual(expectedAdapterMethods("EpistemicAccessAdapter"));
     expect(
@@ -337,7 +337,9 @@ describe("owner exclusivity: only the Epistemic owner writes Epistemic state —
           m,
         ),
       ),
-    ).toEqual([]);
+      // the only such names are the event-only BROADCAST_EXPOSURE publication and its typed read: nothing lowers, expands,
+      // retrieves or reclassifies it
+    ).toEqual(["broadcastExposure", "establishBroadcastExposure"]);
   });
 });
 
@@ -622,7 +624,7 @@ describe("lawful establishment: a causal route over a committed, pinned, foreign
     expect(s.access.event(EVENT_COUNCIL)!.value.mode).toBe("BOUNDED_SHARED_ACCESS");
   });
 
-  it("BROADCAST_EXPOSURE fails closed through the adapter: not simulated by recipient copying or any approximation, and nothing is written", async () => {
+  it("BROADCAST_EXPOSURE requested through the recipient-set method fails closed: not simulated by recipient copying or any approximation, and nothing is written", async () => {
     const s = await seededEpistemicCampaign(tempDir());
     const before = s.campaign.store.head();
     const broadcast = { ...accessEvent(EVENT_COUNCIL, A), mode: "BROADCAST_EXPOSURE" };
@@ -631,7 +633,7 @@ describe("lawful establishment: a causal route over a committed, pinned, foreign
       event: broadcast,
     });
     expect(!r.ok && r.error.code).toBe("BROADCAST_EXPOSURE_UNSUPPORTED");
-    expect(!r.ok && r.error.message).toMatch(/out of scope/);
+    expect(!r.ok && r.error.message).toMatch(/not a recipient set/);
     // the approximations are refused as plain invalid input: many recipient copies, a bounded set of many, an audience
     for (const event of [
       { ...accessEvent(EVENT_COUNCIL, A), participants: [A, ACTOR_SWORD, ACTOR_OTHER] },

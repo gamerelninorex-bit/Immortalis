@@ -1,7 +1,9 @@
 import {
   ACCESS_CLASS_ENGINE_SEALED,
+  AccessDisseminationEventSchema,
   AccessEventSchema,
   AccessiblePacketSchema,
+  BroadcastExposureEventSchema,
   CANON_WRITE_AUTHORITY,
   MODE_BROADCAST_EXPOSURE,
   PublicationSchema,
@@ -10,8 +12,10 @@ import {
   accessPacketKey,
   accessProvenanceKey,
   fail,
+  type AccessDisseminationEvent,
   type AccessEvent,
   type AccessiblePacket,
+  type BroadcastExposureEvent,
   type CommitGroup,
   type OwnerFact,
   type Publication,
@@ -19,13 +23,13 @@ import {
   type SchemaIssues,
   type SealedEngineProvenance,
 } from "@immortalis/contracts";
-import { factKind } from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_BROADCAST_RULE, factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 
 export type EpistemicAccessErrorCode =
   | StoreCommitErrorCode
   | "INPUT_INVALID"
-  /** BROADCAST_EXPOSURE is out of scope: it fails closed and is never approximated by recipient copying */
+  /** a BROADCAST_EXPOSURE request through the recipient-set method fails closed: it is never approximated by recipient copying */
   | "BROADCAST_EXPOSURE_UNSUPPORTED";
 
 /**
@@ -42,11 +46,13 @@ const issues = (e: SchemaIssues) =>
  *
  * A caller supplies authored content and identities. It never supplies an owner, a facet, an authority, a secrecy class
  * or a governing rule: those come from the specification-backed registry, and the publication is made by the archivist
- * path through the existing IM-11/IM-12/IM-17 store (one journal, one canon). There is exactly ONE authored publication:
- * one BOUNDED_SHARED_ACCESS event for one named non-PC recipient, resting on a committed foreign source/carrier fact it
- * pins. The Accessible Content Packet and the Sealed Engine Provenance are NOT methods here: they are the
+ * path through the existing IM-11/IM-12/IM-17 store (one journal, one canon). There are exactly TWO authored publications,
+ * the two immutable Access / Dissemination Event modes under the one canonical event key: one BOUNDED_SHARED_ACCESS event
+ * for one named recipient, resting on a committed foreign source/carrier fact it pins; and one event-only BROADCAST_EXPOSURE
+ * event, resting on that source/carrier and a committed authoritative audience REFERENCE it pins, which names no recipient and
+ * is never receipt. The Accessible Content Packet and the Sealed Engine Provenance are NOT methods here: they are the
  * `epistemicPacketProvider` operation the IM-02 coordinator resolves inside the engaged object of the dependent
- * consequence that materially requires them. There is no packet writer, no setter, no broadcast, no retrieval, no
+ * consequence that materially requires them. There is no packet writer, no setter, no broadcast lowering, no retrieval, no
  * reclassification and no way to write a capability or any actor-side consequence, so no caller can write Epistemic state
  * out of order; the store's admission refuses them for a raw commit as well.
  *
@@ -76,7 +82,7 @@ export class EpistemicAccessAdapter {
     if (mode === MODE_BROADCAST_EXPOSURE) {
       return fail(
         "BROADCAST_EXPOSURE_UNSUPPORTED",
-        "BROADCAST_EXPOSURE is out of scope for this construction and is never approximated by recipient copying or another path; nothing was established",
+        "a BROADCAST_EXPOSURE event is not a recipient set: it is established only through establishBroadcastExposure and is never approximated by recipient copying or another path; nothing was established",
       );
     }
     const event = AccessEventSchema.safeParse(input.event);
@@ -101,15 +107,94 @@ export class EpistemicAccessAdapter {
       reads = [{ key: e.source.fact_key, version: sourceFact?.version ?? 0 }];
       depends_on = sourceFact ? [sourceFact.provenance.group_id] : [];
     }
+    return this.#publish(
+      p.data,
+      key,
+      e,
+      reads,
+      depends_on,
+      rule ?? factKind("epistemic_access_event").rule,
+    );
+  }
+
+  /**
+   * Commits one BROADCAST_EXPOSURE event (F-014D §4.4): ONE immutable engine-side event for a public or very large
+   * dissemination, retained instead of recipient copies. It rests on a committed foreign source/carrier fact AND a committed
+   * authoritative audience reference (a World-State locus or a Population ledger/Cohort), each pinned at its current version
+   * and never copied, and records the payload, the reach/channel conditions and the material exceptions exactly as authored.
+   * It is event-only: it names no recipient and creates no packet, no sealed provenance of individual receipt, no
+   * access-established evidence, no Temporal Knowledge Time, no actor inference and no Population/Culture/KTI effect. The mode
+   * is the caller's request to establish THIS record, never a flag on a recipient event; nothing about an individual's
+   * presence, attention or receipt is decided here.
+   */
+  async establishBroadcastExposure(
+    input: EpistemicPublication & { readonly event: unknown },
+  ): Promise<Result<CommitOutcome, EpistemicAccessErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success)
+      return fail("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const event = BroadcastExposureEventSchema.safeParse(input.event);
+    if (!event.success)
+      return fail("INPUT_INVALID", "broadcast exposure event failed validation", {
+        issues: issues(event.error),
+      });
+    const e = event.data;
+    const key = accessEventKey(e.event_id);
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    let reads: CommitGroup["reads"];
+    let depends_on: readonly string[];
+    let rule: CommitGroup["rule"] = EPISTEMIC_ACCESS_BROADCAST_RULE;
+    if (prior && prior.writes.some((w) => w.key === key)) {
+      // reconcile by identity: rebuild on the committed basis, so identical input reaches the original receipt
+      reads = prior.reads;
+      depends_on = prior.depends_on;
+      rule = prior.rule;
+    } else {
+      const sourceFact = this.#store.getFact(e.source.fact_key);
+      const audienceFact = this.#store.getFact(e.audience.fact_key);
+      reads = [
+        { key: e.source.fact_key, version: sourceFact?.version ?? 0 },
+        { key: e.audience.fact_key, version: audienceFact?.version ?? 0 },
+      ];
+      depends_on = [
+        ...new Set([sourceFact, audienceFact].flatMap((f) => (f ? [f.provenance.group_id] : []))),
+      ];
+    }
     return this.#publish(p.data, key, e, reads, depends_on, rule);
   }
 
   // -- typed reads, by identity (none scans) ---------------------------------------------------
 
-  /** The engine-side access event, or undefined. Owner-side evidence: not a cross-owner or actor-side read. */
+  /**
+   * The engine-side BOUNDED_SHARED_ACCESS event, or undefined. Owner-side evidence: not a cross-owner or actor-side read. A
+   * BROADCAST_EXPOSURE event is not a recipient event and is never returned here (see `broadcastExposure`).
+   */
   event(eventId: string): { fact: OwnerFact; value: AccessEvent } | undefined {
+    const read = this.disseminationEvent(eventId);
+    return read && read.value.mode !== MODE_BROADCAST_EXPOSURE
+      ? { fact: read.fact, value: read.value }
+      : undefined;
+  }
+
+  /**
+   * The engine-side BROADCAST_EXPOSURE event of the one canonical key, or undefined. A typed by-identity read for authorized
+   * ENGINE-SIDE consumers only: it is never a packet, never an actor-side input and never evidence of individual receipt.
+   */
+  broadcastExposure(
+    eventId: string,
+  ): { fact: OwnerFact; value: BroadcastExposureEvent } | undefined {
+    const read = this.disseminationEvent(eventId);
+    return read && read.value.mode === MODE_BROADCAST_EXPOSURE
+      ? { fact: read.fact, value: read.value }
+      : undefined;
+  }
+
+  /** The engine-side Access / Dissemination Event under its one canonical key, in whichever immutable mode, or undefined. */
+  disseminationEvent(
+    eventId: string,
+  ): { fact: OwnerFact; value: AccessDisseminationEvent } | undefined {
     const fact = this.#store.getFact(accessEventKey(eventId));
-    return fact ? { fact, value: AccessEventSchema.parse(fact.value) } : undefined;
+    return fact ? { fact, value: AccessDisseminationEventSchema.parse(fact.value) } : undefined;
   }
 
   /**
@@ -148,7 +233,7 @@ export class EpistemicAccessAdapter {
     value: unknown,
     reads: CommitGroup["reads"],
     depends_on: readonly string[],
-    committedRule?: CommitGroup["rule"],
+    groupRule: CommitGroup["rule"],
   ): Promise<Result<CommitOutcome, EpistemicAccessErrorCode>> {
     const kind = factKind("epistemic_access_event");
     const group: CommitGroup = {
@@ -158,7 +243,7 @@ export class EpistemicAccessAdapter {
       owner: kind.owner,
       facet: kind.facet,
       cause: p.cause,
-      rule: committedRule ?? kind.rule,
+      rule: groupRule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...depends_on],

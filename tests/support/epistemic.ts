@@ -9,6 +9,7 @@ import {
 } from "@immortalis/engine";
 import type {
   AccessEvent,
+  BroadcastExposureEvent,
   ExistenceContract,
   NamedActorCapabilityBasis,
   PcCapabilityBasis,
@@ -28,6 +29,7 @@ import {
   T0,
   accessEvent,
   accessPublication,
+  broadcastEvent,
   actorPublication,
   capabilityBasis,
   epistemicProviders,
@@ -141,6 +143,18 @@ export async function establishAccess(
 ): Promise<AccessEvent> {
   const event = accessEvent(eventId, recipient, over);
   await must(s.access.establishBoundedSharedAccess({ ...accessPublication(n), event }));
+  return event;
+}
+
+/** Commits the authored event-only BROADCAST_EXPOSURE event (the Epistemic owner's second authored publication). */
+export async function establishBroadcast(
+  s: EpistemicSeeded,
+  n: number,
+  eventId: string,
+  over: Partial<BroadcastExposureEvent> = {},
+): Promise<BroadcastExposureEvent> {
+  const event = broadcastEvent(eventId, over);
+  await must(s.access.establishBroadcastExposure({ ...accessPublication(n), event }));
   return event;
 }
 

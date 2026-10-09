@@ -1,6 +1,9 @@
 import {
   CANON_WRITE_AUTHORITY,
+  OWNER_WORLD_STATE,
+  worldLocusKey,
   type AccessEvent,
+  type BroadcastExposureEvent,
   type CommitGroup,
   type DependencyDeclaration,
   type NamedActorCapabilityBasis,
@@ -22,6 +25,7 @@ import {
   type WriteAdmission,
 } from "@immortalis/engine";
 import { ACTOR_FIXTURE_EXTENSION, closeConsumerProvider } from "./actor-fixtures.ts";
+import { FIXTURE_LOCUS_ID, FIXTURE_WORLD_ID } from "./canonical-fixtures.ts";
 import { pcCloseConsumerProvider } from "./pc-capability-fixtures.ts";
 import { SYNTH_RULE, T0, T1, TB } from "./temporal-fixtures.ts";
 
@@ -90,6 +94,7 @@ export const EPISTEMIC_FIXTURE_EXTENSION: StageOwnerExtension = {
 export const EVENT_COUNCIL = "event-council";
 export const EVENT_SCHEMATIC = "event-schematic";
 export const EVENT_LATER = "event-later";
+export const EVENT_BROADCAST = "event-broadcast";
 export const SOURCE_SPEAKER = "source-speaker";
 export const SOURCE_SCROLL = "source-scroll";
 export const PRESENTED_SEAL = "bearing the seal of the Warden";
@@ -164,6 +169,37 @@ export const pcAccessEvent = (
   pcId: string,
   over: Partial<AccessEvent> = {},
 ): AccessEvent => accessEvent(eventId, pcId, { recipient_role: "role.player_character", ...over });
+
+/**
+ * A causally well-formed BROADCAST_EXPOSURE event over the same synthetic carrier: the coarse audience is the committed
+ * World-State locus (an area), pinned at its first version. Every sentence is a fixture. It names no recipient and supplies no
+ * reach verdict, presence, attention, receipt, adoption or outcome: `reach` is authored prose the engine never reads.
+ */
+export const broadcastEvent = (
+  eventId: string,
+  over: Partial<BroadcastExposureEvent> = {},
+): BroadcastExposureEvent => ({
+  event_id: eventId,
+  mode: "BROADCAST_EXPOSURE",
+  source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+  dissemination_basis: T0,
+  payload: {
+    referent: "the gate rota",
+    content: "SYNTHETIC FIXTURE: the gate is opened at first light.",
+    presented_attribution: PRESENTED_SEAL,
+  },
+  reach: {
+    channel: "SYNTHETIC FIXTURE: a public address",
+    conditions: "SYNTHETIC FIXTURE: spoken aloud across the open square.",
+  },
+  audience: {
+    owner: OWNER_WORLD_STATE,
+    fact_key: worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID),
+    version: 1,
+  },
+  exceptions: [],
+  ...over,
+});
 
 export const accessPublication = (n: number) => ({
   group_id: `access-group-${n}`,
