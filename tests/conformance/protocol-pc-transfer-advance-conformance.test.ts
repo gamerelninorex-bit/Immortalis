@@ -139,7 +139,7 @@ describe("existing owners, the Temporal kernel, the relocation gateway and the f
 });
 
 describe("the module composes the existing kernel and owner providers only, and takes no authority or time from the host", () => {
-  it("imports the contracts and the engine only, and from the engine only the Logistics adapter, the existing Temporal coordinator and registry, the three real stage providers, the canonical equality, the existing helper and the campaign type", () => {
+  it("imports the contracts and the engine only, and from the engine only the Logistics adapter, the existing Temporal coordinator and registry, the four real stage providers, the canonical equality, the existing helper and the campaign type", () => {
     expect(specifiersOf(MODULE).sort()).toEqual(["@immortalis/contracts", "@immortalis/engine"]);
     const engineImport = readFileSync(MODULE, "utf8").match(
       /import \{([^}]*)\} from "@immortalis\/engine"/,
@@ -155,6 +155,7 @@ describe("the module composes the existing kernel and owner providers only, and 
       "StageProviderRegistry",
       "TemporalCoordinator",
       "canonicalEqual",
+      "gipSunsetExpiryProvider",
       "logisticsDeliveryProvider",
       "logisticsRetirementProvider",
       "logisticsTemporalObject",
@@ -163,12 +164,12 @@ describe("the module composes the existing kernel and owner providers only, and 
     ]);
   });
 
-  it("registers exactly the three real owner providers of the existing delivery chain, and no other", () => {
+  it("registers exactly the real owner providers of the existing delivery chain and GIP's own sunset expiry, and no other", () => {
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
     expect(src).toMatch(
-      /new StageProviderRegistry\(\[\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*\]\)/,
+      /new StageProviderRegistry\(\[\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
     );
   });
 

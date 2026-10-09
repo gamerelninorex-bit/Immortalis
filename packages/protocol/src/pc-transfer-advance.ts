@@ -25,6 +25,7 @@ import {
   StageProviderRegistry,
   TemporalCoordinator,
   canonicalEqual,
+  gipSunsetExpiryProvider,
   logisticsDeliveryProvider,
   logisticsRetirementProvider,
   logisticsTemporalObject,
@@ -62,7 +63,7 @@ import {
  * (`cause`, `trigger`) is the trusted side's to state: it is never compared with the held transaction's, so a distinct choice may
  * lawfully share a trigger reference with the previous one; only the distinct, immutable `transaction_id` identifies the choice. The host cannot tell the two cases apart.
  *
- * It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics and World-State stage
+ * It drives it through the EXISTING `TemporalCoordinator.advance` over the real Logistics, World-State and GIP sunset-expiry stage
  * providers, so the kernel alone selects what is due (every earlier or independent due world process included), resolves the
  * dependency closure in its own order — Logistics delivery, World-State destination custody, Logistics retirement — and records
  * the one transaction. It invents no time, route, duration, target, willingness or arrival, skips nothing, suppresses nothing and
@@ -255,6 +256,21 @@ function isHeldPcContinuation(
 }
 
 /**
+ * The owner stage providers this advance registers, as the engine ships them (the real owners, no fixture): the PC delivery chain's
+ * World-State destination custody and Logistics delivery and retirement, and GIP's own sunset expiry, so a previously registered
+ * Governance Instrument whose exact `sunset_condition` is earned at or before the PC delivery boundary is closed by GIP alone at its
+ * own boundary, in the kernel's order. Registering the provider adds no authority, request field or source: the kernel still
+ * selects what is due, and a committed-but-unregistered sunset still refuses the whole request (`ENROLLMENT_PENDING`).
+ */
+const ownerProviders = (): StageProviderRegistry =>
+  new StageProviderRegistry([
+    worldEntityTransitionProvider,
+    logisticsDeliveryProvider,
+    logisticsRetirementProvider,
+    gipSunsetExpiryProvider,
+  ]);
+
+/**
  * The one host operation. `context` is the trusted, separately player-authorized binding; `request` is the untrusted host input.
  */
 export async function advanceConfirmedPcTransferToDelivery(
@@ -270,14 +286,7 @@ export async function advanceConfirmedPcTransferToDelivery(
     const { campaign, pc_id: pcId, transaction } = bound;
     store = campaign.store;
     before = store.head().revision;
-    const coordinator = new TemporalCoordinator(
-      store,
-      new StageProviderRegistry([
-        worldEntityTransitionProvider,
-        logisticsDeliveryProvider,
-        logisticsRetirementProvider,
-      ]),
-    );
+    const coordinator = new TemporalCoordinator(store, ownerProviders());
     const requestId = pcMovementRequestId(pcId);
     const own = {
       object_id: logisticsObjectId(requestId),
