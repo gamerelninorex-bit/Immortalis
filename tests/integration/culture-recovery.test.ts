@@ -15,7 +15,7 @@ import {
   verifyCultureIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
-import { observationGroup, observationKey } from "@immortalis/testkit";
+import { at, observationGroup, observationKey } from "@immortalis/testkit";
 import {
   FIXTURE_CAMPAIGN,
   advanceCulture,
@@ -24,7 +24,7 @@ import {
   judge,
   judgedCulture,
   lateExit,
-  registerCultureConsumer,
+  registerCultureReader,
   reopenCulture,
   seal,
   sealedContexts,
@@ -47,7 +47,8 @@ const cultureKeys = (s: CultureSeeded) =>
 describe("ordinary version churn after seal never invalidates the sealed truth", () => {
   it("a foreign source advancing and a second Population reconciliation after seal and judgment leave the same sealed close, reading exactly two facts", async () => {
     const s = await seededCultureCampaign(tempDir());
-    const ctx = await judgedCulture(s);
+    // the consumer registers (with a boundary beyond all the churn) BEFORE the judgment: cause → seal → register → decision
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 70, boundary: at(200) });
     const decisionBefore = s.gm.decision(ctx.updateId)!;
     // real source churn: a cited observation advances to v2 ...
     await must(
@@ -70,7 +71,6 @@ describe("ordinary version churn after seal never invalidates the sealed truth",
       s.campaign.store.getFact(ctx.value.constituency.cohort_fact_key)!.version,
     ).toBeGreaterThan(cohortBefore);
 
-    await registerCultureConsumer(s, "c1", ctx.value, 70);
     const r = await must(advanceCulture(s, "tx-c1", "c1"));
     expect(r.transaction.outcome.unresolved_dependents).toEqual([]);
     const meaning = s.culture.sharedMeaning(ctx.value.slot_id)!;
@@ -116,8 +116,7 @@ describe("save, close and reopen", () => {
   it("a reopened campaign keeps context, decision and (after the close) meaning; nothing is re-adjudicated or duplicated; a second consumer adopts the fact", async () => {
     const dir = tempDir();
     const s = await seededCultureCampaign(dir);
-    const ctx = await judgedCulture(s);
-    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
     await must(advanceCulture(s, "tx-c1", "c1"));
     const head = s.campaign.store.head();
     await s.campaign.store.close();
@@ -133,7 +132,7 @@ describe("save, close and reopen", () => {
     expect(r.campaign.store.head().journal_entries).toBe(head.journal_entries);
     const sealAgain = await must(seal(r));
     expect(sealAgain.replayed).toBe(true);
-    await registerCultureConsumer(r, "c2", ctx.value, 11);
+    await registerCultureReader(r, "c2", ctx.value, 11);
     await must(advanceCulture(r, "tx-c2", "c2"));
     expect(cultureKeys(r)).toHaveLength(3);
     expect(r.campaign.verify()).toEqual([]);
@@ -191,8 +190,7 @@ const rogue = (
 describe("load integrity fails a corrupt decision, context, source group or Cohort group", () => {
   const closed = async () => {
     const s = await seededCultureCampaign(tempDir());
-    const ctx = await judgedCulture(s);
-    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
     await must(advanceCulture(s, "tx-c1", "c1"));
     return { s, ctx };
   };

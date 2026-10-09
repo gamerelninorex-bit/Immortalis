@@ -447,8 +447,7 @@ describe("owner exclusivity", () => {
 describe("a later distinct update never overwrites an OCCUPIED Culture slot (deferred lifecycle)", () => {
   it("a second trigger yields a distinct update identity over the same slot; its positive judgment commits, its close cannot overwrite", async () => {
     const s = await seededCultureCampaign(tempDir());
-    const first = await judgedCulture(s);
-    await registerCultureConsumer(s, "c1", first.value, 10);
+    const first = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
     await must(advanceCulture(s, "tx-c1", "c1"));
     const meaning = s.culture.sharedMeaning(first.value.slot_id)!;
 
@@ -457,8 +456,9 @@ describe("a later distinct update never overwrites an OCCUPIED Culture slot (def
     const second = sealedContexts(s).find((c) => c.updateId !== first.updateId)!;
     expect(second.value.slot_id).toBe(first.value.slot_id);
     expect(second.updateId).not.toBe(first.updateId);
-    await must(judge(s, second.updateId, "positive"));
+    // order: seal → register → judge
     await registerCultureConsumer(s, "c2", second.value, 11);
+    await must(judge(s, second.updateId, "positive"));
     const r = await must(advanceCulture(s, "tx-c2", "c2"));
     expect(r.transaction.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
     expect(r.transaction.outcome.unresolved_dependents[0]).toMatchObject({

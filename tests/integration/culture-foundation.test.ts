@@ -27,17 +27,20 @@ import {
   SCOPE_KEY,
   advanceCulture,
   commitObservations,
+  cultureConsumerObjectAt,
   cultureSummary,
   judge,
   judgedCulture,
   preparedCulture,
   registerCultureConsumer,
+  registerCultureReader,
   seal,
   sealRequest,
   sealedContexts,
   seededCultureCampaign,
 } from "../support/culture.ts";
 import { must } from "../support/temporal.ts";
+import { temporalPublication } from "@immortalis/testkit";
 import { tempDir } from "../support/tmp.ts";
 
 const cultureFacts = (s: Awaited<ReturnType<typeof seededCultureCampaign>>) =>
@@ -131,8 +134,8 @@ describe("a sealed Social Update Context is Culture's own OUTCOME-NEUTRAL input 
 describe("the primary path: sealed context + committed ESTABLISH_SUPPORTED decision → the shared meaning at the Communicative Convention Close (acceptance 2)", () => {
   it("commits the Culture-owned fact only as the declared close of the dependent consequence, reading EXACTLY the context and the decision, and the consequence reads it AS-OF-NOW after the close", async () => {
     const s = await seededCultureCampaign(tempDir());
-    const ctx = await judgedCulture(s);
-    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    // CJA1 §3.3 order: cause (observations) → seal → REGISTER the consumer → judgment → close
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
     // registration alone publishes nothing: there is no tick, sweep or standalone Culture process
     expect(s.culture.sharedMeaning(ctx.value.slot_id)).toBeUndefined();
     const r = await must(advanceCulture(s, "tx-c1", "c1"));
@@ -223,12 +226,13 @@ describe("the primary path: sealed context + committed ESTABLISH_SUPPORTED decis
 
   it("a second consequence of the same update adopts the committed fact by identity: it is never duplicated, recomputed or improved", async () => {
     const s = await seededCultureCampaign(tempDir());
-    const ctx = await judgedCulture(s);
-    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
     await must(advanceCulture(s, "tx-c1", "c1"));
     const first = s.culture.sharedMeaning(ctx.value.slot_id)!;
     const before = cultureFacts(s);
-    await registerCultureConsumer(s, "c2", ctx.value, 11);
+    // a later consequence READS the committed fact and declares no second Culture stage (registering one after the decision
+    // is refused — see the registration-order tests)
+    await registerCultureReader(s, "c2", ctx.value, 11);
     await must(advanceCulture(s, "tx-c2", "c2"));
     expect(s.culture.sharedMeaning(ctx.value.slot_id)!.fact).toEqual(first.fact);
     expect(cultureFacts(s)).toEqual(before);
@@ -263,9 +267,9 @@ describe("outcome swap (C7): the same outcome-neutral sealed context admits ever
     async (kind, verdict) => {
       const s = await seededCultureCampaign(tempDir());
       const ctx = await preparedCulture(s);
+      await registerCultureConsumer(s, "c1", ctx.value, 10);
       const out = await must(judge(s, ctx.updateId, kind));
       expect(out.verdict).toBe(verdict);
-      await registerCultureConsumer(s, "c1", ctx.value, 10);
       const r = await must(advanceCulture(s, "tx-c1", "c1"));
       expect(r.transaction.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
       expect(r.transaction.stages).toEqual([]);
@@ -349,5 +353,83 @@ describe("registration order: the consuming object may register only after the c
     );
     expect(!clash.ok && clash.error.code).toBe("CONTEXT_CONFLICT");
     expect(cultureFacts(s)).toHaveLength(1);
+  });
+});
+
+describe("CJA1 §3.3 / §10.B order: cause → seal → REGISTER the consuming object → decision → close", () => {
+  it.each(["positive", "not_supported", "unresolved", "derive"] as const)(
+    "refuses to register a Culture-producing object AFTER the update's %s decision: a committed record cannot bootstrap it",
+    async (kind) => {
+      const s = await seededCultureCampaign(tempDir());
+      const ctx = await judgedCulture(s, kind);
+      const before = cultureSummary(s.campaign, s.coordinator);
+      await expect(registerCultureConsumer(s, "late", ctx.value, 10)).rejects.toThrow(
+        /REFERENCE_INVALID|registers before/,
+      );
+      expect(s.coordinator.object("culture-consumer-obj-late")).toBeUndefined();
+      // nothing was written by the refusal, and no close can ever be credited for the update
+      expect(cultureSummary(s.campaign, s.coordinator)).toEqual(before);
+      expect(s.culture.sharedMeaning(ctx.value.slot_id)).toBeUndefined();
+      expect(s.campaign.verify()).toEqual([]);
+    },
+  );
+
+  it("the refusal is the kernel's state-based registration admission, with its precise reason", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s, "positive");
+    const probe = await s.coordinator
+      .registerObject({
+        ...temporalPublication(10),
+        object: cultureConsumerObjectAt(s, "late", ctx.value),
+      })
+      .then((r) => r);
+    expect(probe.ok).toBe(false);
+    expect(!probe.ok && probe.error.code).toBe("REFERENCE_INVALID");
+    expect(!probe.ok && probe.error.message).toContain(
+      "registers before its update's adjudication decision",
+    );
+  });
+
+  it("registering BEFORE the decision is lawful, and a legitimate later reader of the committed fact stays lawful, declares no second close and duplicates nothing", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await judgedCulture(s, "positive", { id: "c1", tn: 10 });
+    await must(advanceCulture(s, "tx-c1", "c1"));
+    const meaning = s.culture.sharedMeaning(ctx.value.slot_id)!;
+    const facts = cultureFacts(s);
+    // an unrelated consequence with no Culture declaration, and a reader of the committed fact, register after the decision
+    await registerCultureReader(s, "reader", ctx.value, 11);
+    await must(advanceCulture(s, "tx-reader", "reader"));
+    expect(cultureFacts(s)).toEqual(facts);
+    expect(s.culture.sharedMeaning(ctx.value.slot_id)!.fact).toEqual(meaning.fact);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it("the absent-decision held continuation still recovers: register, hold, judge, continue — with no duplicate close and no extra Temporal read", async () => {
+    const s = await seededCultureCampaign(tempDir());
+    const ctx = await preparedCulture(s);
+    await registerCultureConsumer(s, "c1", ctx.value, 10);
+    const held = await must(advanceCulture(s, "tx-c1", "c1"));
+    expect(held.transaction.stages).toEqual([]);
+    await must(judge(s, ctx.updateId, "positive"));
+    const next = await must(
+      s.coordinator.advance({
+        transaction_id: "tx-c2",
+        cause: "cause-tx-c2",
+        trigger: { kind: "fixture-advance-request", ref: "ref-tx-c2" },
+        continues: "tx-c1",
+        requested: { target: held.transaction.requested.target, condition: null },
+        context: { role: "role.player", permission: "permission.player_choice.commit" },
+        publication: { basis: "fixture-basis", secrecy: "fixture-visibility" },
+      }),
+    );
+    expect(
+      next.transaction.stages.filter((x) => x.stage.owner_operation.owner === "culture"),
+    ).toHaveLength(1);
+    const plan = s.coordinator
+      .object("culture-consumer-obj-c1")!
+      .value.dependencies.find((d) => d.stage.owner_operation.owner === "culture")!;
+    expect(plan.reads).toHaveLength(2);
+    expect(cultureFacts(s)).toHaveLength(2); // the context and the one meaning
+    expect(s.campaign.verify()).toEqual([]);
   });
 });

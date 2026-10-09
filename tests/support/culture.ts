@@ -47,6 +47,7 @@ import {
   criterion,
   cultureConsumerBoundaryId,
   cultureConsumerObject,
+  cultureReaderObject,
   cultureProviders,
   fixtureLocus,
   fixtureWorld,
@@ -310,9 +311,18 @@ export const judge = (s: CultureSeeded, updateId: string, kind: ScriptedKind = "
     judgment: scriptedJudgment(attestationOf(s, updateId), kind),
   });
 
-/** The full authored pipeline up to (not including) the temporal close: observations, seal and one judgment. */
-export async function judgedCulture(s: CultureSeeded, kind: ScriptedKind = "positive") {
+/**
+ * The full authored pipeline in the CJA1 §3.3 / §10.B order — commit cause, seal the context, REGISTER the consuming object
+ * (when `consumer` is given), commit the judgment — up to (not including) the temporal close.
+ */
+export async function judgedCulture(
+  s: CultureSeeded,
+  kind: ScriptedKind = "positive",
+  consumer?: { readonly id: string; readonly tn: number; readonly boundary?: CanonicalTime },
+) {
   const ctx = await preparedCulture(s);
+  if (consumer)
+    await registerCultureConsumer(s, consumer.id, ctx.value, consumer.tn, consumer.boundary);
   await must(judge(s, ctx.updateId, kind));
   return ctx;
 }
@@ -367,11 +377,40 @@ export async function registerCultureConsumer(
   consumerId: string,
   context: CultureUpdateContext,
   tn: number,
+  boundary?: CanonicalTime,
 ): Promise<void> {
   await must(
     s.coordinator.registerObject({
       ...temporalPublication(tn),
-      object: cultureConsumerObjectAt(s, consumerId, context),
+      object: cultureConsumerObjectAt(
+        s,
+        consumerId,
+        context,
+        boundary
+          ? { next_boundary: { boundary_id: cultureConsumerBoundaryId(consumerId), at: boundary } }
+          : {},
+      ),
+    }),
+  );
+}
+
+/** A later consequence that only READS the committed meaning (declares no Culture stage): lawful after the decision. */
+export async function registerCultureReader(
+  s: CultureSeeded,
+  consumerId: string,
+  context: CultureUpdateContext,
+  tn: number,
+): Promise<void> {
+  await must(
+    s.coordinator.registerObject({
+      ...temporalPublication(tn),
+      object: cultureReaderObject(consumerId, context.slot_id, {
+        last_resolved_basis: s.coordinator.state()!.value.canonical_time,
+        next_boundary: {
+          boundary_id: cultureConsumerBoundaryId(consumerId),
+          at: boundaryAfterNow(s),
+        },
+      }),
     }),
   );
 }

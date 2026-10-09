@@ -191,6 +191,30 @@ export function cultureConsumerObject(
   };
 }
 
+/**
+ * A later consequence that only READS the committed shared meaning (AS-OF-NOW after the close): it declares no Culture stage,
+ * so it is lawful even after the update's decision has committed (it can neither bootstrap nor duplicate a close).
+ */
+export function cultureReaderObject(
+  consumerId: string,
+  slotId: string,
+  over: Partial<TemporalObject> = {},
+): TemporalObject {
+  return {
+    object_id: cultureConsumerObjectId(consumerId),
+    owning_ref: {
+      owner: SYNTH_CULTURE_CONSUMER_OWNER,
+      process_id: `culture-result-consumer/${consumerId}`,
+    },
+    last_resolved_basis: T0,
+    next_boundary: { boundary_id: cultureConsumerBoundaryId(consumerId), at: TB },
+    dependencies: [cultureConsumerDeclaration(consumerId, slotId)],
+    invalidators: [],
+    ...common,
+    ...over,
+  };
+}
+
 /** Toward T1, stopping once the consumer's earned boundary has resolved. */
 export const cultureAdvanceRequest = (
   id: string,

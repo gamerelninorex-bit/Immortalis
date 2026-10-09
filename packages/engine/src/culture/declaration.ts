@@ -157,6 +157,12 @@ export function cultureObjectViolation(
       if (!updateId || !contextFact || !context?.success || contextFact.owner !== OWNER_CULTURE) {
         return "a Culture close is declared only for a committed sealed Social Update Context: a consequence cannot create the update it needs";
       }
+      // CJA1 §§3.3, 10.B: cause → sealed context → REGISTER the consuming object → decision → close. A decision that already
+      // exists cannot bootstrap a late-registered Culture-producing object; a later consequence that only READS the committed
+      // fact declares no Culture stage and is unaffected (the registration rule above admits only the settled read forms).
+      if (registered && state.facts.has(cjaDecisionKey(updateId))) {
+        return "a Culture-producing declaration registers before its update's adjudication decision commits (cause, seal, register, decision, close): a decision already committed cannot bootstrap a late-registered object";
+      }
       const expected = cultureConventionDeclaration(context.data);
       if (!canonicalEqual(d, expected)) {
         return "a Culture stage is exactly the declaration derived from its sealed Social Update Context";
