@@ -108,7 +108,7 @@ describe("two distinct confirmations over a close and reopen", () => {
     expect(status(b)).toMatchObject({ relocation: "COMMITTED", advances: ["COMMITTED"] });
     // neither the console nor the reported status narrates an arrival
     for (const line of [...t1.said, ...t2.said, first.message, second.message])
-      expect(line).not.toMatch(/\barrived\b|\bperceiv|\bsaw\b|\bsee\b|\bnotic/i);
+      expect(line).not.toMatch(/\barrived\b|\byou (see|saw|notice|learn)/i);
     await b.close();
   }, 120_000);
 

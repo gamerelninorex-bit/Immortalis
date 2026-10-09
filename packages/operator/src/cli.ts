@@ -8,6 +8,7 @@ import {
   type CommandResult,
   type CommandStatus,
 } from "./commands.ts";
+import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { LocalOperatorSession } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
 
@@ -21,12 +22,20 @@ import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
  * permission, identity, owner, status or "already confirmed" on the command line.
  */
 
-export const USAGE = `usage:
+export const USAGE = `${OOC_BANNER}
+usage:
   immortalis-operator relocate  --campaign <dir> --campaign-id <id> --world <id> --locus <id> --delivery-unit <unit> --delivery-value <n>
   immortalis-operator advance   --campaign <dir> --campaign-id <id>
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
-options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]`;
+options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
+
+relocate: --world/--locus are the character's chosen destination (confirmation 1 of 2).
+  --delivery-unit/--delivery-value are NOT part of that choice: they are the out-of-character SCENARIO DELIVERY BOUNDARY, an
+  exact canonical-time value you declare from outside the world to exercise the movement foundation. Both are required; there
+  is no default, nothing is calculated, and it is no travel time, ETA, forecast or guarantee of arrival.
+advance: a separate, second confirmation to advance time to that declared boundary and no further.
+${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
   readonly terminal?: OperatorTerminal;
@@ -136,6 +145,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     return EXIT.USAGE;
   }
   const { command, values } = parsed;
+  out(OOC_BANNER);
   const str = (name: string): string | undefined =>
     typeof values[name] === "string" ? values[name] : undefined;
 

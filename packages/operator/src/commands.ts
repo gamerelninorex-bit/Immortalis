@@ -33,6 +33,7 @@ import {
 } from "@immortalis/protocol";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
 import type { AdvanceIntent, RelocationIntent } from "./ledger.ts";
+import { OOC_BANNER, OOC_BOUNDARY_NOTE, OOC_DEBUG_NOTE } from "./ooc.ts";
 import type { LocalOperatorSession } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 
@@ -261,14 +262,21 @@ export async function relocate(ctx: CommandContext, input: unknown): Promise<Com
   });
   const confirmation = await requestOperatorConfirmation(terminal, "relocate", subject, [
     `CONFIRMATION 1 OF 2 — RELOCATION`,
+    OOC_BANNER,
     `  campaign:  ${session.campaignId}`,
     `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    ``,
+    `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
     `  character: ${pcId}`,
-    `  from:      ${origin.world.entity_id} / ${origin.locus.entity_id}`,
-    `  to:        ${destination.world_id} / ${destination.locus_id}`,
-    `  declared delivery boundary: ${delivery_at.value} ${delivery_at.unit}`,
-    `This commits the character to this one relocation and starts the movement.`,
+    `  relocate to: ${destination.world_id} / ${destination.locus_id}`,
+    `  (operator/debug: the character is currently stationed at ${origin.world.entity_id} / ${origin.locus.entity_id})`,
+    ``,
+    ...OOC_BOUNDARY_NOTE,
+    `  declared boundary: ${delivery_at.value} ${delivery_at.unit}`,
+    ``,
+    `Confirming commits the character to this one relocation and starts the movement.`,
     `It advances no time and delivers nothing; progressing it is a separate, second confirmation.`,
+    OOC_DEBUG_NOTE,
   ]);
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "relocate", subject)) return result("UNAVAILABLE");
@@ -400,13 +408,16 @@ export async function advance(ctx: CommandContext): Promise<CommandResult> {
   });
   const confirmation = await requestOperatorConfirmation(terminal, "advance", subject, [
     `CONFIRMATION 2 OF 2 — PROGRESSION (choice #${ordinal})`,
+    OOC_BANNER,
     `  campaign:  ${session.campaignId}`,
     `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
     `  character: ${pcId}`,
-    `  advance to the movement's declared delivery boundary: ${boundary.at.value} ${boundary.at.unit}`,
-    `This is a new choice, separate from the relocation. Time moves only as far as that boundary, and`,
-    `the world resolves whatever falls due on the way. The result reports a transaction status only;`,
-    `it is not a report of arrival, perception or knowledge.`,
+    ``,
+    `This is a new choice, separate from the relocation: advance time to the movement's declared`,
+    `scenario boundary, ${boundary.at.value} ${boundary.at.unit} (the out-of-character value declared at the relocation, not a`,
+    `calculated travel time), and no further. The world resolves whatever falls due on the way.`,
+    `The result reports a transaction status only; it is not a report of arrival, perception or knowledge.`,
+    OOC_DEBUG_NOTE,
   ]);
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "advance", subject)) return result("UNAVAILABLE");

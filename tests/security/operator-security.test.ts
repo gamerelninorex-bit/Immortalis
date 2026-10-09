@@ -87,6 +87,22 @@ describe("the mechanism cannot reach authority it was not given", () => {
     );
   });
 
+  it("invents no delivery boundary: no default, literal time, unit or arithmetic on the declared value anywhere in the package", () => {
+    for (const f of files) {
+      const src = identifiers(f);
+      // the declared value is only parsed from input, retained, compared for equality and handed on
+      expect(src, f).not.toMatch(
+        /delivery_at\s*[:=]\s*\d|delivery_at[^\n;]*[-+*/]\s*\d|\bLOG_T|\bat\(\d|\bdefault[A-Za-z]*(Delivery|Boundary|Duration|Eta)/i,
+      );
+      expect(src, f).not.toMatch(/\bDate\.now\b|new Date\(|performance\.now|Math\.random/);
+    }
+    // no module of the package states a duration, speed, distance or route
+    for (const f of files)
+      expect(identifiers(f), f).not.toMatch(
+        /\b(duration|speed|distance|pathfind|routeFind|travelTime)\b/i,
+      );
+  });
+
   it("offers no flag, field or word that can pre-confirm, skip or script a confirmation", () => {
     const cli = readFileSync(`${SRC}/cli.ts`, "utf8");
     expect(cli).not.toMatch(
