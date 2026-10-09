@@ -14,6 +14,7 @@ import {
   accessPacketStage,
   accessProvenanceKey,
   timeAtOrBefore,
+  timeEquals,
   type AccessEvent,
   type BroadcastExposureEvent,
   type CommitGroup,
@@ -215,17 +216,21 @@ function checkBroadcastEvent(
       },
     );
   }
-  // no dissemination effect lies in the future of the canonical basis (F-014D §21.1)
+  // F-014D §21.1, §21.11–12: no dissemination effect lies in the future of the canonical basis, and no foreign record carries
+  // a past-basis time stamp, so the pinned source and audience cannot be shown to have existed AS OF an earlier basis. An
+  // earlier basis would let evidence committed after it establish the earlier event, so only the CURRENT canonical basis is
+  // admitted: an unverifiable historical-basis claim fails closed rather than being certified.
   const now = canonicalTime(state);
   if (!now) {
     return reject("PREREQUISITE_MISSING", "no canonical temporal basis is established", {
       key: TEMPORAL_STATE_KEY,
     });
   }
-  if (!timeAtOrBefore(e.dissemination_basis, now)) {
-    return ref("dissemination is based at or before the canonical basis, never in its future", {
-      key: w.key,
-    });
+  if (!timeEquals(e.dissemination_basis, now)) {
+    return ref(
+      "a broadcast is based at the current canonical basis only: its source and audience carry no past-basis time stamp, so an earlier or future basis cannot be verified",
+      { key: w.key },
+    );
   }
   return null;
 }

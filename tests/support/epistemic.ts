@@ -14,6 +14,7 @@ import type {
   NamedActorCapabilityBasis,
   PcCapabilityBasis,
 } from "@immortalis/contracts";
+import { worldLocusKey } from "@immortalis/contracts";
 import {
   ACTOR_OTHER,
   ACTOR_SMITH,
@@ -24,9 +25,11 @@ import {
   FIXTURE_LOCUS_ID,
   FIXTURE_PC_ID,
   FIXTURE_WORLD_ID,
+  SOURCE_PUBLIC_ADDRESS,
   SOURCE_SCROLL,
   SOURCE_SPEAKER,
   T0,
+  disseminationObservationGroup,
   accessEvent,
   accessPublication,
   broadcastEvent,
@@ -144,6 +147,48 @@ export async function establishAccess(
   const event = accessEvent(eventId, recipient, over);
   await must(s.access.establishBoundedSharedAccess({ ...accessPublication(n), event }));
   return event;
+}
+
+/**
+ * The seeded Epistemic campaign plus ONE independent, test-owned causal dissemination observation of a public address made
+ * to the committed World-State locus (the coarse audience authority). The observer commits it in its own group, which reads
+ * the locus at its current version, AFTER the audience authority and BEFORE any Epistemic event exists. It is a fixture for
+ * the event-mode mechanism only: not a live producer, and it supplies no recipient, presence, attention or outcome.
+ */
+export async function seededBroadcastCampaign(
+  dir: string,
+  o: EpistemicSeedOptions = {},
+): Promise<EpistemicSeeded> {
+  const s = await seededEpistemicCampaign(dir, o);
+  await observeDissemination(s, 700, SOURCE_PUBLIC_ADDRESS);
+  return s;
+}
+
+/** Commits one independent dissemination observation made to the fixture locus, read at the version current now. */
+export async function observeDissemination(
+  s: EpistemicSeeded,
+  n: number,
+  id: string,
+  audienceKey = worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID),
+  expectedVersion = 0,
+): Promise<void> {
+  const audience = s.campaign.store.getFact(audienceKey)!;
+  await must(
+    s.campaign.store.commit(
+      disseminationObservationGroup(
+        FIXTURE_CAMPAIGN,
+        n,
+        id,
+        {
+          fact_key: audience.key,
+          version: audience.version,
+          group_id: audience.provenance.group_id,
+        },
+        undefined,
+        expectedVersion,
+      ),
+    ),
+  );
 }
 
 /** Commits the authored event-only BROADCAST_EXPOSURE event (the Epistemic owner's second authored publication). */

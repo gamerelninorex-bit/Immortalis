@@ -35,7 +35,11 @@ import {
   FIXTURE_CAMPAIGN,
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
+  SOURCE_PUBLIC_ADDRESS,
   SOURCE_SPEAKER,
+  SYNTH_ACCESS_SOURCE_OWNER,
+  disseminationObservationGroup,
+  disseminationObservationKey,
   T0,
   accessPublication,
   broadcastEvent,
@@ -50,7 +54,7 @@ import {
   establishBroadcast,
   registerPacketConsumer,
   reopenEpistemic,
-  seededEpistemicCampaign,
+  seededBroadcastCampaign,
 } from "../support/epistemic.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
@@ -95,7 +99,7 @@ const accessKeys = (store: CampaignStore) =>
     .map((f) => f.key);
 
 async function referenceHead() {
-  const s = await seededEpistemicCampaign(tempDir());
+  const s = await seededBroadcastCampaign(tempDir());
   await establishBroadcast(s, 1, B);
   const head = s.campaign.store.head();
   await s.campaign.close();
@@ -105,7 +109,7 @@ async function referenceHead() {
 describe("save → close → load → continue preserves the exact original event (acceptance: replay and recovery)", () => {
   it("the reopened event is byte-identical: exact mode, audience reference, payload, reach/channel, exceptions and sealed provenance", async () => {
     const dir = tempDir();
-    const s = await seededEpistemicCampaign(dir);
+    const s = await seededBroadcastCampaign(dir);
     const written = await establishBroadcast(s, 1, B, {
       exceptions: ["SYNTHETIC FIXTURE: the sealed east gate was out of earshot"],
     });
@@ -131,7 +135,7 @@ describe("save → close → load → continue preserves the exact original even
 
   it("continues after a reload: a re-presented intent reconciles to the original receipt, a conflicting one is refused, and further work leaves the event untouched", async () => {
     const dir = tempDir();
-    const s = await seededEpistemicCampaign(dir);
+    const s = await seededBroadcastCampaign(dir);
     await establishBroadcast(s, 1, B);
     await s.campaign.close();
 
@@ -184,7 +188,7 @@ describe("save → close → load → continue preserves the exact original even
 describe("a crash and a lost reply at the one durable step of the event publication", () => {
   it("a crash before the commit writes nothing; the retry creates the one event and reaches the uninterrupted state", async () => {
     const reference = await referenceHead();
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const crashing = new (s.access.constructor as any)(crashBefore(s.campaign.store, isEventGroup));
     const r = await crashing.establishBroadcastExposure({
       ...accessPublication(1),
@@ -202,7 +206,7 @@ describe("a crash and a lost reply at the one durable step of the event publicat
   it("an UNKNOWN outcome after the commit is reconciled by identity: one event, no sibling, no second version, the same receipt", async () => {
     const reference = await referenceHead();
     const dir = tempDir();
-    const s = await seededEpistemicCampaign(dir);
+    const s = await seededBroadcastCampaign(dir);
     const lossy = new (s.access.constructor as any)(lostReply(s.campaign.store, isEventGroup));
     const lost = await lossy.establishBroadcastExposure({
       ...accessPublication(1),
@@ -236,7 +240,7 @@ describe("a crash and a lost reply at the one durable step of the event publicat
 describe("load fails closed on a corrupted or inconsistent save", () => {
   async function saved(): Promise<string> {
     const dir = tempDir();
-    const s = await seededEpistemicCampaign(dir);
+    const s = await seededBroadcastCampaign(dir);
     await establishBroadcast(s, 1, B, { exceptions: ["SYNTHETIC FIXTURE: an exception"] });
     await s.campaign.close();
     return dir;
@@ -306,7 +310,9 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
         j.facts = j.facts.filter((f: any) => f.key !== locusKey);
       },
       "the carrier removed": (j) => {
-        j.facts = j.facts.filter((f: any) => f.key !== sourceKey(SOURCE_SPEAKER));
+        j.facts = j.facts.filter(
+          (f: any) => f.key !== disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+        );
       },
     };
     for (const [name, edit] of Object.entries(additions)) {
@@ -349,7 +355,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
   }
   // the lawful foreign facts, copied from a genuine seeded campaign and re-committed as ordinary groups
   const donor = (async () => {
-    const d = await seededEpistemicCampaign(tempDir());
+    const d = await seededBroadcastCampaign(tempDir());
     const facts = new Map<string, OwnerFact>();
     for (const k of [worldProfileKey(FIXTURE_WORLD_ID), locusKey, TEMPORAL_STATE_KEY])
       facts.set(k, d.campaign.store.getFact(k)!);
@@ -390,18 +396,25 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
         ...groupOver,
       },
     );
+  /** the independent test observation of a dissemination made to the committed locus (group-2), read at its first version */
+  const observation = (n: number) =>
+    disseminationObservationGroup(FIXTURE_CAMPAIGN, n, SOURCE_PUBLIC_ADDRESS, {
+      fact_key: locusKey,
+      version: 1,
+      group_id: "group-2",
+    });
   /** the canonical order: world, locus, clock, carrier — then whatever the variant adds */
   async function foundation(s: CampaignStore, n: () => number) {
     const facts = await donor;
     await must(s.commit(copy(n(), facts.get(worldProfileKey(FIXTURE_WORLD_ID))!)));
     await must(s.commit(copy(n(), facts.get(locusKey)!))); // group-2
     await must(s.commit(copy(n(), facts.get(TEMPORAL_STATE_KEY)!)));
-    await must(s.commit(sourceGroup(FIXTURE_CAMPAIGN, 4, SOURCE_SPEAKER))); // access-source-group-4
+    await must(s.commit(observation(4))); // dissemination-observation-group-4
   }
-  const carrierGroupFor = () => `access-source-group-4`;
+  const carrierGroupFor = () => `dissemination-observation-group-4`;
   const lawfulPins = () => ({
     reads: [
-      { key: sourceKey(SOURCE_SPEAKER), version: 1 },
+      { key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS), version: 1 },
       { key: locusKey, version: 1 },
     ],
     depends_on: [carrierGroupFor(), "group-2"],
@@ -433,7 +446,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
                 {},
                 {
                   reads: [
-                    { key: sourceKey(SOURCE_SPEAKER), version: 0 },
+                    { key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS), version: 0 },
                     { key: locusKey, version: 1 },
                   ],
                   depends_on: ["group-2"],
@@ -441,7 +454,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
               ),
             ),
           );
-          await must(s.commit(sourceGroup(FIXTURE_CAMPAIGN, 11, SOURCE_SPEAKER)));
+          await must(s.commit(observation(11)));
         }),
       ),
     ).toMatch(/EPISTEMIC_ACCESS_STATE/);
@@ -458,14 +471,20 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
               put(
                 10,
                 bKey,
-                broadcastEvent(B),
+                broadcastEvent(B, {
+                  source: {
+                    owner: SYNTH_ACCESS_SOURCE_OWNER,
+                    fact_key: sourceKey(SOURCE_SPEAKER),
+                    version: 1,
+                  },
+                }),
                 {},
                 {
                   reads: [
                     { key: sourceKey(SOURCE_SPEAKER), version: 1 },
                     { key: locusKey, version: 0 },
                   ],
-                  depends_on: [carrierGroupFor()],
+                  depends_on: ["access-source-group-4"],
                 },
               ),
             ),
@@ -495,10 +514,18 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
         audience: { owner: "world_state", fact_key: locusKey, version: 3 },
       },
       "source names the wrong owner": {
-        source: { owner: "world_state", fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+        source: {
+          owner: "world_state",
+          fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+          version: 1,
+        },
       },
       "source is the Epistemic owner's own state": {
-        source: { owner: "epistemic_access", fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+        source: {
+          owner: "epistemic_access",
+          fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+          version: 1,
+        },
       },
       "source is also the audience authority": {
         source: { owner: "world_state", fact_key: locusKey, version: 1 },
@@ -527,7 +554,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
             broadcastEvent(B),
             {},
             {
-              reads: [{ key: sourceKey(SOURCE_SPEAKER), version: 1 }],
+              reads: [{ key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS), version: 1 }],
               depends_on: [carrierGroupFor()],
             },
           ),
@@ -613,7 +640,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
   });
 
   it("the live diagnostic verifier agrees with load: a lawful campaign reports no violation", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(s, 1, B);
     expect(verifyEpistemicIntegrity(s.campaign.store)).toEqual([]);
     expect(s.campaign.verify()).toEqual([]);

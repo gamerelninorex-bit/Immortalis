@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCESS_CLASS_ENGINE_SEALED,
   CANON_WRITE_AUTHORITY,
+  TemporalStateSchema,
   accessEventKey,
   accessPacketKey,
   accessPacketStage,
@@ -44,8 +45,10 @@ import {
   FIXTURE_WORLD_ID,
   PLACE_L,
   SOURCE_SCROLL,
-  SOURCE_SPEAKER,
+  SOURCE_PUBLIC_ADDRESS,
   SYNTH_ACCESS_SOURCE_OWNER,
+  disseminationObservationKey,
+  SYNTH_DISSEMINATION_OBSERVER_OWNER,
   T0,
   accessEvent,
   accessPublication,
@@ -55,7 +58,8 @@ import {
   packetAdvanceRequest,
   packetConsumerObject,
   popPublication,
-  sourceGroup,
+  publication,
+  fixtureLocus,
   sourceKey,
   temporalPublication,
 } from "@immortalis/testkit";
@@ -63,8 +67,9 @@ import {
   epistemicSummary,
   establishAccess,
   establishBroadcast,
+  observeDissemination,
   registerPacketConsumer,
-  seededEpistemicCampaign,
+  seededBroadcastCampaign,
   type EpistemicSeeded,
 } from "../support/epistemic.ts";
 import { codeOf, must } from "../support/temporal.ts";
@@ -147,7 +152,7 @@ const bystanders = (s: EpistemicSeeded) =>
 
 describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE event with its full event basis", () => {
   it("creates exactly ONE event fact for a World-State locus audience: sealed, engine-side, create-only, event-only", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const before = bystanders(s);
     const written = await establishBroadcast(s, 1, B);
 
@@ -163,7 +168,11 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
     // the whole causal basis is preserved: payload, presented attribution, source pin, reach/channel, audience, exceptions
     expect(fact.value).toMatchObject({
       mode: "BROADCAST_EXPOSURE",
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+      source: {
+        owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+        fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+        version: 1,
+      },
       audience: { owner: "world_state", fact_key: locusKey, version: 1 },
       reach: {
         channel: expect.stringContaining("SYNTHETIC FIXTURE"),
@@ -176,11 +185,14 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
     // it rests on exactly its two pinned foreign facts, and on nothing else
     const group = s.campaign.store.committedGroup(fact.provenance.intent_id)!;
     expect(group.reads).toEqual([
-      { key: sourceKey(SOURCE_SPEAKER), version: 1 },
+      { key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS), version: 1 },
       { key: locusKey, version: 1 },
     ]);
     expect(new Set(group.depends_on)).toEqual(
-      new Set([factGroup(s, sourceKey(SOURCE_SPEAKER)), factGroup(s, locusKey)]),
+      new Set([
+        factGroup(s, disseminationObservationKey(SOURCE_PUBLIC_ADDRESS)),
+        factGroup(s, locusKey),
+      ]),
     );
     expect(group.writes.map((w) => w.key)).toEqual([bKey]);
 
@@ -190,8 +202,54 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
     expect(verifyEpistemicIntegrity(s.campaign.store)).toEqual([]);
   });
 
+  it("rests on an independent, committed, test-owned causal dissemination observation made to the very audience authority it references — not on the event's own conditions", async () => {
+    const s = await seededBroadcastCampaign(tempDir());
+    const obsKey = disseminationObservationKey(SOURCE_PUBLIC_ADDRESS);
+    const observation = s.campaign.store.getFact(obsKey)!;
+    const revision = (key: string) =>
+      s.campaign.store.lookupReceipt(s.campaign.store.getFact(key)!.provenance.intent_id)!.revision;
+
+    // the observation exists, and is complete, BEFORE any Epistemic event or any access fact exists
+    expect(accessFacts(s)).toEqual([]);
+    expect(observation.owner).toBe(SYNTH_DISSEMINATION_OBSERVER_OWNER);
+    expect(observation.owner).not.toBe("epistemic_access");
+    expect(observation.value).toMatchObject({
+      observed: expect.stringContaining("announced aloud"),
+      made_to: { fact_key: locusKey, version: 1 },
+    });
+
+    // it is the observer's own causal fact: its group read the audience authority at the pinned version and depends on the
+    // group that committed it, so the audience reference demonstrably pre-dates the observation that rests on it
+    const group = s.campaign.store.committedGroup(observation.provenance.intent_id)!;
+    expect(group.owner).toBe(SYNTH_DISSEMINATION_OBSERVER_OWNER);
+    expect(group.reads).toEqual([{ key: locusKey, version: 1 }]);
+    expect(group.depends_on).toEqual([factGroup(s, locusKey)]);
+    expect(revision(locusKey)).toBeLessThan(revision(obsKey));
+
+    // the Epistemic event then rests on exactly that observation and that audience; it is later than both
+    const written = await establishBroadcast(s, 1, B);
+    expect(written.source).toEqual({
+      owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+      fact_key: obsKey,
+      version: 1,
+    });
+    expect(written.audience.fact_key).toBe(
+      (observation.value as { made_to: { fact_key: string } }).made_to.fact_key,
+    );
+    expect(revision(obsKey)).toBeLessThan(revision(bKey));
+    // the event restates nothing the observation did not independently record: its authored conditions are not the witness
+    expect(JSON.stringify(observation.value)).not.toContain(written.reach.conditions);
+    expect(JSON.stringify(observation.value)).not.toContain(written.reach.channel);
+    // and the observation is untouched by the event: no Epistemic write reached the observer's key space
+    expect(s.campaign.store.getFact(obsKey)).toEqual(observation);
+
+    // mechanism-only: the engine validates provenance (owner, kind, pins, order, basis), never what was observed or how far
+    // it reached; physical reach, presence, attention and individual lowering are not adjudicated anywhere here
+    expect(s.access.broadcastExposure(B)!.value.reach).toEqual(written.reach);
+  });
+
   it("reads back by key as an engine-side typed value only: it is never a recipient event, a packet or an actor read", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const written = await establishBroadcast(s, 1, B);
     expect(s.access.broadcastExposure(B)!.value).toEqual(written);
     expect(s.access.broadcastExposure(B)!.fact.key).toBe(bKey);
@@ -210,7 +268,7 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
   });
 
   it("also rests on an authoritative Population ledger or Cohort audience reference, which is a scope reference and never a roster", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await withPopulation(s);
     const before = bystanders(s);
     const ledgerRef = {
@@ -238,8 +296,8 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
   });
 
   it("is deterministic and idempotent: identical input reaches the identical state; a re-presented intent reconciles to the original receipt", async () => {
-    const a = await seededEpistemicCampaign(tempDir());
-    const b = await seededEpistemicCampaign(tempDir());
+    const a = await seededBroadcastCampaign(tempDir());
+    const b = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(a, 1, B);
     await establishBroadcast(b, 1, B);
     expect(head(a).state_sha256).toBe(head(b).state_sha256);
@@ -257,7 +315,7 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
   });
 
   it("is outcome-neutral and downstream-free: no packet, Temporal, KTI, Population, Culture or actor state, no clock change, no stage and no consequence", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const quiet = epistemicSummary(s.campaign, s.coordinator);
     await establishBroadcast(s, 1, B);
     const after = epistemicSummary(s.campaign, s.coordinator);
@@ -281,8 +339,8 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
   });
 
   it("leaves a BOUNDED_SHARED_ACCESS path in the same campaign byte-for-byte what it would have been without the broadcast", async () => {
-    const lone = await seededEpistemicCampaign(tempDir());
-    const both = await seededEpistemicCampaign(tempDir());
+    const lone = await seededBroadcastCampaign(tempDir());
+    const both = await seededBroadcastCampaign(tempDir());
     for (const s of [lone, both]) {
       const event = await establishAccess(s, 2, EVENT_COUNCIL, ACTOR_SMITH);
       await registerPacketConsumer(s, "c1", event, null, 3);
@@ -306,7 +364,7 @@ describe("positive mechanism ONLY: one sealed, immutable BROADCAST_EXPOSURE even
 
 describe("the mode and the original audience reference are immutable (F-014D §4.2, §4.4, §14)", () => {
   it("a conflicting event of the same identity — another payload, audience or mode — is refused and the original is untouched", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await withPopulation(s);
     await establishBroadcast(s, 1, B);
     const original = JSON.stringify(s.campaign.store.getFact(bKey));
@@ -350,7 +408,7 @@ describe("the mode and the original audience reference are immutable (F-014D §4
   });
 
   it("a recipient event cannot be reclassified as a broadcast, nor a broadcast as a recipient event", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishAccess(s, 1, EVENT_COUNCIL);
     await establishBroadcast(s, 2, B);
     const boundedFact = JSON.stringify(s.campaign.store.getFact(accessEventKey(EVENT_COUNCIL)));
@@ -417,14 +475,14 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
       s.access.establishBroadcastExposure({ ...accessPublication(n), event });
 
   it("absent source, absent audience: the carrier and the audience authority must already be committed", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await refused(
       s,
       viaAdapter(
         s,
         broadcastEvent(B, {
           source: {
-            owner: SYNTH_ACCESS_SOURCE_OWNER,
+            owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
             fact_key: sourceKey("source-absent"),
             version: 1,
           },
@@ -460,14 +518,18 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("wrong-owner source or audience: a pin names the owner that really holds the committed fact", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await withPopulation(s);
     await refused(
       s,
       viaAdapter(
         s,
         broadcastEvent(B, {
-          source: { owner: "world_state", fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+          source: {
+            owner: "world_state",
+            fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+            version: 1,
+          },
         }),
       ),
       "REFERENCE_INVALID",
@@ -494,20 +556,12 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("stale or post-event pins: the carrier and audience are read at their current committed version, never an earlier or a later one", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     // the carrier moves on to version 2 AFTER the pin the event would claim
-    await must(
-      s.campaign.store.commit(
-        sourceGroup(
-          FIXTURE_CAMPAIGN,
-          50,
-          SOURCE_SPEAKER,
-          "SYNTHETIC FIXTURE: carrier moved on.",
-          1,
-        ),
-      ),
-    );
-    expect(s.campaign.store.getFact(sourceKey(SOURCE_SPEAKER))!.version).toBe(2);
+    await observeDissemination(s, 750, SOURCE_PUBLIC_ADDRESS, locusKey, 1);
+    expect(
+      s.campaign.store.getFact(disseminationObservationKey(SOURCE_PUBLIC_ADDRESS))!.version,
+    ).toBe(2);
     await refused(s, viaAdapter(s, broadcastEvent(B)), "REFERENCE_INVALID");
     // a pin ahead of anything committed (a version that does not exist yet) is no basis either
     await refused(
@@ -534,22 +588,94 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
     );
     // the same carrier read at the version actually current is lawful
     await establishBroadcast(s, 60, B, {
-      source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER), version: 2 },
+      source: {
+        owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+        fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+        version: 2,
+      },
     });
     expect(s.access.broadcastExposure(B)!.value.source.version).toBe(2);
   });
 
-  it("a dissemination basis in the future of the canonical basis is refused: no post-basis evidence establishes an earlier event", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
-    await refused(
-      s,
-      viaAdapter(s, broadcastEvent(B, { dissemination_basis: { ...T0, value: T0.value + 1000 } })),
+  it("a dissemination basis other than the current canonical basis is refused: the future is unknowable and the past is unverifiable", async () => {
+    const s = await seededBroadcastCampaign(tempDir());
+    for (const basis of [
+      { ...T0, value: T0.value + 1000 },
+      { ...T0, value: T0.value + 1 },
+      { ...T0, value: T0.value - 1 },
+      { ...T0, value: 0 },
+      { unit: "another-unit", value: T0.value },
+    ])
+      await refused(
+        s,
+        viaAdapter(s, broadcastEvent(B, { dissemination_basis: basis })),
+        "REFERENCE_INVALID",
+      );
+    // the current canonical basis is the lawful positive
+    await establishBroadcast(s, 5, B);
+    expect(s.access.broadcastExposure(B)!.value.dissemination_basis).toEqual(T0);
+  });
+
+  it("a retroactively dated broadcast cannot cite a source and an audience that arrived only after the earlier basis it claims (F-014D §21.11)", async () => {
+    const s = await seededBroadcastCampaign(tempDir());
+    // the canonical basis moves on: an ordinary consequence resolves to a later instant
+    const event = await establishAccess(s, 2, EVENT_COUNCIL, ACTOR_SMITH);
+    await registerPacketConsumer(s, "c1", event, null, 3);
+    await must(s.coordinator.advance(packetAdvanceRequest("tx-1", "c1")));
+    const later = TemporalStateSchema.parse(s.coordinator.state()!.fact.value).canonical_time;
+    expect(later.value).toBeGreaterThan(T0.value);
+
+    // a NEW audience authority and a NEW independent observation of a dissemination made to it arrive only now, after T0
+    await must(
+      s.campaign.establishLocus({
+        ...publication(70),
+        locus: fixtureLocus({ locus_id: "locus-late" }),
+      }),
+    );
+    const lateLocus = worldLocusKey(FIXTURE_WORLD_ID, "locus-late");
+    await observeDissemination(s, 760, "source-late-address", lateLocus);
+    const lateEvent = (basis: typeof later) =>
+      broadcastEvent(B, {
+        source: {
+          owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+          fact_key: disseminationObservationKey("source-late-address"),
+          version: 1,
+        },
+        audience: { owner: "world_state", fact_key: lateLocus, version: 1 },
+        dissemination_basis: basis,
+      });
+
+    // both are present and current at commit, but they did not exist at T0: the retroactive claim fails closed
+    const settled = head(s);
+    expect(
+      await codeOf(
+        s.access.establishBroadcastExposure({ ...accessPublication(4), event: lateEvent(T0) }),
+      ),
+    ).toBe("REFERENCE_INVALID");
+    expect(await codeOf(s.campaign.store.commit(raw(s, { value: lateEvent(T0) }, 4)))).toBe(
       "REFERENCE_INVALID",
     );
+    expect(head(s)).toEqual(settled);
+    expect(s.access.broadcastExposure(B)).toBeUndefined();
+
+    // the same evidence at the current canonical basis, and the earlier carrier at the earlier basis no longer, are the contrast
+    await must(
+      s.access.establishBroadcastExposure({ ...accessPublication(5), event: lateEvent(later) }),
+    );
+    expect(s.access.broadcastExposure(B)!.value.dissemination_basis).toEqual(later);
+    expect(
+      await codeOf(
+        s.access.establishBroadcastExposure({
+          ...accessPublication(6),
+          event: broadcastEvent("event-early", { dissemination_basis: T0 }),
+        }),
+      ),
+    ).toBe("REFERENCE_INVALID");
+    expect(verifyEpistemicIntegrity(s.campaign.store)).toEqual([]);
   });
 
   it("forged or unsupported audience authority: only a World-State locus or a Population ledger/Cohort identifies an audience", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await withPopulation(s);
     // owners outside the two audience authorities are not representable at all
     for (const owner of [
@@ -558,7 +684,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
       "epistemic_access",
       "role_registry",
       "temporal_kernel",
-      SYNTH_ACCESS_SOURCE_OWNER,
+      SYNTH_DISSEMINATION_OBSERVER_OWNER,
     ])
       await refused(
         s,
@@ -580,7 +706,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
       ["world_state", pcExistenceContractKey(FIXTURE_PC_ID)],
       ["population", "population/ledger-main/close"],
       ["world_state", accessEventKey(EVENT_COUNCIL)],
-      ["world_state", sourceKey(SOURCE_SPEAKER)],
+      ["world_state", disseminationObservationKey(SOURCE_PUBLIC_ADDRESS)],
     ] as const)
       await refused(
         s,
@@ -599,7 +725,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("a source the Epistemic owner, the kernel or the Named-Actor owner holds is not a carrier", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishAccess(s, 1, EVENT_COUNCIL);
     const settled = head(s);
     for (const source of [
@@ -620,7 +746,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("missing causal basis or reach/channel conditions: every required element is required", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const good: Record<string, unknown> = { ...broadcastEvent(B) };
     for (const field of [
       "source",
@@ -645,7 +771,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("a historical roster, per-individual snapshot or recipient list cannot stand in for the event-basis reference", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const audience = broadcastEvent(B).audience;
     for (const event of [
       { ...broadcastEvent(B), audience: { ...audience, members: [ACTOR_SMITH, ACTOR_OTHER] } },
@@ -660,7 +786,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("a malformed dual-mode event is refused, through the adapter, through the recipient-set method and as a raw value", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const dual = { ...broadcastEvent(B), participants: [ACTOR_SMITH] };
     const hybrid = { ...accessEvent(B, ACTOR_SMITH), audience: broadcastEvent(B).audience };
     await refused(s, viaAdapter(s, dual), "INPUT_INVALID");
@@ -691,7 +817,7 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
   });
 
   it("the broadcast request is not an arbitrary flag: the recipient-set method never approximates it, and the request alone establishes nothing", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await refused(
       s,
       () =>
@@ -724,14 +850,14 @@ describe("negative contrast: an unsupported broadcast fails closed with no forge
 
 describe("IM-11 admission holds for a raw store commit and a tampered group, not only for the public adapter", () => {
   it("accepts the one lawful raw group (control) and nothing the adapter would not build", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     expect(await codeOf(s.campaign.store.commit(raw(s)))).toBe("OK");
     expect(s.access.broadcastExposure(B)!.value).toEqual(broadcastEvent(B));
     expect(verifyEpistemicIntegrity(s.campaign.store)).toEqual([]);
   });
 
   it("refuses every deviation of the group: citation, reads, order, dependencies, class, key, pin, owner and authority", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const lawful = raw(s);
     const source = lawful.reads[0]!;
     const audience = lawful.reads[1]!;
@@ -801,9 +927,10 @@ describe("IM-11 admission holds for a raw store commit and a tampered group, not
   });
 
   it("owner exclusivity: the carrier's owner, the audience owners and every other owner are refused the event key, and the Epistemic owner cannot write an audience key", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await withPopulation(s);
     for (const [owner, facet] of [
+      [SYNTH_DISSEMINATION_OBSERVER_OWNER, "synthetic-dissemination-observer"],
       [SYNTH_ACCESS_SOURCE_OWNER, "synthetic-access-source"],
       ["world_state", "world_locus"],
       ["population", "population_state"],
@@ -836,7 +963,7 @@ describe("IM-11 admission holds for a raw store commit and a tampered group, not
   });
 
   it("a raw commit whose pinned facts are the wrong owner, the wrong kind or uncommitted is refused with nothing written", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const forged = (patch: Partial<BroadcastExposureEvent>) => {
       const value = broadcastEvent(B, patch);
       // an honest group for the pins it CLAIMS where they exist (so only the pin itself is wrong)
@@ -854,15 +981,27 @@ describe("IM-11 admission holds for a raw store commit and a tampered group, not
         audience: { owner: "world_state", fact_key: worldProfileKey(FIXTURE_WORLD_ID), version: 1 },
       },
       { audience: { owner: "population", fact_key: locusKey, version: 1 } },
-      { source: { owner: "world_state", fact_key: sourceKey(SOURCE_SPEAKER), version: 1 } },
       {
         source: {
-          owner: SYNTH_ACCESS_SOURCE_OWNER,
-          fact_key: sourceKey(SOURCE_SPEAKER),
+          owner: "world_state",
+          fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+          version: 1,
+        },
+      },
+      {
+        source: {
+          owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+          fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
           version: 2,
         },
       },
-      { source: { owner: "epistemic_access", fact_key: sourceKey(SOURCE_SPEAKER), version: 1 } },
+      {
+        source: {
+          owner: "epistemic_access",
+          fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+          version: 1,
+        },
+      },
     ] as Partial<BroadcastExposureEvent>[])
       expect(await codeOf(s.campaign.store.commit(forged(patch))), JSON.stringify(patch)).toBe(
         "REFERENCE_INVALID",
@@ -873,7 +1012,7 @@ describe("IM-11 admission holds for a raw store commit and a tampered group, not
 
 describe("an unlowered BROADCAST_EXPOSURE is never individual receipt: every recipient and packet path refuses it", () => {
   it("a raw packet formation for any recipient is refused, whatever the content: nothing is conjured", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(s, 1, B);
     const event = s.campaign.store.getFact(bKey)!;
     const packet = {
@@ -930,7 +1069,7 @@ describe("an unlowered BROADCAST_EXPOSURE is never individual receipt: every rec
   });
 
   it("no temporal object can declare a packet formation from a broadcast event, and the owner operation refuses to form one", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(s, 1, B);
     // the declaration a recipient event would derive, aimed at the broadcast's identity and a named recipient
     const stand_in = accessEvent(B, ACTOR_SMITH);
@@ -956,7 +1095,7 @@ describe("an unlowered BROADCAST_EXPOSURE is never individual receipt: every rec
   });
 
   it("the recipient-set event of the same campaign still forms its packet while the broadcast forms none", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const event = await establishAccess(s, 1, EVENT_COUNCIL, ACTOR_SMITH);
     await establishBroadcast(s, 2, B);
     await registerPacketConsumer(s, "c1", event, null, 3);
@@ -971,7 +1110,7 @@ describe("an unlowered BROADCAST_EXPOSURE is never individual receipt: every rec
   });
 
   it("the diagnostic verifier flags a packet planted under a broadcast event, even one written around admission", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(s, 1, B);
     const store: CampaignStore = s.campaign.store;
     expect(verifyEpistemicIntegrity(store)).toEqual([]);
@@ -1010,14 +1149,14 @@ describe("an unlowered BROADCAST_EXPOSURE is never individual receipt: every rec
 
 describe("the broadcast adapter's boundaries", () => {
   it("a fresh adapter over the same store reads the same event: the value lives in the one canon, not in the adapter", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await establishBroadcast(s, 1, B);
     const again = new EpistemicAccessAdapter(s.campaign.store);
     expect(again.broadcastExposure(B)!.value).toEqual(broadcastEvent(B));
   });
 
   it("a publication cannot choose the class, the owner, the citation or the rule: a caller-supplied label is ignored", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     await must(
       s.access.establishBroadcastExposure({
         ...accessPublication(1),
@@ -1034,7 +1173,7 @@ describe("the broadcast adapter's boundaries", () => {
   });
 
   it("invalid publications and values commit nothing", async () => {
-    const s = await seededEpistemicCampaign(tempDir());
+    const s = await seededBroadcastCampaign(tempDir());
     const settled = head(s);
     for (const input of [
       { ...accessPublication(1), intent_id: "", event: broadcastEvent(B) },

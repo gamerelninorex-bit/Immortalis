@@ -48,6 +48,16 @@ import { SYNTH_RULE, T0, T1, TB } from "./temporal-fixtures.ts";
 export const SYNTH_ACCESS_SOURCE_OWNER = "SYNTHETIC-ACCESS-SOURCE";
 const SOURCE_FACET = "synthetic-access-source";
 const SOURCE_PREFIX = "synthetic-access-source/";
+/**
+ * The test DISSEMINATION OBSERVER: an independent, explicitly test-owned producer standing in for the foreign owner (a
+ * herald, a town crier, a public notice board) that would witness a public dissemination. It commits its own observation of
+ * the dissemination — what was made public and the audience authority it was made to, read at a pinned version — BEFORE any
+ * Epistemic event exists, in its own group under its own owner. It is NOT a live production producer and holds no Epistemic
+ * authority; it proves only that the event-mode mechanism has an independent committed causal witness to rest on.
+ */
+export const SYNTH_DISSEMINATION_OBSERVER_OWNER = "SYNTHETIC-DISSEMINATION-OBSERVER";
+const OBSERVER_FACET = "synthetic-dissemination-observer";
+const OBSERVER_PREFIX = "synthetic-dissemination-observer/";
 export const SYNTH_PACKET_CONSUMER_OWNER = "SYNTHETIC-PACKET-CONSUMER";
 const CONSUMER_FACET = "synthetic-packet-consumer";
 const CONSUMER_PREFIX = "synthetic-packet-consumer/";
@@ -70,12 +80,14 @@ const prefixAdmission =
   };
 
 const sourceCheck = prefixAdmission(SYNTH_ACCESS_SOURCE_OWNER, SOURCE_PREFIX);
+const observerCheck = prefixAdmission(SYNTH_DISSEMINATION_OBSERVER_OWNER, OBSERVER_PREFIX);
 const consumerCheck = prefixAdmission(SYNTH_PACKET_CONSUMER_OWNER, CONSUMER_PREFIX);
 
 export const EPISTEMIC_FIXTURE_EXTENSION: StageOwnerExtension = {
   owners: new Map([
     ...ACTOR_FIXTURE_EXTENSION.owners,
     [SYNTH_ACCESS_SOURCE_OWNER, new Set([SOURCE_FACET])],
+    [SYNTH_DISSEMINATION_OBSERVER_OWNER, new Set([OBSERVER_FACET])],
     [SYNTH_PACKET_CONSUMER_OWNER, new Set([CONSUMER_FACET])],
   ]),
   admission: {
@@ -83,6 +95,7 @@ export const EPISTEMIC_FIXTURE_EXTENSION: StageOwnerExtension = {
       return (
         ACTOR_FIXTURE_EXTENSION.admission?.check(group, state) ??
         sourceCheck(group, state) ??
+        observerCheck(group, state) ??
         consumerCheck(group, state)
       );
     },
@@ -100,6 +113,9 @@ export const SOURCE_SCROLL = "source-scroll";
 export const PRESENTED_SEAL = "bearing the seal of the Warden";
 
 export const sourceKey = (id: string): string => `${SOURCE_PREFIX}${id}`;
+export const SOURCE_PUBLIC_ADDRESS = "source-public-address";
+export const disseminationObservationKey = (id: string): string => `${OBSERVER_PREFIX}${id}`;
+
 export const packetConsumerResultKey = (id: string): string => `${CONSUMER_PREFIX}result/${id}`;
 
 /** A committed carrier/context fact of the access source (a fixture sentence; never a value any engine rule reads). */
@@ -126,6 +142,57 @@ export function sourceGroup(
         key: sourceKey(id),
         owner: SYNTH_ACCESS_SOURCE_OWNER,
         facet: SOURCE_FACET,
+        value: value as never,
+        unit: null,
+        basis: "access-fixture-basis",
+        secrecy: "access-fixture-secrecy",
+        expected_version: expectedVersion,
+      },
+    ],
+  };
+}
+
+/** The audience authority an observation was made to: a committed foreign fact, read at its current version. */
+export interface ObservedAudience {
+  readonly fact_key: string;
+  readonly version: number;
+  readonly group_id: string;
+}
+
+/**
+ * A committed, independent causal observation of one public dissemination. It is authored by the test OBSERVER owner, not by
+ * the Epistemic owner and not derived from any Epistemic event: its value says what was made public and to which audience
+ * authority, and its group READS that audience authority at the pinned version and depends on the group that committed it —
+ * so the observation itself rests on the audience reference, and the audience reference provably existed before it. It
+ * supplies no recipient, presence, attention, receipt or outcome. `expectedVersion` > 0 re-observes (a later version).
+ */
+export function disseminationObservationGroup(
+  campaignId: string,
+  n: number,
+  id: string,
+  audience: ObservedAudience,
+  value: unknown = {
+    observed: `SYNTHETIC FIXTURE: ${id} was announced aloud in the open square.`,
+    made_to: { fact_key: audience.fact_key, version: audience.version },
+  },
+  expectedVersion = 0,
+): CommitGroup {
+  return {
+    campaign_id: campaignId,
+    group_id: `dissemination-observation-group-${n}`,
+    intent_id: `dissemination-observation-intent-${n}`,
+    owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+    facet: OBSERVER_FACET,
+    cause: `dissemination-observation-cause-${n}`,
+    rule: SYNTH_RULE,
+    authority: { ...CANON_WRITE_AUTHORITY },
+    reads: [{ key: audience.fact_key, version: audience.version }],
+    depends_on: [audience.group_id],
+    writes: [
+      {
+        key: disseminationObservationKey(id),
+        owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+        facet: OBSERVER_FACET,
         value: value as never,
         unit: null,
         basis: "access-fixture-basis",
@@ -171,8 +238,8 @@ export const pcAccessEvent = (
 ): AccessEvent => accessEvent(eventId, pcId, { recipient_role: "role.player_character", ...over });
 
 /**
- * A causally well-formed BROADCAST_EXPOSURE event over the same synthetic carrier: the coarse audience is the committed
- * World-State locus (an area), pinned at its first version. Every sentence is a fixture. It names no recipient and supplies no
+ * A causally well-formed BROADCAST_EXPOSURE event resting on the independent test dissemination observation and the coarse
+ * audience authority that observation was made to: the committed World-State locus (an area), pinned at its first version. Every sentence is a fixture. It names no recipient and supplies no
  * reach verdict, presence, attention, receipt, adoption or outcome: `reach` is authored prose the engine never reads.
  */
 export const broadcastEvent = (
@@ -181,7 +248,11 @@ export const broadcastEvent = (
 ): BroadcastExposureEvent => ({
   event_id: eventId,
   mode: "BROADCAST_EXPOSURE",
-  source: { owner: SYNTH_ACCESS_SOURCE_OWNER, fact_key: sourceKey(SOURCE_SPEAKER), version: 1 },
+  source: {
+    owner: SYNTH_DISSEMINATION_OBSERVER_OWNER,
+    fact_key: disseminationObservationKey(SOURCE_PUBLIC_ADDRESS),
+    version: 1,
+  },
   dissemination_basis: T0,
   payload: {
     referent: "the gate rota",

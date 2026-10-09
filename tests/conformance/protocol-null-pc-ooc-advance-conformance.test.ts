@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "0d4697e144ccacc79f2ad9e439f30d77d2007ff95a2458e1b43d7da8c3051613",
+    "b7364efd63f70a249e42e97b2c036af80d5bb15dbecc07dae57ae25657174e4b",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

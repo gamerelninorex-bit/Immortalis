@@ -16,13 +16,7 @@ import {
   SealedEngineProvenanceSchema,
   accessEventKey,
 } from "@immortalis/contracts";
-import {
-  ACTOR_SMITH,
-  SOURCE_SPEAKER,
-  accessEvent,
-  broadcastEvent,
-  sourceKey,
-} from "@immortalis/testkit";
+import { ACTOR_SMITH, accessEvent, broadcastEvent } from "@immortalis/testkit";
 
 const ok = (v: unknown) => BroadcastExposureEventSchema.safeParse(v).success;
 const event = (over: Record<string, unknown> = {}) => ({ ...broadcastEvent("e1"), ...over });
@@ -140,7 +134,7 @@ describe("the BROADCAST_EXPOSURE event is a strict, sparse, event-only shape (F-
 
   it("the payload never carries the engine reference of its true source (the role-context rule)", () => {
     const payload = broadcastEvent("e1").payload;
-    const key = sourceKey(SOURCE_SPEAKER);
+    const key = broadcastEvent("e1").source.fact_key;
     for (const field of ["content", "referent", "presented_attribution"] as const)
       expect(ok(event({ payload: { ...payload, [field]: `as announced by ${key}` } })), field).toBe(
         false,
