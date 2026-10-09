@@ -44,7 +44,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/temporal/admission.ts":
-    "aa00bc7aeec9dde24cdfd3cf65b3c8860ac055732fbb1b9c9a29281612e45dc0",
+    "1f3a78ddc4ea6878479daebc4979c00d9d060c370558df3c22c548820661f06c",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -58,7 +58,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "911fcebf9192ddd4e4b620c738ffbfa5f3fb7a9daee47131b880117dfc67f2f5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "9351f09fb9b6251590702236d611854ad05bd84ce480b2c8ecc228c02e39f5b7",
+    "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/fallback-custody.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "e2b42c5c454a2cfd2a569015701eb93766d3de6e1cf454b285a512c13f7135d7",
+    "e71a16ba1882e636d218fe5580aa1cf22bef473594258797603e110d04587afc",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

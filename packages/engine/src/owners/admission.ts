@@ -10,6 +10,7 @@ import {
   OWNER_ECONOMY,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_GIP,
+  OWNER_CULTURE,
   OWNER_CULTURE_ADJUDICATION_KERNEL,
   OWNER_KTI,
   OWNER_LOGISTICS,
@@ -41,6 +42,7 @@ import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
+import { cultureGroupCheck } from "../culture/admission.ts";
 import { cultureAdjudicationGroupCheck } from "../culture-adjudication/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
@@ -446,6 +448,8 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
     if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
+    // IM-09 Culture groups: a sealed Social Update Context and a Communicative Convention Close are each re-derived.
+    if (group.owner === OWNER_CULTURE) return cultureGroupCheck(group, state);
     // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
     if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
     // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute, Relation Edge or Framework establishment, created once.
@@ -600,6 +604,10 @@ export function identityMismatch(
     case "kti_transfer_basis":
     case "kti_transfer_package":
       return v["package_id"] === ids[0] ? null : "package identity does not match the key";
+    case "culture_update_context":
+      return v["update_id"] === ids[0] ? null : "update identity does not match the key";
+    case "culture_shared_meaning":
+      return v["slot_id"] === ids[0] ? null : "state slot identity does not match the key";
     case "culture_adjudication_decision":
       return v["culture_update_id"] === ids[0] ? null : "culture_update_id does not match the key";
     case "causal_draw_precommit":

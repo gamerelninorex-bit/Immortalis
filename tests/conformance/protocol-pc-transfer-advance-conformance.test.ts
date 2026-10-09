@@ -46,7 +46,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol-causal.ts":
     "a535533b4ae92b71805634bc742627e45bb2223a0311631303b63c211ed588d5",
   "packages/engine/src/temporal/admission.ts":
-    "aa00bc7aeec9dde24cdfd3cf65b3c8860ac055732fbb1b9c9a29281612e45dc0",
+    "1f3a78ddc4ea6878479daebc4979c00d9d060c370558df3c22c548820661f06c",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -64,7 +64,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition.ts":
     "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
   "packages/engine/src/world/canonical-campaign.ts":
-    "9351f09fb9b6251590702236d611854ad05bd84ce480b2c8ecc228c02e39f5b7",
+    "e4b8bb30d4317e2230ff88bdbdbc0b2b290af4086ca412b55fc52814a3c9fec3",
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
   "packages/engine/src/logistics/declaration.ts":
@@ -76,7 +76,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "e2b42c5c454a2cfd2a569015701eb93766d3de6e1cf454b285a512c13f7135d7",
+    "e71a16ba1882e636d218fe5580aa1cf22bef473594258797603e110d04587afc",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":

@@ -111,6 +111,7 @@ describe("IA-03 owner exclusivity: Population is the sole Unit/Count custodian a
           n !== "named_actor" &&
           n !== "epistemic_access" &&
           n !== "kti" &&
+          n !== "culture" &&
           n !== "culture_adjudication_kernel",
       )
       .join(" ");
@@ -255,6 +256,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "culture-adjudication",
       "diplomacy",
       "economy",

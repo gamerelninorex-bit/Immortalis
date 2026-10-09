@@ -58,6 +58,7 @@ import { verifyEconomyIntegrity } from "../economy/integrity.ts";
 import { verifyEpistemicIntegrity } from "../epistemic/integrity.ts";
 import { verifyDiplomacyIntegrity } from "../diplomacy/integrity.ts";
 import { verifyGipIntegrity } from "../gip/integrity.ts";
+import { verifyCultureIntegrity } from "../culture/integrity.ts";
 import { verifyCultureAdjudicationIntegrity } from "../culture-adjudication/integrity.ts";
 import { verifyKtiIntegrity } from "../kti/integrity.ts";
 import { verifyLogisticsIntegrity } from "../logistics/integrity.ts";
@@ -689,6 +690,7 @@ function verifyAll(
     ...verifyPcCapabilityIntegrity(store),
     ...verifyEpistemicIntegrity(store),
     ...verifyKtiIntegrity(store),
+    ...verifyCultureIntegrity(store),
     ...verifyGipIntegrity(store),
     ...verifyDiplomacyIntegrity(store),
     ...verifyCausalDrawIntegrity(store),

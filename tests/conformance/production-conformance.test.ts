@@ -129,12 +129,19 @@ describe("IA-03 owner exclusivity: Production owns production-side state only; W
           n !== "named_actor" &&
           n !== "epistemic_access" &&
           n !== "kti" &&
+          n !== "culture" &&
           n !== "culture_adjudication_kernel",
       )
       .join(" ");
     const facets = [...CANONICAL_OWNER_REGISTRY.values()]
       .flatMap((f) => [...f])
-      .filter((f) => f !== "actor_profile" && f !== "epistemic_access" && f !== "kti_development")
+      .filter(
+        (f) =>
+          f !== "actor_profile" &&
+          f !== "epistemic_access" &&
+          f !== "kti_development" &&
+          f !== "culture_social",
+      )
       .join(" ");
     for (const forbidden of [
       "asset",
@@ -322,6 +329,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "culture-adjudication",
       "diplomacy",
       "economy",

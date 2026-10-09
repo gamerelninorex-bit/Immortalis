@@ -484,6 +484,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor",
       "causal-draw",
       "commit",
+      "culture",
       "culture-adjudication",
       "diplomacy",
       "economy",

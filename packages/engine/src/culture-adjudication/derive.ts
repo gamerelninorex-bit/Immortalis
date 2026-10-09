@@ -8,6 +8,7 @@ import {
   OWNER_CULTURE_ADJUDICATION_KERNEL,
   OWNER_POPULATION,
   POPULATION_CLOSE_BASIS,
+  populationCloseKey,
   cjaDecisionGroupId,
   cjaDecisionId,
   cjaDecisionIntentId,
@@ -309,8 +310,25 @@ export function cjaConstituencyViolation(
       "the Cohort is read at the named Population ordinary demographic/labor reconciliation close",
     );
   }
+  if (c.close_vouch.live_population_admission) {
+    const e = c.close_vouch.evidence;
+    const m = COHORT_KEY.exec(c.cohort_fact_key);
+    if (
+      !m ||
+      m[1] !== e.ledger_id ||
+      m[2] !== e.cohort_id ||
+      e.close_fact_key !== populationCloseKey(e.ledger_id)
+    ) {
+      return v(
+        "CONSTITUENCY_INVALID",
+        "a live Population vouch names the Cohort's own ledger and that ledger's close",
+      );
+    }
+  }
   return null;
 }
+
+const COHORT_KEY = /^population\/([^/]+)\/cohort\/([^/]+)$/;
 
 /** The Port A attestation's own identity claims, against the one registered consumer operation. */
 export function cjaAttestationIdentityViolation(
@@ -559,6 +577,31 @@ export function cjaSealedProofViolation(
         "CONSTITUENCY_INVALID",
         "the Cohort is a Population-owned fact and its seal-time version is not ahead of the committed fact",
       );
+    }
+    if (journal && c.close_vouch.live_population_admission) {
+      // a LIVE vouch: the journal must show the cited group — a Population reconciliation — writing this Cohort at the cited
+      // version together with the ledger's close at the evidenced version, before the sealed context
+      const e = c.close_vouch.evidence;
+      const g = journal.committedGroupById?.(c.committed_by_group_id) ?? null;
+      const wrote = (key: string, version: number) =>
+        g?.writes.some(
+          (w) =>
+            w.key === key && w.owner === OWNER_POPULATION && w.expected_version + 1 === version,
+        ) ?? false;
+      const at = g ? journal.lookupReceipt(g.intent_id)?.revision : undefined;
+      if (
+        !g ||
+        g.owner !== OWNER_POPULATION ||
+        !wrote(c.cohort_fact_key, c.cohort_version) ||
+        !wrote(e.close_fact_key, e.close_version) ||
+        at === undefined ||
+        at >= contextRevision
+      ) {
+        return v(
+          "HISTORICAL_SOURCE_PROOF_MISSING",
+          "the journal does not show the cited Population reconciliation committing the Cohort and the named close before the sealed context",
+        );
+      }
     }
   }
   return null;

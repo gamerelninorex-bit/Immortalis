@@ -90,6 +90,12 @@ export const CJA_FIXTURE_EXTENSION: StageOwnerExtension = {
   },
 };
 
+/** The observation source alone, for suites whose sealed context is committed by the REAL Culture owner. */
+export const CJA_OBSERVATION_EXTENSION: StageOwnerExtension = {
+  owners: new Map([[SYNTH_CJA_OBSERVATION_OWNER, new Set([OBSERVATION_FACET])]]),
+  admission: { check: observationCheck },
+};
+
 export const FIXTURE_SYNTH_RULE: SourceRef = {
   artifact: "https://example.invalid/synthetic-cja-group-rule",
   native_pin: "synthetic-pin-2",

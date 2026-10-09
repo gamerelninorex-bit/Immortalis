@@ -66,12 +66,21 @@ describe("owner exclusivity: an infrastructure-only owner and no Culture owner",
     expect([...CANONICAL_OWNER_REGISTRY.get("culture_adjudication_kernel")!]).toEqual([
       "adjudication_provenance",
     ]);
-    expect([...CANONICAL_OWNER_REGISTRY.keys()].filter((o) => o === "culture")).toEqual([]);
+    // the adjudication infrastructure registers no substantive Culture owner and never names it: the Culture owner (if any)
+    // is the separate IM-09 module that CONSUMES the record, never the record's writer
     expect(
       ALL_FACT_KINDS.filter(
-        (k) => /^culture/.test(k.owner) && k.owner !== "culture_adjudication_kernel",
+        (k) =>
+          /^culture/.test(k.owner) &&
+          k.owner !== "culture_adjudication_kernel" &&
+          k.owner !== "culture",
       ),
     ).toEqual([]);
+    for (const f of SOURCES) {
+      expect(code(f), f).not.toMatch(
+        /\bOWNER_CULTURE\b|FACET_CULTURE_SOCIAL|cultureSharedMeaningKey/,
+      );
+    }
   });
 
   it("the key space is exactly adjudication-culture/<64 hex>/decision and resolves to the one kind", () => {

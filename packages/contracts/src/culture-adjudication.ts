@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Authority } from "./commit.ts";
 import { Id, Sha256 } from "./ids.ts";
 import { SourceRefSchema } from "./source-ref.ts";
-import { CloseBasisSchema } from "./temporal.ts";
+import { CanonicalTimeSchema, CloseBasisSchema, SourceFactRefSchema } from "./temporal.ts";
 
 /**
  * F-027-CJA1 — Culture Judgment Adjudication, CONSUMER-FREE RC-09 PREREQUISITE: executable contracts.
@@ -139,16 +139,46 @@ export const CjaContextRefSchema = z.strictObject({
 export type CjaContextRef = z.infer<typeof CjaContextRefSchema>;
 
 /**
- * CJA1 §§5.1, 9.1 PORT B result as retained: the Population close-vouch attestation obtained AT SEAL. `live_population_admission`
- * is the literal `false` in this prerequisite — a test-owned stand-in can never be recorded as a live PCB-01 attestation
- * ("no spoofed live PCB-01 success is accepted"). `reconciliation` is `NOT_DUE` or a due reconciliation that has already
- * lawfully completed; a due-but-incomplete scope is not sealable and has no representation here.
+ * The retained, independently re-checkable evidence of a LIVE Port B vouch (CJA1 §§5.1, 9.1; Culture recovery): the Population
+ * ledger and Cohort the scope is, the Population close fact stamped with the named ordinary close, the seal instant the PCB-01
+ * due question was asked at, and the consequence sources that question was declared over. The Cohort's CURRENT-ONLY value is
+ * never copied.
  */
-export const CjaCloseVouchSchema = z.strictObject({
-  port: z.literal("PopulationCloseScopeVerifier"),
-  live_population_admission: z.literal(false),
-  reconciliation: z.enum(["NOT_DUE", "DUE_COMPLETED"]),
+export const CjaLiveCloseEvidenceSchema = z.strictObject({
+  ledger_id: CjaIdent,
+  cohort_id: CjaIdent,
+  close_fact_key: CjaIdent,
+  close_version: PositiveVersion,
+  instant: CanonicalTimeSchema,
+  consequence_sources: z.array(SourceFactRefSchema).min(1),
 });
+export type CjaLiveCloseEvidence = z.infer<typeof CjaLiveCloseEvidenceSchema>;
+
+/**
+ * CJA1 §§5.1, 9.1 PORT B result as retained: the Population close-vouch attestation obtained AT SEAL. Two variants exist and
+ * they never converge:
+ *
+ *  - the TEST-OWNED stand-in, `live_population_admission` the literal `false` — a stand-in can never be recorded as a live
+ *    PCB-01 attestation ("no spoofed live PCB-01 success is accepted");
+ *  - the LIVE variant, `live_population_admission` the literal `true`, only with `evidence` that admission and load integrity
+ *    re-check against committed Population state and the journal. A bare `true` has no representation.
+ *
+ * `reconciliation` is `NOT_DUE` or a due reconciliation that has already lawfully completed; a due-but-incomplete scope is not
+ * sealable and has no representation here.
+ */
+export const CjaCloseVouchSchema = z.union([
+  z.strictObject({
+    port: z.literal("PopulationCloseScopeVerifier"),
+    live_population_admission: z.literal(false),
+    reconciliation: z.enum(["NOT_DUE", "DUE_COMPLETED"]),
+  }),
+  z.strictObject({
+    port: z.literal("PopulationCloseScopeVerifier"),
+    live_population_admission: z.literal(true),
+    reconciliation: z.enum(["NOT_DUE", "DUE_COMPLETED"]),
+    evidence: CjaLiveCloseEvidenceSchema,
+  }),
+]);
 export type CjaCloseVouch = z.infer<typeof CjaCloseVouchSchema>;
 
 /**
