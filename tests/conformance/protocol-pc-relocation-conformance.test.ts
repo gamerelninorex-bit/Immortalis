@@ -66,7 +66,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/owners/registry.ts":
     "b8144367498d35d0c1797afdc35b9f49911bb1749f2eee1bbcca37601f9e2083",
   "packages/engine/src/temporal/coordinator.ts":
-    "6d14111243248af53a267e83948cba49a60b77641dbd26d603d7b49f74ddc9a2",
+    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
   "packages/engine/src/presentation/event-signal.ts":

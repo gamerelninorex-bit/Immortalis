@@ -32,6 +32,7 @@ import {
   factKind,
   gipSunsetExpiryProvider,
   gipSunsetTemporalObject,
+  sunsetReachViolation,
   stageGroupId,
   stageIntentId,
   transactionAuthorityGroupId,
@@ -1211,5 +1212,86 @@ describe("a conflicting replay is refused: nothing is silently reused or rewritt
     ).toBe("TRANSACTION_CONFLICT");
     expect(s.campaign.store.head()).toEqual(head);
     expect(lifecycle(s)).toBe("expired");
+  });
+});
+
+const OTHER_OBJ = gipSunsetObjectId(INSTRUMENT_B);
+const OTHER_BOUNDARY = gipSunsetBoundaryId(INSTRUMENT_B);
+
+describe("a condition-only transaction engages the sunset only through a named boundary at or after it", () => {
+  const authority = (condition: unknown) =>
+    ({
+      opening: { basis_time: SUNSET_START, state_version: 1 },
+      requested: { target: null, condition },
+    }) as never;
+  // another owner's REAL, schema-valid object holding an earned boundary at `when` (here, another Instrument's sunset object)
+  const named = (_id: string, _boundary: string, when: typeof SUNSET_AT) =>
+    new Map([
+      [
+        temporalObjectKey(gipSunsetObjectId(INSTRUMENT_B)),
+        {
+          value: gipSunsetTemporalObject(sunsetInstrument(INSTRUMENT_B, when), SUNSET_START),
+        } as never,
+      ],
+    ]);
+  const cond = (object_id: string, boundary_id: string) => ({
+    kind: "STOP_AFTER_BOUNDARY",
+    object_id,
+    boundary_id,
+  });
+
+  it("another owner's boundary later than (or at) the sunset engages it; an earlier one, an unknown one, a retired one or no condition does not", () => {
+    const facts = (when: typeof SUNSET_AT) => named("obj-x", "b-x", when);
+    expect(
+      sunsetReachViolation(
+        authority(cond(OTHER_OBJ, OTHER_BOUNDARY)),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        facts(at(250)),
+      ),
+    ).toBeNull();
+    expect(
+      sunsetReachViolation(
+        authority(cond(OTHER_OBJ, OTHER_BOUNDARY)),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        facts(SUNSET_AT),
+      ),
+    ).toBeNull();
+    expect(
+      sunsetReachViolation(
+        authority(cond(OTHER_OBJ, OTHER_BOUNDARY)),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        facts(at(140)),
+      ),
+    ).not.toBeNull();
+    expect(
+      sunsetReachViolation(
+        authority(cond(OTHER_OBJ, "other")),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        facts(at(250)),
+      ),
+    ).not.toBeNull();
+    expect(
+      sunsetReachViolation(
+        authority(cond("obj-y", OTHER_BOUNDARY)),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        facts(at(250)),
+      ),
+    ).not.toBeNull();
+    expect(
+      sunsetReachViolation(authority(null), INSTRUMENT_A, SUNSET_AT, facts(at(250))),
+    ).not.toBeNull();
+    expect(
+      sunsetReachViolation(
+        authority(cond(gipSunsetObjectId(INSTRUMENT_A), gipSunsetBoundaryId(INSTRUMENT_A))),
+        INSTRUMENT_A,
+        SUNSET_AT,
+        new Map(),
+      ),
+    ).toBeNull();
   });
 });

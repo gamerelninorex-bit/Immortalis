@@ -4,6 +4,7 @@ import {
   OWNER_GIP,
   READ_MODE_NOW,
   SunsetEnrollmentSchema,
+  TemporalObjectSchema,
   compareTime,
   gipInstrumentKey,
   gipOfficeAuthorityLocusKey,
@@ -201,16 +202,22 @@ export function pendingSunsetEnrollment(
 /**
  * Canonical time cannot pass an UNREGISTERED material sunset (F-014B §6, §13: no advance may silently cross material work). While
  * GIP's receipt for a committed sunset-bearing Instrument is still unregistered, no resolution may stop at or after that
- * Instrument's sunset instant: the sunset is not in the Temporal index, so nothing else would ever engage it. The same rule is
- * used by the coordinator (a typed refusal before anything is opened) and by kernel admission (a raw commit), so they cannot
- * drift. Returns a message, or null.
+ * Instrument's sunset instant: the sunset is not in the Temporal index, so nothing else would ever engage it. `stop` is the
+ * instant a resolution would stop at or, for a REQUEST, the requested target. A request with NO target (a condition-only
+ * `STOP_AFTER_BOUNDARY`) has no stop that can be bounded before any owner stage runs, so it is refused outright while an
+ * enrollment is pending (`stop` null): fail-closed, before anything is opened, rather than discovered after other owners'
+ * stages committed. The same rule is used by the coordinator (a typed pre-stage refusal) and by kernel admission (a raw commit,
+ * always with the transaction's actual stop), so they cannot drift. Returns a message, or null.
  */
 export function gipEnrollmentPendingViolation(
   facts: Pick<ReadonlyMap<string, OwnerFact>, "get" | "has">,
-  stop: CanonicalTime,
+  stop: CanonicalTime | null,
 ): string | null {
   const pending = pendingSunsetEnrollment(facts);
   if (!pending) return null;
+  if (stop === null) {
+    return "a condition-only request cannot be bounded before the unregistered sunset: GIP's enrollment of that Instrument's sunset must be completed first";
+  }
   const c = compareTime(stop, pending.sunset_at);
   if (c === 0 || c === 1) {
     return "canonical time may not reach an unregistered sunset: GIP's enrollment of that Instrument's sunset must be completed first";
@@ -219,15 +226,18 @@ export function gipEnrollmentPendingViolation(
 }
 
 /**
- * Whether the transaction that opened a stage engaged this boundary, from the durable authority alone: the sunset instant lies
- * within the requested target, or the requested condition names this very object and boundary; and the transaction opened at or
- * before the sunset (a continuation of a held boundary opens AT it; canonical time never passes an active boundary, so nothing
- * opens later). Returns a message, or null.
+ * Whether the transaction that opened a stage engaged this boundary, from the durable authority and committed state alone: the
+ * sunset instant lies within the requested target; or, for a request with no target, the requested condition names this very
+ * object and boundary, or names another committed object whose still-held earned boundary is at or after the sunset (the kernel
+ * resolves every due boundary on the way to the stop that condition sets); and the transaction opened at or before the sunset
+ * (a continuation of a held boundary opens AT it; canonical time never passes an active boundary, so nothing opens later).
+ * Returns a message, or null.
  */
 export function sunsetReachViolation(
   authority: Pick<TransactionAuthority, "opening" | "requested">,
   instrumentId: string,
   sunset: CanonicalTime,
+  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
 ): string | null {
   const opened = compareTime(authority.opening.basis_time, sunset);
   if (opened !== -1 && opened !== 0) {
@@ -238,12 +248,20 @@ export function sunsetReachViolation(
     const c = compareTime(sunset, target);
     return c === -1 || c === 0 ? null : "a sunset stage lies within what its transaction requested";
   }
-  if (
-    condition !== null &&
-    condition.object_id === gipSunsetObjectId(instrumentId) &&
-    condition.boundary_id === gipSunsetBoundaryId(instrumentId)
-  ) {
-    return null;
+  if (condition !== null) {
+    if (
+      condition.object_id === gipSunsetObjectId(instrumentId) &&
+      condition.boundary_id === gipSunsetBoundaryId(instrumentId)
+    ) {
+      return null;
+    }
+    const named = facts.get(temporalObjectKey(condition.object_id));
+    const object = named ? TemporalObjectSchema.safeParse(named.value) : undefined;
+    const boundary = object?.success ? object.data.next_boundary : null;
+    if (boundary && boundary.boundary_id === condition.boundary_id) {
+      const c = compareTime(sunset, boundary.at);
+      if (c === -1 || c === 0) return null;
+    }
   }
   return "a sunset stage runs only for a transaction that engaged its boundary";
 }

@@ -58,7 +58,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "22b4580ee7c0b7dcf0361ec62689c369551e0a87b56cb817cd606a22f5007c76",
   "packages/engine/src/temporal/coordinator.ts":
-    "6d14111243248af53a267e83948cba49a60b77641dbd26d603d7b49f74ddc9a2",
+    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/entity-transition.ts":

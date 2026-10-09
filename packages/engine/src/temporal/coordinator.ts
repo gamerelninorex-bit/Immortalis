@@ -355,14 +355,13 @@ export class TemporalCoordinator {
         );
     }
     // Canonical time may not be requested past a material sunset GIP has committed but not yet registered here: nothing would
-    // engage it, so the advance is refused before anything is opened (completing GIP's enrollment lifts the refusal)
-    if (target) {
-      const unregistered = gipEnrollmentPendingViolation(
-        { get: (k) => this.#store.getFact(k), has: (k) => this.#store.getFact(k) !== undefined },
-        target,
-      );
-      if (unregistered) return failure("ENROLLMENT_PENDING", unregistered);
-    }
+    // engage it, so the advance is refused before anything is opened - before any transaction authority or owner stage can commit
+    // (a request with no target is refused whole while an enrollment is pending). Completing GIP's enrollment lifts the refusal.
+    const unregistered = gipEnrollmentPendingViolation(
+      { get: (k) => this.#store.getFact(k), has: (k) => this.#store.getFact(k) !== undefined },
+      target,
+    );
+    if (unregistered) return failure("ENROLLMENT_PENDING", unregistered);
     // A held continuation is consumed or it stays. This slice authorizes continuation and has no
     // cancellation/supersession mechanism, so unrelated progress cannot silently abandon it.
     const held = state.continuation;

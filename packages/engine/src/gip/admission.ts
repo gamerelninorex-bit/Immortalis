@@ -631,7 +631,7 @@ function checkSunsetExpiry(group: CommitGroup, state: CampaignState, w: Write): 
     : undefined;
   if (!authority?.success)
     return bad("an expiry runs under the durable authority of its transaction");
-  const reach = sunsetReachViolation(authority.data, instrument.instrument_id, sunset);
+  const reach = sunsetReachViolation(authority.data, instrument.instrument_id, sunset, state.facts);
   if (reach) return bad(reach);
   return null;
 }
