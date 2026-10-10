@@ -545,6 +545,16 @@ export function identityMismatch(
       return v["demand_envelope_id"] === ids[0]
         ? null
         : "demand_envelope_id does not match the key";
+    case "economy_holding":
+      return v["holding_id"] === ids[0] ? null : "holding_id does not match the key";
+    case "economy_encumbrance": {
+      const holding = v["holding"] as { fact_key: string; holding_id: string };
+      return v["encumbrance_id"] === ids[1] &&
+        holding.holding_id === ids[0] &&
+        holding.fact_key === `economy/holding/${ids[0]}`
+        ? null
+        : "encumbrance identity does not match the key";
+    }
     case "world_fallback_entity": {
       const locality = v["locality"] as { world: { entity_id: string } };
       return v["entity_id"] === ids[1] && locality.world.entity_id === ids[0]
