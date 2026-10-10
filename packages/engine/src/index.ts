@@ -62,6 +62,8 @@ export * from "./economy/adapter.ts";
 export * from "./economy/admission.ts";
 export * from "./economy/declaration.ts";
 export * from "./economy/derive.ts";
+export * from "./economy/holding.ts";
+export * from "./economy/holding-integrity.ts";
 export * from "./economy/integrity.ts";
 export * from "./economy/provider.ts";
 export * from "./epistemic/adapter.ts";

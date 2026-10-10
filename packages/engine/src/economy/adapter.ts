@@ -2,6 +2,12 @@ import {
   CANON_WRITE_AUTHORITY,
   CohortFactSchema,
   EconomyDemandEnvelopeSchema,
+  EconomyEncumbranceSchema,
+  EconomyHoldingSchema,
+  EstablishHoldingInputSchema,
+  HoldInstructionInputSchema,
+  HoldingActPublicationSchema,
+  ReleaseInstructionInputSchema,
   EconomyRealizationSchema,
   IssueDemandInputSchema,
   PopulationBasisSchema,
@@ -10,6 +16,8 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   economyDemandKey,
+  economyEncumbranceKey,
+  economyHoldingKey,
   economyRealizationKey,
   economyRequestId,
   economyRequestKey,
@@ -19,18 +27,43 @@ import {
   type CanonicalTime,
   type CommitGroup,
   type EconomyDemandEnvelope,
+  type EconomyEncumbrance,
+  type EconomyHolding,
   type EconomyRealization,
+  type HoldingActPublication,
   type OwnerFact,
   type ProductionRequest,
   type Publication,
   type Result,
   type SchemaIssues,
 } from "@immortalis/contracts";
+import { canonicalEqual } from "../hash.ts";
 import { factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { deriveEconomyRequest } from "./derive.ts";
+import { deriveHold, deriveOpeningHolding, deriveRelease } from "./holding.ts";
 
-export type EconomyErrorCode = StoreCommitErrorCode | "INPUT_INVALID";
+/**
+ * `INSUFFICIENT_AVAILABLE`: Economy's own as-of-now refusal of a hold — the requested amount is not wholly available (or
+ * is of another unit). `ENCUMBRANCE_NOT_ACTIVE`: the named encumbrance is already cancelled. Neither mutates anything.
+ */
+export type EconomyErrorCode =
+  StoreCommitErrorCode | "INPUT_INVALID" | "INSUFFICIENT_AVAILABLE" | "ENCUMBRANCE_NOT_ACTIVE";
+
+/**
+ * Economy's answer to "what is available and what is encumbered right now?" (WS-004 §2.1, §20): derived from the
+ * committed holding and nothing else. `AVAILABLE` / `ENCUMBERED` name the status of the whole remaining position; a
+ * position that is partly each is `PARTLY_ENCUMBERED`.
+ */
+export interface HoldingAvailability {
+  readonly holding_id: string;
+  readonly version: number;
+  readonly unit: string;
+  readonly established: number;
+  readonly available: number;
+  readonly encumbered: number;
+  readonly status: "AVAILABLE" | "PARTLY_ENCUMBERED" | "ENCUMBERED";
+}
 
 interface Typed<T> {
   readonly fact: OwnerFact;
@@ -238,6 +271,264 @@ export class EconomyAdapter {
     return this.#store.commit(group);
   }
 
+  // -- Economic Holding / Account position (OOC scenario / mechanism proof) -----------------------------------
+
+  /**
+   * Commits the separately authored OOC scenario-opening premise: who holds how much of which object, and the premise it
+   * came from. The opening partition (everything available, nothing encumbered) is DERIVED here; the caller states only
+   * the premise. Created once; a holding is never re-established or overwritten.
+   */
+  async establishHolding(
+    input: Publication & { readonly holding: unknown },
+  ): Promise<Result<CommitOutcome, EconomyErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return invalid("publication", p.error);
+    const i = EstablishHoldingInputSchema.safeParse(input.holding);
+    if (!i.success) return invalid("holding", i.error);
+    const key = economyHoldingKey(i.data.holding_id);
+    if (this.#store.getFact(key) && !this.#store.committedGroup(p.data.intent_id)) {
+      return fail("VERSION_CONFLICT", "a holding is established once: it already exists", {
+        holding_id: i.data.holding_id,
+      });
+    }
+    const holding = EconomyHoldingSchema.safeParse(deriveOpeningHolding(i.data));
+    if (!holding.success) return invalid("holding", holding.error);
+    const kind = factKind("economy_holding");
+    return this.#store.commit({
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [],
+      depends_on: [],
+      writes: [
+        {
+          key,
+          owner: kind.owner,
+          facet: kind.facet,
+          value: holding.data as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: p.data.basis,
+          secrecy: p.data.secrecy,
+          expected_version: 0,
+        },
+      ],
+    } satisfies CommitGroup);
+  }
+
+  /**
+   * Places one OOC-instructed hold. The instruction names a distinct hold identity, a quantity and the holding version it
+   * saw; it supplies no balance and no verdict. Economy reads the holding AS-OF-NOW, refuses (changing nothing) when the
+   * version is stale or the amount is not wholly available, and otherwise commits — in one group, under the existing
+   * expected-version protection — the same conserved position re-partitioned together with its one active encumbrance.
+   *
+   * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): the
+   * committed group is re-presented, so identical input reaches the original receipt and a changed input is refused as a
+   * conflict, never applied a second time.
+   */
+  async holdEncumbrance(
+    input: HoldingActPublication & { readonly hold: unknown },
+  ): Promise<Result<CommitOutcome, EconomyErrorCode>> {
+    const p = HoldingActPublicationSchema.safeParse(pickAct(input));
+    if (!p.success) return invalid("publication", p.error);
+    const i = HoldInstructionInputSchema.safeParse(input.hold);
+    if (!i.success) return invalid("hold", i.error);
+    const holdingKey = economyHoldingKey(i.data.holding_id);
+    const encKey = economyEncumbranceKey(i.data.holding_id, i.data.hold_id);
+
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    if (prior) {
+      // reconcile by identity: the same hold, the same pinned version, the same instruction — or a conflict
+      const enc = prior.writes.find((w) => w.key === encKey);
+      const was = enc ? EconomyEncumbranceSchema.safeParse(enc.value) : undefined;
+      if (
+        !was?.success ||
+        was.data.admitted_at_holding_version !== i.data.holding_version ||
+        was.data.authorization.instruction_id !== i.data.instruction_id ||
+        !canonicalEqual(was.data.quantity, i.data.quantity)
+      )
+        return fail("INTENT_CONFLICT", "intent_id was already committed with different content", {
+          intent_id: p.data.intent_id,
+        });
+      return this.#store.commit({
+        ...prior,
+        group_id: p.data.group_id,
+        cause: p.data.cause,
+      });
+    }
+
+    const holdingFact = this.#store.getFact(holdingKey);
+    const holding = holdingFact ? EconomyHoldingSchema.safeParse(holdingFact.value) : undefined;
+    if (!holdingFact || !holding?.success)
+      return fail("PREREQUISITE_MISSING", "no holding is established at that identity", {
+        key: holdingKey,
+      });
+    if (this.#store.getFact(encKey))
+      return fail("VERSION_CONFLICT", "a hold identity is used once: it already exists", {
+        key: encKey,
+      });
+    if (holdingFact.version !== i.data.holding_version)
+      return fail("VERSION_CONFLICT", "the holding is no longer at the version the hold saw", {
+        key: holdingKey,
+        pinned: i.data.holding_version,
+        current: holdingFact.version,
+      });
+    const derived = deriveHold({
+      holding: { value: holding.data, version: holdingFact.version },
+      pinnedVersion: i.data.holding_version,
+      holdId: i.data.hold_id,
+      instructionId: i.data.instruction_id,
+      quantity: i.data.quantity,
+    });
+    if (!derived.ok)
+      return fail("INSUFFICIENT_AVAILABLE", derived.error.message, { key: holdingKey });
+    return this.#store.commit(
+      this.#actGroup(p.data, holdingFact, [
+        { key: holdingKey, value: derived.value.holding, expected_version: holdingFact.version },
+        { key: encKey, value: derived.value.encumbrance, expected_version: 0 },
+      ]),
+    );
+  }
+
+  /**
+   * Cancels one OOC-instructed hold: the named encumbrance must exist for THIS holding, be still active and be at the
+   * version the instruction saw. Exactly its recorded quantity returns from encumbered to available, once; the
+   * encumbrance becomes cancelled and can never be released or reused. Re-presenting a committed intent reconciles by
+   * identity exactly as {@link holdEncumbrance} does.
+   */
+  async releaseEncumbrance(
+    input: HoldingActPublication & { readonly release: unknown },
+  ): Promise<Result<CommitOutcome, EconomyErrorCode>> {
+    const p = HoldingActPublicationSchema.safeParse(pickAct(input));
+    if (!p.success) return invalid("publication", p.error);
+    const i = ReleaseInstructionInputSchema.safeParse(input.release);
+    if (!i.success) return invalid("release", i.error);
+    const holdingKey = economyHoldingKey(i.data.holding_id);
+    const encKey = economyEncumbranceKey(i.data.holding_id, i.data.hold_id);
+
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    if (prior) {
+      const enc = prior.writes.find((w) => w.key === encKey);
+      const was = enc ? EconomyEncumbranceSchema.safeParse(enc.value) : undefined;
+      if (
+        !was?.success ||
+        was.data.cancellation?.instruction_id !== i.data.instruction_id ||
+        enc?.expected_version !== i.data.encumbrance_version
+      )
+        return fail("INTENT_CONFLICT", "intent_id was already committed with different content", {
+          intent_id: p.data.intent_id,
+        });
+      return this.#store.commit({
+        ...prior,
+        group_id: p.data.group_id,
+        cause: p.data.cause,
+      });
+    }
+
+    const holdingFact = this.#store.getFact(holdingKey);
+    const holding = holdingFact ? EconomyHoldingSchema.safeParse(holdingFact.value) : undefined;
+    const encFact = this.#store.getFact(encKey);
+    const enc = encFact ? EconomyEncumbranceSchema.safeParse(encFact.value) : undefined;
+    if (!holdingFact || !holding?.success || !encFact || !enc?.success)
+      return fail("PREREQUISITE_MISSING", "no such encumbrance of that holding is committed", {
+        key: encKey,
+      });
+    if (encFact.version !== i.data.encumbrance_version)
+      return fail(
+        "VERSION_CONFLICT",
+        "the encumbrance is no longer at the version the release saw",
+        {
+          key: encKey,
+          pinned: i.data.encumbrance_version,
+          current: encFact.version,
+        },
+      );
+    if (enc.data.lifecycle_status !== "active")
+      return fail(
+        "ENCUMBRANCE_NOT_ACTIVE",
+        "only a still-active encumbrance can be released, once",
+        {
+          key: encKey,
+        },
+      );
+    const derived = deriveRelease({
+      holding: { value: holding.data },
+      encumbrance: { value: enc.data },
+      instructionId: i.data.instruction_id,
+    });
+    if (!derived.ok) return fail("INPUT_INVALID", derived.error.message, { key: encKey });
+    return this.#store.commit(
+      this.#actGroup(p.data, holdingFact, [
+        { key: holdingKey, value: derived.value.holding, expected_version: holdingFact.version },
+        { key: encKey, value: derived.value.encumbrance, expected_version: encFact.version },
+      ]),
+    );
+  }
+
+  /** One hold/release group: both facts inherit the holding's own labels; it reads and depends on nothing else. */
+  #actGroup(
+    p: HoldingActPublication,
+    holdingFact: OwnerFact,
+    writes: readonly {
+      readonly key: string;
+      readonly value: EconomyHolding | EconomyEncumbrance;
+      readonly expected_version: number;
+    }[],
+  ): CommitGroup {
+    const kind = factKind("economy_holding");
+    return {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.group_id,
+      intent_id: p.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [],
+      depends_on: [],
+      writes: writes.map((w) => ({
+        key: w.key,
+        owner: kind.owner,
+        facet: kind.facet,
+        value: w.value as CommitGroup["writes"][number]["value"],
+        unit: null,
+        basis: holdingFact.basis,
+        secrecy: holdingFact.secrecy,
+        expected_version: w.expected_version,
+      })),
+    };
+  }
+
+  /** The committed holding, by identity. */
+  holding(holdingId: string): Typed<EconomyHolding> | undefined {
+    return this.#typed(economyHoldingKey(holdingId), EconomyHoldingSchema);
+  }
+  /** One hold of one holding, by identity (never a scan). */
+  encumbrance(holdingId: string, holdId: string): Typed<EconomyEncumbrance> | undefined {
+    return this.#typed(economyEncumbranceKey(holdingId, holdId), EconomyEncumbranceSchema);
+  }
+  /** What is available and what is encumbered now, derived from the committed holding alone. */
+  availability(holdingId: string): HoldingAvailability | undefined {
+    const h = this.holding(holdingId);
+    if (!h) return undefined;
+    const p = h.value.quantity_or_bounded_position;
+    return {
+      holding_id: holdingId,
+      version: h.fact.version,
+      unit: p.unit,
+      established: p.established,
+      available: p.available,
+      encumbered: p.encumbered,
+      status:
+        p.encumbered === 0 ? "AVAILABLE" : p.available === 0 ? "ENCUMBERED" : "PARTLY_ENCUMBERED",
+    };
+  }
+
   // -- typed reads, by identity (none scans) ---------------------------------------------------
 
   demand(demandId: string): Typed<EconomyDemandEnvelope> | undefined {
@@ -263,6 +554,12 @@ export class EconomyAdapter {
     return fact ? { fact, value: schema.parse(fact.value) } : undefined;
   }
 }
+
+const pickAct = (i: HoldingActPublication): HoldingActPublication => ({
+  group_id: i.group_id,
+  intent_id: i.intent_id,
+  cause: i.cause,
+});
 
 const pick = (i: Publication): Publication => ({
   group_id: i.group_id,

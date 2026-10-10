@@ -27,6 +27,7 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { deriveEconomyRequest, deriveRealization } from "./derive.ts";
+import { verifyEconomyHoldingIntegrity } from "./holding-integrity.ts";
 
 /**
  * Re-verifies, from committed state and the journal alone, that a loaded campaign's Economy state still tells
@@ -52,6 +53,7 @@ export function verifyEconomyIntegrity(store: CampaignStore): readonly Integrity
   const out: IntegrityViolation[] = [];
   const bad = (key: string, message: string) => out.push({ key, code: "ECONOMY_STATE", message });
   const all = store.listFacts();
+  out.push(...verifyEconomyHoldingIntegrity(all));
   const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));
   const kindOf = (f: OwnerFact) => resolveKey(f.key)?.kind.id;
   const ofKind = (id: string) => all.filter((f) => kindOf(f) === id);

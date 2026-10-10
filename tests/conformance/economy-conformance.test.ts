@@ -286,12 +286,14 @@ describe("IA-23/IA-24/IA-25 CAL-01, CAL-02/L-50 and CAL-03 stay unresolved: noth
 });
 
 describe("scope: nothing outside the bounded slice was implemented", () => {
-  it("the Economy module is exactly the IM-06 Demand → Request → Realized Access path — no market, exchange, currency, credit, holding, Logistics, KTI, labor, actor, health, culture, epistemic or host layer", () => {
+  it("the Economy module is exactly the IM-06 Demand → Request → Realized Access path and the bounded Holding encumbrance path — no market, exchange, currency, credit, holding, Logistics, KTI, labor, actor, health, culture, epistemic or host layer", () => {
     expect(readdirSync("packages/engine/src/economy").sort()).toEqual([
       "adapter.ts",
       "admission.ts",
       "declaration.ts",
       "derive.ts",
+      "holding-integrity.ts",
+      "holding.ts",
       "integrity.ts",
       "provider.ts",
     ]);

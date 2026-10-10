@@ -328,7 +328,16 @@ describe("Economy-owned state cannot be authoritatively written by anyone else (
         ),
       ),
     ).toBe("OWNER_NOT_REGISTERED");
-    for (const key of ["economy/market/x", "economy/holding/x", "economy/price/x", "economy/x"]) {
+    // (`economy/holding/…` and `economy/encumbrance/…` are the bounded Holding slice's registered key spaces: their own
+    // enforcement lives in economy-holding-enforcement.test.ts; an account, balance or ledger key space still has none)
+    for (const key of [
+      "economy/market/x",
+      "economy/account/x",
+      "economy/balance/x",
+      "economy/ledger/x",
+      "economy/price/x",
+      "economy/x",
+    ]) {
       expect(
         await codeOf(
           s.campaign.store.commit(
@@ -341,12 +350,12 @@ describe("Economy-owned state cannot be authoritatively written by anyone else (
     }
   });
 
-  it("the Economy adapter exposes no setter, no satisfaction marker, no supply or stock writer and no release", () => {
+  it("the Economy adapter exposes no setter, no satisfaction marker, no supply or stock writer and no release other than the bounded encumbrance release", () => {
     const methods = adapterMethods(EconomyAdapter);
     expect(methods).toEqual(expectedAdapterMethods("EconomyAdapter"));
     expect(
       methods.filter((m) => /^(set|update|write|release|cancel|publish|satisfy|fulfil)/i.test(m)),
-    ).toEqual([]);
+    ).toEqual(["releaseEncumbrance"]);
   });
 
   it("the sealed demand, request and realized access can be neither amended nor re-created, by Economy or anyone", async () => {

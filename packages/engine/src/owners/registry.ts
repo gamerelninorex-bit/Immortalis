@@ -37,6 +37,8 @@ import {
   PcCapabilitySchema,
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
+  EconomyEncumbranceSchema,
+  EconomyHoldingSchema,
   EconomyRealizationSchema,
   EntityTransitionCauseSchema,
   ExistingActorCouplingSchema,
@@ -293,6 +295,7 @@ export const ECONOMY_FACT_KIND_IDS = [
   "economy_request",
   "economy_realization",
 ] as const;
+export const ECONOMY_HOLDING_FACT_KIND_IDS = ["economy_holding", "economy_encumbrance"] as const;
 export const LOGISTICS_FACT_KIND_IDS = [
   "logistics_commitment",
   "logistics_transfer",
@@ -352,6 +355,7 @@ export type FactKindId =
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
+  | (typeof ECONOMY_HOLDING_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
 
 /**
@@ -1009,6 +1013,49 @@ export const ECONOMY_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^economy/realization/${ID}$`),
     EconomyRealizationSchema,
   ),
+];
+
+/**
+ * One governing rule for the Economic Holding / Account kinds. It is a SEPARATE citation from {@link ECONOMY_RULE}: the
+ * Demand → Request → Realized Access kinds keep their own rule byte-for-byte, so no persisted Economy fact changes
+ * provenance. The clauses are the ones the holding and its encumbrance rely on.
+ */
+export const ECONOMY_HOLDING_RULE: SourceRef = rule(
+  WS004_SOURCE,
+  "§2.1 Economy-owned state (sparse Economic Holding / Account relations: holder_ref, object_ref, quantity_or_bounded_position, available / encumbered / restricted status, restriction_or_authority_ref, lifecycle_status, provenance_ref; Economy is the default owner-producer of holding and encumbrance state); §2.2 Explicit non-ownership (physical goods and stock, legal authority and entitlement validity, issuance authority, actor motive and choice); §3 Persistence / Cardinality Rule (conserved holding rule); §4 Economic Non-Interchangeability / No-Double-Spend (the same conserved holding may not fund two incompatible uses); §11 Economic Claim / Obligation (lifecycle vocabulary; not a universal property registry; no legal priority, title or entitlement manufactured); §20 Commitment and Conservation (verify the Economy-owned side is available and not already encumbered; prevent incompatible reuse; release unused economic encumbrance on cancellation; Economy never holds a physical reservation); §27.6 GIP; §27.8 Named Actors; §27.14 R-T1 / Cycle rule; §28 Retention / Lifecycle; §30 Required Invariants (17, 18, 27)",
+  [F017_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * IM-06 Economic Holding / Account position and its reversible economic encumbrance — the bounded OOC scenario /
+ * mechanism proof only. Same owner and facet as the Demand chain, two further exclusive key spaces. Both are ADVANCING,
+ * and only by the re-derived hold / release transitions of `economyGroupCheck`: the holding by its partition, the
+ * encumbrance by its single active → cancelled transition. No issuance, transfer, payment, settlement, title, price or
+ * physical-reserve kind exists.
+ */
+export const ECONOMY_HOLDING_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "economy_holding",
+    owner: OWNER_ECONOMY,
+    facet: FACET_ECONOMY_STATE,
+    im: "IM-06",
+    rc: ["RC-02", "RC-07"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^economy/holding/${ID}$`),
+    valueSchema: EconomyHoldingSchema,
+    rule: ECONOMY_HOLDING_RULE,
+  },
+  {
+    id: "economy_encumbrance",
+    owner: OWNER_ECONOMY,
+    facet: FACET_ECONOMY_STATE,
+    im: "IM-06",
+    rc: ["RC-02", "RC-07"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^economy/encumbrance/${ID}/${ID}$`),
+    valueSchema: EconomyEncumbranceSchema,
+    rule: ECONOMY_HOLDING_RULE,
+  },
 ];
 
 /**
@@ -2083,6 +2130,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
+  ...ECONOMY_HOLDING_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,
   ...NAMED_ACTOR_FACT_KINDS,
   ...PC_CAPABILITY_FACT_KINDS,

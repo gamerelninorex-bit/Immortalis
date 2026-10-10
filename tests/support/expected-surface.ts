@@ -242,6 +242,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "economy/realization/r1",
   },
   {
+    id: "economy_holding",
+    owner: "economy",
+    facet: "economy_state",
+    lifecycle: "ADVANCING",
+    group: "ECONOMY_HOLDING_FACT_KINDS",
+    exampleKey: "economy/holding/h1",
+  },
+  {
+    id: "economy_encumbrance",
+    owner: "economy",
+    facet: "economy_state",
+    lifecycle: "ADVANCING",
+    group: "ECONOMY_HOLDING_FACT_KINDS",
+    exampleKey: "economy/encumbrance/h1/e1",
+  },
+  {
     id: "logistics_commitment",
     owner: "logistics",
     facet: "logistics_state",
@@ -640,7 +656,19 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     },
   },
   EconomyAdapter: {
-    methods: ["access", "demand", "issueDemand", "realization", "request"],
+    methods: [
+      "access",
+      "availability",
+      "demand",
+      "encumbrance",
+      "establishHolding",
+      "holdEncumbrance",
+      "holding",
+      "issueDemand",
+      "realization",
+      "releaseEncumbrance",
+      "request",
+    ],
   },
   EpistemicAccessAdapter: {
     methods: [

@@ -9,6 +9,7 @@ export * from "./culture-fixtures.ts";
 export * from "./culture-adjudication-fixtures.ts";
 export * from "./diplomacy-fixtures.ts";
 export * from "./economy-fixtures.ts";
+export * from "./economy-holding-fixtures.ts";
 export * from "./epistemic-fixtures.ts";
 export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";

@@ -2,6 +2,8 @@ import {
   CohortFactSchema,
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
+  EconomyEncumbranceSchema,
+  EconomyHoldingSchema,
   EconomyRealizationSchema,
   FallbackPhysicalEntitySchema,
   PopulationBasisSchema,
@@ -12,6 +14,8 @@ import {
   WorldLocusSchema,
   compareTime,
   economyDemandKey,
+  economyEncumbranceKey,
+  economyHoldingKey,
   economyRealizationKey,
   economyRealizationStage,
   economyRequestId,
@@ -30,6 +34,7 @@ import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import { deriveEconomyRequest, deriveRealization } from "./derive.ts";
+import { deriveHold, deriveOpeningHolding, deriveRelease, openingInputOf } from "./holding.ts";
 
 /**
  * IM-11 admission for the IM-06 Economy owner (IM-03 owner resolution; WS-004 §§2, 5, 8, 11, 20, 21, 27; WS-003
@@ -57,6 +62,20 @@ export function economyGroupCheck(group: CommitGroup, state: CampaignState): Rej
   const demandW = of("economy_demand");
   const requestW = of("economy_request");
   const realW = of("economy_realization");
+  const holdingW = of("economy_holding");
+  const encW = of("economy_encumbrance");
+
+  // Economic Holding / Account position (WS-004 §2.1, §20): establishment, hold, release — each re-derived
+  if (holdingW.length === 1 && demandW.length + requestW.length + realW.length === 0) {
+    const h = holdingW[0]!;
+    if (encW.length === 0 && ws.length === 1 && h.expected_version === 0)
+      return checkHoldingOpening(h);
+    if (encW.length === 1 && ws.length === 2 && h.expected_version > 0) {
+      const e = encW[0]!;
+      if (e.expected_version === 0) return checkHold(state, h, e);
+      return checkRelease(state, h, e);
+    }
+  }
 
   if (
     demandW.length === 1 &&
@@ -73,7 +92,7 @@ export function economyGroupCheck(group: CommitGroup, state: CampaignState): Rej
   }
   return reject(
     "VALUE_INVALID",
-    "Economy state changes only by issuing one demand with its one Production Request, or by recording the realized access of an accepted result",
+    "Economy state changes only by issuing one demand with its one Production Request, recording the realized access of an accepted result, or establishing, holding against and releasing a conserved holding",
   );
 }
 
@@ -265,5 +284,124 @@ function checkRealization(group: CommitGroup, state: CampaignState, w: Write): R
     "ADMISSION",
   );
   if (identity) return reject("REFERENCE_INVALID", identity, { key: w.key });
+  return null;
+}
+
+/**
+ * ESTABLISHMENT of a holding: the separately authored OOC scenario-opening premise, created once. It is re-derived
+ * from its own identities and amount, so the partition at opening is exactly "all available, nothing encumbered" and
+ * no caller can open a position that is already partly encumbered, restricted or otherwise concluded.
+ */
+function checkHoldingOpening(w: Write): Rejection | null {
+  const h = EconomyHoldingSchema.parse(w.value);
+  if (w.key !== economyHoldingKey(h.holding_id))
+    return reject("REFERENCE_INVALID", "a holding is at the key derived from its identity", {
+      key: w.key,
+    });
+  if (!canonicalEqual(h, deriveOpeningHolding(openingInputOf(h))))
+    return reject(
+      "VALUE_INVALID",
+      "an opening holding holds its whole established amount available, with nothing encumbered or restricted",
+      { key: w.key },
+    );
+  return null;
+}
+
+/**
+ * HOLD: one new encumbrance and the holding's partition move together, atomically. Economy — not the group —
+ * decides: the holding is read at its CURRENT version (which must be the version the instruction saw), the
+ * requested amount must be wholly available, and both written facts must be exactly what `deriveHold` yields.
+ */
+function checkHold(state: CampaignState, hw: Write, ew: Write): Rejection | null {
+  const holding = EconomyHoldingSchema.parse(hw.value);
+  const enc = EconomyEncumbranceSchema.parse(ew.value);
+  if (hw.key !== economyHoldingKey(holding.holding_id))
+    return reject("REFERENCE_INVALID", "a holding is at the key derived from its identity", {
+      key: hw.key,
+    });
+  if (ew.key !== economyEncumbranceKey(enc.holding.holding_id, enc.encumbrance_id))
+    return reject("REFERENCE_INVALID", "an encumbrance is at the key derived from its identities", {
+      key: ew.key,
+    });
+  const priorFact = state.facts.get(hw.key);
+  const prior = priorFact ? EconomyHoldingSchema.safeParse(priorFact.value) : undefined;
+  if (!priorFact || !prior?.success)
+    return reject("PREREQUISITE_MISSING", "a hold is placed on an established holding", {
+      key: hw.key,
+    });
+  if (enc.holding.holding_id !== prior.data.holding_id)
+    return reject("REFERENCE_INVALID", "the encumbrance belongs to a different holding", {
+      key: ew.key,
+    });
+  const derived = deriveHold({
+    holding: { value: prior.data, version: priorFact.version },
+    pinnedVersion: enc.admitted_at_holding_version,
+    holdId: enc.encumbrance_id,
+    instructionId: enc.authorization.instruction_id,
+    quantity: enc.quantity,
+  });
+  if (!derived.ok) return reject("VALUE_INVALID", derived.error.message, { key: hw.key });
+  if (
+    !canonicalEqual(holding, derived.value.holding) ||
+    !canonicalEqual(enc, derived.value.encumbrance)
+  )
+    return reject(
+      "VALUE_INVALID",
+      "a hold is exactly the partition of the same conserved position that Economy derives, with one active encumbrance",
+      { key: hw.key },
+    );
+  return null;
+}
+
+/**
+ * RELEASE: only a still-active encumbrance of the holding, once. The encumbrance becomes cancelled and exactly its
+ * recorded quantity returns from encumbered to available; both written facts must be exactly what `deriveRelease`
+ * yields from the committed facts.
+ */
+function checkRelease(state: CampaignState, hw: Write, ew: Write): Rejection | null {
+  const holding = EconomyHoldingSchema.parse(hw.value);
+  const enc = EconomyEncumbranceSchema.parse(ew.value);
+  if (hw.key !== economyHoldingKey(holding.holding_id))
+    return reject("REFERENCE_INVALID", "a holding is at the key derived from its identity", {
+      key: hw.key,
+    });
+  if (ew.key !== economyEncumbranceKey(enc.holding.holding_id, enc.encumbrance_id))
+    return reject("REFERENCE_INVALID", "an encumbrance is at the key derived from its identities", {
+      key: ew.key,
+    });
+  const priorHoldingFact = state.facts.get(hw.key);
+  const priorHolding = priorHoldingFact
+    ? EconomyHoldingSchema.safeParse(priorHoldingFact.value)
+    : undefined;
+  const priorEncFact = state.facts.get(ew.key);
+  const priorEnc = priorEncFact
+    ? EconomyEncumbranceSchema.safeParse(priorEncFact.value)
+    : undefined;
+  if (!priorHoldingFact || !priorHolding?.success || !priorEncFact || !priorEnc?.success)
+    return reject(
+      "PREREQUISITE_MISSING",
+      "a release names an established holding and its committed encumbrance",
+      { key: ew.key },
+    );
+  const instruction = enc.cancellation?.instruction_id;
+  if (!instruction)
+    return reject("VALUE_INVALID", "a release records its cancellation instruction", {
+      key: ew.key,
+    });
+  const derived = deriveRelease({
+    holding: { value: priorHolding.data },
+    encumbrance: { value: priorEnc.data },
+    instructionId: instruction,
+  });
+  if (!derived.ok) return reject("VALUE_INVALID", derived.error.message, { key: ew.key });
+  if (
+    !canonicalEqual(holding, derived.value.holding) ||
+    !canonicalEqual(enc, derived.value.encumbrance)
+  )
+    return reject(
+      "VALUE_INVALID",
+      "a release is exactly the restoration of the recorded encumbered amount, once",
+      { key: ew.key },
+    );
   return null;
 }
