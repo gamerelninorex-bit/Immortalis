@@ -242,8 +242,26 @@ export const cliArgs = {
     String(target.value),
     ...over,
   ],
+  pcTargetAdvance: (
+    dirs: { campaignDir: string; operatorDir: string },
+    target: { unit: string; value: number },
+    over: string[] = [],
+  ): string[] => [
+    "pc-target-advance",
+    "--campaign",
+    dirs.campaignDir,
+    "--campaign-id",
+    FIXTURE_CAMPAIGN,
+    "--operator-dir",
+    dirs.operatorDir,
+    "--target-unit",
+    target.unit,
+    "--target-value",
+    String(target.value),
+    ...over,
+  ],
   command: (
-    name: "advance" | "reconcile" | "status" | "null-resume",
+    name: "advance" | "reconcile" | "status" | "null-resume" | "pc-target-resume",
     dirs: { campaignDir: string; operatorDir: string },
     over: string[] = [],
   ): string[] => [

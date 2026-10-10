@@ -74,6 +74,7 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
 
   it("the protocol package is the index and the two operation modules, re-exports exactly those, and depends on the contracts and engine only", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "active-pc-target-advance.ts",
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
@@ -91,8 +92,11 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "@immortalis/engine": "workspace:*",
     });
     expect(Object.keys(protocol).sort()).toEqual([
+      "advanceActivePcToTarget",
       "advanceConfirmedPcTransferToDelivery",
       "advanceNullPcOocToTarget",
+      "bindTrustedActivePcHeldTargetAdvanceContext",
+      "bindTrustedActivePcTargetAdvanceContext",
       "bindTrustedCausalEventSignalContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",

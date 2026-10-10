@@ -256,3 +256,144 @@ describe("the NULL-PC OOC choices in the retained intents", () => {
     }
   });
 });
+
+const pcTargetAdvanceIntent = (id = "p1", target = T, pc = "pc") => ({
+  kind: "PC_TARGET_ADVANCE" as const,
+  intent_id: id,
+  pc_id: pc,
+  target,
+  transaction: tx(`tx-${id}`),
+});
+const pcTargetResumeIntent = (id: string, from: string, target = T, pc = "pc") => ({
+  kind: "PC_TARGET_RESUME" as const,
+  intent_id: id,
+  pc_id: pc,
+  held: { from_transaction: from, target },
+  transaction: tx(`tx-${id}`),
+});
+
+describe("the ACTIVE-PC target choices in the retained intents", () => {
+  it("retains an advance and the resume that continues it, in order, and survives a reopen intact", async () => {
+    const dir = tempDir();
+    const l = await must(open(dir));
+    await must(l.record(pcTargetAdvanceIntent("p1")));
+    await must(l.markCommitted("p1"));
+    await must(l.record(pcTargetResumeIntent("p2", "tx-p1")));
+    const again = await must(open(dir));
+    expect(again.pcTargetChoices().map((c) => [c.kind, c.status, c.seq, c.pc_id])).toEqual([
+      ["PC_TARGET_ADVANCE", "COMMITTED", 1, "pc"],
+      ["PC_TARGET_RESUME", "CONFIRMED", 2, "pc"],
+    ]);
+    // the other accessors never see them
+    expect(again.relocation()).toBeUndefined();
+    expect(again.advances()).toEqual([]);
+    expect(again.nullPcChoices()).toEqual([]);
+  });
+
+  it("refuses a resume that names no earlier retained choice, itself, another target, another character or a lineage already resumed", async () => {
+    const l = await must(open(tempDir()));
+    await must(l.record(pcTargetAdvanceIntent("p1")));
+    expect((await l.record(pcTargetResumeIntent("r0", "tx-nothing"))).ok).toBe(false);
+    expect((await l.record(pcTargetResumeIntent("r1", "tx-r1"))).ok).toBe(false);
+    expect((await l.record(pcTargetResumeIntent("r2", "tx-p1", { unit: "t", value: 51 }))).ok).toBe(
+      false,
+    );
+    expect((await l.record(pcTargetResumeIntent("r3", "tx-p1", { unit: "u", value: 50 }))).ok).toBe(
+      false,
+    );
+    expect((await l.record(pcTargetResumeIntent("r3b", "tx-p1", T, "pc-other"))).ok).toBe(false);
+    await must(l.record(pcTargetResumeIntent("r4", "tx-p1")));
+    expect((await l.record(pcTargetResumeIntent("r5", "tx-p1"))).ok).toBe(false);
+    // transaction identities are unique across every active-PC target choice
+    expect((await l.record({ ...pcTargetAdvanceIntent("p9"), transaction: tx("tx-p1") })).ok).toBe(
+      false,
+    );
+    // a resume of the resume carries the same target forward
+    await must(l.record(pcTargetResumeIntent("r6", "tx-r4")));
+    expect(l.pcTargetChoices().map((c) => c.intent_id)).toEqual(["p1", "r4", "r6"]);
+  });
+
+  it("the NULL-PC and the active-PC families never continue one another and share no transaction identity", async () => {
+    const l = await must(open(tempDir()));
+    await must(l.record(nullAdvanceIntent("n1")));
+    await must(l.record(pcTargetAdvanceIntent("p1")));
+    // an active-PC resume of a NULL-PC choice, and the reverse
+    expect((await l.record(pcTargetResumeIntent("r1", "tx-n1"))).ok).toBe(false);
+    expect((await l.record(nullResumeIntent("r2", "tx-p1"))).ok).toBe(false);
+    // one identity across both families
+    expect((await l.record({ ...pcTargetAdvanceIntent("p2"), transaction: tx("tx-n1") })).ok).toBe(
+      false,
+    );
+    expect((await l.record({ ...nullAdvanceIntent("n2"), transaction: tx("tx-p1") })).ok).toBe(
+      false,
+    );
+    await must(l.record(pcTargetResumeIntent("r3", "tx-p1")));
+    await must(l.record(nullResumeIntent("r4", "tx-n1")));
+    expect(l.pcTargetChoices().map((c) => c.intent_id)).toEqual(["p1", "r3"]);
+    expect(l.nullPcChoices().map((c) => c.intent_id)).toEqual(["n1", "r4"]);
+  });
+
+  it("forgets only an intent with no effect; the lineage check holds after a discard", async () => {
+    const l = await must(open(tempDir()));
+    await must(l.record(pcTargetAdvanceIntent("p1")));
+    await must(l.discard("p1"));
+    expect(l.pcTargetChoices()).toEqual([]);
+    expect((await l.record(pcTargetResumeIntent("r1", "tx-p1"))).ok).toBe(false);
+  });
+
+  it("reads an existing ledger untouched (format 1, no active-PC target kind) and rewrites it as the same format", async () => {
+    const dir = tempDir();
+    const old = await must(open(dir));
+    await must(old.record(relocation()));
+    await must(old.record(advanceIntent()));
+    await must(old.record(nullAdvanceIntent("n1")));
+    const path = join(dir, ledgerFileName(CAMPAIGN));
+    expect(JSON.parse(readFileSync(path, "utf8")).format_version).toBe(1);
+    const reopened = await must(open(dir));
+    await must(reopened.markCommitted("r1"));
+    await must(reopened.record(pcTargetAdvanceIntent("p1")));
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.format_version).toBe(1);
+    expect(after.intents.map((i: { kind: string }) => i.kind)).toEqual([
+      "RELOCATION",
+      "ADVANCE",
+      "NULL_ADVANCE",
+      "PC_TARGET_ADVANCE",
+    ]);
+  });
+
+  it("fails closed on a corrupted active-PC target ledger: unknown field, missing PC, bad target, broken lineage, duplicate resume", async () => {
+    const dir = tempDir();
+    const l = await must(open(dir));
+    await must(l.record(pcTargetAdvanceIntent("p1")));
+    await must(l.record(pcTargetResumeIntent("r1", "tx-p1")));
+    const path = join(dir, ledgerFileName(CAMPAIGN));
+    const good = JSON.parse(readFileSync(path, "utf8"));
+    const corrupt = (edit: (f: any) => void) => {
+      const f = structuredClone(good);
+      edit(f);
+      writeFileSync(path, JSON.stringify(f));
+      return open(dir);
+    };
+    for (const edit of [
+      (f: any) => (f.intents[0].extra = 1),
+      (f: any) => delete f.intents[0].pc_id,
+      (f: any) => (f.intents[1].pc_id = "pc-other"),
+      (f: any) => (f.intents[0].target = { unit: "t", value: -1 }),
+      (f: any) => (f.intents[0].target = { unit: "t", value: 1.5 }),
+      (f: any) => delete f.intents[0].target,
+      (f: any) => (f.intents[1].held.from_transaction = "tx-missing"),
+      (f: any) => (f.intents[1].held.target = { unit: "t", value: 51 }),
+      (f: any) => (f.intents[1].held.extra = 1),
+      (f: any) => (f.intents[1].transaction.transaction_id = "tx-p1"),
+      (f: any) => (f.intents[1].transaction.context = { role: "role.archivist", permission: "x" }),
+      (f: any) =>
+        f.intents.push({ ...f.intents[1], seq: 3, intent_id: "r2", transaction: tx("tx-r2") }),
+      (f: any) => (f.intents[1].seq = 1),
+    ]) {
+      const r = await corrupt(edit);
+      expect(r.ok, String(edit)).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe("LEDGER_MALFORMED");
+    }
+  });
+});

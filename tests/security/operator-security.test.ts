@@ -59,7 +59,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
       );
   });
 
-  it("uses exactly the four existing host operations (two active-PC, two NULL-PC), each once, and no other protocol entry", () => {
+  it("uses exactly the five existing host operations (two stop-at-delivery, two NULL-PC, one active-PC target), each once, and no other protocol entry", () => {
     const all = files.map((f) => identifiers(f)).join("\n");
     expect(all.match(/commitConfirmedPcRelocation\(/g)).toHaveLength(1);
     expect(all.match(/advanceConfirmedPcTransferToDelivery\(/g)).toHaveLength(1);
@@ -67,11 +67,16 @@ describe("the mechanism cannot reach authority it was not given", () => {
     expect(all.match(/resumeNullPcOocHeldAdvance\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedNullPcOocTargetAdvanceContext\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedNullPcOocHeldContinuationContext\(/g)).toHaveLength(1);
+    expect(all.match(/advanceActivePcToTarget\(/g)).toHaveLength(1);
+    expect(all.match(/bindTrustedActivePcTargetAdvanceContext\(/g)).toHaveLength(1);
+    expect(all.match(/bindTrustedActivePcHeldTargetAdvanceContext\(/g)).toHaveLength(1);
     expect(all).not.toMatch(
       /readCurrentEventSignalPresentation|deliverCausalEventSignalPresentation|bindTrustedEventSignalContext|bindTrustedCausalEventSignalContext/,
     );
     const src = files.map((f) => code(f)).join("\n");
     expect(src.match(/PROTOCOL_OP_[A-Z_]+/g)?.sort()).toEqual([
+      "PROTOCOL_OP_ADVANCE_ACTIVE_PC_TO_TARGET",
+      "PROTOCOL_OP_ADVANCE_ACTIVE_PC_TO_TARGET",
       "PROTOCOL_OP_ADVANCE_CONFIRMED_PC_TRANSFER",
       "PROTOCOL_OP_ADVANCE_CONFIRMED_PC_TRANSFER",
       "PROTOCOL_OP_ADVANCE_NULL_PC_OOC_TO_TARGET",
@@ -88,7 +93,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
       expect(code(f), f).not.toMatch(/role\.player|permission\.player_choice|role\.archivist/);
     }
     const commands = code(`${SRC}/commands.ts`);
-    expect(commands.match(/PLAYER_CHOICE_AUTHORITY/g)?.length).toBe(4);
+    expect(commands.match(/PLAYER_CHOICE_AUTHORITY/g)?.length).toBe(5);
     const cli = identifiers(`${SRC}/cli.ts`);
     expect(cli).not.toMatch(
       /\brole\b|\bpermission\b|PLAYER_CHOICE_AUTHORITY|authored_under|transaction_id|\bpc_id\b/,

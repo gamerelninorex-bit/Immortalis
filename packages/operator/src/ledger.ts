@@ -92,14 +92,44 @@ const NullResumeIntentSchema = z.strictObject({
 });
 export type NullResumeIntent = z.infer<typeof NullResumeIntentSchema>;
 
+/**
+ * The two ACTIVE-PC target-only choices (a stationary PC). They carry the `pc_id` the choice was made for. The initial one
+ * retains the exact target-only canonical time the operator chose; the resume retains the held lineage it was chosen against
+ * (`from_transaction` is the earlier retained choice's own transaction, `target` the target that choice confirmed).
+ */
+const PcTargetAdvanceIntentSchema = z.strictObject({
+  kind: z.literal("PC_TARGET_ADVANCE"),
+  seq: z.number().int().positive(),
+  intent_id: Id,
+  status: Status,
+  pc_id: EntityId,
+  target: CanonicalTimeSchema,
+  transaction: AdvanceTransaction,
+});
+export type PcTargetAdvanceIntent = z.infer<typeof PcTargetAdvanceIntentSchema>;
+
+const PcTargetResumeIntentSchema = z.strictObject({
+  kind: z.literal("PC_TARGET_RESUME"),
+  seq: z.number().int().positive(),
+  intent_id: Id,
+  status: Status,
+  pc_id: EntityId,
+  held: z.strictObject({ from_transaction: EntityId, target: CanonicalTimeSchema }),
+  transaction: AdvanceTransaction,
+});
+export type PcTargetResumeIntent = z.infer<typeof PcTargetResumeIntentSchema>;
+
 const IntentSchema = z.discriminatedUnion("kind", [
   RelocationIntentSchema,
   AdvanceIntentSchema,
   NullAdvanceIntentSchema,
   NullResumeIntentSchema,
+  PcTargetAdvanceIntentSchema,
+  PcTargetResumeIntentSchema,
 ]);
 export type Intent = z.infer<typeof IntentSchema>;
 export type NullPcIntent = NullAdvanceIntent | NullResumeIntent;
+export type PcTargetIntent = PcTargetAdvanceIntent | PcTargetResumeIntent;
 
 const LedgerFileSchema = z.strictObject({
   format: z.literal(LEDGER_FORMAT),
@@ -115,6 +145,8 @@ export type NewRelocationIntent = Omit<RelocationIntent, "seq" | "status">;
 export type NewAdvanceIntent = Omit<AdvanceIntent, "seq" | "status">;
 export type NewNullAdvanceIntent = Omit<NullAdvanceIntent, "seq" | "status">;
 export type NewNullResumeIntent = Omit<NullResumeIntent, "seq" | "status">;
+export type NewPcTargetAdvanceIntent = Omit<PcTargetAdvanceIntent, "seq" | "status">;
+export type NewPcTargetResumeIntent = Omit<PcTargetResumeIntent, "seq" | "status">;
 
 export type LedgerErrorCode =
   | "LEDGER_UNREADABLE"
@@ -127,22 +159,26 @@ export type LedgerErrorCode =
 export const ledgerFileName = (campaignId: string): string =>
   `intents-${createHash("sha256").update(campaignId, "utf8").digest("hex").slice(0, 32)}.json`;
 
+type LineageChoice = NullPcIntent | PcTargetIntent;
+
 /**
- * The NULL-PC choices must form lineages the trusted side could really have confirmed: every transaction identity is unique
- * across them, and a resume names an EARLIER retained NULL-PC choice's transaction as the one it continues, carries that
- * choice's own target (a resume never states a new one), is not that transaction itself, and is the only resume of it.
+ * The target-only choices of one kind (the NULL-PC pair, or the ACTIVE-PC pair) must form lineages the trusted side could really
+ * have confirmed: every transaction identity is unique across them, and a resume names an EARLIER retained choice of its own kind
+ * as the one it continues, carries that choice's own target (a resume never states a new one), is not that transaction itself,
+ * and is the only resume of it. An active-PC lineage is also one PC's: a resume carries the PC of the choice it continues.
  */
-function nullPcLineageIsSound(intents: readonly Intent[]): boolean {
-  const choices = intents
-    .filter((i): i is NullPcIntent => i.kind === "NULL_ADVANCE" || i.kind === "NULL_RESUME")
-    .sort((a, b) => a.seq - b.seq);
+function lineageIsSound(choices: readonly LineageChoice[]): boolean {
+  const ordered = [...choices].sort((a, b) => a.seq - b.seq);
   const targetOf = new Map<string, z.infer<typeof CanonicalTimeSchema>>();
+  const pcOf = new Map<string, string>();
   const resumed = new Set<string>();
-  for (const c of choices) {
+  for (const c of ordered) {
     const id = c.transaction.transaction_id;
     if (targetOf.has(id)) return false;
-    if (c.kind === "NULL_ADVANCE") {
+    const pc = "pc_id" in c ? c.pc_id : undefined;
+    if (c.kind === "NULL_ADVANCE" || c.kind === "PC_TARGET_ADVANCE") {
       targetOf.set(id, c.target);
+      if (pc !== undefined) pcOf.set(id, pc);
       continue;
     }
     const from = c.held.from_transaction;
@@ -152,13 +188,29 @@ function nullPcLineageIsSound(intents: readonly Intent[]): boolean {
       from === id ||
       resumed.has(from) ||
       earlier.unit !== c.held.target.unit ||
-      earlier.value !== c.held.target.value
+      earlier.value !== c.held.target.value ||
+      pcOf.get(from) !== pc
     )
       return false;
     resumed.add(from);
     targetOf.set(id, c.held.target);
+    if (pc !== undefined) pcOf.set(id, pc);
   }
   return true;
+}
+
+/** Both families of target-only lineage are sound; a NULL-PC and an active-PC choice never continue one another. */
+function targetLineagesAreSound(intents: readonly Intent[]): boolean {
+  const nullPc = intents.filter(
+    (i): i is NullPcIntent => i.kind === "NULL_ADVANCE" || i.kind === "NULL_RESUME",
+  );
+  const pcTarget = intents.filter(
+    (i): i is PcTargetIntent => i.kind === "PC_TARGET_ADVANCE" || i.kind === "PC_TARGET_RESUME",
+  );
+  if (!lineageIsSound(nullPc) || !lineageIsSound(pcTarget)) return false;
+  // transaction identities are unique across both families
+  const ids = [...nullPc, ...pcTarget].map((c) => c.transaction.transaction_id);
+  return new Set(ids).size === ids.length;
 }
 
 export class IntentLedger {
@@ -224,7 +276,7 @@ export class IntentLedger {
       ids.size !== file.intents.length ||
       relocations.length > 1 ||
       seqs.some((s) => s >= file.next_seq) ||
-      !nullPcLineageIsSound(file.intents)
+      !targetLineagesAreSound(file.intents)
     )
       return fail("LEDGER_MALFORMED", "the retained intents are not valid");
     return ok(new IntentLedger(fs, path, file));
@@ -249,9 +301,24 @@ export class IntentLedger {
       .sort((a, b) => a.seq - b.seq);
   }
 
+  /** The ACTIVE-PC target-only choices (initial and resume), in the order they were confirmed. */
+  pcTargetChoices(): readonly PcTargetIntent[] {
+    return this.intents()
+      .filter(
+        (i): i is PcTargetIntent => i.kind === "PC_TARGET_ADVANCE" || i.kind === "PC_TARGET_RESUME",
+      )
+      .sort((a, b) => a.seq - b.seq);
+  }
+
   /** Durably retains a newly confirmed intent as CONFIRMED. Identities are unique; a campaign holds at most one relocation. */
   record(
-    intent: NewRelocationIntent | NewAdvanceIntent | NewNullAdvanceIntent | NewNullResumeIntent,
+    intent:
+      | NewRelocationIntent
+      | NewAdvanceIntent
+      | NewNullAdvanceIntent
+      | NewNullResumeIntent
+      | NewPcTargetAdvanceIntent
+      | NewPcTargetResumeIntent,
   ): Promise<Result<Intent, LedgerErrorCode>> {
     return this.#serial(async () => {
       const taken = this.#file.intents;
@@ -265,8 +332,8 @@ export class IntentLedger {
         status: "CONFIRMED",
       });
       if (!next.success) return fail("LEDGER_MALFORMED", "the intent is not valid");
-      if (!nullPcLineageIsSound([...taken, next.data]))
-        return fail("LEDGER_CONFLICT", "that NULL-PC choice does not continue a retained one");
+      if (!targetLineagesAreSound([...taken, next.data]))
+        return fail("LEDGER_CONFLICT", "that choice does not continue a retained one");
       return this.#commit(
         { ...this.#file, next_seq: this.#file.next_seq + 1, intents: [...taken, next.data] },
         next.data,
