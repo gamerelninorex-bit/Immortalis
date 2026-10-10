@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   CanonicalTimeSchema,
   EntityId,
+  ResolutionTransactionSchema,
+  TransactionAuthoritySchema,
   NULL_PC_OOC_ADVANCE_COMMITTED,
   NULL_PC_OOC_ADVANCE_OUTCOME_UNKNOWN,
   NULL_PC_OOC_HELD_ADVANCE_COMMITTED,
@@ -491,6 +493,77 @@ const hasFootprint = (campaign: CanonicalCampaign, transactionId: string): boole
   campaign.store.getFact(temporalTransactionKey(transactionId)) !== undefined ||
   campaign.store.getFact(temporalTransactionAuthorityKey(transactionId)) !== undefined;
 
+/**
+ * How canon stands toward ONE retained NULL-PC choice, judged from the kernel's own records under the choice's transaction
+ * identity — never from their mere existence:
+ *
+ *   NONE      canon holds no record under that identity
+ *   PARTIAL   the opened transaction's authority matches the choice, the sealed record is not (yet) committed
+ *   SEALED    the sealed record matches the choice, and so does the opened authority wherever the kernel opened one (it does
+ *             so only when the transaction engaged work; a quiet carry to the target seals with none)
+ *   DIFFERS   a record under that identity exists but is not the choice (another target, branch, lineage or material), or is
+ *             not a valid kernel record at all
+ *
+ * "Matches" means the exact retained material: the target-only request (`requested` = { target, condition: null }), the
+ * continuation branch (`continues` null for an initial choice, the held transaction for a resume), the cause, the trigger, the
+ * authorized context and — on the authority, the only record that carries them — the publication labels. A resume must also
+ * continue a sealed, truthfully unresolved transaction that asked for the same target.
+ */
+type CanonStanding = "NONE" | "PARTIAL" | "SEALED" | "DIFFERS";
+
+function canonStanding(
+  campaign: CanonicalCampaign,
+  choice: NullAdvanceIntent | NullResumeIntent,
+): CanonStanding {
+  const t = choice.transaction;
+  const target = choice.kind === "NULL_ADVANCE" ? choice.target : choice.held.target;
+  const continues = choice.kind === "NULL_ADVANCE" ? null : choice.held.from_transaction;
+  const material = {
+    transaction_id: t.transaction_id,
+    cause: t.cause,
+    trigger: t.trigger,
+    continues,
+    requested: { target, condition: null },
+    context: t.context,
+  };
+  const same = (record: object): boolean =>
+    Object.entries(material).every(([k, v]) =>
+      canonicalEqual((record as Record<string, unknown>)[k], v),
+    );
+
+  const opened = campaign.store.getFact(temporalTransactionAuthorityKey(t.transaction_id));
+  const sealed = campaign.store.getFact(temporalTransactionKey(t.transaction_id));
+  let authorityMatches = false;
+  if (opened) {
+    const parsed = TransactionAuthoritySchema.safeParse(opened.value);
+    if (
+      !parsed.success ||
+      !same(parsed.data) ||
+      !canonicalEqual(parsed.data.publication, t.publication)
+    )
+      return "DIFFERS";
+    authorityMatches = true;
+  }
+  if (sealed) {
+    const parsed = ResolutionTransactionSchema.safeParse(sealed.value);
+    if (!parsed.success || !same(parsed.data)) return "DIFFERS";
+    // the kernel opens a transaction's authority only when it engages work; a quiet carry seals with none. A sealed record that
+    // engaged work without its opened authority is not a transaction the kernel could have committed
+    if (parsed.data.engaged.length > 0 && !authorityMatches) return "DIFFERS";
+  }
+  if (choice.kind === "NULL_RESUME" && (opened || sealed)) {
+    const from = campaign.store.getFact(temporalTransactionKey(choice.held.from_transaction));
+    const prior = from ? ResolutionTransactionSchema.safeParse(from.value) : undefined;
+    if (
+      !prior?.success ||
+      prior.data.outcome.stop_reason !== "DEPENDENCY_UNRESOLVED" ||
+      !canonicalEqual(prior.data.requested, material.requested)
+    )
+      return "DIFFERS";
+  }
+  return sealed ? "SEALED" : opened ? "PARTIAL" : "NONE";
+}
+
 /** Common refusals of both NULL-PC commands: closed/ambiguous session, an active character, an unreconciled choice, a stale record. */
 function nullPcGuard(ctx: CommandContext): CommandResult | undefined {
   const refused = guard(ctx);
@@ -499,14 +572,13 @@ function nullPcGuard(ctx: CommandContext): CommandResult | undefined {
   if (activePc(session.campaign)) return result("UNAVAILABLE");
   if (session.ledger.intents().some((i) => i.status === "CONFIRMED"))
     return result("RECONCILIATION_REQUIRED");
-  // a retained COMMITTED is believed only while canon holds that transaction (an older save restored under it is stale)
+  // a retained COMMITTED is believed only while canon holds the very choice that was confirmed: its sealed record must carry the
+  // retained target, continuation branch and authorized material (an older or different save restored under it is stale, even
+  // when a record exists under the same transaction identity)
   if (
     session.ledger
       .nullPcChoices()
-      .some(
-        (c) =>
-          c.status === "COMMITTED" && !hasFootprint(session.campaign, c.transaction.transaction_id),
-      )
+      .some((c) => c.status === "COMMITTED" && canonStanding(session.campaign, c) !== "SEALED")
   )
     return result("STALE_INTENT");
   return undefined;
@@ -526,6 +598,8 @@ async function presentNullChoice(
 ): Promise<CommandResult> {
   const { session } = ctx;
   const campaign = session.campaign;
+  // a record already under this identity that is not the confirmed choice is never replayed, repaired or adopted
+  if (canonStanding(campaign, intent) === "DIFFERS") return result("STALE_INTENT");
   const before = campaign.store.head().revision;
   const initial = intent.kind === "NULL_ADVANCE";
   const committed = initial ? NULL_PC_OOC_ADVANCE_COMMITTED : NULL_PC_OOC_HELD_ADVANCE_COMMITTED;

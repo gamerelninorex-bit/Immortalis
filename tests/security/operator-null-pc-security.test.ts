@@ -38,7 +38,7 @@ describe("the NULL-PC commands cannot author a world fact, a time, or an authori
   it("the operator names no GIP term, lifecycle, expiry, Temporal resolution, stage or process anywhere in its source", () => {
     for (const f of files)
       expect(identifiers(f), f).not.toMatch(
-        /\bgip|expired|lifecycle|sunset|\bInstrument\b|stop_reason|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
+        /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
       );
   });
 
@@ -73,11 +73,23 @@ describe("the NULL-PC commands cannot author a world fact, a time, or an authori
     expect(cli).not.toMatch(/\bheld\b|from_transaction|continues/);
   });
 
-  it("states the player's authority only through the contracts' constant; the literal request fields stay the gateway's own", () => {
+  it("states the player's authority only through the contracts' constant; the request fields are read for comparison only, never built", () => {
     for (const f of files)
       expect(code(f), f).not.toMatch(/role\.player|permission\.player_choice|role\.archivist/);
     const cmd = identifiers(`${SRC}/commands.ts`);
-    expect(cmd).not.toMatch(/continues|requested\s*:|condition\s*:/);
+    // the only place the operator names the kernel's request fields or stop reason is the read-only comparison of a retained
+    // choice with canon's sealed record; it builds no request, passes none to a gateway and never writes
+    const start = cmd.indexOf("function canonStanding(");
+    const end = cmd.indexOf("function nullPcGuard(");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const outside = cmd.slice(0, start) + cmd.slice(end);
+    expect(outside).not.toMatch(/continues|requested\s*:|condition\s*:|stop_reason|\.engaged/);
+    const inside = cmd.slice(start, end);
+    expect(inside).not.toMatch(
+      /\.commit\(|\.advance\(|bindTrusted|advanceNullPc|resumeNullPc|new TemporalCoordinator|getFact\([^)]*\)\s*=/,
+    );
+    expect(inside.match(/getFact\(/g)).toHaveLength(3);
   });
 });
 

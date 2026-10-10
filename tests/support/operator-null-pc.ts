@@ -20,10 +20,15 @@ import {
   type LocalOperatorSession as Session,
   type SessionParams,
 } from "@immortalis/operator";
-import { FIXTURE_CAMPAIGN, INSTRUMENT_A, LOGISTICS_FIXTURE_EXTENSION } from "@immortalis/testkit";
+import {
+  FIXTURE_CAMPAIGN,
+  INSTRUMENT_A,
+  LOGISTICS_FIXTURE_EXTENSION,
+  REQ_1,
+} from "@immortalis/testkit";
 import { acceptCommitDispatchRegister } from "./logistics.ts";
 import { establishSunset, seededSunsetCampaign, sunsetInstrument } from "./gip-sunset.ts";
-import { seededNullPcCampaign, PROD_T1 } from "./null-pc-advance.ts";
+import { PROD_T1, refuseNullPcDeliveryStage, seededNullPcCampaign } from "./null-pc-advance.ts";
 import { tempDir } from "./tmp.ts";
 
 /**
@@ -165,4 +170,56 @@ export async function referenceNull(
   const hash = campaign.store.head().state_sha256;
   await campaign.close();
   return hash;
+}
+
+export type GatewayStep = {
+  /** the transaction material, written independently of the mechanism under test (override any field to differ) */
+  readonly transaction: ReturnType<typeof referenceTransaction>;
+  readonly target: CanonicalTime;
+  /** a resume of this held transaction; absent for an initial choice */
+  readonly from?: string;
+  /** refuse the Logistics delivery stage through the store for this step (a genuine kernel hold) */
+  readonly hold?: boolean;
+};
+
+/**
+ * Drives the UNCHANGED gateways directly on a closed campaign, committing whatever transaction material the test states. This
+ * builds a "restored campaign" whose canon holds a record under a given transaction identity that the operator's retained intent
+ * does NOT describe. Returns nothing: every step must commit.
+ */
+export async function driveGateways(
+  campaignDir: string,
+  extension: StageOwnerExtension | undefined,
+  steps: readonly GatewayStep[],
+): Promise<void> {
+  const opened = await CanonicalCampaign.open(campaignDir, {
+    buildId: "operator-null-restored",
+    ...(extension ? { extension } : {}),
+  });
+  if (!opened.ok) throw new Error("restored campaign did not open");
+  const campaign = opened.value;
+  for (const [n, step] of steps.entries()) {
+    const restore = step.hold ? refuseNullPcDeliveryStage({ campaign }, REQ_1) : () => undefined;
+    const outcome =
+      step.from === undefined
+        ? await advanceNullPcOocToTarget(
+            bindTrustedNullPcOocTargetAdvanceContext({
+              campaign,
+              target: step.target,
+              transaction: step.transaction,
+            }),
+            { operation: "advance_null_pc_ooc_to_target" },
+          )
+        : await resumeNullPcOocHeldAdvance(
+            bindTrustedNullPcOocHeldContinuationContext({
+              campaign,
+              held: { from_transaction: step.from, target: step.target },
+              transaction: step.transaction,
+            }),
+            { operation: "resume_null_pc_ooc_held_advance" },
+          );
+    restore();
+    if (!outcome.ok) throw new Error(`restored step ${n} did not commit`);
+  }
+  await campaign.close();
 }
