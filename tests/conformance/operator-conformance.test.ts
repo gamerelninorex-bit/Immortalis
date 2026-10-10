@@ -46,7 +46,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
   "packages/protocol/src/index.ts":
-    "7bae699e24ea78e176b24fe7b5327f8b8a06aec4d8eb2b6b463abf05d9b55a57",
+    "b945c16fede6707509a51f3a157d1b6cc856b05aa8177f2cbdef7f8b8040842b",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/protocol-relocation.ts":
@@ -88,8 +88,9 @@ describe("existing owners, gateways and the frozen artifacts are untouched: the 
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the operator gained no protocol host operation and no module of its own: the protocol surface is the six operations it was given", () => {
+  it("the operator gained no protocol host operation and no module of its own: the protocol surface is the seven operations it was given", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "active-pc-target-advance.ts",
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
@@ -139,11 +140,14 @@ describe("the package composes only the existing gateways and canonical reads", 
     });
   });
 
-  it("takes from the protocol package exactly the four binders and the four operations: relocation and progression, NULL-PC advance and held resume", () => {
+  it("takes from the protocol package exactly the six binders and the five operations: relocation and progression, NULL-PC advance and held resume, and the active-PC target advance", () => {
     const names = walk(SRC).flatMap((f) => importedNames(f, "@immortalis/protocol"));
     expect(names.sort()).toEqual([
+      "advanceActivePcToTarget",
       "advanceConfirmedPcTransferToDelivery",
       "advanceNullPcOocToTarget",
+      "bindTrustedActivePcHeldTargetAdvanceContext",
+      "bindTrustedActivePcTargetAdvanceContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedNullPcOocHeldContinuationContext",
@@ -191,6 +195,8 @@ describe("the package composes only the existing gateways and canonical reads", 
       "ledgerFileName",
       "nullAdvance",
       "nullResume",
+      "pcTargetAdvance",
+      "pcTargetResume",
       "reconcile",
       "relocate",
       "requestOperatorConfirmation",
@@ -256,6 +262,26 @@ describe("register, lock and gate honesty", () => {
       "PF-6/F-028 remains BLOCKED / NOT ACTIVATED",
       "IA-07",
       "byte for byte",
+    ])
+      expect(doc, must).toContain(must);
+  });
+
+  it("the document states the active-PC target slice's boundary: base, brief pin, separate choices, transaction-only status, residuals and untouched governance", () => {
+    const doc = readFileSync(DOC, "utf8");
+    for (const must of [
+      "Active-PC target-only time progression and held recovery",
+      "97c3788c5d9132973cfd6ddac08bc955f2ffe988",
+      "2026-10-10T09:39:40.741Z",
+      "pc-target-advance",
+      "pc-target-resume",
+      "PC_TARGET_ADVANCE_COMMITTED",
+      "Committed means a transaction committed",
+      "stationary",
+      "Not claimed",
+      "Operator-only visibility of a remainder",
+      "OB-030",
+      "PF-6/F-028",
+      "IA-07",
     ])
       expect(doc, must).toContain(must);
   });

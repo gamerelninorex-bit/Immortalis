@@ -4,6 +4,8 @@ import {
   advance,
   nullAdvance,
   nullResume,
+  pcTargetAdvance,
+  pcTargetResume,
   reconcile,
   relocate,
   status,
@@ -30,6 +32,8 @@ usage:
   immortalis-operator advance   --campaign <dir> --campaign-id <id>
   immortalis-operator null-advance --campaign <dir> --campaign-id <id> --target-unit <unit> --target-value <n>
   immortalis-operator null-resume  --campaign <dir> --campaign-id <id>
+  immortalis-operator pc-target-advance --campaign <dir> --campaign-id <id> --target-unit <unit> --target-value <n>
+  immortalis-operator pc-target-resume  --campaign <dir> --campaign-id <id>
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
@@ -45,6 +49,14 @@ null-advance / null-resume: for a campaign with NO active character only (the ac
   further. null-resume is a separate, later OOC choice with its own confirmation to take up the remainder the world kept of an
   earlier null-advance, toward that earlier target only (it accepts no target). A committed status is a transaction status, not a
   report that the target was attained, that anything occurred, or what anyone perceives or knows; nothing resumes on its own.
+pc-target-advance / pc-target-resume: for a campaign WITH an active character that is stationary (the NULL-PC commands refuse it, and
+  these refuse a campaign without one). pc-target-advance is ONE explicit OOC choice to advance canonical time to the exact target
+  given by --target-unit/--target-value (an exact canonical-time value, not a duration or a date; both required, no default) and no
+  further; it is not an action the character takes, and a character in transfer or with a movement in flight is refused.
+  pc-target-resume is a separate, later choice with its own confirmation to take up the remainder the world kept of an earlier
+  pc-target-advance, toward that earlier target only (it accepts no target). A committed status is a transaction status, not a
+  report that the target was attained, that anything occurred, or what the character or anyone perceives or knows; nothing
+  resumes on its own.
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -70,6 +82,7 @@ const exitOf = (s: CommandStatus): number => {
     case "ADVANCE_COMMITTED":
     case "NULL_PC_ADVANCE_COMMITTED":
     case "NULL_PC_HELD_ADVANCE_COMMITTED":
+    case "PC_TARGET_ADVANCE_COMMITTED":
     case "NOTHING_TO_RECONCILE":
       return EXIT.OK;
     case "DECLINED":
@@ -78,6 +91,7 @@ const exitOf = (s: CommandStatus): number => {
     case "ADVANCE_OUTCOME_UNKNOWN":
     case "NULL_PC_ADVANCE_OUTCOME_UNKNOWN":
     case "NULL_PC_HELD_ADVANCE_OUTCOME_UNKNOWN":
+    case "PC_TARGET_ADVANCE_OUTCOME_UNKNOWN":
     case "RECONCILIATION_REQUIRED":
       return EXIT.UNKNOWN;
     default:
@@ -103,6 +117,8 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   advance: [],
   "null-advance": ["target-unit", "target-value"],
   "null-resume": [],
+  "pc-target-advance": ["target-unit", "target-value"],
+  "pc-target-resume": [],
   reconcile: [],
   status: [],
 };
@@ -181,7 +197,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
   }
 
   let nullAdvanceInput: unknown;
-  if (command === "null-advance") {
+  if (command === "null-advance" || command === "pc-target-advance") {
     const value = str("target-value") ?? "";
     if (!NON_NEGATIVE_INTEGER.test(value) || !Number.isSafeInteger(Number(value))) {
       out(USAGE);
@@ -214,7 +230,8 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         const retained =
           report.relocation !== "NONE" ||
           report.advances.length > 0 ||
-          report.ooc_choices.length > 0;
+          report.ooc_choices.length > 0 ||
+          report.pc_target_choices.length > 0;
         out(`STATUS ${retained ? "CHOICES_RETAINED" : "NO_CHOICE_RETAINED"}`);
         out(`campaign: ${report.campaign_id}`);
         out(`operator: ${report.operator}`);
@@ -224,6 +241,9 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         );
         out(
           `ooc choices: ${report.ooc_choices.length === 0 ? "none" : report.ooc_choices.map((c) => `${c.kind} ${c.status}`).join(", ")}`,
+        );
+        out(
+          `character target choices: ${report.pc_target_choices.length === 0 ? "none" : report.pc_target_choices.map((c) => `${c.kind} ${c.status}`).join(", ")}`,
         );
         return EXIT.OK;
       }
@@ -237,7 +257,11 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
               ? [await nullAdvance(ctx, nullAdvanceInput)]
               : command === "null-resume"
                 ? [await nullResume(ctx)]
-                : await reconcile(ctx);
+                : command === "pc-target-advance"
+                  ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
+                  : command === "pc-target-resume"
+                    ? [await pcTargetResume(ctx)]
+                    : await reconcile(ctx);
       for (const r of results) {
         out(`STATUS ${r.status}`);
         out(r.message);

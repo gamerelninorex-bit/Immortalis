@@ -103,8 +103,15 @@ describe("the operator's explicit, bounded confirmation", () => {
   });
 });
 
-describe("the four verbs are four distinct choices", () => {
-  const VERBS: Verb[] = ["relocate", "advance", "null-advance", "null-resume"];
+describe("the six verbs are six distinct choices", () => {
+  const VERBS: Verb[] = [
+    "relocate",
+    "advance",
+    "null-advance",
+    "null-resume",
+    "pc-target-advance",
+    "pc-target-resume",
+  ];
 
   it("each verb accepts only its own phrase: no verb's typed line confirms another verb's challenge", async () => {
     for (const verb of VERBS)
@@ -134,5 +141,23 @@ describe("the four verbs are four distinct choices", () => {
         "s",
       ),
     ).toBe(false);
+  });
+});
+
+describe("the active-PC target verbs", () => {
+  it("a token for one is never accepted for the other, for a NULL-PC verb or for the movement's own", async () => {
+    for (const [issued, others] of [
+      ["pc-target-advance", ["pc-target-resume", "null-advance", "advance", "relocate"]],
+      ["pc-target-resume", ["pc-target-advance", "null-resume", "advance", "relocate"]],
+    ] as const) {
+      const token = (await request(
+        terminal((p) => p),
+        issued,
+        "s",
+      ))!;
+      for (const other of others) expect(consumeConfirmation(token, other, "s"), other).toBe(false);
+      expect(consumeConfirmation(token, issued, "s")).toBe(true);
+      expect(consumeConfirmation(token, issued, "s")).toBe(false);
+    }
   });
 });

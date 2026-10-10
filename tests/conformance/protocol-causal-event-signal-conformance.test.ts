@@ -46,6 +46,7 @@ describe("existing path and predecessors are untouched: the operation consumes t
 
   it("the protocol package is exactly the index and the two operation modules, with the same dependencies", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "active-pc-target-advance.ts",
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",

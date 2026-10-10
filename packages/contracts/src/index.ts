@@ -65,6 +65,7 @@ export * from "./source-drawdown.ts";
 export * from "./protocol-advance.ts";
 export * from "./protocol-null-pc-advance.ts";
 export * from "./protocol-null-pc-held-advance.ts";
+export * from "./protocol-pc-target-advance.ts";
 export * from "./protocol-causal.ts";
 export * from "./protocol-relocation.ts";
 export * from "./protocol.ts";

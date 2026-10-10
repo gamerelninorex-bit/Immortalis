@@ -41,6 +41,7 @@ describe("only the gateway operation changed: the host contract, the kernel, the
 
   it("no module, operation, engine file or fact kind was added: the protocol package still has the same four modules and one operation per contract", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "active-pc-target-advance.ts",
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",

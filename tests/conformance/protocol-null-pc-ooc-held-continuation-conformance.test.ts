@@ -118,6 +118,7 @@ describe("existing owners, the Temporal kernel, the predecessor gateways and the
 
   it("no engine module, owner registration or fact kind was added: the whole slice is one protocol module, one contract and tests", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
+      "active-pc-target-advance.ts",
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
