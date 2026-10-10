@@ -9,7 +9,7 @@ import { nodeFs, type FsOps } from "@immortalis/engine";
  *
  * The standard package is created empty, so between its creation and the first World-State commit the package itself holds nothing
  * that says WHICH setup was confirmed. Without a retained marker a different, individually valid setup offered after an interruption in
- * that window would be indistinguishable from a first choice. This file is that marker: it is written durably AFTER the confirmation
+ * that window would be indistinguishable from a first choice. This file is that marker: it is created exclusively and durably AFTER the confirmation
  * and BEFORE the package is created, lives in the same owner-only retained-state directory as the retained intents (outside the
  * package, so the package's own residue reporting never sees it), and holds nothing but the setup identity (a content hash).
  *
@@ -75,20 +75,26 @@ export async function readPin(p: PinParams): Promise<Result<string | null, PinEr
 }
 
 /**
- * Retains `setupId` durably (temp file, fsync, rename, directory fsync). An identity already retained is never replaced: the same one
- * is a no-op, a different one is `PIN_CONFLICT`. A write failure may or may not have landed; the caller treats it as unknown and the
- * next read says which.
+ * Retains `setupId` as the campaign's FIRST-WRITER-WINS identity (BLUE F60-R2). The pin is published by one exclusive create
+ * (`O_EXCL`: the file system lets exactly one creator succeed) of the final path, with its complete body, fsynced; there is no
+ * read-then-write window, and no writer other than the exclusive winner ever writes the pin, so two simultaneous first writers can
+ * never replace one another:
+ *
+ *   created            this identity is now the retained one (then made directory-durable by the winner alone);
+ *   already exists     another writer — or an earlier run — won: read it; the same identity is a no-op, a different one is
+ *                      `PIN_CONFLICT`, and a file that is not (yet) a complete valid pin is `PIN_MALFORMED` (the winner may be
+ *                      mid-write: fail closed, retry; never overwrite);
+ *   any other failure  the create may or may not have landed: `PIN_WRITE_FAILED`, an unknown outcome the caller reports as such
+ *                      and the next read resolves.
+ *
+ * Residual (documented): a process killed in the instant between the create and the write of its body leaves an empty pin, which
+ * reads as `PIN_MALFORMED` and is refused, never adopted or replaced. Nothing is created before a pin write returns, so the
+ * operator may deliberately remove such a file when no package exists for the campaign.
  */
 export async function writePin(
   p: PinParams & { readonly setupId: string },
 ): Promise<Result<null, PinErrorCode>> {
   const fs = p.fs ?? nodeFs;
-  const held = await readPin(p);
-  if (!held.ok) return held;
-  if (held.value !== null)
-    return held.value === p.setupId
-      ? ok(null)
-      : fail("PIN_CONFLICT", "a different setup identity is already retained for this campaign");
   const body = PinFileSchema.parse({
     format: LOCALITY_PIN_FORMAT,
     format_version: LOCALITY_PIN_FORMAT_VERSION,
@@ -96,13 +102,35 @@ export async function writePin(
     operator_uid: p.operatorUid,
     setup_id: p.setupId,
   });
+  const path = join(p.dir, pinFileName(p.campaignId));
+  const text = `${JSON.stringify(body, null, 2)}\n`;
   try {
-    await fs.writeFileDurable(
-      join(p.dir, pinFileName(p.campaignId)),
-      `${JSON.stringify(body, null, 2)}\n`,
-    );
+    await fs.createExclusive(path, text);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST")
+      return fail("PIN_WRITE_FAILED", "the setup identity could not be retained");
+    return resolveExisting(p);
+  }
+  // This writer is the one winner. The exclusive create fsyncs the file but the seam has no directory fsync, so the winner alone
+  // re-publishes its own identical bytes durably (temp file, fsync, rename, directory fsync): the content cannot change, no other
+  // writer ever reaches this line, and a loser never writes at all.
+  try {
+    await fs.writeFileDurable(path, text);
   } catch {
     return fail("PIN_WRITE_FAILED", "the setup identity could not be retained");
   }
   return ok(null);
+}
+
+/** Another writer (or an earlier run) created the pin first: it is theirs and is never replaced. */
+async function resolveExisting(
+  p: PinParams & { readonly setupId: string },
+): Promise<Result<null, PinErrorCode>> {
+  const held = await readPin(p);
+  if (!held.ok) return held;
+  if (held.value === null)
+    return fail("PIN_WRITE_FAILED", "the retained setup identity could not be resolved");
+  return held.value === p.setupId
+    ? ok(null)
+    : fail("PIN_CONFLICT", "a different setup identity is already retained for this campaign");
 }

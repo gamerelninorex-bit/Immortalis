@@ -344,7 +344,7 @@ describe("F60-R1: the confirmed setup identity survives the package-only window"
     expect((await establish(dirs, writeSetup(setupDoc()))).result.status).toBe("SETUP_CONFLICT");
   }, 120_000);
 
-  it("two consoles racing on one new campaign: the package's exclusive creation serialises them and the loser's identity is never committed", async () => {
+  it("defence in depth: a retained identity found altered after the package is created stops the run before any fact (first-writer-wins itself is proved in locality-pin-race.test.ts)", async () => {
     const dirs = freshDirs();
     const file = writeSetup(setupDoc());
     const create = CanonicalCampaign.create;

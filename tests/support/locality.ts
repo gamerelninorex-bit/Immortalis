@@ -5,7 +5,7 @@
 // campaign these tests read was created by the shipped code path with the ordinary canonical owner registry.
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CanonicalCampaign } from "@immortalis/engine";
+import { CanonicalCampaign, nodeFs, type FsOps } from "@immortalis/engine";
 import { establishLocality, type EstablishLocalityParams } from "@immortalis/operator";
 import { SHIPPED_BIN, runOperator, scriptedTerminal, type Reply, type Typed } from "./operator.ts";
 import { tempDir } from "./tmp.ts";
@@ -146,3 +146,83 @@ export async function headOf(dir: string) {
 export const ensureDir = (dir: string): void => {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
 };
+
+// -- a deterministically interleaved pair of writers on the retained-state file system seam (BLUE F60-R2) ---------------------------
+
+export interface PinRace {
+  /** the ordered events of both writers: reads that observed the pin absent, arrivals at the first pin mutation, and each pin mutation */
+  readonly log: string[];
+  /** the retained-state `FsOps` for one writer */
+  fs(who: string): FsOps;
+}
+
+const deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => (resolve = r));
+  return { promise, resolve };
+};
+
+/**
+ * Two writers share one retained-state directory. Each writer's FIRST mutation of the pin file is held until BOTH writers have arrived
+ * at their own first mutation — so each has already passed every read it makes of the pin, all of which observed it absent — and only
+ * then is the writer named first in `order` released; the second is released only after the first's mutation has completed. No writer
+ * is merely serialised: both are past an observed-absent read before either commits a pin, and the interleaving is forced, not hoped
+ * for. A wait that never resolves fails the test instead of hanging it.
+ */
+export function pinRace(order: readonly [string, string] = ["A", "B"]): PinRace {
+  const log: string[] = [];
+  const arrived = new Set<string>();
+  const passed = new Set<string>();
+  const bothArrived = deferred();
+  const firstDone = deferred();
+  const within = <T>(p: Promise<T>, what: string): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`pin race did not progress: ${what}`)), 20_000),
+      ),
+    ]);
+  const isPin = (path: string) => /locality-setup-[0-9a-f]+\.json$/.test(path);
+
+  return {
+    log,
+    fs(who: string): FsOps {
+      const inner = nodeFs;
+      const mutating =
+        <A extends unknown[]>(name: string, op: (path: string, ...a: A) => Promise<void>) =>
+        async (path: string, ...a: A): Promise<void> => {
+          if (!isPin(path)) return op(path, ...a);
+          if (!passed.has(who)) {
+            arrived.add(who);
+            log.push(`${who} arrives at ${name}`);
+            if (arrived.size === 2) bothArrived.resolve();
+            await within(bothArrived.promise, `${who} waiting for the other writer`);
+            if (who !== order[0])
+              await within(firstDone.promise, `${who} waiting for the first writer`);
+            passed.add(who);
+          }
+          log.push(`${who} ${name} start`);
+          try {
+            await op(path, ...a);
+          } finally {
+            log.push(`${who} ${name} end`);
+            if (who === order[0]) firstDone.resolve();
+          }
+        };
+      return {
+        ...inner,
+        fileSize: async (path) => {
+          const size = await inner.fileSize(path);
+          if (isPin(path) && size === null) log.push(`${who} observed the pin absent`);
+          return size;
+        },
+        createExclusive: mutating("createExclusive", (path, data: string) =>
+          inner.createExclusive(path, data),
+        ),
+        writeFileDurable: mutating("writeFileDurable", (path, data: string) =>
+          inner.writeFileDurable(path, data),
+        ),
+      };
+    },
+  };
+}

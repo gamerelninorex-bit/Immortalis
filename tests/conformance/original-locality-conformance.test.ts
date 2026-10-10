@@ -138,7 +138,11 @@ describe("the shipped path composes only the existing World-State operations", (
     ).toEqual(["FsOps", "nodeFs"]);
     // it is not an intent of the ledger that `reconcile` replays and the unreconciled-choice gates scan
     expect(pin).not.toMatch(/IntentLedger|ledger\.ts|CONFIRMED|reconcile/);
-    expect(pin).toMatch(/writeFileDurable/);
+    // first-writer-wins: the identity is published by one exclusive create, never by a bare read-then-write
+    expect(pin).toMatch(/createExclusive/);
+    expect(pin.indexOf("createExclusive")).toBeLessThan(pin.indexOf("writeFileDurable"));
+    expect(pin.match(/createExclusive\(/g)).toHaveLength(1);
+    expect(pin).not.toMatch(/rename|unlink|\.remove\(|truncate|appendDurable/);
     expect(pin).not.toMatch(/Math\.random|Date\.now|new Date|randomUUID/);
     // internal to the package: not part of the operator's exported surface
     expect(Object.keys(operator)).not.toEqual(expect.arrayContaining(["readPin"]));
@@ -204,6 +208,9 @@ describe("the document states the boundary, the limits and the untouched governa
       "2026-10-10T13:11:33.766Z",
       "locality-setup-<hash>.json",
       "PROGRESS setup PINNED",
+      "F60-R2",
+      "2026-10-10T13:48:40.111Z",
+      "first-writer-wins",
     ])
       expect(doc, must).toContain(must);
     // BLUE F60-R1: a changed setup is never "simply a new setup" because nothing was committed yet

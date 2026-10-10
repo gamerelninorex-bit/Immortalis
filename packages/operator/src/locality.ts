@@ -790,8 +790,8 @@ async function commitAndVerify(a: CommitArgs): Promise<LocalityResult> {
     const created = await createPackage(params, fs, buildId);
     if (created) return created;
     terminal.say(`PROGRESS package CREATED ${params.campaignId}`);
-    // package creation is exclusive and so serialises two consoles racing on one new campaign: the winner re-reads the retained identity
-    // and goes on only if it is still its own
+    // defence in depth only: the identity itself is first-writer-wins (exclusive create), so this re-read can differ from ours only if
+    // the retained file was tampered with after we won it; go on only if it is still our own
     const still = await readPin(pin);
     if (!still.ok || still.value !== id)
       return result("SETUP_CONFLICT", [
