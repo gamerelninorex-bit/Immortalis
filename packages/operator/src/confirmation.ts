@@ -24,7 +24,8 @@ export type ConfirmationVerb =
   | "null-advance"
   | "null-resume"
   | "pc-target-advance"
-  | "pc-target-resume";
+  | "pc-target-resume"
+  | "establish-locality";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;
