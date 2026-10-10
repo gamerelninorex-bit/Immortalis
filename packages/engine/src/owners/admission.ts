@@ -555,6 +555,8 @@ export function identityMismatch(
         ? null
         : "encumbrance identity does not match the key";
     }
+    case "economy_reallocation":
+      return v["reallocation_id"] === ids[0] ? null : "reallocation_id does not match the key";
     case "world_fallback_entity": {
       const locality = v["locality"] as { world: { entity_id: string } };
       return v["entity_id"] === ids[1] && locality.world.entity_id === ids[0]

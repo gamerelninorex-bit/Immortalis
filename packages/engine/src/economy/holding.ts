@@ -4,11 +4,14 @@ import {
   OOC_CANCELLATION_INSTRUCTION,
   OOC_HOLD_INSTRUCTION,
   OOC_OPENING_PREMISE,
+  OOC_REALLOCATION_INSTRUCTION,
+  REALLOCATION_NATURE,
   economyHoldingKey,
   fail,
   ok,
   type EconomyEncumbrance,
   type EconomyHolding,
+  type EconomyReallocation,
   type EstablishHoldingInput,
   type Result,
 } from "@immortalis/contracts";
@@ -19,7 +22,9 @@ import {
  * them can drift, and nobody — caller, fixture or tampered group — supplies a resulting amount.
  *
  * Conservation is structural: a hold moves `quantity` from `available` to `encumbered`, a release moves exactly that
- * `quantity` back, and `established` is never touched. Nothing is created or destroyed, and nothing here knows a
+ * `quantity` back, a reallocation moves `quantity` from one position's `available` to another's (recorded as
+ * `reallocated_out` / `reallocated_in`, so the two positions' combined total is unchanged), and `established` is never
+ * touched. Nothing is created or destroyed, and nothing here knows a
  * price, a payer, a title, a payment or a physical stock.
  */
 
@@ -149,6 +154,96 @@ export function deriveRelease(args: {
       ...e,
       lifecycle_status: "cancelled",
       cancellation: { basis: OOC_CANCELLATION_INSTRUCTION, instruction_id: args.instructionId },
+    },
+  });
+}
+
+export interface ReallocationDerivation {
+  readonly from: EconomyHolding;
+  readonly to: EconomyHolding;
+  readonly reallocation: EconomyReallocation;
+}
+
+type Side = { readonly value: EconomyHolding; readonly version: number };
+
+/**
+ * A reallocation (WS-004 §3 conserved holding across transfers; §4; §20): Economy reads BOTH positions AS-OF-NOW —
+ * each at the very version the instruction saw — and, only if they are two distinct positions of the same object and
+ * unit and the amount is wholly AVAILABLE on the source (an encumbered amount is never spent, restricted cannot
+ * exist), moves exactly that amount from the source's available to the receiver's available. Nothing is created or
+ * destroyed, no encumbrance is touched, and `established` of neither position is rewritten. Otherwise nothing is
+ * derived. No resulting amount, verdict or consent is ever read from the instruction.
+ */
+export function deriveReallocation(args: {
+  readonly from: Side;
+  readonly to: Side;
+  readonly pinnedFromVersion: number;
+  readonly pinnedToVersion: number;
+  readonly reallocationId: string;
+  readonly instructionId: string;
+  readonly quantity: { readonly amount: number; readonly unit: string };
+}): Result<ReallocationDerivation, "REFUSED"> {
+  const { from, to, quantity } = args;
+  const f = from.value.quantity_or_bounded_position;
+  const t = to.value.quantity_or_bounded_position;
+  if (from.value.holding_id === to.value.holding_id)
+    return refuse(
+      "a reallocation is between two distinct positions: a position cannot be both sides",
+    );
+  if (args.pinnedFromVersion !== from.version || args.pinnedToVersion !== to.version)
+    return refuse(
+      "the reallocation was requested against position versions that are no longer current: re-read both positions",
+    );
+  if (from.value.object_ref !== to.value.object_ref)
+    return refuse(
+      "a reallocation is of one economic object: different objects are never converted",
+    );
+  if (f.unit !== t.unit || quantity.unit !== f.unit)
+    return refuse(
+      "a reallocation is of the positions' own unit: units are never converted or substituted",
+    );
+  if (quantity.amount < 1) return refuse("a reallocation is of a positive amount");
+  if (quantity.amount > f.available)
+    return refuse(
+      "the requested amount is not wholly available on the source: an encumbered amount cannot be spent twice",
+    );
+  if (t.available + quantity.amount > Number.MAX_SAFE_INTEGER)
+    return refuse("the receiving position cannot represent the resulting amount");
+  const side = (h: EconomyHolding, version: number) => ({
+    fact_key: economyHoldingKey(h.holding_id),
+    holding_id: h.holding_id,
+    holder_ref: h.holder_ref,
+    admitted_at_holding_version: version,
+  });
+  return ok({
+    from: {
+      ...from.value,
+      quantity_or_bounded_position: {
+        ...f,
+        available: f.available - quantity.amount,
+        reallocated_out: (f.reallocated_out ?? 0) + quantity.amount,
+      },
+    },
+    to: {
+      ...to.value,
+      quantity_or_bounded_position: {
+        ...t,
+        available: t.available + quantity.amount,
+        reallocated_in: (t.reallocated_in ?? 0) + quantity.amount,
+      },
+    },
+    reallocation: {
+      reallocation_id: args.reallocationId,
+      object_ref: from.value.object_ref,
+      quantity: { amount: quantity.amount, unit: quantity.unit },
+      from: side(from.value, from.version),
+      to: side(to.value, to.version),
+      authorization: {
+        basis: OOC_REALLOCATION_INSTRUCTION,
+        instruction_id: args.instructionId,
+        in_world_consent: "NOT_ASSERTED",
+      },
+      nature: REALLOCATION_NATURE,
     },
   });
 }

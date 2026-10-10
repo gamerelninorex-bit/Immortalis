@@ -4,10 +4,12 @@ import {
   EconomyDemandEnvelopeSchema,
   EconomyEncumbranceSchema,
   EconomyHoldingSchema,
+  EconomyReallocationSchema,
   EstablishHoldingInputSchema,
   HoldInstructionInputSchema,
   HoldingActPublicationSchema,
   ReleaseInstructionInputSchema,
+  ReallocationInstructionInputSchema,
   EconomyRealizationSchema,
   IssueDemandInputSchema,
   PopulationBasisSchema,
@@ -21,6 +23,7 @@ import {
   economyRealizationKey,
   economyRequestId,
   economyRequestKey,
+  economyReallocationKey,
   fail,
   populationCohortKey,
   populationLedgerKey,
@@ -30,6 +33,7 @@ import {
   type EconomyEncumbrance,
   type EconomyHolding,
   type EconomyRealization,
+  type EconomyReallocation,
   type HoldingActPublication,
   type OwnerFact,
   type ProductionRequest,
@@ -41,11 +45,11 @@ import { canonicalEqual } from "../hash.ts";
 import { factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { deriveEconomyRequest } from "./derive.ts";
-import { deriveHold, deriveOpeningHolding, deriveRelease } from "./holding.ts";
+import { deriveHold, deriveOpeningHolding, deriveRelease, deriveReallocation } from "./holding.ts";
 
 /**
- * `INSUFFICIENT_AVAILABLE`: Economy's own as-of-now refusal of a hold — the requested amount is not wholly available (or
- * is of another unit). `ENCUMBRANCE_NOT_ACTIVE`: the named encumbrance is already cancelled. Neither mutates anything.
+ * `INSUFFICIENT_AVAILABLE`: Economy's own as-of-now refusal of a hold or a reallocation — the requested amount is not
+ * wholly available (or is of another unit or object). `ENCUMBRANCE_NOT_ACTIVE`: the named encumbrance is already cancelled. Neither mutates anything.
  */
 export type EconomyErrorCode =
   StoreCommitErrorCode | "INPUT_INVALID" | "INSUFFICIENT_AVAILABLE" | "ENCUMBRANCE_NOT_ACTIVE";
@@ -469,6 +473,138 @@ export class EconomyAdapter {
     );
   }
 
+  /**
+   * Reallocates one exact available amount between TWO distinct, already-committed positions of the same object and unit,
+   * on a separate OOC reallocation instruction. The instruction names the campaign, both positions with the version each was
+   * read at, an amount and distinct reallocation / instruction identities; it supplies no resulting position, no verdict and
+   * no consent. Economy reads both positions AS-OF-NOW, refuses (changing nothing) when a version is stale, the positions
+   * are not two distinct compatible ones, or the amount is not wholly available on the source — an encumbered amount is
+   * never spent — and otherwise commits, in ONE group under the existing expected-version protection on both positions,
+   * the two advanced positions together with the one create-only reallocation record. A book-position movement only: not a
+   * title transfer, payment, settlement, delivery or issuance, and not the holders' in-world consent.
+   *
+   * Re-presenting an intent that already committed (a lost reply, a restart) is reconciled by identity (RC-16): the
+   * committed group is re-presented, so identical input reaches the original receipt and a changed input (another amount,
+   * position, version or instruction) is refused as a conflict, never applied a second time.
+   */
+  async reallocateHoldings(
+    input: HoldingActPublication & { readonly reallocation: unknown },
+  ): Promise<Result<CommitOutcome, EconomyErrorCode>> {
+    const p = HoldingActPublicationSchema.safeParse(pickAct(input));
+    if (!p.success) return invalid("publication", p.error);
+    const i = ReallocationInstructionInputSchema.safeParse(input.reallocation);
+    if (!i.success) return invalid("reallocation", i.error);
+    const campaignId = this.#store.head().campaign_id;
+    if (i.data.campaign_id !== campaignId)
+      return fail("INPUT_INVALID", "the instruction is for a different campaign", {
+        campaign_id: i.data.campaign_id,
+      });
+    const fromKey = economyHoldingKey(i.data.from.holding_id);
+    const toKey = economyHoldingKey(i.data.to.holding_id);
+    const reallocationKey = economyReallocationKey(i.data.reallocation_id);
+
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    if (prior) {
+      // reconcile by identity: the same reallocation, positions, pinned versions, instruction and amount — or a conflict
+      const rec = prior.writes.find((w) => w.key === reallocationKey);
+      const was = rec ? EconomyReallocationSchema.safeParse(rec.value) : undefined;
+      if (
+        !was?.success ||
+        was.data.from.holding_id !== i.data.from.holding_id ||
+        was.data.to.holding_id !== i.data.to.holding_id ||
+        was.data.from.admitted_at_holding_version !== i.data.from.holding_version ||
+        was.data.to.admitted_at_holding_version !== i.data.to.holding_version ||
+        was.data.authorization.instruction_id !== i.data.instruction_id ||
+        !canonicalEqual(was.data.quantity, i.data.quantity)
+      )
+        return fail("INTENT_CONFLICT", "intent_id was already committed with different content", {
+          intent_id: p.data.intent_id,
+        });
+      return this.#store.commit({
+        ...prior,
+        group_id: p.data.group_id,
+        cause: p.data.cause,
+      });
+    }
+
+    if (i.data.from.holding_id === i.data.to.holding_id)
+      return fail("INPUT_INVALID", "a reallocation is between two distinct positions", {
+        holding_id: i.data.from.holding_id,
+      });
+    const fromFact = this.#store.getFact(fromKey);
+    const toFact = this.#store.getFact(toKey);
+    const from = fromFact ? EconomyHoldingSchema.safeParse(fromFact.value) : undefined;
+    const to = toFact ? EconomyHoldingSchema.safeParse(toFact.value) : undefined;
+    if (!fromFact || !toFact || !from?.success || !to?.success)
+      return fail("PREREQUISITE_MISSING", "both positions of a reallocation are established", {
+        from: fromKey,
+        to: toKey,
+      });
+    if (this.#store.getFact(reallocationKey))
+      return fail("VERSION_CONFLICT", "a reallocation identity is used once: it already exists", {
+        key: reallocationKey,
+      });
+    if (
+      fromFact.version !== i.data.from.holding_version ||
+      toFact.version !== i.data.to.holding_version
+    )
+      return fail(
+        "VERSION_CONFLICT",
+        "a position is no longer at the version the reallocation saw",
+        {
+          from: { key: fromKey, pinned: i.data.from.holding_version, current: fromFact.version },
+          to: { key: toKey, pinned: i.data.to.holding_version, current: toFact.version },
+        },
+      );
+    if (fromFact.basis !== toFact.basis || fromFact.secrecy !== toFact.secrecy)
+      return fail("INPUT_INVALID", "a reallocation is between positions of one visibility", {
+        from: fromKey,
+        to: toKey,
+      });
+    const derived = deriveReallocation({
+      from: { value: from.data, version: fromFact.version },
+      to: { value: to.data, version: toFact.version },
+      pinnedFromVersion: i.data.from.holding_version,
+      pinnedToVersion: i.data.to.holding_version,
+      reallocationId: i.data.reallocation_id,
+      instructionId: i.data.instruction_id,
+      quantity: i.data.quantity,
+    });
+    if (!derived.ok) return fail("INSUFFICIENT_AVAILABLE", derived.error.message, { key: fromKey });
+    const kind = factKind("economy_holding");
+    const write = (
+      key: string,
+      value: EconomyHolding | EconomyReallocation,
+      expected_version: number,
+    ) => ({
+      key,
+      owner: kind.owner,
+      facet: kind.facet,
+      value: value as CommitGroup["writes"][number]["value"],
+      unit: null,
+      basis: fromFact.basis,
+      secrecy: fromFact.secrecy,
+      expected_version,
+    });
+    return this.#store.commit({
+      campaign_id: campaignId,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: kind.rule,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: [],
+      depends_on: [],
+      writes: [
+        write(fromKey, derived.value.from, fromFact.version),
+        write(toKey, derived.value.to, toFact.version),
+        write(reallocationKey, derived.value.reallocation, 0),
+      ],
+    } satisfies CommitGroup);
+  }
+
   /** One hold/release group: both facts inherit the holding's own labels; it reads and depends on nothing else. */
   #actGroup(
     p: HoldingActPublication,
@@ -511,6 +647,10 @@ export class EconomyAdapter {
   /** One hold of one holding, by identity (never a scan). */
   encumbrance(holdingId: string, holdId: string): Typed<EconomyEncumbrance> | undefined {
     return this.#typed(economyEncumbranceKey(holdingId, holdId), EconomyEncumbranceSchema);
+  }
+  /** One recorded reallocation, by identity (never a scan). */
+  reallocation(reallocationId: string): Typed<EconomyReallocation> | undefined {
+    return this.#typed(economyReallocationKey(reallocationId), EconomyReallocationSchema);
   }
   /** What is available and what is encumbered now, derived from the committed holding alone. */
   availability(holdingId: string): HoldingAvailability | undefined {

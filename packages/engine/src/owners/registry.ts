@@ -40,6 +40,7 @@ import {
   EconomyEncumbranceSchema,
   EconomyHoldingSchema,
   EconomyRealizationSchema,
+  EconomyReallocationSchema,
   EntityTransitionCauseSchema,
   ExistingActorCouplingSchema,
   EntityTransitionCloseSchema,
@@ -295,7 +296,11 @@ export const ECONOMY_FACT_KIND_IDS = [
   "economy_request",
   "economy_realization",
 ] as const;
-export const ECONOMY_HOLDING_FACT_KIND_IDS = ["economy_holding", "economy_encumbrance"] as const;
+export const ECONOMY_HOLDING_FACT_KIND_IDS = [
+  "economy_holding",
+  "economy_encumbrance",
+  "economy_reallocation",
+] as const;
 export const LOGISTICS_FACT_KIND_IDS = [
   "logistics_commitment",
   "logistics_transfer",
@@ -1030,7 +1035,8 @@ export const ECONOMY_HOLDING_RULE: SourceRef = rule(
  * IM-06 Economic Holding / Account position and its reversible economic encumbrance — the bounded OOC scenario /
  * mechanism proof only. Same owner and facet as the Demand chain, two further exclusive key spaces. Both are ADVANCING,
  * and only by the re-derived hold / release transitions of `economyGroupCheck`: the holding by its partition, the
- * encumbrance by its single active → cancelled transition. No issuance, transfer, payment, settlement, title, price or
+ * encumbrance by its single active → cancelled transition. The reallocation record is create-only (SEALED) and is
+ * written only together with the two positions it advances. No issuance, payment, settlement, title, price or
  * physical-reserve kind exists.
  */
 export const ECONOMY_HOLDING_FACT_KINDS: readonly FactKind[] = [
@@ -1054,6 +1060,17 @@ export const ECONOMY_HOLDING_FACT_KINDS: readonly FactKind[] = [
     lifecycle: "ADVANCING",
     keyPattern: new RegExp(`^economy/encumbrance/${ID}/${ID}$`),
     valueSchema: EconomyEncumbranceSchema,
+    rule: ECONOMY_HOLDING_RULE,
+  },
+  {
+    id: "economy_reallocation",
+    owner: OWNER_ECONOMY,
+    facet: FACET_ECONOMY_STATE,
+    im: "IM-06",
+    rc: ["RC-02", "RC-07"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^economy/reallocation/${ID}$`),
+    valueSchema: EconomyReallocationSchema,
     rule: ECONOMY_HOLDING_RULE,
   },
 ];

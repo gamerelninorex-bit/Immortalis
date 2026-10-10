@@ -39,6 +39,7 @@ describe("IA-01 source/version fidelity: the holding kinds cite WS-004 at its ex
     expect(ECONOMY_HOLDING_FACT_KINDS.map((k) => k.id)).toEqual([
       "economy_holding",
       "economy_encumbrance",
+      "economy_reallocation",
     ]);
     for (const kind of ECONOMY_HOLDING_FACT_KINDS) {
       expect(kind.rule).toEqual(ECONOMY_HOLDING_RULE);
@@ -79,22 +80,29 @@ describe("IA-01 source/version fidelity: the holding kinds cite WS-004 at its ex
   });
 });
 
-describe("IA-03 owner exclusivity: the same Economy owner and facet, two exclusive key spaces, nothing else", () => {
+describe("IA-03 owner exclusivity: the same Economy owner and facet, three exclusive key spaces, nothing else", () => {
   it("adds no owner and no facet; both kinds are Economy's, advancing only under re-derived admission", () => {
     expect([...CANONICAL_OWNER_REGISTRY.get("economy")!]).toEqual(["economy_state"]);
     for (const kind of ECONOMY_HOLDING_FACT_KINDS) {
       expect(kind.owner).toBe("economy");
       expect(kind.facet).toBe("economy_state");
-      expect(kind.lifecycle).toBe("ADVANCING");
+      // the two positions advance; the reallocation record is create-only
+      expect(kind.lifecycle).toBe(kind.id === "economy_reallocation" ? "SEALED" : "ADVANCING");
     }
     const sample: Record<string, string> = {
       "economy/holding/h1": "economy_holding",
       "economy/encumbrance/h1/e1": "economy_encumbrance",
+      "economy/reallocation/r1": "economy_reallocation",
     };
     for (const [key, id] of Object.entries(sample))
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)).map((k) => k.id)).toEqual([id]);
     // no key space overlaps the Demand chain's, and a holding key can never address a request or demand
-    for (const key of ["economy/holding/a/b", "economy/encumbrance/a", "economy/encumbrance/a/b/c"])
+    for (const key of [
+      "economy/holding/a/b",
+      "economy/encumbrance/a",
+      "economy/encumbrance/a/b/c",
+      "economy/reallocation/a/b",
+    ])
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key))).toEqual([]);
   });
 
@@ -189,6 +197,10 @@ describe("scope: the contract states no price, payment, title, issuance, reserva
       .replace("ECONOMIC_BOOK_POSITION_NOT_STOCK_TITLE_ISSUANCE_OR_RESERVATION", "")
       .replace(
         "ECONOMIC_ENCUMBRANCE_NOT_PHYSICAL_RESERVATION_PAYMENT_SETTLEMENT_OR_LEGAL_PRIORITY",
+        "",
+      )
+      .replace(
+        "ECONOMIC_BOOK_POSITION_REALLOCATION_NOT_TITLE_PAYMENT_SETTLEMENT_DELIVERY_OR_ISSUANCE",
         "",
       )
       .toLowerCase();

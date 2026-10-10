@@ -5,6 +5,7 @@ import {
   EconomyEncumbranceSchema,
   EconomyHoldingSchema,
   EconomyRealizationSchema,
+  EconomyReallocationSchema,
   FallbackPhysicalEntitySchema,
   PopulationBasisSchema,
   ProductionOperationSchema,
@@ -20,6 +21,7 @@ import {
   economyRealizationStage,
   economyRequestId,
   economyRequestKey,
+  economyReallocationKey,
   populationCohortKey,
   populationLedgerKey,
   productionOutputReference,
@@ -34,7 +36,13 @@ import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import { deriveEconomyRequest, deriveRealization } from "./derive.ts";
-import { deriveHold, deriveOpeningHolding, deriveRelease, openingInputOf } from "./holding.ts";
+import {
+  deriveHold,
+  deriveOpeningHolding,
+  deriveRelease,
+  deriveReallocation,
+  openingInputOf,
+} from "./holding.ts";
 
 /**
  * IM-11 admission for the IM-06 Economy owner (IM-03 owner resolution; WS-004 §§2, 5, 8, 11, 20, 21, 27; WS-003
@@ -64,6 +72,18 @@ export function economyGroupCheck(group: CommitGroup, state: CampaignState): Rej
   const realW = of("economy_realization");
   const holdingW = of("economy_holding");
   const encW = of("economy_encumbrance");
+  const reallocW = of("economy_reallocation");
+
+  // Economic Holding / Account position (WS-004 §2.1, §3, §20): reallocation between two positions, re-derived
+  if (
+    holdingW.length === 2 &&
+    reallocW.length === 1 &&
+    ws.length === holdingW.length + reallocW.length &&
+    encW.length + demandW.length + requestW.length + realW.length === 0 &&
+    holdingW.every((h) => h.expected_version > 0) &&
+    reallocW[0]!.expected_version === 0
+  )
+    return checkReallocation(state, holdingW[0]!, holdingW[1]!, reallocW[0]!);
 
   // Economic Holding / Account position (WS-004 §2.1, §20): establishment, hold, release — each re-derived
   if (holdingW.length === 1 && demandW.length + requestW.length + realW.length === 0) {
@@ -92,7 +112,7 @@ export function economyGroupCheck(group: CommitGroup, state: CampaignState): Rej
   }
   return reject(
     "VALUE_INVALID",
-    "Economy state changes only by issuing one demand with its one Production Request, recording the realized access of an accepted result, or establishing, holding against and releasing a conserved holding",
+    "Economy state changes only by issuing one demand with its one Production Request, recording the realized access of an accepted result, or establishing, holding against, releasing and reallocating between conserved holdings",
   );
 }
 
@@ -402,6 +422,83 @@ function checkRelease(state: CampaignState, hw: Write, ew: Write): Rejection | n
       "VALUE_INVALID",
       "a release is exactly the restoration of the recorded encumbered amount, once",
       { key: ew.key },
+    );
+  return null;
+}
+
+/**
+ * REALLOCATION: one create-only transfer record and the two positions it advances move together, atomically. Economy
+ * — not the group — decides: both positions are read at their CURRENT versions (which must be the versions the record
+ * names), the amount must be wholly available on the source, and the three written facts must be exactly what
+ * `deriveReallocation` yields. Neither write carries a resulting amount the group could assert on its own.
+ */
+function checkReallocation(
+  state: CampaignState,
+  w1: Write,
+  w2: Write,
+  tw: Write,
+): Rejection | null {
+  const record = EconomyReallocationSchema.parse(tw.value);
+  if (tw.key !== economyReallocationKey(record.reallocation_id))
+    return reject("REFERENCE_INVALID", "a reallocation is at the key derived from its identity", {
+      key: tw.key,
+    });
+  const fromKey = economyHoldingKey(record.from.holding_id);
+  const toKey = economyHoldingKey(record.to.holding_id);
+  const fromW = [w1, w2].find((w) => w.key === fromKey);
+  const toW = [w1, w2].find((w) => w.key === toKey);
+  if (
+    !fromW ||
+    !toW ||
+    fromW === toW ||
+    record.from.fact_key !== fromKey ||
+    record.to.fact_key !== toKey
+  )
+    return reject(
+      "REFERENCE_INVALID",
+      "a reallocation advances exactly the two positions its record names, at their derived keys",
+      { key: tw.key },
+    );
+  const fromFact = state.facts.get(fromKey);
+  const toFact = state.facts.get(toKey);
+  const from = fromFact ? EconomyHoldingSchema.safeParse(fromFact.value) : undefined;
+  const to = toFact ? EconomyHoldingSchema.safeParse(toFact.value) : undefined;
+  if (!fromFact || !toFact || !from?.success || !to?.success)
+    return reject(
+      "PREREQUISITE_MISSING",
+      "a reallocation is between two established, committed positions",
+      { key: tw.key },
+    );
+  const derived = deriveReallocation({
+    from: { value: from.data, version: fromFact.version },
+    to: { value: to.data, version: toFact.version },
+    pinnedFromVersion: record.from.admitted_at_holding_version,
+    pinnedToVersion: record.to.admitted_at_holding_version,
+    reallocationId: record.reallocation_id,
+    instructionId: record.authorization.instruction_id,
+    quantity: record.quantity,
+  });
+  if (!derived.ok) return reject("VALUE_INVALID", derived.error.message, { key: tw.key });
+  if (
+    !canonicalEqual(EconomyHoldingSchema.parse(fromW.value), derived.value.from) ||
+    !canonicalEqual(EconomyHoldingSchema.parse(toW.value), derived.value.to) ||
+    !canonicalEqual(record, derived.value.reallocation)
+  )
+    return reject(
+      "VALUE_INVALID",
+      "a reallocation is exactly the conserved movement of the instructed available amount between the two positions that Economy derives, with its one record",
+      { key: tw.key },
+    );
+  if (
+    fromW.basis !== tw.basis ||
+    toW.basis !== tw.basis ||
+    fromW.secrecy !== tw.secrecy ||
+    toW.secrecy !== tw.secrecy
+  )
+    return reject(
+      "VALUE_INVALID",
+      "a reallocation record carries one visibility: both positions and the record share their labels",
+      { key: tw.key },
     );
   return null;
 }

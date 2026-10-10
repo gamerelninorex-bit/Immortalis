@@ -52,6 +52,9 @@ export const economyHoldingKey = (holdingId: string): string => `economy/holding
 export const economyEncumbranceKey = (holdingId: string, holdId: string): string =>
   `economy/encumbrance/${holdingId}/${holdId}`;
 
+export const economyReallocationKey = (reallocationId: string): string =>
+  `economy/reallocation/${reallocationId}`;
+
 const Count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 /** The literal statements that keep the position from being mistaken for anything the sources assign elsewhere. */
@@ -62,14 +65,18 @@ export const ENCUMBRANCE_NATURE =
 export const OOC_OPENING_PREMISE = "OOC_SCENARIO_OPENING_PREMISE";
 export const OOC_HOLD_INSTRUCTION = "OOC_SCENARIO_HOLD_INSTRUCTION";
 export const OOC_CANCELLATION_INSTRUCTION = "OOC_SCENARIO_CANCELLATION_INSTRUCTION";
+export const OOC_REALLOCATION_INSTRUCTION = "OOC_SCENARIO_REALLOCATION_INSTRUCTION";
+export const REALLOCATION_NATURE =
+  "ECONOMIC_BOOK_POSITION_REALLOCATION_NOT_TITLE_PAYMENT_SETTLEMENT_DELIVERY_OR_ISSUANCE";
 
 // ---------------------------------------------------------------------------------------------
 // Economic Holding / Account relation (WS-004 §2.1). The bounded position is one exact partition of the ESTABLISHED
 // amount into the three statuses the source names. `restricted` is representable only as zero and
 // `restriction_or_authority_ref` only as null: restriction validity belongs to GIP / the surviving legal owner, and
 // no producer of it exists in this tranche, so a restricted or authority-conditioned holding has no representation.
-// Nothing enters or leaves the position (no issuance, transfer, payment, consumption, default or holder cessation
-// exists here): available + encumbered + restricted = established, always.
+// Nothing enters or leaves the position except a recorded OOC reallocation between two positions (no issuance, payment,
+// consumption, default or holder cessation exists here): available + encumbered + restricted = established +
+// reallocated_in - reallocated_out, always.
 // ---------------------------------------------------------------------------------------------
 
 export const EconomyHoldingSchema = z
@@ -86,6 +93,13 @@ export const EconomyHoldingSchema = z
       available: Count,
       encumbered: Count,
       restricted: z.literal(0),
+      /**
+       * The cumulative amount a recorded OOC reallocation moved INTO / OUT OF this position (WS-004 §3: holdings are
+       * conserved across reallocation). Absent until the first reallocation touches the position, so a position that
+       * has never been reallocated keeps exactly its pre-reallocation shape; `established` is never rewritten.
+       */
+      reallocated_in: Count.optional(),
+      reallocated_out: Count.optional(),
     }),
     restriction_or_authority_ref: z.null(),
     lifecycle_status: z.literal("active"),
@@ -98,10 +112,14 @@ export const EconomyHoldingSchema = z
   })
   .superRefine((h, ctx) => {
     const p = h.quantity_or_bounded_position;
-    if (p.available + p.encumbered + p.restricted !== p.established)
+    if (
+      p.available + p.encumbered + p.restricted !==
+      p.established + (p.reallocated_in ?? 0) - (p.reallocated_out ?? 0)
+    )
       ctx.addIssue({
         code: "custom",
-        message: "the position is conserved: available + encumbered + restricted = established",
+        message:
+          "the position is conserved: available + encumbered + restricted = established + reallocated in - reallocated out",
         path: ["quantity_or_bounded_position"],
       });
   });
@@ -193,3 +211,58 @@ export const HoldingActPublicationSchema = PublicationSchema.pick({
   cause: true,
 });
 export type HoldingActPublication = z.infer<typeof HoldingActPublicationSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Reallocation: one OOC-instructed, conserved movement of an exact available amount between TWO distinct existing
+// positions of the SAME object and unit. Create-only. It is the cause and provenance of the two advanced positions —
+// it records WHAT was instructed and WHICH versions Economy read, never the resulting amounts (those live only in the
+// two positions Economy derived). It is a book-position movement, not a title transfer, payment, settlement, delivery
+// or issuance, and an OOC instruction is not the holders' in-world consent.
+// ---------------------------------------------------------------------------------------------
+
+const ReallocationSideSchema = z.strictObject({
+  fact_key: Id,
+  holding_id: EntityId,
+  holder_ref: EntityId,
+  /** the holding version Economy read AS-OF-NOW and the instruction named */
+  admitted_at_holding_version: z.number().int().positive(),
+});
+
+export const EconomyReallocationSchema = z
+  .strictObject({
+    reallocation_id: EntityId,
+    object_ref: EntityId,
+    quantity: PositiveQuantitySchema,
+    from: ReallocationSideSchema,
+    to: ReallocationSideSchema,
+    authorization: z.strictObject({
+      basis: z.literal(OOC_REALLOCATION_INSTRUCTION),
+      instruction_id: EntityId,
+      in_world_consent: z.literal("NOT_ASSERTED"),
+    }),
+    nature: z.literal(REALLOCATION_NATURE),
+  })
+  .superRefine((t, ctx) => {
+    if (t.from.holding_id === t.to.holding_id)
+      ctx.addIssue({
+        code: "custom",
+        message: "a reallocation is between two distinct positions",
+        path: ["to", "holding_id"],
+      });
+  });
+export type EconomyReallocation = z.infer<typeof EconomyReallocationSchema>;
+
+/**
+ * An OOC reallocation instruction: the campaign it is for, a distinct reallocation and instruction identity, the two
+ * positions with the version each was read at, and the amount. No field carries a resulting position, a verdict, an
+ * approval, a restriction/authority, a title, a price or the holders' consent — Economy derives the outcome.
+ */
+export const ReallocationInstructionInputSchema = z.strictObject({
+  campaign_id: Id,
+  reallocation_id: EntityId,
+  instruction_id: EntityId,
+  from: z.strictObject({ holding_id: EntityId, holding_version: z.number().int().positive() }),
+  to: z.strictObject({ holding_id: EntityId, holding_version: z.number().int().positive() }),
+  quantity: PositiveQuantitySchema,
+});
+export type ReallocationInstructionInput = z.infer<typeof ReallocationInstructionInputSchema>;
