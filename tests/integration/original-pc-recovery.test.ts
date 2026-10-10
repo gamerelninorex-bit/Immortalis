@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CanonicalCampaign, nodeFs } from "@immortalis/engine";
 import { instrumentFs } from "@immortalis/testkit";
-import { headOf, openOrdinary } from "../support/locality.ts";
+import { openOrdinary } from "../support/locality.ts";
 import {
   CAMPAIGN,
   PC_ID,
@@ -17,6 +17,7 @@ import {
   author,
   localityCampaign,
   respondingConsole,
+  shapeOf,
 } from "../support/original-pc.ts";
 
 afterEach(() => vi.restoreAllMocks());
@@ -50,13 +51,19 @@ async function reference() {
   const dirs = await localityCampaign();
   const { result } = await author(dirs, respondingConsole(STANDARD));
   expect(result.status).toBe("CHARACTER_BOUND");
-  return headOf(dirs.campaignDir);
+  return shapeOf(dirs);
 }
 
 describe("a lost acknowledgement at each of the two owner commits converges on the uninterrupted campaign", () => {
   const cases = [
     ["releasePlayerCharacter", true, "the release landed but its reply was lost", 2, 4],
-    ["releasePlayerCharacter", false, "the release never reached the store", "all", 3],
+    [
+      "releasePlayerCharacter",
+      false,
+      "the release never reached the store: the retained keep is released as kept, not asked again",
+      2,
+      3,
+    ],
     ["bindPlayerCharacter", true, "the binding landed but its reply was lost", 0, 5],
     ["bindPlayerCharacter", false, "the binding never reached the store", 2, 4],
   ] as const;
@@ -85,7 +92,7 @@ describe("a lost acknowledgement at each of the two owner commits converges on t
           expect(again.terminal.asked()).toBe(2);
           expect(again.terminal.said.join("\n")).not.toContain("identity>");
         } else expect(again.terminal.asked()).toBeGreaterThan(10);
-        expect(await headOf(dirs.campaignDir)).toEqual(expected);
+        expect(await shapeOf(dirs)).toEqual(expected);
         const campaign = await openOrdinary(dirs.campaignDir);
         expect(campaign.playerCharacter(PC_ID)!.fact.version).toBe(1);
         expect(campaign.binding()!.fact.version).toBe(1);
@@ -129,7 +136,7 @@ describe("a failure before or after EVERY mutating filesystem operation converge
         expect(again.result.status, `${when} op ${n}`).toBe("CHARACTER_BOUND");
         // a command that had already reported the binding (the fault was in releasing the lock) asks and writes nothing more
         if (first.result.status === "CHARACTER_BOUND") expect(again.terminal.asked()).toBe(0);
-        expect(await headOf(dirs.campaignDir), `${when} op ${n}`).toEqual(expected);
+        expect(await shapeOf(dirs), `${when} op ${n}`).toEqual(expected);
       }
     }
   }, 900_000);

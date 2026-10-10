@@ -137,8 +137,13 @@ describe("the shipped path composes only the two existing owner operations", () 
     expect(keep).toBeGreaterThan(0);
     expect(place).toBeGreaterThan(0);
     // the release is written from the contract the keep returned; the binding from the statement the placement confirmed
-    expect(src).toContain("contract: kept.contract");
+    expect(src).toContain("contract: retained.contract");
+    // every publication identity is keyed by the secret retained with the keep, which no public content can reproduce
+    expect(src).toContain("retained.secret");
+    expect(src).toContain("keep.secret");
+    expect(src).toContain("writeKeep(");
     expect(src).toMatch(/pins,\s*statement,?\s*\}\);/);
+    expect(src).toContain("keep.secret");
     // no code path writes a caller-supplied acceptance: the accepted set comes from the Mirror of the contract's own content
     expect(src).toContain("items_displayed_and_accepted: mirrorItems(body).map((i) => i.id)");
     expect(src).not.toMatch(/items_displayed_and_accepted:\s*(input|params|p\.|args)/);
@@ -151,6 +156,26 @@ describe("the shipped path composes only the two existing owner operations", () 
     expect(src).not.toMatch(
       /EXISTING_ACTOR_HANDOVER|"PORTAL"|SUMMONING|EXPLICIT_DELEGATION|STRONG_SEMANTIC_IMPLICATION/,
     );
+  });
+});
+
+describe("the retained keep module is the only place the secret is drawn", () => {
+  const keepModule = `${SRC}/original-pc-keep.ts`;
+  it("imports only node built-ins, zod and the contracts and engine packages, and takes the engine's file-system seam and canonical equality", () => {
+    expect([...new Set(importedNames(keepModule, "@immortalis/engine"))].sort()).toEqual([
+      "FsOps",
+      "canonicalEqual",
+      "nodeFs",
+    ]);
+    expect(code(keepModule)).toMatch(/randomBytes\(32\)/);
+    expect(code(MODULE)).not.toMatch(/randomBytes|randomUUID|Math\.random|Date\.now|new Date/);
+  });
+  it("never writes canon and never replaces a retained record", () => {
+    const src = code(keepModule);
+    expect(src).not.toMatch(
+      /CanonicalCampaign|\.commit\(|releasePlayerCharacter|bindPlayerCharacter/,
+    );
+    expect(src).toContain("createExclusive");
   });
 });
 

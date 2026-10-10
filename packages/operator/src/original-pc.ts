@@ -1,10 +1,11 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import {
   EntityId,
   ExistenceContractSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PLAYER_CHOICE_AUTHORITY,
   canonicalJson,
+  pcExistenceContractKey,
   type ExistenceContract,
   type OwnerFact,
   type Publication,
@@ -13,7 +14,8 @@ import { CanonicalCampaign, canonicalEqual, type FsOps } from "@immortalis/engin
 import { OPERATOR_PUBLICATION_BASIS, OPERATOR_PUBLICATION_SECRECY } from "./commands.ts";
 import { consumeConfirmation, requestOperatorDecision, subjectOf } from "./confirmation.ts";
 import { OOC_BANNER } from "./ooc.ts";
-import { LocalOperatorSession } from "./session.ts";
+import { newKeepSecret, readKeep, writeKeep, type KeepRecord } from "./original-pc-keep.ts";
+import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 
 /**
@@ -79,23 +81,59 @@ const hasControl = (s: string): boolean => {
   return false;
 };
 
-/** Judges one authored statement; returns the statement, or the reason it is refused. Nothing is rewritten except surrounding whitespace. */
-export function judgeStatement(
-  raw: string,
-): { ok: true; text: string } | { ok: false; reason: string } {
+/** The attestation every statement about the character must open with: the player says it is about the character alone. */
+export const SELF_CLASS = "me:";
+/** A statement the player classifies as about anything other than the character is not accepted here (no intake for it exists). */
+export const WORLD_CLASS_PREFIXES = ["world:", WORLD_CLAIM_PREFIX] as const;
+
+const WORLD_CLAIM_REASON =
+  "a claim about the wider world (places, offices, followers, relationships, other people) is not accepted here: no intake for it exists, so it is neither stored nor turned into character canon";
+
+function checkText(raw: string): { ok: true; text: string } | { ok: false; reason: string } {
   const text = raw.trim();
   if (text === "") return { ok: false, reason: "a statement cannot be empty" };
   if (hasControl(text))
     return { ok: false, reason: "a statement cannot contain control characters" };
   if (text.length > MAX_STATEMENT_CHARS)
     return { ok: false, reason: `a statement is at most ${MAX_STATEMENT_CHARS} characters` };
-  if (text.toLowerCase().startsWith(WORLD_CLAIM_PREFIX))
+  return { ok: true, text };
+}
+
+/**
+ * Judges one statement about the CHARACTER. The player must classify it themselves, explicitly and never by default: it opens with
+ * `me:` (about the character alone). A statement that opens with `world:` (or `about-the-world:`) is the player saying it is about
+ * something else and is refused; one with no classification is refused too, because nothing here can tell from the words whether it
+ * asserts an office, a follower, an institution or a place (that judgement belongs to the I-002 compiler / receiving owners, which
+ * this command does not have). The classification is the player's declaration, not an adjudication, and is shown as such.
+ */
+export function judgeStatement(
+  raw: string,
+): { ok: true; text: string } | { ok: false; reason: string } {
+  const checked = checkText(raw);
+  if (!checked.ok) return checked;
+  const lower = checked.text.toLowerCase();
+  if (WORLD_CLASS_PREFIXES.some((x) => lower.startsWith(x)))
+    return { ok: false, reason: WORLD_CLAIM_REASON };
+  if (!lower.startsWith(SELF_CLASS))
     return {
       ok: false,
-      reason:
-        "a claim about the wider world (places, offices, followers, relationships, other people) is not accepted here: no intake for it exists, so it is neither stored nor turned into character canon",
+      reason: `say whether it is about you alone: begin with "${SELF_CLASS}" (anything about other people, followers, offices, institutions, places or the wider world is not accepted here, and is never assumed to be about you)`,
     };
-  return { ok: true, text };
+  const body = checked.text.slice(SELF_CLASS.length).trim();
+  return body === ""
+    ? { ok: false, reason: "a statement cannot be empty" }
+    : { ok: true, text: body };
+}
+
+/** Judges the player's native-presence statement: a world-facing fact the player authors explicitly (not a claim about the character alone). */
+export function judgePresence(
+  raw: string,
+): { ok: true; text: string } | { ok: false; reason: string } {
+  const checked = checkText(raw);
+  if (!checked.ok) return checked;
+  if (checked.text.toLowerCase().startsWith(WORLD_CLAIM_PREFIX))
+    return { ok: false, reason: WORLD_CLAIM_REASON };
+  return checked;
 }
 
 type Field = "identity" | "embodiment" | "continuity";
@@ -213,7 +251,7 @@ export interface MirrorItem {
 export const DELEGATION_NONE_TEXT =
   "Nothing about this character was randomized, delegated or sealed: every statement above is yours.";
 export const WORLD_CLAIMS_NONE_TEXT =
-  "No claim about the wider world (places, offices, followers, relationships, other people) is accepted here. This character is defined by what you said about yourself alone; the world is as its own owner established it.";
+  'Each statement above is one you attested, with "me:", is about you alone. No claim about the wider world (places, offices, followers, relationships, other people) is accepted here, and none was adjudicated for you; the world is as its own owner established it.';
 
 const LABELS: Readonly<Record<string, string>> = {
   identity: "who or what you are",
@@ -334,12 +372,19 @@ export function mirrorPanel(
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-// Identities. Derived from the exact confirmed content, never from a clock or a random value: the same confirmed choice always
-// reaches the same publication identities, so a replay is recognised by the store and a different choice meets the committed one.
+// Identities. Keyed digests of the exact confirmed content under the secret retained with the keep (original-pc-keep.ts): the same
+// kept character always reaches the same publication identities (so a replay is recognised by the store and a different choice meets
+// the committed one), while nothing derivable from public contract content can reproduce them.
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-export const releaseIdOf = (campaignId: string, contract: ExistenceContract): string =>
-  sha({ campaign_id: campaignId, contract }, 32);
+const keyed = (secret: string, value: unknown): string =>
+  createHmac("sha256", secret).update(canonicalJson(value), "utf8").digest("hex").slice(0, 32);
+
+export const releaseIdOf = (
+  secret: string,
+  campaignId: string,
+  contract: ExistenceContract,
+): string => keyed(secret, { stage: "release", campaign_id: campaignId, contract });
 
 export interface InsertionPins {
   readonly pc: number;
@@ -347,6 +392,7 @@ export interface InsertionPins {
   readonly locus: number;
 }
 export const bindingIdOf = (
+  secret: string,
   campaignId: string,
   pcId: string,
   worldId: string,
@@ -354,10 +400,15 @@ export const bindingIdOf = (
   pins: InsertionPins,
   statement: string,
 ): string =>
-  sha(
-    { campaign_id: campaignId, pc_id: pcId, world_id: worldId, locus_id: locusId, pins, statement },
-    32,
-  );
+  keyed(secret, {
+    stage: "bind",
+    campaign_id: campaignId,
+    pc_id: pcId,
+    world_id: worldId,
+    locus_id: locusId,
+    pins,
+    statement,
+  });
 
 const publicationOf = (stage: "release" | "bind", id: string): Publication => ({
   group_id: `operator-pc:${id}:${stage}`,
@@ -380,6 +431,7 @@ export type CharacterStatus =
   | "CHARACTER_VERIFICATION_FAILED"
   | "CHARACTER_CONFLICT"
   | "BINDING_CONFLICT"
+  | "PLACEMENT_UNRESOLVED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -409,6 +461,8 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "the campaign holds a player character this command did not release, or another one; nothing was changed. Only a character whose whole-Mirror keep this command recorded is ever bound by it, and a campaign has one",
   BINDING_CONFLICT:
     "the campaign already has an operative player-character binding that is not the one this command makes for this character; nothing was changed",
+  PLACEMENT_UNRESOLVED:
+    "the established world or locus carries constraints that a native-presence statement could contradict, and nothing here can judge that (a player's confirmation cannot override an earlier independent owner fact); the placement is left unresolved and nothing is bound",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:
@@ -438,7 +492,11 @@ const result = (
  * inherited claim, hypothesis or compilation, whose acceptance record is exactly the Mirror of its own content, and whose single
  * version, publication identities and basis are the ones derived from that content. Returns the reasons it is not (empty = it is).
  */
-export function releaseProblems(campaignId: string, fact: OwnerFact): string[] {
+export function releaseProblems(
+  campaignId: string,
+  fact: OwnerFact,
+  keep: KeepRecord | null,
+): string[] {
   const parsed = ExistenceContractSchema.safeParse(fact.value);
   if (!parsed.success) return ["the contract is not a valid released Existence Contract"];
   const c = parsed.data;
@@ -453,7 +511,18 @@ export function releaseProblems(campaignId: string, fact: OwnerFact): string[] {
   const items = mirrorItems(c).map((i) => i.id);
   if (!canonicalEqual(c.release.mirror_acceptance.items_displayed_and_accepted, items))
     out.push("its recorded acceptance is not exactly the Mirror of its content");
-  const id = releaseIdOf(campaignId, c);
+  if (keep === null)
+    return [
+      ...out,
+      "no keep at this console is on record for it: a release that carries the right content and names, but whose keep this command did not retain, is not proof the player reviewed and kept it",
+    ];
+  if (
+    keep.campaign_id !== campaignId ||
+    keep.pc_id !== c.pc_id ||
+    !canonicalEqual(keep.contract, c)
+  )
+    out.push("it is not the character whose keep was retained at this console");
+  const id = releaseIdOf(keep.secret, campaignId, c);
   const p = publicationOf("release", id);
   if (
     fact.version !== 1 ||
@@ -470,10 +539,12 @@ export function releaseProblems(campaignId: string, fact: OwnerFact): string[] {
 interface Held {
   readonly campaign: CanonicalCampaign;
   readonly campaignId: string;
+  /** the retained keep: the secret every recognised publication identity is keyed by */
+  readonly keep: KeepRecord;
 }
 
 function bindingProblems(
-  { campaign, campaignId }: Held,
+  { campaign, campaignId, keep }: Held,
   pcFact: OwnerFact,
   expected?: { worldId: string; locusId: string },
 ): string[] {
@@ -498,6 +569,7 @@ function bindingProblems(
   if (b.active_pc.entity_id !== pcFact.key.split("/")[1])
     out.push("the binding names another character");
   const id = bindingIdOf(
+    keep.secret,
     campaignId,
     b.active_pc.entity_id,
     worldId,
@@ -590,12 +662,13 @@ async function askStatement(
   terminal: OperatorTerminal,
   prompt: string,
   allowEmpty: boolean,
+  judge: typeof judgeStatement = judgeStatement,
 ): Promise<string | null> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const line = await terminal.ask(prompt);
     if (line === null) return null;
     if (line.trim() === "" && allowEmpty) return "";
-    const judged = judgeStatement(line);
+    const judged = judge(line);
     if (judged.ok) return judged.text;
     terminal.say(`NOT ACCEPTED: ${judged.reason}.`);
   }
@@ -608,13 +681,16 @@ async function elicit(terminal: OperatorTerminal): Promise<CharacterDraft | null
     "Welcome to IMMORTALIS. Tell me what matters about your character, in your own words. Leave the rest open.",
   );
   terminal.say(
-    "Everything you say here must be about YOUR character alone. Claims about the wider world are not accepted.",
+    `Everything you say here must be about YOUR character alone, and you say so yourself: begin every statement with "${SELF_CLASS}" (about me alone).`,
+  );
+  terminal.say(
+    "Anything about other people, followers, offices, institutions, places or the wider world is not accepted here, and nothing here decides for you which is which.",
   );
   terminal.say("Who - or what - are you?");
   const identity = await askStatement(terminal, "identity>", false);
   if (identity === null) return null;
   terminal.say(
-    "How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact: <why>",
+    "How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact me: <why>",
   );
   let contact: ContactDraft | null = null;
   for (let attempt = 0; attempt < MAX_ATTEMPTS * MAX_LIST_ITEMS; attempt++) {
@@ -625,7 +701,7 @@ async function elicit(terminal: OperatorTerminal): Promise<CharacterDraft | null
       terminal.say("NOT ACCEPTED: one contact surface, or an explicit no-contact, is needed.");
       continue;
     }
-    const noContact = /^no-contact:\s*(.*)$/s.exec(line.trim());
+    const noContact = /^no-contact\s+(.*)$/s.exec(line.trim());
     const judged = judgeStatement(noContact ? noContact[1]! : line);
     if (!judged.ok) {
       terminal.say(`NOT ACCEPTED: ${judged.reason}.`);
@@ -848,6 +924,40 @@ export async function authorCharacter(p: AuthorCharacterParams): Promise<Charact
   }
 }
 
+/**
+ * The committed world and locus facts that constrain what may be present or happen there (the free-text constraint and law-departure
+ * lists of the World Profile and the Locus). Whether a player's native-presence statement contradicts one of them is a semantic
+ * judgement that belongs to the I-002 compiler / Insertion reconciliation (IR §7); no producer of it exists here, and a player's
+ * confirmation cannot override an earlier independent owner fact. So while any such fact is committed, the compatibility cannot be
+ * judged and the placement is left UNRESOLVED (IR §7: "clarify, consume explicit delegation, or leave unresolved"): nothing is bound.
+ * The broad premise, canon and designation are shown to the player and are not constraints in this sense.
+ */
+export function insertionBlockers(
+  world: {
+    material_world_law_departures: readonly string[];
+    insertion_supporting_constraints: readonly { aspect: string; statement: string }[];
+  },
+  locus: { constraints: readonly { aspect: string; statement: string }[] },
+): string[] {
+  return [
+    ...world.material_world_law_departures.map((d) => `world-law departure: ${quoted(d)}`),
+    ...world.insertion_supporting_constraints.map(
+      (c) => `world constraint ${c.aspect}: ${quoted(c.statement)}`,
+    ),
+    ...locus.constraints.map((c) => `locus constraint ${c.aspect}: ${quoted(c.statement)}`),
+  ];
+}
+
+const unresolved = (blockers: readonly string[], released: boolean) =>
+  result("PLACEMENT_UNRESOLVED", [
+    released
+      ? "the character is released and stays released but unbound"
+      : "nothing was asked and nothing was written",
+    "committed facts that a native-presence statement could contradict:",
+    ...blockers.map((b) => `  - ${b}`),
+    "missing producer: judging a presence statement against these (the I-002 compiler / Insertion reconciliation, IR §7) - none exists in this build",
+  ]);
+
 async function run(
   p: AuthorCharacterParams,
   session: LocalOperatorSession,
@@ -860,21 +970,43 @@ async function run(
   if (!locus || locus.value.world.entity_id !== worldId)
     return result("LOCUS_NOT_ESTABLISHED", [`world: ${worldId}, locus: ${locusId}`]);
 
-  const held: Held = { campaign, campaignId };
+  const stateDir = p.operatorDir ?? defaultOperatorDir(p.campaignDir);
+  const keepRead = await readKeep({
+    dir: stateDir,
+    campaignId,
+    operatorUid: session.operator.uid,
+    ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
+  });
+  if (!keepRead.ok)
+    return result(
+      "SESSION_UNAVAILABLE",
+      [keepRead.error.message],
+      `STATE_UNAVAILABLE ${keepRead.error.code}`,
+    );
+  const keep = keepRead.value;
+
+  // only the Existence Contract kind is a character: other facets of the PC owner (a capability basis, a capability close) are
+  // legitimate facts about a character that already exists, never another one
+  const key = pcExistenceContractKey(pcId);
   const others = campaign.store
     .listFacts()
-    .filter((f) => f.owner === "pc_existence" && f.key !== `pc/${pcId}/existence-contract`);
+    .filter((f) => f.owner === "pc_existence" && f.facet === "existence_contract" && f.key !== key);
   if (others.length > 0)
     return result("CHARACTER_CONFLICT", [`another character is held: ${others[0]!.key}`]);
-  const pcFact = campaign.store.getFact(`pc/${pcId}/existence-contract`);
+  if (keep !== null && keep.pc_id !== pcId)
+    return result("CHARACTER_CONFLICT", [
+      `another character was kept for this campaign: ${keep.pc_id}`,
+    ]);
+  const pcFact = campaign.store.getFact(key);
   const bindingFact = campaign.binding();
+  const blockers = insertionBlockers(world.value, locus.value);
 
   if (pcFact) {
-    const problems = releaseProblems(campaignId, pcFact);
-    if (problems.length > 0) return result("CHARACTER_CONFLICT", problems);
+    const problems = releaseProblems(campaignId, pcFact, keep);
+    if (problems.length > 0 || keep === null) return result("CHARACTER_CONFLICT", problems);
     const pc = campaign.playerCharacter(pcId)!;
     if (bindingFact) {
-      const why = bindingProblems(held, pc.fact, { worldId, locusId });
+      const why = bindingProblems({ campaign, campaignId, keep }, pc.fact, { worldId, locusId });
       return why.length === 0
         ? boundReport(campaign, pcId, campaignId)
         : result("BINDING_CONFLICT", why);
@@ -884,22 +1016,54 @@ async function run(
     );
     for (const l of mirrorPanel(pcId, mirrorItems(pc.value), "as kept earlier", []))
       terminal.say(l);
-    return place(p, session, pc.fact, false);
+    return place(p, session, pc.fact, false, keep, blockers);
   }
   if (bindingFact)
     return result("BINDING_CONFLICT", [
       "an operative binding is held without a character of this command",
     ]);
 
-  const drafted = await elicit(terminal);
-  if (drafted === null) return result("DECLINED", ["the character was not completed or kept"]);
-  const kept = await review(terminal, campaignId, pcId, drafted);
-  if (kept === null) return result("DECLINED", ["the character was not kept"]);
+  let retained: KeepRecord;
+  if (keep !== null) {
+    // kept at this console and retained, but not yet released (an interruption between the two): release exactly what was kept
+    terminal.say(
+      `RESUMING: the character ${pcId} was kept at this console and is not yet released; releasing exactly what was kept.`,
+    );
+    for (const l of mirrorPanel(pcId, mirrorItems(keep.contract), "as kept earlier", []))
+      terminal.say(l);
+    retained = keep;
+  } else {
+    if (blockers.length > 0) return unresolved(blockers, false);
+    const drafted = await elicit(terminal);
+    if (drafted === null) return result("DECLINED", ["the character was not completed or kept"]);
+    const reviewed = await review(terminal, campaignId, pcId, drafted);
+    if (reviewed === null) return result("DECLINED", ["the character was not kept"]);
+    // the proof of the keep is retained BEFORE anything is released, so the release can be recognised as having come from it
+    const record = { pc_id: pcId, secret: newKeepSecret(), contract: reviewed.contract };
+    const kept = await writeKeep({
+      dir: stateDir,
+      campaignId,
+      operatorUid: session.operator.uid,
+      ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
+      record,
+    });
+    if (!kept.ok)
+      return kept.error.code === "KEEP_CONFLICT"
+        ? result("CHARACTER_CONFLICT", [kept.error.message])
+        : result("CHARACTER_OUTCOME_UNKNOWN", [`retaining the keep: ${kept.error.code}`]);
+    terminal.say("PROGRESS keep RETAINED");
+    retained = {
+      format: "immortalis-operator-character-keep",
+      format_version: 1,
+      campaign_id: campaignId,
+      operator_uid: session.operator.uid,
+      ...record,
+    };
+  }
 
-  const releaseId = releaseIdOf(campaignId, kept.contract);
   const released = await campaign.releasePlayerCharacter({
-    ...publicationOf("release", releaseId),
-    contract: kept.contract,
+    ...publicationOf("release", releaseIdOf(retained.secret, campaignId, retained.contract)),
+    contract: retained.contract,
   });
   if (!released.ok) {
     if (UNKNOWN_OUTCOME.has(released.error.code)) {
@@ -908,10 +1072,10 @@ async function run(
     }
     return result("CHARACTER_REFUSED", [`release: ${released.error.code}`], released.error.code);
   }
-  terminal.say(`PROGRESS character RELEASED pc/${pcId}/existence-contract`);
-  const fact = campaign.store.getFact(`pc/${pcId}/existence-contract`);
+  terminal.say(`PROGRESS character RELEASED ${key}`);
+  const fact = campaign.store.getFact(key);
   if (!fact) return result("CHARACTER_OUTCOME_UNKNOWN", ["the released character is not held"]);
-  return place(p, session, fact, true);
+  return place(p, session, fact, true, retained, blockers);
 }
 
 /** The separate, second choice: the player states and confirms native presence at the established world and locus; then the binding is committed. */
@@ -920,6 +1084,8 @@ async function place(
   session: LocalOperatorSession,
   pcFact: OwnerFact,
   releasedNow: boolean,
+  keep: KeepRecord,
+  blockers: readonly string[],
 ): Promise<CharacterResult> {
   const { terminal, pcId, worldId, locusId, campaignId } = p;
   const campaign = session.campaign;
@@ -932,6 +1098,7 @@ async function place(
       code,
     );
 
+  if (blockers.length > 0) return unresolved(blockers, true);
   const w = world.value;
   const lines = (title: string, entries: readonly string[]) =>
     entries.length === 0
@@ -957,7 +1124,7 @@ async function place(
     "state that in your own words. An empty line leaves your character released but unplaced.",
   ])
     terminal.say(l);
-  const statement = await askStatement(terminal, "presence>", true);
+  const statement = await askStatement(terminal, "presence>", true, judgePresence);
   if (statement === null || statement === "")
     return unbound("native presence was not stated or confirmed");
 
@@ -995,7 +1162,7 @@ async function place(
   )
     return unbound("native presence was not confirmed");
 
-  const bindId = bindingIdOf(campaignId, pcId, worldId, locusId, pins, statement);
+  const bindId = bindingIdOf(keep.secret, campaignId, pcId, worldId, locusId, pins, statement);
   const bound = await campaign.bindPlayerCharacter({
     ...publicationOf("bind", bindId),
     pc_id: pcId,
@@ -1030,7 +1197,7 @@ async function place(
     return result("CHARACTER_VERIFICATION_FAILED", [`reopen: ${reopened.error.code}`]);
   try {
     const c = reopened.value;
-    const problems = readBack(c, campaignId, pcId, { worldId, locusId });
+    const problems = readBack(c, campaignId, pcId, { worldId, locusId }, keep);
     return problems.length > 0
       ? result("CHARACTER_VERIFICATION_FAILED", problems)
       : boundReport(c, pcId, campaignId);
@@ -1044,6 +1211,7 @@ function readBack(
   campaignId: string,
   pcId: string,
   expected: { worldId: string; locusId: string },
+  keep: KeepRecord,
 ): string[] {
   const out: string[] = [];
   if (campaign.store.head().campaign_id !== campaignId)
@@ -1051,8 +1219,8 @@ function readBack(
   if (campaign.verify().length > 0) out.push("canonical integrity reports violations");
   const pc = campaign.playerCharacter(pcId);
   if (!pc) return [...out, "the released character is not held"];
-  out.push(...releaseProblems(campaignId, pc.fact));
-  out.push(...bindingProblems({ campaign, campaignId }, pc.fact, expected));
+  out.push(...releaseProblems(campaignId, pc.fact, keep));
+  out.push(...bindingProblems({ campaign, campaignId, keep }, pc.fact, expected));
   return out;
 }
 
@@ -1060,10 +1228,16 @@ function readBack(
  * Reports what a campaign holds of a character this command released and bound, from canon alone: none, released but unbound, or bound
  * (verified). A character this command did not record is reported as a conflict, never as bound.
  */
-export function characterStatus(session: LocalOperatorSession): CharacterResult {
+export async function characterStatus(
+  session: LocalOperatorSession,
+  stateDir: string,
+  fs?: FsOps,
+): Promise<CharacterResult> {
   const campaign = session.campaign;
   const campaignId = session.campaignId;
-  const facts = campaign.store.listFacts().filter((f) => f.owner === "pc_existence");
+  const facts = campaign.store
+    .listFacts()
+    .filter((f) => f.owner === "pc_existence" && f.facet === "existence_contract");
   const binding = campaign.binding();
   if (facts.length === 0)
     return binding
@@ -1079,8 +1253,20 @@ export function characterStatus(session: LocalOperatorSession): CharacterResult 
     ]);
   const fact = facts[0]!;
   const pcId = fact.key.split("/")[1]!;
-  const problems = releaseProblems(campaignId, fact);
-  if (problems.length > 0)
+  const read = await readKeep({
+    dir: stateDir,
+    campaignId,
+    operatorUid: session.operator.uid,
+    ...(fs ? { fs } : {}),
+  });
+  if (!read.ok)
+    return result(
+      "SESSION_UNAVAILABLE",
+      [`campaign: ${campaignId}`, read.error.message],
+      `STATE_UNAVAILABLE ${read.error.code}`,
+    );
+  const problems = releaseProblems(campaignId, fact, read.value);
+  if (problems.length > 0 || read.value === null)
     return result("CHARACTER_CONFLICT", [`campaign: ${campaignId}`, ...problems]);
   const pc = campaign.playerCharacter(pcId)!;
   if (!binding)
@@ -1091,7 +1277,7 @@ export function characterStatus(session: LocalOperatorSession): CharacterResult 
     ]);
   const why = [
     ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
-    ...bindingProblems({ campaign, campaignId }, pc.fact),
+    ...bindingProblems({ campaign, campaignId, keep: read.value }, pc.fact),
   ];
   return why.length > 0
     ? result("CHARACTER_VERIFICATION_FAILED", [`campaign: ${campaignId}`, ...why])

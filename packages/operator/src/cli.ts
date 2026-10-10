@@ -15,7 +15,7 @@ import {
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
-import { LocalOperatorSession } from "./session.ts";
+import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
 
 /**
@@ -313,7 +313,11 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         return exitOf(r.status);
       }
       if (command === "character-status") {
-        const r = characterStatus(session);
+        const r = await characterStatus(
+          session,
+          str("operator-dir") ?? defaultOperatorDir(str("campaign") ?? ""),
+          env.ledgerFs,
+        );
         out(`STATUS ${r.status}`);
         out(r.message);
         for (const line of r.details) out(line);

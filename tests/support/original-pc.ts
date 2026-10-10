@@ -9,6 +9,7 @@ import {
   LOCUS_ID,
   WORLD_ID,
   establish,
+  openOrdinary,
   freshDirs,
   setupDoc,
   writeSetup,
@@ -34,6 +35,9 @@ export const WORDS = {
   possession: "A salt-raker's knife and a coil of rope",
   presence: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh.",
 } as const;
+
+/** The attestation every statement about the character must open with. */
+export const me = (text: string): string => `me: ${text}`;
 
 export const KEEP = { phrase: "keep-character" } as const;
 export const PLACE = { phrase: "place-character" } as const;
@@ -97,6 +101,8 @@ export interface Responder {
   /** answer a prompt label with a fixed line instead of the standard one */
   readonly override?: Readonly<Record<string, string | null>>;
   readonly skipPlace?: boolean;
+  /** statements for the "differs from what would normally be expected" list, typed one per prompt */
+  readonly exceptions?: readonly string[];
 }
 
 /**
@@ -111,22 +117,26 @@ export function respondingConsole(r: Responder = {}): ScriptedConsole {
   let contactDone = false;
   let revised = false;
   let editsSent = 0;
+  let exceptionsSent = 0;
   const answer = (prompt: string): string | null => {
     const label = prompt.trim();
     if (r.eofAt === label) return null;
     if (r.override && label in r.override) return r.override[label]!;
     switch (label) {
       case "identity>":
-        return r.identity ?? WORDS.identityFirst;
+        return me(r.identity ?? WORDS.identityFirst);
       case "contact>":
         if (contactDone) return "";
         contactDone = true;
-        return WORDS.contact;
+        return me(WORDS.contact);
       case "embodiment>":
-        return WORDS.embodiment;
+        return me(WORDS.embodiment);
       case "continuity>":
-        return WORDS.continuity;
-      case "exception>":
+        return me(WORDS.continuity);
+      case "exception>": {
+        const list = r.exceptions ?? [];
+        return exceptionsSent < list.length ? me(list[exceptionsSent++]!) : "";
+      }
       case "open>":
       case "possession>":
         return "";
@@ -179,13 +189,17 @@ export function respondingConsole(r: Responder = {}): ScriptedConsole {
 
 /** The whole standard journey: first display has the wrong age, one revision cycle corrects it and adds a possession, then keep. */
 export const STANDARD: Responder = {
-  revision: [`set identity ${WORDS.identityFinal}`, `add possession ${WORDS.possession}`],
+  revision: [`set identity ${me(WORDS.identityFinal)}`, `add possession ${me(WORDS.possession)}`],
 };
 
 /** A fresh campaign whose world, locus and finite source were committed by the shipped `establish-locality` path. */
-export async function localityCampaign(): Promise<LocalityDirs> {
+export async function localityCampaign(
+  mutate: (doc: ReturnType<typeof setupDoc>) => void = () => undefined,
+): Promise<LocalityDirs> {
   const dirs = freshDirs();
-  const { result } = await establish(dirs, writeSetup(setupDoc()));
+  const doc = setupDoc();
+  mutate(doc);
+  const { result } = await establish(dirs, writeSetup(doc));
   if (result.status !== "LOCALITY_READY") throw new Error(`locality not ready: ${result.status}`);
   return dirs;
 }
@@ -281,19 +295,40 @@ export function runAuthor(
 
 /** The script of the standard journey for a process (one entry per prompt, in the order the service asks). */
 export const standardScript = (): Line[] => [
-  WORDS.identityFirst,
-  WORDS.contact,
+  me(WORDS.identityFirst),
+  me(WORDS.contact),
   "",
-  WORDS.embodiment,
-  WORDS.continuity,
+  me(WORDS.embodiment),
+  me(WORDS.continuity),
   "",
   "",
   "",
   "change",
-  `set identity ${WORDS.identityFinal}`,
-  `add possession ${WORDS.possession}`,
+  `set identity ${me(WORDS.identityFinal)}`,
+  `add possession ${me(WORDS.possession)}`,
   "",
   KEEP,
   WORDS.presence,
   PLACE,
 ];
+
+/**
+ * What a finished campaign holds, without the publication identities (they are keyed by a per-keep secret, so two independent runs
+ * of the same journey legitimately differ there): the owner facts' values, versions and keys, and the number of commits.
+ */
+export async function shapeOf(dirs: LocalityDirs) {
+  const c = await openOrdinary(dirs.campaignDir);
+  try {
+    return {
+      revision: c.store.head().revision,
+      facts: c.store
+        .listFacts()
+        .map((f) => ({ key: f.key, owner: f.owner, facet: f.facet, version: f.version }))
+        .sort((a, b) => a.key.localeCompare(b.key)),
+      character: c.playerCharacter(PC_ID)?.value,
+      binding: c.binding()?.value,
+    };
+  } finally {
+    await c.close();
+  }
+}

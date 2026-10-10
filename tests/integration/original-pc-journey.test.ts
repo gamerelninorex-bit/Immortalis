@@ -13,6 +13,7 @@ import {
   worldProfileKey,
 } from "@immortalis/contracts";
 import { mirrorItems, releaseIdOf } from "@immortalis/operator";
+import { readKeep } from "../../packages/operator/src/original-pc-keep.ts";
 import {
   establishArgs,
   headOf,
@@ -34,6 +35,7 @@ import {
   characterStatusArgs,
   localityCampaign,
   runAuthor,
+  shapeOf,
   standardScript,
 } from "../support/original-pc.ts";
 
@@ -44,7 +46,7 @@ async function reference() {
   const dirs = await localityCampaign();
   const run = await runAuthor(authorArgs(dirs), standardScript());
   expect(run.stdout).toContain("STATUS CHARACTER_BOUND");
-  return { dirs, head: await headOf(dirs.campaignDir) };
+  return { dirs, shape: await shapeOf(dirs) };
 }
 
 describe("a human authors, reviews, revises and keeps a character, then separately places it: real processes of the shipped binary", () => {
@@ -81,8 +83,10 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     // placement is a separate choice with its own phrase, offered only after the character was released
     const places = phrases(one.stdout, "place-character");
     expect(places).toHaveLength(1);
-    const order = [...one.stdout.matchAll(/PROGRESS (\w+) (RELEASED|COMMITTED)/g)].map((m) => m[1]);
-    expect(order).toEqual(["character", "binding"]);
+    const order = [...one.stdout.matchAll(/PROGRESS (\w+) (RETAINED|RELEASED|COMMITTED)/g)].map(
+      (m) => m[1],
+    );
+    expect(order).toEqual(["keep", "character", "binding"]);
     expect(one.stdout.indexOf("PROGRESS character RELEASED")).toBeLessThan(
       one.stdout.indexOf("PLACEMENT"),
     );
@@ -127,9 +131,20 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     expect(
       pc.value.release.mirror_acceptance.items_displayed_and_accepted.join("\n"),
     ).not.toContain(WORDS.identityFirst);
+    // the keep retained at the console BEFORE the release is exactly what the owner holds; the secret that keys the publication
+    // identities exists only in that owner-only record and appears nowhere in canon
+    const read = await readKeep({
+      dir: dirs.operatorDir,
+      campaignId: CAMPAIGN,
+      operatorUid: process.getuid!(),
+    });
+    if (!read.ok || read.value === null) throw new Error("the keep was not retained");
+    const record = read.value;
+    expect(record.contract).toEqual(pc.value);
     expect(pc.fact.provenance.group_id).toBe(
-      `operator-pc:${releaseIdOf(CAMPAIGN, pc.value)}:release`,
+      `operator-pc:${releaseIdOf(record.secret, CAMPAIGN, pc.value)}:release`,
     );
+    expect(JSON.stringify(campaign.store.listFacts())).not.toContain(record.secret);
 
     const binding = campaign.binding()!;
     expect(binding.fact).toMatchObject({
@@ -229,8 +244,35 @@ describe("before the valid whole-Mirror keep and the separate placement, the com
     expect(resumed.stdout).not.toContain("identity>");
     expect(resumed.stdout).not.toContain("keep-character");
     expect(resumed.stdout).toContain("STATUS CHARACTER_BOUND");
-    const head = await headOf(dirs.campaignDir);
-    expect(head).toEqual(expected.head);
+    expect(await shapeOf(dirs)).toEqual(expected.shape);
+  }, 180_000);
+
+  it("a process killed after the keep and before the release leaves nothing released; the same command releases exactly what was kept and asks for the placement alone", async () => {
+    const dirs = await localityCampaign();
+    const killed = await runAuthor(authorArgs(dirs), standardScript(), {
+      killAfter: /PROGRESS keep RETAINED/,
+    });
+    expect(killed.signal).toBe("SIGKILL");
+    const kept = await readKeep({
+      dir: dirs.operatorDir,
+      campaignId: CAMPAIGN,
+      operatorUid: process.getuid!(),
+    });
+    if (!kept.ok || kept.value === null) throw new Error("the keep was not retained");
+    const resumed = await runAuthor(authorArgs(dirs, ["--reclaim-stale-lock"]), [
+      WORDS.presence,
+      PLACE,
+    ]);
+    expect(resumed.code).toBe(0);
+    expect(resumed.stdout).toContain("releasing exactly what was kept");
+    expect(resumed.stdout).not.toContain("identity>");
+    expect(resumed.stdout).toContain("STATUS CHARACTER_BOUND");
+    const campaign = await openOrdinary(dirs.campaignDir);
+    expect(campaign.playerCharacter(PC_ID)!.value).toEqual(kept.value.contract);
+    expect(campaign.playerCharacter(PC_ID)!.value.identity_agency.statement).toBe(
+      WORDS.identityFinal,
+    );
+    await campaign.close();
   }, 180_000);
 
   it("the unplaced state is honest: declining placement leaves the character released and unbound, and says so", async () => {
