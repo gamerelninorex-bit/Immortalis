@@ -110,6 +110,7 @@ describe("existing owners, the Temporal kernel, the predecessor gateways and the
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
+      "null-pc-ooc-held-continuation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

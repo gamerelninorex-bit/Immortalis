@@ -27,7 +27,7 @@ const recordingView = () => {
 };
 
 describe("the protocol package exposes exactly the event-addressed read, the causal delivery and the confirmed relocation gateway", () => {
-  it("has the five trusted-side binders and the five operations, and nothing else", () => {
+  it("has the six trusted-side binders and the six operations, and nothing else", () => {
     expect(Object.keys(protocol).sort()).toEqual([
       "advanceConfirmedPcTransferToDelivery",
       "advanceNullPcOocToTarget",
@@ -35,10 +35,12 @@ describe("the protocol package exposes exactly the event-addressed read, the cau
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedEventSignalContext",
+      "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
+      "resumeNullPcOocHeldAdvance",
     ]);
     expect(readCurrentEventSignalPresentation.length).toBe(2);
   });

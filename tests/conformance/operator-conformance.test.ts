@@ -46,7 +46,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
   "packages/protocol/src/index.ts":
-    "87e768a4d743db942db7404cd29379567a52a7ee6ca49ef9e8af5e2ad68977d3",
+    "7bae699e24ea78e176b24fe7b5327f8b8a06aec4d8eb2b6b463abf05d9b55a57",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/protocol-relocation.ts":
@@ -76,12 +76,13 @@ describe("existing owners, gateways and the frozen artifacts are untouched: the 
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the protocol package gained no host operation and no module: the five-operation surface is as it was", () => {
+  it("the operator gained no protocol host operation and no module of its own: the protocol surface is the six operations it was given", () => {
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
       "causal-event-signal.ts",
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
+      "null-pc-ooc-held-continuation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
