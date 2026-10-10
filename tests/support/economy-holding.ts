@@ -6,7 +6,10 @@ import {
 } from "@immortalis/engine";
 import {
   FIXTURE_HOLDING_CAMPAIGN,
+  HOLDER_OTHER,
   HOLDING_1,
+  HOLDING_2,
+  PREMISE_2,
   establishHoldingInput,
   holdingPublication,
 } from "@immortalis/testkit";
@@ -70,3 +73,33 @@ export const holdingSummary = (store: CampaignStore) => {
     economy: store.listFacts().filter((f) => f.key.startsWith("economy/")),
   };
 };
+
+/**
+ * The reallocation witness's two independently committed openings (separate premises, separate publications): position
+ * A = holder H, 7 of object O; position B = another holder, 2 of the SAME object and unit. Both at version 1.
+ */
+export async function seededReallocationCampaign(
+  dir: string,
+  o: {
+    readonly amountA?: number;
+    readonly amountB?: number;
+    readonly fs?: FileCampaignOptions["fs"];
+  } = {},
+): Promise<HoldingSeeded> {
+  const s = await seededHoldingCampaign(dir, {
+    ...(o.amountA !== undefined ? { amount: o.amountA } : {}),
+    ...(o.fs ? { fs: o.fs } : {}),
+  });
+  await must(
+    s.economy.establishHolding({
+      ...holdingPublication(2),
+      holding: establishHoldingInput({
+        holding_id: HOLDING_2,
+        holder_ref: HOLDER_OTHER,
+        amount: o.amountB ?? 2,
+        premise_id: PREMISE_2,
+      }),
+    }),
+  );
+  return s;
+}

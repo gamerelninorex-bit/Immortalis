@@ -71,3 +71,30 @@ export const releaseInstruction = (
   encumbrance_version: encumbranceVersion,
   instruction_id: over.instruction_id ?? `cancel-${holdId}`,
 });
+
+export const REALLOCATION_1 = "reallocation-1";
+
+/**
+ * An OOC reallocation instruction between two positions at the versions it saw. It carries identities, the two pinned
+ * versions and an amount only: no resulting position, verdict, approval, restriction, title or consent.
+ */
+export const reallocationInstruction = (
+  fromVersion: number,
+  toVersion: number,
+  amount: number,
+  over: {
+    campaign_id?: string;
+    reallocation_id?: string;
+    instruction_id?: string;
+    from?: string;
+    to?: string;
+    unit?: string;
+  } = {},
+) => ({
+  campaign_id: over.campaign_id ?? FIXTURE_HOLDING_CAMPAIGN,
+  reallocation_id: over.reallocation_id ?? REALLOCATION_1,
+  instruction_id: over.instruction_id ?? `instruction-${over.reallocation_id ?? REALLOCATION_1}`,
+  from: { holding_id: over.from ?? HOLDING_1, holding_version: fromVersion },
+  to: { holding_id: over.to ?? HOLDING_2, holding_version: toVersion },
+  quantity: { amount, unit: over.unit ?? HOLDING_UNIT },
+});

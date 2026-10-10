@@ -258,6 +258,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "economy/encumbrance/h1/e1",
   },
   {
+    id: "economy_reallocation",
+    owner: "economy",
+    facet: "economy_state",
+    lifecycle: "SEALED",
+    group: "ECONOMY_HOLDING_FACT_KINDS",
+    exampleKey: "economy/reallocation/t1",
+  },
+  {
     id: "logistics_commitment",
     owner: "logistics",
     facet: "logistics_state",
@@ -666,6 +674,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "holding",
       "issueDemand",
       "realization",
+      "reallocateHoldings",
+      "reallocation",
       "releaseEncumbrance",
       "request",
     ],

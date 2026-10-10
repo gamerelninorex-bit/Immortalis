@@ -76,7 +76,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "05aa10d4e7fee62fed2128ac2e8e62d79cf73ab6ecc3cca3778c17e18bcea93f",
+    "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":
