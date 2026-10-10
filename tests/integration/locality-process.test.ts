@@ -260,3 +260,107 @@ describe("a process killed at each durable step converges on the uninterrupted c
     }, 180_000);
   }
 });
+
+// BLUE F60-R1: the confirmed setup identity must be retained across the window in which the package exists and holds nothing. A
+// different, individually valid setup offered there is a conflict, never a new first choice.
+describe("F60-R1: a different confirmed setup is refused across the package-only window, in real subprocesses", () => {
+  const otherDoc = () => {
+    const d = setupDoc();
+    d.world.premise = "A walled orchard town above a dry river.";
+    d.source.quantity.amount = 40;
+    d.source.access_facts = [{ aspect: "terrain", statement: "Reached by the orchard stair." }];
+    return d;
+  };
+
+  /** An empty package at revision 0 and no fact: what a kill right after the package is created is meant to leave. */
+  async function packageOnly(file: string) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const dirs = freshDirs();
+      const killed = await runShipped(establishArgs(dirs, file), ["confirm"], {
+        killAfter: /PROGRESS package CREATED/,
+      });
+      expect(killed.signal).toBe("SIGKILL");
+      // reclaim the dead holder's lock the way the operator would, then look at what the kill left
+      await runShipped(statusArgs(dirs, ["--reclaim-stale-lock"]));
+      const c = await openOrdinary(dirs.campaignDir);
+      const empty = c.store.head().revision === 0 && c.store.listFacts().length === 0;
+      await c.close();
+      if (empty) return dirs;
+    }
+    throw new Error("never caught the package-only window");
+  }
+
+  it("confirm A → kill after the package is created → confirmed B is refused, canon stays empty → A converges", async () => {
+    const fileA = writeSetup(setupDoc());
+    const reference = freshDirs();
+    expect((await runShipped(establishArgs(reference, fileA), ["confirm"])).code).toBe(0);
+
+    const dirs = await packageOnly(fileA);
+    const before = await headOf(dirs.campaignDir);
+    expect(before.revision).toBe(0);
+
+    const refused = await runShipped(
+      establishArgs(dirs, writeSetup(otherDoc()), ["--reclaim-stale-lock"]),
+      ["confirm"],
+    );
+    expect(refused.stdout).toContain("STATUS SETUP_CONFLICT");
+    expect(refused.stdout).not.toContain("To confirm");
+    expect(refused.stdout).not.toContain("PROGRESS");
+    expect(refused.code).toBe(3);
+    const after = await openOrdinary(dirs.campaignDir);
+    expect(after.store.listFacts()).toEqual([]);
+    expect(after.store.head().revision).toBe(0);
+    await after.close();
+    expect(await headOf(dirs.campaignDir)).toEqual(before);
+
+    // the original confirmed setup still converges, through the ordinary owner-verified open
+    const resumed = await runShipped(establishArgs(dirs, fileA, ["--reclaim-stale-lock"]), [
+      "confirm",
+    ]);
+    expect(resumed.stdout).toContain("STATUS LOCALITY_READY");
+    expect(resumed.code).toBe(0);
+    expect(await headOf(dirs.campaignDir)).toEqual(await headOf(reference.campaignDir));
+    const c = await openOrdinary(dirs.campaignDir);
+    expect(c.verify()).toEqual([]);
+    expect(c.world(WORLD_ID)!.value.premise).toBe(setupDoc().world.premise);
+    await c.close();
+  }, 240_000);
+
+  it("kill right after the identity is retained, before the package exists: a different B is refused, A converges", async () => {
+    const fileA = writeSetup(setupDoc());
+    const reference = freshDirs();
+    expect((await runShipped(establishArgs(reference, fileA), ["confirm"])).code).toBe(0);
+
+    const dirs = freshDirs();
+    const killed = await runShipped(establishArgs(dirs, fileA), ["confirm"], {
+      killAfter: /PROGRESS setup PINNED/,
+    });
+    expect(killed.signal).toBe("SIGKILL");
+
+    // whether the kill beat the package or not, B is a different confirmed setup for the same campaign
+    const refused = await runShipped(
+      establishArgs(dirs, writeSetup(otherDoc()), ["--reclaim-stale-lock"]),
+      ["confirm"],
+    );
+    expect(refused.stdout).toContain("STATUS SETUP_CONFLICT");
+    expect(refused.stdout).not.toContain("To confirm");
+    expect(refused.code).toBe(3);
+
+    const resumed = await runShipped(establishArgs(dirs, fileA, ["--reclaim-stale-lock"]), [
+      "confirm",
+    ]);
+    expect(resumed.stdout).toContain("STATUS LOCALITY_READY");
+    expect(await headOf(dirs.campaignDir)).toEqual(await headOf(reference.campaignDir));
+  }, 240_000);
+
+  it("once a setup is confirmed, a different one is refused at every later cut with the canon unchanged", async () => {
+    const dirs = freshDirs();
+    const fileA = writeSetup(setupDoc());
+    expect((await runShipped(establishArgs(dirs, fileA), ["confirm"])).code).toBe(0);
+    const before = await headOf(dirs.campaignDir);
+    const refused = await runShipped(establishArgs(dirs, writeSetup(otherDoc())), ["confirm"]);
+    expect(refused.stdout).toContain("STATUS SETUP_CONFLICT");
+    expect(refused.stdout).not.toContain("To confirm");
+    expect(await headOf(dirs.campaignDir)).toEqual(before);
+  }, 240_000);
+});

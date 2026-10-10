@@ -32,9 +32,10 @@ import {
 import { CanonicalCampaign, canonicalEqual, nodeFs, type FsOps } from "@immortalis/engine";
 import { OPERATOR_PUBLICATION_BASIS, OPERATOR_PUBLICATION_SECRECY } from "./commands.ts";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
-import { verifyLocalOperator } from "./local-operator.ts";
+import { ensureOperatorStateDirectory, verifyLocalOperator } from "./local-operator.ts";
+import { readPin, writePin } from "./locality-pin.ts";
 import { OOC_BANNER } from "./ooc.ts";
-import { LocalOperatorSession } from "./session.ts";
+import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 
 /**
@@ -587,6 +588,36 @@ export async function establishLocality(params: EstablishLocalityParams): Promis
   const buildId = params.buildId ?? BUILD_ID;
   const { terminal, campaignDir } = params;
 
+  // The confirmed setup identity this campaign already retains (BLUE F60-R1): a different setup is refused here, before anything else
+  // is looked at, even when the package holds no fact yet — the empty package between its creation and the first World-State commit
+  // carries no marker of what was confirmed, so the retained identity is the only thing that can tell a resumption from a new choice.
+  const stateDir = params.operatorDir ?? defaultOperatorDir(campaignDir);
+  const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
+  const retainedFs = params.ledgerFs ?? nodeFs;
+  if (uid === undefined)
+    return result("SESSION_UNAVAILABLE", [], "OPERATOR_UNVERIFIED UNSUPPORTED_PLATFORM");
+  if (existsSync(stateDir)) {
+    const trusted = verifyLocalOperator(stateDir, "operator-state");
+    if (!trusted.ok || trusted.value.uid !== uid)
+      return result("SESSION_UNAVAILABLE", [], "OPERATOR_UNVERIFIED");
+  }
+  const retained = await readPin({
+    dir: stateDir,
+    campaignId: params.campaignId,
+    operatorUid: uid,
+    fs: retainedFs,
+  });
+  if (!retained.ok)
+    return result(
+      "SESSION_UNAVAILABLE",
+      [retained.error.message],
+      `STATE_UNAVAILABLE ${retained.error.code}`,
+    );
+  if (retained.value !== null && retained.value !== id)
+    return result("SETUP_CONFLICT", [
+      `this campaign already has a different confirmed setup (identity ${retained.value}); this one is ${id}`,
+    ]);
+
   // what is on disk: nothing/empty (create), a package (resume) or something that is neither (never adopted)
   let isNew: boolean;
   try {
@@ -685,6 +716,10 @@ export async function establishLocality(params: EstablishLocalityParams): Promis
       isNew,
       fs,
       buildId,
+      stateDir,
+      uid,
+      retainedFs,
+      retained: retained.value,
     });
   } catch {
     // an unexpected failure after the confirmation is an unknown outcome, never a success and never a clean refusal
@@ -702,12 +737,52 @@ interface CommitArgs {
   readonly isNew: boolean;
   readonly fs: FsOps;
   readonly buildId: string;
+  /** the owner-only retained-state directory, the operator's uid and the file system seam of the retained setup identity */
+  readonly stateDir: string;
+  readonly uid: number;
+  readonly retainedFs: FsOps;
+  /** the identity already retained for this campaign (equal to `id`), or null when this confirmation is the first */
+  readonly retained: string | null;
 }
 
 /** The confirmed writes: create the package if new, commit the missing stages in order, then verify on a fresh reopen. */
 async function commitAndVerify(a: CommitArgs): Promise<LocalityResult> {
   const { params, setup, id, stages, pending, existing, fs, buildId } = a;
   const { terminal, campaignDir } = params;
+  const pin = {
+    dir: a.stateDir,
+    campaignId: params.campaignId,
+    operatorUid: a.uid,
+    fs: a.retainedFs,
+  };
+
+  // The confirmed identity is retained durably BEFORE the package is created (or anything is committed), so that every later
+  // durable cut — package created and empty, each fact, the acknowledgement — can tell this setup from a different one. A failed
+  // write may or may not have landed; nothing has been created yet, and the next run reads which.
+  if (a.retained === null) {
+    try {
+      ensureOperatorStateDirectory(a.stateDir);
+    } catch {
+      await closeQuietly(existing);
+      return result("SESSION_UNAVAILABLE", [], "STATE_UNAVAILABLE");
+    }
+    const trusted = verifyLocalOperator(a.stateDir, "operator-state");
+    if (!trusted.ok || trusted.value.uid !== a.uid) {
+      await closeQuietly(existing);
+      return result("SESSION_UNAVAILABLE", [], "OPERATOR_UNVERIFIED");
+    }
+    const kept = await writePin({ ...pin, setupId: id });
+    if (!kept.ok) {
+      await closeQuietly(existing);
+      return kept.error.code === "PIN_CONFLICT"
+        ? result("SETUP_CONFLICT", [kept.error.message])
+        : result("LOCALITY_OUTCOME_UNKNOWN", [
+            `retaining the confirmed setup identity: ${kept.error.code}`,
+          ]);
+    }
+    terminal.say(`PROGRESS setup PINNED ${id}`);
+  }
+
   let live: LocalOperatorSession;
   if (existing) {
     live = existing;
@@ -715,6 +790,13 @@ async function commitAndVerify(a: CommitArgs): Promise<LocalityResult> {
     const created = await createPackage(params, fs, buildId);
     if (created) return created;
     terminal.say(`PROGRESS package CREATED ${params.campaignId}`);
+    // package creation is exclusive and so serialises two consoles racing on one new campaign: the winner re-reads the retained identity
+    // and goes on only if it is still its own
+    const still = await readPin(pin);
+    if (!still.ok || still.value !== id)
+      return result("SETUP_CONFLICT", [
+        "the retained setup identity of this campaign is not this setup",
+      ]);
     const opened = await openSession(params);
     if (!opened.ok) return opened.refusal;
     live = opened.session;

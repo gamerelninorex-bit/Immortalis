@@ -131,6 +131,27 @@ describe("the shipped path composes only the existing World-State operations", (
     expect(src.match(/CanonicalCampaign\.create\(/g)).toHaveLength(2); // the package, and the scratch admission check
   });
 
+  it("retains the confirmed setup identity in the owner-only retained-state directory, apart from the retained intents, before the package is created", () => {
+    const pin = code(`${SRC}/locality-pin.ts`);
+    expect(
+      [...new Set(importedNames(`${SRC}/locality-pin.ts`, "@immortalis/engine"))].sort(),
+    ).toEqual(["FsOps", "nodeFs"]);
+    // it is not an intent of the ledger that `reconcile` replays and the unreconciled-choice gates scan
+    expect(pin).not.toMatch(/IntentLedger|ledger\.ts|CONFIRMED|reconcile/);
+    expect(pin).toMatch(/writeFileDurable/);
+    expect(pin).not.toMatch(/Math\.random|Date\.now|new Date|randomUUID/);
+    // internal to the package: not part of the operator's exported surface
+    expect(Object.keys(operator)).not.toEqual(expect.arrayContaining(["readPin"]));
+    expect(code(`${SRC}/index.ts`)).not.toMatch(/locality-pin/);
+    // ordering in establishLocality: the pin is read first, written before the package is created, and re-read after
+    const src = code(`${SRC}/locality.ts`);
+    const body = src.slice(src.indexOf("async function commitAndVerify"));
+    expect(body.indexOf("writePin(")).toBeGreaterThan(-1);
+    expect(body.indexOf("writePin(")).toBeLessThan(body.indexOf("createPackage("));
+    expect(body.indexOf("createPackage(")).toBeLessThan(body.indexOf("readPin(pin)"));
+    expect(src.indexOf("await readPin(")).toBeLessThan(src.indexOf("fs.list(campaignDir)"));
+  });
+
   it("invents no quantity, estimate, default, clock or random value: identities are derived from the confirmed content alone", () => {
     const src = code(`${SRC}/locality.ts`);
     expect(src).not.toMatch(/Math\.random|Date\.now|new Date|randomUUID|randomBytes/);
@@ -179,8 +200,14 @@ describe("the document states the boundary, the limits and the untouched governa
       "OB-030",
       "PF-6/F-028 remains BLOCKED / NOT ACTIVATED",
       "IA-07",
+      "F60-R1",
+      "2026-10-10T13:11:33.766Z",
+      "locality-setup-<hash>.json",
+      "PROGRESS setup PINNED",
     ])
       expect(doc, must).toContain(must);
+    // BLUE F60-R1: a changed setup is never "simply a new setup" because nothing was committed yet
+    expect(doc).not.toMatch(/changed setup is simply a new setup/);
     expect(doc).toMatch(/\*\*mechanism only\*\*/);
     expect(doc).toContain("remote authentication provider");
   });

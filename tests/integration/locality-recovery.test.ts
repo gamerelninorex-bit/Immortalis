@@ -4,11 +4,13 @@
 // confirmed setup, which must land on exactly the campaign an uninterrupted run produces; a changed or conflicting setup must fail
 // closed, never mix two choices, and never create a second identity. A partially constructed campaign is never reported ready.
 import { spawnSync } from "node:child_process";
+import { writeFileSync as writeFile } from "node:fs";
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CanonicalCampaign, nodeFs } from "@immortalis/engine";
 import { scriptedTerminal } from "../support/operator.ts";
+import { pinFileName } from "../../packages/operator/src/locality-pin.ts";
 import { LocalOperatorSession, establishLocality, localityStatus } from "@immortalis/operator";
 import { fixtureWorld, instrumentFs, publication } from "@immortalis/testkit";
 import {
@@ -252,5 +254,121 @@ describe("a changed or conflicting setup fails closed against what a campaign al
     expect(run.result.status).toBe("SETUP_CONFLICT");
     expect(run.terminal.asked()).toBe(0);
     expect(await headOf(dirs.campaignDir)).toEqual(before);
+  }, 120_000);
+});
+
+// BLUE F60-R1: the confirmed setup identity is retained before the package exists, so a different valid setup is a conflict in the
+// package-only window too — and an ambiguous write of the identity itself is reconciled by what the next run reads.
+describe("F60-R1: the confirmed setup identity survives the package-only window", () => {
+  /** a campaign whose standard package exists, empty: the world group never reached the store */
+  async function packageOnly() {
+    const dirs = freshDirs();
+    const file = writeSetup(setupDoc());
+    loseReply("establishWorld", false);
+    expect((await establish(dirs, file)).result.status).toBe("LOCALITY_OUTCOME_UNKNOWN");
+    vi.restoreAllMocks();
+    const held = await openOrdinary(dirs.campaignDir);
+    expect(held.store.head().revision).toBe(0);
+    expect(held.store.listFacts()).toEqual([]);
+    await held.close();
+    return { dirs, file, before: await headOf(dirs.campaignDir) };
+  }
+
+  const others: [string, (d: any) => void][] = [
+    ["a different premise", (d) => (d.world.premise = "A different premise entirely.")],
+    ["a different exact quantity", (d) => (d.source.quantity.amount = 121)],
+    ["a different unit", (d) => (d.source.quantity.unit = "barrel")],
+    ["a different access fact", (d) => (d.source.access_facts[0].statement = "Only by boat.")],
+    ["a different locus designation", (d) => (d.locus.designation = "The north pans")],
+    ["a different source key", (d) => (d.source.source_key = "src-2")],
+    [
+      "a second world identity",
+      (d) => {
+        d.world.world_id = d.locus.world_id = d.source.world_id = "world-other";
+      },
+    ],
+  ];
+  for (const [name, change] of others) {
+    it(`${name}, confirmed after a package-only interruption, is refused; the empty canon is unchanged and the original still converges`, async () => {
+      const expected = await reference();
+      const { dirs, file, before } = await packageOnly();
+      const doc = setupDoc();
+      change(doc);
+      const other = await establish(dirs, writeSetup(doc), ["confirm"]);
+      expect(other.result.status).toBe("SETUP_CONFLICT");
+      expect(other.terminal.asked()).toBe(0);
+      expect(await headOf(dirs.campaignDir)).toEqual(before);
+      const c = await openOrdinary(dirs.campaignDir);
+      expect(c.store.listFacts()).toEqual([]);
+      await c.close();
+
+      const resumed = await establish(dirs, file);
+      expect(resumed.result.status).toBe("LOCALITY_READY");
+      expect(await headOf(dirs.campaignDir)).toEqual(expected);
+    }, 120_000);
+  }
+
+  it("a pin write that landed but reported failure creates nothing, pins the setup, and refuses a different one", async () => {
+    const expected = await reference();
+    const dirs = freshDirs();
+    const file = writeSetup(setupDoc());
+    const faulty = instrumentFs(nodeFs, { failAt: 1, when: "after" });
+    const first = await establish(dirs, file, ["confirm"], { ledgerFs: faulty.fs });
+    expect(first.result.status).toBe("LOCALITY_OUTCOME_UNKNOWN");
+    expect(existsSync(dirs.campaignDir)).toBe(false);
+
+    const doc = setupDoc();
+    doc.source.quantity.amount = 7;
+    const other = await establish(dirs, writeSetup(doc));
+    expect(other.result.status).toBe("SETUP_CONFLICT");
+    expect(other.terminal.asked()).toBe(0);
+    expect(existsSync(dirs.campaignDir)).toBe(false);
+
+    expect((await establish(dirs, file)).result.status).toBe("LOCALITY_READY");
+    expect(await headOf(dirs.campaignDir)).toEqual(expected);
+  }, 120_000);
+
+  it("a pin write that did not land creates nothing and pins nothing: the next confirmed setup is the first", async () => {
+    const dirs = freshDirs();
+    const faulty = instrumentFs(nodeFs, { failAt: 1, when: "before" });
+    const first = await establish(dirs, writeSetup(setupDoc()), ["confirm"], {
+      ledgerFs: faulty.fs,
+    });
+    expect(first.result.status).toBe("LOCALITY_OUTCOME_UNKNOWN");
+    expect(existsSync(dirs.campaignDir)).toBe(false);
+
+    const doc = setupDoc();
+    doc.source.quantity.amount = 7;
+    expect((await establish(dirs, writeSetup(doc))).result.status).toBe("LOCALITY_READY");
+    // and now THAT setup is the confirmed one
+    expect((await establish(dirs, writeSetup(setupDoc()))).result.status).toBe("SETUP_CONFLICT");
+  }, 120_000);
+
+  it("two consoles racing on one new campaign: the package's exclusive creation serialises them and the loser's identity is never committed", async () => {
+    const dirs = freshDirs();
+    const file = writeSetup(setupDoc());
+    const create = CanonicalCampaign.create;
+    vi.spyOn(CanonicalCampaign, "create").mockImplementation(async (dir: string, p: any) => {
+      const made = await create.call(CanonicalCampaign, dir, p);
+      // the other console's confirmation lands in the retained state right after this package is created
+      if (made.ok && !dir.includes("dry-run"))
+        writeFile(
+          join(dirs.operatorDir, pinFileName(LOCALITY_CAMPAIGN)),
+          JSON.stringify({
+            format: "immortalis-operator-locality-setup-pin",
+            format_version: 1,
+            campaign_id: LOCALITY_CAMPAIGN,
+            operator_uid: process.getuid!(),
+            setup_id: "f".repeat(32),
+          }),
+        );
+      return made;
+    });
+    const run = await establish(dirs, file);
+    vi.restoreAllMocks();
+    expect(run.result.status).toBe("SETUP_CONFLICT");
+    const c = await openOrdinary(dirs.campaignDir);
+    expect(c.store.listFacts()).toEqual([]);
+    await c.close();
   }, 120_000);
 });
