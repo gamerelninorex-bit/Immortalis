@@ -18,7 +18,7 @@ import type { OperatorTerminal } from "./terminal.ts";
  * Not claimed: that a human typed the line. Anything able to write to the operator's console is the operator.
  */
 
-export type ConfirmationVerb = "relocate" | "advance";
+export type ConfirmationVerb = "relocate" | "advance" | "null-advance" | "null-resume";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;

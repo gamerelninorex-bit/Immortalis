@@ -2,6 +2,8 @@ import { parseArgs } from "node:util";
 import type { StageOwnerExtension, FsOps } from "@immortalis/engine";
 import {
   advance,
+  nullAdvance,
+  nullResume,
   reconcile,
   relocate,
   status,
@@ -26,6 +28,8 @@ export const USAGE = `${OOC_BANNER}
 usage:
   immortalis-operator relocate  --campaign <dir> --campaign-id <id> --world <id> --locus <id> --delivery-unit <unit> --delivery-value <n>
   immortalis-operator advance   --campaign <dir> --campaign-id <id>
+  immortalis-operator null-advance --campaign <dir> --campaign-id <id> --target-unit <unit> --target-value <n>
+  immortalis-operator null-resume  --campaign <dir> --campaign-id <id>
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
@@ -35,6 +39,12 @@ relocate: --world/--locus are the character's chosen destination (confirmation 1
   exact canonical-time value you declare from outside the world to exercise the movement foundation. Both are required; there
   is no default, nothing is calculated, and it is no travel time, ETA, forecast or guarantee of arrival.
 advance: a separate, second confirmation to advance time to that declared boundary and no further.
+null-advance / null-resume: for a campaign with NO active character only (the active-PC commands above refuse it, and these refuse
+  a campaign with one). null-advance is ONE explicit OOC choice to advance canonical time to the exact target given by
+  --target-unit/--target-value (an exact canonical-time value, not a duration or a date; both required, no default) and no
+  further. null-resume is a separate, later OOC choice with its own confirmation to take up the remainder the world kept of an
+  earlier null-advance, toward that earlier target only (it accepts no target). A committed status is a transaction status, not a
+  report that the target was attained, that anything occurred, or what anyone perceives or knows; nothing resumes on its own.
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -58,12 +68,16 @@ const exitOf = (s: CommandStatus): number => {
   switch (s) {
     case "RELOCATION_COMMITTED":
     case "ADVANCE_COMMITTED":
+    case "NULL_PC_ADVANCE_COMMITTED":
+    case "NULL_PC_HELD_ADVANCE_COMMITTED":
     case "NOTHING_TO_RECONCILE":
       return EXIT.OK;
     case "DECLINED":
       return EXIT.DECLINED;
     case "RELOCATION_OUTCOME_UNKNOWN":
     case "ADVANCE_OUTCOME_UNKNOWN":
+    case "NULL_PC_ADVANCE_OUTCOME_UNKNOWN":
+    case "NULL_PC_HELD_ADVANCE_OUTCOME_UNKNOWN":
     case "RECONCILIATION_REQUIRED":
       return EXIT.UNKNOWN;
     default:
@@ -80,11 +94,15 @@ const OPTIONS = {
   locus: { type: "string" },
   "delivery-unit": { type: "string" },
   "delivery-value": { type: "string" },
+  "target-unit": { type: "string" },
+  "target-value": { type: "string" },
 } as const;
 
 const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   relocate: ["world", "locus", "delivery-unit", "delivery-value"],
   advance: [],
+  "null-advance": ["target-unit", "target-value"],
+  "null-resume": [],
   reconcile: [],
   status: [],
 };
@@ -162,6 +180,16 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     };
   }
 
+  let nullAdvanceInput: unknown;
+  if (command === "null-advance") {
+    const value = str("target-value") ?? "";
+    if (!NON_NEGATIVE_INTEGER.test(value) || !Number.isSafeInteger(Number(value))) {
+      out(USAGE);
+      return EXIT.USAGE;
+    }
+    nullAdvanceInput = { target: { unit: str("target-unit"), value: Number(value) } };
+  }
+
   const terminal = env.terminal ?? (command === "status" ? undefined : stdioTerminal());
   try {
     const opened = await LocalOperatorSession.open({
@@ -183,12 +211,19 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     try {
       if (command === "status") {
         const report = status(session);
-        out(`STATUS ${report.relocation === "NONE" ? "NO_CHOICE_RETAINED" : "CHOICES_RETAINED"}`);
+        const retained =
+          report.relocation !== "NONE" ||
+          report.advances.length > 0 ||
+          report.ooc_choices.length > 0;
+        out(`STATUS ${retained ? "CHOICES_RETAINED" : "NO_CHOICE_RETAINED"}`);
         out(`campaign: ${report.campaign_id}`);
         out(`operator: ${report.operator}`);
         out(`relocation choice: ${report.relocation}`);
         out(
           `progression choices: ${report.advances.length === 0 ? "none" : report.advances.join(", ")}`,
+        );
+        out(
+          `ooc choices: ${report.ooc_choices.length === 0 ? "none" : report.ooc_choices.map((c) => `${c.kind} ${c.status}`).join(", ")}`,
         );
         return EXIT.OK;
       }
@@ -198,7 +233,11 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
           ? [await relocate(ctx, relocateInput)]
           : command === "advance"
             ? [await advance(ctx)]
-            : await reconcile(ctx);
+            : command === "null-advance"
+              ? [await nullAdvance(ctx, nullAdvanceInput)]
+              : command === "null-resume"
+                ? [await nullResume(ctx)]
+                : await reconcile(ctx);
       for (const r of results) {
         out(`STATUS ${r.status}`);
         out(r.message);

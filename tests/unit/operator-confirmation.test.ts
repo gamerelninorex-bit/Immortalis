@@ -26,7 +26,8 @@ function terminal(reply: (phrase: string) => string | null): OperatorTerminal & 
   };
 }
 
-const request = (t: OperatorTerminal, verb: "relocate" | "advance" = "relocate", subject = "s") =>
+type Verb = Parameters<typeof requestOperatorConfirmation>[1];
+const request = (t: OperatorTerminal, verb: Verb = "relocate", subject = "s") =>
   requestOperatorConfirmation(t, verb, subject, ["shown"]);
 
 describe("the operator's explicit, bounded confirmation", () => {
@@ -99,5 +100,39 @@ describe("the operator's explicit, bounded confirmation", () => {
     const forged = { verb: "relocate", subject: "s" } as OperatorConfirmation;
     expect(consumeConfirmation(forged, "relocate", "s")).toBe(false);
     expect(consumeConfirmation(Object.freeze({ ...forged }), "relocate", "s")).toBe(false);
+  });
+});
+
+describe("the four verbs are four distinct choices", () => {
+  const VERBS: Verb[] = ["relocate", "advance", "null-advance", "null-resume"];
+
+  it("each verb accepts only its own phrase: no verb's typed line confirms another verb's challenge", async () => {
+    for (const verb of VERBS)
+      for (const other of VERBS) {
+        const t = terminal((p) => p.replace(/^[a-z-]+/, other));
+        const token = await request(t, verb);
+        if (verb === other) expect(token, verb).not.toBeNull();
+        else expect(token, `${verb} typed as ${other}`).toBeNull();
+      }
+  });
+
+  it("a token is bound to its verb and subject and is consumed once, so the initial NULL-PC choice can never stand for the resume", async () => {
+    const token = (await request(
+      terminal((p) => p),
+      "null-advance",
+      "subject-1",
+    ))!;
+    expect(consumeConfirmation(token, "null-resume", "subject-1")).toBe(false);
+    expect(consumeConfirmation(token, "null-advance", "subject-2")).toBe(false);
+    expect(consumeConfirmation(token, "null-advance", "subject-1")).toBe(true);
+    expect(consumeConfirmation(token, "null-advance", "subject-1")).toBe(false);
+    // a forged token is never recognised
+    expect(
+      consumeConfirmation(
+        Object.freeze({ verb: "null-resume", subject: "s" }) as OperatorConfirmation,
+        "null-resume",
+        "s",
+      ),
+    ).toBe(false);
   });
 });

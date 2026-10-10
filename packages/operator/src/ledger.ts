@@ -67,8 +67,39 @@ const AdvanceIntentSchema = z.strictObject({
 });
 export type AdvanceIntent = z.infer<typeof AdvanceIntentSchema>;
 
-const IntentSchema = z.discriminatedUnion("kind", [RelocationIntentSchema, AdvanceIntentSchema]);
+/**
+ * The two NULL-PC OOC choices (no active character). They carry no `pc_id`: the campaign has none. The initial one retains the
+ * exact target-only canonical time the operator chose; the resume retains the held lineage it was chosen against
+ * (`from_transaction` is the earlier retained choice's own transaction, `target` the target that choice confirmed).
+ */
+const NullAdvanceIntentSchema = z.strictObject({
+  kind: z.literal("NULL_ADVANCE"),
+  seq: z.number().int().positive(),
+  intent_id: Id,
+  status: Status,
+  target: CanonicalTimeSchema,
+  transaction: AdvanceTransaction,
+});
+export type NullAdvanceIntent = z.infer<typeof NullAdvanceIntentSchema>;
+
+const NullResumeIntentSchema = z.strictObject({
+  kind: z.literal("NULL_RESUME"),
+  seq: z.number().int().positive(),
+  intent_id: Id,
+  status: Status,
+  held: z.strictObject({ from_transaction: EntityId, target: CanonicalTimeSchema }),
+  transaction: AdvanceTransaction,
+});
+export type NullResumeIntent = z.infer<typeof NullResumeIntentSchema>;
+
+const IntentSchema = z.discriminatedUnion("kind", [
+  RelocationIntentSchema,
+  AdvanceIntentSchema,
+  NullAdvanceIntentSchema,
+  NullResumeIntentSchema,
+]);
 export type Intent = z.infer<typeof IntentSchema>;
+export type NullPcIntent = NullAdvanceIntent | NullResumeIntent;
 
 const LedgerFileSchema = z.strictObject({
   format: z.literal(LEDGER_FORMAT),
@@ -82,6 +113,8 @@ type LedgerFile = z.infer<typeof LedgerFileSchema>;
 
 export type NewRelocationIntent = Omit<RelocationIntent, "seq" | "status">;
 export type NewAdvanceIntent = Omit<AdvanceIntent, "seq" | "status">;
+export type NewNullAdvanceIntent = Omit<NullAdvanceIntent, "seq" | "status">;
+export type NewNullResumeIntent = Omit<NullResumeIntent, "seq" | "status">;
 
 export type LedgerErrorCode =
   | "LEDGER_UNREADABLE"
@@ -93,6 +126,40 @@ export type LedgerErrorCode =
 
 export const ledgerFileName = (campaignId: string): string =>
   `intents-${createHash("sha256").update(campaignId, "utf8").digest("hex").slice(0, 32)}.json`;
+
+/**
+ * The NULL-PC choices must form lineages the trusted side could really have confirmed: every transaction identity is unique
+ * across them, and a resume names an EARLIER retained NULL-PC choice's transaction as the one it continues, carries that
+ * choice's own target (a resume never states a new one), is not that transaction itself, and is the only resume of it.
+ */
+function nullPcLineageIsSound(intents: readonly Intent[]): boolean {
+  const choices = intents
+    .filter((i): i is NullPcIntent => i.kind === "NULL_ADVANCE" || i.kind === "NULL_RESUME")
+    .sort((a, b) => a.seq - b.seq);
+  const targetOf = new Map<string, z.infer<typeof CanonicalTimeSchema>>();
+  const resumed = new Set<string>();
+  for (const c of choices) {
+    const id = c.transaction.transaction_id;
+    if (targetOf.has(id)) return false;
+    if (c.kind === "NULL_ADVANCE") {
+      targetOf.set(id, c.target);
+      continue;
+    }
+    const from = c.held.from_transaction;
+    const earlier = targetOf.get(from);
+    if (
+      !earlier ||
+      from === id ||
+      resumed.has(from) ||
+      earlier.unit !== c.held.target.unit ||
+      earlier.value !== c.held.target.value
+    )
+      return false;
+    resumed.add(from);
+    targetOf.set(id, c.held.target);
+  }
+  return true;
+}
 
 export class IntentLedger {
   readonly #fs: FsOps;
@@ -156,7 +223,8 @@ export class IntentLedger {
       new Set(seqs).size !== seqs.length ||
       ids.size !== file.intents.length ||
       relocations.length > 1 ||
-      seqs.some((s) => s >= file.next_seq)
+      seqs.some((s) => s >= file.next_seq) ||
+      !nullPcLineageIsSound(file.intents)
     )
       return fail("LEDGER_MALFORMED", "the retained intents are not valid");
     return ok(new IntentLedger(fs, path, file));
@@ -174,8 +242,17 @@ export class IntentLedger {
     return this.intents().filter((i): i is AdvanceIntent => i.kind === "ADVANCE");
   }
 
+  /** The NULL-PC OOC choices (initial and resume), in the order they were confirmed. */
+  nullPcChoices(): readonly NullPcIntent[] {
+    return this.intents()
+      .filter((i): i is NullPcIntent => i.kind === "NULL_ADVANCE" || i.kind === "NULL_RESUME")
+      .sort((a, b) => a.seq - b.seq);
+  }
+
   /** Durably retains a newly confirmed intent as CONFIRMED. Identities are unique; a campaign holds at most one relocation. */
-  record(intent: NewRelocationIntent | NewAdvanceIntent): Promise<Result<Intent, LedgerErrorCode>> {
+  record(
+    intent: NewRelocationIntent | NewAdvanceIntent | NewNullAdvanceIntent | NewNullResumeIntent,
+  ): Promise<Result<Intent, LedgerErrorCode>> {
     return this.#serial(async () => {
       const taken = this.#file.intents;
       if (taken.some((i) => i.intent_id === intent.intent_id))
@@ -188,6 +265,8 @@ export class IntentLedger {
         status: "CONFIRMED",
       });
       if (!next.success) return fail("LEDGER_MALFORMED", "the intent is not valid");
+      if (!nullPcLineageIsSound([...taken, next.data]))
+        return fail("LEDGER_CONFLICT", "that NULL-PC choice does not continue a retained one");
       return this.#commit(
         { ...this.#file, next_seq: this.#file.next_seq + 1, intents: [...taken, next.data] },
         next.data,

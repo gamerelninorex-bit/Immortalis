@@ -193,6 +193,10 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { DEST_LOCUS_ID as DEST, LOG_T_DELIVERY as DELIVERY } from "./pc-movement.ts";
 
 const ENTRY = "tests/support/operator-process-entry.ts";
+/** The shipped binary itself (it registers no owner extension): for a campaign written with the canonical registry only. */
+export const SHIPPED_BIN = "packages/operator/src/bin.ts";
+/** The same command line with the Logistics owner registration the saved NULL-PC test campaign was written with. */
+export const NULL_PC_LOGISTICS_ENTRY = "tests/support/operator-null-pc-process-entry.ts";
 
 export interface ProcessRun {
   readonly code: number | null;
@@ -220,8 +224,26 @@ export const cliArgs = {
     String(DELIVERY.value),
     ...over,
   ],
+  nullAdvance: (
+    dirs: { campaignDir: string; operatorDir: string },
+    target: { unit: string; value: number },
+    over: string[] = [],
+  ): string[] => [
+    "null-advance",
+    "--campaign",
+    dirs.campaignDir,
+    "--campaign-id",
+    FIXTURE_CAMPAIGN,
+    "--operator-dir",
+    dirs.operatorDir,
+    "--target-unit",
+    target.unit,
+    "--target-value",
+    String(target.value),
+    ...over,
+  ],
   command: (
-    name: "advance" | "reconcile" | "status",
+    name: "advance" | "reconcile" | "status" | "null-resume",
     dirs: { campaignDir: string; operatorDir: string },
     over: string[] = [],
   ): string[] => [
@@ -246,11 +268,16 @@ export type Typed = "confirm" | "decline" | "eof" | { raw: string };
 export function runOperator(
   args: string[],
   typed: Typed[] = [],
-  o: { preTyped?: string; killAfter?: RegExp } = {},
+  o: { preTyped?: string; killAfter?: RegExp; entry?: string } = {},
 ): Promise<ProcessRun> {
   const child: ChildProcess = spawn(
     process.execPath,
-    ["--disable-warning=ExperimentalWarning", "--experimental-strip-types", ENTRY, ...args],
+    [
+      "--disable-warning=ExperimentalWarning",
+      "--experimental-strip-types",
+      o.entry ?? ENTRY,
+      ...args,
+    ],
     { stdio: ["pipe", "pipe", "pipe"] },
   );
   let stdout = "";
