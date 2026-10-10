@@ -12,5 +12,6 @@ export * from "./ledger.ts";
 export * from "./locality.ts";
 export * from "./local-operator.ts";
 export * from "./ooc.ts";
+export * from "./original-pc.ts";
 export * from "./session.ts";
 export * from "./terminal.ts";

@@ -14,6 +14,7 @@ import {
 } from "./commands.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
+import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { LocalOperatorSession } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
 
@@ -38,6 +39,8 @@ usage:
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
   immortalis-operator establish-locality --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
+  immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id>
+  immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
 
@@ -70,6 +73,15 @@ establish-locality: creates (or faithfully resumes) ONE standard campaign packag
   permission to extract.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
+author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers
+  either). YOU author an ordinary continuing character in your own words on the console, review the complete Character Mirror, revise
+  it as often as you like (every change shows the whole Mirror again) and keep the last display by typing its fresh keep phrase;
+  only then is the character released (I-002). Placement is a SEPARATE, second choice: you state in your own words that the character
+  is originally present at that locus (native, already there - no arrival, portal or transfer) and confirm it with its own fresh
+  phrase; only then is the character bound as the operative player character (Role Registry). --player-character is the character's technical
+  identity. A character released but not bound is reported as exactly that, and running the command again resumes at placement
+  without repeating anything. Neither step gives the character a physical position or custody, perception, knowledge, action or time.
+character-status: reports from canon alone whether a character of this command is held, released but unbound, or bound (verified).
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -89,8 +101,13 @@ export const EXIT = {
   USAGE: 64,
 } as const;
 
-const exitOf = (s: CommandStatus | LocalityStatus): number => {
+const exitOf = (s: CommandStatus | LocalityStatus | CharacterStatus): number => {
   switch (s) {
+    case "CHARACTER_BOUND":
+    case "CHARACTER_NONE":
+      return EXIT.OK;
+    case "CHARACTER_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "LOCALITY_READY":
       return EXIT.OK;
     case "LOCALITY_OUTCOME_UNKNOWN":
@@ -128,6 +145,7 @@ const OPTIONS = {
   "target-unit": { type: "string" },
   "target-value": { type: "string" },
   setup: { type: "string" },
+  "player-character": { type: "string" },
 } as const;
 
 const COMMAND_OPTIONS: Record<string, readonly string[]> = {
@@ -141,6 +159,8 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   status: [],
   "establish-locality": ["setup"],
   "locality-status": [],
+  "author-character": ["world", "locus", "player-character"],
+  "character-status": [],
 };
 
 type Parsed =
@@ -181,6 +201,7 @@ function parse(argv: readonly string[]): Parsed {
     if (
       command !== "status" &&
       command !== "locality-status" &&
+      command !== "character-status" &&
       (typeof values["campaign-id"] !== "string" || values["campaign-id"] === "")
     )
       return { ok: false };
@@ -229,13 +250,33 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
 
   const terminal =
     env.terminal ??
-    (command === "status" || command === "locality-status" ? undefined : stdioTerminal());
+    (command === "status" || command === "locality-status" || command === "character-status"
+      ? undefined
+      : stdioTerminal());
   try {
     if (command === "establish-locality") {
       const r = await establishLocality({
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         setupFile: str("setup") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "author-character") {
+      const r = await authorCharacter({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        worldId: str("world") ?? "",
+        locusId: str("locus") ?? "",
+        pcId: str("player-character") ?? "",
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
@@ -266,6 +307,13 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     try {
       if (command === "locality-status") {
         const r = localityStatus(session);
+        out(`STATUS ${r.status}`);
+        out(r.message);
+        for (const line of r.details) out(line);
+        return exitOf(r.status);
+      }
+      if (command === "character-status") {
+        const r = characterStatus(session);
         out(`STATUS ${r.status}`);
         out(r.message);
         for (const line of r.details) out(line);

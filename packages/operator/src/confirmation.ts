@@ -25,7 +25,9 @@ export type ConfirmationVerb =
   | "null-resume"
   | "pc-target-advance"
   | "pc-target-resume"
-  | "establish-locality";
+  | "establish-locality"
+  | "keep-character"
+  | "place-character";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;
@@ -63,4 +65,35 @@ export function consumeConfirmation(
   if (!live.has(token) || token.verb !== verb || token.subject !== subject) return false;
   live.delete(token);
   return true;
+}
+
+export type OperatorDecision =
+  | { readonly kind: "CONFIRMED"; readonly confirmation: OperatorConfirmation }
+  | { readonly kind: "LINE"; readonly line: string }
+  | { readonly kind: "END_OF_INPUT" };
+
+/**
+ * The same confirmation as `requestOperatorConfirmation`, for a console decision that has ONE other lawful answer (revising what was
+ * shown). The service states the exact content, draws a fresh unpredictable challenge, and reads the very next line: the verb and that
+ * challenge typed back exactly is the confirmation (a one-time token, module-private, bound to the verb and the exact subject shown);
+ * any other line is returned untouched for the caller to judge as its alternative, and is never a confirmation; the end of input is
+ * returned as such and is a decline. A pre-typed, stale, recorded or free-text line cannot match a challenge that did not exist yet.
+ */
+export async function requestOperatorDecision(
+  terminal: OperatorTerminal,
+  verb: ConfirmationVerb,
+  subject: string,
+  shown: readonly string[],
+  otherwise: string,
+): Promise<OperatorDecision> {
+  const challenge = randomBytes(6).toString("hex");
+  const phrase = `${verb} ${challenge}`;
+  for (const line of shown) terminal.say(line);
+  terminal.say(`To confirm, type exactly "${phrase}". ${otherwise}`);
+  const typed = await terminal.ask(">");
+  if (typed === null) return { kind: "END_OF_INPUT" };
+  if (typed.trim() !== phrase) return { kind: "LINE", line: typed };
+  const token: OperatorConfirmation = Object.freeze({ verb, subject });
+  live.add(token);
+  return { kind: "CONFIRMED", confirmation: token };
 }
