@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 
 /**
  * Predecessor scope assertions used to require an empty protocol placeholder. Since the thirty-seventh, thirty-eighth,
- * forty-first, forty-third and forty-fifth slices exactly five host operations exist (the event-addressed current active-PC Event-Signal
+ * forty-first, forty-third, forty-fifth and held-continuation slices exactly six host operations exist (the event-addressed current active-PC Event-Signal
  * presentation read, the trusted-causal delivery of the one causally supplied Event-Signal, the trusted, player-confirmed active-PC
  * single-leg relocation gateway, and the trusted, separately player-authorized stop-at-delivery temporal advance gateway, and the trusted, player-authorized NULL-PC OOC
- * target-only temporal advance gateway); a
- * predecessor's "no protocol surface was added for this feature" now means the protocol index re-exports those four modules and
+ * target-only temporal advance gateway, and the trusted, separately player-authorized NULL-PC OOC held-continuation gateway); a
+ * predecessor's "no protocol surface was added for this feature" now means the protocol index re-exports those modules and
  * nothing else.
  */
 export const protocolIndexExports = (): string[] =>
@@ -20,6 +20,7 @@ export const PROTOCOL_ONLY_EVENT_SIGNAL_READ = [
   'export * from "./pc-relocation.ts";',
   'export * from "./pc-transfer-advance.ts";',
   'export * from "./null-pc-ooc-advance.ts";',
+  'export * from "./null-pc-ooc-held-continuation.ts";',
 ];
 
 export const READ_REQUEST = (event_id: string, over: Record<string, unknown> = {}) => ({

@@ -64,7 +64,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
     expect(all.match(/commitConfirmedPcRelocation\(/g)).toHaveLength(1);
     expect(all.match(/advanceConfirmedPcTransferToDelivery\(/g)).toHaveLength(1);
     expect(all).not.toMatch(
-      /readCurrentEventSignalPresentation|deliverCausalEventSignalPresentation|advanceNullPcOocToTarget|bindTrustedEventSignalContext|bindTrustedCausalEventSignalContext|bindTrustedNullPc/,
+      /readCurrentEventSignalPresentation|deliverCausalEventSignalPresentation|advanceNullPcOocToTarget|resumeNullPcOocHeldAdvance|bindTrustedEventSignalContext|bindTrustedCausalEventSignalContext|bindTrustedNullPc/,
     );
     const src = files.map((f) => code(f)).join("\n");
     expect(src.match(/PROTOCOL_OP_[A-Z_]+/g)?.sort()).toEqual([

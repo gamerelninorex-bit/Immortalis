@@ -78,6 +78,7 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
+      "null-pc-ooc-held-continuation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
@@ -96,10 +97,12 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedEventSignalContext",
+      "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
+      "resumeNullPcOocHeldAdvance",
     ]);
   });
 

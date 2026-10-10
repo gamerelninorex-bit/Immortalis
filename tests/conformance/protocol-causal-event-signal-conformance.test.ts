@@ -50,6 +50,7 @@ describe("existing path and predecessors are untouched: the operation consumes t
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
+      "null-pc-ooc-held-continuation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
