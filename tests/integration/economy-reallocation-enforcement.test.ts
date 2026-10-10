@@ -973,3 +973,116 @@ describe("tampering with the persisted journal or state fails the open under the
     expect((await CanonicalCampaign.open(dir2)).ok).toBe(false);
   });
 });
+
+describe("F56-R1: admission preserves the committed positions' labels (RC-02 basis / secrecy)", () => {
+  const labels = (s: HoldingSeeded, keys: string[]) =>
+    keys.map((k) => {
+      const f = s.campaign.store.getFact(k);
+      return f ? [f.basis, f.secrecy] : null;
+    });
+  const relabel = (
+    g: CommitGroup,
+    f: (w: CommitGroup["writes"][number]) => object,
+  ): CommitGroup => ({
+    ...g,
+    writes: g.writes.map((w) => ({ ...w, ...f(w) })),
+  });
+
+  it("control: a raw group that inherits the committed labels exactly is lawful and keeps them", async () => {
+    const s = await seededReallocationCampaign(tempDir());
+    const r = await s.campaign.store.commit(lawfulGroup(s));
+    expect(r.ok).toBe(true);
+    expect(labels(s, [key1, key2, recKey])).toEqual([
+      ["fixture-basis", "fixture-visibility"],
+      ["fixture-basis", "fixture-visibility"],
+      ["fixture-basis", "fixture-visibility"],
+    ]);
+    expect(s.campaign.verify()).toEqual([]);
+  });
+
+  it.each([
+    ["a uniform basis-only relabel", { basis: "another-basis" }],
+    ["a uniform secrecy-only relabel", { secrecy: "another-visibility" }],
+    ["a uniform relabel of both", { basis: "another-basis", secrecy: "another-visibility" }],
+  ])(
+    "refuses %s of all three writes, with no mutation and the old labels retained",
+    async (_n, over) => {
+      const s = await seededReallocationCampaign(tempDir());
+      const before = holdingSummary(s.campaign.store);
+      const r = await s.campaign.store.commit(relabel(lawfulGroup(s), () => over));
+      expect(r.ok ? "OK" : r.error.message).toMatch(/preserves the committed positions' labels/);
+      expect(holdingSummary(s.campaign.store)).toEqual(before);
+      expect(labels(s, [key1, key2])).toEqual([
+        ["fixture-basis", "fixture-visibility"],
+        ["fixture-basis", "fixture-visibility"],
+      ]);
+      expect(s.economy.reallocation(REALLOCATION_1)).toBeUndefined();
+    },
+  );
+
+  it("refuses a relabel of any single write (each position and the record), with no mutation", async () => {
+    for (const target of [key1, key2, recKey])
+      for (const over of [{ basis: "another-basis" }, { secrecy: "another-visibility" }]) {
+        const s = await seededReallocationCampaign(tempDir());
+        const before = holdingSummary(s.campaign.store);
+        const r = await s.campaign.store.commit(
+          relabel(lawfulGroup(s), (w) => (w.key === target ? over : {})),
+        );
+        expect(r.ok, `${target} ${JSON.stringify(over)}`).toBe(false);
+        expect(holdingSummary(s.campaign.store)).toEqual(before);
+      }
+  });
+
+  it("refuses committed input positions whose own labels are not compatible, whichever label the writes carry", async () => {
+    const s = await seededReallocationCampaign(tempDir());
+    await must(
+      s.economy.establishHolding({
+        ...holdingPublication(3),
+        secrecy: "another-visibility",
+        holding: establishHoldingInput({
+          holding_id: "holding-3",
+          holder_ref: "holder-third",
+          amount: 4,
+          premise_id: "premise-3",
+        }),
+      }),
+    );
+    const key3 = economyHoldingKey("holding-3");
+    const a = s.economy.holding(HOLDING_1)!;
+    const c = s.economy.holding("holding-3")!;
+    const d = deriveReallocation({
+      from: { value: a.value, version: a.fact.version },
+      to: { value: c.value, version: c.fact.version },
+      pinnedFromVersion: a.fact.version,
+      pinnedToVersion: c.fact.version,
+      reallocationId: REALLOCATION_1,
+      instructionId: "instruction-reallocation-1",
+      quantity: { amount: 3, unit: HOLDING_UNIT },
+    });
+    if (!d.ok) throw new Error(d.error.message);
+    const base = lawfulGroup(s);
+    const raw = (basis: string, secrecy: string): CommitGroup => ({
+      ...base,
+      writes: [
+        { ...base.writes[0]!, value: d.value.from as never, expected_version: a.fact.version },
+        {
+          ...base.writes[1]!,
+          key: key3,
+          value: d.value.to as never,
+          expected_version: c.fact.version,
+        },
+        { ...base.writes[2]!, value: d.value.reallocation as never },
+      ].map((w) => ({ ...w, basis, secrecy })),
+    });
+    const before = holdingSummary(s.campaign.store);
+    for (const secrecy of ["fixture-visibility", "another-visibility"]) {
+      const r = await s.campaign.store.commit(raw("fixture-basis", secrecy));
+      expect(r.ok ? "OK" : r.error.message).toMatch(/labels are not compatible/);
+    }
+    expect(holdingSummary(s.campaign.store)).toEqual(before);
+    expect(labels(s, [key1, key3])).toEqual([
+      ["fixture-basis", "fixture-visibility"],
+      ["fixture-basis", "another-visibility"],
+    ]);
+  });
+});

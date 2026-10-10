@@ -489,15 +489,18 @@ function checkReallocation(
       "a reallocation is exactly the conserved movement of the instructed available amount between the two positions that Economy derives, with its one record",
       { key: tw.key },
     );
-  if (
-    fromW.basis !== tw.basis ||
-    toW.basis !== tw.basis ||
-    fromW.secrecy !== tw.secrecy ||
-    toW.secrecy !== tw.secrecy
-  )
+  // labels (RC-02 `basis` / `secrecy`) are material: both COMMITTED positions must share one visibility, and the two
+  // advanced positions and the create-only record must inherit exactly those committed labels — no relabel, uniform or not
+  if (fromFact.basis !== toFact.basis || fromFact.secrecy !== toFact.secrecy)
     return reject(
       "VALUE_INVALID",
-      "a reallocation record carries one visibility: both positions and the record share their labels",
+      "a reallocation is between committed positions of one visibility: their labels are not compatible",
+      { key: tw.key },
+    );
+  if ([fromW, toW, tw].some((w) => w.basis !== fromFact.basis || w.secrecy !== fromFact.secrecy))
+    return reject(
+      "VALUE_INVALID",
+      "a reallocation preserves the committed positions' labels: both advanced positions and the record inherit them exactly",
       { key: tw.key },
     );
   return null;
