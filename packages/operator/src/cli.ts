@@ -12,6 +12,7 @@ import {
   type CommandResult,
   type CommandStatus,
 } from "./commands.ts";
+import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { LocalOperatorSession } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
@@ -35,6 +36,8 @@ usage:
   immortalis-operator pc-target-advance --campaign <dir> --campaign-id <id> --target-unit <unit> --target-value <n>
   immortalis-operator pc-target-resume  --campaign <dir> --campaign-id <id>
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
+  immortalis-operator establish-locality --campaign <dir> --campaign-id <id> --setup <file>
+  immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
 
@@ -57,6 +60,16 @@ pc-target-advance / pc-target-resume: for a campaign WITH an active character th
   pc-target-advance, toward that earlier target only (it accepts no target). A committed status is a transaction status, not a
   report that the target was attained, that anything occurred, or what the character or anyone perceives or knows; nothing
   resumes on its own.
+establish-locality: creates (or faithfully resumes) ONE standard campaign package holding ONE curated ORIGINAL world, ONE locus of it
+  and ONE authored EXACT_FINITE source condition at that locus, from a local setup file YOU author (a regular file you own that
+  nobody else can write; see docs/original-locality-admission-foundation.md). Nothing is inferred, approximated or defaulted: the file
+  states the premise, the locus, the exact quantity and the physical access facts, and the whole of it is shown back for ONE explicit
+  typed confirmation before anything is written. The same confirmed setup converges after an interruption (pass --reclaim-stale-lock
+  if the package lock was left behind); a different setup is refused for a campaign that already holds one. It is a physical
+  setting only: it creates no character, actor or relationship, advances no time, and grants nobody perception, knowledge or
+  permission to extract.
+locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
+  committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -76,8 +89,12 @@ export const EXIT = {
   USAGE: 64,
 } as const;
 
-const exitOf = (s: CommandStatus): number => {
+const exitOf = (s: CommandStatus | LocalityStatus): number => {
   switch (s) {
+    case "LOCALITY_READY":
+      return EXIT.OK;
+    case "LOCALITY_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "RELOCATION_COMMITTED":
     case "ADVANCE_COMMITTED":
     case "NULL_PC_ADVANCE_COMMITTED":
@@ -110,6 +127,7 @@ const OPTIONS = {
   "delivery-value": { type: "string" },
   "target-unit": { type: "string" },
   "target-value": { type: "string" },
+  setup: { type: "string" },
 } as const;
 
 const COMMAND_OPTIONS: Record<string, readonly string[]> = {
@@ -121,6 +139,8 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "pc-target-resume": [],
   reconcile: [],
   status: [],
+  "establish-locality": ["setup"],
+  "locality-status": [],
 };
 
 type Parsed =
@@ -160,6 +180,7 @@ function parse(argv: readonly string[]): Parsed {
       if (typeof values[need] !== "string" || values[need] === "") return { ok: false };
     if (
       command !== "status" &&
+      command !== "locality-status" &&
       (typeof values["campaign-id"] !== "string" || values["campaign-id"] === "")
     )
       return { ok: false };
@@ -206,8 +227,26 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     nullAdvanceInput = { target: { unit: str("target-unit"), value: Number(value) } };
   }
 
-  const terminal = env.terminal ?? (command === "status" ? undefined : stdioTerminal());
+  const terminal =
+    env.terminal ??
+    (command === "status" || command === "locality-status" ? undefined : stdioTerminal());
   try {
+    if (command === "establish-locality") {
+      const r = await establishLocality({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        setupFile: str("setup") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
     const opened = await LocalOperatorSession.open({
       campaignDir: str("campaign") ?? "",
       ...(str("campaign-id") !== undefined ? { expectedCampaignId: str("campaign-id")! } : {}),
@@ -225,6 +264,13 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     }
     const session = opened.value;
     try {
+      if (command === "locality-status") {
+        const r = localityStatus(session);
+        out(`STATUS ${r.status}`);
+        out(r.message);
+        for (const line of r.details) out(line);
+        return exitOf(r.status);
+      }
       if (command === "status") {
         const report = status(session);
         const retained =

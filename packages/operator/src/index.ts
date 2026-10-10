@@ -9,6 +9,7 @@ export * from "./cli.ts";
 export * from "./commands.ts";
 export * from "./confirmation.ts";
 export * from "./ledger.ts";
+export * from "./locality.ts";
 export * from "./local-operator.ts";
 export * from "./ooc.ts";
 export * from "./session.ts";
