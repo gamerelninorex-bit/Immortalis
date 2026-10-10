@@ -67,12 +67,24 @@ const UNCHANGED: Record<string, string> = {
     "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
   "packages/engine/src/temporal/coordinator.ts":
     "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+  "packages/protocol/src/null-pc-ooc-advance.ts":
+    "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
+  "packages/protocol/src/null-pc-ooc-held-continuation.ts":
+    "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
+  "packages/contracts/src/protocol-null-pc-advance.ts":
+    "c7018747d8745074d8ced47daa49cadb57d4e296f944edb965a2be35f30ecf60",
+  "packages/contracts/src/protocol-null-pc-held-advance.ts":
+    "daff58a4dae82536f6802baf391e5e1d2cfa0ade4bc9594e3ecc9efa056b7cb2",
+  "packages/engine/src/gip/provider.ts":
+    "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
+  "packages/engine/src/gip/adapter.ts":
+    "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
-  it("the two gateways, their contracts, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base", () => {
+  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -127,13 +139,17 @@ describe("the package composes only the existing gateways and canonical reads", 
     });
   });
 
-  it("takes from the protocol package exactly the two binders and the two operations of the relocation and the progression", () => {
+  it("takes from the protocol package exactly the four binders and the four operations: relocation and progression, NULL-PC advance and held resume", () => {
     const names = walk(SRC).flatMap((f) => importedNames(f, "@immortalis/protocol"));
     expect(names.sort()).toEqual([
       "advanceConfirmedPcTransferToDelivery",
+      "advanceNullPcOocToTarget",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
+      "bindTrustedNullPcOocHeldContinuationContext",
+      "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
+      "resumeNullPcOocHeldAdvance",
     ]);
   });
 
@@ -173,6 +189,8 @@ describe("the package composes only the existing gateways and canonical reads", 
       "ensureOperatorStateDirectory",
       "judgeOperatorDirectory",
       "ledgerFileName",
+      "nullAdvance",
+      "nullResume",
       "reconcile",
       "relocate",
       "requestOperatorConfirmation",
@@ -218,6 +236,26 @@ describe("register, lock and gate honesty", () => {
       "reconcile",
       "OS user",
       "no remote authentication",
+    ])
+      expect(doc, must).toContain(must);
+  });
+
+  it("the document states the NULL-PC slice's boundary: base, brief pin, separate choices, transaction-only status, residuals and untouched governance", () => {
+    const doc = readFileSync(DOC, "utf8");
+    for (const must of [
+      "NULL-PC OOC time progression and held recovery",
+      "33ac954c045e7705425cc25fa95ccb44a0229cfc",
+      "2026-10-10T05:50:48.025Z",
+      "null-advance",
+      "null-resume",
+      "NULL_PC_ADVANCE_COMMITTED",
+      "NULL_PC_HELD_ADVANCE_COMMITTED",
+      "Committed means a transaction committed",
+      "Not claimed",
+      "Operator-only visibility of a remainder",
+      "PF-6/F-028 remains BLOCKED / NOT ACTIVATED",
+      "IA-07",
+      "byte for byte",
     ])
       expect(doc, must).toContain(must);
   });

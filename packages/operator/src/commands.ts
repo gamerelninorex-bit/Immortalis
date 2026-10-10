@@ -3,11 +3,19 @@ import { z } from "zod";
 import {
   CanonicalTimeSchema,
   EntityId,
+  ResolutionTransactionSchema,
+  TransactionAuthoritySchema,
+  NULL_PC_OOC_ADVANCE_COMMITTED,
+  NULL_PC_OOC_ADVANCE_OUTCOME_UNKNOWN,
+  NULL_PC_OOC_HELD_ADVANCE_COMMITTED,
+  NULL_PC_OOC_HELD_ADVANCE_OUTCOME_UNKNOWN,
   PC_RELOCATION_COMMITTED,
   PC_TRANSFER_ADVANCE_COMMITTED,
   PLAYER_CHOICE_AUTHORITY,
   PROTOCOL_OP_ADVANCE_CONFIRMED_PC_TRANSFER,
+  PROTOCOL_OP_ADVANCE_NULL_PC_OOC_TO_TARGET,
   PROTOCOL_OP_COMMIT_CONFIRMED_PC_RELOCATION,
+  PROTOCOL_OP_RESUME_NULL_PC_OOC_HELD_ADVANCE,
   PC_TRANSFER_ADVANCE_OUTCOME_UNKNOWN,
   RELOCATION_OUTCOME_UNKNOWN,
   logisticsBoundaryId,
@@ -27,12 +35,21 @@ import {
 } from "@immortalis/engine";
 import {
   advanceConfirmedPcTransferToDelivery,
+  advanceNullPcOocToTarget,
   bindTrustedConfirmedPcRelocationContext,
   bindTrustedConfirmedPcTransferAdvanceContext,
+  bindTrustedNullPcOocHeldContinuationContext,
+  bindTrustedNullPcOocTargetAdvanceContext,
   commitConfirmedPcRelocation,
+  resumeNullPcOocHeldAdvance,
 } from "@immortalis/protocol";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
-import type { AdvanceIntent, RelocationIntent } from "./ledger.ts";
+import type {
+  AdvanceIntent,
+  NullAdvanceIntent,
+  NullResumeIntent,
+  RelocationIntent,
+} from "./ledger.ts";
 import { OOC_BANNER, OOC_BOUNDARY_NOTE, OOC_DEBUG_NOTE } from "./ooc.ts";
 import type { LocalOperatorSession } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
@@ -57,6 +74,10 @@ export type CommandStatus =
   | typeof RELOCATION_OUTCOME_UNKNOWN
   | typeof PC_TRANSFER_ADVANCE_COMMITTED
   | typeof PC_TRANSFER_ADVANCE_OUTCOME_UNKNOWN
+  | typeof NULL_PC_OOC_ADVANCE_COMMITTED
+  | typeof NULL_PC_OOC_ADVANCE_OUTCOME_UNKNOWN
+  | typeof NULL_PC_OOC_HELD_ADVANCE_COMMITTED
+  | typeof NULL_PC_OOC_HELD_ADVANCE_OUTCOME_UNKNOWN
   | "DECLINED"
   | "UNAVAILABLE"
   | "INVALID_INPUT"
@@ -79,6 +100,14 @@ const MESSAGES: Record<CommandStatus, string> = {
   ADVANCE_COMMITTED:
     "the advance transaction is committed; this is a transaction status, not a report of arrival, perception or knowledge",
   ADVANCE_OUTCOME_UNKNOWN:
+    "the outcome is not known; close, reopen and reconcile it by its original identity",
+  NULL_PC_ADVANCE_COMMITTED:
+    "the OOC advance transaction is committed; this is a transaction status only, not a report that the target was attained, that anything occurred, or what anyone perceives or knows",
+  NULL_PC_ADVANCE_OUTCOME_UNKNOWN:
+    "the outcome is not known; close, reopen and reconcile it by its original identity",
+  NULL_PC_HELD_ADVANCE_COMMITTED:
+    "the OOC resume transaction is committed; this is a transaction status only, not a report that the target was attained, that anything occurred, or what anyone perceives or knows",
+  NULL_PC_HELD_ADVANCE_OUTCOME_UNKNOWN:
     "the outcome is not known; close, reopen and reconcile it by its original identity",
   DECLINED: "not confirmed; nothing was changed",
   UNAVAILABLE: "no such action is available",
@@ -442,6 +471,299 @@ export async function advance(ctx: CommandContext): Promise<CommandResult> {
   return presentAdvance(ctx, retained.value as AdvanceIntent);
 }
 
+// -- NULL-PC OOC time progression and recovery ---------------------------------------------------------------------------------
+
+/**
+ * The operator's two NULL-PC OOC choices, for a campaign with NO active character: (1) ONE explicit target-only advance, and (2)
+ * — separately and anew, after the kernel committed an unfinished remainder of an earlier one — ONE explicit choice to resume
+ * exactly that remainder. Each is routed through the already shipped IM-15 host gateways (`advanceNullPcOocToTarget`,
+ * `resumeNullPcOocHeldAdvance`), never through the Temporal coordinator, and each is confirmed with its own verb and fresh
+ * challenge, retained BEFORE the gateway is invoked, and given its own newly minted, immutable transaction identity. The target is
+ * the operator's exact canonical time: not a duration, calendar, estimate or default. Nothing here authors a Temporal resolution,
+ * a GIP status or any owner fact, and a committed status is a transaction status, never attainment, occurrence or knowledge.
+ */
+
+const NullAdvanceInputSchema = z.strictObject({ target: CanonicalTimeSchema });
+export type NullAdvanceInput = z.infer<typeof NullAdvanceInputSchema>;
+
+const temporalState = (campaign: CanonicalCampaign) =>
+  new TemporalCoordinator(campaign.store, new StageProviderRegistry()).state()?.value;
+
+const hasFootprint = (campaign: CanonicalCampaign, transactionId: string): boolean =>
+  campaign.store.getFact(temporalTransactionKey(transactionId)) !== undefined ||
+  campaign.store.getFact(temporalTransactionAuthorityKey(transactionId)) !== undefined;
+
+/**
+ * How canon stands toward ONE retained NULL-PC choice, judged from the kernel's own records under the choice's transaction
+ * identity — never from their mere existence:
+ *
+ *   NONE      canon holds no record under that identity
+ *   PARTIAL   the opened transaction's authority matches the choice, the sealed record is not (yet) committed
+ *   SEALED    the sealed record matches the choice, and so does the opened authority wherever the kernel opened one (it does
+ *             so only when the transaction engaged work; a quiet carry to the target seals with none)
+ *   DIFFERS   a record under that identity exists but is not the choice (another target, branch, lineage or material), or is
+ *             not a valid kernel record at all
+ *
+ * "Matches" means the exact retained material: the target-only request (`requested` = { target, condition: null }), the
+ * continuation branch (`continues` null for an initial choice, the held transaction for a resume), the cause, the trigger, the
+ * authorized context and — on the authority, the only record that carries them — the publication labels. A resume must also
+ * continue a sealed, truthfully unresolved transaction that asked for the same target.
+ */
+type CanonStanding = "NONE" | "PARTIAL" | "SEALED" | "DIFFERS";
+
+function canonStanding(
+  campaign: CanonicalCampaign,
+  choice: NullAdvanceIntent | NullResumeIntent,
+): CanonStanding {
+  const t = choice.transaction;
+  const target = choice.kind === "NULL_ADVANCE" ? choice.target : choice.held.target;
+  const continues = choice.kind === "NULL_ADVANCE" ? null : choice.held.from_transaction;
+  const material = {
+    transaction_id: t.transaction_id,
+    cause: t.cause,
+    trigger: t.trigger,
+    continues,
+    requested: { target, condition: null },
+    context: t.context,
+  };
+  const same = (record: object): boolean =>
+    Object.entries(material).every(([k, v]) =>
+      canonicalEqual((record as Record<string, unknown>)[k], v),
+    );
+
+  const opened = campaign.store.getFact(temporalTransactionAuthorityKey(t.transaction_id));
+  const sealed = campaign.store.getFact(temporalTransactionKey(t.transaction_id));
+  let authorityMatches = false;
+  if (opened) {
+    const parsed = TransactionAuthoritySchema.safeParse(opened.value);
+    if (
+      !parsed.success ||
+      !same(parsed.data) ||
+      !canonicalEqual(parsed.data.publication, t.publication)
+    )
+      return "DIFFERS";
+    authorityMatches = true;
+  }
+  if (sealed) {
+    const parsed = ResolutionTransactionSchema.safeParse(sealed.value);
+    if (!parsed.success || !same(parsed.data)) return "DIFFERS";
+    // the kernel opens a transaction's authority only when it engages work; a quiet carry seals with none. A sealed record that
+    // engaged work without its opened authority is not a transaction the kernel could have committed
+    if (parsed.data.engaged.length > 0 && !authorityMatches) return "DIFFERS";
+  }
+  if (choice.kind === "NULL_RESUME" && (opened || sealed)) {
+    const from = campaign.store.getFact(temporalTransactionKey(choice.held.from_transaction));
+    const prior = from ? ResolutionTransactionSchema.safeParse(from.value) : undefined;
+    if (
+      !prior?.success ||
+      prior.data.outcome.stop_reason !== "DEPENDENCY_UNRESOLVED" ||
+      !canonicalEqual(prior.data.requested, material.requested)
+    )
+      return "DIFFERS";
+  }
+  return sealed ? "SEALED" : opened ? "PARTIAL" : "NONE";
+}
+
+/** Common refusals of both NULL-PC commands: closed/ambiguous session, an active character, an unreconciled choice, a stale record. */
+function nullPcGuard(ctx: CommandContext): CommandResult | undefined {
+  const refused = guard(ctx);
+  if (refused) return refused;
+  const { session } = ctx;
+  if (activePc(session.campaign)) return result("UNAVAILABLE");
+  if (session.ledger.intents().some((i) => i.status === "CONFIRMED"))
+    return result("RECONCILIATION_REQUIRED");
+  // a retained COMMITTED is believed only while canon holds the very choice that was confirmed: its sealed record must carry the
+  // retained target, continuation branch and authorized material (an older or different save restored under it is stale, even
+  // when a record exists under the same transaction identity)
+  if (
+    session.ledger
+      .nullPcChoices()
+      .some((c) => c.status === "COMMITTED" && canonStanding(session.campaign, c) !== "SEALED")
+  )
+    return result("STALE_INTENT");
+  return undefined;
+}
+
+const nullTransaction = (kind: "advance" | "resume", uid: string) => ({
+  transaction_id: `operator-null-${kind}:${uid}`,
+  cause: `operator-null-${kind}-cause:${uid}`,
+  trigger: { kind: `operator-null-pc-${kind}-choice`, ref: `operator-confirmation:${uid}` },
+  context: { ...PLAYER_CHOICE_AUTHORITY },
+  publication: { basis: OPERATOR_PUBLICATION_BASIS, secrecy: OPERATOR_PUBLICATION_SECRECY },
+});
+
+async function presentNullChoice(
+  ctx: CommandContext,
+  intent: NullAdvanceIntent | NullResumeIntent,
+): Promise<CommandResult> {
+  const { session } = ctx;
+  const campaign = session.campaign;
+  // a record already under this identity that is not the confirmed choice is never replayed, repaired or adopted
+  if (canonStanding(campaign, intent) === "DIFFERS") return result("STALE_INTENT");
+  const before = campaign.store.head().revision;
+  const initial = intent.kind === "NULL_ADVANCE";
+  const committed = initial ? NULL_PC_OOC_ADVANCE_COMMITTED : NULL_PC_OOC_HELD_ADVANCE_COMMITTED;
+  const unknown = initial
+    ? NULL_PC_OOC_ADVANCE_OUTCOME_UNKNOWN
+    : NULL_PC_OOC_HELD_ADVANCE_OUTCOME_UNKNOWN;
+  const outcome =
+    intent.kind === "NULL_ADVANCE"
+      ? await advanceNullPcOocToTarget(
+          bindTrustedNullPcOocTargetAdvanceContext({
+            campaign,
+            target: intent.target,
+            transaction: intent.transaction,
+          }),
+          { operation: PROTOCOL_OP_ADVANCE_NULL_PC_OOC_TO_TARGET },
+        )
+      : await resumeNullPcOocHeldAdvance(
+          bindTrustedNullPcOocHeldContinuationContext({
+            campaign,
+            held: intent.held,
+            transaction: intent.transaction,
+          }),
+          { operation: PROTOCOL_OP_RESUME_NULL_PC_OOC_HELD_ADVANCE },
+        );
+  if (outcome.ok) {
+    const marked = await session.ledger.markCommitted(intent.intent_id);
+    if (!marked.ok) {
+      session.markAmbiguous();
+      return result(unknown);
+    }
+    return result(committed);
+  }
+  // a failure after anything may have committed is never "safely no advancement"; a refusal that left no footprint had no effect
+  if (
+    outcome.error.code === unknown ||
+    hasFootprint(campaign, intent.transaction.transaction_id) ||
+    campaign.store.head().revision !== before
+  ) {
+    session.markAmbiguous();
+    return result(unknown);
+  }
+  const forgotten = await session.ledger.discard(intent.intent_id);
+  if (!forgotten.ok) session.markAmbiguous();
+  return result("UNAVAILABLE");
+}
+
+/**
+ * The first NULL-PC choice: advance the campaign's canonical time to ONE exact target the operator names, and no further. The
+ * target is intent only (a strict canonical-time value); the gateway and the Temporal kernel judge it (another unit, a past
+ * target, an absent basis, a held remainder and every unresolved stage are refused or stopped by them, not decided here).
+ */
+export async function nullAdvance(ctx: CommandContext, input: unknown): Promise<CommandResult> {
+  const refused = nullPcGuard(ctx);
+  if (refused) return refused;
+  const parsed = NullAdvanceInputSchema.safeParse(input);
+  if (!parsed.success) return result("INVALID_INPUT");
+  const { session, terminal } = ctx;
+  const { target } = parsed.data;
+  // an unfinished remainder can only be taken up by the separate resume choice; this gateway never consumes or overrides it
+  const state = temporalState(session.campaign);
+  if (!state || state.continuation !== null) return result("UNAVAILABLE");
+
+  const ordinal = session.ledger.nullPcChoices().length + 1;
+  const subject = subjectOf({
+    verb: "null-advance",
+    campaign_id: session.campaignId,
+    target,
+    ordinal,
+  });
+  const confirmation = await requestOperatorConfirmation(terminal, "null-advance", subject, [
+    `CONFIRMATION — OOC TIME ADVANCE, NO ACTIVE CHARACTER (choice #${ordinal})`,
+    OOC_BANNER,
+    `  campaign:  ${session.campaignId}`,
+    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    ``,
+    `YOUR CHOICE (the one thing you are confirming):`,
+    `  advance the world's canonical time to exactly ${target.value} ${target.unit}, and no further.`,
+    ``,
+    `This is an exact target you chose from outside the world: not a duration, a calendar date, a forecast or a default.`,
+    `The world resolves whatever falls due by that target, each by its own owner. The result reports a transaction status only;`,
+    `it does not say that the target was attained, that anything occurred, or what any character perceives or knows.`,
+    `Progressing any further later is a separate choice with its own confirmation.`,
+    OOC_DEBUG_NOTE,
+  ]);
+  if (!confirmation) return result("DECLINED");
+  if (!consumeConfirmation(confirmation, "null-advance", subject)) return result("UNAVAILABLE");
+
+  const uid = (ctx.newId ?? randomUUID)();
+  const retained = await session.ledger.record({
+    kind: "NULL_ADVANCE",
+    intent_id: `operator-intent:${uid}`,
+    target,
+    transaction: nullTransaction("advance", uid),
+  });
+  if (!retained.ok) {
+    session.markAmbiguous();
+    return result("UNAVAILABLE");
+  }
+  return presentNullChoice(ctx, retained.value as NullAdvanceIntent);
+}
+
+/**
+ * The separate, second NULL-PC choice: resume exactly the remainder the kernel committed for an earlier choice of this operator.
+ * It takes no operator input: the lineage is the one the kernel actually holds, matched to the retained choice that was confirmed
+ * (whose target is the one the operator originally confirmed, never a new one). It needs its own confirmation and its own newly
+ * minted transaction identity; the earlier confirmation never stands for it, and nothing resumes on reopen, retry or reconcile.
+ */
+export async function nullResume(ctx: CommandContext): Promise<CommandResult> {
+  const refused = nullPcGuard(ctx);
+  if (refused) return refused;
+  const { session, terminal } = ctx;
+  const state = temporalState(session.campaign);
+  if (!state || state.continuation === null) return result("UNAVAILABLE");
+  const choices = session.ledger.nullPcChoices();
+  const earlierIndex = choices.findIndex(
+    (c) => c.transaction.transaction_id === state.continuation!.from_transaction,
+  );
+  const earlier = choices[earlierIndex];
+  if (!earlier || earlier.status !== "COMMITTED") return result("UNAVAILABLE");
+  const held = {
+    from_transaction: earlier.transaction.transaction_id,
+    target: earlier.kind === "NULL_ADVANCE" ? earlier.target : earlier.held.target,
+  };
+  const earlierOrdinal = earlierIndex + 1;
+
+  const ordinal = choices.length + 1;
+  const subject = subjectOf({
+    verb: "null-resume",
+    campaign_id: session.campaignId,
+    held,
+    ordinal,
+  });
+  const confirmation = await requestOperatorConfirmation(terminal, "null-resume", subject, [
+    `CONFIRMATION — OOC RESUME OF AN EARLIER ADVANCE, NO ACTIVE CHARACTER (choice #${ordinal})`,
+    OOC_BANNER,
+    `  campaign:  ${session.campaignId}`,
+    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    ``,
+    `YOUR CHOICE (the one thing you are confirming):`,
+    `  take up the remainder of your earlier choice #${earlierOrdinal} toward the SAME target it confirmed,`,
+    `  ${held.target.value} ${held.target.unit}, and no further. No new target can be stated here.`,
+    ``,
+    `This is a new choice, separate from choice #${earlierOrdinal}: that confirmation does not authorize this one, and nothing`,
+    `resumes on its own. The world resolves whatever falls due on the way, each by its own owner. The result reports a transaction`,
+    `status only; it does not say that the target was attained, that anything occurred, or what any character perceives or knows.`,
+    OOC_DEBUG_NOTE,
+  ]);
+  if (!confirmation) return result("DECLINED");
+  if (!consumeConfirmation(confirmation, "null-resume", subject)) return result("UNAVAILABLE");
+
+  const uid = (ctx.newId ?? randomUUID)();
+  const retained = await session.ledger.record({
+    kind: "NULL_RESUME",
+    intent_id: `operator-intent:${uid}`,
+    held,
+    transaction: nullTransaction("resume", uid),
+  });
+  if (!retained.ok) {
+    session.markAmbiguous();
+    return result("UNAVAILABLE");
+  }
+  return presentNullChoice(ctx, retained.value as NullResumeIntent);
+}
+
 // -- reconciliation ------------------------------------------------------------------------------------------------------------
 
 /**
@@ -459,18 +781,30 @@ export async function reconcile(ctx: CommandContext): Promise<readonly CommandRe
   const pcId = activePc(campaign);
   const results: CommandResult[] = [];
   for (const intent of [...pending].sort((a, b) => a.seq - b.seq)) {
-    if (!pcId || intent.pc_id !== pcId) {
-      results.push(result("STALE_INTENT"));
-      break;
+    let outcome: CommandResult;
+    if (intent.kind === "NULL_ADVANCE" || intent.kind === "NULL_RESUME") {
+      // a NULL-PC choice is only ever presented while the campaign still has no active character
+      if (pcId) {
+        results.push(result("STALE_INTENT"));
+        break;
+      }
+      outcome = await presentNullChoice(ctx, intent);
+    } else {
+      if (!pcId || intent.pc_id !== pcId) {
+        results.push(result("STALE_INTENT"));
+        break;
+      }
+      outcome =
+        intent.kind === "RELOCATION"
+          ? await reconcileRelocation(ctx, intent)
+          : await presentAdvance(ctx, intent);
     }
-    const outcome =
-      intent.kind === "RELOCATION"
-        ? await reconcileRelocation(ctx, intent)
-        : await presentAdvance(ctx, intent);
     results.push(outcome);
     if (
       outcome.status !== PC_RELOCATION_COMMITTED &&
-      outcome.status !== PC_TRANSFER_ADVANCE_COMMITTED
+      outcome.status !== PC_TRANSFER_ADVANCE_COMMITTED &&
+      outcome.status !== NULL_PC_OOC_ADVANCE_COMMITTED &&
+      outcome.status !== NULL_PC_OOC_HELD_ADVANCE_COMMITTED
     )
       break;
   }
@@ -483,6 +817,11 @@ export interface StatusReport {
   readonly operator: string;
   readonly relocation: "NONE" | "CONFIRMED" | "COMMITTED";
   readonly advances: readonly ("CONFIRMED" | "COMMITTED")[];
+  /** the NULL-PC OOC choices, in the order confirmed (retained status only; never a world report) */
+  readonly ooc_choices: readonly {
+    readonly kind: "ADVANCE" | "RESUME";
+    readonly status: "CONFIRMED" | "COMMITTED";
+  }[];
 }
 
 export function status(session: LocalOperatorSession): StatusReport {
@@ -491,5 +830,9 @@ export function status(session: LocalOperatorSession): StatusReport {
     operator: `${session.operator.username} (uid ${session.operator.uid})`,
     relocation: session.ledger.relocation()?.status ?? "NONE",
     advances: session.ledger.advances().map((a) => a.status),
+    ooc_choices: session.ledger.nullPcChoices().map((c) => ({
+      kind: c.kind === "NULL_ADVANCE" ? "ADVANCE" : "RESUME",
+      status: c.status,
+    })),
   };
 }
