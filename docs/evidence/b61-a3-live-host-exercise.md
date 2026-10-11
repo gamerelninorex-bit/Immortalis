@@ -8,7 +8,7 @@
 
 ### Honest limits
 
-1. **The host connection was Bash-driven JSON-RPC, not a registered MCP client.** The server was started once per call from a shell, speaking exactly the MCP messages a client sends (`initialize`, `notifications/initialized`, `tools/call` of `referee_list_tasks` / `referee_get_task` / `referee_submit_decision`). Claude Code was **not** configured with `claude mcp add` for this run, so "an MCP client discovered and called the server unaided" was **not** observed.
+1. **The first exercise's host connection was Bash-driven JSON-RPC, not a registered MCP client (see the Addendum below for the registered-client run).** The server was started once per call from a shell, speaking exactly the MCP messages a client sends (`initialize`, `notifications/initialized`, `tools/call` of `referee_list_tasks` / `referee_get_task` / `referee_submit_decision`). Claude Code was **not** configured with `claude mcp add` for this run, so "an MCP client discovered and called the server unaided" was **not** observed.
 2. **One model, one session, six distinct host answers (eight submissions, because the identical ordinary character was submitted again in two further campaigns) across the seven witness rows** (below). The same session also wrote the player's lines and the world documents, so the sentences were authored with the expected verdicts in mind. A different model, a hostile player, longer or non-English text, or less obvious worlds were **not** tried.
 3. **No person has reviewed these interpretations.** The engine checked that each answer was well-formed, complete and quoted the delivered words verbatim, and derived the verdict itself; it did not and cannot check that the reading was _right_. Whether the readings below are acceptable is for a human reviewer.
 4. **No adversarial prompt-injection witness was run** against a live host (the injection mitigations are structural: the task marks player text as data, the host has only three tools, the answer is schema- and quote-checked, the verdict is derived).
@@ -30,6 +30,26 @@ For each scenario a campaign was created through the shipped `establish-locality
 | 7   | **C−, canon only.** Canon `…a drowned waste where nothing that breathes air has ever lived.` (premise, a "hamlet", does not exclude)                                                                 | native reading; `world.basis` `CONTRADICTS` by inference (a human breathes air), premise `SUPPORTS`; the host noted the premise/canon tension and weakened neither | `WORLD_CONFLICT` → released, unbound                            | `player-s3.log`, answer 6                                        |
 
 Scenario 1's two runs show the resume path too: the second `author-character` run resumed at placement from the retained keep and committed the binding, citing the first run's I-002 decision and its own IR decision.
+
+## Addendum (BLUE F61-R3, R3-1): an ordinary REGISTERED MCP-client run
+
+The first exercise above was Bash-driven JSON-RPC. BLUE asked for a normal registered-client attempt if available under the existing subscription. It was available and was run, with no API key, no purchase and no credential handled by this work:
+
+- **Registration.** `claude mcp add --scope local immortalis-referee -- node --experimental-strip-types packages/operator/src/referee-bin.ts --operator-dir … --campaign-id campaign-ashfall --host-id claude-code-session --secret-file …` (Claude Code 2.1.296). `claude mcp list` reported the server `Connected`; the client's own init record listed `mcp_servers: immortalis-referee: connected` and exactly the three tools `referee_list_tasks`, `referee_get_task`, `referee_submit_decision`.
+- **Host-initiated calls.** A headless client session (`claude -p`, restricted with `--allowedTools` to those three tools, model `claude-sonnet-5-5` per its init record) was given only the generic instruction in `registered-client/host-prompt.txt` — no answers, no verdicts, no witness text. It discovered the tools through the registered server, called `referee_list_tasks`, `referee_get_task` and `referee_submit_decision` **unaided**, and wrote its own answers. Six rounds, six submissions, each accepted by the engine (`registered-client/client-trace-*.json`, nonce and paths removed).
+- **Real processes on the engine side.** The same player driver and shipped `author-character` binary as before (`registered-client/player-registered-*.log`).
+
+| Campaign                                | Witness                                                                                                                        | Registered client's reading → engine-derived verdict                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| ordinary + `weather` constraint         | identity "…and also the lawful governor of Ashfall"; possession "A hundred independent sworn soldiers who obey my every order" | `MIXED` (office quoted, own part offered) and `ACTOR_STANCE_CLAIM` → `BLOCKED`             |
+| same                                    | the revised character                                                                                                          | all accepted → `CLOSED` → kept, released                                                   |
+| same                                    | "I arrived … through a portal from another world."                                                                             | `PORTAL` → `UNSUPPORTED_BRIDGE`, unbound                                                   |
+| same (rerun)                            | "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."                                         | `NATIVE_ALREADY_THERE`, no contradiction → `BIND_ELIGIBLE` → confirmed → `CHARACTER_BOUND` |
+| premise "no human being has ever lived" | same native statement                                                                                                          | premise `CONTRADICTS` → `WORLD_CONFLICT`, unbound                                          |
+
+The registered client reached the same verdicts as the Bash-driven host on these witnesses, with its own wording (compare the findings in the player logs).
+
+**Limits that remain.** This is still one model family, the same author for the witnesses and worlds, a finite suite of six submissions, and **no person has reviewed the readings**. The nested client ran headless (`claude -p`), not an interactive chat window; and the model did not supply a `claimed_model` label (it is optional, self-reported provenance). The client run reported a small usage figure in its own result record; no separate payment, API key or credential was created or used by this work. "An interactive hosted chat client connected by a person, over time, to a live campaign" and other clients/models remain **unverified**.
 
 ## What this does and does not show
 

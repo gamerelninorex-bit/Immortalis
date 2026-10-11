@@ -1,9 +1,13 @@
 // Conformance evidence for the Original Player-Character Authorship & Native First Activation slice (@immortalis/operator
-// `author-character`, `character-status`). Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged.
+// `author-character`, `character-status`) and, within the same PR #61, its provider-neutral host-callable AI referee (BLUE B61-A3).
+// Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged.
 // Authority: BLUE v5 bounded implementation brief "Original PC Authorship & Native First Activation" (native pin 2026-10-10T15:13:41.323Z)
-// on main 884d09e889d6908e0244a7dbdfb49bbdde060843. No register row, status, source pin, gate or lock moved: this slice adds operator code,
-// tests and a document only. It composes the existing I-002 release and Role Registry first-ACTIVATION operations and invents no
-// simulation semantics. PF-6/F-028 stays BLOCKED / NOT ACTIVATED; IA/V rows are unpromoted.
+// on main 884d09e889d6908e0244a7dbdfb49bbdde060843, and BLUE B61-A3 (pin 2026-10-11T02:46:54.896Z) under the Sovereign's Option B approvals.
+// SOURCE-BOUNDARY STORY (corrected, BLUE F61-R3): the original slice added operator code, tests and a document only. B61-A3 then
+// LAWFULLY MODIFIED four engine files — canonical-campaign.ts, world/integrity.ts, owners/registry.ts and owners/admission.ts — and added
+// the referee contract, engine module and operator modules; those four are listed below as SCOPED DELTAS, each with its base hash on main
+// and the hash pinned at the PR #61 head. Every other listed file, and the frozen F-027 lock/gates/register/contract, is byte-identical
+// to main. No register row, status, source pin, gate or lock moved. PF-6/F-028 stays BLOCKED / NOT ACTIVATED; IA/V rows are unpromoted.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -30,7 +34,7 @@ const importedNames = (file: string, from: string): string[] =>
     .map((n) => n.trim().replace(/^type /, ""))
     .filter(Boolean);
 
-/** Everything the slice composes or must leave untouched, exactly as it stood at main 884d09e889d6908e0244a7dbdfb49bbdde060843. */
+/** Everything the slice composes or must leave untouched, byte-identical to main 884d09e889d6908e0244a7dbdfb49bbdde060843. */
 const UNCHANGED: Record<string, string> = {
   "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
@@ -40,16 +44,8 @@ const UNCHANGED: Record<string, string> = {
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-  "packages/engine/src/world/integrity.ts":
-    "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
   "packages/engine/src/persistence/file-package.ts":
     "9f503d0b219457f9086bf6963e774e3d5dcf74d18c4643a8c7658085ab8b6933",
-  "packages/engine/src/owners/registry.ts":
-    "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-  "packages/engine/src/owners/admission.ts":
-    "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
@@ -70,9 +66,46 @@ const UNCHANGED: Record<string, string> = {
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
 };
 
-describe("the owners, contracts, shipped binary and frozen artifacts are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the PC/binding contracts, the canonical campaign and its admission and integrity, the registry, the existing operator modules, the shipped binary and the F-027 artifacts are byte-identical to the base", () => {
+/**
+ * The Sovereign-authorized B61-A3 SCOPED DELTAS to existing engine files (consumer enforcement `qualified_by`, the referee owner/kind
+ * registration, its admission dispatch and integrity). `base` is the hash on main 884d09e; `head` is the hash pinned at the PR #61 head
+ * reviewed by BLUE (any further edit to these files is a new, visible change to this table).
+ */
+const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
+  "packages/engine/src/world/canonical-campaign.ts": {
+    base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
+    head: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
+  },
+  "packages/engine/src/world/integrity.ts": {
+    base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
+    head: "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
+  },
+  "packages/engine/src/owners/registry.ts": {
+    base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
+    head: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
+  },
+  "packages/engine/src/owners/admission.ts": {
+    base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
+    head: "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
+  },
+};
+
+describe("the owners, contracts, shipped binary and frozen artifacts: untouched except the four B61-A3 scoped deltas", () => {
+  it("the PC/binding contracts, the persistence package, the existing operator modules, the shipped binary and the F-027 lock, gates, register and runtime contract are byte-identical to main", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
+  });
+
+  it("the engine files B61-A3 modified are exactly the four scoped deltas: each differs from main and is pinned at the PR head (no silent further change)", () => {
+    expect(Object.keys(B61_A3_SCOPED_DELTAS).sort()).toEqual([
+      "packages/engine/src/owners/admission.ts",
+      "packages/engine/src/owners/registry.ts",
+      "packages/engine/src/world/canonical-campaign.ts",
+      "packages/engine/src/world/integrity.ts",
+    ]);
+    for (const [file, { base, head }] of Object.entries(B61_A3_SCOPED_DELTAS)) {
+      expect(base, file).not.toBe(head);
+      expect(sha(file), file).toBe(head);
+    }
   });
 
   it("PF-6/F-028 stays not activated and blocked, and no acceptance row carries this slice as evidence", () => {

@@ -7,11 +7,14 @@ import {
   CANON_WRITE_AUTHORITY,
   PLAYER_CHOICE_AUTHORITY,
   REFEREE_AUTHORITY,
+  type RefereeDecisionRecord,
   refereeDecisionKey,
 } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
   RefereeAdjudicationAdapter,
+  factKind,
+  recordContextViolation,
   refereeCandidateItems,
 } from "@immortalis/engine";
 import { EMPTY_DRAFT, compileContract, type CharacterDraft } from "@immortalis/operator";
@@ -336,6 +339,91 @@ describe("integrity re-derives what a retained decision claims", () => {
       expect(t0.task_id).toBe(a.i002Task({ pc_id: PC_ID, attempt: 0, items }).task_id);
       expect(createHash("sha256").update(t0.task_id).digest("hex")).toHaveLength(64);
       expect(LOCALITY_CAMPAIGN).toBe(t0.context.campaign_id);
+    } finally {
+      await c.close();
+    }
+  }, 60_000);
+});
+
+describe("R3-4: a later version of a cited fact never stops the verification of a retained record", () => {
+  it("the cited kinds are SEALED, so a later version cannot be admitted on the supported path", () => {
+    for (const id of ["world_profile", "world_locus", "pc_existence_contract"] as const)
+      expect(factKind(id).lifecycle, id).toBe("SEALED");
+  });
+
+  it("defence in depth: against facts reported at a newer version the record is still verified on what it retains (a tampered verdict or statement digest is not skipped)", async () => {
+    const dirs = await localityCampaign();
+    const c = await open(dirs.campaignDir);
+    try {
+      const a = new RefereeAdjudicationAdapter(c.store);
+      const operation = { ...REFEREE_AUTHORITY };
+      const own = answerFor(a, draft);
+      const k = await a.recordI002({
+        operation,
+        host,
+        pc_id: PC_ID,
+        attempt: 0,
+        items: own.items,
+        answer: own.answer,
+      });
+      await c.releasePlayerCharacter({
+        ...pub("release"),
+        contract: compileContract(PC_ID, draft)!,
+        qualified_by: k.ok ? k.value.record.key : "",
+      });
+      const statement = WORDS.presence;
+      const task = a.irTask({
+        pc_id: PC_ID,
+        world_id: WORLD_ID,
+        locus_id: LOCUS_ID,
+        attempt: 0,
+        statement,
+      });
+      if (!task.ok) throw new Error("no task");
+      const ir = await a.recordIr({
+        operation,
+        host,
+        pc_id: PC_ID,
+        world_id: WORLD_ID,
+        locus_id: LOCUS_ID,
+        attempt: 0,
+        statement,
+        answer: scriptedPolicy()({
+          operation: "IR_NATIVE_COMPATIBILITY",
+          task_id: task.value.task_id,
+          context: task.value.context,
+        }) as never,
+      });
+      if (!ir.ok) throw new Error("not recorded");
+      const record = a.decision(ir.value.task_id)!.value;
+
+      const current = (key: string) => c.store.getFact(key);
+      const newer = (key: string) => {
+        const f = current(key);
+        return f ? { ...f, version: f.version + 1 } : f;
+      };
+      // as committed: coherent
+      expect(recordContextViolation(record, current)).toBeNull();
+      // facts at a LATER version: a coherent record is still not invalidated ...
+      expect(recordContextViolation(record, newer)).toBeNull();
+      // ... but the verification does not stop there: a tampered verdict, task binding or statement digest is still found
+      const tampered = (over: Partial<RefereeDecisionRecord>) =>
+        ({ ...record, ...over }) as RefereeDecisionRecord;
+      expect(recordContextViolation(tampered({ verdict: "WORLD_CONFLICT" }), newer)).not.toBeNull();
+      expect(recordContextViolation(tampered({ task_id: "a".repeat(64) }), newer)).not.toBeNull();
+      expect(
+        recordContextViolation(
+          tampered({ input: { ...record.input, statement_digest: "0".repeat(64) } }),
+          newer,
+        ),
+      ).not.toBeNull();
+      // an EARLIER version than cited, or an absent fact, remains stale/unavailable
+      const older = (key: string) => {
+        const f = current(key);
+        return f ? { ...f, version: f.version - 1 } : f;
+      };
+      expect(recordContextViolation(record, older)?.stale).toBe(true);
+      expect(recordContextViolation(record, () => undefined)?.code).toBe("CONTEXT_UNAVAILABLE");
     } finally {
       await c.close();
     }

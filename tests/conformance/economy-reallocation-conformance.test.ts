@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/store.ts":
     "c5c05a17ec7b9835564a1ccbbe5465e4f46ba71893c96fabc01ee87f79e2e077",
   "packages/engine/src/world/canonical-campaign.ts":
-    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
+    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {
@@ -184,7 +184,7 @@ describe("reuse, not fork: IM-03, IM-11, IM-12 and IM-17 are the existing machin
 });
 
 describe("frozen artifacts, register and gates are untouched; nothing was promoted", () => {
-  it("the F-027 snapshot, the Economy modules this slice does not change and the persistence core are byte-identical to the base", () => {
+  it("the F-027 snapshot, the Economy modules this slice does not change and the persistence core are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

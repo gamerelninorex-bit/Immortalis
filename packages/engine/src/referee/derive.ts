@@ -525,7 +525,10 @@ export function recordContextViolation(
       message: "an IR record carries its statement and no candidate",
       stale: false,
     };
-  // the pinned facts must still be at the pinned versions to rebuild the context; a later version never invalidates a decision
+  // The pinned facts must be at the pinned versions to REBUILD the context. A later version never invalidates a decision, and it is
+  // never a reason to stop verifying the record: the record is then checked on what it retains (below), without recomputing its
+  // answer against facts it was not given. (The cited kinds are SEALED, so a later version cannot be admitted; this is defence in depth.)
+  let superseded = false;
   for (const ref of r.input.refs) {
     const f = facts(ref.fact_key);
     if (!f)
@@ -534,7 +537,10 @@ export function recordContextViolation(
         message: `a cited fact is not committed: ${ref.fact_key}`,
         stale: false,
       };
-    if (f.version > ref.version) return null;
+    if (f.version > ref.version) {
+      superseded = true;
+      continue;
+    }
     if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
       return {
         code: "CONTEXT_STALE",
@@ -549,6 +555,25 @@ export function recordContextViolation(
       message: "an IR record cites the released character, the world and the locus",
       stale: false,
     };
+  if (superseded) {
+    // the historical basis is verified from the record alone: identities, statement, task binding and the verdict its answer derives
+    if (
+      r.input.statement_digest !== statementDigest(r.input.statement) ||
+      r.decision.task_id !== r.task_id
+    )
+      return {
+        code: "DECISION_INCOHERENT",
+        message: "the record's statement digest or task binding is not its own",
+        stale: false,
+      };
+    return irVerdictOf(r.decision) === r.verdict
+      ? null
+      : {
+          code: "DECISION_INCOHERENT",
+          message: "the record's verdict is not the one its answer derives",
+          stale: false,
+        };
+  }
   const built = irContext(facts, {
     campaign_id: r.campaign_id,
     attempt: r.attempt,
