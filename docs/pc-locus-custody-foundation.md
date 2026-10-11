@@ -58,6 +58,7 @@ Voluntary PC movement; a player-owned movement commitment or Movement Service Re
 - The record is verified for identity, ownership and provenance only; whether the locus is a _sensible_ place for the PC is not judged (no source supplies one).
 - After this slice the active-PC current-locus answer exists but nothing yet consumes it (no Logistics admission, no relocation). A fresh Blue Hard Preflight decides the next slice.
 - A PC activated by ordinary first `ACTIVATION` has no custody path here: its binding-time referent is not a consumed coupling, and the frozen contract authorizes only the post-handover case.
+  _Update (BLUE v5.1):_ that path now exists as a **separate, exclusive second basis** of the same fact kind, with its own source coverage and a referee-qualified physical reading; see [`pc-locus-original-activation-foundation.md`](pc-locus-original-activation-foundation.md). This slice's handover branch is unchanged, is not reclassified, and the post-handover movement and advance consumers still accept only it.
 - `verifyPcPhysicalLocusCustodyIntegrity`, like the other verifiers, lists all facts once per open (diagnostic path, CAL-06), and returns immediately when no record exists.
 
 ## Evidence

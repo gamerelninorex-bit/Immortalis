@@ -2,8 +2,11 @@ import {
   ExistenceContractSchema,
   I002_ADMITTED_CLASS,
   I002_NON_INTRINSIC_CLASSES,
+  PLAYER_CHARACTER_BINDING_KEY,
+  PlayerCharacterBindingSchema,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
   REFEREE_SOURCES,
   WorldLocusSchema,
   WorldProfileSchema,
@@ -14,6 +17,7 @@ import {
   type I002HostDecision,
   type IrHostDecision,
   type OwnerFact,
+  type PhysicalHostDecision,
   type RefereeDecisionRecord,
   type RefereeInputRef,
   type RefereeCandidateSlot,
@@ -109,7 +113,30 @@ export interface IrContext {
   readonly refs: readonly RefereeInputRef[];
 }
 
-export type RefereeContext = I002Context | IrContext;
+/**
+ * The physical-placement context (original active-PC qualified physical-locus custody). Built ONLY from committed facts: the
+ * released character, the operative first-ACTIVATION binding (whose preserved native statement is the statement, never a caller's
+ * string), and the world and locus the binding couples. The caller names the character and the attempt, nothing else.
+ */
+export interface PhysicalContext {
+  readonly operation: typeof REFEREE_OP_PHYSICAL;
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  /** the player's separately confirmed native-presence statement, verbatim, as the committed binding preserves it */
+  readonly statement: string;
+  /** the accepted character's own statements (embodiment first among them) */
+  readonly pc: readonly CandidateItem[];
+  readonly facts: readonly DeliveredFact[];
+  /** the released character, the binding, the world and the locus, at the versions delivered */
+  readonly refs: readonly RefereeInputRef[];
+}
+
+export type RefereeContext = I002Context | IrContext | PhysicalContext;
 
 export const contextDigest = (ctx: RefereeContext): string => sha256Canonical(ctx);
 /** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
@@ -233,6 +260,61 @@ export function irContext(
       pc: refereeCandidateItems(pc.data),
       facts: deliveredFacts(world.data, locus.data),
       refs: [ref(pcFact), ref(worldFact), ref(locusFact)],
+    },
+  };
+}
+
+/**
+ * The physical-placement context, built ONLY from committed facts (see `PhysicalContext`). Refused unless the operative binding is a
+ * first ACTIVATION of exactly this character and its coupled world and locus are committed.
+ */
+export function physicalContext(
+  facts: Facts,
+  input: { campaign_id: string; attempt: number; pc_id: string },
+):
+  | { ok: true; context: PhysicalContext }
+  | { ok: false; code: RefereeRefusalCode; message: string } {
+  const unavailable = (message: string) => ({
+    ok: false as const,
+    code: "CONTEXT_UNAVAILABLE" as const,
+    message,
+  });
+  const bindingFact = facts(PLAYER_CHARACTER_BINDING_KEY);
+  const pcFact = facts(pcExistenceContractKey(input.pc_id));
+  const parsedBinding = bindingFact
+    ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
+    : undefined;
+  if (!bindingFact || !parsedBinding?.success || !pcFact)
+    return unavailable("the released character and its operative binding must be committed");
+  const binding = parsedBinding.data;
+  if (binding.active_pc.entity_id !== input.pc_id || binding.transition.type !== "ACTIVATION")
+    return unavailable("the operative binding is the first ACTIVATION of exactly this character");
+  const worldId = binding.coupling.world.entity_id;
+  const locusId = binding.coupling.locus.entity_id;
+  const worldFact = facts(worldProfileKey(worldId));
+  const locusFact = facts(worldLocusKey(worldId, locusId));
+  if (!worldFact || !locusFact) return unavailable("the coupled world and locus must be committed");
+  const pc = ExistenceContractSchema.safeParse(pcFact.value);
+  const world = WorldProfileSchema.safeParse(worldFact.value);
+  const locus = WorldLocusSchema.safeParse(locusFact.value);
+  if (!pc.success || !world.success || !locus.success)
+    return unavailable("a committed fact does not satisfy its contract");
+  const ref = (f: OwnerFact): RefereeInputRef => ({
+    fact_key: f.key,
+    version: f.version,
+    group_id: f.provenance.group_id,
+  });
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_PHYSICAL,
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { pc_id: input.pc_id, world_id: worldId, locus_id: locusId },
+      statement: binding.transition.basis.statement,
+      pc: refereeCandidateItems(pc.data),
+      facts: deliveredFacts(world.data, locus.data),
+      refs: [ref(pcFact), ref(bindingFact), ref(worldFact), ref(locusFact)],
     },
   };
 }
@@ -475,11 +557,186 @@ export function irVerdictOf(
   return "BIND_ELIGIBLE";
 }
 
+type AssessmentCheck =
+  | { ok: true; anyUnclear: boolean; anyContradicts: boolean }
+  | { ok: false; refusal: RefereeRefusal };
+
+/** Every delivered world and locus fact assessed exactly once; SUPPORTS and CONTRADICTS anchored to a verbatim quotation of that fact. */
+function checkAssessments(
+  facts: readonly DeliveredFact[],
+  assessments: IrHostDecision["assessments"],
+): AssessmentCheck {
+  const byId = new Map(facts.map((f) => [f.fact_id, f]));
+  const seen = new Set<string>();
+  let anyUnclear = false;
+  let anyContradicts = false;
+  for (const a of assessments) {
+    const fact = byId.get(a.fact_id);
+    if (!fact)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `an assessment names a fact that was not delivered: ${a.fact_id}`,
+        ),
+      };
+    if (seen.has(a.fact_id))
+      return {
+        ok: false,
+        refusal: refuse("COVERAGE_INCOMPLETE", `a fact is assessed twice: ${a.fact_id}`),
+      };
+    seen.add(a.fact_id);
+    const needsQuote = a.relation === "SUPPORTS" || a.relation === "CONTRADICTS";
+    if (needsQuote && (a.evidence_quote === null || !fact.text.includes(a.evidence_quote)))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          `${a.fact_id}: ${a.relation} is anchored to a verbatim quotation of that fact`,
+        ),
+      };
+    if (!needsQuote && a.evidence_quote !== null && !fact.text.includes(a.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse("GROUNDS_UNSUPPORTED", `${a.fact_id}: the quotation is not in the fact`),
+      };
+    if (a.relation === "UNCLEAR") anyUnclear = true;
+    if (a.relation === "CONTRADICTS") anyContradicts = true;
+  }
+  if (seen.size !== byId.size)
+    return {
+      ok: false,
+      refusal: refuse(
+        "COVERAGE_INCOMPLETE",
+        "every delivered world and locus fact must be assessed exactly once",
+      ),
+    };
+  return { ok: true, anyUnclear, anyContradicts };
+}
+
+/**
+ * Validates a host's physical-placement answer against the context it was given and derives the verdict: the embodiment reading is
+ * anchored to a verbatim quotation of one delivered character statement; the presence reading and every dependency to a verbatim
+ * quotation of the player's native-presence statement; every delivered world and locus fact is assessed exactly once; a question is
+ * asked exactly when something is ambiguous or unclear. PHYSICAL_ELIGIBLE only if the accepted embodiment is ONE material body, the
+ * statement places it natively at THIS locus, nothing rests on an independent actor or an external claim, and no fact is
+ * contradicted or unclear. A verdict is never read from the host.
+ */
+export function derivePhysical(
+  ctx: PhysicalContext,
+  decision: PhysicalHostDecision,
+): { ok: true; verdict: PhysicalVerdict } | { ok: false; refusal: RefereeRefusal } {
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  const item = ctx.pc.find((i) => i.item_id === decision.embodiment.item_id);
+  if (!item)
+    return {
+      ok: false,
+      refusal: refuse(
+        "COVERAGE_INCOMPLETE",
+        `the embodiment reading names a character statement that was not delivered: ${decision.embodiment.item_id}`,
+      ),
+    };
+  if (!item.text.includes(decision.embodiment.evidence_quote))
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the embodiment reading's quotation is not in the character statement it names",
+      ),
+    };
+  if (!ctx.statement.includes(decision.presence.evidence_quote))
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the presence reading's quotation is not in the player's statement",
+      ),
+    };
+  for (const c of decision.external_claims) {
+    if (!ctx.statement.includes(c.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "an external claim's quotation is not in the player's statement",
+        ),
+      };
+    // a claim stated ALONGSIDE the presence must stand apart from the words that establish the presence: those words may not include it
+    if (
+      c.bearing === "CONJUNCTIVE" &&
+      !quotesDisjoint(ctx.statement, decision.presence.evidence_quote, c.evidence_quote)
+    )
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "a conjunctive claim stands apart from the words that establish the presence: the presence quotation may not contain it (a claim the presence rests on is CONTINGENT)",
+        ),
+      };
+  }
+  const checked = checkAssessments(ctx.facts, decision.assessments);
+  if (!checked.ok) return checked;
+  const needsQuestion =
+    decision.embodiment.mode === "AMBIGUOUS" ||
+    decision.presence.mode === "AMBIGUOUS" ||
+    checked.anyUnclear;
+  if (needsQuestion !== (decision.clarification !== null))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "a clarification is asked exactly when the embodiment or presence is ambiguous or a fact is unclear",
+      ),
+    };
+  return { ok: true, verdict: physicalVerdictOf(decision) };
+}
+
+/** Whether two verbatim excerpts of `text` can be located so that their spans do not overlap. */
+function quotesDisjoint(text: string, a: string, b: string): boolean {
+  const spans = (q: string): number[] => {
+    const out: number[] = [];
+    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) out.push(i);
+    return out;
+  };
+  return spans(a).some((i) => spans(b).some((j) => i + a.length <= j || j + b.length <= i));
+}
+
+export type PhysicalVerdict =
+  | "PHYSICAL_ELIGIBLE"
+  | "NOT_PHYSICAL_SINGLE_LOCUS"
+  | "PHYSICAL_WORLD_CONFLICT"
+  | "PHYSICAL_UNRESOLVED";
+
+/**
+ * The physical-placement verdict as a function of the answer alone (re-derivable from the retained record). A definite reading that
+ * is not one material body originally present at this locus, or whose presence is CONTINGENT on an external claim, is
+ * NOT_PHYSICAL_SINGLE_LOCUS (a CONJUNCTIVE external claim stated alongside a presence the player's own words establish does not change the
+ * verdict, and is accepted into nothing); then
+ * a contradicted world fact; then anything ambiguous or unclear is unresolved; only the remainder is eligible.
+ */
+export function physicalVerdictOf(decision: PhysicalHostDecision): PhysicalVerdict {
+  const e = decision.embodiment.mode;
+  const p = decision.presence.mode;
+  if (
+    (e !== "SINGLE_MATERIAL_BODY" && e !== "AMBIGUOUS") ||
+    (p !== "NATIVE_AT_THIS_LOCUS" && p !== "AMBIGUOUS") ||
+    decision.external_claims.some((c) => c.bearing === "CONTINGENT")
+  )
+    return "NOT_PHYSICAL_SINGLE_LOCUS";
+  if (decision.assessments.some((a) => a.relation === "CONTRADICTS"))
+    return "PHYSICAL_WORLD_CONFLICT";
+  if (
+    e === "AMBIGUOUS" ||
+    p === "AMBIGUOUS" ||
+    decision.assessments.some((a) => a.relation === "UNCLEAR")
+  )
+    return "PHYSICAL_UNRESOLVED";
+  return "PHYSICAL_ELIGIBLE";
+}
+
 /** The context a retained record was decided on, re-derived from the record alone (I-002) or from committed facts (IR). */
-export function recordContextViolation(
-  r: RefereeDecisionRecord,
-  facts: Facts,
-): { code: RefereeRefusalCode; message: string; stale: boolean } | null {
+export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): RecordViolation {
   if (r.operation === REFEREE_OP_I002) {
     if (r.input.candidate === null || r.input.statement !== null)
       return {
@@ -519,6 +776,7 @@ export function recordContextViolation(
           stale: false,
         };
   }
+  if (r.operation === REFEREE_OP_PHYSICAL) return physicalRecordViolation(r, facts);
   if (r.input.statement === null || r.input.candidate !== null)
     return {
       code: "DECISION_INCOHERENT",
@@ -607,6 +865,90 @@ export function recordContextViolation(
         message: "the record's verdict is not the one its answer derives",
         stale: false,
       };
+}
+
+type RecordViolation = { code: RefereeRefusalCode; message: string; stale: boolean } | null;
+
+/** The physical-placement record's context, re-derived from the committed facts it cites (the same discipline as the IR record). */
+function physicalRecordViolation(
+  r: Extract<RefereeDecisionRecord, { operation: typeof REFEREE_OP_PHYSICAL }>,
+  facts: Facts,
+): RecordViolation {
+  const incoherent = (message: string): RecordViolation => ({
+    code: "DECISION_INCOHERENT",
+    message,
+    stale: false,
+  });
+  if (r.input.statement === null || r.input.candidate !== null)
+    return incoherent("a physical-placement record carries its statement and no candidate");
+  let superseded = false;
+  for (const ref of r.input.refs) {
+    const f = facts(ref.fact_key);
+    if (!f)
+      return {
+        code: "CONTEXT_UNAVAILABLE",
+        message: `a cited fact is not committed: ${ref.fact_key}`,
+        stale: false,
+      };
+    if (f.version > ref.version) {
+      superseded = true;
+      continue;
+    }
+    if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
+      return {
+        code: "CONTEXT_STALE",
+        message: `a cited fact is not at the cited version: ${ref.fact_key}`,
+        stale: true,
+      };
+  }
+  const ids = irIdentities(r);
+  const pcKey = pcExistenceContractKey(r.subject.pc_id);
+  const keys = r.input.refs.map((x) => x.fact_key);
+  if (
+    !ids ||
+    keys.length !== 4 ||
+    keys[0] !== pcKey ||
+    keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
+    keys[2] !== worldProfileKey(ids.world_id) ||
+    keys[3] !== worldLocusKey(ids.world_id, ids.locus_id)
+  )
+    return incoherent(
+      "a physical-placement record cites the released character, the binding, the world and the locus",
+    );
+  if (superseded) {
+    if (
+      r.input.statement_digest !== statementDigest(r.input.statement) ||
+      r.decision.task_id !== r.task_id
+    )
+      return incoherent("the record's statement digest or task binding is not its own");
+    return physicalVerdictOf(r.decision) === r.verdict
+      ? null
+      : incoherent("the record's verdict is not the one its answer derives");
+  }
+  const built = physicalContext(facts, {
+    campaign_id: r.campaign_id,
+    attempt: r.attempt,
+    pc_id: r.subject.pc_id,
+  });
+  if (!built.ok) return { code: built.code, message: built.message, stale: false };
+  if (
+    built.context.statement !== r.input.statement ||
+    built.context.subject.world_id !== ids.world_id ||
+    built.context.subject.locus_id !== ids.locus_id ||
+    r.input.digest !== contextDigest(built.context) ||
+    r.task_id !== refereeTaskId(built.context) ||
+    r.input.statement_digest !== statementDigest(r.input.statement)
+  )
+    return incoherent(
+      "the record's digests are not those of the context built from the cited facts",
+    );
+  if (!sameRefs(built.context.refs, r.input.refs))
+    return incoherent("the record cites exactly the facts its context was built from");
+  const d = derivePhysical(built.context, r.decision);
+  if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+  return d.verdict === r.verdict
+    ? null
+    : incoherent("the record's verdict is not the one its answer derives");
 }
 
 const sameRefs = (a: readonly RefereeInputRef[], b: readonly RefereeInputRef[]): boolean =>

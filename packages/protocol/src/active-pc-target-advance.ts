@@ -28,6 +28,7 @@ import {
   economyRealizationProvider,
   epistemicPacketProvider,
   gipSunsetExpiryProvider,
+  isPostHandoverCustody,
   ktiTransferResultCloseProvider,
   logisticsDeliveryProvider,
   logisticsRetirementProvider,
@@ -303,7 +304,9 @@ function isStationaryActivePc(
   // the PC's one stationary physical-locus custody names its world; the present locus must be a stationary one (World-State's)
   const custody = campaign.pcPhysicalLocusCustody(pcId);
   const locus = campaign.pcCurrentLocus(pcId);
-  if (!custody || !locus || locus.stationary === null) return false;
+  // the target advance serves the post-handover branch only; an original-activation custody states a stationary position and nothing more
+  if (!custody || !isPostHandoverCustody(custody.value) || !locus || locus.stationary === null)
+    return false;
   const worldId = custody.value.stationary_locus.world.entity_id;
   const logistics = new LogisticsAdapter(campaign.store);
   const commitment = logistics.commitment(worldId, pcId);

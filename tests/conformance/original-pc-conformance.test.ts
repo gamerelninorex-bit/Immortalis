@@ -69,12 +69,14 @@ const UNCHANGED: Record<string, string> = {
 /**
  * The Sovereign-authorized B61-A3 SCOPED DELTAS to existing engine files (consumer enforcement `qualified_by`, the referee owner/kind
  * registration, its admission dispatch and integrity). `base` is the hash on main 884d09e; `head` is the hash pinned at the PR #61 head
- * reviewed by BLUE (any further edit to these files is a new, visible change to this table).
+ * reviewed by BLUE (any further edit to these files is a new, visible change to this table). BLUE v5.1 (original active-PC qualified
+ * physical-locus custody) later modified canonical-campaign.ts and owners/registry.ts again: the `head` pins below follow that change, and the
+ * v5.1 scoped deltas (with their own main and head hashes) are listed in original-pc-locus-conformance.test.ts.
  */
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
-    head: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
+    head: "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
   },
   "packages/engine/src/world/integrity.ts": {
     base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
@@ -82,7 +84,7 @@ const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
+    head: "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",

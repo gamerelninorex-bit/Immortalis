@@ -1,0 +1,181 @@
+# scenario p1-ordinary: POSITIVE: an ordinary embodied native character
+
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+CONFIRMATION — ORIGINAL LOCALITY SETUP
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+  campaign:  campaign-ashfall (a NEW standard campaign package will be created)
+  operator:  uid 0
+  setup identity: 15b5ab68eb681bff063540f329aad8aa
+  to commit, in this order: world → locus → source
+
+THE SETTING FACTS YOU ARE CONFIRMING (authored by you; nothing is inferred, estimated or defaulted):
+WORLD — ORIGINAL
+  world id: world-ashfall
+  premise: "A quiet salt-marsh hamlet where the tide decides the day."
+  established canon: "Ashfall Marsh is an invented place; its tides and salt pans are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints:
+    - weather: "The wind off the sea is always from the west."
+LOCUS
+  locus id: locus-salt-pans (of world world-ashfall)
+  designation: "The salt pans of Ashfall Marsh"
+  constraints: none
+SOURCE CONDITION — EXACT, FINITE, an initial setting fact
+  source key: src-salt-pan-1 at locus locus-salt-pans
+  dimension: surface-crust
+  material class: raw-salt
+  EXACT quantity: 120 sack (the whole recoverable amount; none delivered)
+  physical access facts:
+    - terrain: "Reachable on foot across the dry crust at low tide."
+  statement: "The first pan holds exactly 120 sacks of raw salt."
+
+Confirming commits these as the physical setting of this campaign, one durable World-State publication at a time.
+It creates no character, actor, cohort or relationship, advances no time, and grants nobody perception, knowledge or
+permission to extract: the quantity is a setting fact, not an estimate, availability verdict or yield.
+Committed facts are never replaced; a different setup is refused for this campaign.
+To confirm, type exactly "establish-locality 7aacee5ee4cd". Anything else declines.
+> PROGRESS setup PINNED 15b5ab68eb681bff063540f329aad8aa
+PROGRESS package CREATED campaign-ashfall
+PROGRESS world COMMITTED world/world-ashfall/profile
+PROGRESS locus COMMITTED world/world-ashfall/locus/locus-salt-pans
+PROGRESS source COMMITTED world/world-ashfall/source/src-salt-pan-1
+STATUS LOCALITY_READY
+the original locality is established and an owner-verified open of the package reads back exactly the confirmed setup; this is a physical setting only: nobody perceives, knows or may extract anything because of it
+campaign: campaign-ashfall
+setup identity: 15b5ab68eb681bff063540f329aad8aa
+world: world/world-ashfall/profile [world_state/world_profile v1] group operator-locality:15b5ab68eb681bff063540f329aad8aa:world cause operator-locality-cause:15b5ab68eb681bff063540f329aad8aa
+locus: world/world-ashfall/locus/locus-salt-pans [world_state/world_locus v1] group operator-locality:15b5ab68eb681bff063540f329aad8aa:locus cause operator-locality-cause:15b5ab68eb681bff063540f329aad8aa
+source: world/world-ashfall/source/src-salt-pan-1 [world_state/world_source_condition v1] group operator-locality:15b5ab68eb681bff063540f329aad8aa:source cause operator-locality-cause:15b5ab68eb681bff063540f329aad8aa
+source: src-salt-pan-1 EXACT_FINITE, established 120 sack of raw-salt; recoverable now 120 sack
+
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+STATUS REFEREE_HOST_BOUND
+host claude-code-headless is bound to this campaign for the three referee operations (I-002 classification; native/compatibility; physical placement).
+secret file (owner-only; give the PATH to the host's tool server, never the contents): /tmp/immortalis-live-Uenj40/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+tool server: immortalis-referee --operator-dir /tmp/immortalis-live-Uenj40/operator-state --campaign-id campaign-ashfall --host-id claude-code-headless --secret-file /tmp/immortalis-live-Uenj40/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+exchange directory: /tmp/immortalis-live-Uenj40/operator-state/referee-dec69b98eb11c890e871cccc5428c66b
+
+[host client run 1: 8 traced events]
+[host client run 2: 8 traced events]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+Welcome to IMMORTALIS. Tell me what matters about your character, in your own words. Leave the rest open.
+Say it in your own words. An AI referee host will then read what you wrote and tell you, statement by statement, what it accepts as yours and what it does not (anything about other people, followers, offices, institutions, places or the wider world is not part of a character).
+Who - or what - are you?
+identity> How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact <why>
+contact> contact> What form constitutes you?
+embodiment> What keeps you the same continuing self?
+continuity> Anything important about you that differs from what would normally be expected? One per line; an empty line finishes.
+exception> Anything you chose to leave open? One per line; an empty line finishes.
+open> Anything specific you begin with that would not normally be assumed? One per line; an empty line finishes.
+possession> Asking the AI referee host to read what you wrote ...
++--- CHARACTER MIRROR (display 1) ---
+| OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+| character id: pc-maren
+| IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.
+| Identity
+|   - who or what you are: "Maren Voss, a human salt-raker of about forty winters"
+|   - your form: "One ordinary human body"
+|   - what keeps you the same continuing self: "I remain myself for as long as I live; when my body dies I am dead."
+|   - the world can register you through: "A weathered woman in a salt-stained coat who speaks the local tongue"
+| About the world
+|   - wider-world claims: "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed."
+| How this character came to be
+|   - delegation: "Nothing about this character was randomized, delegated or sealed: every statement above is yours."
++---
++--- AI REFEREE FINDINGS (host claude-code-headless; verdict CLOSED) ---
+|   [accepted as yours: INTRINSIC_PC] "Maren Voss, a human salt-raker of about forty winters"
+|   [accepted as yours: INTRINSIC_PC] "One ordinary human body"
+|   [accepted as yours: INTRINSIC_PC] "I remain myself for as long as I live; when my body dies I am dead."
+|   [accepted as yours: INTRINSIC_PC] "A weathered woman in a salt-stained coat who speaks the local tongue"
++---
+This is how IMMORTALIS understands your character.
+Keep this character, or change something before we continue?
+To confirm, type exactly "keep-character 9ee76a54612b". To revise instead, type "change". Anything else leaves without a character.
+> PROGRESS keep RETAINED
+PROGRESS referee DECIDED referee/bb49c7985a1dbd0c252365f516fe54392148aefbd71e77a6b8f56e0e49be8849/decision
+PROGRESS character RELEASED pc/pc-maren/existence-contract
+PLACEMENT - a separate choice from keeping your character. Nothing is bound yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+WORLD world-ashfall (established earlier by World-State, not by you now)
+  premise: "A quiet salt-marsh hamlet where the tide decides the day."
+  reference / causal basis: "Ashfall Marsh is an invented place; its tides and salt pans are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints:
+    - weather: "The wind off the sea is always from the west."
+LOCUS locus-salt-pans
+  designation: "The salt pans of Ashfall Marsh"
+  constraints: none
+If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.
+presence> Asking the AI referee host to read your statement against the world ...
++--- AI REFEREE FINDINGS (host claude-code-headless; verdict BIND_ELIGIBLE) ---
+|   your statement is read as: NATIVE_ALREADY_THERE - "The player explicitly states they have always lived at the salt pans and are originally present; no arrival, portal, transfer or summoning is stated, so no bridge is required or invented."
+|   world.premise: SUPPORTS - "A salt-marsh hamlet is consistent with a human salt-raker living there."
+|   world.basis: SUPPORTS - "Ashfall Marsh and its salt pans are established canon, matching the stated place of presence."
+|   locus.designation: SUPPORTS - "The locus is the same salt pans of Ashfall Marsh where the player states presence."
++---
+CONFIRMATION - NATIVE PRESENCE (the second, separate choice)
+  character: pc-maren (released and kept)
+  world: world-ashfall v1, locus: locus-salt-pans v1
+  your statement, kept verbatim: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+  Confirming binds this character as the operative player character on exactly this explicit fact (native, already there).
+  It invents no arrival or bridge and gives the character no physical position, custody, perception, knowledge or action.
+To confirm, type exactly "place-character e2c2c6d87792". Anything else leaves your character released but unbound.
+> PROGRESS referee DECIDED referee/eb60938a328655ea008d08244f4605c5dd65980280020216fbe7d075167a6a23/decision
+PROGRESS binding COMMITTED role-registry/binding/role.player_character
+STATUS CHARACTER_BOUND
+the character you kept is released and is bound as the operative player character at the established locus, on the native-presence statement you separately confirmed; a fresh owner-verified open reads back exactly what you confirmed. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
+campaign: campaign-ashfall
+character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:0b354c3fd752878ca252cf38617809e5:release cause operator-pc-cause:0b354c3fd752878ca252cf38617809e5
+binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:3a3750234f142af33576e3b479382828:bind cause operator-pc-cause:3a3750234f142af33576e3b479382828
+world: world-ashfall, locus: locus-salt-pans
+native presence, as you stated it: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+physical custody of the character: none - this command establishes none (see establish-character-locus)
+
+[host client run 3: 8 traced events]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+PHYSICAL LOCUS - a third, separate choice. Nothing physical is held yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+character: pc-maren
+world world-ashfall, locus locus-salt-pans
+your confirmed native-presence statement, kept verbatim: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+The binding records that your character is originally present there, and gives it no physical position. Asking the AI referee host whether your character's own words and that statement describe ONE material physical body at exactly that locus ...
++--- AI REFEREE FINDINGS: PHYSICAL PLACEMENT (host claude-code-headless; verdict PHYSICAL_ELIGIBLE) ---
+|   your character's form is read as: SINGLE_MATERIAL_BODY - "The character's own embodiment statement constitutes one ordinary human body, a single material thing occupying one place; continuity ties the character to that body's life."
+|       the words: "One ordinary human body"
+|   your presence is read as: NATIVE_AT_THIS_LOCUS - "The statement says the character is originally present, with no arrival, at the salt pans of Ashfall Marsh, which is the locus designation."
+|       the words: "I am originally present at the salt pans of Ashfall Marsh."
+|   locus.designation: SUPPORTS - "The locus is a physical, named place consistent with a material body being originally there."
++---
+CONFIRMATION - PHYSICAL LOCUS (the third, separate choice)
+  character: pc-maren
+  world: world-ashfall v1, locus: locus-salt-pans v1
+  your native-presence statement, kept verbatim: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+  Confirming records, in World-State's custody, that this ONE material character is physically at exactly this locus, stationary, on the reading above.
+  It gives the character no perception, knowledge, action, capability, movement, elapsed time, access, rights or any non-player character's cooperation.
+To confirm, type exactly "establish-character-locus cdd7aed859b4". Anything else leaves your character bound but without a physical position.
+> PROGRESS referee DECIDED referee/808542ea9f19831da0c50d956241d9c5ff9964d5dbd919298e5964b3aba169c6/decision
+PROGRESS physical locus COMMITTED world-state/pc/pc-maren/locus-custody
+STATUS LOCUS_ESTABLISHED
+the character you kept and placed has, in World-State's custody, one stationary physical locus: the established locus its native presence was qualified at, on the physical-placement reading of the AI referee host you saw and the separate confirmation you gave; a fresh owner-verified open reads back exactly that. It is a stationary position only: it gives the character no perception, knowledge, action, capability, narration, movement or elapsed time.
+campaign: campaign-ashfall
+physical-locus custody: world-state/pc/pc-maren/locus-custody [world_state/world_fallback_physical_entity v1] group operator-pc:84318f0ea2a1ab9774a6541df293ffd3:locus cause operator-pc-cause:84318f0ea2a1ab9774a6541df293ffd3
+stationary at: world-ashfall / locus-salt-pans
+referee physical-placement reading: referee/808542ea9f19831da0c50d956241d9c5ff9964d5dbd919298e5964b3aba169c6/decision host claude-code-headless verdict PHYSICAL_ELIGIBLE
+current locus (from custody only): stationary
+
+
+[ordinary open] integrity violations: 0
+[ordinary open] custody: {"pc_id":"pc-maren","stationary_locus":{"world":{"fact_key":"world/world-ashfall/profile","entity_id":"world-ashfall"},"locus":{"fact_key":"world/world-ashfall/locus/locus-salt-pans","entity_id":"locus-salt-pans"}},"basis":{"established_from":"ACTIVATION","pinned_versions":{"pc":1,"binding":1,"world":1,"locus":1},"qualified_by":{"native":{"fact_key":"referee/eb60938a328655ea008d08244f4605c5dd65980280020216fbe7d075167a6a23/decision","version":1},"physical":{"fact_key":"referee/808542ea9f19831da0c50d956241d9c5ff9964d5dbd919298e5964b3aba169c6/decision","version":1}}},"custodian":{"owner":"world_state","facet":"world_fallback_physical_entity","basis":"NO_MORE_SPECIFIC_AUTHORITATIVE_PHYSICAL_STATE_OWNER"}}
+[ordinary open] referee decisions retained: ["IR_PHYSICAL_PLACEMENT PHYSICAL_ELIGIBLE host=claude-code-headless","I002_CLASSIFY CLOSED host=claude-code-headless","IR_NATIVE_COMPATIBILITY BIND_ELIGIBLE host=claude-code-headless"]
+
+[character-status]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+STATUS CHARACTER_BOUND
+the character you kept is released and is bound as the operative player character at the established locus, on the native-presence statement you separately confirmed; a fresh owner-verified open reads back exactly what you confirmed. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
+campaign: campaign-ashfall
+character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:0b354c3fd752878ca252cf38617809e5:release cause operator-pc-cause:0b354c3fd752878ca252cf38617809e5
+binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:3a3750234f142af33576e3b479382828:bind cause operator-pc-cause:3a3750234f142af33576e3b479382828
+world: world-ashfall, locus: locus-salt-pans
+native presence, as you stated it: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+physical custody of the character: held, made by establish-character-locus (a separate, later choice; not by this command)
+

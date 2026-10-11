@@ -31,7 +31,11 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
-import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
+import {
+  isPostHandoverCustody,
+  pcPhysicalLocusCustodyViolation,
+  type FactView,
+} from "../world/pc-locus-custody.ts";
 
 /**
  * The Active-PC voluntary-movement commitment-of-record and the PC-owned Movement Service Request (IM-07; the frozen
@@ -143,6 +147,9 @@ export function pcMovementCommitmentViolation(
   const custody = custodyFact ? PcPhysicalLocusCustodySchema.safeParse(custodyFact.value) : null;
   if (!custodyFact || !custody?.success) {
     return "the PC's physical-locus custody record is committed: nothing is moved from an invented or inferred locus";
+  }
+  if (!isPostHandoverCustody(custody.data)) {
+    return "voluntary movement is limited to the post-handover branch: an original-activation custody states where the PC stationarily is and implies no movement";
   }
   const custodyViolation = pcPhysicalLocusCustodyViolation(custodyKey, custody.data, facts);
   if (custodyViolation)

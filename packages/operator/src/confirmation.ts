@@ -27,7 +27,8 @@ export type ConfirmationVerb =
   | "pc-target-resume"
   | "establish-locality"
   | "keep-character"
-  | "place-character";
+  | "place-character"
+  | "establish-character-locus";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;

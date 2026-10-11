@@ -86,7 +86,7 @@ describe("pcPhysicalLocusCustodyViolation", () => {
     const { judge, custody } = await setup();
     for (const pin of ["pc", "binding", "coupling", "world", "locus"] as const) {
       const stale = structuredClone(custody);
-      stale.basis.pinned_versions[pin] += 1;
+      (stale.basis.pinned_versions as Record<string, number>)[pin]! += 1;
       expect(judge(stale), pin).toMatch(/not established against the committed/);
     }
   });

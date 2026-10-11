@@ -1,10 +1,16 @@
-import type { I002HostDecision, IrHostDecision, RefereeVerdict } from "@immortalis/contracts";
+import type {
+  I002HostDecision,
+  IrHostDecision,
+  PhysicalHostDecision,
+  RefereeVerdict,
+} from "@immortalis/contracts";
 import {
   RefereeAdjudicationAdapter,
   type CandidateItem,
   type FsOps,
   type I002Context,
   type IrContext,
+  type PhysicalContext,
 } from "@immortalis/engine";
 import {
   awaitDecision,
@@ -152,6 +158,52 @@ export async function askIr(
     if (got.value === null)
       return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
     const evaluated = adapter.evaluateIr(context, got.value.answer);
+    if (!evaluated.ok) {
+      await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
+      continue;
+    }
+    return {
+      kind: "ANSWERED",
+      task_id,
+      attempt,
+      context,
+      verdict: evaluated.value.verdict,
+      decision: evaluated.value.decision,
+      host: { host_id: got.value.host_id, claimed_model: got.value.claimed_model },
+    };
+  }
+  return { kind: "REFUSED", message: "the host's answers were not valid; none was used" };
+}
+
+/**
+ * The physical-placement question (original active-PC qualified physical-locus custody): built ONLY from committed facts, so the
+ * caller names the character and nothing else (not the statement, the world or the locus).
+ */
+export async function askPhysical(
+  adapter: RefereeAdjudicationAdapter,
+  rt: RefereeRuntime,
+  input: { campaign_id: string; pc_id: string },
+): Promise<Asked<PhysicalHostDecision, PhysicalContext>> {
+  const configured = await refereeConfigured(input.campaign_id, rt);
+  if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
+  const p = exchange(input.campaign_id, rt);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const built = adapter.physicalTask({ pc_id: input.pc_id, attempt });
+    if (!built.ok)
+      return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
+    const { context, task_id } = built.value;
+    if (await isSetAside(p, task_id)) continue;
+    const task = await publishTask(p, { task_id, operation: "IR_PHYSICAL_PLACEMENT", context });
+    if (!task.ok)
+      return { kind: "UNAVAILABLE", code: task.error.code, message: task.error.message };
+    const got = await awaitDecision(p, task.value, rt.polls, rt.pollMs);
+    if (!got.ok) {
+      await setAsideDecision(p, task_id, got.error.code);
+      continue;
+    }
+    if (got.value === null)
+      return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
+    const evaluated = adapter.evaluatePhysical(context, got.value.answer);
     if (!evaluated.ok) {
       await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
       continue;

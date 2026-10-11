@@ -12,7 +12,42 @@ export * from "./ledger.ts";
 export * from "./locality.ts";
 export * from "./local-operator.ts";
 export * from "./ooc.ts";
-export * from "./original-pc.ts";
+export * from "./original-pc-locus.ts";
+// the shared internals the original-pc modules use between them (result helper, session opener, identity helpers) stay module-private
+export {
+  DELEGATION_NONE_TEXT,
+  EMPTY_DRAFT,
+  MAX_LIST_ITEMS,
+  MAX_STATEMENT_CHARS,
+  WORLD_CLAIMS_NONE_TEXT,
+  applyEdits,
+  authorCharacter,
+  bindingIdOf,
+  characterStatus,
+  compileContract,
+  findingsLines,
+  judgeStatement,
+  mirrorItems,
+  mirrorPanel,
+  missingOf,
+  parseEdit,
+  releaseEvidenceProblems,
+  releaseIdOf,
+  releaseProblems,
+} from "./original-pc.ts";
+export type {
+  AuthorCharacterParams,
+  ChainReader,
+  CharacterDraft,
+  CharacterResult,
+  CharacterStatus,
+  ContactDraft,
+  Edit,
+  InsertionPins,
+  MirrorItem,
+  MirrorSection,
+  RefereeKeepEvidence,
+} from "./original-pc.ts";
 export * from "./referee-exchange.ts";
 export * from "./referee-mcp.ts";
 export * from "./referee-session.ts";

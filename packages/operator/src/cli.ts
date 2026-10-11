@@ -14,6 +14,7 @@ import {
 } from "./commands.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
+import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
 import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
@@ -41,6 +42,7 @@ usage:
   immortalis-operator establish-locality --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
+  immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
@@ -83,8 +85,17 @@ author-character: for a campaign whose --world and --locus are ALREADY establish
   phrase; only then is the character bound as the operative player character (Role Registry). --player-character is the character's technical
   identity. A character released but not bound is reported as exactly that, and running the command again resumes at placement
   without repeating anything. Neither step gives the character a physical position or custody, perception, knowledge, action or time.
-referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's two referee operations (I-002
-  character classification; native/compatibility) and writes that host's owner-only secret file. It confers nothing by itself: the
+establish-character-locus: for a character that author-character released AND bound (verified). The binding records that the character
+  is originally present at a locus and gives it NO physical position. This is a third, separate choice: the AI referee host is asked ONE
+  further question about the words already committed (the character's own statements and your confirmed native-presence statement,
+  against the committed world and locus): do they describe ONE material physical body originally present at exactly that locus? An
+  incorporeal, coextensive, distributed or bodiless character, an arrival, another place, or a presence resting on another actor's
+  cooperation is refused with nothing written. Only a derived PHYSICAL_ELIGIBLE reading can be confirmed, with its own fresh phrase;
+  then World-State commits ONE create-only stationary physical-locus fact for the character, citing both qualifying referee decisions.
+  The world, the locus and the statement are never typed here: they are the binding's. It gives no perception, knowledge, action,
+  movement or time, and the post-handover movement and advance commands still do not take it. Running it again converges.
+referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's three referee operations (I-002
+  character classification; native/compatibility; physical placement) and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
   --host-id and --secret-file) lets the host read ONE bounded question and submit ONE answer, and the engine validates the answer
   and derives the verdict. No model API, credential or network is used by the engine. author-character waits --referee-wait
@@ -117,6 +128,7 @@ const exitOf = (
       return EXIT.OK;
     case "CHARACTER_BOUND":
     case "CHARACTER_NONE":
+    case "LOCUS_ESTABLISHED":
       return EXIT.OK;
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -174,6 +186,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-locality": ["setup"],
   "locality-status": [],
   "author-character": ["world", "locus", "player-character"],
+  "establish-character-locus": ["player-character"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
 };
@@ -181,6 +194,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
 /** Options a command accepts but does not require. */
 const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
+  "establish-character-locus": ["referee-wait"],
 };
 
 type Parsed =
@@ -303,6 +317,23 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       for (const line of r.details) out(line);
       return exitOf(r.status);
     }
+    if (command === "establish-character-locus") {
+      const r = await establishCharacterLocus({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        pcId: str("player-character") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
     if (command === "author-character") {
       const r = await authorCharacter({
         campaignDir: str("campaign") ?? "",
@@ -352,7 +383,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
           campaignId: session.campaignId,
           operatorUid: session.operator.uid,
           hostId: str("host-id") ?? "",
-          operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY"],
+          operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY", "IR_PHYSICAL_PLACEMENT"],
           ...(env.ledgerFs ? { fs: env.ledgerFs } : {}),
         });
         if (!bound.ok) {
@@ -362,7 +393,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         }
         out("STATUS REFEREE_HOST_BOUND");
         out(
-          `host ${str("host-id")} is bound to this campaign for the two referee operations (I-002 classification; native/compatibility).`,
+          `host ${str("host-id")} is bound to this campaign for the three referee operations (I-002 classification; native/compatibility; physical placement).`,
         );
         out(
           `secret file (owner-only; give the PATH to the host's tool server, never the contents): ${bound.value.secret_file}`,

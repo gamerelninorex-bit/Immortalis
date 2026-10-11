@@ -3,8 +3,13 @@ import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  PHYSICAL_CLAIM_BEARINGS,
+  PHYSICAL_DEPENDENCY_KINDS,
+  PHYSICAL_EMBODIMENT_MODES,
+  PHYSICAL_PRESENCE_MODES,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
   REFEREE_SOURCES,
   RefereeOperationSchema,
   RefereeTaskIdSchema,
@@ -14,7 +19,13 @@ import {
   type RefereeOperation,
   type Result,
 } from "@immortalis/contracts";
-import { nodeFs, type FsOps, type IrContext, type I002Context } from "@immortalis/engine";
+import {
+  nodeFs,
+  type FsOps,
+  type IrContext,
+  type I002Context,
+  type PhysicalContext,
+} from "@immortalis/engine";
 
 /**
  * The host exchange of the AI referee (PR #61, BLUE B61-A3): how the trusted engine side and an external, compatible AI host that
@@ -55,7 +66,7 @@ const ConfigSchema = z.strictObject({
       z.strictObject({
         host_id: HostId,
         secret: Secret,
-        operations: z.array(RefereeOperationSchema).min(1).max(2),
+        operations: z.array(RefereeOperationSchema).min(1).max(3),
       }),
     )
     .max(8),
@@ -227,7 +238,7 @@ export async function bindHost(
  */
 export function taskDocument(
   taskId: string,
-  context: I002Context | IrContext,
+  context: I002Context | IrContext | PhysicalContext,
   nonce: string,
 ): Record<string, unknown> {
   const rules = (ids: readonly string[]) =>
@@ -298,6 +309,98 @@ export function taskDocument(
       context,
     };
   }
+  if (context.operation === REFEREE_OP_PHYSICAL) {
+    return {
+      ...common,
+      operation: REFEREE_OP_PHYSICAL,
+      purpose:
+        "Physical placement: the player has already kept this character and separately confirmed that it is originally present (native, already there) at the locus in `context.subject`, and the engine has found that statement compatible. You are now asked ONE narrower question, and only on the words and facts delivered: do the accepted character's own statements and the player's native-presence statement together describe ONE material, spatial physical subject (a single body that occupies a place) originally present at exactly THIS locus, and with the presence not made contingent on an independent actor's cooperation or on an external right? An incorporeal, spirit-like, distributed, multi-bodied, host-dependent, body-less or world-coextensive character, a presence somewhere else, in several places or in no place, an arrival from elsewhere, or a presence stated to hold only through an actor's leave or an external right, is NOT such a subject: say so. A separate claim about an actor or a right that is merely stated beside a presence the player's own words establish does not make the presence contingent: list it as a CONJUNCTIVE external claim; it is not accepted. Do not decide that it is merely plausible, do not invent a body, a position, an actor's willingness or a world law, and do not weaken the character or the world for convenience. If you cannot tell, say AMBIGUOUS or UNCLEAR and ask one narrow question. This establishes no perception, knowledge, action, movement, time, access or right.",
+      rules: rules(["I002-4.3", "I002-17.2", "IR-2", "IR-5", "IR-7", "IR-12", "IR-14"]),
+      embodiment_modes: {
+        SINGLE_MATERIAL_BODY:
+          "the character's own statements constitute it as ONE material body (a single physical thing that occupies a place and can be at one place at a time)",
+        SEVERAL_SAME_AGENCY_BODIES: "several bodies of one agency",
+        HOST_DEPENDENT: "embodiment that depends on a host",
+        DISTRIBUTED_SUBSTRATE: "a distributed substrate rather than one body",
+        INCORPOREAL: "an incorporeal manifestation (no material body)",
+        NO_CURRENT_BODY: "a null / no-current-body state",
+        TOTAL_DOMAIN_COEXTENSIVE: "the character is coextensive with the world or a domain",
+        AMBIGUOUS: "the character statements do not settle the form; set `clarification`",
+      },
+      presence_modes: {
+        NATIVE_AT_THIS_LOCUS:
+          "the statement says the character is originally present, with no arrival, at exactly the locus in `context.subject` (see its designation in `context.facts`)",
+        ELSEWHERE: "the statement places the character somewhere other than this locus",
+        SEVERAL_LOCI: "the statement places the character in several places at once",
+        NON_SPATIAL: "the statement does not place the character in any place",
+        BRIDGE_OR_ARRIVAL:
+          "the statement describes an arrival, portal, transfer, summoning or another bridge",
+        AMBIGUOUS: "the statement does not settle where; set `clarification`",
+      },
+      external_claim_kinds: {
+        INDEPENDENT_ACTOR_COOPERATION:
+          "the statement says an independent actor consents, permits, protects, cooperates or is willing",
+        EXTERNAL_RIGHT_OR_ACCESS:
+          "the statement says a right, title, permit or access is granted by the world",
+        OTHER_EXTERNAL_CLAIM:
+          "the statement makes any other claim about something that is not the character itself",
+      },
+      claim_bearings: {
+        CONTINGENT:
+          'the statement makes the character\'s presence AT THIS LOCUS hold only through the claim ("by leave of", "because the guard allows it", "only for as long as ..."): without accepting the claim the presence would not hold. Insertion may not invent an actor\'s willingness or an external right (IR §12), so such a presence cannot be a physical fact.',
+        CONJUNCTIVE:
+          'the claim is stated ALONGSIDE a presence that the player\'s own words establish by themselves ("I am originally present at X, and the guard has sworn to protect me"). The presence stands on its own words; the claim is NOT accepted, NOT committed and NOT part of what is recorded (it stays an unverified assertion). Then `presence.evidence_quote` must be only the words that establish the presence and must NOT contain the claim.',
+      },
+      relations: {
+        SUPPORTS:
+          "the fact supports (or is consistent with and relevant to) a material body being there; quote it",
+        NOT_RELEVANT: "the fact bears on neither the statement nor the character",
+        CONTRADICTS:
+          "the fact, as written, excludes or conflicts with that kind of body being physically present at this locus (e.g. nothing material can exist there); quote it. 'not observed' is not 'cannot exist'",
+        UNCLEAR: "it is not possible to tell whether it conflicts; set `clarification`",
+      },
+      external_claims_guidance:
+        "`external_claims` in the response is [] when the statement makes no claim about an independent actor, an external right or anything else that is not the character itself; otherwise one object per such claim, shaped like the example, with its `bearing`. Decide `bearing` from the player's words, not from how plausible the claim is: a claim the presence merely sits next to is CONJUNCTIVE; a claim the presence is said to depend on is CONTINGENT. Reading a claim never accepts it. The answer object takes exactly the keys of `response_shape` and no other.",
+      response_shape: {
+        task_id: "<this task_id>",
+        embodiment: {
+          mode: `<one of ${PHYSICAL_EMBODIMENT_MODES.join(" | ")}>`,
+          item_id: "<the item_id from context.pc whose words your reading rests on>",
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+          evidence_quote: "<verbatim excerpt of THAT context.pc item's text; required>",
+        },
+        presence: {
+          mode: `<one of ${PHYSICAL_PRESENCE_MODES.join(" | ")}>`,
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+          evidence_quote: "<verbatim excerpt of context.statement; required>",
+        },
+        external_claims: [
+          {
+            kind: `<one of ${PHYSICAL_DEPENDENCY_KINDS.join(" | ")}>`,
+            bearing: `<one of ${PHYSICAL_CLAIM_BEARINGS.join(" | ")}>`,
+            rule_ids: ["<rule_id>"],
+            grounds: "<why>",
+            evidence_quote: "<verbatim excerpt of context.statement>",
+          },
+        ],
+        assessments: [
+          {
+            fact_id: "<each fact_id in context.facts, exactly once>",
+            relation: "<one relation above>",
+            rule_ids: ["<rule_id>"],
+            grounds: "<why>",
+            evidence_quote:
+              "<verbatim excerpt of that fact; REQUIRED for SUPPORTS and CONTRADICTS, else null or a verbatim excerpt>",
+          },
+        ],
+        clarification:
+          "<one narrow question iff embodiment.mode or presence.mode is AMBIGUOUS or any relation is UNCLEAR; else null>",
+      },
+      context,
+    };
+  }
   return {
     ...common,
     operation: REFEREE_OP_IR,
@@ -350,7 +453,11 @@ export function taskDocument(
 /** Publishes the question (exclusive create; the same question again is the existing task with its original nonce). */
 export async function publishTask(
   p: ExchangeParams,
-  input: { task_id: string; operation: RefereeOperation; context: I002Context | IrContext },
+  input: {
+    task_id: string;
+    operation: RefereeOperation;
+    context: I002Context | IrContext | PhysicalContext;
+  },
 ): Promise<Result<RefereeTaskFile, ExchangeErrorCode>> {
   const fs = fsOf(p);
   const nonce = randomBytes(16).toString("hex");

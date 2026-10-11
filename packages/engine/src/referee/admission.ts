@@ -1,9 +1,11 @@
 import {
+  PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   REFEREE_AUTHORITY,
   REFEREE_DECISION_BASIS,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
   REFEREE_SECRECY,
   RefereeDecisionRecordSchema,
   refereeDecisionCause,
@@ -14,10 +16,11 @@ import {
   type ExistenceContract,
   type OwnerFact,
   type PlayerCharacterBinding,
+  type RefereeDecisionRecord,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { resolveKey } from "../owners/registry.ts";
+import { REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import {
   candidateDigest,
@@ -75,6 +78,13 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
     return reject(
       "REFERENCE_INVALID",
       "the record is at the key and under the identities its task derives",
+      { key: w.key },
+    );
+  // the physical-placement decision is written under its own governing citation, exclusively; no other decision carries it
+  if (canonicalEqual(group.rule, REFEREE_PHYSICAL_RULE) !== (r.operation === REFEREE_OP_PHYSICAL))
+    return reject(
+      "VALUE_INVALID",
+      "the physical-placement decision, and only it, carries the physical-placement governing citation",
       { key: w.key },
     );
   const violation = recordContextViolation(r, (k) => state.facts.get(k));
@@ -166,6 +176,24 @@ export function refereeQualificationViolation(
     return null;
   }
   const b = subject.binding!;
+  const message = nativeQualificationViolation(r, b);
+  return message === null ? null : bad(message.message, message.code);
+}
+
+/**
+ * Whether a retained referee decision is the one that qualifies THIS first-ACTIVATION binding as a native/no-bridge presence: an IR
+ * decision whose derived verdict is BIND_ELIGIBLE, for this character, world and locus, at exactly the versions the binding pins,
+ * over exactly the native statement the binding preserves verbatim. Shared by the binding's own consumer check and by the
+ * physical-locus custody that rests on that qualified native presence.
+ */
+export function nativeQualificationViolation(
+  r: RefereeDecisionRecord,
+  b: PlayerCharacterBinding,
+): { code: "VALUE_INVALID" | "REFERENCE_INVALID"; message: string } | null {
+  const bad = (
+    message: string,
+    code: "VALUE_INVALID" | "REFERENCE_INVALID" = "REFERENCE_INVALID",
+  ) => ({ code, message });
   if (r.operation !== REFEREE_OP_IR)
     return bad("a binding cites an IR native/compatibility decision");
   if (r.verdict !== "BIND_ELIGIBLE")
@@ -197,6 +225,51 @@ export function refereeQualificationViolation(
     pin(b.coupling.locus.fact_key) !== t.pinned_versions.locus
   )
     return bad("the cited decision was made at other versions than the binding pins");
+  return null;
+}
+
+/**
+ * Whether a retained referee decision is the physical-placement qualification of THIS first-ACTIVATION binding's character at its
+ * coupled world and locus: an IR_PHYSICAL_PLACEMENT decision whose derived verdict is PHYSICAL_ELIGIBLE, for this character, over
+ * exactly the native statement the binding preserves, citing exactly the released character, this binding, this world and this
+ * locus at the given versions. Returns a message, or null when it qualifies.
+ */
+export function physicalQualificationViolation(
+  r: RefereeDecisionRecord,
+  b: PlayerCharacterBinding,
+  pins: { pc: number; binding: number; world: number; locus: number },
+): string | null {
+  if (r.operation !== REFEREE_OP_PHYSICAL)
+    return "a physical-locus custody cites an IR physical-placement decision";
+  if (r.verdict !== "PHYSICAL_ELIGIBLE")
+    return "a physical-locus custody cites a decision whose derived verdict is PHYSICAL_ELIGIBLE";
+  if (b.transition.type !== "ACTIVATION")
+    return "only a first ACTIVATION is qualified by this decision";
+  if (r.subject.pc_id !== b.active_pc.entity_id)
+    return "the cited physical-placement decision is for another character";
+  if (r.input.statement !== b.transition.basis.statement)
+    return "the cited physical-placement decision was made over another statement than the one the binding preserves";
+  const ids = irIdentities(r);
+  if (
+    !ids ||
+    ids.world_id !== b.coupling.world.entity_id ||
+    ids.locus_id !== b.coupling.locus.entity_id
+  )
+    return "the cited physical-placement decision is for another world or locus";
+  const expected = [
+    [b.active_pc.fact_key, pins.pc],
+    [PLAYER_CHARACTER_BINDING_KEY, pins.binding],
+    [b.coupling.world.fact_key, pins.world],
+    [b.coupling.locus.fact_key, pins.locus],
+  ] as const;
+  if (
+    r.input.refs.length !== expected.length ||
+    expected.some(
+      ([key, version], i) =>
+        r.input.refs[i]!.fact_key !== key || r.input.refs[i]!.version !== version,
+    )
+  )
+    return "the cited physical-placement decision was made at other versions than the custody pins";
   return null;
 }
 

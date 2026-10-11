@@ -1,5 +1,6 @@
 import {
   CANON_WRITE_AUTHORITY,
+  type SourceRef,
   EXISTING_ACTOR_HANDOVER,
   EstablishSourceConditionInputSchema,
   ExistenceContractSchema,
@@ -9,6 +10,7 @@ import {
   ExistingActorCouplingSchema,
   ExistingActorCouplingTargetSchema,
   PcPhysicalLocusCustodySchema,
+  OriginalPcPhysicalLocusCustodyTargetSchema,
   PcPhysicalLocusCustodyTargetSchema,
   MovementServiceRequestSchema,
   PcMovementCommitInputSchema,
@@ -54,7 +56,11 @@ import {
   type ExtensionErrorCode,
   type StageOwnerExtension,
 } from "../owners/extension.ts";
-import { CANONICAL_OWNER_REGISTRY, factKind } from "../owners/registry.ts";
+import {
+  CANONICAL_OWNER_REGISTRY,
+  WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE,
+  factKind,
+} from "../owners/registry.ts";
 import { verifyNamedActorIntegrity } from "../actor/integrity.ts";
 import { verifyPcCapabilityIntegrity } from "../pc-capability/integrity.ts";
 import { verifyCausalDrawIntegrity } from "../causal-draw/integrity.ts";
@@ -86,7 +92,10 @@ import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
 import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
-import { derivePcPhysicalLocusCustody } from "./pc-locus-custody.ts";
+import {
+  derivePcPhysicalLocusCustody,
+  deriveOriginalPcPhysicalLocusCustody,
+} from "./pc-locus-custody.ts";
 import { verifyPcPhysicalLocusCustodyIntegrity } from "./pc-locus-custody-integrity.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
 import { verifyCanonicalIntegrity, type IntegrityViolation } from "./integrity.ts";
@@ -153,6 +162,18 @@ export interface HandoverExistingActorInput extends Publication {
  */
 export interface EstablishPcLocusCustodyInput extends Publication {
   readonly pc_id: string;
+}
+
+/**
+ * What an ORIGINAL first-activation physical-locus establishment names: the canonical PC identity and the two retained referee
+ * decisions by exact key (the native/compatibility decision the binding rests on, and the physical-placement decision). There is
+ * no locus, version, verdict, placement or flag: the locus is the qualified binding's, the versions are read from committed state, and
+ * the verdicts are the ones the cited records derive, judged by admission.
+ */
+export interface EstablishOriginalPcLocusCustodyInput extends Publication {
+  readonly pc_id: string;
+  readonly native_qualified_by: string;
+  readonly physical_qualified_by: string;
 }
 
 /**
@@ -552,6 +573,47 @@ export class CanonicalCampaign {
   }
 
   /**
+   * World-State fallback custody: the ONE authoritative stationary current physical locus of an ORIGINAL first-activated Player
+   * Character, whose physical, single-locus, originally-present placement the referee qualified (WG "Ownership Guards" / F-016; IR
+   * §§2, 7, 12, 14, 17; I-002 §§2, 4.3, 17.2). The exclusive sibling of `establishPcPhysicalLocusCustody` (which stays the
+   * post-handover branch, unchanged): the same slot and the same single answer, a different, mutually exclusive basis.
+   *
+   * The binding's coupling is a binding-time referent; it becomes the PC's current locus only through the two cited, retained,
+   * engine-validated decisions. The caller names the identity and the decisions; nothing is inferred, no verdict is submitted, and
+   * the role binding, the contract and both decisions are read and depended on, never rewritten. It moves, requests and advances
+   * nothing.
+   */
+  establishOriginalPcPhysicalLocusCustody(
+    input: EstablishOriginalPcLocusCustodyInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, ...named } = input;
+    const target = OriginalPcPhysicalLocusCustodyTargetSchema.safeParse(named);
+    if (!target.success)
+      return Promise.resolve(inputInvalid("original custody target", target.error));
+    const derived = deriveOriginalPcPhysicalLocusCustody(target.data, this.store);
+    if (!derived.ok) {
+      return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    }
+    const custody = PcPhysicalLocusCustodySchema.safeParse(derived.value);
+    if (!custody.success) return Promise.resolve(inputInvalid("custody", custody.error));
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "world_pc_locus_custody",
+      worldPcLocusCustodyKey(target.data.pc_id),
+      custody.data,
+      [
+        pcExistenceContractKey(target.data.pc_id),
+        PLAYER_CHARACTER_BINDING_KEY,
+        custody.data.stationary_locus.world.fact_key,
+        custody.data.stationary_locus.locus.fact_key,
+        target.data.native_qualified_by,
+        target.data.physical_qualified_by,
+      ],
+      WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE,
+    );
+  }
+
+  /**
    * I-002 (the current lawful PC-state owner): the player's voluntary-movement COMMITMENT-OF-RECORD for the active PC (frozen
    * Post-Handover contract §4, §8, §14). It states willingness only: one relocation of the continuing PC to one already-established
    * lawful locus of its own world, authored under role.player + permission.player_choice.commit. It is not a world result, not a
@@ -691,6 +753,7 @@ export class CanonicalCampaign {
     key: string,
     value: unknown,
     prerequisiteKeys: readonly string[],
+    governingRule?: SourceRef,
   ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
     const publication = PublicationSchema.safeParse({
       group_id: input.group_id,
@@ -720,7 +783,7 @@ export class CanonicalCampaign {
       owner: kind.owner,
       facet: kind.facet,
       cause: p.cause,
-      rule: kind.rule,
+      rule: governingRule ?? kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...new Set(depends_on)],

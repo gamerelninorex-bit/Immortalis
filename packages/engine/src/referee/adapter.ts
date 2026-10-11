@@ -6,6 +6,8 @@ import {
   REFEREE_AUTHORITY,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
+  PhysicalHostDecisionSchema,
   REFEREE_RECORD_VERSION,
   REFEREE_DECISION_BASIS,
   REFEREE_SECRECY,
@@ -20,6 +22,7 @@ import {
   type I002HostDecision,
   type IrHostDecision,
   type OwnerFact,
+  type PhysicalHostDecision,
   type RefereeDecisionRecord,
   type RefereeRefusalCode,
   type RefereeVerdict,
@@ -27,21 +30,24 @@ import {
 } from "@immortalis/contracts";
 import { assertCjaCanonical } from "../culture-adjudication/canon.ts";
 import { canonicalEqual } from "../hash.ts";
-import { factKind } from "../owners/registry.ts";
+import { REFEREE_PHYSICAL_RULE, factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import {
   candidateDigest,
   contextDigest,
   deriveI002,
   deriveIr,
+  derivePhysical,
   i002Context,
   irContext,
+  physicalContext,
   recordContextViolation,
   refereeTaskId,
   statementDigest,
   type CandidateItem,
   type I002Context,
   type IrContext,
+  type PhysicalContext,
 } from "./derive.ts";
 
 export type RefereeErrorCode = RefereeRefusalCode | StoreCommitErrorCode;
@@ -141,6 +147,36 @@ export class RefereeAdjudicationAdapter {
       : fail(derived.refusal.code, derived.refusal.message);
   }
 
+  /**
+   * The context of a physical-placement task, built ONLY from committed facts: the released character, the operative first-ACTIVATION
+   * binding (whose preserved native statement is the statement), and the world and locus the binding couples.
+   */
+  physicalTask(input: {
+    pc_id: string;
+    attempt: number;
+  }): Result<{ context: PhysicalContext; task_id: string }, RefereeErrorCode> {
+    const built = physicalContext((k) => this.#store.getFact(k), {
+      campaign_id: this.#store.head().campaign_id,
+      ...input,
+    });
+    return built.ok
+      ? ok({ context: built.context, task_id: refereeTaskId(built.context) })
+      : fail(built.code, built.message);
+  }
+
+  /** Validates a physical-placement answer against the context rebuilt from committed facts and derives its verdict WITHOUT writing anything. */
+  evaluatePhysical(
+    context: PhysicalContext,
+    answer: unknown,
+  ): Result<{ verdict: RefereeVerdict; decision: PhysicalHostDecision }, RefereeErrorCode> {
+    const parsed = parseAnswer(PhysicalHostDecisionSchema, answer);
+    if (!parsed.ok) return parsed;
+    const derived = derivePhysical(context, parsed.value);
+    return derived.ok
+      ? ok({ verdict: derived.verdict, decision: parsed.value })
+      : fail(derived.refusal.code, derived.refusal.message);
+  }
+
   /** Retains an I-002 decision for a candidate (create-only). */
   recordI002(input: {
     operation: unknown;
@@ -220,6 +256,48 @@ export class RefereeAdjudicationAdapter {
     return this.#publish(record);
   }
 
+  /** Retains a physical-placement decision (create-only), the context rebuilt from the committed facts. */
+  recordPhysical(input: {
+    operation: unknown;
+    host: RefereeHost;
+    pc_id: string;
+    attempt: number;
+    answer: unknown;
+  }): Promise<Result<RefereeOutcome, RefereeErrorCode>> {
+    const denied = this.#authority(input.operation);
+    if (denied) return Promise.resolve(denied);
+    const task = this.physicalTask(input);
+    if (!task.ok) return Promise.resolve(task);
+    const { context } = task.value;
+    const evaluated = this.evaluatePhysical(context, input.answer);
+    if (!evaluated.ok) return Promise.resolve(evaluated);
+    const record: RefereeDecisionRecord = {
+      record_version: REFEREE_RECORD_VERSION,
+      task_id: refereeTaskId(context),
+      campaign_id: context.campaign_id,
+      attempt: context.attempt,
+      authority: { ...REFEREE_AUTHORITY },
+      host: { ...input.host },
+      subject: { pc_id: input.pc_id },
+      input: {
+        digest: contextDigest(context),
+        candidate_digest: null,
+        candidate: null,
+        statement_digest: statementDigest(context.statement),
+        statement: context.statement,
+        refs: context.refs.map((r) => ({ ...r })),
+      },
+      operation: REFEREE_OP_PHYSICAL,
+      decision: evaluated.value.decision,
+      verdict: evaluated.value.verdict as
+        | "PHYSICAL_ELIGIBLE"
+        | "NOT_PHYSICAL_SINGLE_LOCUS"
+        | "PHYSICAL_WORLD_CONFLICT"
+        | "PHYSICAL_UNRESOLVED",
+    };
+    return this.#publish(record);
+  }
+
   /** The committed decision of a task, by identity (an exact key, never a scan). */
   decision(taskId: string): { fact: OwnerFact; value: RefereeDecisionRecord } | undefined {
     if (!/^[0-9a-f]{64}$/.test(taskId)) return undefined;
@@ -272,7 +350,7 @@ export class RefereeAdjudicationAdapter {
       owner: kind.owner,
       facet: kind.facet,
       cause: refereeDecisionCause(r.task_id),
-      rule: kind.rule,
+      rule: r.operation === REFEREE_OP_PHYSICAL ? REFEREE_PHYSICAL_RULE : kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...new Set(r.input.refs.map((x) => x.group_id))],

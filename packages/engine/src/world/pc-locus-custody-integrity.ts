@@ -1,11 +1,17 @@
 import {
+  EXISTING_ACTOR_HANDOVER,
   PLAYER_CHARACTER_BINDING_KEY,
   PcPhysicalLocusCustodySchema,
   pcExistenceContractKey,
   worldActorCouplingKey,
   type OwnerFact,
 } from "@immortalis/contracts";
-import { resolveKey } from "../owners/registry.ts";
+import {
+  WORLD_PC_LOCUS_CUSTODY_RULE,
+  WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
+import { canonicalEqual } from "../hash.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "./integrity.ts";
 import { pcPhysicalLocusCustodyViolation } from "./pc-locus-custody.ts";
@@ -56,13 +62,31 @@ export function verifyPcPhysicalLocusCustodyIntegrity(
     if (violation) bad(rf.key, violation);
 
     const group = store.committedGroup(rf.provenance.intent_id);
-    const pins = [
-      { key: pcExistenceContractKey(c.pc_id), version: c.basis.pinned_versions.pc },
-      { key: PLAYER_CHARACTER_BINDING_KEY, version: c.basis.pinned_versions.binding },
-      { key: worldActorCouplingKey(c.pc_id), version: c.basis.pinned_versions.coupling },
-      { key: c.stationary_locus.world.fact_key, version: c.basis.pinned_versions.world },
-      { key: c.stationary_locus.locus.fact_key, version: c.basis.pinned_versions.locus },
-    ];
+    const basis = c.basis;
+    const pins =
+      basis.established_from === EXISTING_ACTOR_HANDOVER
+        ? [
+            { key: pcExistenceContractKey(c.pc_id), version: basis.pinned_versions.pc },
+            { key: PLAYER_CHARACTER_BINDING_KEY, version: basis.pinned_versions.binding },
+            { key: worldActorCouplingKey(c.pc_id), version: basis.pinned_versions.coupling },
+            { key: c.stationary_locus.world.fact_key, version: basis.pinned_versions.world },
+            { key: c.stationary_locus.locus.fact_key, version: basis.pinned_versions.locus },
+          ]
+        : [
+            { key: pcExistenceContractKey(c.pc_id), version: basis.pinned_versions.pc },
+            { key: PLAYER_CHARACTER_BINDING_KEY, version: basis.pinned_versions.binding },
+            { key: c.stationary_locus.world.fact_key, version: basis.pinned_versions.world },
+            { key: c.stationary_locus.locus.fact_key, version: basis.pinned_versions.locus },
+            basis.qualified_by.native,
+            basis.qualified_by.physical,
+          ].map((p) => ("fact_key" in p ? { key: p.fact_key, version: p.version } : p));
+    // each basis carries its own governing citation, exclusively (canonical integrity alone accepts the kind's current rule for any value)
+    const expectedRule =
+      basis.established_from === EXISTING_ACTOR_HANDOVER
+        ? WORLD_PC_LOCUS_CUSTODY_RULE
+        : WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE;
+    if (!canonicalEqual(rf.provenance.rule, expectedRule))
+      bad(rf.key, "a custody record carries the governing citation of its own basis");
     for (const pin of pins) {
       const target = byKey.get(pin.key);
       if (!target) {
