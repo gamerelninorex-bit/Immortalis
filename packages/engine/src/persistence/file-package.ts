@@ -266,7 +266,6 @@ export async function createFileCampaign(
 const LOCK_NAME = "LOCK";
 const CLAIM_PREFIX = "LOCK.claim.";
 const MAX_ATTEMPTS = 16;
-const MAX_DEPTH = 6;
 
 /** `LOCK`, `LOCK.claim.*` and `LOCK.*.tmp`: the lock family, never canonical data or reported residue. */
 const isWriterLockArtifact = (name: string): boolean =>
@@ -364,7 +363,7 @@ async function acquireInstance(
   path: string,
   text: string,
   mayReclaim: boolean,
-  depth: number,
+  arbiters: ReadonlySet<string>,
 ): Promise<Acquired | Refused> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     if (await tryCreate(fs, path, text)) return { kind: "acquired" };
@@ -374,11 +373,21 @@ async function acquireInstance(
     if (!mayReclaim || state !== "dead") {
       return { kind: "refused", holder, state, arbitrating: false };
     }
-    if (depth >= MAX_DEPTH) return { kind: "refused", holder, state, arbitrating: true };
+    // Recovery of an abandoned arbiter recurses along the on-disk chain of dead claim owners. Every
+    // link is a distinct never-reused nonce, so the chain is finite and needs no depth cap; a
+    // repeated id (only a corrupted directory can produce one) is refused rather than looped on.
+    if (arbiters.has(holder.id)) return { kind: "refused", holder, state, arbitrating: true };
 
     const claimPath = join(dir, `${CLAIM_PREFIX}${holder.id}`);
     const claim = newBody({ claims: holder.id });
-    const got = await acquireInstance(fs, dir, claimPath, claim.text, true, depth + 1);
+    const got = await acquireInstance(
+      fs,
+      dir,
+      claimPath,
+      claim.text,
+      true,
+      new Set([...arbiters, holder.id]),
+    );
     if (got.kind !== "acquired") return { kind: "refused", holder, state, arbitrating: true };
     try {
       const current = await observe(fs, path);
@@ -421,7 +430,7 @@ class WriterLock {
   async release(): Promise<void> {
     const claimPath = join(this.#dir, `${CLAIM_PREFIX}${this.#id}`);
     const claim = newBody({ claims: this.#id });
-    const got = await acquireInstance(this.#fs, this.#dir, claimPath, claim.text, true, 0);
+    const got = await acquireInstance(this.#fs, this.#dir, claimPath, claim.text, true, new Set());
     if (got.kind !== "acquired") return;
     try {
       const current = await observe(this.#fs, join(this.#dir, LOCK_NAME));
@@ -449,7 +458,7 @@ async function acquireWriterLock(
   const { nonce, text } = newBody({ campaign_id: "(pending)" });
   let outcome: Acquired | Refused;
   try {
-    outcome = await acquireInstance(fs, dir, join(dir, LOCK_NAME), text, reclaimStale, 0);
+    outcome = await acquireInstance(fs, dir, join(dir, LOCK_NAME), text, reclaimStale, new Set());
   } catch (e) {
     return {
       ok: false,
@@ -488,11 +497,17 @@ export async function openFileCampaign(
   const acquired = await acquireWriterLock(fs, dir, options.reclaimStaleLock ?? false);
   if (!acquired.ok) return { ok: false, error: acquired.failure };
 
-  const loaded = await load(dir, fs, acquired.lock, options);
+  let loaded: Result<FileCampaignStore, OpenErrorCode>;
+  try {
+    loaded = await load(dir, fs, acquired.lock, options);
+  } catch (e) {
+    // an I/O error thrown mid-load must not strand a lock naming this still-live process
+    await acquired.lock.release().catch(() => undefined);
+    throw e;
+  }
   if (!loaded.ok) {
     // releases only if the lock is still this attempt's own; a successor's is never touched
     await acquired.lock.release().catch(() => undefined);
-    return loaded;
   }
   return loaded;
 }

@@ -7,6 +7,8 @@
 // `nodeFs`; the interleavings are forced with marker files, and crashes are real SIGKILLs at a chosen mutating operation.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFileCampaign, nodeFs, openFileCampaign, type FsOps } from "@immortalis/engine";
@@ -629,5 +631,179 @@ describe("H-01: the exclusive-create primitive itself", () => {
       if (s.status === "rejected") expect((s.reason as NodeJS.ErrnoException).code).toBe("EEXIST");
     }
     expect(readdirSync(dir)).toEqual(["X"]);
+  });
+});
+
+// ===================================================================================================
+describe("H-01: a thrown I/O failure on ANY open path releases only this attempt's own lock", () => {
+  for (const [name, hit] of [
+    [
+      "reading the journal",
+      (op: string, p: string) => op === "readFile" && p.endsWith("/journal.jsonl"),
+    ],
+    [
+      "reading the manifest",
+      (op: string, p: string) => op === "readFile" && p.endsWith("/manifest.json"),
+    ],
+    ["listing the directory for residue", (op: string) => op === "list"],
+  ] as const) {
+    it(`a transient error ${name} rejects the open, strands no lock, and the same process can reopen at once`, async () => {
+      const dir = freshCopy();
+      let armed = true;
+      const flaky: FsOps = {
+        ...nodeFs,
+        readFile: async (p) => {
+          if (armed && hit("readFile", p)) {
+            armed = false;
+            throw Object.assign(new Error("EIO: transient"), { code: "EIO" });
+          }
+          return nodeFs.readFile(p);
+        },
+        list: async (d) => {
+          if (armed && hit("list", d)) {
+            armed = false;
+            throw Object.assign(new Error("EIO: transient"), { code: "EIO" });
+          }
+          return nodeFs.list(d);
+        },
+      };
+      // either surfaces as the open rejecting (the I/O error escapes load) or as a typed refusal (load maps it): both
+      // are failed opens, and neither may strand the lock
+      const first = await openFileCampaign(dir, { ...OPTS, fs: flaky }).then(
+        (r) => (r.ok ? "OPENED" : r.error.code),
+        (e: Error) => (/EIO/.test(e.message) ? "REJECTED" : "OTHER"),
+      );
+      expect(["REJECTED", "MALFORMED"], first).toContain(first);
+      expect(armed, "the injected failure must actually have been hit").toBe(false);
+      expect(lockFamily(dir)).toEqual([]); // no LOCK naming this live pid is left behind
+      const again = await must(openFileCampaign(dir, OPTS)); // ordinary open, no reclaim
+      expect(again.head().revision).toBe(3);
+      await again.close();
+      expect(lockFamily(dir)).toEqual([]);
+    });
+  }
+
+  it("a thrown failure does not remove a successor's lock either", async () => {
+    const dir = freshCopy();
+    const successor = `${JSON.stringify({ pid: process.pid, campaign_id: C, nonce: "22222222-2222-4222-8222-222222222222", host: hostname() })}\n`;
+    const fs: FsOps = {
+      ...nodeFs,
+      readFile: async (p) => {
+        if (p.endsWith("/journal.jsonl")) {
+          rmSync(LOCK(dir));
+          writeFileSync(LOCK(dir), successor);
+          throw Object.assign(new Error("EIO: transient"), { code: "EIO" });
+        }
+        return nodeFs.readFile(p);
+      },
+    };
+    await expect(openFileCampaign(dir, { ...OPTS, fs })).rejects.toThrow(/EIO/);
+    expect(readFileSync(LOCK(dir), "utf8")).toBe(successor);
+  });
+});
+
+// ===================================================================================================
+describe("H-01: recovery from a chain of abandoned arbiters has no depth limit", () => {
+  const sha32 = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 32);
+  const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+
+  /**
+   * The on-disk state of N successive recoverers each killed right after taking the claim on its predecessor's
+   * (dead) claim: LOCK (dead legacy holder T) <- claim.T held by dead n1 <- claim.n1 held by dead n2 <- ... <- claim.n(N-1) held by dead nN.
+   */
+  function abandonedChain(dir: string, links: number) {
+    const pid = deadPid();
+    const body = legacyBody(pid);
+    writeFileSync(LOCK(dir), body);
+    let claimed = `legacy-${sha32(body)}`;
+    for (let i = 1; i <= links; i++) {
+      const nonce = uuid(i);
+      writeFileSync(
+        join(dir, `LOCK.claim.${claimed}`),
+        `${JSON.stringify({ pid, claims: claimed, nonce, host: hostname() })}\n`,
+      );
+      claimed = nonce;
+    }
+  }
+
+  for (const links of [1, 7, 40]) {
+    it(`${links} dead arbiters deep (past any fixed cap) are all recovered by an opted-in opener`, async () => {
+      const dir = freshCopy();
+      abandonedChain(dir, links);
+      expect(lockFamily(dir)).toHaveLength(links + 1);
+      const refused = await openFileCampaign(dir, OPTS); // the default still refuses: opt-in is unchanged
+      expect(codeOf(refused)).toBe("LOCKED");
+      const s = await must(openFileCampaign(dir, { ...OPTS, reclaimStaleLock: true }));
+      expect(s.head().revision).toBe(3);
+      await s.close();
+      expect(await headOf(dir)).toEqual(ORIGINAL_HEAD);
+    });
+  }
+
+  it("three real processes recovering from a 12-deep abandoned chain: exactly one becomes the writer", async () => {
+    const dir = freshCopy();
+    abandonedChain(dir, 12);
+    const race = contenders(dir, ["X", "Y", "Z"], { reclaim: true, hold: true });
+    const results = await Promise.all(race.children.map((c) => c.result()));
+    expect(
+      results.filter((r) => r.ok),
+      JSON.stringify(results),
+    ).toHaveLength(1);
+    for (const loser of results.filter((r) => !r.ok)) expect(loser.code).toBe("LOCKED");
+    race.children.find((c) => c.pid === results.find((r) => r.ok)!.pid)!.finish();
+    await Promise.all(race.children.map((c) => c.exited));
+    expect(await headOf(dir)).toEqual(ORIGINAL_HEAD);
+  }, 120_000);
+
+  it("a corrupted, self-referencing arbiter chain is refused (fail closed) rather than looped on", async () => {
+    const dir = freshCopy();
+    const pid = deadPid();
+    const body = legacyBody(pid);
+    writeFileSync(LOCK(dir), body);
+    const t = `legacy-${sha32(body)}`;
+    const loop = (claimed: string, nonce: string) =>
+      writeFileSync(
+        join(dir, `LOCK.claim.${claimed}`),
+        `${JSON.stringify({ pid, claims: claimed, nonce, host: hostname() })}\n`,
+      );
+    loop(t, uuid(1));
+    loop(uuid(1), uuid(1)); // an arbiter that names itself
+    const r = await openFileCampaign(dir, { ...OPTS, reclaimStaleLock: true });
+    expect(codeOf(r)).toBe("LOCKED");
+    expect(readFileSync(LOCK(dir), "utf8")).toBe(body);
+  });
+});
+
+// ===================================================================================================
+describe("H-01: environment contract — atomic exclusive publication is required, never silently weakened", () => {
+  it("on a filesystem without hard links, creating and opening a campaign REFUSE explicitly and leave nothing blocking", async () => {
+    const primitiveDir = tempDir("immortalis-wl-nolink-a-");
+    const createDir = join(tempDir("immortalis-wl-nolink-b-"), "c");
+    const openDir = freshCopy();
+    const out = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--no-warnings",
+        join(import.meta.dirname, "fixtures", "no-hardlink-process.ts"),
+        primitiveDir,
+        createDir,
+        openDir,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(out.status, out.stderr).toBe(0);
+    const r = JSON.parse(out.stdout.trim().split("\n").pop()!);
+    // the primitive says so explicitly and publishes nothing — no empty or torn LOCK, no temp residue
+    expect(r.primitive.code).toBe("EATOMIC_PUBLISH_UNSUPPORTED");
+    expect(r.primitive.message).toMatch(/atomic exclusive publication unsupported/);
+    expect(r.primitiveFiles).toEqual([]);
+    // creating a campaign there fails explicitly, with no lock left behind
+    expect(r.created).toBe("CREATE_FAILED");
+    expect(r.createdFiles).toEqual([]);
+    // opening an existing campaign there is an explicit LOCKED refusal naming the cause, with no stranded lock
+    expect(r.opened).toBe("LOCKED");
+    expect(r.openedCause).toMatch(/atomic exclusive publication unsupported/);
+    expect(r.openedLockFamily).toEqual([]);
   });
 });

@@ -98,30 +98,28 @@ export const nodeFs: FsOps = {
     try {
       await h.writeFile(data, "utf8");
       await h.sync();
-    } finally {
-      await h.close();
+    } catch (e) {
+      await h.close().catch(() => undefined);
+      await fsp.unlink(tmp).catch(() => undefined);
+      throw e;
     }
+    await h.close();
     try {
       await fsp.link(tmp, path);
     } catch (e) {
-      const code = (e as NodeJS.ErrnoException).code;
-      if (code === "EEXIST" || !LINK_UNSUPPORTED.has(code ?? "")) {
-        await fsp.unlink(tmp).catch(() => undefined);
-        throw e;
-      }
-      // Filesystem without hard links: still exclusive (O_EXCL), only the content-atomicity is lost.
       await fsp.unlink(tmp).catch(() => undefined);
-      const direct = await fsp.open(
-        path,
-        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
-      );
-      try {
-        await direct.writeFile(data, "utf8");
-        await direct.sync();
-      } finally {
-        await direct.close();
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== undefined && LINK_UNSUPPORTED.has(code)) {
+        // No silent weaker fallback: a direct O_EXCL create could leave an empty or torn body behind
+        // a crash, which every later opener would refuse forever. Atomic publication is the contract.
+        throw Object.assign(
+          new Error(
+            `atomic exclusive publication unsupported: link(2) failed with ${code}; this filesystem cannot host a campaign package`,
+          ),
+          { code: "EATOMIC_PUBLISH_UNSUPPORTED", cause: e },
+        );
       }
-      return;
+      throw e;
     }
     await fsp.unlink(tmp).catch(() => undefined);
   },
