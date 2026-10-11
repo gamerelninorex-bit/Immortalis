@@ -1,0 +1,60 @@
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+RESUMING: this command already released the character pc-maren; it was kept earlier and needs no further keep.
++--- CHARACTER MIRROR (as kept earlier) ---
+| OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+| character id: pc-maren
+| IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.
+| Identity
+|   - who or what you are: "Maren Voss, a human salt-raker of about forty winters"
+|   - your form: "One ordinary human body"
+|   - what keeps you the same continuing self: "I remain myself for as long as I live; when my body dies I am dead."
+|   - the world can register you through: "A weathered woman in a salt-stained coat who speaks the local tongue"
+| Starting possessions
+|   - you begin with: "A salt-raker's knife and a coil of rope"
+| About the world
+|   - wider-world claims: "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed."
+| How this character came to be
+|   - delegation: "Nothing about this character was randomized, delegated or sealed: every statement above is yours."
++---
+PLACEMENT - a separate choice from keeping your character. Nothing is bound yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+WORLD world-ashfall (established earlier by World-State, not by you now)
+  premise: "A quiet salt-marsh hamlet where the tide decides the day."
+  reference / causal basis: "Ashfall Marsh is an invented place; its tides and salt pans are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints:
+    - weather: "The wind off the sea is always from the west."
+LOCUS locus-salt-pans
+  designation: "The salt pans of Ashfall Marsh"
+  constraints: none
+If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.
+presence> 
+<<< PLAYER TYPES: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+Asking the AI referee host to read your statement against the world ...
++--- AI REFEREE FINDINGS (host claude-code-session; verdict BIND_ELIGIBLE) ---
+|   your statement is read as: NATIVE_ALREADY_THERE - "The player explicitly states they have always lived at the salt pans and are originally present, with no arrival, portal, transfer or summoning. Per IR-3 this is native/already-there and no bridge is needed or invented."
+|   world.premise: SUPPORTS - "A salt-marsh hamlet is consistent with a human salt-raker living there."
+|   world.basis: SUPPORTS - "The salt pans of Ashfall Marsh are established canon, so the claimed presence is at a real authored place."
+|   locus.designation: SUPPORTS - "The locus is the same salt pans where the player says they are originally present."
++---
+CONFIRMATION - NATIVE PRESENCE (the second, separate choice)
+  character: pc-maren (released and kept)
+  world: world-ashfall v1, locus: locus-salt-pans v1
+  your statement, kept verbatim: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+  Confirming binds this character as the operative player character on exactly this explicit fact (native, already there).
+  It invents no arrival or bridge and gives the character no physical position, custody, perception, knowledge or action.
+To confirm, type exactly "place-character f8e6b81d0155". Anything else leaves your character released but unbound.
+> 
+<<< PLAYER TYPES: "place-character f8e6b81d0155"
+PROGRESS referee DECIDED referee/c69f59c23fe975817fed93251b630d0c43c616ae2e2fc5dd8935f6c67acf89f7/decision
+PROGRESS binding COMMITTED role-registry/binding/role.player_character
+STATUS CHARACTER_BOUND
+the character you kept is released and is bound as the operative player character at the established locus, on the native-presence statement you separately confirmed; a fresh owner-verified open reads back exactly what you confirmed. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
+campaign: campaign-ashfall
+character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:60d72186c11a27dbee77385db22d388c:release cause operator-pc-cause:60d72186c11a27dbee77385db22d388c
+binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:8c2b5d652f7ab71f548dfd32a0233efe:bind cause operator-pc-cause:8c2b5d652f7ab71f548dfd32a0233efe
+world: world-ashfall, locus: locus-salt-pans
+native presence, as you stated it: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh."
+physical custody of the character: none - this command establishes none
+
+=== process exited 0 ===

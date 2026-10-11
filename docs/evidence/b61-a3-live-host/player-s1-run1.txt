@@ -1,0 +1,135 @@
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+Welcome to IMMORTALIS. Tell me what matters about your character, in your own words. Leave the rest open.
+Say it in your own words. An AI referee host will then read what you wrote and tell you, statement by statement, what it accepts as yours and what it does not (anything about other people, followers, offices, institutions, places or the wider world is not part of a character).
+Who - or what - are you?
+identity> 
+<<< PLAYER TYPES: "Maren Voss, a human salt-raker of about forty winters, and also the lawful governor of Ashfall"
+How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact <why>
+contact> 
+<<< PLAYER TYPES: "A weathered woman in a salt-stained coat who speaks the local tongue"
+contact> 
+<<< PLAYER TYPES: ""
+What form constitutes you?
+embodiment> 
+<<< PLAYER TYPES: "One ordinary human body"
+What keeps you the same continuing self?
+continuity> 
+<<< PLAYER TYPES: "I remain myself for as long as I live; when my body dies I am dead."
+Anything important about you that differs from what would normally be expected? One per line; an empty line finishes.
+exception> 
+<<< PLAYER TYPES: ""
+Anything you chose to leave open? One per line; an empty line finishes.
+open> 
+<<< PLAYER TYPES: ""
+Anything specific you begin with that would not normally be assumed? One per line; an empty line finishes.
+possession> 
+<<< PLAYER TYPES: "A salt-raker's knife and a coil of rope"
+possession> 
+<<< PLAYER TYPES: "A hundred independent sworn soldiers who obey my every order"
+possession> 
+<<< PLAYER TYPES: ""
+Asking the AI referee host to read what you wrote ...
++--- CHARACTER MIRROR (display 1) ---
+| OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+| character id: pc-maren
+| IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.
+| Identity
+|   - who or what you are: "Maren Voss, a human salt-raker of about forty winters, and also the lawful governor of Ashfall"
+|   - your form: "One ordinary human body"
+|   - what keeps you the same continuing self: "I remain myself for as long as I live; when my body dies I am dead."
+|   - the world can register you through: "A weathered woman in a salt-stained coat who speaks the local tongue"
+| Starting possessions
+|   - you begin with: "A salt-raker's knife and a coil of rope"
+|   - you begin with: "A hundred independent sworn soldiers who obey my every order"
+| About the world
+|   - wider-world claims: "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed."
+| How this character came to be
+|   - delegation: "Nothing about this character was randomized, delegated or sealed: every statement above is yours."
++---
++--- AI REFEREE FINDINGS (host claude-code-session, self-reported model "claude-sonnet-5-5 via Claude Code session (bash-driven JSON-RPC)"; verdict BLOCKED) ---
+|   [NOT accepted: MIXED] "Maren Voss, a human salt-raker of about forty winters, and also the lawful governor of Ashfall"
+|       why: "The first part says who the player is. 'the lawful governor of Ashfall' claims an office, a standing that only becomes real when a world or institution establishes it; it is not a character-local fact."
+|       the words: "the lawful governor of Ashfall"
+|       the part that is yours: "Maren Voss, a human salt-raker of about forty winters" (not applied for you; change the statement to keep only what is yours)
+|   [accepted as yours: INTRINSIC_PC] "One ordinary human body"
+|   [accepted as yours: INTRINSIC_PC] "I remain myself for as long as I live; when my body dies I am dead."
+|   [accepted as yours: INTRINSIC_PC] "A weathered woman in a salt-stained coat who speaks the local tongue"
+|   [accepted as yours: ENTRY_ENVELOPE_FINITE] "A salt-raker's knife and a coil of rope"
+|   [NOT accepted: ACTOR_STANCE_CLAIM] "A hundred independent sworn soldiers who obey my every order"
+|       why: "A hundred soldiers are independent actors; that they are sworn and obey every order is a claim about their loyalty and willingness, not something the character carries. It would silently create an army."
+|       the words: "independent sworn soldiers who obey my every order"
++---
+This character cannot be kept yet: the referee did not accept everything above as your own character.
+Type "change" to revise. Anything else leaves without a character.
+> 
+<<< PLAYER TYPES: "change"
+Type your changes, one per line; an empty line finishes this change. They are applied together and the WHOLE Mirror is shown again.
+  set identity|embodiment|continuity <text>      set contact <text>      set no-contact <text>
+  add contact|exception|open|possession <text>   remove contact|exception|open|possession <n>
+change> 
+<<< PLAYER TYPES: "set identity Maren Voss, a human salt-raker of about forty winters"
+change> 
+<<< PLAYER TYPES: "remove possession 2"
+change> 
+<<< PLAYER TYPES: ""
+Asking the AI referee host to read what you wrote ...
++--- CHARACTER MIRROR (display 2) ---
+| OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+| character id: pc-maren
+| IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.
+| Identity
+|   - who or what you are: "Maren Voss, a human salt-raker of about forty winters"
+|   - your form: "One ordinary human body"
+|   - what keeps you the same continuing self: "I remain myself for as long as I live; when my body dies I am dead."
+|   - the world can register you through: "A weathered woman in a salt-stained coat who speaks the local tongue"
+| Starting possessions
+|   - you begin with: "A salt-raker's knife and a coil of rope"
+| About the world
+|   - wider-world claims: "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed."
+| How this character came to be
+|   - delegation: "Nothing about this character was randomized, delegated or sealed: every statement above is yours."
++---
++--- AI REFEREE FINDINGS (host claude-code-session, self-reported model "claude-sonnet-5-5 via Claude Code session (bash-driven JSON-RPC)"; verdict CLOSED) ---
+|   [accepted as yours: INTRINSIC_PC] "Maren Voss, a human salt-raker of about forty winters"
+|   [accepted as yours: INTRINSIC_PC] "One ordinary human body"
+|   [accepted as yours: INTRINSIC_PC] "I remain myself for as long as I live; when my body dies I am dead."
+|   [accepted as yours: INTRINSIC_PC] "A weathered woman in a salt-stained coat who speaks the local tongue"
+|   [accepted as yours: ENTRY_ENVELOPE_FINITE] "A salt-raker's knife and a coil of rope"
++---
+This is how IMMORTALIS understands your character.
+Keep this character, or change something before we continue?
+To confirm, type exactly "keep-character 6f10f98e4cc1". To revise instead, type "change". Anything else leaves without a character.
+> 
+<<< PLAYER TYPES: "keep-character 6f10f98e4cc1"
+PROGRESS keep RETAINED
+PROGRESS referee DECIDED referee/fdd5c4d44e91667bf0f505429035e6af3df9704a1b03717b1a1fb9ff8df8b638/decision
+PROGRESS character RELEASED pc/pc-maren/existence-contract
+PLACEMENT - a separate choice from keeping your character. Nothing is bound yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+WORLD world-ashfall (established earlier by World-State, not by you now)
+  premise: "A quiet salt-marsh hamlet where the tide decides the day."
+  reference / causal basis: "Ashfall Marsh is an invented place; its tides and salt pans are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints:
+    - weather: "The wind off the sea is always from the west."
+LOCUS locus-salt-pans
+  designation: "The salt pans of Ashfall Marsh"
+  constraints: none
+If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.
+presence> 
+<<< PLAYER TYPES: "I arrived at the salt pans yesterday through a portal from another world."
+Asking the AI referee host to read your statement against the world ...
++--- AI REFEREE FINDINGS (host claude-code-session, self-reported model "claude-sonnet-5-5 via Claude Code session (bash-driven JSON-RPC)"; verdict UNSUPPORTED_BRIDGE) ---
+|   your statement is read as: PORTAL - "The player says the character arrived yesterday through a portal from another world. That is an arrival by a portal bridge, not an explicit statement that the character was already there."
+|   locus.designation: SUPPORTS - "The statement places the character at the same place the locus names."
++---
+STATUS CHARACTER_RELEASED_UNBOUND
+the character you kept is released, but it is NOT bound: no player character is operative and nothing places it in the world. Nothing was rolled back (the owners are separate); run the same command again to state and confirm where it is originally present. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
+character: pc/pc-maren/existence-contract (released just now, not bound)
+the referee reads your statement as something other than an explicit native, already-there presence; nothing is invented for you
++--- AI REFEREE FINDINGS (host claude-code-session, self-reported model "claude-sonnet-5-5 via Claude Code session (bash-driven JSON-RPC)"; verdict UNSUPPORTED_BRIDGE) ---
+|   your statement is read as: PORTAL - "The player says the character arrived yesterday through a portal from another world. That is an arrival by a portal bridge, not an explicit statement that the character was already there."
+|   locus.designation: SUPPORTS - "The statement places the character at the same place the locus names."
++---
+
+=== process exited 3 ===

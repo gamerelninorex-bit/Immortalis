@@ -239,3 +239,29 @@ describe("the document states the mechanism and what it does not establish", () 
     expect(doc).not.toMatch(/First Playable (passes|is achieved|is met)/i);
   });
 });
+
+describe("the retained live-host evidence the documents cite is actually in the repository", () => {
+  it("every evidence file named in docs/evidence/b61-a3-live-host-exercise.md exists, and no evidence is a git-ignored file", () => {
+    const doc = readFileSync("docs/evidence/b61-a3-live-host-exercise.md", "utf8");
+    const base = "docs/evidence/b61-a3-live-host";
+    const names = [
+      ...new Set(
+        [
+          ...doc.matchAll(/`((?:registered-client\/)?(?:player|host|client)-[A-Za-z0-9*._-]+)`/g),
+        ].map((m) => m[1]!),
+      ),
+    ];
+    expect(names.length).toBeGreaterThan(3);
+    const files = readdirSync(`${base}/registered-client`).map((n) => `registered-client/${n}`);
+    const top = readdirSync(base);
+    const all = new Set([...top, ...files]);
+    for (const n of names) {
+      const re = new RegExp(`^${n.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
+      expect(
+        [...all].some((x) => re.test(x)),
+        n,
+      ).toBe(true);
+    }
+    expect([...all].filter((x) => x.endsWith(".log"))).toEqual([]);
+  });
+});
