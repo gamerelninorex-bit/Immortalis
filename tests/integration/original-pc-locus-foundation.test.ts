@@ -297,7 +297,7 @@ describe("falsifying contrasts: the same binding and world, without an independe
     ] as const)
       await refused(
         { responder: { ...STANDARD, presence: statement } },
-        { dependency: { match, kind } },
+        { claim: { match, kind, bearing: "CONTINGENT" } },
         new RegExp(kind),
       );
   }, 240_000);
@@ -475,3 +475,119 @@ describe("the post-handover consumers do not take an original-activation custody
     }
   }, 120_000);
 });
+
+describe("a claim stated BESIDE an independently established presence is not accepted, and does not defeat the custody (BLUE hold on 792a42e)", () => {
+  const OATH = "the harbour guard has sworn to let me stay and to protect me there";
+  const PRESENCE_ONLY = "I am originally present at the salt pans of Ashfall Marsh";
+  const withOath = `I have always lived here: ${PRESENCE_ONLY}, and ${OATH}.`;
+  const conjunctive = (match: RegExp, kind: string): PhysicalRule => ({
+    claim: { match, kind, bearing: "CONJUNCTIVE", presenceQuote: new RegExp(PRESENCE_ONLY) },
+  });
+
+  it("the guard's oath is retained as an unaccepted claim; the custody holds ONLY the locus and nothing of the guard", async () => {
+    const dirs = await boundCampaign({ responder: { ...STANDARD, presence: withOath } });
+    const before = await facts(dirs);
+    const { result, terminal } = await establishLocus(
+      dirs,
+      locusConsole(),
+      {},
+      physical(conjunctive(new RegExp(OATH), "INDEPENDENT_ACTOR_COOPERATION")),
+    );
+    expect(result.status, JSON.stringify(result.details) + text(terminal.said)).toBe(
+      "LOCUS_ESTABLISHED",
+    );
+    const said = text(terminal.said);
+    // the player is told, twice, that the claim is not accepted and not committed
+    expect(said).toContain("NOT ACCEPTED, NOT COMMITTED");
+    expect(said).toContain("NOT recorded or accepted by this confirmation");
+    expect(said).toContain(OATH);
+
+    const after = await facts(dirs);
+    expect(after.verify).toEqual([]);
+    expect(after.head.revision).toBe(before.head.revision + 2);
+    const [phys] = physicalDecisions(after.all);
+    expect(phys!.verdict).toBe("PHYSICAL_ELIGIBLE");
+    // the retained decision is the reviewable record of exactly what was read and refused to accept
+    expect(phys!.decision.external_claims).toHaveLength(1);
+    expect(phys!.decision.external_claims[0]!.bearing).toBe("CONJUNCTIVE");
+    expect(phys!.decision.presence.evidence_quote).toBe(PRESENCE_ONLY);
+    expect(phys!.decision.presence.evidence_quote).not.toContain("guard");
+    // nothing about the guard is committed by the custody, the world, the locus or the contract
+    const custody = after.custody!;
+    expect(JSON.stringify(custody.value)).not.toMatch(/guard|sworn|protect|stay/i);
+    expect(custody.value.stationary_locus.locus.entity_id).toBe(LOCUS_ID);
+    for (const f of after.all.filter(
+      (x) => x.owner !== "referee_adjudication_kernel" && x.key !== PLAYER_CHARACTER_BINDING_KEY,
+    ))
+      expect(JSON.stringify(f.value), f.key).not.toMatch(/harbour guard|sworn/i);
+    // the binding is exactly what the earlier, separately confirmed command wrote
+    expect(after.binding).toEqual(before.binding);
+    // no actor, relation or state of the guard exists anywhere in canon
+    expect(after.all.filter((f) => f.owner === "named_actor")).toEqual([]);
+  }, 120_000);
+
+  it("an external RIGHT stated beside the presence is likewise not accepted", async () => {
+    const statement = `I have always lived here: ${PRESENCE_ONLY}, and I hold the pan-master's lease on the first pan.`;
+    const dirs = await boundCampaign({ responder: { ...STANDARD, presence: statement } });
+    const { result, terminal } = await establishLocus(
+      dirs,
+      locusConsole(),
+      {},
+      physical(
+        conjunctive(/I hold the pan-master's lease on the first pan/, "EXTERNAL_RIGHT_OR_ACCESS"),
+      ),
+    );
+    expect(result.status).toBe("LOCUS_ESTABLISHED");
+    expect(text(terminal.said)).toContain("NOT ACCEPTED, NOT COMMITTED");
+    const after = await facts(dirs);
+    expect(JSON.stringify(after.custody!.value)).not.toMatch(/lease|pan-master/i);
+  }, 120_000);
+
+  it("contrast: the SAME guard, but the presence is stated to hold only through its leave, is contingent and refused with nothing written", async () => {
+    const statement =
+      "I am originally present at the salt pans of Ashfall Marsh only because the harbour guard lets me stay there by its leave.";
+    const dirs = await boundCampaign({ responder: { ...STANDARD, presence: statement } });
+    const before = await facts(dirs);
+    const { result, terminal } = await establishLocus(
+      dirs,
+      locusConsole(),
+      {},
+      physical({
+        claim: {
+          match: /only because the harbour guard lets me stay there by its leave/,
+          kind: "INDEPENDENT_ACTOR_COOPERATION",
+          bearing: "CONTINGENT",
+        },
+      }),
+    );
+    expect(result.status).toBe("LOCUS_NOT_QUALIFIED");
+    expect(text(terminal.said)).toContain("hold only through something outside you");
+    expect(text(terminal.said)).not.toContain("NOT ACCEPTED, NOT COMMITTED");
+    expect(terminal.asked()).toBe(0);
+    const after = await facts(dirs);
+    expect(after.custody).toBeUndefined();
+    expect(physicalDecisions(after.all)).toHaveLength(0);
+    expect(after.head).toEqual(before.head);
+  }, 120_000);
+
+  it("a host that calls a claim conjunctive while its presence quotation contains the claim is set aside and asked again; the grounded answer is the one used", async () => {
+    const dirs = await boundCampaign({ responder: { ...STANDARD, presence: withOath } });
+    let first = true;
+    const policy = (doc: Record<string, any>) => {
+      const a = scriptedPolicy(
+        physicalOnly(conjunctive(new RegExp(OATH), "INDEPENDENT_ACTOR_COOPERATION")),
+      )(doc) as any;
+      if (doc["operation"] === "IR_PHYSICAL_PLACEMENT" && first) {
+        first = false;
+        a.presence.evidence_quote = doc["context"].statement; // the claim is inside the words said to establish the presence
+      }
+      return a;
+    };
+    const { result } = await establishLocus(dirs, locusConsole(), {}, policy);
+    expect(result.status).toBe("LOCUS_ESTABLISHED");
+    const after = await facts(dirs);
+    expect(physicalDecisions(after.all)[0]!.decision.presence.evidence_quote).toBe(PRESENCE_ONLY);
+  }, 120_000);
+});
+
+const physicalOnly = (p: PhysicalRule) => ({ physical: p });

@@ -287,8 +287,16 @@ export interface PhysicalRule {
   readonly embodiment?: { readonly match: RegExp; readonly mode: string };
   /** a statement text that, when matched, makes the scripted host read the presence as this mode (default NATIVE_AT_THIS_LOCUS) */
   readonly presence?: { readonly match: RegExp; readonly mode: string };
-  /** a statement text that, when matched, is a claim the presence rests on something external */
-  readonly dependency?: { readonly match: RegExp; readonly kind: string };
+  /**
+   * a statement text that, when matched, is a claim about something external. A CONTINGENT claim is one the presence is said to rest on;
+   * a CONJUNCTIVE one is stated beside a presence its own words establish, and then `presenceQuote` selects ONLY those words.
+   */
+  readonly claim?: {
+    readonly match: RegExp;
+    readonly kind: string;
+    readonly bearing: "CONTINGENT" | "CONJUNCTIVE";
+    readonly presenceQuote?: RegExp;
+  };
   /** a delivered fact text that, when matched, contradicts a material body being there */
   readonly contradicts?: RegExp;
   /** a delivered fact text that, when matched, leaves the host unable to tell */
@@ -306,7 +314,7 @@ function physicalAnswer(doc: Doc, rule: PhysicalRule): unknown {
   const embMode = hitItem ? rule.embodiment!.mode : "SINGLE_MATERIAL_BODY";
   const presHit = rule.presence?.match.test(ctx.statement) ? rule.presence : undefined;
   const presMode = presHit ? presHit.mode : "NATIVE_AT_THIS_LOCUS";
-  const dep = rule.dependency?.match.test(ctx.statement) ? rule.dependency : undefined;
+  const dep = rule.claim?.match.test(ctx.statement) ? rule.claim : undefined;
   const unclearAny = ctx.facts.some((f: Doc) => rule.unclear?.test(f["text"]));
   const assessments = ctx.facts.map((f: Doc) => {
     if (rule.contradicts?.test(f["text"]))
@@ -347,14 +355,19 @@ function physicalAnswer(doc: Doc, rule: PhysicalRule): unknown {
       mode: presMode,
       rule_ids: ["IR-7"],
       grounds: "scripted host: reading of the presence",
-      evidence_quote: presHit ? presHit.match.exec(ctx.statement)![0] : ctx.statement,
+      evidence_quote: presHit
+        ? presHit.match.exec(ctx.statement)![0]
+        : dep?.presenceQuote
+          ? dep.presenceQuote.exec(ctx.statement)![0]
+          : ctx.statement,
     },
-    dependencies: dep
+    external_claims: dep
       ? [
           {
             kind: dep.kind,
+            bearing: dep.bearing,
             rule_ids: ["IR-12"],
-            grounds: "scripted host: rests on something external",
+            grounds: "scripted host: a claim about something external",
             evidence_quote: dep.match.exec(ctx.statement)![0],
           },
         ]

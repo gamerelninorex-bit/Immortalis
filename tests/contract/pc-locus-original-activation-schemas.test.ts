@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   ORIGINAL_ACTIVATION,
   OriginalPcPhysicalLocusCustodyTargetSchema,
+  PHYSICAL_CLAIM_BEARINGS,
   PHYSICAL_DEPENDENCY_KINDS,
   PHYSICAL_EMBODIMENT_MODES,
   PHYSICAL_PRESENCE_MODES,
@@ -154,7 +155,7 @@ const answer = (): any => ({
     evidence_quote: "q",
   },
   presence: { mode: "NATIVE_AT_THIS_LOCUS", rule_ids: ["IR-7"], grounds: "g", evidence_quote: "q" },
-  dependencies: [],
+  external_claims: [],
   assessments: [
     {
       fact_id: "world.premise",
@@ -235,10 +236,56 @@ describe("the physical-placement decision is a closed vocabulary", () => {
     delete c.embodiment.evidence_quote;
     expect(PhysicalHostDecisionSchema.safeParse(c).success).toBe(false);
     const d = answer();
-    d.dependencies = [
-      { kind: "FRIENDSHIP", rule_ids: ["IR-12"], grounds: "g", evidence_quote: "q" },
+    d.external_claims = [
+      {
+        kind: "FRIENDSHIP",
+        bearing: "CONTINGENT",
+        rule_ids: ["IR-12"],
+        grounds: "g",
+        evidence_quote: "q",
+      },
     ];
     expect(PhysicalHostDecisionSchema.safeParse(d).success).toBe(false);
+  });
+
+  it("every external claim states how it bears on the presence: contingent or conjunctive, nothing else, never omitted", () => {
+    expect(PHYSICAL_CLAIM_BEARINGS).toEqual(["CONTINGENT", "CONJUNCTIVE"]);
+    const claim = (over: Record<string, unknown>): any => ({
+      kind: "INDEPENDENT_ACTOR_COOPERATION",
+      bearing: "CONJUNCTIVE",
+      rule_ids: ["IR-12"],
+      grounds: "g",
+      evidence_quote: "q",
+      ...over,
+    });
+    const ok = (c: unknown) => {
+      const a = answer();
+      a.external_claims = [c];
+      return PhysicalHostDecisionSchema.safeParse(a).success;
+    };
+    expect(ok(claim({}))).toBe(true);
+    expect(ok(claim({ bearing: "CONTINGENT" }))).toBe(true);
+    for (const bearing of ["ACCEPTED", "PARTIAL", "", undefined])
+      expect(ok(claim({ bearing })), String(bearing)).toBe(false);
+    // no way to state that a claim was accepted, verified or committed
+    for (const extra of ["accepted", "verified", "committed", "willingness", "granted"])
+      expect(ok(claim({ [extra]: true })), extra).toBe(false);
+    // the old name of the field is gone
+    const old = answer();
+    old.dependencies = [];
+    expect(PhysicalHostDecisionSchema.safeParse(old).success).toBe(false);
+  });
+
+  it("the custody record has no field in which any external claim could be committed", () => {
+    const c = activation();
+    for (const field of ["external_claims", "claims", "actor", "willingness", "right", "oath"]) {
+      const v = structuredClone(c);
+      v[field] = [];
+      expect(ok(v), field).toBe(false);
+      const w = structuredClone(c);
+      w.basis[field] = [];
+      expect(ok(w), `basis.${field}`).toBe(false);
+    }
   });
 
   it("the retained record carries its operation, its decision and a verdict of its own operation only", () => {

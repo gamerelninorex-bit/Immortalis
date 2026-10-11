@@ -3,6 +3,7 @@ import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  PHYSICAL_CLAIM_BEARINGS,
   PHYSICAL_DEPENDENCY_KINDS,
   PHYSICAL_EMBODIMENT_MODES,
   PHYSICAL_PRESENCE_MODES,
@@ -313,8 +314,8 @@ export function taskDocument(
       ...common,
       operation: REFEREE_OP_PHYSICAL,
       purpose:
-        "Physical placement: the player has already kept this character and separately confirmed that it is originally present (native, already there) at the locus in `context.subject`, and the engine has found that statement compatible. You are now asked ONE narrower question, and only on the words and facts delivered: do the accepted character's own statements and the player's native-presence statement together describe ONE material, spatial physical subject (a single body that occupies a place) originally present at exactly THIS locus, with nothing resting on an independent actor's cooperation or on an external right? An incorporeal, spirit-like, distributed, multi-bodied, host-dependent, body-less or world-coextensive character, a presence somewhere else, in several places or in no place, or an arrival from elsewhere, is NOT such a subject: say so. Do not decide that it is merely plausible, do not invent a body, a position, an actor's willingness or a world law, and do not weaken the character or the world for convenience. If you cannot tell, say AMBIGUOUS or UNCLEAR and ask one narrow question. This establishes no perception, knowledge, action, movement, time, access or right.",
-      rules: rules(["I002-4.3", "I002-17.2", "IR-2", "IR-7", "IR-12", "IR-14"]),
+        "Physical placement: the player has already kept this character and separately confirmed that it is originally present (native, already there) at the locus in `context.subject`, and the engine has found that statement compatible. You are now asked ONE narrower question, and only on the words and facts delivered: do the accepted character's own statements and the player's native-presence statement together describe ONE material, spatial physical subject (a single body that occupies a place) originally present at exactly THIS locus, and with the presence not made contingent on an independent actor's cooperation or on an external right? An incorporeal, spirit-like, distributed, multi-bodied, host-dependent, body-less or world-coextensive character, a presence somewhere else, in several places or in no place, an arrival from elsewhere, or a presence stated to hold only through an actor's leave or an external right, is NOT such a subject: say so. A separate claim about an actor or a right that is merely stated beside a presence the player's own words establish does not make the presence contingent: list it as a CONJUNCTIVE external claim; it is not accepted. Do not decide that it is merely plausible, do not invent a body, a position, an actor's willingness or a world law, and do not weaken the character or the world for convenience. If you cannot tell, say AMBIGUOUS or UNCLEAR and ask one narrow question. This establishes no perception, knowledge, action, movement, time, access or right.",
+      rules: rules(["I002-4.3", "I002-17.2", "IR-2", "IR-5", "IR-7", "IR-12", "IR-14"]),
       embodiment_modes: {
         SINGLE_MATERIAL_BODY:
           "the character's own statements constitute it as ONE material body (a single physical thing that occupies a place and can be at one place at a time)",
@@ -336,13 +337,19 @@ export function taskDocument(
           "the statement describes an arrival, portal, transfer, summoning or another bridge",
         AMBIGUOUS: "the statement does not settle where; set `clarification`",
       },
-      dependency_kinds: {
+      external_claim_kinds: {
         INDEPENDENT_ACTOR_COOPERATION:
-          "the presence is stated to rest on an independent actor's consent, permission, protection, cooperation or willingness",
+          "the statement says an independent actor consents, permits, protects, cooperates or is willing",
         EXTERNAL_RIGHT_OR_ACCESS:
-          "the presence is stated to rest on a right, title, permit or access granted by the world",
+          "the statement says a right, title, permit or access is granted by the world",
         OTHER_EXTERNAL_CLAIM:
-          "the presence is stated to rest on any other claim about something that is not the character itself",
+          "the statement makes any other claim about something that is not the character itself",
+      },
+      claim_bearings: {
+        CONTINGENT:
+          'the statement makes the character\'s presence AT THIS LOCUS hold only through the claim ("by leave of", "because the guard allows it", "only for as long as ..."): without accepting the claim the presence would not hold. Insertion may not invent an actor\'s willingness or an external right (IR §12), so such a presence cannot be a physical fact.',
+        CONJUNCTIVE:
+          'the claim is stated ALONGSIDE a presence that the player\'s own words establish by themselves ("I am originally present at X, and the guard has sworn to protect me"). The presence stands on its own words; the claim is NOT accepted, NOT committed and NOT part of what is recorded (it stays an unverified assertion). Then `presence.evidence_quote` must be only the words that establish the presence and must NOT contain the claim.',
       },
       relations: {
         SUPPORTS:
@@ -352,8 +359,8 @@ export function taskDocument(
           "the fact, as written, excludes or conflicts with that kind of body being physically present at this locus (e.g. nothing material can exist there); quote it. 'not observed' is not 'cannot exist'",
         UNCLEAR: "it is not possible to tell whether it conflicts; set `clarification`",
       },
-      dependencies_guidance:
-        "`dependencies` in the response is [] when the statement states no dependency on an independent actor, an external right or another external claim; otherwise one object per such claim, shaped like the example. The answer object takes exactly the keys of `response_shape` and no other.",
+      external_claims_guidance:
+        "`external_claims` in the response is [] when the statement makes no claim about an independent actor, an external right or anything else that is not the character itself; otherwise one object per such claim, shaped like the example, with its `bearing`. Decide `bearing` from the player's words, not from how plausible the claim is: a claim the presence merely sits next to is CONJUNCTIVE; a claim the presence is said to depend on is CONTINGENT. Reading a claim never accepts it. The answer object takes exactly the keys of `response_shape` and no other.",
       response_shape: {
         task_id: "<this task_id>",
         embodiment: {
@@ -369,9 +376,10 @@ export function taskDocument(
           grounds: "<why>",
           evidence_quote: "<verbatim excerpt of context.statement; required>",
         },
-        dependencies: [
+        external_claims: [
           {
             kind: `<one of ${PHYSICAL_DEPENDENCY_KINDS.join(" | ")}>`,
+            bearing: `<one of ${PHYSICAL_CLAIM_BEARINGS.join(" | ")}>`,
             rule_ids: ["<rule_id>"],
             grounds: "<why>",
             evidence_quote: "<verbatim excerpt of context.statement>",

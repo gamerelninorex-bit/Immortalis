@@ -53,7 +53,7 @@ const base = (): any => ({
     grounds: "native at the pans",
     evidence_quote: "at the salt pans",
   },
-  dependencies: [],
+  external_claims: [],
   assessments: [
     {
       fact_id: "world.premise",
@@ -109,7 +109,7 @@ describe("the verdict is derived from the answer alone", () => {
       );
   });
 
-  it("any dependency on an independent actor, an external right or another external claim is NOT_PHYSICAL_SINGLE_LOCUS", () => {
+  it("a claim the presence is CONTINGENT on (an independent actor, an external right or any other external claim) is NOT_PHYSICAL_SINGLE_LOCUS", () => {
     for (const kind of [
       "INDEPENDENT_ACTOR_COOPERATION",
       "EXTERNAL_RIGHT_OR_ACCESS",
@@ -118,10 +118,61 @@ describe("the verdict is derived from the answer alone", () => {
       expect(
         physicalVerdictOf({
           ...base(),
-          dependencies: [{ kind, rule_ids: ["IR-12"], grounds: "-", evidence_quote: "salt pans" }],
+          external_claims: [
+            {
+              kind,
+              bearing: "CONTINGENT",
+              rule_ids: ["IR-12"],
+              grounds: "-",
+              evidence_quote: "salt pans",
+            },
+          ],
         }),
         kind,
       ).toBe("NOT_PHYSICAL_SINGLE_LOCUS");
+  });
+
+  it("a CONJUNCTIVE claim, stated beside a presence the player's own words establish, does not change the verdict (and is accepted into nothing)", () => {
+    for (const kind of [
+      "INDEPENDENT_ACTOR_COOPERATION",
+      "EXTERNAL_RIGHT_OR_ACCESS",
+      "OTHER_EXTERNAL_CLAIM",
+    ])
+      expect(
+        physicalVerdictOf({
+          ...base(),
+          external_claims: [
+            {
+              kind,
+              bearing: "CONJUNCTIVE",
+              rule_ids: ["IR-12"],
+              grounds: "-",
+              evidence_quote: "x",
+            },
+          ],
+        }),
+        kind,
+      ).toBe("PHYSICAL_ELIGIBLE");
+  });
+
+  it("one contingent claim among conjunctive ones still refuses; a conjunctive claim never outranks a definite non-physical reading", () => {
+    const claim = (bearing: string): any => ({
+      kind: "INDEPENDENT_ACTOR_COOPERATION",
+      bearing,
+      rule_ids: ["IR-12"],
+      grounds: "-",
+      evidence_quote: "x",
+    });
+    expect(
+      physicalVerdictOf({
+        ...base(),
+        external_claims: [claim("CONJUNCTIVE"), claim("CONTINGENT")],
+      }),
+    ).toBe("NOT_PHYSICAL_SINGLE_LOCUS");
+    const incorporeal = base();
+    incorporeal.embodiment.mode = "INCORPOREAL";
+    incorporeal.external_claims = [claim("CONJUNCTIVE")];
+    expect(physicalVerdictOf(incorporeal)).toBe("NOT_PHYSICAL_SINGLE_LOCUS");
   });
 
   it("a contradicted fact is a world conflict, an ambiguous reading or unclear fact is unresolved; a definite non-physical reading outranks both", () => {
@@ -183,9 +234,10 @@ describe("the answer is validated against exactly what was delivered", () => {
     expect(
       refusal(
         (a) =>
-          (a.dependencies = [
+          (a.external_claims = [
             {
               kind: "OTHER_EXTERNAL_CLAIM",
+              bearing: "CONTINGENT",
               rule_ids: ["IR-12"],
               grounds: "-",
               evidence_quote: "the guard allowed it",
@@ -217,5 +269,65 @@ describe("the answer is validated against exactly what was delivered", () => {
         a.clarification = "Where exactly?";
       }),
     ).toEqual({ ok: true, verdict: "PHYSICAL_UNRESOLVED" });
+  });
+});
+
+describe("a conjunctive claim must stand apart from the words that establish the presence", () => {
+  const ctx2: PhysicalContext = {
+    ...ctx,
+    statement:
+      "I am originally present at the salt pans of Ashfall Marsh, and the harbour guard has sworn to protect me there.",
+  };
+  const task2 = refereeTaskId(ctx2);
+  const answer2 = (bearing: string, presenceQuote: string): any => ({
+    ...base(),
+    task_id: task2,
+    presence: { ...base().presence, evidence_quote: presenceQuote },
+    external_claims: [
+      {
+        kind: "INDEPENDENT_ACTOR_COOPERATION",
+        bearing,
+        rule_ids: ["IR-12"],
+        grounds: "a separate oath",
+        evidence_quote: "the harbour guard has sworn to protect me there",
+      },
+    ],
+  });
+  const run = (a: any) => derivePhysical(ctx2, a as PhysicalHostDecision);
+
+  it("the oath beside an independently stated presence: eligible when the presence quotation holds only the presence words", () => {
+    expect(
+      run(answer2("CONJUNCTIVE", "I am originally present at the salt pans of Ashfall Marsh")),
+    ).toEqual({
+      ok: true,
+      verdict: "PHYSICAL_ELIGIBLE",
+    });
+  });
+
+  it("is refused as incoherent when the presence quotation contains the claim (the presence is then not independent of it)", () => {
+    const d = run(answer2("CONJUNCTIVE", ctx2.statement));
+    expect(d.ok).toBe(false);
+    expect(!d.ok && d.refusal.code).toBe("DECISION_INCOHERENT");
+    const partial = run(
+      answer2(
+        "CONJUNCTIVE",
+        "salt pans of Ashfall Marsh, and the harbour guard has sworn to protect",
+      ),
+    );
+    expect(!partial.ok && partial.refusal.code).toBe("DECISION_INCOHERENT");
+  });
+
+  it("the same words read as CONTINGENT are not subject to that constraint and refuse custody", () => {
+    expect(run(answer2("CONTINGENT", ctx2.statement))).toEqual({
+      ok: true,
+      verdict: "NOT_PHYSICAL_SINGLE_LOCUS",
+    });
+  });
+
+  it("the oath is never part of what the verdict or the context delivers as a fact", () => {
+    const d = run(
+      answer2("CONJUNCTIVE", "I am originally present at the salt pans of Ashfall Marsh"),
+    );
+    expect(d.ok && Object.keys(d)).toEqual(["ok", "verdict"]);
   });
 });

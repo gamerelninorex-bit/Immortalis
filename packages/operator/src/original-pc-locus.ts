@@ -155,9 +155,10 @@ const decisionLines = (
   `|       the words: ${quoted(d.embodiment.evidence_quote)}`,
   `|   your presence is read as: ${d.presence.mode} - ${quoted(d.presence.grounds)}`,
   `|       the words: ${quoted(d.presence.evidence_quote)}`,
-  ...d.dependencies.map(
-    (x) =>
-      `|   it rests on something outside you: ${x.kind} - ${quoted(x.grounds)} (${quoted(x.evidence_quote)})`,
+  ...d.external_claims.map((x) =>
+    x.bearing === "CONTINGENT"
+      ? `|   your presence is stated to hold only through something outside you: ${x.kind} - ${quoted(x.grounds)} (${quoted(x.evidence_quote)})`
+      : `|   NOT ACCEPTED, NOT COMMITTED (stated beside your presence, which stands on its own words): ${x.kind} - ${quoted(x.grounds)} (${quoted(x.evidence_quote)})`,
   ),
   ...d.assessments
     .filter((a) => a.relation !== "NOT_RELEVANT")
@@ -318,6 +319,10 @@ async function run(
       `  your native-presence statement, kept verbatim: ${quoted(ctx.statement)}`,
       "  Confirming records, in World-State's custody, that this ONE material character is physically at exactly this locus, stationary, on the reading above.",
       "  It gives the character no perception, knowledge, action, capability, movement, elapsed time, access, rights or any non-player character's cooperation.",
+      ...asked.decision.external_claims.map(
+        (x) =>
+          `  NOT recorded or accepted by this confirmation (an unverified claim of yours, not a fact of the world): ${quoted(x.evidence_quote)}`,
+      ),
     ],
     "Anything else leaves your character bound but without a physical position.",
   );

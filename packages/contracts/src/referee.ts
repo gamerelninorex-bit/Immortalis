@@ -320,13 +320,23 @@ export const PHYSICAL_PRESENCE_MODES = [
 ] as const;
 export type PhysicalPresenceMode = (typeof PHYSICAL_PRESENCE_MODES)[number];
 
-/** A claim inside the statement that the presence rests on something that is not the player's own: Insertion may not invent it (IR §12). */
+/** The kind of a claim, inside the statement, about something that is not the player's own character: Insertion may not invent it (IR §12). */
 export const PHYSICAL_DEPENDENCY_KINDS = [
   "INDEPENDENT_ACTOR_COOPERATION",
   "EXTERNAL_RIGHT_OR_ACCESS",
   "OTHER_EXTERNAL_CLAIM",
 ] as const;
 export type PhysicalDependencyKind = (typeof PHYSICAL_DEPENDENCY_KINDS)[number];
+
+/**
+ * How such a claim bears on the PHYSICAL presence the statement also states. `CONTINGENT`: the presence at this locus is stated to hold
+ * only through the claim (by leave of, because of, for as long as the actor allows), so the physical fact could not be established
+ * without accepting the claim, which IR §12 forbids. `CONJUNCTIVE`: the claim is stated ALONGSIDE a presence the player's own words
+ * establish by themselves; the presence stands on those words, and the claim is not accepted, not committed and not part of any fact
+ * the custody records (it stays what IR §15 calls an unverified assertion).
+ */
+export const PHYSICAL_CLAIM_BEARINGS = ["CONTINGENT", "CONJUNCTIVE"] as const;
+export type PhysicalClaimBearing = (typeof PHYSICAL_CLAIM_BEARINGS)[number];
 
 export const PhysicalHostDecisionSchema = z.strictObject({
   task_id: RefereeTaskIdSchema,
@@ -346,11 +356,15 @@ export const PhysicalHostDecisionSchema = z.strictObject({
     /** a verbatim excerpt of the player's native-presence statement */
     evidence_quote: Quote,
   }),
-  /** every claim in the statement that the presence rests on an independent actor's cooperation, an external right or another external claim; empty when none */
-  dependencies: z
+  /**
+   * every claim in the statement about an independent actor's cooperation, an external right or another external claim, each with how it
+   * bears on the presence; empty when the statement states none. None of them is ever accepted by the answer or by the custody.
+   */
+  external_claims: z
     .array(
       z.strictObject({
         kind: z.enum(PHYSICAL_DEPENDENCY_KINDS),
+        bearing: z.enum(PHYSICAL_CLAIM_BEARINGS),
         rule_ids: RuleIds,
         grounds: Grounds,
         evidence_quote: Quote,

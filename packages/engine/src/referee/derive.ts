@@ -653,15 +653,28 @@ export function derivePhysical(
         "the presence reading's quotation is not in the player's statement",
       ),
     };
-  for (const d of decision.dependencies)
-    if (!ctx.statement.includes(d.evidence_quote))
+  for (const c of decision.external_claims) {
+    if (!ctx.statement.includes(c.evidence_quote))
       return {
         ok: false,
         refusal: refuse(
           "GROUNDS_UNSUPPORTED",
-          "a dependency's quotation is not in the player's statement",
+          "an external claim's quotation is not in the player's statement",
         ),
       };
+    // a claim stated ALONGSIDE the presence must stand apart from the words that establish the presence: those words may not include it
+    if (
+      c.bearing === "CONJUNCTIVE" &&
+      !quotesDisjoint(ctx.statement, decision.presence.evidence_quote, c.evidence_quote)
+    )
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "a conjunctive claim stands apart from the words that establish the presence: the presence quotation may not contain it (a claim the presence rests on is CONTINGENT)",
+        ),
+      };
+  }
   const checked = checkAssessments(ctx.facts, decision.assessments);
   if (!checked.ok) return checked;
   const needsQuestion =
@@ -679,6 +692,16 @@ export function derivePhysical(
   return { ok: true, verdict: physicalVerdictOf(decision) };
 }
 
+/** Whether two verbatim excerpts of `text` can be located so that their spans do not overlap. */
+function quotesDisjoint(text: string, a: string, b: string): boolean {
+  const spans = (q: string): number[] => {
+    const out: number[] = [];
+    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) out.push(i);
+    return out;
+  };
+  return spans(a).some((i) => spans(b).some((j) => i + a.length <= j || j + b.length <= i));
+}
+
 export type PhysicalVerdict =
   | "PHYSICAL_ELIGIBLE"
   | "NOT_PHYSICAL_SINGLE_LOCUS"
@@ -687,7 +710,9 @@ export type PhysicalVerdict =
 
 /**
  * The physical-placement verdict as a function of the answer alone (re-derivable from the retained record). A definite reading that
- * is not one material body originally present at this locus, or that rests on an external claim, is NOT_PHYSICAL_SINGLE_LOCUS; then
+ * is not one material body originally present at this locus, or whose presence is CONTINGENT on an external claim, is
+ * NOT_PHYSICAL_SINGLE_LOCUS (a CONJUNCTIVE external claim stated alongside a presence the player's own words establish does not change the
+ * verdict, and is accepted into nothing); then
  * a contradicted world fact; then anything ambiguous or unclear is unresolved; only the remainder is eligible.
  */
 export function physicalVerdictOf(decision: PhysicalHostDecision): PhysicalVerdict {
@@ -696,7 +721,7 @@ export function physicalVerdictOf(decision: PhysicalHostDecision): PhysicalVerdi
   if (
     (e !== "SINGLE_MATERIAL_BODY" && e !== "AMBIGUOUS") ||
     (p !== "NATIVE_AT_THIS_LOCUS" && p !== "AMBIGUOUS") ||
-    decision.dependencies.length > 0
+    decision.external_claims.some((c) => c.bearing === "CONTINGENT")
   )
     return "NOT_PHYSICAL_SINGLE_LOCUS";
   if (decision.assessments.some((a) => a.relation === "CONTRADICTS"))
