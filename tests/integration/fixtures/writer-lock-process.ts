@@ -4,7 +4,7 @@
 // It opens the package through the real `nodeFs`, wrapped only to (a) pause at a named point so a test can
 // force an exact cross-process interleaving, and (b) SIGKILL the process at the Nth mutating filesystem
 // operation, so a crash at each arbitration point is a real process death rather than a thrown exception.
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { nodeFs, openFileCampaign, type FsOps } from "@immortalis/engine";
 import { TEST_OWNERS } from "@immortalis/testkit";
@@ -27,6 +27,11 @@ interface Config {
 
 const cfg = JSON.parse(process.env.WL_CONFIG ?? "null") as Config;
 const marker = (name: string) => join(cfg.sync, `${cfg.tag}.${name}`);
+/** Markers appear complete or not at all: a reader polling for one never sees a half-written file. */
+const put = (path: string, text: string) => {
+  writeFileSync(`${path}.part`, text);
+  renameSync(`${path}.part`, path);
+};
 const wait = async (path: string) => {
   const deadline = Date.now() + 60_000;
   while (!existsSync(path)) {
@@ -62,7 +67,7 @@ if (cfg.pauseAfterLockRead) {
     const data = await nodeFs.readFile(path);
     if (!paused && path.endsWith("/LOCK")) {
       paused = true;
-      writeFileSync(marker("observed"), "");
+      put(marker("observed"), "");
       await wait(marker("go"));
     }
     return data;
@@ -78,7 +83,7 @@ const opened = await openFileCampaign(cfg.dir, {
 const result = opened.ok
   ? { tag: cfg.tag, pid: process.pid, ok: true, ops }
   : { tag: cfg.tag, pid: process.pid, ok: false, code: opened.error.code, ops };
-writeFileSync(marker("result"), JSON.stringify(result));
+put(marker("result"), JSON.stringify(result));
 console.log(JSON.stringify(result));
 if (opened.ok) {
   if (cfg.hold) {
@@ -88,4 +93,4 @@ if (opened.ok) {
     await opened.value.close();
   }
 }
-writeFileSync(marker("exit"), JSON.stringify({ ops }));
+put(marker("exit"), JSON.stringify({ ops }));

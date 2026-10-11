@@ -64,7 +64,7 @@ describe("CJA1 recovery — unknown outcomes", () => {
     const dir = tempDir();
     const s = await seededCjaCampaign(dir, { wrap: (st) => crashBefore(st, isDecisionGroup) });
     await adjudicate(s.adapter, J(s));
-    s.campaign.store.close();
+    await s.campaign.store.close();
     const r = await reopenCja(dir);
     const out = await adjudicate(r.adapter, J(s, "unresolved"));
     expect(out.ok && out.value.verdict).toBe("UNRESOLVED");
@@ -77,7 +77,7 @@ describe("CJA1 recovery — save, close, reopen", () => {
     const s = await seededCjaCampaign(dir);
     const first = await must(adjudicate(s.adapter, J(s)));
     const head = s.campaign.store.head();
-    s.campaign.store.close();
+    await s.campaign.store.close();
     const r = await reopenCja(dir);
     expect(r.campaign.store.head().journal_head_sha256).toBe(head.journal_head_sha256);
     const again = await must(adjudicate(r.adapter, J(s)));
@@ -91,7 +91,7 @@ describe("CJA1 recovery — save, close, reopen", () => {
     const dir = tempDir();
     const s = await seededCjaCampaign(dir);
     await must(adjudicate(s.adapter, J(s)));
-    s.campaign.store.close();
+    await s.campaign.store.close();
     const r = await reopenCja(dir, {
       adapter: { contextPort: { attest: () => ({ status: "ABSENT" }) } },
     });
@@ -107,7 +107,7 @@ describe("CJA1 recovery — save, close, reopen", () => {
     await must(
       s.campaign.store.commit(observationGroup("cja-campaign", 91, "obs-repeat", { later: 1 }, 1)),
     );
-    s.campaign.store.close();
+    await s.campaign.store.close();
     const r = await reopenCja(dir);
     expect(verifyCultureAdjudicationIntegrity(r.campaign.store)).toEqual([]);
   });
