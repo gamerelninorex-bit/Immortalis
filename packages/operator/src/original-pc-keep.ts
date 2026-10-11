@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   EntityId,
   ExistenceContractSchema,
+  I002HostDecisionSchema,
   Id,
   fail,
   ok,
@@ -40,6 +41,17 @@ const KeepFileSchema = z.strictObject({
   pc_id: EntityId,
   secret: z.string().regex(/^[0-9a-f]{64}$/),
   contract: ExistenceContractSchema,
+  /**
+   * The AI referee host's classification the player saw before keeping (BLUE B61-A3): the answer the host gave, the question's
+   * attempt, who gave it. Retained with the keep so an interruption between the keep and the release resumes with exactly the
+   * evidence the player kept on, and so the committed evidence can be recognised as that very answer.
+   */
+  referee: z.strictObject({
+    host_id: Id,
+    claimed_model: z.string().min(1).max(160).nullable(),
+    attempt: z.number().int().nonnegative(),
+    answer: I002HostDecisionSchema,
+  }),
 });
 export type KeepRecord = z.infer<typeof KeepFileSchema>;
 

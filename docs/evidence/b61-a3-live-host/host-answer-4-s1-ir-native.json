@@ -1,0 +1,40 @@
+{
+  "task_id": "3048eab9ead526ba6e4361a51fa4af85fe4b26cfafa556490d86a1366553a504",
+  "reading": {
+    "mode": "NATIVE_ALREADY_THERE",
+    "rule_ids": ["IR-3"],
+    "grounds": "The player says the character has always lived here and is originally present at the salt pans: an explicit native, already-there presence with no arrival, portal, transfer or summoning.",
+    "evidence_quote": "I am originally present at the salt pans"
+  },
+  "assessments": [
+    {
+      "fact_id": "world.premise",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "A quiet salt-marsh hamlet is consistent with a human salt-raker living there; it neither adds to nor excludes the presence.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "world.basis",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "The canon only says the place is invented; it excludes no kind of inhabitant.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "world.constraint.1",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "The direction of the wind has no bearing on a human character living at the salt pans.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "locus.designation",
+      "relation": "SUPPORTS",
+      "rule_ids": ["IR-7"],
+      "grounds": "The statement names the same place as the locus.",
+      "evidence_quote": "salt pans"
+    }
+  ],
+  "clarification": null
+}

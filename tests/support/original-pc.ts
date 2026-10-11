@@ -4,6 +4,7 @@
 // expected binding: the scripted consoles only TYPE, in answer to the prompts and challenges the service printed, and the keep and
 // placement phrases they type are the ones the service just printed.
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import {
   LOCALITY_CAMPAIGN,
   LOCUS_ID,
@@ -16,8 +17,14 @@ import {
   type LocalityDirs,
 } from "./locality.ts";
 import { SHIPPED_BIN, type ProcessRun } from "./operator.ts";
+import { refereeCandidateItems, refereeTaskId, i002Context } from "@immortalis/engine";
 import {
   authorCharacter,
+  bindHost,
+  pendingTasks,
+  readTask,
+  secretPath,
+  submitDecision,
   type AuthorCharacterParams,
   type OperatorTerminal,
 } from "@immortalis/operator";
@@ -36,8 +43,8 @@ export const WORDS = {
   presence: "I have always lived here: I am originally present at the salt pans of Ashfall Marsh.",
 } as const;
 
-/** The attestation every statement about the character must open with. */
-export const me = (text: string): string => `me: ${text}`;
+/** No classification prefix exists any more: the AI referee host classifies. Kept so scripts read the same. */
+export const me = (text: string): string => text;
 
 export const KEEP = { phrase: "keep-character" } as const;
 export const PLACE = { phrase: "place-character" } as const;
@@ -201,6 +208,14 @@ export async function localityCampaign(
   mutate(doc);
   const { result } = await establish(dirs, writeSetup(doc));
   if (result.status !== "LOCALITY_READY") throw new Error(`locality not ready: ${result.status}`);
+  const bound = await bindHost({
+    stateDir: dirs.operatorDir,
+    campaignId: LOCALITY_CAMPAIGN,
+    operatorUid: process.getuid!(),
+    hostId: HOST_ID,
+    operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY"],
+  });
+  if (!bound.ok) throw new Error(`host not bound: ${bound.error.code}`);
   return dirs;
 }
 
@@ -232,23 +247,200 @@ export const characterStatusArgs = (dirs: LocalityDirs, over: string[] = []): st
   ...over,
 ];
 
-/** Drives the shipped command in-process with a console and (optionally) a fault-injecting file system. */
+export const HOST_ID = "scripted-test-host";
+
+// -- a SCRIPTED referee host, for PLUMBING ONLY ------------------------------------------------------------------------------------
+// It speaks the real file exchange (the same functions the stdio MCP server uses), with the real host secret, but its "judgments" are
+// written by the TEST. It therefore demonstrates that the engine enforces what it derives, vouches for the host, refuses a forged or
+// altered answer and recovers; it proves NOTHING about whether an AI understood any sentence. Live semantic evidence is separate.
+
+type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type Policy = (doc: Doc) => unknown | null;
+
+const ADMITTED: Record<string, string> = {
+  identity: "INTRINSIC_PC",
+  embodiment: "INTRINSIC_PC",
+  continuity: "INTRINSIC_PC",
+  contact: "INTRINSIC_PC",
+  no_contact: "INTRINSIC_PC",
+  exception: "INTRINSIC_PC",
+  possession: "ENTRY_ENVELOPE_FINITE",
+  open: "UNRESOLVED_PC",
+};
+
+export interface ClassifyRule {
+  /** a text the scripted host treats as NOT the player's own */
+  readonly match: RegExp;
+  readonly class: string;
+}
+export interface IrRule {
+  /** the statement reads as this bridge when it matches */
+  readonly bridge?: { readonly match: RegExp; readonly mode: string };
+  /** a delivered fact text that matching contradicts the presence */
+  readonly contradicts?: RegExp;
+  /** a delivered fact text that makes the host unable to tell */
+  readonly unclear?: RegExp;
+}
+
+/** The scripted host's policy: ordinary answers unless a rule says otherwise. */
+export function scriptedPolicy(
+  rules: { classify?: readonly ClassifyRule[]; ir?: IrRule } = {},
+): Policy {
+  return (doc) => {
+    if (doc["operation"] === "I002_CLASSIFY") {
+      return {
+        task_id: doc["task_id"],
+        items: doc["context"].candidate.map((i: Doc) => {
+          const hit = (rules.classify ?? []).find((r) => r.match.test(i["text"]));
+          if (!hit)
+            return {
+              item_id: i["item_id"],
+              slot: i["slot"],
+              class: ADMITTED[i["slot"]],
+              rule_ids: ["I002-7"],
+              grounds: "scripted host: an ordinary character-local statement",
+              evidence_quote: null,
+              intrinsic_excerpt: null,
+              other_classes: [],
+              clarification: null,
+            };
+          const m = hit.match.exec(i["text"])![0];
+          return {
+            item_id: i["item_id"],
+            slot: i["slot"],
+            class: hit.class,
+            rule_ids: ["I002-6.6"],
+            grounds: "scripted host: asserts something beyond the character",
+            evidence_quote: m,
+            intrinsic_excerpt: null,
+            other_classes: [],
+            clarification: hit.class === "AMBIGUOUS" ? "Which do you mean?" : null,
+          };
+        }),
+      };
+    }
+    const ctx = doc["context"];
+    const ir = rules.ir ?? {};
+    const bridge = ir.bridge && ir.bridge.match.test(ctx.statement) ? ir.bridge : undefined;
+    const unclearAny = ctx.facts.some((f: Doc) => ir.unclear?.test(f["text"]));
+    const assessments = ctx.facts.map((f: Doc) => {
+      if (ir.contradicts?.test(f["text"]))
+        return {
+          fact_id: f["fact_id"],
+          relation: "CONTRADICTS",
+          rule_ids: ["IR-7"],
+          grounds: "scripted host: the fact excludes the described character",
+          evidence_quote: ir.contradicts.exec(f["text"])![0],
+        };
+      if (ir.unclear?.test(f["text"]))
+        return {
+          fact_id: f["fact_id"],
+          relation: "UNCLEAR",
+          rule_ids: ["IR-7"],
+          grounds: "scripted host: cannot tell",
+          evidence_quote: null,
+        };
+      return {
+        fact_id: f["fact_id"],
+        relation: "NOT_RELEVANT",
+        rule_ids: ["IR-7"],
+        grounds: "scripted host: does not bear on this",
+        evidence_quote: null,
+      };
+    });
+    return {
+      task_id: doc["task_id"],
+      reading: {
+        mode: bridge ? bridge.mode : unclearAny ? "NATIVE_ALREADY_THERE" : "NATIVE_ALREADY_THERE",
+        rule_ids: ["IR-3"],
+        grounds: "scripted host: reading of the statement",
+        evidence_quote: bridge ? bridge.match.exec(ctx.statement)![0] : ctx.statement,
+      },
+      assessments,
+      clarification: unclearAny ? "Please say more." : null,
+    };
+  };
+}
+
+export const plainPolicy: Policy = scriptedPolicy();
+
+export interface ScriptedHost {
+  readonly answered: string[];
+  stop(): Promise<void>;
+}
+
+/** Runs the scripted host concurrently: it answers each pending question through the real exchange until stopped. */
+export function startScriptedHost(
+  dirs: LocalityDirs,
+  policy: Policy = plainPolicy,
+  hostId = HOST_ID,
+  claimedModel: string | null = "scripted-test-policy (NOT an AI)",
+): ScriptedHost {
+  const p = {
+    stateDir: dirs.operatorDir,
+    campaignId: LOCALITY_CAMPAIGN,
+    operatorUid: process.getuid!(),
+  };
+  let stopped = false;
+  const answered: string[] = [];
+  const loop = (async () => {
+    while (!stopped) {
+      try {
+        for (const t of await pendingTasks(p)) {
+          const task = await readTask(p, t.task_id);
+          if (!task.ok) continue;
+          const answer = policy(task.value.document);
+          if (answer === null) continue;
+          const secret = readFileSync(secretPath(p, hostId), "utf8").trim();
+          const w = await submitDecision(p, {
+            host_id: hostId,
+            secret,
+            task_id: t.task_id,
+            claimed_model: claimedModel,
+            answer,
+          });
+          if (w.ok) answered.push(t.task_id);
+        }
+      } catch {
+        // a directory that does not exist yet
+      }
+      await new Promise((r) => setTimeout(r, 5));
+    }
+  })();
+  return {
+    answered,
+    stop: async () => {
+      stopped = true;
+      await loop;
+    },
+  };
+}
+
+/** Drives the shipped command in-process with a console, a scripted host (plumbing only) and (optionally) a fault-injecting file system. */
 export async function author(
   dirs: LocalityDirs,
   terminal: ScriptedConsole,
   over: Partial<AuthorCharacterParams> = {},
+  host: Policy | null = plainPolicy,
 ) {
-  const result = await authorCharacter({
-    campaignDir: dirs.campaignDir,
-    campaignId: LOCALITY_CAMPAIGN,
-    worldId: WORLD_ID,
-    locusId: LOCUS_ID,
-    pcId: PC_ID,
-    operatorDir: dirs.operatorDir,
-    terminal,
-    ...over,
-  });
-  return { result, terminal };
+  const h = host ? startScriptedHost(dirs, host) : null;
+  try {
+    const result = await authorCharacter({
+      campaignDir: dirs.campaignDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      worldId: WORLD_ID,
+      locusId: LOCUS_ID,
+      pcId: PC_ID,
+      operatorDir: dirs.operatorDir,
+      terminal,
+      refereePolls: 400,
+      refereePollMs: 10,
+      ...over,
+    });
+    return { result, terminal, host: h };
+  } finally {
+    await h?.stop();
+  }
 }
 
 /**
@@ -258,8 +450,15 @@ export async function author(
 export function runAuthor(
   args: string[],
   script: Line[],
-  o: { killAfter?: RegExp } = {},
+  o: { killAfter?: RegExp; host?: { dirs: LocalityDirs; policy?: Policy } | null } = {},
 ): Promise<ProcessRun> {
+  const dirIndex = args.indexOf("--operator-dir");
+  const hostDirs =
+    o.host === null
+      ? null
+      : (o.host?.dirs ??
+        (dirIndex >= 0 ? ({ operatorDir: args[dirIndex + 1]! } as LocalityDirs) : null));
+  const scripted = hostDirs ? startScriptedHost(hostDirs, o.host?.policy ?? plainPolicy) : null;
   const child = spawn(
     process.execPath,
     ["--disable-warning=ExperimentalWarning", "--experimental-strip-types", SHIPPED_BIN, ...args],
@@ -289,7 +488,11 @@ export function runAuthor(
   });
   if (script.length === 0 && o.killAfter === undefined) child.stdin.end();
   return new Promise((res) => {
-    child.on("close", (code, signal) => res({ code, signal, stdout, stderr }));
+    child.on("close", (code, signal) => {
+      void (scripted?.stop() ?? Promise.resolve()).then(() =>
+        res({ code, signal, stdout, stderr }),
+      );
+    });
   });
 }
 
@@ -323,12 +526,52 @@ export async function shapeOf(dirs: LocalityDirs) {
       revision: c.store.head().revision,
       facts: c.store
         .listFacts()
-        .map((f) => ({ key: f.key, owner: f.owner, facet: f.facet, version: f.version }))
-        .sort((a, b) => a.key.localeCompare(b.key)),
+        .map((f) => ({
+          key: f.key.replace(/^referee\/[0-9a-f]{64}\//, "referee/<task>/"),
+          owner: f.owner,
+          facet: f.facet,
+          version: f.version,
+          ...(f.owner === "referee_adjudication_kernel"
+            ? {
+                referee: [
+                  (f.value as { operation: string }).operation,
+                  (f.value as { verdict: string }).verdict,
+                ],
+              }
+            : {}),
+        }))
+        // referee task identities differ between runs (they derive from keyed item identities), so order by the normalized key and then what the decision decides
+        .sort(
+          (a, b) =>
+            a.key.localeCompare(b.key) ||
+            JSON.stringify((a as { referee?: unknown }).referee).localeCompare(
+              JSON.stringify((b as { referee?: unknown }).referee),
+            ),
+        ),
       character: c.playerCharacter(PC_ID)?.value,
       binding: c.binding()?.value,
     };
   } finally {
     await c.close();
   }
+}
+
+/** A scripted-host I-002 answer (plumbing only) for a contract, in the shape the keep record retains. */
+export function keepRefereeFor(
+  contract: Parameters<typeof refereeCandidateItems>[0] & { pc_id: string },
+) {
+  const items = refereeCandidateItems(contract);
+  const ctx = i002Context({
+    campaign_id: LOCALITY_CAMPAIGN,
+    attempt: 0,
+    pc_id: contract.pc_id,
+    items,
+  });
+  const doc = { operation: "I002_CLASSIFY", task_id: refereeTaskId(ctx), context: ctx };
+  return {
+    host_id: HOST_ID,
+    claimed_model: null,
+    attempt: 0,
+    answer: plainPolicy(doc) as never,
+  };
 }

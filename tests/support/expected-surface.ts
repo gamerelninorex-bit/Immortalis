@@ -502,6 +502,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
       "adjudication-culture/0000000000000000000000000000000000000000000000000000000000000000/decision",
   },
   {
+    id: "referee_decision",
+    owner: "referee_adjudication_kernel",
+    facet: "referee_provenance",
+    lifecycle: "SEALED",
+    group: "REFEREE_FACT_KINDS",
+    exampleKey: "referee/0000000000000000000000000000000000000000000000000000000000000000/decision",
+  },
+  {
     id: "world_source_condition",
     owner: "world_state",
     facet: "world_source_condition",
@@ -547,6 +555,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
   ],
   causal_draw_kernel: ["draw_provenance"],
   culture_adjudication_kernel: ["adjudication_provenance"],
+  referee_adjudication_kernel: ["referee_provenance"],
 };
 
 /**
@@ -620,6 +629,27 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     methods: ["adjudicate", "decision"],
     source: {
       file: "packages/engine/src/culture-adjudication/adapter.ts",
+      commitCalls: 1,
+      establishWriters: [],
+    },
+  },
+  /**
+   * The infrastructure-only host-driven AI referee owner path (PR #61, B61-A3): two recorders (`recordI002`, `recordIr`) that both
+   * publish through the adapter's single `.commit(` call, the pure task/evaluation helpers and one typed read by identity. No
+   * model, host or provider is called from it; no world, PC, binding or Culture fact is written by it.
+   */
+  RefereeAdjudicationAdapter: {
+    methods: [
+      "decision",
+      "evaluateI002",
+      "evaluateIr",
+      "i002Task",
+      "irTask",
+      "recordI002",
+      "recordIr",
+    ],
+    source: {
+      file: "packages/engine/src/referee/adapter.ts",
       commitCalls: 1,
       establishWriters: [],
     },

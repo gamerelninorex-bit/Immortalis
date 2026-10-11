@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CanonicalCampaign, nodeFs } from "@immortalis/engine";
+import { CanonicalCampaign, RefereeAdjudicationAdapter, nodeFs } from "@immortalis/engine";
 import { instrumentFs } from "@immortalis/testkit";
 import { openOrdinary } from "../support/locality.ts";
 import {
@@ -56,16 +56,16 @@ async function reference() {
 
 describe("a lost acknowledgement at each of the two owner commits converges on the uninterrupted campaign", () => {
   const cases = [
-    ["releasePlayerCharacter", true, "the release landed but its reply was lost", 2, 4],
+    ["releasePlayerCharacter", true, "the release landed but its reply was lost", 2, 5],
     [
       "releasePlayerCharacter",
       false,
       "the release never reached the store: the retained keep is released as kept, not asked again",
       2,
-      3,
+      4,
     ],
-    ["bindPlayerCharacter", true, "the binding landed but its reply was lost", 0, 5],
-    ["bindPlayerCharacter", false, "the binding never reached the store", 2, 4],
+    ["bindPlayerCharacter", true, "the binding landed but its reply was lost", 0, 7],
+    ["bindPlayerCharacter", false, "the binding never reached the store", 2, 6],
   ] as const;
   for (const [op, commit, name, reAsked, revisionAfterFirst] of cases) {
     it(
@@ -113,6 +113,44 @@ describe("a lost acknowledgement at each of the two owner commits converges on t
     const again = await author(dirs, respondingConsole(STANDARD));
     expect(again.result.status).toBe("CHARACTER_BOUND");
   }, 120_000);
+});
+
+describe("a lost acknowledgement of a referee decision converges on the uninterrupted campaign (scripted host: plumbing only)", () => {
+  const cases = [
+    ["recordI002", true, "the classification evidence landed but its reply was lost"],
+    ["recordI002", false, "the classification evidence never reached the store"],
+    ["recordIr", true, "the native/compatibility evidence landed but its reply was lost"],
+    ["recordIr", false, "the native/compatibility evidence never reached the store"],
+  ] as const;
+  for (const [op, commit, name] of cases) {
+    it(
+      name,
+      async () => {
+        const expected = await reference();
+        const dirs = await localityCampaign();
+        const original = (RefereeAdjudicationAdapter.prototype as any)[op] as (
+          ...a: unknown[]
+        ) => Promise<unknown>;
+        vi.spyOn(RefereeAdjudicationAdapter.prototype as any, op).mockImplementation(
+          async function (this: object, ...args: unknown[]) {
+            if (commit) await original.apply(this, args);
+            return unknown;
+          },
+        );
+        const first = await author(dirs, respondingConsole(STANDARD));
+        expect(first.result.status).toBe("CHARACTER_OUTCOME_UNKNOWN");
+        vi.restoreAllMocks();
+        const again = await author(dirs, respondingConsole(STANDARD));
+        expect(again.result.status).toBe("CHARACTER_BOUND");
+        expect(await shapeOf(dirs)).toEqual(expected);
+        const campaign = await openOrdinary(dirs.campaignDir);
+        expect(campaign.playerCharacter(PC_ID)!.fact.version).toBe(1);
+        expect(campaign.binding()!.fact.version).toBe(1);
+        await campaign.close();
+      },
+      120_000,
+    );
+  }
 });
 
 describe("a failure before or after EVERY mutating filesystem operation converges on the uninterrupted campaign", () => {

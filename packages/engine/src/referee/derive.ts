@@ -1,0 +1,606 @@
+import {
+  ExistenceContractSchema,
+  I002_ADMITTED_CLASS,
+  I002_NON_INTRINSIC_CLASSES,
+  REFEREE_OP_I002,
+  REFEREE_OP_IR,
+  REFEREE_SOURCES,
+  WorldLocusSchema,
+  WorldProfileSchema,
+  pcExistenceContractKey,
+  worldLocusKey,
+  worldProfileKey,
+  type ExistenceContract,
+  type I002HostDecision,
+  type IrHostDecision,
+  type OwnerFact,
+  type RefereeDecisionRecord,
+  type RefereeInputRef,
+  type RefereeCandidateSlot,
+  type RefereeRefusalCode,
+  type RefereeVerdict,
+} from "@immortalis/contracts";
+import { sha256Canonical } from "../hash.ts";
+
+/**
+ * Deterministic mechanism of the host-callable AI referee (PR #61, BLUE B61-A3). Nothing here understands language: it builds the
+ * exact context a host is given, and it VALIDATES a host's answer — closed vocabularies, full coverage of what was delivered,
+ * every claim anchored to a verbatim quotation of the delivered text — and DERIVES the verdict from the answer. A verdict is never
+ * read from the host. Whether the host UNDERSTOOD the words stays the host's responsibility and a reviewable, retained claim.
+ */
+
+export interface CandidateItem {
+  readonly item_id: string;
+  readonly slot: RefereeCandidateSlot;
+  readonly text: string;
+}
+
+/** The content a Character Mirror shows and the host classifies: every statement of an Existence Contract, with its slot. */
+type ContractBody = Pick<
+  ExistenceContract,
+  | "identity_agency"
+  | "contact"
+  | "embodiment_topology"
+  | "continuity_rule"
+  | "baseline_exception"
+  | "entry_envelope"
+>;
+
+/** The Mirror item identity: the slot label and the statement, so a changed statement is a different accepted item. */
+export const refereeItemId = (slotLabel: string, text: string): string =>
+  `mirror/${slotLabel}/${sha256Canonical([slotLabel, text]).slice(0, 12)}`;
+
+/** The statements of a contract, in Mirror display order, each with its exact item identity. */
+export function refereeCandidateItems(c: ContractBody): readonly CandidateItem[] {
+  const item = (label: string, slot: RefereeCandidateSlot, text: string): CandidateItem => ({
+    item_id: refereeItemId(label, text),
+    slot,
+    text,
+  });
+  return [
+    item("identity", "identity", c.identity_agency.statement),
+    item("embodiment", "embodiment", c.embodiment_topology.statement),
+    item("continuity", "continuity", c.continuity_rule.statement),
+    ...(c.contact.kind === "CONTACT_ANCHOR"
+      ? c.contact.surfaces.map((s, i) => item(`contact-${i + 1}`, "contact", s.statement))
+      : [item("no-contact", "no_contact", c.contact.statement.statement)]),
+    ...c.baseline_exception.player_overrides.map((s, i) =>
+      item(`exception-${i + 1}`, "exception", s.statement),
+    ),
+    ...c.entry_envelope.items.map((s, i) => item(`possession-${i + 1}`, "possession", s.statement)),
+    ...c.baseline_exception.unresolved.map((s, i) => item(`open-${i + 1}`, "open", s)),
+  ];
+}
+
+export const candidateDigest = (items: readonly CandidateItem[]): string => sha256Canonical(items);
+
+// ---------------------------------------------------------------------------------------------
+// Task contexts
+// ---------------------------------------------------------------------------------------------
+
+export interface I002Context {
+  readonly operation: typeof REFEREE_OP_I002;
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: { readonly pc_id: string };
+  readonly candidate: readonly CandidateItem[];
+}
+
+export interface DeliveredFact {
+  readonly fact_id: string;
+  /** which committed fact the text is from */
+  readonly from: "world" | "locus";
+  readonly label: string;
+  readonly text: string;
+}
+
+export interface IrContext {
+  readonly operation: typeof REFEREE_OP_IR;
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  readonly statement: string;
+  readonly pc: readonly CandidateItem[];
+  readonly facts: readonly DeliveredFact[];
+  readonly refs: readonly RefereeInputRef[];
+}
+
+export type RefereeContext = I002Context | IrContext;
+
+export const contextDigest = (ctx: RefereeContext): string => sha256Canonical(ctx);
+/** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
+export const refereeTaskId = (ctx: RefereeContext): string =>
+  sha256Canonical({ referee_task: 1, context_digest: contextDigest(ctx) });
+
+export const statementDigest = (statement: string): string => sha256Canonical({ statement });
+
+export function i002Context(input: {
+  campaign_id: string;
+  attempt: number;
+  pc_id: string;
+  items: readonly CandidateItem[];
+}): I002Context {
+  return {
+    operation: REFEREE_OP_I002,
+    campaign_id: input.campaign_id,
+    attempt: input.attempt,
+    subject: { pc_id: input.pc_id },
+    candidate: input.items,
+  };
+}
+
+type Facts = (key: string) => OwnerFact | undefined;
+
+/** World and locus facts delivered to the host, each with a stable identity the host must assess. */
+function deliveredFacts(
+  world: ReturnType<typeof WorldProfileSchema.parse>,
+  locus: ReturnType<typeof WorldLocusSchema.parse>,
+): DeliveredFact[] {
+  const w = (fact_id: string, label: string, text: string): DeliveredFact => ({
+    fact_id,
+    from: "world",
+    label,
+    text,
+  });
+  const basis = world.reference_causal_basis;
+  const basisText =
+    basis.mode === "ORIGINAL"
+      ? `ORIGINAL established canon: ${basis.established_canon}`
+      : basis.mode === "EXACT_NAMED_SETTING"
+        ? `EXACT_NAMED_SETTING: ${basis.setting}${basis.era_version_continuity ? `; era/version/continuity: ${basis.era_version_continuity}` : ""}`
+        : basis.mode === "INSPIRED_BY"
+          ? `INSPIRED_BY: ${basis.donor}; structural grammar: ${basis.structural_grammar}`
+          : `FACTUAL_HISTORICAL: ${basis.scope}`;
+  return [
+    w("world.premise", "world premise", world.premise),
+    w("world.basis", "reference / causal basis", basisText),
+    ...world.material_world_law_departures.map((d, i) =>
+      w(`world.departure.${i + 1}`, "material world-law departure", d),
+    ),
+    ...world.insertion_supporting_constraints.map((c, i) =>
+      w(
+        `world.constraint.${i + 1}`,
+        `insertion-supporting constraint (${c.aspect})`,
+        `${c.aspect}: ${c.statement}`,
+      ),
+    ),
+    {
+      fact_id: "locus.designation",
+      from: "locus",
+      label: "locus designation",
+      text: locus.designation,
+    },
+    ...locus.constraints.map((c, i): DeliveredFact => ({
+      fact_id: `locus.constraint.${i + 1}`,
+      from: "locus",
+      label: `locus constraint (${c.aspect})`,
+      text: `${c.aspect}: ${c.statement}`,
+    })),
+  ];
+}
+
+/**
+ * The IR context, built ONLY from committed facts: the world (premise and reference/causal basis included), its law departures and
+ * insertion constraints, the locus (designation and constraints) and the released PC's statements, each at the version delivered.
+ * The caller supplies the player's statement and identities, never a world fact.
+ */
+export function irContext(
+  facts: Facts,
+  input: {
+    campaign_id: string;
+    attempt: number;
+    pc_id: string;
+    world_id: string;
+    locus_id: string;
+    statement: string;
+  },
+): { ok: true; context: IrContext } | { ok: false; code: RefereeRefusalCode; message: string } {
+  const pcFact = facts(pcExistenceContractKey(input.pc_id));
+  const worldFact = facts(worldProfileKey(input.world_id));
+  const locusFact = facts(worldLocusKey(input.world_id, input.locus_id));
+  if (!pcFact || !worldFact || !locusFact)
+    return {
+      ok: false,
+      code: "CONTEXT_UNAVAILABLE",
+      message: "the released character, the world and the locus must all be committed",
+    };
+  const pc = ExistenceContractSchema.safeParse(pcFact.value);
+  const world = WorldProfileSchema.safeParse(worldFact.value);
+  const locus = WorldLocusSchema.safeParse(locusFact.value);
+  if (!pc.success || !world.success || !locus.success)
+    return {
+      ok: false,
+      code: "CONTEXT_UNAVAILABLE",
+      message: "a committed fact does not satisfy its contract",
+    };
+  const ref = (f: OwnerFact): RefereeInputRef => ({
+    fact_key: f.key,
+    version: f.version,
+    group_id: f.provenance.group_id,
+  });
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_IR,
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { pc_id: input.pc_id, world_id: input.world_id, locus_id: input.locus_id },
+      statement: input.statement,
+      pc: refereeCandidateItems(pc.data),
+      facts: deliveredFacts(world.data, locus.data),
+      refs: [ref(pcFact), ref(worldFact), ref(locusFact)],
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Validation and verdict derivation
+// ---------------------------------------------------------------------------------------------
+
+export interface RefereeRefusal {
+  readonly code: RefereeRefusalCode;
+  readonly message: string;
+}
+const refuse = (code: RefereeRefusalCode, message: string): RefereeRefusal => ({ code, message });
+
+const isNonIntrinsic = (c: string): boolean =>
+  (I002_NON_INTRINSIC_CLASSES as readonly string[]).includes(c);
+
+/**
+ * Validates a host's I-002 answer against the context it was given and derives the verdict: every delivered item decided exactly
+ * once under its own slot; every class that is not "admitted as the player's own for that slot" anchored to a verbatim quotation;
+ * a MIXED item names the verbatim part that IS the player's own; an AMBIGUOUS item asks its one narrow question. CLOSED only if
+ * every item is admitted as the player's own under its slot. Returns the refusal that names the first incoherence.
+ */
+export function deriveI002(
+  ctx: I002Context,
+  decision: I002HostDecision,
+):
+  | { ok: true; verdict: RefereeVerdict & ("CLOSED" | "BLOCKED" | "CLARIFY") }
+  | { ok: false; refusal: RefereeRefusal } {
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  const byId = new Map(ctx.candidate.map((i) => [i.item_id, i]));
+  const seen = new Set<string>();
+  for (const d of decision.items) {
+    const item = byId.get(d.item_id);
+    if (!item)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `an answer names an item that was not delivered: ${d.item_id}`,
+        ),
+      };
+    if (seen.has(d.item_id))
+      return {
+        ok: false,
+        refusal: refuse("COVERAGE_INCOMPLETE", `an item is decided twice: ${d.item_id}`),
+      };
+    seen.add(d.item_id);
+    if (d.slot !== item.slot)
+      return {
+        ok: false,
+        refusal: refuse("DECISION_INCOHERENT", `the slot of ${d.item_id} is not the one delivered`),
+      };
+    const admitted = I002_ADMITTED_CLASS[item.slot];
+    const quoted = (q: string | null) => q !== null && item.text.includes(q);
+    if (d.class === admitted) {
+      if (d.intrinsic_excerpt !== null || d.other_classes.length > 0 || d.clarification !== null)
+        return {
+          ok: false,
+          refusal: refuse(
+            "DECISION_INCOHERENT",
+            `${d.item_id}: an admitted item carries no excerpt, other class or question`,
+          ),
+        };
+      if (d.evidence_quote !== null && !quoted(d.evidence_quote))
+        return {
+          ok: false,
+          refusal: refuse("GROUNDS_UNSUPPORTED", `${d.item_id}: the quotation is not in the item`),
+        };
+    } else if (d.class === "MIXED") {
+      if (
+        !quoted(d.evidence_quote) ||
+        !quoted(d.intrinsic_excerpt) ||
+        d.other_classes.length === 0 ||
+        d.clarification !== null
+      )
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            `${d.item_id}: a mixed item quotes the part that is not the player's own, quotes the part that is, and names what the rest is`,
+          ),
+        };
+    } else if (d.class === "AMBIGUOUS") {
+      if (d.clarification === null || d.intrinsic_excerpt !== null || d.other_classes.length > 0)
+        return {
+          ok: false,
+          refusal: refuse(
+            "DECISION_INCOHERENT",
+            `${d.item_id}: an ambiguous item asks its one narrow question`,
+          ),
+        };
+      if (d.evidence_quote !== null && !quoted(d.evidence_quote))
+        return {
+          ok: false,
+          refusal: refuse("GROUNDS_UNSUPPORTED", `${d.item_id}: the quotation is not in the item`),
+        };
+    } else if (isNonIntrinsic(d.class)) {
+      if (
+        !quoted(d.evidence_quote) ||
+        d.intrinsic_excerpt !== null ||
+        d.other_classes.length > 0 ||
+        d.clarification !== null
+      )
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            `${d.item_id}: a claim that is not the player's own is anchored to a verbatim quotation of it`,
+          ),
+        };
+    } else {
+      // an intrinsic-kind class that is not the one this slot admits (e.g. an own-character claim placed in the Entry Envelope)
+      if (d.intrinsic_excerpt !== null || d.other_classes.length > 0 || d.clarification !== null)
+        return {
+          ok: false,
+          refusal: refuse(
+            "DECISION_INCOHERENT",
+            `${d.item_id}: carries fields its class does not use`,
+          ),
+        };
+      if (d.evidence_quote !== null && !quoted(d.evidence_quote))
+        return {
+          ok: false,
+          refusal: refuse("GROUNDS_UNSUPPORTED", `${d.item_id}: the quotation is not in the item`),
+        };
+    }
+  }
+  if (seen.size !== byId.size)
+    return {
+      ok: false,
+      refusal: refuse("COVERAGE_INCOMPLETE", "every delivered item must be decided exactly once"),
+    };
+  return { ok: true, verdict: i002VerdictOf(decision, (id) => byId.get(id)?.slot) };
+}
+
+/** The I-002 verdict as a function of the answer and each item's slot alone (re-derivable from the retained record). */
+export function i002VerdictOf(
+  decision: I002HostDecision,
+  slotOf: (itemId: string) => RefereeCandidateSlot | undefined,
+): "CLOSED" | "BLOCKED" | "CLARIFY" {
+  let blocked = false;
+  let clarify = false;
+  for (const d of decision.items) {
+    const slot = slotOf(d.item_id) ?? d.slot;
+    if (d.class === I002_ADMITTED_CLASS[slot]) continue;
+    blocked = true;
+    if (d.class === "AMBIGUOUS") clarify = true;
+  }
+  return !blocked ? "CLOSED" : clarify ? "CLARIFY" : "BLOCKED";
+}
+
+/**
+ * Validates a host's IR answer against the context it was given and derives the verdict: the player's statement is quoted; every
+ * delivered world and locus fact is assessed exactly once; SUPPORTS and CONTRADICTS are anchored to a verbatim quotation of that
+ * fact; an unclear fact or an ambiguous reading asks its one narrow question and nothing else does. BIND_ELIGIBLE only if the reading
+ * is the supported native/already-there mode and no fact is contradicted or unclear.
+ */
+export function deriveIr(
+  ctx: IrContext,
+  decision: IrHostDecision,
+):
+  | { ok: true; verdict: "BIND_ELIGIBLE" | "UNSUPPORTED_BRIDGE" | "WORLD_CONFLICT" | "UNRESOLVED" }
+  | { ok: false; refusal: RefereeRefusal } {
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  if (!ctx.statement.includes(decision.reading.evidence_quote))
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the reading's quotation is not in the player's statement",
+      ),
+    };
+  const byId = new Map(ctx.facts.map((f) => [f.fact_id, f]));
+  const seen = new Set<string>();
+  let anyUnclear = false;
+  for (const a of decision.assessments) {
+    const fact = byId.get(a.fact_id);
+    if (!fact)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `an assessment names a fact that was not delivered: ${a.fact_id}`,
+        ),
+      };
+    if (seen.has(a.fact_id))
+      return {
+        ok: false,
+        refusal: refuse("COVERAGE_INCOMPLETE", `a fact is assessed twice: ${a.fact_id}`),
+      };
+    seen.add(a.fact_id);
+    const needsQuote = a.relation === "SUPPORTS" || a.relation === "CONTRADICTS";
+    if (needsQuote && (a.evidence_quote === null || !fact.text.includes(a.evidence_quote)))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          `${a.fact_id}: ${a.relation} is anchored to a verbatim quotation of that fact`,
+        ),
+      };
+    if (!needsQuote && a.evidence_quote !== null && !fact.text.includes(a.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse("GROUNDS_UNSUPPORTED", `${a.fact_id}: the quotation is not in the fact`),
+      };
+    if (a.relation === "UNCLEAR") anyUnclear = true;
+  }
+  if (seen.size !== byId.size)
+    return {
+      ok: false,
+      refusal: refuse(
+        "COVERAGE_INCOMPLETE",
+        "every delivered world and locus fact must be assessed exactly once",
+      ),
+    };
+  const needsQuestion = decision.reading.mode === "AMBIGUOUS" || anyUnclear;
+  if (needsQuestion !== (decision.clarification !== null))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "a clarification is asked exactly when the reading is ambiguous or a fact is unclear",
+      ),
+    };
+  return { ok: true, verdict: irVerdictOf(decision) };
+}
+
+/** The IR verdict as a function of the answer alone (re-derivable from the retained record). */
+export function irVerdictOf(
+  decision: IrHostDecision,
+): "BIND_ELIGIBLE" | "UNSUPPORTED_BRIDGE" | "WORLD_CONFLICT" | "UNRESOLVED" {
+  const m = decision.reading.mode;
+  if (m !== "NATIVE_ALREADY_THERE" && m !== "AMBIGUOUS") return "UNSUPPORTED_BRIDGE";
+  if (decision.assessments.some((a) => a.relation === "CONTRADICTS")) return "WORLD_CONFLICT";
+  if (m === "AMBIGUOUS" || decision.assessments.some((a) => a.relation === "UNCLEAR"))
+    return "UNRESOLVED";
+  return "BIND_ELIGIBLE";
+}
+
+/** The context a retained record was decided on, re-derived from the record alone (I-002) or from committed facts (IR). */
+export function recordContextViolation(
+  r: RefereeDecisionRecord,
+  facts: Facts,
+): { code: RefereeRefusalCode; message: string; stale: boolean } | null {
+  if (r.operation === REFEREE_OP_I002) {
+    if (r.input.candidate === null || r.input.statement !== null)
+      return {
+        code: "DECISION_INCOHERENT",
+        message: "an I-002 record carries its candidate and no statement",
+        stale: false,
+      };
+    const ctx = i002Context({
+      campaign_id: r.campaign_id,
+      attempt: r.attempt,
+      pc_id: r.subject.pc_id,
+      items: r.input.candidate,
+    });
+    if (
+      r.input.digest !== contextDigest(ctx) ||
+      r.input.candidate_digest !== candidateDigest(r.input.candidate) ||
+      r.task_id !== refereeTaskId(ctx)
+    )
+      return {
+        code: "DECISION_INCOHERENT",
+        message: "the record's digests are not those of its candidate",
+        stale: false,
+      };
+    if (r.input.refs.length !== 0)
+      return {
+        code: "DECISION_INCOHERENT",
+        message: "an I-002 record cites no committed fact",
+        stale: false,
+      };
+    const d = deriveI002(ctx, r.decision);
+    if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+    return d.verdict === r.verdict
+      ? null
+      : {
+          code: "DECISION_INCOHERENT",
+          message: "the record's verdict is not the one its answer derives",
+          stale: false,
+        };
+  }
+  if (r.input.statement === null || r.input.candidate !== null)
+    return {
+      code: "DECISION_INCOHERENT",
+      message: "an IR record carries its statement and no candidate",
+      stale: false,
+    };
+  // the pinned facts must still be at the pinned versions to rebuild the context; a later version never invalidates a decision
+  for (const ref of r.input.refs) {
+    const f = facts(ref.fact_key);
+    if (!f)
+      return {
+        code: "CONTEXT_UNAVAILABLE",
+        message: `a cited fact is not committed: ${ref.fact_key}`,
+        stale: false,
+      };
+    if (f.version > ref.version) return null;
+    if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
+      return {
+        code: "CONTEXT_STALE",
+        message: `a cited fact is not at the cited version: ${ref.fact_key}`,
+        stale: true,
+      };
+  }
+  const ids = irIdentities(r);
+  if (!ids)
+    return {
+      code: "DECISION_INCOHERENT",
+      message: "an IR record cites the released character, the world and the locus",
+      stale: false,
+    };
+  const built = irContext(facts, {
+    campaign_id: r.campaign_id,
+    attempt: r.attempt,
+    pc_id: r.subject.pc_id,
+    ...ids,
+    statement: r.input.statement,
+  });
+  if (!built.ok) return { code: built.code, message: built.message, stale: false };
+  if (
+    r.input.digest !== contextDigest(built.context) ||
+    r.task_id !== refereeTaskId(built.context) ||
+    r.input.statement_digest !== statementDigest(r.input.statement)
+  )
+    return {
+      code: "DECISION_INCOHERENT",
+      message: "the record's digests are not those of the context built from the cited facts",
+      stale: false,
+    };
+  if (!sameRefs(built.context.refs, r.input.refs))
+    return {
+      code: "DECISION_INCOHERENT",
+      message: "the record cites exactly the facts its context was built from",
+      stale: false,
+    };
+  const d = deriveIr(built.context, r.decision);
+  if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+  return d.verdict === r.verdict
+    ? null
+    : {
+        code: "DECISION_INCOHERENT",
+        message: "the record's verdict is not the one its answer derives",
+        stale: false,
+      };
+}
+
+const sameRefs = (a: readonly RefereeInputRef[], b: readonly RefereeInputRef[]): boolean =>
+  a.length === b.length &&
+  a.every(
+    (x, i) =>
+      x.fact_key === b[i]!.fact_key && x.version === b[i]!.version && x.group_id === b[i]!.group_id,
+  );
+
+/** world and locus identities of an IR record, from its cited fact keys. */
+export function irIdentities(
+  r: RefereeDecisionRecord,
+): { world_id: string; locus_id: string } | null {
+  const world = r.input.refs.find((x) => /^world\/[^/]+\/profile$/.test(x.fact_key));
+  const locus = r.input.refs.find((x) => /^world\/[^/]+\/locus\/[^/]+$/.test(x.fact_key));
+  if (!world || !locus) return null;
+  const w = /^world\/([^/]+)\/profile$/.exec(world.fact_key)![1]!;
+  const m = /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locus.fact_key)!;
+  return m[1] === w ? { world_id: w, locus_id: m[2]! } : null;
+}
+
+export { REFEREE_SOURCES };

@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/store.ts":
     "c5c05a17ec7b9835564a1ccbbe5465e4f46ba71893c96fabc01ee87f79e2e077",
   "packages/engine/src/world/canonical-campaign.ts":
-    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
+    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {

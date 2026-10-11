@@ -7,6 +7,9 @@ import {
   FACET_CULTURE_SOCIAL,
   OWNER_CULTURE,
   CjaDecisionRecordSchema,
+  FACET_REFEREE_PROVENANCE,
+  OWNER_REFEREE_KERNEL,
+  RefereeDecisionRecordSchema,
   FACET_ADJUDICATION_PROVENANCE,
   OWNER_CULTURE_ADJUDICATION_KERNEL,
   CausalDrawPrecommitSchema,
@@ -338,9 +341,11 @@ export const DIPLOMACY_FACT_KIND_IDS = [
 ] as const;
 export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_result"] as const;
 export const CULTURE_ADJUDICATION_FACT_KIND_IDS = ["culture_adjudication_decision"] as const;
+export const REFEREE_FACT_KIND_IDS = ["referee_decision"] as const;
 export type FactKindId =
   | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
   | (typeof CULTURE_ADJUDICATION_FACT_KIND_IDS)[number]
+  | (typeof REFEREE_FACT_KIND_IDS)[number]
   | (typeof DIPLOMACY_FACT_KIND_IDS)[number]
   | (typeof GIP_FACT_KIND_IDS)[number]
   | (typeof FACT_KIND_IDS)[number]
@@ -1470,6 +1475,51 @@ export const CULTURE_ADJUDICATION_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+/**
+ * B61-A3 — the host-callable AI referee of PR #61 (the Sovereign's Option B, "no paid API" correction, 11 October 2026): the two
+ * bounded interpretation tasks (I-002 character-claim classification; IR native/compatibility) whose host answers the engine
+ * validates and retains. Like the CJA1 record, this rule is Sovereign-approved and NOT native-pinned or spec-locked: `artifact`
+ * is the construction brief and `native_pin` its observed last-edit stamp at construction, a provisional reference and never a
+ * promoted authority status. The frozen design it applies (I-002, IR, WG, the Role Registry) is cited by exact pin in the lineage.
+ */
+export const REFEREE_B61_A3_SOURCE = {
+  artifact: "https://app.notion.com/p/3f620af901e081c7a044eddf02503ec3",
+  native_pin: "2026-10-11T02:46:54.896Z",
+} as const;
+
+const REFEREE_LINEAGE =
+  "BLUE B61-A3 No-Paid-API Host-Driven AI Referee Construction Brief, pin 2026-10-11T02:46:54.896Z (https://app.notion.com/p/3f620af901e081c7a044eddf02503ec3) under the Sovereign Option B approvals (https://app.notion.com/p/3f620af901e081faaf00da0cc6e4068b, 2026-10-11T02:31:00.727Z; https://app.notion.com/p/3f620af901e081ddb9b5e6d4f9ff080b, 2026-10-11T02:44:51.553Z); frozen I-002 Player Character Generation Working Operational Draft v2 §§2.1, 6, 7, 21 pin 2026-09-25T00:15:54.536Z (https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718); Player-World Insertion & Reconciliation Working Operational Draft v1 §§3, 5, 7, 9, 18 pin 2026-09-25T00:17:26.287Z (https://app.notion.com/p/3e320af901e081a3a669c1c0b842c9df); Canonical Role Registry v1 role.gm + permission.rule.adjudicate pin 2026-09-25T08:21:22.816Z (https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a)";
+
+export const REFEREE_RULE: SourceRef = {
+  artifact: REFEREE_B61_A3_SOURCE.artifact,
+  native_pin: REFEREE_B61_A3_SOURCE.native_pin,
+  clause:
+    "§3 Smallest two-way tool tasks and rightful owners: one create-only decision record per task (I-002 character-claim classification or IR native/compatibility), the verdict derived by the engine from a host's validated answer and never taken from it; infrastructure-only provenance (referee_adjudication_kernel / referee_provenance), created once, immutable, replayable; role.gm + permission.rule.adjudicate bound by the trusted operation and never by the answer",
+  authority_lineage: [REFEREE_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-approved-not-native-pinned-not-spec-locked",
+  supersedes: null,
+};
+
+/**
+ * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the
+ * Culture one. IM-03 routes only the dedicated key space `referee/<64 lowercase hex>/decision` to it; the kind is SEALED, i.e.
+ * create-only. It authorizes no write of any world, PC, binding, Culture, Population, GIP, KTI or economic fact, and is no
+ * generic fallback owner: the I-002 release and the Role Registry binding remain their owners' alone.
+ */
+export const REFEREE_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "referee_decision",
+    owner: OWNER_REFEREE_KERNEL,
+    facet: FACET_REFEREE_PROVENANCE,
+    im: "IM-12",
+    rc: ["RC-02", "RC-09", "RC-16"],
+    lifecycle: "SEALED",
+    keyPattern: /^referee\/([0-9a-f]{64})\/decision$/,
+    valueSchema: RefereeDecisionRecordSchema,
+    rule: REFEREE_RULE,
+  },
+];
+
 const F014D_LINEAGE =
   "F-014D Epistemic Access — Working Operational Draft v2 (Epistemic Access, Provenance & Information Channels), Sovereign-ratified 2026-09-20 with the W1-PS2 provenance-split amendment (Sealed Engine Provenance vs Accessible Content Packet) Sovereign-ratified 2026-09-25, at the frozen lock pin 2026-09-24T16:25:17.059Z (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e); Concept v3 https://app.notion.com/p/3e020af901e081fca9c0c7213b720124";
 
@@ -2159,6 +2209,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...DIPLOMACY_FACT_KINDS,
   ...CAUSAL_DRAW_FACT_KINDS,
   ...CULTURE_ADJUDICATION_FACT_KINDS,
+  ...REFEREE_FACT_KINDS,
   ...WORLD_SOURCE_CONDITION_FACT_KINDS,
 ];
 

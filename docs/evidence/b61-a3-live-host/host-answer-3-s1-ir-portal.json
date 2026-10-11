@@ -1,0 +1,40 @@
+{
+  "task_id": "fe8f257fa1f7757aa5dc815a8ece3f323df114d1c179d778fd049be1c9df819c",
+  "reading": {
+    "mode": "PORTAL",
+    "rule_ids": ["IR-3"],
+    "grounds": "The player says the character arrived yesterday through a portal from another world. That is an arrival by a portal bridge, not an explicit statement that the character was already there.",
+    "evidence_quote": "through a portal from another world"
+  },
+  "assessments": [
+    {
+      "fact_id": "world.premise",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "The premise describes a quiet hamlet; it neither provides for nor excludes portals.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "world.basis",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "The canon says the place is invented; it says nothing about portals or other worlds.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "world.constraint.1",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "A rule about the wind has no bearing on how the character is present.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "locus.designation",
+      "relation": "SUPPORTS",
+      "rule_ids": ["IR-7"],
+      "grounds": "The statement places the character at the same place the locus names.",
+      "evidence_quote": "salt pans"
+    }
+  ],
+  "clarification": null
+}

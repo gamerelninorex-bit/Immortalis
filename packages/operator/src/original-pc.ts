@@ -2,19 +2,33 @@ import { createHash, createHmac } from "node:crypto";
 import {
   EntityId,
   ExistenceContractSchema,
+  I002_ADMITTED_CLASS,
   PLAYER_CHARACTER_BINDING_KEY,
   PLAYER_CHOICE_AUTHORITY,
+  REFEREE_AUTHORITY,
+  REFEREE_OP_I002,
+  RefereeDecisionRecordSchema,
   canonicalJson,
   pcExistenceContractKey,
+  type CommitGroup,
   type ExistenceContract,
+  type I002HostDecision,
   type OwnerFact,
   type Publication,
 } from "@immortalis/contracts";
-import { CanonicalCampaign, canonicalEqual, type FsOps } from "@immortalis/engine";
+import {
+  CanonicalCampaign,
+  RefereeAdjudicationAdapter,
+  canonicalEqual,
+  refereeCandidateItems,
+  refereeQualificationViolation,
+  type FsOps,
+} from "@immortalis/engine";
 import { OPERATOR_PUBLICATION_BASIS, OPERATOR_PUBLICATION_SECRECY } from "./commands.ts";
 import { consumeConfirmation, requestOperatorDecision, subjectOf } from "./confirmation.ts";
 import { OOC_BANNER } from "./ooc.ts";
 import { newKeepSecret, readKeep, writeKeep, type KeepRecord } from "./original-pc-keep.ts";
+import { askI002, askIr, refereeConfigured, type RefereeRuntime } from "./referee-session.ts";
 import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 
@@ -46,9 +60,6 @@ import type { OperatorTerminal } from "./terminal.ts";
 /** The most one authored statement may hold, and the most entries one list may hold: a bound on what the console is asked to show. */
 export const MAX_STATEMENT_CHARS = 500;
 export const MAX_LIST_ITEMS = 12;
-/** Wider-world claims are not accepted here (no World Generation intake exists); this exact prefix names one so it can be refused, not stored. */
-export const WORLD_CLAIM_PREFIX = "about-the-world:";
-
 export type ContactDraft =
   | { readonly kind: "CONTACT_ANCHOR"; readonly surfaces: readonly string[] }
   | { readonly kind: "NO_CONTACT"; readonly statement: string };
@@ -81,15 +92,15 @@ const hasControl = (s: string): boolean => {
   return false;
 };
 
-/** The attestation every statement about the character must open with: the player says it is about the character alone. */
-export const SELF_CLASS = "me:";
-/** A statement the player classifies as about anything other than the character is not accepted here (no intake for it exists). */
-export const WORLD_CLASS_PREFIXES = ["world:", WORLD_CLAIM_PREFIX] as const;
-
-const WORLD_CLAIM_REASON =
-  "a claim about the wider world (places, offices, followers, relationships, other people) is not accepted here: no intake for it exists, so it is neither stored nor turned into character canon";
-
-function checkText(raw: string): { ok: true; text: string } | { ok: false; reason: string } {
+/**
+ * Bounds one statement the player typed: trimmed, non-empty, at most 500 characters and free of control characters (so it cannot
+ * restyle the console). Nothing else is judged here. Whether the words are the player's own character-local claim or a claim about
+ * the world, an office, an institution or an independent actor is NOT decided by this code or by a prefix the player types: it is
+ * decided by the AI referee host (I-002 classification), whose answer the engine validates and retains.
+ */
+export function judgeStatement(
+  raw: string,
+): { ok: true; text: string } | { ok: false; reason: string } {
   const text = raw.trim();
   if (text === "") return { ok: false, reason: "a statement cannot be empty" };
   if (hasControl(text))
@@ -97,43 +108,6 @@ function checkText(raw: string): { ok: true; text: string } | { ok: false; reaso
   if (text.length > MAX_STATEMENT_CHARS)
     return { ok: false, reason: `a statement is at most ${MAX_STATEMENT_CHARS} characters` };
   return { ok: true, text };
-}
-
-/**
- * Judges one statement about the CHARACTER. The player must classify it themselves, explicitly and never by default: it opens with
- * `me:` (about the character alone). A statement that opens with `world:` (or `about-the-world:`) is the player saying it is about
- * something else and is refused; one with no classification is refused too, because nothing here can tell from the words whether it
- * asserts an office, a follower, an institution or a place (that judgement belongs to the I-002 compiler / receiving owners, which
- * this command does not have). The classification is the player's declaration, not an adjudication, and is shown as such.
- */
-export function judgeStatement(
-  raw: string,
-): { ok: true; text: string } | { ok: false; reason: string } {
-  const checked = checkText(raw);
-  if (!checked.ok) return checked;
-  const lower = checked.text.toLowerCase();
-  if (WORLD_CLASS_PREFIXES.some((x) => lower.startsWith(x)))
-    return { ok: false, reason: WORLD_CLAIM_REASON };
-  if (!lower.startsWith(SELF_CLASS))
-    return {
-      ok: false,
-      reason: `say whether it is about you alone: begin with "${SELF_CLASS}" (anything about other people, followers, offices, institutions, places or the wider world is not accepted here, and is never assumed to be about you)`,
-    };
-  const body = checked.text.slice(SELF_CLASS.length).trim();
-  return body === ""
-    ? { ok: false, reason: "a statement cannot be empty" }
-    : { ok: true, text: body };
-}
-
-/** Judges the player's native-presence statement: a world-facing fact the player authors explicitly (not a claim about the character alone). */
-export function judgePresence(
-  raw: string,
-): { ok: true; text: string } | { ok: false; reason: string } {
-  const checked = checkText(raw);
-  if (!checked.ok) return checked;
-  if (checked.text.toLowerCase().startsWith(WORLD_CLAIM_PREFIX))
-    return { ok: false, reason: WORLD_CLAIM_REASON };
-  return checked;
 }
 
 type Field = "identity" | "embodiment" | "continuity";
@@ -251,7 +225,7 @@ export interface MirrorItem {
 export const DELEGATION_NONE_TEXT =
   "Nothing about this character was randomized, delegated or sealed: every statement above is yours.";
 export const WORLD_CLAIMS_NONE_TEXT =
-  'Each statement above is one you attested, with "me:", is about you alone. No claim about the wider world (places, offices, followers, relationships, other people) is accepted here, and none was adjudicated for you; the world is as its own owner established it.';
+  "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed.";
 
 const LABELS: Readonly<Record<string, string>> = {
   identity: "who or what you are",
@@ -268,7 +242,6 @@ const LABELS: Readonly<Record<string, string>> = {
 
 const sha = (value: unknown, length: number): string =>
   createHash("sha256").update(canonicalJson(value), "utf8").digest("hex").slice(0, length);
-const itemId = (slot: string, text: string): string => `mirror/${slot}/${sha([slot, text], 12)}`;
 
 type ContractBody = Pick<
   ExistenceContract,
@@ -282,28 +255,33 @@ type ContractBody = Pick<
 
 /** The complete Mirror of a contract's content, in display order. This single function decides what is "displayed and accepted". */
 export function mirrorItems(c: ContractBody): readonly MirrorItem[] {
-  const item = (slot: string, section: MirrorSection, text: string): MirrorItem => ({
-    id: itemId(slot, text),
-    section,
-    label: LABELS[slot.replace(/-\d+$/, "")] ?? slot,
+  const section = (slot: string): MirrorSection =>
+    slot === "exception"
+      ? "Notable traits and abilities"
+      : slot === "possession"
+        ? "Starting possessions"
+        : slot === "open"
+          ? "Still open"
+          : "Identity";
+  const content = refereeCandidateItems(c).map((i): MirrorItem => {
+    const label = i.item_id.split("/")[1]!;
+    return {
+      id: i.item_id,
+      section: section(i.slot),
+      label: LABELS[label.replace(/-\d+$/, "")] ?? label,
+      text: i.text,
+    };
+  });
+  const fixed = (slot: string, sec: MirrorSection, text: string): MirrorItem => ({
+    id: `mirror/${slot}/${sha([slot, text], 12)}`,
+    section: sec,
+    label: LABELS[slot] ?? slot,
     text,
   });
   return [
-    item("identity", "Identity", c.identity_agency.statement),
-    item("embodiment", "Identity", c.embodiment_topology.statement),
-    item("continuity", "Identity", c.continuity_rule.statement),
-    ...(c.contact.kind === "CONTACT_ANCHOR"
-      ? c.contact.surfaces.map((s, i) => item(`contact-${i + 1}`, "Identity", s.statement))
-      : [item("no-contact", "Identity", c.contact.statement.statement)]),
-    ...c.baseline_exception.player_overrides.map((s, i) =>
-      item(`exception-${i + 1}`, "Notable traits and abilities", s.statement),
-    ),
-    ...c.entry_envelope.items.map((s, i) =>
-      item(`possession-${i + 1}`, "Starting possessions", s.statement),
-    ),
-    ...c.baseline_exception.unresolved.map((s, i) => item(`open-${i + 1}`, "Still open", s)),
-    item("world-claims-none", "About the world", WORLD_CLAIMS_NONE_TEXT),
-    item("delegation-none", "How this character came to be", DELEGATION_NONE_TEXT),
+    ...content,
+    fixed("world-claims-none", "About the world", WORLD_CLAIMS_NONE_TEXT),
+    fixed("delegation-none", "How this character came to be", DELEGATION_NONE_TEXT),
   ];
 }
 
@@ -431,7 +409,9 @@ export type CharacterStatus =
   | "CHARACTER_VERIFICATION_FAILED"
   | "CHARACTER_CONFLICT"
   | "BINDING_CONFLICT"
-  | "PLACEMENT_UNRESOLVED"
+  | "REFEREE_PENDING"
+  | "REFEREE_UNAVAILABLE"
+  | "REFEREE_ANSWER_REFUSED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -461,8 +441,12 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "the campaign holds a player character this command did not release, or another one; nothing was changed. Only a character whose whole-Mirror keep this command recorded is ever bound by it, and a campaign has one",
   BINDING_CONFLICT:
     "the campaign already has an operative player-character binding that is not the one this command makes for this character; nothing was changed",
-  PLACEMENT_UNRESOLVED:
-    "the established world or locus carries constraints that a native-presence statement could contradict, and nothing here can judge that (a player's confirmation cannot override an earlier independent owner fact); the placement is left unresolved and nothing is bound",
+  REFEREE_PENDING:
+    "the AI referee host has not answered the question yet; nothing was changed. Connect the host's tool server (see referee-bind-host) and run the same command again: the same question is found again, with any answer it has meanwhile received",
+  REFEREE_UNAVAILABLE:
+    "no AI referee host can be asked: none is bound to this campaign, or its exchange cannot be used; nothing was changed. There is no human or scripted substitute for the referee",
+  REFEREE_ANSWER_REFUSED:
+    "the referee host's answers were not valid (not from the bound host, not for this question, or not grounded in the delivered text); none was used and nothing was changed",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:
@@ -492,10 +476,16 @@ const result = (
  * inherited claim, hypothesis or compilation, whose acceptance record is exactly the Mirror of its own content, and whose single
  * version, publication identities and basis are the ones derived from that content. Returns the reasons it is not (empty = it is).
  */
+export interface ChainReader {
+  getFact(key: string): OwnerFact | undefined;
+  committedGroup(intentId: string): CommitGroup | null;
+}
+
 export function releaseProblems(
   campaignId: string,
   fact: OwnerFact,
   keep: KeepRecord | null,
+  chain: ChainReader,
 ): string[] {
   const parsed = ExistenceContractSchema.safeParse(fact.value);
   if (!parsed.success) return ["the contract is not a valid released Existence Contract"];
@@ -533,7 +523,46 @@ export function releaseProblems(
     fact.secrecy !== p.secrecy
   )
     out.push("it does not carry the identities this command derives from the confirmed content");
+  out.push(...releaseEvidenceProblems(fact, c, keep, chain));
   return out;
+}
+
+/**
+ * The AI referee's evidence for a release: the release was committed READING and DEPENDING ON an I-002 classification whose derived
+ * verdict is CLOSED over exactly the statements of this contract (the engine's own consumer check), and that retained decision is
+ * the very answer the host gave to the question the player saw before keeping. A legacy release with no such evidence is not
+ * attested, retroactively or otherwise.
+ */
+export function releaseEvidenceProblems(
+  fact: OwnerFact,
+  contract: ExistenceContract,
+  keep: KeepRecord,
+  chain: ChainReader,
+): string[] {
+  const group = chain.committedGroup(fact.provenance.intent_id);
+  if (!group) return ["the release's committing group is not in the journal"];
+  const read = group.reads.find((r) => r.key.startsWith("referee/"));
+  if (!read)
+    return [
+      "the release was not qualified by an AI referee classification: a release without one is not attested",
+    ];
+  const violation = refereeQualificationViolation(group, (k) => chain.getFact(k), "RELEASE", {
+    contract,
+  });
+  if (violation) return [violation.message];
+  const decision = chain.getFact(read.key);
+  const record = decision ? RefereeDecisionRecordSchema.safeParse(decision.value) : undefined;
+  if (!record?.success || record.data.operation !== REFEREE_OP_I002)
+    return ["the cited classification is not a valid I-002 referee record"];
+  if (
+    !canonicalEqual(record.data.decision, keep.referee.answer) ||
+    record.data.host.host_id !== keep.referee.host_id ||
+    record.data.attempt !== keep.referee.attempt
+  )
+    return [
+      "the cited classification is not the answer the host gave to the question the player saw before keeping",
+    ];
+  return [];
 }
 
 interface Held {
@@ -595,6 +624,15 @@ function bindingProblems(
     t.basis.established_by !== "EXPLICIT_PLAYER_AUTHORED_FACT"
   )
     out.push("the binding is not a native, explicit player-authored insertion");
+  const group = campaign.store.committedGroup(f.provenance.intent_id);
+  const violation = group
+    ? refereeQualificationViolation(group, (k) => campaign.store.getFact(k), "BIND", { binding: b })
+    : { message: "the binding's committing group is not in the journal" };
+  if (!group?.reads.some((r) => r.key.startsWith("referee/")))
+    out.push(
+      "the binding was not qualified by an AI referee native/compatibility decision: a binding without one is not attested",
+    );
+  else if (violation) out.push(violation.message);
   return out;
 }
 
@@ -642,6 +680,9 @@ export interface AuthorCharacterParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /** how many times each referee answer is looked for (default 1200) and the pause between looks (default 500 ms) */
+  readonly refereePolls?: number;
+  readonly refereePollMs?: number;
 }
 
 const BUILD_ID = "immortalis-operator";
@@ -681,16 +722,13 @@ async function elicit(terminal: OperatorTerminal): Promise<CharacterDraft | null
     "Welcome to IMMORTALIS. Tell me what matters about your character, in your own words. Leave the rest open.",
   );
   terminal.say(
-    `Everything you say here must be about YOUR character alone, and you say so yourself: begin every statement with "${SELF_CLASS}" (about me alone).`,
-  );
-  terminal.say(
-    "Anything about other people, followers, offices, institutions, places or the wider world is not accepted here, and nothing here decides for you which is which.",
+    "Say it in your own words. An AI referee host will then read what you wrote and tell you, statement by statement, what it accepts as yours and what it does not (anything about other people, followers, offices, institutions, places or the wider world is not part of a character).",
   );
   terminal.say("Who - or what - are you?");
   const identity = await askStatement(terminal, "identity>", false);
   if (identity === null) return null;
   terminal.say(
-    "How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact me: <why>",
+    "How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact <why>",
   );
   let contact: ContactDraft | null = null;
   for (let attempt = 0; attempt < MAX_ATTEMPTS * MAX_LIST_ITEMS; attempt++) {
@@ -785,66 +823,161 @@ const REVISION_HELP = [
   "  add contact|exception|open|possession <text>   remove contact|exception|open|possession <n>",
 ];
 
+export interface RefereeKeepEvidence {
+  readonly task_id: string;
+  readonly host_id: string;
+  readonly claimed_model: string | null;
+  readonly attempt: number;
+  readonly answer: I002HostDecision;
+}
+
+type Reviewed =
+  | {
+      readonly kind: "KEPT";
+      readonly contract: ExistenceContract;
+      readonly draft: CharacterDraft;
+      readonly referee: RefereeKeepEvidence;
+    }
+  | { readonly kind: "LEFT" }
+  | { readonly kind: "REFEREE"; readonly result: CharacterResult };
+
+const refereeResult = (
+  asked: Exclude<Awaited<ReturnType<typeof askI002>>, { kind: "ANSWERED" }>,
+  detail: readonly string[] = [],
+): CharacterResult =>
+  asked.kind === "PENDING"
+    ? result("REFEREE_PENDING", [`task: ${asked.task_id}`, ...detail])
+    : asked.kind === "UNAVAILABLE"
+      ? result("REFEREE_UNAVAILABLE", [asked.message, ...detail], asked.code)
+      : result("REFEREE_ANSWER_REFUSED", [asked.message, ...detail]);
+
+/** The referee's findings for a candidate, statement by statement, in plain words (what it accepts as the player's own and what not). */
+export function findingsLines(
+  items: readonly { item_id: string; slot: string; text: string }[],
+  decision: I002HostDecision,
+  verdict: string,
+  host: { host_id: string; claimed_model: string | null },
+): string[] {
+  const byId = new Map(items.map((i) => [i.item_id, i]));
+  const lines = [
+    `+--- AI REFEREE FINDINGS (host ${host.host_id}${host.claimed_model ? `, self-reported model ${quoted(host.claimed_model)}` : ""}; verdict ${verdict}) ---`,
+  ];
+  for (const d of decision.items) {
+    const item = byId.get(d.item_id);
+    const text = item ? quoted(item.text) : d.item_id;
+    if (d.class === I002_ADMITTED_CLASS[d.slot]) {
+      lines.push(`|   [accepted as yours: ${d.class}] ${text}`);
+      continue;
+    }
+    lines.push(`|   [NOT accepted: ${d.class}] ${text}`);
+    lines.push(`|       why: ${quoted(d.grounds)}`);
+    if (d.evidence_quote) lines.push(`|       the words: ${quoted(d.evidence_quote)}`);
+    if (d.class === "MIXED" && d.intrinsic_excerpt)
+      lines.push(
+        `|       the part that is yours: ${quoted(d.intrinsic_excerpt)} (not applied for you; change the statement to keep only what is yours)`,
+      );
+    if (d.clarification) lines.push(`|       question for you: ${quoted(d.clarification)}`);
+  }
+  lines.push("+---");
+  return lines;
+}
+
 /**
- * The whole-Mirror review loop. Every display shows the entire Mirror with a fresh challenge; one player response is one revision
- * cycle applied to the whole; and the only way out with a character is the player typing the keep phrase for the LAST display, whose
- * subject is exactly the content that will be committed. An incomplete draft is displayed but offered no keep phrase at all.
+ * The whole-Mirror review loop. Every display shows the entire Mirror, with the AI referee host's findings on EXACTLY that candidate
+ * and, only when the engine derives CLOSED from them, a fresh keep phrase whose subject is that candidate and that question. One
+ * player response is one revision cycle applied to the whole; any change is a new candidate and is classified again. An incomplete
+ * draft, or one the referee did not close, is displayed but offered no keep phrase at all.
  */
 async function review(
-  terminal: OperatorTerminal,
-  campaignId: string,
-  pcId: string,
+  env: {
+    terminal: OperatorTerminal;
+    campaignId: string;
+    pcId: string;
+    adapter: RefereeAdjudicationAdapter;
+    rt: RefereeRuntime;
+  },
   start: CharacterDraft,
-): Promise<{ contract: ExistenceContract; draft: CharacterDraft; shownRevision: number } | null> {
+): Promise<Reviewed> {
+  const { terminal, campaignId, pcId, adapter, rt } = env;
   let draft = start;
   for (let revision = 1; revision <= MAX_REVISIONS; revision++) {
     const missing = missingOf(draft);
     const items = previewItems(pcId, draft);
     const contract = compileContract(pcId, draft);
-    const shown = mirrorPanel(
-      pcId,
-      items,
-      `display ${revision}`,
-      missing.length === 0
-        ? [
-            "This is how IMMORTALIS understands your character.",
-            "Keep this character, or change something before we continue?",
-          ]
-        : [`This character cannot be kept yet. Still needed: ${missing.join("; ")}.`],
-    );
     let line: string | null;
     if (contract === null) {
-      for (const l of shown) terminal.say(l);
+      for (const l of mirrorPanel(pcId, items, `display ${revision}`, [
+        `This character cannot be kept yet. Still needed: ${missing.join("; ")}.`,
+      ]))
+        terminal.say(l);
       terminal.say('Type "change" to continue revising. Anything else leaves without a character.');
       line = await terminal.ask(">");
     } else {
-      const subject = subjectOf({
-        verb: "keep-character",
+      const candidate = refereeCandidateItems(contract);
+      terminal.say("Asking the AI referee host to read what you wrote ...");
+      const asked = await askI002(adapter, rt, {
         campaign_id: campaignId,
         pc_id: pcId,
-        contract,
+        items: candidate,
       });
-      const decision = await requestOperatorDecision(
-        terminal,
-        "keep-character",
-        subject,
-        shown,
-        'To revise instead, type "change". Anything else leaves without a character.',
-      );
-      if (decision.kind === "END_OF_INPUT") return null;
-      if (decision.kind === "CONFIRMED") {
-        if (!consumeConfirmation(decision.confirmation, "keep-character", subject)) return null;
-        return { contract, draft, shownRevision: revision };
+      if (asked.kind !== "ANSWERED") return { kind: "REFEREE", result: refereeResult(asked) };
+      const findings = findingsLines(candidate, asked.decision, asked.verdict, asked.host);
+      if (asked.verdict !== "CLOSED") {
+        for (const l of [
+          ...mirrorPanel(pcId, items, `display ${revision}`, []),
+          ...findings,
+          "This character cannot be kept yet: the referee did not accept everything above as your own character.",
+        ])
+          terminal.say(l);
+        terminal.say('Type "change" to revise. Anything else leaves without a character.');
+        line = await terminal.ask(">");
+      } else {
+        const subject = subjectOf({
+          verb: "keep-character",
+          campaign_id: campaignId,
+          pc_id: pcId,
+          contract,
+          referee_task: asked.task_id,
+        });
+        const decision = await requestOperatorDecision(
+          terminal,
+          "keep-character",
+          subject,
+          [
+            ...mirrorPanel(pcId, items, `display ${revision}`, []),
+            ...findings,
+            "This is how IMMORTALIS understands your character.",
+            "Keep this character, or change something before we continue?",
+          ],
+          'To revise instead, type "change". Anything else leaves without a character.',
+        );
+        if (decision.kind === "END_OF_INPUT") return { kind: "LEFT" };
+        if (decision.kind === "CONFIRMED") {
+          if (!consumeConfirmation(decision.confirmation, "keep-character", subject))
+            return { kind: "LEFT" };
+          return {
+            kind: "KEPT",
+            contract,
+            draft,
+            referee: {
+              task_id: asked.task_id,
+              host_id: asked.host.host_id,
+              claimed_model: asked.host.claimed_model,
+              attempt: asked.attempt,
+              answer: asked.decision,
+            },
+          };
+        }
+        line = decision.line;
       }
-      line = decision.line;
     }
-    if (line === null || line.trim() !== "change") return null;
+    if (line === null || line.trim() !== "change") return { kind: "LEFT" };
     for (const l of REVISION_HELP) terminal.say(l);
     const edits: Edit[] = [];
     let refused: string | null = null;
     for (let n = 0; n < 4 * MAX_LIST_ITEMS; n++) {
       const entry = await terminal.ask("change>");
-      if (entry === null) return null;
+      if (entry === null) return { kind: "LEFT" };
       if (entry.trim() === "") break;
       const parsed = parseEdit(entry);
       if (parsed.ok) edits.push(parsed.edit);
@@ -855,7 +988,7 @@ async function review(
     if (applied.ok) draft = applied.draft;
     else terminal.say(`CHANGE REFUSED, the character is unchanged: ${applied.reason}.`);
   }
-  return null;
+  return { kind: "LEFT" };
 }
 
 type Opened =
@@ -924,39 +1057,15 @@ export async function authorCharacter(p: AuthorCharacterParams): Promise<Charact
   }
 }
 
-/**
- * The committed world and locus facts that constrain what may be present or happen there (the free-text constraint and law-departure
- * lists of the World Profile and the Locus). Whether a player's native-presence statement contradicts one of them is a semantic
- * judgement that belongs to the I-002 compiler / Insertion reconciliation (IR §7); no producer of it exists here, and a player's
- * confirmation cannot override an earlier independent owner fact. So while any such fact is committed, the compatibility cannot be
- * judged and the placement is left UNRESOLVED (IR §7: "clarify, consume explicit delegation, or leave unresolved"): nothing is bound.
- * The broad premise, canon and designation are shown to the player and are not constraints in this sense.
- */
-export function insertionBlockers(
-  world: {
-    material_world_law_departures: readonly string[];
-    insertion_supporting_constraints: readonly { aspect: string; statement: string }[];
-  },
-  locus: { constraints: readonly { aspect: string; statement: string }[] },
-): string[] {
-  return [
-    ...world.material_world_law_departures.map((d) => `world-law departure: ${quoted(d)}`),
-    ...world.insertion_supporting_constraints.map(
-      (c) => `world constraint ${c.aspect}: ${quoted(c.statement)}`,
-    ),
-    ...locus.constraints.map((c) => `locus constraint ${c.aspect}: ${quoted(c.statement)}`),
-  ];
+function runtimeOf(p: AuthorCharacterParams, session: LocalOperatorSession): RefereeRuntime {
+  return {
+    stateDir: p.operatorDir ?? defaultOperatorDir(p.campaignDir),
+    operatorUid: session.operator.uid,
+    ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
+    polls: p.refereePolls ?? 1200,
+    pollMs: p.refereePollMs ?? 500,
+  };
 }
-
-const unresolved = (blockers: readonly string[], released: boolean) =>
-  result("PLACEMENT_UNRESOLVED", [
-    released
-      ? "the character is released and stays released but unbound"
-      : "nothing was asked and nothing was written",
-    "committed facts that a native-presence statement could contradict:",
-    ...blockers.map((b) => `  - ${b}`),
-    "missing producer: judging a presence statement against these (the I-002 compiler / Insertion reconciliation, IR §7) - none exists in this build",
-  ]);
 
 async function run(
   p: AuthorCharacterParams,
@@ -970,9 +1079,10 @@ async function run(
   if (!locus || locus.value.world.entity_id !== worldId)
     return result("LOCUS_NOT_ESTABLISHED", [`world: ${worldId}, locus: ${locusId}`]);
 
-  const stateDir = p.operatorDir ?? defaultOperatorDir(p.campaignDir);
+  const rt = runtimeOf(p, session);
+  const adapter = new RefereeAdjudicationAdapter(campaign.store);
   const keepRead = await readKeep({
-    dir: stateDir,
+    dir: rt.stateDir,
     campaignId,
     operatorUid: session.operator.uid,
     ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
@@ -999,10 +1109,9 @@ async function run(
     ]);
   const pcFact = campaign.store.getFact(key);
   const bindingFact = campaign.binding();
-  const blockers = insertionBlockers(world.value, locus.value);
 
   if (pcFact) {
-    const problems = releaseProblems(campaignId, pcFact, keep);
+    const problems = releaseProblems(campaignId, pcFact, keep, campaign.store);
     if (problems.length > 0 || keep === null) return result("CHARACTER_CONFLICT", problems);
     const pc = campaign.playerCharacter(pcId)!;
     if (bindingFact) {
@@ -1016,7 +1125,7 @@ async function run(
     );
     for (const l of mirrorPanel(pcId, mirrorItems(pc.value), "as kept earlier", []))
       terminal.say(l);
-    return place(p, session, pc.fact, false, keep, blockers);
+    return place(p, session, adapter, rt, pc.fact, false, keep);
   }
   if (bindingFact)
     return result("BINDING_CONFLICT", [
@@ -1033,15 +1142,27 @@ async function run(
       terminal.say(l);
     retained = keep;
   } else {
-    if (blockers.length > 0) return unresolved(blockers, false);
+    const configured = await refereeConfigured(campaignId, rt);
+    if (!configured.ok) return result("REFEREE_UNAVAILABLE", [configured.message], configured.code);
     const drafted = await elicit(terminal);
     if (drafted === null) return result("DECLINED", ["the character was not completed or kept"]);
-    const reviewed = await review(terminal, campaignId, pcId, drafted);
-    if (reviewed === null) return result("DECLINED", ["the character was not kept"]);
+    const reviewed = await review({ terminal, campaignId, pcId, adapter, rt }, drafted);
+    if (reviewed.kind === "REFEREE") return reviewed.result;
+    if (reviewed.kind === "LEFT") return result("DECLINED", ["the character was not kept"]);
     // the proof of the keep is retained BEFORE anything is released, so the release can be recognised as having come from it
-    const record = { pc_id: pcId, secret: newKeepSecret(), contract: reviewed.contract };
+    const record = {
+      pc_id: pcId,
+      secret: newKeepSecret(),
+      contract: reviewed.contract,
+      referee: {
+        host_id: reviewed.referee.host_id,
+        claimed_model: reviewed.referee.claimed_model,
+        attempt: reviewed.referee.attempt,
+        answer: reviewed.referee.answer,
+      },
+    };
     const kept = await writeKeep({
-      dir: stateDir,
+      dir: rt.stateDir,
       campaignId,
       operatorUid: session.operator.uid,
       ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
@@ -1061,9 +1182,31 @@ async function run(
     };
   }
 
+  // the referee's classification of exactly the kept candidate is retained as create-only evidence, then the release reads it
+  const recorded = await adapter.recordI002({
+    operation: { ...REFEREE_AUTHORITY },
+    host: { host_id: retained.referee.host_id, claimed_model: retained.referee.claimed_model },
+    pc_id: pcId,
+    attempt: retained.referee.attempt,
+    items: refereeCandidateItems(retained.contract),
+    answer: retained.referee.answer,
+  });
+  if (!recorded.ok) {
+    if (UNKNOWN_OUTCOME.has(recorded.error.code)) {
+      session.markAmbiguous();
+      return result("CHARACTER_OUTCOME_UNKNOWN", [`referee evidence: ${recorded.error.code}`]);
+    }
+    return result(
+      "CHARACTER_REFUSED",
+      [`referee evidence: ${recorded.error.code}`],
+      recorded.error.code,
+    );
+  }
+  terminal.say(`PROGRESS referee DECIDED ${recorded.value.record.key}`);
   const released = await campaign.releasePlayerCharacter({
     ...publicationOf("release", releaseIdOf(retained.secret, campaignId, retained.contract)),
     contract: retained.contract,
+    qualified_by: recorded.value.record.key,
   });
   if (!released.ok) {
     if (UNKNOWN_OUTCOME.has(released.error.code)) {
@@ -1075,40 +1218,43 @@ async function run(
   terminal.say(`PROGRESS character RELEASED ${key}`);
   const fact = campaign.store.getFact(key);
   if (!fact) return result("CHARACTER_OUTCOME_UNKNOWN", ["the released character is not held"]);
-  return place(p, session, fact, true, retained, blockers);
+  return place(p, session, adapter, rt, fact, true, retained);
 }
 
-/** The separate, second choice: the player states and confirms native presence at the established world and locus; then the binding is committed. */
+/**
+ * The separate, second choice: the player states, in their own words, where their character is originally present; the AI referee
+ * host reads that statement against the committed world and locus (premise and canon included) and the accepted character; only a
+ * BIND_ELIGIBLE derived verdict can be confirmed by the player and committed through the Role Registry.
+ */
 async function place(
   p: AuthorCharacterParams,
   session: LocalOperatorSession,
+  adapter: RefereeAdjudicationAdapter,
+  rt: RefereeRuntime,
   pcFact: OwnerFact,
   releasedNow: boolean,
   keep: KeepRecord,
-  blockers: readonly string[],
 ): Promise<CharacterResult> {
   const { terminal, pcId, worldId, locusId, campaignId } = p;
   const campaign = session.campaign;
   const world = campaign.world(worldId)!;
   const locus = campaign.locus(worldId, locusId)!;
-  const unbound = (why: string, code?: string) =>
-    result(
-      "CHARACTER_RELEASED_UNBOUND",
-      [`character: ${pcFact.key} (released${releasedNow ? " just now" : " earlier"})`, why],
-      code,
-    );
+  const state = `character: ${pcFact.key} (released${releasedNow ? " just now" : " earlier"}, not bound)`;
+  const unbound = (why: string, extra: readonly string[] = [], code?: string) =>
+    result("CHARACTER_RELEASED_UNBOUND", [state, why, ...extra], code);
 
-  if (blockers.length > 0) return unresolved(blockers, true);
   const w = world.value;
   const lines = (title: string, entries: readonly string[]) =>
     entries.length === 0
       ? [`  ${title}: none`]
       : [`  ${title}:`, ...entries.map((e) => `    - ${e}`)];
+  const basis = w.reference_causal_basis;
   for (const l of [
     "PLACEMENT - a separate choice from keeping your character. Nothing is bound yet.",
     OOC_BANNER,
     `WORLD ${worldId} (established earlier by World-State, not by you now)`,
     `  premise: ${quoted(w.premise)}`,
+    `  reference / causal basis: ${quoted(basis.mode === "ORIGINAL" ? basis.established_canon : basis.mode)}`,
     ...lines("material world-law departures", w.material_world_law_departures.map(quoted)),
     ...lines(
       "insertion-supporting constraints",
@@ -1120,13 +1266,45 @@ async function place(
       "constraints",
       locus.value.constraints.map((c) => `${c.aspect}: ${quoted(c.statement)}`),
     ),
-    "If your character is originally present at this place - native, already there, with no arrival, portal, transfer or summoning -",
-    "state that in your own words. An empty line leaves your character released but unplaced.",
+    "If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.",
   ])
     terminal.say(l);
-  const statement = await askStatement(terminal, "presence>", true, judgePresence);
+  const statement = await askStatement(terminal, "presence>", true);
   if (statement === null || statement === "")
     return unbound("native presence was not stated or confirmed");
+
+  terminal.say("Asking the AI referee host to read your statement against the world ...");
+  const asked = await askIr(adapter, rt, {
+    campaign_id: campaignId,
+    pc_id: pcId,
+    world_id: worldId,
+    locus_id: locusId,
+    statement,
+  });
+  if (asked.kind !== "ANSWERED") {
+    const r = refereeResult(asked);
+    return { ...r, details: [state, ...r.details] };
+  }
+  const ir = asked.decision;
+  const finding = [
+    `+--- AI REFEREE FINDINGS (host ${asked.host.host_id}${asked.host.claimed_model ? `, self-reported model ${quoted(asked.host.claimed_model)}` : ""}; verdict ${asked.verdict}) ---`,
+    `|   your statement is read as: ${ir.reading.mode} - ${quoted(ir.reading.grounds)}`,
+    ...ir.assessments
+      .filter((a) => a.relation !== "NOT_RELEVANT")
+      .map((a) => `|   ${a.fact_id}: ${a.relation} - ${quoted(a.grounds)}`),
+    ...(ir.clarification ? [`|   question for you: ${quoted(ir.clarification)}`] : []),
+    "+---",
+  ];
+  for (const l of finding) terminal.say(l);
+  if (asked.verdict !== "BIND_ELIGIBLE")
+    return unbound(
+      asked.verdict === "UNSUPPORTED_BRIDGE"
+        ? "the referee reads your statement as something other than an explicit native, already-there presence; nothing is invented for you"
+        : asked.verdict === "WORLD_CONFLICT"
+          ? "the referee finds a committed world or locus fact that your statement or character contradicts; neither side is weakened for convenience"
+          : "the referee cannot tell, and asks you the question above; state your presence again if you wish",
+      finding,
+    );
 
   const pins: InsertionPins = {
     pc: pcFact.version,
@@ -1141,6 +1319,7 @@ async function place(
     locus_id: locusId,
     pins,
     statement,
+    referee_task: asked.task_id,
   });
   const decision = await requestOperatorDecision(
     terminal,
@@ -1162,6 +1341,32 @@ async function place(
   )
     return unbound("native presence was not confirmed");
 
+  const recorded = await adapter.recordIr({
+    operation: { ...REFEREE_AUTHORITY },
+    host: { host_id: asked.host.host_id, claimed_model: asked.host.claimed_model },
+    pc_id: pcId,
+    world_id: worldId,
+    locus_id: locusId,
+    attempt: asked.attempt,
+    statement,
+    answer: asked.decision,
+  });
+  if (!recorded.ok) {
+    if (UNKNOWN_OUTCOME.has(recorded.error.code)) {
+      session.markAmbiguous();
+      return result("CHARACTER_OUTCOME_UNKNOWN", [
+        state,
+        `referee evidence: ${recorded.error.code}`,
+      ]);
+    }
+    return unbound(
+      `the referee evidence was refused: ${recorded.error.code}`,
+      [],
+      recorded.error.code,
+    );
+  }
+  terminal.say(`PROGRESS referee DECIDED ${recorded.value.record.key}`);
+
   const bindId = bindingIdOf(keep.secret, campaignId, pcId, worldId, locusId, pins, statement);
   const bound = await campaign.bindPlayerCharacter({
     ...publicationOf("bind", bindId),
@@ -1174,6 +1379,7 @@ async function place(
       authored_under: { ...PLAYER_CHOICE_AUTHORITY },
       statement,
     },
+    qualified_by: recorded.value.record.key,
   });
   if (!bound.ok) {
     if (UNKNOWN_OUTCOME.has(bound.error.code)) {
@@ -1183,7 +1389,7 @@ async function place(
         `binding: ${bound.error.code}`,
       ]);
     }
-    return unbound(`the binding was refused: ${bound.error.code}`, bound.error.code);
+    return unbound(`the binding was refused: ${bound.error.code}`, [], bound.error.code);
   }
   terminal.say(`PROGRESS binding COMMITTED ${PLAYER_CHARACTER_BINDING_KEY}`);
   await closeQuietly(session);
@@ -1219,14 +1425,14 @@ function readBack(
   if (campaign.verify().length > 0) out.push("canonical integrity reports violations");
   const pc = campaign.playerCharacter(pcId);
   if (!pc) return [...out, "the released character is not held"];
-  out.push(...releaseProblems(campaignId, pc.fact, keep));
+  out.push(...releaseProblems(campaignId, pc.fact, keep, campaign.store));
   out.push(...bindingProblems({ campaign, campaignId, keep }, pc.fact, expected));
   return out;
 }
 
 /**
  * Reports what a campaign holds of a character this command released and bound, from canon alone: none, released but unbound, or bound
- * (verified). A character this command did not record is reported as a conflict, never as bound.
+ * (verified, referee evidence included). A character this command did not record is reported as a conflict, never as bound.
  */
 export async function characterStatus(
   session: LocalOperatorSession,
@@ -1265,14 +1471,16 @@ export async function characterStatus(
       [`campaign: ${campaignId}`, read.error.message],
       `STATE_UNAVAILABLE ${read.error.code}`,
     );
-  const problems = releaseProblems(campaignId, fact, read.value);
+  const problems = releaseProblems(campaignId, fact, read.value, campaign.store);
   if (problems.length > 0 || read.value === null)
     return result("CHARACTER_CONFLICT", [`campaign: ${campaignId}`, ...problems]);
   const pc = campaign.playerCharacter(pcId)!;
+  const evidence = refereeEvidenceLines(campaign, fact, binding?.fact);
   if (!binding)
     return result("CHARACTER_RELEASED_UNBOUND", [
       `campaign: ${campaignId}`,
       factLine("character", pc.fact),
+      ...evidence,
       "no player character is operative",
     ]);
   const why = [
@@ -1282,4 +1490,29 @@ export async function characterStatus(
   return why.length > 0
     ? result("CHARACTER_VERIFICATION_FAILED", [`campaign: ${campaignId}`, ...why])
     : boundReport(campaign, pcId, campaignId);
+}
+
+/** The retained referee decisions a release and a binding cite, in plain words (the host, its self-reported model, the verdict). */
+function refereeEvidenceLines(
+  campaign: CanonicalCampaign,
+  release: OwnerFact,
+  binding: OwnerFact | undefined,
+): string[] {
+  const out: string[] = [];
+  for (const [name, f] of [
+    ["classification (I-002)", release],
+    ["native/compatibility (IR)", binding],
+  ] as const) {
+    if (!f) continue;
+    const read = campaign.store
+      .committedGroup(f.provenance.intent_id)
+      ?.reads.find((r) => r.key.startsWith("referee/"));
+    const rec = read ? campaign.store.getFact(read.key) : undefined;
+    const parsed = rec ? RefereeDecisionRecordSchema.safeParse(rec.value) : undefined;
+    if (parsed?.success)
+      out.push(
+        `referee ${name}: ${rec!.key} host ${parsed.data.host.host_id}${parsed.data.host.claimed_model ? ` (self-reported model ${quoted(parsed.data.host.claimed_model)})` : ""} verdict ${parsed.data.verdict}`,
+      );
+  }
+  return out;
 }

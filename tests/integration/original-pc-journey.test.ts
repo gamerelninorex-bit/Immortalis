@@ -71,7 +71,7 @@ describe("a human authors, reviews, revises and keeps a character, then separate
         WORDS.contact,
         WORDS.embodiment,
         WORDS.continuity,
-        "No claim about the wider world",
+        "Nothing about the wider world",
       ])
         expect(d, shown).toContain(shown);
     expect(displays[1]).toContain(WORDS.possession);
@@ -83,10 +83,10 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     // placement is a separate choice with its own phrase, offered only after the character was released
     const places = phrases(one.stdout, "place-character");
     expect(places).toHaveLength(1);
-    const order = [...one.stdout.matchAll(/PROGRESS (\w+) (RETAINED|RELEASED|COMMITTED)/g)].map(
-      (m) => m[1],
-    );
-    expect(order).toEqual(["keep", "character", "binding"]);
+    const order = [
+      ...one.stdout.matchAll(/PROGRESS (\w+) (RETAINED|DECIDED|RELEASED|COMMITTED)/g),
+    ].map((m) => m[1]);
+    expect(order).toEqual(["keep", "referee", "character", "referee", "binding"]);
     expect(one.stdout.indexOf("PROGRESS character RELEASED")).toBeLessThan(
       one.stdout.indexOf("PLACEMENT"),
     );
@@ -99,7 +99,7 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     // an ordinary process: the canonical owner registry only
     const campaign = await openOrdinary(dirs.campaignDir);
     expect(campaign.verify()).toEqual([]);
-    expect(campaign.store.head().revision).toBe(before.revision + 2);
+    expect(campaign.store.head().revision).toBe(before.revision + 4);
     const pc = campaign.playerCharacter(PC_ID)!;
     expect(pc.fact).toMatchObject({
       owner: "pc_existence",
@@ -182,15 +182,29 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     // two owners, two publications, dependency edges pc → binding ← world, locus; nothing else was written
     const pcGroup = campaign.store.committedGroup(pc.fact.provenance.intent_id)!;
     const bindGroup = campaign.store.committedGroup(binding.fact.provenance.intent_id)!;
-    expect(pcGroup.depends_on).toEqual([]);
+    // the release reads and depends on the AI referee's I-002 classification of exactly the kept candidate
+    const i002Read = pcGroup.reads.find((r) => r.key.startsWith("referee/"))!;
+    expect(i002Read).toBeDefined();
+    expect(pcGroup.depends_on).toEqual([campaign.store.getFact(i002Read.key)!.provenance.group_id]);
     expect(bindGroup.depends_on).toContain(pc.fact.provenance.group_id);
+    const irRead = bindGroup.reads.find((r) => r.key.startsWith("referee/"))!;
+    expect(irRead).toBeDefined();
+    expect(irRead.key).not.toBe(i002Read.key);
     expect(bindGroup.writes).toHaveLength(1);
     expect(
       campaign.store
         .listFacts()
         .map((f) => f.owner)
         .sort(),
-    ).toEqual(["pc_existence", "role_registry", "world_state", "world_state", "world_state"]);
+    ).toEqual([
+      "pc_existence",
+      "referee_adjudication_kernel",
+      "referee_adjudication_kernel",
+      "role_registry",
+      "world_state",
+      "world_state",
+      "world_state",
+    ]);
     // the binding is NOT a physical location, perception or time
     expect(campaign.pcPhysicalLocusCustody(PC_ID)).toBeUndefined();
     expect(campaign.pcCurrentLocus(PC_ID)).toBeUndefined();
@@ -234,7 +248,7 @@ describe("before the valid whole-Mirror keep and the separate placement, the com
     const held = await openOrdinary(dirs.campaignDir);
     expect(held.playerCharacter(PC_ID)).toBeDefined();
     expect(held.binding()).toBeUndefined();
-    expect(held.store.head().revision).toBe(4);
+    expect(held.store.head().revision).toBe(5);
     await held.close();
 
     // the rerun is asked for the placement alone: no authoring prompt, no second keep, no second release

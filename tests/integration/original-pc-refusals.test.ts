@@ -32,6 +32,7 @@ import {
   WORDS,
   WORLD_ID,
   author,
+  keepRefereeFor,
   localityCampaign,
   me,
   respondingConsole,
@@ -205,43 +206,6 @@ describe("a revision is one whole cycle: refused as a whole or applied as a whol
     });
   }, 60_000);
 
-  it("a claim about the wider world is refused in elicitation and in revision, and is never stored as character canon", async () => {
-    const dirs = await localityCampaign();
-    const claim = "about-the-world: I am the baron of Ashfall and a hundred soldiers obey me";
-    const { result, terminal } = await author(
-      dirs,
-      scriptedConsole(
-        me(WORDS.identityFirst),
-        me(WORDS.contact),
-        "",
-        me(WORDS.embodiment),
-        me(WORDS.continuity),
-        claim,
-        "",
-        "",
-        "",
-        "change",
-        `add possession ${claim}`,
-        "set identity me: \u001b[2Jfake panel",
-        "",
-        KEEP_LAST,
-        "",
-      ),
-    );
-    expect(result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    const text = authorTexts(terminal.said);
-    expect(text).toContain("NOT ACCEPTED: a claim about the wider world");
-    expect(text).toContain(
-      "CHANGE REFUSED, the character is unchanged: a claim about the wider world",
-    );
-    await withCampaign(dirs.campaignDir, async (c) => {
-      const stored = JSON.stringify(c.playerCharacter(PC_ID)!.value);
-      expect(stored).not.toContain("baron");
-      expect(stored).not.toContain("\u001b");
-      expect(c.playerCharacter(PC_ID)!.value.baseline_exception.player_overrides).toEqual([]);
-    });
-  }, 60_000);
-
   it("the owner still refuses every intrinsic provenance that is not the player's own (nothing laundered through a caller-built contract)", async () => {
     const dirs = await localityCampaign();
     const contract = compileContract(PC_ID, draft)!;
@@ -412,23 +376,6 @@ describe("placement is a separate, explicit, confirmed player statement", () => 
       await unbound(dirs);
     }
   }, 120_000);
-
-  it("a placement statement that is a wider-world claim or carries control characters is not accepted", async () => {
-    const dirs = await localityCampaign();
-    const { result, terminal } = await author(
-      dirs,
-      scriptedConsole(
-        ...ELICIT,
-        KEEP_LAST,
-        "about-the-world: I arrived through a portal",
-        "I am here\u001b[31m",
-        "",
-      ),
-    );
-    expect(result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    expect(authorTexts(terminal.said)).toContain("NOT ACCEPTED");
-    await unbound(dirs);
-  }, 60_000);
 });
 
 describe("identity, campaign and world prerequisites are checked before the player is asked anything", () => {
@@ -583,144 +530,6 @@ describe("retry and reopen preserve the honest state and never duplicate a relea
 // looks identical but whose keep was never made at the console, (3) other lawful facts of the PC owner are not other characters.
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-const GUARDS = "A hundred independent sworn soldiers answer my orders";
-const OFFICE = "I hold the legal office of governor of this city";
-
-describe("F61-R1 finding 1: the player classifies every statement; an unclassified world, office or follower claim is not admitted", () => {
-  const plain = [
-    me(WORDS.identityFirst),
-    me(WORDS.contact),
-    "",
-    me(WORDS.embodiment),
-    me(WORDS.continuity),
-  ];
-
-  it("an unprefixed office at identity> is not accepted and nothing is written", async () => {
-    const dirs = await localityCampaign();
-    const before = await headOf(dirs.campaignDir);
-    const { result, terminal } = await author(dirs, scriptedConsole(OFFICE, OFFICE, OFFICE));
-    expect(result.status).toBe("DECLINED");
-    expect(terminal.said.filter((l) => l.includes('begin with "me:"'))).toHaveLength(3);
-    expect(await headOf(dirs.campaignDir)).toEqual(before);
-  }, 60_000);
-
-  it("an unprefixed follower claim at possession> is not accepted, and a world:-classified one is refused as a wider-world claim", async () => {
-    const dirs = await localityCampaign();
-    const before = await headOf(dirs.campaignDir);
-    const { result, terminal } = await author(
-      dirs,
-      scriptedConsole(
-        me(WORDS.identityFirst),
-        me(WORDS.contact),
-        "",
-        me(WORDS.embodiment),
-        me(WORDS.continuity),
-        "",
-        "",
-        GUARDS,
-        `world: ${GUARDS}`,
-        GUARDS,
-      ),
-    );
-    expect(result.status).toBe("DECLINED");
-    const text = authorTexts(terminal.said);
-    expect(text).toContain('begin with "me:"');
-    expect(text).toContain("NOT ACCEPTED: a claim about the wider world");
-    expect(await headOf(dirs.campaignDir)).toEqual(before);
-  }, 60_000);
-
-  it("the same claims in a revision cycle are refused as a whole and never reach the contract", async () => {
-    const dirs = await localityCampaign();
-    const { result, terminal } = await author(
-      dirs,
-      scriptedConsole(
-        ...plain,
-        "",
-        "",
-        "",
-        "change",
-        `add possession ${GUARDS}`,
-        `set identity ${OFFICE}`,
-        "",
-        KEEP_LAST,
-        "",
-      ),
-    );
-    expect(result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    expect(authorTexts(terminal.said)).toContain("CHANGE REFUSED, the character is unchanged");
-    await withCampaign(dirs.campaignDir, async (c) => {
-      const stored = JSON.stringify(c.playerCharacter(PC_ID)!.value);
-      expect(stored).not.toContain("soldiers");
-      expect(stored).not.toContain("governor");
-    });
-  }, 60_000);
-
-  it("a classified statement is stored without the marker, shown as the player's own attestation, and the Mirror says nothing was adjudicated", async () => {
-    const dirs = await localityCampaign();
-    const { result, terminal } = await author(
-      dirs,
-      respondingConsole({ ...STANDARD, skipPlace: true }),
-    );
-    expect(result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    expect(authorTexts(terminal.said)).toContain("none was adjudicated for you");
-    await withCampaign(dirs.campaignDir, async (c) => {
-      expect(c.playerCharacter(PC_ID)!.value.identity_agency.statement).toBe(WORDS.identityFinal);
-    });
-  }, 60_000);
-});
-
-describe("F61-R1 finding 1: a native presence is never bound against a committed constraint it cannot be judged against", () => {
-  const cases: [string, (doc: ReturnType<typeof setupDoc>) => void, string][] = [
-    [
-      "a committed world constraint that excludes the described kind of character",
-      (doc) => {
-        doc.world.insertion_supporting_constraints = [
-          { aspect: "inhabitants", statement: "No humans have ever lived in the marsh." },
-        ];
-      },
-      "world constraint inhabitants",
-    ],
-    [
-      "a committed locus constraint",
-      (doc) => {
-        doc.locus.constraints = [
-          { aspect: "access", statement: "Nothing that breathes may enter the salt pans." },
-        ];
-      },
-      "locus constraint access",
-    ],
-    [
-      "a committed world-law departure",
-      (doc) => {
-        doc.world.material_world_law_departures = ["Living flesh cannot cross the tideline."];
-      },
-      "world-law departure",
-    ],
-  ];
-  for (const [name, mutate, shown] of cases) {
-    it(`${name}: nothing is asked, nothing is written, and the missing producer is named`, async () => {
-      const dirs = await localityCampaign(mutate);
-      const before = await headOf(dirs.campaignDir);
-      const { result, terminal } = await author(dirs, respondingConsole(STANDARD));
-      expect(result.status).toBe("PLACEMENT_UNRESOLVED");
-      expect(result.details.join("\n")).toContain(shown);
-      expect(result.details.join("\n")).toContain("missing producer");
-      expect(terminal.asked()).toBe(0);
-      expect(await headOf(dirs.campaignDir)).toEqual(before);
-      // the player's confirmation cannot override it: no keep, no release, no binding exist to be confirmed
-      await withCampaign(dirs.campaignDir, async (c) => {
-        expect(c.playerCharacter(PC_ID)).toBeUndefined();
-        expect(c.binding()).toBeUndefined();
-      });
-    }, 60_000);
-  }
-
-  it("a world with no committed constraint (the explicit none) still admits the explicit native presence", async () => {
-    const dirs = await localityCampaign();
-    expect((await author(dirs, respondingConsole(STANDARD))).result.status).toBe("CHARACTER_BOUND");
-  }, 60_000);
-});
-
 describe("F61-R1 finding 2: a release with the same content and names but no keep at this console is not a kept character", () => {
   const sha = (v: unknown) =>
     createHash("sha256").update(canonicalJson(v), "utf8").digest("hex").slice(0, 32);
@@ -792,7 +601,12 @@ describe("F61-R1 finding 2: a release with the same content and names but no kee
       dir: dirs.operatorDir,
       campaignId: LOCALITY_CAMPAIGN,
       operatorUid: process.getuid!(),
-      record: { pc_id: PC_ID, secret: newKeepSecret(), contract: kept },
+      record: {
+        pc_id: PC_ID,
+        secret: newKeepSecret(),
+        contract: kept,
+        referee: keepRefereeFor(kept),
+      },
     });
     if (!wrote.ok) throw new Error(JSON.stringify(wrote.error));
     // a different release of the same identity is published directly under any names whatsoever
@@ -819,6 +633,7 @@ describe("F61-R1 finding 2: a release with the same content and names but no kee
         pc_id: "pc-kept-earlier",
         secret: newKeepSecret(),
         contract: compileContract("pc-kept-earlier", draft)!,
+        referee: keepRefereeFor(compileContract("pc-kept-earlier", draft)!),
       },
     });
     if (!wrote.ok) throw new Error(JSON.stringify(wrote.error));

@@ -41,15 +41,15 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/world/canonical-campaign.ts":
-    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
+    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
   "packages/engine/src/world/integrity.ts":
-    "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
+    "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
   "packages/engine/src/persistence/file-package.ts":
     "9f503d0b219457f9086bf6963e774e3d5dcf74d18c4643a8c7658085ab8b6933",
   "packages/engine/src/owners/registry.ts":
-    "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
+    "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
   "packages/engine/src/owners/admission.ts":
-    "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
+    "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
@@ -108,7 +108,10 @@ describe("the shipped path composes only the two existing owner operations", () 
     expect([...new Set(importedNames(MODULE, "@immortalis/engine"))].sort()).toEqual([
       "CanonicalCampaign",
       "FsOps",
+      "RefereeAdjudicationAdapter",
       "canonicalEqual",
+      "refereeCandidateItems",
+      "refereeQualificationViolation",
     ]);
   });
 

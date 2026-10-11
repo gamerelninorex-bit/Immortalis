@@ -1,0 +1,60 @@
+# Host-Callable AI Referee Foundation (provider-neutral)
+
+> **OOC DEVELOPMENT / SCENARIO INSTRUMENTATION.** Mechanism for PR #61 (BLUE B61-A3, pin `2026-10-11T02:46:54.896Z`, under the Sovereign's Option B approvals). It lets a compatible **AI chat or agent application** that the user already has — acting as the _host_ — interpret two bounded questions for the engine, while the **engine owns the canonical facts, the permissions, the decision and the persistence**. It is not a product claim that any model interprets well; the quality of the interpretation is a separate, reviewed, live matter (see _Truth levels_).
+
+## Architecture
+
+```
+ author-character (trusted operator, OS user)            AI host (Claude Code, a chat app with MCP, any tool-calling client)
+   │  builds the bounded question from committed facts                │
+   │  publishes it ───────► owner-only exchange directory ◄───────── immortalis-referee (stdio MCP server)
+   │                         tasks/  decisions/  config.json           │  referee_list_tasks / referee_get_task /
+   │  waits (bounded polls, no clock)                                  │  referee_submit_decision   (three tools only)
+   │  vouches for the host: keyed proof over {task, nonce, model, answer}
+   │  VALIDATES the answer, DERIVES the verdict (engine, deterministic)
+   │  commits ONE create-only `referee_decision` (referee_adjudication_kernel / referee_provenance)
+   └► release (I-002) / binding (Role Registry) cite that decision; admission & integrity refuse one that does not qualify
+```
+
+- **No paid API, no credential, no network in the engine.** The engine calls no model. Nothing in the repository holds, reads or writes a model credential. The host brings its own model and its own subscription; the only secret here is the per-host exchange secret (below).
+- **Two operations only.** `I002_CLASSIFY` (is each statement of a player-authored character the player's own character-local claim, a bounded starting possession, an intentionally open branch — or something about the world, an office, an independent actor, a setting law, a memory, a mixed or an ambiguous statement) and `IR_NATIVE_COMPATIBILITY` (does the player's separately stated presence read as explicit native/already-there rather than an arrival or other bridge, and does each committed world and locus fact — premise, reference/causal basis and established canon, law departures, insertion constraints, locus designation and constraints — support, contradict, bear on nothing or leave unclear that presence?).
+- **The host interprets; the engine decides.** An answer must use the closed vocabularies, decide every delivered statement/fact exactly once, and anchor every claim that something is _not_ the player's own, or that a fact supports or contradicts, to a **verbatim quotation** of the delivered text. The engine derives the verdict (`CLOSED` / `BLOCKED` / `CLARIFY`; `BIND_ELIGIBLE` / `UNSUPPORTED_BRIDGE` / `WORLD_CONFLICT` / `UNRESOLVED`) from the validated answer. A verdict is never read from the host; `BIND_ELIGIBLE` requires an explicit native reading and no contradicted or unclear fact.
+- **Authority is the engine's.** The retained decision is committed under `role.gm` + `permission.rule.adjudicate` applied by the trusted operation from the engine's own binding of the host. A host's claim, a role label inside an answer, OS file ownership, or text the player wrote never confers it; a wrong authority is refused before any context is looked at.
+- **Reuse.** The adapter reuses the engineering pattern of the Culture adjudication adapter (authority first, canonical-JSON-only input, replay/conflict, a single create-only commit, an unreconciled-outcome map); it takes none of Culture's meaning, and the Culture owner and its decisions are untouched.
+
+## Retention and enforcement
+
+- **Record.** `referee/<task_id>/decision` (kind `referee_decision`, SEALED, IM-12 style, create-only): the host identity and its self-reported model label, the exact input (candidate or committed-fact references and digests), the validated answer and the derived verdict. The same answer replayed is the existing decision; a different one for the same task is `DECISION_CONFLICT`; nothing is replaced.
+- **Consumers.** `releasePlayerCharacter` and `bindPlayerCharacter` take an optional `qualified_by` key. When present, engine admission and canonical integrity refuse it unless the cited decision is a `CLOSED` I-002 classification of exactly that contract's statements (release) or a `BIND_ELIGIBLE` IR decision for exactly that character, world and locus at the pinned versions and statement (binding). The operator additionally requires the evidence, so a legacy release or binding with no referee evidence is **not retroactively attested** (it is reported as a conflict, never adopted).
+- **Integrity.** Every retained decision is re-validated on open: its digests are those of its own input, its answer re-derives its verdict, its authority is the trusted one, and (for IR) the committed facts it names are at the versions it names.
+
+## Setup (host-neutral)
+
+1. Establish the locality and (as the operator) bind the host to the campaign:
+   `immortalis-operator referee-bind-host --campaign <dir> --campaign-id <id> --host-id <host>` — it writes an owner-only secret file and prints the exact tool-server command line.
+2. Register the printed command with the host as a **stdio MCP server**, for example (Claude Code):
+   `claude mcp add immortalis-referee -- node --experimental-strip-types packages/operator/src/referee-bin.ts --operator-dir <dir> --campaign-id <id> --host-id <host> --secret-file <file>`.
+   Any client that speaks MCP over stdio can use the same command. The secret is read from the file (which must be owner-only), never from an argument, the environment or a log.
+3. Run `immortalis-operator author-character … [--referee-wait <seconds>]`. It publishes the question and waits for the host to answer it through the tools (the host reads `referee_list_tasks`, then `referee_get_task`, then calls `referee_submit_decision`). If no answer arrives in time the command stops with `REFEREE_PENDING` and changes nothing; run it again and the same question is found again, with any answer it has meanwhile received.
+
+The tool server exposes **only** three tools (no shell, no file system, no database, no game command), authenticates the host (bound identity, secret, operation) **before** disclosing any task context, never opens the campaign package, and tells the host that player-written text is data, not instruction.
+
+## Fail-closed behaviour (enforced; scripted-host tests)
+
+No bound host (`REFEREE_UNAVAILABLE`); silent host (`REFEREE_PENDING`); an unbound or wrong-operation host; a forged, crossed or altered proof; an answer for another task, missing a statement or fact, deciding one twice, or quoting words that are not in the delivered text; a role label or authority inside an answer; a replay or conflicting second decision; a release or binding citing a non-qualifying decision or none; invalid answers are set aside and the question is asked again as the next attempt (at most five). Every one writes nothing to canon.
+
+## Truth levels
+
+| Claim                                                                                                                                                | Level                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The mechanism: task construction, vouching, validation, verdict derivation, create-only retention, consumer enforcement, recovery, the MCP transport | **Verified by automated tests.** The hosts in those tests are **scripted policies the tests wrote** and prove plumbing only.                                                                                    |
+| That an AI host reads a real sentence correctly (office/soldiers/mixed/ambiguous/portal/premise-only contradiction/harmless constraint)              | **Not established by the automated suite.** See the evidence document for what, if anything, a real host was observed to do; it is a finite, single-model, human-reviewed exercise and not an acceptance proof. |
+| General reliability of any model for this task, adversarial robustness of the prompt, quality over arbitrary languages and settings                  | **Not claimed.**                                                                                                                                                                                                |
+| PF-6/F-028 activation, IA/V promotion, provider acceptance (IA-07), a source-lock or spec-lock change                                                | **Not claimed; unchanged.**                                                                                                                                                                                     |
+
+## Residuals
+
+- A host's `claimed_model` is a self-reported label. The host's identity is the concrete one the operator bound; whoever can write the owner-only exchange directory or read the host's secret file is the operator or that host, the same local trust boundary as every operator command.
+- The engine can check that an answer is well-formed, complete and grounded in the delivered words. It cannot check that the interpretation is _right_; a wrong but well-grounded answer is possible and is bounded only by the player seeing the findings, the separate keep and placement confirmations, and the retained, reviewable record.
+- Prompt-injection through player-written text is mitigated (the document marks it as data; the host has no capability beyond three tools; the answer is schema- and quote-checked; the verdict is derived) but not eliminated.
+- A silent or unavailable host stops the flow; there is deliberately no human or scripted fallback producer.

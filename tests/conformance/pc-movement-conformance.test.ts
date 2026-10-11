@@ -192,6 +192,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
         "pc_existence",
         "population",
         "production",
+        "referee_adjudication_kernel",
         "role_registry",
         "temporal_kernel",
         "world_state",

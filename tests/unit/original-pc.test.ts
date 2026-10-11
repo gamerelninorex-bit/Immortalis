@@ -9,8 +9,6 @@ import {
   applyEdits,
   bindingIdOf,
   compileContract,
-  insertionBlockers,
-  judgePresence,
   judgeStatement,
   mirrorItems,
   mirrorPanel,
@@ -21,7 +19,6 @@ import {
   type CharacterDraft,
   type Edit,
 } from "@immortalis/operator";
-import type { KeepRecord } from "../../packages/operator/src/original-pc-keep.ts";
 
 const complete: CharacterDraft = {
   identity: "A salt-raker",
@@ -40,64 +37,36 @@ const edit = (line: string): Edit => {
 };
 
 describe("an authored statement", () => {
-  it('is classified by the player ("me:"), trimmed, non-empty, bounded and free of control characters, and is otherwise kept exactly', () => {
-    expect(judgeStatement("  me:  I am a miller.  ")).toEqual({ ok: true, text: "I am a miller." });
-    expect(judgeStatement("ME: I am a miller.")).toEqual({ ok: true, text: "I am a miller." });
-    for (const bad of ["   ", "me:", "me:   ", "me: a\u001b[2Jb", "me: a\nb"])
-      expect(judgeStatement(bad).ok, bad).toBe(false);
-    expect(judgeStatement(`me: ${"x".repeat(MAX_STATEMENT_CHARS - 4)}`).ok).toBe(true);
-    expect(judgeStatement(`me: ${"x".repeat(MAX_STATEMENT_CHARS)}`).ok).toBe(false);
+  it("is trimmed, non-empty, bounded and free of control characters; nothing else is judged by code", () => {
+    expect(judgeStatement("  I am a miller.  ")).toEqual({ ok: true, text: "I am a miller." });
+    for (const bad of ["   ", "", "a\u001b[2Jb", "a\nb", "x".repeat(MAX_STATEMENT_CHARS + 1)])
+      expect(judgeStatement(bad).ok, bad.slice(0, 20)).toBe(false);
+    expect(judgeStatement("x".repeat(MAX_STATEMENT_CHARS)).ok).toBe(true);
   });
 
-  it("is never defaulted to the player's own: an unclassified statement, whatever it says, is refused", () => {
+  it("is never classified by a prefix or a word list: whether it is the player's own is the AI referee host's job, not code's", () => {
     for (const s of [
-      "I am a miller.",
       "I hold the legal office of governor of this city",
-      "A hundred independent sworn soldiers answer my orders",
-    ]) {
-      const j = judgeStatement(s);
-      expect(j.ok, s).toBe(false);
-      if (!j.ok) expect(j.reason).toContain('begin with "me:"');
-    }
-  });
-
-  it("is refused when the player classifies it as about anything else, whatever the case", () => {
-    for (const s of [
-      "world: I am a baron",
-      "World:I am a baron",
-      "about-the-world: I am a baron",
-      "About-The-World:I am a baron",
-    ]) {
-      const j = judgeStatement(s);
-      expect(j.ok, s).toBe(false);
-      if (!j.ok) expect(j.reason).toContain("wider world");
-    }
-  });
-
-  it("a presence statement is the player's explicit world-facing fact: unclassified is lawful, a wider-world claim form and control characters are not", () => {
-    expect(judgePresence("  I have always lived here.  ")).toEqual({
-      ok: true,
-      text: "I have always lived here.",
-    });
-    expect(judgePresence("about-the-world: I arrived by portal").ok).toBe(false);
-    expect(judgePresence("here\u001b[0m").ok).toBe(false);
-    expect(judgePresence("").ok).toBe(false);
+      "me: A hundred independent sworn soldiers answer my orders",
+      "about-the-world: I rule Ashfall",
+    ])
+      expect(judgeStatement(s)).toEqual({ ok: true, text: s });
   });
 });
 
 describe("a revision line", () => {
   it("parses only the closed grammar", () => {
-    expect(edit("set identity me: A baker")).toEqual({
+    expect(edit("set identity A baker")).toEqual({
       op: "set",
       field: "identity",
       text: "A baker",
     });
-    expect(edit("set contact me: A bell")).toEqual({ op: "set-contact", text: "A bell" });
-    expect(edit("set no-contact me: nothing registers me")).toEqual({
+    expect(edit("set contact A bell")).toEqual({ op: "set-contact", text: "A bell" });
+    expect(edit("set no-contact nothing registers me")).toEqual({
       op: "set-no-contact",
       text: "nothing registers me",
     });
-    expect(edit("add exception me: can hold breath")).toEqual({
+    expect(edit("add exception can hold breath")).toEqual({
       op: "add",
       list: "exception",
       text: "can hold breath",
@@ -111,10 +80,6 @@ describe("a revision line", () => {
       "remove open 0",
       "remove open two",
       "set identity",
-      "set identity A baker",
-      "add possession bread",
-      "set identity world: A baker",
-      "add exception about-the-world: I rule",
     ])
       expect(parseEdit(bad).ok, bad).toBe(false);
   });
@@ -123,8 +88,8 @@ describe("a revision line", () => {
 describe("one revision cycle is applied to the whole, all or none", () => {
   it("applies every edit together and leaves the input draft untouched", () => {
     const r = applyEdits(complete, [
-      edit("set identity me: A baker"),
-      edit("add possession me: bread"),
+      edit("set identity A baker"),
+      edit("add possession bread"),
       edit("remove contact 1"),
     ]);
     expect(r.ok).toBe(true);
@@ -138,24 +103,24 @@ describe("one revision cycle is applied to the whole, all or none", () => {
 
   it("refuses the whole cycle when any edit cannot apply", () => {
     for (const edits of [
-      [edit("set identity me: A baker"), edit("remove exception 5")],
-      [edit("set identity me: A baker"), edit("remove contact 3")],
+      [edit("set identity A baker"), edit("remove exception 5")],
+      [edit("set identity A baker"), edit("remove contact 3")],
     ])
       expect(applyEdits(complete, edits).ok).toBe(false);
-    const noContact = applyEdits(EMPTY_DRAFT, [edit("set no-contact me: nothing registers me")]);
+    const noContact = applyEdits(EMPTY_DRAFT, [edit("set no-contact nothing registers me")]);
     expect(noContact.ok).toBe(true);
     if (noContact.ok)
-      expect(applyEdits(noContact.draft, [edit("add contact me: a bell")]).ok).toBe(false);
+      expect(applyEdits(noContact.draft, [edit("add contact a bell")]).ok).toBe(false);
   });
 
   it("bounds every list", () => {
     let d: CharacterDraft = EMPTY_DRAFT;
     for (let i = 0; i < MAX_LIST_ITEMS; i++) {
-      const r = applyEdits(d, [edit(`add possession me: item ${i}`)]);
+      const r = applyEdits(d, [edit(`add possession item ${i}`)]);
       expect(r.ok).toBe(true);
       if (r.ok) d = r.draft;
     }
-    expect(applyEdits(d, [edit("add possession me: one more")]).ok).toBe(false);
+    expect(applyEdits(d, [edit("add possession one more")]).ok).toBe(false);
   });
 
   it("removing the last contact surface leaves the contact unstated, never a silent no-contact", () => {
@@ -246,19 +211,6 @@ describe("the Mirror is derived from content, so what was shown, accepted and st
 });
 
 const SECRET = "a".repeat(64);
-const keepOf = (
-  campaignId: string,
-  c: ReturnType<typeof compileContract>,
-  secret = SECRET,
-): KeepRecord => ({
-  format: "immortalis-operator-character-keep",
-  format_version: 1,
-  campaign_id: campaignId,
-  operator_uid: 0,
-  pc_id: c!.pc_id,
-  secret,
-  contract: c!,
-});
 
 describe("publication identities are keyed digests of the exact confirmed content under the retained secret", () => {
   it("are deterministic, and differ for any different content or secret", () => {
@@ -284,15 +236,10 @@ describe("publication identities are keyed digests of the exact confirmed conten
   });
 });
 
-describe("a committed contract is recognised as this command's only with the retained keep and the identities keyed by it", () => {
-  const factOf = (
-    c: ReturnType<typeof compileContract>,
-    over: Partial<OwnerFact["provenance"]> = {},
-    version = 1,
-    secret = SECRET,
-  ) => {
-    const id = releaseIdOf(secret, "camp", c!);
-    return {
+describe("a committed contract is never recognised without the retained keep", () => {
+  const nothing = { getFact: () => undefined, committedGroup: () => null };
+  const factOf = (c: ReturnType<typeof compileContract>): OwnerFact =>
+    ({
       key: "pc/pc-x/existence-contract",
       owner: "pc_existence",
       facet: "existence_contract",
@@ -300,30 +247,19 @@ describe("a committed contract is recognised as this command's only with the ret
       unit: null,
       basis: "local-operator-confirmed-choice",
       secrecy: "local-operator-session",
-      version,
-      provenance: {
-        group_id: `operator-pc:${id}:release`,
-        intent_id: `operator-pc-intent:${id}:release`,
-        cause: `operator-pc-cause:${id}`,
-        rule: {},
-        ...over,
-      },
-    } as unknown as OwnerFact;
-  };
+      version: 1,
+      provenance: { group_id: "g", intent_id: "i", cause: "c", rule: {} },
+    }) as unknown as OwnerFact;
 
-  it("accepts the keyed identities with the matching keep, and refuses any other group, intent, cause, basis, version, acceptance or keep", () => {
+  it("however exact the content, with no keep on record the release is not proof the player reviewed it", () => {
     const c = compileContract("pc-x", complete)!;
-    const keep = keepOf("camp", c);
-    expect(releaseProblems("camp", factOf(c), keep)).toEqual([]);
-    expect(releaseProblems("camp", factOf(c, { group_id: "elsewhere" }), keep)).not.toEqual([]);
-    expect(releaseProblems("camp", factOf(c, { cause: "elsewhere" }), keep)).not.toEqual([]);
-    expect(releaseProblems("camp", factOf(c, {}, 2), keep)).not.toEqual([]);
-    expect(releaseProblems("other-campaign", factOf(c), keep)).not.toEqual([]);
-    // the same content under identities keyed by a different secret is not the keep's
-    expect(releaseProblems("camp", factOf(c, {}, 1, "b".repeat(64)), keep)).not.toEqual([]);
-    // a keep for different content does not vouch for this one
-    const other = compileContract("pc-x", { ...complete, identity: "A different person" })!;
-    expect(releaseProblems("camp", factOf(c), keepOf("camp", other))).not.toEqual([]);
+    expect(releaseProblems("camp", factOf(c), null, nothing).join("\n")).toContain(
+      "no keep at this console is on record",
+    );
+  });
+
+  it("a recorded acceptance that is not the Mirror of the content, or a malformed contract, is refused", () => {
+    const c = compileContract("pc-x", complete)!;
     const forged = {
       ...c,
       release: {
@@ -331,38 +267,16 @@ describe("a committed contract is recognised as this command's only with the ret
         mirror_acceptance: { ...c.release.mirror_acceptance, items_displayed_and_accepted: ["x"] },
       },
     };
-    expect(
-      releaseProblems("camp", factOf(forged as never), keepOf("camp", forged as never)),
-    ).not.toEqual([]);
-    expect(
-      releaseProblems("camp", { ...factOf(c), value: { junk: 1 } } as unknown as OwnerFact, keep),
-    ).not.toEqual([]);
-  });
-
-  it("without a retained keep nothing is recognised, however exact the content and names are", () => {
-    const c = compileContract("pc-x", complete)!;
-    const problems = releaseProblems("camp", factOf(c), null);
-    expect(problems.join("\n")).toContain("no keep at this console is on record");
-  });
-});
-
-describe("the committed constraints a presence statement could contradict", () => {
-  it("are exactly the world-law departures and the world and locus constraint lists; the premise and designation are not", () => {
-    expect(
-      insertionBlockers(
-        { material_world_law_departures: [], insertion_supporting_constraints: [] },
-        { constraints: [] },
-      ),
-    ).toEqual([]);
-    const blockers = insertionBlockers(
-      {
-        material_world_law_departures: ["no flesh crosses the tideline"],
-        insertion_supporting_constraints: [{ aspect: "inhabitants", statement: "no humans" }],
-      },
-      { constraints: [{ aspect: "access", statement: "closed" }] },
+    expect(releaseProblems("camp", factOf(forged as never), null, nothing).join("\n")).toContain(
+      "not exactly the Mirror of its content",
     );
-    expect(blockers).toHaveLength(3);
-    expect(blockers.join("\n")).toContain("world constraint inhabitants");
-    expect(blockers.join("\n")).toContain("locus constraint access");
+    expect(
+      releaseProblems(
+        "camp",
+        { ...factOf(c), value: { junk: 1 } } as unknown as OwnerFact,
+        null,
+        nothing,
+      ),
+    ).toEqual(["the contract is not a valid released Existence Contract"]);
   });
 });

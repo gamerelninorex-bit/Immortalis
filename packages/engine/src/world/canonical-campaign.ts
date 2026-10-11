@@ -64,6 +64,7 @@ import { verifyDiplomacyIntegrity } from "../diplomacy/integrity.ts";
 import { verifyGipIntegrity } from "../gip/integrity.ts";
 import { verifyCultureIntegrity } from "../culture/integrity.ts";
 import { verifyCultureAdjudicationIntegrity } from "../culture-adjudication/integrity.ts";
+import { verifyRefereeIntegrity } from "../referee/integrity.ts";
 import { verifyKtiIntegrity } from "../kti/integrity.ts";
 import { verifyLogisticsIntegrity } from "../logistics/integrity.ts";
 import { verifyPopulationIntegrity } from "../population/integrity.ts";
@@ -99,7 +100,15 @@ export const CANONICAL_STORE_BINDINGS = {
 export type EstablishWorldInput = Publication & { readonly world: unknown };
 export type EstablishLocusInput = Publication & { readonly locus: unknown };
 export type EstablishSourceConditionPublication = Publication & { readonly source: unknown };
-export type ReleasePcInput = Publication & { readonly contract: unknown };
+export type ReleasePcInput = Publication & {
+  readonly contract: unknown;
+  /**
+   * The key of the committed referee (I-002) decision that qualifies this release. Optional: a release that cites none is simply
+   * not attested. When given, the group reads and depends on it, and admission refuses the release unless that decision is CLOSED
+   * over exactly the statements of this contract.
+   */
+  readonly qualified_by?: string;
+};
 export interface BindPcInput extends Publication {
   readonly pc_id: string;
   readonly world_id: string;
@@ -111,6 +120,8 @@ export interface BindPcInput extends Publication {
    * is rejected, because no other bridge or precedence class is implemented.
    */
   readonly insertion: unknown;
+  /** The key of the committed referee (IR) decision that qualifies this first ACTIVATION; see `ReleasePcInput.qualified_by`. */
+  readonly qualified_by?: string;
 }
 
 /**
@@ -329,7 +340,10 @@ export class CanonicalCampaign {
       pcExistenceContractKey(contract.data.pc_id),
       contract.data,
       // a fresh PC depends on nothing; an existing-actor compilation pins (reads and depends on) the actor's own state
-      contract.data.existing_actor_compilation?.source_state.map((s) => s.fact_key) ?? [],
+      [
+        ...(contract.data.existing_actor_compilation?.source_state.map((s) => s.fact_key) ?? []),
+        ...(input.qualified_by !== undefined ? [input.qualified_by] : []),
+      ],
     );
   }
 
@@ -387,7 +401,12 @@ export class CanonicalCampaign {
       "player_character_binding",
       PLAYER_CHARACTER_BINDING_KEY,
       parsed.data,
-      [pcKey, worldKey, locusKey],
+      [
+        pcKey,
+        worldKey,
+        locusKey,
+        ...(input.qualified_by !== undefined ? [input.qualified_by] : []),
+      ],
     );
   }
 
@@ -750,6 +769,7 @@ function verifyAll(
     ...verifyDiplomacyIntegrity(store),
     ...verifyCausalDrawIntegrity(store),
     ...verifyCultureAdjudicationIntegrity(store),
+    ...verifyRefereeIntegrity(store),
   ];
 }
 
