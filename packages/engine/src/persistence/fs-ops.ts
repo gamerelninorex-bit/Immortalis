@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { join } from "node:path";
@@ -18,9 +19,14 @@ export interface FsOps {
   appendDurable(path: string, data: string): Promise<void>;
   truncate(path: string, size: number): Promise<void>;
   remove(path: string): Promise<void>;
-  /** create only if absent (O_EXCL); fails with code EEXIST otherwise */
+  /**
+   * create only if absent; fails with code EEXIST otherwise. Atomic across processes, and the file is
+   * visible only with its complete content (a reader never sees a created-but-empty file).
+   */
   createExclusive(path: string, data: string): Promise<void>;
 }
+
+const LINK_UNSUPPORTED = new Set(["EPERM", "ENOTSUP", "ENOSYS", "EXDEV", "EMLINK"]);
 
 const isEnoent = (e: unknown) => (e as NodeJS.ErrnoException).code === "ENOENT";
 
@@ -84,12 +90,39 @@ export const nodeFs: FsOps = {
     }
   },
   createExclusive: async (path, data) => {
-    const h = await fsp.open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
+    // Publish through a private temp name and link(2) it into place: link fails with EEXIST when the
+    // target exists (atomic exclusion) and exposes the complete content at once. A process killed
+    // before the link leaves only an inert `<path>.<pid>.<rand>.tmp`, never a half-written `path`.
+    const tmp = `${path}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+    const h = await fsp.open(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
     try {
       await h.writeFile(data, "utf8");
       await h.sync();
     } finally {
       await h.close();
     }
+    try {
+      await fsp.link(tmp, path);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === "EEXIST" || !LINK_UNSUPPORTED.has(code ?? "")) {
+        await fsp.unlink(tmp).catch(() => undefined);
+        throw e;
+      }
+      // Filesystem without hard links: still exclusive (O_EXCL), only the content-atomicity is lost.
+      await fsp.unlink(tmp).catch(() => undefined);
+      const direct = await fsp.open(
+        path,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+      );
+      try {
+        await direct.writeFile(data, "utf8");
+        await direct.sync();
+      } finally {
+        await direct.close();
+      }
+      return;
+    }
+    await fsp.unlink(tmp).catch(() => undefined);
   },
 };
