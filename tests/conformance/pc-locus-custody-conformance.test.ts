@@ -290,8 +290,37 @@ describe("the custody is stationary only: no movement, request, Logistics, Tempo
     }
   });
 
+  // The ORIGINAL first-activation branch (BLUE v5.1) is the one place the binding's coupling is read: as the locus the two cited, engine-
+  // validated referee decisions qualify, never on its own. The two functions that do so are set aside here and judged by their own block below;
+  // every other line of every custody module (the whole predecessor handover branch included) keeps the original, unchanged guard.
+  const ORIGINAL_BRANCH = ["activationCustodyViolation", "deriveOriginalPcPhysicalLocusCustody"];
+  const withoutOriginalBranch = (text: string): string => {
+    let out = text;
+    for (const fn of ORIGINAL_BRANCH) {
+      const start = out.indexOf(`function ${fn}(`);
+      if (start < 0) continue;
+      const end = out.indexOf("\n}\n", start);
+      out = out.slice(0, start) + out.slice(end + 3);
+    }
+    return out;
+  };
+
+  it("the binding's coupling is read for a placement only inside the two original-activation functions, which cite both qualifying decisions", () => {
+    const text = code("packages/engine/src/world/pc-locus-custody.ts");
+    for (const fn of ORIGINAL_BRANCH) expect(text).toContain(`function ${fn}(`);
+    expect(withoutOriginalBranch(text)).not.toMatch(
+      /binding\.data\.coupling|binding\.coupling|\.value\.coupling\.locus|\bb\.coupling/,
+    );
+    const branch = text.slice(text.indexOf("function activationCustodyViolation("));
+    expect(branch).toMatch(/nativeQualificationViolation/);
+    expect(branch).toMatch(/physicalQualificationViolation/);
+  });
+
   it("no custody module writes, rewrites or reads the Role Registry binding's referent as a placement: the binding is read for identity and handover only", () => {
-    for (const [f, text] of modules) {
+    for (const [f, rawText] of modules) {
+      const text = f.endsWith("engine/src/world/pc-locus-custody.ts")
+        ? withoutOriginalBranch(rawText)
+        : rawText;
       expect(text, f).not.toMatch(
         /bindPlayerCharacter|handoverExistingActor|releasePlayerCharacter|coupleExistingActor|InsertionFact|CouplingBasis|NATIVE_ALREADY_THERE|ExistenceContractSchema\.parse/,
       );

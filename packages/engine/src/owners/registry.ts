@@ -1,4 +1,6 @@
 import {
+  ORIGINAL_ACTIVATION,
+  REFEREE_OP_PHYSICAL,
   AccessDisseminationEventSchema,
   BroadcastExposureEventSchema,
   AccessEventSchema,
@@ -948,6 +950,36 @@ export const WORLD_PC_LOCUS_CUSTODY_RULE: SourceRef = rule(
   ],
 );
 
+/** BLUE v5.1 Bounded Implementation Brief — Original Active-PC Qualified Physical-Locus Custody (a construction source, NOT a spec-lock pin). */
+export const ORIGINAL_PC_CUSTODY_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/3f620af901e0811abc1ee604de833a41",
+  native_pin: "2026-10-11T05:30:16.307Z",
+} as const;
+
+const ORIGINAL_PC_CUSTODY_LINEAGE = `BLUE v5.1 Bounded Implementation Brief — Original Active-PC Qualified Physical-Locus Custody, verified native pin ${ORIGINAL_PC_CUSTODY_BRIEF_SOURCE.native_pin} (${ORIGINAL_PC_CUSTODY_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment to the post-handover custody contract, NOT a spec-lock pin); the exact existing-actor handover branch of the frozen Post-Handover contract (${PC_LOCUS_CONTRACT_LINEAGE}) is NOT reclassified and does not by itself certify original first-activation placement`;
+
+const ORIGINAL_PC_PLACEMENT_LINEAGE = `IR Player–World Insertion §2 (binding to one world locus; reconciliation of already-established PC-side and world-side constraints), §7 (established world baseline + explicit accepted PC exception), §12 (independent actor boundary), §14 (Total-Domain: degenerate, non-spatial insertion), §17 (world placement/overlap → World owner; active binding → Role Registry), spec-locked pin ${IR_SOURCE.native_pin} (${IR_SOURCE.artifact}); I-002 §2 (does not own actual placement inside the destination world), §4.3 (embodiment topology: one body / several bodies / host-dependent / distributed substrate / incorporeal / no current body / total-domain; position is not I-002 state), §17.2 (coextensive self), spec-locked pin ${I002_SOURCE.native_pin} (${I002_SOURCE.artifact}); Canonical Role Registry v1: the \`role.player_character\` binding's coupling.world / coupling.locus is a binding-time referent, never a movable current physical-locus ledger, and \`role.gm\` / \`permission.rule.adjudicate\` (never \`role.player\` / \`permission.player_choice.commit\`) adjudicates, pin 2026-09-25T08:21:22.816Z (https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a)`;
+
+/**
+ * The World-State fallback custodian's stationary current physical-locus record of an ORIGINAL first-activated Player Character
+ * (IM-03): WG "Ownership Guards" / F-016 (form/substrate/embodiment and physical identity of an entity, where no more-specific owner
+ * exists) with IR §§2, 7, 12, 14, 17 and I-002 §§2, 4.3, 17.2: the actual placement of a freshly authored PC follows the explicit
+ * accepted player-authored fact, the committed world constraints and a qualified native/no-bridge result, and persists through
+ * World-State. A different governing citation from the handover branch's on purpose: an exclusive current rule for the ACTIVATION
+ * value class (see `FactKind.alternateRules`); the handover class keeps `WORLD_PC_LOCUS_CUSTODY_RULE` byte for byte.
+ */
+export const WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact: physical/entity identity or reference, existence/cessation, form/substrate/embodiment); Interface Handoffs — To Insertion/Reconciliation (latent/realized local state needed for coupling)",
+  [
+    ORIGINAL_PC_PLACEMENT_LINEAGE,
+    ORIGINAL_PC_CUSTODY_LINEAGE,
+    WS006_ACTOR_COUPLING_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
 /**
  * SEALED: one stationary physical-locus custody record per PC identity, create-only. Relocation needs a successor mechanism that
  * does not exist, so a second record is a version conflict, never a sibling truth. It is the custodian's own fact kind (same
@@ -965,6 +997,16 @@ export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world-state/pc/${ID}/locus-custody$`),
     valueSchema: PcPhysicalLocusCustodySchema,
     rule: WORLD_PC_LOCUS_CUSTODY_RULE,
+    // the ORIGINAL first-activation branch is written under its own citation, exclusively; the handover branch keeps `rule` unchanged
+    alternateRules: [
+      {
+        rule: WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE,
+        admits: (value) => {
+          const r = PcPhysicalLocusCustodySchema.safeParse(value);
+          return r.success && r.data.basis.established_from === ORIGINAL_ACTIVATION;
+        },
+      },
+    ],
   },
 ];
 
@@ -1501,6 +1543,20 @@ export const REFEREE_RULE: SourceRef = {
 };
 
 /**
+ * The physical-placement decision's own governing citation (BLUE v5.1 brief, pin 2026-10-11T05:30:16.307Z): an exclusive current
+ * rule for the `IR_PHYSICAL_PLACEMENT` value class (see `FactKind.alternateRules`); the I-002 and IR decisions keep `REFEREE_RULE`.
+ */
+export const REFEREE_PHYSICAL_RULE: SourceRef = {
+  artifact: ORIGINAL_PC_CUSTODY_BRIEF_SOURCE.artifact,
+  native_pin: ORIGINAL_PC_CUSTODY_BRIEF_SOURCE.native_pin,
+  clause:
+    "§3 Sole bounded objective (a bounded, genuinely semantic qualification of physical, single-locus, originally present and world-compatible placement; distinct host-neutral, campaign-scoped IR/GM qualification and immutable source-bound evidence; the engine checks the evidence, identity, current source versions and correct privileged authority) and §4 steps 2-3 (the interpretation decides only whether this accepted PC and explicit native statement support one spatial physical subject at exactly this locus under the committed world; role.gm / permission.rule.adjudicate distinct from the player's choice and from role.archivist / permission.canon.write; the host never submits a naked canonical placement verdict)",
+  authority_lineage: [REFEREE_LINEAGE, ORIGINAL_PC_PLACEMENT_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "blue-bounded-brief-not-spec-locked",
+  supersedes: null,
+};
+
+/**
  * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the
  * Culture one. IM-03 routes only the dedicated key space `referee/<64 lowercase hex>/decision` to it; the kind is SEALED, i.e.
  * create-only. It authorizes no write of any world, PC, binding, Culture, Population, GIP, KTI or economic fact, and is no
@@ -1517,6 +1573,15 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
     keyPattern: /^referee\/([0-9a-f]{64})\/decision$/,
     valueSchema: RefereeDecisionRecordSchema,
     rule: REFEREE_RULE,
+    alternateRules: [
+      {
+        rule: REFEREE_PHYSICAL_RULE,
+        admits: (value) => {
+          const r = RefereeDecisionRecordSchema.safeParse(value);
+          return r.success && r.data.operation === REFEREE_OP_PHYSICAL;
+        },
+      },
+    ],
   },
 ];
 

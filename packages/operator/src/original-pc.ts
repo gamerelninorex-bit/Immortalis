@@ -320,7 +320,7 @@ export function compileContract(pcId: string, d: CharacterDraft): ExistenceContr
   return parsed.success ? parsed.data : null;
 }
 
-const quoted = (s: string): string => JSON.stringify(s);
+export const quoted = (s: string): string => JSON.stringify(s);
 
 const IMPORTANT =
   "IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.";
@@ -355,7 +355,7 @@ export function mirrorPanel(
 // the committed one), while nothing derivable from public contract content can reproduce them.
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-const keyed = (secret: string, value: unknown): string =>
+export const keyed = (secret: string, value: unknown): string =>
   createHmac("sha256", secret).update(canonicalJson(value), "utf8").digest("hex").slice(0, 32);
 
 export const releaseIdOf = (
@@ -388,7 +388,7 @@ export const bindingIdOf = (
     statement,
   });
 
-const publicationOf = (stage: "release" | "bind", id: string): Publication => ({
+export const publicationOf = (stage: "release" | "bind" | "locus", id: string): Publication => ({
   group_id: `operator-pc:${id}:${stage}`,
   intent_id: `operator-pc-intent:${id}:${stage}`,
   cause: `operator-pc-cause:${id}`,
@@ -412,6 +412,10 @@ export type CharacterStatus =
   | "REFEREE_PENDING"
   | "REFEREE_UNAVAILABLE"
   | "REFEREE_ANSWER_REFUSED"
+  | "LOCUS_ESTABLISHED"
+  | "LOCUS_NOT_QUALIFIED"
+  | "LOCUS_CONFLICT"
+  | "LOCUS_VERIFICATION_FAILED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -447,6 +451,13 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "no AI referee host can be asked: none is bound to this campaign, or its exchange cannot be used; nothing was changed. There is no human or scripted substitute for the referee",
   REFEREE_ANSWER_REFUSED:
     "the referee host's answers were not valid (not from the bound host, not for this question, or not grounded in the delivered text); none was used and nothing was changed",
+  LOCUS_ESTABLISHED: `the character you kept and placed has, in World-State's custody, one stationary physical locus: the established locus its native presence was qualified at, on the physical-placement reading of the AI referee host you saw and the separate confirmation you gave; a fresh owner-verified open reads back exactly that. It is a stationary position only: it gives the character no perception, knowledge, action, capability, narration, movement or elapsed time.`,
+  LOCUS_NOT_QUALIFIED:
+    "the AI referee host's physical-placement reading does not support one material physical subject originally present at exactly that locus (or cannot tell); nothing was written and no physical position is held. The binding is unchanged and is not a physical position either",
+  LOCUS_CONFLICT:
+    "what the campaign holds of this character's physical locus is not what this command makes; nothing was changed",
+  LOCUS_VERIFICATION_FAILED:
+    "what the campaign holds does not match what you confirmed; the physical locus is NOT reported as established",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:
@@ -456,7 +467,7 @@ const MESSAGES: Record<CharacterStatus, string> = {
   DECLINED: "not kept or not confirmed; nothing was changed",
 };
 
-const result = (
+export const result = (
   status: CharacterStatus,
   details: readonly string[] = [],
   code?: string,
@@ -565,14 +576,14 @@ export function releaseEvidenceProblems(
   return [];
 }
 
-interface Held {
+export interface Held {
   readonly campaign: CanonicalCampaign;
   readonly campaignId: string;
   /** the retained keep: the secret every recognised publication identity is keyed by */
   readonly keep: KeepRecord;
 }
 
-function bindingProblems(
+export function bindingProblems(
   { campaign, campaignId, keep }: Held,
   pcFact: OwnerFact,
   expected?: { worldId: string; locusId: string },
@@ -636,7 +647,7 @@ function bindingProblems(
   return out;
 }
 
-const factLine = (name: string, f: OwnerFact): string =>
+export const factLine = (name: string, f: OwnerFact): string =>
   `${name}: ${f.key} [${f.owner}/${f.facet} v${f.version}] group ${f.provenance.group_id} cause ${f.provenance.cause}`;
 
 function boundReport(
@@ -657,7 +668,13 @@ function boundReport(
       t.type === "ACTIVATION"
         ? `native presence, as you stated it: ${quoted(t.basis.statement)}`
         : "",
-      `physical custody of the character: ${campaign.pcPhysicalLocusCustody(pcId) ? "present (NOT made by this command)" : "none - this command establishes none"}`,
+      `physical custody of the character: ${
+        campaign.pcPhysicalLocusCustody(pcId)?.value.basis.established_from === "ACTIVATION"
+          ? "held, made by establish-character-locus (a separate, later choice; not by this command)"
+          : campaign.pcPhysicalLocusCustody(pcId)
+            ? "present (NOT made by this command)"
+            : "none - this command establishes none (see establish-character-locus)"
+      }`,
     ].filter((l) => l !== ""),
   );
 }
@@ -685,12 +702,12 @@ export interface AuthorCharacterParams {
   readonly refereePollMs?: number;
 }
 
-const BUILD_ID = "immortalis-operator";
-const UNKNOWN_OUTCOME = new Set(["UNKNOWN_OUTCOME", "STORE_POISONED", "STORE_CLOSED"]);
+export const BUILD_ID = "immortalis-operator";
+export const UNKNOWN_OUTCOME = new Set(["UNKNOWN_OUTCOME", "STORE_POISONED", "STORE_CLOSED"]);
 const MAX_ATTEMPTS = 3;
 const MAX_REVISIONS = 50;
 
-const closeQuietly = async (s: { close(): Promise<void> } | undefined): Promise<void> => {
+export const closeQuietly = async (s: { close(): Promise<void> } | undefined): Promise<void> => {
   try {
     await s?.close();
   } catch {
@@ -995,7 +1012,7 @@ type Opened =
   | { readonly ok: true; readonly session: LocalOperatorSession }
   | { readonly ok: false; readonly refusal: CharacterResult };
 
-async function openSession(p: {
+export async function openSession(p: {
   campaignDir: string;
   campaignId: string;
   operatorDir?: string;
@@ -1057,7 +1074,7 @@ export async function authorCharacter(p: AuthorCharacterParams): Promise<Charact
   }
 }
 
-function runtimeOf(p: AuthorCharacterParams, session: LocalOperatorSession): RefereeRuntime {
+export function runtimeOf(p: AuthorCharacterParams, session: LocalOperatorSession): RefereeRuntime {
   return {
     stateDir: p.operatorDir ?? defaultOperatorDir(p.campaignDir),
     operatorUid: session.operator.uid,

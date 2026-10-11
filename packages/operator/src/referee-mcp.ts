@@ -4,17 +4,21 @@ import type { Readable, Writable } from "node:stream";
 import {
   I002HostDecisionSchema,
   IrHostDecisionSchema,
+  PhysicalHostDecisionSchema,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
   RefereeTaskIdSchema,
   type RefereeOperation,
 } from "@immortalis/contracts";
 import {
   deriveI002,
   deriveIr,
+  derivePhysical,
   type FsOps,
   type I002Context,
   type IrContext,
+  type PhysicalContext,
 } from "@immortalis/engine";
 import {
   authorizeHost,
@@ -27,7 +31,7 @@ import {
 /**
  * The reference host-callable transport of the AI referee (PR #61, BLUE B61-A3): a standard, client-neutral Model Context
  * Protocol server over stdio (newline-delimited JSON-RPC 2.0). A compatible AI chat/agent host — Claude Code under its own
- * subscription, or any other client that can call tools — connects to it and itself performs the two interpretations; the engine
+ * subscription, or any other client that can call tools — connects to it and itself performs the bounded interpretations; the engine
  * calls no model, holds no model credential and opens no network.
  *
  * Three tools only, and nothing else (no shell, no file system, no database, no game command):
@@ -176,6 +180,18 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
           true,
         );
       const d = deriveIr(ctx as IrContext, parsed.data);
+      if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
+    } else if (op === REFEREE_OP_PHYSICAL) {
+      const parsed = PhysicalHostDecisionSchema.safeParse(answer);
+      if (!parsed.success)
+        return text(
+          `the answer does not satisfy the shape: ${parsed.error.issues
+            .slice(0, 3)
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; ")}`,
+          true,
+        );
+      const d = derivePhysical(ctx as PhysicalContext, parsed.data);
       if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
     }
     const written = await submitDecision(p, {

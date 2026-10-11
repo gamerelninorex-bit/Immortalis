@@ -17,6 +17,13 @@ import { EntityId } from "./world-foundation.ts";
  *                               and whether it contradicts the committed World Profile (premise and ORIGINAL established canon
  *                               included), law departures, insertion constraints, Locus designation and constraints.
  *
+ *   IR_PHYSICAL_PLACEMENT     — (original active-PC qualified physical-locus custody) I-002 §4.3 and Player-World Insertion §§2, 7, 12, 14, 17: the
+ *                               host reads the accepted character's own embodiment statements and the player's separately confirmed
+ *                               native-presence statement, as committed, against the committed World Profile and Locus and says whether
+ *                               they support ONE material, spatial physical subject originally present at exactly that Locus — or an
+ *                               incorporeal, coextensive, distributed, non-spatial, ambiguous, arrival-based, elsewhere or externally
+ *                               dependent presence, which is never a physical-locus fact.
+ *
  * What is here is mechanism, never meaning. A host's answer carries NO canon, NO role and NO permission: the engine alone validates
  * it (closed vocabularies, verbatim-quoted grounds, full coverage of what was delivered, a verdict DERIVED from the answer and never
  * taken from it), and a decision is retained as a create-only record under `role.gm` + `permission.rule.adjudicate` bound by the
@@ -35,7 +42,8 @@ export const REFEREE_AUTHORITY = GM_ADJUDICATION_AUTHORITY;
 
 export const REFEREE_OP_I002 = "I002_CLASSIFY";
 export const REFEREE_OP_IR = "IR_NATIVE_COMPATIBILITY";
-export const RefereeOperationSchema = z.enum([REFEREE_OP_I002, REFEREE_OP_IR]);
+export const REFEREE_OP_PHYSICAL = "IR_PHYSICAL_PLACEMENT";
+export const RefereeOperationSchema = z.enum([REFEREE_OP_I002, REFEREE_OP_IR, REFEREE_OP_PHYSICAL]);
 export type RefereeOperation = z.infer<typeof RefereeOperationSchema>;
 
 export const RefereeTaskIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -89,6 +97,21 @@ export const REFEREE_SOURCES = {
     clause: "§21 Generation Hand-Off Test",
     text: "Hand off only when no unresolved claim blocks lawful World Generation or Insertion, and world-owned assertions are authority-classified and routed rather than silently adopted, and Entry-Envelope state is bounded.",
   },
+  "I002-4.3": {
+    ...I002,
+    clause: "§4.3 Embodiment Topology",
+    text: "What form/locus or loci currently constitute the PC at the intrinsic level? Examples may include: one body; several same-agency bodies; host-dependent embodiment; distributed substrate; incorporeal manifestation; null/no-current-body state; total-domain/coextensive self. Position, local damage, local condition and other world-locus differences belong to Insertion/world/runtime owners and do not force I-002 per-locus records. Do not resolve more physical detail than current causality requires.",
+  },
+  "I002-17.2": {
+    ...I002,
+    clause: "§17.2 Total-Domain / Coextensive Self",
+    text: "If the PC is literally the whole simulated domain, require explicit player confirmation of that coextensive meaning and World Generation acceptance. Insertion may then be degenerate rather than spatial.",
+  },
+  "IR-2": {
+    ...IR,
+    clause: "§2 Ownership Contract",
+    text: "Insertion/Reconciliation owns: binding to one world locus, several loci, a host/shared embodiment relation, a distributed/incorporeal substrate, or a degenerate non-spatial relation where already established; reconciliation of already-established PC-side and world-side constraints at the coupling seam. Insertion does not own: PC identity/continuity/agency topology; the world baseline or independent world facts; actor motives, stance or choices; PC/actor knowledge; temporal cadence/duration.",
+  },
   "IR-3": {
     ...IR,
     clause: "§6 Step 3 — Determine whether a bridge exists",
@@ -108,6 +131,21 @@ export const REFEREE_SOURCES = {
     ...IR,
     clause: "§9 Genre / Connective Detail Rule",
     text: "Presentation may not invent a death event, a portal device, a summoner, a vessel or another causal transition mechanism. Decorate an established bridge; do not invent the bridge for flavor.",
+  },
+  "IR-12": {
+    ...IR,
+    clause: "§12 Independent Actor Boundary",
+    text: "Insertion may establish that a PC encounters/is found by/occupies/shares a locus with an independent actor. Insertion may not invent that actor's: motive; loyalty; willingness; adoption decision; hostility; concession; private knowledge.",
+  },
+  "IR-14": {
+    ...IR,
+    clause: "§14 Total-Domain",
+    text: "If PC self = accepted ontological domain then insertion is degenerate: no spatial arrival; no portal; no spawn coordinate; no bridge invented.",
+  },
+  "IR-17": {
+    ...IR,
+    clause: "§17 Persistence / Write-Back",
+    text: "Authoritative durable writes route to their owners: active role.player_character binding → Role Registry / F-014C; world placement/overlap → World owner; intrinsic PC change → I-002; actor state → Actor owner; PC/actor knowledge → Epistemic owner.",
   },
   "IR-18": {
     ...IR,
@@ -251,6 +289,80 @@ export const IrHostDecisionSchema = z.strictObject({
 export type IrHostDecision = z.infer<typeof IrHostDecisionSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// IR_PHYSICAL_PLACEMENT
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * What form constitutes the PC, as the PC's own accepted statements say it. The non-`SINGLE_MATERIAL_BODY` modes are the examples
+ * I-002 §4.3 itself lists (several same-agency bodies, host-dependent embodiment, distributed substrate, incorporeal manifestation,
+ * null/no-current-body state, total-domain/coextensive self); `AMBIGUOUS` is the host saying the statements do not settle it.
+ */
+export const PHYSICAL_EMBODIMENT_MODES = [
+  "SINGLE_MATERIAL_BODY",
+  "SEVERAL_SAME_AGENCY_BODIES",
+  "HOST_DEPENDENT",
+  "DISTRIBUTED_SUBSTRATE",
+  "INCORPOREAL",
+  "NO_CURRENT_BODY",
+  "TOTAL_DOMAIN_COEXTENSIVE",
+  "AMBIGUOUS",
+] as const;
+export type PhysicalEmbodimentMode = (typeof PHYSICAL_EMBODIMENT_MODES)[number];
+
+/** Where the player's own native-presence statement says the character is, relative to the ONE delivered locus. */
+export const PHYSICAL_PRESENCE_MODES = [
+  "NATIVE_AT_THIS_LOCUS",
+  "ELSEWHERE",
+  "SEVERAL_LOCI",
+  "NON_SPATIAL",
+  "BRIDGE_OR_ARRIVAL",
+  "AMBIGUOUS",
+] as const;
+export type PhysicalPresenceMode = (typeof PHYSICAL_PRESENCE_MODES)[number];
+
+/** A claim inside the statement that the presence rests on something that is not the player's own: Insertion may not invent it (IR §12). */
+export const PHYSICAL_DEPENDENCY_KINDS = [
+  "INDEPENDENT_ACTOR_COOPERATION",
+  "EXTERNAL_RIGHT_OR_ACCESS",
+  "OTHER_EXTERNAL_CLAIM",
+] as const;
+export type PhysicalDependencyKind = (typeof PHYSICAL_DEPENDENCY_KINDS)[number];
+
+export const PhysicalHostDecisionSchema = z.strictObject({
+  task_id: RefereeTaskIdSchema,
+  embodiment: z.strictObject({
+    mode: z.enum(PHYSICAL_EMBODIMENT_MODES),
+    /** the delivered character statement the reading rests on */
+    item_id: Id,
+    rule_ids: RuleIds,
+    grounds: Grounds,
+    /** a verbatim excerpt of that character statement */
+    evidence_quote: Quote,
+  }),
+  presence: z.strictObject({
+    mode: z.enum(PHYSICAL_PRESENCE_MODES),
+    rule_ids: RuleIds,
+    grounds: Grounds,
+    /** a verbatim excerpt of the player's native-presence statement */
+    evidence_quote: Quote,
+  }),
+  /** every claim in the statement that the presence rests on an independent actor's cooperation, an external right or another external claim; empty when none */
+  dependencies: z
+    .array(
+      z.strictObject({
+        kind: z.enum(PHYSICAL_DEPENDENCY_KINDS),
+        rule_ids: RuleIds,
+        grounds: Grounds,
+        evidence_quote: Quote,
+      }),
+    )
+    .max(6),
+  assessments: z.array(IrFactAssessmentSchema).min(1).max(96),
+  clarification: z.string().min(1).max(300).nullable(),
+});
+export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The verdicts (always DERIVED by the engine from the answer, never taken from it)
 // ---------------------------------------------------------------------------------------------
 
@@ -261,7 +373,18 @@ export const IR_VERDICTS = [
   "WORLD_CONFLICT",
   "UNRESOLVED",
 ] as const;
-export const RefereeVerdictSchema = z.enum([...I002_VERDICTS, ...IR_VERDICTS]);
+/** Distinct from the IR verdicts on purpose: a native/compatibility verdict can never be read as a physicality verdict, nor the reverse. */
+export const PHYSICAL_VERDICTS = [
+  "PHYSICAL_ELIGIBLE",
+  "NOT_PHYSICAL_SINGLE_LOCUS",
+  "PHYSICAL_WORLD_CONFLICT",
+  "PHYSICAL_UNRESOLVED",
+] as const;
+export const RefereeVerdictSchema = z.enum([
+  ...I002_VERDICTS,
+  ...IR_VERDICTS,
+  ...PHYSICAL_VERDICTS,
+]);
 export type RefereeVerdict = z.infer<typeof RefereeVerdictSchema>;
 
 // ---------------------------------------------------------------------------------------------
@@ -301,10 +424,10 @@ const RecordCore = {
       )
       .max(64)
       .nullable(),
-    /** IR: sha256 over the player's native-presence statement, and the statement itself, verbatim */
+    /** IR / physical placement: sha256 over the player's native-presence statement, and the statement itself, verbatim (physical: the committed binding's) */
     statement_digest: Sha256.nullable(),
     statement: z.string().min(1).max(600).nullable(),
-    /** the committed facts the context was built from, at the versions delivered (IR only; foreign facts are referenced, never copied) */
+    /** the committed facts the context was built from, at the versions delivered (IR and physical placement; foreign facts are referenced, never copied) */
     refs: z.array(RefereeInputRefSchema).max(8),
   }),
 };
@@ -321,6 +444,12 @@ export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
     operation: z.literal(REFEREE_OP_IR),
     decision: IrHostDecisionSchema,
     verdict: z.enum(IR_VERDICTS),
+  }),
+  z.strictObject({
+    ...RecordCore,
+    operation: z.literal(REFEREE_OP_PHYSICAL),
+    decision: PhysicalHostDecisionSchema,
+    verdict: z.enum(PHYSICAL_VERDICTS),
   }),
 ]);
 export type RefereeDecisionRecord = z.infer<typeof RefereeDecisionRecordSchema>;

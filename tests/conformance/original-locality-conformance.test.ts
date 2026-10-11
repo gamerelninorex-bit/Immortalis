@@ -44,11 +44,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/production.ts":
     "40ff84c02029ecd43811eb8c8cd6b5d32e8e6e505953c9bd3e997a6ae8f41e4b",
   "packages/engine/src/world/canonical-campaign.ts":
-    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "9f503d0b219457f9086bf6963e774e3d5dcf74d18c4643a8c7658085ab8b6933",
   "packages/engine/src/owners/registry.ts":
-    "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
     "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":

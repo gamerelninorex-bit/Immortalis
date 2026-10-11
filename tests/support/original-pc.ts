@@ -213,7 +213,7 @@ export async function localityCampaign(
     campaignId: LOCALITY_CAMPAIGN,
     operatorUid: process.getuid!(),
     hostId: HOST_ID,
-    operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY"],
+    operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY", "IR_PHYSICAL_PLACEMENT"],
   });
   if (!bound.ok) throw new Error(`host not bound: ${bound.error.code}`);
   return dirs;
@@ -282,11 +282,99 @@ export interface IrRule {
   readonly unclear?: RegExp;
 }
 
+export interface PhysicalRule {
+  /** a character statement that, when matched, makes the scripted host read the form as this mode (default SINGLE_MATERIAL_BODY) */
+  readonly embodiment?: { readonly match: RegExp; readonly mode: string };
+  /** a statement text that, when matched, makes the scripted host read the presence as this mode (default NATIVE_AT_THIS_LOCUS) */
+  readonly presence?: { readonly match: RegExp; readonly mode: string };
+  /** a statement text that, when matched, is a claim the presence rests on something external */
+  readonly dependency?: { readonly match: RegExp; readonly kind: string };
+  /** a delivered fact text that, when matched, contradicts a material body being there */
+  readonly contradicts?: RegExp;
+  /** a delivered fact text that, when matched, leaves the host unable to tell */
+  readonly unclear?: RegExp;
+}
+
+/** The scripted host's physical-placement answer (plumbing only): derived from the DELIVERED words by the test's rules, never a verdict. */
+function physicalAnswer(doc: Doc, rule: PhysicalRule): unknown {
+  const ctx = doc["context"];
+  const pcItems: Doc[] = ctx.pc;
+  const hitItem = rule.embodiment
+    ? pcItems.find((i) => rule.embodiment!.match.test(i["text"]))
+    : undefined;
+  const item = hitItem ?? pcItems.find((i) => i["slot"] === "embodiment") ?? pcItems[0]!;
+  const embMode = hitItem ? rule.embodiment!.mode : "SINGLE_MATERIAL_BODY";
+  const presHit = rule.presence?.match.test(ctx.statement) ? rule.presence : undefined;
+  const presMode = presHit ? presHit.mode : "NATIVE_AT_THIS_LOCUS";
+  const dep = rule.dependency?.match.test(ctx.statement) ? rule.dependency : undefined;
+  const unclearAny = ctx.facts.some((f: Doc) => rule.unclear?.test(f["text"]));
+  const assessments = ctx.facts.map((f: Doc) => {
+    if (rule.contradicts?.test(f["text"]))
+      return {
+        fact_id: f["fact_id"],
+        relation: "CONTRADICTS",
+        rule_ids: ["IR-7"],
+        grounds: "scripted host: the fact excludes a material body there",
+        evidence_quote: rule.contradicts.exec(f["text"])![0],
+      };
+    if (rule.unclear?.test(f["text"]))
+      return {
+        fact_id: f["fact_id"],
+        relation: "UNCLEAR",
+        rule_ids: ["IR-7"],
+        grounds: "scripted host: cannot tell",
+        evidence_quote: null,
+      };
+    return {
+      fact_id: f["fact_id"],
+      relation: "NOT_RELEVANT",
+      rule_ids: ["IR-7"],
+      grounds: "scripted host: does not bear on this",
+      evidence_quote: null,
+    };
+  });
+  const ambiguous = embMode === "AMBIGUOUS" || presMode === "AMBIGUOUS" || unclearAny;
+  return {
+    task_id: doc["task_id"],
+    embodiment: {
+      mode: embMode,
+      item_id: item["item_id"],
+      rule_ids: ["I002-4.3"],
+      grounds: "scripted host: reading of the character's form",
+      evidence_quote: hitItem ? rule.embodiment!.match.exec(item["text"])![0] : item["text"],
+    },
+    presence: {
+      mode: presMode,
+      rule_ids: ["IR-7"],
+      grounds: "scripted host: reading of the presence",
+      evidence_quote: presHit ? presHit.match.exec(ctx.statement)![0] : ctx.statement,
+    },
+    dependencies: dep
+      ? [
+          {
+            kind: dep.kind,
+            rule_ids: ["IR-12"],
+            grounds: "scripted host: rests on something external",
+            evidence_quote: dep.match.exec(ctx.statement)![0],
+          },
+        ]
+      : [],
+    assessments,
+    clarification: ambiguous ? "Please say more." : null,
+  };
+}
+
 /** The scripted host's policy: ordinary answers unless a rule says otherwise. */
 export function scriptedPolicy(
-  rules: { classify?: readonly ClassifyRule[]; ir?: IrRule } = {},
+  rules: {
+    classify?: readonly ClassifyRule[];
+    ir?: IrRule;
+    physical?: PhysicalRule;
+  } = {},
 ): Policy {
   return (doc) => {
+    if (doc["operation"] === "IR_PHYSICAL_PLACEMENT")
+      return physicalAnswer(doc, rules.physical ?? {});
     if (doc["operation"] === "I002_CLASSIFY") {
       return {
         task_id: doc["task_id"],
