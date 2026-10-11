@@ -1,0 +1,33 @@
+{
+  "task_id": "fd46f34aad18ba0e166b2451fbe5b15153098c72e3b756c6aaadc45f80b09ff9",
+  "reading": {
+    "mode": "NATIVE_ALREADY_THERE",
+    "rule_ids": ["IR-3"],
+    "grounds": "The player says the character has always lived here and is originally present: an explicit native presence, no arrival.",
+    "evidence_quote": "I have always lived here"
+  },
+  "assessments": [
+    {
+      "fact_id": "world.premise",
+      "relation": "CONTRADICTS",
+      "rule_ids": ["IR-7", "IR-5"],
+      "grounds": "The accepted character is a human being (a 'human salt-raker') who says she has always lived here. The premise says no human being has ever lived in this marsh. Both cannot hold; neither is weakened here.",
+      "evidence_quote": "no human being has ever lived"
+    },
+    {
+      "fact_id": "world.basis",
+      "relation": "NOT_RELEVANT",
+      "rule_ids": ["IR-7"],
+      "grounds": "The canon only says the place is invented and as authored; it excludes no inhabitant.",
+      "evidence_quote": null
+    },
+    {
+      "fact_id": "locus.designation",
+      "relation": "SUPPORTS",
+      "rule_ids": ["IR-7"],
+      "grounds": "The statement names the same place as the locus.",
+      "evidence_quote": "salt pans"
+    }
+  ],
+  "clarification": null
+}

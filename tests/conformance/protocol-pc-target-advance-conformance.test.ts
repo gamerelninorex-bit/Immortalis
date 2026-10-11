@@ -74,7 +74,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/engine/src/world/canonical-campaign.ts":
-    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
+    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/logistics/adapter.ts":
@@ -86,7 +86,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/gip/declaration.ts":
     "c2f2172480976a3d3966b0f6a0584a6435600574ad9053fdbe7069f5d6be7ba9",
   "packages/engine/src/owners/registry.ts":
-    "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
+    "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -112,7 +112,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, the Temporal kernel, the predecessor gateways and the frozen artifacts are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the Temporal kernel and schemas, GIP's sunset provider and adapter, the PC/Logistics/World owners, the canonical campaign, the owner registry, the NULL-PC and stop-at-delivery gateways and their contracts, and the frozen F-027 artifacts are byte-identical to the base", () => {
+  it("the Temporal kernel and schemas, GIP's sunset provider and adapter, the PC/Logistics/World owners, the canonical campaign, the owner registry, the NULL-PC and stop-at-delivery gateways and their contracts, and the frozen F-027 artifacts are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

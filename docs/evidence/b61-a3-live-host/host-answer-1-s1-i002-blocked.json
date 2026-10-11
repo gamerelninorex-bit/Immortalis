@@ -1,0 +1,71 @@
+{
+  "task_id": "ede41c46e5e5e70ad4febfb311d4f1699f0e5cf8daf51008931cedd694eee257",
+  "items": [
+    {
+      "item_id": "mirror/identity/bcb21448e630",
+      "slot": "identity",
+      "class": "MIXED",
+      "rule_ids": ["I002-6.6", "I002-2"],
+      "grounds": "The first part says who the player is. 'the lawful governor of Ashfall' claims an office, a standing that only becomes real when a world or institution establishes it; it is not a character-local fact.",
+      "evidence_quote": "the lawful governor of Ashfall",
+      "intrinsic_excerpt": "Maren Voss, a human salt-raker of about forty winters",
+      "other_classes": ["PC_RELATIONAL_STANDING"],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/embodiment/e694f0a9babf",
+      "slot": "embodiment",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "A statement of the character's own bodily form.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/continuity/5ec3cc412ce3",
+      "slot": "continuity",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "A statement of what keeps the character the same self.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/contact-1/0875fe5de933",
+      "slot": "contact",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "How the character presents to the world: her own appearance and language.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/possession-1/955f5fc64d0f",
+      "slot": "possession",
+      "class": "ENTRY_ENVELOPE_FINITE",
+      "rule_ids": ["I002-4.6"],
+      "grounds": "Two ordinary carried tools: finite, non-agentic, character-local.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/possession-2/6d0631172253",
+      "slot": "possession",
+      "class": "ACTOR_STANCE_CLAIM",
+      "rule_ids": ["I002-6.6", "I002-4.6"],
+      "grounds": "A hundred soldiers are independent actors; that they are sworn and obey every order is a claim about their loyalty and willingness, not something the character carries. It would silently create an army.",
+      "evidence_quote": "independent sworn soldiers who obey my every order",
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    }
+  ]
+}

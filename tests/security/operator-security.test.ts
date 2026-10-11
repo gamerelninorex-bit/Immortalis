@@ -55,7 +55,12 @@ describe("the mechanism cannot reach authority it was not given", () => {
   it("never writes canon itself: no owner publication, store commit, temporal registration, clock or advance outside the two gateways", () => {
     // `locality.ts` is the one module the original-locality brief authorizes to create the package and to call the three existing
     // World-State operations; it is bound by its own, narrower check (tests/conformance/original-locality-conformance.test.ts).
-    for (const f of files.filter((x) => !x.endsWith("/locality.ts")))
+    // `original-pc.ts` is likewise the one module the original-PC brief authorizes to call `releasePlayerCharacter` and
+    // `bindPlayerCharacter`; it is bound by its own, narrower checks (tests/conformance/original-pc-conformance.test.ts and
+    // tests/security/original-pc-security.test.ts).
+    for (const f of files.filter(
+      (x) => !x.endsWith("/locality.ts") && !x.endsWith("/original-pc.ts"),
+    ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,
       );

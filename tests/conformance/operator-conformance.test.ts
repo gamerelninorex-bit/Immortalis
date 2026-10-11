@@ -60,11 +60,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/logistics.ts":
     "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
   "packages/engine/src/world/canonical-campaign.ts":
-    "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
+    "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "9f503d0b219457f9086bf6963e774e3d5dcf74d18c4643a8c7658085ab8b6933",
   "packages/engine/src/owners/registry.ts":
-    "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
+    "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -84,7 +84,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
-  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base", () => {
+  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -162,20 +162,30 @@ describe("the package composes only the existing gateways and canonical reads", 
       ...new Set(walk(SRC).flatMap((f) => importedNames(f, "@immortalis/engine"))),
     ].sort();
     expect(names).toEqual([
+      "CandidateItem",
       "CanonicalCampaign",
       "FileCampaignOptions",
       "FsOps",
+      "I002Context",
+      "IrContext",
       "LogisticsAdapter",
+      "RefereeAdjudicationAdapter",
       "StageOwnerExtension",
       "StageProviderRegistry",
       "TemporalCoordinator",
       "canonicalEqual",
+      "deriveI002",
+      "deriveIr",
       "nodeFs",
+      "refereeCandidateItems",
+      "refereeQualificationViolation",
     ]);
   });
 
   it("exposes exactly the local operator surface and nothing that names a host operation, a role or a confirmation flag", () => {
     expect(Object.keys(operator).sort()).toEqual([
+      "DELEGATION_NONE_TEXT",
+      "EMPTY_DRAFT",
       "EXIT",
       "IntentLedger",
       "LEDGER_FORMAT",
@@ -184,34 +194,76 @@ describe("the package composes only the existing gateways and canonical reads", 
       "LOCALITY_SETUP_FORMAT_VERSION",
       "LocalOperatorSession",
       "LocalitySetupSchema",
+      "MAX_LIST_ITEMS",
+      "MAX_STATEMENT_CHARS",
       "OOC_BANNER",
       "OOC_BOUNDARY_NOTE",
       "OOC_DEBUG_NOTE",
       "OPERATOR_PUBLICATION_BASIS",
       "OPERATOR_PUBLICATION_SECRECY",
+      "REFEREE_CONFIG_FORMAT",
+      "REFEREE_DECISION_FORMAT",
+      "REFEREE_MCP_USAGE",
+      "REFEREE_TASK_FORMAT",
       "USAGE",
+      "WORLD_CLAIMS_NONE_TEXT",
       "advance",
+      "applyEdits",
+      "askI002",
+      "askIr",
+      "authorCharacter",
+      "authorizeHost",
+      "awaitDecision",
+      "bindHost",
+      "bindingIdOf",
+      "characterStatus",
+      "compileContract",
       "consumeConfirmation",
       "defaultOperatorDir",
       "ensureOperatorStateDirectory",
       "establishLocality",
+      "findingsLines",
+      "isSetAside",
       "judgeOperatorDirectory",
+      "judgeStatement",
       "ledgerFileName",
       "localitySetupId",
       "localityStatus",
+      "mirrorItems",
+      "mirrorPanel",
+      "missingOf",
       "nullAdvance",
       "nullResume",
+      "parseEdit",
       "pcTargetAdvance",
       "pcTargetResume",
+      "pendingTasks",
+      "proofOf",
+      "publishTask",
+      "readConfig",
       "readLocalitySetupFile",
+      "readTask",
       "reconcile",
+      "refereeConfigured",
+      "refereeDir",
+      "releaseEvidenceProblems",
+      "releaseIdOf",
+      "releaseProblems",
       "relocate",
       "requestOperatorConfirmation",
+      "requestOperatorDecision",
       "runCli",
+      "runRefereeMcpCli",
+      "secretPath",
+      "serveRefereeMcp",
+      "setAsideDecision",
       "status",
       "stdioTerminal",
       "subjectOf",
+      "submitDecision",
+      "taskDocument",
       "verifyLocalOperator",
+      "vouchedDecision",
     ]);
   });
 

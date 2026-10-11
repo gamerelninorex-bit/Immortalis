@@ -203,6 +203,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "PcCapabilityAdapter",
       "PopulationAdapter",
       "ProductionAdapter",
+      "RefereeAdjudicationAdapter",
       "SourceDrawdownAdapter",
       "TemporalCoordinator",
     ]);
@@ -231,6 +232,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "presentation",
       "production",
       "projection",
+      "referee",
       "source-drawdown",
       "temporal",
       "world",

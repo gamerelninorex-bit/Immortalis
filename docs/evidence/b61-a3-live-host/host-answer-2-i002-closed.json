@@ -1,0 +1,60 @@
+{
+  "task_id": "fdd5c4d44e91667bf0f505429035e6af3df9704a1b03717b1a1fb9ff8df8b638",
+  "items": [
+    {
+      "item_id": "mirror/identity/4f310c46f1bd",
+      "slot": "identity",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "Name, kind of being, trade and age of the character herself; nothing about anyone else or any institution.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/embodiment/e694f0a9babf",
+      "slot": "embodiment",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "The character's own body.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/continuity/5ec3cc412ce3",
+      "slot": "continuity",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "The character's own continuity rule.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/contact-1/0875fe5de933",
+      "slot": "contact",
+      "class": "INTRINSIC_PC",
+      "rule_ids": ["I002-2"],
+      "grounds": "How she presents: her own appearance, dress and language.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    },
+    {
+      "item_id": "mirror/possession-1/955f5fc64d0f",
+      "slot": "possession",
+      "class": "ENTRY_ENVELOPE_FINITE",
+      "rule_ids": ["I002-4.6"],
+      "grounds": "A knife and a coil of rope: finite, non-agentic, carried.",
+      "evidence_quote": null,
+      "intrinsic_excerpt": null,
+      "other_classes": [],
+      "clarification": null
+    }
+  ]
+}

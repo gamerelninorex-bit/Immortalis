@@ -13,6 +13,7 @@ import {
   OWNER_GIP,
   OWNER_CULTURE,
   OWNER_CULTURE_ADJUDICATION_KERNEL,
+  OWNER_REFEREE_KERNEL,
   OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
@@ -45,6 +46,7 @@ import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
 import { cultureGroupCheck } from "../culture/admission.ts";
 import { cultureAdjudicationGroupCheck } from "../culture-adjudication/admission.ts";
+import { refereeGroupCheck, refereeQualificationViolation } from "../referee/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
@@ -274,6 +276,14 @@ export function coupledActorFreshContractViolation(
 
 function checkExistenceContract(group: CommitGroup, state: CampaignState, value: unknown) {
   const contract = ExistenceContractSchema.parse(value);
+  // a release that cites a referee decision must be the one that decision qualifies (a release citing none is simply not attested)
+  const qualification = refereeQualificationViolation(group, (k) => state.facts.get(k), "RELEASE", {
+    contract,
+  });
+  if (qualification)
+    return reject(qualification.code, qualification.message, {
+      key: pcExistenceContractKey(contract.pc_id),
+    });
   const coupled = coupledActorFreshContractViolation(contract, state.facts);
   if (coupled)
     return reject("REFERENCE_INVALID", coupled, { key: pcExistenceContractKey(contract.pc_id) });
@@ -291,6 +301,12 @@ function checkExistenceContract(group: CommitGroup, state: CampaignState, value:
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
+  // a first ACTIVATION that cites a referee decision must be the one that decision qualifies
+  const qualification = refereeQualificationViolation(group, (k) => state.facts.get(k), "BIND", {
+    binding: b,
+  });
+  if (qualification)
+    return reject(qualification.code, qualification.message, { key: PLAYER_CHARACTER_BINDING_KEY });
   const pcKey = pcExistenceContractKey(b.active_pc.entity_id);
   const worldKey = worldProfileKey(b.coupling.world.entity_id);
   const locusKey = worldLocusKey(b.coupling.world.entity_id, b.coupling.locus.entity_id);
@@ -465,6 +481,8 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-12 Culture adjudication provenance groups (F-027-CJA1): one decision record, created once and re-derived.
     if (group.owner === OWNER_CULTURE_ADJUDICATION_KERNEL)
       return cultureAdjudicationGroupCheck(group, state);
+    // IM-12 referee provenance groups (PR #61, B61-A3): one decision record per task, created once and re-derived.
+    if (group.owner === OWNER_REFEREE_KERNEL) return refereeGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -659,6 +677,8 @@ export function identityMismatch(
       return v["slot_id"] === ids[0] ? null : "state slot identity does not match the key";
     case "culture_adjudication_decision":
       return v["culture_update_id"] === ids[0] ? null : "culture_update_id does not match the key";
+    case "referee_decision":
+      return v["task_id"] === ids[0] ? null : "task_id does not match the key";
     case "causal_draw_precommit":
     case "causal_draw_result":
       return v["draw_id"] === `cdraw:v1:${ids[0]}` ? null : "draw_id does not match the key";

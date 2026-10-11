@@ -1,0 +1,33 @@
+{
+  "task_id": "726c2ca6f48b8717817b242b64de2e845018b30b82d9ebe6596892fdd6211ae2",
+  "reading": {
+    "mode": "NATIVE_ALREADY_THERE",
+    "rule_ids": ["IR-3"],
+    "grounds": "The player says the character has always lived here and is originally present: an explicit native presence, no arrival.",
+    "evidence_quote": "I have always lived here"
+  },
+  "assessments": [
+    {
+      "fact_id": "world.premise",
+      "relation": "SUPPORTS",
+      "rule_ids": ["IR-7"],
+      "grounds": "A hamlet is a settlement where people live, so the premise is consistent with a salt-raker living here.",
+      "evidence_quote": "salt-marsh hamlet"
+    },
+    {
+      "fact_id": "world.basis",
+      "relation": "CONTRADICTS",
+      "rule_ids": ["IR-7", "IR-5"],
+      "grounds": "The canon says nothing that breathes air has ever lived here. A human being breathes air, and the accepted character is a human who says she has always lived here. The canon, as written, excludes that kind of presence. (The premise's hamlet and this canon are in tension with each other; that is for the world's owner to resolve, and neither is weakened here.)",
+      "evidence_quote": "nothing that breathes air has ever lived"
+    },
+    {
+      "fact_id": "locus.designation",
+      "relation": "SUPPORTS",
+      "rule_ids": ["IR-7"],
+      "grounds": "The statement names the same place as the locus.",
+      "evidence_quote": "salt pans"
+    }
+  ],
+  "clarification": null
+}
