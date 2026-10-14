@@ -209,17 +209,34 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
   const rl = createInterface({ input: o.input, crlfDelay: Infinity });
   for await (const line of rl) {
     if (line.trim() === "") continue;
-    let req: RpcRequest;
+    let parsed: unknown;
     try {
-      req = JSON.parse(line) as RpcRequest;
+      parsed = JSON.parse(line);
     } catch {
       error(null, -32700, "parse error");
       continue;
     }
-    const hasId = req.id !== undefined && req.id !== null;
-    const method = typeof req.method === "string" ? req.method : "";
+    // `null`, a scalar or an array is valid JSON but not a request: refuse it, never dereference it
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      error(null, -32600, "invalid request");
+      continue;
+    }
+    const req = parsed as RpcRequest;
+    const idGiven = req.id !== undefined;
+    const idValid =
+      typeof req.id === "string" || (typeof req.id === "number" && Number.isFinite(req.id));
+    if (typeof req.method !== "string") {
+      // not a notification either: a request without a method name is malformed (answered under its id when it has a usable one)
+      error(idGiven && idValid ? req.id : null, -32600, "invalid request");
+      continue;
+    }
+    if (!idGiven) continue; // notifications (e.g. notifications/initialized) need no reply
+    if (!idValid) {
+      error(null, -32600, "invalid request");
+      continue;
+    }
+    const method = req.method;
     const params = asRecord(req.params);
-    if (!hasId) continue; // notifications (e.g. notifications/initialized) need no reply
     try {
       if (method === "initialize") {
         const asked =

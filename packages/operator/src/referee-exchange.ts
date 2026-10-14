@@ -56,6 +56,9 @@ const FORMAT_VERSION = 1;
 const HostId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
 const Secret = z.string().regex(/^[0-9a-f]{64}$/);
 
+/** The most hosts one campaign binding may hold; `ConfigSchema` rejects a larger file, so `bindHost` must never write one. */
+const MAX_HOSTS = 8;
+
 const ConfigSchema = z.strictObject({
   format: z.literal(REFEREE_CONFIG_FORMAT),
   format_version: z.literal(FORMAT_VERSION),
@@ -69,7 +72,7 @@ const ConfigSchema = z.strictObject({
         operations: z.array(RefereeOperationSchema).min(1).max(3),
       }),
     )
-    .max(8),
+    .max(MAX_HOSTS),
 });
 export type RefereeConfig = z.infer<typeof ConfigSchema>;
 
@@ -208,6 +211,9 @@ export async function bindHost(
       };
   if (config.hosts.some((h) => h.host_id === p.hostId))
     return fail("HOST_EXISTS", "this host identity is already bound to this campaign");
+  // refused before any secret is drawn or anything is written: a ninth host would make the whole binding unreadable
+  if (config.hosts.length >= MAX_HOSTS)
+    return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
   const secret = randomBytes(32).toString("hex");
   const next: RefereeConfig = {
     ...config,

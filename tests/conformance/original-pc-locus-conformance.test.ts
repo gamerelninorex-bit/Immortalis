@@ -361,11 +361,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "2b008fdb586d92fa1ad57a8e1784429e605d42cc5b8fd1920694926aad7220b7",
+    head: "bd765a82f7a96d29ff3630a2ec03d55dca6d6fcad0356d967f6ceb29ec31e7b3",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "628d5f30e77bd19278c872eab9528173393176458a79044ed0fe8f2afe1fb0f2",
+    head: "b3f1bf7f906dd16f20af6a85e5704fbcef19f1e92b712dbe425fe2eb988baa5f",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
