@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import {
   BUILD_SPEC_IDENTITY,
@@ -13,7 +15,6 @@ import {
   ok,
   type BuildInfo,
   type CommitReceipt,
-  type Failure,
   type Genesis,
   type CommitGroup,
   type Manifest,
@@ -50,7 +51,9 @@ import type {
  *   manifest.json        identity, spec/engine provenance, and the commit point (`head`)
  *   state.<rev>.json     materialized canonical state at one revision
  *   journal.jsonl        append-only, hash-chained committed groups + receipts
- *   LOCK                 single-writer lock while a campaign is open
+ *   LOCK                 single-writer lock while a campaign is open (plus inert `LOCK.*` arbitration
+ *                        files that exist only while a lock is being released or reclaimed; see
+ *                        the single-writer lock section below)
  *
  * Publication order: state file -> journal append -> manifest rename. The manifest rename is the
  * single commit point; anything written after the manifest's `head` is residue that is reported on
@@ -117,7 +120,6 @@ export interface FileCampaignStore extends CampaignStore {
 
 const MANIFEST = "manifest.json";
 const JOURNAL = "journal.jsonl";
-const LOCK = "LOCK";
 const stateFileName = (revision: number) => `state.${String(revision).padStart(10, "0")}.json`;
 
 const pretty = (value: unknown): string =>
@@ -161,6 +163,7 @@ export async function createFileCampaign(
     });
   }
   const genesis = genesisParsed.data;
+  let lock: WriterLock;
   try {
     await fs.mkdirp(dir);
     if ((await fs.list(dir)).length > 0) {
@@ -169,7 +172,7 @@ export async function createFileCampaign(
         "target directory is not empty; refusing to create a campaign over it",
       );
     }
-    await fs.createExclusive(join(dir, LOCK), lockBody(genesis.campaign_id));
+    lock = await createInitialLock(fs, dir, genesis.campaign_id);
   } catch (e) {
     return fail("CREATE_FAILED", "could not prepare campaign directory", { cause: String(e) });
   }
@@ -211,6 +214,7 @@ export async function createFileCampaign(
       new FilePackageStore(
         dir,
         fs,
+        lock,
         core,
         manifest,
         params.buildId ?? null,
@@ -221,7 +225,7 @@ export async function createFileCampaign(
       ),
     );
   } catch (e) {
-    await fs.remove(join(dir, LOCK)).catch(() => undefined);
+    await lock.release().catch(() => undefined);
     return fail(
       "CREATE_FAILED",
       "campaign creation failed part-way; directory is not a loadable campaign",
@@ -232,62 +236,254 @@ export async function createFileCampaign(
   }
 }
 
-const lockBody = (campaignId: string) =>
-  `${JSON.stringify({ pid: process.pid, campaign_id: campaignId })}\n`;
+/**
+ * Single-writer lock for the prototype file package (IM-17), implementation-private. It changes no
+ * persisted campaign data: `LOCK` is a technical file whose body never carries a world fact.
+ *
+ * Why not "read the holder, unlink, retry": two openers can both observe the same dead holder, and
+ * the slower one then unlinks the *successor's* live lock (an ABA replacement) and creates its own,
+ * so both calls succeed. Neither a second read nor a PID re-check closes that window.
+ *
+ * The rule here is one invariant:
+ *
+ *   A lock instance X (identified by a never-reused nonce, or by a content hash for a legacy body)
+ *   is only ever REMOVED by a process that holds the exclusive claim `LOCK.claim.<X>`, and only
+ *   after re-reading `LOCK` under that claim and finding it is still X.
+ *
+ * `O_EXCL` creation is atomic, so one claim holder per name exists at a time. Because instance names
+ * never recur, a contender acting on a stale observation either loses the claim race, or wins a claim
+ * on an instance that is already gone, re-reads, sees a different instance and does nothing. The
+ * same rule arbitrates an abandoned claim (a claimant killed mid-way): it is replaced by claiming
+ * `LOCK.claim.<that claim's nonce>`, recursively, so no recovery step relies on timing or on a
+ * second look. Release is the same operation, so a handle that lost authority can never remove its
+ * successor's lock, and a reclaimer and a releaser exclude each other.
+ *
+ * Assumptions, adversarially tested where they can be: the directory lives on a local POSIX-style
+ * filesystem where `O_EXCL` create and `link(2)` are atomic; every process sharing the directory
+ * shares one host and PID namespace (a holder recorded on another host, or with an unverifiable PID,
+ * is never judged dead); a PID that answers `kill(pid, 0)` is alive. Anything else is a refusal.
+ */
+const LOCK_NAME = "LOCK";
+const CLAIM_PREFIX = "LOCK.claim.";
+const MAX_ATTEMPTS = 16;
 
-async function readLockHolder(fs: FsOps, path: string): Promise<number | null> {
+/** `LOCK`, `LOCK.claim.*` and `LOCK.*.tmp`: the lock family, never canonical data or reported residue. */
+const isWriterLockArtifact = (name: string): boolean =>
+  name === LOCK_NAME || name.startsWith("LOCK.");
+
+type LockRefusal = {
+  readonly code: "LOCKED";
+  readonly message: string;
+  readonly details?: Record<string, unknown>;
+};
+
+type Liveness = "alive" | "dead" | "unknown";
+
+interface Holder {
+  readonly id: string;
+  readonly pid: number | null;
+  readonly host: string | null;
+}
+
+const errCode = (e: unknown): string | undefined => (e as NodeJS.ErrnoException).code;
+
+const newBody = (extra: Record<string, unknown>): { nonce: string; text: string } => {
+  const nonce = randomUUID();
+  const text = `${JSON.stringify({ pid: process.pid, ...extra, nonce, host: hostname() })}\n`;
+  return { nonce, text };
+};
+
+/** null when the file does not exist; throws on any other read error (ownership then unprovable). */
+async function observe(fs: FsOps, path: string): Promise<Holder | null> {
+  let raw: Buffer;
   try {
-    const parsed = JSON.parse((await fs.readFile(path)).toString("utf8")) as { pid?: unknown };
-    return typeof parsed.pid === "number" ? parsed.pid : null;
+    raw = await fs.readFile(path);
+  } catch (e) {
+    if (errCode(e) === "ENOENT") return null;
+    throw e;
+  }
+  let parsed: { pid?: unknown; nonce?: unknown; host?: unknown } = {};
+  try {
+    const value = JSON.parse(raw.toString("utf8")) as unknown;
+    if (typeof value === "object" && value !== null) parsed = value;
   } catch {
-    return null;
+    // unparseable: identified by content, holder unknown, never reclaimed
+  }
+  const pid =
+    typeof parsed.pid === "number" && Number.isSafeInteger(parsed.pid) && parsed.pid > 0
+      ? parsed.pid
+      : null;
+  const id =
+    typeof parsed.nonce === "string" && /^[0-9a-f-]{36}$/.test(parsed.nonce)
+      ? parsed.nonce
+      : `legacy-${createHash("sha256").update(raw).digest("hex").slice(0, 32)}`;
+  return { id, pid, host: typeof parsed.host === "string" ? parsed.host : null };
+}
+
+function liveness(h: Holder): Liveness {
+  if (h.pid === null) return "unknown";
+  if (h.host !== null && h.host !== hostname()) return "unknown";
+  if (h.pid === process.pid) return "alive";
+  try {
+    process.kill(h.pid, 0);
+    return "alive";
+  } catch (e) {
+    const code = errCode(e);
+    if (code === "ESRCH") return "dead";
+    return code === "EPERM" ? "alive" : "unknown";
   }
 }
 
-function pidAlive(pid: number): boolean {
+async function tryCreate(fs: FsOps, path: string, text: string): Promise<boolean> {
   try {
-    process.kill(pid, 0);
+    await fs.createExclusive(path, text);
     return true;
   } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "EPERM";
+    if (errCode(e) === "EEXIST") return false;
+    throw e;
   }
 }
 
-async function acquireLock(
+type Acquired = { readonly kind: "acquired" };
+type Refused = {
+  readonly kind: "refused";
+  readonly holder: Holder | null;
+  readonly state: Liveness;
+  /** true when another live process is arbitrating, rather than the holder itself being the obstacle */
+  readonly arbitrating: boolean;
+};
+
+/**
+ * Takes exclusive ownership of `path` with `text`. An existing instance whose holder is provably dead
+ * is replaced only when `mayReclaim` allows it, and only under the claim named after that instance.
+ */
+async function acquireInstance(
+  fs: FsOps,
+  dir: string,
+  path: string,
+  text: string,
+  mayReclaim: boolean,
+  arbiters: ReadonlySet<string>,
+): Promise<Acquired | Refused> {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (await tryCreate(fs, path, text)) return { kind: "acquired" };
+    const holder = await observe(fs, path);
+    if (holder === null) continue;
+    const state = liveness(holder);
+    if (!mayReclaim || state !== "dead") {
+      return { kind: "refused", holder, state, arbitrating: false };
+    }
+    // Recovery of an abandoned arbiter recurses along the on-disk chain of dead claim owners. Every
+    // link is a distinct never-reused nonce, so the chain is finite and needs no depth cap; a
+    // repeated id (only a corrupted directory can produce one) is refused rather than looped on.
+    if (arbiters.has(holder.id)) return { kind: "refused", holder, state, arbitrating: true };
+
+    const claimPath = join(dir, `${CLAIM_PREFIX}${holder.id}`);
+    const claim = newBody({ claims: holder.id });
+    const got = await acquireInstance(
+      fs,
+      dir,
+      claimPath,
+      claim.text,
+      true,
+      new Set([...arbiters, holder.id]),
+    );
+    if (got.kind !== "acquired") return { kind: "refused", holder, state, arbitrating: true };
+    try {
+      const current = await observe(fs, path);
+      if (current === null || current.id !== holder.id) continue; // moved on: judge the new state afresh
+      await fs.remove(path); // only this claim holder may remove this instance
+      if (await tryCreate(fs, path, text)) return { kind: "acquired" };
+    } finally {
+      await fs.remove(claimPath).catch(() => undefined); // an orphan here is inert: its instance is gone
+    }
+  }
+  return { kind: "refused", holder: null, state: "unknown", arbitrating: true };
+}
+
+/** The writer authority of one open store. Identity is the nonce of the LOCK this handle created. */
+class WriterLock {
+  readonly #fs: FsOps;
+  readonly #dir: string;
+  readonly #id: string;
+
+  constructor(fs: FsOps, dir: string, id: string) {
+    this.#fs = fs;
+    this.#dir = dir;
+    this.#id = id;
+  }
+
+  /** "owned" only when LOCK still carries this handle's instance; anything unprovable is not owned. */
+  async check(): Promise<"owned" | "lost" | "unverified"> {
+    try {
+      const current = await observe(this.#fs, join(this.#dir, LOCK_NAME));
+      return current !== null && current.id === this.#id ? "owned" : "lost";
+    } catch {
+      return "unverified";
+    }
+  }
+
+  /**
+   * Removes LOCK only if it is still this handle's instance, under the same claim a reclaimer would
+   * need. A successor's lock, or a lock under active arbitration, is left untouched. Idempotent.
+   */
+  async release(): Promise<void> {
+    const claimPath = join(this.#dir, `${CLAIM_PREFIX}${this.#id}`);
+    const claim = newBody({ claims: this.#id });
+    const got = await acquireInstance(this.#fs, this.#dir, claimPath, claim.text, true, new Set());
+    if (got.kind !== "acquired") return;
+    try {
+      const current = await observe(this.#fs, join(this.#dir, LOCK_NAME));
+      if (current !== null && current.id === this.#id) {
+        await this.#fs.remove(join(this.#dir, LOCK_NAME));
+      }
+    } finally {
+      await this.#fs.remove(claimPath).catch(() => undefined);
+    }
+  }
+}
+
+/** The lock a new campaign is created under: the directory is empty, so a plain exclusive create. */
+async function createInitialLock(fs: FsOps, dir: string, campaignId: string): Promise<WriterLock> {
+  const { nonce, text } = newBody({ campaign_id: campaignId });
+  await fs.createExclusive(join(dir, LOCK_NAME), text);
+  return new WriterLock(fs, dir, nonce);
+}
+
+async function acquireWriterLock(
   fs: FsOps,
   dir: string,
   reclaimStale: boolean,
-): Promise<Failure<OpenErrorCode> | null> {
-  const path = join(dir, LOCK);
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      await fs.createExclusive(path, lockBody("(pending)"));
-      return null;
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
-        return {
-          code: "LOCKED",
-          message: "could not take the campaign lock",
-          details: { cause: String(e) },
-        };
-      }
-    }
-    const holder = await readLockHolder(fs, path);
-    const alive = holder === null ? null : pidAlive(holder);
-    if (reclaimStale && alive === false && attempt === 0) {
-      await fs.remove(path);
-      continue;
-    }
+): Promise<{ ok: true; lock: WriterLock } | { ok: false; failure: LockRefusal }> {
+  const { nonce, text } = newBody({ campaign_id: "(pending)" });
+  let outcome: Acquired | Refused;
+  try {
+    outcome = await acquireInstance(fs, dir, join(dir, LOCK_NAME), text, reclaimStale, new Set());
+  } catch (e) {
     return {
-      code: "LOCKED",
-      message:
-        alive === false
-          ? "campaign is locked by a process that is no longer running; pass reclaimStaleLock to take it over"
-          : "campaign is open elsewhere (or the lock holder is unknown)",
-      details: { holder_pid: holder, holder_alive: alive },
+      ok: false,
+      failure: {
+        code: "LOCKED",
+        message: "could not take the campaign lock",
+        details: { cause: String(e) },
+      },
     };
   }
-  return { code: "LOCKED", message: "could not take the campaign lock" };
+  if (outcome.kind === "acquired") return { ok: true, lock: new WriterLock(fs, dir, nonce) };
+  const alive = outcome.state === "unknown" ? null : outcome.state === "alive";
+  const message = outcome.arbitrating
+    ? "campaign lock is under arbitration by another process; refusing rather than guessing"
+    : outcome.state === "dead"
+      ? "campaign is locked by a process that is no longer running; pass reclaimStaleLock to take it over"
+      : "campaign is open elsewhere (or the lock holder is unknown)";
+  return {
+    ok: false,
+    failure: {
+      code: "LOCKED",
+      message,
+      details: { holder_pid: outcome.holder?.pid ?? null, holder_alive: alive },
+    },
+  };
 }
 
 export async function openFileCampaign(
@@ -298,13 +494,20 @@ export async function openFileCampaign(
   if ((await fs.fileSize(join(dir, MANIFEST))) === null) {
     return fail("MISSING_MANIFEST", "no manifest.json: not a (complete) campaign package", { dir });
   }
-  const lockFailure = await acquireLock(fs, dir, options.reclaimStaleLock ?? false);
-  if (lockFailure) return { ok: false, error: lockFailure };
+  const acquired = await acquireWriterLock(fs, dir, options.reclaimStaleLock ?? false);
+  if (!acquired.ok) return { ok: false, error: acquired.failure };
 
-  const loaded = await load(dir, fs, options);
+  let loaded: Result<FileCampaignStore, OpenErrorCode>;
+  try {
+    loaded = await load(dir, fs, acquired.lock, options);
+  } catch (e) {
+    // an I/O error thrown mid-load must not strand a lock naming this still-live process
+    await acquired.lock.release().catch(() => undefined);
+    throw e;
+  }
   if (!loaded.ok) {
-    await fs.remove(join(dir, LOCK)).catch(() => undefined);
-    return loaded;
+    // releases only if the lock is still this attempt's own; a successor's is never touched
+    await acquired.lock.release().catch(() => undefined);
   }
   return loaded;
 }
@@ -312,6 +515,7 @@ export async function openFileCampaign(
 async function load(
   dir: string,
   fs: FsOps,
+  lock: WriterLock,
   options: FileCampaignOptions,
 ): Promise<Result<FileCampaignStore, OpenErrorCode>> {
   const expectedSpec = options.specIdentity ?? BUILD_SPEC_IDENTITY;
@@ -465,8 +669,10 @@ async function load(
   }
 
   // --- residue (reported, never adopted) -------------------------------------------------------
-  const known = new Set([MANIFEST, JOURNAL, LOCK, head.state_file]);
-  const other = (await fs.list(dir)).filter((f) => !known.has(f)).sort();
+  const known = new Set([MANIFEST, JOURNAL, head.state_file]);
+  const other = (await fs.list(dir))
+    .filter((f) => !known.has(f) && !isWriterLockArtifact(f))
+    .sort();
   const residue: Residue = {
     journal_tail_bytes: journalBuf.length - head.journal_bytes,
     other_files: other,
@@ -477,6 +683,7 @@ async function load(
     new FilePackageStore(
       dir,
       fs,
+      lock,
       core,
       manifest,
       build,
@@ -495,6 +702,7 @@ class FilePackageStore implements FileCampaignStore {
   readonly #spec: SpecIdentity;
   readonly #dir: string;
   readonly #fs: FsOps;
+  readonly #lock: WriterLock;
   readonly #core: CampaignCore;
   #manifest: Manifest;
   #buildId: string | null;
@@ -502,10 +710,12 @@ class FilePackageStore implements FileCampaignStore {
   #queue: Promise<unknown> = Promise.resolve();
   #closed = false;
   #poisoned = false;
+  #writerLost = false;
 
   constructor(
     dir: string,
     fs: FsOps,
+    lock: WriterLock,
     core: CampaignCore,
     manifest: Manifest,
     buildId: string | null,
@@ -516,6 +726,7 @@ class FilePackageStore implements FileCampaignStore {
   ) {
     this.#dir = dir;
     this.#fs = fs;
+    this.#lock = lock;
     this.#core = core;
     this.#manifest = manifest;
     this.#buildId = buildId;
@@ -574,6 +785,19 @@ class FilePackageStore implements FileCampaignStore {
         "an earlier commit had an unknown outcome; reopen and reconcile by intent_id",
       );
     }
+    // Never write from a handle whose single-writer authority is lost or cannot be proven.
+    if (this.#writerLost) {
+      return fail("STORE_CLOSED", "this handle no longer holds the campaign's writer lock", {
+        reason: "WRITER_LOCK_LOST",
+      });
+    }
+    const owned = await this.#lock.check();
+    if (owned !== "owned") {
+      if (owned === "lost") this.#writerLost = true;
+      return fail("STORE_CLOSED", "this handle no longer holds the campaign's writer lock", {
+        reason: owned === "lost" ? "WRITER_LOCK_LOST" : "WRITER_LOCK_UNVERIFIED",
+      });
+    }
     const prepared = this.#core.prepare(group);
     if (!prepared.ok) return prepared;
     if (prepared.value.kind === "replay") {
@@ -631,6 +855,6 @@ class FilePackageStore implements FileCampaignStore {
     await this.#queue.catch(() => undefined);
     if (this.#closed) return;
     this.#closed = true;
-    await this.#fs.remove(join(this.#dir, LOCK));
+    await this.#lock.release();
   }
 }

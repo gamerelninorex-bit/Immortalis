@@ -6,12 +6,14 @@ Governing lock: `spec/f027/spec-lock.json`. Contracts used: RC-01 SourceRef, RC-
 
 ## Layout
 
-| File               | Role                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `manifest.json`    | Campaign identity, spec + engine provenance, and `head` — the **single commit point**    |
-| `state.<rev>.json` | Materialized canonical state (owner facts sorted by key) at one revision; human-readable |
-| `journal.jsonl`    | Append-only, hash-chained committed groups with their receipts                           |
-| `LOCK`             | Single-writer lock while open; a stale lock is reported, never silently broken           |
+| File               | Role                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `manifest.json`    | Campaign identity, spec + engine provenance, and `head` — the **single commit point**      |
+| `state.<rev>.json` | Materialized canonical state (owner facts sorted by key) at one revision; human-readable   |
+| `journal.jsonl`    | Append-only, hash-chained committed groups with their receipts                             |
+| `LOCK`             | Single-writer lock while open; a stale lock is reported, never silently broken (see below) |
+
+**Single-writer lock.** `LOCK` carries `{pid, campaign_id, nonce, host}`; a legacy `{pid, campaign_id}` body is still read, identified by a hash of its bytes. It is a technical file only and never publishes a world fact. Every removal or replacement of a lock instance is done under the exclusive claim `LOCK.claim.<instance id>` (atomic create) after re-reading `LOCK` under that claim, so a contender acting on a stale observation of a dead holder cannot remove a successor's live lock; an abandoned claim is replaced by claiming that claim, and `close()` uses the same rule, so a handle that lost the lock cannot release or write as the writer (its commits are refused with `STORE_CLOSED`, `details.reason` `WRITER_LOCK_LOST` / `WRITER_LOCK_UNVERIFIED`). `reclaimStaleLock` still defaults to `false`; with `true` only a holder that is provably dead (`ESRCH`) on this host is replaced. An unparseable, unknown, other-host or live holder is refused. `LOCK.*` files (claims, `*.tmp`) are never canonical data or reported residue. Environment contract: a local filesystem with atomic `link(2)` (lock and claim files are published complete or not at all; a filesystem that cannot hard-link is refused explicitly with `EATOMIC_PUBLISH_UNSUPPORTED` — create fails, open returns `LOCKED` naming the cause — never silently weakened), and every opener sharing one host and PID namespace. A failed open, including a thrown I/O error during load, releases only its own lock. A killed process can leave inert `LOCK.*` files; none block recovery, including a chain of any number of successively killed recoverers (each link is a distinct nonce, so recovery walks the finite on-disk chain; a self-referencing chain is refused).
 
 There is no campaign clock in the package: F-014B defines no universal tick, and no temporal model is introduced here. Identical inputs produce byte-identical files (no wall-clock or randomness; the campaign id is supplied by the caller).
 

@@ -159,7 +159,7 @@ describe("CJA1 foundation — no live foreign re-read and no version-churn deadl
     const dir = tempDir();
     const s = await seededCjaCampaign(dir);
     await must(run(s));
-    s.campaign.store.close();
+    await s.campaign.store.close();
     const r = await reopenCja(dir);
     const loaded = r.adapter.decision(updateIdOf(s));
     expect(loaded?.value.verdict).toBe("ESTABLISH_SUPPORTED");
