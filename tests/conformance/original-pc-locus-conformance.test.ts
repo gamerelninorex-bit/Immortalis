@@ -215,12 +215,11 @@ describe("the custody stays a stationary record: nothing downstream is implied",
     );
   });
 
-  it("the post-handover consumers refuse a custody that is not the handover branch", () => {
-    for (const f of [
-      "packages/engine/src/pc-movement/derive.ts",
-      "packages/protocol/src/active-pc-target-advance.ts",
-    ])
-      expect(code(f), f).toMatch(/isPostHandoverCustody/);
+  it("the post-handover movement consumer refuses a custody that is not the handover branch (the stationary target advance later took the original branch for time progression only: BLUE v5.2, see protocol-original-pc-target-advance-conformance)", () => {
+    expect(code("packages/engine/src/pc-movement/derive.ts")).toMatch(/isPostHandoverCustody/);
+    expect(code("packages/protocol/src/active-pc-target-advance.ts")).toMatch(
+      /isPostHandoverCustody/,
+    );
   });
 });
 
@@ -371,10 +370,6 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
     head: "ba27dc5a51930c957e057cadc87f01ad9f5800fccfd16ab1d940312806205a5d",
   },
-  "packages/protocol/src/active-pc-target-advance.ts": {
-    base: "760df157482030d056a48f59081291ef72d382604c4111eb6aecdbcfddb9bf04",
-    head: "50b828821ecd6218502113d31e9cf74985bc297ff1c776069c9545696439735c",
-  },
 };
 // DELTAS:END
 
@@ -407,5 +402,4 @@ const EXPECTED_DELTA_FILES: string[] = [
   "packages/operator/src/referee-exchange.ts",
   "packages/operator/src/referee-mcp.ts",
   "packages/operator/src/referee-session.ts",
-  "packages/protocol/src/active-pc-target-advance.ts",
 ];

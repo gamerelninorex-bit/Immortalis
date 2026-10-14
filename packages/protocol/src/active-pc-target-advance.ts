@@ -2,6 +2,7 @@ import {
   AdvanceActivePcToTargetRequestSchema,
   CanonicalTimeSchema,
   EntityId,
+  ORIGINAL_ACTIVATION,
   PC_TARGET_ADVANCE_COMMITTED,
   PC_TARGET_ADVANCE_OUTCOME_UNKNOWN,
   PC_TARGET_ADVANCE_OUTCOME_UNKNOWN_MESSAGE,
@@ -80,7 +81,11 @@ import {
  * check cannot positively recognise is the one refusal. Stationary custody alone is not read as making every in-world activity
  * freely interruptible: the only Temporal objects the kernel can engage declare `creates_epistemic_interruption: false`, no PC
  * actionable-knowledge interruption evaluator exists in this engine, and where this module cannot establish that no indispensable
- * PC-actionable interruption or engagement is being bypassed it refuses instead of weakening F-014B §10. It then builds the one
+ * PC-actionable interruption or engagement is being bypassed it refuses instead of weakening F-014B §10. Two custody bases are
+ * recognised, each as itself and mutually exclusive: the post-handover custody (with or without its settled single-leg movement),
+ * and the ORIGINAL first-activation custody (World-State's sealed record qualified by the two retained referee decisions), which
+ * states where the PC stationarily IS and nothing more and so is admitted for time progression only, as `STATIONARY_AT_ORIGIN`
+ * with no movement of any kind; it never gains a movement branch (movement stays handover-only). It then builds the one
  * existing `ResolutionRequestSchema` request — `requested: { target, condition: null }` — and drives it through the EXISTING
  * `TemporalCoordinator.advance` over the real owner stage providers the engine already ships (including GIP's own sunset expiry),
  * so the kernel alone selects what is due, resolves each declared dependency closure in its own order and records the one
@@ -304,9 +309,16 @@ function isStationaryActivePc(
   // the PC's one stationary physical-locus custody names its world; the present locus must be a stationary one (World-State's)
   const custody = campaign.pcPhysicalLocusCustody(pcId);
   const locus = campaign.pcCurrentLocus(pcId);
-  // the target advance serves the post-handover branch only; an original-activation custody states a stationary position and nothing more
-  if (!custody || !isPostHandoverCustody(custody.value) || !locus || locus.stationary === null)
-    return false;
+  if (!custody || !locus || locus.stationary === null) return false;
+  // the two custody bases are mutually exclusive and each is read as itself: the post-handover predicate is the predecessor's and is
+  // not broadened; an ORIGINAL first-activation custody (owner-admitted only on its two qualifying referee decisions, over the
+  // operative ACTIVATION binding) states a stationary position and nothing more, so it is admitted for time progression alone and
+  // never for movement, and every other basis is not recognised
+  const handover = isPostHandoverCustody(custody.value);
+  const original =
+    custody.value.basis.established_from === ORIGINAL_ACTIVATION &&
+    campaign.binding()?.value.transition.type === ORIGINAL_ACTIVATION;
+  if (!handover && !original) return false;
   const worldId = custody.value.stationary_locus.world.entity_id;
   const logistics = new LogisticsAdapter(campaign.store);
   const commitment = logistics.commitment(worldId, pcId);
@@ -323,8 +335,10 @@ function isStationaryActivePc(
       // no movement of any kind has been started: no willingness, request, Logistics commitment, transfer or registered object
       return !willingness && !request && !commitment && !transfer && !object;
     case "DESTINATION_COMMITTED":
-      // the one single-leg movement is fully settled: destination committed by World-State and the transfer retired
+      // the one single-leg movement is fully settled: destination committed by World-State and the transfer retired; an original
+      // custody has no movement branch at all (movement is limited to the handover), so a destination commit there is never settled
       return (
+        handover &&
         willingness !== undefined &&
         request !== undefined &&
         commitment !== undefined &&
