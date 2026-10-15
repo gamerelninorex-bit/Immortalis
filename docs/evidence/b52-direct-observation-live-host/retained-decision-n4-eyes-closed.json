@@ -1,0 +1,166 @@
+{
+  "key": "referee/ec9d911c8d66c41476705f3d8a0b9c4c28df1eadcad3d90b16218cf4aa4d5ad9/decision",
+  "value": {
+    "attempt": 0,
+    "authority": {
+      "permission": "permission.rule.adjudicate",
+      "role": "role.gm"
+    },
+    "campaign_id": "campaign-ashfall",
+    "decision": {
+      "assessments": [
+        {
+          "evidence_quote": null,
+          "fact_id": "world.premise",
+          "grounds": "General premise; bears on neither question.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": null,
+          "fact_id": "world.basis",
+          "grounds": "Canon provenance only.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": null,
+          "fact_id": "locus.designation",
+          "grounds": "A name only.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
+          "fact_id": "locus.constraint.1",
+          "grounds": "Gives the bench position and the distance and direction to the north wall.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
+          "fact_id": "locus.constraint.2",
+          "grounds": "Describes the wall surface that would be seen if the eyes were open.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+          "fact_id": "locus.constraint.3",
+          "grounds": "Daylight lights the north wall evenly, so the path is illuminated.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+          "fact_id": "locus.constraint.4",
+          "grounds": "The air is clear, so nothing obstructs the path.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        }
+      ],
+      "faculty": {
+        "grounds": "The character's own embodiment statement establishes functioning colour vision.",
+        "premises": [
+          {
+            "evidence_quote": "One ordinary human body with ordinary, fully functioning colour vision",
+            "from": "PC_STATEMENT",
+            "ref": "mirror/embodiment/772d87ba472a"
+          }
+        ],
+        "rule_ids": ["F014D-5", "F014D-6"],
+        "state": "ESTABLISHED"
+      },
+      "path": {
+        "grounds": "The world path from the north wall to the bench is lit and clear, with no world obstruction. The closed eyes are a position matter, not a world blockage.",
+        "premises": [
+          {
+            "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.3"
+          },
+          {
+            "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.4"
+          }
+        ],
+        "rule_ids": ["F014D-6"],
+        "state": "OPEN"
+      },
+      "payload": null,
+      "position": {
+        "grounds": "Location and facing (seated on the bench, facing the north wall) are established, but the character's own statement says the eyes are closed, so the visual surfaces are not exposed and the circumstances needed to receive a visual appearance are not established. No statement says the eyes are open.",
+        "premises": [
+          {
+            "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes closed",
+            "from": "PLACEMENT_STATEMENT",
+            "ref": "placement.statement"
+          },
+          {
+            "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.1"
+          }
+        ],
+        "rule_ids": ["F014D-5", "F014D-6"],
+        "state": "NOT_ESTABLISHED"
+      },
+      "task_id": "ec9d911c8d66c41476705f3d8a0b9c4c28df1eadcad3d90b16218cf4aa4d5ad9",
+      "unresolved_forks": []
+    },
+    "host": {
+      "claimed_model": null,
+      "host_id": "claude-code-headless"
+    },
+    "input": {
+      "candidate": null,
+      "candidate_digest": null,
+      "digest": "90b83cc8004a350ebfed6ee9a3025199b0964f5ed47085fec0658fd84f4b211f",
+      "observed_at": {
+        "unit": "live-exercise-unit",
+        "value": 100
+      },
+      "refs": [
+        {
+          "fact_key": "pc/pc-maren/existence-contract",
+          "group_id": "operator-pc:802afee4ceea1b4b4c06da6790ecd127:release",
+          "version": 1
+        },
+        {
+          "fact_key": "role-registry/binding/role.player_character",
+          "group_id": "operator-pc:8caaa033ac429af9e85ccfe7bce04977:bind",
+          "version": 1
+        },
+        {
+          "fact_key": "world-state/pc/pc-maren/locus-custody",
+          "group_id": "operator-pc:d29d541f64f15f42bd1b3509409e189b:locus",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/profile",
+          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:world",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/locus/locus-alcove",
+          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:locus",
+          "version": 1
+        }
+      ],
+      "statement": "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes closed.",
+      "statement_digest": "2196b9fb19c1b56308c9b9407c1a6eea6eb7cfc618d5b95a3cacba5afd7d0397"
+    },
+    "operation": "F014D_DIRECT_PERCEPTION",
+    "record_version": 1,
+    "subject": {
+      "pc_id": "pc-maren"
+    },
+    "task_id": "ec9d911c8d66c41476705f3d8a0b9c4c28df1eadcad3d90b16218cf4aa4d5ad9",
+    "validated_under": {
+      "permission": "permission.resolution.execute",
+      "role": "role.resolver"
+    },
+    "verdict": "OBSERVATION_UNRESOLVED"
+  }
+}

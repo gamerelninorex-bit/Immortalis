@@ -1,0 +1,165 @@
+{
+  "key": "referee/c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921/decision",
+  "value": {
+    "attempt": 0,
+    "authority": {
+      "permission": "permission.rule.adjudicate",
+      "role": "role.gm"
+    },
+    "campaign_id": "campaign-ashfall",
+    "decision": {
+      "assessments": [
+        {
+          "evidence_quote": null,
+          "fact_id": "world.premise",
+          "grounds": "General setting; it bears on neither the viewing position nor the path.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": null,
+          "fact_id": "world.basis",
+          "grounds": "States the canon basis only.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "A stone alcove",
+          "fact_id": "locus.designation",
+          "grounds": "Names the locus the character is placed in, consistent with the placement statement. It does not give a viewing position.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
+          "fact_id": "locus.constraint.1",
+          "grounds": "Gives the room geometry: the bench faces the north wall at three paces. The character is not stated to be on the bench.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
+          "fact_id": "locus.constraint.2",
+          "grounds": "Describes the feature that could be seen, a bright red patch on a whitewashed wall. It is not perceived, because position is not established.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+          "fact_id": "locus.constraint.3",
+          "grounds": "Daylight lights the north wall evenly, so illumination does not obstruct the path.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+          "fact_id": "locus.constraint.4",
+          "grounds": "The air between the bench and the north wall is clear, so it does not obstruct that line.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        }
+      ],
+      "faculty": {
+        "grounds": "The character's own embodiment statement establishes functioning colour vision.",
+        "premises": [
+          {
+            "evidence_quote": "One ordinary human body with ordinary, fully functioning colour vision",
+            "from": "PC_STATEMENT",
+            "ref": "mirror/embodiment/772d87ba472a"
+          }
+        ],
+        "rule_ids": ["F014D-5", "F014D-6"],
+        "state": "ESTABLISHED"
+      },
+      "path": {
+        "grounds": "The light and air facts describe no obstruction between the bench and the north wall. But the character's viewing position is not established, so the path from the red patch to the character's eyes cannot be settled. No blocking fact is established either, so the path is not BLOCKED.",
+        "premises": [
+          {
+            "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.4"
+          },
+          {
+            "evidence_quote": "lights the north wall evenly",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.3"
+          }
+        ],
+        "rule_ids": ["F014D-6"],
+        "state": "NOT_ESTABLISHED"
+      },
+      "payload": null,
+      "position": {
+        "grounds": "The placement says only that the character is in the alcove. It does not say where in the alcove, which way the character faces, or whether the eyes are open. The bench is described only as a fixture and the statement does not put the character on it. A shared locus does not establish these circumstances, and none may be assumed.",
+        "premises": [
+          {
+            "evidence_quote": "I am originally present in the stone alcove.",
+            "from": "PLACEMENT_STATEMENT",
+            "ref": "placement.statement"
+          }
+        ],
+        "rule_ids": ["F014D-6", "IR-5"],
+        "state": "NOT_ESTABLISHED"
+      },
+      "task_id": "c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921",
+      "unresolved_forks": [
+        "Where in the alcove the character is, for example whether on the bench or standing elsewhere.",
+        "Which way the character faces.",
+        "Whether the character's eyes are open."
+      ]
+    },
+    "host": {
+      "claimed_model": null,
+      "host_id": "claude-code-headless"
+    },
+    "input": {
+      "candidate": null,
+      "candidate_digest": null,
+      "digest": "45aa043d715986d54b66e277d908c13e111f9c97b7326e9f21b0e724db41360d",
+      "observed_at": {
+        "unit": "live-exercise-unit",
+        "value": 100
+      },
+      "refs": [
+        {
+          "fact_key": "pc/pc-maren/existence-contract",
+          "group_id": "operator-pc:bf6cedf44e422e994becaaa874b9d608:release",
+          "version": 1
+        },
+        {
+          "fact_key": "role-registry/binding/role.player_character",
+          "group_id": "operator-pc:ad41e8a08d92f3c274d3599abef73a15:bind",
+          "version": 1
+        },
+        {
+          "fact_key": "world-state/pc/pc-maren/locus-custody",
+          "group_id": "operator-pc:b5ef201ab6ad89a5c0af8f2625a91b8e:locus",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/profile",
+          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:world",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/locus/locus-alcove",
+          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:locus",
+          "version": 1
+        }
+      ],
+      "statement": "I have always lived here: I am originally present in the stone alcove.",
+      "statement_digest": "241c19d30ac67060a97b5ec893ca5787216164147e74af0cfe87b38d88534646"
+    },
+    "operation": "F014D_DIRECT_PERCEPTION",
+    "record_version": 1,
+    "subject": {
+      "pc_id": "pc-maren"
+    },
+    "task_id": "c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921",
+    "validated_under": {
+      "permission": "permission.resolution.execute",
+      "role": "role.resolver"
+    },
+    "verdict": "OBSERVATION_UNRESOLVED"
+  }
+}
