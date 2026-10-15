@@ -6,6 +6,7 @@
 // as an MCP client would speak to it; the expected value is whatever the existing direct gateway returns over the very same canon.
 import { spawn } from "node:child_process";
 import { chmodSync, cpSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { expect } from "vitest";
@@ -14,7 +15,11 @@ import {
   readCurrentObservationGlance,
 } from "@immortalis/protocol";
 import { playerViewDir } from "../../packages/operator/src/player-view-exchange.ts";
-import { runPlayerViewBindCli } from "../../packages/operator/src/player-view-mcp.ts";
+import {
+  runPlayerViewBindCli,
+  runPlayerViewMcpCli,
+} from "../../packages/operator/src/player-view-mcp.ts";
+import { nodeFs, type FsOps } from "@immortalis/engine";
 import { GLANCE_REQUEST } from "./protocol.ts";
 import { LOCALITY_CAMPAIGN, openOrdinary, type LocalityDirs } from "./locality.ts";
 import { PC_ID } from "./observation.ts";
@@ -199,4 +204,56 @@ export function copyDirs(from: LocalityDirs): LocalityDirs {
   chmodSync(campaignDir, 0o755);
   chmodSync(operatorDir, 0o700);
   return { campaignDir, operatorDir };
+}
+
+/** A file-system seam that records the name of every operation (read or write) it is asked to perform. */
+export function recordingFs(): { fs: FsOps; calls: string[] } {
+  const calls: string[] = [];
+  const wrapped: Record<string, unknown> = {};
+  for (const [name, fn] of Object.entries(nodeFs)) {
+    wrapped[name] = (...args: unknown[]) => {
+      calls.push(name);
+      return (fn as (...a: unknown[]) => unknown).apply(nodeFs, args);
+    };
+  }
+  return { fs: wrapped as unknown as FsOps, calls };
+}
+
+/**
+ * Runs the shipped tool-server entry point IN-PROCESS over the given input lines, with both file-system seams recording. Returns every reply
+ * line (parsed) and the operations the server performed on the package and on the retained state.
+ */
+export async function serveInProcess(
+  dirs: LocalityDirs,
+  secretFile: string,
+  lines: readonly string[],
+) {
+  const campaign = recordingFs();
+  const ledger = recordingFs();
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const chunks: string[] = [];
+  output.on("data", (d) => chunks.push(String(d)));
+  const errors: string[] = [];
+  const done = runPlayerViewMcpCli(serverArgs(dirs, secretFile), {
+    input,
+    output,
+    error: (l) => errors.push(l),
+    campaignFs: campaign.fs,
+    ledgerFs: ledger.fs,
+  });
+  for (const l of lines) input.write(`${l}\n`);
+  input.end();
+  const code = await done;
+  return {
+    code,
+    errors,
+    replies: chunks
+      .join("")
+      .split("\n")
+      .filter((l) => l !== "")
+      .map((l) => JSON.parse(l)) as any[],
+    campaignCalls: campaign.calls,
+    ledgerCalls: ledger.calls,
+  };
 }

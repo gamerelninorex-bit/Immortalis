@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw JSON-RPC replies */
 // Security and trust-boundary evidence for the local PLAYER-VIEW MCP transport (BLUE v5.2 bounded brief 2026-10-15; Runtime Contract IM-15 /
 // IM-16, RC-14; F-027 isolation). Static checks over the transport's own source plus bounded behavioural checks over a real journey. The
 // transport authenticates a LOCAL process to a LOCAL operator-written binding and proves the one authorized player view against canon on every
@@ -24,6 +25,7 @@ import {
   bindHost,
   copyDirs,
   directGlance,
+  serveInProcess,
   serverArgs,
   withServer,
 } from "../support/player-view.ts";
@@ -266,23 +268,214 @@ describe("a hostile or unbound caller learns nothing before authorization, and n
     }
   });
 
-  it("a caller that never completes the handshake, or sends calls out of order, still receives nothing but protocol replies", async () => {
+  it("a caller that is not bound gets the refusal, never the presentation, however it frames the call", async () => {
     const source = (await observationCampaign()).dirs;
     expect((await observe(source)).result.status).toBe("OBSERVATION_RECEIVED");
     const dirs = copyDirs(source);
     const b = await bindHost(dirs);
-    // a tool call before any initialize is served by the same rules: authorization is per call, never per session
-    const c = new McpClient(serverArgs(dirs, b.secretFile));
-    const direct = await directGlance(dirs);
-    expect((await c.call({})).text).toBe(direct);
-    c.end();
-    expect(await c.exit()).toBe(0);
-    // and a caller that is not bound gets the refusal, never the presentation, however it frames the call
     const stranger = new McpClient(serverArgs(dirs, b.secretFile, { hostId: "stranger" }));
+    await stranger.handshake();
     const r = await stranger.call({});
     expect(r.isError).toBe(true);
     expect(r.text).toBe(PROTOCOL_REFUSAL);
     stranger.end();
     await stranger.exit();
+  });
+});
+
+describe("MCP admission and lifecycle (BLUE H-1): a malformed or out-of-phase message is refused before anything is read or disclosed", () => {
+  let dirs: LocalityDirs;
+  let secretFile: string;
+  let direct: string;
+  beforeAll(async () => {
+    const source = (await observationCampaign()).dirs;
+    expect((await observe(source)).result.status).toBe("OBSERVATION_RECEIVED");
+    dirs = copyDirs(source);
+    secretFile = (await bindHost(dirs)).secretFile;
+    direct = await directGlance(dirs);
+    expect(JSON.parse(direct).ok).toBe(true); // the campaign has an earned, current observation
+  }, 120_000);
+
+  const INIT = {
+    protocolVersion: "2025-06-18",
+    capabilities: {},
+    clientInfo: { name: "test-client", version: "0" },
+  };
+  const CALL_PARAMS = { name: "read_current_observation_glance", arguments: {} };
+  /** The text that would only appear in a delivered presentation. */
+  const LEAK = /PERCEPTION|CONTACT|REFERENT|bright red|NPK_EVENT_SIGNAL|"ok":true/;
+
+  it("the review's own example — a tools/call without jsonrpc 2.0 — is refused, in every stage, on a real stdio process", async () => {
+    const c = new McpClient(serverArgs(dirs, secretFile));
+    // before initialization
+    const bare = await c.raw(JSON.stringify({ id: 1, method: "tools/call", params: CALL_PARAMS }));
+    expect(bare.error.code).toBe(-32600);
+    expect(JSON.stringify(bare)).not.toMatch(LEAK);
+    // after a complete, valid initialization the same malformed message is still refused
+    await c.handshake();
+    for (const wrong of [undefined, "1.0", "2", 2, "2.0 ", null, ["2.0"]]) {
+      const r = await c.raw(
+        JSON.stringify({ jsonrpc: wrong, id: 2, method: "tools/call", params: CALL_PARAMS }),
+      );
+      expect(r.error.code, String(wrong)).toBe(-32600);
+      expect(r.result, String(wrong)).toBeUndefined();
+      expect(JSON.stringify(r), String(wrong)).not.toMatch(LEAK);
+    }
+    // the session is unharmed by the refusals: the well-formed call is served
+    expect((await c.call({})).text).toBe(direct);
+    c.end();
+    expect(await c.exit()).toBe(0);
+  });
+
+  it("request identities that are not strings or integers are refused on a real stdio process, and a normal identity is served afterwards", async () => {
+    const c = new McpClient(serverArgs(dirs, secretFile));
+    await c.handshake();
+    for (const id of [1.5, true, false, null, {}, [], 2 ** 53]) {
+      const r = await c.raw(
+        JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: CALL_PARAMS }),
+      );
+      expect(r.error.code, JSON.stringify(id)).toBe(-32600);
+      expect(r.id).toBeNull();
+      expect(JSON.stringify(r)).not.toMatch(LEAK);
+    }
+    expect((await c.call({})).text).toBe(direct);
+    c.end();
+    await c.exit();
+  });
+
+  it("a tool call before initialize, and between initialize and the client's notice, is refused on a real stdio process; the proper handshake then serves", async () => {
+    const c = new McpClient(serverArgs(dirs, secretFile));
+    const early = await c.raw(
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: CALL_PARAMS }),
+    );
+    expect(early.error).toEqual({ code: -32600, message: "server not initialized" });
+    expect(JSON.stringify(early)).not.toMatch(LEAK);
+    const listing = await c.raw(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
+    expect(listing.error.code).toBe(-32600);
+    expect(JSON.stringify(listing)).not.toContain("read_current_observation_glance");
+    // initialize answered, the client's notice not yet sent
+    const init = await c.raw(
+      JSON.stringify({ jsonrpc: "2.0", id: 3, method: "initialize", params: INIT }),
+    );
+    expect(init.result.serverInfo.name).toBe("immortalis-player-view");
+    const between = await c.raw(
+      JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: CALL_PARAMS }),
+    );
+    expect(between.error.code).toBe(-32600);
+    expect(JSON.stringify(between)).not.toMatch(LEAK);
+    // a second initialize does not restart or bypass anything
+    const again = await c.raw(
+      JSON.stringify({ jsonrpc: "2.0", id: 5, method: "initialize", params: INIT }),
+    );
+    expect(again.error.code).toBe(-32600);
+    c.notify("notifications/initialized");
+    const served = await c.call({});
+    expect(served.isError).toBe(false);
+    expect(served.text).toBe(direct);
+    c.end();
+    expect(await c.exit()).toBe(0);
+  });
+
+  it("an under-specified initialize does not start the session: the call that follows it is refused on a real stdio process", async () => {
+    for (const params of [
+      undefined,
+      {},
+      { protocolVersion: "2025-06-18" },
+      { protocolVersion: "2025-06-18", capabilities: {} },
+      { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "c" } },
+      { protocolVersion: "2025-06-18", clientInfo: { name: "c", version: "0" } },
+      { capabilities: {}, clientInfo: { name: "c", version: "0" } },
+    ]) {
+      const c = new McpClient(serverArgs(dirs, secretFile));
+      const init = await c.raw(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          ...(params === undefined ? {} : { params }),
+        }),
+      );
+      expect(init.error.code, JSON.stringify(params)).toBe(-32602);
+      c.notify("notifications/initialized");
+      const call = await c.raw(
+        JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: CALL_PARAMS }),
+      );
+      expect(call.error.code, JSON.stringify(params)).toBe(-32600);
+      expect(JSON.stringify(call)).not.toMatch(LEAK);
+      c.end();
+      await c.exit();
+    }
+  });
+
+  it("none of these touches the campaign: the package and the retained state are not opened, read or locked, and the normal initialized exchange then does read", async () => {
+    const malformed = [
+      JSON.stringify({ id: 1, method: "tools/call", params: CALL_PARAMS }),
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: CALL_PARAMS }),
+      JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/list" }),
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "initialize",
+        params: { protocolVersion: "2025-06-18" },
+      }),
+      JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/call", params: CALL_PARAMS }),
+      JSON.stringify({ jsonrpc: "1.0", id: 6, method: "initialize", params: INIT }),
+      JSON.stringify({ jsonrpc: "2.0", id: 1.5, method: "initialize", params: INIT }),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 7, method: "tools/call", params: CALL_PARAMS }),
+      JSON.stringify({ jsonrpc: "2.0", id: 8, method: "initialize", params: INIT }),
+      JSON.stringify({ jsonrpc: "2.0", id: 9, method: "tools/call", params: CALL_PARAMS }), // initialized but the notice is missing
+      JSON.stringify({ jsonrpc: "2.0", id: 10, method: "tools/call", params: "x" }),
+      "{ not json",
+      "[]",
+    ];
+    const before = readdirSync(dirs.campaignDir).sort();
+    const refused = await serveInProcess(dirs, secretFile, malformed);
+    expect(refused.code).toBe(0);
+    expect(refused.campaignCalls).toEqual([]);
+    expect(refused.ledgerCalls).toEqual([]);
+    expect(readdirSync(dirs.campaignDir).sort()).toEqual(before);
+    for (const r of refused.replies) expect(JSON.stringify(r)).not.toMatch(LEAK);
+    expect(refused.replies.filter((r: any) => r.result && r.id !== 8)).toEqual([]);
+
+    // the normal, initialized exchange on the same arrangement DOES perform the trusted read
+    const served = await serveInProcess(dirs, secretFile, [
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: INIT }),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: CALL_PARAMS }),
+    ]);
+    expect(served.replies).toHaveLength(2);
+    expect(served.replies[1].result.content[0].text).toBe(direct);
+    expect(served.replies[1].result.isError).toBeUndefined();
+    expect(served.campaignCalls.length).toBeGreaterThan(0);
+    expect(served.ledgerCalls.length).toBeGreaterThan(0);
+  });
+
+  it("legitimate MCP metadata is preserved: extra client capabilities and info, _meta on a call, and an older supported protocol version", async () => {
+    const served = await serveInProcess(dirs, secretFile, [
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: "init-1",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: { roots: { listChanged: true }, sampling: {}, experimental: {} },
+          clientInfo: { name: "another-client", title: "Another Client", version: "9.9.9" },
+        },
+      }),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+      JSON.stringify({ jsonrpc: "2.0", id: "ping-1", method: "ping" }),
+      JSON.stringify({ jsonrpc: "2.0", id: "list-1", method: "tools/list", params: {} }),
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: "call-1",
+        method: "tools/call",
+        params: { ...CALL_PARAMS, _meta: { progressToken: "t" } },
+      }),
+    ]);
+    expect(served.replies.map((r: any) => r.id)).toEqual(["init-1", "ping-1", "list-1", "call-1"]);
+    expect(served.replies[0].result.protocolVersion).toBe("2024-11-05");
+    expect(served.replies[2].result.tools).toHaveLength(1);
+    expect(served.replies[3].result.content[0].text).toBe(direct);
   });
 });

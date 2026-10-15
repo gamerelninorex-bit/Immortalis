@@ -72,6 +72,24 @@ const asRecord = (v: unknown): Record<string, unknown> =>
 const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** MCP request identities are strings or integers; a fraction, boolean, object, `null` or unsafe number is not an identity. */
+const isRequestId = (v: unknown): v is string | number =>
+  typeof v === "string" || (typeof v === "number" && Number.isSafeInteger(v));
+
+const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v.length > 0;
+
+/** The MCP `initialize` request carries a protocol version, the client's capabilities and the client's identity (name and version). */
+const isInitializeParams = (p: Record<string, unknown>): boolean => {
+  const info = p["clientInfo"];
+  return (
+    isNonEmptyString(p["protocolVersion"]) &&
+    isPlainRecord(p["capabilities"]) &&
+    isPlainRecord(info) &&
+    isNonEmptyString(info["name"]) &&
+    isNonEmptyString(info["version"])
+  );
+};
+
 /**
  * The strict request the gateway receives. A call with no arguments (or an empty object) is the one valid request. ANY argument is an
  * over-claim: it is handed on marked as such, so the unchanged gateway refuses it on the very same path as a valid request and nothing
@@ -109,6 +127,10 @@ export async function servePlayerViewMcp(o: PlayerViewMcpOptions): Promise<void>
     };
   };
 
+  // MCP lifecycle: no tool may be listed or called before the client has initialized the session (an `initialize` request the server
+  // answered, then the client's `notifications/initialized`). A message out of phase is refused before anything is read or disclosed.
+  let phase: "NEW" | "INITIALIZED" | "READY" = "NEW";
+
   const rl = createInterface({ input: o.input, crlfDelay: Infinity });
   for await (const line of rl) {
     if (line.trim() === "") continue;
@@ -130,34 +152,43 @@ export async function servePlayerViewMcp(o: PlayerViewMcpOptions): Promise<void>
     }
     const req = parsed as RpcRequest;
     const idGiven = req.id !== undefined;
-    const idValid =
-      typeof req.id === "string" || (typeof req.id === "number" && Number.isFinite(req.id));
-    if (typeof req.method !== "string") {
+    const idValid = isRequestId(req.id);
+    // a message that is not JSON-RPC 2.0 is not a request: answered under its id only when that id is itself usable
+    if (req.jsonrpc !== "2.0" || typeof req.method !== "string" || (idGiven && !idValid)) {
       error(idGiven && idValid ? req.id : null, -32600, "invalid request");
       continue;
     }
-    if (!idGiven) continue; // notifications (e.g. notifications/initialized) need no reply
-    if (!idValid) {
-      error(null, -32600, "invalid request");
+    const method = req.method;
+    if (!idGiven) {
+      // a notification needs no reply; only the client's initialization notice changes anything, and only in its place
+      if (method === "notifications/initialized" && phase === "INITIALIZED") phase = "READY";
       continue;
     }
-    const method = req.method;
-    const params = asRecord(req.params);
     try {
-      if (method === "initialize") {
-        const asked =
-          typeof params["protocolVersion"] === "string" ? params["protocolVersion"] : "";
-        reply(req.id, {
-          protocolVersion: SUPPORTED.includes(asked) ? asked : SUPPORTED[0],
-          capabilities: { tools: {} },
-          serverInfo: SERVER_INFO,
-          instructions: INSTRUCTIONS,
-        });
-      } else if (method === "ping") reply(req.id, {});
-      else if (method === "tools/list") reply(req.id, { tools: TOOLS });
-      else if (method === "tools/call") {
+      if (req.params !== undefined && !isPlainRecord(req.params)) {
+        error(req.id, -32602, "invalid params");
+        continue;
+      }
+      const params = asRecord(req.params);
+      if (method === "ping") reply(req.id, {});
+      else if (method === "initialize") {
+        if (phase !== "NEW") error(req.id, -32600, "already initialized");
+        else if (!isInitializeParams(params)) error(req.id, -32602, "invalid params");
+        else {
+          phase = "INITIALIZED";
+          const asked = params["protocolVersion"] as string;
+          reply(req.id, {
+            protocolVersion: SUPPORTED.includes(asked) ? asked : SUPPORTED[0],
+            capabilities: { tools: {} },
+            serverInfo: SERVER_INFO,
+            instructions: INSTRUCTIONS,
+          });
+        }
+      } else if (method === "tools/list" || method === "tools/call") {
+        if (phase !== "READY") error(req.id, -32600, "server not initialized");
+        else if (method === "tools/list") reply(req.id, { tools: TOOLS });
         // the closed tool surface: any other name is not a tool of this server (a protocol error, never a read)
-        if (params["name"] !== PLAYER_VIEW_TOOL) error(req.id, -32602, "unknown tool");
+        else if (params["name"] !== PLAYER_VIEW_TOOL) error(req.id, -32602, "unknown tool");
         else reply(req.id, await call(params["arguments"]));
       } else error(req.id, -32601, "method not found");
     } catch {

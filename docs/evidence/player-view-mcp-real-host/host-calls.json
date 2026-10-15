@@ -1,5 +1,5 @@
 {
-  "note": "Curated from two non-interactive Claude Code CLI 2.1.300 sessions (stream-json). Raw traces are not retained: they carry local paths and session metadata. Nothing here is a semantic validation.",
+  "note": "Curated from two non-interactive Claude Code CLI 2.1.300 sessions (stream-json), run against the repaired transport (strict JSON-RPC 2.0 / MCP lifecycle). Raw traces are not retained: they carry local paths and session metadata. Nothing here is a semantic validation.",
   "runs": [
     {
       "label": "bound host: claude-code-host",
@@ -29,7 +29,7 @@
         },
         {
           "event": "host_final_text",
-          "text": "```json\n{\"ok\":true,\"value\":{\"presentation\":\"NPK_EVENT_SIGNAL\",\"disposable\":true,\"form\":\"EVENT_SIGNAL\",\"viewpoint\":{\"role\":\"role.player_character\",\"entity_id\":\"pc-maren\"},\"elements\":[{\"element\":\"CONTACT\",\"channel\":\"PERCEPTION\"},{\"element\":\"REFERENT\",\"text\":\"a patch on the wall facing the character\"},{\"element\":\"CONTENT\",\"text\":\"a broad patch of bright red on pale plaster\"}]}}\n```"
+          "text": "{\"ok\":true,\"value\":{\"presentation\":\"NPK_EVENT_SIGNAL\",\"disposable\":true,\"form\":\"EVENT_SIGNAL\",\"viewpoint\":{\"role\":\"role.player_character\",\"entity_id\":\"pc-maren\"},\"elements\":[{\"element\":\"CONTACT\",\"channel\":\"PERCEPTION\"},{\"element\":\"REFERENT\",\"text\":\"a patch on the wall facing the character\"},{\"element\":\"CONTENT\",\"text\":\"a broad patch of bright red on pale plaster\"}]}}"
         }
       ]
     },
