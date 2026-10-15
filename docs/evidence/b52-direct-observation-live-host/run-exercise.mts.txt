@@ -21,7 +21,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CanonicalCampaign, StageProviderRegistry, TemporalCoordinator } from "@immortalis/engine";
+import {
+  CanonicalCampaign,
+  StageProviderRegistry,
+  TemporalCoordinator,
+  deriveEventSignalProjection,
+  formObservedPacket,
+  verifyEpistemicIntegrity,
+} from "@immortalis/engine";
 
 const BIN = "packages/operator/src/bin.ts";
 const REFEREE_BIN = "packages/operator/src/referee-bin.ts";
@@ -479,6 +486,105 @@ async function main() {
     if (packet) log(`[ordinary open] packet: ${JSON.stringify(packet.value)}`);
     const state = facts.find((f) => f.key === "temporal/state");
     log(`[ordinary open] temporal state: ${JSON.stringify(state?.value)}`);
+
+    // -- AUDIT of the final implementation: delivery / non-delivery, provenance split, replay, integrity, Temporal invariants ----------
+    // (read-only except the deliberate replay of the formation, which must write nothing; no model is invoked here)
+    const audit: Record<string, unknown> = { scenario: s.id };
+    const head = () => ({
+      revision: c.store.head().revision,
+      state_sha256: c.store.head().state_sha256,
+    });
+    const eventFact = facts.find((f) => /^access\/[^/]+\/event$/.test(f.key));
+    const provFact = facts.find((f) => /^access\/[^/]+\/provenance\//.test(f.key));
+    const txFacts = facts.filter((f) => /^temporal\/transaction\/[^/]+$/.test(f.key));
+    const observationTxs = txFacts.filter(
+      (f) => (f.value as any).trigger?.kind === "direct-observation",
+    );
+    audit.integrity = {
+      canonical: c.verify().length,
+      epistemic: verifyEpistemicIntegrity(c.store).length,
+    };
+    audit.delivery = {
+      event_present: Boolean(eventFact),
+      packet_present: Boolean(packet),
+      sealed_provenance_present: Boolean(provFact),
+      observation_transactions: observationTxs.length,
+    };
+    audit.temporal = {
+      canonical_time: (state?.value as any)?.canonical_time,
+      last_transaction: (state?.value as any)?.last_transaction ?? null,
+      boundary_index_entries: (
+        (facts.find((f) => f.key === "temporal/boundary-index")?.value as any)?.entries ?? []
+      ).length,
+      temporal_objects: facts.filter((f) => f.key.startsWith("temporal/object/")).length,
+      observation_transactions: observationTxs.map((f) => {
+        const t = f.value as any;
+        return {
+          key: f.key,
+          trigger: t.trigger,
+          requested: t.requested,
+          opening_basis: t.opening?.basis_time,
+          actual_stop: t.outcome?.actual_stop,
+          stop_reason: t.outcome?.stop_reason,
+          engaged: t.engaged,
+          boundaries_crossed: t.boundaries_crossed,
+          stages: t.stages?.map((x: any) => x.stage),
+        };
+      }),
+    };
+    if (packet && provFact) {
+      const packetText = JSON.stringify(packet.value);
+      const forbidden = [
+        WORLD,
+        LOCUS,
+        CAMPAIGN_ID,
+        "src-",
+        "locus.constraint",
+        "world.premise",
+        "world_state",
+        "observation",
+      ];
+      audit.provenance = {
+        packet_keys: Object.keys(packet.value as object),
+        sealed_provenance_keys: Object.keys(provFact.value as object),
+        packet_text_contains_engine_identifiers: forbidden.filter((w) => packetText.includes(w)),
+      };
+      const recipientId = (packet.value as any).recipient;
+      const eventId = (eventFact!.value as any).event_id;
+      const projected = deriveEventSignalProjection(c.store, {
+        event_id: eventId,
+        recipient_id: recipientId,
+      });
+      audit.event_signal_delivery = projected.ok
+        ? { delivered: true, projection: projected.value }
+        : { delivered: false, refusal: projected.error };
+    } else {
+      audit.event_signal_delivery = { delivered: false, reason: "no packet exists to deliver" };
+    }
+    if (obs[0]) {
+      const decisionKey = obs[0].key;
+      const h0 = head();
+      const r1 = await formObservedPacket(c.store, decisionKey);
+      const r2 = await formObservedPacket(c.store, decisionKey);
+      const h1 = head();
+      audit.replay = {
+        first: r1.ok
+          ? { ok: true, replayed: r1.value.replayed }
+          : { ok: false, code: r1.error.code },
+        second: r2.ok
+          ? { ok: true, replayed: r2.value.replayed }
+          : { ok: false, code: r2.error.code },
+        head_before: h0,
+        head_after: h1,
+        wrote_nothing: h0.revision === h1.revision && h0.state_sha256 === h1.state_sha256,
+        integrity_after: {
+          canonical: c.verify().length,
+          epistemic: verifyEpistemicIntegrity(c.store).length,
+        },
+      };
+    }
+    writeFileSync(join(outDir, `audit-${s.id}.json`), `${JSON.stringify(audit, null, 2)}\n`);
+    log(`[audit] ${JSON.stringify(audit)}`);
     await c.close();
   }
   flush();

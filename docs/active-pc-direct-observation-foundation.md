@@ -1,6 +1,6 @@
 # Active-PC Direct Physical Observation Foundation
 
-> **PR #67 TARGETED RECOVERY — INDEPENDENT BLUE DELTA REVIEW REQUIRED.** The reviewed HEAD `9617a98577ffd9f52f45a729a6a60ce71b861184` remains under [BLUE HOLD](https://app.notion.com/p/3fa20af901e081df80bfeec129e859df). This repair implements the source-covered H-1 event-trigger route and preserves the concurrent corrected H-2 real-host evidence at `d07c53dfe0ce8057847cef22013af13ea198058e`. **Those host runs precede this H-1 change; no live-host rerun of the new packet-formation path has been executed here.** The original brief and research pins below record construction provenance; their corrected HOLD notices govern current clearance.
+> **PR #67 TARGETED RECOVERY — INDEPENDENT BLUE DELTA REVIEW REQUIRED.** The reviewed HEAD `9617a98577ffd9f52f45a729a6a60ce71b861184` remains under [BLUE HOLD](https://app.notion.com/p/3fa20af901e081df80bfeec129e859df). This recovery implements the source-covered H-1 event-trigger route (`e453352`), carries the corrected H-2 witness (`d07c53d`: an affirmative open-path fact in the positive, and only that fact replaced in the negative), and retains a **full six-scenario real-host rerun against the final implementation** with a read-only audit of each saved campaign (see _Final-head live-host run_ below). It claims no semantic or PASS acceptance. The original brief and research pins below record construction provenance; their corrected HOLD notices govern current clearance.
 
 > **OOC DEVELOPMENT / SCENARIO INSTRUMENTATION.** Mechanism for the BLUE v5.2 Implementation Brief — Active-PC Direct Physical Observation (verified native pin `2026-10-15T02:24:15.992Z`, <https://app.notion.com/p/3fa20af901e081578dc7ff7b62c60873>) on `main` `0c3b0967a19a11a25b5968fe90313edad2ff8ce2` (baseline CI run `38653740921`), resting on the BLUE Targeted Physical Observation Engineering Resolution (verified engineering pin `2026-10-15T02:16:11.867Z`, <https://app.notion.com/p/3fa20af901e08157ac91eb3295d02968>). It lets the **actual human at the console** choose that the active Player Character looks at its surroundings **now**, once, at the current canonical basis, and it earns a receipt, an Accessible Content Packet and a delivery **only** from a real F-014D direct-perception evaluation by the AI referee host. It is not a general optics engine, sight score, NPC perception, cognition, speech, pose engine, time or action mechanic, scene scan or UI-triggered observation.
 
@@ -99,41 +99,42 @@ Source links: [F-017](https://app.notion.com/p/3e620af901e081109144ef14f52012a8)
 [F-014D](https://app.notion.com/p/3e020af901e08103b81aec5f7119318e),
 [F-027 translation](https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a).
 
-## H-2 evidence preserved from the live branch
+## H-2 witness and its final-head rerun
 
-During this repair, the same PR advanced to
-`d07c53dfe0ce8057847cef22013af13ea198058e`. That commit changes only the
-scenario/evidence documents: it supplies the affirmative open-path fact, swaps
-only that fact for the opaque screen, and retains a fresh configured-host run.
-This H-1 correction is based on that commit and preserves all its evidence files.
-The mechanism fixtures now use the exact same physical wording and `path` aspect.
+At `d07c53dfe0ce8057847cef22013af13ea198058e` the scenario supplied the
+affirmative open-path fact, swapped only that fact for the opaque screen, and
+retained a configured-host run. That run preceded the H-1 packet orchestration, so
+it is superseded by the final-head rerun below; the physical wording and `path`
+aspect are unchanged, and the mechanism fixtures use the exact same wording.
 
-The retained positive quotes the affirmative committed `locus.constraint.5`,
-returns `OBSERVATION_ESTABLISHED`, and its console records a packet and clean
-ordinary reopen. The negative quotes the screen at the same fact identifier,
-returns `OBSERVATION_OBSTRUCTED`, and records no access event or packet. Target,
-faculty, placement, geometry, illumination, air and canonical basis are unchanged.
-The generic host prompt contains no scenario labels or expected result.
-
+In the final-head rerun the positive quotes the affirmative committed
+`locus.constraint.5`, returns `OBSERVATION_ESTABLISHED`, and is delivered; the
+negative quotes the screen at the same fact identifier, returns
+`OBSERVATION_OBSTRUCTED`, and records no access event, packet or transaction.
+Target, faculty, placement, geometry, illumination, air and canonical basis are
+unchanged. The generic host prompt contains no scenario labels or expected result.
 The host trace identifies `claude-sonnet-5-5` connected to the real
 `immortalis-referee` MCP server. The retained set has six scenarios, 24 client
 runs and 25 submissions: 24 accepted decisions, with one rejected and corrected
-submission in the separate eyes-closed case. It remains one run per scenario,
-one model family and no live adversarial or prompt-injection witness.
+submission (a response-shape error in the no-stated-sight case).
 
-**Chronology limit:** those configured-host runs used the pre-H-1 packet path.
-The referee, operator, task contracts, source context and interpretation rules
-are byte-identical in this H-1 delta, but its new event-triggered packet path
-has mechanism/recovery tests and CI rather than a new live model invocation.
-No configured Claude executable, configuration or credential is present in this
-repair environment. No exact-final-head live-host rerun or semantic acceptance
-is claimed. Independent BLUE delta review must assess that remaining evidence
-limit; a fresh configured-host run on the final head remains the direct way to
-close it.
+**Final-head live-host run.** After the H-1 recovery, a full rerun of all six
+scenarios with a real configured host (`claude-sonnet-5-5` through the real
+`immortalis-referee` MCP server) was made against the final implementation (code
+commit `50951b1`; the PR head adds only evidence and documents) and is retained
+in [`evidence/b52-direct-observation-live-host.md`](evidence/b52-direct-observation-live-host.md),
+including a read-only audit of each saved campaign: packet delivery in the
+positive and non-delivery in every negative, the packet/provenance split,
+replay writing nothing, zero integrity violations, and the Temporal invariants
+(no object, no indexed boundary, an empty engaged set, no crossed boundary,
+canonical time unchanged). It remains one run per scenario on one model family
+with no human review of the readings and no live prompt-injection witness. No
+semantic or PASS acceptance is claimed; the independent BLUE review decides
+that.
 
 ## Falsifying contrasts (each refuses with no receipt, packet or provenance)
 
-The independent negative differs from the positive by **one physical sentence** (a continuous opaque screen across the path with no alternate route); the red patch stays committed. Others: a character whose own statements establish no sight; a placement that states neither a direction nor open eyes; closed eyes; a world that gives the alcove no light; a path the host cannot settle; a contradicted world law. A scripted answer exercises plumbing for each; the real-host exercise is separate. Raw-write bypass: an event without its decision, with a tampered payload, recipient, channel, basis, source or identity, with a spoofed role, citing an obstructed or unresolved reading, or at a changed basis — each refused and each leaves the campaign byte-identical.
+The independent negative differs from the positive by **one physical sentence**: the positive's affirmative open-path statement ("Nothing solid stands between the bench and the north wall…") is replaced by a continuous opaque screen across the path with no alternate route; target, character, faculty, placement, light, geometry and clear air are unchanged, and the positive's open path rests on that affirmative statement, never on the absence of a stated obstruction. Others: a character whose own statements establish no sight; a placement that states neither a direction nor open eyes; closed eyes; a world that gives the alcove no light; a path the host cannot settle; a contradicted world law. A scripted answer exercises plumbing for each; the real-host exercise is separate. Raw-write bypass: an event without its decision, with a tampered payload, recipient, channel, basis, source or identity, with a spoofed role, citing an obstructed or unresolved reading, or at a changed basis — each refused and each leaves the campaign byte-identical.
 
 ## Interruption, retry and convergence
 

@@ -57,7 +57,7 @@
     "subtype": "success",
     "is_error": false,
     "num_turns": 5,
-    "result": "I submitted one task, the I002_CLASSIFY task (`c7f55817…`), and the engine recorded it. I classified all four items as INTRINSIC_PC: Maren's identity, her embodiment, her continuity rule, and her contact description. The engine will now validate the answer and derive the verdict.",
+    "result": "I submitted one task, the I002_CLASSIFY for pc-maren. I classified all four items as INTRINSIC_PC under rule I002-2. They were the identity, embodiment, continuity and contact items, and none of them asserts anything about the world or other actors. The engine recorded the answer. It will validate it and derive the verdict itself.",
     "model_usage": ["claude-haiku-5-5", "claude-sonnet-5-5"]
   },
   "trace": [
@@ -65,7 +65,7 @@
       "tool_call": "ToolSearch",
       "input": {
         "query": "select:mcp__immortalis-referee__referee_get_task,mcp__immortalis-referee__referee_list_tasks,mcp__immortalis-referee__referee_submit_decision",
-        "max_results": 5
+        "max_results": 3
       }
     },
     {
@@ -105,7 +105,7 @@
               "slot": "identity",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Name, species, occupation and approximate age are the character's own self-definition; no world structure or independent actor is created.",
+              "grounds": "Name, species, occupation and age describe what the character is; no world fact or independent actor is asserted.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -116,7 +116,7 @@
               "slot": "embodiment",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Minimal embodiment topology of the character itself.",
+              "grounds": "Minimal embodiment topology of the character's own body.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -127,7 +127,7 @@
               "slot": "continuity",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "A continuity rule about the character's own life and death; character-local only.",
+              "grounds": "Character's own continuity rule: single life, death is final. Character-local only.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -138,7 +138,7 @@
               "slot": "contact",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Describes the character's contact surface (appearance, coat) and a personal capability (speaking the local tongue); it asserts no population, institution or actor stance.",
+              "grounds": "Describes the character's own appearance and a personal capability (speaking the local tongue); it asserts no population, institution or actor stance.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],

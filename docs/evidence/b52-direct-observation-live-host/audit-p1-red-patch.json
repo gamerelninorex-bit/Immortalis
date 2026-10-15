@@ -1,0 +1,113 @@
+{
+  "scenario": "p1-red-patch",
+  "integrity": {
+    "canonical": 0,
+    "epistemic": 0
+  },
+  "delivery": {
+    "event_present": true,
+    "packet_present": true,
+    "sealed_provenance_present": true,
+    "observation_transactions": 1
+  },
+  "temporal": {
+    "canonical_time": {
+      "unit": "live-exercise-unit",
+      "value": 100
+    },
+    "last_transaction": "observation-tx-obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3",
+    "boundary_index_entries": 0,
+    "temporal_objects": 0,
+    "observation_transactions": [
+      {
+        "key": "temporal/transaction/observation-tx-obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3",
+        "trigger": {
+          "kind": "direct-observation",
+          "ref": "obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3"
+        },
+        "requested": {
+          "condition": null,
+          "target": {
+            "unit": "live-exercise-unit",
+            "value": 100
+          }
+        },
+        "opening_basis": {
+          "unit": "live-exercise-unit",
+          "value": 100
+        },
+        "actual_stop": {
+          "unit": "live-exercise-unit",
+          "value": 100
+        },
+        "stop_reason": "TARGET_REACHED",
+        "engaged": [],
+        "boundaries_crossed": [],
+        "stages": [
+          {
+            "causal_process_id": "epistemic-access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/pc-maren",
+            "owner_operation": {
+              "operation": "epistemic-form-accessible-packet",
+              "owner": "epistemic_access"
+            },
+            "prospective_result_id": "access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/packet/pc-maren"
+          }
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "packet_keys": ["access", "intelligibility", "payload", "presented_attribution", "recipient"],
+    "sealed_provenance_keys": [
+      "capability_close",
+      "channel",
+      "event",
+      "packet",
+      "recipient",
+      "source"
+    ],
+    "packet_text_contains_engine_identifiers": []
+  },
+  "event_signal_delivery": {
+    "delivered": true,
+    "projection": {
+      "projection": "EVENT_SIGNAL",
+      "disposable": true,
+      "viewpoint": {
+        "role": "role.player_character",
+        "entity_id": "pc-maren"
+      },
+      "contact": {
+        "channel": "PERCEPTION"
+      },
+      "payload": {
+        "referent": "The north wall in front of the seated character, with a red patch on it",
+        "content": "A plain whitewashed wall, evenly lit, three paces ahead. On it is one broad patch of bright red, about an arm-span wide, at the height of the character's own eyes, standing out against the pale surface."
+      },
+      "presented_attribution": null
+    }
+  },
+  "replay": {
+    "first": {
+      "ok": true,
+      "replayed": true
+    },
+    "second": {
+      "ok": true,
+      "replayed": true
+    },
+    "head_before": {
+      "revision": 15,
+      "state_sha256": "f5a7eee487faa50882e61d6e7c5d5dede7afd73a46c64120fa294d9011546332"
+    },
+    "head_after": {
+      "revision": 15,
+      "state_sha256": "f5a7eee487faa50882e61d6e7c5d5dede7afd73a46c64120fa294d9011546332"
+    },
+    "wrote_nothing": true,
+    "integrity_after": {
+      "canonical": 0,
+      "epistemic": 0
+    }
+  }
+}

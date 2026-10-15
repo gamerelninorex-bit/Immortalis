@@ -1,5 +1,5 @@
 {
-  "key": "referee/ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1/decision",
+  "key": "referee/e444f02c07cc9eca5584523fcbca328f4c1f958661ca903c25995f0e87f704c4/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -12,14 +12,14 @@
         {
           "evidence_quote": null,
           "fact_id": "world.premise",
-          "grounds": "General setting; bears on neither sight nor path.",
+          "grounds": "General setting; bears on neither sight, position nor path.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "Canon framing only.",
+          "grounds": "Canon provenance statement; no bearing on perception.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
@@ -33,33 +33,33 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Gives bench position, orientation and distance to the north wall.",
+          "grounds": "Gives bench location, orientation and distance to the north wall.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes",
+          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the visible surface and red patch.",
+          "grounds": "Describes the appearance of the north wall, the source of the payload.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "lights the north wall evenly",
+          "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
           "fact_id": "locus.constraint.3",
-          "grounds": "Provides even daylight on the wall.",
+          "grounds": "Provides even illumination of the wall.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "there is no smoke, mist or dust in it",
+          "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
           "fact_id": "locus.constraint.4",
-          "grounds": "Air is clear, no attenuation.",
+          "grounds": "Air is clear, so no attenuation.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "no screen, curtain, partition or other object crosses the line from the bench to the wall",
+          "evidence_quote": "Nothing solid stands between the bench and the north wall",
           "fact_id": "locus.constraint.5",
           "grounds": "No obstruction on the line of sight.",
           "relation": "SUPPORTS",
@@ -67,7 +67,7 @@
         }
       ],
       "faculty": {
-        "grounds": "The character's own embodiment statement establishes functioning colour vision.",
+        "grounds": "The character's own embodiment statement establishes ordinary, fully functioning colour vision.",
         "premises": [
           {
             "evidence_quote": "One ordinary human body with ordinary, fully functioning colour vision",
@@ -75,11 +75,11 @@
             "ref": "mirror/embodiment/772d87ba472a"
           }
         ],
-        "rule_ids": ["F014D-6", "F014D-2"],
+        "rule_ids": ["F014D-5", "F014D-6"],
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "The north wall is evenly lit, the air is clear, and nothing obstructs the line from bench to wall at three paces.",
+        "grounds": "The wall is evenly lit by daylight, the air is clear, and nothing obstructs the line from bench to wall, at a distance of three paces.",
         "premises": [
           {
             "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
@@ -97,7 +97,7 @@
             "ref": "locus.constraint.5"
           }
         ],
-        "rule_ids": ["F014D-6", "F014D-5"],
+        "rule_ids": ["F014D-6"],
         "state": "OPEN"
       },
       "payload": {
@@ -108,22 +108,22 @@
             "ref": "locus.constraint.2"
           },
           {
-            "evidence_quote": "lights the north wall evenly",
-            "from": "WORLD_FACT",
-            "ref": "locus.constraint.3"
-          },
-          {
             "evidence_quote": "facing the north wall three paces away",
             "from": "WORLD_FACT",
             "ref": "locus.constraint.1"
+          },
+          {
+            "evidence_quote": "lights the north wall evenly",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.3"
           }
         ],
-        "content": "A pale white, evenly lit flat wall three paces ahead, bearing one broad patch of bright red about an arm-span wide, level with the viewer's eyes.",
-        "referent": "The north wall in front of the seated viewer, with its red patch",
+        "content": "A plain whitewashed wall, evenly lit, three paces ahead. On it is one broad patch of bright red, about an arm-span wide, at the height of the character's own eyes, standing out against the pale surface.",
+        "referent": "The north wall in front of the seated character, with a red patch on it",
         "source_fact_id": "locus.constraint.2"
       },
       "position": {
-        "grounds": "The placement states location (on the bench in the alcove), facing (north wall) and open eyes; the world geometry places the bench three paces from the north wall.",
+        "grounds": "The placement states the character is seated on the bench, facing the north wall, eyes open; the geometry fact places the bench three paces from the north wall, consistent with the statement.",
         "premises": [
           {
             "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
@@ -139,7 +139,7 @@
         "rule_ids": ["F014D-6", "IR-7"],
         "state": "ESTABLISHED"
       },
-      "task_id": "ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1",
+      "task_id": "e444f02c07cc9eca5584523fcbca328f4c1f958661ca903c25995f0e87f704c4",
       "unresolved_forks": []
     },
     "host": {
@@ -149,7 +149,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "7847654c634717fac4d88711273cf3cd4ead08754399e5ba054cd189c15c0c56",
+      "digest": "2dd008a8b97172c8f1424c2fd80343afde80d5155b50e432f158eea01c54de80",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -157,17 +157,17 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:f28390e7f5024c0b769f74a8561aa7ec:release",
+          "group_id": "operator-pc:0671f3a12fa40e5fcee0246ad20d20f5:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:50415d9f2f2017583d9eadcd173d38f4:bind",
+          "group_id": "operator-pc:c3d94b23af772e1bed64fcfe76c477b6:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:fa817043fec5af58e983577e31a7984b:locus",
+          "group_id": "operator-pc:79ccf3f730337ccbc4a4f545bf357f69:locus",
           "version": 1
         },
         {
@@ -189,7 +189,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1",
+    "task_id": "e444f02c07cc9eca5584523fcbca328f4c1f958661ca903c25995f0e87f704c4",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

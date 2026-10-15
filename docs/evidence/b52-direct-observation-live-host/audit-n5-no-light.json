@@ -1,0 +1,50 @@
+{
+  "scenario": "n5-no-light",
+  "integrity": {
+    "canonical": 0,
+    "epistemic": 0
+  },
+  "delivery": {
+    "event_present": false,
+    "packet_present": false,
+    "sealed_provenance_present": false,
+    "observation_transactions": 0
+  },
+  "temporal": {
+    "canonical_time": {
+      "unit": "live-exercise-unit",
+      "value": 100
+    },
+    "last_transaction": null,
+    "boundary_index_entries": 0,
+    "temporal_objects": 0,
+    "observation_transactions": []
+  },
+  "event_signal_delivery": {
+    "delivered": false,
+    "reason": "no packet exists to deliver"
+  },
+  "replay": {
+    "first": {
+      "ok": false,
+      "code": "OBSERVATION_NOT_ESTABLISHED"
+    },
+    "second": {
+      "ok": false,
+      "code": "OBSERVATION_NOT_ESTABLISHED"
+    },
+    "head_before": {
+      "revision": 11,
+      "state_sha256": "2c235f0db1ebfbfdbfc388632ebccaa694208e510425d177d2fd08b7106690f9"
+    },
+    "head_after": {
+      "revision": 11,
+      "state_sha256": "2c235f0db1ebfbfdbfc388632ebccaa694208e510425d177d2fd08b7106690f9"
+    },
+    "wrote_nothing": true,
+    "integrity_after": {
+      "canonical": 0,
+      "epistemic": 0
+    }
+  }
+}

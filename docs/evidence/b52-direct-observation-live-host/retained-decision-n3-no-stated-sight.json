@@ -1,5 +1,5 @@
 {
-  "key": "referee/e87c5504446f0eef2e4f1ccede051eebb5cc8c5a212355c870fd718b78c8e44c/decision",
+  "key": "referee/7e7449f948b6fe55cc6c33391193b6d19e4df58efb1468bb9901d5dfd83ee466/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -12,14 +12,14 @@
         {
           "evidence_quote": null,
           "fact_id": "world.premise",
-          "grounds": "General setting; bears on neither sight, position nor path.",
+          "grounds": "General setting; bears on neither faculty, position nor path.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "Canon basis statement; does not bear on the perception.",
+          "grounds": "Canon provenance statement; no bearing on perception.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
@@ -33,14 +33,14 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Places the bench facing the north wall at three paces, consistent with the placement statement.",
+          "grounds": "Gives bench placement, facing and distance to the north wall.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the north wall surface that would be seen, if sight were established.",
+          "grounds": "Describes the surface that would be seen, at seated eye height; no payload is formed because faculty is not established.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
@@ -54,26 +54,26 @@
         {
           "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
           "fact_id": "locus.constraint.4",
-          "grounds": "Clear air does not obstruct the path.",
+          "grounds": "Clear air, no obstruction by medium.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall.",
+          "evidence_quote": "Nothing solid stands between the bench and the north wall",
           "fact_id": "locus.constraint.5",
-          "grounds": "No solid obstruction on the line from the bench to the wall.",
+          "grounds": "No solid obstruction on the line.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         }
       ],
       "faculty": {
-        "grounds": "None of the character's own statements (identity, embodiment, continuity, contact) states that Maren can see. 'One ordinary human body' does not state a sense of sight, and the 'eyes open' wording is in the placement statement, which cannot establish a faculty. A missing statement is NOT_ESTABLISHED, never assumed.",
+        "grounds": "None of the character's own accepted statements (identity, embodiment 'One ordinary human body', continuity, contact) states that the character can see. A sense is not assumed from a human body, and the placement's 'eyes open' does not establish the faculty.",
         "premises": [],
-        "rule_ids": ["F014D-6", "F014D-5"],
+        "rule_ids": ["F014D-5", "F014D-6"],
         "state": "NOT_ESTABLISHED"
       },
       "path": {
-        "grounds": "The wall is evenly lit, the air is clear, the distance is three paces and nothing obstructs the line from the bench to the wall.",
+        "grounds": "The wall is evenly lit, the air is clear, the distance is three paces and nothing crosses the line from bench to wall, so no obstruction is established.",
         "premises": [
           {
             "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
@@ -91,12 +91,12 @@
             "ref": "locus.constraint.5"
           }
         ],
-        "rule_ids": ["F014D-6", "F014D-5"],
+        "rule_ids": ["F014D-6"],
         "state": "OPEN"
       },
       "payload": null,
       "position": {
-        "grounds": "The placement statement gives location (stone alcove, on the bench), facing (north wall) and eyes open; the geometry fact is consistent, placing the bench on the south wall facing the north wall three paces away.",
+        "grounds": "The placement statement gives the location (stone alcove, on the bench), the facing (north wall) and open eyes; the geometry fact places the bench three paces from the north wall.",
         "premises": [
           {
             "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
@@ -109,12 +109,12 @@
             "ref": "locus.constraint.1"
           }
         ],
-        "rule_ids": ["F014D-6"],
+        "rule_ids": ["F014D-6", "IR-7"],
         "state": "ESTABLISHED"
       },
-      "task_id": "e87c5504446f0eef2e4f1ccede051eebb5cc8c5a212355c870fd718b78c8e44c",
+      "task_id": "7e7449f948b6fe55cc6c33391193b6d19e4df58efb1468bb9901d5dfd83ee466",
       "unresolved_forks": [
-        "Whether Maren's sight is established: no character statement mentions sight or a working visual faculty."
+        "Whether the character can see is not stated in any of the character's own accepted statements."
       ]
     },
     "host": {
@@ -124,7 +124,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "bd54e3cae15517f6854d3551e9b25ffc0aaed56ebbb44e5059926a5155bc2480",
+      "digest": "0c70be6093c386dff23904c0249d11a91e96fbd8bd3d498d26c23f3240cf0069",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -132,17 +132,17 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:03f25456ae1e70a6196783b0fba2a297:release",
+          "group_id": "operator-pc:1d1a635647990ddc504a0d6fcb9e01df:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:1c11fd0f76a0cd10f7dbeabc28b21015:bind",
+          "group_id": "operator-pc:a2e579c8c475708bfb2fa05d1f0b2e38:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:bce4dd83bed27c373f0b7d506491d2be:locus",
+          "group_id": "operator-pc:0ba5e8fab39224a5563b7e945adbe0e2:locus",
           "version": 1
         },
         {
@@ -164,7 +164,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "e87c5504446f0eef2e4f1ccede051eebb5cc8c5a212355c870fd718b78c8e44c",
+    "task_id": "7e7449f948b6fe55cc6c33391193b6d19e4df58efb1468bb9901d5dfd83ee466",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

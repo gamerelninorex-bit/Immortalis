@@ -1,5 +1,5 @@
 {
-  "key": "referee/8c944d2b0d2b8087b4dc95b6ac3b3bf095f464363acfc0162f9fb081f4323c1b/decision",
+  "key": "referee/4901b513fc23424765cbbd480ba9f37ca496dc0a4f2752201e5ec5ebc58791af/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -33,35 +33,35 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Places the bench facing the north wall at three paces, consistent with the placement statement.",
+          "grounds": "Bench faces the north wall at three paces, consistent with the placement.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
+          "evidence_quote": "one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the north wall's appearance, which would be received only if the eyes were open.",
+          "grounds": "Describes the north wall surface that would be seen if the eyes were open.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+          "evidence_quote": "lights the north wall evenly",
           "fact_id": "locus.constraint.3",
-          "grounds": "Daylight lights the wall evenly, so illumination does not limit the path.",
+          "grounds": "Daylight lights the wall evenly; light is available.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+          "evidence_quote": "there is no smoke, mist or dust in it",
           "fact_id": "locus.constraint.4",
-          "grounds": "Clear air does not limit the path.",
+          "grounds": "Air is clear, no attenuation.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "Nothing solid stands between the bench and the north wall",
+          "evidence_quote": "no screen, curtain, partition or other object crosses the line from the bench to the wall",
           "fact_id": "locus.constraint.5",
-          "grounds": "No solid obstruction lies on the line from bench to wall.",
+          "grounds": "No obstruction on the line.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         }
@@ -79,22 +79,22 @@
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "By world facts alone the path from the north wall to the bench is lit, clear and unobstructed over three paces.",
+        "grounds": "The world's light, air and line between bench and north wall are lit, clear and unobstructed; no world fact blocks it. The closed eyes are a matter of position, not a world obstruction.",
         "premises": [
           {
-            "evidence_quote": "Nothing solid stands between the bench and the north wall",
+            "evidence_quote": "lights the north wall evenly",
             "from": "WORLD_FACT",
-            "ref": "locus.constraint.5"
+            "ref": "locus.constraint.3"
           },
           {
-            "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+            "evidence_quote": "The air between the bench and the north wall is clear",
             "from": "WORLD_FACT",
             "ref": "locus.constraint.4"
           },
           {
-            "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+            "evidence_quote": "Nothing solid stands between the bench and the north wall",
             "from": "WORLD_FACT",
-            "ref": "locus.constraint.3"
+            "ref": "locus.constraint.5"
           }
         ],
         "rule_ids": ["F014D-6"],
@@ -102,10 +102,10 @@
       },
       "payload": null,
       "position": {
-        "grounds": "Location and facing are stated, but the eyes are stated closed, so the visual surfaces are not exposed. No viewing position from which light reaches the eyes is established.",
+        "grounds": "Location and facing are stated (seated on the bench, facing the north wall), but the statement itself says the eyes are closed, so the visual surfaces are not exposed and no viewing position that receives light from the wall is established.",
         "premises": [
           {
-            "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes closed",
+            "evidence_quote": "facing the north wall with my eyes closed",
             "from": "PLACEMENT_STATEMENT",
             "ref": "placement.statement"
           }
@@ -113,10 +113,8 @@
         "rule_ids": ["F014D-6"],
         "state": "NOT_ESTABLISHED"
       },
-      "task_id": "8c944d2b0d2b8087b4dc95b6ac3b3bf095f464363acfc0162f9fb081f4323c1b",
-      "unresolved_forks": [
-        "The character's eyes are stated closed. Whether and when they open is not stated, so no visual reception is established."
-      ]
+      "task_id": "4901b513fc23424765cbbd480ba9f37ca496dc0a4f2752201e5ec5ebc58791af",
+      "unresolved_forks": []
     },
     "host": {
       "claimed_model": null,
@@ -125,7 +123,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "c2e9abf2b2d3e12dda75e183bcefeb8a4ba837001fb75369c0b0589824ea5d5d",
+      "digest": "bf7f2f450f1b46d99a074bcefc39ac97ea41c67eafb995b41ec01debaf8d00e8",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -133,17 +131,17 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:53c44d99b78032e625f0ffaf05c40572:release",
+          "group_id": "operator-pc:1767420c4fed153c100770bac80d52f5:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:80c1613431d689dbd86cdbdcb1d64b71:bind",
+          "group_id": "operator-pc:2fd3dca364dd690956f7fde841cfef67:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:f195b883fe7b403b8699d09cddb04147:locus",
+          "group_id": "operator-pc:b1ea47d9cd5f11d5f6e4ab353873daa4:locus",
           "version": 1
         },
         {
@@ -165,7 +163,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "8c944d2b0d2b8087b4dc95b6ac3b3bf095f464363acfc0162f9fb081f4323c1b",
+    "task_id": "4901b513fc23424765cbbd480ba9f37ca496dc0a4f2752201e5ec5ebc58791af",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

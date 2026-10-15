@@ -1,5 +1,5 @@
 {
-  "key": "referee/beb8a0400bd497b5d8f3d5e9cf54c3066f9c897198ba4dba62b2d55f1930beab/decision",
+  "key": "referee/ef45e02ca2af5700aaf92bdde22494a81c4b45f8f416473ca4abd5de6f349518/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -19,7 +19,7 @@
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "Canon provenance statement; no bearing on the perception.",
+          "grounds": "Canon basis statement only.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
@@ -33,37 +33,37 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Gives bench position, facing and distance to the north wall.",
+          "grounds": "Gives bench position and facing toward the north wall, three paces away.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the north wall surface that would be seen were the path open; it is hidden by the screen.",
+          "grounds": "Describes the north wall's appearance, which the screen prevents being received.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
           "fact_id": "locus.constraint.3",
-          "grounds": "Illumination is adequate and does not limit the path.",
+          "grounds": "Daylight lights the north wall, but does not remove the obstruction.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
           "fact_id": "locus.constraint.4",
-          "grounds": "Air is clear and does not obstruct.",
+          "grounds": "Air is clear, so air does not obstruct; the screen does.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "A continuous opaque wooden screen stands across the full width and height of the alcove between the bench and the north wall; it has no gap",
+          "evidence_quote": "A continuous opaque wooden screen stands across the full width and height of the alcove between the bench and the north wall; it has no gap, and no other opening leads from the bench to the north wall.",
           "fact_id": "locus.constraint.5",
-          "grounds": "Established obstruction that blocks the path from the north wall to the viewer.",
+          "grounds": "Established obstruction that blocks the path from the bench to the north wall.",
           "relation": "SUPPORTS",
-          "rule_ids": ["F014D-5", "F014D-6"]
+          "rule_ids": ["F014D-6"]
         }
       ],
       "faculty": {
@@ -79,7 +79,7 @@
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "Despite clear air and daylight, an opaque screen with no gap stands across the full width and height between the bench and the north wall, so nothing on the north wall reaches the viewer's eyes.",
+        "grounds": "An opaque screen with no gap spans the whole width and height between the bench and the north wall, so light from the wall cannot reach the viewer.",
         "premises": [
           {
             "evidence_quote": "A continuous opaque wooden screen stands across the full width and height of the alcove between the bench and the north wall; it has no gap, and no other opening leads from the bench to the north wall.",
@@ -87,12 +87,12 @@
             "ref": "locus.constraint.5"
           }
         ],
-        "rule_ids": ["F014D-5", "F014D-6"],
+        "rule_ids": ["F014D-6"],
         "state": "BLOCKED"
       },
       "payload": null,
       "position": {
-        "grounds": "The placement states location (alcove bench), facing (north wall) and open eyes; the world geometry is consistent with it.",
+        "grounds": "The placement states location (alcove bench), facing (north wall) and open eyes; consistent with the world geometry.",
         "premises": [
           {
             "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
@@ -108,7 +108,7 @@
         "rule_ids": ["F014D-6", "IR-7"],
         "state": "ESTABLISHED"
       },
-      "task_id": "beb8a0400bd497b5d8f3d5e9cf54c3066f9c897198ba4dba62b2d55f1930beab",
+      "task_id": "ef45e02ca2af5700aaf92bdde22494a81c4b45f8f416473ca4abd5de6f349518",
       "unresolved_forks": []
     },
     "host": {
@@ -118,7 +118,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "fc31e2bb85176c134fc42fdc65f37ee01925f3e7ad8a52aa08db7580d2fcff0d",
+      "digest": "1ed66e03b95870a2bb086306d494b74739c10868bbe6a395157d951da169d664",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -126,17 +126,17 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:b792d8fb8ec66f00622808c2dc4d72c8:release",
+          "group_id": "operator-pc:228cf338210bfbdb736ef112dc076a88:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:756acb6f8b99df17dfa683aa2dd96954:bind",
+          "group_id": "operator-pc:f6e7e916928f69a1d714383a78872485:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:67015d402c22a6c8911c0dba8be74279:locus",
+          "group_id": "operator-pc:4236821a26a315e81d74ff68054cc192:locus",
           "version": 1
         },
         {
@@ -158,7 +158,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "beb8a0400bd497b5d8f3d5e9cf54c3066f9c897198ba4dba62b2d55f1930beab",
+    "task_id": "ef45e02ca2af5700aaf92bdde22494a81c4b45f8f416473ca4abd5de6f349518",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"
