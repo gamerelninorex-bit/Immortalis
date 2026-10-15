@@ -143,7 +143,10 @@ describe("the package composes only the existing gateways and canonical reads", 
   });
 
   it("takes from the protocol package exactly the six binders and the five operations: relocation and progression, NULL-PC advance and held resume, and the active-PC target advance", () => {
-    const names = walk(SRC).flatMap((f) => importedNames(f, "@immortalis/protocol"));
+    // the local player-view transport (BLUE v5.2 bounded brief 2026-10-15) is bound by its own, narrower check below
+    const names = walk(SRC)
+      .filter((f) => !f.includes("/player-view"))
+      .flatMap((f) => importedNames(f, "@immortalis/protocol"));
     expect(names.sort()).toEqual([
       "advanceActivePcToTarget",
       "advanceConfirmedPcTransferToDelivery",
@@ -158,6 +161,17 @@ describe("the package composes only the existing gateways and canonical reads", 
       "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
       "resumeNullPcOocHeldAdvance",
+    ]);
+  });
+
+  it("the local player-view transport takes from the protocol package only the Glance binder, the Glance read and its result type, and nothing else", () => {
+    const names = walk(SRC)
+      .filter((f) => f.includes("/player-view"))
+      .flatMap((f) => importedNames(f, "@immortalis/protocol"));
+    expect([...new Set(names)].sort()).toEqual([
+      "ReadCurrentObservationGlanceResult",
+      "bindTrustedCurrentPlayerContext",
+      "readCurrentObservationGlance",
     ]);
   });
 
