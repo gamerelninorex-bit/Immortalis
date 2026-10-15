@@ -87,7 +87,19 @@ describe("the mechanism cannot reach authority it was not given", () => {
       expect(identifiers(f), f).not.toMatch(
         /deliverCausalEventSignalPresentation|bindTrustedCausalEventSignalContext/,
       );
-    const src = files.map((f) => code(f)).join("\n");
+    // the local player-view transport (BLUE v5.2 bounded brief 2026-10-15) names exactly one further operation, the read-only current
+    // observation Glance, and is bound by its own checks (tests/security/player-view-mcp-security.test.ts)
+    const playerView = files
+      .filter((f) => f.includes("/player-view"))
+      .map((f) => code(f))
+      .join("\n");
+    expect([...new Set(playerView.match(/PROTOCOL_OP_[A-Z_]+/g))]).toEqual([
+      "PROTOCOL_OP_READ_CURRENT_OBSERVATION_GLANCE",
+    ]);
+    const src = files
+      .filter((f) => !f.includes("/player-view"))
+      .map((f) => code(f))
+      .join("\n");
     expect(src.match(/PROTOCOL_OP_[A-Z_]+/g)?.sort()).toEqual([
       "PROTOCOL_OP_ADVANCE_ACTIVE_PC_TO_TARGET",
       "PROTOCOL_OP_ADVANCE_ACTIVE_PC_TO_TARGET",

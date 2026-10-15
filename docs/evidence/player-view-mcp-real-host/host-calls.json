@@ -1,0 +1,69 @@
+{
+  "note": "Curated from two non-interactive Claude Code CLI 2.1.300 sessions (stream-json). Raw traces are not retained: they carry local paths and session metadata. Nothing here is a semantic validation.",
+  "runs": [
+    {
+      "label": "bound host: claude-code-host",
+      "events": [
+        {
+          "event": "mcp_servers",
+          "value": [
+            {
+              "name": "immortalis-player-view",
+              "status": "connected"
+            }
+          ]
+        },
+        {
+          "event": "exposed_tools_of_this_server",
+          "value": ["mcp__immortalis-player-view__read_current_observation_glance"]
+        },
+        {
+          "event": "tool_call",
+          "name": "mcp__immortalis-player-view__read_current_observation_glance",
+          "input": {}
+        },
+        {
+          "event": "tool_result",
+          "is_error": false,
+          "text": "{\"ok\":true,\"value\":{\"presentation\":\"NPK_EVENT_SIGNAL\",\"disposable\":true,\"form\":\"EVENT_SIGNAL\",\"viewpoint\":{\"role\":\"role.player_character\",\"entity_id\":\"pc-maren\"},\"elements\":[{\"element\":\"CONTACT\",\"channel\":\"PERCEPTION\"},{\"element\":\"REFERENT\",\"text\":\"a patch on the wall facing the character\"},{\"element\":\"CONTENT\",\"text\":\"a broad patch of bright red on pale plaster\"}]}}"
+        },
+        {
+          "event": "host_final_text",
+          "text": "```json\n{\"ok\":true,\"value\":{\"presentation\":\"NPK_EVENT_SIGNAL\",\"disposable\":true,\"form\":\"EVENT_SIGNAL\",\"viewpoint\":{\"role\":\"role.player_character\",\"entity_id\":\"pc-maren\"},\"elements\":[{\"element\":\"CONTACT\",\"channel\":\"PERCEPTION\"},{\"element\":\"REFERENT\",\"text\":\"a patch on the wall facing the character\"},{\"element\":\"CONTENT\",\"text\":\"a broad patch of bright red on pale plaster\"}]}}\n```"
+        }
+      ]
+    },
+    {
+      "label": "unbound host identity: claude-code-unbound",
+      "events": [
+        {
+          "event": "mcp_servers",
+          "value": [
+            {
+              "name": "immortalis-player-view",
+              "status": "connected"
+            }
+          ]
+        },
+        {
+          "event": "exposed_tools_of_this_server",
+          "value": ["mcp__immortalis-player-view__read_current_observation_glance"]
+        },
+        {
+          "event": "tool_call",
+          "name": "mcp__immortalis-player-view__read_current_observation_glance",
+          "input": {}
+        },
+        {
+          "event": "tool_result",
+          "is_error": true,
+          "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+        },
+        {
+          "event": "host_final_text",
+          "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+        }
+      ]
+    }
+  ]
+}
