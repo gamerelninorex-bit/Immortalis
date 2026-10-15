@@ -77,9 +77,16 @@ describe("the mechanism cannot reach authority it was not given", () => {
     expect(all.match(/advanceActivePcToTarget\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedActivePcTargetAdvanceContext\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedActivePcHeldTargetAdvanceContext\(/g)).toHaveLength(1);
-    expect(all).not.toMatch(
-      /readCurrentEventSignalPresentation|deliverCausalEventSignalPresentation|bindTrustedEventSignalContext|bindTrustedCausalEventSignalContext/,
-    );
+    expect(all).not.toMatch(/readCurrentEventSignalPresentation|bindTrustedEventSignalContext/);
+    // BLUE v5.2: the trusted-side-only causal Event-Signal delivery is used exactly once, by the observation command, for the ONE event that
+    // command itself just earned (the binder's own contract: "TRUSTED-SIDE ONLY - never reachable from a host request"); no other operator
+    // module touches it, and a host's request names nothing but the operation
+    expect(all.match(/bindTrustedCausalEventSignalContext\(/g)).toHaveLength(1);
+    expect(all.match(/deliverCausalEventSignalPresentation\(/g)).toHaveLength(1);
+    for (const f of files.filter((x) => !x.endsWith("/observation.ts")))
+      expect(identifiers(f), f).not.toMatch(
+        /deliverCausalEventSignalPresentation|bindTrustedCausalEventSignalContext/,
+      );
     const src = files.map((f) => code(f)).join("\n");
     expect(src.match(/PROTOCOL_OP_[A-Z_]+/g)?.sort()).toEqual([
       "PROTOCOL_OP_ADVANCE_ACTIVE_PC_TO_TARGET",

@@ -1,5 +1,6 @@
 import {
   BoundaryIndexSchema,
+  OWNER_EPISTEMIC_ACCESS,
   OWNER_POPULATION,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
@@ -151,9 +152,19 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (gip) return reject("REFERENCE_INVALID", gip, { key: w.key });
       const diplomacy = diplomacyObjectViolation(o);
       if (diplomacy) return reject("REFERENCE_INVALID", diplomacy, { key: w.key });
+      // F-014B §6 step 2 queries material boundaries in (T0, T1]: an earned boundary lies strictly after the canonical time. The ONE
+      // exception is the one-shot, current-basis engagement of an observation-earned Epistemic event (BLUE v5.2): its boundary IS the
+      // observation's own, current basis, so closing it adds no elapsed time. `epistemicObjectViolation` (above) has already required
+      // that it is exactly the object its committed observation-earned event determines, registered at that basis.
+      const atCurrentBasis =
+        o.owning_ref.owner === OWNER_EPISTEMIC_ACCESS &&
+        o.next_boundary !== null &&
+        timeEquals(prior.canonical_time, o.next_boundary.at);
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
-        (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))
+        (o.next_boundary !== null &&
+          !timeBefore(prior.canonical_time, o.next_boundary.at) &&
+          !atCurrentBasis)
       ) {
         return reject(
           "REFERENCE_INVALID",

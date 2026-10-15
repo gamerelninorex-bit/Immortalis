@@ -3,12 +3,18 @@ import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  OBSERVATION_FACULTY_STATES,
+  OBSERVATION_PATH_STATES,
+  OBSERVATION_PLACEMENT_REF,
+  OBSERVATION_POSITION_STATES,
+  OBSERVATION_PREMISE_KINDS,
   PHYSICAL_CLAIM_BEARINGS,
   PHYSICAL_DEPENDENCY_KINDS,
   PHYSICAL_EMBODIMENT_MODES,
   PHYSICAL_PRESENCE_MODES,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_SOURCES,
   RefereeOperationSchema,
@@ -24,6 +30,7 @@ import {
   type FsOps,
   type IrContext,
   type I002Context,
+  type ObservationContext,
   type PhysicalContext,
 } from "@immortalis/engine";
 
@@ -35,7 +42,7 @@ import {
  * It lives in the owner-only retained-state directory, outside the package, so the engine side never has to give up the package's
  * single-writer lock and a host never touches canon:
  *
- *   referee-<campaign>/config.json            the TRUSTED campaign binding of concrete host identities to the two operations (written by
+ *   referee-<campaign>/config.json            the TRUSTED campaign binding of concrete host identities to the four operations (written by
  *                                              the operator, never by a host, a player or a model)
  *   referee-<campaign>/<host>.secret          the host's shared secret (owner-only), given to the host's tool server by path
  *   referee-<campaign>/tasks/<task>.json      one question: the exact bounded context, the closed source clauses and a one-time nonce
@@ -69,7 +76,7 @@ const ConfigSchema = z.strictObject({
       z.strictObject({
         host_id: HostId,
         secret: Secret,
-        operations: z.array(RefereeOperationSchema).min(1).max(3),
+        operations: z.array(RefereeOperationSchema).min(1).max(4),
       }),
     )
     .max(MAX_HOSTS),
@@ -244,7 +251,7 @@ export async function bindHost(
  */
 export function taskDocument(
   taskId: string,
-  context: I002Context | IrContext | PhysicalContext,
+  context: I002Context | IrContext | PhysicalContext | ObservationContext,
   nonce: string,
 ): Record<string, unknown> {
   const rules = (ids: readonly string[]) =>
@@ -407,6 +414,91 @@ export function taskDocument(
       context,
     };
   }
+  if (context.operation === REFEREE_OP_OBSERVATION) {
+    return {
+      ...common,
+      operation: REFEREE_OP_OBSERVATION,
+      purpose:
+        "Direct perception at ONE canonical basis (F-014D §6). `context.subject` is a character who is a stationary physical body at the locus described in `context.facts`; `context.statement` is the player's confirmed statement of where the character is, and `context.pc` is the character's own accepted statements. Decide, ONLY from this delivered text and by quoting it: (1) `faculty` — is the character's SIGHT established by the character's OWN statements? (the faculty is established only by `context.pc`; nothing in the world or the placement can give a character a sense, and a missing statement is NOT_ESTABLISHED, never assumed). (2) `position` — are the character's OWN exact viewing circumstances established by the confirmed placement statement read with the world facts: where it is, which way it faces, whether its eyes are open or its visual surfaces exposed? A shared locus does not establish them, the faculty alone does not, and you must not assume a posture, direction or open eyes that is not stated: NOT_ESTABLISHED if it is not. (3) `path` — is the path from the physical feature to the character, under the world's own laws as committed (light, air, distance, any obstruction), OPEN, BLOCKED (a quoted world fact that blocks it from the viewing position), or NOT_ESTABLISHED? (4) `payload` — ONLY if all three are affirmatively established, the minimal raw appearance that follows: what the eye directly receives - colour, shape, size, position, illumination - in plain descriptive words, anchored to quotations of the world facts it comes from. It does not say what anything is made of, what it is called, what it is for, what caused it or what it means (a seen surface is described by how it looks, not by its material or its maker's intent), and it names no place and carries no fact_id or key. Otherwise `payload` is null. A missing faculty, a missing circumstance or an unsettled fact is NOT_ESTABLISHED / UNCLEAR and is NEVER reported as an obstruction: BLOCKED needs an established blocking fact. Apply this world's laws as committed, not outside defaults. Invent no world fact, light, posture, threshold or chance. Perception grants no recognition, comprehension, belief, memory, action or time.",
+      rules: rules([
+        "F014D-2",
+        "F014D-5",
+        "F014D-6",
+        "F014D-18",
+        "F014D-24",
+        "I002-4.3",
+        "IR-5",
+        "IR-7",
+      ]),
+      premise_kinds: {
+        [OBSERVATION_PREMISE_KINDS[0]]:
+          "one of the character's own statements: `ref` = an item_id of context.pc. The ONLY premise kind that may establish `faculty`",
+        [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}. The kind that must establish \`position\` (with world facts)`,
+        [OBSERVATION_PREMISE_KINDS[2]]:
+          "a committed world or locus fact: `ref` = a fact_id of context.facts. The only kind that may establish `path` and the appearance",
+      },
+      states: {
+        faculty: OBSERVATION_FACULTY_STATES,
+        position: OBSERVATION_POSITION_STATES,
+        path: OBSERVATION_PATH_STATES,
+      },
+      relations: {
+        SUPPORTS:
+          "the fact bears on this question and is consistent with the other delivered premises; quote it. A fact that blocks, dims or limits the path (an obstruction, darkness, distance) is SUPPORTS: state what it does in `path`, not here",
+        NOT_RELEVANT: "the fact bears on neither the question nor the character",
+        CONTRADICTS:
+          "the fact, as written, is INCONSISTENT with another delivered premise or with the character's own stated sight or placement (a contradiction among the committed words, so that the question cannot be settled on them); quote it. An obstruction, darkness or distance is NOT a contradiction - it is the answer to `path`. 'not observed' is not 'cannot exist'",
+        UNCLEAR: "it is not possible to tell whether the fact bears on or blocks the perception",
+      },
+      response_shape: {
+        task_id: "<this task_id>",
+        faculty: {
+          state: `<one of ${OBSERVATION_FACULTY_STATES.join(" | ")}>`,
+          premises: [
+            {
+              from: "<a premise kind above>",
+              ref: "<its ref>",
+              evidence_quote: "<verbatim excerpt of that premise's delivered text>",
+            },
+          ],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        position: {
+          state: `<one of ${OBSERVATION_POSITION_STATES.join(" | ")}>`,
+          premises: ["<as above>"],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        path: {
+          state: `<one of ${OBSERVATION_PATH_STATES.join(" | ")}>`,
+          premises: ["<as above>"],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        payload: {
+          source_fact_id: "<the fact_id of context.facts the appearance is OF>",
+          referent: "<what is seen, plain words, at most 200 chars>",
+          content: "<how it appears, plain descriptive words, at most 500 chars>",
+          basis: ["<one or more WORLD_FACT premises as above, including one of the source fact>"],
+        },
+        payload_note:
+          "`payload` is the object above ONLY when all three states are affirmative; otherwise the answer's payload is null",
+        assessments: [
+          {
+            fact_id: "<each fact_id in context.facts, exactly once>",
+            relation: "<one relation above>",
+            rule_ids: ["<rule_id>"],
+            grounds: "<why>",
+            evidence_quote:
+              "<verbatim excerpt of that fact; REQUIRED for SUPPORTS and CONTRADICTS, else null or a verbatim excerpt>",
+          },
+        ],
+        unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],
+      },
+      context,
+    };
+  }
   return {
     ...common,
     operation: REFEREE_OP_IR,
@@ -462,7 +554,7 @@ export async function publishTask(
   input: {
     task_id: string;
     operation: RefereeOperation;
-    context: I002Context | IrContext | PhysicalContext;
+    context: I002Context | IrContext | PhysicalContext | ObservationContext;
   },
 ): Promise<Result<RefereeTaskFile, ExchangeErrorCode>> {
   const fs = fsOf(p);

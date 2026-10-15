@@ -169,11 +169,12 @@ const answer = (): any => ({
 });
 
 describe("the physical-placement decision is a closed vocabulary", () => {
-  it("is a third referee operation with its own verdict names, distinct from every IR verdict", () => {
+  it("is a third referee operation with its own verdict names, distinct from every IR verdict (the fourth, direct perception, is BLUE v5.2's)", () => {
     expect(RefereeOperationSchema.options).toEqual([
       "I002_CLASSIFY",
       "IR_NATIVE_COMPATIBILITY",
       REFEREE_OP_PHYSICAL,
+      "F014D_DIRECT_PERCEPTION",
     ]);
     expect(REFEREE_OP_PHYSICAL).toBe("IR_PHYSICAL_PLACEMENT");
     for (const v of PHYSICAL_VERDICTS) {

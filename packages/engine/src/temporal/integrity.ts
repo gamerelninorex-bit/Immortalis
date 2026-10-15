@@ -1,4 +1,5 @@
 import {
+  OWNER_EPISTEMIC_ACCESS,
   BoundaryIndexSchema,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
@@ -379,9 +380,21 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       ? last.engaged.filter((e) => e.boundary === "STILL_ACTIVE").map((e) => e.object_id)
       : [],
   );
+  // The one other object that may hold its earned boundary AT the canonical time is the Epistemic owner's one-shot, current-basis
+  // engagement of an observation-earned event (BLUE v5.2) between its registration and the transaction that closes it: the
+  // Epistemic verifier holds its exact shape, and the kernel admits no transaction that would pass it unengaged.
+  const currentBasisEngagements = new Set(
+    objects
+      .filter((o) => o.value.owning_ref.owner === OWNER_EPISTEMIC_ACCESS)
+      .map((o) => o.value.object_id),
+  );
   for (const e of entries) {
     const c = compareTime(e.at, state.canonical_time);
-    if (c === null || c === -1 || (c === 0 && !stillActive.has(e.object_id))) {
+    if (
+      c === null ||
+      c === -1 ||
+      (c === 0 && !stillActive.has(e.object_id) && !currentBasisEngagements.has(e.object_id))
+    ) {
       bad(
         TEMPORAL_BOUNDARY_INDEX_KEY,
         "TEMPORAL_INDEX",

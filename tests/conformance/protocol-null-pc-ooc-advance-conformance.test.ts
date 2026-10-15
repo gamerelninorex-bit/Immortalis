@@ -32,7 +32,7 @@ const walk = (d: string): string[] =>
 /** Every module the gateway composes or must leave untouched, as it stood at the forty-fifth base (main 7265550). */
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
-    "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
+    "c47467c75137f69b7e951be68aaaa9fc4f6b68f1ddaba311f373a2014ebf9adb",
   "packages/contracts/src/protocol-advance.ts":
     "3f64a45e7fe169b61593cedc06a062ea3a4c4faed4538786abf2ec757c3f026a",
   "packages/contracts/src/protocol-relocation.ts":
@@ -44,13 +44,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/temporal/admission.ts":
-    "37c000fc69aef1a547131c83da0cb6de432b18c2515cb86ad00066e241f83d65",
+    "9be0e500bb1f4aaeae00edb97d902cb6c7644566315cd542df599df02499ee0f",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
     "8319d33aa9a5e0f15055600ec9aad3d9422adfe31e84a5c6d9c71cbfbc777c34",
   "packages/engine/src/temporal/integrity.ts":
-    "07c5b859b1e63409dc01c2956fa7ecba22853c00777ed512b6eba68996c86b56",
+    "5686167dd74f7cabd24b008978474424a4eca020e5e5fc6f651f8d26105c6840",
   "packages/engine/src/temporal/partition.ts":
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
@@ -82,7 +82,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

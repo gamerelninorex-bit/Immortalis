@@ -70,6 +70,8 @@ export * from "./epistemic/adapter.ts";
 export * from "./epistemic/admission.ts";
 export * from "./epistemic/declaration.ts";
 export * from "./epistemic/derive.ts";
+export * from "./epistemic/direct-observation.ts";
+export * from "./epistemic/observation.ts";
 export * from "./epistemic/integrity.ts";
 export * from "./epistemic/provider.ts";
 export * from "./gip/adapter.ts";

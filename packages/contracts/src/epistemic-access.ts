@@ -324,3 +324,42 @@ export const SealedEngineProvenanceSchema = z.strictObject({
     .nullable(),
 });
 export type SealedEngineProvenance = z.infer<typeof SealedEngineProvenanceSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// The producer-bound direct-observation path (BLUE v5.2, active-PC direct physical observation).
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Technical encodings of the OBSERVATION-EARNED event and of the one-shot formation engagement it earns. Nothing here is a game
+ * rule: the identities are derived from the question's own identity, so a retry, a lost reply or a restart reaches the same
+ * records (RC-16) and no caller can choose, vary or pre-empt them.
+ *
+ * An observation-earned event is the same immutable BOUNDED_SHARED_ACCESS event (one named recipient, channel PERCEPTION, the foreign
+ * physical source pin, the minimal payload) — its contract is unchanged — distinguished only by the governing-rule citation and the
+ * committed referee decision it is derived from and reads (see the Epistemic owner's observation admission). It is never authored:
+ * the engine derives every field of it from the retained F014D_DIRECT_PERCEPTION decision and the current committed premises.
+ */
+export const OBSERVATION_EVENT_BASIS = "direct-perception-observation";
+export const OBSERVATION_TRIGGER_KIND = "direct-observation";
+
+/** The identities of the group that commits one observation-earned event, derived from the event's identity alone. */
+export const observationEventGroupId = (eventId: string): string =>
+  `observation:event-group:v1:${eventId}`;
+export const observationEventIntentId = (eventId: string): string =>
+  `observation:event-intent:v1:${eventId}`;
+export const observationEventCause = (eventId: string): string => `observation:event:v1:${eventId}`;
+
+/** The one-shot formation engagement the observation earns: a Temporal object owned by the event, with one earned boundary. */
+export const observationObjectId = (eventId: string): string => `observation-${eventId}`;
+export const observationBoundaryId = (eventId: string): string => `observation-boundary-${eventId}`;
+export const observationRegistrationGroupId = (eventId: string): string =>
+  `observation:register-group:v1:${eventId}`;
+export const observationRegistrationIntentId = (eventId: string): string =>
+  `observation:register-intent:v1:${eventId}`;
+export const observationRegistrationCause = (eventId: string): string =>
+  `observation:register:v1:${eventId}`;
+
+/** The identity of the resolution transaction that closes the formation: derived from the event, stable across retries and reopen. */
+export const observationTransactionId = (eventId: string): string => `observation-tx-${eventId}`;
+export const observationTransactionCause = (eventId: string): string =>
+  `observation:transaction:v1:${eventId}`;

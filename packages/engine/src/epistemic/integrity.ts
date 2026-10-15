@@ -30,7 +30,8 @@ import {
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { epistemicObjectViolation } from "./declaration.ts";
+import { epistemicObjectViolation, isObservationEarnedFact } from "./declaration.ts";
+import { observationEventViolation } from "./observation.ts";
 import {
   broadcastReferenceViolation,
   deriveAccessProducts,
@@ -182,6 +183,17 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     }
     const boundary = recipientBoundaryViolation(factsBefore(revisionOf(ef)), e);
     if (boundary) bad(ef.key, boundary);
+    // an observation-earned event is exactly what its retained direct-perception decision determines (and only such a decision earns one)
+    if (isObservationEarnedFact(ef)) {
+      const committing = store.committedGroup(ef.provenance.intent_id);
+      const why = committing
+        ? observationEventViolation(
+            { group: committing, value: ef.value, basis: ef.basis, factOf: (k) => byKey.get(k) },
+            "VERIFICATION",
+          )
+        : "an observation-earned event has its journaled group";
+      if (why) bad(ef.key, why);
+    }
     const foreign = eventSourceViolation(e);
     if (foreign) bad(ef.key, foreign);
     const src = byKey.get(e.source.fact_key);

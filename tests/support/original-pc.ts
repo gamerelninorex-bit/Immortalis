@@ -213,7 +213,12 @@ export async function localityCampaign(
     campaignId: LOCALITY_CAMPAIGN,
     operatorUid: process.getuid!(),
     hostId: HOST_ID,
-    operations: ["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY", "IR_PHYSICAL_PLACEMENT"],
+    operations: [
+      "I002_CLASSIFY",
+      "IR_NATIVE_COMPATIBILITY",
+      "IR_PHYSICAL_PLACEMENT",
+      "F014D_DIRECT_PERCEPTION",
+    ],
   });
   if (!bound.ok) throw new Error(`host not bound: ${bound.error.code}`);
   return dirs;

@@ -56,7 +56,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol.ts":
     "426cb9e790b435d75a4f6a1df39c792616310421e17eb953aa2f382ae4370e0c",
   "packages/contracts/src/temporal.ts":
-    "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
+    "c47467c75137f69b7e951be68aaaa9fc4f6b68f1ddaba311f373a2014ebf9adb",
   "packages/contracts/src/logistics.ts":
     "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
   "packages/engine/src/world/canonical-campaign.ts":
@@ -64,7 +64,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -148,11 +148,13 @@ describe("the package composes only the existing gateways and canonical reads", 
       "advanceNullPcOocToTarget",
       "bindTrustedActivePcHeldTargetAdvanceContext",
       "bindTrustedActivePcTargetAdvanceContext",
+      "bindTrustedCausalEventSignalContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
+      "deliverCausalEventSignalPresentation",
       "resumeNullPcOocHeldAdvance",
     ]);
   });
@@ -169,6 +171,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "I002Context",
       "IrContext",
       "LogisticsAdapter",
+      "ObservationContext",
       "PhysicalContext",
       "RefereeAdjudicationAdapter",
       "StageOwnerExtension",
@@ -177,10 +180,14 @@ describe("the package composes only the existing gateways and canonical reads", 
       "canonicalEqual",
       "deriveI002",
       "deriveIr",
+      "deriveObservation",
       "derivePhysical",
+      "formObservedPacket",
       "nodeFs",
+      "observationEventId",
       "refereeCandidateItems",
       "refereeQualificationViolation",
+      "verifyEpistemicIntegrity",
     ]);
   });
 
@@ -213,6 +220,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "applyEdits",
       "askI002",
       "askIr",
+      "askObservation",
       "askPhysical",
       "authorCharacter",
       "authorizeHost",
@@ -240,6 +248,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "missingOf",
       "nullAdvance",
       "nullResume",
+      "observeSurroundings",
       "parseEdit",
       "pcTargetAdvance",
       "pcTargetResume",

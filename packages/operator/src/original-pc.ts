@@ -416,6 +416,10 @@ export type CharacterStatus =
   | "LOCUS_NOT_QUALIFIED"
   | "LOCUS_CONFLICT"
   | "LOCUS_VERIFICATION_FAILED"
+  | "OBSERVATION_RECEIVED"
+  | "OBSERVATION_NOT_ESTABLISHED"
+  | "OBSERVATION_NOT_AVAILABLE"
+  | "OBSERVATION_VERIFICATION_FAILED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -458,6 +462,14 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "what the campaign holds of this character's physical locus is not what this command makes; nothing was changed",
   LOCUS_VERIFICATION_FAILED:
     "what the campaign holds does not match what you confirmed; the physical locus is NOT reported as established",
+  OBSERVATION_RECEIVED:
+    "your character looked, and the Epistemic owner established that its sight directly received the raw appearance shown below, at the current canonical basis; a fresh owner-verified open reads back exactly that. It is raw appearance only: it gives the character no recognition, comprehension, belief, memory, action or elapsed time, and it reveals nothing of the setting beyond what was received",
+  OBSERVATION_NOT_ESTABLISHED:
+    "no observation was established for your character at the current basis: nothing was received, no packet was formed and nothing the character receives was changed. This does not say why, and it is not a report that anything is or is not there; sealed evidence of the reading is kept for audit only",
+  OBSERVATION_NOT_AVAILABLE:
+    "no observation can be asked now: the character has no committed physical position, or no canonical temporal basis is established, or the character is not the verified player character of this command; nothing was changed. An observation never establishes either, and never advances time",
+  OBSERVATION_VERIFICATION_FAILED:
+    "what the campaign holds does not match what was established; the observation is NOT reported as received",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:

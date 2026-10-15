@@ -23,6 +23,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   EPISTEMIC_ACCESS_BROADCAST_RULE,
+  EPISTEMIC_ACCESS_OBSERVATION_RULE,
   EPISTEMIC_ACCESS_RULE,
   resolveKey,
 } from "../owners/registry.ts";
@@ -38,6 +39,7 @@ import {
   recipientBoundaryViolation,
   requiredCapability,
 } from "./derive.ts";
+import { observationEventViolation } from "./observation.ts";
 
 /**
  * IM-11 admission for the IM-10 Epistemic Access owner (IM-03 owner resolution; F-014D §§2, 2.1, 4.1, 4.2, 5, 9, 11, 14,
@@ -51,6 +53,11 @@ import {
  *     Player Character the committed Role Registry binding names (and only when the event asserts that role) — resting on a committed foreign
  *     source/carrier fact that is PINNED (read at its current version and depended on) and never copied, established at
  *     or before the canonical basis (no future access), stamped engine-sealed.
+ *  1a. OBSERVATION-EARNED EVENT (BLUE v5.2): the same immutable BOUNDED_SHARED_ACCESS event, committed under its own governing-rule
+ *     citation, ONLY as exactly what a retained F014D_DIRECT_PERCEPTION referee decision (engine-derived verdict
+ *     OBSERVATION_ESTABLISHED) determines — recipient, channel, basis, source pin and payload are re-derived from that record and the
+ *     current committed premises it cites, which the group reads and depends on, at the current canonical basis. A raw commit of any
+ *     other event under that citation, or of an observation-looking event without it, earns no engagement (see `declaration.ts`).
  *  1b. BROADCAST_EXPOSURE EVENT (F-014D §4.4), the same key, the other immutable mode: one event-only record resting on a
  *     committed foreign source/carrier AND a committed authoritative World-State locus or Population ledger/Cohort audience
  *     REFERENCE, each PINNED (read at its current version and depended on, never copied), under its own governing-rule
@@ -89,6 +96,8 @@ export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): R
       if (parsed.success && isBroadcastEvent(parsed.data)) {
         return broadcastRule(group, w) ?? checkBroadcastEvent(group, state, w, parsed.data);
       }
+      if (canonicalEqual(group.rule, EPISTEMIC_ACCESS_OBSERVATION_RULE))
+        return checkObservationEvent(group, state, w);
       return rule() ?? checkEvent(group, state, w);
     }
   }
@@ -159,6 +168,29 @@ function checkEvent(group: CommitGroup, state: CampaignState, w: Write): Rejecti
     });
   }
   return null;
+}
+
+/**
+ * An OBSERVATION-EARNED event: every generic event rule (a lawful recipient — here the bound active Player Character —, a pinned foreign
+ * source, no future access) AND exactly what its retained direct-perception decision determines (see `observationEventViolation`).
+ */
+function checkObservationEvent(
+  group: CommitGroup,
+  state: CampaignState,
+  w: Write,
+): Rejection | null {
+  const generic = checkEvent(group, state, w);
+  if (generic) return generic;
+  const violation = observationEventViolation(
+    {
+      group,
+      value: w.value,
+      basis: w.basis,
+      factOf: (k) => state.facts.get(k),
+    },
+    "ADMISSION",
+  );
+  return violation ? ref(violation, { key: w.key }) : null;
 }
 
 /**
