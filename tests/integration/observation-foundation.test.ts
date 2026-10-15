@@ -74,13 +74,13 @@ const headOf = async (dir: string) => {
 const noAccessKeys = (keys: string[]) => keys.filter((k) => k.startsWith("access/"));
 
 describe("the positive: an established reading earns the receipt, the packet and the delivery, in causal order", () => {
-  it("forms the event, its one-shot engagement and the packet; canonical time does not move", async () => {
+  it("forms the event and the packet it triggers; canonical time does not move", async () => {
     const { dirs } = await observationCampaign();
     const before = await keysOf(dirs.campaignDir);
     const { result, terminal } = await observe(dirs);
     expect(result.status, JSON.stringify(result.details)).toBe("OBSERVATION_RECEIVED");
 
-    // exactly the owners' own records were added: the retained decision, the event, the engagement, the transaction (+ its authority),
+    // exactly the owners' own records were added: the retained decision, the event, the transaction (+ its authority),
     // the packet and its sealed provenance - nothing actor-side, world-side, economic or social
     const after = await keysOf(dirs.campaignDir);
     const added = after
@@ -186,7 +186,7 @@ describe("the positive: an established reading earns the receipt, the packet and
       expect(f(/^temporal\/object\//)).toEqual([]);
       expect(c.store.getFact("temporal/boundary-index")).toBeUndefined();
 
-      // committed-before-consumed: decision, event, engagement, transaction authority, packet, transaction
+      // committed-before-consumed: decision, event, transaction authority, packet, transaction
       const rev = (re: RegExp) => c.store.lookupReceipt(f(re)[0]!.provenance.intent_id)!.revision;
       const order = [
         rev(/^referee\/[0-9a-f]{64}\/decision$/),
@@ -294,7 +294,7 @@ describe("the independent negative: an otherwise identical scene with a continuo
     const before = await headOf(dirs.campaignDir);
     const { result, terminal } = await observe(dirs);
     expect(result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
-    // no receipt, no packet, no provenance, no engagement, no transaction; canonical time did not move
+    // no receipt, no packet, no provenance, no transaction; canonical time did not move
     const keys = await keysOf(dirs.campaignDir);
     expect(noAccessKeys(keys)).toEqual([]);
     expect(

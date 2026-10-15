@@ -60,7 +60,7 @@ import { observationEventViolation } from "./observation.ts";
  *     citation, ONLY as exactly what a retained F014D_DIRECT_PERCEPTION referee decision (engine-derived verdict
  *     OBSERVATION_ESTABLISHED) determines — recipient, channel, basis, source pin and payload are re-derived from that record and the
  *     current committed premises it cites, which the group reads and depends on, at the current canonical basis. A raw commit of any
- *     other event under that citation, or of an observation-looking event without it, earns no engagement (see `declaration.ts`).
+ *     other event under that citation, or of an observation-looking event without it, earns no formation (see `declaration.ts`).
  *  1b. BROADCAST_EXPOSURE EVENT (F-014D §4.4), the same key, the other immutable mode: one event-only record resting on a
  *     committed foreign source/carrier AND a committed authoritative World-State locus or Population ledger/Cohort audience
  *     REFERENCE, each PINNED (read at its current version and depended on, never copied), under its own governing-rule

@@ -406,10 +406,6 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
         // the event-only BROADCAST_EXPOSURE mode (F-014D §4.4) is in scope: only its own identifiers (broadcast, audience
         // reference, reach/channel conditions) are exempt; lowering, receipt, cohort or membership expansion stay forbidden
         .replace(/\b\w*(broadcast|audience|reach)\w*\b/gi, "")
-        // the Temporal object contract's own required field name (BLUE v5.2 builds one object, the observation's one-shot engagement,
-        // with `creates_epistemic_interruption: false`): it names the F-014B §10 information-latency declaration, and no latency, travel
-        // or delay construct exists in the Epistemic modules
-        .replace(/\binformation_latency\b/g, "")
         .toLowerCase();
       for (const word of [
         "comprehen",

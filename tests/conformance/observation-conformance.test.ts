@@ -37,7 +37,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/adapter.ts":
     "91dadeae31967c1363bd010a1459943b2036685305bed7b343c302ce787634ab",
   "packages/engine/src/epistemic/admission.ts":
-    "bd725a1b3fc47b9ad2c81445066ce037f8ae357e85fd4c2ef5422a2881e46dc9",
+    "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
   "packages/engine/src/epistemic/declaration.ts":
     "754866e721064059052d4f37a170a7339d1a81eb29b9dd0ee9b9fa8f812b7257",
   "packages/engine/src/epistemic/integrity.ts":

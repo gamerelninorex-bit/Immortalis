@@ -31,7 +31,6 @@ import { deriveObservationEvent, observationRecordOf } from "./observation.ts";
 export type ObservationFormationCode =
   | "OBSERVATION_NOT_ESTABLISHED"
   | "OBSERVATION_RECORD_INVALID"
-  | "ENGAGEMENT_REFUSED"
   | "TRANSACTION_REFUSED"
   | "FORMATION_UNRESOLVED"
   | "STORE_FATAL"

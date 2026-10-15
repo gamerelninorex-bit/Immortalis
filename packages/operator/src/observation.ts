@@ -48,9 +48,9 @@ import type { OperatorTerminal } from "./terminal.ts";
  * sight established, are its own exact viewing circumstances established, is the path from the physical feature to it open or blocked —
  * and, only if all three are affirmatively answered, what minimal raw appearance follows. The engine validates the answer against the
  * delivered text and DERIVES the verdict. Only OBSERVATION_ESTABLISHED can earn a receipt: the Epistemic owner then commits the
- * observation-earned event (derived from the retained decision, never authored), the event's own one-shot current-basis engagement is
- * closed by one resolution transaction to the canonical time itself, and the sealed Accessible Content Packet and its Sealed Engine
- * Provenance form together. The player is then shown the result through the existing trusted, read-only Event-Signal delivery.
+ * observation-earned event (derived from the retained decision, never authored); that committed event triggers its own packet-formation
+ * stage through one event-triggered resolution transaction at the unchanged canonical time (F-017 §4; no Temporal object, no indexed
+ * boundary), and the sealed Accessible Content Packet and its Sealed Engine Provenance form together. The player is then shown the result through the existing trusted, read-only Event-Signal delivery.
  *
  * What the player is NEVER shown: the world's facts, the host's reasoning, the verdict, or any difference between "nothing is there",
  * "something blocks it" and "this could not be settled". Every non-receipt is the same message; the retained decision is sealed
@@ -264,7 +264,7 @@ async function run(
     }
   }
 
-  // the Epistemic owner's observation-earned event, its one-shot engagement and the packet formation (each by identity)
+  // the Epistemic owner's observation-earned event and the packet formation it triggers (each by identity)
   const formed = await formObservedPacket(campaign.store, decisionKey);
   if (!formed.ok) {
     if (UNKNOWN_OUTCOME.has(formed.error.code)) {
