@@ -16,6 +16,7 @@ export const protocolIndexExports = (): string[] =>
 
 export const PROTOCOL_ONLY_EVENT_SIGNAL_READ = [
   'export * from "./causal-event-signal.ts";',
+  'export * from "./current-observation-glance.ts";',
   'export * from "./event-signal.ts";',
   'export * from "./pc-relocation.ts";',
   'export * from "./pc-transfer-advance.ts";',
@@ -48,4 +49,9 @@ export const RELOCATION_REQUEST = (over: Record<string, unknown> = {}) => ({
 export const RELOCATION_REFUSAL = JSON.stringify({
   ok: false,
   error: { code: "RELOCATION_UNAVAILABLE", message: "no relocation is available" },
+});
+
+export const GLANCE_REQUEST = (over: Record<string, unknown> = {}) => ({
+  operation: "read_current_observation_glance",
+  ...over,
 });

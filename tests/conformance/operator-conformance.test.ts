@@ -47,7 +47,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
   "packages/protocol/src/index.ts":
-    "b945c16fede6707509a51f3a157d1b6cc856b05aa8177f2cbdef7f8b8040842b",
+    "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/protocol-relocation.ts":
@@ -93,6 +93,7 @@ describe("existing owners, gateways and the frozen artifacts are untouched: the 
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
       "active-pc-target-advance.ts",
       "causal-event-signal.ts",
+      "current-observation-glance.ts",
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
