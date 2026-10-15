@@ -76,6 +76,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 };
 
 const NEW_MODULES = [
+  // BLUE v5.2-A1 (host-requested observation): eight further modules, added mechanically and bound by observe-request-conformance.test.ts
+  "observe-request-answer-bin.ts",
+  "observe-request-answer.ts",
+  "observe-request-bin.ts",
+  "observe-request-bind-bin.ts",
+  "observe-request-cli.ts",
+  "observe-request-exchange.ts",
+  "observe-request-mcp.ts",
+  "observe-request.ts",
   "player-view-bin.ts",
   "player-view-bind-bin.ts",
   "player-view-exchange.ts",
@@ -101,7 +110,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
     expect(pin("NPK")).toBe("2026-09-25T00:18:32.532Z");
   });
 
-  it("the operator package gained exactly the five transport modules, and the engine, contracts, protocol and testkit packages gained nothing", () => {
+  it("the operator package gained exactly the five transport modules (and, mechanically, the eight BLUE v5.2-A1 request modules), and the engine, contracts, protocol and testkit packages gained nothing", () => {
     expect(readdirSync("packages/operator/src").sort()).toEqual(
       [
         "bin.ts",
@@ -173,6 +182,10 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       "immortalis-referee": "./src/referee-bin.ts",
       "immortalis-player-view": "./src/player-view-bin.ts",
       "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
+      // BLUE v5.2-A1 (host-requested observation): three further entry points, added mechanically; the player-view entries are unchanged
+      "immortalis-observe-request": "./src/observe-request-bin.ts",
+      "immortalis-observe-request-bind": "./src/observe-request-bind-bin.ts",
+      "immortalis-observe-request-answer": "./src/observe-request-answer-bin.ts",
     });
     expect(JSON.parse(readFileSync("package.json", "utf8")).devDependencies).not.toHaveProperty(
       "@modelcontextprotocol/sdk",
