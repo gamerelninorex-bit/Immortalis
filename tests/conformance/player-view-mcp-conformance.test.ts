@@ -76,6 +76,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 };
 
 const NEW_MODULES = [
+  // BLUE v5.2-A1 (host-requested time advance): eight further modules, added mechanically and bound by advance-request-conformance.test.ts
+  "advance-request-answer-bin.ts",
+  "advance-request-answer.ts",
+  "advance-request-bin.ts",
+  "advance-request-bind-bin.ts",
+  "advance-request-cli.ts",
+  "advance-request-exchange.ts",
+  "advance-request-mcp.ts",
+  "advance-request.ts",
   // BLUE v5.2-A1 (host-requested observation): eight further modules, added mechanically and bound by observe-request-conformance.test.ts
   "observe-request-answer-bin.ts",
   "observe-request-answer.ts",
@@ -110,7 +119,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
     expect(pin("NPK")).toBe("2026-09-25T00:18:32.532Z");
   });
 
-  it("the operator package gained exactly the five transport modules (and, mechanically, the eight BLUE v5.2-A1 request modules), and the engine, contracts, protocol and testkit packages gained nothing", () => {
+  it("the operator package gained exactly the five transport modules (and, mechanically, the sixteen BLUE v5.2-A1 request modules), and the engine, contracts, protocol and testkit packages gained nothing", () => {
     expect(readdirSync("packages/operator/src").sort()).toEqual(
       [
         "bin.ts",
@@ -186,6 +195,10 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       "immortalis-observe-request": "./src/observe-request-bin.ts",
       "immortalis-observe-request-bind": "./src/observe-request-bind-bin.ts",
       "immortalis-observe-request-answer": "./src/observe-request-answer-bin.ts",
+      // BLUE v5.2-A1 (host-requested time advance): three further entry points, added mechanically; the entries above are unchanged
+      "immortalis-advance-request": "./src/advance-request-bin.ts",
+      "immortalis-advance-request-bind": "./src/advance-request-bind-bin.ts",
+      "immortalis-advance-request-answer": "./src/advance-request-answer-bin.ts",
     });
     expect(JSON.parse(readFileSync("package.json", "utf8")).devDependencies).not.toHaveProperty(
       "@modelcontextprotocol/sdk",

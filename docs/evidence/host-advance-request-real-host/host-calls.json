@@ -1,0 +1,269 @@
+{
+  "note": "Curated from non-interactive Claude Code CLI 2.1.300 sessions (stream-json). Raw traces are not retained: they carry local paths and session metadata, and the model identity of the host session is intentionally not recorded in this repository. Steps 0, 1b and 3 are owner-state reads made by the test harness through the ordinary campaign re-open; they are not host calls. Step 2 (the operator's answer on its own console) is not a host call: the target was the operator's own command-line flag and the challenge was typed back by a SCRIPT. Nothing here is a semantic validation, a claim of genuine human identity, or a claim about any model's understanding.",
+  "runs": [
+    {
+      "label": "positive: operator confirms a target BEYOND the Instrument's sunset",
+      "steps": [
+        {
+          "step": "0. owner state before (read by the test through the ordinary re-open, not by the host)",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 100
+          },
+          "instrument_lifecycle": "active",
+          "instrument_version": 1
+        },
+        {
+          "step": "1. host asks (request credential, request server only)",
+          "events": [
+            {
+              "event": "init",
+              "claude_code_version": "2.1.300",
+              "mcp_servers": [
+                {
+                  "name": "immortalis-advance-request",
+                  "status": "connected",
+                  "source": "dynamic"
+                }
+              ],
+              "tools": ["mcp__immortalis-advance-request__request_active_pc_target_advance"]
+            },
+            {
+              "event": "tool_call",
+              "name": "ToolSearch",
+              "input": {
+                "query": "select:mcp__immortalis-advance-request__request_active_pc_target_advance",
+                "max_results": 1
+              }
+            },
+            {
+              "event": "tool_result",
+              "is_error": false,
+              "content": [
+                {
+                  "type": "tool_reference",
+                  "tool_name": "mcp__immortalis-advance-request__request_active_pc_target_advance"
+                }
+              ]
+            },
+            {
+              "event": "tool_call",
+              "name": "mcp__immortalis-advance-request__request_active_pc_target_advance",
+              "input": {}
+            },
+            {
+              "event": "tool_result",
+              "is_error": false,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "{\"ok\":true,\"value\":{\"status\":\"TARGET_ADVANCE_REQUESTED\",\"message\":\"A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked.\"}}"
+                }
+              ]
+            },
+            {
+              "event": "assistant_text",
+              "text": "{\"ok\":true,\"value\":{\"status\":\"TARGET_ADVANCE_REQUESTED\",\"message\":\"A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked.\"}}"
+            },
+            {
+              "event": "result",
+              "is_error": false,
+              "text": "{\"ok\":true,\"value\":{\"status\":\"TARGET_ADVANCE_REQUESTED\",\"message\":\"A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked.\"}}",
+              "num_turns": 3
+            }
+          ]
+        },
+        {
+          "step": "1b. owner state after the request alone",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 100
+          },
+          "instrument_lifecycle": "active",
+          "instrument_version": 1,
+          "unchanged_state_hash": true
+        },
+        {
+          "step": "2. operator answers on its own console (a separate process; the target is the operator's own flag; the challenge is typed back by a SCRIPT)",
+          "exit_code": 0,
+          "typed_shape": ["pc-target-advance <nonce>"],
+          "console_output_tail": [
+            "A HOST HAS ASKED THAT YOU CONSIDER ADVANCING THE WORLD'S TIME. That is only a request: it names no target, it is not your choice, it confirms nothing, and no time has advanced.",
+            "CONFIRMATION \u2014 OOC TIME ADVANCE, ACTIVE CHARACTER (choice #1)",
+            "  advance the world's canonical time to exactly 300 fixture-time-unit, and no further.",
+            "> STATUS PC_TARGET_ADVANCE_COMMITTED"
+          ]
+        },
+        {
+          "step": "3. owner state after the operator's confirmed choice (read by the test through the ordinary re-open)",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 300
+          },
+          "instrument_lifecycle": "expired",
+          "instrument_version": 2
+        },
+        {
+          "step": "4. host reads through the existing separate read-only server (read credential)",
+          "events": [
+            {
+              "event": "init",
+              "claude_code_version": "2.1.300",
+              "mcp_servers": [
+                {
+                  "name": "immortalis-player-view",
+                  "status": "connected",
+                  "source": "dynamic"
+                }
+              ],
+              "tools": ["mcp__immortalis-player-view__read_current_observation_glance"]
+            },
+            {
+              "event": "tool_call",
+              "name": "mcp__immortalis-player-view__read_current_observation_glance",
+              "input": {}
+            },
+            {
+              "event": "tool_result",
+              "is_error": true,
+              "content": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+            },
+            {
+              "event": "assistant_text",
+              "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+            },
+            {
+              "event": "result",
+              "is_error": false,
+              "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}",
+              "num_turns": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "independent negative: operator confirms a target SHORT of the sunset",
+      "steps": [
+        {
+          "step": "0. owner state before (read by the test through the ordinary re-open, not by the host)",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 100
+          },
+          "instrument_lifecycle": "active",
+          "instrument_version": 1
+        },
+        {
+          "step": "1. host asks (request credential, request server only)",
+          "events": [
+            {
+              "event": "init",
+              "claude_code_version": "2.1.300",
+              "mcp_servers": [
+                {
+                  "name": "immortalis-advance-request",
+                  "status": "connected",
+                  "source": "dynamic"
+                }
+              ],
+              "tools": ["mcp__immortalis-advance-request__request_active_pc_target_advance"]
+            },
+            {
+              "event": "tool_call",
+              "name": "mcp__immortalis-advance-request__request_active_pc_target_advance",
+              "input": {}
+            },
+            {
+              "event": "tool_result",
+              "is_error": false,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "{\"ok\":true,\"value\":{\"status\":\"TARGET_ADVANCE_REQUESTED\",\"message\":\"A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked.\"}}"
+                }
+              ]
+            },
+            {
+              "event": "assistant_text",
+              "text": "A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked."
+            },
+            {
+              "event": "result",
+              "is_error": false,
+              "text": "A request was left for the player. No time has advanced and nothing has been decided: the player must separately name an exact target and confirm it on their own console, and may decline. This request names no target, is not that choice and does not mean the world will change. Do not tell the player that time passed or that anything happened because you asked.",
+              "num_turns": 2
+            }
+          ]
+        },
+        {
+          "step": "1b. owner state after the request alone",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 100
+          },
+          "instrument_lifecycle": "active",
+          "instrument_version": 1,
+          "unchanged_state_hash": true
+        },
+        {
+          "step": "2. operator answers on its own console (a separate process; the target is the operator's own flag; the challenge is typed back by a SCRIPT)",
+          "exit_code": 0,
+          "typed_shape": ["pc-target-advance <nonce>"],
+          "console_output_tail": [
+            "A HOST HAS ASKED THAT YOU CONSIDER ADVANCING THE WORLD'S TIME. That is only a request: it names no target, it is not your choice, it confirms nothing, and no time has advanced.",
+            "CONFIRMATION \u2014 OOC TIME ADVANCE, ACTIVE CHARACTER (choice #1)",
+            "  advance the world's canonical time to exactly 120 fixture-time-unit, and no further.",
+            "> STATUS PC_TARGET_ADVANCE_COMMITTED"
+          ]
+        },
+        {
+          "step": "3. owner state after the operator's confirmed choice (read by the test through the ordinary re-open)",
+          "time": {
+            "unit": "fixture-time-unit",
+            "value": 120
+          },
+          "instrument_lifecycle": "active",
+          "instrument_version": 1
+        },
+        {
+          "step": "4. host reads through the existing separate read-only server (read credential)",
+          "events": [
+            {
+              "event": "init",
+              "claude_code_version": "2.1.300",
+              "mcp_servers": [
+                {
+                  "name": "immortalis-player-view",
+                  "status": "connected",
+                  "source": "dynamic"
+                }
+              ],
+              "tools": ["mcp__immortalis-player-view__read_current_observation_glance"]
+            },
+            {
+              "event": "tool_call",
+              "name": "mcp__immortalis-player-view__read_current_observation_glance",
+              "input": {}
+            },
+            {
+              "event": "tool_result",
+              "is_error": true,
+              "content": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+            },
+            {
+              "event": "assistant_text",
+              "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}"
+            },
+            {
+              "event": "result",
+              "is_error": false,
+              "text": "{\"ok\":false,\"error\":{\"code\":\"PROJECTION_UNAVAILABLE\",\"message\":\"no projection is available\"}}",
+              "num_turns": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

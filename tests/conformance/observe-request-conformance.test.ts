@@ -93,6 +93,18 @@ const NEW_MODULES = [
   "observe-request.ts",
 ];
 
+/** BLUE v5.2-A1 (host-requested time advance): eight further modules, added mechanically and bound by advance-request-conformance.test.ts. */
+const ADVANCE_MODULES = [
+  "advance-request-answer-bin.ts",
+  "advance-request-answer.ts",
+  "advance-request-bin.ts",
+  "advance-request-bind-bin.ts",
+  "advance-request-cli.ts",
+  "advance-request-exchange.ts",
+  "advance-request-mcp.ts",
+  "advance-request.ts",
+];
+
 describe("existing owners, the gateway, the read transport, the referee surface and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
   it("the F-027 lock, runtime-contract snapshot, register and gates, IM-13/IM-14/IM-15, the observation producer, the confirmation module, the read transport and the referee surface are byte-identical to the base", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
@@ -141,6 +153,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "session.ts",
         "terminal.ts",
         ...NEW_MODULES,
+        ...ADVANCE_MODULES,
       ].sort(),
     );
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
@@ -166,6 +179,10 @@ describe("existing owners, the gateway, the read transport, the referee surface 
       "immortalis-observe-request": "./src/observe-request-bin.ts",
       "immortalis-observe-request-bind": "./src/observe-request-bind-bin.ts",
       "immortalis-observe-request-answer": "./src/observe-request-answer-bin.ts",
+      // BLUE v5.2-A1 (host-requested time advance): three further entry points, added mechanically; the entries above are unchanged
+      "immortalis-advance-request": "./src/advance-request-bin.ts",
+      "immortalis-advance-request-bind": "./src/advance-request-bind-bin.ts",
+      "immortalis-advance-request-answer": "./src/advance-request-answer-bin.ts",
     });
     expect(pkg.dependencies).toEqual({
       "@immortalis/contracts": "workspace:*",

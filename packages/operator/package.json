@@ -13,7 +13,10 @@
     "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
     "immortalis-observe-request": "./src/observe-request-bin.ts",
     "immortalis-observe-request-bind": "./src/observe-request-bind-bin.ts",
-    "immortalis-observe-request-answer": "./src/observe-request-answer-bin.ts"
+    "immortalis-observe-request-answer": "./src/observe-request-answer-bin.ts",
+    "immortalis-advance-request": "./src/advance-request-bin.ts",
+    "immortalis-advance-request-bind": "./src/advance-request-bind-bin.ts",
+    "immortalis-advance-request-answer": "./src/advance-request-answer-bin.ts"
   },
   "dependencies": {
     "@immortalis/contracts": "workspace:*",

@@ -116,8 +116,13 @@ describe("the transport cannot reach authority it was not given", () => {
   it("every other operator module is blind to the transport: the interpreter-only referee surface gained no player read", () => {
     // BLUE v5.2-A1 (host-requested observation): its `observe-request*` modules are bound by observe-request-security.test.ts (they may reach the
     // read transport's `openAuthorizedPlayerView` proof, and never its gateway call, binder, tool name or credential)
+    // BLUE v5.2-A1 (host-requested time advance): its `advance-request*` modules reach the same `openAuthorizedPlayerView` proof and are bound
+    // by advance-request-security.test.ts (they never call the read gateway, its binder, its tool name or its credential)
     for (const f of allOperatorFiles.filter(
-      (x) => !NEW_FILES.includes(x) && !x.includes("/observe-request"),
+      (x) =>
+        !NEW_FILES.includes(x) &&
+        !x.includes("/observe-request") &&
+        !x.includes("/advance-request"),
     ))
       expect(code(f), f).not.toMatch(
         /readCurrentObservationGlance|bindTrustedCurrentPlayerContext|read_current_observation_glance|PROTOCOL_OP_READ_CURRENT_OBSERVATION_GLANCE|player-view/,
