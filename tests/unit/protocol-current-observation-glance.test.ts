@@ -56,26 +56,53 @@ describe("the trusted handle is opaque and the read is identity-only", () => {
     expect(JSON.stringify(a)).not.toContain("pc-secret-1");
   });
 
-  it("a read over a view with no committed canon reads only the Temporal state, by identity, and refuses", () => {
+  it("a read over a view with no committed canon makes the one fixed shape of reads and refuses", () => {
     const { view, keys, groups } = recordingView();
     const ctx = bindTrustedCurrentPlayerContext({ view, recipient_id: "pc-1" });
     expect(JSON.stringify(readCurrentObservationGlance(ctx, GLANCE_REQUEST()))).toBe(
       PROTOCOL_REFUSAL,
     );
-    expect(keys).toEqual([TEMPORAL_STATE_KEY]);
-    expect(groups).toEqual([]);
+    // the gateway's own eight identity reads and one group read, then IM-13's fixed seven and one
+    expect(keys).toHaveLength(8 + 7);
+    expect(groups).toHaveLength(1 + 1);
+    expect(keys[0]).toBe(TEMPORAL_STATE_KEY);
   });
 
-  it("an invalid request reads nothing at all", () => {
-    const { view, keys, groups } = recordingView();
-    const ctx = bindTrustedCurrentPlayerContext({ view, recipient_id: "pc-1" });
-    for (const bad of [undefined, {}, GLANCE_REQUEST({ event_id: "x" }), "x"])
+  it("an invalid request takes the same path as a valid one: the fixed shape, never a different one", () => {
+    const valid = recordingView();
+    readCurrentObservationGlance(
+      bindTrustedCurrentPlayerContext({ view: valid.view, recipient_id: "pc-1" }),
+      GLANCE_REQUEST(),
+    );
+    for (const bad of [undefined, {}, GLANCE_REQUEST({ event_id: "x" }), "x"]) {
+      const { view, keys, groups } = recordingView();
+      const ctx = bindTrustedCurrentPlayerContext({ view, recipient_id: "pc-1" });
       expect(JSON.stringify(readCurrentObservationGlance(ctx, bad))).toBe(PROTOCOL_REFUSAL);
-    expect(keys).toEqual([]);
-    expect(groups).toEqual([]);
+      expect(keys).toEqual(valid.keys);
+      expect(groups).toEqual(valid.groups);
+    }
   });
 
-  it("a forged context reads nothing and is refused", () => {
+  it("a throwing view degrades every step and still takes the whole shape; nothing throws", () => {
+    const attempts: string[] = [];
+    const view: ProjectionStateView = {
+      getFact: (k) => {
+        attempts.push(k);
+        throw new Error("view failure");
+      },
+      committedGroup: (id) => {
+        attempts.push(id);
+        throw new Error("view failure");
+      },
+    };
+    const ctx = bindTrustedCurrentPlayerContext({ view, recipient_id: "pc-1" });
+    expect(JSON.stringify(readCurrentObservationGlance(ctx, GLANCE_REQUEST()))).toBe(
+      PROTOCOL_REFUSAL,
+    );
+    expect(attempts).toHaveLength(8 + 1 + 7 + 1);
+  });
+
+  it("a forged context has no view: nothing is read and it is refused", () => {
     expect(
       JSON.stringify(
         readCurrentObservationGlance(

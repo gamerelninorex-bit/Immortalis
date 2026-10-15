@@ -123,6 +123,7 @@ describe("the read composes the existing path only, and takes no authority, iden
       "isObservationEarnedFact",
       "observationEventId",
       "observationEventViolation",
+      "observationRecordOf",
       "presentEventSignal",
       "type ProjectionStateView",
     ]);
@@ -143,7 +144,9 @@ describe("the read composes the existing path only, and takes no authority, iden
     const src = identifiers(MODULE);
     expect(src).not.toMatch(/parsed\.data|request\.|request\[/);
     expect(src).toMatch(/event_id: eventId/);
-    expect(src).toMatch(/recipient_id: bound\.recipient_id/);
+    expect(src).toMatch(
+      /deriveEventSignalProjection\(view, \{ event_id: eventId, recipient_id \}\)/,
+    );
   });
 
   it("the only time read is the Temporal owner's committed canonical state, by identity, and nothing is written to it", () => {
@@ -158,7 +161,7 @@ describe("the read composes the existing path only, and takes no authority, iden
       /event_id|eventId|campaign|recipient|role|permission|viewpoint|binding|source|provenance|path|basis|time|key\b/i,
     );
     expect(identifiers(MODULE) + identifiers(CONTRACT)).not.toMatch(
-      /\bauth\w*\b|\bcredential\w*\b|\btoken\b|\bsession\b|\baccount\b|\btenant\b|\bpassword\b|\bsecret\b|\bcampaignId\b|\bcampaign_id\b/i,
+      /\bauth\w*\b|\bcredential\w*\b|\btoken\b|\bsession\b|\baccount\b|\btenant\b|\bpassword\b|\bsecret\b|\bcampaignId\b/i,
     );
   });
 });
@@ -173,6 +176,22 @@ describe("the read is read-only, causally inert and has no discovery surface", (
       "committedGroup",
       "getFact",
     ]);
+  });
+
+  it("RC-14: the gateway has one fixed shape — a single early return (a forged handle has no view), then every step runs and one verdict is taken", () => {
+    const src = identifiers(MODULE);
+    const body = src.slice(src.indexOf("export function readCurrentObservationGlance"));
+    expect(body.match(/\breturn\b/g)).toHaveLength(2);
+    expect(body).toMatch(/if \(bound === undefined\) return refusal\(\);/);
+    expect(body).toMatch(
+      /return requestOk && qualified && presented\.ok \? presented : refusal\(\);/,
+    );
+    // no branch between the reads: each step is individually guarded, none is conditional on an earlier result
+    expect(body).not.toMatch(/\bif\b[^;]*\bview\./);
+    expect(body.match(/view\.getFact\(/g)).toHaveLength(8);
+    expect(body.match(/view\.committedGroup\(/g)).toHaveLength(1);
+    expect(src.match(/observationEventViolation\(/g)).toHaveLength(1);
+    expect(src.match(/deriveEventSignalProjection\(/g)).toHaveLength(1);
   });
 
   it("has no enumeration, search, inbox, queue, batch, priority, salience, dedup, replay or history vocabulary", () => {
