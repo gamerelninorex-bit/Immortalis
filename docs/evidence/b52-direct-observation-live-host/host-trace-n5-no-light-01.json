@@ -57,7 +57,7 @@
     "subtype": "success",
     "is_error": false,
     "num_turns": 5,
-    "result": "I submitted one decision, for the only pending task (I002_CLASSIFY, pc-maren). I classified all four items as INTRINSIC_PC:\n\n- **Identity:** Maren Voss, a human scribe of about forty winters.\n- **Embodiment:** one ordinary human body with fully functioning colour vision.\n- **Continuity:** \"I remain myself for as long as I live; when my body dies I am dead.\"\n- **Contact:** a weathered woman in an ink-stained coat who speaks the local tongue.\n\nThe engine recorded the answer. It will validate it and derive the verdict itself.",
+    "result": "I submitted one task, the I002_CLASSIFY for pc-maren. I classed all four items as INTRINSIC_PC: identity (Maren Voss, scribe), embodiment (ordinary human body, colour vision), continuity (remains herself while alive) and contact (weathered woman in an ink-stained coat who speaks the local tongue). The engine recorded the answer and will validate it and derive the verdict itself.",
     "model_usage": ["claude-haiku-5-5", "claude-sonnet-5-5"]
   },
   "trace": [
@@ -65,7 +65,7 @@
       "tool_call": "ToolSearch",
       "input": {
         "query": "select:mcp__immortalis-referee__referee_get_task,mcp__immortalis-referee__referee_list_tasks,mcp__immortalis-referee__referee_submit_decision",
-        "max_results": 3
+        "max_results": 5
       }
     },
     {
@@ -105,7 +105,7 @@
               "slot": "identity",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Name, species and approximate age/occupation of the character are intrinsic self-definition.",
+              "grounds": "Name, species, occupation and age describe what the character is; no institution, actor or world state is asserted.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -116,7 +116,7 @@
               "slot": "embodiment",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Describes the character's own body and sense; minimal embodiment topology, character-local.",
+              "grounds": "Describes the character's own body and sensory capability; minimal embodiment topology owned by I-002.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -127,7 +127,7 @@
               "slot": "continuity",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "A continuity rule for the character itself: remains self while alive, dead at bodily death.",
+              "grounds": "States the character's own continuity rule (persists while alive, dead when body dies); character-local only.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],
@@ -138,7 +138,7 @@
               "slot": "contact",
               "class": "INTRINSIC_PC",
               "rule_ids": ["I002-2"],
-              "grounds": "Describes the character's appearance and a personal language capability; no world, institution or actor claim is made.",
+              "grounds": "Describes the character's own appearance and personal language ability; no world fact, actor or institution is asserted.",
               "evidence_quote": null,
               "intrinsic_excerpt": null,
               "other_classes": [],

@@ -1,5 +1,5 @@
 {
-  "key": "referee/c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921/decision",
+  "key": "referee/04268a62d7a72ea92cb92f20412a1c99919c756af4a054e44c664cbf054fd5a5/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -12,49 +12,56 @@
         {
           "evidence_quote": null,
           "fact_id": "world.premise",
-          "grounds": "General setting; it bears on neither the viewing position nor the path.",
+          "grounds": "General setting; bears on neither the question nor the character's viewing.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "States the canon basis only.",
+          "grounds": "Canon basis statement; does not bear on perception.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "A stone alcove",
           "fact_id": "locus.designation",
-          "grounds": "Names the locus the character is placed in, consistent with the placement statement. It does not give a viewing position.",
+          "grounds": "Names the locus the placement refers to, but gives no viewing position.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Gives the room geometry: the bench faces the north wall at three paces. The character is not stated to be on the bench.",
+          "grounds": "Describes the bench and its facing, but nothing says the character is on the bench.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the feature that could be seen, a bright red patch on a whitewashed wall. It is not perceived, because position is not established.",
+          "grounds": "Describes the appearance of the north wall, which could be seen only if the viewing position were established.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
           "fact_id": "locus.constraint.3",
-          "grounds": "Daylight lights the north wall evenly, so illumination does not obstruct the path.",
+          "grounds": "Daylight lights the north wall evenly; no limit on the path.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
           "fact_id": "locus.constraint.4",
-          "grounds": "The air between the bench and the north wall is clear, so it does not obstruct that line.",
+          "grounds": "The air is clear and does not obstruct a line from the bench to the wall.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "Nothing solid stands between the bench and the north wall",
+          "fact_id": "locus.constraint.5",
+          "grounds": "No obstruction between bench and north wall, but this does not place the character.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         }
@@ -72,17 +79,12 @@
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "The light and air facts describe no obstruction between the bench and the north wall. But the character's viewing position is not established, so the path from the red patch to the character's eyes cannot be settled. No blocking fact is established either, so the path is not BLOCKED.",
+        "grounds": "The world facts show a clear line from the bench to the north wall, but the character's viewing position is not established, so the path from the feature to the character cannot be determined. No blocking fact is established.",
         "premises": [
           {
-            "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+            "evidence_quote": "Nothing solid stands between the bench and the north wall",
             "from": "WORLD_FACT",
-            "ref": "locus.constraint.4"
-          },
-          {
-            "evidence_quote": "lights the north wall evenly",
-            "from": "WORLD_FACT",
-            "ref": "locus.constraint.3"
+            "ref": "locus.constraint.5"
           }
         ],
         "rule_ids": ["F014D-6"],
@@ -90,7 +92,7 @@
       },
       "payload": null,
       "position": {
-        "grounds": "The placement says only that the character is in the alcove. It does not say where in the alcove, which way the character faces, or whether the eyes are open. The bench is described only as a fixture and the statement does not put the character on it. A shared locus does not establish these circumstances, and none may be assumed.",
+        "grounds": "The placement only says the character is present in the alcove. It does not say where in the alcove (e.g. on the bench), which way the character faces, or whether the eyes are open. A shared locus does not establish these, and the bench's position and facing are not stated to be the character's.",
         "premises": [
           {
             "evidence_quote": "I am originally present in the stone alcove.",
@@ -101,11 +103,11 @@
         "rule_ids": ["F014D-6", "IR-5"],
         "state": "NOT_ESTABLISHED"
       },
-      "task_id": "c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921",
+      "task_id": "04268a62d7a72ea92cb92f20412a1c99919c756af4a054e44c664cbf054fd5a5",
       "unresolved_forks": [
-        "Where in the alcove the character is, for example whether on the bench or standing elsewhere.",
-        "Which way the character faces.",
-        "Whether the character's eyes are open."
+        "Where in the alcove the character is (on the bench or elsewhere)",
+        "Which way the character faces",
+        "Whether the character's eyes are open"
       ]
     },
     "host": {
@@ -115,7 +117,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "45aa043d715986d54b66e277d908c13e111f9c97b7326e9f21b0e724db41360d",
+      "digest": "f1a6751115baf4feebfd8df3d89270a28d68feba54b75875e5966bacc509c7c5",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -123,27 +125,27 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:bf6cedf44e422e994becaaa874b9d608:release",
+          "group_id": "operator-pc:496067a0a497e880779050b56bc6f669:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:ad41e8a08d92f3c274d3599abef73a15:bind",
+          "group_id": "operator-pc:867a47c5ad83943386f8f4db2e01da82:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:b5ef201ab6ad89a5c0af8f2625a91b8e:locus",
+          "group_id": "operator-pc:e373bc12f9af30c8cec57e5ad6d43212:locus",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/profile",
-          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:world",
+          "group_id": "operator-locality:b20fd6acf3a664ddb68b398f271589bf:world",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/locus/locus-alcove",
-          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:locus",
+          "group_id": "operator-locality:b20fd6acf3a664ddb68b398f271589bf:locus",
           "version": 1
         }
       ],
@@ -155,7 +157,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "c27b91c77d5ae6aa718315702e65f773c8d4349835ebeb4192e20e30e9f4d921",
+    "task_id": "04268a62d7a72ea92cb92f20412a1c99919c756af4a054e44c664cbf054fd5a5",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

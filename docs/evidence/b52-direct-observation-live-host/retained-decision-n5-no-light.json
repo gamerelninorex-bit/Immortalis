@@ -1,5 +1,5 @@
 {
-  "key": "referee/0280c510cd8388fa92507c7cde84b685b1da9074965e06123bd57ecd4947cb06/decision",
+  "key": "referee/7d952a67d0a863f31cbfc2fea5cc57cd0b63bdfe3a188bf7ea0039f5aacbdcc9/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -12,14 +12,14 @@
         {
           "evidence_quote": null,
           "fact_id": "world.premise",
-          "grounds": "General setting; bears on neither sight nor path.",
+          "grounds": "General setting; bears neither on the question nor the path.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "Canon provenance statement; does not bear on perception.",
+          "grounds": "Canon provenance only.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
@@ -33,28 +33,35 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Places the bench facing the north wall three paces away, consistent with the placement statement.",
+          "grounds": "Gives bench position, facing and distance to the north wall, consistent with the placement.",
           "relation": "SUPPORTS",
-          "rule_ids": ["F014D-6", "IR-7"]
+          "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes",
+          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the wall surface that would be seen, but without light it is not received.",
+          "grounds": "Describes the wall surface that would be seen were there light; it is not delivered because of darkness.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": "No light of any kind reaches it.",
           "fact_id": "locus.constraint.3",
-          "grounds": "Darkness: no light reaches the alcove, which blocks visual perception path.",
+          "grounds": "Absence of any light blocks visual perception of the wall.",
           "relation": "SUPPORTS",
-          "rule_ids": ["F014D-6"]
+          "rule_ids": ["F014D-6", "F014D-5"]
         },
         {
           "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
           "fact_id": "locus.constraint.4",
-          "grounds": "Air is clear and does not obstruct, but cannot supply light.",
+          "grounds": "Air is clear and does not itself obstruct, but cannot supply light.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "Nothing solid stands between the bench and the north wall",
+          "fact_id": "locus.constraint.5",
+          "grounds": "No solid obstruction on the line; the only block is darkness.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         }
@@ -72,7 +79,7 @@
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "The committed light law says no light of any kind reaches the alcove, so no light from the north wall reaches the viewer's eyes, even though the air is clear and the distance short.",
+        "grounds": "Air is clear and nothing solid obstructs the line, but the world fact states no light of any kind reaches the alcove, so no visual appearance can reach the eyes from the wall.",
         "premises": [
           {
             "evidence_quote": "No light of any kind reaches it.",
@@ -80,12 +87,12 @@
             "ref": "locus.constraint.3"
           }
         ],
-        "rule_ids": ["F014D-6"],
+        "rule_ids": ["F014D-6", "F014D-5"],
         "state": "BLOCKED"
       },
       "payload": null,
       "position": {
-        "grounds": "The statement gives seat, facing direction (north wall) and open eyes; the geometry fact is consistent and places the north wall three paces away.",
+        "grounds": "The placement states location (stone alcove, on the bench), facing (north wall) and open eyes; the world geometry is consistent with it.",
         "premises": [
           {
             "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
@@ -101,7 +108,7 @@
         "rule_ids": ["F014D-6", "IR-7"],
         "state": "ESTABLISHED"
       },
-      "task_id": "0280c510cd8388fa92507c7cde84b685b1da9074965e06123bd57ecd4947cb06",
+      "task_id": "7d952a67d0a863f31cbfc2fea5cc57cd0b63bdfe3a188bf7ea0039f5aacbdcc9",
       "unresolved_forks": []
     },
     "host": {
@@ -111,7 +118,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "05418a53557d1655d6985dfc7027b5cc49d631e221be249da959cdc0226f88f0",
+      "digest": "18f22c9e0f192d48f6912df328f7064d65274e8ca425c82c45469566980e1cfe",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -119,27 +126,27 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:2abea7f60b3a07a3db6208a30641b974:release",
+          "group_id": "operator-pc:e9361b3a85324a55867e374faa23d62d:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:d322115f1681641410768f0a8ccfc12a:bind",
+          "group_id": "operator-pc:84ab463ab02c260c903eaebfda20ebc2:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:17e80e7d55e764f232b223006fdbf7f8:locus",
+          "group_id": "operator-pc:cb5599a3162e76d25d00954757bf2623:locus",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/profile",
-          "group_id": "operator-locality:df445e0e5ecfe1aa7f2e1a4e0511a1af:world",
+          "group_id": "operator-locality:36f1949cfb2a34c2e0ce4187b2d0cda7:world",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/locus/locus-alcove",
-          "group_id": "operator-locality:df445e0e5ecfe1aa7f2e1a4e0511a1af:locus",
+          "group_id": "operator-locality:36f1949cfb2a34c2e0ce4187b2d0cda7:locus",
           "version": 1
         }
       ],
@@ -151,7 +158,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "0280c510cd8388fa92507c7cde84b685b1da9074965e06123bd57ecd4947cb06",
+    "task_id": "7d952a67d0a863f31cbfc2fea5cc57cd0b63bdfe3a188bf7ea0039f5aacbdcc9",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

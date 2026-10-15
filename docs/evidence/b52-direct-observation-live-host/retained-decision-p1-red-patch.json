@@ -1,5 +1,5 @@
 {
-  "key": "referee/4dde838b7eb0f8c9c3bd79da7a9a08a5ad756dec50367fd75733c4bb4da1c873/decision",
+  "key": "referee/ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1/decision",
   "value": {
     "attempt": 0,
     "authority": {
@@ -12,14 +12,14 @@
         {
           "evidence_quote": null,
           "fact_id": "world.premise",
-          "grounds": "General setting; bears on neither sight, position nor path.",
+          "grounds": "General setting; bears on neither sight nor path.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
         {
           "evidence_quote": null,
           "fact_id": "world.basis",
-          "grounds": "Canon provenance statement; no bearing on perception.",
+          "grounds": "Canon framing only.",
           "relation": "NOT_RELEVANT",
           "rule_ids": ["F014D-6"]
         },
@@ -33,28 +33,35 @@
         {
           "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
           "fact_id": "locus.constraint.1",
-          "grounds": "Gives bench position, facing and distance consistent with the placement.",
+          "grounds": "Gives bench position, orientation and distance to the north wall.",
           "relation": "SUPPORTS",
-          "rule_ids": ["F014D-6", "IR-7"]
+          "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes.",
+          "evidence_quote": "one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes",
           "fact_id": "locus.constraint.2",
-          "grounds": "Describes the surface and red patch that is seen.",
+          "grounds": "Describes the visible surface and red patch.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
+          "evidence_quote": "lights the north wall evenly",
           "fact_id": "locus.constraint.3",
-          "grounds": "Daylight lights the north wall evenly; the path is illuminated.",
+          "grounds": "Provides even daylight on the wall.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         },
         {
-          "evidence_quote": "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
+          "evidence_quote": "there is no smoke, mist or dust in it",
           "fact_id": "locus.constraint.4",
-          "grounds": "Clear air, no obstruction on the path.",
+          "grounds": "Air is clear, no attenuation.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "no screen, curtain, partition or other object crosses the line from the bench to the wall",
+          "fact_id": "locus.constraint.5",
+          "grounds": "No obstruction on the line of sight.",
           "relation": "SUPPORTS",
           "rule_ids": ["F014D-6"]
         }
@@ -68,11 +75,11 @@
             "ref": "mirror/embodiment/772d87ba472a"
           }
         ],
-        "rule_ids": ["F014D-2", "F014D-5"],
+        "rule_ids": ["F014D-6", "F014D-2"],
         "state": "ESTABLISHED"
       },
       "path": {
-        "grounds": "The north wall is evenly daylit, the air is clear, and the distance is only three paces; no obstruction is stated.",
+        "grounds": "The north wall is evenly lit, the air is clear, and nothing obstructs the line from bench to wall at three paces.",
         "premises": [
           {
             "evidence_quote": "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly.",
@@ -85,12 +92,12 @@
             "ref": "locus.constraint.4"
           },
           {
-            "evidence_quote": "facing the north wall three paces away",
+            "evidence_quote": "Nothing solid stands between the bench and the north wall",
             "from": "WORLD_FACT",
-            "ref": "locus.constraint.1"
+            "ref": "locus.constraint.5"
           }
         ],
-        "rule_ids": ["F014D-5", "F014D-6"],
+        "rule_ids": ["F014D-6", "F014D-5"],
         "state": "OPEN"
       },
       "payload": {
@@ -111,12 +118,12 @@
             "ref": "locus.constraint.1"
           }
         ],
-        "content": "A pale, whitewashed wall surface, evenly lit by daylight, three paces ahead. At the level of the viewer's eyes is one broad patch of bright red, about an arm-span wide, standing out against the pale surround.",
-        "referent": "The north wall in front of the seated viewer, with a red patch on it",
+        "content": "A pale white, evenly lit flat wall three paces ahead, bearing one broad patch of bright red about an arm-span wide, level with the viewer's eyes.",
+        "referent": "The north wall in front of the seated viewer, with its red patch",
         "source_fact_id": "locus.constraint.2"
       },
       "position": {
-        "grounds": "The placement states location (stone alcove, on the bench), facing (north wall) and open eyes; the world geometry is consistent with it, the bench facing the north wall three paces away.",
+        "grounds": "The placement states location (on the bench in the alcove), facing (north wall) and open eyes; the world geometry places the bench three paces from the north wall.",
         "premises": [
           {
             "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
@@ -132,7 +139,7 @@
         "rule_ids": ["F014D-6", "IR-7"],
         "state": "ESTABLISHED"
       },
-      "task_id": "4dde838b7eb0f8c9c3bd79da7a9a08a5ad756dec50367fd75733c4bb4da1c873",
+      "task_id": "ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1",
       "unresolved_forks": []
     },
     "host": {
@@ -142,7 +149,7 @@
     "input": {
       "candidate": null,
       "candidate_digest": null,
-      "digest": "6c74764a480058f808f0c62b6f77182d988cdc0acc940e040ac3764d800b6d64",
+      "digest": "7847654c634717fac4d88711273cf3cd4ead08754399e5ba054cd189c15c0c56",
       "observed_at": {
         "unit": "live-exercise-unit",
         "value": 100
@@ -150,27 +157,27 @@
       "refs": [
         {
           "fact_key": "pc/pc-maren/existence-contract",
-          "group_id": "operator-pc:98e846ec90590e538edf41b07050fe9f:release",
+          "group_id": "operator-pc:f28390e7f5024c0b769f74a8561aa7ec:release",
           "version": 1
         },
         {
           "fact_key": "role-registry/binding/role.player_character",
-          "group_id": "operator-pc:2f93110835f4e0f60db7b04f91888366:bind",
+          "group_id": "operator-pc:50415d9f2f2017583d9eadcd173d38f4:bind",
           "version": 1
         },
         {
           "fact_key": "world-state/pc/pc-maren/locus-custody",
-          "group_id": "operator-pc:244bf4ac64f1ca8694721a087babf832:locus",
+          "group_id": "operator-pc:fa817043fec5af58e983577e31a7984b:locus",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/profile",
-          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:world",
+          "group_id": "operator-locality:b20fd6acf3a664ddb68b398f271589bf:world",
           "version": 1
         },
         {
           "fact_key": "world/world-ashfall/locus/locus-alcove",
-          "group_id": "operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:locus",
+          "group_id": "operator-locality:b20fd6acf3a664ddb68b398f271589bf:locus",
           "version": 1
         }
       ],
@@ -182,7 +189,7 @@
     "subject": {
       "pc_id": "pc-maren"
     },
-    "task_id": "4dde838b7eb0f8c9c3bd79da7a9a08a5ad756dec50367fd75733c4bb4da1c873",
+    "task_id": "ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1",
     "validated_under": {
       "permission": "permission.resolution.execute",
       "role": "role.resolver"

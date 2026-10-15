@@ -5,7 +5,7 @@ CONFIRMATION — ORIGINAL LOCALITY SETUP
 OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
   campaign:  campaign-ashfall (a NEW standard campaign package will be created)
   operator:  uid 0
-  setup identity: ec6656a25f7aae5c73ea3f3b63d3f24a
+  setup identity: b20fd6acf3a664ddb68b398f271589bf
   to commit, in this order: world → locus → source
 
 THE SETTING FACTS YOU ARE CONFIRMING (authored by you; nothing is inferred, estimated or defaulted):
@@ -23,6 +23,7 @@ LOCUS
     - surface: "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes."
     - light: "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly."
     - air: "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it."
+    - path: "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall."
 SOURCE CONDITION — EXACT, FINITE, an initial setting fact
   source key: src-ink-store-1 at locus locus-alcove
   dimension: shelf
@@ -36,8 +37,8 @@ Confirming commits these as the physical setting of this campaign, one durable W
 It creates no character, actor, cohort or relationship, advances no time, and grants nobody perception, knowledge or
 permission to extract: the quantity is a setting fact, not an estimate, availability verdict or yield.
 Committed facts are never replaced; a different setup is refused for this campaign.
-To confirm, type exactly "establish-locality 4a5ebecb910b". Anything else declines.
-> PROGRESS setup PINNED ec6656a25f7aae5c73ea3f3b63d3f24a
+To confirm, type exactly "establish-locality 405beb6c7af9". Anything else declines.
+> PROGRESS setup PINNED b20fd6acf3a664ddb68b398f271589bf
 PROGRESS package CREATED campaign-ashfall
 PROGRESS world COMMITTED world/world-ashfall/profile
 PROGRESS locus COMMITTED world/world-ashfall/locus/locus-alcove
@@ -45,18 +46,18 @@ PROGRESS source COMMITTED world/world-ashfall/source/src-ink-store-1
 STATUS LOCALITY_READY
 the original locality is established and an owner-verified open of the package reads back exactly the confirmed setup; this is a physical setting only: nobody perceives, knows or may extract anything because of it
 campaign: campaign-ashfall
-setup identity: ec6656a25f7aae5c73ea3f3b63d3f24a
-world: world/world-ashfall/profile [world_state/world_profile v1] group operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:world cause operator-locality-cause:ec6656a25f7aae5c73ea3f3b63d3f24a
-locus: world/world-ashfall/locus/locus-alcove [world_state/world_locus v1] group operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:locus cause operator-locality-cause:ec6656a25f7aae5c73ea3f3b63d3f24a
-source: world/world-ashfall/source/src-ink-store-1 [world_state/world_source_condition v1] group operator-locality:ec6656a25f7aae5c73ea3f3b63d3f24a:source cause operator-locality-cause:ec6656a25f7aae5c73ea3f3b63d3f24a
+setup identity: b20fd6acf3a664ddb68b398f271589bf
+world: world/world-ashfall/profile [world_state/world_profile v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:world cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
+locus: world/world-ashfall/locus/locus-alcove [world_state/world_locus v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:locus cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
+source: world/world-ashfall/source/src-ink-store-1 [world_state/world_source_condition v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:source cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
 source: src-ink-store-1 EXACT_FINITE, established 40 flask of lamp-oil; recoverable now 40 flask
 
 OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
 STATUS REFEREE_HOST_BOUND
 host claude-code-headless is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).
-secret file (owner-only; give the PATH to the host's tool server, never the contents): /tmp/immortalis-live-p5gOcm/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
-tool server: immortalis-referee --operator-dir /tmp/immortalis-live-p5gOcm/operator-state --campaign-id campaign-ashfall --host-id claude-code-headless --secret-file /tmp/immortalis-live-p5gOcm/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
-exchange directory: /tmp/immortalis-live-p5gOcm/operator-state/referee-dec69b98eb11c890e871cccc5428c66b
+secret file (owner-only; give the PATH to the host's tool server, never the contents): /tmp/immortalis-live-RjBODy/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+tool server: immortalis-referee --operator-dir /tmp/immortalis-live-RjBODy/operator-state --campaign-id campaign-ashfall --host-id claude-code-headless --secret-file /tmp/immortalis-live-RjBODy/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+exchange directory: /tmp/immortalis-live-RjBODy/operator-state/referee-dec69b98eb11c890e871cccc5428c66b
 
 [host client run 1: 8 traced events]
 [host client run 2: 8 traced events]
@@ -93,7 +94,7 @@ possession> Asking the AI referee host to read what you wrote ...
 +---
 This is how IMMORTALIS understands your character.
 Keep this character, or change something before we continue?
-To confirm, type exactly "keep-character 532d9c5eacde". To revise instead, type "change". Anything else leaves without a character.
+To confirm, type exactly "keep-character bc7c8d2bc7d8". To revise instead, type "change". Anything else leaves without a character.
 > PROGRESS keep RETAINED
 PROGRESS referee DECIDED referee/3a3d9fb49c917385938c898d0a1abd0a2a035c26c27134e64812cd6d77d56a7e/decision
 PROGRESS character RELEASED pc/pc-maren/existence-contract
@@ -111,14 +112,19 @@ LOCUS locus-alcove
     - surface: "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes."
     - light: "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly."
     - air: "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it."
+    - path: "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall."
 If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.
 presence> Asking the AI referee host to read your statement against the world ...
 +--- AI REFEREE FINDINGS (host claude-code-headless; verdict BIND_ELIGIBLE) ---
-|   your statement is read as: NATIVE_ALREADY_THERE - "The player explicitly states they have always lived in the alcove and are originally present, with no arrival, portal, transfer or summoning. No bridge is needed or invented."
-|   world.premise: SUPPORTS - "A scriptorium town is consistent with a human scribe living there."
-|   world.basis: SUPPORTS - "Established canon says the town has alcoves, consistent with presence in an alcove; nothing excludes a native human."
-|   locus.designation: SUPPORTS - "The locus is a stone alcove, matching the statement."
-|   locus.constraint.1: SUPPORTS - "A wooden bench on the south wall faces the north wall, matching the seated, north-facing position."
+|   your statement is read as: NATIVE_ALREADY_THERE - "The player explicitly states they have always lived in the alcove and are originally present, with no arrival, portal, transfer or summoning. Per IR-3 this is native/already-there and no bridge is invented."
+|   world.premise: SUPPORTS - "A scriptorium town is consistent with a human scribe being a long-term resident."
+|   world.basis: SUPPORTS - "An original, authored place with alcoves is consistent with a native presence in an alcove; nothing excludes a human native."
+|   locus.designation: SUPPORTS - "The locus is the stone alcove where the player says they are present."
+|   locus.constraint.1: SUPPORTS - "A bench against the south wall facing the north wall matches the stated seating and facing."
+|   locus.constraint.2: SUPPORTS - "The north wall, with a patch at seated eye height, is consistent with a seated person facing it with eyes open; the character's colour vision is ordinary."
+|   locus.constraint.3: SUPPORTS - "Ordinary daylight is consistent with an ordinary human with open eyes facing the lit north wall."
+|   locus.constraint.4: SUPPORTS - "Clear air does not conflict with the seated, eyes-open presence."
+|   locus.constraint.5: SUPPORTS - "An unobstructed path is consistent with sitting on the bench facing the north wall."
 +---
 CONFIRMATION - NATIVE PRESENCE (the second, separate choice)
   character: pc-maren (released and kept)
@@ -126,14 +132,14 @@ CONFIRMATION - NATIVE PRESENCE (the second, separate choice)
   your statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes open."
   Confirming binds this character as the operative player character on exactly this explicit fact (native, already there).
   It invents no arrival or bridge and gives the character no physical position, custody, perception, knowledge or action.
-To confirm, type exactly "place-character ce1aaed8517b". Anything else leaves your character released but unbound.
-> PROGRESS referee DECIDED referee/aef10792f23fb0c7b1ef56e2b3917666b4604246c7e7f220430f830387e35117/decision
+To confirm, type exactly "place-character 70dacdbcf018". Anything else leaves your character released but unbound.
+> PROGRESS referee DECIDED referee/c49fead724c4b0489e31d3b4ed84d1b2b306fc2572fc65e70ad009a11cfa9a66/decision
 PROGRESS binding COMMITTED role-registry/binding/role.player_character
 STATUS CHARACTER_BOUND
 the character you kept is released and is bound as the operative player character at the established locus, on the native-presence statement you separately confirmed; a fresh owner-verified open reads back exactly what you confirmed. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
 campaign: campaign-ashfall
-character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:98e846ec90590e538edf41b07050fe9f:release cause operator-pc-cause:98e846ec90590e538edf41b07050fe9f
-binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:2f93110835f4e0f60db7b04f91888366:bind cause operator-pc-cause:2f93110835f4e0f60db7b04f91888366
+character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:f28390e7f5024c0b769f74a8561aa7ec:release cause operator-pc-cause:f28390e7f5024c0b769f74a8561aa7ec
+binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:50415d9f2f2017583d9eadcd173d38f4:bind cause operator-pc-cause:50415d9f2f2017583d9eadcd173d38f4
 world: world-ashfall, locus: locus-alcove
 native presence, as you stated it: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes open."
 physical custody of the character: none - this command establishes none (see establish-character-locus)
@@ -147,12 +153,12 @@ world world-ashfall, locus locus-alcove
 your confirmed native-presence statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes open."
 The binding records that your character is originally present there, and gives it no physical position. Asking the AI referee host whether your character's own words and that statement describe ONE material physical body at exactly that locus ...
 +--- AI REFEREE FINDINGS: PHYSICAL PLACEMENT (host claude-code-headless; verdict PHYSICAL_ELIGIBLE) ---
-|   your character's form is read as: SINGLE_MATERIAL_BODY - "The character's own embodiment statement constitutes one ordinary human body, a single material thing occupying a place."
+|   your character's form is read as: SINGLE_MATERIAL_BODY - "The character's own embodiment statement constitutes one ordinary human body, a single material thing that occupies one place."
 |       the words: "One ordinary human body with ordinary, fully functioning colour vision"
-|   your presence is read as: NATIVE_AT_THIS_LOCUS - "The player states original presence, with no arrival, in the stone alcove, seated on the bench; this is an explicit player-authored fact matching the locus designation."
+|   your presence is read as: NATIVE_AT_THIS_LOCUS - "The player explicitly states original presence, with no arrival, in the stone alcove, which is the locus designation; the presence rests on the player's own words with no dependence on an actor or right."
 |       the words: "I am originally present in the stone alcove, seated on the wooden viewing bench"
-|   locus.designation: SUPPORTS - "The locus is a stone alcove, matching the statement's locus."
-|   locus.constraint.1: SUPPORTS - "A room with a wooden viewing bench facing the north wall is consistent with a body seated there facing north."
+|   locus.designation: SUPPORTS - "The locus is the stone alcove, matching the statement's locus."
+|   locus.constraint.1: SUPPORTS - "The alcove is a room with a wooden viewing bench facing the north wall, consistent with a body seated on it facing north."
 +---
 CONFIRMATION - PHYSICAL LOCUS (the third, separate choice)
   character: pc-maren
@@ -160,15 +166,15 @@ CONFIRMATION - PHYSICAL LOCUS (the third, separate choice)
   your native-presence statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes open."
   Confirming records, in World-State's custody, that this ONE material character is physically at exactly this locus, stationary, on the reading above.
   It gives the character no perception, knowledge, action, capability, movement, elapsed time, access, rights or any non-player character's cooperation.
-To confirm, type exactly "establish-character-locus c209acb9c4cf". Anything else leaves your character bound but without a physical position.
-> PROGRESS referee DECIDED referee/74441396db9b1c03f7299bd823999f5f9031aef489a8c71937b10b19e4c43bcf/decision
+To confirm, type exactly "establish-character-locus 469d228c1d9e". Anything else leaves your character bound but without a physical position.
+> PROGRESS referee DECIDED referee/5fa86ee111dafd7ccc5eb15c9f625444d3c79e3db785896f76cfdfaea6eb8e65/decision
 PROGRESS physical locus COMMITTED world-state/pc/pc-maren/locus-custody
 STATUS LOCUS_ESTABLISHED
 the character you kept and placed has, in World-State's custody, one stationary physical locus: the established locus its native presence was qualified at, on the physical-placement reading of the AI referee host you saw and the separate confirmation you gave; a fresh owner-verified open reads back exactly that. It is a stationary position only: it gives the character no perception, knowledge, action, capability, narration, movement or elapsed time.
 campaign: campaign-ashfall
-physical-locus custody: world-state/pc/pc-maren/locus-custody [world_state/world_fallback_physical_entity v1] group operator-pc:244bf4ac64f1ca8694721a087babf832:locus cause operator-pc-cause:244bf4ac64f1ca8694721a087babf832
+physical-locus custody: world-state/pc/pc-maren/locus-custody [world_state/world_fallback_physical_entity v1] group operator-pc:fa817043fec5af58e983577e31a7984b:locus cause operator-pc-cause:fa817043fec5af58e983577e31a7984b
 stationary at: world-ashfall / locus-alcove
-referee physical-placement reading: referee/74441396db9b1c03f7299bd823999f5f9031aef489a8c71937b10b19e4c43bcf/decision host claude-code-headless verdict PHYSICAL_ELIGIBLE
+referee physical-placement reading: referee/5fa86ee111dafd7ccc5eb15c9f625444d3c79e3db785896f76cfdfaea6eb8e65/decision host claude-code-headless verdict PHYSICAL_ELIGIBLE
 current locus (from custody only): stationary
 
 [the Temporal owner established canonical time at 100 live-exercise-unit]
@@ -180,20 +186,20 @@ character: pc-maren
 canonical basis: 100 live-exercise-unit
 Confirming is your choice that your character looks at its surroundings NOW, at this basis. The AI referee host is asked what its sight directly receives from the committed physical setting; you will be shown only the raw appearance it receives, if any - never the setting, the host's reasoning or why nothing was received.
 It advances no time and gives the character no recognition, comprehension, belief, memory or action.
-To confirm, type exactly "observe-surroundings 49db90f13cc2". Anything else leaves nothing observed.
-> PROGRESS referee DECIDED referee/4dde838b7eb0f8c9c3bd79da7a9a08a5ad756dec50367fd75733c4bb4da1c873/decision
+To confirm, type exactly "observe-surroundings ff567ba5963c". Anything else leaves nothing observed.
+> PROGRESS referee DECIDED referee/ba1d56245d32abbe0b73c3e3874a444ea1061b9472c859a72a3c5385bcadefc1/decision
 PROGRESS observation COMMITTED access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/packet/pc-maren
 STATUS OBSERVATION_RECEIVED
 your character looked, and the Epistemic owner established that its sight directly received the raw appearance shown below, at the current canonical basis; a fresh owner-verified open reads back exactly that. It is raw appearance only: it gives the character no recognition, comprehension, belief, memory, action or elapsed time, and it reveals nothing of the setting beyond what was received
 campaign: campaign-ashfall
 basis: 100 live-exercise-unit (unchanged)
 contact: PERCEPTION
-referent: The north wall in front of the seated viewer, with a red patch on it
-content: A pale, whitewashed wall surface, evenly lit by daylight, three paces ahead. At the level of the viewer's eyes is one broad patch of bright red, about an arm-span wide, standing out against the pale surround.
+referent: The north wall in front of the seated viewer, with its red patch
+content: A pale white, evenly lit flat wall three paces ahead, bearing one broad patch of bright red about an arm-span wide, level with the viewer's eyes.
 
 
 [ordinary open] integrity violations: 0
 [ordinary open] retained direct-perception decision: verdict OBSERVATION_ESTABLISHED host=claude-code-headless
 [ordinary open] access/* facts: ["access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/event","access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/packet/pc-maren","access/obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3/provenance/pc-maren"]
-[ordinary open] packet: {"access":{"channel":"PERCEPTION","established_at":{"unit":"live-exercise-unit","value":100},"result":"RECEIVED"},"intelligibility":{"basis":"NO_CAPABILITY_DEPENDENCY","result":"REPRESENTATION_ACCESSIBLE"},"payload":{"content":"A pale, whitewashed wall surface, evenly lit by daylight, three paces ahead. At the level of the viewer's eyes is one broad patch of bright red, about an arm-span wide, standing out against the pale surround.","referent":"The north wall in front of the seated viewer, with a red patch on it"},"presented_attribution":null,"recipient":"pc-maren"}
+[ordinary open] packet: {"access":{"channel":"PERCEPTION","established_at":{"unit":"live-exercise-unit","value":100},"result":"RECEIVED"},"intelligibility":{"basis":"NO_CAPABILITY_DEPENDENCY","result":"REPRESENTATION_ACCESSIBLE"},"payload":{"content":"A pale white, evenly lit flat wall three paces ahead, bearing one broad patch of bright red about an arm-span wide, level with the viewer's eyes.","referent":"The north wall in front of the seated viewer, with its red patch"},"presented_attribution":null,"recipient":"pc-maren"}
 [ordinary open] temporal state: {"canonical_time":{"unit":"live-exercise-unit","value":100},"continuation":null,"last_transaction":"observation-tx-obs-60ec1b9e4470c728be7c8dd955c3c641d58e176b6c46be87b4257b942d7825d3"}

@@ -56,9 +56,15 @@ const SCENE = [
     statement:
       "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it.",
   },
+  {
+    aspect: "path",
+    statement:
+      "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall.",
+  },
 ];
+// the one path condition the independent negative changes: the same aspect, an opaque interposed screen instead of the open floor
 const SCREEN = {
-  aspect: "obstruction-1",
+  aspect: "path",
   statement:
     "A continuous opaque wooden screen stands across the full width and height of the alcove between the bench and the north wall; it has no gap, and no other opening leads from the bench to the north wall.",
 };
@@ -70,6 +76,7 @@ const DARK = [
     statement: "The alcove has no window and no lamp. No light of any kind reaches it.",
   },
   SCENE[3]!,
+  SCENE[4]!,
 ];
 
 interface Scenario {
@@ -87,7 +94,7 @@ const SCENARIOS: readonly Scenario[] = [
   {
     id: "n1-opaque-screen",
     title: "NEGATIVE (independent): the same scene plus a continuous opaque screen",
-    constraints: [...SCENE, SCREEN],
+    constraints: [...SCENE.slice(0, 4), SCREEN],
     embodiment: SIGHT,
     presence: POSE,
   },
