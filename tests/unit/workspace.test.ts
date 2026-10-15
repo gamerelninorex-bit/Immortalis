@@ -6,7 +6,7 @@ import * as protocol from "@immortalis/protocol";
 import * as testkit from "@immortalis/testkit";
 
 describe("workspace wiring", () => {
-  it("resolves all four packages; protocol exposes exactly the eight trusted-context binders and the seven host operations", () => {
+  it("resolves all four packages; protocol exposes exactly the nine trusted-context binders and the eight host operations", () => {
     expect(Object.keys(contracts).length).toBeGreaterThan(0);
     expect(Object.keys(engine).length).toBeGreaterThan(0);
     expect(Object.keys(testkit).length).toBeGreaterThan(0);
@@ -19,12 +19,14 @@ describe("workspace wiring", () => {
       "bindTrustedCausalEventSignalContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
+      "bindTrustedCurrentPlayerContext",
       "bindTrustedEventSignalContext",
       "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
       "readCurrentEventSignalPresentation",
+      "readCurrentObservationGlance",
       "resumeNullPcOocHeldAdvance",
     ]);
   });

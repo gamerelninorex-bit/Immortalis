@@ -94,7 +94,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
     "packages/protocol/src/index.ts":
-      "b945c16fede6707509a51f3a157d1b6cc856b05aa8177f2cbdef7f8b8040842b",
+      "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
     "packages/protocol/src/pc-transfer-advance.ts":
       "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
     "packages/protocol/src/pc-relocation.ts":

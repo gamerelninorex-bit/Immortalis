@@ -68,6 +68,7 @@ export * from "./protocol-null-pc-advance.ts";
 export * from "./protocol-null-pc-held-advance.ts";
 export * from "./protocol-pc-target-advance.ts";
 export * from "./protocol-causal.ts";
+export * from "./protocol-current-glance.ts";
 export * from "./protocol-relocation.ts";
 export * from "./protocol.ts";
 export * from "./result.ts";

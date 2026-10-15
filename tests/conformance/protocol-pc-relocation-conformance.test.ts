@@ -87,6 +87,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
     expect(readdirSync("packages/protocol/src").sort()).toEqual([
       "active-pc-target-advance.ts",
       "causal-event-signal.ts",
+      "current-observation-glance.ts",
       "event-signal.ts",
       "index.ts",
       "null-pc-ooc-advance.ts",
