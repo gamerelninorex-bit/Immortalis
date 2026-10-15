@@ -161,7 +161,13 @@ export async function servePlayerViewMcp(o: PlayerViewMcpOptions): Promise<void>
     const method = req.method;
     if (!idGiven) {
       // a notification needs no reply; only the client's initialization notice changes anything, and only in its place
-      if (method === "notifications/initialized" && phase === "INITIALIZED") phase = "READY";
+      // (a notification's params, when present, must be an object like a request's: an ill-typed one is ignored and starts nothing)
+      if (
+        method === "notifications/initialized" &&
+        phase === "INITIALIZED" &&
+        (req.params === undefined || isPlainRecord(req.params))
+      )
+        phase = "READY";
       continue;
     }
     try {

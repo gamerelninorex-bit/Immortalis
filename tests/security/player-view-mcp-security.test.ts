@@ -407,6 +407,44 @@ describe("MCP admission and lifecycle (BLUE H-1): a malformed or out-of-phase me
     }
   });
 
+  it("a malformed initialized notification (params not an object) does not start the session on a real stdio process, and the proper notice then does", async () => {
+    for (const bad of [7, "x", true, null, []]) {
+      const c = new McpClient(serverArgs(dirs, secretFile));
+      const init = await c.raw(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: INIT }),
+      );
+      expect(init.result.serverInfo.name).toBe("immortalis-player-view");
+      // a notification has no reply: the next request's reply is the only observable
+      c.notify("notifications/initialized", bad);
+      const early = await c.raw(
+        JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: CALL_PARAMS }),
+      );
+      expect(early.error, JSON.stringify(bad)).toEqual({
+        code: -32600,
+        message: "server not initialized",
+      });
+      expect(JSON.stringify(early)).not.toMatch(LEAK);
+      // the malformed notice consumed nothing: a valid one (metadata included) now starts the session
+      c.notify("notifications/initialized", { _meta: { note: "ok" } });
+      const served = await c.call({});
+      expect(served.isError).toBe(false);
+      expect(served.text).toBe(direct);
+      c.end();
+      expect(await c.exit()).toBe(0);
+    }
+  });
+
+  it("a malformed initialized notification touches neither the package nor the retained state", async () => {
+    const served = await serveInProcess(dirs, secretFile, [
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: INIT }),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: 7 }),
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: CALL_PARAMS }),
+    ]);
+    expect(served.replies.map((r: any) => r.error?.code ?? "ok")).toEqual(["ok", -32600]);
+    expect(served.campaignCalls).toEqual([]);
+    expect(served.ledgerCalls).toEqual([]);
+  });
+
   it("none of these touches the campaign: the package and the retained state are not opened, read or locked, and the normal initialized exchange then does read", async () => {
     const malformed = [
       JSON.stringify({ id: 1, method: "tools/call", params: CALL_PARAMS }),

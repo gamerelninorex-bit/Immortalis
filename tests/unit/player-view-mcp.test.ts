@@ -220,6 +220,47 @@ describe("lifecycle: nothing is listed or read before the session is initialized
     expect(calls).toHaveLength(1);
   });
 
+  it("an initialized notification whose params are not an object starts nothing; an absent or object params (metadata included) does", async () => {
+    const notice = (params?: unknown) =>
+      msg({ method: "notifications/initialized", ...(params === undefined ? {} : { params }) });
+    for (const bad of [7, "x", true, false, null, []]) {
+      const { calls, read } = counter();
+      const replies = await exchange(
+        [rpc(1, "initialize", INIT_PARAMS), notice(bad), CALL(2), rpc(3, "tools/list")],
+        read,
+      );
+      expect(
+        replies.map((r) => [r.id, r.error?.code ?? "ok"]),
+        JSON.stringify(bad),
+      ).toEqual([
+        [1, "ok"],
+        [2, -32600],
+        [3, -32600],
+      ]);
+      expect(calls, JSON.stringify(bad)).toEqual([]);
+      // a later, well-formed notice still starts the session (the malformed one did not consume the stage)
+      const later = counter();
+      const after = await exchange(
+        [rpc(1, "initialize", INIT_PARAMS), notice(bad), notice(), CALL(2)],
+        later.read,
+      );
+      expect(after.map((r) => r.error?.code ?? "ok")).toEqual(["ok", "ok"]);
+      expect(later.calls).toHaveLength(1);
+    }
+    for (const good of [undefined, {}, { _meta: { x: 1 } }, { anything: [1, 2] }]) {
+      const { calls, read } = counter();
+      const replies = await exchange(
+        [rpc(1, "initialize", INIT_PARAMS), notice(good), CALL(2)],
+        read,
+      );
+      expect(
+        replies.map((r) => r.error?.code ?? "ok"),
+        JSON.stringify(good),
+      ).toEqual(["ok", "ok"]);
+      expect(calls, JSON.stringify(good)).toHaveLength(1);
+    }
+  });
+
   it("ping is answered at any stage; it reads and discloses nothing", async () => {
     const { calls, read } = counter();
     const replies = await exchange(

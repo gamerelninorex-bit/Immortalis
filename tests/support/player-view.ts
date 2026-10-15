@@ -153,8 +153,10 @@ export class McpClient {
     const r = msg.result;
     return { text: r.content[0].text, isError: r.isError === true, raw: msg };
   }
-  notify(method: string): void {
-    this.#proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method })}\n`);
+  notify(method: string, params?: unknown): void {
+    this.#proc.stdin.write(
+      `${JSON.stringify({ jsonrpc: "2.0", method, ...(params === undefined ? {} : { params }) })}\n`,
+    );
   }
   end(): void {
     this.#proc.stdin.end();
