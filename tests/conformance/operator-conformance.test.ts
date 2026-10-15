@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the bounded local trusted PC command-and-reopen mechanism (@immortalis/operator). Governing lock:
 // spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged. No register row, status, source pin, gate or
 // lock moved: this slice adds a package, tests and a document only. The frozen Active-PC Post-Handover Physical Locus Ownership
@@ -56,7 +57,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol.ts":
     "426cb9e790b435d75a4f6a1df39c792616310421e17eb953aa2f382ae4370e0c",
   "packages/contracts/src/temporal.ts":
-    "c47467c75137f69b7e951be68aaaa9fc4f6b68f1ddaba311f373a2014ebf9adb",
+    "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/contracts/src/logistics.ts":
     "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
   "packages/engine/src/world/canonical-campaign.ts":
@@ -66,7 +67,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/owners/registry.ts":
     "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
   "packages/protocol/src/null-pc-ooc-held-continuation.ts":

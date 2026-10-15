@@ -17,6 +17,7 @@ import {
   accessPacketStage,
   accessProvenanceKey,
   temporalTransactionAuthorityKey,
+  temporalTransactionKey,
   timeAtOrBefore,
   type BroadcastExposureEvent,
   type OwnerFact,
@@ -30,7 +31,11 @@ import {
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { epistemicObjectViolation, isObservationEarnedFact } from "./declaration.ts";
+import {
+  epistemicObjectViolation,
+  isObservationEarnedFact,
+  observationTriggerViolation,
+} from "./declaration.ts";
 import { observationEventViolation } from "./observation.ts";
 import {
   broadcastReferenceViolation,
@@ -333,6 +338,15 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         authority.data.opening.basis_time,
       );
       if (identity) bad(pf.key, identity);
+      if (isObservationEarnedFact(eventFact)) {
+        const why = observationTriggerViolation(
+          authority.data,
+          eventFact,
+          authority.data.opening.basis_time,
+        );
+        if (why) bad(pf.key, why);
+      }
+
       const readKeys = group.reads.map((r) => r.key);
       const expectedKeys = required ? [eventFact.key, required.key] : [eventFact.key];
       if (!canonicalEqual(readKeys, expectedKeys)) {
@@ -344,7 +358,13 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         o.value.next_boundary !== null &&
         o.value.dependencies.some((d) => canonicalEqual(d.stage, stage)),
     );
-    if (!cited(pf.provenance.group_id) && !awaiting) {
+    const triggeredPending =
+      isObservationEarnedFact(eventFact) &&
+      authority?.success &&
+      !byKey.has(temporalTransactionKey(authority.data.transaction_id)) &&
+      observationTriggerViolation(authority.data, eventFact, authority.data.opening.basis_time) ===
+        null;
+    if (!cited(pf.provenance.group_id) && !awaiting && !triggeredPending) {
       bad(
         pf.key,
         "a packet formation is credited by no resolution transaction and no engaged object awaits it",

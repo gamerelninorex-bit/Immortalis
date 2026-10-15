@@ -1,3 +1,5 @@
+> **H-1 chronology note.** The H-2 rerun below is preserved from PR head `d07c53dfe0ce8057847cef22013af13ea198058e`. The subsequent H-1 recovery changes packet orchestration without changing the referee, operator, task contracts or physical premises. No new live-host invocation of that final packet path has been executed in the repair environment; its verification is automated mechanism/recovery testing and exact-head CI. These retained runs do not by themselves prove the final head end to end.
+
 # Live host exercise — BLUE v5.2 active-PC direct physical observation (what was and was not observed)
 
 > **This is a finite, single-model, single-session exercise, not an acceptance proof.** It is retained so a person can read exactly what a real AI host was shown and what it answered, and judge the readings for themselves. **No semantic acceptance is claimed from it, and none is claimed anywhere in this slice.** Whether the brief's positive and independent-negative acceptance may be called PASS is a decision for the independent BLUE review; this document supplies evidence, not that verdict.

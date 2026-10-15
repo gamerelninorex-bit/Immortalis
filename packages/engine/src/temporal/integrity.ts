@@ -1,6 +1,7 @@
 import {
-  OWNER_EPISTEMIC_ACCESS,
   BoundaryIndexSchema,
+  OBSERVATION_TRIGGER_KIND,
+  accessEventKey,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
@@ -18,6 +19,10 @@ import {
   type ResolutionTransaction,
   type ValueSchema,
 } from "@immortalis/contracts";
+import {
+  observationTransactionViolation,
+  observationTriggerViolation,
+} from "../epistemic/declaration.ts";
 import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { continuationRequestViolation, populationReadViolation } from "./admission.ts";
@@ -191,6 +196,11 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
         "the transaction was not committed under its derived identity",
       );
     }
+    if (tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+      const event = store.getFact(accessEventKey(tx.trigger.ref));
+      const why = observationTransactionViolation(tx, event);
+      if (why) bad(key, "TEMPORAL_EVIDENCE", why);
+    }
     const txRevision = revisionOf(fact);
     // The transaction was genuinely opened before its owner stages (F-014B §6 step 1; RC-05): its durable authority
     // exists, repeats exactly what it opened and was committed before its first stage.
@@ -342,6 +352,14 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     ) {
       bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was not opened under its derived identity");
     }
+    if (a.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+      const why = observationTriggerViolation(
+        a,
+        store.getFact(accessEventKey(a.trigger.ref)),
+        a.opening.basis_time,
+      );
+      if (why) bad(f.key, "TEMPORAL_EVIDENCE", why);
+    }
     if (a.opening.state_version > stateFact.version) {
       bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was opened at a state that never existed");
     }
@@ -380,21 +398,9 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       ? last.engaged.filter((e) => e.boundary === "STILL_ACTIVE").map((e) => e.object_id)
       : [],
   );
-  // The one other object that may hold its earned boundary AT the canonical time is the Epistemic owner's one-shot, current-basis
-  // engagement of an observation-earned event (BLUE v5.2) between its registration and the transaction that closes it: the
-  // Epistemic verifier holds its exact shape, and the kernel admits no transaction that would pass it unengaged.
-  const currentBasisEngagements = new Set(
-    objects
-      .filter((o) => o.value.owning_ref.owner === OWNER_EPISTEMIC_ACCESS)
-      .map((o) => o.value.object_id),
-  );
   for (const e of entries) {
     const c = compareTime(e.at, state.canonical_time);
-    if (
-      c === null ||
-      c === -1 ||
-      (c === 0 && !stillActive.has(e.object_id) && !currentBasisEngagements.has(e.object_id))
-    ) {
+    if (c === null || c === -1 || (c === 0 && !stillActive.has(e.object_id))) {
       bad(
         TEMPORAL_BOUNDARY_INDEX_KEY,
         "TEMPORAL_INDEX",

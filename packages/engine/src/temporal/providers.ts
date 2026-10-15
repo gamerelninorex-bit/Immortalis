@@ -1,9 +1,12 @@
 import type {
   CanonicalTime,
+  DependencyDeclaration,
   JsonValue,
   OwnerFact,
   PendingConsequenceBarrier,
   Pcb01Evidence,
+  ResolutionRequest,
+  Result,
   SourceRef,
   StageKey,
   TemporalRead,
@@ -28,9 +31,9 @@ export interface StageInput {
   /** the owner-fact keys this stage's declaration says the operation writes (and must write, exactly) */
   readonly produces: readonly string[];
   readonly span: {
-    /** the governed object's last resolved basis */
+    /** the governed object's last resolved basis, or the event trigger's current basis */
     readonly from: CanonicalTime;
-    /** the earned material boundary being resolved */
+    /** the earned material boundary, or the unchanged current event-trigger basis */
     readonly to: CanonicalTime;
     /** exact-partition elapsed coordinate over the span */
     readonly elapsed: number;
@@ -74,12 +77,27 @@ export interface StageProvider {
   readonly operation: string;
   /** governing rule/method the owner's groups are written under (RC-01, RC-07) */
   readonly rule: SourceRef;
+  /**
+   * F-017 §§3–4: an owner may qualify one current-state event trigger without
+   * inventing an indexed time boundary. This bounded seam supports one NOW-only
+   * stage, with no elapsed process, close, reconciliation or downstream action.
+   * The owner derives its declaration from committed facts; callers supply none.
+   */
+  readonly eventTrigger?: {
+    readonly kind: string;
+    derive(
+      request: ResolutionRequest,
+      at: CanonicalTime,
+      getFact: (key: string) => OwnerFact | undefined,
+    ): Result<{ readonly sourceKey: string; readonly declaration: DependencyDeclaration }, string>;
+  };
   /** Pure and deterministic: identical input, identical writes. */
   compute(input: StageInput): readonly StageWrite[];
 }
 
 export class StageProviderRegistry {
   readonly #byOperation = new Map<string, StageProvider>();
+  readonly #byTrigger = new Map<string, StageProvider>();
 
   constructor(providers: readonly StageProvider[] = []) {
     for (const p of providers) this.register(p);
@@ -88,11 +106,18 @@ export class StageProviderRegistry {
   register(provider: StageProvider): void {
     const k = JSON.stringify([provider.owner, provider.operation]);
     if (this.#byOperation.has(k)) throw new Error(`duplicate stage provider ${k}`);
+    if (provider.eventTrigger && this.#byTrigger.has(provider.eventTrigger.kind))
+      throw new Error(`duplicate stage trigger ${provider.eventTrigger.kind}`);
     this.#byOperation.set(k, provider);
+    if (provider.eventTrigger) this.#byTrigger.set(provider.eventTrigger.kind, provider);
   }
 
   find(owner: string, operation: string): StageProvider | undefined {
     return this.#byOperation.get(JSON.stringify([owner, operation]));
+  }
+
+  forTrigger(kind: string): StageProvider | undefined {
+    return this.#byTrigger.get(kind);
   }
 }
 

@@ -7,9 +7,14 @@ import {
   FACET_EPISTEMIC_ACCESS,
   NamedActorCapabilitySchema,
   OWNER_EPISTEMIC_ACCESS,
+  OBSERVATION_TRIGGER_KIND,
+  accessEventKey,
+  fail,
+  ok,
   PcCapabilitySchema,
 } from "@immortalis/contracts";
 import { EPISTEMIC_ACCESS_RULE } from "../owners/registry.ts";
+import { epistemicPacketDeclaration, observationTriggerViolation } from "./declaration.ts";
 import {
   StageUnresolvedError,
   type StageInput,
@@ -42,6 +47,18 @@ export const epistemicPacketProvider: StageProvider = {
   facet: FACET_EPISTEMIC_ACCESS,
   operation: EPISTEMIC_OPERATION_FORM_ACCESSIBLE_PACKET,
   rule: EPISTEMIC_ACCESS_RULE,
+  eventTrigger: {
+    kind: OBSERVATION_TRIGGER_KIND,
+    derive(request, at, getFact) {
+      const fact = getFact(accessEventKey(request.trigger.ref));
+      const violation = observationTriggerViolation(request, fact, at);
+      if (violation) return fail("OBSERVATION_TRIGGER_INVALID", violation);
+      return ok({
+        sourceKey: fact!.key,
+        declaration: epistemicPacketDeclaration(AccessEventSchema.parse(fact!.value)),
+      });
+    },
+  },
   compute(input: StageInput): readonly StageWrite[] {
     if (input.reads.length < 1 || input.reads.length > 2)
       throw unresolved(

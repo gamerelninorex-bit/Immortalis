@@ -6,9 +6,6 @@ import {
   accessEventKey,
   accessPacketStage,
   fail,
-  observationRegistrationCause,
-  observationRegistrationGroupId,
-  observationRegistrationIntentId,
   observationTransactionCause,
   observationTransactionId,
   ok,
@@ -19,25 +16,16 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { StageProviderRegistry } from "../temporal/providers.ts";
 import { TemporalCoordinator } from "../temporal/coordinator.ts";
 import { EpistemicAccessAdapter } from "./adapter.ts";
-import { observationEngagement } from "./declaration.ts";
 import { epistemicPacketProvider } from "./provider.ts";
 import { deriveObservationEvent, observationRecordOf } from "./observation.ts";
 
 /**
- * The OBSERVATION-EARNED packet formation (BLUE v5.2, F-014D §3 consequential trigger, §5 steps 2-4, §6, §21; F-014B §6): the one
- * orchestration that takes a retained, engine-derived OBSERVATION_ESTABLISHED direct-perception decision to a sealed Accessible Content
- * Packet — and nothing else. In this order, each step by identity and so idempotent across a lost reply, a crash and a reopen:
- *
- *   1. the Epistemic owner commits the observation-earned event (derived from the decision; see `establishObservedAccess`);
- *   2. the event's own one-shot, current-basis engagement is registered with the Temporal kernel (no consequence, no downstream actor or
- *      world result, no recurrence and no elapsed time: see `observationEngagement`);
- *   3. ONE resolution transaction is requested whose target is the canonical time itself, so the kernel selects exactly that earned
- *      boundary, runs the existing `epistemicPacketProvider` stage under the transaction's durable authority, and records the one
- *      transaction. Canonical time does not move; nothing is invented.
- *
- * It is committed-before-consumed (event, then engagement, then packet), and a formation already committed is adopted, never re-formed:
- * the same decision again reaches the same records. It reads and writes no actor-side state, grants no recognition, comprehension, belief,
- * memory or action, and is NOT triggered by a display or a refresh: its only caller is the player's separate, confirmed choice to look.
+ * A retained direct-perception decision earns an owner-committed access event.
+ * That event triggers the existing packet provider through F-017 §4, under the
+ * durable IM-02 transaction authority, at the unchanged current basis. No
+ * material boundary, elapsed time or fabricated downstream consequence is added.
+ * Event, authority, packet and sealed transaction retain their existing causal
+ * identities and committed-before-consumed order through retry and recovery.
  */
 
 export type ObservationFormationCode =
@@ -103,29 +91,12 @@ export async function formObservedPacket(
   if (!eventFact || !committed?.success)
     return fail("OBSERVATION_RECORD_INVALID", "the committed observation event is not readable");
 
-  // 2. its one-shot engagement
+  // F-017 §4: the committed event triggers its own owner stage. No temporal
+  // object or boundary is registered; F-014B §6's (T0,T1] index is untouched.
   const coordinator = new TemporalCoordinator(
     store,
     new StageProviderRegistry([epistemicPacketProvider]),
   );
-  const engagement = observationEngagement(committed.data);
-  if (!coordinator.object(engagement.object_id)) {
-    const registered = await coordinator.registerObject({
-      group_id: observationRegistrationGroupId(eventId),
-      intent_id: observationRegistrationIntentId(eventId),
-      cause: observationRegistrationCause(eventId),
-      basis: OBSERVATION_EVENT_BASIS,
-      secrecy: "engine-internal",
-      object: engagement,
-    });
-    if (!registered.ok)
-      return fail(
-        isFatal(registered.error.code) ? registered.error.code : "ENGAGEMENT_REFUSED",
-        registered.error.message,
-      );
-  }
-
-  // 3. the one transaction, to the canonical time itself
   const transactionId = observationTransactionId(eventId);
   const advanced = await coordinator.advance({
     transaction_id: transactionId,

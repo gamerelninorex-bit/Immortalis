@@ -321,16 +321,6 @@ export type Boundary = z.infer<typeof BoundarySchema>;
  */
 export const PartitionDeclarationSchema = z.strictObject({ class: z.literal("EXACT-PARTITION") });
 
-/**
- * The ONE owner whose object may carry an earned boundary AT its own last resolved basis: the Epistemic owner's one-shot, current-basis
- * engagement of an observation-earned access event (BLUE v5.2; its exact shape, and that it is registered only at the current canonical
- * basis, are enforced by the Epistemic owner's registration rule and the kernel's registration admission, never here). For every other
- * object F-014B §6 step 2's half-open window (T0, T1] stands: an earned boundary lies strictly after the last resolved basis. It equals
- * `OWNER_EPISTEMIC_ACCESS` (a conformance test pins that); it is a literal only because that constant is defined in a module that
- * imports this one.
- */
-export const EPISTEMIC_ENGAGEMENT_OWNER = "epistemic_access";
-
 export const TemporalObjectSchema = z
   .strictObject({
     object_id: EntityId,
@@ -361,7 +351,7 @@ export const TemporalObjectSchema = z
       const c = compareTime(o.last_resolved_basis, o.next_boundary.at);
       if (c === null)
         bad("boundary and last resolved basis are in different units", ["next_boundary"]);
-      else if (c !== -1 && !(c === 0 && o.owning_ref.owner === EPISTEMIC_ENGAGEMENT_OWNER))
+      else if (c !== -1)
         bad("an earned boundary must lie after the last resolved basis", ["next_boundary"]);
     }
     const stages = new Set<string>();

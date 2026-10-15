@@ -1,5 +1,7 @@
 # Active-PC Direct Physical Observation Foundation
 
+> **PR #67 TARGETED RECOVERY — INDEPENDENT BLUE DELTA REVIEW REQUIRED.** The reviewed HEAD `9617a98577ffd9f52f45a729a6a60ce71b861184` remains under [BLUE HOLD](https://app.notion.com/p/3fa20af901e081df80bfeec129e859df). This repair implements the source-covered H-1 event-trigger route and preserves the concurrent corrected H-2 real-host evidence at `d07c53dfe0ce8057847cef22013af13ea198058e`. **Those host runs precede this H-1 change; no live-host rerun of the new packet-formation path has been executed here.** The original brief and research pins below record construction provenance; their corrected HOLD notices govern current clearance.
+
 > **OOC DEVELOPMENT / SCENARIO INSTRUMENTATION.** Mechanism for the BLUE v5.2 Implementation Brief — Active-PC Direct Physical Observation (verified native pin `2026-10-15T02:24:15.992Z`, <https://app.notion.com/p/3fa20af901e081578dc7ff7b62c60873>) on `main` `0c3b0967a19a11a25b5968fe90313edad2ff8ce2` (baseline CI run `38653740921`), resting on the BLUE Targeted Physical Observation Engineering Resolution (verified engineering pin `2026-10-15T02:16:11.867Z`, <https://app.notion.com/p/3fa20af901e08157ac91eb3295d02968>). It lets the **actual human at the console** choose that the active Player Character looks at its surroundings **now**, once, at the current canonical basis, and it earns a receipt, an Accessible Content Packet and a delivery **only** from a real F-014D direct-perception evaluation by the AI referee host. It is not a general optics engine, sight score, NPC perception, cognition, speech, pose engine, time or action mechanic, scene scan or UI-triggered observation.
 
 ## What is and is not claimed
@@ -24,20 +26,20 @@
 | **IR** `2026-09-25T00:17:26.287Z` — §§5, 7, 12                                                              | The player's explicit, separately confirmed native-presence statement is the placement fact (precedence 1); no silent invention of material insertion facts.                                                                                                                                     |
 | **WG** `2026-09-25T13:44:22.668Z` — Ownership Guards                                                        | World-State establishes physical setting facts and exposure conditions, not a recipient's knowledge, PC intrinsic capability or actor response.                                                                                                                                                  |
 | **I-001** `2026-09-25T00:17:49.551Z`, **NPK**                                                               | Eligibility precedes projection; present awareness is the current arrival; display or refresh cannot manufacture access or advance time.                                                                                                                                                         |
-| **F-014B Temporal** `2026-09-25T23:42:29.547Z` — §§6, 13, 15, 17                                            | Committed-before-consumed order; stage identity; the material boundary lifecycle (see _The Temporal amendment_ below — **a point for BLUE review**).                                                                                                                                             |
+| **F-014B Temporal** `2026-09-25T23:42:29.547Z` — §§6, 13, 15, 17                                            | Committed-before-consumed order; stage identity; the material boundary lifecycle (see _H-1 recovery_ below; no boundary exception remains).                                                                                                                                                      |
 | **Canonical Role Registry v1** `2026-09-25T08:21:22.816Z`                                                   | `role.gm` + `permission.rule.adjudicate` interprets; `role.resolver` + `permission.resolution.execute` validates; `role.archivist` + `permission.canon.write` commits. Persona, provider, model or tool identity grants none.                                                                    |
 | **BLUE v5.2 brief / engineering resolution** (construction sources, **not** lock pins, **not** game design) | The objective, the route and the acceptance boundary. Registered as `OBSERVATION_BRIEF_SOURCE` / `OBSERVATION_RESOLUTION_SOURCE`.                                                                                                                                                                |
 
 ## What exists
 
-| Piece                             | Where                                                                                   | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fourth referee operation**      | `contracts/src/referee.ts`, `engine/src/referee/*`                                      | `F014D_DIRECT_PERCEPTION`: a closed-vocabulary, quote-anchored answer — `faculty`, `position`, `path` (each established, open/blocked or not established, each by quoted premises), an optional raw `payload`, a full assessment of every delivered fact — and four **derived** verdicts (`OBSERVATION_ESTABLISHED`, `_OBSTRUCTED`, `_UNRESOLVED`, `_WORLD_CONFLICT`). The context is built **only from committed facts** at the **current canonical basis**. |
-| **Producer-bound event**          | `engine/src/epistemic/observation.ts`, `EpistemicAccessAdapter.establishObservedAccess` | The same immutable `BOUNDED_SHARED_ACCESS` event (one named recipient, `PERCEPTION`, the foreign physical source pin, the payload) — contract unchanged — with **every field derived** from the retained decision. It reads the decision and every premise it cites. Committed under its own governing citation `EPISTEMIC_ACCESS_OBSERVATION_RULE`.                                                                                                          |
-| **One-shot formation engagement** | `engine/src/epistemic/declaration.ts` (`observationEngagement`)                         | A Temporal object **owned by the event**, declaring exactly the event's existing packet-formation stage, with one earned boundary **at the observation's own basis**. No consequence, no downstream actor or world result, no recurrence, no elapsed time. The blanket "no Epistemic-owned object" rule is narrowed to this object and only this object.                                                                                                      |
-| **Formation**                     | `engine/src/epistemic/direct-observation.ts` (`formObservedPacket`)                     | Event → engagement → ONE resolution transaction whose target is the canonical time itself → the existing `epistemicPacketProvider` forms the packet and the sealed provenance under the transaction's durable authority. Idempotent at every step by identity.                                                                                                                                                                                                |
-| **`observe-surroundings`**        | `operator/src/observation.ts`, `cli.ts`                                                 | The operator's **fourth, separate choice** (`--player-character` only). Confirmation first, then the host is asked; the player is shown the raw appearance through the **existing trusted causal Event-Signal delivery**, and nothing else.                                                                                                                                                                                                                   |
-| **Exchange and MCP**              | `operator/src/referee-exchange.ts`, `referee-mcp.ts`, `referee-session.ts`              | The same three tools, the same authentication-before-disclosure; the operation is bound per host (`referee-bind-host` now binds four).                                                                                                                                                                                                                                                                                                                        |
+| Piece                         | Where                                                                                   | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fourth referee operation**  | `contracts/src/referee.ts`, `engine/src/referee/*`                                      | `F014D_DIRECT_PERCEPTION`: a closed-vocabulary, quote-anchored answer — `faculty`, `position`, `path` (each established, open/blocked or not established, each by quoted premises), an optional raw `payload`, a full assessment of every delivered fact — and four **derived** verdicts (`OBSERVATION_ESTABLISHED`, `_OBSTRUCTED`, `_UNRESOLVED`, `_WORLD_CONFLICT`). The context is built **only from committed facts** at the **current canonical basis**. |
+| **Producer-bound event**      | `engine/src/epistemic/observation.ts`, `EpistemicAccessAdapter.establishObservedAccess` | The same immutable `BOUNDED_SHARED_ACCESS` event (one named recipient, `PERCEPTION`, the foreign physical source pin, the payload) — contract unchanged — with **every field derived** from the retained decision. It reads the decision and every premise it cites. Committed under its own governing citation `EPISTEMIC_ACCESS_OBSERVATION_RULE`.                                                                                                          |
+| **Event-triggered formation** | `engine/src/epistemic/declaration.ts` (`observationTriggerViolation`)                   | A committed observation event triggers exactly its existing packet-formation stage, with no Temporal object or indexed boundary. No consequence, no downstream actor or world result, no recurrence, no elapsed time. The no-Epistemic-object registration rule is retained.                                                                                                                                                                                  |
+| **Formation**                 | `engine/src/epistemic/direct-observation.ts` (`formObservedPacket`)                     | Event → durable transaction authority → ONE resolution transaction whose target is the canonical time itself → the existing `epistemicPacketProvider` forms the packet and the sealed provenance under the transaction's durable authority. Idempotent at every step by identity.                                                                                                                                                                             |
+| **`observe-surroundings`**    | `operator/src/observation.ts`, `cli.ts`                                                 | The operator's **fourth, separate choice** (`--player-character` only). Confirmation first, then the host is asked; the player is shown the raw appearance through the **existing trusted causal Event-Signal delivery**, and nothing else.                                                                                                                                                                                                                   |
+| **Exchange and MCP**          | `operator/src/referee-exchange.ts`, `referee-mcp.ts`, `referee-session.ts`              | The same three tools, the same authentication-before-disclosure; the operation is bound per host (`referee-bind-host` now binds four).                                                                                                                                                                                                                                                                                                                        |
 
 ## The sequence
 
@@ -45,7 +47,7 @@
 2. **Confirmation, before anything is asked.** The player is told the command is their choice that the character looks **now**, at the stated basis, that it advances no time and that they will see only the raw appearance received, never the setting, the reasoning or why nothing was received. A declined confirmation asks the host nothing and writes nothing.
 3. **The question** (nothing written): built from the character's own statements, the preserved placement statement, the world and the locus (premise, reference/causal basis, law departures, constraints, designation) and the custody — at the versions delivered and at the canonical basis. It contains no scene label, target, expected result or test name. The host is authenticated for **this operation** before any of it is disclosed.
 4. **The reading.** The engine validates the answer against the delivered words (below) and **derives** the verdict. The reading is retained create-only as sealed `referee_provenance` evidence **whatever it derives** — an obstructed or unresolved reading is audit evidence, not a fact about the world, and not a "did not perceive" assertion. A reading already retained for the question is never asked again, rerolled or overwritten.
-5. **The receipt** (only `OBSERVATION_ESTABLISHED`): the Epistemic owner's observation-earned event, then the engagement, then the transaction and the packet + sealed provenance (one group, two access classes), in that order.
+5. **The receipt** (only `OBSERVATION_ESTABLISHED`): the Epistemic owner's observation-earned event, then durable transaction authority, the packet + sealed provenance (one group, two access classes), and the sealed transaction, in that order.
 6. **Fresh reopen, then delivery.** The package is reopened through the ordinary owner-verified open, the Epistemic and canonical verifiers must be clean, and the raw appearance is delivered by `deliverCausalEventSignalPresentation` for the one event just earned. Display retries are read-only; a new observation is a new basis and a new choice.
 
 ## The validation rule (one statement, used by the host-facing check, admission and load verification)
@@ -56,25 +58,86 @@ The verdict is **derived**, never read: a contradicted world fact → `OBSERVATI
 
 `observationEventViolation` (admission **and** load) requires an observation-earned event to be exactly `deriveObservationEvent(record)`; to be committed under the identities and basis its event derives; to read the decision first and exactly the premises it cites, at the cited versions, depending on exactly their groups; to re-derive its whole decision from the current committed facts; and, at admission, to be earned at the **current** canonical basis. A changed basis is a different question with a different identity.
 
-## The Temporal amendment (**for BLUE review**)
+## H-1 recovery: causal trigger without an indexed boundary
 
-> **Status (BLUE exact-head review of `9617a98`, hold H-1): this amendment is NOT ratified and is NOT source-faithful as it stands.** The independent review holds that a same-instant boundary is an exception to the literal `(T0, T1]` rule of F-014B §6 step 2 whose exact-source authorisation has not been shown, and that the pinned brief's instruction to use a current-basis engagement did not itself resolve that conflict. This pull request makes no change on it: no clock increment, shifted observation instant or invented consequence is introduced, and the three code sites below are exactly as the review saw them. The branch awaits BLUE's reconciliation of the brief and either a compliant same-basis route that registers no boundary at the excluded `T0`, or an escalated, ratified F-014B §6 exception.
+The reviewed current-basis boundary exception is removed from the schema,
+registration admission and load verifier. F-014B §6's `(T0,T1]` boundary interval
+remains unchanged for every owner. The observation route registers no Temporal
+object or boundary and records no boundary crossing.
 
-The brief states that the coordinator "already accepts a target equal to canonical time and selects indexed boundaries at or before that target", so that "an earned current-basis formation can be ordered and closed without inventing elapsed time". That is true of `advance`. It is **not** true of the surrounding kernel, which (F-014B §6 step 2 queries material boundaries in the half-open window `(T0, T1]`) refused any earned boundary at or before canonical time at three places: the `TemporalObject` schema, registration admission, and the load verifier. A current-basis engagement cannot exist without relaxing exactly those three, so this slice does, **narrowly and only for the Epistemic owner's engagement**, and states it here rather than hiding it:
+The source-covered engineering route is **F-017 §§3–4**, at its ratified v0.3
+lineage (exact ratification `2026-09-25T15:03:49.887Z`; subsequently composed
+PCB-01 wording is unchanged by this repair), together with **F-014D §§2.1, 3–6,
+18, 21** and **F-027 RC-04/05/07/10/16**. F-017 begins a resolution transaction
+from its causal trigger, imports materially engaged owner stages and commits only
+after predecessors exist. It does not require every owner stage to invent a timed
+boundary. RC-10 explicitly requires an earned boundary only _if any_.
 
-- `contracts/src/temporal.ts`: an earned boundary may equal the last resolved basis **only** for an object whose owning reference is the Epistemic owner (`EPISTEMIC_ENGAGEMENT_OWNER`, pinned equal to `OWNER_EPISTEMIC_ACCESS`); for every other object the schema is byte-for-byte as strict as before (`tests/contract/temporal-schemas.test.ts` is unchanged).
-- `engine/src/temporal/admission.ts`: registration admits a boundary AT the canonical time only for an Epistemic-owned object, which `epistemicObjectViolation` has already required to be **exactly** the engagement of a committed observation-earned event, registered at that event's current basis.
-- `engine/src/temporal/integrity.ts`: such an engagement may hold its boundary at canonical time between its registration and its transaction (a crash in that window must not leave a campaign that will not open — a crash test caught exactly this).
+After the Epistemic owner has committed the real observation event, that event
+triggers its existing packet-provider stage. It reads the immutable event NOW,
+with no representational capability-close dependency in this raw-sensory route.
+This singleton dependency graph has no feedback. The normal transaction authority
+opens before the packet group; the packet and provenance commit together; the
+sealed transaction follows. Its opening, target and actual stop are the same
+canonical coordinate. `engaged` contains no TemporalObject and
+`boundaries_crossed` is empty; the causal event and source pins remain in the
+trigger and realized stage reads. This is current-state causal work, not an
+exception to the indexed advance interval.
 
-Everything else is the kernel as it was: the transaction checker already handled a boundary at the stop instant, `exactElapsed` is zero for a zero span, canonical time never moves, and the existing `stageAuthorityViolation` bounds the stage by the transaction's target. If BLUE reads F-014B as forbidding a same-instant boundary, the route in the brief cannot be built and this is the exact question to escalate: _may a material boundary be earned at the current canonical instant for work that adds no elapsed time?_
+Admission and load verification bind the exact observation event, transaction
+identity, cause, current basis and one packet stage. They reject authored events,
+foreign triggers, changed time, conditions, and consequential-object substitution.
+On a crash after packet commit, the already-open event authority permits recovery
+of the same group; no pending boundary or fabricated world consequence is used.
+There is no change to elapsed time, duration, Knowledge Time, interruption rules,
+owner assignments, source locks or gates. Independent BLUE delta review remains
+required; these engineering findings are not an acceptance declaration.
+
+Source links: [F-017](https://app.notion.com/p/3e620af901e081109144ef14f52012a8),
+[ratification closeout](https://app.notion.com/p/3e620af901e081c8abb2e714acc7884c),
+[F-014B](https://app.notion.com/p/3e020af901e081fb88e9f691748db990),
+[F-014D](https://app.notion.com/p/3e020af901e08103b81aec5f7119318e),
+[F-027 translation](https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a).
+
+## H-2 evidence preserved from the live branch
+
+During this repair, the same PR advanced to
+`d07c53dfe0ce8057847cef22013af13ea198058e`. That commit changes only the
+scenario/evidence documents: it supplies the affirmative open-path fact, swaps
+only that fact for the opaque screen, and retains a fresh configured-host run.
+This H-1 correction is based on that commit and preserves all its evidence files.
+The mechanism fixtures now use the exact same physical wording and `path` aspect.
+
+The retained positive quotes the affirmative committed `locus.constraint.5`,
+returns `OBSERVATION_ESTABLISHED`, and its console records a packet and clean
+ordinary reopen. The negative quotes the screen at the same fact identifier,
+returns `OBSERVATION_OBSTRUCTED`, and records no access event or packet. Target,
+faculty, placement, geometry, illumination, air and canonical basis are unchanged.
+The generic host prompt contains no scenario labels or expected result.
+
+The host trace identifies `claude-sonnet-5-5` connected to the real
+`immortalis-referee` MCP server. The retained set has six scenarios, 24 client
+runs and 25 submissions: 24 accepted decisions, with one rejected and corrected
+submission in the separate eyes-closed case. It remains one run per scenario,
+one model family and no live adversarial or prompt-injection witness.
+
+**Chronology limit:** those configured-host runs used the pre-H-1 packet path.
+The referee, operator, task contracts, source context and interpretation rules
+are byte-identical in this H-1 delta, but its new event-triggered packet path
+has mechanism/recovery tests and CI rather than a new live model invocation.
+No configured Claude executable, configuration or credential is present in this
+repair environment. No exact-final-head live-host rerun or semantic acceptance
+is claimed. Independent BLUE delta review must assess that remaining evidence
+limit; a fresh configured-host run on the final head remains the direct way to
+close it.
 
 ## Falsifying contrasts (each refuses with no receipt, packet or provenance)
 
-The independent negative differs from the positive by **one physical sentence**: the positive's affirmative open-path statement ("Nothing solid stands between the bench and the north wall…") is replaced by a continuous opaque screen across the path with no alternate route; target, character, faculty, placement, light, geometry and clear air are unchanged, and the positive's open path rests on that affirmative statement, never on the absence of a stated obstruction. Others: a character whose own statements establish no sight; a placement that states neither a direction nor open eyes; closed eyes; a world that gives the alcove no light; a path the host cannot settle; a contradicted world law. A scripted answer exercises plumbing for each; the real-host exercise is separate. Raw-write bypass: an event without its decision, with a tampered payload, recipient, channel, basis, source or identity, with a spoofed role, citing an obstructed or unresolved reading, or at a changed basis — each refused and each leaves the campaign byte-identical.
+The independent negative differs from the positive by **one physical sentence** (a continuous opaque screen across the path with no alternate route); the red patch stays committed. Others: a character whose own statements establish no sight; a placement that states neither a direction nor open eyes; closed eyes; a world that gives the alcove no light; a path the host cannot settle; a contradicted world law. A scripted answer exercises plumbing for each; the real-host exercise is separate. Raw-write bypass: an event without its decision, with a tampered payload, recipient, channel, basis, source or identity, with a spoofed role, citing an obstructed or unresolved reading, or at a changed basis — each refused and each leaves the campaign byte-identical.
 
 ## Interruption, retry and convergence
 
-Every identity derives from the event, which derives from the character and the canonical basis, so there is at most **one observation per character per canonical instant**. Tests lose the reply of, and kill the process around, each of the four commits (retained reading, event, engagement, transaction); the same command resumes without re-asking, re-forming or re-confirming what it holds, and lands on exactly the campaign an uninterrupted run produces. A reading already retained at the basis (a negative included) is found, not asked again.
+Every identity derives from the event, which derives from the character and the canonical basis, so there is at most **one observation per character per canonical instant**. Tests lose the reply of, and kill the process around, the retained reading, event, transaction authority, packet and sealed transaction commits; the same command resumes without re-asking, re-forming or re-confirming what it holds, and lands on exactly the campaign an uninterrupted run produces. A reading already retained at the basis (a negative included) is found, not asked again.
 
 ## Source-fidelity literal diff
 
@@ -97,4 +160,4 @@ Every identity derives from the event, which derives from the character and the 
 
 ## Tests
 
-`tests/unit/referee-observation-derive.test.ts` (validation and verdict derivation); `tests/contract/observation-schemas.test.ts` (closed vocabularies, strict shapes, unchanged event/packet/provenance contracts, the Epistemic-only schema exception); `tests/integration/observation-foundation.test.ts` (the production command end to end, the independent negative, the unsettled premises, bindings); `observation-enforcement.test.ts` (raw-write bypass, spoofed roles, staleness, duplicates, hand-written objects); `observation-recovery.test.ts` (lost replies, killed processes, load-time verification of every record); `tests/conformance/observation-conformance.test.ts` (scope, pins, evidence).
+`tests/unit/referee-observation-derive.test.ts` (validation and verdict derivation); `tests/contract/observation-schemas.test.ts` (closed vocabularies, strict shapes, unchanged event/packet/provenance contracts, strict-future boundaries for every owner); `tests/integration/observation-foundation.test.ts` (the production command end to end, the independent negative, the unsettled premises, bindings); `observation-enforcement.test.ts` (raw-write bypass, spoofed roles, staleness, duplicates, hand-written objects); `observation-recovery.test.ts` (lost replies, killed processes, load-time verification of every record); `tests/conformance/observation-conformance.test.ts` (scope, pins, evidence).

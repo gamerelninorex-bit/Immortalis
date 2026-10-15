@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the Trusted Separately Player-Authorized ACTIVE-PC Target-Only Temporal Advance Gateway (IM-15 / IM-16
 // over the existing Temporal kernel and the real shipped owner stage providers, including GIP's own sunset expiry). Governing lock:
 // spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged. No register row, status, source pin, gate or lock
@@ -42,7 +43,7 @@ const providerList = (file: string): string =>
 /** Every module the gateway composes or must leave untouched, as it stood at the base (main 97c3788). */
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
-    "c47467c75137f69b7e951be68aaaa9fc4f6b68f1ddaba311f373a2014ebf9adb",
+    "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/contracts/src/protocol-advance.ts":
     "3f64a45e7fe169b61593cedc06a062ea3a4c4faed4538786abf2ec757c3f026a",
   "packages/contracts/src/protocol-relocation.ts":
@@ -60,19 +61,19 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
   "packages/engine/src/temporal/admission.ts":
-    "9be0e500bb1f4aaeae00edb97d902cb6c7644566315cd542df599df02499ee0f",
+    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
     "8319d33aa9a5e0f15055600ec9aad3d9422adfe31e84a5c6d9c71cbfbc777c34",
   "packages/engine/src/temporal/integrity.ts":
-    "5686167dd74f7cabd24b008978474424a4eca020e5e5fc6f651f8d26105c6840",
+    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/engine/src/temporal/partition.ts":
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
-    "22b4580ee7c0b7dcf0361ec62689c369551e0a87b56cb817cd606a22f5007c76",
+    "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/engine/src/world/canonical-campaign.ts":
     "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/locus.ts":

@@ -1,6 +1,7 @@
 import {
   BoundaryIndexSchema,
-  OWNER_EPISTEMIC_ACCESS,
+  OBSERVATION_TRIGGER_KIND,
+  accessEventKey,
   OWNER_POPULATION,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
@@ -30,7 +31,11 @@ import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { namedActorObjectViolation } from "../actor/declaration.ts";
 import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
-import { epistemicObjectViolation } from "../epistemic/declaration.ts";
+import {
+  observationTransactionViolation,
+  observationTriggerViolation,
+  epistemicObjectViolation,
+} from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipEnrollmentPendingViolation, gipObjectViolation } from "../gip/declaration.ts";
 import { cultureObjectViolation } from "../culture/declaration.ts";
@@ -152,19 +157,10 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
       if (gip) return reject("REFERENCE_INVALID", gip, { key: w.key });
       const diplomacy = diplomacyObjectViolation(o);
       if (diplomacy) return reject("REFERENCE_INVALID", diplomacy, { key: w.key });
-      // F-014B §6 step 2 queries material boundaries in (T0, T1]: an earned boundary lies strictly after the canonical time. The ONE
-      // exception is the one-shot, current-basis engagement of an observation-earned Epistemic event (BLUE v5.2): its boundary IS the
-      // observation's own, current basis, so closing it adds no elapsed time. `epistemicObjectViolation` (above) has already required
-      // that it is exactly the object its committed observation-earned event determines, registered at that basis.
-      const atCurrentBasis =
-        o.owning_ref.owner === OWNER_EPISTEMIC_ACCESS &&
-        o.next_boundary !== null &&
-        timeEquals(prior.canonical_time, o.next_boundary.at);
+      // F-014B §6: indexed material boundaries exclude the opening instant.
       if (
         !timeAtOrBefore(o.last_resolved_basis, prior.canonical_time) ||
-        (o.next_boundary !== null &&
-          !timeBefore(prior.canonical_time, o.next_boundary.at) &&
-          !atCurrentBasis)
+        (o.next_boundary !== null && !timeBefore(prior.canonical_time, o.next_boundary.at))
       ) {
         return reject(
           "REFERENCE_INVALID",
@@ -215,6 +211,14 @@ function checkAuthority(
   }
   if (state.facts.has(temporalTransactionKey(id))) {
     return bad("a committed transaction cannot be opened again");
+  }
+  if (a.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+    const violation = observationTriggerViolation(
+      a,
+      state.facts.get(accessEventKey(a.trigger.ref)),
+      prior.canonical_time,
+    );
+    if (violation) return bad(violation);
   }
   const target = a.requested.target;
   if (target) {
@@ -344,6 +348,13 @@ function checkTransaction(
         authority: authKey,
       });
     }
+  }
+  if (tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+    const violation = observationTransactionViolation(
+      tx,
+      state.facts.get(accessEventKey(tx.trigger.ref)),
+    );
+    if (violation) return bad(violation);
   }
   // 2. Engaged objects are all recorded (RC-05); exactly the RETIRED ones are touched, each across
   // the boundary it had earned. A STILL_ACTIVE object is untouched and keeps its boundary. A PCB-01

@@ -14,12 +14,13 @@ import {
   RefereeAdjudicationAdapter,
   TemporalCoordinator,
   factKind,
+  formObservedPacket,
   verifyEpistemicIntegrity,
   verifyRefereeIntegrity,
   verifyTemporalIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
-import type { OwnerFact } from "@immortalis/contracts";
+import { CommitGroupSchema, type OwnerFact } from "@immortalis/contracts";
 import { openOrdinary, type LocalityDirs } from "../support/locality.ts";
 import { CAMPAIGN, runAuthor } from "../support/original-pc.ts";
 import {
@@ -28,6 +29,7 @@ import {
   observe,
   observeArgs,
   redScene,
+  decide,
 } from "../support/observation.ts";
 import { tempDir } from "../support/tmp.ts";
 
@@ -123,18 +125,6 @@ describe("a lost acknowledgement at each owner commit converges on the uninterru
     ],
     [
       TemporalCoordinator.prototype,
-      "registerObject",
-      true,
-      "the engagement landed but its reply was lost",
-    ],
-    [
-      TemporalCoordinator.prototype,
-      "registerObject",
-      false,
-      "the engagement never reached the store",
-    ],
-    [
-      TemporalCoordinator.prototype,
       "advance",
       true,
       "the transaction and the packet landed but the reply was lost",
@@ -169,6 +159,67 @@ describe("a lost acknowledgement at each owner commit converges on the uninterru
       },
       240_000,
     );
+});
+
+describe("the event-triggered formation recovers at each durable commit without a boundary", () => {
+  for (const boundary of ["authority", "packet", "transaction"] as const)
+    for (const landed of [false, true])
+      it(`${boundary} reply lost, commit ${landed ? "landed" : "absent"}: reopen and resume the same event`, async () => {
+        const { dirs } = await observationCampaign();
+        const c = await openOrdinary(dirs.campaignDir);
+        const d = await decide(c);
+        const inner = c.store;
+        let interrupted = false;
+        const wrapped: CampaignStore = {
+          descriptor: inner.descriptor,
+          head: () => inner.head(),
+          getFact: (k) => inner.getFact(k),
+          listFacts: () => inner.listFacts(),
+          lookupReceipt: (i) => inner.lookupReceipt(i),
+          committedGroup: (i) => inner.committedGroup(i),
+          close: () => inner.close(),
+          commit: async (group) => {
+            const pattern =
+              boundary === "authority"
+                ? /^temporal\/transaction-authority\//
+                : boundary === "packet"
+                  ? /^access\/[^/]+\/packet\//
+                  : /^temporal\/transaction\//;
+            const parsed = CommitGroupSchema.safeParse(group);
+            if (
+              !interrupted &&
+              parsed.success &&
+              parsed.data.writes.some((w) => pattern.test(w.key))
+            ) {
+              interrupted = true;
+              if (landed) await inner.commit(group);
+              return unknown;
+            }
+            return inner.commit(group);
+          },
+        };
+        try {
+          expect((await formObservedPacket(wrapped, d.record.key)).ok).toBe(false);
+          expect(interrupted).toBe(true);
+          expect(c.verify()).toEqual([]);
+        } finally {
+          await c.close();
+        }
+        const reopened = await openOrdinary(dirs.campaignDir);
+        try {
+          expect((await formObservedPacket(reopened.store, d.record.key)).ok).toBe(true);
+          expect(reopened.verify()).toEqual([]);
+          expect(
+            reopened.store.listFacts().filter((f) => /^access\/[^/]+\/packet\//.test(f.key)),
+          ).toHaveLength(1);
+          expect(reopened.store.getFact("temporal/boundary-index")).toBeUndefined();
+          expect(
+            reopened.store.listFacts().filter((f) => /^temporal\/object\//.test(f.key)),
+          ).toEqual([]);
+        } finally {
+          await reopened.close();
+        }
+      }, 120_000);
 });
 
 describe("a process killed mid-command converges on the uninterrupted campaign", () => {
@@ -279,7 +330,6 @@ describe("load fails closed on a corrupted saved observation", { timeout: 600_00
   const prov = (f: OwnerFact[]) => by(f, /^access\/[^/]+\/provenance\//);
   const decision = (f: OwnerFact[]) =>
     f.find((x: any) => x.value?.operation === "F014D_DIRECT_PERCEPTION") as any;
-  const object = (f: OwnerFact[]) => by(f, /^temporal\/object\//);
 
   it("a healthy saved observation verifies", async () => {
     expect(await drift(() => undefined)).toBe("");
@@ -313,12 +363,12 @@ describe("load fails closed on a corrupted saved observation", { timeout: 600_00
     ).toMatch(/exactly what its retained decision determines|recipient is not the active/);
   });
 
-  it("the observation citation is what makes an event observation-earned: re-labelling it leaves an engagement no event can own", async () => {
+  it("the observation citation is what makes an event observation-earned: re-labelling it invalidates its event trigger", async () => {
     expect(
       await drift(
         (facts) => (event(facts).provenance.rule = factKind("epistemic_access_event").rule),
       ),
-    ).toMatch(/no standalone Epistemic object/);
+    ).toMatch(/observation-earned event/);
   });
 
   it("an edit of the saved packet or sealed provenance is raised: a packet is exactly what its event determines", async () => {
@@ -361,27 +411,23 @@ describe("load fails closed on a corrupted saved observation", { timeout: 600_00
     );
   });
 
-  it("an edit of the saved engagement is raised: it is exactly the one-shot object its event determines, and the transaction cites its stage", async () => {
-    expect(await drift((f) => f.filter((x) => x !== object(f)))).toMatch(
-      /object|engaged|index|stage/i,
+  it("a saved trigger or sealed transaction cannot be changed to another basis, event or boundary", async () => {
+    const tx = (f: OwnerFact[]) => by(f, /^temporal\/transaction\//);
+    const authority = (f: OwnerFact[]) => by(f, /^temporal\/transaction-authority\//);
+    expect(await drift((f) => (authority(f).value.trigger.ref = "other-event"))).toMatch(
+      /observation|authority/,
     );
-    expect(await drift((f) => (object(f).value.owning_ref.owner = "temporal_kernel"))).not.toBe("");
+    expect(await drift((f) => (authority(f).value.requested.target.value += 1))).toMatch(
+      /observation|authority/,
+    );
+    expect(await drift((f) => (tx(f).value.trigger.ref = "other-event"))).toMatch(
+      /observation|authority/,
+    );
     expect(
       await drift((f) => {
-        const o = object(f);
-        o.value.dependencies.push({
-          ...o.value.dependencies[0],
-          stage: { ...o.value.dependencies[0].stage, causal_process_id: "x" },
-          produces: ["x/y"],
-        });
+        tx(f).value.stages = [];
       }),
-    ).toMatch(/exactly the one-shot object|exactly the declaration/);
-    expect(
-      await drift((f) => {
-        const o = object(f);
-        o.value.last_resolved_basis = { unit: o.value.last_resolved_basis.unit, value: 1 };
-      }),
-    ).toMatch(/exactly the one-shot object/);
+    ).toMatch(/single event-triggered packet stage/);
     expect(await drift((f) => f.filter((x) => !/^temporal\/transaction\//.test(x.key)))).not.toBe(
       "",
     );

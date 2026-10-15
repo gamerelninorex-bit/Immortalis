@@ -9,6 +9,8 @@ import {
   SealedEngineProvenanceSchema,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
+  TransactionAuthoritySchema,
+  temporalTransactionAuthorityKey,
   accessEventKey,
   accessPacketKey,
   accessPacketStage,
@@ -39,6 +41,7 @@ import {
   recipientBoundaryViolation,
   requiredCapability,
 } from "./derive.ts";
+import { isObservationEarnedFact, observationTriggerViolation } from "./declaration.ts";
 import { observationEventViolation } from "./observation.ts";
 
 /**
@@ -392,5 +395,15 @@ function checkFormation(
     "ADMISSION",
   );
   if (identity) return ref(identity, { key: packetW.key });
+  if (isObservationEarnedFact(eventFact)) {
+    const id = group.cause.slice("transaction:".length);
+    const fact = state.facts.get(temporalTransactionAuthorityKey(id));
+    const authority = fact ? TransactionAuthoritySchema.safeParse(fact.value) : undefined;
+    const violation = authority?.success
+      ? observationTriggerViolation(authority.data, eventFact, now)
+      : "an observation formation needs its event-triggered transaction authority";
+    if (violation) return ref(violation, { key: packetW.key });
+  }
+
   return null;
 }

@@ -16,6 +16,9 @@ import {
   observationEventCause,
   observationEventGroupId,
   observationEventIntentId,
+  observationTransactionId,
+  observationTransactionCause,
+  OBSERVATION_TRIGGER_KIND,
   type CommitGroup,
   type OwnerFact,
 } from "@immortalis/contracts";
@@ -30,7 +33,7 @@ import {
   epistemicObjectViolation,
   factKind,
   formObservedPacket,
-  observationEngagement,
+  epistemicPacketDeclaration,
   observationEventDependencies,
   observationEventReads,
   observationRecordOf,
@@ -114,6 +117,18 @@ const accessKeys = (c: CanonicalCampaign) =>
     .listFacts()
     .map((f) => f.key)
     .filter((k) => k.startsWith("access/"));
+
+const observationEngagement = (event: any): any => ({
+  object_id: `observation-${event.event_id}`,
+  owning_ref: { owner: "epistemic_access", process_id: accessEventKey(event.event_id) },
+  last_resolved_basis: event.established_at,
+  partition: { class: "EXACT-PARTITION" },
+  next_boundary: { boundary_id: "held-boundary", at: event.established_at },
+  dependencies: [epistemicPacketDeclaration(event)],
+  continuation: { resume_from: "LAST_RESOLVED_BASIS", reconciliation_due: [] },
+  invalidators: [],
+  information_latency: { creates_epistemic_interruption: false },
+});
 
 describe("producer-bound admission: the receipt is the retained, engine-derived reading and nothing the caller supplies", () => {
   it("control: the group derived from an ESTABLISHED reading commits (by the adapter and by a raw store commit alike), once", async () => {
@@ -327,7 +342,7 @@ describe("producer-bound admission: the receipt is the retained, engine-derived 
   }, 120_000);
 });
 
-describe("the one-shot current-basis engagement is exactly the object its event determines, registered at the current basis", () => {
+describe("the observation uses its causal event trigger and cannot register a material boundary at T0", () => {
   async function earned() {
     const s = await ready();
     const d = await decide(s.campaign);
@@ -349,6 +364,53 @@ describe("the one-shot current-basis engagement is exactly the object its event 
       secrecy: "s",
       object,
     });
+
+  it("refuses an authored, foreign or retimed trigger before opening authority or forming a packet", async () => {
+    const s = await earned();
+    try {
+      const request = {
+        transaction_id: observationTransactionId(s.event.event_id),
+        cause: observationTransactionCause(s.event.event_id),
+        trigger: { kind: OBSERVATION_TRIGGER_KIND, ref: s.event.event_id },
+        continues: null,
+        requested: { target: BASIS, condition: null },
+        context: { ...PLAYER_CHOICE_AUTHORITY },
+        publication: { basis: OBSERVATION_EVENT_BASIS, secrecy: "engine-internal" },
+      };
+      const before = s.campaign.store.head();
+      for (const edit of [
+        (r: any) => {
+          r.transaction_id = "foreign-transaction";
+        },
+        (r: any) => {
+          r.cause = "foreign-cause";
+        },
+        (r: any) => {
+          r.trigger.ref = "missing-event";
+        },
+        (r: any) => {
+          r.requested.target = at(101);
+        },
+        (r: any) => {
+          r.requested.condition = {
+            kind: "STOP_AFTER_BOUNDARY",
+            object_id: "foreign",
+            boundary_id: "foreign",
+          };
+        },
+      ]) {
+        const candidate = structuredClone(request);
+        edit(candidate);
+        expect((await s.coordinator.advance(candidate)).ok).toBe(false);
+        expect(s.campaign.store.head()).toEqual(before);
+      }
+      expect((await s.coordinator.advance(request)).ok).toBe(true);
+      expect(s.coordinator.boundaryIndex().entries).toEqual([]);
+      expect(s.campaign.verify()).toEqual([]);
+    } finally {
+      await s.campaign.close();
+    }
+  }, 120_000);
 
   it("refuses an engagement that differs from the determined object in any part", async () => {
     const s = await earned();
@@ -380,8 +442,8 @@ describe("the one-shot current-basis engagement is exactly the object its event 
         expect((await register(s, o, 99)).ok, name).toBe(false);
       }
       expect(s.coordinator.object(good.object_id)).toBeUndefined();
-      // the determined object registers; registering it again is a conflict, never a second engagement
-      expect((await register(s, good, 1)).ok).toBe(true);
+      // the formerly held current-basis object is refused as well, for every attempt
+      expect((await register(s, good, 1)).ok).toBe(false);
       expect((await register(s, good, 2)).ok).toBe(false);
       // a second object declaring the same stage at the same instant is a second formation declaration: refused
       const twin: any = structuredClone(good);
@@ -399,7 +461,7 @@ describe("the one-shot current-basis engagement is exactly the object its event 
       const consumer = packetConsumerObject("c1", s.event, null);
       expect(
         epistemicObjectViolation(consumer, { facts: new Map([[s.eventFact.key, s.eventFact]]) }),
-      ).toMatch(/only by that event's own one-shot engagement/);
+      ).toMatch(/only by that event's own causal trigger/);
       // the kernel's strictness is unchanged for any object that is not the Epistemic engagement: a boundary at the current time is refused
       const other: any = {
         object_id: "obj-other",

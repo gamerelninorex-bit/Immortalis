@@ -330,7 +330,7 @@ export type SealedEngineProvenance = z.infer<typeof SealedEngineProvenanceSchema
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Technical encodings of the OBSERVATION-EARNED event and of the one-shot formation engagement it earns. Nothing here is a game
+ * Technical encodings of the OBSERVATION-EARNED event and of the event-triggered formation transaction it earns. Nothing here is a game
  * rule: the identities are derived from the question's own identity, so a retry, a lost reply or a restart reaches the same
  * records (RC-16) and no caller can choose, vary or pre-empt them.
  *
@@ -348,16 +348,6 @@ export const observationEventGroupId = (eventId: string): string =>
 export const observationEventIntentId = (eventId: string): string =>
   `observation:event-intent:v1:${eventId}`;
 export const observationEventCause = (eventId: string): string => `observation:event:v1:${eventId}`;
-
-/** The one-shot formation engagement the observation earns: a Temporal object owned by the event, with one earned boundary. */
-export const observationObjectId = (eventId: string): string => `observation-${eventId}`;
-export const observationBoundaryId = (eventId: string): string => `observation-boundary-${eventId}`;
-export const observationRegistrationGroupId = (eventId: string): string =>
-  `observation:register-group:v1:${eventId}`;
-export const observationRegistrationIntentId = (eventId: string): string =>
-  `observation:register-intent:v1:${eventId}`;
-export const observationRegistrationCause = (eventId: string): string =>
-  `observation:register:v1:${eventId}`;
 
 /** The identity of the resolution transaction that closes the formation: derived from the event, stable across retries and reopen. */
 export const observationTransactionId = (eventId: string): string => `observation-tx-${eventId}`;

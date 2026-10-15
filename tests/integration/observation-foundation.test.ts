@@ -15,11 +15,9 @@ import {
   AccessiblePacketSchema,
   RefereeDecisionRecordSchema,
   SealedEngineProvenanceSchema,
-  TemporalObjectSchema,
   TemporalStateSchema,
   ResolutionTransactionSchema,
   accessPacketStage,
-  observationRegistrationIntentId,
   worldLocusKey,
 } from "@immortalis/contracts";
 import {
@@ -94,8 +92,6 @@ describe("the positive: an established reading earns the receipt, the packet and
         "access/obs-<id>/packet/pc-maren",
         "access/obs-<id>/provenance/pc-maren",
         "referee/<id>/decision",
-        "temporal/boundary-index",
-        "temporal/object/observation-obs-<id>",
         "temporal/transaction-authority/observation-tx-obs-<id>",
         "temporal/transaction/observation-tx-obs-<id>",
       ].sort(),
@@ -167,7 +163,7 @@ describe("the positive: an established reading earns the receipt, the packet and
       expect(prov.packet.fact_key).toBe(packetFact.key);
       expect(packetFact.provenance.group_id).toBe(provFact.provenance.group_id);
 
-      // time: unchanged. The one transaction's target is the canonical time itself, it retired the earned boundary and spent the object
+      // time: unchanged. The one transaction's target is the canonical time itself, it crossed no boundary and registered no object
       const state = TemporalStateSchema.parse(c.store.getFact("temporal/state")!.value);
       expect(state.canonical_time).toEqual(BASIS);
       expect(state.continuation).toBeNull();
@@ -185,23 +181,16 @@ describe("the positive: an established reading earns the receipt, the packet and
       });
       expect(tx.stages).toHaveLength(1);
       expect(tx.stages[0]!.stage).toEqual(accessPacketStage(event.event_id, PC_ID));
-      expect(tx.boundaries_crossed).toHaveLength(1);
-      expect(tx.boundaries_crossed[0]!.at).toEqual(BASIS);
-      expect(tx.engaged.map((e) => e.boundary)).toEqual(["RETIRED"]);
-      const obj = TemporalObjectSchema.parse(f(/^temporal\/object\//)[0]!.value);
-      expect(obj.owning_ref.owner).toBe("epistemic_access");
-      expect(obj.next_boundary).toBeNull();
-      expect(obj.last_resolved_basis).toEqual(BASIS);
-      expect(obj.dependencies).toHaveLength(1);
-      expect(c.store.getFact("temporal/boundary-index")!.value).toEqual({ entries: [] });
+      expect(tx.boundaries_crossed).toEqual([]);
+      expect(tx.engaged).toEqual([]);
+      expect(f(/^temporal\/object\//)).toEqual([]);
+      expect(c.store.getFact("temporal/boundary-index")).toBeUndefined();
 
       // committed-before-consumed: decision, event, engagement, transaction authority, packet, transaction
       const rev = (re: RegExp) => c.store.lookupReceipt(f(re)[0]!.provenance.intent_id)!.revision;
       const order = [
         rev(/^referee\/[0-9a-f]{64}\/decision$/),
         rev(/^access\/[^/]+\/event$/),
-        // the engagement's own registration (its fact now points at the transaction that retired it)
-        c.store.lookupReceipt(observationRegistrationIntentId(event.event_id))!.revision,
         rev(/^temporal\/transaction-authority\//),
         rev(/^access\/[^/]+\/packet\//),
         rev(/^temporal\/transaction\//),
@@ -278,11 +267,19 @@ describe("the independent negative: an otherwise identical scene with a continuo
     const a = await locusOf(red.dirs.campaignDir);
     const b = await locusOf(screen.dirs.campaignDir);
     expect(b.world).toEqual(a.world);
+    expect(a.locus.constraints.filter((x) => x.aspect === "path")).toEqual([
+      { aspect: "path", statement: SCENE.path },
+    ]);
+    expect(b.locus.constraints).toHaveLength(a.locus.constraints.length);
+    expect({ ...b.locus, constraints: [] }).toEqual({ ...a.locus, constraints: [] });
+
     expect(
       b.locus.constraints.filter((x) => !a.locus.constraints.some((y) => canonicalEqual(x, y))),
-    ).toEqual([{ aspect: "obstruction-1", statement: SCREEN }]);
+    ).toEqual([{ aspect: "path", statement: SCREEN }]);
     expect(
-      a.locus.constraints.every((x) => b.locus.constraints.some((y) => canonicalEqual(x, y))),
+      a.locus.constraints
+        .filter((x) => x.aspect !== "path")
+        .every((x) => b.locus.constraints.some((y) => canonicalEqual(x, y))),
     ).toBe(true);
     expect(b.locus.constraints.some((x) => x.statement === SCENE.surface)).toBe(true);
     // neither scene states a perception, a receipt, a packet or an expected result
@@ -363,7 +360,7 @@ describe("the independent negative: an otherwise identical scene with a continuo
       return rest;
     };
     expect(strip(docs[0])).toEqual(strip(docs[1]));
-    expect(docs[0].context.facts.length + 1).toBe(docs[1].context.facts.length);
+    expect(docs[0].context.facts.length).toBe(docs[1].context.facts.length);
   }, 240_000);
 });
 

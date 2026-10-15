@@ -17,7 +17,6 @@ import {
   ObservationPayloadSchema,
   ObservationPremiseSchema,
   OWNER_EPISTEMIC_ACCESS,
-  EPISTEMIC_ENGAGEMENT_OWNER,
   PHYSICAL_VERDICTS,
   IR_VERDICTS,
   I002_VERDICTS,
@@ -27,8 +26,6 @@ import {
   RefereeVerdictSchema,
   SealedEngineProvenanceSchema,
   TemporalObjectSchema,
-  observationBoundaryId,
-  observationObjectId,
 } from "@immortalis/contracts";
 
 const at = (value: number) => ({ unit: "u", value });
@@ -288,7 +285,7 @@ describe("the event, packet and provenance contracts are unchanged: an observati
   });
 });
 
-describe("the Temporal object exception is the Epistemic owner's alone", () => {
+describe("the Temporal object boundary remains strictly future for every owner", () => {
   const object = (owner: string, boundaryAt: number, resolved = 100): any => ({
     object_id: "obj-1",
     owning_ref: { owner, process_id: "p" },
@@ -300,11 +297,8 @@ describe("the Temporal object exception is the Epistemic owner's alone", () => {
     invalidators: [],
     information_latency: { creates_epistemic_interruption: false },
   });
-  it("the literal is the Epistemic owner's identity", () => {
-    expect(EPISTEMIC_ENGAGEMENT_OWNER).toBe(OWNER_EPISTEMIC_ACCESS);
-  });
-  it("only that owner's object may carry a boundary AT its last resolved basis; no object may carry one before it", () => {
-    expect(ok(TemporalObjectSchema, object(OWNER_EPISTEMIC_ACCESS, 100))).toBe(true);
+  it("no object, including the Epistemic owner, carries a boundary at or before its resolved basis", () => {
+    expect(ok(TemporalObjectSchema, object(OWNER_EPISTEMIC_ACCESS, 100))).toBe(false);
     expect(ok(TemporalObjectSchema, object(OWNER_EPISTEMIC_ACCESS, 150))).toBe(true);
     expect(ok(TemporalObjectSchema, object(OWNER_EPISTEMIC_ACCESS, 50))).toBe(false);
     for (const owner of ["gip", "population", "temporal_kernel", "logistics", "world_state"]) {
@@ -312,9 +306,5 @@ describe("the Temporal object exception is the Epistemic owner's alone", () => {
       expect(ok(TemporalObjectSchema, object(owner, 50)), owner).toBe(false);
       expect(ok(TemporalObjectSchema, object(owner, 150)), owner).toBe(true);
     }
-  });
-  it("the engagement identities are derived from the event alone", () => {
-    expect(observationObjectId("obs-1")).toBe("observation-obs-1");
-    expect(observationBoundaryId("obs-1")).toBe("observation-boundary-obs-1");
   });
 });

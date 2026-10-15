@@ -31,6 +31,7 @@ export const BASIS = at(100);
 // -- the physical scene: setting prose only (no perception, receipt, packet content or expected verdict is stated anywhere) ----------
 
 export const SCENE = {
+  path: "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall.",
   geometry:
     "The alcove is a stone room four paces wide. A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
   surface:
@@ -65,11 +66,17 @@ export const redScene =
       { aspect: "surface", statement: SCENE.surface },
       { aspect: "light", statement: SCENE.light },
       { aspect: "air", statement: SCENE.air },
+      { aspect: "path", statement: SCENE.path },
       ...extra.map((statement, i) => ({ aspect: `obstruction-${i + 1}`, statement })),
     ];
   };
 
-export const screenScene = (): Mutate => redScene([SCREEN]);
+export const screenScene = (): Mutate => (doc) => {
+  redScene()(doc);
+  doc.locus.constraints = doc.locus.constraints.map((fact: any) =>
+    fact.aspect === "path" ? { ...fact, statement: SCREEN } : fact,
+  );
+};
 
 export const responderOf = (words: { embodiment?: string; presence?: string } = {}): Responder => ({
   ...STANDARD,
@@ -108,7 +115,7 @@ export function observationAnswer(doc: Record<string, any>, rule: ObsRule = {}):
   );
   const screen = facts.find((f) => /continuous opaque wooden screen/.test(f.text));
   const air = facts.find((f) =>
-    /The air between the bench and the north wall is clear/.test(f.text),
+    /Nothing solid stands between the bench and the north wall/.test(f.text),
   );
   const surface = facts.find((f) => /one broad patch of bright red paint/.test(f.text));
   const facultyOk = !rule.noFaculty && pcSight !== undefined;
@@ -166,7 +173,7 @@ export function observationAnswer(doc: Record<string, any>, rule: ObsRule = {}):
                 ref: air.fact_id,
                 evidence_quote: quoteOf(
                   air.text,
-                  /The air between the bench and the north wall is clear/,
+                  /Nothing solid stands between the bench and the north wall/,
                 ),
               },
             ],
@@ -209,7 +216,7 @@ export function observationAnswer(doc: Record<string, any>, rule: ObsRule = {}):
         ? f === screen
           ? quoteOf(f.text, /continuous opaque wooden screen/)
           : f === air
-            ? quoteOf(f.text, /The air between the bench and the north wall is clear/)
+            ? quoteOf(f.text, /Nothing solid stands between the bench and the north wall/)
             : quoteOf(f.text, /one broad patch of bright red paint/)
         : null,
     };

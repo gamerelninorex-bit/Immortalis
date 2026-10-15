@@ -1,7 +1,7 @@
 // BLUE v5.2 conformance — active-PC direct physical observation. The slice adds code, tests and documents; it moves no spec-lock pin, acceptance
 // register row, status or open gate (OB-030 / F-028 stay Blocked; PF-6 stays unactivated). Every EXISTING source file it modified is pinned at the
-// slice head, so a later change to any of them is an explicit, reviewed re-pin and never silent - the three Temporal files among them are the
-// narrow, Epistemic-only current-basis amendment documented in the foundation document. The pins below were generated from the committed files.
+// slice head. PR #67 H-1 recovery removes the current-basis boundary exception and adds the owner-qualified event-trigger seam.
+// These implementation pins change openly; frozen design, source-lock, acceptance status and gates do not.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -22,20 +22,26 @@ const sha = (file: string) =>
     .digest("hex");
 
 const MODIFIED: Record<string, string> = {
+  "packages/engine/src/epistemic/provider.ts":
+    "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
+  "packages/engine/src/temporal/coordinator.ts":
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+  "packages/engine/src/temporal/providers.ts":
+    "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/contracts/src/epistemic-access.ts":
-    "2d4285c4f471c6e97988742c3d063d04552c04335c8b6d0b267d0fd02adac0c4",
+    "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
     "17278e17bbfe01ede76e41b334cf5cfeed1ad091b5cdea37268e9a5f06803d45",
   "packages/contracts/src/temporal.ts":
-    "c47467c75137f69b7e951be68aaaa9fc4f6b68f1ddaba311f373a2014ebf9adb",
+    "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
     "91dadeae31967c1363bd010a1459943b2036685305bed7b343c302ce787634ab",
   "packages/engine/src/epistemic/admission.ts":
-    "f9cfb56d21484387181981ef32224b2f317bd2153a63d35a958e00854616828b",
+    "bd725a1b3fc47b9ad2c81445066ce037f8ae357e85fd4c2ef5422a2881e46dc9",
   "packages/engine/src/epistemic/declaration.ts":
-    "ed26e5ef013c80b0eedf10b15a81374b5163d6b80c53146a19aebb41b19b2aea",
+    "754866e721064059052d4f37a170a7339d1a81eb29b9dd0ee9b9fa8f812b7257",
   "packages/engine/src/epistemic/integrity.ts":
-    "57ae9f04b3cefa39bb77883bd9f1d8f241f1c20fb8ee07374866d3251835e1d9",
+    "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
     "979e435c37d3398f0d9d36de3d0998a62bafe15539f1c3bf8b757ff930e451b8",
   "packages/engine/src/owners/registry.ts":
@@ -49,9 +55,9 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
-    "9be0e500bb1f4aaeae00edb97d902cb6c7644566315cd542df599df02499ee0f",
+    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
   "packages/engine/src/temporal/integrity.ts":
-    "5686167dd74f7cabd24b008978474424a4eca020e5e5fc6f651f8d26105c6840",
+    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
     "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
   "packages/operator/src/confirmation.ts":
@@ -142,25 +148,15 @@ describe("one scoped delta: no new owner, no new fact kind, no new facet", () =>
     for (const [file, hash] of Object.entries(MODIFIED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the Temporal amendment is exactly three scoped places, each naming only the Epistemic engagement", () => {
-    const schema = code("packages/contracts/src/temporal.ts");
-    expect(schema.match(/EPISTEMIC_ENGAGEMENT_OWNER/g)).toHaveLength(2);
-    const admission = code("packages/engine/src/temporal/admission.ts");
-    expect(admission.match(/atCurrentBasis/g)).toHaveLength(2);
-    expect(admission).toMatch(/atCurrentBasis =\s*o\.owning_ref\.owner === OWNER_EPISTEMIC_ACCESS/);
-    const integrity = code("packages/engine/src/temporal/integrity.ts");
-    expect(integrity).toMatch(/currentBasisEngagements/);
-    expect(integrity).toMatch(/owning_ref\.owner === OWNER_EPISTEMIC_ACCESS/);
-    // nothing else of the kernel moved: the coordinator and its providers are untouched
-    expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
-      "admission.ts",
-      "coordinator.ts",
-      "graph.ts",
-      "identity.ts",
-      "integrity.ts",
-      "partition.ts",
-      "providers.ts",
-    ]);
+  it("the held current-basis boundary exception is removed; formation uses the committed event trigger", () => {
+    expect(code("packages/contracts/src/temporal.ts")).not.toContain("EPISTEMIC_ENGAGEMENT_OWNER");
+    expect(code("packages/engine/src/temporal/admission.ts")).not.toContain("atCurrentBasis");
+    expect(code("packages/engine/src/temporal/integrity.ts")).not.toContain(
+      "currentBasisEngagements",
+    );
+    const formation = code("packages/engine/src/epistemic/direct-observation.ts");
+    expect(formation).not.toContain("registerObject(");
+    expect(formation).not.toContain("observationEngagement(");
   });
 });
 
@@ -198,7 +194,7 @@ describe("evidence: the real-host exercise is retained, and the documents claim 
   it("the foundation document states what is and is not claimed, and the amendment for review", () => {
     const doc = readFileSync(DOC, "utf8");
     expect(doc).toMatch(/No PASS acceptance is claimed here/);
-    expect(doc).toMatch(/for BLUE review/);
+    expect(doc).toMatch(/Independent BLUE delta review remains/);
     expect(doc).toMatch(/never proof of obstruction|never proof of obstruction/i);
     expect(doc).toMatch(/OB-030/);
   });
