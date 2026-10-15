@@ -20,6 +20,7 @@ import {
   authorizeObserveRequestHost,
   bindObserveRequestHost,
   discardObserveRequest,
+  listObserveRequests,
   observeRequestDir,
   observeRequestSecretPath,
   readObserveRequest,
@@ -212,10 +213,11 @@ describe("the one pending ask", () => {
     const held = await readObserveRequest(params(dir), UID);
     expect(held.ok && held.value).toMatchObject({ host_id: "host-1", pc_id: "pc-1" });
     const files = readdirSync(observeRequestDir(params(dir)));
-    expect(files).toEqual(["request.json"]);
-    const text = readFileSync(join(observeRequestDir(params(dir)), "request.json"), "utf8");
-    expect(text).not.toMatch(/confirm|verdict|role\.|permission/i);
-    expect(statSync(join(observeRequestDir(params(dir)), "request.json")).mode & 0o777).toBe(0o600);
+    // the ask is its own file, named by its own identity
+    expect(files).toEqual([`request-${first.value.request_id}.json`]);
+    const file = join(observeRequestDir(params(dir)), files[0]!);
+    expect(readFileSync(file, "utf8")).not.toMatch(/confirm|verdict|role\.|permission/i);
+    expect(statSync(file).mode & 0o777).toBe(0o600);
   });
 
   it("an ask for another basis or character is stale and is replaced by the new one", async () => {
@@ -229,17 +231,29 @@ describe("the one pending ask", () => {
     expect(held.ok && held.value?.request_id).toBe(c.value.request_id);
   });
 
-  it("concurrent recorders converge on one ask", async () => {
+  it("recorders that do not hold the package lock may leave duplicates of ONE ask; they are one ask, the lowest identity is served, and each is settled by its own name", async () => {
     const dir = stateDir();
     const all = await Promise.all(
       Array.from({ length: 8 }, (_, i) => recordObserveRequest(params(dir), ask(`host-${i}`))),
     );
-    const ids = new Set(all.map((r) => (r.ok ? r.value.request_id : "fail")));
-    expect(ids.size).toBe(1);
-    expect(ids.has("fail")).toBe(false);
+    const ids = all.map((r) => (r.ok ? r.value.request_id : "fail"));
+    expect(ids.includes("fail")).toBe(false);
+    const listed = await listObserveRequests(params(dir), UID);
+    if (!listed.ok) throw new Error("list failed");
+    // every ask the recorders left is the same character at the same basis, and the listing is in identity order
+    expect(new Set(listed.value.asks.map((a) => `${a.pc_id}@${a.basis.value}`))).toEqual(
+      new Set(["pc-1@100"]),
+    );
+    const order = listed.value.asks.map((a) => a.request_id);
+    expect(order).toEqual([...order].sort());
+    const served = await readObserveRequest(params(dir), UID);
+    expect(served.ok && served.value?.request_id).toBe(order[0]);
+    for (const a of listed.value.asks)
+      expect(await discardObserveRequest(params(dir), a.request_id, UID)).toBe(true);
+    expect(await readObserveRequest(params(dir), UID)).toEqual({ ok: true, value: null });
   });
 
-  it("is discarded only by its own identity, and an unrecognised file is never overwritten", async () => {
+  it("is discarded only by its own identity, and an unrecognised file is never overwritten, removed or served", async () => {
     const dir = stateDir();
     const a = await recordObserveRequest(params(dir), ask());
     if (!a.ok) throw new Error("record failed");
@@ -247,17 +261,52 @@ describe("the one pending ask", () => {
     expect((await readObserveRequest(params(dir), UID)).ok).toBe(true);
     expect(await discardObserveRequest(params(dir), a.value.request_id, UID)).toBe(true);
     expect(await readObserveRequest(params(dir), UID)).toEqual({ ok: true, value: null });
-    // an unrecognised file (wrong shape, another operator, another campaign) is invalid and is not overwritten
-    const file = join(observeRequestDir(params(dir)), "request.json");
-    for (const text of ["{", "[]", JSON.stringify({ format: "x" })]) {
+    // an unrecognised file that carries an ask's name (wrong shape, another operator or campaign, another identity inside) is invalid:
+    // it is reported, never served, never overwritten and never removed by a cleanup that names it
+    const id = "ab".repeat(16);
+    const file = join(observeRequestDir(params(dir)), `request-${id}.json`);
+    const other = JSON.parse(
+      JSON.stringify({
+        ...ask(),
+        format: "immortalis-operator-observe-request",
+        format_version: 1,
+      }),
+    );
+    for (const text of [
+      "{",
+      "[]",
+      JSON.stringify({ format: "x" }),
+      JSON.stringify({ ...other, request_id: "cd".repeat(16) }), // another identity inside the name of this one
+      JSON.stringify({ ...other, request_id: id, campaign_id: "campaign-b" }),
+      JSON.stringify({ ...other, request_id: id, operator_uid: UID + 1 }),
+    ]) {
       writeFileSync(file, text);
+      const listed = await listObserveRequests(params(dir), UID);
+      expect(listed.ok && listed.value).toEqual({ asks: [], invalid: 1 });
       const r = await readObserveRequest(params(dir), UID);
       expect(!r.ok && r.error.code).toBe("REQUEST_INVALID");
+      expect(await discardObserveRequest(params(dir), id, UID)).toBe(false);
+      // it does not stop the lawful host from leaving a real ask, and is itself left exactly as found
       const recorded = await recordObserveRequest(params(dir), ask());
-      expect(recorded.ok).toBe(false);
+      expect(recorded.ok).toBe(true);
       expect(readFileSync(file, "utf8")).toBe(text);
+      const mine = await readObserveRequest(params(dir), UID);
+      expect(mine.ok && mine.value?.request_id).toBe(recorded.ok ? recorded.value.request_id : "");
+      if (recorded.ok) await discardObserveRequest(params(dir), recorded.value.request_id, UID);
     }
-    writeFileSync(file, readFileSync(file, "utf8"));
+  });
+
+  it("every ask is its own file: a re-asked ask is a new identity, and cleaning up the first never reaches the second", async () => {
+    const dir = stateDir();
+    const first = await recordObserveRequest(params(dir), ask());
+    if (!first.ok) throw new Error("record failed");
+    expect(await discardObserveRequest(params(dir), first.value.request_id, UID)).toBe(true);
+    const second = await recordObserveRequest(params(dir), ask());
+    if (!second.ok) throw new Error("record failed");
+    expect(second.value.request_id).not.toBe(first.value.request_id);
+    expect(await discardObserveRequest(params(dir), first.value.request_id, UID)).toBe(false);
+    const held = await readObserveRequest(params(dir), UID);
+    expect(held.ok && held.value?.request_id).toBe(second.value.request_id);
   });
 
   it("an ask of another operating-system user or campaign is not this operator's", async () => {

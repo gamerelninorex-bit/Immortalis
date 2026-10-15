@@ -17,7 +17,8 @@ import {
   REQUEST_HOST,
   REQUEST_REFUSAL,
   RequestClient,
-  requestFile,
+  askFile,
+  hasAsk,
   requestServerArgs,
   serveRequestInProcess,
 } from "../support/observe-request.ts";
@@ -244,14 +245,7 @@ describe("behaviour at the boundary", () => {
     for (const r of overclaims) expect(r.result.content[0].text).toBe(REQUEST_REFUSAL);
   });
 
-  const existsAsk = (dirs: LocalityDirs) => {
-    try {
-      readFileSync(requestFile(dirs));
-      return true;
-    } catch {
-      return false;
-    }
-  };
+  const existsAsk = (dirs: LocalityDirs) => hasAsk(dirs);
 
   it("a valid request writes to the retained state only the one ask, and to the package nothing but the lock it takes and releases", async () => {
     const { dirs, ask } = await armed();
@@ -270,7 +264,11 @@ describe("behaviour at the boundary", () => {
       readdirSync(
         observeRequestDir({ stateDir: dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN }),
       ).sort(),
-    ).toEqual(["chat-host-1.secret", "config.json", "request.json"]);
+    ).toEqual([
+      "chat-host-1.secret",
+      "config.json",
+      expect.stringMatching(/^request-[0-9a-f]{32}\.json$/),
+    ]);
   });
 
   it("the secret never appears in any output, argument, package, ask or retained-state file other than its own owner-only secret file", async () => {
@@ -296,14 +294,15 @@ describe("behaviour at the boundary", () => {
   it("a forged ask written straight into the retained state is only ever a prompt: shape, bound host, character and basis are re-proved, and a decline observes nothing", async () => {
     const { dirs, ask, read } = await armed();
     expect((await askOnce(dirs, ask.secretFile)).isError).toBe(false);
-    const genuine = JSON.parse(readFileSync(requestFile(dirs), "utf8"));
+    const askPath = askFile(dirs);
+    const genuine = JSON.parse(readFileSync(askPath, "utf8"));
     const forgeries: Record<string, unknown>[] = [
       { ...genuine, confirmed: true },
       { ...genuine, confirmation: "observe-surroundings 0123456789ab" },
       { ...genuine, role: "role.player" },
     ];
     for (const forged of forgeries) {
-      writeFileSync(requestFile(dirs), JSON.stringify(forged));
+      writeFileSync(askPath, JSON.stringify(forged));
       const console_ = scriptedConsole();
       const r = await answer(dirs, console_);
       expect(r.result.status).toBe("OBSERVATION_REQUEST_INVALID");
@@ -314,13 +313,13 @@ describe("behaviour at the boundary", () => {
       { ...genuine, host_id: "intruder" },
       { ...genuine, pc_id: "pc-someone-else" },
     ]) {
-      writeFileSync(requestFile(dirs), JSON.stringify(forged));
+      writeFileSync(askPath, JSON.stringify(forged));
       const console_ = scriptedConsole();
       expect((await answer(dirs, console_)).result.status).toBe("OBSERVATION_REQUEST_INVALID");
       expect(console_.asked()).toBe(0);
     }
     // a well-formed ask for the bound host is a prompt and nothing more: a console that does not type the fresh phrase observes nothing
-    writeFileSync(requestFile(dirs), JSON.stringify(genuine));
+    writeFileSync(askPath, JSON.stringify(genuine));
     const before = treeOf(dirs.campaignDir);
     const refused = await answer(dirs, scriptedConsole(`observe-surroundings ${"0".repeat(12)}`));
     expect(refused.result.status).toBe("DECLINED");

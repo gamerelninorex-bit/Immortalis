@@ -95,21 +95,25 @@ export async function requestActivePcObservation(
       ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
     });
     if (!view.ok) return refusal();
-    let basis: CanonicalTime | null;
+    let recorded;
     try {
       // only the canonical basis is read: no scene, observation, decision or packet is consulted to decide anything here
-      basis = committedCanonicalTime((k) => view.value.campaign.store.getFact(k));
+      const basis: CanonicalTime | null = committedCanonicalTime((k) =>
+        view.value.campaign.store.getFact(k),
+      );
+      if (basis === null) return refusal();
+      // the ask is left WHILE the campaign's single-writer lock is held: the basis just read cannot move, and no other request can read a
+      // basis, prune stale asks or leave one until this one has finished (the custody note in observe-request-exchange.ts)
+      recorded = await recordObserveRequest(exchange, {
+        campaign_id: p.campaignId,
+        operator_uid: owner.value.uid,
+        host_id: p.hostId,
+        pc_id: view.value.pcId,
+        basis,
+      });
     } finally {
       await view.value.campaign.close().catch(() => undefined);
     }
-    if (basis === null) return refusal();
-    const recorded = await recordObserveRequest(exchange, {
-      campaign_id: p.campaignId,
-      operator_uid: owner.value.uid,
-      host_id: p.hostId,
-      pc_id: view.value.pcId,
-      basis,
-    });
     if (!recorded.ok) return refusal();
     return ok({ status: "OBSERVATION_REQUESTED", message: OBSERVE_REQUESTED_MESSAGE });
   } catch {

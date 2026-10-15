@@ -9,7 +9,7 @@
 // observation-live-host*), neither repeated nor extended here; one real configured host call of THIS mechanism is reported separately in
 // docs/evidence/host-observation-request-real-host.md. The fixtures assert no verdict, receipt, packet, presentation or Glance success as an
 // upstream fact: the expected value is whatever the unchanged direct gateway returns over the same canon.
-import { chmodSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -33,7 +33,8 @@ import {
   REQUEST_REFUSAL,
   REQUEST_TOOL,
   RequestClient,
-  requestFile,
+  askFile,
+  hasAsk,
   requestServerArgs,
 } from "../support/observe-request.ts";
 import {
@@ -136,7 +137,7 @@ describe("positive: host request -> separate operator confirmation -> existing p
     expect(await observationFacts(dirs)).toEqual(baseline);
     expect((await readGlance(dirs, read.secretFile)).text).toBe(PROTOCOL_REFUSAL);
     // an ask is pending in the operator's retained state, and it states no choice
-    const file = JSON.parse(readFileSync(requestFile(dirs), "utf8"));
+    const file = JSON.parse(readFileSync(askFile(dirs), "utf8"));
     expect(Object.keys(file).sort()).toEqual(
       [
         "basis",
@@ -160,7 +161,7 @@ describe("positive: host request -> separate operator confirmation -> existing p
     expect(ans.terminal.said.join("\n")).toMatch(/not your choice/);
     expect(ans.terminal.typed[0]).toMatch(/^observe-surroundings [0-9a-f]{12}$/);
     // the ask is consumed
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
 
     // 4. the host now reads only through the existing read path: the existing presentation, byte for byte
     const direct = await directGlance(dirs);
@@ -256,13 +257,13 @@ describe("no-confirmation invariant: a host request alone commits nothing, and i
     expect(await observationFacts(dirs)).toEqual(baseline);
     expect((await readGlance(dirs, read.secretFile)).text).toBe(PROTOCOL_REFUSAL);
     // the one pending ask stayed ONE ask, and states no confirmation
-    const text = readFileSync(requestFile(dirs), "utf8");
+    const text = readFileSync(askFile(dirs), "utf8");
     expect(text).not.toMatch(/confirm|yes|role\.|permission/i);
     expect(
       readdirSync(
         observeRequestDir({ stateDir: dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN }),
       ).filter((f) => f.startsWith("request")),
-    ).toEqual(["request.json"]);
+    ).toHaveLength(1);
   });
 
   it("the ask stands for no confirmation: a console that declines (a wrong line, end of input, a stale phrase) observes and records nothing", async () => {
@@ -283,7 +284,7 @@ describe("no-confirmation invariant: a host request alone commits nothing, and i
       expect(await observationFacts(dirs)).toEqual(baseline);
       expect((await readGlance(dirs, read.secretFile)).text).toBe(PROTOCOL_REFUSAL);
       // a declined ask is consumed: the host must ask again, and the operator has nothing to answer
-      expect(existsSync(requestFile(dirs))).toBe(false);
+      expect(hasAsk(dirs)).toBe(false);
       expect((await answer(dirs, scriptedConsole())).result.status).toBe(
         "OBSERVATION_REQUEST_NONE",
       );
@@ -330,7 +331,7 @@ describe("authentication and binding: a hostile or unbound caller leaves no ask 
       const r = await askOnce(dirs, k.secret, k.over);
       expect(r.isError, k.name).toBe(true);
       expect(r.text, k.name).toBe(REQUEST_REFUSAL);
-      expect(existsSync(requestFile(dirs)), k.name).toBe(false);
+      expect(hasAsk(dirs), k.name).toBe(false);
     }
     // and the REQUEST credential opens nothing on the read surface
     const readWithRequestSecret = await readGlance(dirs, ask.secretFile);
@@ -350,7 +351,7 @@ describe("authentication and binding: a hostile or unbound caller leaves no ask 
     expect(asked.error?.message).toBe("unknown tool");
     c.end();
     await c.exit();
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
   });
 
   it("an unauthorized operating-system owner (a package open to others, a foreign retained-state mode) leaves no ask", async () => {
@@ -361,7 +362,7 @@ describe("authentication and binding: a hostile or unbound caller leaves no ask 
     chmodSync(dirs.operatorDir, 0o755);
     expect((await askOnce(dirs, ask.secretFile)).text).toBe(REQUEST_REFUSAL);
     chmodSync(dirs.operatorDir, 0o700);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
     expect(JSON.parse((await askOnce(dirs, ask.secretFile)).text).ok).toBe(true);
   });
 
@@ -371,14 +372,14 @@ describe("authentication and binding: a hostile or unbound caller leaves no ask 
     const before = treeOf(dirs.campaignDir);
     expect((await askOnce(dirs, ask.secretFile)).text).toBe(REQUEST_REFUSAL);
     expect(treeOf(dirs.campaignDir)).toEqual(before);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
   });
 
   it("a package whose time basis is not established leaves no ask", async () => {
     const bare = (await observationCampaign({ time: false })).dirs;
     const { dirs, ask } = await armed(bare);
     expect((await askOnce(dirs, ask.secretFile)).text).toBe(REQUEST_REFUSAL);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
   });
 });
 
@@ -392,7 +393,7 @@ describe("fail closed: an active writer, an interrupted or unreconciled package 
       const during = await askOnce(dirs, ask.secretFile);
       expect(during.isError).toBe(true);
       expect(during.text).toBe(REQUEST_REFUSAL);
-      expect(existsSync(requestFile(dirs))).toBe(false);
+      expect(hasAsk(dirs)).toBe(false);
     } finally {
       await writer.value.close();
     }
@@ -419,7 +420,7 @@ describe("fail closed: an active writer, an interrupted or unreconciled package 
       expect(r.isError, damage).toBe(true);
       expect(r.text, damage).toBe(REQUEST_REFUSAL);
       expect(treeOf(dirs.campaignDir), damage).toEqual(before);
-      expect(existsSync(requestFile(dirs)), damage).toBe(false);
+      expect(hasAsk(dirs), damage).toBe(false);
     }
   });
 
@@ -459,7 +460,7 @@ describe("fail closed: an active writer, an interrupted or unreconciled package 
         refusal,
       );
     expect(treeOf(dirs.campaignDir)).toEqual(before);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
     // and the unharmed arrangement records
     expect((await requestActivePcObservation(params)).ok).toBe(true);
   });
@@ -484,7 +485,7 @@ describe("staleness: an ask is for one canonical basis and one proved character"
     expect(ans.result.status).toBe("OBSERVATION_REQUEST_STALE");
     expect(console_.asked()).toBe(0);
     expect(treeOf(dirs.campaignDir)).toEqual(before);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
     // a fresh ask at the new basis is answered, and earns the arrival at that basis
     expect(JSON.parse((await askOnce(dirs, ask.secretFile)).text).ok).toBe(true);
     expect((await answer(dirs)).result.status).toBe("OBSERVATION_RECEIVED");
@@ -493,7 +494,7 @@ describe("staleness: an ask is for one canonical basis and one proved character"
   it("a stale ask is replaced, not multiplied, by a later request", async () => {
     const { dirs, ask } = await armed(fresh);
     expect(JSON.parse((await askOnce(dirs, ask.secretFile)).text).ok).toBe(true);
-    const first = JSON.parse(readFileSync(requestFile(dirs), "utf8"));
+    const first = JSON.parse(readFileSync(askFile(dirs), "utf8"));
     const campaign = await openOrdinary(dirs.campaignDir);
     await must(
       new TemporalCoordinator(campaign.store, new StageProviderRegistry()).advance(
@@ -504,7 +505,7 @@ describe("staleness: an ask is for one canonical basis and one proved character"
     );
     await campaign.close();
     expect(JSON.parse((await askOnce(dirs, ask.secretFile)).text).ok).toBe(true);
-    const second = JSON.parse(readFileSync(requestFile(dirs), "utf8"));
+    const second = JSON.parse(readFileSync(askFile(dirs), "utf8"));
     expect(second.request_id).not.toBe(first.request_id);
     expect(second.basis).not.toEqual(first.basis);
   });
@@ -520,7 +521,7 @@ describe("staleness: an ask is for one canonical basis and one proved character"
     const ans = await answer(dirs, console_);
     expect(ans.result.status).toBe("OBSERVATION_REQUEST_INVALID");
     expect(console_.asked()).toBe(0);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
   });
 });
 
@@ -532,7 +533,7 @@ describe("recovery, replay and concurrency", () => {
     for (const r of results)
       expect([REQUEST_REFUSAL].includes(r.text) || JSON.parse(r.text).ok).toBe(true);
     expect(results.some((r) => JSON.parse(r.text).ok === true)).toBe(true);
-    expect(existsSync(requestFile(dirs))).toBe(true);
+    expect(hasAsk(dirs)).toBe(true);
     const first = await answer(dirs);
     expect(first.result.status).toBe("OBSERVATION_RECEIVED");
     const replay = await answer(dirs, scriptedConsole());
@@ -561,7 +562,7 @@ describe("recovery, replay and concurrency", () => {
     const ledgerFs = {
       ...nodeFs,
       remove: async (p: string) => {
-        if (!failed && p.endsWith("request.json")) {
+        if (!failed && /request-[0-9a-f]{32}\.json$/.test(p)) {
           failed = true;
           throw new Error("injected");
         }
@@ -571,14 +572,14 @@ describe("recovery, replay and concurrency", () => {
     const first = await answer(dirs, verbConsole("observe-surroundings"), { ledgerFs });
     expect(first.result.status).toBe("OBSERVATION_RECEIVED");
     expect(failed).toBe(true);
-    expect(existsSync(requestFile(dirs))).toBe(true);
+    expect(hasAsk(dirs)).toBe(true);
     const keys = await observationFacts(dirs);
     const console_ = scriptedConsole();
     const second = await answer(dirs, console_);
     expect(second.result.status).toBe("OBSERVATION_RECEIVED");
     expect(console_.asked()).toBe(0);
     expect(await observationFacts(dirs)).toEqual(keys);
-    expect(existsSync(requestFile(dirs))).toBe(false);
+    expect(hasAsk(dirs)).toBe(false);
   });
 
   it("a referee that is unavailable or has not answered earns nothing, keeps the ask, and the same ask is answered once the host is back", async () => {
@@ -586,7 +587,7 @@ describe("recovery, replay and concurrency", () => {
     expect(JSON.parse((await askOnce(dirs, ask.secretFile)).text).ok).toBe(true);
     const down = await answer(dirs, verbConsole("observe-surroundings"), { refereePolls: 2 }, null);
     expect(["REFEREE_PENDING", "REFEREE_UNAVAILABLE"]).toContain(down.result.status);
-    expect(existsSync(requestFile(dirs))).toBe(true);
+    expect(hasAsk(dirs)).toBe(true);
     expect(await observationFacts(dirs)).toEqual(baseline);
     expect((await readGlance(dirs, read.secretFile)).text).toBe(PROTOCOL_REFUSAL);
     const back = await answer(dirs);

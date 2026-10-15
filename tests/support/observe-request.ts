@@ -6,6 +6,7 @@
 // the challenge the service printed) or as a REAL child process whose standard input is driven by a separate responder reading its output.
 // The expected Glance is whatever the existing direct gateway returns over the very same canon.
 import { spawn } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import {
@@ -84,9 +85,26 @@ export const requestServerArgs = (
   secretFile,
 ];
 
-/** The pending ask's file. */
-export const requestFile = (dirs: LocalityDirs, campaignId = LOCALITY_CAMPAIGN): string =>
-  join(observeRequestDir({ stateDir: dirs.operatorDir, campaignId }), "request.json");
+/** Every pending ask file (each ask is its own file, `request-<id>.json`), full paths, sorted. */
+export const askFiles = (dirs: LocalityDirs, campaignId = LOCALITY_CAMPAIGN): string[] => {
+  const dir = observeRequestDir({ stateDir: dirs.operatorDir, campaignId });
+  try {
+    return readdirSync(dir)
+      .filter((f) => /^request-[0-9a-f]{32}\.json$/.test(f))
+      .sort()
+      .map((f) => join(dir, f));
+  } catch {
+    return [];
+  }
+};
+export const hasAsk = (dirs: LocalityDirs): boolean => askFiles(dirs).length > 0;
+/** The one pending ask's file (throws unless there is exactly one). */
+export const askFile = (dirs: LocalityDirs): string => {
+  const files = askFiles(dirs);
+  if (files.length !== 1)
+    throw new Error(`expected exactly one pending ask, found ${files.length}`);
+  return files[0]!;
+};
 
 /** A started and handshaken REQUEST server (a real stdio process). */
 export class RequestClient extends McpClient {

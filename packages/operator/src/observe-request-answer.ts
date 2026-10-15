@@ -3,8 +3,9 @@ import { committedCanonicalTime, type FsOps } from "@immortalis/engine";
 import { verifyLocalOperator } from "./local-operator.ts";
 import {
   discardObserveRequest,
-  readObserveRequest,
+  listObserveRequests,
   readObserveRequestConfig,
+  type ObserveRequestRecord,
 } from "./observe-request-exchange.ts";
 import { observeSurroundings } from "./observation.ts";
 import type { CharacterResult, CharacterStatus } from "./original-pc.ts";
@@ -90,33 +91,41 @@ export async function answerObservationRequest(
     ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
   };
 
-  // the pending ask, looked for (a bounded number of times) in the operator's own retained state
-  let ask = null;
+  // the pending asks, looked for (a bounded number of times) in the operator's own retained state. Every cleanup below names an ask BY ITS
+  // OWN IDENTITY (the ask is its own file), so settling an ask can never remove a newer one that arrived meanwhile.
+  let asks: readonly ObserveRequestRecord[] = [];
   for (let i = 0; i < Math.max(1, p.requestPolls ?? 1); i++) {
-    const read = await readObserveRequest(exchange, uid);
-    if (!read.ok)
+    const listed = await listObserveRequests(exchange, uid);
+    if (!listed.ok)
+      return answer(
+        "OBSERVATION_REQUEST_UNAVAILABLE",
+        "the pending observation requests cannot be read right now; nothing was changed",
+        [],
+        listed.error.code,
+      );
+    asks = listed.value.asks;
+    if (asks.length > 0) break;
+    if (listed.value.invalid > 0)
       return answer(
         "OBSERVATION_REQUEST_INVALID",
-        "the pending observation request is not a valid request of this campaign and operator; nothing was changed",
+        "a pending observation request is not a valid request of this campaign and operator; nothing was changed",
         [],
-        read.error.code,
+        "REQUEST_INVALID",
       );
-    ask = read.value;
-    if (ask !== null) break;
     if (i + 1 < Math.max(1, p.requestPolls ?? 1)) await sleep(p.requestPollMs ?? 500);
   }
-  if (ask === null)
+  if (asks.length === 0)
     return answer(
       "OBSERVATION_REQUEST_NONE",
       "no host has asked for an observation; nothing was changed",
     );
-  const pending = ask;
-  const discard = () => discardObserveRequest(exchange, pending.request_id, uid);
+  const discard = (ask: ObserveRequestRecord) =>
+    discardObserveRequest(exchange, ask.request_id, uid);
 
-  // the ask must still be one the operator's own binding makes: the same bound host, for the same character
+  // an ask must still be one the operator's own binding makes: the same bound host, for the same character
   const config = await readObserveRequestConfig(exchange, uid);
   if (!config.ok && config.error.code === "IO_FAILED") {
-    // the binding cannot be read right now: reported, and the ask is kept
+    // the binding cannot be read right now: reported, and the asks are kept
     return answer(
       "OBSERVATION_REQUEST_UNAVAILABLE",
       "the observation-request binding cannot be read right now; the request is kept and nothing was changed",
@@ -124,24 +133,23 @@ export async function answerObservationRequest(
       config.error.code,
     );
   }
-  const bound = config.ok
-    ? config.value.hosts.find((h) => h.host_id === pending.host_id && h.pc_id === pending.pc_id)
-    : undefined;
-  if (!bound) {
-    await discard();
+  const isBound = (a: ObserveRequestRecord) =>
+    config.ok && config.value.hosts.some((h) => h.host_id === a.host_id && h.pc_id === a.pc_id);
+  const bound = asks.filter(isBound);
+  for (const unbound of asks.filter((a) => !isBound(a))) await discard(unbound);
+  if (bound.length === 0)
     return answer(
       "OBSERVATION_REQUEST_INVALID",
       "the pending observation request is not from a host this operator has bound for that character; it was discarded and nothing was changed",
     );
-  }
 
-  // the ask must still be for the CURRENT canonical basis and the proved player view (a writer, an interrupted commit or an unreconciled
-  // package is reported, not repaired, and the ask is kept)
+  // an ask must still be for the CURRENT canonical basis and the proved player view (a writer, an interrupted commit or an unreconciled
+  // package is reported, not repaired, and the asks are kept)
   const view = await openAuthorizedPlayerView({
     campaignDir: p.campaignDir,
     campaignId: p.campaignId,
     stateDir,
-    boundPcId: pending.pc_id,
+    boundPcId: bound[0]!.pc_id,
     ...(p.buildId !== undefined ? { buildId: p.buildId } : {}),
     ...(p.campaignFs ? { campaignFs: p.campaignFs } : {}),
     ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
@@ -159,17 +167,17 @@ export async function answerObservationRequest(
   } finally {
     await view.value.campaign.close().catch(() => undefined);
   }
-  if (
-    view.value.pcId !== pending.pc_id ||
-    now === null ||
-    canonicalJson(now) !== canonicalJson(pending.basis)
-  ) {
-    await discard();
+  const current = (a: ObserveRequestRecord) =>
+    view.value.pcId === a.pc_id && now !== null && canonicalJson(now) === canonicalJson(a.basis);
+  const live = bound.filter(current);
+  for (const stale of bound.filter((a) => !current(a))) await discard(stale);
+  if (live.length === 0)
     return answer(
       "OBSERVATION_REQUEST_STALE",
       "the request was made for another canonical basis or character; it was discarded and nothing was changed. The host must ask again",
     );
-  }
+  // the live asks are one ask (one character at the one current basis): the lowest identity is served, and all of them are settled with it
+  const pending = live[0]!;
 
   p.terminal.say(
     "A HOST HAS ASKED THAT YOUR CHARACTER LOOK. That is only a request: it is not your choice, it confirms nothing, and nothing has been observed.",
@@ -192,7 +200,7 @@ export async function answerObservationRequest(
     ...(p.refereePolls !== undefined ? { refereePolls: p.refereePolls } : {}),
     ...(p.refereePollMs !== undefined ? { refereePollMs: p.refereePollMs } : {}),
   });
-  if (!KEEPS_THE_ASK.has(observed.status)) await discard();
+  if (!KEEPS_THE_ASK.has(observed.status)) for (const settled of live) await discard(settled);
   return {
     status: observed.status,
     message: observed.message,

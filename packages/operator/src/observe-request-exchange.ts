@@ -25,8 +25,9 @@ import { nodeFs, type FsOps } from "@immortalis/engine";
  *   observe-request-<campaign>/config.json    the TRUSTED binding of concrete host identities to the ONE character this operator kept and
  *                                              placed (written by the operator's bind action, never by a host, a player or a model)
  *   observe-request-<campaign>/<host>.secret  the host's shared secret (owner-only), handed to the host's tool server by PATH
- *   observe-request-<campaign>/request.json   the ONE pending ask: non-canonical routing state, not a choice, an intent, an observation
- *                                              or a canonical record of any kind
+ *   observe-request-<campaign>/request-<id>.json  a pending ask: non-canonical routing state, not a choice, an intent, an observation or a
+ *                                              canonical record of any kind. EVERY ask is its own file, named by its own random identity (see
+ *                                              "custody" below)
  *
  * What a matching secret proves is only that the process holding it was started from a configuration this operating-system user wrote for
  * this campaign. It confers NO role and NO permission, and it is NOT authorization to act: it entitles the host to leave a request for the
@@ -102,7 +103,10 @@ export const observeRequestDir = (p: ObserveRequestExchangeParams): string =>
     `observe-request-${createHash("sha256").update(p.campaignId, "utf8").digest("hex").slice(0, 32)}`,
   );
 const configPath = (p: ObserveRequestExchangeParams) => join(observeRequestDir(p), "config.json");
-const requestPath = (p: ObserveRequestExchangeParams) => join(observeRequestDir(p), "request.json");
+/** An ask file is named by the ask's own identity. */
+const ASK_FILE = /^request-([0-9a-f]{32})\.json$/;
+const askPath = (p: ObserveRequestExchangeParams, requestId: string) =>
+  join(observeRequestDir(p), `request-${requestId}.json`);
 export const observeRequestSecretPath = (p: ObserveRequestExchangeParams, hostId: string): string =>
   join(observeRequestDir(p), `${hostId}.secret`);
 
@@ -222,33 +226,85 @@ export async function authorizeObserveRequestHost(
 // the one pending ask
 // ---------------------------------------------------------------------------------------------
 
-/** The pending ask, or null when there is none. A file that is not a valid ask of this campaign and operator is `REQUEST_INVALID`. */
+/*
+ * CUSTODY OF THE PENDING ASK (BLUE H-1 repair).
+ *
+ * The retained state offers no atomic "remove this file only if it still holds X" (a read followed by an unlink of a SHARED pathname can
+ * delete a newer ask that was installed between the two, and an extra read or an identity token inside the file does not close that window).
+ * So custody does not rest on a shared pathname at all: every ask is its own file, `request-<id>.json`, named by that ask's own random 128-bit
+ * identity and created exclusively. An unlink of `request-X.json` can therefore remove ask X and nothing else, whatever else is installed, replaced
+ * or recreated at any moment and in any process — identity-bound removal is a property of the name, not of a check that precedes it. A newer
+ * ask Y lives at `request-Y.json`, which no cleanup of X names. A re-asked ask (the same character and basis asked again after X was settled) is
+ * a NEW identity, so a late or duplicate cleanup of the first can never reach the second.
+ *
+ * "One pending ask" is the invariant of what is SERVED, not of one pathname: asks are compared against the canonical basis (the package's own
+ * single-writer lock serializes the recorders, which create and prune while they hold it, so same-basis asks are not multiplied); an ask for a
+ * basis that is no longer current is stale, and the operator discards exactly the identities it classified. Should duplicates of one ask ever
+ * coexist (a recorder without the lock), the operator serves the lowest identity and settles the others with it, each by its own name.
+ * A crash can leave only an inert `.tmp` (never a half-written ask), and a restart finds the asks that were completely created.
+ */
+
+export interface ObserveRequestListing {
+  /** the valid asks of this campaign and operator, lowest identity first */
+  readonly asks: readonly ObserveRequestRecord[];
+  /** files that look like asks but are not valid asks of this campaign and operator (never served, never overwritten, never removed) */
+  readonly invalid: number;
+}
+
+/** Every pending ask. A file that vanishes while it is being read was settled by someone else and is simply not there. */
+export async function listObserveRequests(
+  p: ObserveRequestExchangeParams,
+  operatorUid: number,
+): Promise<Result<ObserveRequestListing, ObserveRequestExchangeCode>> {
+  const fs = fsOf(p);
+  let names: string[];
+  try {
+    names = (await fs.list(observeRequestDir(p))).filter((n) => ASK_FILE.test(n)).sort();
+  } catch {
+    return fail("IO_FAILED", "the observation requests cannot be read");
+  }
+  const asks: ObserveRequestRecord[] = [];
+  let invalid = 0;
+  for (const name of names) {
+    const id = ASK_FILE.exec(name)![1]!;
+    let raw: string;
+    try {
+      raw = (await fs.readFile(askPath(p, id))).toString("utf8");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") continue;
+      return fail("IO_FAILED", "the observation requests cannot be read");
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      invalid += 1;
+      continue;
+    }
+    const parsed = RequestSchema.safeParse(json);
+    if (
+      !parsed.success ||
+      parsed.data.campaign_id !== p.campaignId ||
+      parsed.data.operator_uid !== operatorUid ||
+      parsed.data.request_id !== id
+    )
+      invalid += 1;
+    else asks.push(parsed.data);
+  }
+  return ok({ asks, invalid });
+}
+
+/** The lowest-identity pending ask, or null when there is none; any invalid ask file with no valid ask is `REQUEST_INVALID`. */
 export async function readObserveRequest(
   p: ObserveRequestExchangeParams,
   operatorUid: number,
 ): Promise<Result<ObserveRequestRecord | null, ObserveRequestExchangeCode>> {
-  const fs = fsOf(p);
-  let raw: string;
-  try {
-    if ((await fs.fileSize(requestPath(p))) === null) return ok(null);
-    raw = (await fs.readFile(requestPath(p))).toString("utf8");
-  } catch {
-    return fail("IO_FAILED", "the observation request cannot be read");
-  }
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    return fail("REQUEST_INVALID", "the observation request is not valid");
-  }
-  const parsed = RequestSchema.safeParse(json);
-  if (
-    !parsed.success ||
-    parsed.data.campaign_id !== p.campaignId ||
-    parsed.data.operator_uid !== operatorUid
-  )
-    return fail("REQUEST_INVALID", "the observation request is not this campaign's or operator's");
-  return ok(parsed.data);
+  const listed = await listObserveRequests(p, operatorUid);
+  if (!listed.ok) return listed;
+  if (listed.value.asks.length > 0) return ok(listed.value.asks[0]!);
+  return listed.value.invalid > 0
+    ? fail("REQUEST_INVALID", "the observation request is not valid")
+    : ok(null);
 }
 
 const sameAsk = (
@@ -257,42 +313,41 @@ const sameAsk = (
 ): boolean => a.pc_id === b.pc_id && canonicalJson(a.basis) === canonicalJson(b.basis);
 
 /**
- * Leaves the ONE pending ask. Idempotent: an ask already pending for the same character at the same canonical basis is the same ask (whoever
- * left it), and a repeated request does not multiply it. An ask for another basis or character is stale and is replaced; concurrent
- * recorders converge on one file because the create is exclusive. Nothing here touches the campaign package.
+ * Leaves the pending ask for `ask`. Idempotent: an ask already pending for the same character at the same canonical basis is the same ask
+ * (whoever left it) and is returned, not multiplied. Asks for another basis or character are stale and each is removed BY ITS OWN IDENTITY;
+ * the new ask is created exclusively under its own identity. The caller holds the campaign's single-writer lock while it calls this, which
+ * is what serializes recorders (see the custody note). Nothing here touches the campaign package.
  */
 export async function recordObserveRequest(
   p: ObserveRequestExchangeParams,
   ask: Omit<ObserveRequestRecord, "request_id" | "format" | "format_version">,
 ): Promise<Result<{ request_id: string }, ObserveRequestExchangeCode>> {
   const fs = fsOf(p);
-  const candidate: ObserveRequestRecord = {
-    format: OBSERVE_REQUEST_FORMAT,
-    format_version: FORMAT_VERSION,
-    ...ask,
-    request_id: randomBytes(16).toString("hex"),
-  };
   try {
     await fs.mkdirp(observeRequestDir(p));
     await chmod(observeRequestDir(p), 0o700);
-    for (let round = 0; round < 4; round++) {
+    const listed = await listObserveRequests(p, ask.operator_uid);
+    if (!listed.ok) return listed;
+    const same = listed.value.asks.find((a) => sameAsk(a, ask));
+    for (const stale of listed.value.asks.filter((a) => !sameAsk(a, ask)))
+      await discardObserveRequest(p, stale.request_id, ask.operator_uid);
+    if (same) return ok({ request_id: same.request_id });
+    for (let round = 0; round < 3; round++) {
+      const candidate: ObserveRequestRecord = {
+        format: OBSERVE_REQUEST_FORMAT,
+        format_version: FORMAT_VERSION,
+        ...ask,
+        request_id: randomBytes(16).toString("hex"),
+      };
       try {
-        await fs.createExclusive(requestPath(p), `${JSON.stringify(candidate, null, 2)}\n`);
-        await chmod(requestPath(p), 0o600);
+        await fs.createExclusive(
+          askPath(p, candidate.request_id),
+          `${JSON.stringify(candidate, null, 2)}\n`,
+        );
+        await chmod(askPath(p, candidate.request_id), 0o600);
         return ok({ request_id: candidate.request_id });
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      }
-      const held = await readObserveRequest(p, ask.operator_uid);
-      if (!held.ok) {
-        // an unreadable or foreign file is not silently overwritten
-        if (held.error.code !== "REQUEST_INVALID") return held;
-        return fail("REQUEST_INVALID", "an unrecognised observation request is pending");
-      }
-      if (held.value !== null) {
-        if (sameAsk(held.value, ask)) return ok({ request_id: held.value.request_id });
-        // stale: made for another basis or character
-        await discardObserveRequest(p, held.value.request_id, ask.operator_uid);
       }
     }
     return fail("IO_FAILED", "the observation request could not be recorded");
@@ -301,16 +356,30 @@ export async function recordObserveRequest(
   }
 }
 
-/** Removes the pending ask if, and only if, it is still the one named. */
+/**
+ * Removes ask `requestId`, and only that ask: the removal names `request-<requestId>.json`, a path no other ask can ever occupy, so it
+ * cannot reach a newer ask however it is interleaved with a replacement (see the custody note). The file is first confirmed to be a valid ask
+ * of this campaign and operator with that identity, so a foreign file that merely carries the name is left alone. Returns whether this ask
+ * was found and removed; an ask already settled by someone else removes nothing and is `false`.
+ */
 export async function discardObserveRequest(
   p: ObserveRequestExchangeParams,
   requestId: string,
   operatorUid: number,
 ): Promise<boolean> {
+  if (!RequestId.safeParse(requestId).success) return false;
+  const fs = fsOf(p);
   try {
-    const held = await readObserveRequest(p, operatorUid);
-    if (!held.ok || held.value === null || held.value.request_id !== requestId) return false;
-    await fsOf(p).remove(requestPath(p));
+    const raw = (await fs.readFile(askPath(p, requestId))).toString("utf8");
+    const parsed = RequestSchema.safeParse(JSON.parse(raw));
+    if (
+      !parsed.success ||
+      parsed.data.request_id !== requestId ||
+      parsed.data.campaign_id !== p.campaignId ||
+      parsed.data.operator_uid !== operatorUid
+    )
+      return false;
+    await fs.remove(askPath(p, requestId));
     return true;
   } catch {
     return false;
