@@ -4,15 +4,23 @@ import {
   BoundaryIndexSchema,
   EPISTEMIC_OPERATION_FORM_ACCESSIBLE_PACKET,
   OWNER_EPISTEMIC_ACCESS,
+  OBSERVATION_TRIGGER_KIND,
   READ_MODE_NOW,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TemporalObjectSchema,
   accessEventKey,
   accessPacketKey,
   accessPacketStage,
-  compareTime,
+  observationTransactionId,
+  observationTransactionCause,
   temporalObjectKey,
+  timeEquals,
+  compareTime,
   type AccessEvent,
+  type CanonicalTime,
+  type OwnerFact,
+  type ResolutionRequest,
+  type ResolutionTransaction,
   type DependencyDeclaration,
   type TemporalObject,
   type TemporalReadDeclaration,
@@ -20,6 +28,7 @@ import {
 import { namedActorCapabilityCloseRead } from "../actor/declaration.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { EPISTEMIC_ACCESS_OBSERVATION_RULE } from "../owners/registry.ts";
 import { pcCapabilityCloseRead } from "../pc-capability/declaration.ts";
 import {
   eventRecipient,
@@ -36,7 +45,7 @@ import {
  * consequence, ahead of it: the Epistemic stage forms the packet, reading the committed event NOW and — where the
  * payload's form depends on one — the recipient's capability AS-OF-DECLARED-CLOSE, and the consequence reads the formed
  * packet AS-OF-NOW (F-014D §2.1: "F-014A consumes the sealed Accessible Content Packet AS-OF-NOW after packet
- * formation"), so it cannot resolve before it. There is no standalone Epistemic object, boundary, tick or sweep.
+ * formation"), so it cannot resolve before it. Direct observation uses its committed causal event instead, without a Temporal object or boundary.
  */
 
 const ID = "[A-Za-z0-9][A-Za-z0-9._:-]*";
@@ -98,13 +107,83 @@ export function epistemicPacketDeclaration(event: AccessEvent): DependencyDeclar
   };
 }
 
+/** True when the committed event fact is OBSERVATION-EARNED: committed under the governing citation of the direct-perception path. */
+export const isObservationEarnedFact = (fact: { provenance: { rule: unknown } }): boolean =>
+  canonicalEqual(fact.provenance.rule, EPISTEMIC_ACCESS_OBSERVATION_RULE);
+
+/**
+ * F-017 §§3–4: a committed event can trigger its own dependency-ordered owner stage.
+ * This is NOT a material boundary query or a TemporalObject registration. It accepts
+ * only the already-earned, raw direct-perception event at the unchanged current basis.
+ * RC-04/05/16 bind one transaction identity to that event, including on recovery.
+ */
+export function observationTriggerViolation(
+  request: Pick<
+    ResolutionRequest,
+    "transaction_id" | "cause" | "trigger" | "continues" | "requested"
+  >,
+  fact: OwnerFact | undefined,
+  at: CanonicalTime,
+): string | null {
+  const parsed = fact ? AccessEventSchema.safeParse(fact.value) : undefined;
+  if (
+    !fact ||
+    !parsed?.success ||
+    fact.owner !== OWNER_EPISTEMIC_ACCESS ||
+    !isObservationEarnedFact(fact) ||
+    fact.key !== accessEventKey(parsed.data.event_id)
+  )
+    return "only a committed observation-earned event triggers direct packet formation";
+  const event = parsed.data;
+  if (
+    event.channel !== "PERCEPTION" ||
+    event.representation !== null ||
+    request.trigger.kind !== OBSERVATION_TRIGGER_KIND ||
+    request.trigger.ref !== event.event_id ||
+    request.transaction_id !== observationTransactionId(event.event_id) ||
+    request.cause !== observationTransactionCause(event.event_id) ||
+    request.continues !== null ||
+    request.requested.condition !== null ||
+    request.requested.target === null ||
+    !timeEquals(request.requested.target, at) ||
+    !timeEquals(event.established_at, at)
+  )
+    return "an observation triggers exactly its own formation transaction at its current access basis";
+  return null;
+}
+
+/** The sealed transaction records the real event stage and no crossed boundary. */
+export function observationTransactionViolation(
+  tx: ResolutionTransaction,
+  fact: OwnerFact | undefined,
+): string | null {
+  const why = observationTriggerViolation(tx, fact, tx.opening.basis_time);
+  if (why) return why;
+  const event = AccessEventSchema.parse(fact!.value);
+  if (
+    tx.engaged.length !== 0 ||
+    tx.boundaries_crossed.length !== 0 ||
+    tx.stages.length !== 1 ||
+    !canonicalEqual(
+      tx.stages[0]!.stage,
+      accessPacketStage(event.event_id, eventRecipient(event)),
+    ) ||
+    !timeEquals(tx.outcome.actual_stop, tx.opening.basis_time) ||
+    tx.outcome.stop_reason !== "TARGET_REACHED" ||
+    tx.outcome.remainder !== null ||
+    tx.outcome.unresolved_dependents.length !== 0
+  )
+    return "an observation transaction records its single event-triggered packet stage and crosses no boundary";
+  return null;
+}
+
 /**
  * RC-10 / F-014D §2.1 registration rule for every object that touches the Epistemic key spaces or owner. Applies at
  * registration and at load, so a hand-written object cannot smuggle a different stage, a read of the engine-side event or
  * sealed provenance, a different capability read or an Epistemic-owned engagement:
  *
- *  - no object is owned by the Epistemic owner (a packet is formed only inside the object of the dependent consequence
- *    that materially requires it);
+ *  - no persisted object is owned by Epistemics; an observation-earned event
+ *    triggers its own formation directly, with no object or indexed boundary;
  *  - every Epistemic stage is exactly the declaration derived from a COMMITTED, valid access event (so a consequence can
  *    never conjure access: without a committed event there is nothing to declare), and an active-PC event's stage is
  *    declared only while the committed Role Registry binding names its recipient;
@@ -122,7 +201,7 @@ export function epistemicObjectViolation(
   registered = false,
 ): string | null {
   if (o.owning_ref.owner === OWNER_EPISTEMIC_ACCESS) {
-    return "an Accessible Content Packet is formed only inside the engaged object of a dependent consequence: there is no standalone Epistemic object";
+    return "no standalone Epistemic object: direct observation uses its committed event trigger, never an indexed boundary";
   }
   for (const d of o.dependencies) {
     const isEpistemic = d.stage.owner_operation.owner === OWNER_EPISTEMIC_ACCESS;
@@ -155,6 +234,9 @@ export function epistemicObjectViolation(
       }
       if (!canonicalEqual(d, epistemicPacketDeclaration(event.data))) {
         return "an Epistemic stage is exactly the declaration derived from its committed event";
+      }
+      if (isObservationEarnedFact(eventFact) && o.owning_ref.owner !== OWNER_EPISTEMIC_ACCESS) {
+        return "an observation-earned event's packet is formed only by that event's own causal trigger, never inside a consequence that could time it elsewhere";
       }
       if (isPcRecipientEvent(event.data) && recipientBoundaryViolation(state.facts, event.data)) {
         return "an Epistemic packet for the active Player Character is declared only while the Role Registry binding role.player_character names that recipient";

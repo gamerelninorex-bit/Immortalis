@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AuthoritySchema } from "./commit.ts";
 import { GM_ADJUDICATION_AUTHORITY } from "./culture-adjudication.ts";
 import { Id, Sha256 } from "./ids.ts";
+import { CanonicalTimeSchema } from "./temporal.ts";
 import { EntityId } from "./world-foundation.ts";
 
 /**
@@ -24,6 +25,14 @@ import { EntityId } from "./world-foundation.ts";
  *                               incorporeal, coextensive, distributed, non-spatial, ambiguous, arrival-based, elsewhere or externally
  *                               dependent presence, which is never a physical-locus fact.
  *
+ *   F014D_DIRECT_PERCEPTION   — (active-PC direct physical observation, BLUE v5.2) F-014D §§2, 5 steps 2-4, 6, 18, 24: the host reads the bounded,
+ *                               source-pinned physical context of ONE current basis (the world and the locus as committed, the accepted
+ *                               character's own statements, the player's confirmed native-presence statement, and the character's committed
+ *                               physical custody) and says — anchored to verbatim quotations of those premises, never to a flag — whether
+ *                               the character's sight is established, whether its exact viewing circumstances are established, whether the
+ *                               path from the physical feature to the character is open or blocked, and the minimal raw appearance that
+ *                               follows. It never decides recognition, comprehension, belief, memory, action or time.
+ *
  * What is here is mechanism, never meaning. A host's answer carries NO canon, NO role and NO permission: the engine alone validates
  * it (closed vocabularies, verbatim-quoted grounds, full coverage of what was delivered, a verdict DERIVED from the answer and never
  * taken from it), and a decision is retained as a create-only record under `role.gm` + `permission.rule.adjudicate` bound by the
@@ -40,10 +49,28 @@ export const REFEREE_RECORD_VERSION = 1;
 /** The same trusted precondition the Role Registry fixes for adjudication. No new role or permission identifier exists. */
 export const REFEREE_AUTHORITY = GM_ADJUDICATION_AUTHORITY;
 
+/**
+ * The direct-perception operation separates three roles (BLUE v5.2): `role.gm` + `permission.rule.adjudicate` INTERPRETS (the host's
+ * answer, under `REFEREE_AUTHORITY`); `role.resolver` + `permission.resolution.execute` VALIDATES and derives the verdict (the engine's
+ * deterministic coverage, quotation and premise-kind checks, stamped by the engine itself under its own trusted operation and never read
+ * from an answer); and `role.archivist` + `permission.canon.write` COMMITS (every group). Persona, provider, model or tool identity
+ * grants none of them.
+ */
+export const OBSERVATION_RESOLVER_AUTHORITY = {
+  role: "role.resolver",
+  permission: "permission.resolution.execute",
+} as const;
+
 export const REFEREE_OP_I002 = "I002_CLASSIFY";
 export const REFEREE_OP_IR = "IR_NATIVE_COMPATIBILITY";
 export const REFEREE_OP_PHYSICAL = "IR_PHYSICAL_PLACEMENT";
-export const RefereeOperationSchema = z.enum([REFEREE_OP_I002, REFEREE_OP_IR, REFEREE_OP_PHYSICAL]);
+export const REFEREE_OP_OBSERVATION = "F014D_DIRECT_PERCEPTION";
+export const RefereeOperationSchema = z.enum([
+  REFEREE_OP_I002,
+  REFEREE_OP_IR,
+  REFEREE_OP_PHYSICAL,
+  REFEREE_OP_OBSERVATION,
+]);
 export type RefereeOperation = z.infer<typeof RefereeOperationSchema>;
 
 export const RefereeTaskIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -64,6 +91,10 @@ const I002 = {
 const IR = {
   artifact: "https://app.notion.com/p/3e320af901e081a3a669c1c0b842c9df",
   native_pin: "2026-09-25T00:17:26.287Z",
+} as const;
+const F014D = {
+  artifact: "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+  native_pin: "2026-09-24T16:25:17.059Z",
 } as const;
 
 export const REFEREE_SOURCES = {
@@ -151,6 +182,31 @@ export const REFEREE_SOURCES = {
     ...IR,
     clause: "§18 Failure / No-Op Conditions",
     text: "Return UNRESOLVED / ROUTE when exact PC/world constraints conflict without precedence, or a required player-authored fork is open.",
+  },
+  "F014D-2": {
+    ...F014D,
+    clause: "§2 Ownership Contract",
+    text: "F-014D owns: causal information route to a recipient; source / carrier / channel provenance; actual observed, transmitted, retrieved or remembered payload; receipt / access; representational intelligibility prerequisites such as sensory availability and whether established language/notation/format/decoding capability permits the payload to be accessed. F-014D does not own: objective world truth or hidden-state generation; named-actor comprehension, inference, misreading, credibility weighting, belief/stance, willingness or decision.",
+  },
+  "F014D-5": {
+    ...F014D,
+    clause: "§5 Six-Step Epistemic Hot Path, Steps 2-4",
+    text: "Step 2 — Establish the Causal Route: identify the real path source/holder → carrier/channel → recipient. Do not create access merely from group membership, institutional authority without receipt, engine/GM/host knowledge, player OOC knowledge, another actor's private state or objective truth. Step 4 — Resolve Receipt and Representational Intelligibility: did the recipient actually receive/perceive/retrieve the payload? Is the relevant sensory modality available? This step does not decide actor-specific comprehension, significance, inference, credibility, belief or action.",
+  },
+  "F014D-6": {
+    ...F014D,
+    clause: "§6 Direct Perception Adapter",
+    text: "Trigger: an actor can materially perceive world state directly. Procedure: 1. read authoritative world state at the lawful observation basis; 2. apply actual sensory position/range/obstruction/channel; 3. form only the perceptible payload; 4. hand off inference to capability + Actor Fidelity. Perception does not grant ontology. Seeing an unknown machine does not imply knowing its mechanism; observing agency does not imply correctly classifying the agent.",
+  },
+  "F014D-18": {
+    ...F014D,
+    clause: "§18 Named Actor / Actor Fidelity Handoff",
+    text: "The operational handoff is an Accessible Content Packet: payload; Presented Source Attribution and actor-admissible carrier/channel features only; access basis; representational intelligibility. Sealed Engine Provenance is excluded from the Accessible Content Packet and from actor-side cognition.",
+  },
+  "F014D-24": {
+    ...F014D,
+    clause: "§24 Failure Conditions",
+    text: "The draft fails if it permits: host or cross-role leakage; engine omniscience → actor omniscience; future/post-basis knowledge leakage; authority = receipt; record exists = actor knows; access = comprehension; narrative revelation creating access; backdated access, retrospective exceptional-route invention or outcome-conditioned background knowledge.",
   },
 } as const;
 
@@ -377,6 +433,89 @@ export const PhysicalHostDecisionSchema = z.strictObject({
 export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// F014D_DIRECT_PERCEPTION
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Where a premise of the observation question comes from, as the delivered context names it. The host cites ONLY delivered text,
+ * each time by a verbatim quotation, and the engine fixes what each kind of premise may establish (see `deriveObservation`):
+ *   PC_STATEMENT         one of the accepted character's own I-002 statements (`context.pc`, by `item_id`): the ONLY premise that can
+ *                        establish the character's intrinsic sensory faculty (I-002 §4.3: no sensory ability is invented from a label);
+ *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
+ *                        `ref` = `placement.statement`): the ONLY premise that can establish the character's own exact viewing
+ *                        circumstances (a shared locus identity does not, and the faculty alone does not);
+ *   WORLD_FACT           a committed world or locus fact (`context.facts`, by `fact_id`): the physical setting, the light, the air path and
+ *                        any obstruction.
+ */
+export const OBSERVATION_PREMISE_KINDS = [
+  "PC_STATEMENT",
+  "PLACEMENT_STATEMENT",
+  "WORLD_FACT",
+] as const;
+export type ObservationPremiseKind = (typeof OBSERVATION_PREMISE_KINDS)[number];
+/** The `ref` of a PLACEMENT_STATEMENT premise: there is exactly one such statement in a delivered context. */
+export const OBSERVATION_PLACEMENT_REF = "placement.statement";
+
+export const ObservationPremiseSchema = z.strictObject({
+  from: z.enum(OBSERVATION_PREMISE_KINDS),
+  ref: Id,
+  /** a verbatim excerpt of the cited premise's delivered text */
+  evidence_quote: Quote,
+});
+export type ObservationPremise = z.infer<typeof ObservationPremiseSchema>;
+
+const Trimmed = (max: number) =>
+  z
+    .string()
+    .min(1)
+    .max(max)
+    .refine((t) => t === t.trim(), "text must not have surrounding whitespace");
+
+/** F-014D §5 step 4 Q2 / §6 step 2: what is established about ONE element of the direct-perception question. */
+const ElementOf = <S extends readonly [string, ...string[]]>(states: S) =>
+  z.strictObject({
+    state: z.enum(states),
+    premises: z.array(ObservationPremiseSchema).max(8),
+    rule_ids: RuleIds,
+    grounds: Grounds,
+  });
+
+export const OBSERVATION_FACULTY_STATES = ["ESTABLISHED", "NOT_ESTABLISHED"] as const;
+export const OBSERVATION_POSITION_STATES = ["ESTABLISHED", "NOT_ESTABLISHED"] as const;
+export const OBSERVATION_PATH_STATES = ["OPEN", "BLOCKED", "NOT_ESTABLISHED"] as const;
+
+/**
+ * The minimal perceptible payload (F-014D §6 step 3): the raw appearance only. `source_fact_id` names the ONE delivered world or locus
+ * fact the appearance is of (the engine pins that committed fact as the event's foreign source); `basis` anchors the appearance in
+ * verbatim quotations of delivered WORLD_FACT text. It carries no recognition, function, identity, place name or hidden composition:
+ * the schema has no field for them, and the engine refuses any engine reference in the text.
+ */
+export const ObservationPayloadSchema = z.strictObject({
+  source_fact_id: Id,
+  referent: Trimmed(200),
+  content: Trimmed(500),
+  basis: z.array(ObservationPremiseSchema).min(1).max(8),
+});
+export type ObservationPayload = z.infer<typeof ObservationPayloadSchema>;
+
+export const ObservationHostDecisionSchema = z.strictObject({
+  task_id: RefereeTaskIdSchema,
+  /** F-014D §5 step 4 Q2: is the character's sight (the relevant sensory modality) established? */
+  faculty: ElementOf(OBSERVATION_FACULTY_STATES),
+  /** F-014D §6 step 2 "actual sensory position": are the character's own exact viewing circumstances established? */
+  position: ElementOf(OBSERVATION_POSITION_STATES),
+  /** F-014D §6 step 2 "range/obstruction/channel": is the path from the physical feature to the character open, blocked, or not established? */
+  path: ElementOf(OBSERVATION_PATH_STATES),
+  /** the raw appearance; null unless the whole direct-perception question is affirmatively answered */
+  payload: ObservationPayloadSchema.nullable(),
+  /** every delivered world and locus fact assessed exactly once, as in the IR operations */
+  assessments: z.array(IrFactAssessmentSchema).min(1).max(96),
+  /** material forks the delivered premises leave open, stated explicitly (retained evidence; the engine derives nothing from them) */
+  unresolved_forks: z.array(Grounds).max(6),
+});
+export type ObservationHostDecision = z.infer<typeof ObservationHostDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The verdicts (always DERIVED by the engine from the answer, never taken from it)
 // ---------------------------------------------------------------------------------------------
 
@@ -394,10 +533,22 @@ export const PHYSICAL_VERDICTS = [
   "PHYSICAL_WORLD_CONFLICT",
   "PHYSICAL_UNRESOLVED",
 ] as const;
+/**
+ * The direct-perception verdicts. Only OBSERVATION_ESTABLISHED can ever be a receipt. OBSERVATION_OBSTRUCTED is the established
+ * physical negative (the path is blocked, anchored to quoted world premises); OBSERVATION_UNRESOLVED is everything the delivered
+ * premises leave unsettled — a missing faculty or insufficient premises is never read as an obstruction.
+ */
+export const OBSERVATION_VERDICTS = [
+  "OBSERVATION_ESTABLISHED",
+  "OBSERVATION_OBSTRUCTED",
+  "OBSERVATION_UNRESOLVED",
+  "OBSERVATION_WORLD_CONFLICT",
+] as const;
 export const RefereeVerdictSchema = z.enum([
   ...I002_VERDICTS,
   ...IR_VERDICTS,
   ...PHYSICAL_VERDICTS,
+  ...OBSERVATION_VERDICTS,
 ]);
 export type RefereeVerdict = z.infer<typeof RefereeVerdictSchema>;
 
@@ -446,6 +597,9 @@ const RecordCore = {
   }),
 };
 
+/** The observation record's input: the common one plus the canonical time of the basis the question was asked at (a part of the question). */
+const ObservationRecordInput = RecordCore.input.extend({ observed_at: CanonicalTimeSchema });
+
 export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     ...RecordCore,
@@ -464,6 +618,18 @@ export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
     operation: z.literal(REFEREE_OP_PHYSICAL),
     decision: PhysicalHostDecisionSchema,
     verdict: z.enum(PHYSICAL_VERDICTS),
+  }),
+  z.strictObject({
+    ...RecordCore,
+    input: ObservationRecordInput,
+    /** the trusted operation context under which the ENGINE validated the answer and derived the verdict; never read from the answer */
+    validated_under: z.strictObject({
+      role: z.literal(OBSERVATION_RESOLVER_AUTHORITY.role),
+      permission: z.literal(OBSERVATION_RESOLVER_AUTHORITY.permission),
+    }),
+    operation: z.literal(REFEREE_OP_OBSERVATION),
+    decision: ObservationHostDecisionSchema,
+    verdict: z.enum(OBSERVATION_VERDICTS),
   }),
 ]);
 export type RefereeDecisionRecord = z.infer<typeof RefereeDecisionRecordSchema>;

@@ -167,8 +167,10 @@ describe("one fact kind, no new owner, no new facet: the second basis is an excl
     };
     expect(custody.alternateRules![0]!.admits(handover)).toBe(false);
     const referee = factKind("referee_decision");
-    expect(referee.alternateRules).toHaveLength(1);
+    // the physical-placement citation, and (BLUE v5.2) the direct-perception citation, each exclusive to its own value class
+    expect(referee.alternateRules).toHaveLength(2);
     expect(referee.alternateRules![0]!.rule).toEqual(REFEREE_PHYSICAL_RULE);
+    expect(referee.alternateRules![1]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
     expect(referee.alternateRules![0]!.admits({ operation: "IR_NATIVE_COMPATIBILITY" })).toBe(
       false,
     );
@@ -304,11 +306,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "9de9ba9614ab23803d1d6d39a25e2ec226b7a7536822a4bd2fb12d56ff209212",
+    head: "17278e17bbfe01ede76e41b334cf5cfeed1ad091b5cdea37268e9a5f06803d45",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7",
+    head: "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -316,19 +318,19 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "d56c38f5f1978213ab4956651f88e9a3eeb667beef0e2ec5b7565df662634716",
+    head: "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
-    head: "e6bc620b68590ea6d5eeeaa70546ba60fc260d0c68013cee40c3ed067d6a0831",
+    head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   },
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "7f81a6bec6ebd1217f0a77077fad0a2ad60392b0d8e85821e15df228b3e77da2",
+    head: "3197f50fba0dabd5150b1995d2cf6879060f6f40b5d5dccc8b905bc8a7fbf9e1",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
-    head: "7e662539eb7710e4e01194d17ce98a86766901f26ae08c8f41daad7d3a2cfe9d",
+    head: "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
@@ -344,31 +346,31 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "69347ccfe27881351d858a3a752fbb4d80c1fa2be5f222abfb3064005489ec1d",
+    head: "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "3514e37384ea165149fb8b8e612331de710d06dbf9f395ba1dc118798a19ffb7",
+    head: "3d88a1e8c0fcea7bd8b9a374dcaa5d8dae2b1f5f05d3660e180fc2895030db5e",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "3ba8a38a1153fe3c702cdeb935e501641d3f367000349ce32c4651443af3ec35",
+    head: "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
-    head: "45625fbd47aec5baa0e0c26597086992fa440a22e46f0cfab447029c2ea5baa6",
+    head: "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "bd765a82f7a96d29ff3630a2ec03d55dca6d6fcad0356d967f6ceb29ec31e7b3",
+    head: "9c9a628c2417a1d5277afc934a1989fd7a44bfae4a40d195f091f7c13e68d6a7",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "b3f1bf7f906dd16f20af6a85e5704fbcef19f1e92b712dbe425fe2eb988baa5f",
+    head: "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "ba27dc5a51930c957e057cadc87f01ad9f5800fccfd16ab1d940312806205a5d",
+    head: "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
   },
 };
 // DELTAS:END

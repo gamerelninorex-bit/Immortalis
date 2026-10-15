@@ -1,0 +1,50 @@
+{
+  "scenario": "n4-eyes-closed",
+  "integrity": {
+    "canonical": 0,
+    "epistemic": 0
+  },
+  "delivery": {
+    "event_present": false,
+    "packet_present": false,
+    "sealed_provenance_present": false,
+    "observation_transactions": 0
+  },
+  "temporal": {
+    "canonical_time": {
+      "unit": "live-exercise-unit",
+      "value": 100
+    },
+    "last_transaction": null,
+    "boundary_index_entries": 0,
+    "temporal_objects": 0,
+    "observation_transactions": []
+  },
+  "event_signal_delivery": {
+    "delivered": false,
+    "reason": "no packet exists to deliver"
+  },
+  "replay": {
+    "first": {
+      "ok": false,
+      "code": "OBSERVATION_NOT_ESTABLISHED"
+    },
+    "second": {
+      "ok": false,
+      "code": "OBSERVATION_NOT_ESTABLISHED"
+    },
+    "head_before": {
+      "revision": 11,
+      "state_sha256": "1d05d70c7103436da80f5c20c5531e017f4aa841a936b6d32d956afc557fcdba"
+    },
+    "head_after": {
+      "revision": 11,
+      "state_sha256": "1d05d70c7103436da80f5c20c5531e017f4aa841a936b6d32d956afc557fcdba"
+    },
+    "wrote_nothing": true,
+    "integrity_after": {
+      "canonical": 0,
+      "epistemic": 0
+    }
+  }
+}

@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the Trusted Separately Player-Authorized ACTIVE-PC Target-Only Temporal Advance Gateway (IM-15 / IM-16
 // over the existing Temporal kernel and the real shipped owner stage providers, including GIP's own sunset expiry). Governing lock:
 // spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged. No register row, status, source pin, gate or lock
@@ -60,19 +61,19 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
   "packages/engine/src/temporal/admission.ts":
-    "37c000fc69aef1a547131c83da0cb6de432b18c2515cb86ad00066e241f83d65",
+    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
     "8319d33aa9a5e0f15055600ec9aad3d9422adfe31e84a5c6d9c71cbfbc777c34",
   "packages/engine/src/temporal/integrity.ts":
-    "07c5b859b1e63409dc01c2956fa7ecba22853c00777ed512b6eba68996c86b56",
+    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/engine/src/temporal/partition.ts":
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
-    "22b4580ee7c0b7dcf0361ec62689c369551e0a87b56cb817cd606a22f5007c76",
+    "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/engine/src/world/canonical-campaign.ts":
     "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/locus.ts":
@@ -86,7 +87,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/gip/declaration.ts":
     "c2f2172480976a3d3966b0f6a0584a6435600574ad9053fdbe7069f5d6be7ba9",
   "packages/engine/src/owners/registry.ts":
-    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

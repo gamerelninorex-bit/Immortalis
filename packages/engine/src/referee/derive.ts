@@ -2,20 +2,30 @@ import {
   ExistenceContractSchema,
   I002_ADMITTED_CLASS,
   I002_NON_INTRINSIC_CLASSES,
+  OBSERVATION_PLACEMENT_REF,
+  ORIGINAL_ACTIVATION,
   PLAYER_CHARACTER_BINDING_KEY,
+  PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_SOURCES,
+  TEMPORAL_STATE_KEY,
+  TemporalStateSchema,
   WorldLocusSchema,
   WorldProfileSchema,
   pcExistenceContractKey,
   worldLocusKey,
+  worldPcLocusCustodyKey,
   worldProfileKey,
+  type CanonicalTime,
   type ExistenceContract,
   type I002HostDecision,
   type IrHostDecision,
+  type ObservationHostDecision,
+  type ObservationPremise,
   type OwnerFact,
   type PhysicalHostDecision,
   type RefereeDecisionRecord,
@@ -136,7 +146,35 @@ export interface PhysicalContext {
   readonly refs: readonly RefereeInputRef[];
 }
 
-export type RefereeContext = I002Context | IrContext | PhysicalContext;
+/**
+ * The direct-perception context (BLUE v5.2, F-014D §6). Built ONLY from committed facts at ONE canonical basis: the released
+ * character's own statements (the only source of an intrinsic sensory faculty), the operative first-ACTIVATION binding whose preserved
+ * native statement is the statement (the player's own words about where the character is), the world and the locus (the physical
+ * setting, as committed), and the character's committed physical-locus custody (cited so that a character with no physical position
+ * is never asked about). The caller names the character, the attempt and the basis, and nothing else: no scene, no target, no
+ * expected result and no test label exists in it.
+ */
+export interface ObservationContext {
+  readonly operation: typeof REFEREE_OP_OBSERVATION;
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  /** the canonical basis the question is asked at: a changed basis is a different question */
+  readonly observed_at: CanonicalTime;
+  /** the player's separately confirmed native-presence statement, verbatim, as the committed binding preserves it */
+  readonly statement: string;
+  /** the accepted character's own statements */
+  readonly pc: readonly CandidateItem[];
+  readonly facts: readonly DeliveredFact[];
+  /** the released character, the binding, the custody, the world and the locus, at the versions delivered (in that order) */
+  readonly refs: readonly RefereeInputRef[];
+}
+
+export type RefereeContext = I002Context | IrContext | PhysicalContext | ObservationContext;
 
 export const contextDigest = (ctx: RefereeContext): string => sha256Canonical(ctx);
 /** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
@@ -315,6 +353,88 @@ export function physicalContext(
       pc: refereeCandidateItems(pc.data),
       facts: deliveredFacts(world.data, locus.data),
       refs: [ref(pcFact), ref(bindingFact), ref(worldFact), ref(locusFact)],
+    },
+  };
+}
+
+/** The canonical time of the committed temporal state, or null when none is established. */
+export function committedCanonicalTime(facts: Facts): CanonicalTime | null {
+  const fact = facts(TEMPORAL_STATE_KEY);
+  const state = fact ? TemporalStateSchema.safeParse(fact.value) : undefined;
+  return state?.success ? state.data.canonical_time : null;
+}
+
+/**
+ * The direct-perception context, built ONLY from committed facts (see `ObservationContext`) at the supplied canonical basis. Refused
+ * unless the operative binding is the first ACTIVATION of exactly this character, the character holds a committed ORIGINAL physical-locus
+ * custody at the very locus the binding couples, and the world and locus are committed.
+ */
+export function observationContext(
+  facts: Facts,
+  input: { campaign_id: string; attempt: number; pc_id: string; observed_at: CanonicalTime },
+):
+  | { ok: true; context: ObservationContext }
+  | { ok: false; code: RefereeRefusalCode; message: string } {
+  const unavailable = (message: string) => ({
+    ok: false as const,
+    code: "CONTEXT_UNAVAILABLE" as const,
+    message,
+  });
+  const bindingFact = facts(PLAYER_CHARACTER_BINDING_KEY);
+  const pcFact = facts(pcExistenceContractKey(input.pc_id));
+  const custodyFact = facts(worldPcLocusCustodyKey(input.pc_id));
+  const parsedBinding = bindingFact
+    ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
+    : undefined;
+  const parsedCustody = custodyFact
+    ? PcPhysicalLocusCustodySchema.safeParse(custodyFact.value)
+    : undefined;
+  if (!bindingFact || !parsedBinding?.success || !pcFact)
+    return unavailable("the released character and its operative binding must be committed");
+  if (!custodyFact || !parsedCustody?.success)
+    return unavailable("the character's committed physical-locus custody must be held");
+  const binding = parsedBinding.data;
+  const custody = parsedCustody.data;
+  if (binding.active_pc.entity_id !== input.pc_id || binding.transition.type !== "ACTIVATION")
+    return unavailable("the operative binding is the first ACTIVATION of exactly this character");
+  const worldId = binding.coupling.world.entity_id;
+  const locusId = binding.coupling.locus.entity_id;
+  if (
+    custody.pc_id !== input.pc_id ||
+    custody.basis.established_from !== ORIGINAL_ACTIVATION ||
+    custody.stationary_locus.world.entity_id !== worldId ||
+    custody.stationary_locus.world.fact_key !== binding.coupling.world.fact_key ||
+    custody.stationary_locus.locus.entity_id !== locusId ||
+    custody.stationary_locus.locus.fact_key !== binding.coupling.locus.fact_key
+  )
+    return unavailable(
+      "the custody is the character's ORIGINAL one, at the locus the binding couples",
+    );
+  const worldFact = facts(worldProfileKey(worldId));
+  const locusFact = facts(worldLocusKey(worldId, locusId));
+  if (!worldFact || !locusFact) return unavailable("the coupled world and locus must be committed");
+  const pc = ExistenceContractSchema.safeParse(pcFact.value);
+  const world = WorldProfileSchema.safeParse(worldFact.value);
+  const locus = WorldLocusSchema.safeParse(locusFact.value);
+  if (!pc.success || !world.success || !locus.success)
+    return unavailable("a committed fact does not satisfy its contract");
+  const ref = (f: OwnerFact): RefereeInputRef => ({
+    fact_key: f.key,
+    version: f.version,
+    group_id: f.provenance.group_id,
+  });
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_OBSERVATION,
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { pc_id: input.pc_id, world_id: worldId, locus_id: locusId },
+      observed_at: input.observed_at,
+      statement: binding.transition.basis.statement,
+      pc: refereeCandidateItems(pc.data),
+      facts: deliveredFacts(world.data, locus.data),
+      refs: [ref(pcFact), ref(bindingFact), ref(custodyFact), ref(worldFact), ref(locusFact)],
     },
   };
 }
@@ -735,6 +855,184 @@ export function physicalVerdictOf(decision: PhysicalHostDecision): PhysicalVerdi
   return "PHYSICAL_ELIGIBLE";
 }
 
+export type ObservationVerdict =
+  | "OBSERVATION_ESTABLISHED"
+  | "OBSERVATION_OBSTRUCTED"
+  | "OBSERVATION_UNRESOLVED"
+  | "OBSERVATION_WORLD_CONFLICT";
+
+/** The delivered text one premise cites, or undefined when it names nothing that was delivered. */
+function premiseText(ctx: ObservationContext, p: ObservationPremise): string | undefined {
+  if (p.from === "PC_STATEMENT") return ctx.pc.find((i) => i.item_id === p.ref)?.text;
+  if (p.from === "PLACEMENT_STATEMENT")
+    return p.ref === OBSERVATION_PLACEMENT_REF ? ctx.statement : undefined;
+  return ctx.facts.find((f) => f.fact_id === p.ref)?.text;
+}
+
+/**
+ * Validates a host's direct-perception answer against the context it was given and derives the verdict (F-014D §§5 steps 2-4, 6).
+ * Nothing here understands the premises: it checks that every claim is anchored to a verbatim quotation of DELIVERED text of the kind
+ * of premise that may establish it (the faculty only on the character's own statements; the viewing circumstances only on the
+ * confirmed placement statement and world facts; the path and the appearance only on world facts), that every delivered fact is
+ * assessed exactly once, that a payload exists only when the whole question is affirmatively answered, and that the payload carries
+ * no engine reference. The verdict is DERIVED: a missing faculty, unestablished circumstances or an open fork is UNRESOLVED and is
+ * never read as an obstruction; OBSTRUCTED needs an established blocked path from an established viewing position.
+ */
+export function deriveObservation(
+  ctx: ObservationContext,
+  decision: ObservationHostDecision,
+): { ok: true; verdict: ObservationVerdict } | { ok: false; refusal: RefereeRefusal } {
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  const elements = [
+    ["faculty", decision.faculty],
+    ["position", decision.position],
+    ["path", decision.path],
+  ] as const;
+  const cited: ObservationPremise[] = [
+    ...elements.flatMap(([, e]) => e.premises),
+    ...(decision.payload?.basis ?? []),
+  ];
+  for (const p of cited) {
+    const text = premiseText(ctx, p);
+    if (text === undefined)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `a premise names text that was not delivered: ${p.ref}`,
+        ),
+      };
+    if (!text.includes(p.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          `${p.ref}: the quotation is not in the premise it cites`,
+        ),
+      };
+  }
+  const only = (list: readonly ObservationPremise[], kinds: readonly string[]) =>
+    list.every((p) => kinds.includes(p.from));
+  if (!only(decision.faculty.premises, ["PC_STATEMENT"]))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "the faculty rests only on the character's own statements: no sensory ability is invented from the world, the placement or a label",
+      ),
+    };
+  if (!only(decision.position.premises, ["PLACEMENT_STATEMENT", "WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "the viewing circumstances rest on the confirmed placement statement and world facts, never on the character's intrinsic statements",
+      ),
+    };
+  if (!only(decision.path.premises, ["WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse("DECISION_INCOHERENT", "the path rests only on committed world facts"),
+    };
+  if (decision.payload && !only(decision.payload.basis, ["WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse("DECISION_INCOHERENT", "the appearance rests only on committed world facts"),
+    };
+  const needs = (state: string, ok: string, list: readonly ObservationPremise[], what: string) =>
+    state === ok && list.length === 0
+      ? refuse("GROUNDS_UNSUPPORTED", `${what} is established only by quoted premises`)
+      : null;
+  const missing =
+    needs(decision.faculty.state, "ESTABLISHED", decision.faculty.premises, "the faculty") ??
+    needs(decision.position.state, "ESTABLISHED", decision.position.premises, "the position") ??
+    needs(decision.path.state, "OPEN", decision.path.premises, "an open path") ??
+    needs(decision.path.state, "BLOCKED", decision.path.premises, "a blocked path");
+  if (missing) return { ok: false, refusal: missing };
+  if (
+    decision.position.state === "ESTABLISHED" &&
+    !decision.position.premises.some((p) => p.from === "PLACEMENT_STATEMENT")
+  )
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the character's own viewing circumstances are established by the confirmed placement statement: a shared locus alone does not establish them",
+      ),
+    };
+  const checked = checkAssessments(ctx.facts, decision.assessments);
+  if (!checked.ok) return checked;
+  const verdict = observationVerdictOf(decision);
+  const payload = decision.payload;
+  if (payload !== null) {
+    if (verdict !== "OBSERVATION_ESTABLISHED")
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "an appearance is stated only when the whole direct-perception question is affirmatively answered",
+        ),
+      };
+    const source = ctx.facts.find((f) => f.fact_id === payload.source_fact_id);
+    if (!source)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `the appearance names a source fact that was not delivered: ${payload.source_fact_id}`,
+        ),
+      };
+    if (!payload.basis.some((p) => p.ref === payload.source_fact_id))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "the appearance is anchored to a quotation of the source fact it is of",
+        ),
+      };
+    const forbidden = [
+      ...ctx.facts.map((f) => f.fact_id),
+      ...ctx.refs.map((r) => r.fact_key),
+      ctx.subject.pc_id,
+      ctx.subject.world_id,
+      ctx.subject.locus_id,
+    ];
+    for (const text of [payload.referent, payload.content])
+      if (forbidden.some((t) => text.includes(t)))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "an appearance carries no engine reference: no fact, key or identity",
+          ),
+        };
+  }
+  return { ok: true, verdict };
+}
+
+/**
+ * The direct-perception verdict as a function of the answer alone (re-derivable from the retained record). A contradicted world fact
+ * is a conflict; an ESTABLISHED blocked path from an ESTABLISHED viewing position is the physical negative; anything else not fully and
+ * affirmatively answered — a missing faculty, unestablished circumstances, an unestablished path, an unclear fact, no appearance — is
+ * UNRESOLVED, never an obstruction; only the remainder is a receipt.
+ */
+export function observationVerdictOf(decision: ObservationHostDecision): ObservationVerdict {
+  if (decision.assessments.some((a) => a.relation === "CONTRADICTS"))
+    return "OBSERVATION_WORLD_CONFLICT";
+  if (decision.path.state === "BLOCKED" && decision.position.state === "ESTABLISHED")
+    return "OBSERVATION_OBSTRUCTED";
+  if (
+    decision.faculty.state !== "ESTABLISHED" ||
+    decision.position.state !== "ESTABLISHED" ||
+    decision.path.state !== "OPEN" ||
+    decision.assessments.some((a) => a.relation === "UNCLEAR") ||
+    decision.payload === null
+  )
+    return "OBSERVATION_UNRESOLVED";
+  return "OBSERVATION_ESTABLISHED";
+}
+
 /** The context a retained record was decided on, re-derived from the record alone (I-002) or from committed facts (IR). */
 export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): RecordViolation {
   if (r.operation === REFEREE_OP_I002) {
@@ -777,6 +1075,7 @@ export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): 
         };
   }
   if (r.operation === REFEREE_OP_PHYSICAL) return physicalRecordViolation(r, facts);
+  if (r.operation === REFEREE_OP_OBSERVATION) return observationRecordViolation(r, facts);
   if (r.input.statement === null || r.input.candidate !== null)
     return {
       code: "DECISION_INCOHERENT",
@@ -945,6 +1244,90 @@ function physicalRecordViolation(
   if (!sameRefs(built.context.refs, r.input.refs))
     return incoherent("the record cites exactly the facts its context was built from");
   const d = derivePhysical(built.context, r.decision);
+  if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+  return d.verdict === r.verdict
+    ? null
+    : incoherent("the record's verdict is not the one its answer derives");
+}
+
+/** The direct-perception record's context, re-derived from the committed facts it cites (the same discipline as the physical record). */
+function observationRecordViolation(
+  r: Extract<RefereeDecisionRecord, { operation: typeof REFEREE_OP_OBSERVATION }>,
+  facts: Facts,
+): RecordViolation {
+  const incoherent = (message: string): RecordViolation => ({
+    code: "DECISION_INCOHERENT",
+    message,
+    stale: false,
+  });
+  if (r.input.statement === null || r.input.candidate !== null)
+    return incoherent("a direct-perception record carries its statement and no candidate");
+  let superseded = false;
+  for (const ref of r.input.refs) {
+    const f = facts(ref.fact_key);
+    if (!f)
+      return {
+        code: "CONTEXT_UNAVAILABLE",
+        message: `a cited fact is not committed: ${ref.fact_key}`,
+        stale: false,
+      };
+    if (f.version > ref.version) {
+      superseded = true;
+      continue;
+    }
+    if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
+      return {
+        code: "CONTEXT_STALE",
+        message: `a cited fact is not at the cited version: ${ref.fact_key}`,
+        stale: true,
+      };
+  }
+  const ids = irIdentities(r);
+  const pcKey = pcExistenceContractKey(r.subject.pc_id);
+  const keys = r.input.refs.map((x) => x.fact_key);
+  if (
+    !ids ||
+    keys.length !== 5 ||
+    keys[0] !== pcKey ||
+    keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
+    keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
+    keys[3] !== worldProfileKey(ids.world_id) ||
+    keys[4] !== worldLocusKey(ids.world_id, ids.locus_id)
+  )
+    return incoherent(
+      "a direct-perception record cites the released character, the binding, the custody, the world and the locus",
+    );
+  if (superseded) {
+    if (
+      r.input.statement_digest !== statementDigest(r.input.statement) ||
+      r.decision.task_id !== r.task_id
+    )
+      return incoherent("the record's statement digest or task binding is not its own");
+    return observationVerdictOf(r.decision) === r.verdict
+      ? null
+      : incoherent("the record's verdict is not the one its answer derives");
+  }
+  const built = observationContext(facts, {
+    campaign_id: r.campaign_id,
+    attempt: r.attempt,
+    pc_id: r.subject.pc_id,
+    observed_at: r.input.observed_at,
+  });
+  if (!built.ok) return { code: built.code, message: built.message, stale: false };
+  if (
+    built.context.statement !== r.input.statement ||
+    built.context.subject.world_id !== ids.world_id ||
+    built.context.subject.locus_id !== ids.locus_id ||
+    r.input.digest !== contextDigest(built.context) ||
+    r.task_id !== refereeTaskId(built.context) ||
+    r.input.statement_digest !== statementDigest(r.input.statement)
+  )
+    return incoherent(
+      "the record's digests are not those of the context built from the cited facts",
+    );
+  if (!sameRefs(built.context.refs, r.input.refs))
+    return incoherent("the record cites exactly the facts its context was built from");
+  const d = deriveObservation(built.context, r.decision);
   if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
   return d.verdict === r.verdict
     ? null

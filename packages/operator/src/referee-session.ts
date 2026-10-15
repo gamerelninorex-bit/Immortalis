@@ -1,6 +1,7 @@
 import type {
   I002HostDecision,
   IrHostDecision,
+  ObservationHostDecision,
   PhysicalHostDecision,
   RefereeVerdict,
 } from "@immortalis/contracts";
@@ -10,6 +11,7 @@ import {
   type FsOps,
   type I002Context,
   type IrContext,
+  type ObservationContext,
   type PhysicalContext,
 } from "@immortalis/engine";
 import {
@@ -204,6 +206,53 @@ export async function askPhysical(
     if (got.value === null)
       return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
     const evaluated = adapter.evaluatePhysical(context, got.value.answer);
+    if (!evaluated.ok) {
+      await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
+      continue;
+    }
+    return {
+      kind: "ANSWERED",
+      task_id,
+      attempt,
+      context,
+      verdict: evaluated.value.verdict,
+      decision: evaluated.value.decision,
+      host: { host_id: got.value.host_id, claimed_model: got.value.claimed_model },
+    };
+  }
+  return { kind: "REFUSED", message: "the host's answers were not valid; none was used" };
+}
+
+/**
+ * The direct-perception question (BLUE v5.2): built ONLY from committed facts at the CURRENT canonical basis, so the caller names the
+ * character and nothing else (not the scene, the target, the time or any expectation). Never asked of a host that is not bound to this
+ * operation: the exchange authenticates the host for THIS operation before any of the context is disclosed.
+ */
+export async function askObservation(
+  adapter: RefereeAdjudicationAdapter,
+  rt: RefereeRuntime,
+  input: { campaign_id: string; pc_id: string },
+): Promise<Asked<ObservationHostDecision, ObservationContext>> {
+  const configured = await refereeConfigured(input.campaign_id, rt);
+  if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
+  const p = exchange(input.campaign_id, rt);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const built = adapter.observationTask({ pc_id: input.pc_id, attempt });
+    if (!built.ok)
+      return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
+    const { context, task_id } = built.value;
+    if (await isSetAside(p, task_id)) continue;
+    const task = await publishTask(p, { task_id, operation: "F014D_DIRECT_PERCEPTION", context });
+    if (!task.ok)
+      return { kind: "UNAVAILABLE", code: task.error.code, message: task.error.message };
+    const got = await awaitDecision(p, task.value, rt.polls, rt.pollMs);
+    if (!got.ok) {
+      await setAsideDecision(p, task_id, got.error.code);
+      continue;
+    }
+    if (got.value === null)
+      return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
+    const evaluated = adapter.evaluateObservation(context, got.value.answer);
     if (!evaluated.ok) {
       await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
       continue;

@@ -1,10 +1,12 @@
 import {
   PLAYER_CHARACTER_BINDING_KEY,
+  OBSERVATION_RESOLVER_AUTHORITY,
   PlayerCharacterBindingSchema,
   REFEREE_AUTHORITY,
   REFEREE_DECISION_BASIS,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_SECRECY,
   RefereeDecisionRecordSchema,
@@ -12,6 +14,7 @@ import {
   refereeDecisionGroupId,
   refereeDecisionIntentId,
   refereeDecisionKey,
+  timeEquals,
   type CommitGroup,
   type ExistenceContract,
   type OwnerFact,
@@ -20,10 +23,11 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
+import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import {
   candidateDigest,
+  committedCanonicalTime,
   irIdentities,
   recordContextViolation,
   refereeCandidateItems,
@@ -87,6 +91,34 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
       "the physical-placement decision, and only it, carries the physical-placement governing citation",
       { key: w.key },
     );
+  // the direct-perception decision, and only it, carries its own governing citation, and it is decided at the CURRENT canonical basis
+  if (
+    canonicalEqual(group.rule, REFEREE_OBSERVATION_RULE) !==
+    (r.operation === REFEREE_OP_OBSERVATION)
+  )
+    return reject(
+      "VALUE_INVALID",
+      "the direct-perception decision, and only it, carries the direct-perception governing citation",
+      { key: w.key },
+    );
+  if (
+    r.operation === REFEREE_OP_OBSERVATION &&
+    !canonicalEqual(r.validated_under, OBSERVATION_RESOLVER_AUTHORITY)
+  )
+    return reject(
+      "VALUE_INVALID",
+      "the direct-perception record carries role.resolver + permission.resolution.execute as the context its validation ran under",
+      { key: w.key },
+    );
+  if (r.operation === REFEREE_OP_OBSERVATION) {
+    const now = committedCanonicalTime((k) => state.facts.get(k));
+    if (!now || !timeEquals(r.input.observed_at, now))
+      return reject(
+        "REFERENCE_INVALID",
+        "a direct-perception decision is made at the current canonical basis: a changed basis is a different question",
+        { key: w.key },
+      );
+  }
   const violation = recordContextViolation(r, (k) => state.facts.get(k));
   if (violation) {
     if (violation.code === "CONTEXT_UNAVAILABLE")

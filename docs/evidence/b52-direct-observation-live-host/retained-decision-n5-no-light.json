@@ -1,0 +1,168 @@
+{
+  "key": "referee/64f3af08945670cfa0c97d061c90d78a931178a343889a41cd439d8190cfd325/decision",
+  "value": {
+    "attempt": 0,
+    "authority": {
+      "permission": "permission.rule.adjudicate",
+      "role": "role.gm"
+    },
+    "campaign_id": "campaign-ashfall",
+    "decision": {
+      "assessments": [
+        {
+          "evidence_quote": null,
+          "fact_id": "world.premise",
+          "grounds": "General setting; bears on neither sight nor path.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": null,
+          "fact_id": "world.basis",
+          "grounds": "Canon provenance note only.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": null,
+          "fact_id": "locus.designation",
+          "grounds": "Names the locus only.",
+          "relation": "NOT_RELEVANT",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
+          "fact_id": "locus.constraint.1",
+          "grounds": "Gives bench position and facing toward the north wall at three paces.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "The north wall is whitewashed plaster with one broad patch of bright red paint",
+          "fact_id": "locus.constraint.2",
+          "grounds": "Describes the wall's surface, which would be seen were there light; it is not visible here because of the lack of light.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "No light of any kind reaches it.",
+          "fact_id": "locus.constraint.3",
+          "grounds": "No light reaches the alcove, which blocks visual perception.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "there is no smoke, mist or dust in it",
+          "fact_id": "locus.constraint.4",
+          "grounds": "Air is clear, no attenuation, but light is still absent.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        },
+        {
+          "evidence_quote": "Nothing solid stands between the bench and the north wall",
+          "fact_id": "locus.constraint.5",
+          "grounds": "No solid obstruction on the line; the only block is the absence of light.",
+          "relation": "SUPPORTS",
+          "rule_ids": ["F014D-6"]
+        }
+      ],
+      "faculty": {
+        "grounds": "The character's own embodiment statement establishes functioning sight.",
+        "premises": [
+          {
+            "evidence_quote": "One ordinary human body with ordinary, fully functioning colour vision",
+            "from": "PC_STATEMENT",
+            "ref": "mirror/embodiment/772d87ba472a"
+          }
+        ],
+        "rule_ids": ["F014D-2", "F014D-5"],
+        "state": "ESTABLISHED"
+      },
+      "path": {
+        "grounds": "Air and line are clear, but the world fact states no light of any kind reaches the alcove, so no visual appearance of the wall reaches the eyes.",
+        "premises": [
+          {
+            "evidence_quote": "No light of any kind reaches it.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.3"
+          }
+        ],
+        "rule_ids": ["F014D-6", "F014D-5"],
+        "state": "BLOCKED"
+      },
+      "payload": null,
+      "position": {
+        "grounds": "The placement states location, facing and open eyes, consistent with the bench geometry: three paces from the north wall.",
+        "premises": [
+          {
+            "evidence_quote": "seated on the wooden viewing bench, facing the north wall with my eyes open",
+            "from": "PLACEMENT_STATEMENT",
+            "ref": "placement.statement"
+          },
+          {
+            "evidence_quote": "A wooden viewing bench stands against its south wall, facing the north wall three paces away.",
+            "from": "WORLD_FACT",
+            "ref": "locus.constraint.1"
+          }
+        ],
+        "rule_ids": ["F014D-6", "IR-7"],
+        "state": "ESTABLISHED"
+      },
+      "task_id": "64f3af08945670cfa0c97d061c90d78a931178a343889a41cd439d8190cfd325",
+      "unresolved_forks": []
+    },
+    "host": {
+      "claimed_model": null,
+      "host_id": "claude-code-headless"
+    },
+    "input": {
+      "candidate": null,
+      "candidate_digest": null,
+      "digest": "2b20a92b4a0d53c145f89eae235b74fec5c058fc66da35bdb0a2318d8df7a17a",
+      "observed_at": {
+        "unit": "live-exercise-unit",
+        "value": 100
+      },
+      "refs": [
+        {
+          "fact_key": "pc/pc-maren/existence-contract",
+          "group_id": "operator-pc:0af6c591e3988998bd9c5f0093a308d7:release",
+          "version": 1
+        },
+        {
+          "fact_key": "role-registry/binding/role.player_character",
+          "group_id": "operator-pc:b959b95cf1a20bd9e52ae2fca3888007:bind",
+          "version": 1
+        },
+        {
+          "fact_key": "world-state/pc/pc-maren/locus-custody",
+          "group_id": "operator-pc:b19e69b22ea6dc2defc802188f07687d:locus",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/profile",
+          "group_id": "operator-locality:36f1949cfb2a34c2e0ce4187b2d0cda7:world",
+          "version": 1
+        },
+        {
+          "fact_key": "world/world-ashfall/locus/locus-alcove",
+          "group_id": "operator-locality:36f1949cfb2a34c2e0ce4187b2d0cda7:locus",
+          "version": 1
+        }
+      ],
+      "statement": "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes open.",
+      "statement_digest": "43b5f2e22c1c1672ef6d4791022f77ef24796477e43d75f63b619e34b34de9e0"
+    },
+    "operation": "F014D_DIRECT_PERCEPTION",
+    "record_version": 1,
+    "subject": {
+      "pc_id": "pc-maren"
+    },
+    "task_id": "64f3af08945670cfa0c97d061c90d78a931178a343889a41cd439d8190cfd325",
+    "validated_under": {
+      "permission": "permission.resolution.execute",
+      "role": "role.resolver"
+    },
+    "verdict": "OBSERVATION_OBSTRUCTED"
+  }
+}

@@ -17,6 +17,7 @@ import {
   accessPacketStage,
   accessProvenanceKey,
   temporalTransactionAuthorityKey,
+  temporalTransactionKey,
   timeAtOrBefore,
   type BroadcastExposureEvent,
   type OwnerFact,
@@ -30,7 +31,12 @@ import {
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { epistemicObjectViolation } from "./declaration.ts";
+import {
+  epistemicObjectViolation,
+  isObservationEarnedFact,
+  observationTriggerViolation,
+} from "./declaration.ts";
+import { observationEventViolation } from "./observation.ts";
 import {
   broadcastReferenceViolation,
   deriveAccessProducts,
@@ -182,6 +188,17 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     }
     const boundary = recipientBoundaryViolation(factsBefore(revisionOf(ef)), e);
     if (boundary) bad(ef.key, boundary);
+    // an observation-earned event is exactly what its retained direct-perception decision determines (and only such a decision earns one)
+    if (isObservationEarnedFact(ef)) {
+      const committing = store.committedGroup(ef.provenance.intent_id);
+      const why = committing
+        ? observationEventViolation(
+            { group: committing, value: ef.value, basis: ef.basis, factOf: (k) => byKey.get(k) },
+            "VERIFICATION",
+          )
+        : "an observation-earned event has its journaled group";
+      if (why) bad(ef.key, why);
+    }
     const foreign = eventSourceViolation(e);
     if (foreign) bad(ef.key, foreign);
     const src = byKey.get(e.source.fact_key);
@@ -321,6 +338,15 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         authority.data.opening.basis_time,
       );
       if (identity) bad(pf.key, identity);
+      if (isObservationEarnedFact(eventFact)) {
+        const why = observationTriggerViolation(
+          authority.data,
+          eventFact,
+          authority.data.opening.basis_time,
+        );
+        if (why) bad(pf.key, why);
+      }
+
       const readKeys = group.reads.map((r) => r.key);
       const expectedKeys = required ? [eventFact.key, required.key] : [eventFact.key];
       if (!canonicalEqual(readKeys, expectedKeys)) {
@@ -332,7 +358,13 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         o.value.next_boundary !== null &&
         o.value.dependencies.some((d) => canonicalEqual(d.stage, stage)),
     );
-    if (!cited(pf.provenance.group_id) && !awaiting) {
+    const triggeredPending =
+      isObservationEarnedFact(eventFact) &&
+      authority?.success &&
+      !byKey.has(temporalTransactionKey(authority.data.transaction_id)) &&
+      observationTriggerViolation(authority.data, eventFact, authority.data.opening.basis_time) ===
+        null;
+    if (!cited(pf.provenance.group_id) && !awaiting && !triggeredPending) {
       bad(
         pf.key,
         "a packet formation is credited by no resolution transaction and no engaged object awaits it",

@@ -32,7 +32,7 @@
 ## Setup (host-neutral)
 
 1. Establish the locality and (as the operator) bind the host to the campaign:
-   `immortalis-operator referee-bind-host --campaign <dir> --campaign-id <id> --host-id <host>` (binds all three operations; a host bound before BLUE v5.1 to two must be bound again under a new `--host-id`) — it writes an owner-only secret file and prints the exact tool-server command line.
+   `immortalis-operator referee-bind-host --campaign <dir> --campaign-id <id> --host-id <host>` (binds all four operations; a host bound before BLUE v5.1 to two, or before BLUE v5.2 to three, is not asked the later questions and must be bound again under a new `--host-id`) — it writes an owner-only secret file and prints the exact tool-server command line.
 2. Register the printed command with the host as a **stdio MCP server**, for example (Claude Code):
    `claude mcp add immortalis-referee -- node --experimental-strip-types packages/operator/src/referee-bin.ts --operator-dir <dir> --campaign-id <id> --host-id <host> --secret-file <file>`.
    Any client that speaks MCP over stdio can use the same command. The secret is read from the file (which must be owner-only), never from an argument, the environment or a log.
@@ -41,6 +41,8 @@
 The tool server exposes **only** three tools (the same three for all operations) (no shell, no file system, no database, no game command), authenticates the host (bound identity, secret, operation) **before** disclosing any task context, never opens the campaign package, and tells the host that player-written text is data, not instruction.
 
 3a. Once a character is bound, `immortalis-operator establish-character-locus … --player-character <id> [--referee-wait <seconds>]` publishes the physical-placement question the same way and, on a derived `PHYSICAL_ELIGIBLE` and the player's separate confirmation, retains the decision and commits the custody (see the foundation document linked above).
+
+3b. With the character placed and the Temporal owner's canonical time established, `immortalis-operator observe-surroundings … --player-character <id> [--referee-wait <seconds>]` publishes the fourth, **direct-perception** question (`F014D_DIRECT_PERCEPTION`) the same way, after the player's own fresh confirmation. The context is built only from committed facts at the current canonical basis; the host's answer is quote-anchored to those words and the engine derives the verdict. Only `OBSERVATION_ESTABLISHED` earns a receipt; every other reading is retained as sealed evidence and the player is told only that nothing was received. See [`active-pc-direct-observation-foundation.md`](active-pc-direct-observation-foundation.md).
 
 ## Fail-closed behaviour (enforced; scripted-host tests)
 

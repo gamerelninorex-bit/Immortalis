@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the ORIGINAL active-PC target-only temporal advance (BLUE v5.2 bounded implementation brief, native pin
 // 2026-10-14T18:01:29.811Z) on main dacda593b5a349805eab51e7c46da182a251fef1. Governing lock: spec/f027/spec-lock.json (F-027 v1.0
 // composed with F-027-CD1), unchanged. The slice extends ONE production file, packages/protocol/src/active-pc-target-advance.ts, so that
@@ -78,15 +79,15 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "181218063894d0458e8143ac7a4866d70732ff967410b18846a78cc457b30a0a",
     // the kernel, GIP's own sunset expiry and enrollment, the owner registry and the canonical campaign
     "packages/engine/src/temporal/coordinator.ts":
-      "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+      "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
     "packages/engine/src/temporal/providers.ts":
-      "22b4580ee7c0b7dcf0361ec62689c369551e0a87b56cb817cd606a22f5007c76",
+      "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
     "packages/engine/src/gip/provider.ts":
       "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7",
+      "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
     "packages/engine/src/world/canonical-campaign.ts":
       "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator

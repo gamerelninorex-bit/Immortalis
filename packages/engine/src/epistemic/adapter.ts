@@ -6,12 +6,16 @@ import {
   BroadcastExposureEventSchema,
   CANON_WRITE_AUTHORITY,
   MODE_BROADCAST_EXPOSURE,
+  OBSERVATION_EVENT_BASIS,
   PublicationSchema,
   SealedEngineProvenanceSchema,
   accessEventKey,
   accessPacketKey,
   accessProvenanceKey,
   fail,
+  observationEventCause,
+  observationEventGroupId,
+  observationEventIntentId,
   type AccessDisseminationEvent,
   type AccessEvent,
   type AccessiblePacket,
@@ -23,14 +27,27 @@ import {
   type SchemaIssues,
   type SealedEngineProvenance,
 } from "@immortalis/contracts";
-import { EPISTEMIC_ACCESS_BROADCAST_RULE, factKind } from "../owners/registry.ts";
+import {
+  EPISTEMIC_ACCESS_BROADCAST_RULE,
+  EPISTEMIC_ACCESS_OBSERVATION_RULE,
+  factKind,
+} from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
+import {
+  deriveObservationEvent,
+  observationEventDependencies,
+  observationEventReads,
+  observationRecordOf,
+} from "./observation.ts";
 
 export type EpistemicAccessErrorCode =
   | StoreCommitErrorCode
   | "INPUT_INVALID"
   /** a BROADCAST_EXPOSURE request through the recipient-set method fails closed: it is never approximated by recipient copying */
-  | "BROADCAST_EXPOSURE_UNSUPPORTED";
+  | "BROADCAST_EXPOSURE_UNSUPPORTED"
+  /** the cited decision is not a retained direct-perception decision whose engine-derived verdict is OBSERVATION_ESTABLISHED */
+  | "OBSERVATION_NOT_ESTABLISHED"
+  | "OBSERVATION_RECORD_INVALID";
 
 /**
  * What a caller supplies for the one authored publication: identities and a basis label. The secrecy class is never the
@@ -114,6 +131,52 @@ export class EpistemicAccessAdapter {
       reads,
       depends_on,
       rule ?? factKind("epistemic_access_event").rule,
+    );
+  }
+
+  /**
+   * Commits the OBSERVATION-EARNED BOUNDED_SHARED_ACCESS event of a direct observation (BLUE v5.2). The caller names ONE retained
+   * `F014D_DIRECT_PERCEPTION` referee decision and nothing else: the recipient (the bound active Player Character), the PERCEPTION channel,
+   * the basis time, the foreign physical source pin (a committed world or locus fact, pinned at its cited version, never copied) and the
+   * minimal payload are all DERIVED from that record, and the group reads and depends on the decision and every premise it cites, so the
+   * receipt is bound to the qualified interpretation and to the authoritative material reads — never to a caller-supplied access. Only an
+   * engine-derived OBSERVATION_ESTABLISHED reading earns an event; an obstructed, unresolved or conflicting one earns none. The identities
+   * derive from the event, so a lost reply or a restart reaches the original receipt. The event is NOT the packet: the packet exists only
+   * after its formation stage commits (see `formObservedPacket`).
+   */
+  async establishObservedAccess(input: {
+    readonly decision_key: string;
+  }): Promise<Result<CommitOutcome, EpistemicAccessErrorCode>> {
+    const decision = this.#store.getFact(input.decision_key);
+    const record = observationRecordOf(decision);
+    if (!decision || !record)
+      return fail(
+        "INPUT_INVALID",
+        "the cited decision is not a retained direct-perception decision",
+      );
+    const derived = deriveObservationEvent(record);
+    if (!derived.ok)
+      return fail(
+        derived.error.code === "OBSERVATION_NOT_ESTABLISHED"
+          ? "OBSERVATION_NOT_ESTABLISHED"
+          : "OBSERVATION_RECORD_INVALID",
+        derived.error.message,
+      );
+    const e = derived.value;
+    // every field of the publication is derived from the event: the caller chooses none of it
+    return this.#publish(
+      {
+        group_id: observationEventGroupId(e.event_id),
+        intent_id: observationEventIntentId(e.event_id),
+        cause: observationEventCause(e.event_id),
+        basis: OBSERVATION_EVENT_BASIS,
+        secrecy: ACCESS_CLASS_ENGINE_SEALED,
+      },
+      accessEventKey(e.event_id),
+      e,
+      observationEventReads(record, decision),
+      observationEventDependencies(record, decision.provenance.group_id),
+      EPISTEMIC_ACCESS_OBSERVATION_RULE,
     );
   }
 

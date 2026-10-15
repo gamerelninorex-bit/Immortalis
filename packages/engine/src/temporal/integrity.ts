@@ -1,5 +1,7 @@
 import {
   BoundaryIndexSchema,
+  OBSERVATION_TRIGGER_KIND,
+  accessEventKey,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
@@ -17,6 +19,10 @@ import {
   type ResolutionTransaction,
   type ValueSchema,
 } from "@immortalis/contracts";
+import {
+  observationTransactionViolation,
+  observationTriggerViolation,
+} from "../epistemic/declaration.ts";
 import { canonicalEqual } from "../hash.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { continuationRequestViolation, populationReadViolation } from "./admission.ts";
@@ -190,6 +196,11 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
         "the transaction was not committed under its derived identity",
       );
     }
+    if (tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+      const event = store.getFact(accessEventKey(tx.trigger.ref));
+      const why = observationTransactionViolation(tx, event);
+      if (why) bad(key, "TEMPORAL_EVIDENCE", why);
+    }
     const txRevision = revisionOf(fact);
     // The transaction was genuinely opened before its owner stages (F-014B §6 step 1; RC-05): its durable authority
     // exists, repeats exactly what it opened and was committed before its first stage.
@@ -340,6 +351,14 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       f.provenance.intent_id !== transactionAuthorityIntentId(a.transaction_id)
     ) {
       bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was not opened under its derived identity");
+    }
+    if (a.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+      const why = observationTriggerViolation(
+        a,
+        store.getFact(accessEventKey(a.trigger.ref)),
+        a.opening.basis_time,
+      );
+      if (why) bad(f.key, "TEMPORAL_EVIDENCE", why);
     }
     if (a.opening.state_version > stateFact.version) {
       bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was opened at a state that never existed");

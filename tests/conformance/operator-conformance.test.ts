@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the bounded local trusted PC command-and-reopen mechanism (@immortalis/operator). Governing lock:
 // spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged. No register row, status, source pin, gate or
 // lock moved: this slice adds a package, tests and a document only. The frozen Active-PC Post-Handover Physical Locus Ownership
@@ -64,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
   "packages/protocol/src/null-pc-ooc-held-continuation.ts":
@@ -148,11 +149,13 @@ describe("the package composes only the existing gateways and canonical reads", 
       "advanceNullPcOocToTarget",
       "bindTrustedActivePcHeldTargetAdvanceContext",
       "bindTrustedActivePcTargetAdvanceContext",
+      "bindTrustedCausalEventSignalContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
       "commitConfirmedPcRelocation",
+      "deliverCausalEventSignalPresentation",
       "resumeNullPcOocHeldAdvance",
     ]);
   });
@@ -169,6 +172,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "I002Context",
       "IrContext",
       "LogisticsAdapter",
+      "ObservationContext",
       "PhysicalContext",
       "RefereeAdjudicationAdapter",
       "StageOwnerExtension",
@@ -177,10 +181,14 @@ describe("the package composes only the existing gateways and canonical reads", 
       "canonicalEqual",
       "deriveI002",
       "deriveIr",
+      "deriveObservation",
       "derivePhysical",
+      "formObservedPacket",
       "nodeFs",
+      "observationEventId",
       "refereeCandidateItems",
       "refereeQualificationViolation",
+      "verifyEpistemicIntegrity",
     ]);
   });
 
@@ -213,6 +221,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "applyEdits",
       "askI002",
       "askIr",
+      "askObservation",
       "askPhysical",
       "authorCharacter",
       "authorizeHost",
@@ -240,6 +249,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "missingOf",
       "nullAdvance",
       "nullResume",
+      "observeSurroundings",
       "parseEdit",
       "pcTargetAdvance",
       "pcTargetResume",

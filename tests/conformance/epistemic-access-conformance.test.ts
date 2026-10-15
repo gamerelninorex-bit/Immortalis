@@ -495,7 +495,9 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "admission.ts",
       "declaration.ts",
       "derive.ts",
+      "direct-observation.ts",
       "integrity.ts",
+      "observation.ts",
       "provider.ts",
     ]);
     expect(

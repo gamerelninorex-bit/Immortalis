@@ -1,3 +1,4 @@
+// PR #67 H-1 recovery: re-pin the affected event-trigger/strict-boundary implementation; no frozen artifact or gate changes.
 // Conformance evidence for the Trusted Confirmed Active-PC Single-Leg Movement Gateway (forty-first bounded slice, IM-15 / IM-16
 // over the fortieth-slice PC → Logistics → World-State chain) and its Temporal enrollment (forty-second bounded slice: the same
 // transfer's one already-defined Logistics temporal object, registered once through the existing TemporalCoordinator). Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with
@@ -64,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "f632fe92fd0b115b1230970910b75a56c5fe621bbb22fd2fe54e0d9cf800bef7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "e95b8128a39824d1599eef3047f82198fd22677bdd4b7e1987eac2e89287dbdc",
+    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
   "packages/engine/src/presentation/event-signal.ts":

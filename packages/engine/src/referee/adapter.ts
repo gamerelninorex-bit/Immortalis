@@ -3,9 +3,12 @@ import {
   CANON_WRITE_AUTHORITY,
   I002HostDecisionSchema,
   IrHostDecisionSchema,
+  OBSERVATION_RESOLVER_AUTHORITY,
+  ObservationHostDecisionSchema,
   REFEREE_AUTHORITY,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   PhysicalHostDecisionSchema,
   REFEREE_RECORD_VERSION,
@@ -20,7 +23,9 @@ import {
   refereeDecisionKey,
   type CommitGroup,
   type I002HostDecision,
+  type CanonicalTime,
   type IrHostDecision,
+  type ObservationHostDecision,
   type OwnerFact,
   type PhysicalHostDecision,
   type RefereeDecisionRecord,
@@ -30,16 +35,19 @@ import {
 } from "@immortalis/contracts";
 import { assertCjaCanonical } from "../culture-adjudication/canon.ts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_PHYSICAL_RULE, factKind } from "../owners/registry.ts";
+import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import {
   candidateDigest,
+  committedCanonicalTime,
   contextDigest,
   deriveI002,
   deriveIr,
+  deriveObservation,
   derivePhysical,
   i002Context,
   irContext,
+  observationContext,
   physicalContext,
   recordContextViolation,
   refereeTaskId,
@@ -47,6 +55,7 @@ import {
   type CandidateItem,
   type I002Context,
   type IrContext,
+  type ObservationContext,
   type PhysicalContext,
 } from "./derive.ts";
 
@@ -298,6 +307,88 @@ export class RefereeAdjudicationAdapter {
     return this.#publish(record);
   }
 
+  /**
+   * The context of a direct-perception task (BLUE v5.2), built ONLY from committed facts at the CURRENT canonical basis: the caller names
+   * the character and the attempt, nothing else. Refused when no canonical basis is established.
+   */
+  observationTask(input: {
+    pc_id: string;
+    attempt: number;
+  }): Result<{ context: ObservationContext; task_id: string }, RefereeErrorCode> {
+    const facts = (k: string) => this.#store.getFact(k);
+    const at = committedCanonicalTime(facts);
+    if (!at) return fail("CONTEXT_UNAVAILABLE", "no canonical temporal basis is established");
+    const built = observationContext(facts, {
+      campaign_id: this.#store.head().campaign_id,
+      observed_at: at,
+      ...input,
+    });
+    return built.ok
+      ? ok({ context: built.context, task_id: refereeTaskId(built.context) })
+      : fail(built.code, built.message);
+  }
+
+  /** Validates a direct-perception answer against the context rebuilt from committed facts and derives its verdict WITHOUT writing anything. */
+  evaluateObservation(
+    context: ObservationContext,
+    answer: unknown,
+  ): Result<{ verdict: RefereeVerdict; decision: ObservationHostDecision }, RefereeErrorCode> {
+    const parsed = parseAnswer(ObservationHostDecisionSchema, answer);
+    if (!parsed.ok) return parsed;
+    const derived = deriveObservation(context, parsed.value);
+    return derived.ok
+      ? ok({ verdict: derived.verdict, decision: parsed.value })
+      : fail(derived.refusal.code, derived.refusal.message);
+  }
+
+  /**
+   * Retains a direct-perception decision (create-only), whatever its derived verdict: a receipt is made only from OBSERVATION_ESTABLISHED
+   * (by the Epistemic owner), and a negative or unresolved reading is kept as sealed audit evidence and nothing else. The context is
+   * rebuilt from the committed facts at the CURRENT basis; the caller supplies no fact, scene, target or time.
+   */
+  recordObservation(input: {
+    operation: unknown;
+    host: RefereeHost;
+    pc_id: string;
+    attempt: number;
+    answer: unknown;
+  }): Promise<Result<RefereeOutcome, RefereeErrorCode>> {
+    const denied = this.#authority(input.operation);
+    if (denied) return Promise.resolve(denied);
+    const task = this.observationTask(input);
+    if (!task.ok) return Promise.resolve(task);
+    const { context } = task.value;
+    const evaluated = this.evaluateObservation(context, input.answer);
+    if (!evaluated.ok) return Promise.resolve(evaluated);
+    const record: RefereeDecisionRecord = {
+      record_version: REFEREE_RECORD_VERSION,
+      task_id: refereeTaskId(context),
+      campaign_id: context.campaign_id,
+      attempt: context.attempt,
+      authority: { ...REFEREE_AUTHORITY },
+      host: { ...input.host },
+      subject: { pc_id: input.pc_id },
+      input: {
+        digest: contextDigest(context),
+        candidate_digest: null,
+        candidate: null,
+        statement_digest: statementDigest(context.statement),
+        statement: context.statement,
+        refs: context.refs.map((r) => ({ ...r })),
+        observed_at: { ...context.observed_at } as CanonicalTime,
+      },
+      validated_under: { ...OBSERVATION_RESOLVER_AUTHORITY },
+      operation: REFEREE_OP_OBSERVATION,
+      decision: evaluated.value.decision,
+      verdict: evaluated.value.verdict as
+        | "OBSERVATION_ESTABLISHED"
+        | "OBSERVATION_OBSTRUCTED"
+        | "OBSERVATION_UNRESOLVED"
+        | "OBSERVATION_WORLD_CONFLICT",
+    };
+    return this.#publish(record);
+  }
+
   /** The committed decision of a task, by identity (an exact key, never a scan). */
   decision(taskId: string): { fact: OwnerFact; value: RefereeDecisionRecord } | undefined {
     if (!/^[0-9a-f]{64}$/.test(taskId)) return undefined;
@@ -350,7 +441,12 @@ export class RefereeAdjudicationAdapter {
       owner: kind.owner,
       facet: kind.facet,
       cause: refereeDecisionCause(r.task_id),
-      rule: r.operation === REFEREE_OP_PHYSICAL ? REFEREE_PHYSICAL_RULE : kind.rule,
+      rule:
+        r.operation === REFEREE_OP_PHYSICAL
+          ? REFEREE_PHYSICAL_RULE
+          : r.operation === REFEREE_OP_OBSERVATION
+            ? REFEREE_OBSERVATION_RULE
+            : kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...new Set(r.input.refs.map((x) => x.group_id))],

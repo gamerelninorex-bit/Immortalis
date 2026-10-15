@@ -1,0 +1,194 @@
+# scenario n4-eyes-closed: NEGATIVE: the placement states closed eyes
+
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+CONFIRMATION — ORIGINAL LOCALITY SETUP
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+  campaign:  campaign-ashfall (a NEW standard campaign package will be created)
+  operator:  uid 0
+  setup identity: b20fd6acf3a664ddb68b398f271589bf
+  to commit, in this order: world → locus → source
+
+THE SETTING FACTS YOU ARE CONFIRMING (authored by you; nothing is inferred, estimated or defaulted):
+WORLD — ORIGINAL
+  world id: world-ashfall
+  premise: "A quiet scriptorium town where the days are ruled by the bell."
+  established canon: "The town of Penhallow is an invented place; its alcoves and walls are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints: none
+LOCUS
+  locus id: locus-alcove (of world world-ashfall)
+  designation: "A stone alcove"
+  constraints:
+    - geometry: "The alcove is a stone room four paces wide. A wooden viewing bench stands against its south wall, facing the north wall three paces away."
+    - surface: "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes."
+    - light: "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly."
+    - air: "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it."
+    - path: "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall."
+SOURCE CONDITION — EXACT, FINITE, an initial setting fact
+  source key: src-ink-store-1 at locus locus-alcove
+  dimension: shelf
+  material class: lamp-oil
+  EXACT quantity: 40 flask (the whole recoverable amount; none delivered)
+  physical access facts:
+    - reach: "Reachable from the bench by hand."
+  statement: "The shelf holds exactly 40 flasks of lamp oil."
+
+Confirming commits these as the physical setting of this campaign, one durable World-State publication at a time.
+It creates no character, actor, cohort or relationship, advances no time, and grants nobody perception, knowledge or
+permission to extract: the quantity is a setting fact, not an estimate, availability verdict or yield.
+Committed facts are never replaced; a different setup is refused for this campaign.
+To confirm, type exactly "establish-locality cd5cd4e5be0d". Anything else declines.
+> PROGRESS setup PINNED b20fd6acf3a664ddb68b398f271589bf
+PROGRESS package CREATED campaign-ashfall
+PROGRESS world COMMITTED world/world-ashfall/profile
+PROGRESS locus COMMITTED world/world-ashfall/locus/locus-alcove
+PROGRESS source COMMITTED world/world-ashfall/source/src-ink-store-1
+STATUS LOCALITY_READY
+the original locality is established and an owner-verified open of the package reads back exactly the confirmed setup; this is a physical setting only: nobody perceives, knows or may extract anything because of it
+campaign: campaign-ashfall
+setup identity: b20fd6acf3a664ddb68b398f271589bf
+world: world/world-ashfall/profile [world_state/world_profile v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:world cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
+locus: world/world-ashfall/locus/locus-alcove [world_state/world_locus v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:locus cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
+source: world/world-ashfall/source/src-ink-store-1 [world_state/world_source_condition v1] group operator-locality:b20fd6acf3a664ddb68b398f271589bf:source cause operator-locality-cause:b20fd6acf3a664ddb68b398f271589bf
+source: src-ink-store-1 EXACT_FINITE, established 40 flask of lamp-oil; recoverable now 40 flask
+
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+STATUS REFEREE_HOST_BOUND
+host claude-code-headless is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).
+secret file (owner-only; give the PATH to the host's tool server, never the contents): /tmp/immortalis-live-df0Jn4/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+tool server: immortalis-referee --operator-dir /tmp/immortalis-live-df0Jn4/operator-state --campaign-id campaign-ashfall --host-id claude-code-headless --secret-file /tmp/immortalis-live-df0Jn4/operator-state/referee-dec69b98eb11c890e871cccc5428c66b/claude-code-headless.secret
+exchange directory: /tmp/immortalis-live-df0Jn4/operator-state/referee-dec69b98eb11c890e871cccc5428c66b
+
+[host client run 1: 8 traced events]
+[host client run 2: 8 traced events]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+Welcome to IMMORTALIS. Tell me what matters about your character, in your own words. Leave the rest open.
+Say it in your own words. An AI referee host will then read what you wrote and tell you, statement by statement, what it accepts as yours and what it does not (anything about other people, followers, offices, institutions, places or the wider world is not part of a character).
+Who - or what - are you?
+identity> How can the world register you? One way per line, an empty line to finish. For none at all, type: no-contact <why>
+contact> contact> What form constitutes you?
+embodiment> What keeps you the same continuing self?
+continuity> Anything important about you that differs from what would normally be expected? One per line; an empty line finishes.
+exception> Anything you chose to leave open? One per line; an empty line finishes.
+open> Anything specific you begin with that would not normally be assumed? One per line; an empty line finishes.
+possession> Asking the AI referee host to read what you wrote ...
++--- CHARACTER MIRROR (display 1) ---
+| OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+| character id: pc-maren
+| IMPORTANT - take a moment to review your character. If something important is missing, wrong, or more specific than you intended, change it now. If you want your character to begin with something specific that would not normally be assumed, make sure it appears here. Anything else may remain open.
+| Identity
+|   - who or what you are: "Maren Voss, a human scribe of about forty winters"
+|   - your form: "One ordinary human body with ordinary, fully functioning colour vision"
+|   - what keeps you the same continuing self: "I remain myself for as long as I live; when my body dies I am dead."
+|   - the world can register you through: "A weathered woman in an ink-stained coat who speaks the local tongue"
+| About the world
+|   - wider-world claims: "Nothing about the wider world (places, offices, followers, institutions, other people) is part of this character. Only what the AI referee host classified as your own was accepted; anything it did not is left out and listed."
+| How this character came to be
+|   - delegation: "Nothing about this character was randomized, delegated or sealed: every statement above is yours."
++---
++--- AI REFEREE FINDINGS (host claude-code-headless; verdict CLOSED) ---
+|   [accepted as yours: INTRINSIC_PC] "Maren Voss, a human scribe of about forty winters"
+|   [accepted as yours: INTRINSIC_PC] "One ordinary human body with ordinary, fully functioning colour vision"
+|   [accepted as yours: INTRINSIC_PC] "I remain myself for as long as I live; when my body dies I am dead."
+|   [accepted as yours: INTRINSIC_PC] "A weathered woman in an ink-stained coat who speaks the local tongue"
++---
+This is how IMMORTALIS understands your character.
+Keep this character, or change something before we continue?
+To confirm, type exactly "keep-character 93fce7c70f45". To revise instead, type "change". Anything else leaves without a character.
+> PROGRESS keep RETAINED
+PROGRESS referee DECIDED referee/3a3d9fb49c917385938c898d0a1abd0a2a035c26c27134e64812cd6d77d56a7e/decision
+PROGRESS character RELEASED pc/pc-maren/existence-contract
+PLACEMENT - a separate choice from keeping your character. Nothing is bound yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+WORLD world-ashfall (established earlier by World-State, not by you now)
+  premise: "A quiet scriptorium town where the days are ruled by the bell."
+  reference / causal basis: "The town of Penhallow is an invented place; its alcoves and walls are as authored here."
+  material world-law departures: none
+  insertion-supporting constraints: none
+LOCUS locus-alcove
+  designation: "A stone alcove"
+  constraints:
+    - geometry: "The alcove is a stone room four paces wide. A wooden viewing bench stands against its south wall, facing the north wall three paces away."
+    - surface: "The north wall is whitewashed plaster with one broad patch of bright red paint, about an arm-span wide, at the height of a seated person's eyes."
+    - light: "Ordinary terrestrial daylight enters through a high window in the east wall and lights the north wall evenly."
+    - air: "The air between the bench and the north wall is clear: there is no smoke, mist or dust in it."
+    - path: "Nothing solid stands between the bench and the north wall: the floor between them is bare, and no screen, curtain, partition or other object crosses the line from the bench to the wall."
+If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.
+presence> Asking the AI referee host to read your statement against the world ...
++--- AI REFEREE FINDINGS (host claude-code-headless; verdict BIND_ELIGIBLE) ---
+|   your statement is read as: NATIVE_ALREADY_THERE - "The player explicitly states they have always lived in the alcove and are originally present, with no arrival, portal, transfer or summoning. No bridge is invented."
+|   locus.designation: SUPPORTS - "The locus is a stone alcove, matching the stated place of presence."
+|   locus.constraint.1: SUPPORTS - "A wooden viewing bench facing the north wall matches the player's seated position facing the north wall."
++---
+CONFIRMATION - NATIVE PRESENCE (the second, separate choice)
+  character: pc-maren (released and kept)
+  world: world-ashfall v1, locus: locus-alcove v1
+  your statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes closed."
+  Confirming binds this character as the operative player character on exactly this explicit fact (native, already there).
+  It invents no arrival or bridge and gives the character no physical position, custody, perception, knowledge or action.
+To confirm, type exactly "place-character 1e96de708c83". Anything else leaves your character released but unbound.
+> PROGRESS referee DECIDED referee/bed6136d192e67e1861e89f806b4b80c690af50092e2b6b5dd6a5ce973a09524/decision
+PROGRESS binding COMMITTED role-registry/binding/role.player_character
+STATUS CHARACTER_BOUND
+the character you kept is released and is bound as the operative player character at the established locus, on the native-presence statement you separately confirmed; a fresh owner-verified open reads back exactly what you confirmed. It gives the character no physical position or custody, perception, knowledge, action, capability, narration or elapsed time.
+campaign: campaign-ashfall
+character: pc/pc-maren/existence-contract [pc_existence/existence_contract v1] group operator-pc:1767420c4fed153c100770bac80d52f5:release cause operator-pc-cause:1767420c4fed153c100770bac80d52f5
+binding: role-registry/binding/role.player_character [role_registry/player_character_binding v1] group operator-pc:2fd3dca364dd690956f7fde841cfef67:bind cause operator-pc-cause:2fd3dca364dd690956f7fde841cfef67
+world: world-ashfall, locus: locus-alcove
+native presence, as you stated it: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes closed."
+physical custody of the character: none - this command establishes none (see establish-character-locus)
+
+[host client run 3: 8 traced events]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+PHYSICAL LOCUS - a third, separate choice. Nothing physical is held yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+character: pc-maren
+world world-ashfall, locus locus-alcove
+your confirmed native-presence statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes closed."
+The binding records that your character is originally present there, and gives it no physical position. Asking the AI referee host whether your character's own words and that statement describe ONE material physical body at exactly that locus ...
++--- AI REFEREE FINDINGS: PHYSICAL PLACEMENT (host claude-code-headless; verdict PHYSICAL_ELIGIBLE) ---
+|   your character's form is read as: SINGLE_MATERIAL_BODY - "The character's own embodiment statement constitutes exactly one ordinary human body; the continuity statement ties her to that body's life."
+|       the words: "One ordinary human body with ordinary, fully functioning colour vision"
+|   your presence is read as: NATIVE_AT_THIS_LOCUS - "The player explicitly states original presence, with no arrival, in the stone alcove, which is the designated locus; the presence is stated by the player's own words and depends on no actor or right."
+|       the words: "I am originally present in the stone alcove, seated on the wooden viewing bench"
+|   locus.designation: SUPPORTS - "A stone alcove is a physical place a material body can occupy."
+|   locus.constraint.1: SUPPORTS - "A room with a wooden viewing bench facing the north wall is consistent with a body seated on the bench facing north."
++---
+CONFIRMATION - PHYSICAL LOCUS (the third, separate choice)
+  character: pc-maren
+  world: world-ashfall v1, locus: locus-alcove v1
+  your native-presence statement, kept verbatim: "I have always lived here: I am originally present in the stone alcove, seated on the wooden viewing bench, facing the north wall with my eyes closed."
+  Confirming records, in World-State's custody, that this ONE material character is physically at exactly this locus, stationary, on the reading above.
+  It gives the character no perception, knowledge, action, capability, movement, elapsed time, access, rights or any non-player character's cooperation.
+To confirm, type exactly "establish-character-locus 048590df31d5". Anything else leaves your character bound but without a physical position.
+> PROGRESS referee DECIDED referee/20ba2b18188d816e8ed408dd92526ec22cfc959907026523479e30ae844cf850/decision
+PROGRESS physical locus COMMITTED world-state/pc/pc-maren/locus-custody
+STATUS LOCUS_ESTABLISHED
+the character you kept and placed has, in World-State's custody, one stationary physical locus: the established locus its native presence was qualified at, on the physical-placement reading of the AI referee host you saw and the separate confirmation you gave; a fresh owner-verified open reads back exactly that. It is a stationary position only: it gives the character no perception, knowledge, action, capability, narration, movement or elapsed time.
+campaign: campaign-ashfall
+physical-locus custody: world-state/pc/pc-maren/locus-custody [world_state/world_fallback_physical_entity v1] group operator-pc:b1ea47d9cd5f11d5f6e4ab353873daa4:locus cause operator-pc-cause:b1ea47d9cd5f11d5f6e4ab353873daa4
+stationary at: world-ashfall / locus-alcove
+referee physical-placement reading: referee/20ba2b18188d816e8ed408dd92526ec22cfc959907026523479e30ae844cf850/decision host claude-code-headless verdict PHYSICAL_ELIGIBLE
+current locus (from custody only): stationary
+
+[the Temporal owner established canonical time at 100 live-exercise-unit]
+[host client run 4: 8 traced events]
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+OBSERVE SURROUNDINGS - a separate, fresh choice. Nothing is observed yet.
+OOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.
+character: pc-maren
+canonical basis: 100 live-exercise-unit
+Confirming is your choice that your character looks at its surroundings NOW, at this basis. The AI referee host is asked what its sight directly receives from the committed physical setting; you will be shown only the raw appearance it receives, if any - never the setting, the host's reasoning or why nothing was received.
+It advances no time and gives the character no recognition, comprehension, belief, memory or action.
+To confirm, type exactly "observe-surroundings 89a5fb7ac9ee". Anything else leaves nothing observed.
+> PROGRESS referee DECIDED referee/4901b513fc23424765cbbd480ba9f37ca496dc0a4f2752201e5ec5ebc58791af/decision
+STATUS OBSERVATION_NOT_ESTABLISHED
+no observation was established for your character at the current basis: nothing was received, no packet was formed and nothing the character receives was changed. This does not say why, and it is not a report that anything is or is not there; sealed evidence of the reading is kept for audit only
+nothing was received at this basis
+
+
+[ordinary open] integrity violations: 0
+[ordinary open] retained direct-perception decision: verdict OBSERVATION_UNRESOLVED host=claude-code-headless
+[ordinary open] access/* facts: []
+[ordinary open] temporal state: {"canonical_time":{"unit":"live-exercise-unit","value":100},"continuation":null,"last_transaction":null}
+[audit] {"scenario":"n4-eyes-closed","integrity":{"canonical":0,"epistemic":0},"delivery":{"event_present":false,"packet_present":false,"sealed_provenance_present":false,"observation_transactions":0},"temporal":{"canonical_time":{"unit":"live-exercise-unit","value":100},"last_transaction":null,"boundary_index_entries":0,"temporal_objects":0,"observation_transactions":[]},"event_signal_delivery":{"delivered":false,"reason":"no packet exists to deliver"},"replay":{"first":{"ok":false,"code":"OBSERVATION_NOT_ESTABLISHED"},"second":{"ok":false,"code":"OBSERVATION_NOT_ESTABLISHED"},"head_before":{"revision":11,"state_sha256":"1d05d70c7103436da80f5c20c5531e017f4aa841a936b6d32d956afc557fcdba"},"head_after":{"revision":11,"state_sha256":"1d05d70c7103436da80f5c20c5531e017f4aa841a936b6d32d956afc557fcdba"},"wrote_nothing":true,"integrity_after":{"canonical":0,"epistemic":0}}}

@@ -12,6 +12,7 @@ export * from "./ledger.ts";
 export * from "./locality.ts";
 export * from "./local-operator.ts";
 export * from "./ooc.ts";
+export * from "./observation.ts";
 export * from "./original-pc-locus.ts";
 // the shared internals the original-pc modules use between them (result helper, session opener, identity helpers) stay module-private
 export {

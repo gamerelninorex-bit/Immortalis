@@ -119,7 +119,7 @@ interface Typed<T> {
 interface Node extends GraphNode {
   readonly declaration: DependencyDeclaration;
   readonly objectKey: string;
-  readonly object: TemporalObject;
+  readonly object: Pick<TemporalObject, "last_resolved_basis">;
   readonly provider: StageProvider | undefined;
   /**
    * For each CLOSE read (by source fact key): the group id of the producer commit that constitutes
@@ -429,6 +429,58 @@ export class TemporalCoordinator {
       rejections: [],
       authority: { current: undefined },
     };
+
+    // F-017 §§3–4: a provider-qualified current-state event can trigger its
+    // own owner stage without entering the material-boundary index. The owner
+    // derives the declaration from committed sources; no caller supplies it.
+    const triggerProvider = this.#providers.forTrigger?.(req.trigger.kind);
+    if (triggerProvider?.eventTrigger) {
+      if (
+        !target ||
+        !timeEquals(target, t0) ||
+        req.requested.condition !== null ||
+        req.continues !== null
+      )
+        return failure(
+          "OBJECT_INVALID",
+          "an event trigger resolves only at the unchanged current basis",
+        );
+      const qualified = triggerProvider.eventTrigger.derive(req, t0, (k) => this.#store.getFact(k));
+      if (!qualified.ok) return failure("OBJECT_INVALID", qualified.error.message);
+      const { declaration, sourceKey } = qualified.value;
+      // This seam is intentionally one NOW-only stage, never an elapsed process,
+      // declared close, barrier, arbitrary group or a new owner operation.
+      if (
+        declaration.stage.owner_operation.owner !== triggerProvider.owner ||
+        declaration.stage.owner_operation.operation !== triggerProvider.operation ||
+        declaration.declares_close !== null ||
+        declaration.pending_consequence_barrier ||
+        declaration.reads.some((r) => r.mode !== "AS-OF-NOW") ||
+        !declaration.reads.some((r) => r.source.fact_key === sourceKey)
+      )
+        return failure("OBJECT_INVALID", "unsupported current-state trigger declaration");
+      const node: Node = {
+        id: stageId(declaration.stage),
+        stage: declaration.stage,
+        declaration,
+        objectKey: sourceKey,
+        object: { last_resolved_basis: t0 },
+        provider: triggerProvider,
+        closeGroups: new Map(),
+      };
+      const edges: GraphEdge[] = declaration.reads
+        .filter((r) => declaration.produces.includes(r.source.fact_key))
+        .map(() => ({ from: node.id, to: node.id, mode: "NOW" as const }));
+      if (analyzeStageGraph([node], edges).blocked.size !== 0)
+        return failure("OBJECT_INVALID", "a current-state trigger cannot feed its own result back");
+      const resolved = await this.#resolveStage(ctx, node, t0);
+      if (!resolved.ok) return resolved;
+      // A failed trigger creates no immortal pending object or credited result.
+      // A genuinely opened authority remains recoverable under the same identity.
+      if (resolved.value !== "RESOLVED")
+        return failure("OBJECT_INVALID", `event-triggered formation unresolved: ${resolved.value}`);
+      return this.#commitTransaction(ctx, t0, "TARGET_REACHED");
+    }
 
     let stop: CanonicalTime | undefined;
     let stopReason: ResolutionTransaction["outcome"]["stop_reason"] | undefined;
