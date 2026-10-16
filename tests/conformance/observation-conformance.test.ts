@@ -25,7 +25,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
   "packages/engine/src/temporal/coordinator.ts":
-    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/contracts/src/epistemic-access.ts":
@@ -43,9 +43,9 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "af2a2cf4cdc5d1c02824324b50be10711b0b24964015614b1b600b417458d869",
+    "6e8eb9969b1e32b10cc2b882255e55a2541aebe2251d2ba29ad0cd05b4e467c7",
   "packages/engine/src/owners/registry.ts":
-    "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe",
+    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa",
   "packages/engine/src/referee/adapter.ts":
     "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
   "packages/engine/src/referee/admission.ts":
@@ -55,11 +55,11 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
-    "69e027acb4c54b4a189bc6721f7cd733db57a356e4c3c889f6a489956a50a6e6",
+    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "428fb144febf5ff007e16106f676a2f6b3dac6f812de57ceeaee95b3d943e46c",
+    "266e7988697ffc929819b78df27e4cef117bc4e657bfc1a3726d51aeda5ab0ba",
   "packages/operator/src/confirmation.ts":
     "12a6a291ca1f07472d2a2ed6b17157d37cb3d1b77a177b2c7e2958a6f5cdea41",
   "packages/operator/src/index.ts":

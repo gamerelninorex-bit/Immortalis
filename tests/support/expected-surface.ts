@@ -643,6 +643,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "production/pc-collection-termination/x1",
   },
+  {
+    id: "production_pc_collection_lapse",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "production/pc-collection-lapse/x1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -913,6 +921,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "establishWorkforceScope",
       "extraction",
       "hold",
+      "lapse",
+      "lapseRecord",
       "mechanism",
       "occupancy",
       "occupancyState",
@@ -920,6 +930,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "reachTask",
       "registerOccupancy",
       "releaseOccupancyDenied",
+      "releaseOccupancyLapsed",
       "releaseOccupancyTerminated",
       "representation",
       "request",
@@ -1007,6 +1018,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "establishCanonicalTime",
       "object",
       "registerObject",
+      "retireLapsedObject",
       "retireTerminatedObject",
       "state",
       "transaction",

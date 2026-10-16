@@ -5,6 +5,7 @@ import {
   PcCollectionCessationSchema,
   PcCollectionCycleAttestationSchema,
   PopulationPcRepresentationSchema,
+  ProductionPcCollectionLapseSchema,
   ProductionPcCollectionTerminationSchema,
   FACET_POPULATION_PC_OCCUPANCY,
   FACET_POPULATION_WORKFORCE_SCOPE,
@@ -347,6 +348,7 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "production_pc_collection_work",
   "pc_collection_cessation",
   "production_pc_collection_termination",
+  "production_pc_collection_lapse",
   "pc_collection_cycle_attestation",
   "population_pc_representation",
   "world_scene_closure",
@@ -1589,6 +1591,42 @@ export const TEMPORAL_PC_COLLECTION_RETIREMENT_RULE: SourceRef = d1Rule(
   "D-1 proposed Temporal retirement: only after Production committed the termination of this act's extraction is that extraction object's pending earned boundary retired (superseded, never resolved) and removed from the boundary index; canonical time, every other object and every other index entry are untouched",
 );
 
+/**
+ * R-4 — BLUE Lapse Settlement v1.2 (NEWLY AUTHORIZED: the Sovereign's standing bounded semantic delegation, invoked by BLUE on PR #72; the
+ * clause text is the Notion page below at its native pin; it adopts the exact replacement passages of the independent RED v1.1 MODIFY at pin
+ * 2026-10-16T15:09:20.386Z). Not a frozen-source rule, not a spec-lock pin, no separate RED CONCUR page was published, and independent BLUE
+ * review of the code is pending. It amends nothing silently: it adds a distinct class-level, nonphysical, nonproductive eligibility lapse for
+ * the original `condition: null` player route only, and leaves D-1 voluntary cessation and D-2 untouched.
+ */
+const CPAA_C1_R4 = {
+  artifact: "https://app.notion.com/p/3fb20af901e08142b884f3c88a4b307e",
+  native_pin: "2026-10-16T15:11:53.372Z",
+} as const;
+const CPAA_C1_R4_LINEAGE =
+  "CPAA-C1 R-4 Lapse Settlement v1.2 (BLUE, Notion pin 2026-10-16T15:11:53.372Z) adopting the exact replacement passages of the independent RED v1.1 MODIFY (pin 2026-10-16T15:09:20.386Z); invoked for construction by BLUE on PR #72 comment 6218689024 under the standing Sovereign mission delegation; NEWLY AUTHORIZED, not a frozen-source rule, not a spec-lock pin, no RED CONCUR page published, independent BLUE review pending; it does not lift the standing-loss First Playable/merge exclusion";
+const lapseRule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_R4.artifact,
+  native_pin: CPAA_C1_R4.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_R4_LINEAGE,
+    CPAA_C1_DELEGATION_LINEAGE,
+    CPAA_C1_V03_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "sovereign-bounded-semantic-delegation-independent-review-pending",
+  supersedes: null,
+});
+export const PRODUCTION_PC_COLLECTION_LAPSE_RULE: SourceRef = lapseRule(
+  "R-4 (a)(b)(c)(d)(1): Production alone seals ONE non-voluntary NONPRODUCTIVE_LAPSE of an admitted, OPEN-occupied, uncredited, not-D-1-terminated solitary PC collection whose original Temporal request has a null condition, at its own held earned boundary B only (never before B, never in response to a horizon, never by player or operator choice), as the owner re-evaluation C6 requires; the reason class is INCOMPATIBLE only on affirmative owner facts and otherwise NOT_ESTABLISHED, with identical effects, and claims nothing about whether anything was physically gathered; no handled cycle, progress or change time is asserted; units credited 0, Source and Reserve untouched; in the same group only this extraction's single claim on its own source account is released",
+);
+export const TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE: SourceRef = lapseRule(
+  "R-4 (d)(2)(e): only after Production sealed the lapse of this act, and only for a held lineage that an existing active-PC or NULL-PC held-resume gateway would itself accept, is that extraction object's pending earned boundary retired (superseded, never resolved) and removed from the boundary index; canonical time, the held state, the sealed transaction, every other object and index entry are untouched; the held continuation is not resumed, consumed or cancelled and no condition is removed, superseded, retargeted or invented",
+);
+export const POPULATION_PC_OCCUPANCY_LAPSE_RULE: SourceRef = lapseRule(
+  "R-4 (d)(3): only after Production sealed the lapse and Temporal retired the boundary is the SAME PC's individual occupied interval released, exactly once, with the status RELEASED_LAPSED (distinct from the denial and the termination); never before, never twice, never by a caller",
+);
+
 const pcCollectionKind = (
   id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
   owner: string,
@@ -1675,6 +1713,14 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
           return o.success && o.data.status === "RELEASED_TERMINATED";
         },
       },
+      // R-4: the release after Production's lapse carries the Population lapse rule
+      {
+        rule: POPULATION_PC_OCCUPANCY_LAPSE_RULE,
+        admits: (value: unknown) => {
+          const o = PopulationPcOccupancySchema.safeParse(value);
+          return o.success && o.data.status === "RELEASED_LAPSED";
+        },
+      },
     ],
   },
   pcCollectionKind(
@@ -1754,6 +1800,17 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     ProductionPcCollectionTerminationSchema,
     PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   ),
+  pcCollectionKind(
+    "production_pc_collection_lapse",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/pc-collection-lapse/${ID}$`),
+    ProductionPcCollectionLapseSchema,
+    PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+  ),
 ];
 
 /**
@@ -1790,6 +1847,11 @@ const SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START: readonly FactKind[] =
                     rule: PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
                     admits: (value: unknown) => SourceAccountSchema.safeParse(value).success,
                   },
+                  // R-4: the lapse group writes the key's account (releasing Production's own claim) under the lapse rule
+                  {
+                    rule: PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+                    admits: (value: unknown) => SourceAccountSchema.safeParse(value).success,
+                  },
                 ]
               : []),
           ],
@@ -1810,6 +1872,14 @@ const TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT: readonly FactKind[] =
           alternateRules: [
             {
               rule: TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+              admits: (value: unknown) =>
+                k.id === "temporal_object"
+                  ? TemporalObjectSchema.safeParse(value).success
+                  : BoundaryIndexSchema.safeParse(value).success,
+            },
+            // R-4: the retirement after Production's lapse carries the Temporal lapse-retirement rule
+            {
+              rule: TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
               admits: (value: unknown) =>
                 k.id === "temporal_object"
                   ? TemporalObjectSchema.safeParse(value).success

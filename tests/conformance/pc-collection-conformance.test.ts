@@ -12,10 +12,12 @@ import {
   POPULATION_WORKFORCE_SCOPE_RULE,
   WORLD_SCENE_CLOSURE_RULE,
   PC_COLLECTION_FACT_KINDS,
+  POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_WORK_RULE,
   TEMPORAL_FACT_KINDS,
+  TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
   TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
   PcCollectionAdapter,
   SOURCE_DRAWDOWN_FACT_KINDS,
@@ -85,6 +87,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "world_scene_closure",
       "population_workforce_scope",
       "production_pc_collection_termination",
+      "production_pc_collection_lapse",
     ]);
     for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
       (C1_KIND_IDS as readonly string[]).includes(k.id),
@@ -327,6 +330,14 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
         "IM-05",
         ["RC-02", "RC-06", "RC-10"],
       ],
+      [
+        "production_pc_collection_lapse",
+        "production",
+        "production_state",
+        "SEALED",
+        "IM-05",
+        ["RC-02", "RC-06", "RC-10"],
+      ],
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
       [
@@ -385,6 +396,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       ["production/pc-collection-work/x", "production_pc_collection_work"],
       ["pc/p/collection/a/cessation", "pc_collection_cessation"],
       ["production/pc-collection-termination/x", "production_pc_collection_termination"],
+      ["production/pc-collection-lapse/x", "production_pc_collection_lapse"],
     ] as const)
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)).map((k) => k.id)).toEqual([id]);
   });
@@ -394,7 +406,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
     for (const id of ["production_extraction", "production_source_account"] as const) {
       const k = factKind(id);
       expect(k.rule.effective_basis).toBe("pinned-by-spec-lock");
-      expect(k.alternateRules).toHaveLength(id === "production_source_account" ? 2 : 1);
+      expect(k.alternateRules).toHaveLength(id === "production_source_account" ? 3 : 1);
       expect(k.alternateRules![0]!.rule).toEqual(PRODUCTION_PC_COLLECTION_WORK_RULE);
       expect(k.alternateRules![0]!.admits({})).toBe(false);
     }
@@ -405,17 +417,24 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
     for (const id of ["temporal_object", "temporal_boundary_index"] as const) {
       const k = factKind(id);
       expect(k.rule.effective_basis).toBe("pinned-by-spec-lock");
-      expect(k.alternateRules).toHaveLength(1);
+      expect(k.alternateRules).toHaveLength(2);
       expect(k.alternateRules![0]!.rule).toEqual(TEMPORAL_PC_COLLECTION_RETIREMENT_RULE);
       expect(k.alternateRules![0]!.admits({})).toBe(false);
+      // R-4 (NEWLY AUTHORIZED): the lapse retirement is a second, equally bounded alternate rule
+      expect(k.alternateRules![1]!.rule).toEqual(TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE);
+      expect(k.alternateRules![1]!.admits({})).toBe(false);
     }
     for (const k of TEMPORAL_FACT_KINDS) expect(k.alternateRules, k.id).toBeUndefined();
     // the occupancy slot accepts the Population termination rule only for its RELEASED_TERMINATED value
     const occupancy = factKind("population_pc_occupancy").alternateRules!;
-    expect(occupancy).toHaveLength(1);
+    expect(occupancy).toHaveLength(2);
     expect(occupancy[0]!.rule).toEqual(POPULATION_PC_OCCUPANCY_TERMINATION_RULE);
     expect(occupancy[0]!.admits({})).toBe(false);
     expect(occupancy[0]!.admits({ status: "OPEN" })).toBe(false);
+    // R-4: and only for its RELEASED_LAPSED value under the Population lapse rule
+    expect(occupancy[1]!.rule).toEqual(POPULATION_PC_OCCUPANCY_LAPSE_RULE);
+    expect(occupancy[1]!.admits({})).toBe(false);
+    expect(occupancy[1]!.admits({ status: "OPEN" })).toBe(false);
   });
 
   it("the module set is exactly the contract, the rules, the verifier, the one adapter and the one gateway: no new owner, scheduler, journal or manifest", () => {
@@ -427,6 +446,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "derive.ts",
       "determinations.ts",
       "integrity.ts",
+      "lapse.ts",
       "state.ts",
     ]);
     for (const f of MODULES.filter((m) => m !== "packages/engine/src/pc-collection/adapter.ts"))
@@ -449,6 +469,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "establishWorkforceScope",
       "extraction",
       "hold",
+      "lapse",
+      "lapseRecord",
       "mechanism",
       "occupancy",
       "occupancyState",
@@ -456,6 +478,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "reachTask",
       "registerOccupancy",
       "releaseOccupancyDenied",
+      "releaseOccupancyLapsed",
       "releaseOccupancyTerminated",
       "representation",
       "request",

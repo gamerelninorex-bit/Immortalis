@@ -39,6 +39,7 @@ import {
   pcExistenceContractKey,
   popPcOccupancyKey,
   productionExtractionObjectId,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   productionPcCollectionWorkKey,
   productionReserveKey,
@@ -898,6 +899,11 @@ export type PcCollectionHold =
    * retirement and Population's release follow): re-presenting the cessation finishes it.
    */
   | { readonly state: "TERMINATED_AWAITING_RELEASE"; readonly act_id: string }
+  /**
+   * R-4 (NEWLY AUTHORIZED): Production sealed the non-voluntary lapse of the act; its pending boundary's retirement and Population's release
+   * follow (presenting the settlement again finishes it). The held continuation is untouched: only the player's later resume consumes it.
+   */
+  | { readonly state: "LAPSED_AWAITING_RELEASE"; readonly act_id: string }
   /** occupied by a registration Production has not started (the window between the two commits: re-presenting the start finishes it) */
   | { readonly state: "REGISTERED"; readonly act_id: string }
   | { readonly state: "IN_FLIGHT"; readonly act_id: string }
@@ -923,6 +929,8 @@ export function pcCollectionHold(facts: ScanFacts, pcId: string): PcCollectionHo
   const extractionId = pcCollectionRequestId(pcId, occupancy.act_id);
   if (facts.has(productionPcCollectionTerminationKey(extractionId)))
     return { state: "TERMINATED_AWAITING_RELEASE", act_id: occupancy.act_id };
+  if (facts.has(productionPcCollectionLapseKey(extractionId)))
+    return { state: "LAPSED_AWAITING_RELEASE", act_id: occupancy.act_id };
   if (facts.has(pcCollectionCessationKey(pcId, occupancy.act_id)))
     return { state: "CESSATION_REQUESTED", act_id: occupancy.act_id };
   const reason = pcCollectionPremiseViolation(work.value, facts);
@@ -979,6 +987,12 @@ export function pcCollectionCrossingClear(
     store.getFact(
       productionPcCollectionTerminationKey(pcCollectionRequestId(pcId, occupancy.act_id)),
     ) !== undefined
+  )
+    return false;
+  // R-4: while a lapse is sealed and its release is incomplete the crossing gate refuses uniformly (no distinct return, no reason)
+  if (
+    store.getFact(productionPcCollectionLapseKey(pcCollectionRequestId(pcId, occupancy.act_id))) !==
+    undefined
   )
     return false;
   const own = productionExtractionObjectId(pcCollectionRequestId(pcId, occupancy.act_id));

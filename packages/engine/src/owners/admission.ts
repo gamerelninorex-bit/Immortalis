@@ -623,6 +623,8 @@ export function identityMismatch(
         : "pc_id and act_id do not match the key";
     case "production_pc_collection_termination":
       return v["termination_id"] === ids[0] ? null : "termination_id does not match the key";
+    case "production_pc_collection_lapse":
+      return v["lapse_id"] === ids[0] ? null : "lapse_id does not match the key";
     case "population_pc_occupancy":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "production_pc_collection_work":

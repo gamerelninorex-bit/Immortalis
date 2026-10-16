@@ -12,6 +12,7 @@ import {
   EstablishPcCollectionMechanismInputSchema,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
+  PC_OCCUPANCY_RELEASED_LAPSED,
   PC_OCCUPANCY_RELEASED_TERMINATED,
   PC_CYCLE_MEANING,
   PcCollectionCycleAttestationSchema,
@@ -24,12 +25,16 @@ import {
   type PopulationPcRepresentation,
   PcCollectionCessationInputSchema,
   PcCollectionCessationSchema,
+  ProductionPcCollectionLapseSchema,
   ProductionPcCollectionTerminationSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
+  temporalTransactionAuthorityKey,
   pcCollectionCessationKey,
   productionExtractionObjectId,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   temporalObjectKey,
+  type ProductionPcCollectionLapse,
   type PcCollectionCessation,
   type ProductionPcCollectionTermination,
   PLAYER_CHARACTER_BINDING_KEY,
@@ -81,12 +86,15 @@ import {
   type WorldSourceCondition,
 } from "@immortalis/contracts";
 import {
+  POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_LAPSE_RULE,
   PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_WORK_RULE,
   factKind,
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
+import { acceptableHeldLineage, deriveLapse, lapseBasisViolation } from "./lapse.ts";
 import {
   sceneClosureStatus,
   workforceScopeStatus,
@@ -939,6 +947,136 @@ export class PcCollectionAdapter {
       })),
     };
     return this.#store.commit(group);
+  }
+
+  /**
+   * R-4 (NEWLY AUTHORIZED), step 1: Production's NON-VOLUNTARY, NON-PRODUCTIVE lapse of the act at its own held earned boundary, DERIVED from
+   * committed facts alone (no parameter for a reason, a result, a credit, a time or a boundary). In ONE atomic group it records the lapse and
+   * releases the key's single claim on the source (Production's own account); the source and the Reserve are not written. It resumes, advances
+   * and consumes nothing. RED C-1: it is refused unless every premise-input fact predates the held crossing transaction's opening.
+   */
+  async lapse(
+    input: Publication & { readonly pc_id: string; readonly act_id: string },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return invalid("publication", p.error);
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const facts = this.#view();
+    const lineage = acceptableHeldLineage(facts);
+    if (!lineage.ok) return fail("PREREQUISITE_MISSING", lineage.error.message);
+    const opened = this.#store.getFact(
+      temporalTransactionAuthorityKey(lineage.value.held.value.transaction_id),
+    );
+    const openedAt = opened
+      ? this.#store.lookupReceipt(opened.provenance.intent_id)?.revision
+      : undefined;
+    if (openedAt === undefined)
+      return fail("PREREQUISITE_MISSING", "the held transaction's opening is not committed");
+    const basis = lapseBasisViolation(
+      this.#store.listFacts(),
+      openedAt,
+      null,
+      (f) => this.#store.lookupReceipt(f.provenance.intent_id)?.revision,
+    );
+    if (basis) return fail("PREREQUISITE_MISSING", basis);
+    const derived = deriveLapse(input.pc_id, input.act_id, facts);
+    if (!derived.ok) return fail("PREREQUISITE_MISSING", derived.error.message);
+    const l = derived.value;
+    const c = collectionFacts(facts, l.pc_id, l.act_id)!;
+    const accountFact = this.#store.getFact(c.extraction.value.account.fact_key);
+    const account = accountFact ? parseAccount(accountFact) : undefined;
+    if (!accountFact || !account)
+      return fail("VALUE_INVALID", "the key's account is malformed", {
+        key: c.extraction.value.account.fact_key,
+      });
+    const value = ProductionPcCollectionLapseSchema.safeParse(l);
+    if (!value.success) return invalid("lapse", value.error);
+    const nextAccount = SourceAccountSchema.safeParse({
+      ...account,
+      open: account.open.filter((o) => o.extraction_id !== l.lapse_id),
+    });
+    if (!nextAccount.success) return invalid("account", nextAccount.error);
+    const kind = factKind("production_pc_collection_lapse");
+    const readKeys = [
+      c.commitment.fact.key,
+      c.work.fact.key,
+      c.extraction.fact.key,
+      l.pins.held_transaction.fact_key,
+      popPcOccupancyKey(l.pc_id),
+      TEMPORAL_STATE_KEY,
+      TEMPORAL_BOUNDARY_INDEX_KEY,
+      temporalObjectKey(productionExtractionObjectId(l.lapse_id)),
+      accountFact.key,
+    ];
+    const group: CommitGroup = {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: readKeys.map((k) => ({ key: k, version: this.#store.getFact(k)?.version ?? 0 })),
+      depends_on: [
+        ...new Set(readKeys.flatMap((k) => this.#store.getFact(k)?.provenance.group_id ?? [])),
+      ],
+      writes: [
+        {
+          key: productionPcCollectionLapseKey(l.lapse_id),
+          value: value.data,
+          expected_version: 0,
+        },
+        { key: accountFact.key, value: nextAccount.data, expected_version: accountFact.version },
+      ].map((w) => ({
+        key: w.key,
+        owner: kind.owner,
+        facet: kind.facet,
+        value: w.value as CommitGroup["writes"][number]["value"],
+        unit: null,
+        basis: p.data.basis,
+        secrecy: p.data.secrecy,
+        expected_version: w.expected_version,
+      })),
+    };
+    return this.#store.commit(group);
+  }
+
+  /**
+   * R-4 (NEWLY AUTHORIZED), step 3: Population releases the SAME PC's individual occupied interval exactly once, with the status
+   * RELEASED_LAPSED, only after Production sealed the lapse and Temporal retired the pending boundary (admission requires both).
+   */
+  releaseOccupancyLapsed(
+    input: Publication & { readonly pc_id: string; readonly act_id: string },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const prior = this.occupancy(input.pc_id);
+    if (!prior || prior.value.act_id !== input.act_id)
+      return Promise.resolve(fail("PREREQUISITE_MISSING", "no registration of this act is held"));
+    const extractionId = pcCollectionRequestId(input.pc_id, input.act_id);
+    return this.#publish(
+      p.data,
+      "population_pc_occupancy",
+      popPcOccupancyKey(input.pc_id),
+      { ...prior.value, status: PC_OCCUPANCY_RELEASED_LAPSED },
+      prior.fact.version,
+      [
+        productionPcCollectionLapseKey(extractionId),
+        temporalObjectKey(productionExtractionObjectId(extractionId)),
+        popPcOccupancyKey(input.pc_id),
+      ],
+      POPULATION_PC_OCCUPANCY_LAPSE_RULE,
+    );
+  }
+
+  /** R-4: Production's lapse of the act, or undefined. */
+  lapseRecord(pcId: string, actId: string): Typed<ProductionPcCollectionLapse> | undefined {
+    return this.#typed(
+      productionPcCollectionLapseKey(pcCollectionRequestId(pcId, actId)),
+      ProductionPcCollectionLapseSchema,
+    );
   }
 
   /**

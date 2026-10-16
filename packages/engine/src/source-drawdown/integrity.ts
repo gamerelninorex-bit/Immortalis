@@ -14,6 +14,7 @@ import {
   productionExtractionObjectId,
   productionReserveInflowStage,
   productionSourceAccountKey,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   productionSourceDeltaKey,
   temporalObjectKey,
@@ -235,7 +236,10 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
     const inAccount = account.open.some((o) => o.extraction_id === e.extraction_id);
     // D-1 (PROVISIONAL): a PC collection Production terminated before its earned boundary is neither credited nor held: it is closed
     // by its terminal disposition (and has no delta and no delivery)
-    const isTerminated = byKey.has(productionPcCollectionTerminationKey(e.extraction_id));
+    // R-4: or lapsed (the distinct non-voluntary, non-productive disposition): the same closed state, a different record
+    const isTerminated =
+      byKey.has(productionPcCollectionTerminationKey(e.extraction_id)) ||
+      byKey.has(productionPcCollectionLapseKey(e.extraction_id));
     if ([isCredited, inAccount, isTerminated].filter(Boolean).length !== 1)
       bad(
         ef.key,

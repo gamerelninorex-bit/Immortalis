@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Id, Sha256, Version } from "./ids.ts";
 import { PcClaimLocatorSchema } from "./pc-capability.ts";
 import { PositiveQuantitySchema, ProductionRequestSchema } from "./production.ts";
-import { CanonicalTimeSchema } from "./temporal.ts";
+import { CanonicalTimeSchema, StageKeySchema } from "./temporal.ts";
 import { EntityId, OWNER_PC_EXISTENCE, PLAYER_CHOICE_AUTHORITY, Text } from "./world-foundation.ts";
 
 /**
@@ -71,6 +71,13 @@ export const productionPcCollectionWorkKey = (extractionId: string): string =>
 /** D-1 (PROVISIONAL): Production's terminal disposition of an in-flight collection the PC withdrew from: one per extraction, create-only. */
 export const productionPcCollectionTerminationKey = (extractionId: string): string =>
   `production/pc-collection-termination/${extractionId}`;
+/**
+ * R-4 (NEWLY AUTHORIZED, BLUE Lapse Settlement v1.2): Production's NONPRODUCTIVE lapse of an admitted collection whose requisite eligibility
+ * the owners no longer support at its own held earned boundary: one per extraction, create-only. A kind DISTINCT from the D-1 termination
+ * (which answers a cessation request); it answers no player act and asserts nothing about the physical work.
+ */
+export const productionPcCollectionLapseKey = (extractionId: string): string =>
+  `production/pc-collection-lapse/${extractionId}`;
 
 /**
  * Identities derived from the PC identity and the per-act identity the trusted confirmation retained (RC-16, CAL-07). The act
@@ -95,6 +102,19 @@ export const PC_COLLECTION_INTENT_KIND = "VOLUNTARY_DIRECT_COLLECTION";
 export const PC_COLLECTION_CESSATION_INTENT_KIND = "VOLUNTARY_CESSATION_OF_COLLECTION";
 /** D-1 (PROVISIONAL): Production's one terminal disposition of a withdrawn in-flight collection. */
 export const PC_COLLECTION_TERMINATION_DISPOSITION = "WITHDRAWN_BEFORE_EARNED_BOUNDARY";
+/** R-4: Production's one non-voluntary, non-productive disposition at the held earned boundary: eligibility lapsed, nothing is claimed about the work. */
+export const PC_COLLECTION_LAPSE_DISPOSITION = "NONPRODUCTIVE_LAPSE";
+/**
+ * R-4 reason classes (closed). INCOMPATIBLE only where committed owner facts affirmatively show the PC is no longer the operative bound PC,
+ * no longer holds the pinned physical-locus custody, is no longer at the source's locus, or the committed source/commitment is absent; every
+ * other reason (including any not mapped) is NOT_ESTABLISHED. The two classes have identical owner effects and neither claims physical failure.
+ */
+export const PC_LAPSE_REASON_INCOMPATIBLE = "INCOMPATIBLE";
+export const PC_LAPSE_REASON_NOT_ESTABLISHED = "NOT_ESTABLISHED";
+export const PC_LAPSE_REASONS = [
+  PC_LAPSE_REASON_INCOMPATIBLE,
+  PC_LAPSE_REASON_NOT_ESTABLISHED,
+] as const;
 
 /**
  * BLUE clause D-1 — PC Collection Voluntary Cessation — PROVISIONAL CANDIDATE LOWERING (BLUE disposition "PC Cycle & In-Flight
@@ -584,6 +604,8 @@ export const PC_OCCUPANCY_OPEN = "OPEN";
 export const PC_OCCUPANCY_RELEASED_DENIED = "RELEASED_DENIED";
 /** D-1 (PROVISIONAL): released after Production committed the lawful termination of the withdrawn in-flight work (never before it). */
 export const PC_OCCUPANCY_RELEASED_TERMINATED = "RELEASED_TERMINATED";
+/** R-4 (NEWLY AUTHORIZED): released after Production sealed the lapse of the work and Temporal retired its pending boundary; distinct from the denial and the termination. */
+export const PC_OCCUPANCY_RELEASED_LAPSED = "RELEASED_LAPSED";
 
 /**
  * ONE slot per PC identity (the PC's current or last occupied interval, advancing along its expected-version chain). It is not an
@@ -600,6 +622,7 @@ export const PopulationPcOccupancySchema = z.strictObject({
     PC_OCCUPANCY_OPEN,
     PC_OCCUPANCY_RELEASED_DENIED,
     PC_OCCUPANCY_RELEASED_TERMINATED,
+    PC_OCCUPANCY_RELEASED_LAPSED,
   ]),
   interval: z.strictObject({ from: CanonicalTimeSchema, to: CanonicalTimeSchema }),
   commitment: Pin,
@@ -718,3 +741,40 @@ export const ProductionPcCollectionTerminationSchema = z.strictObject({
 export type ProductionPcCollectionTermination = z.infer<
   typeof ProductionPcCollectionTerminationSchema
 >;
+
+/**
+ * R-4 (NEWLY AUTHORIZED under the Sovereign's bounded semantic delegation; BLUE Lapse Settlement v1.2, Notion pin 2026-10-16T15:11:53.372Z;
+ * independent review pending): Production's one NON-VOLUNTARY, NON-PRODUCTIVE disposition of an admitted collection at its own held earned
+ * boundary. It is DERIVED from committed facts (never supplied), distinct from the D-1 termination (it answers no cessation), and a class-level
+ * statement that the act's requisite eligibility is no longer supported, with a closed reason class. It claims nothing about whether anything was
+ * physically gathered and asserts no elapsed cycle, progress or change time: it states the interval start, the held boundary instant and the
+ * committed per-cycle figure as PLAN data only. No Source Delta, Reserve write, partial credit, cancellation or failure status is representable;
+ * the only effect on Production's own state is the release of this extraction's single claim on its source account.
+ */
+export const ProductionPcCollectionLapseSchema = z.strictObject({
+  lapse_id: EntityId,
+  pc_id: EntityId,
+  act_id: EntityId,
+  disposition: z.literal(PC_COLLECTION_LAPSE_DISPOSITION),
+  reason: z.enum(PC_LAPSE_REASONS),
+  pins: z.strictObject({
+    commitment: Pin,
+    work: Pin,
+    extraction: Pin,
+    /** the held earned boundary's refused stage (the extraction's first stage, as the held continuation lists it) */
+    stage: StageKeySchema,
+    /** the sealed transaction that stopped at the boundary with that stage unresolved */
+    held_transaction: Pin,
+  }),
+  derivation: z.strictObject({
+    started_at: CanonicalTimeSchema,
+    /** the held boundary instant B (the extraction's earned boundary) */
+    boundary_at: CanonicalTimeSchema,
+    per_cycle: PositiveDuration,
+    units_credited: z.literal(0),
+    source_effect: z.literal("NONE"),
+    reserve_effect: z.literal("NONE"),
+    claim: z.literal("RELEASED"),
+  }),
+});
+export type ProductionPcCollectionLapse = z.infer<typeof ProductionPcCollectionLapseSchema>;

@@ -2,17 +2,20 @@ import {
   FACET_PC_COLLECTION_MECHANISM,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
+  PC_OCCUPANCY_RELEASED_LAPSED,
   PC_OCCUPANCY_RELEASED_TERMINATED,
   PcCollectionCessationSchema,
   PcCollectionCycleAttestationSchema,
   PopulationPcRepresentationSchema,
   popPcRepresentationKey,
+  ProductionPcCollectionLapseSchema,
   ProductionPcCollectionTerminationSchema,
   BoundaryIndexSchema,
   SourceAccountSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TemporalObjectSchema,
   EXTRACTION_OBJECT_PREFIX,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   temporalObjectKey,
   ProductionExtractionSchema as ExtractionSchema,
@@ -53,9 +56,12 @@ import { canonicalEqual } from "../hash.ts";
 import {
   PC_COLLECTION_ATTESTATION_RULE,
   PC_COLLECTION_CESSATION_RULE,
+  POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_LAPSE_RULE,
   PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_WORK_RULE,
+  TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
   TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
   resolveKey,
 } from "../owners/registry.ts";
@@ -87,6 +93,7 @@ import {
   pcCollectionWorkViolation,
   pcOccupancyState,
 } from "./derive.ts";
+import { lapseLineageHolds, pcCollectionLapseViolation } from "./lapse.ts";
 import { pcOccupancyRecord } from "./state.ts";
 
 /**
@@ -255,6 +262,57 @@ export function pcCollectionTerminationGroupCheck(
 }
 
 /**
+ * R-4 (NEWLY AUTHORIZED; BLUE Lapse Settlement v1.2 (d)(1)) — Production's NONPRODUCTIVE lapse of an admitted collection at its own held
+ * earned boundary, with its one effect on Production's own state: the key's account releases this extraction's single claim on its source
+ * (nothing else of the account changes). The lapse is exactly what the committed facts derive (including the held lineage a held-resume
+ * gateway would accept: RED C-2, enforced here and not only at presentation); the source, the Reserve and every Source Delta are untouched
+ * (no write of them is representable in this group). A call that does not derive exactly the record is refused.
+ */
+export function pcCollectionLapseGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+  lapseW: Write,
+  accountW: Write,
+): Rejection | null {
+  if (!canonicalEqual(group.rule, PRODUCTION_PC_COLLECTION_LAPSE_RULE))
+    return ref("a lapse is governed by the R-4 lapse rule");
+  if (lapseW.expected_version !== 0 || accountW.expected_version === 0)
+    return reject("VALUE_INVALID", "a lapse is created once and releases an opened account");
+  const l = ProductionPcCollectionLapseSchema.parse(lapseW.value);
+  const f = collectionFacts(state.facts, l.pc_id, l.act_id);
+  if (!f)
+    return reject("PREREQUISITE_MISSING", "no started collection of this PC and act is committed");
+  const id = f.work.value.work_id;
+  const missing = need(group, state, [
+    [f.commitment.fact.key, "the PC's commitment-of-record"],
+    [f.work.fact.key, "Production's work record"],
+    [f.extraction.fact.key, "the extraction"],
+    [l.pins.held_transaction.fact_key, "the held transaction"],
+    [popPcOccupancyKey(l.pc_id), "the PC's occupancy registration"],
+    [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    [TEMPORAL_BOUNDARY_INDEX_KEY, "the boundary index"],
+    [temporalObjectKey(productionExtractionObjectId(id)), "the extraction's temporal object"],
+    [f.extraction.value.account.fact_key, "the key's account"],
+  ]);
+  if (missing) return missing;
+  const v = pcCollectionLapseViolation(lapseW.key, l, state.facts);
+  if (v) return ref(v, { key: lapseW.key });
+  const account = parseAccount(state.facts.get(accountW.key));
+  if (accountW.key !== f.extraction.value.account.fact_key || !account)
+    return ref("the lapse releases the claim on the extraction's own account");
+  if (state.facts.get(accountW.key)!.version !== accountW.expected_version)
+    return reject("VERSION_CONFLICT", "the account moved since it was read", { key: accountW.key });
+  const parsed = SourceAccountSchema.safeParse(accountW.value);
+  const expected = { ...account, open: account.open.filter((o) => o.extraction_id !== id) };
+  if (!parsed.success || !canonicalEqual(parsed.data, expected))
+    return reject(
+      "VALUE_INVALID",
+      "a lapse changes the account only by releasing this extraction's claim",
+    );
+  return null;
+}
+
+/**
  * D-1 (PROVISIONAL) — Temporal's retirement of a terminated extraction's pending earned boundary: ONE group writing exactly that
  * extraction's object (its earned boundary retired — superseded, never resolved; the resolved basis is untouched) and the boundary index
  * without that entry. It moves no canonical time, resolves no stage and touches no other object or index entry; it is lawful only after
@@ -274,18 +332,40 @@ export function pcCollectionRetirementGroupCheck(
     );
   const ow = objW[0]!;
   const iw = idxW[0]!;
-  if (!canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE))
-    return ref("a retirement is governed by the provisional D-1 retirement rule");
+  const lapseRetirement = canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE);
+  if (!lapseRetirement && !canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE))
+    return ref(
+      "a retirement is governed by the provisional D-1 retirement rule or the R-4 lapse rule",
+    );
   const obj = TemporalObjectSchema.parse(ow.value);
   if (!obj.object_id.startsWith(EXTRACTION_OBJECT_PREFIX))
     return ref("only an extraction's object is retired by a termination");
   const extractionId = obj.object_id.slice(EXTRACTION_OBJECT_PREFIX.length);
   if (!extractionId.startsWith("pc-collect:") || ow.key !== temporalObjectKey(obj.object_id))
     return ref("only a PC-owned collection's extraction object is retired by a termination");
-  const missing = need(group, state, [
-    [productionPcCollectionTerminationKey(extractionId), "Production's termination of this act"],
-  ]);
+  const missing = lapseRetirement
+    ? need(group, state, [
+        [productionPcCollectionLapseKey(extractionId), "Production's lapse of this act"],
+      ])
+    : need(group, state, [
+        [
+          productionPcCollectionTerminationKey(extractionId),
+          "Production's termination of this act",
+        ],
+      ]);
   if (missing) return missing;
+  if (lapseRetirement) {
+    // RED C-2: Temporal independently requires a held lineage that an existing held-resume gateway would accept, and that it is the
+    // very lineage the sealed lapse pinned: a presenter-only guard is insufficient
+    const lapseFact = state.facts.get(productionPcCollectionLapseKey(extractionId));
+    const lapse = lapseFact
+      ? ProductionPcCollectionLapseSchema.safeParse(lapseFact.value)
+      : undefined;
+    if (!lapse?.success) return ref("the lapse of this act is a committed, well-formed record");
+    const lineage = lapseLineageHolds(state.facts);
+    if (lineage)
+      return reject("CLAIM_INCOMPATIBLE", lineage, { reason: "HELD_LINEAGE_NOT_ACCEPTABLE" });
+  }
   const exFact = state.facts.get(productionExtractionKey(extractionId));
   const ex = exFact ? ExtractionSchema.safeParse(exFact.value) : undefined;
   if (!ex?.success || ex.data.request.owner !== OWNER_PC_EXISTENCE)
@@ -477,6 +557,35 @@ export function pcOccupancyGroupCheck(group: CommitGroup, state: CampaignState):
     return null;
   }
 
+  if (occ.status === PC_OCCUPANCY_RELEASED_LAPSED) {
+    // R-4 (d)(3): the SAME PC's interval is released exactly once, only after Production sealed the lapse of this act and Temporal
+    // retired its pending boundary; never before, never twice, never by a caller's say-so
+    if (!canonicalEqual(group.rule, POPULATION_PC_OCCUPANCY_LAPSE_RULE))
+      return ref("a release after a lapse is governed by the R-4 Population lapse rule");
+    if (
+      !prior ||
+      priorFact === undefined ||
+      prior.value.status !== PC_OCCUPANCY_OPEN ||
+      prior.value.act_id !== occ.act_id
+    )
+      return reject("PREREQUISITE_MISSING", "only an OPEN registration of this act is released");
+    const missing = need(group, state, [
+      [productionPcCollectionLapseKey(requestId), "Production's lapse of this act"],
+      [w.key, "the PC's occupancy registration"],
+    ]);
+    if (missing) return missing;
+    const object = engagedExtractionObject(state.facts, requestId);
+    if (!object || object.value.next_boundary !== null)
+      return reject(
+        "CLAIM_INCOMPATIBLE",
+        "an occupancy is released only after the lapsed work's pending boundary is retired",
+        { reason: "PENDING_BOUNDARY_NOT_RETIRED" },
+      );
+    if (!canonicalEqual(occ, { ...prior.value, status: PC_OCCUPANCY_RELEASED_LAPSED }))
+      return reject("VALUE_INVALID", "a release changes only the status of the registration");
+    return null;
+  }
+
   // a registration: the PC is occupied by ONE interval at a time (an occupancy is conserved, never awarded to the earliest caller)
   if (priorFact !== undefined) {
     const st = pcOccupancyState(state.facts, occ.pc_id);
@@ -634,6 +743,11 @@ export function pcCollectionStageViolation(
   if (state.facts.has(productionPcCollectionTerminationKey(e.extraction_id)))
     return reject("CLAIM_INCOMPATIBLE", "this collection was terminated: it is not completed", {
       reason: "PC_COLLECTION_TERMINATED",
+    });
+  // R-4: lapsed work is never completed, credited or delivered either
+  if (state.facts.has(productionPcCollectionLapseKey(e.extraction_id)))
+    return reject("CLAIM_INCOMPATIBLE", "this collection lapsed: it is not completed", {
+      reason: "PC_COLLECTION_LAPSED",
     });
   const workFact = state.facts.get(productionPcCollectionWorkKey(e.extraction_id));
   const w = workFact ? ProductionPcCollectionWorkSchema.safeParse(workFact.value) : undefined;

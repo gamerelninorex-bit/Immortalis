@@ -43,7 +43,7 @@ export type PcOccupancyState =
   | {
       readonly state: "RELEASED";
       readonly act_id: string;
-      readonly why: "DENIED" | "CLOSED" | "TERMINATED";
+      readonly why: "DENIED" | "CLOSED" | "TERMINATED" | "LAPSED";
     };
 
 /**
@@ -59,6 +59,8 @@ export function pcOccupancyState(facts: Facts, pcId: string): PcOccupancyState {
     return { state: "RELEASED", act_id: act, why: "DENIED" };
   if (rec.value.status === "RELEASED_TERMINATED")
     return { state: "RELEASED", act_id: act, why: "TERMINATED" };
+  if (rec.value.status === "RELEASED_LAPSED")
+    return { state: "RELEASED", act_id: act, why: "LAPSED" };
   return extractionCredited(facts, pcCollectionRequestId(pcId, act))
     ? { state: "RELEASED", act_id: act, why: "CLOSED" }
     : { state: "OPEN", act_id: act };

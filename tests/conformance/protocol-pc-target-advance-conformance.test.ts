@@ -61,7 +61,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
   "packages/engine/src/temporal/admission.ts":
-    "69e027acb4c54b4a189bc6721f7cd733db57a356e4c3c889f6a489956a50a6e6",
+    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -73,7 +73,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/world/canonical-campaign.ts":
     "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/locus.ts":
@@ -87,7 +87,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/gip/declaration.ts":
     "c2f2172480976a3d3966b0f6a0584a6435600574ad9053fdbe7069f5d6be7ba9",
   "packages/engine/src/owners/registry.ts":
-    "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

@@ -32,7 +32,10 @@ import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { namedActorObjectViolation } from "../actor/declaration.ts";
 import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
 import { pcCollectionRetirementGroupCheck } from "../pc-collection/admission.ts";
-import { TEMPORAL_PC_COLLECTION_RETIREMENT_RULE } from "../owners/registry.ts";
+import {
+  TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
+  TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+} from "../owners/registry.ts";
 import {
   observationTransactionViolation,
   observationTriggerViolation,
@@ -85,7 +88,11 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
   if (authW) return checkAuthority(group, state, authW);
 
   // D-1 (PROVISIONAL): the retirement of a terminated extraction's pending boundary is its own bounded group
-  if (canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE))
+  // R-4 (NEWLY AUTHORIZED): the same bounded group on the evidence of Production's lapse, under its own rule
+  if (
+    canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE) ||
+    canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE)
+  )
     return pcCollectionRetirementGroupCheck(group, state);
 
   if (txWs.length > 1) return reject("VALUE_INVALID", "one group records at most one transaction");

@@ -4,6 +4,7 @@ import {
   advance,
   attestCycle,
   cease,
+  settleCollectionLapse,
   collectFinish,
   collect,
   collectContinue,
@@ -65,6 +66,7 @@ usage:
   immortalis-operator collect-continue --campaign <dir> --campaign-id <id> [--referee-wait <seconds>]
   immortalis-operator collect-finish --campaign <dir> --campaign-id <id>
   immortalis-operator cease --campaign <dir> --campaign-id <id>
+  immortalis-operator settle-collection-lapse --campaign <dir> --campaign-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
 
@@ -140,7 +142,9 @@ attest-cycle: asks the bound referee to interpret an ALREADY accepted PC claim a
   collect-continue asks for grounded reach/scene interpretation and invokes owner admission without inventing missing evidence. Source
   rights, complete scene/workforce evidence and safe in-flight time remain acceptance prerequisites. These commands do not establish
   those premises, complete the action, expose a hidden boundary or certify a playable loop. cease is the separately confirmed v0.3 D-1
-  request to stop the SAME enrolled act, not automatic cancellation or a cure for lost standing.
+  request to stop the SAME enrolled act, not automatic cancellation or a cure for lost standing. settle-collection-lapse (R-4, NEWLY
+  AUTHORIZED) takes no input and asks nothing: it presents the mechanical, nonproductive lapse of an act held at its own earned boundary with its
+  eligibility no longer supported, only when canon derives it, and never resumes time (a later, separately confirmed pc-target-resume does).
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -250,6 +254,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "collect-continue": [],
   "collect-finish": [],
   cease: [],
+  "settle-collection-lapse": [],
 };
 
 /** Options a command accepts but does not require. */
@@ -575,19 +580,21 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
                       ? [await attestCycle(ctx, { mechanism_id: str("mechanism") })]
                       : command === "cease"
                         ? [await cease(ctx)]
-                        : command === "relocate"
-                          ? [await relocate(ctx, relocateInput)]
-                          : command === "advance"
-                            ? [await advance(ctx)]
-                            : command === "null-advance"
-                              ? [await nullAdvance(ctx, nullAdvanceInput)]
-                              : command === "null-resume"
-                                ? [await nullResume(ctx)]
-                                : command === "pc-target-advance"
-                                  ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
-                                  : command === "pc-target-resume"
-                                    ? [await pcTargetResume(ctx)]
-                                    : await reconcile(ctx);
+                        : command === "settle-collection-lapse"
+                          ? [await settleCollectionLapse(ctx)]
+                          : command === "relocate"
+                            ? [await relocate(ctx, relocateInput)]
+                            : command === "advance"
+                              ? [await advance(ctx)]
+                              : command === "null-advance"
+                                ? [await nullAdvance(ctx, nullAdvanceInput)]
+                                : command === "null-resume"
+                                  ? [await nullResume(ctx)]
+                                  : command === "pc-target-advance"
+                                    ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
+                                    : command === "pc-target-resume"
+                                      ? [await pcTargetResume(ctx)]
+                                      : await reconcile(ctx);
       for (const r of results) {
         out(`STATUS ${r.status}`);
         out(r.message);

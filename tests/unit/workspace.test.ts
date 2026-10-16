@@ -6,7 +6,7 @@ import * as protocol from "@immortalis/protocol";
 import * as testkit from "@immortalis/testkit";
 
 describe("workspace wiring", () => {
-  it("resolves all four packages; protocol exposes exactly the eleven trusted-context binders and the thirteen host operations", () => {
+  it("resolves all four packages; protocol exposes exactly the eleven trusted-context binders and the fourteen host operations", () => {
     expect(Object.keys(contracts).length).toBeGreaterThan(0);
     expect(Object.keys(engine).length).toBeGreaterThan(0);
     expect(Object.keys(testkit).length).toBeGreaterThan(0);
@@ -33,6 +33,7 @@ describe("workspace wiring", () => {
       "readCurrentEventSignalPresentation",
       "readCurrentObservationGlance",
       "resumeNullPcOocHeldAdvance",
+      "settlePcCollectionLapse",
       "startConfirmedPcCollection",
       "submitPcCollectionReach",
     ]);

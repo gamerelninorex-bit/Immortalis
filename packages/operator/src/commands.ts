@@ -69,6 +69,7 @@ import {
   commitConfirmedPcRelocation,
   getPcCollectionReachTask,
   resumeNullPcOocHeldAdvance,
+  settlePcCollectionLapse,
   startConfirmedPcCollection,
   submitPcCollectionReach,
 } from "@immortalis/protocol";
@@ -1029,6 +1030,11 @@ export async function pcTargetResume(ctx: CommandContext): Promise<CommandResult
   const guarded = pcTargetGuard(ctx);
   if (typeof guarded !== "string") return guarded;
   const pcId = guarded;
+  // R-4 (NEWLY AUTHORIZED): the lapse settlement is a mechanical derivation from the held state that this operator may PRESENT but cannot
+  // decide; presenting it within a resume choice has the same effects as presenting it before. It never resumes or consumes anything: the
+  // separately confirmed choice below still decides whether the remainder is taken up. Nothing applicable derives → nothing is written.
+  const settlement = await presentLapseSettlement(ctx);
+  if (settlement) return settlement;
   const pending = collectionPending(ctx.session.campaign);
   if (pending) return pending;
   const { session, terminal } = ctx;
@@ -1550,6 +1556,40 @@ export async function cease(ctx: CommandContext): Promise<CommandResult> {
     return result("UNAVAILABLE");
   }
   return presentCessation(ctx, recorded.value as CollectionCessationIntent);
+}
+
+// -- the lapse settlement (R-4, NEWLY AUTHORIZED) -------------------------------------------------------------------------------
+
+/**
+ * Presents the settlement to the unchanged protocol presenter and reports ONLY an ambiguous outcome (so a lost reply is reconciled by
+ * presenting it again, never guessed). A refusal means nothing applicable derives and is silent. It asks the operator nothing, because it
+ * is not a choice: the PC, act, reason and effects all derive from canon, and nothing here is a player's confirmation or consent.
+ */
+async function presentLapseSettlement(ctx: CommandContext): Promise<CommandResult | undefined> {
+  const outcome = await settlePcCollectionLapse(ctx.session.campaign);
+  if (outcome.ok || outcome.error.code !== COLLECTION_OUTCOME_UNKNOWN) return undefined;
+  ctx.session.markAmbiguous();
+  return result(COLLECTION_OUTCOME_UNKNOWN);
+}
+
+/**
+ * BLUE R-4 Lapse Settlement v1.2 (NEWLY AUTHORIZED; independent review pending): presents the mechanical settlement of the bound PC's held
+ * collection when, and only when, canon itself derives it (the act held at its own earned boundary with its eligibility no longer supported, a
+ * condition-free target-only lineage a held-resume gateway would accept). No input, no confirmation, no reason, time or condition is accepted
+ * from the operator or any host. It writes Production's lapse record and the one claim release, Temporal's retirement of the pending boundary and
+ * Population's single release; it NEVER resumes, advances, consumes or cancels the held continuation (only a later, separately confirmed
+ * `pc-target-resume` does), and it creates no notice. Presenting it again after a lost reply or a crash finishes it without a duplicate write.
+ */
+export async function settleCollectionLapse(ctx: CommandContext): Promise<CommandResult> {
+  const refused = guard(ctx);
+  if (refused) return refused;
+  const outcome = await settlePcCollectionLapse(ctx.session.campaign);
+  if (outcome.ok) return result(PC_COLLECTION_COMMITTED);
+  if (outcome.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+    ctx.session.markAmbiguous();
+    return result(COLLECTION_OUTCOME_UNKNOWN);
+  }
+  return result("UNAVAILABLE");
 }
 
 // -- reconciliation ------------------------------------------------------------------------------------------------------------

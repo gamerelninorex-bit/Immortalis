@@ -6,6 +6,7 @@ import {
   PopulationPcRepresentationSchema,
   popPcRepresentationKey,
   PcCollectionCessationSchema,
+  ProductionPcCollectionLapseSchema,
   ProductionPcCollectionTerminationSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TemporalObjectSchema,
@@ -13,7 +14,10 @@ import {
   popPcOccupancyKey,
   productionSourceDeltaKey,
   productionExtractionObjectId,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
+  temporalTransactionAuthorityKey,
+  temporalTransactionKey,
   temporalObjectKey,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
@@ -33,6 +37,7 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
+import { lapseBasisViolation, pcCollectionLapseViolation } from "./lapse.ts";
 import {
   pcCycleAttestationViolation,
   pcRepresentationViolation,
@@ -78,6 +83,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const works = ofKind("production_pc_collection_work");
   const cessations = ofKind("pc_collection_cessation");
   const terminations = ofKind("production_pc_collection_termination");
+  const lapses = ofKind("production_pc_collection_lapse");
   const attestations = ofKind("pc_collection_cycle_attestation");
   const representations = ofKind("population_pc_representation");
   const closures = ofKind("world_scene_closure");
@@ -91,6 +97,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       works.length +
       cessations.length +
       terminations.length +
+      lapses.length +
       attestations.length +
       representations.length +
       closures.length +
@@ -272,6 +279,18 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
         bad(f.key, "a terminated occupancy follows the retirement of its work's pending boundary");
     }
   }
+  // R-4 (NEWLY AUTHORIZED): a released-lapsed occupancy follows Production's lapse of its act and the retirement of its pending boundary
+  for (const f of occupancies) {
+    const o = PopulationPcOccupancySchema.safeParse(f.value);
+    if (!o.success || o.data.status !== "RELEASED_LAPSED") continue;
+    const id = pcCollectionRequestId(o.data.pc_id, o.data.act_id);
+    const object = byKey.get(temporalObjectKey(productionExtractionObjectId(id)));
+    const parsedObject = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
+    if (!byKey.has(productionPcCollectionLapseKey(id)))
+      bad(f.key, "a lapsed occupancy follows Production's lapse of its act");
+    if (!parsedObject?.success || parsedObject.data.next_boundary !== null)
+      bad(f.key, "a lapsed occupancy follows the retirement of its work's pending boundary");
+  }
   // D-1 (PROVISIONAL): the cessation requests and Production's terminal dispositions
   for (const f of cessations) {
     const c = PcCollectionCessationSchema.safeParse(f.value);
@@ -313,6 +332,55 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     const o = occ ? PopulationPcOccupancySchema.safeParse(occ.value) : undefined;
     if (o?.success && o.data.act_id === t.data.act_id && o.data.status === "RELEASED_DENIED")
       bad(f.key, "a terminated collection is not a denied one");
+  }
+  // R-4 (NEWLY AUTHORIZED, RED C-3): each sealed lapse is re-verified against its immutable pins and the owner facts as they stood, never
+  // re-derived from facts that moved afterwards; the only moving facts it consults are the ones the effect-checks below name
+  for (const f of lapses) {
+    const l = ProductionPcCollectionLapseSchema.safeParse(f.value);
+    if (!l.success) continue;
+    const v = pcCollectionLapseViolation(f.key, l.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [
+      l.data.pins.commitment.fact_key,
+      l.data.pins.work.fact_key,
+      l.data.pins.extraction.fact_key,
+      l.data.pins.held_transaction.fact_key,
+    ]);
+    const id = l.data.lapse_id;
+    const facts = { get: (k: string) => byKey.get(k), has: (k: string) => byKey.has(k) };
+    const ex = byKey.get(productionExtractionKey(id));
+    const e = ex ? ProductionExtractionSchema.safeParse(ex.value) : undefined;
+    const account = e?.success ? parseAccount(byKey.get(e.data.account.fact_key)) : undefined;
+    const sourceFact = e?.success ? byKey.get(e.data.source.fact_key) : undefined;
+    const source = sourceFact ? WorldSourceConditionSchema.safeParse(sourceFact.value) : undefined;
+    if (extractionCredited(facts, id))
+      bad(f.key, "a lapsed collection is never credited: no partial or completed output");
+    if (account?.open.some((o) => o.extraction_id === id))
+      bad(f.key, "a lapsed collection no longer holds its claim on the source");
+    if (
+      byKey.has(productionSourceDeltaKey(id)) ||
+      (source?.success && source.data.delivered.some((d) => d.delivery_id === id))
+    )
+      bad(f.key, "a lapsed collection has no Source Delta and no delivery: nothing was drawn down");
+    if (byKey.has(productionPcCollectionTerminationKey(id)))
+      bad(f.key, "a lapse is a distinct disposition: the act was not also terminated under D-1");
+    const occ = byKey.get(popPcOccupancyKey(l.data.pc_id));
+    const o = occ ? PopulationPcOccupancySchema.safeParse(occ.value) : undefined;
+    if (o?.success && o.data.act_id === l.data.act_id && o.data.status === "RELEASED_DENIED")
+      bad(f.key, "a lapsed collection is not a denied one");
+    // C-1: no premise-input fact was committed between the crossing transaction's opening and the lapse itself
+    const txFact = byKey.get(l.data.pins.held_transaction.fact_key);
+    const heldId = txFact ? txFact.key.slice(temporalTransactionKey("").length) : "";
+    const authority = byKey.get(temporalTransactionAuthorityKey(heldId));
+    if (authority) {
+      const basis = lapseBasisViolation(
+        all,
+        revisionOf(authority),
+        revisionOf(f),
+        (x) => store.lookupReceipt(x.provenance.intent_id)?.revision,
+      );
+      if (basis) bad(f.key, basis);
+    }
   }
   const workIds = new Set<string>();
   for (const f of works) {

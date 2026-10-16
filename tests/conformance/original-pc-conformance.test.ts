@@ -55,7 +55,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "4f7004444ed9ac5530c8759ce7696264b8345a808916f638c1388f20c36e9766",
+    "93e9466141f39777a5e5d47991dc92fd6bda4c9e058b06f4655845a4cf69c68b",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/locality-pin.ts":
@@ -84,11 +84,11 @@ const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe",
+    head: "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "60bf221b4b4e2e27d7a0504dc333d3a7b82e4c98f2497b26ff896ef3e95e699e",
+    head: "d872c10539d9e6db189314aea171bfc1427cbb1db422734776b996b5995c1aba",
   },
 };
 

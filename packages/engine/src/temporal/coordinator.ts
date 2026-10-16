@@ -44,7 +44,11 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
 import { continuationRequestViolation } from "./admission.ts";
-import { TEMPORAL_PC_COLLECTION_RETIREMENT_RULE, factKind } from "../owners/registry.ts";
+import {
+  TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
+  TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+  factKind,
+} from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { analyzeStageGraph, type GraphEdge, type GraphNode } from "./graph.ts";
 import {
@@ -303,6 +307,26 @@ export class TemporalCoordinator {
   async retireTerminatedObject(
     input: Publication & { readonly object_id: string; readonly evidence_key: string },
   ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    return this.#retireEvidenced(input, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE);
+  }
+
+  /**
+   * R-4 (NEWLY AUTHORIZED, BLUE Lapse Settlement v1.2 (d)(2)): the same bounded retirement of one extraction object's pending earned boundary,
+   * but on the evidence of Production's sealed LAPSE of that act, under the Temporal lapse-retirement rule. Admission independently requires
+   * that the held lineage an existing held-resume gateway would accept is the one the lapse pinned (RED C-2). It moves no canonical time and
+   * does not write the held state or the sealed transaction: the held continuation is left untouched, to be consumed only by the player's
+   * later, separate resume.
+   */
+  async retireLapsedObject(
+    input: Publication & { readonly object_id: string; readonly evidence_key: string },
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    return this.#retireEvidenced(input, TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE);
+  }
+
+  async #retireEvidenced(
+    input: Publication & { readonly object_id: string; readonly evidence_key: string },
+    rule: typeof TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
     const p = PublicationSchema.safeParse({
       group_id: input.group_id,
       intent_id: input.intent_id,
@@ -348,7 +372,7 @@ export class TemporalCoordinator {
             { key: TEMPORAL_BOUNDARY_INDEX_KEY, version: indexFact.version },
           ],
           depends_on: [evidence.provenance.group_id],
-          rule: TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+          rule,
         },
       ),
     );

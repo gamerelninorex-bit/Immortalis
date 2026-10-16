@@ -256,7 +256,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "60bf221b4b4e2e27d7a0504dc333d3a7b82e4c98f2497b26ff896ef3e95e699e",
+    "d872c10539d9e6db189314aea171bfc1427cbb1db422734776b996b5995c1aba",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
@@ -276,7 +276,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/commands.ts":
-    "4f7004444ed9ac5530c8759ce7696264b8345a808916f638c1388f20c36e9766",
+    "93e9466141f39777a5e5d47991dc92fd6bda4c9e058b06f4655845a4cf69c68b",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
@@ -310,7 +310,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe",
+    head: "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -346,7 +346,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "428fb144febf5ff007e16106f676a2f6b3dac6f812de57ceeaee95b3d943e46c",
+    head: "266e7988697ffc929819b78df27e4cef117bc4e657bfc1a3726d51aeda5ab0ba",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",

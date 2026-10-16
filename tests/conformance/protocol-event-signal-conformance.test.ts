@@ -116,6 +116,7 @@ describe("IA-03 owner exclusivity: the protocol adds no owner, facet, key space,
       "readCurrentEventSignalPresentation",
       "readCurrentObservationGlance",
       "resumeNullPcOocHeldAdvance",
+      "settlePcCollectionLapse",
       "startConfirmedPcCollection",
       "submitPcCollectionReach",
     ]);

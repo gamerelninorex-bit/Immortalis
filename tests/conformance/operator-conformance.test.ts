@@ -65,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
   "packages/protocol/src/null-pc-ooc-held-continuation.ts":
@@ -167,6 +167,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "deliverCausalEventSignalPresentation",
       "getPcCollectionReachTask",
       "resumeNullPcOocHeldAdvance",
+      "settlePcCollectionLapse",
       "startConfirmedPcCollection",
       "submitPcCollectionReach",
     ]);
@@ -323,6 +324,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "secretPath",
       "serveRefereeMcp",
       "setAsideDecision",
+      "settleCollectionLapse",
       "status",
       "stdioTerminal",
       "subjectOf",

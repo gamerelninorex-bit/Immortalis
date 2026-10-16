@@ -34,6 +34,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   pcCollectionStageViolation,
+  pcCollectionLapseGroupCheck,
   pcCollectionTerminationGroupCheck,
   pcCollectionStartViolation,
 } from "../pc-collection/admission.ts";
@@ -77,6 +78,7 @@ type Write = CommitGroup["writes"][number];
 const EXTRACTION_KINDS = [
   "production_pc_collection_work",
   "production_pc_collection_termination",
+  "production_pc_collection_lapse",
   "production_extraction_basis",
   "production_extraction",
   "production_source_delta",
@@ -103,6 +105,7 @@ export function sourceDrawdownGroupCheck(
   const reserveW = of("production_reserve");
   const workW = of("production_pc_collection_work");
   const terminationW = of("production_pc_collection_termination");
+  const lapseW = of("production_pc_collection_lapse");
 
   if (basisW.length === 1 && ws.length === 1 && basisW[0]!.expected_version === 0)
     return checkBasis(group, state, basisW[0]!);
@@ -118,6 +121,9 @@ export function sourceDrawdownGroupCheck(
   // D-1 (PROVISIONAL): Production's terminal disposition of withdrawn in-flight PC collection work, with the key's claim released
   if (terminationW.length === 1 && accountW.length === 1 && ws.length === 2)
     return pcCollectionTerminationGroupCheck(group, state, terminationW[0]!, accountW[0]!);
+  // R-4 (NEWLY AUTHORIZED): Production's non-voluntary, non-productive lapse at the held earned boundary, with the key's claim released
+  if (lapseW.length === 1 && accountW.length === 1 && ws.length === 2)
+    return pcCollectionLapseGroupCheck(group, state, lapseW[0]!, accountW[0]!);
   if (deltaW.length === 1 && ws.length === 1 && deltaW[0]!.expected_version === 0)
     return checkDelta(group, state, deltaW[0]!);
   if (

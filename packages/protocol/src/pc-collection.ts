@@ -10,6 +10,8 @@ import {
   GetPcCollectionReachTaskRequestSchema,
   PC_COLLECTION_COMMITTED,
   PcCollectionCommitInputSchema,
+  PLAYER_CHARACTER_BINDING_KEY,
+  PlayerCharacterBindingSchema,
   PublicationSchema,
   StartConfirmedPcCollectionRequestSchema,
   SubmitPcCollectionReachRequestSchema,
@@ -19,6 +21,7 @@ import {
   ok,
   pcCollectionRequestId,
   productionExtractionObjectId,
+  productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   temporalObjectKey,
   type PcCollectionCommitInput,
@@ -455,6 +458,90 @@ export async function ceaseConfirmedPcCollection(
     if (adapter.occupancyState(pcId).state === "OPEN") {
       const released = await adapter.releaseOccupancyTerminated({
         ...cessationPublication(b, "release"),
+        pc_id: pcId,
+        act_id: actId,
+      });
+      if (!released.ok) return fail_(released);
+    }
+    return ok({ status: PC_COLLECTION_COMMITTED });
+  } catch {
+    return attempted ? unknownOutcome() : refusal();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// R-4 (NEWLY AUTHORIZED) — the lapse settlement: a MECHANICAL derivation from the held state.
+// ---------------------------------------------------------------------------------------------
+
+/** Technical publication labels of the settlement: not interpreted by any owner and no visibility semantics (RC-02 has no F-027 vocabulary). */
+const LAPSE_BASIS = "pc-collection-lapse-settlement";
+const LAPSE_SECRECY = "internal-owner-state";
+
+const lapsePublication = (pcId: string, actId: string, step: string): Publication => ({
+  group_id: `pc-lapse-group:${step}:${pcId}:${actId}`,
+  intent_id: `pc-lapse-intent:${step}:${pcId}:${actId}`,
+  cause: `pc-collection-lapse:${pcId}:${actId}`,
+  basis: LAPSE_BASIS,
+  secrecy: LAPSE_SECRECY,
+});
+
+/**
+ * BLUE R-4 Lapse Settlement v1.2 (NEWLY AUTHORIZED; independent review pending) — presents the settlement of the bound PC's held collection.
+ * It takes NO choice, identity, reason, time or condition from the caller: a host or operator may PRESENT it but cannot decide whether,
+ * when or how it applies. Every step is a derivation the owner paths themselves re-prove (Production derives the lapse from the held
+ * state, Temporal retires the pending boundary only for a lineage a held-resume gateway would accept, Population releases the one
+ * interval), each under an identity derived from the PC and act, so re-presenting it after a lost reply or a crash at any point finishes
+ * the chain without a duplicate write. It NEVER resumes, advances, consumes or cancels the held continuation (only the player's later,
+ * separately confirmed held resume does), writes no Event, Observation, Report or notice, and returns only the committed and the two
+ * refusal statuses, identical across every reason class and cause. Nothing applicable derives → the one refusal and nothing is written.
+ */
+export async function settlePcCollectionLapse(
+  campaign: CollectionCampaign,
+): Promise<PcCollectionResult> {
+  let attempted = false;
+  try {
+    const store = campaign.store;
+    const bindingFact = store.getFact(PLAYER_CHARACTER_BINDING_KEY);
+    const binding = bindingFact ? PlayerCharacterBindingSchema.safeParse(bindingFact.value) : null;
+    if (!binding?.success) return refusal();
+    const pcId = binding.data.active_pc.entity_id;
+    const adapter = new PcCollectionAdapter(store);
+    const occupancy = adapter.occupancyState(pcId);
+    // finished already (by this or an earlier presentation): a replay writes nothing
+    if (occupancy.state === "RELEASED" && occupancy.why === "LAPSED")
+      return ok({ status: PC_COLLECTION_COMMITTED });
+    if (occupancy.state !== "OPEN") return refusal();
+    const actId = occupancy.act_id;
+    attempted = adapter.lapseRecord(pcId, actId) !== undefined;
+    const fail_ = (outcome: Outcome): PcCollectionResult =>
+      outcome.error?.code === "UNKNOWN_OUTCOME" || attempted ? unknownOutcome() : refusal();
+    if (!adapter.lapseRecord(pcId, actId)) {
+      const lapsed = await adapter.lapse({
+        ...lapsePublication(pcId, actId, "lapse"),
+        pc_id: pcId,
+        act_id: actId,
+      });
+      if (!lapsed.ok) return fail_(lapsed);
+      attempted = true;
+    }
+    const extractionId = pcCollectionRequestId(pcId, actId);
+    const object = store.getFact(temporalObjectKey(productionExtractionObjectId(extractionId)));
+    const pending = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
+    if (pending?.success && pending.data.next_boundary !== null) {
+      const retired = await new TemporalCoordinator(
+        store,
+        new StageProviderRegistry(),
+      ).retireLapsedObject({
+        ...lapsePublication(pcId, actId, "retirement"),
+        object_id: productionExtractionObjectId(extractionId),
+        evidence_key: productionPcCollectionLapseKey(extractionId),
+      });
+      if (!retired.ok) return fail_(retired);
+      attempted = true;
+    }
+    if (adapter.occupancyState(pcId).state === "OPEN") {
+      const released = await adapter.releaseOccupancyLapsed({
+        ...lapsePublication(pcId, actId, "release"),
         pc_id: pcId,
         act_id: actId,
       });
