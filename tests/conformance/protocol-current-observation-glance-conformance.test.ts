@@ -46,7 +46,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/engine/src/epistemic/observation.ts":
-    "db3cd19b74c9afdd8aade9742120e9fab4fdc194b96cd4960933db0a4be68b9e",
+    "d4a83cb3bedfae403eb78dab6e101188c0dca01662fe88661e161d9749edbc85",
   "packages/engine/src/epistemic/direct-observation.ts":
     "a0ca78beee98677b855fa863c449bf88a371b997713e68ce59807dbce8801033",
   "packages/engine/src/epistemic/declaration.ts":

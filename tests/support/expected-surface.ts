@@ -839,6 +839,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "establishMechanism",
       "establishRequest",
       "extraction",
+      "hold",
       "mechanism",
       "occupancy",
       "occupancyState",

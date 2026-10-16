@@ -10,6 +10,7 @@ import {
   type CampaignStore,
 } from "@immortalis/engine";
 import {
+  PC_COLLECTION_INTERACTION_FLOOR,
   PLAYER_CHOICE_AUTHORITY,
   productionExtractionKey,
   productionPcCollectionWorkKey,
@@ -26,6 +27,11 @@ import {
 } from "@immortalis/protocol";
 import { SRC_ACCESS } from "@immortalis/testkit";
 import {
+  ACTUATOR_WORDS,
+  TRAVERSAL_CANNOT,
+  cycleWords,
+  establishMechanism,
+  type CollectionSeedOptions,
   ACT_A,
   ACT_B,
   COLLECTION_COMMITTED,
@@ -75,7 +81,6 @@ const SEALED = {
   statement:
     "SYNTHETIC FIXTURE: the material lies behind a sealed barrier that must be passed to be reached.",
 };
-const ABLE = "SYNTHETIC FIXTURE: the hands of this body can pass a sealed barrier.";
 
 const advanceTo = (s: CollectionSeeded, value: number, tx: string) =>
   advanceActivePcToTarget(
@@ -158,7 +163,7 @@ describe("physical reach (C5): the verdict is derived from the owners' stated fa
     const closed = path === "CLOSED";
     const s = await collectionCampaign({
       access: [closed ? SEALED : SRC_ACCESS],
-      ...(mech === "ABLE_TO_PASS" ? { traversal: ABLE } : {}),
+      ...(mech === "ABLE_TO_PASS" ? { ableToPass: true } : {}),
     });
     const r = await confirmAndStart(s, ACT_A, 3, [path, mech]);
     expect(r.committed).toEqual(COLLECTION_COMMITTED);
@@ -359,24 +364,114 @@ describe("duration (C6): derived from the PC's own mechanism and the amount, nev
     expect(b.collect.occupancy(PC)!.value.interval.to.value).toBe(T0.value + 2 * TAU);
   });
 
-  it("an applicable F-014B §11 minimum extends the completion to the later of the two", async () => {
-    const s = await collectionCampaign({
-      floor: { status: "APPLIES", minimum: { unit: T0.unit, value: 50 } },
-    });
-    await confirmAndStart(s, ACT_A, 3);
-    expect(s.collect.extraction(PC, ACT_A)!.value.timing.boundary.at.value).toBe(T0.value + 50);
-    expect(s.collect.work(PC, ACT_A)!.value.derivation).toMatchObject({
+  it("the F-014B §11 determination is DERIVED, never authored: no mechanism or input field can state a floor, and the work records the derived determination", async () => {
+    const s = await collectionCampaign({ noMechanism: true });
+    const input = {
+      pc_id: PC,
+      mechanism_id: MECH,
+      claims: [{ section: "embodiment_topology", index: 0 }],
+      actuator: { statement: ACTUATOR_WORDS },
+      traversal: { statement: TRAVERSAL_CANNOT },
+      cycle_duration: { unit: T0.unit, value: TAU },
+      cycle_quote: cycleWords({ unit: T0.unit, value: TAU }),
+    };
+    for (const extra of [
+      { interaction_floor: { status: "NOT_APPLICABLE", ground: "a ground of my own" } },
+      { interaction_floor: { status: "APPLIES", minimum: { unit: T0.unit, value: 50 } } },
+      { interaction_floor: { status: "UNRESOLVED" } },
+      { floor_minimum: { unit: T0.unit, value: 50 } },
+    ]) {
+      const r = await s.collect.establishMechanism({
+        ...colPublication(961),
+        mechanism: { ...input, ...extra },
+      });
+      expect(r.ok, JSON.stringify(extra)).toBe(false);
+    }
+    expect(s.collect.mechanism(PC, MECH)).toBeUndefined();
+    const ok = await collectionCampaign();
+    await confirmAndStart(ok, ACT_A, 3);
+    expect(ok.collect.work(PC, ACT_A)!.value.derivation).toMatchObject({
       causal_duration: { value: 3 * TAU },
-      floor_minimum: { value: 50 },
+      interaction_floor: PC_COLLECTION_INTERACTION_FLOOR,
+    });
+    expect(ok.collect.extraction(PC, ACT_A)!.value.timing.boundary.at.value).toBe(
+      T0.value + 3 * TAU,
+    );
+  });
+
+  it("a cycle the PC's authored content does not state cannot be established: no exact completion follows without an owner-grounded τ", async () => {
+    const tau = { unit: T0.unit, value: TAU };
+    const attempts: [string, CollectionSeedOptions][] = [
+      [
+        "the authored claim states no cycle at all",
+        { claimStatement: `SYNTHETIC FIXTURE: one body; ${ACTUATOR_WORDS}; ${TRAVERSAL_CANNOT}.` },
+      ],
+      [
+        "the asserted τ is not the number the claim states",
+        { assertedTau: { unit: T0.unit, value: 3 } },
+      ],
+      [
+        "the cycle words are not words of any cited claim",
+        { quote: { cycle: "one handful every 7 fixture-time-unit, exactly" } },
+      ],
+      [
+        "the quoted cycle states another numeral",
+        {
+          quote: { cycle: `one handful every 17 ${T0.unit}` },
+          claimStatement: `SYNTHETIC FIXTURE: one body; ${ACTUATOR_WORDS}; one handful every 17 ${T0.unit}; ${TRAVERSAL_CANNOT}.`,
+        },
+      ],
+      [
+        "the quoted cycle omits the canonical unit",
+        {
+          quote: { cycle: "one handful every 7" },
+          claimStatement: `SYNTHETIC FIXTURE: one body; ${ACTUATOR_WORDS}; one handful every 7 breaths; ${TRAVERSAL_CANNOT}.`,
+        },
+      ],
+      [
+        "the actuator words are not authored",
+        { quote: { actuator: "two tireless mechanical hands" } },
+      ],
+      [
+        "the traversal words are invented",
+        { quote: { traversal: "these hands can pass any barrier whatever" } },
+      ],
+      ["the quotation is too short to anchor anything", { quote: { cycle: "7" } }],
+    ];
+    for (const [name, o] of attempts) {
+      const s = await collectionCampaign({ ...o, noMechanism: true });
+      const r = await establishMechanism(s, o);
+      expect(r.ok, name).toBe(false);
+      expect(s.collect.mechanism(PC, MECH), name).toBeUndefined();
+      // and so nothing can start: the act is held, nothing occupied, nothing extracted
+      const started = await confirmAndStart(s, ACT_A, 3);
+      expect(JSON.stringify(started.started), name).toBe(COLLECTION_REFUSAL);
+      nothingExtracted(s, ACT_A);
+      expect(s.collect.occupancy(PC), name).toBeUndefined();
+    }
+    // the control: the same wording, authored and quoted, is accepted, and τ is exactly what the words state
+    const good = await collectionCampaign({ tau });
+    expect(good.collect.mechanism(PC, MECH)!.value.cycle).toMatchObject({
+      duration: tau,
+      authored_quote: cycleWords(tau),
     });
   });
 
-  it("an unresolved minimum WITHHOLDS the exact completion: nothing is started and nothing is occupied", async () => {
-    const s = await collectionCampaign({ floor: { status: "UNRESOLVED" } });
-    const r = await confirmAndStart(s, ACT_A, 3);
-    expect(JSON.stringify(r.started)).toBe(COLLECTION_REFUSAL);
-    nothingExtracted(s, ACT_A);
-    expect(s.collect.occupancy(PC)).toBeUndefined();
+  it("the mechanism cannot follow a contract it was not authored in: a changed contract version or a claim it does not cite grounds nothing", async () => {
+    const s = await collectionCampaign({ noMechanism: true });
+    const r = await s.collect.establishMechanism({
+      ...colPublication(962),
+      mechanism: {
+        pc_id: PC,
+        mechanism_id: MECH,
+        claims: [{ section: "identity_agency", index: 0 }],
+        actuator: { statement: ACTUATOR_WORDS },
+        traversal: { statement: TRAVERSAL_CANNOT },
+        cycle_duration: { unit: T0.unit, value: TAU },
+        cycle_quote: cycleWords({ unit: T0.unit, value: TAU }),
+      },
+    });
+    expect(r.ok).toBe(false); // those words are in embodiment_topology, not in the cited identity_agency claim
   });
 
   it("no mechanism, a mechanism in a foreign time unit, or a mechanism citing an unaccepted claim yields no completion", async () => {
@@ -385,6 +480,7 @@ describe("duration (C6): derived from the PC's own mechanism and the amount, nev
     expect(JSON.stringify(r.started)).toBe(COLLECTION_REFUSAL);
     nothingExtracted(none, ACT_A);
 
+    // authored and quoted faithfully, but in a unit that is not the campaign's canonical unit: the exact completion is withheld
     const foreign = await collectionCampaign({ tau: { unit: "another-unit", value: 5 } });
     const f = await confirmAndStart(foreign, ACT_A, 3);
     expect(JSON.stringify(f.started)).toBe(COLLECTION_REFUSAL);
@@ -397,10 +493,10 @@ describe("duration (C6): derived from the PC's own mechanism and the amount, nev
         pc_id: PC,
         mechanism_id: MECH,
         claims: [{ section: "embodiment_topology", index: 99 }],
-        actuator: { statement: "SYNTHETIC FIXTURE: hands" },
-        traversal: { statement: "SYNTHETIC FIXTURE: cannot pass" },
+        actuator: { statement: ACTUATOR_WORDS },
+        traversal: { statement: TRAVERSAL_CANNOT },
         cycle_duration: { unit: T0.unit, value: TAU },
-        interaction_floor: { status: "UNRESOLVED" },
+        cycle_quote: cycleWords({ unit: T0.unit, value: TAU }),
       },
     });
     expect(bogus.ok).toBe(false);

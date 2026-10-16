@@ -298,8 +298,14 @@ describe("a loaded campaign whose collection facts were edited or built outside 
     const edits: Record<string, (f: any) => void> = {
       "τ shortened": (f) => (f.value.cycle.duration.value = 1),
       "τ lengthened": (f) => (f.value.cycle.duration.value = 99),
-      "floor flipped": (f) =>
+      "a floor smuggled in": (f) =>
         (f.value.interaction_floor = { status: "APPLIES", minimum: { unit: T0.unit, value: 500 } }),
+      "authored cycle words replaced": (f) =>
+        (f.value.cycle.authored_quote = "one handful every 1 fixture-time-unit"),
+      "actuator words invented": (f) =>
+        (f.value.actuator.statement = "two tireless mechanical hands"),
+      "traversal words invented": (f) =>
+        (f.value.traversal.statement = "these hands can pass any barrier whatever"),
       "claim moved to an unaccepted one": (f) =>
         (f.value.authored_from.claims = [{ section: "embodiment_topology", index: 99 }]),
       "contract pin moved": (f) => (f.value.authored_from.contract.version = 9),

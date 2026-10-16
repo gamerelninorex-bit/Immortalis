@@ -63,7 +63,9 @@ import {
   derivePcCollectionRequest,
   deriveOccupancyInterval,
   interpretPcCollectionReachAnswer,
+  pcCollectionHold,
   pcCollectionPreconditions,
+  type PcCollectionHold,
 } from "./derive.ts";
 import {
   extractionCredited,
@@ -199,8 +201,12 @@ export class PcCollectionAdapter {
       },
       actuator: d.actuator,
       traversal: d.traversal,
-      cycle: { kind: "SERIAL_PER_UNIT", units_per_cycle: 1, duration: d.cycle_duration },
-      interaction_floor: d.interaction_floor,
+      cycle: {
+        kind: "SERIAL_PER_UNIT",
+        units_per_cycle: 1,
+        duration: d.cycle_duration,
+        authored_quote: d.cycle_quote,
+      },
       committer: { owner: "pc_existence", facet: "pc_collection_mechanism" },
     });
     if (!value.success) return Promise.resolve(invalid("mechanism", value.error));
@@ -465,7 +471,7 @@ export class PcCollectionAdapter {
         cycles: t.cycles,
         per_cycle: t.per_cycle,
         causal_duration: t.causal_duration,
-        floor_minimum: t.floor_minimum,
+        interaction_floor: t.floor,
         started_at: pre.now,
         completes_at: t.completes_at,
       },
@@ -547,6 +553,13 @@ export class PcCollectionAdapter {
       pcId,
     );
     return rec ? { fact: rec.fact, value: rec.value } : undefined;
+  }
+  /** What holds the PC's time, derived from committed facts alone (a read; it releases or decides nothing). */
+  hold(pcId: string): PcCollectionHold {
+    return pcCollectionHold(
+      { get: (k) => this.#store.getFact(k), has: (k) => this.#store.getFact(k) !== undefined },
+      pcId,
+    );
   }
   occupancyState(pcId: string): PcOccupancyState {
     return pcOccupancyState(

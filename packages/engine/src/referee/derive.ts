@@ -7,6 +7,7 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
+  PopulationPcOccupancySchema,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -16,10 +17,15 @@ import {
   TemporalStateSchema,
   WorldLocusSchema,
   WorldProfileSchema,
+  WorldSourceConditionSchema,
+  WorldSourceDeliverySchema,
+  pcCollectionRequestId,
   pcExistenceContractKey,
+  popPcOccupancyKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
+  worldSourceDeliveryKey,
   type CanonicalTime,
   type ExistenceContract,
   type I002HostDecision,
@@ -35,6 +41,7 @@ import {
   type RefereeVerdict,
 } from "@immortalis/contracts";
 import { sha256Canonical } from "../hash.ts";
+import { extractionCredited } from "../pc-collection/state.ts";
 
 /**
  * Deterministic mechanism of the host-callable AI referee (PR #61, BLUE B61-A3). Nothing here understands language: it builds the
@@ -102,8 +109,8 @@ export interface I002Context {
 
 export interface DeliveredFact {
   readonly fact_id: string;
-  /** which committed fact the text is from */
-  readonly from: "world" | "locus";
+  /** which committed fact the text is from (`outcome`: the sealed World-State delivery of the character's own completed collection) */
+  readonly from: "world" | "locus" | "outcome";
   readonly label: string;
   readonly text: string;
 }
@@ -364,6 +371,71 @@ export function committedCanonicalTime(facts: Facts): CanonicalTime | null {
   return state?.success ? state.data.canonical_time : null;
 }
 
+/** The delivered fact id of the character's own completed collection (the only `outcome` fact there is). */
+export const OBSERVATION_OUTCOME_FACT_ID = "outcome.collection";
+const DELIVERY_KEY = /^world\/([^/]+)\/source-delivery\/(.+)$/;
+
+/**
+ * CPAA-C1 v0.2 PROVISIONAL: which completed collection of the character an observation question may cite. `LATEST`: the act the PC's one
+ * occupancy slot names (a NEW question); `NONE`: a record asked before any outcome was cited; or exactly the delivery a retained record
+ * cited. Never a caller's choice of a fact: the identities are derived from the PC's own records.
+ */
+export type ObservationOutcomeSelector = "LATEST" | "NONE" | { readonly extraction_id: string };
+
+/**
+ * The committed, sealed World-State delivery of the PC's own completed collection, rendered as ONE delivered world fact when it lies at
+ * the character's locus and Production has credited it. The text is a mechanical rendering of the typed delivery (amount, unit and the
+ * source's material), not a scene and not an appearance: whether the character can perceive it is the host's quote-anchored reading, so
+ * canonical truth alone is never the character's knowledge.
+ */
+function collectionOutcome(
+  facts: Facts,
+  pcId: string,
+  worldId: string,
+  locusId: string,
+  which: ObservationOutcomeSelector,
+): { readonly fact: DeliveredFact; readonly ref: RefereeInputRef } | undefined {
+  if (which === "NONE") return undefined;
+  let extractionId: string;
+  if (which === "LATEST") {
+    const slot = facts(popPcOccupancyKey(pcId));
+    const occupancy = slot ? PopulationPcOccupancySchema.safeParse(slot.value) : undefined;
+    if (!occupancy?.success) return undefined;
+    extractionId = pcCollectionRequestId(pcId, occupancy.data.act_id);
+  } else extractionId = which.extraction_id;
+  if (!extractionId.startsWith(`pc-collect:${pcId}:`)) return undefined;
+  const deliveryFact = facts(worldSourceDeliveryKey(worldId, extractionId));
+  const delivery = deliveryFact
+    ? WorldSourceDeliverySchema.safeParse(deliveryFact.value)
+    : undefined;
+  if (!deliveryFact || !delivery?.success || delivery.data.delivery_id !== extractionId)
+    return undefined;
+  const sourceFact = facts(delivery.data.source.fact_key);
+  const source = sourceFact ? WorldSourceConditionSchema.safeParse(sourceFact.value) : undefined;
+  if (
+    !source?.success ||
+    source.data.locality.world.entity_id !== worldId ||
+    source.data.locality.locus.entity_id !== locusId
+  )
+    return undefined;
+  if (!extractionCredited({ get: facts, has: (k) => facts(k) !== undefined }, extractionId))
+    return undefined;
+  const d = delivery.data.delivered;
+  return {
+    fact: {
+      fact_id: OBSERVATION_OUTCOME_FACT_ID,
+      from: "outcome",
+      label: "completed gathering",
+      text: `The gathering of ${d.amount} ${d.unit} of ${source.data.material_class} from the source at this place has been completed.`,
+    },
+    ref: {
+      fact_key: deliveryFact.key,
+      version: deliveryFact.version,
+      group_id: deliveryFact.provenance.group_id,
+    },
+  };
+}
+
 /**
  * The direct-perception context, built ONLY from committed facts (see `ObservationContext`) at the supplied canonical basis. Refused
  * unless the operative binding is the first ACTIVATION of exactly this character, the character holds a committed ORIGINAL physical-locus
@@ -371,7 +443,14 @@ export function committedCanonicalTime(facts: Facts): CanonicalTime | null {
  */
 export function observationContext(
   facts: Facts,
-  input: { campaign_id: string; attempt: number; pc_id: string; observed_at: CanonicalTime },
+  input: {
+    campaign_id: string;
+    attempt: number;
+    pc_id: string;
+    observed_at: CanonicalTime;
+    /** default `LATEST`: a new question cites the PC's own most recent completed collection, if any */
+    outcome?: ObservationOutcomeSelector;
+  },
 ):
   | { ok: true; context: ObservationContext }
   | { ok: false; code: RefereeRefusalCode; message: string } {
@@ -423,6 +502,13 @@ export function observationContext(
     version: f.version,
     group_id: f.provenance.group_id,
   });
+  const outcome = collectionOutcome(
+    facts,
+    input.pc_id,
+    worldId,
+    locusId,
+    input.outcome ?? "LATEST",
+  );
   return {
     ok: true,
     context: {
@@ -433,8 +519,15 @@ export function observationContext(
       observed_at: input.observed_at,
       statement: binding.transition.basis.statement,
       pc: refereeCandidateItems(pc.data),
-      facts: deliveredFacts(world.data, locus.data),
-      refs: [ref(pcFact), ref(bindingFact), ref(custodyFact), ref(worldFact), ref(locusFact)],
+      facts: [...deliveredFacts(world.data, locus.data), ...(outcome ? [outcome.fact] : [])],
+      refs: [
+        ref(pcFact),
+        ref(bindingFact),
+        ref(custodyFact),
+        ref(worldFact),
+        ref(locusFact),
+        ...(outcome ? [outcome.ref] : []),
+      ],
     },
   };
 }
@@ -1285,9 +1378,11 @@ function observationRecordViolation(
   const ids = irIdentities(r);
   const pcKey = pcExistenceContractKey(r.subject.pc_id);
   const keys = r.input.refs.map((x) => x.fact_key);
+  // the sixth citation, when there is one, is the sealed delivery of the character's own completed collection (never another fact)
+  const cited = keys.length === 6 ? DELIVERY_KEY.exec(keys[5]!) : null;
   if (
     !ids ||
-    keys.length !== 5 ||
+    (keys.length !== 5 && !(keys.length === 6 && cited && cited[1] === ids.world_id)) ||
     keys[0] !== pcKey ||
     keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
     keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
@@ -1295,7 +1390,7 @@ function observationRecordViolation(
     keys[4] !== worldLocusKey(ids.world_id, ids.locus_id)
   )
     return incoherent(
-      "a direct-perception record cites the released character, the binding, the custody, the world and the locus",
+      "a direct-perception record cites the released character, the binding, the custody, the world and the locus (and, when it cites one, the delivery of the character's own completed collection)",
     );
   if (superseded) {
     if (
@@ -1312,6 +1407,7 @@ function observationRecordViolation(
     attempt: r.attempt,
     pc_id: r.subject.pc_id,
     observed_at: r.input.observed_at,
+    outcome: cited ? { extraction_id: cited[2]! } : "NONE",
   });
   if (!built.ok) return { code: built.code, message: built.message, stale: false };
   if (

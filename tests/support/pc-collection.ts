@@ -33,6 +33,7 @@ import {
 } from "@immortalis/protocol";
 import {
   ACTOR_FIXTURE_EXTENSION,
+  DEST_LOCUS_ID,
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
   SRC_ACCESS,
@@ -49,7 +50,7 @@ import {
   sourceInput,
   at,
 } from "@immortalis/testkit";
-import { wireExistingActor } from "./existing-actor.ts";
+import { actorBasisPin, existingActorContract, wireExistingActor } from "./existing-actor.ts";
 import { custodiedCampaign, type PcMoveSeeded, PC } from "./pc-movement.ts";
 import { must } from "./temporal.ts";
 
@@ -69,10 +70,16 @@ export const ACT_A = "act-a";
 export const ACT_B = "act-b";
 export const ACT_C = "act-c";
 
-export const TRAVERSAL_STATEMENT =
-  "SYNTHETIC FIXTURE: the hands of this body cannot pass a sealed barrier.";
-export const ACTUATOR_STATEMENT =
-  "SYNTHETIC FIXTURE: two bare hands gather loose material by hand.";
+/**
+ * The PC's AUTHORED words, in its accepted `embodiment_topology` claim. The mechanism is grounded only in verbatim quotations of this
+ * claim: the actuator words, the traversal words and the words that state the exact cycle (numeral and canonical unit).
+ */
+export const ACTUATOR_WORDS = "the hands of this body gather loose material by hand";
+export const TRAVERSAL_CANNOT = "these hands cannot pass a sealed barrier";
+export const TRAVERSAL_CAN = "these hands can pass a sealed barrier";
+export const cycleWords = (tau: CanonicalTime): string =>
+  `one handful every ${tau.value} ${tau.unit}`;
+const DEFAULT_TAU: CanonicalTime = { unit: T0.unit, value: TAU };
 
 export interface CollectionSeeded extends PcMoveSeeded {
   readonly drawdown: SourceDrawdownAdapter;
@@ -110,17 +117,35 @@ export interface CollectionSeedOptions {
   readonly dir?: string;
   /** stated source access facts (default: the fixture's "loose on the surface" statement) */
   readonly access?: readonly { aspect: string; statement: string }[];
-  readonly floor?: unknown;
+  /** the cycle the PC's authored claim states (default: TAU canonical units) */
   readonly tau?: CanonicalTime;
-  readonly traversal?: string;
+  /** does the PC's authored claim say its hands can pass a sealed barrier (default: cannot) */
+  readonly ableToPass?: boolean;
+  /** replaces the whole authored claim (so a test can author a claim that states no cycle) */
+  readonly claimStatement?: string;
+  /** replaces the words the mechanism quotes (so a test can present wording the claim does not state) */
+  readonly quote?: { actuator?: string; traversal?: string; cycle?: string };
+  /** the cycle duration the mechanism asserts (default: the authored tau) */
+  readonly assertedTau?: CanonicalTime;
   readonly noMechanism?: boolean;
   readonly sourceAmount?: number;
-  readonly tamper?: boolean;
 }
+
+export const authoredClaim = (o: CollectionSeedOptions = {}): string =>
+  o.claimStatement ??
+  `SYNTHETIC FIXTURE: one body; ${ACTUATOR_WORDS}; ${cycleWords(o.tau ?? DEFAULT_TAU)}; ${
+    o.ableToPass ? TRAVERSAL_CAN : TRAVERSAL_CANNOT
+  }.`;
+
+/** The existing actor's I-002 contract, with the authored `embodiment_topology` claim the mechanism will quote. */
+export const authoredContract = (o: CollectionSeedOptions = {}) =>
+  existingActorContract(PC, [actorBasisPin(PC)], {
+    embodiment_topology: { statement: authoredClaim(o), provenance: "SAFELY-INHERITED" },
+  });
 
 /** A custodied, handed-over PC with a finite source (5), an empty Reserve, Production's basis and the PC's P-1 mechanism: nothing is committed. */
 export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise<CollectionSeeded> {
-  const base = await custodiedCampaign(o.dir);
+  const base = await custodiedCampaign(o.dir, authoredContract(o));
   const s = wire(base);
   const access = o.access ?? [SRC_ACCESS];
   await must(
@@ -143,7 +168,7 @@ export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise
   await must(
     s.production.establishReserve({ ...prodPublication(950), reserve: reserveRawInput() }),
   );
-  if (!o.noMechanism) await establishMechanism(s, o);
+  if (!o.noMechanism) await must(establishMechanism(s, o));
   return s;
 }
 
@@ -154,15 +179,44 @@ export const establishMechanism = (s: CollectionSeeded, o: CollectionSeedOptions
       pc_id: PC,
       mechanism_id: MECH,
       claims: [{ section: "embodiment_topology", index: 0 }],
-      actuator: { statement: ACTUATOR_STATEMENT },
-      traversal: { statement: o.traversal ?? TRAVERSAL_STATEMENT },
-      cycle_duration: o.tau ?? { unit: T0.unit, value: TAU },
-      interaction_floor: o.floor ?? {
-        status: "NOT_APPLICABLE",
-        ground: "SYNTHETIC FIXTURE: a single handful is not a consequential interaction.",
+      actuator: { statement: o.quote?.actuator ?? ACTUATOR_WORDS },
+      traversal: {
+        statement: o.quote?.traversal ?? (o.ableToPass ? TRAVERSAL_CAN : TRAVERSAL_CANNOT),
       },
+      cycle_duration: o.assertedTau ?? o.tau ?? DEFAULT_TAU,
+      cycle_quote: o.quote?.cycle ?? cycleWords(o.tau ?? DEFAULT_TAU),
     },
   });
+
+export const DEST_SOURCE_KEY = "source-dest";
+export const DEST_RESERVE = "reserve-dest";
+export const DEST_BASIS = "basis-dest";
+
+/** A second finite source (5) and empty Reserve at the journey's DESTINATION locus, with Production's basis for it. */
+export async function establishDestinationSource(s: CollectionSeeded): Promise<void> {
+  await must(
+    s.campaign.establishSourceCondition({
+      ...publication(970),
+      source: sourceInput({ source_key: DEST_SOURCE_KEY, locus_id: DEST_LOCUS_ID }),
+    }),
+  );
+  await must(
+    s.drawdown.establishBasis({
+      ...drawdownPublication(970),
+      extraction_basis: basisInput({
+        basis_id: DEST_BASIS,
+        source_key: DEST_SOURCE_KEY,
+        relies_on: SRC_ACCESS,
+      }),
+    }),
+  );
+  await must(
+    s.production.establishReserve({
+      ...prodPublication(970),
+      reserve: { ...reserveRawInput(DEST_RESERVE), locus_id: DEST_LOCUS_ID },
+    }),
+  );
+}
 
 /** What the player confirmed for one attempt. */
 export const choice = (
@@ -246,6 +300,33 @@ export async function confirmAndStart(
     : task;
   const started = await startConfirmedPcCollection(ctx, START_REQ);
   return { ctx, committed, task, judged, started };
+}
+
+/** commit → reach judgment → Population's registration, but NOT Production's start (so a test can attempt the start its own way). */
+export async function prepareToStart(
+  s: CollectionSeeded,
+  act: string,
+  quantity: number,
+  reading: [Parameters<typeof hostAnswer>[1], Parameters<typeof hostAnswer>[2]] = [
+    "OPEN",
+    "NOT_AT_ISSUE",
+  ],
+) {
+  const ctx = trustedCollection(s, act, quantity);
+  const committed = await commitConfirmedPcCollection(ctx, COMMIT_REQ);
+  const task = getPcCollectionReachTask(ctx, TASK_REQ);
+  if (!task.ok) throw new Error("no reach task");
+  const judged = await submitPcCollectionReach(
+    ctx,
+    reachReq(hostAnswer(task.value.task, ...reading)),
+  );
+  const occ = await s.collect.registerOccupancy({
+    ...colPublication(300),
+    pc_id: PC,
+    act_id: act,
+    mechanism_id: MECH,
+  });
+  return { ctx, task: task.value.task, committed, judged, occ };
 }
 
 export async function reopenCollection(

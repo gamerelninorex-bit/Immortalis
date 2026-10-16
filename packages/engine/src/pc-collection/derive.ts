@@ -2,6 +2,7 @@ import {
   ExistenceContractSchema,
   OWNER_PC_EXISTENCE,
   PC_COLLECTION_INTENT_KIND,
+  PC_COLLECTION_INTERACTION_FLOOR,
   PLAYER_CHARACTER_BINDING_KEY,
   PcCollectionCommitInputSchema,
   PcCollectionCommitmentSchema,
@@ -9,6 +10,7 @@ import {
   PcCollectionReachAnswerSchema,
   PcCollectionReachDecisionSchema,
   PcCollectionReachTaskSchema,
+  ProductionPcCollectionWorkSchema,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
   ProductionRequestSchema,
@@ -30,9 +32,14 @@ import {
   productionExtractionObjectId,
   productionPcCollectionWorkKey,
   productionReserveKey,
+  logisticsCommitmentKey,
+  logisticsTransferKey,
+  worldEntityTransitionKey,
+  worldFallbackEntityKey,
   worldPcLocusCustodyKey,
   worldSourceConditionKey,
   type CanonicalTime,
+  type LocusRef,
   type OwnerFact,
   type PcCollectionCommitInput,
   type PcCollectionCommitment,
@@ -48,6 +55,7 @@ import {
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
+import { resolveEntityLocus } from "../logistics/locus.ts";
 import { pcHasMovementRecords, pcOccupancyRecord, pcOccupancyState } from "./state.ts";
 
 /**
@@ -176,15 +184,62 @@ function pcStandingViolation(
       reason:
         "the PC's physical-locus custody record is committed: nothing is done from an invented locus",
     };
-  const violation = pcPhysicalLocusCustodyViolation(custodyKey, custody.data, facts);
+  const locus = pcStationaryLocus(pcId, custody.data, facts);
+  if ("reason" in locus) return locus;
+  // after a SETTLED leg the custody record is immutable predecessor provenance of the ORIGIN and World-State's destination is the one
+  // authority: the record is then judged as it stood, without the destination facts the settled leg legitimately added
+  const violation = pcPhysicalLocusCustodyViolation(
+    custodyKey,
+    custody.data,
+    locus.settled
+      ? apartFromSettledLeg(facts, custody.data.stationary_locus.world.entity_id, pcId)
+      : facts,
+  );
   if (violation)
     return { reason: `the PC's custody does not hold as the one authority: ${violation}` };
+  return { binding: bindingFact, pc: pcFact, custody: custodyFact, sourceLocus: locus.locus };
+}
+
+/** The same facts without the four that a settled single leg adds (the destination commit and the Logistics records). */
+const apartFromSettledLeg = (facts: FactView, worldId: string, pcId: string): FactView => {
+  const hidden = new Set([
+    worldFallbackEntityKey(worldId, pcId),
+    worldEntityTransitionKey(worldId, pcId),
+    logisticsCommitmentKey(worldId, pcId),
+    logisticsTransferKey(worldId, pcId),
+  ]);
   return {
-    binding: bindingFact,
-    pc: pcFact,
-    custody: custodyFact,
-    sourceLocus: custody.data.stationary_locus,
+    get: (k) => (hidden.has(k) ? undefined : facts.get(k)),
+    has: (k) => !hidden.has(k) && facts.has(k),
   };
+};
+
+/**
+ * Where the PC stationarily IS, for a collection: the one lawful answer, never an invented locus. With no movement of any kind
+ * (no movement commitment-of-record and no PC-owned request) it is the stationary custody record's locus. A voluntary movement that
+ * is committed, requested, dispatched, in transfer or awaiting its retirement is IN FLIGHT or pending: the PC is not stationary and
+ * cannot begin a collection. Once the single leg has SETTLED (World-State's destination commit exists and the Logistics transfer is
+ * retired) the PC is stationary at that destination, and World-State's destination is the one authority for it (the custody record
+ * is immutable predecessor provenance of the origin). No new journey rule and no travel are involved.
+ */
+function pcStationaryLocus(
+  pcId: string,
+  custody: { stationary_locus: { world: { entity_id: string } } },
+  facts: FactView,
+): { reason: string } | { locus: LocusRef; settled: boolean } {
+  if (!pcHasMovementRecords(facts, pcId))
+    return { locus: custody.stationary_locus as LocusRef, settled: false };
+  const resolved = resolveEntityLocus(
+    { getFact: (k) => facts.get(k) },
+    custody.stationary_locus.world.entity_id,
+    pcId,
+  );
+  if (resolved?.phase !== "DESTINATION_COMMITTED" || !resolved.stationary)
+    return {
+      reason:
+        "the PC has a voluntary movement that is pending or in flight: a PC that is not stationary cannot begin a collection",
+    };
+  return { locus: resolved.stationary, settled: true };
 }
 
 /**
@@ -283,11 +338,15 @@ const PC_COLLECTION_REQUEST_KEY_RE = /^pc\/([^/]+)\/collection\/([^/]+)\/request
 // C6 / P-1 — the mechanism carrier.
 // ---------------------------------------------------------------------------------------------
 
+const MIN_QUOTE_LENGTH = 8;
+
 /**
  * A mechanism fact holds when it is at the slot derived from its PC and mechanism identity; the PC's own released contract is
- * committed at the pinned version; and every cited claim is an accepted claim of that contract (a hypothesis or unresolved item has
- * no locator). That the cited claims JUSTIFY the stated cycle is authored, not adjudicated (the same discipline as the PC capability
- * profile): this fact only follows already-authored content and never invents any.
+ * committed at the pinned version; every cited claim is an accepted claim of that contract (a hypothesis or unresolved item has no
+ * locator); and every statement the mechanism carries is GROUNDED in that authored content: the actuator and traversal statements
+ * and the cycle's `authored_quote` are each a verbatim quotation of a cited claim, and the cycle quotation states the exact numeral
+ * and the canonical unit of τ. The check is textual (the authored words say exactly this number in this unit): it cannot judge that
+ * the words mean "one handling cycle", and it never supplies a number the content does not state.
  */
 export function pcCollectionMechanismViolation(
   key: string,
@@ -304,25 +363,46 @@ export function pcCollectionMechanismViolation(
     m.authored_from.contract.version !== contract.fact.version
   )
     return "the mechanism follows the PC's own released contract at its committed version";
-  for (const claim of m.authored_from.claims)
-    if (pcClaimAt(contract.value, claim) === undefined)
+  const cited: string[] = [];
+  for (const claim of m.authored_from.claims) {
+    const found = pcClaimAt(contract.value, claim);
+    if (found === undefined)
       return "every cited claim is an accepted claim of the PC's contract: a hypothesis or unresolved item grounds nothing";
+    cited.push(found.statement);
+  }
+  const grounded = (quote: string) =>
+    quote.length >= MIN_QUOTE_LENGTH && cited.some((statement) => statement.includes(quote));
+  if (!grounded(m.actuator.statement))
+    return "the actuator statement is a verbatim quotation of a cited accepted claim: wording the PC's content does not state is not a mechanism";
+  if (!grounded(m.traversal.statement))
+    return "the traversal statement is a verbatim quotation of a cited accepted claim: wording the PC's content does not state is not a mechanism";
+  if (!grounded(m.cycle.authored_quote))
+    return "the cycle is stated by a verbatim quotation of a cited accepted claim: a cycle the PC's authored content does not state cannot be established";
+  if (!statesExactDuration(m.cycle.authored_quote, m.cycle.duration))
+    return "the quoted authored words state exactly this cycle's numeral and canonical time unit: a number the content does not state is not an exact cycle";
   return null;
+}
+
+/** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
+export function statesExactDuration(quote: string, duration: CanonicalTime): boolean {
+  const numeral = new RegExp(`(?<![0-9.])${duration.value}(?![0-9]|\\.[0-9])`);
+  return numeral.test(quote) && quote.includes(duration.unit);
 }
 
 export interface CollectionTiming {
   readonly cycles: number;
   readonly per_cycle: CanonicalTime;
   readonly causal_duration: CanonicalTime;
-  readonly floor_minimum: CanonicalTime | null;
+  readonly floor: typeof PC_COLLECTION_INTERACTION_FLOOR;
   readonly completes_at: CanonicalTime;
 }
 
 /**
  * The earned completion of one collection, DERIVED from the mechanism's exact serial cycle and the amount (Timed Work §§3–4, 14):
- * cycles = amount, causal duration = cycles × cycle duration, and the completion must also satisfy any applicable F-014B §11
- * minimum (the later of the two). It is never a requested horizon, a caller-declared boundary or a default. An unresolved floor,
- * a unit that is not the canonical unit, or a non-representable total WITHHOLDS the exact completion.
+ * cycles = amount, causal duration = cycles × cycle duration. It is never a requested horizon, a caller-declared boundary or a
+ * default. The F-014B §11 determination is derived, not authored: the closed class has no counterpart actor, so no
+ * consequential-interaction floor applies (a PROVISIONAL reading of §11). A unit that is not the canonical unit or a
+ * non-representable total WITHHOLDS the exact completion.
  */
 export function deriveCollectionTiming(
   now: CanonicalTime,
@@ -333,25 +413,16 @@ export function deriveCollectionTiming(
   const tau = mechanism.cycle.duration;
   if (tau.unit !== now.unit)
     return withheld("the mechanism's cycle is not in the campaign's canonical time unit");
-  const floor = mechanism.interaction_floor;
-  if (floor.status === "UNRESOLVED")
-    return withheld(
-      "the F-014B §11 minimum's applicability is unresolved: an exact completion is withheld",
-    );
-  if (floor.status === "APPLIES" && floor.minimum.unit !== now.unit)
-    return withheld("the applicable minimum is not in the canonical time unit");
   const cycles = quantity.amount;
   const causal = cycles * tau.value;
-  const minimum = floor.status === "APPLIES" ? floor.minimum.value : 0;
-  const total = Math.max(causal, minimum);
-  const at = now.value + total;
-  if (!Number.isSafeInteger(causal) || !Number.isSafeInteger(at) || total <= 0)
+  const at = now.value + causal;
+  if (!Number.isSafeInteger(causal) || !Number.isSafeInteger(at) || causal <= 0)
     return withheld("the derived completion is not representable");
   return ok({
     cycles,
     per_cycle: tau,
     causal_duration: { unit: now.unit, value: causal },
-    floor_minimum: floor.status === "APPLIES" ? floor.minimum : null,
+    floor: PC_COLLECTION_INTERACTION_FLOOR,
     completes_at: { unit: now.unit, value: at },
   });
 }
@@ -548,11 +619,6 @@ export function pcCollectionPreconditions(
   if ("reason" in standing) return standing;
   if (!canonicalEqual(source.value.locality, standing.sourceLocus))
     return { reason: "the PC is stationary at the source's own locus" };
-  if (pcHasMovementRecords(facts, pcId))
-    return {
-      reason:
-        "the PC has voluntary-movement records: a moving or movement-committed PC cannot begin collection",
-    };
   const now = verifyAt ?? clockOf(facts);
   if (!now) return { reason: "no canonical temporal basis is established" };
   return { commitment, mechanism, source, standing, now };
@@ -662,7 +728,7 @@ export function pcCollectionWorkViolation(
       cycles: t.cycles,
       per_cycle: t.per_cycle,
       causal_duration: t.causal_duration,
-      floor_minimum: t.floor_minimum,
+      interaction_floor: t.floor,
       started_at: w.derivation.started_at,
       completes_at: t.completes_at,
     })
@@ -701,8 +767,6 @@ export function pcCollectionPremiseViolation(
   if (!commitment || !src) return "the commitment and its source are committed";
   if (!canonicalEqual(src.value.locality, standing.sourceLocus))
     return "the PC is no longer at the source's locus";
-  if (pcHasMovementRecords(facts, w.pc_id))
-    return "the PC acquired a movement record during the work";
   const mech = facts.get(w.pins.mechanism.fact_key);
   if (!mech || mech.version !== w.pins.mechanism.version)
     return "the mechanism changed since the start";
@@ -720,6 +784,35 @@ export function pcCollectionPremiseViolation(
   if (state.state !== "OPEN" || state.act_id !== w.act_id)
     return "the PC's occupancy is no longer open for this act";
   return null;
+}
+
+export type PcCollectionHold =
+  | { readonly state: "NONE" }
+  /** occupied by a registration Production has not started (the window between the two commits: re-presenting the start finishes it) */
+  | { readonly state: "REGISTERED"; readonly act_id: string }
+  | { readonly state: "IN_FLIGHT"; readonly act_id: string }
+  /** a started act whose premises no longer hold: its stage will be refused, so it is neither credited, completed nor released */
+  | { readonly state: "INVALIDATED"; readonly act_id: string; readonly reason: string };
+
+/**
+ * What holds the PC's time, derived from committed facts alone (a read: it writes nothing and decides nothing). It names the
+ * unresolved cause without resolving it: the existing contracts authorise a release only by the work's close or by a lawful denial
+ * of work never admitted, so an in-flight or invalidated act keeps the PC occupied. No cancellation, abandonment, partial credit or
+ * re-choice is derived here or anywhere else.
+ */
+export function pcCollectionHold(facts: FactView, pcId: string): PcCollectionHold {
+  const occupancy = pcOccupancyState(facts, pcId);
+  if (occupancy.state !== "OPEN") return { state: "NONE" };
+  const work = parseFact<ProductionPcCollectionWork>(
+    facts,
+    productionPcCollectionWorkKey(pcCollectionRequestId(pcId, occupancy.act_id)),
+    ProductionPcCollectionWorkSchema,
+  );
+  if (!work) return { state: "REGISTERED", act_id: occupancy.act_id };
+  const reason = pcCollectionPremiseViolation(work.value, facts);
+  return reason === null
+    ? { state: "IN_FLIGHT", act_id: occupancy.act_id }
+    : { state: "INVALIDATED", act_id: occupancy.act_id, reason };
 }
 
 /** Is a request key one in the PC-owned collection key space? */

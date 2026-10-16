@@ -86,8 +86,11 @@ export const mvPublication = (n: number) => ({
 });
 
 /** The lawful handover, PR #41's custody record and one established destination locus: nothing is committed or moved yet. */
-export async function custodiedCampaign(dir = tempDir()): Promise<PcMoveSeeded> {
-  const s = wire(await handedOverCampaign(dir));
+export async function custodiedCampaign(
+  dir = tempDir(),
+  contract?: Parameters<typeof handedOverCampaign>[2],
+): Promise<PcMoveSeeded> {
+  const s = wire(await handedOverCampaign(dir, {}, contract));
   await must(establishCustody(s, 1));
   await must(s.campaign.establishLocus({ ...publication(900), locus: fixtureDestinationLocus() }));
   return s;

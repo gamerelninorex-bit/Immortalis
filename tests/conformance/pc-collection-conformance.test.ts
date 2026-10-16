@@ -266,6 +266,7 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
       "establishMechanism",
       "establishRequest",
       "extraction",
+      "hold",
       "mechanism",
       "occupancy",
       "occupancyState",
@@ -311,7 +312,6 @@ describe("the slice is one closed class: no action bus, no universal action law,
         "authored_from",
         "committer",
         "cycle",
-        "interaction_floor",
         "mechanism_id",
         "pc_id",
         "traversal",
@@ -322,7 +322,7 @@ describe("the slice is one closed class: no action bus, no universal action law,
         "actuator",
         "claims",
         "cycle_duration",
-        "interaction_floor",
+        "cycle_quote",
         "mechanism_id",
         "pc_id",
         "traversal",
@@ -336,6 +336,44 @@ describe("the slice is one closed class: no action bus, no universal action law,
     );
     expect(Object.keys(ProductionPcCollectionWorkSchema.shape).sort()).toEqual(
       ["act_id", "derivation", "pc_id", "pins", "work_id"].sort(),
+    );
+  });
+});
+
+describe("the BLUE repair: the exact cycle is grounded, the §11 determination is derived, and the character's knowledge is the owners' receipt", () => {
+  it("no authored §11 field exists anywhere: the mechanism, its input and the work carry only the DERIVED determination", () => {
+    for (const f of [
+      "packages/contracts/src/pc-collection.ts",
+      "packages/engine/src/pc-collection/derive.ts",
+      "packages/engine/src/pc-collection/adapter.ts",
+    ])
+      expect(code(f), f).not.toMatch(
+        /status:\s*z\.literal\("(NOT_APPLICABLE|APPLIES|UNRESOLVED)"\)|floor_minimum/,
+      );
+    expect(Object.keys(ProductionPcCollectionWorkSchema.shape.derivation.shape).sort()).toEqual(
+      [
+        "causal_duration",
+        "completes_at",
+        "cycles",
+        "interaction_floor",
+        "per_cycle",
+        "started_at",
+      ].sort(),
+    );
+  });
+
+  it("the outcome reaches the character only through the existing direct-perception receipt: the Epistemic and I-001 modules are not widened", () => {
+    // the one new thing the observation path learned is a sixth cited premise (the sealed delivery), derived from the PC's own records
+    const referee = code("packages/engine/src/referee/derive.ts");
+    expect(referee).toMatch(/OBSERVATION_OUTCOME_FACT_ID/);
+    expect(referee).toMatch(/collectionOutcome\(/);
+    for (const f of readdirSync("packages/engine/src/epistemic").map(
+      (n) => `packages/engine/src/epistemic/${n}`,
+    ))
+      expect(code(f), f).not.toMatch(/pc-collection|PcCollection|pcCollection/);
+    // the Glance read keeps its one fixed shape: it was not edited for the outcome
+    expect(code("packages/protocol/src/current-observation-glance.ts")).not.toMatch(
+      /collection|outcome|source-delivery/i,
     );
   });
 });

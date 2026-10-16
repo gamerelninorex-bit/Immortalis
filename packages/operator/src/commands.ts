@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   CanonicalTimeSchema,
+  COLLECTION_OUTCOME_UNKNOWN,
   EntityId,
+  PC_COLLECTION_COMMITTED,
+  PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION,
+  PROTOCOL_OP_GET_PC_COLLECTION_REACH_TASK,
+  PROTOCOL_OP_START_CONFIRMED_PC_COLLECTION,
+  PROTOCOL_OP_SUBMIT_PC_COLLECTION_REACH,
+  PositiveQuantitySchema,
   ResolutionTransactionSchema,
   TransactionAuthoritySchema,
   NULL_PC_OOC_ADVANCE_COMMITTED,
@@ -23,14 +30,20 @@ import {
   RELOCATION_OUTCOME_UNKNOWN,
   logisticsBoundaryId,
   logisticsObjectId,
+  pcCollectionCommitmentKey,
   pcMovementRequestId,
+  productionReserveKey,
+  worldSourceConditionKey,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
   type CanonicalTime,
+  type PcCollectionCommitInput,
+  type PcCollectionReachTask,
   type PcMovementCommitInput,
 } from "@immortalis/contracts";
 import {
   LogisticsAdapter,
+  PcCollectionAdapter,
   StageProviderRegistry,
   TemporalCoordinator,
   canonicalEqual,
@@ -42,16 +55,22 @@ import {
   advanceNullPcOocToTarget,
   bindTrustedActivePcHeldTargetAdvanceContext,
   bindTrustedActivePcTargetAdvanceContext,
+  bindTrustedConfirmedPcCollectionContext,
   bindTrustedConfirmedPcRelocationContext,
   bindTrustedConfirmedPcTransferAdvanceContext,
   bindTrustedNullPcOocHeldContinuationContext,
   bindTrustedNullPcOocTargetAdvanceContext,
+  commitConfirmedPcCollection,
   commitConfirmedPcRelocation,
+  getPcCollectionReachTask,
   resumeNullPcOocHeldAdvance,
+  startConfirmedPcCollection,
+  submitPcCollectionReach,
 } from "@immortalis/protocol";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
 import type {
   AdvanceIntent,
+  CollectionIntent,
   NullAdvanceIntent,
   NullResumeIntent,
   PcTargetAdvanceIntent,
@@ -89,6 +108,8 @@ export type CommandStatus =
   | typeof NULL_PC_OOC_HELD_ADVANCE_OUTCOME_UNKNOWN
   | typeof PC_TARGET_ADVANCE_COMMITTED
   | typeof PC_TARGET_ADVANCE_OUTCOME_UNKNOWN
+  | typeof PC_COLLECTION_COMMITTED
+  | typeof COLLECTION_OUTCOME_UNKNOWN
   | "DECLINED"
   | "UNAVAILABLE"
   | "INVALID_INPUT"
@@ -124,6 +145,10 @@ const MESSAGES: Record<CommandStatus, string> = {
     "the character's advance transaction is committed; this is a transaction status only, not a report that the target was attained, that anything occurred, or what the character or anyone perceives or knows",
   PC_TARGET_ADVANCE_OUTCOME_UNKNOWN:
     "the outcome is not known; close, reopen and reconcile it by its original identity",
+  COLLECTION_COMMITTED:
+    "the collection step is committed; this is a transaction status only, not a report that anything was collected, that time passed, or what the character or anyone perceives or knows",
+  COLLECTION_OUTCOME_UNKNOWN:
+    "the outcome is not known; close, reopen and reconcile it by its original identity",
   DECLINED: "not confirmed; nothing was changed",
   UNAVAILABLE: "no such action is available",
   INVALID_INPUT: "the input is not a valid choice",
@@ -149,6 +174,12 @@ export interface CommandContext {
   readonly terminal: OperatorTerminal;
   /** the source of newly minted, immutable intent identities (default: random UUIDs) */
   readonly newId?: () => string;
+  /**
+   * The `role.gm` host that reads the physical reach of a confirmed collection attempt (CPAA-C1 v0.2 PROVISIONAL): given the bounded task
+   * it returns its UNTRUSTED reading, which the engine validates and from which it derives the verdict. Absent: no reading is available
+   * and the attempt stays held. Nothing here is the player's confirmation.
+   */
+  readonly reachHost?: (task: PcCollectionReachTask) => Promise<unknown>;
 }
 
 const RelocateInputSchema = z.strictObject({
@@ -1023,6 +1054,220 @@ export async function pcTargetResume(ctx: CommandContext): Promise<CommandResult
   return presentPcTargetChoice(ctx, retained.value as PcTargetResumeIntent);
 }
 
+// -- CPAA-C1 v0.2 PROVISIONAL: the player's confirmed collection attempt ---------------------------------------------------------
+
+const CollectInputSchema = z.strictObject({
+  source: z.strictObject({ world_id: EntityId, source_key: EntityId }),
+  reserve_id: EntityId,
+  quantity: PositiveQuantitySchema,
+  mechanism_id: EntityId,
+  basis_id: EntityId,
+});
+export type CollectInput = z.infer<typeof CollectInputSchema>;
+
+const sameChoice = (a: PcCollectionCommitInput, b: PcCollectionCommitInput): boolean =>
+  canonicalEqual({ ...a, act_id: "" }, { ...b, act_id: "" });
+
+/** Presents the retained, confirmed attempt's commitment-of-record and PC-owned request to the unchanged gateway (idempotent by identity). */
+async function presentCollection(
+  ctx: CommandContext,
+  intent: CollectionIntent,
+): Promise<CommandResult> {
+  const { session } = ctx;
+  const campaign = session.campaign;
+  const before = campaign.store.head().revision;
+  const outcome = await commitConfirmedPcCollection(collectionContext(ctx, intent), {
+    operation: PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION,
+  });
+  if (outcome.ok) {
+    const marked = await session.ledger.markCommitted(intent.intent_id);
+    if (!marked.ok) {
+      session.markAmbiguous();
+      return result(COLLECTION_OUTCOME_UNKNOWN);
+    }
+    return result(PC_COLLECTION_COMMITTED);
+  }
+  if (outcome.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+    session.markAmbiguous();
+    return result(COLLECTION_OUTCOME_UNKNOWN);
+  }
+  // a refusal: an attempt that left no footprint had no effect and is forgotten; one that did stays for reconciliation
+  const footprint = campaign.store.getFact(
+    pcCollectionCommitmentKey(intent.pc_id, intent.choice.act_id),
+  );
+  if (campaign.store.head().revision === before && !footprint) {
+    const forgotten = await session.ledger.discard(intent.intent_id);
+    if (!forgotten.ok) session.markAmbiguous();
+  }
+  return result("UNAVAILABLE");
+}
+
+/** A FRESH trusted context from the session's campaign and exactly what the operator confirmed (never from host input). */
+const collectionContext = (ctx: CommandContext, intent: CollectionIntent) =>
+  bindTrustedConfirmedPcCollectionContext({
+    campaign: ctx.session.campaign,
+    choice: intent.choice,
+    mechanism_id: intent.mechanism_id,
+    basis_id: intent.basis_id,
+    publication: intent.publication,
+  });
+
+/**
+ * The player's choice to ATTEMPT one direct collection: this is the trusted-side bridge from the operator's own console confirmation
+ * to `bindTrustedConfirmedPcCollectionContext`. `input` is intent only (the source, the Reserve, the exact amount, and which of the PC's
+ * established mechanism and Production's basis the attempt rests on): it never carries a role, permission, act identity, boundary,
+ * duration, verdict or result. The service reads current canon to refuse an attempt whose named antecedents do not exist (an invented
+ * action never reaches the console), states the exact attempt, obtains the operator's own fresh confirmation of exactly it, mints the
+ * immutable act identity before the first canonical write, retains the confirmed intent durably, and only then binds a fresh trusted
+ * context and commits the PC-side commitment-of-record and the PC-owned request. It reads no reach, starts no work and advances no time:
+ * those are `collectContinue` (the `role.gm` reading, then Production's own admission) and the separate, second time-passage choice.
+ * A retained attempt that has not finished is never replaced: the same input reconciles it by its original identity.
+ */
+export async function collect(ctx: CommandContext, input: unknown): Promise<CommandResult> {
+  const refused = guard(ctx) ?? unreconciledPcTarget(ctx);
+  if (refused) return refused;
+  const parsed = CollectInputSchema.safeParse(input);
+  if (!parsed.success) return result("INVALID_INPUT");
+  const { session, terminal } = ctx;
+  const campaign = session.campaign;
+  const pcId = activePc(campaign);
+  if (!pcId) return result("UNAVAILABLE");
+  const { mechanism_id: mechanismId, basis_id: basisId, ...rest } = parsed.data;
+  const draft = { ...rest, pc_id: pcId, authored_under: { ...PLAYER_CHOICE_AUTHORITY } };
+
+  const open = session.ledger.collections().find((c) => c.status === "CONFIRMED");
+  if (open) {
+    if (
+      open.pc_id === pcId &&
+      open.mechanism_id === mechanismId &&
+      open.basis_id === basisId &&
+      sameChoice(open.choice, { ...draft, act_id: open.choice.act_id })
+    )
+      return presentCollection(ctx, open);
+    return result("CHANGED_CHOICE");
+  }
+
+  // current canonical antecedents; none is ever created here. An action naming a source, Reserve or mechanism that canon does not
+  // hold is not offered to the player at all.
+  const sourceFact = campaign.store.getFact(
+    worldSourceConditionKey(draft.source.world_id, draft.source.source_key),
+  );
+  const reserveFact = campaign.store.getFact(productionReserveKey(draft.reserve_id));
+  const mechanism = new PcCollectionAdapter(campaign.store).mechanism(pcId, mechanismId);
+  const source = sourceFact?.value as
+    { material_class?: string; locality?: { locus?: { entity_id?: string } } } | undefined;
+  if (!sourceFact || !reserveFact || !mechanism || !campaign.pcPhysicalLocusCustody(pcId))
+    return result("UNAVAILABLE");
+
+  const ordinal = session.ledger.collections().length + 1;
+  const subject = subjectOf({
+    verb: "collect",
+    campaign_id: session.campaignId,
+    pc_id: pcId,
+    choice: draft,
+    mechanism_id: mechanismId,
+    basis_id: basisId,
+    ordinal,
+  });
+  const confirmation = await requestOperatorConfirmation(terminal, "collect", subject, [
+    `CONFIRMATION — THE CHARACTER'S COLLECTION ATTEMPT (attempt #${ordinal})`,
+    OOC_BANNER,
+    `  campaign:  ${session.campaignId}`,
+    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    ``,
+    `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
+    `  character: ${pcId}`,
+    `  attempt to collect ${draft.quantity.amount} ${draft.quantity.unit} of ${source?.material_class ?? "the material"}`,
+    `  from the source ${draft.source.world_id} / ${draft.source.source_key}, into the Reserve ${draft.reserve_id}.`,
+    `  (operator/debug: the source lies at ${source?.locality?.locus?.entity_id ?? "an established locus"})`,
+    ``,
+    `This is willingness to ATTEMPT only. It does not say the material can be reached, that the character is able, how long it takes,`,
+    `or that anything is collected: the world's owners decide each of those. Confirming records the attempt; the physical-reach reading`,
+    `and Production's admission follow, and nothing moves until you separately choose to let time pass.`,
+    OOC_DEBUG_NOTE,
+  ]);
+  if (!confirmation) return result("DECLINED");
+  if (!consumeConfirmation(confirmation, "collect", subject)) return result("UNAVAILABLE");
+
+  const uid = (ctx.newId ?? randomUUID)();
+  const retained = await session.ledger.record({
+    kind: "COLLECTION",
+    intent_id: `operator-intent:${uid}`,
+    pc_id: pcId,
+    choice: { ...draft, act_id: `operator-act-${uid}` },
+    mechanism_id: mechanismId,
+    basis_id: basisId,
+    publication: {
+      cause: `operator-collection-cause:${session.campaignId}:${uid}`,
+      basis: OPERATOR_PUBLICATION_BASIS,
+      secrecy: OPERATOR_PUBLICATION_SECRECY,
+    },
+  });
+  if (!retained.ok) {
+    session.markAmbiguous();
+    return result("UNAVAILABLE");
+  }
+  return presentCollection(ctx, retained.value as CollectionIntent);
+}
+
+/**
+ * Takes the player's ALREADY confirmed attempt through the rest of the owners' own path: the `role.gm` reading of the physical reach
+ * (from `ctx.reachHost`, if any is configured and none is judged yet) and Production's start. It accepts no operator input and asks no
+ * new question, because it can only act on a retained attempt the operator confirmed; it invents no choice, reading, duration or
+ * boundary, and reports a transaction status only. Re-presenting it reconciles by identity.
+ */
+export async function collectContinue(ctx: CommandContext): Promise<CommandResult> {
+  const refused = guard(ctx);
+  if (refused) return refused;
+  const { session } = ctx;
+  const campaign = session.campaign;
+  const pcId = activePc(campaign);
+  const intent = [...session.ledger.collections()].reverse()[0];
+  if (!pcId || !intent) return result("NOTHING_TO_RECONCILE");
+  if (intent.pc_id !== pcId) return result("STALE_INTENT");
+  // the commitment-of-record and request must be committed first (a CONFIRMED attempt is presented again, by its identity)
+  if (intent.status !== "COMMITTED") {
+    const presented = await presentCollection(ctx, intent);
+    if (presented.status !== PC_COLLECTION_COMMITTED) return presented;
+  }
+  const context = collectionContext(ctx, intent);
+  const adapter = new PcCollectionAdapter(campaign.store);
+  if (!adapter.reach(pcId, intent.choice.act_id)) {
+    const task = getPcCollectionReachTask(context, {
+      operation: PROTOCOL_OP_GET_PC_COLLECTION_REACH_TASK,
+    });
+    if (!task.ok || !ctx.reachHost) return result("UNAVAILABLE");
+    let answer: unknown;
+    try {
+      answer = await ctx.reachHost(task.value.task);
+    } catch {
+      return result("UNAVAILABLE");
+    }
+    if (typeof answer !== "object" || answer === null || Array.isArray(answer))
+      return result("UNAVAILABLE");
+    const submitted = await submitPcCollectionReach(context, {
+      operation: PROTOCOL_OP_SUBMIT_PC_COLLECTION_REACH,
+      answer: answer as Record<string, unknown>,
+    });
+    if (!submitted.ok) {
+      if (submitted.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+        session.markAmbiguous();
+        return result(COLLECTION_OUTCOME_UNKNOWN);
+      }
+      return result("UNAVAILABLE");
+    }
+  }
+  const started = await startConfirmedPcCollection(context, {
+    operation: PROTOCOL_OP_START_CONFIRMED_PC_COLLECTION,
+  });
+  if (started.ok) return result(PC_COLLECTION_COMMITTED);
+  if (started.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+    session.markAmbiguous();
+    return result(COLLECTION_OUTCOME_UNKNOWN);
+  }
+  return result("UNAVAILABLE");
+}
+
 // -- reconciliation ------------------------------------------------------------------------------------------------------------
 
 /**
@@ -1055,6 +1300,12 @@ export async function reconcile(ctx: CommandContext): Promise<readonly CommandRe
         break;
       }
       outcome = await presentPcTargetChoice(ctx, intent);
+    } else if (intent.kind === "COLLECTION") {
+      if (!pcId || intent.pc_id !== pcId) {
+        results.push(result("STALE_INTENT"));
+        break;
+      }
+      outcome = await presentCollection(ctx, intent);
     } else {
       if (!pcId || intent.pc_id !== pcId) {
         results.push(result("STALE_INTENT"));
@@ -1071,7 +1322,8 @@ export async function reconcile(ctx: CommandContext): Promise<readonly CommandRe
       outcome.status !== PC_TRANSFER_ADVANCE_COMMITTED &&
       outcome.status !== NULL_PC_OOC_ADVANCE_COMMITTED &&
       outcome.status !== NULL_PC_OOC_HELD_ADVANCE_COMMITTED &&
-      outcome.status !== PC_TARGET_ADVANCE_COMMITTED
+      outcome.status !== PC_TARGET_ADVANCE_COMMITTED &&
+      outcome.status !== PC_COLLECTION_COMMITTED
     )
       break;
   }

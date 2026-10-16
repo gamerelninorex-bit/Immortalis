@@ -20,6 +20,7 @@ import type { OperatorTerminal } from "./terminal.ts";
 
 export type ConfirmationVerb =
   | "relocate"
+  | "collect"
   | "advance"
   | "null-advance"
   | "null-resume"

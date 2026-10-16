@@ -24,7 +24,11 @@ import {
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
-import { committedCanonicalTime, recordContextViolation } from "../referee/derive.ts";
+import {
+  OBSERVATION_OUTCOME_FACT_ID,
+  committedCanonicalTime,
+  recordContextViolation,
+} from "../referee/derive.ts";
 
 /**
  * Pure derivations of the OBSERVATION-EARNED Access Event (BLUE v5.2, F-014D §§2, 5 steps 2-4, 6, 21.1). The Epistemic owner publishes
@@ -80,16 +84,23 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   const locusMatch = locusRef ? /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locusRef.fact_key) : null;
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
+  // the appearance is of a world fact, a locus fact, or (CPAA-C1 v0.2 PROVISIONAL) the sealed delivery of the character's own
+  // completed collection: always a committed World-State fact the record cites
+  const deliveryRef = record.input.refs.find((r) =>
+    new RegExp(`^world/${worldId}/source-delivery/.+$`).test(r.fact_key),
+  );
   const sourceKey = d.payload.source_fact_id.startsWith("world.")
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : null;
+      : d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
+        ? deliveryRef.fact_key
+        : null;
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(
       "OBSERVATION_RECORD_INVALID",
-      "the appearance is of a committed world or locus fact the record cites",
+      "the appearance is of a committed world fact, locus fact or collection outcome the record cites",
     );
   const event = AccessEventSchema.safeParse({
     event_id: observationEventId(record.subject.pc_id, record.input.observed_at),

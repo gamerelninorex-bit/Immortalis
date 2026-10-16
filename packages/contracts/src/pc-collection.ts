@@ -74,6 +74,12 @@ export const PC_COLLECTION_COMMITMENT_KEY = /^pc\/([^/]+)\/collection\/([^/]+)\/
 
 export const PC_COLLECTION_INTENT_KIND = "VOLUNTARY_DIRECT_COLLECTION";
 
+/**
+ * PROVISIONAL reading of F-014B §11 for the closed class (see the mechanism comment): solitary direct handling involves no
+ * consequential interaction, so there is no context-banded floor to apply. Derived by the engine, never authored or declared.
+ */
+export const PC_COLLECTION_INTERACTION_FLOOR = "NOT_APPLICABLE_SOLITARY_DIRECT_HANDLING";
+
 const AuthoredUnder = z.strictObject({
   role: z.literal(PLAYER_CHOICE_AUTHORITY.role),
   permission: z.literal(PLAYER_CHOICE_AUTHORITY.permission),
@@ -141,14 +147,20 @@ const PositiveDuration = CanonicalTimeSchema.refine((d) => d.value > 0, "a durat
 /**
  * The typed, owner-pinned projection of an ALREADY AUTHORED and ACCEPTED intrinsic mechanism of the PC (I-002 §8 exact rate when
  * explicitly authored and timing requires it; §19 the PC-local capability that supplies the causal bridge): its identity, the one
- * same-form handling cycle and its duration in the campaign's canonical unit, and what the mechanism can pass. It follows accepted
- * claims of the PC's own released Existence Contract by locator (never copied wording); a prose capability mention, a fixture
- * rate or an operator number is not this carrier. It adds no capacity, skill, speed or balance table: τ is whatever the authored
- * content established, and no value is adopted by this contract.
+ * same-form handling cycle and its duration in the campaign's canonical unit, and what the mechanism can pass. It FOLLOWS accepted
+ * claims of the PC's own released Existence Contract by locator, and every statement it carries is a VERBATIM QUOTATION of one of
+ * those cited claims (never invented wording): the actuator and the traversal statements, and `cycle.authored_quote`, the exact
+ * authored words that state the cycle. The quotation must contain the cycle's exact numeral and its canonical time unit, so τ is a
+ * number the PC's accepted authored content itself states, not one a caller chose; a mechanism whose wording does not state it
+ * cannot be established, and no exact completion follows. This is TEXTUAL grounding (a mechanical check that the authored words
+ * say exactly this number in this unit), not a semantic proof that the words mean "one handling cycle": no installed rule can
+ * judge that. It adds no capacity, skill, speed or balance table: τ is whatever the authored content established, and no value is
+ * adopted by this contract.
  *
- * `interaction_floor` is the resolved relationship to Temporal F-014B §11's consequential-interaction floor (C6): NOT_APPLICABLE
- * (with its stated ground), APPLIES (with the authored minimum, which the earned completion must also satisfy) or UNRESOLVED, in
- * which case an EXACT completion is withheld.
+ * There is NO authored F-014B §11 field. §11's context-banded floor governs a consequential INTERACTION (actor presence, a
+ * co-present scene, conversation); the closed class has no counterpart actor, so §11 does not apply by the class's own definition
+ * and the engine DERIVES that determination (`PC_COLLECTION_INTERACTION_FLOOR`): no source supplies a numeric band, so a caller
+ * could only invent a minimum, and none is representable.
  */
 export const PcCollectionMechanismSchema = z.strictObject({
   mechanism_id: EntityId,
@@ -164,12 +176,9 @@ export const PcCollectionMechanismSchema = z.strictObject({
     kind: z.literal("SERIAL_PER_UNIT"),
     units_per_cycle: z.literal(1),
     duration: PositiveDuration,
+    /** the verbatim words of a cited accepted claim that state this exact cycle (numeral and canonical unit included) */
+    authored_quote: Text,
   }),
-  interaction_floor: z.discriminatedUnion("status", [
-    z.strictObject({ status: z.literal("NOT_APPLICABLE"), ground: Text }),
-    z.strictObject({ status: z.literal("APPLIES"), minimum: PositiveDuration }),
-    z.strictObject({ status: z.literal("UNRESOLVED") }),
-  ]),
   committer: z.strictObject({
     owner: z.literal(OWNER_PC_EXISTENCE),
     facet: z.literal(FACET_PC_COLLECTION_MECHANISM),
@@ -184,7 +193,8 @@ export const EstablishPcCollectionMechanismInputSchema = z.strictObject({
   actuator: z.strictObject({ statement: Text }),
   traversal: z.strictObject({ statement: Text }),
   cycle_duration: PositiveDuration,
-  interaction_floor: PcCollectionMechanismSchema.shape.interaction_floor,
+  /** the verbatim words of a cited accepted claim that state the exact cycle */
+  cycle_quote: Text,
 });
 export type EstablishPcCollectionMechanismInput = z.infer<
   typeof EstablishPcCollectionMechanismInputSchema
@@ -306,7 +316,8 @@ export const ProductionPcCollectionWorkSchema = z.strictObject({
     cycles: z.number().int().positive(),
     per_cycle: PositiveDuration,
     causal_duration: PositiveDuration,
-    floor_minimum: PositiveDuration.nullable(),
+    /** the derived F-014B §11 determination: the closed class has no counterpart actor, so no consequential-interaction floor applies */
+    interaction_floor: z.literal(PC_COLLECTION_INTERACTION_FLOOR),
     started_at: CanonicalTimeSchema,
     completes_at: CanonicalTimeSchema,
   }),

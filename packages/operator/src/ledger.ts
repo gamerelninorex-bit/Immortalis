@@ -5,6 +5,7 @@ import {
   CanonicalTimeSchema,
   EntityId,
   Id,
+  PcCollectionCommitInputSchema,
   PcMovementCommitInputSchema,
   PublicationSchema,
   ResolutionRequestSchema,
@@ -119,6 +120,24 @@ const PcTargetResumeIntentSchema = z.strictObject({
 });
 export type PcTargetResumeIntent = z.infer<typeof PcTargetResumeIntentSchema>;
 
+/**
+ * CPAA-C1 v0.2 PROVISIONAL: the player's confirmed collection attempt. `choice` is exactly the `PcCollectionCommitInput` the operator
+ * confirmed — including the immutable per-act identity minted by this trusted side BEFORE the first canonical write — together with the
+ * PC's established mechanism and Production's Capability / Access basis it names. One retained intent per act identity.
+ */
+const CollectionIntentSchema = z.strictObject({
+  kind: z.literal("COLLECTION"),
+  seq: z.number().int().positive(),
+  intent_id: Id,
+  status: Status,
+  pc_id: EntityId,
+  choice: PcCollectionCommitInputSchema,
+  mechanism_id: EntityId,
+  basis_id: EntityId,
+  publication: Material,
+});
+export type CollectionIntent = z.infer<typeof CollectionIntentSchema>;
+
 const IntentSchema = z.discriminatedUnion("kind", [
   RelocationIntentSchema,
   AdvanceIntentSchema,
@@ -126,6 +145,7 @@ const IntentSchema = z.discriminatedUnion("kind", [
   NullResumeIntentSchema,
   PcTargetAdvanceIntentSchema,
   PcTargetResumeIntentSchema,
+  CollectionIntentSchema,
 ]);
 export type Intent = z.infer<typeof IntentSchema>;
 export type NullPcIntent = NullAdvanceIntent | NullResumeIntent;
@@ -147,6 +167,7 @@ export type NewNullAdvanceIntent = Omit<NullAdvanceIntent, "seq" | "status">;
 export type NewNullResumeIntent = Omit<NullResumeIntent, "seq" | "status">;
 export type NewPcTargetAdvanceIntent = Omit<PcTargetAdvanceIntent, "seq" | "status">;
 export type NewPcTargetResumeIntent = Omit<PcTargetResumeIntent, "seq" | "status">;
+export type NewCollectionIntent = Omit<CollectionIntent, "seq" | "status">;
 
 export type LedgerErrorCode =
   | "LEDGER_UNREADABLE"
@@ -271,10 +292,12 @@ export class IntentLedger {
     const seqs = file.intents.map((i) => i.seq);
     const ids = new Set(file.intents.map((i) => i.intent_id));
     const relocations = file.intents.filter((i) => i.kind === "RELOCATION");
+    const acts = file.intents.flatMap((i) => (i.kind === "COLLECTION" ? [i.choice.act_id] : []));
     if (
       new Set(seqs).size !== seqs.length ||
       ids.size !== file.intents.length ||
       relocations.length > 1 ||
+      new Set(acts).size !== acts.length ||
       seqs.some((s) => s >= file.next_seq) ||
       !targetLineagesAreSound(file.intents)
     )
@@ -288,6 +311,13 @@ export class IntentLedger {
 
   relocation(): RelocationIntent | undefined {
     return this.intents().find((i): i is RelocationIntent => i.kind === "RELOCATION");
+  }
+
+  /** The confirmed collection attempts, in the order they were confirmed. */
+  collections(): readonly CollectionIntent[] {
+    return this.intents()
+      .filter((i): i is CollectionIntent => i.kind === "COLLECTION")
+      .sort((a, b) => a.seq - b.seq);
   }
 
   advances(): readonly AdvanceIntent[] {
@@ -318,12 +348,18 @@ export class IntentLedger {
       | NewNullAdvanceIntent
       | NewNullResumeIntent
       | NewPcTargetAdvanceIntent
-      | NewPcTargetResumeIntent,
+      | NewPcTargetResumeIntent
+      | NewCollectionIntent,
   ): Promise<Result<Intent, LedgerErrorCode>> {
     return this.#serial(async () => {
       const taken = this.#file.intents;
       if (taken.some((i) => i.intent_id === intent.intent_id))
         return fail("LEDGER_CONFLICT", "that intent identity is already retained");
+      if (
+        intent.kind === "COLLECTION" &&
+        taken.some((i) => i.kind === "COLLECTION" && i.choice.act_id === intent.choice.act_id)
+      )
+        return fail("LEDGER_CONFLICT", "that collection act identity is already retained");
       if (intent.kind === "RELOCATION" && taken.some((i) => i.kind === "RELOCATION"))
         return fail("LEDGER_CONFLICT", "a relocation is already retained for this campaign");
       const next = IntentSchema.safeParse({

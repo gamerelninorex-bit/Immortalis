@@ -1464,7 +1464,7 @@ export const PC_COLLECTION_COMMITMENT_RULE: SourceRef = cpaaRule(
   "C1 closed class and ownership (PC-side confirmed collection commitment-of-record; a non-intrinsic cause fact, not I-002 intrinsic state; no analogy to other actions), C2 real choice (role.player + permission.player_choice.commit; willingness to attempt only), C3 per-act identity and the Production request mechanically derived from it (WS-003 §13A envelope), C4 admission by re-derivation",
 );
 export const PC_COLLECTION_MECHANISM_RULE: SourceRef = cpaaRule(
-  "C6 / P-1 proposed typed I-002 intrinsic exact-cycle carrier: a typed projection that follows accepted authored intrinsic content (I-002 §8 exact when explicitly authored and timing requires it, §19 PC-local causal bridge, §25 Temporal owns duration), the F-014B §11 minimum resolved or the exact completion withheld",
+  "C6 / P-1 proposed typed I-002 intrinsic exact-cycle carrier: a typed projection that follows accepted authored intrinsic content (I-002 §8 exact when explicitly authored and timing requires it, §19 PC-local causal bridge, §25 Temporal owns duration); every statement is a verbatim quotation of a cited accepted claim and the cycle quotation states the exact numeral and canonical unit, or no exact completion exists; the F-014B §11 determination is derived (the closed class has no counterpart actor), never authored",
 );
 export const PC_COLLECTION_REACH_RULE: SourceRef = cpaaRule(
   "C5 / §4.2 physical reach: role.gm + permission.rule.adjudicate interpretive compatibility of separately established owner facts (source path facts, PC mechanism), host-interpreted and quote-anchored, verdict derived by the engine, consumed by Production; scripted hosts prove transport and enforcement only",

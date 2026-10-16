@@ -72,7 +72,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/index.ts":
     "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
   "packages/operator/src/confirmation.ts":
-    "3d88a1e8c0fcea7bd8b9a374dcaa5d8dae2b1f5f05d3660e180fc2895030db5e",
+    "c818e06039b03bd6861e8adef2f56b5c421c1af3211262ba1ed6c5e42ca21273",
 };
 
 const NEW_MODULES = [

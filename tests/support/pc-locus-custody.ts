@@ -42,9 +42,10 @@ export const establishCustody = (s: Pick<ExistingActorSeeded, "campaign">, n: nu
 export async function handedOverCampaign(
   dir = tempDir(),
   o: Parameters<typeof seededExistingActorCampaign>[1] = {},
+  contract?: Parameters<typeof readyForHandover>[3],
 ): Promise<ExistingActorSeeded> {
   const s = await seededExistingActorCampaign(dir, o);
-  await readyForHandover(s);
+  await readyForHandover(s, undefined, undefined, contract);
   await must(handoverActor(s, 1));
   return s;
 }
