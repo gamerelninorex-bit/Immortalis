@@ -223,7 +223,9 @@ describe("the package composes only the existing gateways and canonical reads", 
 
   it("exposes exactly the local operator surface and nothing that names a host operation, a role or a confirmation flag", () => {
     expect(Object.keys(operator).sort()).toEqual([
+      "CLOSED_SETTING_FORMAT",
       "COLLECTION_REFEREE_OPERATIONS",
+      "ClosedSettingSchema",
       "CollectionPreparationSchema",
       "DELEGATION_NONE_TEXT",
       "EMPTY_DRAFT",
@@ -273,6 +275,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "compileContract",
       "consumeConfirmation",
       "custodyProblems",
+      "declareClosedSetting",
       "defaultOperatorDir",
       "ensureOperatorStateDirectory",
       "establishCharacterLocus",

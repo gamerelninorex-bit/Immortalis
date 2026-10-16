@@ -117,6 +117,7 @@ export type CommandStatus =
   | typeof PC_COLLECTION_COMMITTED
   | typeof COLLECTION_OUTCOME_UNKNOWN
   | "TIME_ESTABLISHED"
+  | "SETTING_DECLARED"
   | "DECLINED"
   | "UNAVAILABLE"
   | "INVALID_INPUT"
@@ -158,6 +159,8 @@ const MESSAGES: Record<CommandStatus, string> = {
     "the outcome is not known; close, reopen and reconcile it by its original identity",
   TIME_ESTABLISHED:
     "the campaign's starting chronology is established once; this is its origin only, not the passing of any time, an arrival or anything perceived",
+  SETTING_DECLARED:
+    "the closed setting is declared by its author; the owners derived its coverage. It is not a player choice, a grant of any right beyond its stated grounds, or the passing of any time",
   DECLINED: "not confirmed; nothing was changed",
   UNAVAILABLE: "no such action is available",
   INVALID_INPUT: "the input is not a valid choice",

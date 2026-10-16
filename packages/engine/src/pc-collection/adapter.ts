@@ -88,6 +88,8 @@ import {
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
 import {
+  sceneClosureStatus,
+  workforceScopeStatus,
   deriveWorkforceAccounting,
   liveSceneCoverage,
   buildCycleTask,
@@ -993,6 +995,16 @@ export class PcCollectionAdapter {
       pcCollectionAttestationKey(pcId, mechanismId),
       PcCollectionCycleAttestationSchema,
     );
+  }
+  /** Is the committed closure still CURRENT (what the owners hold still equals what it covered)? False when none is committed. */
+  sceneClosureIsCurrent(worldId: string, locusId: string): boolean {
+    const c = this.sceneClosure(worldId, locusId);
+    return c !== undefined && sceneClosureStatus(c.value, this.#view()) === null;
+  }
+  /** Is the committed workforce scope still CURRENT? False when none is committed. */
+  workforceScopeIsCurrent(worldId: string, locusId: string): boolean {
+    const s = this.workforceScope(worldId, locusId);
+    return s !== undefined && workforceScopeStatus(s.value, this.#view()) === null;
   }
   sceneClosure(worldId: string, locusId: string): Typed<WorldSceneClosure> | undefined {
     return this.#typed(worldSceneClosureKey(worldId, locusId), WorldSceneClosureSchema);

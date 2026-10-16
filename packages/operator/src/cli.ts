@@ -26,6 +26,7 @@ import { bindHost, refereeDir } from "./referee-exchange.ts";
 import { collectionRefereeHosts } from "./collection-referee.ts";
 import { prepareCollection } from "./collection-preparation.ts";
 import { initializeTime } from "./time-initialization.ts";
+import { declareClosedSetting } from "./closed-setting.ts";
 import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
 
@@ -58,6 +59,7 @@ usage:
   immortalis-operator referee-bind-collection-host --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator attest-cycle --campaign <dir> --campaign-id <id> --mechanism <id> [--referee-wait <seconds>]
   immortalis-operator initialize-time --campaign <dir> --campaign-id <id> --setup <file>
+  immortalis-operator declare-closed-setting --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator prepare-collection --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator collect --campaign <dir> --campaign-id <id> --world <id> --source <id> --reserve <id> --amount <n> --quantity-unit <unit> --mechanism <id> --basis <id>
   immortalis-operator collect-continue --campaign <dir> --campaign-id <id> [--referee-wait <seconds>]
@@ -182,6 +184,7 @@ const exitOf = (
     case "PC_TARGET_ADVANCE_COMMITTED":
     case "COLLECTION_COMMITTED":
     case "TIME_ESTABLISHED":
+    case "SETTING_DECLARED":
     case "NOTHING_TO_RECONCILE":
       return EXIT.OK;
     case "DECLINED":
@@ -241,6 +244,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "referee-bind-collection-host": ["host-id"],
   "attest-cycle": ["mechanism"],
   "initialize-time": ["setup"],
+  "declare-closed-setting": ["setup"],
   "prepare-collection": ["setup"],
   collect: ["world", "source", "reserve", "amount", "quantity-unit", "mechanism", "basis"],
   "collect-continue": [],
@@ -557,31 +561,33 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       const results: readonly CommandResult[] =
         command === "initialize-time"
           ? [await initializeTime(ctx, str("setup")!)]
-          : command === "prepare-collection"
-            ? [await prepareCollection(ctx, str("setup")!)]
-            : command === "collect"
-              ? [await collect(ctx, collectInput)]
-              : command === "collect-continue"
-                ? [await collectContinue(ctx)]
-                : command === "collect-finish"
-                  ? [await collectFinish(ctx)]
-                  : command === "attest-cycle"
-                    ? [await attestCycle(ctx, { mechanism_id: str("mechanism") })]
-                    : command === "cease"
-                      ? [await cease(ctx)]
-                      : command === "relocate"
-                        ? [await relocate(ctx, relocateInput)]
-                        : command === "advance"
-                          ? [await advance(ctx)]
-                          : command === "null-advance"
-                            ? [await nullAdvance(ctx, nullAdvanceInput)]
-                            : command === "null-resume"
-                              ? [await nullResume(ctx)]
-                              : command === "pc-target-advance"
-                                ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
-                                : command === "pc-target-resume"
-                                  ? [await pcTargetResume(ctx)]
-                                  : await reconcile(ctx);
+          : command === "declare-closed-setting"
+            ? [await declareClosedSetting(ctx, str("setup")!)]
+            : command === "prepare-collection"
+              ? [await prepareCollection(ctx, str("setup")!)]
+              : command === "collect"
+                ? [await collect(ctx, collectInput)]
+                : command === "collect-continue"
+                  ? [await collectContinue(ctx)]
+                  : command === "collect-finish"
+                    ? [await collectFinish(ctx)]
+                    : command === "attest-cycle"
+                      ? [await attestCycle(ctx, { mechanism_id: str("mechanism") })]
+                      : command === "cease"
+                        ? [await cease(ctx)]
+                        : command === "relocate"
+                          ? [await relocate(ctx, relocateInput)]
+                          : command === "advance"
+                            ? [await advance(ctx)]
+                            : command === "null-advance"
+                              ? [await nullAdvance(ctx, nullAdvanceInput)]
+                              : command === "null-resume"
+                                ? [await nullResume(ctx)]
+                                : command === "pc-target-advance"
+                                  ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
+                                  : command === "pc-target-resume"
+                                    ? [await pcTargetResume(ctx)]
+                                    : await reconcile(ctx);
       for (const r of results) {
         out(`STATUS ${r.status}`);
         out(r.message);

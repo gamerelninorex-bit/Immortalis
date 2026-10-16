@@ -1,0 +1,57 @@
+# Playing the first consequential action: launch and play instructions
+
+> **OOC DEVELOPMENT / SCENARIO INSTRUMENTATION.** The CPAA-C1 v0.3 loop (a stationary Player Character gathers a finite loose material into an empty local Reserve) as the shipped `immortalis-operator` commands run it. **It is mechanism, not an accepted playable game.** The rules marked _newly authorized_ were written under the Sovereign's bounded semantic delegation (PR #72 comment 6215171891; mission addendum pin `2026-10-16T12:07:41.219Z`); they are not frozen-source rules, not spec-lock pins and await independent BLUE review. No First Playable PASS, gate promotion or merge is claimed. The design lineage is [`pc-collection-foundation.md`](pc-collection-foundation.md).
+
+**No paid API, no credential, no network.** The engine calls no model. Every question to a referee goes through the owner-only authenticated exchange ([`ai-referee-host-foundation.md`](ai-referee-host-foundation.md)): a connected subscription host (any MCP client registered to `immortalis-referee`) or a **human game master** at `immortalis-referee-console`. Every player confirmation is typed at the operator's own console.
+
+Run the operator as `node --experimental-strip-types packages/operator/src/bin.ts <command> --campaign <dir> --campaign-id <id> [--operator-dir <dir>] …`.
+
+## What is external (nothing below can be supplied by the engine, a script or a model)
+
+1. **The player** at the operator console: every choice and every confirmation phrase (`relocate`-style typed challenge). There is no default answer and no auto-confirmation anywhere. The choice of _which_ character, setting and amount is the player's; this document does not make it.
+2. **The referee** for each interpretation: character classification and placement, the **cycle** attestation, the **reach / scene** reading, and the observation. A real GM reads the delivered words and answers through the MCP tools or the console.
+3. **The setting author's files** (below). The author states only what is the author's to state; the owners derive the rest.
+4. **A phone or remote route is NOT installed.** The confirmations are terminal prompts of the operator's own process; nothing here is reachable from a remote client. Verify the route you actually have before relying on it.
+
+## The sequence (each step is separate, confirmed and refuses with nothing written when its prerequisites are missing)
+
+| #   | Command                                                                                           | Who decides                      | What it does / what it does not                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `establish-locality --setup locality.json`                                                        | Author (file) + operator confirm | One ORIGINAL world, one locus, one EXACT_FINITE source. No time, no character.                                                                                                                                                                        |
+| 2   | `referee-bind-host` (setup operations) and `author-character … --player-character <id>`           | Player (words) + referee         | Releases and binds the character; the character's accepted claims must state the **actuator**, the **traversal ability** and the **one-unit cycle** wording the later mechanism will quote.                                                           |
+| 3   | `establish-character-locus --player-character <id>`                                               | Referee + player confirm         | The character's stationary physical locus.                                                                                                                                                                                                            |
+| 4   | **`initialize-time --setup chronology.json`** (_newly authorized_)                                | Author (file) + operator confirm | The ORIGIN of canonical time: the author's own coordinate and unit, once. No default epoch; an identical repeat replays; a different chronology never overwrites; reopen never resets. Advances nothing.                                              |
+| 5   | **`prepare-collection --setup preparation.json`**                                                 | Author (file) + operator confirm | Projects an **accepted** claim into the PC's mechanism (first, so an invented cycle mints nothing), an **empty** Reserve and the physical extraction basis. Requires canonical time to exist. Grants no right, scene or material.                     |
+| 6   | **`declare-closed-setting --setup declaration.json`** (_newly authorized_)                        | Author (file) + operator confirm | World-State's scene closure and Population's workforce scope. The author states the domain, the closure and per-source grounds; **the owners derive who and what is held** and treat the declaration as STALE when any of it changes (declare again). |
+| 7   | `referee-bind-collection-host --host-id <id>`, then `attest-cycle --mechanism <id>`               | Referee                          | The I-002 owner's attestation that the cited wording denotes exactly one same-form unit in one serial cycle. A negative or missing answer attests nothing.                                                                                            |
+| 8   | `collect --world … --source … --reserve … --amount <n> --quantity-unit … --mechanism … --basis …` | **Player** (typed confirmation)  | The player's willingness to attempt, nothing more. Not offered at all until the cycle is attested.                                                                                                                                                    |
+| 9   | `collect-continue [--referee-wait <s>]`                                                           | Referee, then the owners         | Asks the grounded reach / scene reading **only if** a current closure covers the scene and the source; Production alone admits the work. A stale or missing closure, a foreign claim on the source, or another process due in the interval refuses.   |
+| 10  | **`collect-finish`** (_newly authorized_)                                                         | **Player** (typed confirmation)  | Time runs to the earned completion of the admitted work. **The player states no horizon**; the target is derived from the work. While work is pending, `pc-target-advance`, `pc-target-resume` and `advance` refuse WHATEVER horizon is asked.        |
+| 11  | `observe-surroundings --player-character <id>`                                                    | Referee + player confirm         | Canonical truth is not knowledge: the character learns of the gathering only through the direct-perception receipt and I-001's presentation.                                                                                                          |
+| 12  | Close, reopen, `collect …` again                                                                  | Player                           | The next choice meets the real remainder; Production alone decides scarcity.                                                                                                                                                                          |
+| –   | `cease`                                                                                           | **Player** (typed confirmation)  | The only other way out of pending work: the separately confirmed voluntary cessation (credits nothing).                                                                                                                                               |
+
+### The author's files (regular files you own that nobody else can write; each is shown back in full for one typed confirmation)
+
+```jsonc
+// chronology.json  — initialize-time
+{ "format": "immortalis-starting-chronology", "format_version": 1,
+  "time": { "unit": "season", "value": 7 },
+  "statement": "The morning the survey reached the pans" }
+
+// declaration.json — declare-closed-setting
+{ "format": "immortalis-closed-setting-declaration", "format_version": 1,
+  "world_id": "<world>", "locus_id": "<locus>",
+  "domain":  { "designation": "…", "topology": "…" },
+  "closure": { "statement": "…" },
+  "source_rights": [ { "source_key": "<source>", "ground": "…" } ],
+  "workforce_scope": { "statement": "…" } }
+```
+
+`preparation.json` is the strict shape `CollectionPreparationSchema` (format `immortalis-collection-preparation`): the PC mechanism (quoting an accepted claim), the extraction basis and an **empty** Reserve.
+
+## What is verified, and how far
+
+- **By automated tests** (`tests/integration/pc-collection-bootstrap-loop.test.ts` and the operator / exchange suites): the whole sequence runs by the shipped commands from a campaign that begins with **no canonical time**; nothing is set up through the test kit. Every referee reading and every console line in those tests is **scripted by the test (plumbing only)**: that is _not_ a player's choice, a GM's reading or First Playable evidence.
+- **Falsifying negatives:** no time → nothing prepared or declared; no attestation → the act is not offered; no closure → the reading is never asked for; a further resident, ledger version, actor or PC makes the closure and scope STALE (an in-flight act is invalidated, never silently completed); a ledger that merely omits the PC is UNKNOWN without a current scope; a forged coverage or a right over a source of another locus is refused; a foreign claim or another process due within the interval defeats enrollment and is not suppressed; every arbitrary-target route refuses whatever horizon is asked while work is pending.
+- **Not established:** that any model or GM reads a real sentence correctly; a real player's transcript; a remote/phone input route; mid-work standing loss (no terminal transition exists: it holds the campaign clock and is excluded from play); the C8 hidden-timing channel and D-2; source _ownership_ beyond the author's stated grounds; §28 labor accounting.

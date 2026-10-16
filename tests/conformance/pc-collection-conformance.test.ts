@@ -460,12 +460,14 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "representation",
       "request",
       "sceneClosure",
+      "sceneClosureIsCurrent",
       "startWork",
       "temporalObject",
       "terminate",
       "termination",
       "work",
       "workforceScope",
+      "workforceScopeIsCurrent",
     ]);
   });
 });

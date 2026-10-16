@@ -59,11 +59,11 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "bec3c6004c55f3c7275f9ea9dcfbe1836f5e268ac7b1f4964dcf218c7cf6760c",
+    "428fb144febf5ff007e16106f676a2f6b3dac6f812de57ceeaee95b3d943e46c",
   "packages/operator/src/confirmation.ts":
-    "d3516d8c2fc0c9e570563cd34e424716b0896c731817961ae53459426be725ee",
+    "12a6a291ca1f07472d2a2ed6b17157d37cb3d1b77a177b2c7e2958a6f5cdea41",
   "packages/operator/src/index.ts":
-    "bd2072834a904019157d43b46dfb0d91a49633c1b7519955b4a743818099b920",
+    "633ce6f79dd9cdf5368e4c2b06b33bb92a989592e88a8ae96953b869cf15e5b7",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/referee-exchange.ts":
