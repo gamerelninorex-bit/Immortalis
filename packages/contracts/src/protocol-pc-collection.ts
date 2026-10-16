@@ -19,6 +19,8 @@ export const PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION = "commit_confirmed_pc_c
 export const PROTOCOL_OP_GET_PC_COLLECTION_REACH_TASK = "get_pc_collection_reach_task";
 export const PROTOCOL_OP_SUBMIT_PC_COLLECTION_REACH = "submit_pc_collection_reach";
 export const PROTOCOL_OP_START_CONFIRMED_PC_COLLECTION = "start_confirmed_pc_collection";
+/** D-1 (PROVISIONAL, not adopted): the separately confirmed request to cease the SAME in-flight collection. */
+export const PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION = "cease_confirmed_pc_collection";
 
 export const CommitConfirmedPcCollectionRequestSchema = z.strictObject({
   operation: z.literal(PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION),
@@ -33,6 +35,10 @@ export const SubmitPcCollectionReachRequestSchema = z.strictObject({
 });
 export const StartConfirmedPcCollectionRequestSchema = z.strictObject({
   operation: z.literal(PROTOCOL_OP_START_CONFIRMED_PC_COLLECTION),
+});
+/** No field for a result, a credit, a boundary or an identity: the trusted context names the PC and the act; the owners derive everything else. */
+export const CeaseConfirmedPcCollectionRequestSchema = z.strictObject({
+  operation: z.literal(PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION),
 });
 
 export const PC_COLLECTION_COMMITTED = "COLLECTION_COMMITTED";

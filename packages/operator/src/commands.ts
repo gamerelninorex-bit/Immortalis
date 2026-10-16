@@ -5,6 +5,7 @@ import {
   COLLECTION_OUTCOME_UNKNOWN,
   EntityId,
   PC_COLLECTION_COMMITTED,
+  PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION,
   PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION,
   PROTOCOL_OP_GET_PC_COLLECTION_REACH_TASK,
   PROTOCOL_OP_START_CONFIRMED_PC_COLLECTION,
@@ -30,6 +31,7 @@ import {
   RELOCATION_OUTCOME_UNKNOWN,
   logisticsBoundaryId,
   logisticsObjectId,
+  pcCollectionCessationKey,
   pcCollectionCommitmentKey,
   pcMovementRequestId,
   productionReserveKey,
@@ -55,7 +57,9 @@ import {
   advanceNullPcOocToTarget,
   bindTrustedActivePcHeldTargetAdvanceContext,
   bindTrustedActivePcTargetAdvanceContext,
+  bindTrustedConfirmedPcCessationContext,
   bindTrustedConfirmedPcCollectionContext,
+  ceaseConfirmedPcCollection,
   bindTrustedConfirmedPcRelocationContext,
   bindTrustedConfirmedPcTransferAdvanceContext,
   bindTrustedNullPcOocHeldContinuationContext,
@@ -70,6 +74,7 @@ import {
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
 import type {
   AdvanceIntent,
+  CollectionCessationIntent,
   CollectionIntent,
   NullAdvanceIntent,
   NullResumeIntent,
@@ -1268,6 +1273,134 @@ export async function collectContinue(ctx: CommandContext): Promise<CommandResul
   return result("UNAVAILABLE");
 }
 
+// -- D-1 (PROVISIONAL, not adopted): the player's separately confirmed cessation of the same in-flight collection -----------------
+
+/** A FRESH trusted context from the session's campaign and exactly what the operator confirmed (never from host input). */
+const cessationContext = (ctx: CommandContext, intent: CollectionCessationIntent) =>
+  bindTrustedConfirmedPcCessationContext({
+    campaign: ctx.session.campaign,
+    choice: intent.choice,
+    publication: intent.publication,
+  });
+
+/** Presents the retained, confirmed cessation to the unchanged gateway chain (idempotent by identity). */
+async function presentCessation(
+  ctx: CommandContext,
+  intent: CollectionCessationIntent,
+): Promise<CommandResult> {
+  const { session } = ctx;
+  const campaign = session.campaign;
+  const before = campaign.store.head().revision;
+  const outcome = await ceaseConfirmedPcCollection(cessationContext(ctx, intent), {
+    operation: PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION,
+  });
+  if (outcome.ok) {
+    const marked = await session.ledger.markCommitted(intent.intent_id);
+    if (!marked.ok) {
+      session.markAmbiguous();
+      return result(COLLECTION_OUTCOME_UNKNOWN);
+    }
+    return result(PC_COLLECTION_COMMITTED);
+  }
+  if (outcome.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+    session.markAmbiguous();
+    return result(COLLECTION_OUTCOME_UNKNOWN);
+  }
+  // a refusal: a request that left no footprint had no effect and is forgotten; one that did stays for reconciliation
+  const footprint = campaign.store.getFact(
+    pcCollectionCessationKey(intent.pc_id, intent.choice.act_id),
+  );
+  if (campaign.store.head().revision === before && !footprint) {
+    const forgotten = await session.ledger.discard(intent.intent_id);
+    if (!forgotten.ok) session.markAmbiguous();
+  }
+  return result("UNAVAILABLE");
+}
+
+/**
+ * The player's choice to CEASE the in-flight collection of the active PC (BLUE clause D-1, PROVISIONAL and NOT adopted): the
+ * trusted-side bridge from the operator's own, SEPARATE console confirmation to `bindTrustedConfirmedPcCessationContext`. It accepts no
+ * operator input at all, because the one thing it can mean is "stop the collection the player already started": the PC and the act come
+ * from the retained, confirmed collection attempt and canon. An action that canon does not hold in flight (no started collection, a
+ * closed one, one already stopping) is not offered to the player and the console is never reached. It states the exact choice,
+ * obtains the operator's own fresh confirmation of exactly it (a confirmation of the start is not one), retains the confirmed intent
+ * durably, and only then binds a fresh trusted context and runs the cessation chain. It authors no result, credit or boundary and
+ * advances no time. A retained cessation that has not finished is never asked about again: it reconciles by its original identity.
+ */
+export async function cease(ctx: CommandContext): Promise<CommandResult> {
+  const refused = guard(ctx) ?? unreconciledPcTarget(ctx);
+  if (refused) return refused;
+  const { session, terminal } = ctx;
+  const campaign = session.campaign;
+  const pcId = activePc(campaign);
+  const collection = [...session.ledger.collections()].reverse()[0];
+  if (!pcId || !collection) return result("NOTHING_TO_RECONCILE");
+  if (collection.pc_id !== pcId) return result("STALE_INTENT");
+  const actId = collection.choice.act_id;
+
+  const retained = session.ledger.cessations().find((c) => c.choice.act_id === actId);
+  if (retained)
+    return retained.status === "COMMITTED"
+      ? result(PC_COLLECTION_COMMITTED)
+      : presentCessation(ctx, retained);
+
+  // current canon only: the cessation is offered only for this PC's collection that is positively in flight
+  const adapter = new PcCollectionAdapter(campaign.store);
+  const hold = adapter.hold(pcId);
+  if (
+    (hold.state !== "IN_FLIGHT" && hold.state !== "INVALIDATED") ||
+    hold.act_id !== actId ||
+    adapter.closed(pcId, actId)
+  )
+    return result("UNAVAILABLE");
+
+  const ordinal = session.ledger.cessations().length + 1;
+  const subject = subjectOf({
+    verb: "cease",
+    campaign_id: session.campaignId,
+    pc_id: pcId,
+    act_id: actId,
+    ordinal,
+  });
+  const quantity = adapter.commitment(pcId, actId)?.value.intent.quantity;
+  const confirmation = await requestOperatorConfirmation(terminal, "cease", subject, [
+    `CONFIRMATION — THE CHARACTER STOPS THE COLLECTION (stop #${ordinal})`,
+    OOC_BANNER,
+    `  campaign:  ${session.campaignId}`,
+    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    ``,
+    `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
+    `  character: ${pcId}`,
+    `  stop the collection of ${quantity?.amount ?? "the"} ${quantity?.unit ?? "units"} that is under way (act ${actId}).`,
+    ``,
+    `This is a NEW choice to stop, separate from the choice to begin. It does not say the work never happened and it awards nothing:`,
+    `under the present rules nothing is gathered before the work's own completion, so the source and the Reserve stay as they are. The`,
+    `world's owners decide the outcome; the character is free again only once they have all recorded it. It is refused, and nothing is`,
+    `written, if an earlier event is still unresolved. (PROVISIONAL: this stop is a candidate rule that has not been adopted.)`,
+    OOC_DEBUG_NOTE,
+  ]);
+  if (!confirmation) return result("DECLINED");
+  if (!consumeConfirmation(confirmation, "cease", subject)) return result("UNAVAILABLE");
+
+  const uid = (ctx.newId ?? randomUUID)();
+  const recorded = await session.ledger.record({
+    kind: "COLLECTION_CESSATION",
+    intent_id: `operator-intent:${uid}`,
+    pc_id: pcId,
+    choice: { pc_id: pcId, act_id: actId, authored_under: { ...PLAYER_CHOICE_AUTHORITY } },
+    publication: {
+      cause: `operator-cessation-cause:${session.campaignId}:${uid}`,
+      basis: OPERATOR_PUBLICATION_BASIS,
+      secrecy: OPERATOR_PUBLICATION_SECRECY,
+    },
+  });
+  if (!recorded.ok) {
+    session.markAmbiguous();
+    return result("UNAVAILABLE");
+  }
+  return presentCessation(ctx, recorded.value as CollectionCessationIntent);
+}
+
 // -- reconciliation ------------------------------------------------------------------------------------------------------------
 
 /**
@@ -1306,6 +1439,12 @@ export async function reconcile(ctx: CommandContext): Promise<readonly CommandRe
         break;
       }
       outcome = await presentCollection(ctx, intent);
+    } else if (intent.kind === "COLLECTION_CESSATION") {
+      if (!pcId || intent.pc_id !== pcId) {
+        results.push(result("STALE_INTENT"));
+        break;
+      }
+      outcome = await presentCessation(ctx, intent);
     } else {
       if (!pcId || intent.pc_id !== pcId) {
         results.push(result("STALE_INTENT"));

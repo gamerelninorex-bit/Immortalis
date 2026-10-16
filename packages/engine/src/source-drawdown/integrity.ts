@@ -14,6 +14,7 @@ import {
   productionExtractionObjectId,
   productionReserveInflowStage,
   productionSourceAccountKey,
+  productionPcCollectionTerminationKey,
   productionSourceDeltaKey,
   temporalObjectKey,
   worldSourceConditionKey,
@@ -232,10 +233,13 @@ export function verifySourceDrawdownIntegrity(store: CampaignStore): readonly In
       );
     const isCredited = (reserve.inflows ?? []).some((i) => i.inflow_id === e.extraction_id);
     const inAccount = account.open.some((o) => o.extraction_id === e.extraction_id);
-    if (isCredited === inAccount)
+    // D-1 (PROVISIONAL): a PC collection Production terminated before its earned boundary is neither credited nor held: it is closed
+    // by its terminal disposition (and has no delta and no delivery)
+    const isTerminated = byKey.has(productionPcCollectionTerminationKey(e.extraction_id));
+    if ([isCredited, inAccount, isTerminated].filter(Boolean).length !== 1)
       bad(
         ef.key,
-        "an extraction is held open on its account exactly until its Reserve inflow is credited",
+        "an extraction is held open on its account exactly until its Reserve inflow is credited (or, provisionally, until Production's terminal disposition)",
       );
     const deltaFact = byKey.get(productionSourceDeltaKey(e.extraction_id));
     const receiptFact = byKey.get(

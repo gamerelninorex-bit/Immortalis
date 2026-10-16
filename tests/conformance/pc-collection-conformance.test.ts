@@ -8,14 +8,24 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
+  PC_COLLECTION_CESSATION_RULE,
   PC_COLLECTION_FACT_KINDS,
+  POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_WORK_RULE,
+  TEMPORAL_FACT_KINDS,
+  TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
   PcCollectionAdapter,
   SOURCE_DRAWDOWN_FACT_KINDS,
   factKind,
 } from "@immortalis/engine";
 import {
+  CPAA_C1_D1_PROVISIONAL,
   CPAA_C1_PROVISIONAL,
+  CeaseConfirmedPcCollectionRequestSchema,
+  PcCollectionCessationInputSchema,
+  PcCollectionCessationSchema,
+  ProductionPcCollectionTerminationSchema,
   CommitConfirmedPcCollectionRequestSchema,
   EstablishPcCollectionMechanismInputSchema,
   GetPcCollectionReachTaskRequestSchema,
@@ -34,8 +44,22 @@ import { adapterMethods } from "../support/surface-checks.ts";
 const CANDIDATE_ARTIFACT = "https://app.notion.com/p/3fb20af901e081c294cbf534d24de7c0";
 const CANDIDATE_PIN = "2026-10-16T00:31:39.142Z";
 const DIRECTION_PIN = "2026-10-16T01:38:29.022Z";
+// BLUE clause D-1 (proposed, NOT adopted): the disposition's own artifact and native pin
+const D1_ARTIFACT = "https://app.notion.com/p/3fb20af901e08170b369fdf2353a73d4";
+const D1_PIN = "2026-10-16T04:43:59.946Z";
+const D1_IDS = ["cessation", "termination"] as const;
+const C1_KIND_IDS = [
+  "pc_collection_commitment",
+  "pc_collection_request",
+  "pc_collection_mechanism",
+  "pc_collection_reach_decision",
+  "population_pc_occupancy",
+  "production_pc_collection_work",
+] as const;
+const D1_KIND_IDS = ["pc_collection_cessation", "production_pc_collection_termination"] as const;
 const MODULES = [
   "packages/contracts/src/pc-collection.ts",
+  "packages/engine/src/pc-collection/cessation.ts",
   "packages/contracts/src/protocol-pc-collection.ts",
   "packages/engine/src/pc-collection/state.ts",
   "packages/engine/src/pc-collection/derive.ts",
@@ -47,16 +71,11 @@ const MODULES = [
 const GATEWAY = "packages/protocol/src/pc-collection.ts";
 
 describe("IA-01 provisional status: every new kind is tagged as an unratified candidate lowering, never as a pinned rule", () => {
-  it("the six kinds' governing rule cites the candidate and the Sovereign's non-final direction, with effective_basis provisional", () => {
-    expect(PC_COLLECTION_FACT_KINDS.map((k) => k.id)).toEqual([
-      "pc_collection_commitment",
-      "pc_collection_request",
-      "pc_collection_mechanism",
-      "pc_collection_reach_decision",
-      "population_pc_occupancy",
-      "production_pc_collection_work",
-    ]);
-    for (const k of PC_COLLECTION_FACT_KINDS) {
+  it("the six C1 kinds' governing rule cites the candidate and the Sovereign's non-final direction, with effective_basis provisional", () => {
+    expect(PC_COLLECTION_FACT_KINDS.map((k) => k.id)).toEqual([...C1_KIND_IDS, ...D1_KIND_IDS]);
+    for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
+      (C1_KIND_IDS as readonly string[]).includes(k.id),
+    )) {
       expect(k.rule.artifact, k.id).toBe(CANDIDATE_ARTIFACT);
       expect(k.rule.native_pin, k.id).toBe(CANDIDATE_PIN);
       expect(k.rule.effective_basis, k.id).toBe(
@@ -70,9 +89,42 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
     }
   });
 
+  it("the two D-1 kinds and the three D-1 alternate rules cite the BLUE disposition and the construction-approved handoff as a PROPOSED, NOT adopted clause", () => {
+    for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
+      (D1_KIND_IDS as readonly string[]).includes(k.id),
+    ))
+      expect([k.id, k.rule.artifact, k.rule.native_pin]).toEqual([k.id, D1_ARTIFACT, D1_PIN]);
+    for (const rule of [
+      PC_COLLECTION_CESSATION_RULE,
+      PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+      POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+      TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+    ]) {
+      expect(rule.artifact).toBe(D1_ARTIFACT);
+      expect(rule.native_pin).toBe(D1_PIN);
+      expect(rule.effective_basis).toBe("provisional-candidate-lowering-pending-ratification");
+      expect(rule.effective_basis).not.toBe("pinned-by-spec-lock");
+      expect(rule.supersedes).toBeNull();
+      const lineage = rule.authority_lineage.join("\n");
+      for (const cited of [CPAA_C1_D1_PROVISIONAL, "NOT adopted", "6208352198"])
+        expect(lineage, cited).toContain(cited);
+    }
+    // the D-1 literal statuses are stated where a reader meets them
+    expect(CPAA_C1_D1_PROVISIONAL).toMatch(
+      /not adopted, not ratified, not a source-lock amendment/,
+    );
+    expect(D1_IDS).toHaveLength(2);
+  });
+
   it("the candidate and the direction are not lock pins: the lock, the Runtime Contract and the open-gate snapshots are untouched", () => {
     const lockText = readFileSync("spec/f027/spec-lock.json", "utf8");
-    for (const p of [CANDIDATE_PIN, DIRECTION_PIN, "3fb20af901e081c294cbf534d24de7c0"])
+    for (const p of [
+      CANDIDATE_PIN,
+      DIRECTION_PIN,
+      D1_PIN,
+      "3fb20af901e081c294cbf534d24de7c0",
+      "3fb20af901e08170b369fdf2353a73d4",
+    ])
       expect(lockText, p).not.toContain(p);
     expect(lock.frozen_sources).toHaveLength(23);
     expect(lock.incorporated_tranches).toHaveLength(2);
@@ -108,6 +160,14 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "no partial credit",
       "IA-07 BLOCKED",
       "PF-6/F-028",
+      // D-1 and the BLUE disposition's boundaries are stated where a reader meets them
+      D1_PIN,
+      "PC Collection Voluntary Cessation",
+      "NOT adopted, NOT ratified, NOT a source-lock amendment",
+      "DEPENDENCY-BLOCKED",
+      "lexical guard, not a semantic adjudication",
+      "RELEASED_TERMINATED",
+      "units_credited",
     ])
       expect(doc, text).toContain(text);
     for (const notImplemented of [
@@ -116,7 +176,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "universal action law",
       "natural-language parsing",
       "transformation or crafting",
-      "partial credit, cancellation or abort",
+      "partial credit, abort, any cancellation other than the PROVISIONAL, unadopted D-1 voluntary cessation",
       "interruption",
       "rights or ownership of sources",
       "provider calls",
@@ -125,7 +185,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
   });
 });
 
-describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one adapter, no subsystem", () => {
+describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facets, no new owner, one adapter, no subsystem", () => {
   it("each kind sits under an EXISTING owner with the stated lifecycle; Population's registration is the only ADVANCING one", () => {
     expect(
       PC_COLLECTION_FACT_KINDS.map((k) => [k.id, k.owner, k.facet, k.lifecycle, k.im, k.rc]),
@@ -172,6 +232,23 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
       ],
       [
         "production_pc_collection_work",
+        "production",
+        "production_state",
+        "SEALED",
+        "IM-05",
+        ["RC-02", "RC-06", "RC-10"],
+      ],
+      // D-1 (PROVISIONAL, not adopted): the PC-side cessation request and Production's terminal disposition: no new owner, no new facet
+      [
+        "pc_collection_cessation",
+        "pc_existence",
+        "pc_voluntary_commitment",
+        "SEALED",
+        "IM-07",
+        ["RC-02", "RC-15", "RC-16"],
+      ],
+      [
+        "production_pc_collection_termination",
         "production",
         "production_state",
         "SEALED",
@@ -231,19 +308,39 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
       ["referee/pc-collection-reach/p/a", "pc_collection_reach_decision"],
       ["population-pc/p/occupancy", "population_pc_occupancy"],
       ["production/pc-collection-work/x", "production_pc_collection_work"],
+      ["pc/p/collection/a/cessation", "pc_collection_cessation"],
+      ["production/pc-collection-termination/x", "production_pc_collection_termination"],
     ] as const)
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key)).map((k) => k.id)).toEqual([id]);
   });
 
-  it("the provisional work rule is additive: the drawdown kinds keep their rule and accept it only for PC-owned values", () => {
+  it("the provisional rules are additive: the drawdown kinds keep their rule and accept the work rule only for PC-owned values (and the account, additionally, the D-1 termination rule)", () => {
     for (const k of SOURCE_DRAWDOWN_FACT_KINDS) expect(k.alternateRules, k.id).toBeUndefined();
     for (const id of ["production_extraction", "production_source_account"] as const) {
       const k = factKind(id);
       expect(k.rule.effective_basis).toBe("pinned-by-spec-lock");
-      expect(k.alternateRules).toHaveLength(1);
+      expect(k.alternateRules).toHaveLength(id === "production_source_account" ? 2 : 1);
       expect(k.alternateRules![0]!.rule).toEqual(PRODUCTION_PC_COLLECTION_WORK_RULE);
       expect(k.alternateRules![0]!.admits({})).toBe(false);
     }
+    const account = factKind("production_source_account").alternateRules![1]!;
+    expect(account.rule).toEqual(PRODUCTION_PC_COLLECTION_TERMINATION_RULE);
+    expect(account.admits({})).toBe(false);
+    // the Temporal kernel's object and index kinds keep KERNEL_RULE and accept the D-1 retirement rule only as an alternate
+    for (const id of ["temporal_object", "temporal_boundary_index"] as const) {
+      const k = factKind(id);
+      expect(k.rule.effective_basis).toBe("pinned-by-spec-lock");
+      expect(k.alternateRules).toHaveLength(1);
+      expect(k.alternateRules![0]!.rule).toEqual(TEMPORAL_PC_COLLECTION_RETIREMENT_RULE);
+      expect(k.alternateRules![0]!.admits({})).toBe(false);
+    }
+    for (const k of TEMPORAL_FACT_KINDS) expect(k.alternateRules, k.id).toBeUndefined();
+    // the occupancy slot accepts the Population termination rule only for its RELEASED_TERMINATED value
+    const occupancy = factKind("population_pc_occupancy").alternateRules!;
+    expect(occupancy).toHaveLength(1);
+    expect(occupancy[0]!.rule).toEqual(POPULATION_PC_OCCUPANCY_TERMINATION_RULE);
+    expect(occupancy[0]!.admits({})).toBe(false);
+    expect(occupancy[0]!.admits({ status: "OPEN" })).toBe(false);
   });
 
   it("the module set is exactly the contract, the rules, the verifier, the one adapter and the one gateway: no new owner, scheduler, journal or manifest", () => {
@@ -251,6 +348,7 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
     expect(readdirSync("packages/engine/src/pc-collection").sort()).toEqual([
       "adapter.ts",
       "admission.ts",
+      "cessation.ts",
       "derive.ts",
       "integrity.ts",
       "state.ts",
@@ -260,6 +358,8 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
     expect(existsSync("migrations/manifests/pc-collection.json")).toBe(false);
     expect(adapterMethods(PcCollectionAdapter)).toEqual([
       "adjudicateReach",
+      "cease",
+      "cessation",
       "closed",
       "commit",
       "commitment",
@@ -274,9 +374,12 @@ describe("IA-03 owner exclusivity: six kinds, two new facets, no new owner, one 
       "reachTask",
       "registerOccupancy",
       "releaseOccupancyDenied",
+      "releaseOccupancyTerminated",
       "request",
       "startWork",
       "temporalObject",
+      "terminate",
+      "termination",
       "work",
     ]);
   });
@@ -423,5 +526,66 @@ describe("IM-15 host surface: four operations, strict bodies, no authority and n
     expect(adapter).not.toMatch(
       /boundary_at|boundaryAt|completes_at:\s*input|verdict:\s*input|duration:\s*input/,
     );
+  });
+});
+
+describe("D-1 (PROVISIONAL, proposed and NOT adopted): the cessation contracts have no field in which a result, a credit, a boundary or an identity could be stated by a caller", () => {
+  it("the strict schemas carry exactly the identities, the authority, the derived times and the retained evidence", () => {
+    expect(Object.keys(PcCollectionCessationInputSchema.shape).sort()).toEqual(
+      ["act_id", "authored_under", "pc_id"].sort(),
+    );
+    expect(Object.keys(PcCollectionCessationSchema.shape).sort()).toEqual(
+      [
+        "act_id",
+        "authored_under",
+        "basis",
+        "cessation_id",
+        "committer",
+        "intent",
+        "pc_id",
+        "requested_at",
+      ].sort(),
+    );
+    expect(Object.keys(PcCollectionCessationSchema.shape.intent.shape).sort()).toEqual(
+      ["kind", "target"].sort(),
+    );
+    expect(Object.keys(ProductionPcCollectionTerminationSchema.shape).sort()).toEqual(
+      ["act_id", "derivation", "disposition", "pc_id", "pins", "termination_id"].sort(),
+    );
+    expect(
+      Object.keys(ProductionPcCollectionTerminationSchema.shape.derivation.shape).sort(),
+    ).toEqual(
+      [
+        "claim",
+        "cycles_fully_elapsed",
+        "elapsed",
+        "per_cycle",
+        "reserve_effect",
+        "source_effect",
+        "stopped_at",
+        "units_credited",
+      ].sort(),
+    );
+    // no credit, no source or Reserve effect and no boundary is representable: each is a fixed literal or absent
+    const d = ProductionPcCollectionTerminationSchema.shape.derivation.shape;
+    expect(d.units_credited.safeParse(0).success).toBe(true);
+    expect(d.units_credited.safeParse(1).success).toBe(false);
+    expect(d.source_effect.safeParse("NONE").success).toBe(true);
+    expect(d.source_effect.safeParse("DEPLETED").success).toBe(false);
+    expect(d.reserve_effect.safeParse("NONE").success).toBe(true);
+    expect(d.reserve_effect.safeParse("CREDITED").success).toBe(false);
+  });
+
+  it("the host operation names the stop and nothing else: no PC, act, time, result or credit field", () => {
+    const request = { operation: "cease_confirmed_pc_collection" };
+    expect(CeaseConfirmedPcCollectionRequestSchema.safeParse(request).success).toBe(true);
+    for (const hostile of [
+      { ...request, act_id: "a" },
+      { ...request, units: 1 },
+      { ...request, at: { unit: "u", value: 1 } },
+      { operation: "cease_everything" },
+      {},
+    ])
+      expect(CeaseConfirmedPcCollectionRequestSchema.safeParse(hostile).success).toBe(false);
   });
 });

@@ -1,6 +1,9 @@
 import {
+  CPAA_C1_D1_PROVISIONAL,
   CPAA_C1_PROVISIONAL,
   FACET_PC_COLLECTION_MECHANISM,
+  PcCollectionCessationSchema,
+  ProductionPcCollectionTerminationSchema,
   FACET_POPULATION_PC_OCCUPANCY,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
@@ -336,6 +339,8 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "pc_collection_reach_decision",
   "population_pc_occupancy",
   "production_pc_collection_work",
+  "pc_collection_cessation",
+  "production_pc_collection_termination",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -1476,6 +1481,46 @@ export const PRODUCTION_PC_COLLECTION_WORK_RULE: SourceRef = cpaaRule(
   "C4 / C6 Production alone admits feasible physical work and derives the cycles, the causal duration and the earned completion (Timed Work §§3-4, 14) from the owners' committed premises; the existing Production Source Delta, World-State delivery and Reserve inflow are unchanged",
 );
 
+const CPAA_C1_D1_DISPOSITION = {
+  artifact: "https://app.notion.com/p/3fb20af901e08170b369fdf2353a73d4",
+  native_pin: "2026-10-16T04:43:59.946Z",
+} as const;
+const CPAA_C1_D1_LINEAGE =
+  "Sovereign construction-approved non-final handoff: PR #72 same-PR provisional BLUE construction repair authorized (https://github.com/gamerelninorex-bit/Immortalis/pull/72#issuecomment-6208352198); the proposed clause is NOT adopted, NOT ratified and NOT a source-lock amendment";
+
+/**
+ * The governing rule of every BLUE clause D-1 (PC Collection Voluntary Cessation) kind. A PROVISIONAL CANDIDATE citation of a
+ * PROPOSED clause, deliberately NOT `pinned-by-spec-lock`: its effective basis is the visible marker that a later adoption, change
+ * or withdrawal is a bounded change, never an implicit promotion.
+ */
+const d1Rule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_D1_DISPOSITION.artifact,
+  native_pin: CPAA_C1_D1_DISPOSITION.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_D1_PROVISIONAL,
+    CPAA_C1_D1_LINEAGE,
+    CPAA_C1_PROVISIONAL,
+    PC_MOVEMENT_WS010_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "provisional-candidate-lowering-pending-ratification",
+  supersedes: null,
+});
+
+export const PC_COLLECTION_CESSATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed PC Collection Voluntary Cessation: the player's separately confirmed request to cease the SAME in-flight collection identity (role.player + permission.player_choice.commit) is a new action cause recorded by the PC-side owner with identity and version provenance, at the canonical time read at the request and strictly before the earned boundary; it is not a claim that earlier work never occurred, not a source status and not a Production cancellation",
+);
+export const PRODUCTION_PC_COLLECTION_TERMINATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed Production terminal disposition: Production alone resolves the terminal status of withdrawn in-flight collection work, derived from the committed cessation request, the work record and the canonical time; it retains the legitimately elapsed progress as evidence, awards no unearned unit (the present all-at-boundary class), leaves the source and the Reserve untouched and releases only Production's own claim on the source",
+);
+export const POPULATION_PC_OCCUPANCY_TERMINATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed Population release: only after Production committed the lawful no-more-work termination of this act is the SAME PC's individual occupied interval released, exactly once; never before, never twice, never by a caller",
+);
+export const TEMPORAL_PC_COLLECTION_RETIREMENT_RULE: SourceRef = d1Rule(
+  "D-1 proposed Temporal retirement: only after Production committed the termination of this act's extraction is that extraction object's pending earned boundary retired (superseded, never resolved) and removed from the boundary index; canonical time, every other object and every other index entry are untouched",
+);
+
 const pcCollectionKind = (
   id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
   owner: string,
@@ -1540,17 +1585,30 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     PcCollectionReachDecisionSchema,
     PC_COLLECTION_REACH_RULE,
   ),
-  pcCollectionKind(
-    "population_pc_occupancy",
-    OWNER_POPULATION,
-    FACET_POPULATION_PC_OCCUPANCY,
-    "IM-04",
-    ["RC-02", "RC-06"],
-    "ADVANCING",
-    new RegExp(`^population-pc/${ID}/occupancy$`),
-    PopulationPcOccupancySchema,
-    POPULATION_PC_OCCUPANCY_RULE,
-  ),
+  {
+    ...pcCollectionKind(
+      "population_pc_occupancy",
+      OWNER_POPULATION,
+      FACET_POPULATION_PC_OCCUPANCY,
+      "IM-04",
+      ["RC-02", "RC-06"],
+      "ADVANCING",
+      new RegExp(`^population-pc/${ID}/occupancy$`),
+      PopulationPcOccupancySchema,
+      POPULATION_PC_OCCUPANCY_RULE,
+    ),
+    // D-1 (PROVISIONAL): the release after Production's termination carries the Population termination rule; the registration and
+    // the denial keep theirs
+    alternateRules: [
+      {
+        rule: POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+        admits: (value: unknown) => {
+          const o = PopulationPcOccupancySchema.safeParse(value);
+          return o.success && o.data.status === "RELEASED_TERMINATED";
+        },
+      },
+    ],
+  },
   pcCollectionKind(
     "production_pc_collection_work",
     OWNER_PRODUCTION,
@@ -1561,6 +1619,28 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^production/pc-collection-work/${ID}$`),
     ProductionPcCollectionWorkSchema,
     PRODUCTION_PC_COLLECTION_WORK_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_cessation",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_VOLUNTARY_COMMITMENT,
+    "IM-07",
+    ["RC-02", "RC-15", "RC-16"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection/${ID}/cessation$`),
+    PcCollectionCessationSchema,
+    PC_COLLECTION_CESSATION_RULE,
+  ),
+  pcCollectionKind(
+    "production_pc_collection_termination",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/pc-collection-termination/${ID}$`),
+    ProductionPcCollectionTerminationSchema,
+    PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
   ),
 ];
 
@@ -1589,6 +1669,39 @@ const SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START: readonly FactKind[] =
               rule: PRODUCTION_PC_COLLECTION_WORK_RULE,
               admits:
                 k.id === "production_extraction" ? isPcOwnedExtraction : holdsPcOwnedCommitment,
+            },
+            // D-1 (PROVISIONAL): the termination group writes the key's account (releasing Production's own claim) under the
+            // termination rule; admission requires that group to be exactly the termination record plus that account
+            ...(k.id === "production_source_account"
+              ? [
+                  {
+                    rule: PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+                    admits: (value: unknown) => SourceAccountSchema.safeParse(value).success,
+                  },
+                ]
+              : []),
+          ],
+        }
+      : k,
+  );
+
+/**
+ * D-1 (PROVISIONAL) — the retirement of a terminated extraction's pending boundary writes the extraction's temporal object and the
+ * boundary index as ONE group governed by `TEMPORAL_PC_COLLECTION_RETIREMENT_RULE` (additive: it supersedes nothing and relaxes
+ * nothing; every transaction keeps `KERNEL_RULE`). Admission requires a group carrying it to be exactly that retirement.
+ */
+const TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT: readonly FactKind[] =
+  TEMPORAL_FACT_KINDS.map((k) =>
+    k.id === "temporal_object" || k.id === "temporal_boundary_index"
+      ? {
+          ...k,
+          alternateRules: [
+            {
+              rule: TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+              admits: (value: unknown) =>
+                k.id === "temporal_object"
+                  ? TemporalObjectSchema.safeParse(value).success
+                  : BoundaryIndexSchema.safeParse(value).success,
             },
           ],
         }
@@ -2505,7 +2618,7 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
-  ...TEMPORAL_FACT_KINDS,
+  ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
   ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,

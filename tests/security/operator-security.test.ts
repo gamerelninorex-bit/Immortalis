@@ -66,7 +66,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
       );
   });
 
-  it("uses exactly the five existing host operations (two stop-at-delivery, two NULL-PC, one active-PC target) and the four PROVISIONAL CPAA-C1 collection operations (commit, reach task, reach reading, start), each once, and no other protocol entry", () => {
+  it("uses exactly the five existing host operations (two stop-at-delivery, two NULL-PC, one active-PC target) and the five PROVISIONAL CPAA-C1 collection operations (commit, reach task, reach reading, start, and the unadopted D-1 cessation), each once, and no other protocol entry", () => {
     const all = files.map((f) => identifiers(f)).join("\n");
     expect(all.match(/commitConfirmedPcRelocation\(/g)).toHaveLength(1);
     expect(all.match(/advanceConfirmedPcTransferToDelivery\(/g)).toHaveLength(1);
@@ -113,6 +113,8 @@ describe("the mechanism cannot reach authority it was not given", () => {
       "PROTOCOL_OP_ADVANCE_CONFIRMED_PC_TRANSFER",
       "PROTOCOL_OP_ADVANCE_NULL_PC_OOC_TO_TARGET",
       "PROTOCOL_OP_ADVANCE_NULL_PC_OOC_TO_TARGET",
+      "PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION",
+      "PROTOCOL_OP_CEASE_CONFIRMED_PC_COLLECTION",
       "PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION",
       "PROTOCOL_OP_COMMIT_CONFIRMED_PC_COLLECTION",
       "PROTOCOL_OP_COMMIT_CONFIRMED_PC_RELOCATION",
@@ -133,7 +135,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
       expect(code(f), f).not.toMatch(/role\.player|permission\.player_choice|role\.archivist/);
     }
     const commands = code(`${SRC}/commands.ts`);
-    expect(commands.match(/PLAYER_CHOICE_AUTHORITY/g)?.length).toBe(6);
+    expect(commands.match(/PLAYER_CHOICE_AUTHORITY/g)?.length).toBe(7);
     const cli = identifiers(`${SRC}/cli.ts`);
     expect(cli).not.toMatch(
       /\brole\b|\bpermission\b|PLAYER_CHOICE_AUTHORITY|authored_under|transaction_id|\bpc_id\b/,

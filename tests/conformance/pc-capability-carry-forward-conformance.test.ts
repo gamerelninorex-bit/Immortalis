@@ -156,6 +156,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "pc_collection_commitment",
       "pc_collection_request",
       "pc_collection_mechanism",
+      "pc_collection_cessation",
     ]);
     for (const key of ["pc/p/capability-basis/c", "pc/p/capability/c"])
       expect(ALL_FACT_KINDS.filter((k) => k.keyPattern.test(key))).toHaveLength(1);

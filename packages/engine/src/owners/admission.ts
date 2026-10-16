@@ -588,6 +588,12 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
         ? null
         : "pc_id and act_id do not match the key";
+    case "pc_collection_cessation":
+      return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
+        ? null
+        : "pc_id and act_id do not match the key";
+    case "production_pc_collection_termination":
+      return v["termination_id"] === ids[0] ? null : "termination_id does not match the key";
     case "population_pc_occupancy":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "production_pc_collection_work":

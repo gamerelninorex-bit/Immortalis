@@ -56,7 +56,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/admission.ts":
     "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/operator/src/observation.ts":
     "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
   "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",

@@ -2,7 +2,9 @@
 // CLOSE or by the lawful DENIAL of work that was never admitted; Timed Work preserves resolved progress and recalculates only an
 // unresolved future, and CPAA-C1 C6 forbids marking the attempt cancelled, fabricating partial output or creating a new player choice.
 // So the safe behavior is FAIL-CLOSED and DURABLE: an act that cannot cross keeps the PC occupied, visibly (`hold`), across reopen, and
-// nothing can release, cancel, credit or replace it. These tests prove that; they do not provide a way out (see the foundation document).
+// no denial, restart, second act or movement can release, credit or replace it. These tests prove that. The ONLY other way out is the
+// separately confirmed, PROVISIONAL and NOT adopted BLUE clause D-1 voluntary cessation, proved in `pc-collection-cessation.test.ts`
+// (see the foundation document); it is not a denial, never judges actionable knowledge (D-2 is dependency-blocked) and credits nothing.
 import { describe, expect, it } from "vitest";
 import { GipAdapter } from "@immortalis/engine";
 import {
@@ -72,7 +74,7 @@ async function blocked(dir?: string): Promise<CollectionSeeded> {
   return s;
 }
 
-describe("an act that cannot cross keeps the PC occupied: durably, visibly, and with no way out the contracts do not authorise", () => {
+describe("an act that cannot cross keeps the PC occupied: durably, visibly, and with no way out but the separately confirmed, unadopted D-1 cessation", () => {
   it("the held act is named, refuses every second use of the PC's time, and cannot be released, denied, credited, replaced or restarted", async () => {
     const s = await blocked();
     const end = T0.value + 3 * TAU;

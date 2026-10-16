@@ -34,6 +34,7 @@ import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   pcCollectionStageViolation,
+  pcCollectionTerminationGroupCheck,
   pcCollectionStartViolation,
 } from "../pc-collection/admission.ts";
 import { isPcCollectionRequestKey } from "../pc-collection/derive.ts";
@@ -75,6 +76,7 @@ type Write = CommitGroup["writes"][number];
 
 const EXTRACTION_KINDS = [
   "production_pc_collection_work",
+  "production_pc_collection_termination",
   "production_extraction_basis",
   "production_extraction",
   "production_source_delta",
@@ -100,6 +102,7 @@ export function sourceDrawdownGroupCheck(
   const accountW = of("production_source_account");
   const reserveW = of("production_reserve");
   const workW = of("production_pc_collection_work");
+  const terminationW = of("production_pc_collection_termination");
 
   if (basisW.length === 1 && ws.length === 1 && basisW[0]!.expected_version === 0)
     return checkBasis(group, state, basisW[0]!);
@@ -112,6 +115,9 @@ export function sourceDrawdownGroupCheck(
     (workW.length === 0 || workW[0]!.expected_version === 0)
   )
     return checkStart(group, state, extW[0]!, accountW[0]!, workW[0]);
+  // D-1 (PROVISIONAL): Production's terminal disposition of withdrawn in-flight PC collection work, with the key's claim released
+  if (terminationW.length === 1 && accountW.length === 1 && ws.length === 2)
+    return pcCollectionTerminationGroupCheck(group, state, terminationW[0]!, accountW[0]!);
   if (deltaW.length === 1 && ws.length === 1 && deltaW[0]!.expected_version === 0)
     return checkDelta(group, state, deltaW[0]!);
   if (

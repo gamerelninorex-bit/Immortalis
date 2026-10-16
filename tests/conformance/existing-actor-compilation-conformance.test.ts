@@ -174,6 +174,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc_collection_commitment",
       "pc_collection_request",
       "pc_collection_mechanism",
+      "pc_collection_cessation",
     ]);
     // the compilation lives in the one existing Existence Contract key space: no key space matches a handover or compilation key
     for (const key of [

@@ -65,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
   "packages/protocol/src/null-pc-ooc-held-continuation.ts":
@@ -155,11 +155,13 @@ describe("the package composes only the existing gateways and canonical reads", 
       "bindTrustedActivePcHeldTargetAdvanceContext",
       "bindTrustedActivePcTargetAdvanceContext",
       "bindTrustedCausalEventSignalContext",
+      "bindTrustedConfirmedPcCessationContext",
       "bindTrustedConfirmedPcCollectionContext",
       "bindTrustedConfirmedPcRelocationContext",
       "bindTrustedConfirmedPcTransferAdvanceContext",
       "bindTrustedNullPcOocHeldContinuationContext",
       "bindTrustedNullPcOocTargetAdvanceContext",
+      "ceaseConfirmedPcCollection",
       "commitConfirmedPcCollection",
       "commitConfirmedPcRelocation",
       "deliverCausalEventSignalPresentation",
@@ -251,6 +253,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "awaitDecision",
       "bindHost",
       "bindingIdOf",
+      "cease",
       "characterStatus",
       "collect",
       "collectContinue",

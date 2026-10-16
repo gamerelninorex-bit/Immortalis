@@ -151,7 +151,9 @@ describe("the positive: a perceivable completed gathering earns the receipt, the
     expect(out.result.details).toContain(
       "content: a small heap of loose, pale grains lying gathered together",
     );
-    expect(shown).not.toMatch(/117|120|reserve-salt|source-delivery|pc-collect/);
+    // the console's one-time challenge and the progress digests are random hex: a canon number may not be matched inside them
+    const withoutDigests = shown.replace(/[0-9a-f]{10,}/g, "");
+    expect(withoutDigests).not.toMatch(/117|120|reserve-salt|source-delivery|pc-collect/);
     await reading(dirs, (c) => {
       expect(accessKeys(c).filter((k) => k.endsWith("/event"))).toHaveLength(1);
       expect(c.verify()).toEqual([]);

@@ -22,6 +22,7 @@ import {
   fail,
   ok,
   pcCollectionCommitmentId,
+  pcCollectionCessationKey,
   pcCollectionCommitmentKey,
   pcCollectionMechanismKey,
   pcCollectionReachKey,
@@ -30,6 +31,7 @@ import {
   pcExistenceContractKey,
   popPcOccupancyKey,
   productionExtractionObjectId,
+  productionPcCollectionTerminationKey,
   productionPcCollectionWorkKey,
   productionReserveKey,
   logisticsCommitmentKey,
@@ -160,7 +162,7 @@ export function derivePcCollectionRequest(
 }
 
 /** The operative binding names this PC, at version, and the PC's released contract and stationary custody hold as the one authority. */
-function pcStandingViolation(
+export function pcStandingViolation(
   pcId: string,
   facts: FactView,
 ):
@@ -788,6 +790,16 @@ export function pcCollectionPremiseViolation(
 
 export type PcCollectionHold =
   | { readonly state: "NONE" }
+  /**
+   * D-1 (PROVISIONAL): the PC's separately confirmed cessation request of this act is committed and Production has not yet resolved it
+   * (the window between the two commits): re-presenting the cessation finishes it; time may not pass over it.
+   */
+  | { readonly state: "CESSATION_REQUESTED"; readonly act_id: string }
+  /**
+   * D-1 (PROVISIONAL): Production committed the termination; the PC's occupancy is not yet released (the pending boundary's
+   * retirement and Population's release follow): re-presenting the cessation finishes it.
+   */
+  | { readonly state: "TERMINATED_AWAITING_RELEASE"; readonly act_id: string }
   /** occupied by a registration Production has not started (the window between the two commits: re-presenting the start finishes it) */
   | { readonly state: "REGISTERED"; readonly act_id: string }
   | { readonly state: "IN_FLIGHT"; readonly act_id: string }
@@ -797,8 +809,9 @@ export type PcCollectionHold =
 /**
  * What holds the PC's time, derived from committed facts alone (a read: it writes nothing and decides nothing). It names the
  * unresolved cause without resolving it: the existing contracts authorise a release only by the work's close or by a lawful denial
- * of work never admitted, so an in-flight or invalidated act keeps the PC occupied. No cancellation, abandonment, partial credit or
- * re-choice is derived here or anywhere else.
+ * of work never admitted, so an in-flight or invalidated act keeps the PC occupied. Only the PROVISIONAL D-1 voluntary cessation
+ * (a separately confirmed request, Production's terminal disposition, then Population's release) lets that occupation end otherwise.
+ * No cancellation, abandonment, partial credit or re-choice is derived here or anywhere else.
  */
 export function pcCollectionHold(facts: FactView, pcId: string): PcCollectionHold {
   const occupancy = pcOccupancyState(facts, pcId);
@@ -809,6 +822,11 @@ export function pcCollectionHold(facts: FactView, pcId: string): PcCollectionHol
     ProductionPcCollectionWorkSchema,
   );
   if (!work) return { state: "REGISTERED", act_id: occupancy.act_id };
+  const extractionId = pcCollectionRequestId(pcId, occupancy.act_id);
+  if (facts.has(productionPcCollectionTerminationKey(extractionId)))
+    return { state: "TERMINATED_AWAITING_RELEASE", act_id: occupancy.act_id };
+  if (facts.has(pcCollectionCessationKey(pcId, occupancy.act_id)))
+    return { state: "CESSATION_REQUESTED", act_id: occupancy.act_id };
   const reason = pcCollectionPremiseViolation(work.value, facts);
   return reason === null
     ? { state: "IN_FLIGHT", act_id: occupancy.act_id }
@@ -844,6 +862,14 @@ export function pcCollectionCrossingClear(
     pcId,
   );
   if (occupancy.state !== "OPEN") return true;
+  // D-1 (PROVISIONAL): a PC that has requested to cease is not advanced over its own collection until Production has resolved it
+  if (
+    store.getFact(pcCollectionCessationKey(pcId, occupancy.act_id)) !== undefined ||
+    store.getFact(
+      productionPcCollectionTerminationKey(pcCollectionRequestId(pcId, occupancy.act_id)),
+    ) !== undefined
+  )
+    return false;
   const own = productionExtractionObjectId(pcCollectionRequestId(pcId, occupancy.act_id));
   const entries = coordinator.boundaryIndex().entries;
   if (!entries.some((e) => e.object_id === own)) return false; // an in-flight collection that is not engaged is not recognised

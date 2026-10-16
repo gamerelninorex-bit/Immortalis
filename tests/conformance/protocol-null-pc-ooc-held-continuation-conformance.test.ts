@@ -53,7 +53,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/temporal/admission.ts":
-    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
+    "69e027acb4c54b4a189bc6721f7cd733db57a356e4c3c889f6a489956a50a6e6",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/engine/src/world/canonical-campaign.ts":
     "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/world/entity-transition-provider.ts":
@@ -91,7 +91,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

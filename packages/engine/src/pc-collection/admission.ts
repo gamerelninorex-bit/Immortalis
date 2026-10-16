@@ -2,6 +2,18 @@ import {
   FACET_PC_COLLECTION_MECHANISM,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
+  PC_OCCUPANCY_RELEASED_TERMINATED,
+  PcCollectionCessationSchema,
+  ProductionPcCollectionTerminationSchema,
+  BoundaryIndexSchema,
+  SourceAccountSchema,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
+  TemporalObjectSchema,
+  EXTRACTION_OBJECT_PREFIX,
+  productionPcCollectionTerminationKey,
+  temporalObjectKey,
+  ProductionExtractionSchema as ExtractionSchema,
+  productionExtractionObjectId,
   PLAYER_CHARACTER_BINDING_KEY,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
@@ -31,7 +43,21 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { PRODUCTION_PC_COLLECTION_WORK_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  PC_COLLECTION_CESSATION_RULE,
+  POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_WORK_RULE,
+  TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
+import { parseAccount } from "../source-drawdown/derive.ts";
+import {
+  collectionFacts,
+  engagedExtractionObject,
+  pcCollectionCessationViolation,
+  pcCollectionTerminationViolation,
+} from "./cessation.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   deriveOccupancyInterval,
@@ -114,10 +140,152 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
     const v = pcCollectionMechanismViolation(w.key, mech, state.facts);
     return v ? ref(v, { key: w.key }) : null;
   }
+  if (kind === "pc_collection_cessation") {
+    const c = PcCollectionCessationSchema.parse(w.value);
+    // D-1 (PROVISIONAL)
+    if (!canonicalEqual(group.rule, PC_COLLECTION_CESSATION_RULE))
+      return ref("a cessation is governed by the provisional D-1 cessation rule", { key: w.key });
+    const missing = need(group, state, [
+      [
+        pcCollectionCommitmentKey(c.pc_id, c.act_id),
+        "the player's collection commitment-of-record",
+      ],
+      [
+        productionPcCollectionWorkKey(pcCollectionRequestId(c.pc_id, c.act_id)),
+        "Production's work record",
+      ],
+      [PLAYER_CHARACTER_BINDING_KEY, "the operative PC binding"],
+      [worldPcLocusCustodyKey(c.pc_id), "the PC's physical-locus custody record"],
+      [popPcOccupancyKey(c.pc_id), "the PC's occupancy registration"],
+      [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+      [TEMPORAL_BOUNDARY_INDEX_KEY, "the boundary index"],
+    ]);
+    if (missing) return missing;
+    const v = pcCollectionCessationViolation(w.key, c, state.facts);
+    return v ? ref(v, { key: w.key }) : null;
+  }
   return reject(
     "VALUE_INVALID",
-    "the PC collection facets hold only the commitment, the request and the mechanism",
+    "the PC collection facets hold only the commitment, the request, the mechanism and the cessation",
   );
+}
+
+/**
+ * D-1 (PROVISIONAL) — Production's terminal disposition of a withdrawn in-flight collection, with its one effect on Production's own
+ * state: the key's account releases its claim on the source (nothing else of the account changes). The termination is exactly what the
+ * committed cessation, work record and canonical time derive; the account is exactly the prior account without that one commitment;
+ * the source, the Reserve and every Source Delta are untouched (no write of them is representable in this group).
+ */
+export function pcCollectionTerminationGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+  termW: Write,
+  accountW: Write,
+): Rejection | null {
+  if (!canonicalEqual(group.rule, PRODUCTION_PC_COLLECTION_TERMINATION_RULE))
+    return ref("a termination is governed by the provisional D-1 termination rule");
+  if (termW.expected_version !== 0 || accountW.expected_version === 0)
+    return reject("VALUE_INVALID", "a termination is created once and releases an opened account");
+  const t = ProductionPcCollectionTerminationSchema.parse(termW.value);
+  const f = collectionFacts(state.facts, t.pc_id, t.act_id);
+  if (!f)
+    return reject("PREREQUISITE_MISSING", "no started collection of this PC and act is committed");
+  const id = f.work.value.work_id;
+  const missing = need(group, state, [
+    [t.pins.cessation.fact_key, "the PC's cessation request"],
+    [f.work.fact.key, "Production's work record"],
+    [f.extraction.fact.key, "the extraction"],
+    [popPcOccupancyKey(t.pc_id), "the PC's occupancy registration"],
+    [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    [TEMPORAL_BOUNDARY_INDEX_KEY, "the boundary index"],
+    [temporalObjectKey(productionExtractionObjectId(id)), "the extraction's temporal object"],
+    [f.extraction.value.account.fact_key, "the key's account"],
+  ]);
+  if (missing) return missing;
+  const v = pcCollectionTerminationViolation(termW.key, t, state.facts);
+  if (v) return ref(v, { key: termW.key });
+  const account = parseAccount(state.facts.get(accountW.key));
+  if (accountW.key !== f.extraction.value.account.fact_key || !account)
+    return ref("the termination releases the claim on the extraction's own account");
+  if (state.facts.get(accountW.key)!.version !== accountW.expected_version)
+    return reject("VERSION_CONFLICT", "the account moved since it was read", { key: accountW.key });
+  const parsed = SourceAccountSchema.safeParse(accountW.value);
+  const expected = { ...account, open: account.open.filter((o) => o.extraction_id !== id) };
+  if (!parsed.success || !canonicalEqual(parsed.data, expected))
+    return reject(
+      "VALUE_INVALID",
+      "a termination changes the account only by releasing this extraction's claim",
+    );
+  return null;
+}
+
+/**
+ * D-1 (PROVISIONAL) — Temporal's retirement of a terminated extraction's pending earned boundary: ONE group writing exactly that
+ * extraction's object (its earned boundary retired — superseded, never resolved; the resolved basis is untouched) and the boundary index
+ * without that entry. It moves no canonical time, resolves no stage and touches no other object or index entry; it is lawful only after
+ * Production committed the termination.
+ */
+export function pcCollectionRetirementGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+): Rejection | null {
+  const kind = (k: string) => resolveKey(k)?.kind.id;
+  const objW = group.writes.filter((w) => kind(w.key) === "temporal_object");
+  const idxW = group.writes.filter((w) => kind(w.key) === "temporal_boundary_index");
+  if (group.writes.length !== 2 || objW.length !== 1 || idxW.length !== 1)
+    return reject(
+      "VALUE_INVALID",
+      "a retirement writes exactly one extraction object and the index",
+    );
+  const ow = objW[0]!;
+  const iw = idxW[0]!;
+  if (!canonicalEqual(group.rule, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE))
+    return ref("a retirement is governed by the provisional D-1 retirement rule");
+  const obj = TemporalObjectSchema.parse(ow.value);
+  if (!obj.object_id.startsWith(EXTRACTION_OBJECT_PREFIX))
+    return ref("only an extraction's object is retired by a termination");
+  const extractionId = obj.object_id.slice(EXTRACTION_OBJECT_PREFIX.length);
+  if (!extractionId.startsWith("pc-collect:") || ow.key !== temporalObjectKey(obj.object_id))
+    return ref("only a PC-owned collection's extraction object is retired by a termination");
+  const missing = need(group, state, [
+    [productionPcCollectionTerminationKey(extractionId), "Production's termination of this act"],
+  ]);
+  if (missing) return missing;
+  const exFact = state.facts.get(productionExtractionKey(extractionId));
+  const ex = exFact ? ExtractionSchema.safeParse(exFact.value) : undefined;
+  if (!ex?.success || ex.data.request.owner !== OWNER_PC_EXISTENCE)
+    return ref("a retired object is a PC-owned collection's extraction object");
+  const prior = engagedExtractionObject(state.facts, extractionId);
+  const priorFact = state.facts.get(ow.key);
+  if (
+    !prior ||
+    !priorFact ||
+    ow.expected_version !== priorFact.version ||
+    !prior.value.next_boundary
+  )
+    return reject(
+      "PREREQUISITE_MISSING",
+      "only an object with a pending earned boundary is retired",
+    );
+  if (!canonicalEqual(obj, { ...prior.value, next_boundary: null }))
+    return reject(
+      "VALUE_INVALID",
+      "a retirement removes only the pending earned boundary of the object",
+    );
+  const indexFact = state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY);
+  const index = indexFact ? BoundaryIndexSchema.safeParse(indexFact.value) : undefined;
+  if (!indexFact || !index?.success || iw.expected_version !== indexFact.version)
+    return reject("PREREQUISITE_MISSING", "the boundary index is read at its current version");
+  const post = BoundaryIndexSchema.safeParse(iw.value);
+  if (
+    !post.success ||
+    !canonicalEqual(
+      post.data.entries,
+      index.data.entries.filter((e) => e.object_id !== obj.object_id),
+    )
+  )
+    return reject("VALUE_INVALID", "the index loses only the retired object's boundary");
+  return null;
 }
 
 /** The deterministic group/intent/cause identities of a reach decision, derived from the PC and act alone. */
@@ -190,6 +358,35 @@ export function pcOccupancyGroupCheck(group: CommitGroup, state: CampaignState):
       );
     if (!canonicalEqual(occ, { ...prior.value, status: PC_OCCUPANCY_RELEASED_DENIED }))
       return reject("VALUE_INVALID", "a denial changes only the status of the registration");
+    return null;
+  }
+
+  if (occ.status === PC_OCCUPANCY_RELEASED_TERMINATED) {
+    // D-1 (PROVISIONAL): the SAME PC's interval is released exactly once, only after Production committed the termination of this
+    // act and Temporal retired its pending boundary; never before, never twice, never by a caller's say-so
+    if (!canonicalEqual(group.rule, POPULATION_PC_OCCUPANCY_TERMINATION_RULE))
+      return ref("a release after termination is governed by the provisional D-1 Population rule");
+    if (
+      !prior ||
+      priorFact === undefined ||
+      prior.value.status !== PC_OCCUPANCY_OPEN ||
+      prior.value.act_id !== occ.act_id
+    )
+      return reject("PREREQUISITE_MISSING", "only an OPEN registration of this act is released");
+    const missing = need(group, state, [
+      [productionPcCollectionTerminationKey(requestId), "Production's termination of this act"],
+      [w.key, "the PC's occupancy registration"],
+    ]);
+    if (missing) return missing;
+    const object = engagedExtractionObject(state.facts, requestId);
+    if (!object || object.value.next_boundary !== null)
+      return reject(
+        "CLAIM_INCOMPATIBLE",
+        "an occupancy is released only after the terminated work's pending boundary is retired",
+        { reason: "PENDING_BOUNDARY_NOT_RETIRED" },
+      );
+    if (!canonicalEqual(occ, { ...prior.value, status: PC_OCCUPANCY_RELEASED_TERMINATED }))
+      return reject("VALUE_INVALID", "a release changes only the status of the registration");
     return null;
   }
 
@@ -329,6 +526,11 @@ export function pcCollectionStageViolation(
   e: ProductionExtraction,
 ): Rejection | null {
   if (e.request.owner !== OWNER_PC_EXISTENCE) return null;
+  // D-1 (PROVISIONAL): terminated work is never completed, credited or delivered
+  if (state.facts.has(productionPcCollectionTerminationKey(e.extraction_id)))
+    return reject("CLAIM_INCOMPATIBLE", "this collection was terminated: it is not completed", {
+      reason: "PC_COLLECTION_TERMINATED",
+    });
   const workFact = state.facts.get(productionPcCollectionWorkKey(e.extraction_id));
   const w = workFact ? ProductionPcCollectionWorkSchema.safeParse(workFact.value) : undefined;
   if (!w?.success) return ref("a PC-owned extraction has Production's derived work record");

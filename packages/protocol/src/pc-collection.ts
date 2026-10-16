@@ -1,4 +1,7 @@
 import {
+  CeaseConfirmedPcCollectionRequestSchema,
+  PcCollectionCessationInputSchema,
+  type PcCollectionCessationInput,
   COLLECTION_OUTCOME_UNKNOWN,
   COLLECTION_OUTCOME_UNKNOWN_MESSAGE,
   COLLECTION_UNAVAILABLE,
@@ -16,6 +19,7 @@ import {
   ok,
   pcCollectionRequestId,
   productionExtractionObjectId,
+  productionPcCollectionTerminationKey,
   temporalObjectKey,
   type PcCollectionCommitInput,
   type PcCollectionReachTaskReceipt,
@@ -305,6 +309,142 @@ export async function startConfirmedPcCollection(
     }
     // the extraction is committed: from here a failure cannot say the collection is absent, only that its enrollment is unreconciled
     return (await enroll(b, adapter)) ? ok({ status: PC_COLLECTION_COMMITTED }) : unknownOutcome();
+  } catch {
+    return attempted ? unknownOutcome() : refusal();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// D-1 (PROVISIONAL, not adopted) — the separately confirmed cessation of the SAME in-flight collection.
+// ---------------------------------------------------------------------------------------------
+
+/** The opaque handle for one trusted, separately player-confirmed cessation context. It carries and reveals nothing. */
+export interface TrustedConfirmedPcCessationContext {
+  readonly __trusted_confirmed_pc_cessation_context: never;
+}
+
+interface CessationBinding {
+  readonly campaign: CollectionCampaign;
+  readonly choice: PcCollectionCessationInput;
+  readonly cause: string;
+  readonly basis: string;
+  readonly secrecy: string;
+}
+
+const cessationBindings = new WeakMap<object, CessationBinding>();
+
+/**
+ * TRUSTED-SIDE ONLY — never reachable from a host request. Call it only after the player has SEPARATELY confirmed this exact
+ * cessation (a confirmation of the start is not one: it is a different choice with its own authority). The choice names the PC, the
+ * act of the in-flight collection and the authored `role.player` + `permission.player_choice.commit`; nothing here verifies a human
+ * or a session. The campaign's own admission re-judges every fact on every invocation. An incomplete or schema-invalid binding yields
+ * an inert handle that every operation refuses without a read.
+ */
+export function bindTrustedConfirmedPcCessationContext(trusted: {
+  readonly campaign: CollectionCampaign;
+  readonly choice: PcCollectionCessationInput;
+  readonly publication: {
+    readonly cause: string;
+    readonly basis: string;
+    readonly secrecy: string;
+  };
+}): TrustedConfirmedPcCessationContext {
+  const handle = Object.freeze({}) as TrustedConfirmedPcCessationContext;
+  const choice = PcCollectionCessationInputSchema.safeParse(trusted.choice);
+  const material = PublicationSchema.pick({ cause: true, basis: true, secrecy: true }).safeParse(
+    trusted.publication,
+  );
+  if (!choice.success || !material.success) return handle;
+  const { campaign } = trusted;
+  cessationBindings.set(handle, {
+    campaign: Object.freeze({
+      get store() {
+        return campaign.store;
+      },
+    }),
+    choice: choice.data,
+    ...material.data,
+  });
+  return handle;
+}
+
+const cessationPublication = (b: CessationBinding, step: string): Publication => ({
+  group_id: `pc-cease-group:${step}:${b.choice.pc_id}:${b.choice.act_id}`,
+  intent_id: `pc-cease-intent:${step}:${b.choice.pc_id}:${b.choice.act_id}`,
+  cause: b.cause,
+  basis: b.basis,
+  secrecy: b.secrecy,
+});
+
+/**
+ * The cessation chain, each step an EXISTING owner path under its own identity (so a lost reply is reconciled by presenting the same
+ * request again): (1) the PC-side request, recorded at the canonical time read now; (2) Production's terminal disposition and the
+ * release of its own claim on the source; (3) Temporal's retirement of the pending boundary of that very work; (4) Population's
+ * release of the SAME PC's occupied interval, only after (2) and (3). None advances time, credits a unit, writes the source or the
+ * Reserve, or invents a result: a step whose premises do not hold refuses and writes nothing, and the PC stays occupied (visibly:
+ * `hold`) until the chain completes. The only things returned are the committed and the two refusal statuses.
+ */
+export async function ceaseConfirmedPcCollection(
+  context: TrustedConfirmedPcCessationContext,
+  request: unknown,
+): Promise<PcCollectionResult> {
+  let attempted = false;
+  try {
+    const b = cessationBindings.get(context);
+    if (b === undefined || !CeaseConfirmedPcCollectionRequestSchema.safeParse(request).success)
+      return refusal();
+    const { pc_id: pcId, act_id: actId } = b.choice;
+    const store = b.campaign.store;
+    const adapter = new PcCollectionAdapter(store);
+    // a closed output is not stopped: the stop came too late and there is nothing left to do (the one refusal, never "try again")
+    if (adapter.closed(pcId, actId)) return refusal();
+    // a step already committed (by this or an earlier presentation) means a later failure cannot say the cessation is absent
+    attempted = adapter.cessation(pcId, actId) !== undefined;
+    const fail_ = (outcome: Outcome): PcCollectionResult =>
+      outcome.error?.code === "UNKNOWN_OUTCOME" || attempted ? unknownOutcome() : refusal();
+
+    if (!adapter.cessation(pcId, actId)) {
+      const requested = await adapter.cease({
+        ...cessationPublication(b, "request"),
+        cessation: b.choice,
+      });
+      if (!requested.ok) return fail_(requested);
+      attempted = true;
+    }
+    if (!adapter.termination(pcId, actId)) {
+      const terminated = await adapter.terminate({
+        ...cessationPublication(b, "termination"),
+        pc_id: pcId,
+        act_id: actId,
+      });
+      if (!terminated.ok) return fail_(terminated);
+      attempted = true;
+    }
+    const extractionId = pcCollectionRequestId(pcId, actId);
+    const objectKey = temporalObjectKey(productionExtractionObjectId(extractionId));
+    const object = store.getFact(objectKey);
+    const pending = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
+    if (pending?.success && pending.data.next_boundary !== null) {
+      const retired = await new TemporalCoordinator(
+        store,
+        new StageProviderRegistry(),
+      ).retireTerminatedObject({
+        ...cessationPublication(b, "retirement"),
+        object_id: productionExtractionObjectId(extractionId),
+        evidence_key: productionPcCollectionTerminationKey(extractionId),
+      });
+      if (!retired.ok) return fail_(retired);
+      attempted = true;
+    }
+    if (adapter.occupancyState(pcId).state === "OPEN") {
+      const released = await adapter.releaseOccupancyTerminated({
+        ...cessationPublication(b, "release"),
+        pc_id: pcId,
+        act_id: actId,
+      });
+      if (!released.ok) return fail_(released);
+    }
+    return ok({ status: PC_COLLECTION_COMMITTED });
   } catch {
     return attempted ? unknownOutcome() : refusal();
   }

@@ -40,11 +40,16 @@ export function pcOccupancyRecord(
 export type PcOccupancyState =
   | { readonly state: "NONE" }
   | { readonly state: "OPEN"; readonly act_id: string }
-  | { readonly state: "RELEASED"; readonly act_id: string; readonly why: "DENIED" | "CLOSED" };
+  | {
+      readonly state: "RELEASED";
+      readonly act_id: string;
+      readonly why: "DENIED" | "CLOSED" | "TERMINATED";
+    };
 
 /**
- * Is the PC occupied now? OPEN from its registration until either a lawful denial (the recorded release) or the work's close (the
- * Reserve inflow credited: derived, with no write). Occupancy is conserved: a PC has one at a time.
+ * Is the PC occupied now? OPEN from its registration until a lawful denial or, PROVISIONALLY (D-1), a release after Production's
+ * termination (each a recorded release), or the work's close (the Reserve inflow credited: derived, with no write). Occupancy is
+ * conserved: a PC has one at a time.
  */
 export function pcOccupancyState(facts: Facts, pcId: string): PcOccupancyState {
   const rec = pcOccupancyRecord(facts, pcId);
@@ -52,6 +57,8 @@ export function pcOccupancyState(facts: Facts, pcId: string): PcOccupancyState {
   const act = rec.value.act_id;
   if (rec.value.status === "RELEASED_DENIED")
     return { state: "RELEASED", act_id: act, why: "DENIED" };
+  if (rec.value.status === "RELEASED_TERMINATED")
+    return { state: "RELEASED", act_id: act, why: "TERMINATED" };
   return extractionCredited(facts, pcCollectionRequestId(pcId, act))
     ? { state: "RELEASED", act_id: act, why: "CLOSED" }
     : { state: "OPEN", act_id: act };

@@ -65,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
   "packages/engine/src/presentation/event-signal.ts":

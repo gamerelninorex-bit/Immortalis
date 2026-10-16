@@ -579,6 +579,28 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "production/pc-collection-work/x1",
   },
+  /**
+   * BLUE clause D-1 (PC Collection Voluntary Cessation) — PROVISIONAL CANDIDATE LOWERING (proposed, NOT adopted; Sovereign
+   * construction-approved non-final handoff on the unmerged PR #72): two more kinds, no new owner and no new facet. The PC-side
+   * cessation request (the existing `pc_voluntary_commitment` facet, create-only) and Production's terminal disposition (the existing
+   * `production_state` facet, create-only).
+   */
+  {
+    id: "pc_collection_cessation",
+    owner: "pc_existence",
+    facet: "pc_voluntary_commitment",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/collection/a1/cessation",
+  },
+  {
+    id: "production_pc_collection_termination",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "production/pc-collection-termination/x1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -833,6 +855,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   PcCollectionAdapter: {
     methods: [
       "adjudicateReach",
+      "cease",
+      "cessation",
       "closed",
       "commit",
       "commitment",
@@ -847,9 +871,12 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "reachTask",
       "registerOccupancy",
       "releaseOccupancyDenied",
+      "releaseOccupancyTerminated",
       "request",
       "startWork",
       "temporalObject",
+      "terminate",
+      "termination",
       "work",
     ],
   },
@@ -926,6 +953,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "establishCanonicalTime",
       "object",
       "registerObject",
+      "retireTerminatedObject",
       "state",
       "transaction",
     ],

@@ -25,7 +25,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/contracts/src/epistemic-access.ts":
@@ -43,9 +43,9 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "ada9448c9f690ac237a99e566e597ae48587ef5e00952d77719a10a577894138",
+    "0c5c3885920d742ca541df7b9c5f9d0345f3292d8dc6cc727f7386209da263df",
   "packages/engine/src/owners/registry.ts":
-    "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62",
+    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1",
   "packages/engine/src/referee/adapter.ts":
     "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
   "packages/engine/src/referee/admission.ts":
@@ -55,13 +55,13 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
-    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
+    "69e027acb4c54b4a189bc6721f7cd733db57a356e4c3c889f6a489956a50a6e6",
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
     "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
   "packages/operator/src/confirmation.ts":
-    "c818e06039b03bd6861e8adef2f56b5c421c1af3211262ba1ed6c5e42ca21273",
+    "7db72a424fe61265eaac40472db5b07010f9906722938d41ae5ba21d300a812c",
   "packages/operator/src/index.ts":
     "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
   "packages/operator/src/original-pc.ts":

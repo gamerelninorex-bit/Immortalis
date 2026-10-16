@@ -208,6 +208,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "pc_collection_commitment",
       "pc_collection_request",
       "pc_collection_mechanism",
+      "pc_collection_cessation",
     ]);
     // World-State, Logistics and the Role Registry gained no kind
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([

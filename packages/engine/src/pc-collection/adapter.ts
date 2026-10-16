@@ -3,6 +3,17 @@ import {
   EstablishPcCollectionMechanismInputSchema,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
+  PC_OCCUPANCY_RELEASED_TERMINATED,
+  PcCollectionCessationInputSchema,
+  PcCollectionCessationSchema,
+  ProductionPcCollectionTerminationSchema,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
+  pcCollectionCessationKey,
+  productionExtractionObjectId,
+  productionPcCollectionTerminationKey,
+  temporalObjectKey,
+  type PcCollectionCessation,
+  type ProductionPcCollectionTermination,
   PLAYER_CHARACTER_BINDING_KEY,
   PcCollectionCommitInputSchema,
   PcCollectionCommitmentSchema,
@@ -51,7 +62,13 @@ import {
   type TemporalObject,
   type WorldSourceCondition,
 } from "@immortalis/contracts";
-import { PRODUCTION_PC_COLLECTION_WORK_RULE, factKind } from "../owners/registry.ts";
+import {
+  POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+  PRODUCTION_PC_COLLECTION_WORK_RULE,
+  factKind,
+} from "../owners/registry.ts";
+import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { SourceDrawdownAdapter } from "../source-drawdown/adapter.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
@@ -98,6 +115,7 @@ const byId = (a: { extraction_id: string }, b: { extraction_id: string }): numbe
   a.extraction_id < b.extraction_id ? -1 : a.extraction_id > b.extraction_id ? 1 : 0;
 
 type KindId =
+  | "pc_collection_cessation"
   | "pc_collection_commitment"
   | "pc_collection_request"
   | "pc_collection_mechanism"
@@ -526,6 +544,146 @@ export class PcCollectionAdapter {
     return this.#store.commit(group);
   }
 
+  /**
+   * D-1 (PROVISIONAL), step 1: the PC-side record of the player's separately confirmed request to cease the SAME in-flight collection.
+   * Everything but the identities and the authored authority is DERIVED from committed state and the canonical time (the request
+   * time, the pins); a request that is not lawful now (not in flight, closed, an unresolved earlier boundary, no current authority)
+   * is refused and writes nothing.
+   */
+  cease(
+    input: Publication & { readonly cessation: unknown },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const c = PcCollectionCessationInputSchema.safeParse(input.cessation);
+    if (!c.success) return Promise.resolve(invalid("cessation", c.error));
+    const derived = deriveCessation(c.data, this.#view());
+    if (!derived.ok) return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    const v = derived.value;
+    return this.#publish(
+      p.data,
+      "pc_collection_cessation",
+      pcCollectionCessationKey(v.pc_id, v.act_id),
+      v,
+      0,
+      [
+        v.intent.target.commitment.fact_key,
+        v.intent.target.work.fact_key,
+        PLAYER_CHARACTER_BINDING_KEY,
+        worldPcLocusCustodyKey(v.pc_id),
+        popPcOccupancyKey(v.pc_id),
+        TEMPORAL_STATE_KEY,
+        TEMPORAL_BOUNDARY_INDEX_KEY,
+      ],
+    );
+  }
+
+  /**
+   * D-1 (PROVISIONAL), step 2: Production's terminal disposition of the withdrawn work, DERIVED from the committed cessation, the
+   * work record and the canonical time. In ONE atomic group it records the disposition and releases the key's claim on the source
+   * (Production's own account); the source and the Reserve are not written. The elapsed progress is retained as evidence and awards
+   * nothing. There is no parameter for a result, a credit or a boundary.
+   */
+  async terminate(
+    input: Publication & { readonly pc_id: string; readonly act_id: string },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return invalid("publication", p.error);
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const facts = this.#view();
+    const derived = deriveTermination(input.pc_id, input.act_id, facts);
+    if (!derived.ok) return fail("PREREQUISITE_MISSING", derived.error.message);
+    const t = derived.value;
+    const c = collectionFacts(facts, t.pc_id, t.act_id)!;
+    const accountFact = this.#store.getFact(c.extraction.value.account.fact_key);
+    const account = accountFact ? parseAccount(accountFact) : undefined;
+    if (!accountFact || !account)
+      return fail("VALUE_INVALID", "the key's account is malformed", {
+        key: c.extraction.value.account.fact_key,
+      });
+    const value = ProductionPcCollectionTerminationSchema.safeParse(t);
+    if (!value.success) return invalid("termination", value.error);
+    const nextAccount = SourceAccountSchema.safeParse({
+      ...account,
+      open: account.open.filter((o) => o.extraction_id !== t.termination_id),
+    });
+    if (!nextAccount.success) return invalid("account", nextAccount.error);
+    const kind = factKind("production_pc_collection_termination");
+    const readKeys = [
+      t.pins.cessation.fact_key,
+      c.work.fact.key,
+      c.extraction.fact.key,
+      popPcOccupancyKey(t.pc_id),
+      TEMPORAL_STATE_KEY,
+      TEMPORAL_BOUNDARY_INDEX_KEY,
+      temporalObjectKey(productionExtractionObjectId(t.termination_id)),
+      accountFact.key,
+    ];
+    const group: CommitGroup = {
+      campaign_id: this.#store.head().campaign_id,
+      group_id: p.data.group_id,
+      intent_id: p.data.intent_id,
+      owner: kind.owner,
+      facet: kind.facet,
+      cause: p.data.cause,
+      rule: PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      reads: readKeys.map((k) => ({ key: k, version: this.#store.getFact(k)?.version ?? 0 })),
+      depends_on: [
+        ...new Set(readKeys.flatMap((k) => this.#store.getFact(k)?.provenance.group_id ?? [])),
+      ],
+      writes: [
+        {
+          key: productionPcCollectionTerminationKey(t.termination_id),
+          value: value.data,
+          expected_version: 0,
+        },
+        { key: accountFact.key, value: nextAccount.data, expected_version: accountFact.version },
+      ].map((w) => ({
+        key: w.key,
+        owner: kind.owner,
+        facet: kind.facet,
+        value: w.value as CommitGroup["writes"][number]["value"],
+        unit: null,
+        basis: p.data.basis,
+        secrecy: p.data.secrecy,
+        expected_version: w.expected_version,
+      })),
+    };
+    return this.#store.commit(group);
+  }
+
+  /**
+   * D-1 (PROVISIONAL), step 4: Population releases the SAME PC's individual occupied interval, exactly once, only after Production
+   * committed the termination of this act and Temporal retired its pending boundary (admission requires both).
+   */
+  releaseOccupancyTerminated(
+    input: Publication & { readonly pc_id: string; readonly act_id: string },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const prior = this.occupancy(input.pc_id);
+    if (!prior || prior.value.act_id !== input.act_id)
+      return Promise.resolve(fail("PREREQUISITE_MISSING", "no registration of this act is held"));
+    const extractionId = pcCollectionRequestId(input.pc_id, input.act_id);
+    return this.#publish(
+      p.data,
+      "population_pc_occupancy",
+      popPcOccupancyKey(input.pc_id),
+      { ...prior.value, status: PC_OCCUPANCY_RELEASED_TERMINATED },
+      prior.fact.version,
+      [
+        productionPcCollectionTerminationKey(extractionId),
+        temporalObjectKey(productionExtractionObjectId(extractionId)),
+        popPcOccupancyKey(input.pc_id),
+      ],
+      POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+    );
+  }
+
   /** The temporal object of the started extraction (derived from the committed extraction alone; its boundary is the derived completion). */
   temporalObject(pcId: string, actId: string): TemporalObject | undefined {
     return new SourceDrawdownAdapter(this.#store).temporalObject(
@@ -546,6 +704,15 @@ export class PcCollectionAdapter {
   }
   reach(pcId: string, actId: string): Typed<PcCollectionReachDecision> | undefined {
     return this.#typed(pcCollectionReachKey(pcId, actId), PcCollectionReachDecisionSchema);
+  }
+  cessation(pcId: string, actId: string): Typed<PcCollectionCessation> | undefined {
+    return this.#typed(pcCollectionCessationKey(pcId, actId), PcCollectionCessationSchema);
+  }
+  termination(pcId: string, actId: string): Typed<ProductionPcCollectionTermination> | undefined {
+    return this.#typed(
+      productionPcCollectionTerminationKey(pcCollectionRequestId(pcId, actId)),
+      ProductionPcCollectionTerminationSchema,
+    );
   }
   occupancy(pcId: string): Typed<PopulationPcOccupancy> | undefined {
     const rec = pcOccupancyRecord(
@@ -589,6 +756,13 @@ export class PcCollectionAdapter {
 
   // -- internals -------------------------------------------------------------------------------
 
+  #view() {
+    return {
+      get: (k: string) => this.#store.getFact(k),
+      has: (k: string) => this.#store.getFact(k) !== undefined,
+    };
+  }
+
   #typed<T>(key: string, schema: { parse(v: unknown): T }): Typed<T> | undefined {
     const fact = this.#store.getFact(key);
     return fact ? { fact, value: schema.parse(fact.value) } : undefined;
@@ -606,6 +780,7 @@ export class PcCollectionAdapter {
     value: unknown,
     expectedVersion: number,
     readKeys: readonly string[],
+    rule?: CommitGroup["rule"],
   ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
     const replay = this.#store.committedGroup(p.intent_id);
     if (replay) return this.#store.commit(replay);
@@ -617,7 +792,7 @@ export class PcCollectionAdapter {
       owner: kind.owner,
       facet: kind.facet,
       cause: p.cause,
-      rule: kind.rule,
+      rule: rule ?? kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads: readKeys.map((k) => ({ key: k, version: this.#store.getFact(k)?.version ?? 0 })),
       depends_on: [

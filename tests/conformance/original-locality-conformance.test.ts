@@ -48,15 +48,15 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "7ba53a340aae6a6375db8933d52f1e0c46adca7fee662419d7bda5324d53affd", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "653a8406e7f37ce48d83a9fce34fa82e8c95425360c153d66e91a9b3de6bdabf", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":
-    "7dfa1d0b7f1612aa0dbab35ceb3b62f313c9010523b4242a5b14ccc9a153b79f",
+    "ae237f2952b3c971fbec9782c6b252bd3ae895d842e934ed48dfd7c923e098f3",
   "packages/engine/src/source-drawdown/integrity.ts":
-    "4ab03e1cad8c8f09f5e748b9310503229e9adb01dc8b0aadc2101a98e9562f91",
+    "18cb2b074b3d8902d5deeea0a26a30f9e6fc1bfd26e628ed971e3534636accc7",
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
@@ -64,9 +64,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/ledger.ts":
-    "9f185d063865cd08b1e74c10c9204922fde04a89aa44c094bc85382f8b21ba8a",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "c6643b8412b93d4646d8d1e4ad11190cdf0e40629e5cc16a04da6e84b0a53b85",
+    "a1e919e2eb57a742905929b6f37d028d27149e60cd642b079fca5ef071ac13de",
 };
 
 describe("the owners, contracts, shipped binary and frozen artifacts are untouched: the slice consumes them, never edits or duplicates them", () => {

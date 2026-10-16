@@ -161,6 +161,7 @@ export * from "./hash.ts";
 export * from "./version.ts";
 export * from "./pc-collection/adapter.ts";
 export * from "./pc-collection/admission.ts";
+export * from "./pc-collection/cessation.ts";
 export * from "./pc-collection/derive.ts";
 export * from "./pc-collection/integrity.ts";
 export * from "./pc-collection/state.ts";

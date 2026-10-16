@@ -79,7 +79,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "181218063894d0458e8143ac7a4866d70732ff967410b18846a78cc457b30a0a",
     // the kernel, GIP's own sunset expiry and enrollment, the owner registry and the canonical campaign
     "packages/engine/src/temporal/coordinator.ts":
-      "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+      "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
     "packages/engine/src/temporal/providers.ts":
       "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
     "packages/engine/src/gip/provider.ts":
@@ -87,7 +87,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "8186591b7c2e9a6f31d16bf79d9cee844a6fe66e658a2a11ae7f705469af7e62",
+      "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1",
     "packages/engine/src/world/canonical-campaign.ts":
       "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
@@ -104,7 +104,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/protocol/src/null-pc-ooc-held-continuation.ts":
       "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
     "packages/operator/src/commands.ts":
-      "c6643b8412b93d4646d8d1e4ad11190cdf0e40629e5cc16a04da6e84b0a53b85",
+      "a1e919e2eb57a742905929b6f37d028d27149e60cd642b079fca5ef071ac13de",
   };
 
   it("each is byte-identical to main", () => {

@@ -1,4 +1,14 @@
 import {
+  PcCollectionCessationSchema,
+  ProductionPcCollectionTerminationSchema,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
+  TemporalObjectSchema,
+  WorldSourceConditionSchema,
+  popPcOccupancyKey,
+  productionSourceDeltaKey,
+  productionExtractionObjectId,
+  productionPcCollectionTerminationKey,
+  temporalObjectKey,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
   PcCollectionReachDecisionSchema,
@@ -15,6 +25,9 @@ import { canonicalEqual } from "../hash.ts";
 import { PRODUCTION_PC_COLLECTION_WORK_RULE, resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
+import { parseAccount } from "../source-drawdown/derive.ts";
+import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
+import { extractionCredited } from "./state.ts";
 import {
   deriveOccupancyInterval,
   pcCollectionCommitmentViolation,
@@ -51,13 +64,17 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const reaches = ofKind("pc_collection_reach_decision");
   const occupancies = ofKind("population_pc_occupancy");
   const works = ofKind("production_pc_collection_work");
+  const cessations = ofKind("pc_collection_cessation");
+  const terminations = ofKind("production_pc_collection_termination");
   if (
     commitments.length +
       requests.length +
       mechanisms.length +
       reaches.length +
       occupancies.length +
-      works.length ===
+      works.length +
+      cessations.length +
+      terminations.length ===
     0
   ) {
     return out;
@@ -67,6 +84,9 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   // sealed facts as they stood before the write; ADVANCING ones (source, Reserve, temporal state, occupancy) as they are now
   const ADVANCING = (k: string) =>
     k === TEMPORAL_STATE_KEY ||
+    k === TEMPORAL_BOUNDARY_INDEX_KEY ||
+    k.startsWith("temporal/object/") ||
+    k.startsWith("production/source-account/") ||
     /^world\/[^/]+\/source\//.test(k) ||
     k.startsWith("production/reserve/") ||
     k.startsWith("population-pc/");
@@ -142,6 +162,58 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       byKey.has(productionExtractionKey(pcCollectionRequestId(o.data.pc_id, o.data.act_id)))
     )
       bad(f.key, "a denied occupancy has no admitted extraction");
+    if (o.data.status === "RELEASED_TERMINATED") {
+      // D-1 (PROVISIONAL): released only after Production's termination of this act, with its pending boundary retired
+      const id = pcCollectionRequestId(o.data.pc_id, o.data.act_id);
+      const object = byKey.get(temporalObjectKey(productionExtractionObjectId(id)));
+      const parsedObject = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
+      if (!byKey.has(productionPcCollectionTerminationKey(id)))
+        bad(f.key, "a terminated occupancy follows Production's termination of its act");
+      if (!parsedObject?.success || parsedObject.data.next_boundary !== null)
+        bad(f.key, "a terminated occupancy follows the retirement of its work's pending boundary");
+    }
+  }
+  // D-1 (PROVISIONAL): the cessation requests and Production's terminal dispositions
+  for (const f of cessations) {
+    const c = PcCollectionCessationSchema.safeParse(f.value);
+    if (!c.success) continue;
+    const v = pcCollectionCessationViolation(f.key, c.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [c.data.intent.target.commitment.fact_key, c.data.intent.target.work.fact_key]);
+  }
+  for (const f of terminations) {
+    const t = ProductionPcCollectionTerminationSchema.safeParse(f.value);
+    if (!t.success) continue;
+    const v = pcCollectionTerminationViolation(f.key, t.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [
+      t.data.pins.cessation.fact_key,
+      t.data.pins.work.fact_key,
+      t.data.pins.extraction.fact_key,
+    ]);
+    const id = t.data.termination_id;
+    const facts = { get: (k: string) => byKey.get(k), has: (k: string) => byKey.has(k) };
+    const ex = byKey.get(productionExtractionKey(id));
+    const e = ex ? ProductionExtractionSchema.safeParse(ex.value) : undefined;
+    const account = e?.success ? parseAccount(byKey.get(e.data.account.fact_key)) : undefined;
+    const sourceFact = e?.success ? byKey.get(e.data.source.fact_key) : undefined;
+    const source = sourceFact ? WorldSourceConditionSchema.safeParse(sourceFact.value) : undefined;
+    if (extractionCredited(facts, id))
+      bad(f.key, "a terminated collection is never credited: no partial or completed output");
+    if (account?.open.some((o) => o.extraction_id === id))
+      bad(f.key, "a terminated collection no longer holds its claim on the source");
+    if (
+      byKey.has(productionSourceDeltaKey(id)) ||
+      (source?.success && source.data.delivered.some((d) => d.delivery_id === id))
+    )
+      bad(
+        f.key,
+        "a terminated collection has no Source Delta and no delivery: nothing was drawn down",
+      );
+    const occ = byKey.get(popPcOccupancyKey(t.data.pc_id));
+    const o = occ ? PopulationPcOccupancySchema.safeParse(occ.value) : undefined;
+    if (o?.success && o.data.act_id === t.data.act_id && o.data.status === "RELEASED_DENIED")
+      bad(f.key, "a terminated collection is not a denied one");
   }
   const workIds = new Set<string>();
   for (const f of works) {

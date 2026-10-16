@@ -49,6 +49,9 @@ export const pcCollectionCommitmentKey = (pcId: string, actId: string): string =
   `pc/${pcId}/collection/${actId}/commitment`;
 export const pcCollectionRequestKey = (pcId: string, actId: string): string =>
   `pc/${pcId}/collection/${actId}/request`;
+/** D-1 (PROVISIONAL): the PC-side request to cease the SAME in-flight collection: one per act, create-only. */
+export const pcCollectionCessationKey = (pcId: string, actId: string): string =>
+  `pc/${pcId}/collection/${actId}/cessation`;
 export const pcCollectionMechanismKey = (pcId: string, mechanismId: string): string =>
   `pc/${pcId}/collection-mechanism/${mechanismId}`;
 export const pcCollectionReachKey = (pcId: string, actId: string): string =>
@@ -57,6 +60,9 @@ export const pcCollectionReachKey = (pcId: string, actId: string): string =>
 export const popPcOccupancyKey = (pcId: string): string => `population-pc/${pcId}/occupancy`;
 export const productionPcCollectionWorkKey = (extractionId: string): string =>
   `production/pc-collection-work/${extractionId}`;
+/** D-1 (PROVISIONAL): Production's terminal disposition of an in-flight collection the PC withdrew from: one per extraction, create-only. */
+export const productionPcCollectionTerminationKey = (extractionId: string): string =>
+  `production/pc-collection-termination/${extractionId}`;
 
 /**
  * Identities derived from the PC identity and the per-act identity the trusted confirmation retained (RC-16, CAL-07). The act
@@ -68,11 +74,28 @@ export const pcCollectionCommitmentId = (pcId: string, actId: string): string =>
 export const pcCollectionRequestId = (pcId: string, actId: string): string =>
   `pc-collect:${pcId}:${actId}`;
 
+/** The cessation identity: derived from the PC and the act the confirmation retained; never a clock, counter or random value. */
+export const pcCollectionCessationId = (pcId: string, actId: string): string =>
+  `pc-collect-cessation:${pcId}:${actId}`;
+
 /** True for a key in the PC-owned collection request key space (any PC, any act). */
 export const PC_COLLECTION_REQUEST_KEY = /^pc\/([^/]+)\/collection\/([^/]+)\/request$/;
 export const PC_COLLECTION_COMMITMENT_KEY = /^pc\/([^/]+)\/collection\/([^/]+)\/commitment$/;
+export const PC_COLLECTION_CESSATION_KEY = /^pc\/([^/]+)\/collection\/([^/]+)\/cessation$/;
 
 export const PC_COLLECTION_INTENT_KIND = "VOLUNTARY_DIRECT_COLLECTION";
+export const PC_COLLECTION_CESSATION_INTENT_KIND = "VOLUNTARY_CESSATION_OF_COLLECTION";
+/** D-1 (PROVISIONAL): Production's one terminal disposition of a withdrawn in-flight collection. */
+export const PC_COLLECTION_TERMINATION_DISPOSITION = "WITHDRAWN_BEFORE_EARNED_BOUNDARY";
+
+/**
+ * BLUE clause D-1 — PC Collection Voluntary Cessation — PROVISIONAL CANDIDATE LOWERING (BLUE disposition "PC Cycle & In-Flight
+ * Exit", native pin 2026-10-16T04:43:59.946Z, a PROPOSAL; Sovereign construction-approved non-final handoff on PR #72, comment
+ * 6208352198). NOT adopted, NOT ratified, NOT a source-lock amendment: the existence of this code gives it no authority. Every fact
+ * it adds carries a governing rule tagged `provisional-candidate-lowering-pending-ratification`.
+ */
+export const CPAA_C1_D1_PROVISIONAL =
+  "BLUE clause D-1 (PC Collection Voluntary Cessation) PROVISIONAL CANDIDATE LOWERING (BLUE disposition pin 2026-10-16T04:43:59.946Z; Sovereign construction-approved non-final handoff, PR #72 comment 6208352198): proposed, not adopted, not ratified, not a source-lock amendment";
 
 /**
  * PROVISIONAL reading of F-014B §11 for the closed class (see the mechanism comment): solitary direct handling involves no
@@ -273,18 +296,25 @@ export type PcCollectionReachDecision = z.infer<typeof PcCollectionReachDecision
 
 export const PC_OCCUPANCY_OPEN = "OPEN";
 export const PC_OCCUPANCY_RELEASED_DENIED = "RELEASED_DENIED";
+/** D-1 (PROVISIONAL): released after Production committed the lawful termination of the withdrawn in-flight work (never before it). */
+export const PC_OCCUPANCY_RELEASED_TERMINATED = "RELEASED_TERMINATED";
 
 /**
  * ONE slot per PC identity (the PC's current or last occupied interval, advancing along its expected-version chain). It is not an
  * Occupational Cohort, not Effective Labor Supply and not a labor token; it debits and credits no aggregate workforce. It does not
  * decide the PC's willingness and it never exceeds the interval the commitment and the PC's mechanism determine. A registration is
- * released either by a lawful denial (no extraction was admitted for the act) or, with no write, by the work's close (the Reserve
- * inflow credited): see `pcOccupancyState`.
+ * released by a lawful denial (no extraction was admitted for the act), with no write by the work's close (the Reserve inflow
+ * credited), or — D-1, PROVISIONAL — by `RELEASED_TERMINATED` only after Production committed the lawful termination of work the
+ * PC withdrew from: see `pcOccupancyState`.
  */
 export const PopulationPcOccupancySchema = z.strictObject({
   pc_id: EntityId,
   act_id: EntityId,
-  status: z.enum([PC_OCCUPANCY_OPEN, PC_OCCUPANCY_RELEASED_DENIED]),
+  status: z.enum([
+    PC_OCCUPANCY_OPEN,
+    PC_OCCUPANCY_RELEASED_DENIED,
+    PC_OCCUPANCY_RELEASED_TERMINATED,
+  ]),
   interval: z.strictObject({ from: CanonicalTimeSchema, to: CanonicalTimeSchema }),
   commitment: Pin,
   mechanism: Pin,
@@ -323,3 +353,80 @@ export const ProductionPcCollectionWorkSchema = z.strictObject({
   }),
 });
 export type ProductionPcCollectionWork = z.infer<typeof ProductionPcCollectionWorkSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// D-1 (PROVISIONAL) — PC Collection Voluntary Cessation: the PC-side request and Production's terminal disposition.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * What a separately confirmed cessation names: identities and the authored authority only. It names the SAME collection (the PC and
+ * the act of the one in-flight work); it carries no result, no credit, no source status and no cancellation of anything: the
+ * strict schemas have no field in which any of them could be stated.
+ */
+export const PcCollectionCessationInputSchema = z.strictObject({
+  pc_id: EntityId,
+  act_id: EntityId,
+  authored_under: AuthoredUnder,
+});
+export type PcCollectionCessationInput = z.infer<typeof PcCollectionCessationInputSchema>;
+
+/**
+ * D-1 (PROVISIONAL): the PC-side owner's record of the player's separately confirmed request to cease the SAME in-flight
+ * collection. It is a NEW action cause: it does not say earlier work never occurred, it is not a source status and it does not
+ * cancel Production's work (Production alone resolves the terminal status). `requested_at` is the canonical time the engine read at
+ * the request (never supplied): the instant the withdrawal takes effect, strictly before the earned boundary.
+ */
+export const PcCollectionCessationSchema = z.strictObject({
+  cessation_id: EntityId,
+  pc_id: EntityId,
+  act_id: EntityId,
+  authored_under: AuthoredUnder,
+  intent: z.strictObject({
+    kind: z.literal(PC_COLLECTION_CESSATION_INTENT_KIND),
+    /** the exact committed versions of the SAME collection this request targets: a stale or forged request fails admission */
+    target: z.strictObject({ commitment: Pin, work: Pin }),
+  }),
+  requested_at: CanonicalTimeSchema,
+  basis: z.strictObject({
+    pinned_versions: z.strictObject({
+      binding: Version.min(1),
+      custody: Version.min(1),
+      occupancy: Version.min(1),
+    }),
+  }),
+  committer: z.strictObject({
+    owner: z.literal(OWNER_PC_EXISTENCE),
+    facet: z.literal("pc_voluntary_commitment"),
+  }),
+});
+export type PcCollectionCessation = z.infer<typeof PcCollectionCessationSchema>;
+
+/**
+ * D-1 (PROVISIONAL): Production's terminal disposition of in-flight collection work the PC withdrew from. Production alone decides
+ * it, DERIVED from the committed cessation request, the work record and the canonical time. Under the present all-at-boundary class
+ * no complete unit is awarded before the earned boundary, so `units_credited` is 0 and the source and the Reserve are untouched
+ * (`source_effect` / `reserve_effect` NONE): the legitimately elapsed progress is RETAINED as evidence (`cycles_fully_elapsed`,
+ * `elapsed`), never erased and never turned into a partial credit. The disposition atomically releases the key's claim on the
+ * source (the account's open commitment), which is Production's own state; it releases no occupancy and retires no boundary
+ * (Population and Temporal do, after this record is committed).
+ */
+export const ProductionPcCollectionTerminationSchema = z.strictObject({
+  termination_id: EntityId,
+  pc_id: EntityId,
+  act_id: EntityId,
+  disposition: z.literal(PC_COLLECTION_TERMINATION_DISPOSITION),
+  pins: z.strictObject({ cessation: Pin, work: Pin, extraction: Pin }),
+  derivation: z.strictObject({
+    stopped_at: CanonicalTimeSchema,
+    elapsed: CanonicalTimeSchema,
+    per_cycle: PositiveDuration,
+    cycles_fully_elapsed: z.number().int().nonnegative(),
+    units_credited: z.literal(0),
+    source_effect: z.literal("NONE"),
+    reserve_effect: z.literal("NONE"),
+    claim: z.literal("RELEASED"),
+  }),
+});
+export type ProductionPcCollectionTermination = z.infer<
+  typeof ProductionPcCollectionTerminationSchema
+>;
