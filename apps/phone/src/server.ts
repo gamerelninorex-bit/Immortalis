@@ -29,6 +29,8 @@ export interface PhoneDeps {
   ) => Promise<number>;
   readonly now?: () => number;
   readonly askExpiryMs?: number;
+  /** how long an idle or caught-up poll is held open before it answers (default 20 s) */
+  readonly pollMs?: number;
 }
 
 type Role = "player" | "referee";
@@ -39,6 +41,8 @@ interface Session {
   seen: number;
 }
 interface Run {
+  /** server-issued identity of THIS run: the transcript's sequence numbers restart with every run, so a cursor means nothing without it */
+  readonly id: string;
   readonly label: string;
   readonly terminal: WebTerminal;
   done: boolean;
@@ -51,6 +55,7 @@ const MAX_FAILS = 5;
 const GLOBAL_FAILS = 60;
 const MAX_BODY = 128 * 1024;
 const POLL_MS = 20_000;
+const newRunId = () => randomBytes(8).toString("hex");
 const COOKIE = "immortalis_sid";
 
 const digest = (s: string) => createHash("sha256").update(s, "utf8").digest();
@@ -71,6 +76,23 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let globalFails: number[] = [];
   let player: Run | null = null;
   let referee: Run | null = null;
+  const pollMs = deps.pollMs ?? POLL_MS;
+  // an idle or finished lane holds a poll open until a new run starts (or `pollMs`), instead of answering at once
+  const laneWaiters: Record<Role, Set<() => void>> = { player: new Set(), referee: new Set() };
+  const waitLane = (lane: Role, ms: number) =>
+    new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        laneWaiters[lane].delete(done);
+        resolve();
+      };
+      const timer = setTimeout(done, ms);
+      laneWaiters[lane].add(done);
+    });
+  const wakeLane = (lane: Role) => {
+    for (const w of [...laneWaiters[lane]]) w();
+  };
+  const runOf = (lane: Role) => (lane === "player" ? player : referee);
 
   const nonce = () => randomBytes(16).toString("base64");
 
@@ -112,7 +134,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     }
     return undefined;
   };
-  const sessionOf = (req: IncomingMessage): { sid: string; session: Session } | undefined => {
+  /**
+   * `touch` records HUMAN activity. The page's automatic polling must not count as activity (it never stops while the page is open), or
+   * the 30-minute inactivity expiry could never fire: only a person's own request (a page, a command, a reply, a stop) refreshes it.
+   * The 8-hour absolute limit and the inactivity limit are both still checked on every request, polls included.
+   */
+  const sessionOf = (
+    req: IncomingMessage,
+    touch = true,
+  ): { sid: string; session: Session } | undefined => {
     const sid = cookieOf(req);
     if (!sid || !/^[0-9a-f]{64}$/.test(sid)) return undefined;
     const session = sessions.get(sid);
@@ -122,7 +152,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       sessions.delete(sid);
       return undefined;
     }
-    session.seen = t;
+    if (touch) session.seen = t;
     return { sid, session };
   };
   const clientOf = (req: IncomingMessage): string => {
@@ -204,11 +234,36 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   }
 
   // -- a lane's run ----------------------------------------------------------------------------------------------------------
-  const poll = async (res: ServerResponse, run: Run | null, after: number) => {
-    if (!run) return json(res, 200, { running: false, seq: 0, lines: [], pending: null });
-    await run.terminal.changed(after, POLL_MS);
-    const snap = run.terminal.snapshot(after);
-    json(res, 200, { running: !run.done, label: run.label, ...snap });
+  /**
+   * Long-poll. `runId` is the run the client's cursor belongs to: when it is not THIS lane's current run the cursor is meaningless
+   * (sequence numbers restart per run) and the new run's transcript is sent from its start. A client that names no run keeps its cursor.
+   * When there is nothing new, the request is held (for new output while a run is live; for a new run once it is over or absent), so an
+   * idle or finished page costs one request per hold, not a stream of immediate answers.
+   */
+  const poll = async (
+    res: ServerResponse,
+    lane: Role,
+    after: number,
+    runId: string | undefined,
+  ) => {
+    const fromFor = (r: Run) => (runId !== undefined && runId !== r.id ? 0 : after);
+    let run = runOf(lane);
+    if (!run) {
+      await waitLane(lane, pollMs);
+      run = runOf(lane);
+    } else {
+      const from = fromFor(run);
+      const now_ = run.terminal.snapshot(from);
+      if (now_.lines.length === 0) {
+        if (now_.closed) await waitLane(lane, pollMs);
+        else await run.terminal.changed(from, pollMs);
+        run = runOf(lane) ?? run;
+      }
+    }
+    if (!run)
+      return json(res, 200, { running: false, run: null, seq: 0, lines: [], pending: null });
+    const snap = run.terminal.snapshot(fromFor(run));
+    json(res, 200, { running: !run.done, run: run.id, label: run.label, ...snap });
   };
   const reply = (res: ServerResponse, run: Run | null, body: Record<string, unknown>) => {
     const id = body["prompt_id"];
@@ -232,8 +287,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { label: String(body["command"]), terminal, done: false };
+    const run: Run = { id: newRunId(), label: String(body["command"]), terminal, done: false };
     player = run;
+    wakeLane("player");
     void cli(built.value.argv, { terminal, out: (line) => terminal.say(line) })
       .then((code) => terminal.say(`— command finished (exit code ${code}) —`))
       .catch(() => terminal.say("— the command could not run; nothing was confirmed —"))
@@ -264,8 +320,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { label: hostId, terminal, done: false };
+    const run: Run = { id: newRunId(), label: hostId, terminal, done: false };
     referee = run;
+    wakeLane("referee");
     void console_(argv, terminal)
       .then((code) => terminal.say(`— referee session closed (code ${code}) —`))
       .catch(() => terminal.say("— the referee session could not run —"))
@@ -291,7 +348,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const first = (Array.isArray(proto) ? proto[0] : proto)?.split(",")[0]?.trim();
       if (first !== "https") return deny(res, 421, "this service is reachable only over HTTPS");
     }
-    const found = sessionOf(req);
+    // an automatic poll is not human activity (see sessionOf)
+    const found = sessionOf(req, !(req.method === "GET" && path.endsWith("/poll")));
     if (req.method === "GET") {
       const n = nonce();
       if (path === "/") return send(res, 200, landingPage(n), "text/html; charset=utf-8", {}, n);
@@ -322,10 +380,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         if (!found || found.session.role !== lane)
           return deny(res, found ? 403 : 401, "not authenticated for this lane");
         const after = Number(url.searchParams.get("after") ?? "0");
+        const run = url.searchParams.get("run");
         return poll(
           res,
-          lane === "player" ? player : referee,
+          lane,
           Number.isSafeInteger(after) && after >= 0 ? after : 0,
+          run !== null && /^[0-9a-f]{16}$/.test(run) ? run : undefined,
         );
       }
       return deny(res, 404, "not found");
@@ -400,6 +460,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       new Promise((resolve) => {
         player?.terminal.abort();
         referee?.terminal.abort();
+        wakeLane("player");
+        wakeLane("referee");
         server.closeAllConnections();
         server.close(() => resolve());
       }),

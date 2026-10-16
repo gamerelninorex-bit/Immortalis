@@ -30,17 +30,23 @@ const SHELL = (title: string, nonce: string, body: string, script: string) =>
   `<meta name="robots" content="noindex,nofollow"><title>${esc(title)}</title><style>${STYLE}</style></head><body>${body}` +
   `<script nonce="${nonce}">${script}</script></body></html>`;
 
-const COMMON_JS = `
+export const COMMON_JS = `
 const $=(i)=>document.getElementById(i);
 const csrf=document.querySelector('meta[name=csrf]')?.content||'';
-async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-immortalis-csrf':csrf},body:JSON.stringify(body),credentials:'same-origin'});let j={};try{j=await r.json()}catch{}return{status:r.status,body:j}}
+async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-immortalis-csrf':csrf},body:JSON.stringify(body),credentials:'same-origin'});let j={};try{j=await r.json()}catch{}kick();return{status:r.status,body:j}}
 function addLine(l){const d=document.createElement('div');d.className='b '+l.kind;d.textContent=l.text;$('log').appendChild(d);d.scrollIntoView({block:'end'})}
-let after=0,pending=null,runningLabel='';
-async function loop(base){for(;;){try{const r=await fetch(base+'/poll?after='+after,{credentials:'same-origin'});if(r.status===401||r.status===403){location.href='/';return}
-const s=await r.json();for(const l of s.lines||[]){addLine(l);after=Math.max(after,l.seq)}after=Math.max(after,s.seq||0);pending=s.pending||null;
+let after=0,pending=null,runningLabel='',runId=null,nudge=null,idle=0;
+function kick(){idle=0;if(nudge){const n=nudge;nudge=null;n()}}
+function nap(ms){return new Promise((r)=>{const t=setTimeout(()=>{nudge=null;r()},ms);nudge=()=>{clearTimeout(t);r()}})}
+async function loop(base){for(;;){let news=false,live=false;try{const r=await fetch(base+'/poll?after='+after+(runId?'&run='+runId:''),{credentials:'same-origin'});if(r.status===401||r.status===403){location.href='/';return}
+const s=await r.json();live=!!s.running;
+if((s.run||null)!==runId){if(runId!==null)addLine({kind:'system',text:'— a new run begins —'});runId=s.run||null;after=0;news=true}
+for(const l of s.lines||[]){addLine(l);after=Math.max(after,l.seq);news=true}after=Math.max(after,s.seq||0);
+const p=s.pending||null;if((p&&p.id)!==(pending&&pending.id))news=true;pending=p;
 $('state').textContent=s.running?('running: '+(s.label||'')):'idle';$('send').disabled=!pending;$('reply').disabled=!pending;
 $('prompt').textContent=pending?pending.prompt:'';$('prompt').hidden=!pending;if(pending)$('reply').focus();
-if(typeof onState==='function')onState(s)}catch{await new Promise(r=>setTimeout(r,3000))}}}
+if(typeof onState==='function')onState(s)}catch{await nap(3000);continue}
+if(news){idle=0}else{idle=Math.min(idle?idle*2:1000,live?2000:10000);await nap(idle)}}}
 async function sendReply(base){if(!pending)return;const t=$('reply').value;const r=await post(base+'/reply',{prompt_id:pending.id,text:t});if(r.status===200)$('reply').value='';else addLine({kind:'system',text:r.body.error||'not accepted'})}
 async function stopRun(base){await post(base+'/stop',{})}
 async function logout(){await post('/api/logout',{});location.href='/'}

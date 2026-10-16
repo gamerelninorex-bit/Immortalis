@@ -6,9 +6,11 @@
 // It is NOT a real player's choice, NOT a real game master's reading, and NOT First Playable evidence. No model or paid API is involved.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
+import { COMMON_JS } from "../../apps/phone/src/pages.ts";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
 import { LOCALITY_CAMPAIGN, setupDoc } from "../support/locality.ts";
@@ -88,7 +90,7 @@ class Browser {
 }
 
 async function serve(over: Partial<PhoneConfig> = {}, deps: PhoneDeps = {}) {
-  const app = createPhoneServer(config(over), deps);
+  const app = createPhoneServer(config(over), { pollMs: 300, ...deps });
   const port = await app.listen();
   return { app, base: `http://127.0.0.1:${port}` };
 }
@@ -512,6 +514,342 @@ describe("MECHANISM: the lanes run the commands as given, with nothing supplied 
       for (let i = 0; i < 50 && seen[0]!.asked.length === 0; i++)
         await new Promise((res) => setTimeout(res, 20));
       expect(seen[0]!.asked).toEqual([typed]);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+/**
+ * The page's OWN script (COMMON_JS) run in a stub browser: the same cursor, run-identity and backoff code the phone runs, against either
+ * the real server (over HTTP, with the signed-in cookie and request token) or a stub fetch. A script, not a person.
+ */
+function pageClient(o: {
+  fetchImpl: (url: string, init?: any) => Promise<any>;
+  csrf?: string;
+  setTimeoutImpl?: (fn: () => void, ms: number) => number;
+  clearTimeoutImpl?: (id: number) => void;
+}) {
+  const els = new Map<string, any>();
+  const el = (id: string) => {
+    if (!els.has(id))
+      els.set(id, {
+        id,
+        value: "",
+        disabled: false,
+        hidden: false,
+        textContent: "",
+        focus() {},
+        appendChild(d: any) {
+          log.push(d);
+        },
+      });
+    return els.get(id);
+  };
+  const log: { className: string; textContent: string }[] = [];
+  const ctx = createContext({
+    document: {
+      getElementById: el,
+      querySelector: () => (o.csrf ? { content: o.csrf } : null),
+      createElement: () => ({ className: "", textContent: "", scrollIntoView() {} }),
+    },
+    location: { href: "" },
+    fetch: o.fetchImpl,
+    setTimeout: o.setTimeoutImpl ?? setTimeout,
+    clearTimeout: o.clearTimeoutImpl ?? clearTimeout,
+    onState: undefined,
+  });
+  const api = runInContext(
+    `${COMMON_JS};({loop,sendReply,post,state:()=>({after,runId,pending})})`,
+    ctx,
+  ) as {
+    loop: (base: string) => Promise<void>;
+    sendReply: (base: string) => Promise<void>;
+    post: (path: string, body: unknown) => Promise<{ status: number; body: any }>;
+    state: () => { after: number; runId: string | null; pending: { id: string } | null };
+  };
+  return { api, log, el, texts: () => log.map((l) => l.textContent), ctx };
+}
+
+const until = async (cond: () => boolean, what: string, ms = 8000) => {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+};
+
+describe("MECHANISM (BLUE P-2): every new run replays from its own start; no line of a later command is lost", () => {
+  /** a page whose script talks to the real server as the signed-in browser */
+  async function signedInPage(base: string, role: "player" | "referee") {
+    const b = new Browser(base);
+    await b.login(role, role === "player" ? PLAYER : REFEREE);
+    let halt = false;
+    const page = pageClient({
+      csrf: b.csrf,
+      fetchImpl: async (url, init = {}) => {
+        if (halt) return { status: 401, json: async () => ({}) };
+        const res = await fetch(`${base}${url}`, {
+          ...init,
+          headers: { ...(init.headers ?? {}), cookie: b.cookie },
+        });
+        return { status: res.status, json: () => res.json() };
+      },
+    });
+    const base_ = role === "player" ? "/api/play" : "/api/ref";
+    void page.api.loop(base_);
+    return { page, base_, stop: () => (halt = true) };
+  }
+
+  it("two successive real commands on one signed-in phone session: every output line and prompt of the second command is shown, and each reply reaches only the current prompt", async () => {
+    const answers: (string | null)[] = [];
+    let n = 0;
+    const { app, base } = await serve(
+      {},
+      {
+        runCli: async (_argv, env) => {
+          const k = ++n;
+          const lines = k === 1 ? 20 : 6;
+          for (let i = 1; i <= lines; i++) env.out?.(`run${k}-line${i}`);
+          answers.push(await env.terminal!.ask(`run${k}-prompt`));
+          env.out?.(`run${k}-after-answer`);
+          return 0;
+        },
+      },
+    );
+    const { page, stop } = await signedInPage(base, "player");
+    try {
+      expect((await page.api.post("/api/play/command", { command: "status" })).status).toBe(200);
+      await until(() => page.api.state().pending !== null, "run 1 prompt");
+      expect(page.texts().filter((t) => t.startsWith("run1-line"))).toHaveLength(20);
+      page.el("reply").value = "first typed";
+      await page.api.sendReply("/api/play");
+      await until(() => page.texts().includes("run1-after-answer"), "run 1 end");
+      await until(() => page.api.state().pending === null, "prompt cleared");
+      const afterFirst = page.api.state();
+      expect(afterFirst.after).toBeGreaterThan(20); // the cursor sits past run 1's output, as in the reported failure
+
+      await until(() => !page.el("state").textContent.startsWith("running"), "run 1 done");
+      expect((await page.api.post("/api/play/command", { command: "status" })).status).toBe(200);
+      await until(() => page.api.state().pending !== null, "run 2 prompt");
+      // every one of run 2's lines arrived although the old cursor was past their sequence numbers
+      for (let i = 1; i <= 6; i++) expect(page.texts()).toContain(`run2-line${i}`);
+      expect(page.texts()).toContain("run2-prompt");
+      // run 2's lines are shown once and run 1's were not replayed
+      expect(page.texts().filter((t) => t === "run2-line1")).toHaveLength(1);
+      expect(page.texts().filter((t) => t === "run1-line1")).toHaveLength(1);
+      expect(page.api.state().runId).not.toBe(afterFirst.runId);
+      page.el("reply").value = "second typed";
+      await page.api.sendReply("/api/play");
+      await until(() => page.texts().includes("run2-after-answer"), "run 2 end");
+      // each reply reached only the prompt that was current
+      expect(answers).toEqual(["first typed", "second typed"]);
+    } finally {
+      stop();
+      await app.close();
+    }
+  });
+
+  it("two distinct referee sessions on one signed-in GM session: the second session's context and prompt are all shown", async () => {
+    const answers: (string | null)[] = [];
+    let n = 0;
+    const { app, base } = await serve(
+      {},
+      {
+        runRefereeConsole: async (_argv, terminal) => {
+          const k = ++n;
+          for (let i = 1; i <= (k === 1 ? 15 : 4); i++) terminal.say(`gm${k}-context${i}`);
+          answers.push(await terminal.ask(`gm${k}-question`));
+          return 0;
+        },
+      },
+    );
+    const { page, stop } = await signedInPage(base, "referee");
+    try {
+      for (const k of [1, 2]) {
+        expect((await page.api.post("/api/ref/start", { host_id: "gm-collection" })).status).toBe(
+          200,
+        );
+        await until(() => page.texts().includes(`gm${k}-question`), `gm${k} prompt`);
+        await until(() => page.api.state().pending !== null, `gm${k} pending`);
+        for (let i = 1; i <= (k === 1 ? 15 : 4); i++)
+          expect(page.texts()).toContain(`gm${k}-context${i}`);
+        page.el("reply").value = `reading ${k}`;
+        await page.api.sendReply("/api/ref");
+        await until(() => page.el("state").textContent === "idle", `gm${k} closed`);
+      }
+      expect(answers).toEqual(["reading 1", "reading 2"]);
+    } finally {
+      stop();
+      await app.close();
+    }
+  });
+
+  it("the server itself names the run and restarts a stale cursor at the new run's first line", async () => {
+    let n = 0;
+    const { app, base } = await serve(
+      {},
+      {
+        runCli: async (_argv, env) => {
+          const k = ++n;
+          for (let i = 1; i <= 5; i++) env.out?.(`r${k}-${i}`);
+          return 0;
+        },
+      },
+    );
+    try {
+      const p = new Browser(base);
+      await p.login("player", PLAYER);
+      await p.req("POST", "/api/play/command", { command: "status" });
+      const first = await p.untilPrompt("play");
+      const run1 = (await p.req("GET", `/api/play/poll?after=${first.after}`)).json.run;
+      expect(run1).toMatch(/^[0-9a-f]{16}$/);
+      await p.req("POST", "/api/play/command", { command: "status" });
+      // the old cursor (past 5) with the OLD run's identity must not hide the new run's lines
+      const stale = await p.req("GET", `/api/play/poll?after=${first.after}&run=${run1}`);
+      expect(stale.json.run).not.toBe(run1);
+      expect(stale.json.lines.map((l: any) => l.text)).toContain("r2-1");
+      expect(stale.json.lines[0].seq).toBe(1);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe("MECHANISM (BLUE P-1): an idle or finished page does not hammer the server, and the idle expiry is not defeated by polling", () => {
+  it("the page's own script, given a server that answers an idle lane at once, makes a bounded number of requests over ten minutes", async () => {
+    const timers: { id: number; at: number; fn: () => void }[] = [];
+    let clock = 0;
+    let next = 0;
+    let requests = 0;
+    const page = pageClient({
+      fetchImpl: async () => {
+        requests++;
+        if (requests > 5000) return new Promise(() => undefined); // an unbounded loop is stopped here and fails the bound below
+        return {
+          status: 200,
+          json: async () => ({ running: false, run: null, seq: 0, lines: [], pending: null }),
+        };
+      },
+      setTimeoutImpl: (fn, ms) => {
+        timers.push({ id: ++next, at: clock + ms, fn });
+        return next;
+      },
+      clearTimeoutImpl: (id) => {
+        const i = timers.findIndex((t) => t.id === id);
+        if (i >= 0) timers.splice(i, 1);
+      },
+    });
+    void page.api.loop("/api/play");
+    const TEN_MINUTES = 10 * 60_000;
+    for (;;) {
+      await new Promise((r) => setImmediate(r));
+      if (requests > 5000 || timers.length === 0) break;
+      timers.sort((a, b) => a.at - b.at);
+      const t = timers.shift()!;
+      if (t.at > TEN_MINUTES) break;
+      clock = t.at;
+      t.fn();
+    }
+    // 1,2,4,8 s then every 10 s: about 65 requests in ten minutes — not thousands
+    expect(requests).toBeGreaterThan(10);
+    expect(requests).toBeLessThanOrEqual(70);
+  });
+
+  it("the page answers new output at once: a run that produces lines is polled again with no wait", async () => {
+    let calls = 0;
+    const waits: number[] = [];
+    const page = pageClient({
+      fetchImpl: async () => {
+        calls++;
+        if (calls > 6) return new Promise(() => undefined);
+        return {
+          status: 200,
+          json: async () => ({
+            running: true,
+            run: "aaaaaaaaaaaaaaaa",
+            label: "x",
+            seq: calls,
+            lines: [{ seq: calls, kind: "say", text: `l${calls}` }],
+            pending: null,
+          }),
+        };
+      },
+      setTimeoutImpl: (fn, ms) => {
+        waits.push(ms);
+        fn();
+        return 1;
+      },
+    });
+    void page.api.loop("/api/play");
+    await until(() => calls > 6, "six polls");
+    expect(waits).toEqual([]); // no sleeping between polls while output keeps arriving
+    expect(page.texts()).toEqual(["l1", "l2", "l3", "l4", "l5", "l6"]);
+  });
+
+  it("the server holds a poll on an idle lane and on a finished run instead of answering at once, and wakes it when a new run starts", async () => {
+    const { app, base } = await serve(
+      {},
+      {
+        pollMs: 600,
+        runCli: async (_argv, env) => {
+          env.out?.("done");
+          return 0;
+        },
+      },
+    );
+    try {
+      const p = new Browser(base);
+      await p.login("player", PLAYER);
+      const t0 = Date.now();
+      const idle = await p.req("GET", "/api/play/poll?after=0");
+      expect(Date.now() - t0).toBeGreaterThanOrEqual(500); // held, not answered at once
+      expect(idle.json.run).toBeNull();
+
+      await p.req("POST", "/api/play/command", { command: "status" });
+      const fin = await p.untilPrompt("play");
+      const t1 = Date.now();
+      const caughtUp = await p.req("GET", `/api/play/poll?after=${fin.after}`);
+      expect(Date.now() - t1).toBeGreaterThanOrEqual(500); // a finished, caught-up run is held too
+      expect(caughtUp.json.running).toBe(false);
+
+      // ...and a held poll returns promptly when a NEW run starts
+      const held = p.req("GET", `/api/play/poll?after=${fin.after}&run=${caughtUp.json.run}`);
+      await new Promise((r) => setTimeout(r, 100));
+      const t2 = Date.now();
+      await p.req("POST", "/api/play/command", { command: "status" });
+      const woke = await held;
+      expect(Date.now() - t2).toBeLessThan(400);
+      expect(woke.json.lines.map((l: any) => l.text)).toContain("done");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("automatic polling does not keep a session alive: with a poll every minute the 30-minute inactivity expiry still ends it; a person's own request does refresh it", async () => {
+    let t = Date.UTC(2026, 9, 16, 12, 0, 0);
+    const { app, base } = await serve({}, { pollMs: 5, now: () => t });
+    try {
+      const p = new Browser(base);
+      await p.login("player", PLAYER);
+      const statuses: number[] = [];
+      for (let minute = 1; minute <= 33; minute++) {
+        t += 60_000;
+        statuses.push((await p.req("GET", "/api/play/poll?after=0")).status);
+      }
+      // polls through minute 30 are within the inactivity limit; from minute 31 the session is gone although it polled every minute
+      expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+      expect(statuses.slice(30).every((s) => s === 401)).toBe(true);
+
+      // a person's own request (a stop, a reply, a command) is activity
+      const q = new Browser(base);
+      await q.login("player", PLAYER);
+      t += 25 * 60_000;
+      expect((await q.req("POST", "/api/play/stop", {})).status).toBe(200); // human activity at +25 min
+      t += 25 * 60_000;
+      expect((await q.req("GET", "/api/play/poll?after=0")).status).toBe(200); // 25 min after the person, not 50
+      t += 10 * 60_000; // 35 min after the person; the poll five lines above does not count
+      expect((await q.req("GET", "/api/play/poll?after=0")).status).toBe(401);
     } finally {
       await app.close();
     }
