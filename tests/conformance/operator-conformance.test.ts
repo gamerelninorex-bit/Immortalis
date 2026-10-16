@@ -61,7 +61,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/logistics.ts":
     "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
   "packages/engine/src/world/canonical-campaign.ts":
-    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "8adbecf63da1dd2c04f0aedd309b940d615fecd1b3b43dd99d8335cf969f62e3", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":

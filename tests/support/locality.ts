@@ -3,6 +3,7 @@
 // content, written to a local file exactly as an operator would; nothing here supplies an owner result, a status or a confirmation
 // (the scripted console only TYPES in answer to the challenge the service printed), and no fixture owner is registered: every
 // campaign these tests read was created by the shipped code path with the ordinary canonical owner registry.
+import { PC_INDEPENDENT_EVIDENCE_EXTENSION } from "@immortalis/testkit";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CanonicalCampaign, nodeFs, type FsOps } from "@immortalis/engine";
@@ -131,7 +132,10 @@ export function establish(
 
 /** Opens a finished campaign with the ordinary canonical registry only, as any other normal process would. */
 export async function openOrdinary(dir: string): Promise<CanonicalCampaign> {
-  const opened = await CanonicalCampaign.open(dir, { buildId: "locality-test-reader" });
+  const opened = await CanonicalCampaign.open(dir, {
+    buildId: "locality-test-reader",
+    extension: PC_INDEPENDENT_EVIDENCE_EXTENSION,
+  });
   if (!opened.ok) throw new Error(`did not open: ${JSON.stringify(opened.error)}`);
   return opened.value;
 }

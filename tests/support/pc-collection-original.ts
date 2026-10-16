@@ -27,7 +27,12 @@ import {
   submitPcCollectionReach,
 } from "@immortalis/protocol";
 import { REFEREE_AUTHORITY } from "@immortalis/contracts";
-import { drawdownPublication, popPublication, prodPublication } from "@immortalis/testkit";
+import {
+  FIXTURE_INDEPENDENT_PREMISES,
+  drawdownPublication,
+  popPublication,
+  prodPublication,
+} from "@immortalis/testkit";
 import { ACCESS, LOCUS_ID, SOURCE_KEY, SOURCE_UNIT, WORLD_ID, openOrdinary } from "./locality.ts";
 import {
   BASIS,
@@ -69,6 +74,9 @@ export const TAU_UNIT: CanonicalTime = { unit: BASIS.unit, value: SALT_TAU };
 export async function originalCollectionCampaign(
   o: { scene?: NonNullable<Parameters<typeof observationCampaign>[0]>["scene"] } = {},
 ): Promise<{ dirs: LocalityDirs }> {
+  // the independent owners' premises this fixture supplies (see FIXTURE_INDEPENDENT_PREMISES): a complete scene, the PC outside the aggregate
+  FIXTURE_INDEPENDENT_PREMISES.sceneComplete = true;
+  FIXTURE_INDEPENDENT_PREMISES.outsideAggregate = true;
   const embodiment = `${PC_WORDS.embodiment}; ${ACTUATOR_WORDS}; ${cycleWords(TAU_UNIT)}; ${TRAVERSAL_CANNOT}`;
   const { dirs } = await observationCampaign({
     ...(o.scene ? { scene: o.scene } : {}),

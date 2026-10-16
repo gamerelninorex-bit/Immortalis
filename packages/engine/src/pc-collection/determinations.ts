@@ -1,3 +1,4 @@
+import type { PcIndependentEvidence } from "./evidence.ts";
 import {
   ExistenceContractSchema,
   OWNER_PC_EXISTENCE,
@@ -53,7 +54,11 @@ import type { FactView } from "../world/pc-locus-custody.ts";
  */
 
 /** A fact view that can also enumerate the committed facts (the ledgers are found by their key shape, the one place a scan is needed). */
-export type ScanFacts = FactView & { readonly values?: () => Iterable<OwnerFact> };
+export type ScanFacts = FactView & {
+  readonly values?: () => Iterable<OwnerFact>;
+  /** the build's independent-owner premises; absent in production, so completeness and outside-the-aggregate are never established */
+  readonly independent?: PcIndependentEvidence | undefined;
+};
 
 /** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
 export function statesExactDuration(quote: string, duration: CanonicalTime): boolean {
@@ -107,9 +112,9 @@ const clockOf = (facts: FactView): CanonicalTime | undefined => {
 
 /**
  * Population's determination, from its own committed ledgers and the PC's identity: INCLUDED when any ledger counts a unit with this
- * identity; OUTSIDE_AGGREGATE only when at least one ledger attaches to the PC's locus, enumerates its units by identity, and none
- * of them is the PC; UNKNOWN otherwise (no ledger at the locus is no evidence of anything). The PC's binding or a caller's silence
- * is never evidence.
+ * identity; OUTSIDE_AGGREGATE only when the independent owners separately prove the PC outside the effective aggregate workforce
+ * (a ledger proves its own counted members, so an omitted identity proves nothing); UNKNOWN otherwise. The PC's binding, a ledger's
+ * silence or a caller's statement is never evidence.
  */
 export function derivePcRepresentation(
   pcId: string,
@@ -124,7 +129,7 @@ export function derivePcRepresentation(
   const status =
     including.length > 0
       ? PC_REPRESENTATION_INCLUDED
-      : here.length > 0
+      : facts.independent?.outsideAggregate(pcId, locality, facts) === true
         ? PC_REPRESENTATION_OUTSIDE
         : PC_REPRESENTATION_UNKNOWN;
   const examined = [...new Map([...including, ...here].map((l) => [l.fact.key, l])).values()].sort(
@@ -178,8 +183,10 @@ export function pcRepresentationViolation(
 
 /**
  * The scene evidence the owners hold at the PC's locus: the committed world and locus wording and the Population ledgers that attach
- * to this locus (with every OTHER unit whose Population presence is this locus). With no ledger at the locus the owners hold no
- * presence evidence at all and the class is WITHHELD (a message, never a default). Mechanical: it asserts nothing.
+ * to this locus (with every OTHER unit whose Population presence is this locus). A ledger lists the counted members of its own
+ * disjoint resident population and proves nothing about every actor or material engagement bearing on the PC, so evidence is built
+ * ONLY when an independent owner also establishes the complete scene (`PcIndependentEvidence`; production supplies none, so the
+ * solitary class is then withheld). With no ledger at the locus the owners hold no presence evidence either. Mechanical: it asserts nothing.
  */
 export function buildSceneEvidence(
   facts: ScanFacts,
@@ -189,6 +196,11 @@ export function buildSceneEvidence(
   const world = parse(facts, locality.world.fact_key, WorldProfileSchema);
   const locus = parse(facts, locality.locus.fact_key, WorldLocusSchema);
   if (!world || !locus) return { reason: "the committed world and locus wording is not held" };
+  if (facts.independent?.sceneComplete(pcId, locality, facts) !== true)
+    return {
+      reason:
+        "no independent owner establishes the complete scene (every actor and material engagement bearing on the PC here): a ledger and a host reading do not, so the solitary handling kind is withheld",
+    };
   const here = populationLedgers(facts).filter((l) => atLocus(l.value, locality));
   if (here.length === 0)
     return {

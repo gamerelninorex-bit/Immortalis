@@ -36,6 +36,7 @@ import {
 } from "@immortalis/protocol";
 import {
   ACTOR_FIXTURE_EXTENSION,
+  FIXTURE_INDEPENDENT_PREMISES,
   DEST_LOCUS_ID,
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
@@ -119,6 +120,10 @@ export const colPublication = (n: number) => ({
 
 export interface CollectionSeedOptions {
   readonly dir?: string;
+  /** the independent owners' premise: a COMPLETE scene (default: supplied; false leaves the solitary class WITHHELD) */
+  readonly sceneComplete?: boolean;
+  /** the independent owners' separate proof that the PC lies outside the aggregate workforce (default: supplied; false leaves it UNKNOWN) */
+  readonly outsideAggregate?: boolean;
   /** stated source access facts (default: the fixture's "loose on the surface" statement) */
   readonly access?: readonly { aspect: string; statement: string }[];
   /** the cycle the PC's authored claim states (default: TAU canonical units) */
@@ -184,6 +189,8 @@ export const authoredContract = (o: CollectionSeedOptions = {}) =>
 
 /** A custodied, handed-over PC with a finite source (5), an empty Reserve, Production's basis and the PC's P-1 mechanism: nothing is committed. */
 export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise<CollectionSeeded> {
+  FIXTURE_INDEPENDENT_PREMISES.sceneComplete = o.sceneComplete ?? true;
+  FIXTURE_INDEPENDENT_PREMISES.outsideAggregate = o.outsideAggregate ?? true;
   const base = await custodiedCampaign(o.dir, authoredContract(o));
   const s = wire(base);
   const access = o.access ?? [SRC_ACCESS];

@@ -428,10 +428,11 @@ export const PC_REPRESENTATION_INCLUDED = "INCLUDED";
 export const PC_REPRESENTATION_UNKNOWN = "UNKNOWN";
 
 /**
- * Population's own determination, derived from its committed ledgers (never from a caller or from the PC's binding): the PC is
- * `INCLUDED` when any ledger counts a unit with its identity; `OUTSIDE_AGGREGATE` only when at least one ledger attaches to the PC's
- * locus, enumerates its units with identities, and none of them is the PC; otherwise `UNKNOWN`. Only OUTSIDE proceeds on individual
- * occupancy alone; INCLUDED and UNKNOWN WITHHOLD. It carries no layer tag, no headcount, no cohort, no flexible-labor debit, no labor token.
+ * Population's own determination (never a caller's statement or the PC's binding): the PC is `INCLUDED` when any committed ledger
+ * counts a unit with its identity; `OUTSIDE_AGGREGATE` only when the independent owners separately prove the PC outside the effective
+ * aggregate workforce (a ledger proves the counted members of its own disjoint resident population, so an omitted identity proves
+ * nothing); otherwise `UNKNOWN`. Only OUTSIDE proceeds on individual occupancy alone; INCLUDED and UNKNOWN WITHHOLD. It carries no
+ * layer tag, no headcount, no cohort, no flexible-labor debit, no labor token.
  */
 export const PopulationPcRepresentationSchema = z.strictObject({
   pc_id: EntityId,

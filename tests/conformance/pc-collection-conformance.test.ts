@@ -63,6 +63,7 @@ const MODULES = [
   "packages/contracts/src/pc-collection.ts",
   "packages/engine/src/pc-collection/cessation.ts",
   "packages/engine/src/pc-collection/determinations.ts",
+  "packages/engine/src/pc-collection/evidence.ts",
   "packages/contracts/src/protocol-pc-collection.ts",
   "packages/engine/src/pc-collection/state.ts",
   "packages/engine/src/pc-collection/derive.ts",
@@ -382,6 +383,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "cessation.ts",
       "derive.ts",
       "determinations.ts",
+      "evidence.ts",
       "integrity.ts",
       "state.ts",
     ]);

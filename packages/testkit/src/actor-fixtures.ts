@@ -63,7 +63,26 @@ const prefixAdmission =
 const historyCheck = prefixAdmission(SYNTH_ACTOR_HISTORY_OWNER, HISTORY_PREFIX);
 const consumerCheck = prefixAdmission(SYNTH_CAPABILITY_CONSUMER_OWNER, CONSUMER_PREFIX);
 
+/**
+ * FIXTURE STAND-IN for the independent owners' premises the CPAA-C1 v0.3 solitary class and individual occupancy require and no
+ * implemented owner produces (a COMPLETE scene; the PC outside the effective aggregate workforce). Both are FALSE until a test says
+ * otherwise: nothing is established by default, and production supplies no such premise at all. A test that sets one is naming a
+ * premise it supplies, not a result: the engine still derives every verdict from it, and withdrawing it must WITHHOLD again.
+ */
+export const FIXTURE_INDEPENDENT_PREMISES = { sceneComplete: false, outsideAggregate: false };
+
+const FIXTURE_INDEPENDENT_EVIDENCE = {
+  sceneComplete: () => FIXTURE_INDEPENDENT_PREMISES.sceneComplete,
+  outsideAggregate: () => FIXTURE_INDEPENDENT_PREMISES.outsideAggregate,
+};
+/** An extension that registers no owner: only the fixture's stand-in for the independent premises (for campaigns opened as ordinary ones). */
+export const PC_INDEPENDENT_EVIDENCE_EXTENSION: StageOwnerExtension = {
+  owners: new Map(),
+  pcIndependentEvidence: FIXTURE_INDEPENDENT_EVIDENCE,
+};
+
 export const ACTOR_FIXTURE_EXTENSION: StageOwnerExtension = {
+  pcIndependentEvidence: FIXTURE_INDEPENDENT_EVIDENCE,
   owners: new Map([
     [SYNTH_ACTOR_HISTORY_OWNER, new Set([HISTORY_FACET])],
     [SYNTH_CAPABILITY_CONSUMER_OWNER, new Set([CONSUMER_FACET])],

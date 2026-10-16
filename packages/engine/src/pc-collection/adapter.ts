@@ -1,3 +1,4 @@
+import { independentEvidenceOf } from "./evidence.ts";
 import {
   CANON_WRITE_AUTHORITY,
   EstablishPcCollectionMechanismInputSchema,
@@ -917,6 +918,8 @@ export class PcCollectionAdapter {
       has: (k: string) => this.#store.getFact(k) !== undefined,
       // only the Population ledgers are ever found by enumerating (a diagnostic-grade scan, by key shape)
       values: () => this.#store.listFacts(),
+      // the build's independent-owner premises (none in production: the solitary class and individual occupancy are then withheld)
+      independent: independentEvidenceOf(this.#store),
     };
   }
 

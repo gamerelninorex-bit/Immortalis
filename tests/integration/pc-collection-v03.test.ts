@@ -12,8 +12,17 @@ import {
   popPcRepresentationKey,
   worldSourceConditionKey,
 } from "@immortalis/contracts";
-import { PC_COLLECTION_ATTESTATION_RULE, PopulationAdapter } from "@immortalis/engine";
-import { FIXTURE_LOCUS_ID, FIXTURE_WORLD_ID, popPublication } from "@immortalis/testkit";
+import {
+  PC_COLLECTION_ATTESTATION_RULE,
+  POPULATION_PC_AGGREGATE_STATUS_RULE,
+  PopulationAdapter,
+} from "@immortalis/engine";
+import {
+  FIXTURE_INDEPENDENT_PREMISES,
+  FIXTURE_LOCUS_ID,
+  FIXTURE_WORLD_ID,
+  popPublication,
+} from "@immortalis/testkit";
 import { PC_TARGET_COMMITTED, pcTargetTransaction } from "../support/pc-target-advance.ts";
 import { must } from "../support/temporal.ts";
 import {
@@ -84,6 +93,8 @@ const addLedger = (
       },
     }),
   );
+const populationLedgerCount = (s: CollectionSeeded) =>
+  s.campaign.store.listFacts().filter((f) => /^population\/[^/]+\/ledger$/.test(f.key)).length;
 const nothingWritten = (s: CollectionSeeded, before: string) => {
   expect(s.campaign.store.head().state_sha256).toBe(before);
   expect(sourceRemaining(s)).toBe(5);
@@ -91,7 +102,7 @@ const nothingWritten = (s: CollectionSeeded, before: string) => {
 };
 
 describe("F-1 — the solitary class is derived from the owners' scene evidence and enforced over the occupied interval", () => {
-  it("positive: owner-held presence evidence plus a quoted reading establish the class; the work record's §11 determination follows from it", async () => {
+  it("positive (the independent owners' complete-scene premise is a fixture stand-in): owner-held presence evidence, that premise and a quoted reading establish the class; the work record's §11 determination follows from it", async () => {
     const s = await collectionCampaign();
     expect((await confirmAndStart(s, ACT_A, 3)).started).toEqual(COLLECTION_COMMITTED);
     const reach = s.collect.reach(PC, ACT_A)!.value;
@@ -122,6 +133,34 @@ describe("F-1 — the solitary class is derived from the owners' scene evidence 
     expect(s.campaign.store.head().revision).toBeGreaterThan(0);
     void before;
   }, 120_000);
+
+  it("BLUE H-1: a Population ledger at the locus and an affirmative reading do not complete the scene — without an independent owner's complete-scene premise nothing is established", async () => {
+    // the ledger exists, lists no one else, and a host WOULD read "no co-present interaction": the ledger proves its own members only
+    const s = await collectionCampaign({ sceneComplete: false });
+    expect(populationLedgerCount(s)).toBe(1);
+    const r = await confirmAndStart(s, ACT_A, 3);
+    expect(r.task.ok).toBe(false);
+    expect(JSON.stringify(r.started)).toBe(COLLECTION_REFUSAL);
+    expect(s.collect.reach(PC, ACT_A)).toBeUndefined();
+    expect(s.collect.occupancy(PC)).toBeUndefined();
+    expect(extractionOf(s, ACT_A)).toBeUndefined();
+    expect(sourceRemaining(s)).toBe(5);
+    expect(reserveAmount(s)).toBe(0);
+  }, 120_000);
+
+  it("BLUE H-1: the independent premise withdrawn mid-interval re-opens the class — the act is invalidated, never silently completed or credited", async () => {
+    const s = await collectionCampaign();
+    await confirmAndStart(s, ACT_A, 3);
+    expect(s.collect.hold(PC)).toEqual({ state: "IN_FLIGHT", act_id: ACT_A });
+    FIXTURE_INDEPENDENT_PREMISES.sceneComplete = false;
+    const hold = s.collect.hold(PC);
+    expect(hold.state).toBe("INVALIDATED");
+    expect((hold as any).reason).toMatch(/scene evidence changed/);
+    await rawAdvance(s, "tx-raw-end-h1", T0.value + 3 * TAU);
+    expect(s.collect.closed(PC, ACT_A)).toBe(false);
+    expect(sourceRemaining(s)).toBe(5);
+    expect(reserveAmount(s)).toBe(0);
+  }, 180_000);
 
   it("a model-authored solitary=true is nothing: an undecided reading, an unquoted ground, and a reading that ignores a unit Population records as present all WITHHOLD", async () => {
     const present = [resident("unit-bystander", FIXTURE_LOCUS_ID)];
@@ -362,7 +401,7 @@ describe("F-2 — the exact cycle rests on an owner-qualified semantic attestati
 });
 
 describe("F-3 — individual occupancy proceeds only on Population's proof that the PC is outside its aggregate workforce", () => {
-  it("positive: Population's own ledger at the locus, not counting the PC, determines OUTSIDE_AGGREGATE; the registration pins that determination and debits no workforce", async () => {
+  it("positive (the independent outside-the-aggregate proof is a fixture stand-in): with that proof and no ledger counting the PC, Population determines OUTSIDE_AGGREGATE; the registration pins that determination and debits no workforce", async () => {
     const s = await collectionCampaign();
     await confirmAndStart(s, ACT_A, 3);
     const rep = s.collect.representation(PC)!;
@@ -380,8 +419,9 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
     expect(ledger.version).toBe(1); // the aggregate ledger is untouched
   }, 120_000);
 
-  it("unknown WITHHOLDS: with no ledger at the locus Population proves nothing, the determination is UNKNOWN and no occupancy can be registered", async () => {
-    const s = await collectionCampaign({ noLedger: true });
+  it("BLUE H-2: a ledger that merely omits the PC proves nothing — without the independent owners' separate proof the determination is UNKNOWN and no occupancy can be registered", async () => {
+    const s = await collectionCampaign({ outsideAggregate: false });
+    expect(populationLedgerCount(s)).toBe(1); // present, disjoint from the PC's identity, and not a proof about the effective workforce
     expect((await determineRepresentation(s)).ok).toBe(true);
     expect(s.collect.representation(PC)!.value.status).toBe("UNKNOWN");
     const ctx = trustedCollection(s, ACT_A, 3);
@@ -394,6 +434,57 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
     });
     expect(r.ok).toBe(false);
     expect(s.collect.occupancy(PC)).toBeUndefined();
+    const started = await confirmAndStart(s, "act-omitted", 1);
+    expect(JSON.stringify(started.started)).toBe(COLLECTION_REFUSAL);
+    expect(sourceRemaining(s)).toBe(5);
+  }, 120_000);
+
+  it("unknown WITHHOLDS: with no ledger at the locus Population proves nothing, the determination is UNKNOWN and no occupancy can be registered", async () => {
+    const s = await collectionCampaign({ noLedger: true, outsideAggregate: false });
+    expect((await determineRepresentation(s)).ok).toBe(true);
+    expect(s.collect.representation(PC)!.value.status).toBe("UNKNOWN");
+    const ctx = trustedCollection(s, ACT_A, 3);
+    await commitConfirmedPcCollection(ctx, COMMIT_REQ);
+    const r = await s.collect.registerOccupancy({
+      ...colPublication(321),
+      pc_id: PC,
+      act_id: ACT_A,
+      mechanism_id: MECH,
+    });
+    expect(r.ok).toBe(false);
+    expect(s.collect.occupancy(PC)).toBeUndefined();
+  }, 120_000);
+
+  it("a forged OUTSIDE determination over a ledger that merely omits the PC is refused when no independent proof exists", async () => {
+    const s = await collectionCampaign({ outsideAggregate: false });
+    const sha = s.campaign.store.head().state_sha256;
+    const forged = await s.campaign.store.commit(
+      forge(
+        s,
+        "rep-omitted",
+        "population",
+        "population_pc_occupancy",
+        POPULATION_PC_AGGREGATE_STATUS_RULE,
+        [
+          {
+            key: popPcRepresentationKey(PC),
+            value: {
+              pc_id: PC,
+              status: "OUTSIDE_AGGREGATE",
+              locality: { world_id: FIXTURE_WORLD_ID, locus_id: FIXTURE_LOCUS_ID },
+              ledgers: [{ fact_key: "population/ledger-col/ledger", version: 1 }],
+              determined_at: T0,
+              committer: { owner: "population", facet: "population_pc_occupancy" },
+            },
+            expected_version: 0,
+          },
+        ],
+        [keys().clock],
+      ),
+    );
+    expect(forged.ok).toBe(false);
+    expect(s.campaign.store.head().state_sha256).toBe(sha);
+    expect(s.collect.representation(PC)).toBeUndefined();
   }, 120_000);
 
   it("included WITHHOLDS pending a lawful reconciliation: a ledger that counts the PC is not a free worker, and nothing is assumed or blindly subtracted", async () => {
