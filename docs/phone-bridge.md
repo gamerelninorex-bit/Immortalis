@@ -1,0 +1,74 @@
+# Phone bridge: a mobile-browser chat over the shipped operator and referee commands (R-5 enablement)
+
+> **OOC DEVELOPMENT INSTRUMENT.** This is a transport and a front end, nothing else. It adds no gameplay, no model, no paid API and no engine rule: it shows the shipped commands' own prompts on a phone and returns what the authenticated person types. **Nothing in the repository's tests of it is a real player or a real game master**; every test is labelled a MECHANISM test. It claims no First Playable PASS, gate, source-lock change or merge readiness. Built on a separate branch because the Sovereign has no computer (BLUE comment 6221232360 on PR #72).
+
+## What it is
+
+`apps/phone` is a small Node HTTP service (`node:http`, no new dependency). It runs the **unchanged** `immortalis-operator` command line (`runCli`) and the **unchanged** human referee console (`runRefereeConsole`) in its own process, with a browser-backed `OperatorTerminal`:
+
+- every prompt the command prints is shown in a chat transcript; the **only** thing that can answer a prompt is a line the signed-in person types and sends;
+- the typed challenge phrases are the operator's own (for example `To confirm, type exactly "establish-locality 6af718b395fa"`); a different line is a decline and nothing is written;
+- an unanswered prompt expires after 15 minutes as a **decline**, never as a confirmation; **Stop** declines the pending prompt;
+- one command runs at a time per lane; the campaign is opened, locked and closed by the command exactly as on a terminal, so reopen and crash recovery are the operator's own.
+
+The repository's existing guards still decide everything that matters: the operator's owner-only files, the referee exchange's host proofs and nonces, and the owners' admission. `apps/phone` is the only code that opens a network socket; the packages' no-network security tests are unchanged and still hold.
+
+## Two lanes, two secrets
+
+| Lane                          | Secret                     | What it can do                                                                                        | What it cannot do                                              |
+| ----------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Player** (`/play`)          | `IMMORTALIS_PLAYER_TOKEN`  | Run the closed command set below, paste the author's setting documents, type the confirmations.       | Reach any referee call, read a referee task, submit a reading. |
+| **Referee / GM** (`/referee`) | `IMMORTALIS_REFEREE_TOKEN` | Open the bound referee console for one configured host, read that host's tasks, type its own reading. | Run any player command or confirm anything for the player.     |
+
+The two secrets must differ (the service refuses to start otherwise). A reading copied from BLUE or anyone else reaches the engine **only** if the referee-lane person types it into the referee page; a GitHub or chat message is not authentication.
+
+**Closed player command set** (built from the configured campaign; the phone cannot name a campaign, directory, role, permission or "confirmed" flag): `establish-locality`, `locality-status`, `referee-bind-host`, `referee-bind-collection-host`, `author-character`, `establish-character-locus`, `character-status`, `initialize-time`, `prepare-collection`, `declare-closed-setting`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `cease`, `settle-collection-lapse`, `observe-surroundings`, `reconcile`, `status`. A pasted setting document (JSON, at most 64 KB) is written to a fresh `0600` file in a `0700` directory the server names, passed as `--setup`, and removed afterwards. There is no shell, no free-text command and no file path from the phone.
+
+## Authentication and transport
+
+- **Sign-in:** the page posts the lane's secret once; the server compares SHA-256 digests in constant time, then issues a random 256-bit session id in an `HttpOnly; SameSite=Strict` cookie (`Secure` behind the proxy) and a separate per-session request token. Sessions are in memory, idle out after 30 minutes and end after 8 hours; **signing in again ends that lane's earlier session**. A restart signs everyone out; campaign state is durable and is not affected.
+- **Every POST** needs the session's request token, `application/json` and (when the browser sends one) a same-origin `Origin`.
+- **Brute force:** five wrong secrets lock that address for 15 minutes, and a global cap locks all sign-ins for a while; a wrong role, wrong lane secret and wrong secret are one identical refusal.
+- **TLS** ends at the platform edge (Railway or any reverse proxy). In the default `proxy` transport the service answers **421** to anything that does not carry `x-forwarded-proto: https` (only `/healthz` is exempt for the platform's probe), and it sets the `Secure` cookie flag. Plain HTTP is accepted **only** with `IMMORTALIS_TRANSPORT=insecure-loopback` on a loopback address, for local development.
+- **Headers:** `no-store`, `nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and a CSP that allows only the page's own nonce-protected script. Server text is only ever inserted into the page as text.
+- **Secrets** are read once from the environment, never logged, never placed in a URL, never echoed and never written to the repository, a comment or Notion. There are **no defaults**: a missing, short (<32), spaced or shared secret makes the service refuse to start.
+
+**Honest limits:** both lanes run in one process with both secrets in one environment, so whoever administers the service can act as either lane. Stronger separation (two services, each holding one secret) is possible and is not built. The rate limiter and sessions are in memory (one replica only). This is not a login system for the game: it admits a person to an out-of-character test instrument.
+
+## How the Sovereign enters by phone
+
+1. A deployed instance's HTTPS URL is opened in the phone's browser (Chrome on Android). No install, terminal, repository or IDE is needed.
+2. Choose **Player**, type the player secret, **Sign in**.
+3. Under **Choose a command**: pick `establish-locality`, paste (or write) the setting document; the **Show format example** button fills a format guide that is never sent until you edit and press **Run**. Press **Run**.
+4. The command's prompt appears as a chat bubble. To confirm, **type the exact phrase it shows** in the reply box and press **Send**. Anything else declines.
+5. Continue with the sequence in [`pc-collection-play.md`](pc-collection-play.md): `referee-bind-host`, `author-character`, `establish-character-locus`, `initialize-time`, `prepare-collection`, `declare-closed-setting`, `referee-bind-collection-host`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `observe-surroundings`, then close and reopen (sign out, sign in, `status`) and make a second, different `collect`.
+6. The game master opens `/referee` (their own phone or browser), signs in with the **referee** secret, picks the bound host, **Open console**, then types `list`, a task id, and their own reading as one JSON object.
+
+## Deploying (NOT done by this change)
+
+Nothing is deployed or billable from this repository. **Do not overwrite the unrelated `immortalis-ob027-eval` Railway project**: create a **new, separate project and service**.
+
+1. New Railway project → deploy from this repository's branch with **config file path `apps/phone/railway.json`** (Dockerfile `apps/phone/Dockerfile`, build context = repository root; health check `/healthz`; one replica).
+2. Attach **one persistent Volume** mounted at `/data` (campaign and retained intents live there; use disposable ORIGINAL-world data only).
+3. Set variables (generate each secret as 40+ random characters in a password manager; never reuse one for both lanes):
+
+   | Variable                      | Value                                                                                                                                                                       |
+   | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `IMMORTALIS_PLAYER_TOKEN`     | the player secret                                                                                                                                                           |
+   | `IMMORTALIS_REFEREE_TOKEN`    | a different referee secret                                                                                                                                                  |
+   | `IMMORTALIS_CAMPAIGN_ID`      | the playtest campaign identity (for example `campaign-first-play`)                                                                                                          |
+   | `IMMORTALIS_REFEREE_HOST_IDS` | the host identities the GM will use, comma separated, at most 8 (for example `gm-setup,gm-collection`); bind each with `referee-bind-host` / `referee-bind-collection-host` |
+   | `IMMORTALIS_DATA_DIR`         | `/data` (default)                                                                                                                                                           |
+
+   `PORT` is supplied by the platform; `IMMORTALIS_TRANSPORT` defaults to `proxy`.
+
+4. Generate the public domain only after the secrets are set and checked. **Cost caveat:** Railway bills a running service and a volume by usage on the workspace's plan; this change does not verify the plan, credits or price, and launching it is a billing decision for the account owner. Remove the service and volume when the playtest ends.
+5. Never expose an instance with default, short, shared or example secrets: the service will not start with them.
+
+Local trial (no deployment): `IMMORTALIS_TRANSPORT=insecure-loopback IMMORTALIS_CAMPAIGN_DIR=… IMMORTALIS_CAMPAIGN_ID=… IMMORTALIS_OPERATOR_DIR=… IMMORTALIS_PLAYER_TOKEN=… IMMORTALIS_REFEREE_TOKEN=… IMMORTALIS_REFEREE_HOST_IDS=gm-setup pnpm phone`.
+
+## What is verified, and what a real human must still do
+
+- **Verified (MECHANISM tests, `tests/integration/phone-bridge.test.ts`):** fail-closed configuration; the closed command set builds its argument vector from the configuration; a reply is accepted once for the current prompt and an unanswered or stopped prompt is a decline; sign-in, lockout, one session per lane, lane separation, request token, JSON-only, same-origin, logout; proxy mode refuses non-HTTPS and sets a `Secure` cookie; the SHIPPED `establish-locality` runs behind the front end and creates the campaign **only** when the exact challenge phrase is typed (a different line declines and writes nothing, and the pasted file is removed); the SHIPPED referee console opens for a really bound host; no process execution, dynamic code, provider reference or environment read outside `main.ts`. A script typed those replies.
+- **Not verified:** that any person used it; a real transcript; the deployed service (no deployment was made); TLS (the platform's); Android browser behaviour beyond standard responsive HTML.
+- **A real human must:** deploy and set the secrets; type every setting document and confirmation; play the real sequence above with a separately authenticated game master; and record the genuine task/answer/transcript (credentials withheld) for BLUE's acceptance. Until then R-5 is open.

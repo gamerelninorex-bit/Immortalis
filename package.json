@@ -21,7 +21,8 @@
     "test:security": "vitest run --project security",
     "test:integration": "vitest run --project integration",
     "operator": "node --disable-warning=ExperimentalWarning --experimental-strip-types packages/operator/src/bin.ts",
-    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:spec && pnpm run test"
+    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:spec && pnpm run test",
+    "phone": "node --disable-warning=ExperimentalWarning --experimental-strip-types apps/phone/src/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
