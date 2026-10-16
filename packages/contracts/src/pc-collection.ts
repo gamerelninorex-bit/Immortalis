@@ -274,8 +274,10 @@ export const PC_SCENE_VERDICTS = [
 export const PcCollectionSceneEvidenceSchema = z.strictObject({
   world: Pin,
   locus: Pin,
+  /** the World-State scene closure this evidence rests on (BLUE HOLD H-1): a pinned owner fact, never a Boolean */
+  closure: Pin,
   statements: z.array(Text).min(1),
-  ledgers: z.array(Pin).min(1),
+  ledgers: z.array(Pin),
   presence_here: z.array(z.strictObject({ unit_id: EntityId, statement: Text })),
   digest: Sha256,
 });
@@ -429,9 +431,9 @@ export const PC_REPRESENTATION_UNKNOWN = "UNKNOWN";
 
 /**
  * Population's own determination (never a caller's statement or the PC's binding): the PC is `INCLUDED` when any committed ledger
- * counts a unit with its identity; `OUTSIDE_AGGREGATE` only when the independent owners separately prove the PC outside the effective
- * aggregate workforce (a ledger proves the counted members of its own disjoint resident population, so an omitted identity proves
- * nothing); otherwise `UNKNOWN`. Only OUTSIDE proceeds on individual occupancy alone; INCLUDED and UNKNOWN WITHHOLD. It carries no
+ * counts a unit with its identity; `OUTSIDE_AGGREGATE` only when Population's own CURRENT workforce scope for the PC's locality
+ * accounts for every representation there and none counts the PC (a ledger proves the counted members of its own disjoint resident
+ * population, so an omitted identity proves nothing without a complete, current scope); otherwise `UNKNOWN`. Only OUTSIDE proceeds on individual occupancy alone; INCLUDED and UNKNOWN WITHHOLD. It carries no
  * layer tag, no headcount, no cohort, no flexible-labor debit, no labor token.
  */
 export const PopulationPcRepresentationSchema = z.strictObject({
@@ -443,6 +445,8 @@ export const PopulationPcRepresentationSchema = z.strictObject({
   ]),
   locality: z.strictObject({ world_id: EntityId, locus_id: EntityId }),
   ledgers: z.array(Pin),
+  /** the Population workforce scope this determination rests on (BLUE HOLD H-2); required for OUTSIDE_AGGREGATE */
+  scope: Pin.nullable(),
   determined_at: CanonicalTimeSchema,
   committer: z.strictObject({
     owner: z.literal("population"),
@@ -450,6 +454,127 @@ export const PopulationPcRepresentationSchema = z.strictObject({
   }),
 });
 export type PopulationPcRepresentation = z.infer<typeof PopulationPcRepresentationSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// BOUNDED SEMANTIC DELEGATION — the World-State scene closure and Population's workforce scope.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * NEWLY AUTHORIZED by the Sovereign's bounded semantic delegation (the Sovereign's words, relayed by BLUE on PR #72 comment
+ * 6215171891: "I will allow him to make semantics if this is recommended to get the job finally done"; controlling mission addendum
+ * pin 2026-10-16T12:07:41.219Z), as the minimum rules the CPAA-C1 v0.3 loop needs to replace two Boolean premises with canonical
+ * owner evidence. These rules are NOT a frozen-source rule, NOT a spec-lock pin and NOT independently reviewed: independent BLUE
+ * review of the rules, the code and the evidence, a final exact-HEAD CI and a separate Sovereign merge direction still apply.
+ */
+export const CPAA_C1_DELEGATED =
+  "CPAA-C1 v0.3 BOUNDED SEMANTIC DELEGATION (Sovereign words relayed by BLUE on PR #72 comment 6215171891; mission addendum pin 2026-10-16T12:07:41.219Z): NEWLY AUTHORIZED minimum rules, not a frozen-source rule, not a spec-lock pin, independent BLUE review pending";
+
+export const FACET_WORLD_SCENE_CLOSURE = "world_scene_closure";
+export const FACET_POPULATION_WORKFORCE_SCOPE = "population_workforce_scope";
+
+/** One World-State scene closure per (world, locus), re-declared as a new version when the setting changes; a changed scene makes the current one STALE. */
+export const worldSceneClosureKey = (worldId: string, locusId: string): string =>
+  `world/${worldId}/locus/${locusId}/scene-closure`;
+/** One Population workforce scope per (world, locus), re-declared as a new version when representations change; a changed one makes the current scope STALE. */
+export const popWorkforceScopeKey = (worldId: string, locusId: string): string =>
+  `population-scope/${worldId}/${locusId}/workforce`;
+
+const SortedUnique = (a: readonly string[]): boolean => a.every((v, i) => i === 0 || a[i - 1]! < v);
+
+/**
+ * World-State's record that one ORIGINAL physical setting is a closed domain, as a pinned, versioned owner fact (BLUE HOLD H-1):
+ *  - `domain` and `closure` are AUTHORED by the operator's confirmed declaration (the setting's author states what the domain is
+ *    and that nothing acts in it beyond what the owners cover); they are canon the author owns, not an estimate;
+ *  - `covered` is DERIVED by the engine at admission from the owners' live facts (every Population ledger attached to the locus, every
+ *    actor coupled to it, every PC whose physical locus it is) and can never be supplied by the declaration. At every later use the
+ *    closure is CURRENT only while those live facts still equal what was covered: an additional resident, actor, PC or ledger
+ *    version makes it STALE, and a stale or missing closure establishes nothing;
+ *  - `source_rights` are AUTHORED per source and a source of this locality only; they grant nothing beyond "no encumbrance is
+ *    established for this source in this closed domain" (reach alone grants no right).
+ * It carries no autonomous-process suppression: any other pending Temporal boundary or foreign claim on the source is a separate,
+ * live engagement check at enrollment.
+ */
+export const WorldSceneClosureSchema = z
+  .strictObject({
+    locality: z.strictObject({ world_id: EntityId, locus_id: EntityId }),
+    world: Pin,
+    locus: Pin,
+    domain: z.strictObject({ designation: Text, topology: Text }),
+    closure: z.strictObject({ statement: Text }),
+    source_rights: z.array(
+      z.strictObject({
+        source_fact_key: Id,
+        status: z.literal("UNENCUMBERED"),
+        ground: Text,
+      }),
+    ),
+    /** derived by the engine at admission from the owners' live facts: never supplied */
+    covered: z.strictObject({
+      population_ledgers: z.array(Pin),
+      actors: z.array(EntityId),
+      pcs: z.array(EntityId),
+    }),
+    effective_at: CanonicalTimeSchema,
+    committer: z.strictObject({
+      owner: z.literal("world_state"),
+      facet: z.literal(FACET_WORLD_SCENE_CLOSURE),
+    }),
+  })
+  .superRefine((c, ctx) => {
+    const bad = (message: string, path: string[]) =>
+      ctx.addIssue({ code: "custom", message, path });
+    if (!SortedUnique(c.covered.actors)) bad("actors are sorted and unique", ["covered", "actors"]);
+    if (!SortedUnique(c.covered.pcs)) bad("pcs are sorted and unique", ["covered", "pcs"]);
+    if (!SortedUnique(c.covered.population_ledgers.map((l) => l.fact_key)))
+      bad("ledgers are sorted by fact key and unique", ["covered", "population_ledgers"]);
+    if (!SortedUnique(c.source_rights.map((r) => r.source_fact_key)))
+      bad("source rights are sorted by source and unique", ["source_rights"]);
+  });
+export type WorldSceneClosure = z.infer<typeof WorldSceneClosureSchema>;
+
+/**
+ * Population's own scope of the effective aggregate workforce accounted for ONE locality (BLUE HOLD H-2): `scope.statement` is the
+ * AUTHORED declaration that these representations are all of them; `representations` and `accounted` (the identity/count
+ * provenance of each) are DERIVED by the engine at admission from Population's live ledgers: every ledger attached to the locality,
+ * and every ledger one of whose units is present or burdened there. It is CURRENT only while those ledgers are unchanged and no
+ * further one has come to bear on the locality. It is not Section 28 labor accounting: no layer tag, headcount arithmetic, cohort,
+ * flexible-labor debit or labor token is representable.
+ */
+export const PopulationWorkforceScopeSchema = z
+  .strictObject({
+    locality: z.strictObject({ world_id: EntityId, locus_id: EntityId }),
+    scope: z.strictObject({ statement: Text }),
+    representations: z.array(Pin),
+    accounted: z.array(
+      z.strictObject({
+        ledger_id: EntityId,
+        count: z.number().int().nonnegative(),
+        unit_ids: z.array(EntityId),
+      }),
+    ),
+    determined_at: CanonicalTimeSchema,
+    committer: z.strictObject({
+      owner: z.literal("population"),
+      facet: z.literal(FACET_POPULATION_WORKFORCE_SCOPE),
+    }),
+  })
+  .superRefine((c, ctx) => {
+    const bad = (message: string, path: string[]) =>
+      ctx.addIssue({ code: "custom", message, path });
+    if (!SortedUnique(c.representations.map((r) => r.fact_key)))
+      bad("representations are sorted by fact key and unique", ["representations"]);
+    if (!SortedUnique(c.accounted.map((a) => a.ledger_id)))
+      bad("accounted ledgers are sorted and unique", ["accounted"]);
+    c.accounted.forEach((a, i) => {
+      if (!SortedUnique(a.unit_ids))
+        bad("unit ids are sorted and unique", ["accounted", String(i)]);
+      if (a.count !== a.unit_ids.length)
+        bad("the count equals the units accounted", ["accounted", String(i)]);
+    });
+    if (c.accounted.length !== c.representations.length)
+      bad("every representation has its provenance", ["accounted"]);
+  });
+export type PopulationWorkforceScope = z.infer<typeof PopulationWorkforceScopeSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // C5 / PROVISIONAL P-2 — Population's registration of one active PC's individual occupied work interval.

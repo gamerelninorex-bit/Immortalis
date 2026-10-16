@@ -24,7 +24,10 @@ import {
   PopulationPcOccupancySchema,
   ProductionPcCollectionWorkSchema,
   ProductionRequestSchema,
+  PopulationWorkforceScopeSchema,
   TEMPORAL_STATE_KEY,
+  WorldSceneClosureSchema,
+  worldActorCouplingKey,
   compareTime,
   pcCollectionCommitmentKey,
   pcCollectionMechanismKey,
@@ -64,7 +67,13 @@ import {
   pcCollectionTerminationViolation,
 } from "./cessation.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
-import { pcCycleAttestationViolation, pcRepresentationViolation } from "./determinations.ts";
+import {
+  foreignEngagementViolation,
+  pcCycleAttestationViolation,
+  pcRepresentationViolation,
+  sceneClosureViolation,
+  workforceScopeViolation,
+} from "./determinations.ts";
 import {
   pcStandingViolation,
   pcRepresentationHolds,
@@ -355,6 +364,48 @@ export function pcReachGroupCheck(group: CommitGroup, state: CampaignState): Rej
 const mechanismIdOf = (key: string): string | undefined =>
   (/^pc\/[^/]+\/collection-mechanism\/([^/]+)$/.exec(key) ?? [])[1];
 
+/** World-State's scene closure (BLUE HOLD H-1, newly authorized): the coverage is derived from the owners' facts, never supplied. */
+export function sceneClosureGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
+  if (group.writes.length !== 1)
+    return reject("VALUE_INVALID", "one declaration establishes exactly one scene closure");
+  const w = group.writes[0]!;
+  const c = WorldSceneClosureSchema.parse(w.value);
+  const missing = need(group, state, [
+    [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    [c.world.fact_key, "the committed world"],
+    [c.locus.fact_key, "the committed locus"],
+    ...c.covered.population_ledgers.map(
+      (l) => [l.fact_key, "a covered Population ledger"] as const,
+    ),
+    ...c.covered.actors.map(
+      (a) => [worldActorCouplingKey(a), "a covered actor's coupling"] as const,
+    ),
+    ...c.covered.pcs.map((p) => [worldPcLocusCustodyKey(p), "a covered PC's custody"] as const),
+    ...c.source_rights.map((r) => [r.source_fact_key, "the source of a stated right"] as const),
+  ]);
+  if (missing) return missing;
+  const v = sceneClosureViolation(w.key, c, state.facts);
+  return v ? ref(v, { key: w.key }) : null;
+}
+
+/** Population's workforce scope (BLUE HOLD H-2, newly authorized): the representations are derived from its ledgers, never supplied. */
+export function workforceScopeGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+): Rejection | null {
+  if (group.writes.length !== 1)
+    return reject("VALUE_INVALID", "one declaration establishes exactly one workforce scope");
+  const w = group.writes[0]!;
+  const s = PopulationWorkforceScopeSchema.parse(w.value);
+  const missing = need(group, state, [
+    [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    ...s.representations.map((r) => [r.fact_key, "an accounted Population ledger"] as const),
+  ]);
+  if (missing) return missing;
+  const v = workforceScopeViolation(w.key, s, state.facts);
+  return v ? ref(v, { key: w.key }) : null;
+}
+
 /** Population's registration (PROVISIONAL P-2) of one active PC's individual occupied interval, and its denial release. */
 export function pcOccupancyGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
   if (group.writes.length !== 1)
@@ -561,6 +612,15 @@ export function pcCollectionStartViolation(
       "VALUE_INVALID",
       "the extraction declares exactly the derived start and earned completion: never a caller-declared boundary",
     );
+  // enrollment: nothing else may bear on the source or on the interval (a foreign claim, another process falling due within it)
+  const engagement = foreignEngagementViolation(state.facts, {
+    worldId: s.locality.world.entity_id,
+    sourceKey: s.source_key,
+    extractionId: e.extraction_id,
+    completesAt: w.derivation.completes_at,
+  });
+  if (engagement)
+    return reject("CLAIM_INCOMPATIBLE", engagement, { reason: "COLLECTION_WITHHELD" });
   return null;
 }
 

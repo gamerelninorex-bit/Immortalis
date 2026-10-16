@@ -92,7 +92,6 @@ import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
 import { verifyPcCollectionIntegrity } from "../pc-collection/integrity.ts";
-import { bindIndependentEvidence } from "../pc-collection/evidence.ts";
 import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
 import {
   derivePcPhysicalLocusCustody,
@@ -226,7 +225,6 @@ export class CanonicalCampaign {
   private constructor(store: FileCampaignStore, extension: StageOwnerExtension | undefined) {
     this.store = store;
     this.#extension = extension;
-    bindIndependentEvidence(store, extension?.pcIndependentEvidence);
   }
 
   /**

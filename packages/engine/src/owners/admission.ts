@@ -6,6 +6,8 @@ import {
   FACET_PC_COLLECTION_MECHANISM,
   FACET_PC_VOLUNTARY_COMMITMENT,
   FACET_POPULATION_PC_OCCUPANCY,
+  FACET_POPULATION_WORKFORCE_SCOPE,
+  FACET_WORLD_SCENE_CLOSURE,
   pcCollectionRequestId,
   FACET_WORLD_FALLBACK_ENTITY,
   FACET_WORLD_SOURCE_CONDITION,
@@ -55,6 +57,8 @@ import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
 import {
   pcCollectionGroupCheck,
+  sceneClosureGroupCheck,
+  workforceScopeGroupCheck,
   pcOccupancyGroupCheck,
   pcReachGroupCheck,
 } from "../pc-collection/admission.ts";
@@ -459,7 +463,9 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_POPULATION)
       return group.facet === FACET_POPULATION_PC_OCCUPANCY
         ? pcOccupancyGroupCheck(group, state)
-        : populationGroupCheck(group, state);
+        : group.facet === FACET_POPULATION_WORKFORCE_SCOPE
+          ? workforceScopeGroupCheck(group, state)
+          : populationGroupCheck(group, state);
     // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
     if (group.owner === OWNER_PRODUCTION)
       return group.writes.some((w) => isDrawdownProductionKey(w.key))
@@ -509,6 +515,9 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
       return worldSourceGroupCheck(group, state);
+    // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
+      return sceneClosureGroupCheck(group, state);
     return null;
   },
 };
@@ -596,6 +605,18 @@ export function identityMismatch(
         : "pc_id and mechanism do not match the key";
     case "population_pc_representation":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
+    case "world_scene_closure": {
+      const l = v["locality"] as { world_id: string; locus_id: string };
+      return l.world_id === ids[0] && l.locus_id === ids[1]
+        ? null
+        : "the closure's world and locus do not match the key";
+    }
+    case "population_workforce_scope": {
+      const l = v["locality"] as { world_id: string; locus_id: string };
+      return l.world_id === ids[0] && l.locus_id === ids[1]
+        ? null
+        : "the scope's world and locus do not match the key";
+    }
     case "pc_collection_cessation":
       return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
         ? null

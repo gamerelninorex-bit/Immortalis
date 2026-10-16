@@ -152,6 +152,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_pc_locus_custody",
       "world_source_condition",
       "world_source_delivery",
+      "world_scene_closure",
     ]);
     expect([...expectedKindIds({ owner: "world_state" })].sort()).toEqual(
       ALL_FACT_KINDS.filter((k) => k.owner === "world_state")
@@ -165,6 +166,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_fallback_physical_entity",
       "world_locus",
       "world_profile",
+      "world_scene_closure",
       "world_source_condition",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(

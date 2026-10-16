@@ -9,6 +9,8 @@ import {
   ALL_FACT_KINDS,
   CANONICAL_OWNER_REGISTRY,
   PC_COLLECTION_CESSATION_RULE,
+  POPULATION_WORKFORCE_SCOPE_RULE,
+  WORLD_SCENE_CLOSURE_RULE,
   PC_COLLECTION_FACT_KINDS,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
@@ -21,6 +23,7 @@ import {
 } from "@immortalis/engine";
 import {
   CPAA_C1_D1_PROVISIONAL,
+  CPAA_C1_DELEGATED,
   CPAA_C1_PROVISIONAL,
   CeaseConfirmedPcCollectionRequestSchema,
   PcCollectionCessationInputSchema,
@@ -63,7 +66,6 @@ const MODULES = [
   "packages/contracts/src/pc-collection.ts",
   "packages/engine/src/pc-collection/cessation.ts",
   "packages/engine/src/pc-collection/determinations.ts",
-  "packages/engine/src/pc-collection/evidence.ts",
   "packages/contracts/src/protocol-pc-collection.ts",
   "packages/engine/src/pc-collection/state.ts",
   "packages/engine/src/pc-collection/derive.ts",
@@ -80,6 +82,8 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       ...C1_KIND_IDS,
       "pc_collection_cessation",
       ...V03_KIND_IDS,
+      "world_scene_closure",
+      "population_workforce_scope",
       "production_pc_collection_termination",
     ]);
     for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
@@ -123,6 +127,25 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       /not adopted, not ratified, not a source-lock amendment/,
     );
     expect(D1_IDS).toHaveLength(2);
+  });
+
+  it("the two kinds written under the bounded semantic delegation say so: newly authorized, not a frozen-source rule, not a lock pin, review pending", () => {
+    for (const rule of [WORLD_SCENE_CLOSURE_RULE, POPULATION_WORKFORCE_SCOPE_RULE]) {
+      expect(rule.effective_basis).toBe(
+        "sovereign-bounded-semantic-delegation-independent-review-pending",
+      );
+      expect(rule.effective_basis).not.toBe("pinned-by-spec-lock");
+      expect(rule.native_pin).toBe("2026-10-16T12:07:41.219Z");
+      const lineage = rule.authority_lineage.join("\n");
+      for (const cited of [
+        "NEWLY AUTHORIZED",
+        "6215171891",
+        "not a spec-lock pin",
+        "independent BLUE review",
+      ])
+        expect(lineage, cited).toContain(cited);
+    }
+    expect(CPAA_C1_DELEGATED).toMatch(/NEWLY AUTHORIZED minimum rules, not a frozen-source rule/);
   });
 
   it("the candidate and the direction are not lock pins: the lock, the Runtime Contract and the open-gate snapshots are untouched", () => {
@@ -279,6 +302,23 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
         "IM-04",
         ["RC-02", "RC-06"],
       ],
+      // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure and Population's workforce scope
+      [
+        "world_scene_closure",
+        "world_state",
+        "world_scene_closure",
+        "ADVANCING",
+        "IM-03",
+        ["RC-02", "RC-16"],
+      ],
+      [
+        "population_workforce_scope",
+        "population",
+        "population_workforce_scope",
+        "ADVANCING",
+        "IM-04",
+        ["RC-02", "RC-06"],
+      ],
       [
         "production_pc_collection_termination",
         "production",
@@ -318,8 +358,9 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
     expect([...CANONICAL_OWNER_REGISTRY.get("population")!].sort()).toEqual([
       "population_pc_occupancy",
       "population_state",
+      "population_workforce_scope",
     ]);
-    // World-State and Logistics gained nothing: the finite source and the movement path are reused
+    // World-State gained exactly the scene closure; Logistics gained nothing: the finite source and the movement path are reused
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
       "world_profile",
       "world_locus",
@@ -329,6 +370,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "world_pc_locus_custody",
       "world_source_condition",
       "world_source_delivery",
+      // the bounded semantic delegation (newly authorized): the one World-State kind this slice adds, under its own new facet
+      "world_scene_closure",
     ]);
   });
 
@@ -383,7 +426,6 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "cessation.ts",
       "derive.ts",
       "determinations.ts",
-      "evidence.ts",
       "integrity.ts",
       "state.ts",
     ]);
@@ -403,6 +445,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "determineRepresentation",
       "establishMechanism",
       "establishRequest",
+      "establishSceneClosure",
+      "establishWorkforceScope",
       "extraction",
       "hold",
       "mechanism",
@@ -415,11 +459,13 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "releaseOccupancyTerminated",
       "representation",
       "request",
+      "sceneClosure",
       "startWork",
       "temporalObject",
       "terminate",
       "termination",
       "work",
+      "workforceScope",
     ]);
   });
 });

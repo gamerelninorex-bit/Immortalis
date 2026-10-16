@@ -4,6 +4,7 @@
 // the character; `establish-character-locus` has World-State commit the qualified custody; the Temporal owner establishes the basis),
 // and the collection then runs through the unchanged owner paths. The scripted referee host is a policy the TEST wrote that reads the
 // DELIVERED words (PLUMBING ONLY: it proves nothing about whether an AI understood any sentence).
+import { worldSourceConditionKey } from "@immortalis/contracts";
 import {
   PLAYER_CHOICE_AUTHORITY,
   type CanonicalTime,
@@ -27,12 +28,7 @@ import {
   submitPcCollectionReach,
 } from "@immortalis/protocol";
 import { REFEREE_AUTHORITY } from "@immortalis/contracts";
-import {
-  FIXTURE_INDEPENDENT_PREMISES,
-  drawdownPublication,
-  popPublication,
-  prodPublication,
-} from "@immortalis/testkit";
+import { drawdownPublication, popPublication, prodPublication } from "@immortalis/testkit";
 import { ACCESS, LOCUS_ID, SOURCE_KEY, SOURCE_UNIT, WORLD_ID, openOrdinary } from "./locality.ts";
 import {
   BASIS,
@@ -74,9 +70,6 @@ export const TAU_UNIT: CanonicalTime = { unit: BASIS.unit, value: SALT_TAU };
 export async function originalCollectionCampaign(
   o: { scene?: NonNullable<Parameters<typeof observationCampaign>[0]>["scene"] } = {},
 ): Promise<{ dirs: LocalityDirs }> {
-  // the independent owners' premises this fixture supplies (see FIXTURE_INDEPENDENT_PREMISES): a complete scene, the PC outside the aggregate
-  FIXTURE_INDEPENDENT_PREMISES.sceneComplete = true;
-  FIXTURE_INDEPENDENT_PREMISES.outsideAggregate = true;
   const embodiment = `${PC_WORDS.embodiment}; ${ACTUATOR_WORDS}; ${cycleWords(TAU_UNIT)}; ${TRAVERSAL_CANNOT}`;
   const { dirs } = await observationCampaign({
     ...(o.scene ? { scene: o.scene } : {}),
@@ -157,6 +150,49 @@ export async function originalCollectionCampaign(
             },
           ],
           point: BASIS,
+        },
+      }),
+    );
+    // the setting author's declaration (BLUE HOLD H-1/H-2): the locus is a closed domain, the salt is unencumbered in it, and Population's
+    // workforce scope is the ledger it holds. Coverage and accounting are DERIVED by the owners, never supplied.
+    await must(
+      new PcCollectionAdapter(campaign.store).establishSceneClosure({
+        group_id: "col-group-closure",
+        intent_id: "col-intent-closure",
+        cause: "col-cause-closure",
+        basis: "fixture-basis",
+        secrecy: "fixture-visibility",
+        world_id: WORLD_ID,
+        locus_id: LOCUS_ID,
+        domain: {
+          designation: "SYNTHETIC FIXTURE: a closed salt flat",
+          topology: "SYNTHETIC FIXTURE: one salt pan ringed by cliffs; no passage in or out",
+        },
+        closure: {
+          statement:
+            "SYNTHETIC FIXTURE: nothing else acts on this flat beyond what the owners cover.",
+        },
+        source_rights: [
+          {
+            source_fact_key: worldSourceConditionKey(WORLD_ID, SOURCE_KEY),
+            ground:
+              "SYNTHETIC FIXTURE: the loose salt here is held by no one; no claim on it is established.",
+          },
+        ],
+      }),
+    );
+    await must(
+      new PcCollectionAdapter(campaign.store).establishWorkforceScope({
+        group_id: "col-group-scope",
+        intent_id: "col-intent-scope",
+        cause: "col-cause-scope",
+        basis: "fixture-basis",
+        secrecy: "fixture-visibility",
+        world_id: WORLD_ID,
+        locus_id: LOCUS_ID,
+        scope: {
+          statement:
+            "SYNTHETIC FIXTURE: the ledger held is all that accounts workforce for this flat.",
         },
       }),
     );

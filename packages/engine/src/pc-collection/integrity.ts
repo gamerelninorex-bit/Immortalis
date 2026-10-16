@@ -1,6 +1,8 @@
 import {
   PcCollectionCycleAttestationSchema,
   PopulationBasisSchema,
+  PopulationWorkforceScopeSchema,
+  WorldSceneClosureSchema,
   PopulationPcRepresentationSchema,
   popPcRepresentationKey,
   PcCollectionCessationSchema,
@@ -31,7 +33,12 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
-import { pcCycleAttestationViolation, pcRepresentationViolation } from "./determinations.ts";
+import {
+  pcCycleAttestationViolation,
+  pcRepresentationViolation,
+  sceneClosureViolation,
+  workforceScopeViolation,
+} from "./determinations.ts";
 import { extractionCredited } from "./state.ts";
 import {
   deriveOccupancyInterval,
@@ -73,6 +80,8 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const terminations = ofKind("production_pc_collection_termination");
   const attestations = ofKind("pc_collection_cycle_attestation");
   const representations = ofKind("population_pc_representation");
+  const closures = ofKind("world_scene_closure");
+  const scopes = ofKind("population_workforce_scope");
   if (
     commitments.length +
       requests.length +
@@ -83,7 +92,9 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       cessations.length +
       terminations.length +
       attestations.length +
-      representations.length ===
+      representations.length +
+      closures.length +
+      scopes.length ===
     0
   ) {
     return out;
@@ -157,21 +168,52 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     });
     const unchanged = pinned.length === r.data.ledgers.length;
     const counted = pinned.some((l) => l.units.some((u) => u.unit_id === r.data.pc_id));
-    const here = pinned.some(
-      (l) =>
-        l.locality.world.entity_id === r.data.locality.world_id &&
-        l.locality.locus.entity_id === r.data.locality.locus_id,
-    );
-    if (
-      r.data.status === "OUTSIDE_AGGREGATE" &&
-      (r.data.ledgers.length === 0 || (unchanged && (counted || !here)))
-    )
-      bad(
-        f.key,
-        "a proven-outside determination rests on a ledger at the PC's locus that does not count the PC",
-      );
+    if (r.data.status === "OUTSIDE_AGGREGATE") {
+      // proven outside rests on Population's own workforce scope: pinned, existing, accounting exactly the ledgers recorded
+      const sf = r.data.scope ? byKey.get(r.data.scope.fact_key) : undefined;
+      const sv = sf ? PopulationWorkforceScopeSchema.safeParse(sf.value) : undefined;
+      if (!r.data.scope || !sf || !sv?.success || sf.version < r.data.scope.version)
+        bad(f.key, "a proven-outside determination pins Population's workforce scope");
+      else if (
+        // a scope re-declared since is its author's later business: the as-then accounting cannot be re-read from the current one
+        sf.version === r.data.scope.version &&
+        !canonicalEqual(
+          sv.data.representations.map((l) => l.fact_key),
+          r.data.ledgers.map((l) => l.fact_key),
+        )
+      )
+        bad(f.key, "a proven-outside determination records the ledgers its scope accounts");
+      else if (unchanged && counted)
+        bad(f.key, "a proven-outside determination rests on ledgers that do not count the PC");
+    } else if (r.data.scope !== null) {
+      bad(f.key, "only a proven-outside determination pins a workforce scope");
+    }
     if (r.data.status === "INCLUDED" && unchanged && !counted)
       bad(f.key, "an included determination rests on a ledger that counts the PC");
+  }
+  // bounded semantic delegation (newly authorized): the World-State scene closure and Population's workforce scope
+  for (const f of closures) {
+    const c = WorldSceneClosureSchema.safeParse(f.value);
+    if (!c.success) continue;
+    const v = sceneClosureViolation(f.key, c.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [c.data.world.fact_key, c.data.locus.fact_key]);
+    for (const l of c.data.covered.population_ledgers) {
+      const lf = byKey.get(l.fact_key);
+      if (!lf || lf.version < l.version)
+        bad(f.key, "a covered ledger is committed at its pinned version");
+    }
+  }
+  for (const f of scopes) {
+    const sc = PopulationWorkforceScopeSchema.safeParse(f.value);
+    if (!sc.success) continue;
+    const v = workforceScopeViolation(f.key, sc.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    for (const l of sc.data.representations) {
+      const lf = byKey.get(l.fact_key);
+      if (!lf || lf.version < l.version)
+        bad(f.key, "an accounted ledger is committed at its pinned version");
+    }
   }
   for (const f of requests) {
     const r = ProductionRequestSchema.safeParse(f.value);

@@ -1,6 +1,7 @@
-import type { PcIndependentEvidence } from "./evidence.ts";
 import {
+  BoundaryIndexSchema,
   ExistenceContractSchema,
+  ExistingActorCouplingSchema,
   OWNER_PC_EXISTENCE,
   PC_CYCLE_MEANING,
   PC_REPRESENTATION_INCLUDED,
@@ -11,8 +12,14 @@ import {
   PcCollectionCycleTaskSchema,
   PcCollectionMechanismSchema,
   PcCollectionSceneEvidenceSchema,
+  PcPhysicalLocusCustodySchema,
+  PopulationWorkforceScopeSchema,
+  SourceAccountSchema,
+  WorldSceneClosureSchema,
+  WorldSourceConditionSchema,
   PopulationBasisSchema,
   PopulationPcRepresentationSchema,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   WorldLocusSchema,
@@ -24,6 +31,14 @@ import {
   pcCollectionMechanismKey,
   pcExistenceContractKey,
   popPcRepresentationKey,
+  popWorkforceScopeKey,
+  productionExtractionObjectId,
+  productionSourceAccountKey,
+  worldProfileKey,
+  worldLocusKey,
+  worldSceneClosureKey,
+  compareTime,
+  burdenLocus,
   type CanonicalTime,
   type LocusRef,
   type OwnerFact,
@@ -34,12 +49,16 @@ import {
   type PcCollectionSceneEvidence,
   type PopulationBasis,
   type PopulationPcRepresentation,
+  type PopulationWorkforceScope,
+  type WorldSceneClosure,
   type Result,
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { deliveredFacts } from "../referee/derive.ts";
 import type { FactView } from "../world/pc-locus-custody.ts";
+import { resolveEntityLocus } from "../logistics/locus.ts";
+import { pcHasMovementRecords } from "./state.ts";
 
 /**
  * CPAA-C1 v0.3 (design RATIFIED by the Sovereign; implementation acceptance pending) — the determinations the closed class rests on,
@@ -56,8 +75,6 @@ import type { FactView } from "../world/pc-locus-custody.ts";
 /** A fact view that can also enumerate the committed facts (the ledgers are found by their key shape, the one place a scan is needed). */
 export type ScanFacts = FactView & {
   readonly values?: () => Iterable<OwnerFact>;
-  /** the build's independent-owner premises; absent in production, so completeness and outside-the-aggregate are never established */
-  readonly independent?: PcIndependentEvidence | undefined;
 };
 
 /** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
@@ -111,10 +128,10 @@ const clockOf = (facts: FactView): CanonicalTime | undefined => {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Population's determination, from its own committed ledgers and the PC's identity: INCLUDED when any ledger counts a unit with this
- * identity; OUTSIDE_AGGREGATE only when the independent owners separately prove the PC outside the effective aggregate workforce
- * (a ledger proves its own counted members, so an omitted identity proves nothing); UNKNOWN otherwise. The PC's binding, a ledger's
- * silence or a caller's statement is never evidence.
+ * Population's determination, from its own committed facts and the PC's identity: INCLUDED when any ledger counts a unit with this
+ * identity; OUTSIDE_AGGREGATE only when Population's workforce scope for the PC's locality is CURRENT (every representation bearing
+ * on the locality accounted, none changed since) and none of them counts the PC; UNKNOWN otherwise. A ledger's silence about the PC,
+ * the PC's binding and a caller's statement are never evidence: an omitted identity is UNKNOWN until a complete, current scope exists.
  */
 export function derivePcRepresentation(
   pcId: string,
@@ -125,16 +142,24 @@ export function derivePcRepresentation(
   if (!now) return refuse("no canonical temporal basis is established");
   const ledgers = populationLedgers(facts);
   const including = ledgers.filter((l) => l.value.units.some((u) => u.unit_id === pcId));
-  const here = ledgers.filter((l) => atLocus(l.value, locality));
+  const scope = parse(
+    facts,
+    popWorkforceScopeKey(locality.world.entity_id, locality.locus.entity_id),
+    PopulationWorkforceScopeSchema,
+  );
+  const scopeCurrent = scope !== undefined && workforceScopeStatus(scope.value, facts) === null;
   const status =
     including.length > 0
       ? PC_REPRESENTATION_INCLUDED
-      : facts.independent?.outsideAggregate(pcId, locality, facts) === true
+      : scopeCurrent
         ? PC_REPRESENTATION_OUTSIDE
         : PC_REPRESENTATION_UNKNOWN;
-  const examined = [...new Map([...including, ...here].map((l) => [l.fact.key, l])).values()].sort(
-    (a, b) => (a.fact.key < b.fact.key ? -1 : 1),
-  );
+  const examined =
+    status === PC_REPRESENTATION_INCLUDED
+      ? including
+      : scopeCurrent
+        ? scope!.value.representations.map((r) => ledgers.find((l) => l.fact.key === r.fact_key)!)
+        : [];
   const value = PopulationPcRepresentationSchema.safeParse({
     pc_id: pcId,
     status,
@@ -142,7 +167,10 @@ export function derivePcRepresentation(
       world_id: locality.world.entity_id,
       locus_id: locality.locus.entity_id,
     },
-    ledgers: examined.map((l) => pin(l.fact)),
+    ledgers: [...new Map(examined.map((l) => [l.fact.key, pin(l.fact)])).values()].sort((a, b) =>
+      a.fact_key < b.fact_key ? -1 : 1,
+    ),
+    scope: scopeCurrent ? pin(scope!.fact) : null,
     determined_at: now,
     committer: { owner: "population", facet: "population_pc_occupancy" },
   });
@@ -177,36 +205,276 @@ export function pcRepresentationViolation(
     : "a representation determination is exactly what Population's ledgers and the canonical time derive: never a caller's statement";
 }
 
+/**
+ * Where the PC stationarily IS, for a collection: the one lawful answer, never an invented locus. With no movement of any kind
+ * (no movement commitment-of-record and no PC-owned request) it is the stationary custody record's locus. A voluntary movement that
+ * is committed, requested, dispatched, in transfer or awaiting its retirement is IN FLIGHT or pending: the PC is not stationary and
+ * cannot begin a collection. Once the single leg has SETTLED (World-State's destination commit exists and the Logistics transfer is
+ * retired) the PC is stationary at that destination, and World-State's destination is the one authority for it (the custody record
+ * is immutable predecessor provenance of the origin). No new journey rule and no travel are involved.
+ */
+export function pcStationaryLocus(
+  pcId: string,
+  custody: { stationary_locus: { world: { entity_id: string } } },
+  facts: FactView,
+): { reason: string } | { locus: LocusRef; settled: boolean } {
+  if (!pcHasMovementRecords(facts, pcId))
+    return { locus: custody.stationary_locus as LocusRef, settled: false };
+  const resolved = resolveEntityLocus(
+    { getFact: (k) => facts.get(k) },
+    custody.stationary_locus.world.entity_id,
+    pcId,
+  );
+  if (resolved?.phase !== "DESTINATION_COMMITTED" || !resolved.stationary)
+    return {
+      reason:
+        "the PC has a voluntary movement that is pending or in flight: a PC that is not stationary cannot begin a collection",
+    };
+  return { locus: resolved.stationary, settled: true };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bounded semantic delegation — the World-State scene closure and Population's workforce scope (see CPAA_C1_DELEGATED).
+// ---------------------------------------------------------------------------------------------
+
+const COUPLING_KEY = /^world-state\/actor\/[^/]+\/coupling$/;
+const CUSTODY_KEY = /^world-state\/pc\/[^/]+\/locus-custody$/;
+const sortedPins = (pins: readonly { fact_key: string; version: number }[]) =>
+  [...pins].sort((a, b) => (a.fact_key < b.fact_key ? -1 : a.fact_key > b.fact_key ? 1 : 0));
+
+const locusRefOf = (worldId: string, locusId: string): LocusRef => ({
+  world: { fact_key: worldProfileKey(worldId), entity_id: worldId },
+  locus: { fact_key: worldLocusKey(worldId, locusId), entity_id: locusId },
+});
+
+/**
+ * What the owners hold NOW that bears on one locus: every Population ledger attached to it, every actor coupled to it and every
+ * Player Character whose stationary physical locus it is. Derived, never supplied. Empty when the view cannot enumerate.
+ */
+export function liveSceneCoverage(facts: ScanFacts, locality: LocusRef) {
+  const actors: string[] = [];
+  const pcs: string[] = [];
+  if (facts.values) {
+    for (const fact of facts.values()) {
+      if (COUPLING_KEY.test(fact.key)) {
+        const c = ExistingActorCouplingSchema.safeParse(fact.value);
+        if (
+          c.success &&
+          c.data.coupling.world.entity_id === locality.world.entity_id &&
+          c.data.coupling.locus.entity_id === locality.locus.entity_id
+        )
+          actors.push(c.data.actor_id);
+      } else if (CUSTODY_KEY.test(fact.key)) {
+        const c = PcPhysicalLocusCustodySchema.safeParse(fact.value);
+        if (!c.success) continue;
+        // where the PC stationarily IS (after a settled leg, World-State's destination is the one authority); a PC in flight is nowhere
+        const at = pcStationaryLocus(c.data.pc_id, c.data, facts);
+        if (
+          !("reason" in at) &&
+          at.locus.world.entity_id === locality.world.entity_id &&
+          at.locus.locus.entity_id === locality.locus.entity_id
+        )
+          pcs.push(c.data.pc_id);
+      }
+    }
+  }
+  return {
+    population_ledgers: sortedPins(
+      populationLedgers(facts)
+        .filter((l) => atLocus(l.value, locality))
+        .map((l) => pin(l.fact)),
+    ),
+    actors: [...new Set(actors)].sort(),
+    pcs: [...new Set(pcs)].sort(),
+  };
+}
+
+/** Is a committed closure still CURRENT? null when so; otherwise why not. A stale closure establishes nothing. */
+export function sceneClosureStatus(c: WorldSceneClosure, facts: ScanFacts): string | null {
+  const locality = locusRefOf(c.locality.world_id, c.locality.locus_id);
+  const world = facts.get(c.world.fact_key);
+  const locus = facts.get(c.locus.fact_key);
+  if (
+    c.world.fact_key !== locality.world.fact_key ||
+    c.locus.fact_key !== locality.locus.fact_key ||
+    world?.version !== c.world.version ||
+    locus?.version !== c.locus.version
+  )
+    return "the world or locus the closure was established against has changed";
+  if (!facts.values) return "the owners' scene cannot be enumerated here";
+  const live = liveSceneCoverage(facts, locality);
+  if (!canonicalEqual(live, c.covered))
+    return "what the owners hold at this locus is not what the closure covered (a further resident, ledger version, actor or Player Character)";
+  return null;
+}
+
+/**
+ * What a scene-closure fact must be. At its slot always. At admission: the canonical time exists and is the effective time; the
+ * world and locus are the committed ones at their pinned versions; the covered evidence is EXACTLY what the owners hold now
+ * (derived, never a declaration's); and every source right names a source established at this locus. On re-verification only
+ * structure (the owners' facts advance, so the as-then derivation is not re-run).
+ */
+export function sceneClosureViolation(
+  key: string,
+  c: WorldSceneClosure,
+  facts: ScanFacts,
+  verify = false,
+): string | null {
+  if (key !== worldSceneClosureKey(c.locality.world_id, c.locality.locus_id))
+    return "a scene closure is at the slot derived from its world and locus";
+  if (verify) return null;
+  const now = clockOf(facts);
+  if (!now) return "no canonical temporal basis is established: a closure has an effective time";
+  if (compareTime(now, c.effective_at) !== 0)
+    return "a closure is effective at the canonical time it is established";
+  const status = sceneClosureStatus(c, facts);
+  if (status !== null) return status;
+  for (const r of c.source_rights) {
+    const src = parse(facts, r.source_fact_key, WorldSourceConditionSchema);
+    if (
+      !src ||
+      src.value.locality.world.entity_id !== c.locality.world_id ||
+      src.value.locality.locus.entity_id !== c.locality.locus_id
+    )
+      return "a source right names a source established at this very locus";
+  }
+  return null;
+}
+
+/** Every Population ledger that bears on one locality: attached to it, or one of whose units is present or burdened there. */
+export function liveWorkforceRepresentations(facts: ScanFacts, locality: LocusRef) {
+  return populationLedgers(facts).filter(
+    (l) =>
+      atLocus(l.value, locality) ||
+      l.value.units.some(
+        (u) =>
+          u.presence === locality.locus.entity_id || burdenLocus(u) === locality.locus.entity_id,
+      ),
+  );
+}
+
+/** What Population derives for a scope NOW: the representations and their identity/count provenance. */
+export function deriveWorkforceAccounting(facts: ScanFacts, locality: LocusRef) {
+  const live = liveWorkforceRepresentations(facts, locality);
+  return {
+    representations: sortedPins(live.map((l) => pin(l.fact))),
+    accounted: live
+      .map((l) => ({
+        ledger_id: l.value.ledger_id,
+        count: l.value.units.length,
+        unit_ids: l.value.units.map((u) => u.unit_id).sort(),
+      }))
+      .sort((a, b) => (a.ledger_id < b.ledger_id ? -1 : a.ledger_id > b.ledger_id ? 1 : 0)),
+  };
+}
+
+/** Is a committed workforce scope still CURRENT? null when so. A stale scope establishes nothing. */
+export function workforceScopeStatus(s: PopulationWorkforceScope, facts: ScanFacts): string | null {
+  if (!facts.values) return "Population's representations cannot be enumerated here";
+  const derived = deriveWorkforceAccounting(
+    facts,
+    locusRefOf(s.locality.world_id, s.locality.locus_id),
+  );
+  return canonicalEqual(derived.representations, s.representations) &&
+    canonicalEqual(derived.accounted, s.accounted)
+    ? null
+    : "the representations bearing on this locality are not those the scope accounted (a further ledger, or a changed one)";
+}
+
+/**
+ * What a workforce-scope fact must be: at its slot; at admission, the canonical time and exactly what Population's live ledgers
+ * derive (the declaration supplies only the statement); on re-verification only structure.
+ */
+export function workforceScopeViolation(
+  key: string,
+  s: PopulationWorkforceScope,
+  facts: ScanFacts,
+  verify = false,
+): string | null {
+  if (key !== popWorkforceScopeKey(s.locality.world_id, s.locality.locus_id))
+    return "a workforce scope is at the slot derived from its world and locus";
+  if (verify) return null;
+  const now = clockOf(facts);
+  if (!now) return "no canonical temporal basis is established";
+  if (compareTime(now, s.determined_at) !== 0)
+    return "a scope is determined at the canonical time it is established";
+  return workforceScopeStatus(s, facts);
+}
+
+/**
+ * ENGAGEMENT evidence at enrollment (the closed-scenario preclusion route). The work is enrolled only if nothing else bears on the
+ * source or the interval: no foreign claim is open on the source's account, and no other Temporal boundary falls due at or before
+ * the work's earned completion. The closure declares the domain closed; this is the live check that no independent cause is in play,
+ * and it never suppresses one.
+ */
+export function foreignEngagementViolation(
+  facts: FactView,
+  a: {
+    worldId: string;
+    sourceKey: string;
+    extractionId: string;
+    completesAt: CanonicalTime;
+  },
+): string | null {
+  const account = parse(
+    facts,
+    productionSourceAccountKey(a.worldId, a.sourceKey),
+    SourceAccountSchema,
+  );
+  if (account?.value.open.some((o) => o.extraction_id !== a.extractionId))
+    return "another claim is open on this source: the work is not the only engagement with it";
+  const index = parse(facts, TEMPORAL_BOUNDARY_INDEX_KEY, BoundaryIndexSchema);
+  const own = productionExtractionObjectId(a.extractionId);
+  const other = index?.value.entries.find(
+    (e) => e.object_id !== own && (compareTime(e.at, a.completesAt) ?? 1) <= 0,
+  );
+  return other
+    ? "another process falls due within the work's interval: the interval is not covered by the closure alone"
+    : null;
+}
+
 // ---------------------------------------------------------------------------------------------
 // F-1 — the solitary-class scene evidence and verdict.
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The scene evidence the owners hold at the PC's locus: the committed world and locus wording and the Population ledgers that attach
- * to this locus (with every OTHER unit whose Population presence is this locus). A ledger lists the counted members of its own
- * disjoint resident population and proves nothing about every actor or material engagement bearing on the PC, so evidence is built
- * ONLY when an independent owner also establishes the complete scene (`PcIndependentEvidence`; production supplies none, so the
- * solitary class is then withheld). With no ledger at the locus the owners hold no presence evidence either. Mechanical: it asserts nothing.
+ * The scene evidence the owners hold at the PC's locus: the committed world and locus wording, the World-State SCENE CLOSURE (a pinned
+ * owner fact) and the Population ledgers that attach to this locus (with every OTHER unit whose Population presence is this locus).
+ * Built ONLY from a CURRENT closure: one whose derived coverage still equals what the owners hold now (a further resident, actor, PC
+ * or ledger version makes it stale), that covers this very PC, and that establishes this very source as unencumbered. A ledger or a
+ * host reading never completes the scene; with no current closure nothing is built and the solitary class is withheld (a message,
+ * never a default). Mechanical: it asserts nothing.
  */
 export function buildSceneEvidence(
   facts: ScanFacts,
   pcId: string,
   locality: LocusRef,
+  sourceFactKey: string,
 ): PcCollectionSceneEvidence | { reason: string } {
   const world = parse(facts, locality.world.fact_key, WorldProfileSchema);
   const locus = parse(facts, locality.locus.fact_key, WorldLocusSchema);
   if (!world || !locus) return { reason: "the committed world and locus wording is not held" };
-  if (facts.independent?.sceneComplete(pcId, locality, facts) !== true)
+  const closure = parse(
+    facts,
+    worldSceneClosureKey(locality.world.entity_id, locality.locus.entity_id),
+    WorldSceneClosureSchema,
+  );
+  if (!closure)
     return {
       reason:
-        "no independent owner establishes the complete scene (every actor and material engagement bearing on the PC here): a ledger and a host reading do not, so the solitary handling kind is withheld",
+        "no World-State scene closure establishes this locus as a closed domain: a ledger and a host reading do not, so the solitary handling kind is withheld",
+    };
+  const stale = sceneClosureStatus(closure.value, facts);
+  if (stale !== null) return { reason: `the scene closure is not current: ${stale}` };
+  if (!closure.value.covered.pcs.includes(pcId))
+    return { reason: "the scene closure does not cover this Player Character" };
+  const rights = closure.value.source_rights.find((r) => r.source_fact_key === sourceFactKey);
+  if (!rights)
+    return {
+      reason:
+        "the scene closure establishes no unencumbered access to this source: reach alone grants no right",
     };
   const here = populationLedgers(facts).filter((l) => atLocus(l.value, locality));
-  if (here.length === 0)
-    return {
-      reason:
-        "no Population ledger attaches to this locus: the owners hold no presence evidence, so the solitary handling kind is withheld",
-    };
   const presence = here
     .flatMap((l) =>
       l.value.units
@@ -220,7 +488,13 @@ export function buildSceneEvidence(
   const body = {
     world: pin(world.fact),
     locus: pin(locus.fact),
-    statements: deliveredFacts(world.value, locus.value).map((f) => f.text),
+    closure: pin(closure.fact),
+    statements: [
+      ...deliveredFacts(world.value, locus.value).map((f) => f.text),
+      `World-State scene closure — domain ${closure.value.domain.designation}: ${closure.value.domain.topology}`,
+      `World-State scene closure — ${closure.value.closure.statement}`,
+      `World-State source rights — ${rights.ground}`,
+    ],
     ledgers: here.map((l) => pin(l.fact)),
     presence_here: presence,
   };

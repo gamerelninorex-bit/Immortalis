@@ -103,6 +103,7 @@ const advanceTo = (s: CollectionSeeded, value: number, tx: string) =>
 /** a started collection whose earned boundary (T0+21) lies BEYOND an independent foreign Temporal object (a GIP sunset at T0+5) */
 async function blocked(dir?: string): Promise<CollectionSeeded> {
   const s = await collectionCampaign(dir ? { dir } : {});
+  await confirmAndStart(s, ACT_A, 3);
   const gip = new GipAdapter(s.campaign.store);
   await establishInstitution({ gip }, 1, INSTITUTION_COURT);
   await establishOffice({ gip }, 2, INSTITUTION_COURT, OFFICE_MAGISTRATE);
@@ -113,7 +114,6 @@ async function blocked(dir?: string): Promise<CollectionSeeded> {
       instrument: sunsetInstrument(INSTRUMENT_A, at(T0.value + 5)),
     }),
   );
-  await confirmAndStart(s, ACT_A, 3);
   return s;
 }
 
@@ -186,10 +186,13 @@ describe("D-1 (PROVISIONAL): a separately confirmed cessation runs the owners' o
     expect(r.collect.termination(PC, ACT_A)!.value.derivation.units_credited).toBe(0);
     expect(indexHasObject(r)).toBe(false);
 
-    // a second lawful action is possible only now, and meets the real, unchanged source
+    // the PC is free of its own act, but the independent process (the foreign sunset at T0+5) is still there and still due inside any
+    // new interval: enrollment is defeated and the cause is not suppressed. The source is the real, unchanged one.
     const b = await confirmAndStart(r, ACT_B, 3);
-    expect(b.started).toEqual(COLLECTION_COMMITTED);
-    expect(r.collect.hold(PC)).toEqual({ state: "IN_FLIGHT", act_id: ACT_B });
+    expect(JSON.stringify(b.started)).toBe(COLLECTION_REFUSAL);
+    // the refused start leaves the PC free (a denial release for the refused act), nothing extracted, nothing held
+    expect(r.collect.occupancyState(PC).state).toBe("RELEASED");
+    expect(r.collect.extraction(PC, ACT_B)).toBeUndefined();
     expect(sourceRemaining(r)).toBe(5);
     await r.campaign.close();
   }, 120_000);

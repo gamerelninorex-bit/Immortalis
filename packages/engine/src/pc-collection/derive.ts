@@ -49,7 +49,6 @@ import {
   worldPcLocusCustodyKey,
   worldSourceConditionKey,
   type CanonicalTime,
-  type LocusRef,
   type OwnerFact,
   type PcCollectionCommitInput,
   type PcCollectionCommitment,
@@ -69,13 +68,13 @@ import {
   deriveSceneVerdict,
   derivePcRepresentation,
   pcCycleAttestationViolation,
+  pcStationaryLocus,
   statesExactDuration,
   type ScanFacts,
 } from "./determinations.ts";
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
-import { resolveEntityLocus } from "../logistics/locus.ts";
-import { pcHasMovementRecords, pcOccupancyRecord, pcOccupancyState } from "./state.ts";
+import { pcOccupancyRecord, pcOccupancyState } from "./state.ts";
 
 /**
  * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERING (see `@immortalis/contracts` `pc-collection.ts`): not ratified, not adopted design
@@ -245,34 +244,6 @@ const apartFromSettledLeg = (facts: FactView, worldId: string, pcId: string): Fa
     has: (k) => !hidden.has(k) && facts.has(k),
   };
 };
-
-/**
- * Where the PC stationarily IS, for a collection: the one lawful answer, never an invented locus. With no movement of any kind
- * (no movement commitment-of-record and no PC-owned request) it is the stationary custody record's locus. A voluntary movement that
- * is committed, requested, dispatched, in transfer or awaiting its retirement is IN FLIGHT or pending: the PC is not stationary and
- * cannot begin a collection. Once the single leg has SETTLED (World-State's destination commit exists and the Logistics transfer is
- * retired) the PC is stationary at that destination, and World-State's destination is the one authority for it (the custody record
- * is immutable predecessor provenance of the origin). No new journey rule and no travel are involved.
- */
-function pcStationaryLocus(
-  pcId: string,
-  custody: { stationary_locus: { world: { entity_id: string } } },
-  facts: FactView,
-): { reason: string } | { locus: LocusRef; settled: boolean } {
-  if (!pcHasMovementRecords(facts, pcId))
-    return { locus: custody.stationary_locus as LocusRef, settled: false };
-  const resolved = resolveEntityLocus(
-    { getFact: (k) => facts.get(k) },
-    custody.stationary_locus.world.entity_id,
-    pcId,
-  );
-  if (resolved?.phase !== "DESTINATION_COMMITTED" || !resolved.stationary)
-    return {
-      reason:
-        "the PC has a voluntary movement that is pending or in flight: a PC that is not stationary cannot begin a collection",
-    };
-  return { locus: resolved.stationary, settled: true };
-}
 
 /**
  * What a collection commitment-of-record must be, judged against committed facts: it is at the slot and has the identity derived from
@@ -605,7 +576,7 @@ export function pcCollectionReachViolation(
   // v0.3 F-1: the scene evidence the host interpreted is the owners' evidence. At admission it is exactly the evidence the owners
   // hold NOW; on re-verification (the ledgers advance) it is re-judged as recorded, and a later change is the premise check's business.
   if (strictVersions) {
-    const live = buildSceneEvidence(facts, d.pc_id, src.value.locality);
+    const live = buildSceneEvidence(facts, d.pc_id, src.value.locality, srcKey);
     if ("reason" in live) return live.reason;
     if (!canonicalEqual(live, d.scene_evidence))
       return "the scene evidence the decision interpreted is the owners' evidence now: a changed scene is a different question";
@@ -857,11 +828,16 @@ export function pcCollectionPremiseViolation(
   // v0.3 F-1: the solitary class is re-evaluated throughout the occupied interval. A changed scene (world or locus wording, a ledger
   // attached to this locus, who Population records as present) re-opens the question: the work is neither completed nor credited
   const scene = reach.value.scene_evidence;
-  const pinned = [scene.world, scene.locus, ...scene.ledgers];
+  const pinned = [scene.world, scene.locus, scene.closure, ...scene.ledgers];
   if (pinned.some((p) => facts.get(p.fact_key)?.version !== p.version))
     return "the scene evidence changed since the judgment: solitary handling is no longer established";
   if (facts.values) {
-    const live = buildSceneEvidence(facts, w.pc_id, src.value.locality);
+    const live = buildSceneEvidence(
+      facts,
+      w.pc_id,
+      src.value.locality,
+      commitment.value.intent.source.fact_key,
+    );
     if ("reason" in live || !canonicalEqual(live, scene))
       return "the scene evidence changed since the judgment: solitary handling is no longer established";
   }

@@ -614,6 +614,27 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "population-pc/p1/representation",
   },
+  /**
+   * CPAA-C1 v0.3 BOUNDED SEMANTIC DELEGATION (newly authorized; independent BLUE review pending): two more kinds, no new owner. The
+   * World-State scene closure (a new World-State facet) and Population's workforce scope (a new Population facet), each re-declared as
+   * a new version by its author with its coverage / accounting derived by the owner.
+   */
+  {
+    id: "world_scene_closure",
+    owner: "world_state",
+    facet: "world_scene_closure",
+    lifecycle: "ADVANCING",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "world/w1/locus/l1/scene-closure",
+  },
+  {
+    id: "population_workforce_scope",
+    owner: "population",
+    facet: "population_workforce_scope",
+    lifecycle: "ADVANCING",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "population-scope/w1/l1/workforce",
+  },
   {
     id: "production_pc_collection_termination",
     owner: "production",
@@ -631,6 +652,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "world_locus",
     "world_fallback_physical_entity",
     "world_source_condition",
+    "world_scene_closure",
   ],
   pc_existence: [
     "existence_contract",
@@ -640,7 +662,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
   ],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
-  population: ["population_state", "population_pc_occupancy"],
+  population: ["population_state", "population_pc_occupancy", "population_workforce_scope"],
   production: ["production_state"],
   economy: ["economy_state"],
   logistics: ["logistics_state"],
@@ -887,6 +909,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "determineRepresentation",
       "establishMechanism",
       "establishRequest",
+      "establishSceneClosure",
+      "establishWorkforceScope",
       "extraction",
       "hold",
       "mechanism",
@@ -899,11 +923,13 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "releaseOccupancyTerminated",
       "representation",
       "request",
+      "sceneClosure",
       "startWork",
       "temporalObject",
       "terminate",
       "termination",
       "work",
+      "workforceScope",
     ],
   },
   NamedActorAdapter: {

@@ -3,7 +3,6 @@ import type { OwnerRegistry, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalAdmission } from "./admission.ts";
 import { CANONICAL_OWNER_REGISTRY, resolveKey } from "./registry.ts";
 import { reject } from "./rejection.ts";
-import { withIndependentEvidence, type PcIndependentEvidence } from "../pc-collection/evidence.ts";
 
 /**
  * Additional owner/facet pairs a build registers beside the canonical and IM-02 kernel ones — the
@@ -20,12 +19,6 @@ export interface StageOwnerExtension {
   readonly owners: OwnerRegistry;
   /** Consulted for groups written by an extension owner only. Pure: a function of (group, state). */
   readonly admission?: WriteAdmission;
-  /**
-   * The independent owners' premises for the CPAA-C1 v0.3 solitary class and individual occupancy (complete scene; outside the
-   * effective aggregate workforce). Production supplies none, so those acts are WITHHELD; a build or fixture that supplies them
-   * answers for them, and the engine still derives every verdict from them.
-   */
-  readonly pcIndependentEvidence?: PcIndependentEvidence;
 }
 
 export type ExtensionErrorCode = "EXTENSION_INVALID";
@@ -39,12 +32,6 @@ export function storeBindings(
   extension?: StageOwnerExtension,
 ): Result<StoreBindings, ExtensionErrorCode> {
   if (!extension) return ok({ owners: CANONICAL_OWNER_REGISTRY, admission: canonicalAdmission });
-  const evidence = extension.pcIndependentEvidence;
-  const canonical: WriteAdmission["check"] = (group, state) =>
-    canonicalAdmission.check(
-      group,
-      evidence ? { ...state, facts: withIndependentEvidence(state.facts, evidence) } : state,
-    );
   for (const [owner, facets] of extension.owners) {
     if (CANONICAL_OWNER_REGISTRY.has(owner)) {
       return fail("EXTENSION_INVALID", "an extension may not reuse a canonical or kernel owner", {
@@ -57,7 +44,7 @@ export function storeBindings(
   const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...extension.owners]);
   const admission: WriteAdmission = {
     check(group, state) {
-      if (!extension.owners.has(group.owner)) return canonical(group, state);
+      if (!extension.owners.has(group.owner)) return canonicalAdmission.check(group, state);
       for (const w of group.writes) {
         if (resolveKey(w.key)) {
           return reject(

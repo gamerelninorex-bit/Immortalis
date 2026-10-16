@@ -36,7 +36,6 @@ import {
 } from "@immortalis/protocol";
 import {
   ACTOR_FIXTURE_EXTENSION,
-  FIXTURE_INDEPENDENT_PREMISES,
   DEST_LOCUS_ID,
   FIXTURE_LOCUS_ID,
   FIXTURE_WORLD_ID,
@@ -122,10 +121,10 @@ export interface CollectionSeedOptions {
   readonly dir?: string;
   /** the campaign holds no Production Reserve and no extraction basis (an operator preparation establishes them) */
   readonly noPhysicalSetup?: boolean;
-  /** the independent owners' premise: a COMPLETE scene (default: supplied; false leaves the solitary class WITHHELD) */
-  readonly sceneComplete?: boolean;
-  /** the independent owners' separate proof that the PC lies outside the aggregate workforce (default: supplied; false leaves it UNKNOWN) */
-  readonly outsideAggregate?: boolean;
+  /** the author declares the setting a closed domain (default: yes; false leaves the solitary class WITHHELD for want of a closure) */
+  readonly sceneClosure?: boolean;
+  /** Population declares the locality's workforce scope (default: yes; false leaves the PC's relation UNKNOWN for want of a scope) */
+  readonly workforceScope?: boolean;
   /** stated source access facts (default: the fixture's "loose on the surface" statement) */
   readonly access?: readonly { aspect: string; statement: string }[];
   /** the cycle the PC's authored claim states (default: TAU canonical units) */
@@ -191,8 +190,6 @@ export const authoredContract = (o: CollectionSeedOptions = {}) =>
 
 /** A custodied, handed-over PC with a finite source (5), an empty Reserve, Production's basis and the PC's P-1 mechanism: nothing is committed. */
 export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise<CollectionSeeded> {
-  FIXTURE_INDEPENDENT_PREMISES.sceneComplete = o.sceneComplete ?? true;
-  FIXTURE_INDEPENDENT_PREMISES.outsideAggregate = o.outsideAggregate ?? true;
   const base = await custodiedCampaign(o.dir, authoredContract(o));
   const s = wire(base);
   const access = o.access ?? [SRC_ACCESS];
@@ -232,6 +229,10 @@ export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise
         },
       }),
     );
+  await declareClosedSetting(s, {
+    ...(o.sceneClosure === false ? { closure: false } : {}),
+    ...(o.workforceScope === false ? { scope: false } : {}),
+  });
   if (!o.noMechanism) {
     await must(establishMechanism(s, o));
     if (!o.noAttestation) {
@@ -241,6 +242,63 @@ export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise
     }
   }
   return s;
+}
+
+/**
+ * The setting AUTHOR's declaration (BLUE HOLD H-1/H-2, newly authorized): the locus is a closed domain, the source is unencumbered
+ * in it, and Population's workforce scope for the locality is the representations it holds. The test supplies only what an author
+ * states; the coverage and the accounting are derived by the owners, so a later resident, ledger or actor makes both STALE.
+ */
+export async function declareClosedSetting(
+  s: CollectionSeeded,
+  o: {
+    closure?: boolean;
+    scope?: boolean;
+    worldId?: string;
+    locusId?: string;
+    sourceKey?: string;
+    n?: number;
+  } = {},
+) {
+  const worldId = o.worldId ?? W;
+  const locusId = o.locusId ?? FIXTURE_LOCUS_ID;
+  const sourceKey = o.sourceKey ?? SRC_SOURCE_KEY;
+  const n = o.n ?? 980;
+  if (o.closure !== false)
+    await must(
+      s.collect.establishSceneClosure({
+        ...colPublication(n),
+        world_id: worldId,
+        locus_id: locusId,
+        domain: {
+          designation: "SYNTHETIC FIXTURE: a closed hollow",
+          topology: "SYNTHETIC FIXTURE: one open floor ringed by sheer walls; no passage in or out",
+        },
+        closure: {
+          statement:
+            "SYNTHETIC FIXTURE: nothing else acts in this hollow beyond what the owners cover; no autonomous process is declared.",
+        },
+        source_rights: [
+          {
+            source_fact_key: worldSourceConditionKey(worldId, sourceKey),
+            ground:
+              "SYNTHETIC FIXTURE: the loose material here is held by no one; no claim on it is established.",
+          },
+        ],
+      }),
+    );
+  if (o.scope !== false)
+    await must(
+      s.collect.establishWorkforceScope({
+        ...colPublication(n + 1),
+        world_id: worldId,
+        locus_id: locusId,
+        scope: {
+          statement:
+            "SYNTHETIC FIXTURE: the representations listed are all that account workforce for this hollow.",
+        },
+      }),
+    );
 }
 
 /** the I-002 compiler/adjudicator reading of the delivered task, validated by the engine and written by the archivist path */

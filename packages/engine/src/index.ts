@@ -160,7 +160,6 @@ export * from "./compat.ts";
 export * from "./hash.ts";
 export * from "./version.ts";
 export * from "./pc-collection/adapter.ts";
-export type { PcIndependentEvidence } from "./pc-collection/evidence.ts";
 export * from "./pc-collection/admission.ts";
 export * from "./pc-collection/cessation.ts";
 export * from "./pc-collection/derive.ts";

@@ -7,6 +7,10 @@ import {
   PopulationPcRepresentationSchema,
   ProductionPcCollectionTerminationSchema,
   FACET_POPULATION_PC_OCCUPANCY,
+  FACET_POPULATION_WORKFORCE_SCOPE,
+  FACET_WORLD_SCENE_CLOSURE,
+  PopulationWorkforceScopeSchema,
+  WorldSceneClosureSchema,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
   PcCollectionReachDecisionSchema,
@@ -345,6 +349,8 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "production_pc_collection_termination",
   "pc_collection_cycle_attestation",
   "population_pc_representation",
+  "world_scene_closure",
+  "population_workforce_scope",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -1537,6 +1543,32 @@ const v03Rule = (clause: string): SourceRef => ({
   supersedes: null,
 });
 
+/**
+ * NEWLY AUTHORIZED rules (CPAA-C1 v0.3 bounded semantic delegation): the minimum rules the loop needs to replace two Boolean
+ * premises with canonical owner evidence. Not a frozen-source rule and not a spec-lock pin; independent BLUE review is pending.
+ */
+const CPAA_C1_DELEGATION = {
+  artifact: "https://app.notion.com/p/3fb20af901e0818d8406c3c6a422b608",
+  native_pin: "2026-10-16T12:07:41.219Z",
+} as const;
+const CPAA_C1_DELEGATION_LINEAGE =
+  "CPAA-C1 v0.3 BOUNDED SEMANTIC DELEGATION: the Sovereign's words, relayed by BLUE on PR #72 comment 6215171891 (https://github.com/gamerelninorex-bit/Immortalis/pull/72#issuecomment-6215171891): “I will allow him to make semantics if this is recommended to get the job finally done”; controlling mission addendum https://app.notion.com/p/3fb20af901e0818d8406c3c6a422b608 (native pin 2026-10-16T12:07:41.219Z). The rule it governs is NEWLY AUTHORIZED, is not attributed to any frozen source, is not a spec-lock pin, and awaits independent BLUE review";
+const delegatedRule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_DELEGATION.artifact,
+  native_pin: CPAA_C1_DELEGATION.native_pin,
+  clause,
+  authority_lineage: [CPAA_C1_DELEGATION_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-bounded-semantic-delegation-independent-review-pending",
+  supersedes: null,
+});
+
+export const WORLD_SCENE_CLOSURE_RULE: SourceRef = delegatedRule(
+  "NEWLY AUTHORIZED World-State scene closure: an ORIGINAL physical setting is declared a closed domain by its author (the domain, its topology, the closure statement and per-source unencumbered rights are AUTHORED canon); what the owners hold at the locus (Population ledgers attached to it, actors coupled to it, Player Characters whose physical locus it is) is DERIVED by World-State at admission and can never be supplied; the closure is CURRENT only while that derivation still equals what it covered, and a stale or missing closure establishes nothing. It grants no right beyond 'no encumbrance is established for this source in this closed domain', suppresses no independent cause and is re-declared by its author, never rewritten: each declaration is a new version derived afresh, and a changed version re-opens every act that rested on the previous one",
+);
+export const POPULATION_WORKFORCE_SCOPE_RULE: SourceRef = delegatedRule(
+  "NEWLY AUTHORIZED Population workforce scope: Population's declaration (AUTHORED statement) that the representations it lists are ALL those bearing on one locality's effective aggregate workforce; the representations (every ledger attached to the locality or one of whose units is present or burdened there) and their identity/count provenance are DERIVED by Population at admission and can never be supplied; the scope is CURRENT only while those ledgers are unchanged and no further one bears on the locality. Only a current scope lets an omitted identity be OUTSIDE; otherwise UNKNOWN. It is not Section 28 labor accounting: no layer tag, headcount arithmetic, cohort, flexible-labor debit or labor token",
+);
+
 export const PC_COLLECTION_ATTESTATION_RULE: SourceRef = v03Rule(
   "v0.3 F-2 replacement P-1: the eligible intrinsic premise is a lawfully authored accepted I-002 Capability/Effect claim with an operative Temporal Hook; I-002's declared compiler/adjudicator role.gm attests that the cited content denotes exactly one same-form unit handled by the named actuator in one serial cycle with the stated duration (PC-intrinsic meaning only); role.archivist canonically writes the versioned attestation (attestor role, claim and mechanism versions, accepted meaning, Temporal Hook, effective-before-act); Temporal keeps unit authority; quotation and number/unit matching are necessary but insufficient; no hallucinated attestation, post-commit retrofit or invented rate",
 );
@@ -1688,6 +1720,28 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^population-pc/${ID}/representation$`),
     PopulationPcRepresentationSchema,
     POPULATION_PC_AGGREGATE_STATUS_RULE,
+  ),
+  pcCollectionKind(
+    "world_scene_closure",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_SCENE_CLOSURE,
+    "IM-03",
+    ["RC-02", "RC-16"],
+    "ADVANCING",
+    new RegExp(`^world/${ID}/locus/${ID}/scene-closure$`),
+    WorldSceneClosureSchema,
+    WORLD_SCENE_CLOSURE_RULE,
+  ),
+  pcCollectionKind(
+    "population_workforce_scope",
+    OWNER_POPULATION,
+    FACET_POPULATION_WORKFORCE_SCOPE,
+    "IM-04",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^population-scope/${ID}/${ID}/workforce$`),
+    PopulationWorkforceScopeSchema,
+    POPULATION_WORKFORCE_SCOPE_RULE,
   ),
   pcCollectionKind(
     "production_pc_collection_termination",

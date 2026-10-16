@@ -1,6 +1,14 @@
-import { independentEvidenceOf } from "./evidence.ts";
 import {
   CANON_WRITE_AUTHORITY,
+  PopulationWorkforceScopeSchema,
+  WorldSceneClosureSchema,
+  popWorkforceScopeKey,
+  worldSceneClosureKey,
+  worldActorCouplingKey,
+  worldLocusKey,
+  worldProfileKey,
+  type PopulationWorkforceScope,
+  type WorldSceneClosure,
   EstablishPcCollectionMechanismInputSchema,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
@@ -80,6 +88,8 @@ import {
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
 import {
+  deriveWorkforceAccounting,
+  liveSceneCoverage,
   buildCycleTask,
   buildSceneEvidence,
   derivePcRepresentation,
@@ -139,7 +149,9 @@ type KindId =
   | "pc_collection_request"
   | "pc_collection_mechanism"
   | "pc_collection_reach_decision"
-  | "population_pc_occupancy";
+  | "population_pc_occupancy"
+  | "world_scene_closure"
+  | "population_workforce_scope";
 
 /**
  * CPAA-C1 v0.2 PROVISIONAL — the owner publications of the confirmed collection path, each built over the engine's own store and
@@ -369,7 +381,128 @@ export class PcCollectionAdapter {
       [
         TEMPORAL_STATE_KEY,
         ...derived.value.ledgers.map((l) => l.fact_key),
+        ...(derived.value.scope ? [derived.value.scope.fact_key] : []),
         ...(prior ? [prior.key] : []),
+      ],
+    );
+  }
+
+  /**
+   * NEWLY AUTHORIZED (bounded semantic delegation): the author's declaration that one ORIGINAL physical setting is a closed domain.
+   * The domain, topology, closure statement and per-source rights are the author's canon; the coverage (who the owners hold at this
+   * locus) is DERIVED here from their live facts and re-derived by admission, never supplied. The declaration is create-only.
+   */
+  establishSceneClosure(
+    input: Publication & {
+      readonly world_id: string;
+      readonly locus_id: string;
+      readonly domain: unknown;
+      readonly closure: unknown;
+      readonly source_rights: readonly { source_fact_key: string; ground: string }[];
+    },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const view = this.#view();
+    const now = view.get(TEMPORAL_STATE_KEY);
+    const world = this.#store.getFact(worldProfileKey(input.world_id));
+    const locus = this.#store.getFact(worldLocusKey(input.world_id, input.locus_id));
+    if (!now || !world || !locus)
+      return Promise.resolve(
+        fail(
+          "PREREQUISITE_MISSING",
+          "the world, the locus and the canonical time are committed first",
+        ),
+      );
+    const locality = {
+      world: { fact_key: world.key, entity_id: input.world_id },
+      locus: { fact_key: locus.key, entity_id: input.locus_id },
+    };
+    const covered = liveSceneCoverage(view, locality);
+    const priorClosure = this.#store.getFact(worldSceneClosureKey(input.world_id, input.locus_id));
+    const value = WorldSceneClosureSchema.safeParse({
+      locality: { world_id: input.world_id, locus_id: input.locus_id },
+      world: { fact_key: world.key, version: world.version },
+      locus: { fact_key: locus.key, version: locus.version },
+      domain: input.domain,
+      closure: input.closure,
+      source_rights: [...input.source_rights]
+        .map((r) => ({
+          source_fact_key: r.source_fact_key,
+          status: "UNENCUMBERED",
+          ground: r.ground,
+        }))
+        .sort((a, b) => (a.source_fact_key < b.source_fact_key ? -1 : 1)),
+      covered,
+      effective_at: (now.value as { canonical_time: unknown }).canonical_time,
+      committer: { owner: "world_state", facet: "world_scene_closure" },
+    });
+    if (!value.success) return Promise.resolve(invalid("scene closure", value.error));
+    return this.#publish(
+      p.data,
+      "world_scene_closure",
+      worldSceneClosureKey(input.world_id, input.locus_id),
+      value.data,
+      priorClosure?.version ?? 0,
+      [
+        ...(priorClosure ? [priorClosure.key] : []),
+        TEMPORAL_STATE_KEY,
+        world.key,
+        locus.key,
+        ...covered.population_ledgers.map((l) => l.fact_key),
+        ...covered.actors.map((a) => worldActorCouplingKey(a)),
+        ...covered.pcs.map((pc) => worldPcLocusCustodyKey(pc)),
+        ...value.data.source_rights.map((r) => r.source_fact_key),
+      ],
+    );
+  }
+
+  /**
+   * NEWLY AUTHORIZED (bounded semantic delegation): Population's declaration that the representations it lists are all those bearing
+   * on one locality's effective aggregate workforce. The statement is the declaration's; the representations and their identity/count
+   * provenance are DERIVED here from Population's ledgers and re-derived by admission. Re-declared as a new version; no labor arithmetic.
+   */
+  establishWorkforceScope(
+    input: Publication & {
+      readonly world_id: string;
+      readonly locus_id: string;
+      readonly scope: unknown;
+    },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const view = this.#view();
+    const now = view.get(TEMPORAL_STATE_KEY);
+    if (!now)
+      return Promise.resolve(fail("PREREQUISITE_MISSING", "the canonical time is committed first"));
+    const locality = {
+      world: { fact_key: worldProfileKey(input.world_id), entity_id: input.world_id },
+      locus: { fact_key: worldLocusKey(input.world_id, input.locus_id), entity_id: input.locus_id },
+    };
+    const accounting = deriveWorkforceAccounting(view, locality);
+    const priorScope = this.#store.getFact(popWorkforceScopeKey(input.world_id, input.locus_id));
+    const value = PopulationWorkforceScopeSchema.safeParse({
+      locality: { world_id: input.world_id, locus_id: input.locus_id },
+      scope: input.scope,
+      ...accounting,
+      determined_at: (now.value as { canonical_time: unknown }).canonical_time,
+      committer: { owner: "population", facet: "population_workforce_scope" },
+    });
+    if (!value.success) return Promise.resolve(invalid("workforce scope", value.error));
+    return this.#publish(
+      p.data,
+      "population_workforce_scope",
+      popWorkforceScopeKey(input.world_id, input.locus_id),
+      value.data,
+      priorScope?.version ?? 0,
+      [
+        ...(priorScope ? [priorScope.key] : []),
+        TEMPORAL_STATE_KEY,
+        ...accounting.representations.map((r) => r.fact_key),
       ],
     );
   }
@@ -384,7 +517,7 @@ export class PcCollectionAdapter {
     const source = srcFact ? this.#sourceValue(srcFact) : undefined;
     if (!commitment || !mech || !srcFact || !source) return undefined;
     // v0.3 F-1: no owner scene evidence, no task: the solitary class is withheld before any host is asked
-    const scene = buildSceneEvidence(this.#view(), pcId, source.locality);
+    const scene = buildSceneEvidence(this.#view(), pcId, source.locality, srcFact.key);
     if ("reason" in scene) return undefined;
     return buildPcCollectionReachTask(
       pcId,
@@ -861,6 +994,12 @@ export class PcCollectionAdapter {
       PcCollectionCycleAttestationSchema,
     );
   }
+  sceneClosure(worldId: string, locusId: string): Typed<WorldSceneClosure> | undefined {
+    return this.#typed(worldSceneClosureKey(worldId, locusId), WorldSceneClosureSchema);
+  }
+  workforceScope(worldId: string, locusId: string): Typed<PopulationWorkforceScope> | undefined {
+    return this.#typed(popWorkforceScopeKey(worldId, locusId), PopulationWorkforceScopeSchema);
+  }
   representation(pcId: string): Typed<PopulationPcRepresentation> | undefined {
     return this.#typed(popPcRepresentationKey(pcId), PopulationPcRepresentationSchema);
   }
@@ -918,8 +1057,6 @@ export class PcCollectionAdapter {
       has: (k: string) => this.#store.getFact(k) !== undefined,
       // only the Population ledgers are ever found by enumerating (a diagnostic-grade scan, by key shape)
       values: () => this.#store.listFacts(),
-      // the build's independent-owner premises (none in production: the solitary class and individual occupancy are then withheld)
-      independent: independentEvidenceOf(this.#store),
     };
   }
 

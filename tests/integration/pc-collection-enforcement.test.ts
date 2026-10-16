@@ -53,6 +53,7 @@ import {
   hostAnswer,
   reachReq,
   reserveAmount,
+  extractionOf,
   sourceRemaining,
   trustedCollection,
   type CollectionSeeded,
@@ -690,7 +691,7 @@ describe("the PC's own time passage over its collection (C8)", () => {
     expect(reserveAmount(s)).toBe(3);
   });
 
-  it("an earlier-due foreign Temporal object (a GIP sunset) in the crossing makes the PC's advance unavailable, and it is not decided silently", async () => {
+  it("enrollment is defeated by an independent process already due within the interval: nothing is enrolled, and the cause is not suppressed", async () => {
     const s = await collectionCampaign();
     const gip = new GipAdapter(s.campaign.store);
     await establishInstitution({ gip }, 1, INSTITUTION_COURT);
@@ -702,7 +703,29 @@ describe("the PC's own time passage over its collection (C8)", () => {
         instrument: sunsetInstrument(INSTRUMENT_A, at(T0.value + 5)),
       }),
     );
+    const r = await confirmAndStart(s, ACT_A, 3);
+    expect(JSON.stringify(r.started)).toBe(COLLECTION_REFUSAL);
+    expect(s.collect.occupancyState(PC).state).toBe("RELEASED");
+    expect(extractionOf(s, ACT_A)).toBeUndefined();
+    expect(sourceRemaining(s)).toBe(5);
+    expect(reserveAmount(s)).toBe(0);
+    // the foreign process is still there: the cause was not suppressed to make the world safe
+    expect(s.coordinator.boundaryIndex().entries.length).toBeGreaterThan(0);
+  });
+
+  it("an earlier-due foreign Temporal object (a GIP sunset) that arises in the crossing makes the PC's advance unavailable, and it is not decided silently", async () => {
+    const s = await collectionCampaign();
     await confirmAndStart(s, ACT_A, 3);
+    const gip = new GipAdapter(s.campaign.store);
+    await establishInstitution({ gip }, 1, INSTITUTION_COURT);
+    await establishOffice({ gip }, 2, INSTITUTION_COURT, OFFICE_MAGISTRATE);
+    await establishScopeBinding({ gip }, 3, INSTITUTION_COURT, OFFICE_MAGISTRATE, SCOPE_BINDING_A);
+    await must(
+      gip.establishSunsetInstrument({
+        ...gipPublication(4),
+        instrument: sunsetInstrument(INSTRUMENT_A, at(T0.value + 5)),
+      }),
+    );
     const end = T0.value + 3 * TAU;
     const before = quiet(s);
     // the foreign sunset (T0+5) lies inside the crossing to the collection's boundary: the PC's own advance refuses (C8, conservative)

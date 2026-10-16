@@ -77,6 +77,22 @@ describe("a v0.3 history built OUTSIDE admission is refused by the load verifier
         popPcRepresentationKey(PC),
         (v) => (v.ledgers = []),
       ),
+      "outside determination without its workforce scope": edit(
+        popPcRepresentationKey(PC),
+        (v) => (v.scope = null),
+      ),
+      "outside determination pinned to a scope version that does not exist": edit(
+        popPcRepresentationKey(PC),
+        (v) => (v.scope.version += 5),
+      ),
+      "scene evidence pinned to another closure version": edit(
+        pcCollectionReachKey(PC, ACT_A),
+        (v) => (v.scene_evidence.closure.version += 1),
+      ),
+      "scene evidence pinned to no closure": edit(
+        pcCollectionReachKey(PC, ACT_A),
+        (v) => (v.scene_evidence.closure.fact_key = "world/w/locus/l/scene-closure"),
+      ),
       "occupancy pinned to another determination": edit(
         popPcOccupancyKey(PC),
         (v) => (v.representation.fact_key = "population-pc/someone-else/representation"),

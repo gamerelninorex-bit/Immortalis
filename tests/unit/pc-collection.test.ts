@@ -40,11 +40,6 @@ import {
   hostAnswer,
 } from "../support/pc-collection.ts";
 import { commitMove } from "../support/pc-movement.ts";
-import { ACTOR_FIXTURE_EXTENSION } from "@immortalis/testkit";
-
-/** the fixture's stand-in for the independent owners' premises, attached to a plain fact map (a Map copy drops it, so re-attach) */
-const withPremises = <T extends Map<string, OwnerFact>>(m: T): T =>
-  Object.assign(m, { independent: ACTOR_FIXTURE_EXTENSION.pcIndependentEvidence });
 
 const U = T0.unit;
 const t = (value: number, unit = U): CanonicalTime => ({ unit, value });
@@ -136,6 +131,7 @@ describe("interpretPcCollectionReachAnswer: a quote-anchored reading, a DERIVED 
   const scene = {
     world: { fact_key: "world/w/profile", version: 1 },
     locus: { fact_key: "world/w/locus/l", version: 1 },
+    closure: { fact_key: "world/w/locus/l/scene-closure", version: 1 },
     statements: [
       "SYNTHETIC FIXTURE: the committed premise of the world",
       "SYNTHETIC FIXTURE: the committed locus wording",
@@ -226,15 +222,13 @@ describe("pcCollectionPremiseViolation: a premise changed between start and boun
   async function startedView() {
     const s = await collectionCampaign();
     await confirmAndStart(s, ACT_A, 3);
-    const facts = withPremises(
-      new Map<string, OwnerFact>(s.campaign.store.listFacts().map((f) => [f.key, f])),
-    );
+    const facts = new Map<string, OwnerFact>(s.campaign.store.listFacts().map((f) => [f.key, f]));
     const work = ProductionPcCollectionWorkSchema.parse(
       facts.get(productionPcCollectionWorkKey(extractionId(ACT_A)))!.value,
     );
     return { s, facts, work };
   }
-  const clone = (facts: Map<string, OwnerFact>) => withPremises(new Map(facts));
+  const clone = (facts: Map<string, OwnerFact>) => new Map(facts);
   const edit = (facts: Map<string, OwnerFact>, key: string, f: (fact: any) => void) => {
     const next = structuredClone(facts.get(key)!) as any;
     f(next);
@@ -301,9 +295,7 @@ describe("an invalidated act: its stage is refused with no credit, and the hold 
   it("pcCollectionStageViolation refuses the stage on a changed premise (all-at-boundary, no partial credit), and passes the unchanged act", async () => {
     const s = await collectionCampaign();
     await confirmAndStart(s, ACT_A, 3);
-    const facts = withPremises(
-      new Map<string, OwnerFact>(s.campaign.store.listFacts().map((f) => [f.key, f])),
-    );
+    const facts = new Map<string, OwnerFact>(s.campaign.store.listFacts().map((f) => [f.key, f]));
     const ex = ProductionExtractionSchema.parse(
       facts.get(productionExtractionKey(extractionId(ACT_A)))!.value,
     );
@@ -322,14 +314,14 @@ describe("an invalidated act: its stage is refused with no credit, and the hold 
       },
       (m: Map<string, OwnerFact>) => void m.delete(popPcOccupancyKey(PC)),
     ]) {
-      const changed = withPremises(new Map(facts));
+      const changed = new Map(facts);
       mutate(changed);
       const refused = pcCollectionStageViolation({ facts: changed }, ex);
       expect(refused).not.toBeNull();
       expect(refused).toMatchObject({ code: "CLAIM_INCOMPATIBLE" });
     }
     // the hold names an invalidated act and the reason; it releases nothing
-    const changed = withPremises(new Map(facts));
+    const changed = new Map(facts);
     const custody = structuredClone(changed.get(worldPcLocusCustodyKey(PC))!) as any;
     custody.version += 1;
     changed.set(worldPcLocusCustodyKey(PC), custody);

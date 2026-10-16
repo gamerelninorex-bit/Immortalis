@@ -60,6 +60,7 @@ const advanceTo = (s: CollectionSeeded, value: number, tx: string) =>
 /** a started collection whose earned boundary lies BEYOND an independent foreign Temporal object (a GIP sunset at T0+5) */
 async function blocked(dir?: string): Promise<CollectionSeeded> {
   const s = await collectionCampaign(dir ? { dir } : {});
+  await confirmAndStart(s, ACT_A, 3);
   const gip = new GipAdapter(s.campaign.store);
   await establishInstitution({ gip }, 1, INSTITUTION_COURT);
   await establishOffice({ gip }, 2, INSTITUTION_COURT, OFFICE_MAGISTRATE);
@@ -70,7 +71,6 @@ async function blocked(dir?: string): Promise<CollectionSeeded> {
       instrument: sunsetInstrument(INSTRUMENT_A, at(T0.value + 5)),
     }),
   );
-  await confirmAndStart(s, ACT_A, 3);
   return s;
 }
 

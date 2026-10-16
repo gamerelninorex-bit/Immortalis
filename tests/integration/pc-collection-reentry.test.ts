@@ -14,6 +14,7 @@ import {
   COLLECTION_COMMITTED,
   COLLECTION_REFUSAL,
   DEST_BASIS,
+  declareClosedSetting,
   DEST_RESERVE,
   DEST_SOURCE_KEY,
   PC,
@@ -30,6 +31,7 @@ import {
   type CollectionSeeded,
 } from "../support/pc-collection.ts";
 import {
+  DEST_LOCUS_ID,
   advanceToDelivery,
   commitMove,
   logisticsCommit,
@@ -119,6 +121,13 @@ describe("a settled single-leg movement does not exclude a collection at the des
     const stale = await confirmAndStart(s, ACT_B, 2);
     expect(JSON.stringify(stale.started)).toBe(COLLECTION_REFUSAL);
     expect(s.collect.extraction(PC, ACT_B)).toBeUndefined();
+
+    // the setting changed (the PC arrived): the destination's author declares it a closed domain now, covering what the owners hold there
+    await declareClosedSetting(s, {
+      locusId: DEST_LOCUS_ID,
+      sourceKey: DEST_SOURCE_KEY,
+      n: 982,
+    });
 
     // act C at the destination, under the same rules
     const now = s.coordinator.state()!.value.canonical_time.value;

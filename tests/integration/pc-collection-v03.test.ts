@@ -6,6 +6,9 @@
 // states an exact cycle (that stays an irreducible prerequisite). Missing evidence WITHHOLDS: it writes nothing and offers no default.
 import { describe, expect, it } from "vitest";
 import {
+  worldProfileKey,
+  worldLocusKey,
+  worldSceneClosureKey,
   CANON_WRITE_AUTHORITY,
   PLAYER_CHOICE_AUTHORITY,
   pcCollectionAttestationKey,
@@ -15,14 +18,10 @@ import {
 import {
   PC_COLLECTION_ATTESTATION_RULE,
   POPULATION_PC_AGGREGATE_STATUS_RULE,
+  WORLD_SCENE_CLOSURE_RULE,
   PopulationAdapter,
 } from "@immortalis/engine";
-import {
-  FIXTURE_INDEPENDENT_PREMISES,
-  FIXTURE_LOCUS_ID,
-  FIXTURE_WORLD_ID,
-  popPublication,
-} from "@immortalis/testkit";
+import { FIXTURE_LOCUS_ID, FIXTURE_WORLD_ID, popPublication } from "@immortalis/testkit";
 import { PC_TARGET_COMMITTED, pcTargetTransaction } from "../support/pc-target-advance.ts";
 import { must } from "../support/temporal.ts";
 import {
@@ -118,8 +117,8 @@ describe("F-1 — the solitary class is derived from the owners' scene evidence 
     expect(reserveAmount(s)).toBe(3);
   }, 120_000);
 
-  it("withheld, not defaulted: with no Population ledger at the locus the owners hold no presence evidence, so no task, no reading and no act exist", async () => {
-    const s = await collectionCampaign({ noLedger: true });
+  it("withheld, not defaulted: with no scene closure and no Population ledger at the locus the owners hold no scene evidence, so no task, no reading and no act exist", async () => {
+    const s = await collectionCampaign({ noLedger: true, sceneClosure: false });
     const before = s.campaign.store.head().state_sha256;
     const r = await confirmAndStart(s, ACT_A, 3);
     // the commitment is a willingness only; but there is nothing to read, so no judgment, no occupancy and no work
@@ -134,9 +133,9 @@ describe("F-1 — the solitary class is derived from the owners' scene evidence 
     void before;
   }, 120_000);
 
-  it("BLUE H-1: a Population ledger at the locus and an affirmative reading do not complete the scene — without an independent owner's complete-scene premise nothing is established", async () => {
+  it("BLUE H-1: a Population ledger at the locus and an affirmative reading do not complete the scene — without a World-State scene closure nothing is established", async () => {
     // the ledger exists, lists no one else, and a host WOULD read "no co-present interaction": the ledger proves its own members only
-    const s = await collectionCampaign({ sceneComplete: false });
+    const s = await collectionCampaign({ sceneClosure: false });
     expect(populationLedgerCount(s)).toBe(1);
     const r = await confirmAndStart(s, ACT_A, 3);
     expect(r.task.ok).toBe(false);
@@ -148,11 +147,12 @@ describe("F-1 — the solitary class is derived from the owners' scene evidence 
     expect(reserveAmount(s)).toBe(0);
   }, 120_000);
 
-  it("BLUE H-1: the independent premise withdrawn mid-interval re-opens the class — the act is invalidated, never silently completed or credited", async () => {
+  it("BLUE H-1: a stale closure establishes nothing — a further ledger bearing on the locus, even one with no one present, re-opens the class and invalidates the act; it is never silently completed or credited", async () => {
     const s = await collectionCampaign();
     await confirmAndStart(s, ACT_A, 3);
     expect(s.collect.hold(PC)).toEqual({ state: "IN_FLIGHT", act_id: ACT_A });
-    FIXTURE_INDEPENDENT_PREMISES.sceneComplete = false;
+    // a ledger now attached to the locus (its residents are elsewhere): the closure covered the owners' facts as they were
+    await addLedger(s, "ledger-late", [resident("unit-elsewhere", "place-elsewhere")], 953);
     const hold = s.collect.hold(PC);
     expect(hold.state).toBe("INVALIDATED");
     expect((hold as any).reason).toMatch(/scene evidence changed/);
@@ -161,6 +161,78 @@ describe("F-1 — the solitary class is derived from the owners' scene evidence 
     expect(sourceRemaining(s)).toBe(5);
     expect(reserveAmount(s)).toBe(0);
   }, 180_000);
+
+  it("BLUE H-1: a closure is the owners' derived coverage, never a declaration's — a forged closure that omits a held ledger, or names a source of another locus, is refused", async () => {
+    const s = await collectionCampaign({ sceneClosure: false });
+    const sha = s.campaign.store.head().state_sha256;
+    const world = s.campaign.store.getFact(worldProfileKey(W))!;
+    const locus = s.campaign.store.getFact(worldLocusKey(W, FIXTURE_LOCUS_ID))!;
+    const forgedValue = (over: Record<string, unknown> = {}) => ({
+      locality: { world_id: W, locus_id: FIXTURE_LOCUS_ID },
+      world: { fact_key: world.key, version: world.version },
+      locus: { fact_key: locus.key, version: locus.version },
+      domain: { designation: "SYNTHETIC FIXTURE: forged", topology: "SYNTHETIC FIXTURE: forged" },
+      closure: { statement: "SYNTHETIC FIXTURE: forged" },
+      source_rights: [],
+      covered: { population_ledgers: [], actors: [], pcs: [PC] },
+      effective_at: T0,
+      committer: { owner: "world_state", facet: "world_scene_closure" },
+      ...over,
+    });
+    for (const [name, value] of Object.entries({
+      "omits the held ledger": forgedValue(),
+      "names a source of nowhere": forgedValue({
+        covered: {
+          population_ledgers: [{ fact_key: "population/ledger-col/ledger", version: 1 }],
+          actors: [],
+          pcs: [PC],
+        },
+        source_rights: [
+          {
+            source_fact_key: "world/w-other/source/none",
+            status: "UNENCUMBERED",
+            ground: "SYNTHETIC FIXTURE: forged right",
+          },
+        ],
+      }),
+    })) {
+      const forged = await s.campaign.store.commit(
+        forge(
+          s,
+          `closure-${name.length}`,
+          "world_state",
+          "world_scene_closure",
+          WORLD_SCENE_CLOSURE_RULE,
+          [{ key: worldSceneClosureKey(W, FIXTURE_LOCUS_ID), value, expected_version: 0 }],
+          [keys().clock],
+        ),
+      );
+      expect(forged.ok, name).toBe(false);
+    }
+    expect(s.campaign.store.head().state_sha256).toBe(sha);
+    expect(s.collect.sceneClosure(W, FIXTURE_LOCUS_ID)).toBeUndefined();
+  }, 120_000);
+
+  it("a closure that names no right for the committed source grants none: reach alone is not a right", async () => {
+    const s = await collectionCampaign({ sceneClosure: false });
+    await must(
+      s.collect.establishSceneClosure({
+        ...colPublication(970),
+        world_id: W,
+        locus_id: FIXTURE_LOCUS_ID,
+        domain: {
+          designation: "SYNTHETIC FIXTURE: a hollow",
+          topology: "SYNTHETIC FIXTURE: walls",
+        },
+        closure: { statement: "SYNTHETIC FIXTURE: closed, but silent on the source" },
+        source_rights: [],
+      }),
+    );
+    const r = await confirmAndStart(s, ACT_A, 3);
+    expect(r.task.ok).toBe(false);
+    expect(JSON.stringify(r.started)).toBe(COLLECTION_REFUSAL);
+    expect(sourceRemaining(s)).toBe(5);
+  }, 120_000);
 
   it("a model-authored solitary=true is nothing: an undecided reading, an unquoted ground, and a reading that ignores a unit Population records as present all WITHHOLD", async () => {
     const present = [resident("unit-bystander", FIXTURE_LOCUS_ID)];
@@ -413,14 +485,14 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
     });
     // distinct from §28 labor accounting: no layer tag, headcount, cohort, draw reference, flexible-labor debit or token is representable
     expect(Object.keys(rep.value).sort()).toEqual(
-      ["committer", "determined_at", "ledgers", "locality", "pc_id", "status"].sort(),
+      ["committer", "determined_at", "ledgers", "locality", "pc_id", "scope", "status"].sort(),
     );
     const ledger = s.campaign.store.getFact("population/ledger-col/ledger")!;
     expect(ledger.version).toBe(1); // the aggregate ledger is untouched
   }, 120_000);
 
-  it("BLUE H-2: a ledger that merely omits the PC proves nothing — without the independent owners' separate proof the determination is UNKNOWN and no occupancy can be registered", async () => {
-    const s = await collectionCampaign({ outsideAggregate: false });
+  it("BLUE H-2: a ledger that merely omits the PC proves nothing — without a current Population workforce scope the determination is UNKNOWN and no occupancy can be registered", async () => {
+    const s = await collectionCampaign({ workforceScope: false });
     expect(populationLedgerCount(s)).toBe(1); // present, disjoint from the PC's identity, and not a proof about the effective workforce
     expect((await determineRepresentation(s)).ok).toBe(true);
     expect(s.collect.representation(PC)!.value.status).toBe("UNKNOWN");
@@ -440,7 +512,7 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
   }, 120_000);
 
   it("unknown WITHHOLDS: with no ledger at the locus Population proves nothing, the determination is UNKNOWN and no occupancy can be registered", async () => {
-    const s = await collectionCampaign({ noLedger: true, outsideAggregate: false });
+    const s = await collectionCampaign({ noLedger: true, workforceScope: false });
     expect((await determineRepresentation(s)).ok).toBe(true);
     expect(s.collect.representation(PC)!.value.status).toBe("UNKNOWN");
     const ctx = trustedCollection(s, ACT_A, 3);
@@ -455,8 +527,8 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
     expect(s.collect.occupancy(PC)).toBeUndefined();
   }, 120_000);
 
-  it("a forged OUTSIDE determination over a ledger that merely omits the PC is refused when no independent proof exists", async () => {
-    const s = await collectionCampaign({ outsideAggregate: false });
+  it("a forged OUTSIDE determination over a ledger that merely omits the PC is refused when no Population workforce scope exists", async () => {
+    const s = await collectionCampaign({ workforceScope: false });
     const sha = s.campaign.store.head().state_sha256;
     const forged = await s.campaign.store.commit(
       forge(
@@ -473,6 +545,7 @@ describe("F-3 — individual occupancy proceeds only on Population's proof that 
               status: "OUTSIDE_AGGREGATE",
               locality: { world_id: FIXTURE_WORLD_ID, locus_id: FIXTURE_LOCUS_ID },
               ledgers: [{ fact_key: "population/ledger-col/ledger", version: 1 }],
+              scope: null,
               determined_at: T0,
               committer: { owner: "population", facet: "population_pc_occupancy" },
             },
@@ -562,6 +635,7 @@ describe("F-5 — C8: the horizon-dependent refusal is a declared timing-disclos
       await import("../support/gip.ts");
     const { sunsetInstrument } = await import("../support/gip-sunset.ts");
     const s = await collectionCampaign();
+    await confirmAndStart(s, ACT_A, 3);
     const gip = new GipAdapter(s.campaign.store);
     await establishInstitution({ gip }, 1, INSTITUTION_COURT);
     await establishOffice({ gip }, 2, INSTITUTION_COURT, OFFICE_MAGISTRATE);
@@ -572,7 +646,6 @@ describe("F-5 — C8: the horizon-dependent refusal is a declared timing-disclos
         instrument: sunsetInstrument(INSTRUMENT_A, at(T0.value + 5)),
       }),
     );
-    await confirmAndStart(s, ACT_A, 3);
     const a = JSON.stringify(await advanceTo(s, T0.value + 9, "tx-h1"));
     const b = JSON.stringify(await advanceTo(s, T0.value + 17, "tx-h2"));
     expect(a).toBe(b);
