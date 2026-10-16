@@ -43,7 +43,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
   "packages/operator/src/confirmation.ts":
-    "7db72a424fe61265eaac40472db5b07010f9906722938d41ae5ba21d300a812c",
+    "ecf1926d037220c1d8a528d0a5bc79b107516975ae204019a88959f353372457",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/original-pc-keep.ts":
@@ -71,15 +71,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "8d06bb0cc0e6b9ffedb38ff65c2f8569ab9cd39fcfcd78530dd027102ba40b2a",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "9c9a628c2417a1d5277afc934a1989fd7a44bfae4a40d195f091f7c13e68d6a7",
+    "e2575b3490d80ce5ece7a0027824762c99e1dbed7849571eaa3a9d15c0c40469",
   "packages/operator/src/referee-session.ts":
     "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
   "packages/operator/src/cli.ts":
-    "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
+    "faa160aebc74405ae690b2f84fce85ebea71f893cdfa11209a7ac02550fc7330",
   "packages/operator/src/index.ts":
-    "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
+    "c250d684e844627ed2a6a5683ddf1467b88aee86ded8147185c060e7b2e91e07",
 };
 
 const NEW_MODULES = [
@@ -129,6 +129,8 @@ describe("existing owners, the gateway, the read transport, the referee surface 
       [
         "bin.ts",
         "cli.ts",
+        "collection-preparation.ts",
+        "collection-referee.ts",
         "commands.ts",
         "confirmation.ts",
         "index.ts",
@@ -147,6 +149,8 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "player-view-mcp.ts",
         "player-view.ts",
         "referee-bin.ts",
+        "referee-console-bin.ts",
+        "referee-console.ts",
         "referee-exchange.ts",
         "referee-mcp.ts",
         "referee-session.ts",
@@ -175,6 +179,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
     expect(pkg.bin).toEqual({
       "immortalis-operator": "./src/bin.ts",
       "immortalis-referee": "./src/referee-bin.ts",
+      "immortalis-referee-console": "./src/referee-console-bin.ts",
       "immortalis-player-view": "./src/player-view-bin.ts",
       "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
       "immortalis-observe-request": "./src/observe-request-bin.ts",

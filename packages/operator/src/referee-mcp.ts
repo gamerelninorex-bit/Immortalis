@@ -11,7 +11,6 @@ import {
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   RefereeTaskIdSchema,
-  type RefereeOperation,
 } from "@immortalis/contracts";
 import {
   deriveI002,
@@ -31,6 +30,7 @@ import {
   submitDecision,
   type ExchangeParams,
 } from "./referee-exchange.ts";
+import { validateCollectionReading } from "./collection-referee.ts";
 
 /**
  * The reference host-callable transport of the AI referee (PR #61, BLUE B61-A3): a standard, client-neutral Model Context
@@ -158,10 +158,13 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
       typeof args["claimed_model"] === "string" && args["claimed_model"].length > 0
         ? args["claimed_model"].slice(0, 160)
         : null;
-    const op: RefereeOperation = task.value.operation;
+    const op = task.value.operation;
     const ctx = asRecord(task.value.document)["context"];
     // fast feedback for the host; the engine re-validates and derives the verdict itself
-    if (op === REFEREE_OP_I002) {
+    if (op === "PC_COLLECTION_CYCLE" || op === "PC_COLLECTION_REACH") {
+      const invalid = validateCollectionReading(op, ctx, answer);
+      if (invalid !== null) return text(invalid, true);
+    } else if (op === REFEREE_OP_I002) {
       const parsed = I002HostDecisionSchema.safeParse(answer);
       if (!parsed.success)
         return text(

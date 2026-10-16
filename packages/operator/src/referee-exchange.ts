@@ -60,6 +60,18 @@ export const REFEREE_TASK_FORMAT = "immortalis-operator-referee-task";
 export const REFEREE_DECISION_FORMAT = "immortalis-operator-referee-decision";
 const FORMAT_VERSION = 1;
 
+/** Transport names only: no canonical owner, adjudication rule or permission. */
+export const COLLECTION_REFEREE_OPERATIONS = [
+  "PC_COLLECTION_CYCLE",
+  "PC_COLLECTION_REACH",
+] as const;
+export type CollectionRefereeOperation = (typeof COLLECTION_REFEREE_OPERATIONS)[number];
+const ExchangeOperationSchema = z.union([
+  RefereeOperationSchema,
+  z.enum(COLLECTION_REFEREE_OPERATIONS),
+]);
+export type ExchangeOperation = z.infer<typeof ExchangeOperationSchema>;
+
 const HostId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
 const Secret = z.string().regex(/^[0-9a-f]{64}$/);
 
@@ -76,7 +88,7 @@ const ConfigSchema = z.strictObject({
       z.strictObject({
         host_id: HostId,
         secret: Secret,
-        operations: z.array(RefereeOperationSchema).min(1).max(4),
+        operations: z.array(ExchangeOperationSchema).min(1).max(6),
       }),
     )
     .max(MAX_HOSTS),
@@ -87,7 +99,7 @@ const TaskFileSchema = z.strictObject({
   format: z.literal(REFEREE_TASK_FORMAT),
   format_version: z.literal(FORMAT_VERSION),
   task_id: RefereeTaskIdSchema,
-  operation: RefereeOperationSchema,
+  operation: ExchangeOperationSchema,
   campaign_id: z.string().min(1),
   nonce: z.string().regex(/^[0-9a-f]{32}$/),
   /** everything a host is told; the question's `context` is the engine-built, bounded one */
@@ -199,7 +211,7 @@ export async function bindHost(
   p: ExchangeParams & {
     readonly operatorUid: number;
     readonly hostId: string;
-    readonly operations: readonly RefereeOperation[];
+    readonly operations: readonly ExchangeOperation[];
   },
 ): Promise<Result<{ secret_file: string }, ExchangeErrorCode>> {
   const fs = fsOf(p);
@@ -557,6 +569,24 @@ export async function publishTask(
     context: I002Context | IrContext | PhysicalContext | ObservationContext;
   },
 ): Promise<Result<RefereeTaskFile, ExchangeErrorCode>> {
+  return publishRefereeDocument(p, {
+    task_id: input.task_id,
+    operation: input.operation,
+    document: (nonce) => taskDocument(input.task_id, input.context, nonce),
+  });
+}
+
+/** Shared authenticated exchange. Only the trusted engine adapter supplies the document. */
+export async function publishRefereeDocument(
+  p: ExchangeParams,
+  input: {
+    task_id: string;
+    operation: ExchangeOperation;
+    document: (nonce: string) => Record<string, unknown>;
+  },
+): Promise<Result<RefereeTaskFile, ExchangeErrorCode>> {
+  if (!RefereeTaskIdSchema.safeParse(input.task_id).success)
+    return fail("TASK_MALFORMED", "the task identity is not valid");
   const fs = fsOf(p);
   const nonce = randomBytes(16).toString("hex");
   const file: RefereeTaskFile = {
@@ -566,7 +596,7 @@ export async function publishTask(
     operation: input.operation,
     campaign_id: p.campaignId,
     nonce,
-    document: taskDocument(input.task_id, input.context, nonce),
+    document: input.document(nonce),
   };
   try {
     await fs.mkdirp(join(refereeDir(p), "tasks"));
@@ -577,7 +607,15 @@ export async function publishTask(
     if ((e as NodeJS.ErrnoException).code !== "EEXIST")
       return fail("IO_FAILED", "the task could not be published");
   }
-  return readTask(p, input.task_id);
+  const prior = await readTask(p, input.task_id);
+  if (!prior.ok) return prior;
+  // Retry retains its nonce; the same identity never aliases a changed question or another operation.
+  if (
+    prior.value.operation !== input.operation ||
+    canonicalJson(prior.value.document) !== canonicalJson(input.document(prior.value.nonce))
+  )
+    return fail("TASK_CONFLICT", "this task identity already names a different question");
+  return prior;
 }
 
 export async function readTask(
@@ -607,7 +645,7 @@ export async function readTask(
 /** Task ids with no answer yet, in a stable order. */
 export async function pendingTasks(
   p: ExchangeParams,
-): Promise<readonly { task_id: string; operation: RefereeOperation }[]> {
+): Promise<readonly { task_id: string; operation: ExchangeOperation }[]> {
   const fs = fsOf(p);
   let names: string[];
   try {
@@ -615,7 +653,7 @@ export async function pendingTasks(
   } catch {
     return [];
   }
-  const out: { task_id: string; operation: RefereeOperation }[] = [];
+  const out: { task_id: string; operation: ExchangeOperation }[] = [];
   for (const n of names.sort()) {
     const m = /^([0-9a-f]{64})\.json$/.exec(n);
     if (!m) continue;
@@ -639,7 +677,7 @@ export async function authorizeHost(
   p: ExchangeParams & { readonly operatorUid: number },
   hostId: string,
   secret: string,
-  operation: RefereeOperation | null,
+  operation: ExchangeOperation | null,
 ): Promise<Result<RefereeConfig["hosts"][number], ExchangeErrorCode>> {
   const config = await readConfig(p, p.operatorUid);
   if (!config.ok) return config;

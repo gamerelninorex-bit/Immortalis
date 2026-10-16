@@ -120,6 +120,8 @@ export const colPublication = (n: number) => ({
 
 export interface CollectionSeedOptions {
   readonly dir?: string;
+  /** the campaign holds no Production Reserve and no extraction basis (an operator preparation establishes them) */
+  readonly noPhysicalSetup?: boolean;
   /** the independent owners' premise: a COMPLETE scene (default: supplied; false leaves the solitary class WITHHELD) */
   readonly sceneComplete?: boolean;
   /** the independent owners' separate proof that the PC lies outside the aggregate workforce (default: supplied; false leaves it UNKNOWN) */
@@ -205,15 +207,17 @@ export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise
       }),
     }),
   );
-  await must(
-    s.drawdown.establishBasis({
-      ...drawdownPublication(950),
-      extraction_basis: basisInput({ relies_on: access[0] }),
-    }),
-  );
-  await must(
-    s.production.establishReserve({ ...prodPublication(950), reserve: reserveRawInput() }),
-  );
+  if (!o.noPhysicalSetup) {
+    await must(
+      s.drawdown.establishBasis({
+        ...drawdownPublication(950),
+        extraction_basis: basisInput({ relies_on: access[0] }),
+      }),
+    );
+    await must(
+      s.production.establishReserve({ ...prodPublication(950), reserve: reserveRawInput() }),
+    );
+  }
   if (!o.noLedger)
     await must(
       new PopulationAdapter(s.campaign.store).establishLedger({

@@ -46,15 +46,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
   "packages/operator/src/confirmation.ts":
-    "7db72a424fe61265eaac40472db5b07010f9906722938d41ae5ba21d300a812c",
+    "ecf1926d037220c1d8a528d0a5bc79b107516975ae204019a88959f353372457",
   "packages/operator/src/cli.ts":
-    "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
+    "faa160aebc74405ae690b2f84fce85ebea71f893cdfa11209a7ac02550fc7330",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/index.ts":
-    "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
+    "c250d684e844627ed2a6a5683ddf1467b88aee86ded8147185c060e7b2e91e07",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -96,9 +96,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "9c9a628c2417a1d5277afc934a1989fd7a44bfae4a40d195f091f7c13e68d6a7",
+    "e2575b3490d80ce5ece7a0027824762c99e1dbed7849571eaa3a9d15c0c40469",
   "packages/operator/src/referee-session.ts":
     "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
 };
@@ -159,6 +159,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
     expect(pkg.bin).toEqual({
       "immortalis-operator": "./src/bin.ts",
       "immortalis-referee": "./src/referee-bin.ts",
+      "immortalis-referee-console": "./src/referee-console-bin.ts",
       "immortalis-player-view": "./src/player-view-bin.ts",
       "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
       "immortalis-observe-request": "./src/observe-request-bin.ts",
