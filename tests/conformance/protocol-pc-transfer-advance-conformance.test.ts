@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition.ts":
     "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
   "packages/engine/src/logistics/declaration.ts":
@@ -77,7 +77,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":
@@ -106,6 +106,7 @@ describe("existing owners, the Temporal kernel, the relocation gateway and the f
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

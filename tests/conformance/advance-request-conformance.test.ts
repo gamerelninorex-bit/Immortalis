@@ -24,9 +24,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "packages/protocol/src/active-pc-target-advance.ts":
-    "bc1447da88e8abe9326fee82a84366a8559a22429870ad6631c9bcd5b46547cc",
+    "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
   "packages/protocol/src/index.ts":
-    "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
+    "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
   "packages/contracts/src/protocol-pc-target-advance.ts":
     "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
   "packages/contracts/src/temporal.ts":
@@ -146,6 +146,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

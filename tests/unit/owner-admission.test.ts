@@ -164,11 +164,19 @@ describe("registry: every key space has exactly one owner/facet and there is no 
         ],
       ],
       // IM-07 (twenty-eighth slice): the PC capability profile is a second FACET of the one existing PC owner, never a second PC owner
-      ["pc_existence", ["existence_contract", "pc_capability_profile", "pc_voluntary_commitment"]],
+      [
+        "pc_existence",
+        [
+          "existence_contract",
+          "pc_capability_profile",
+          "pc_collection_mechanism",
+          "pc_voluntary_commitment",
+        ],
+      ],
       ["role_registry", ["player_character_binding"]],
       ["temporal_kernel", ["temporal_coordination"]],
       // IM-04 (fourth slice): Population is the sole Unit/Count custodian, one facet
-      ["population", ["population_state"]],
+      ["population", ["population_pc_occupancy", "population_state"]],
       // IM-05 (fifth slice): Production, one facet; there is no fallback Production owner
       ["production", ["production_state"]],
       // IM-06 (sixth slice): Economy, one facet; there is no fallback Economy owner

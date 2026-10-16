@@ -153,7 +153,12 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
   it("the registry is exactly the twenty-eighth slice's: the same owners, facets, fact kinds and key spaces", () => {
     expect([...ALL_FACT_KINDS.map((k) => k.id)].sort()).toEqual([...expectedKindIds({})].sort());
     for (const [owner, facets] of Object.entries({
-      pc_existence: ["existence_contract", "pc_capability_profile", "pc_voluntary_commitment"],
+      pc_existence: [
+        "existence_contract",
+        "pc_capability_profile",
+        "pc_collection_mechanism",
+        "pc_voluntary_commitment",
+      ],
       role_registry: ["player_character_binding"],
       named_actor: ["actor_profile"],
     })) {
@@ -166,6 +171,9 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc_capability",
       "pc_movement_commitment",
       "pc_movement_request",
+      "pc_collection_commitment",
+      "pc_collection_request",
+      "pc_collection_mechanism",
     ]);
     // the compilation lives in the one existing Existence Contract key space: no key space matches a handover or compilation key
     for (const key of [
@@ -201,6 +209,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "LogisticsAdapter",
       "NamedActorAdapter",
       "PcCapabilityAdapter",
+      "PcCollectionAdapter",
       "PopulationAdapter",
       "ProductionAdapter",
       "RefereeAdjudicationAdapter",
@@ -226,6 +235,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "logistics",
       "owners",
       "pc-capability",
+      "pc-collection",
       "pc-movement",
       "persistence",
       "population",

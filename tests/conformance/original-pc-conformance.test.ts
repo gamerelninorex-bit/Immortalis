@@ -76,19 +76,19 @@ const UNCHANGED: Record<string, string> = {
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
-    head: "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+    head: "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
   },
   "packages/engine/src/world/integrity.ts": {
     base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
-    head: "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
+    head: "3c9ad7e48ae35c96790aee88c5a8585b20e1d13d6c31dcdf4f5637d43d2070b7",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+    head: "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
+    head: "7ba53a340aae6a6375db8933d52f1e0c46adca7fee662419d7bda5324d53affd",
   },
 };
 

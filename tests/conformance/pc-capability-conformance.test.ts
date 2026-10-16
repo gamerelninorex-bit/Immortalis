@@ -125,6 +125,7 @@ describe("IA-03 owner exclusivity: ONE lawful PC owner; the capability profile i
     expect([...(CANONICAL_OWNER_REGISTRY.get("pc_existence") ?? [])].sort()).toEqual([
       "existence_contract",
       "pc_capability_profile",
+      "pc_collection_mechanism",
       "pc_voluntary_commitment",
     ]);
     for (const key of ["pc/p/capability-basis/c", "pc/p/capability/c"])
@@ -367,6 +368,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "logistics",
       "owners",
       "pc-capability",
+      "pc-collection",
       "pc-movement",
       "persistence",
       "population",

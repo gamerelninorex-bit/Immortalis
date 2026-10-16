@@ -256,11 +256,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
+    "7ba53a340aae6a6375db8933d52f1e0c46adca7fee662419d7bda5324d53affd",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
+    "3c9ad7e48ae35c96790aee88c5a8585b20e1d13d6c31dcdf4f5637d43d2070b7",
   "packages/engine/src/world/actor-coupling.ts":
     "4469c7605461dc0942fc092e9fa85f180b9f067d6a8ab972edb9db7aca764cf6",
   "packages/engine/src/world/actor-coupling-integrity.ts":
@@ -310,11 +310,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+    head: "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
-    head: "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+    head: "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
@@ -334,7 +334,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+    head: "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",

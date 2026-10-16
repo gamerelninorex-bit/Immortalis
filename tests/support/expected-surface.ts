@@ -525,6 +525,60 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "WORLD_SOURCE_CONDITION_FACT_KINDS",
     exampleKey: "world/w1/source-delivery/x1",
   },
+  /**
+   * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERINGS (not ratified): six kinds, no new owner. The PC-side commitment-of-record and PC-owned
+   * request (existing `pc_voluntary_commitment` facet, a collection key space disjoint from movement's), the P-1 mechanism
+   * carrier (a second PC-owner facet), the physical-reach judgment (the referee provenance facet), Population's P-2 individual
+   * occupancy registration (ADVANCING, one slot per PC) and Production's work record.
+   */
+  {
+    id: "pc_collection_commitment",
+    owner: "pc_existence",
+    facet: "pc_voluntary_commitment",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/collection/a1/commitment",
+  },
+  {
+    id: "pc_collection_request",
+    owner: "pc_existence",
+    facet: "pc_voluntary_commitment",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/collection/a1/request",
+  },
+  {
+    id: "pc_collection_mechanism",
+    owner: "pc_existence",
+    facet: "pc_collection_mechanism",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/collection-mechanism/m1",
+  },
+  {
+    id: "pc_collection_reach_decision",
+    owner: "referee_adjudication_kernel",
+    facet: "referee_provenance",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "referee/pc-collection-reach/p1/a1",
+  },
+  {
+    id: "population_pc_occupancy",
+    owner: "population",
+    facet: "population_pc_occupancy",
+    lifecycle: "ADVANCING",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "population-pc/p1/occupancy",
+  },
+  {
+    id: "production_pc_collection_work",
+    owner: "production",
+    facet: "production_state",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "production/pc-collection-work/x1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -535,10 +589,15 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "world_fallback_physical_entity",
     "world_source_condition",
   ],
-  pc_existence: ["existence_contract", "pc_capability_profile", "pc_voluntary_commitment"],
+  pc_existence: [
+    "existence_contract",
+    "pc_capability_profile",
+    "pc_voluntary_commitment",
+    "pc_collection_mechanism",
+  ],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
-  population: ["population_state"],
+  population: ["population_state", "population_pc_occupancy"],
   production: ["production_state"],
   economy: ["economy_state"],
   logistics: ["logistics_state"],
@@ -765,6 +824,33 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   },
   LogisticsAdapter: {
     methods: ["commitMovement", "commitment", "currentLocus", "delivery", "dispatch", "transfer"],
+  },
+  /**
+   * CPAA-C1 v0.2 PROVISIONAL: the confirmed direct-collection publications and typed reads. Every writer publishes through the
+   * adapter's private publish helper or Production's own atomic start group; no method accepts a boundary, a result, a verdict, a
+   * duration, a source remainder or a Reserve increase.
+   */
+  PcCollectionAdapter: {
+    methods: [
+      "adjudicateReach",
+      "closed",
+      "commit",
+      "commitment",
+      "establishMechanism",
+      "establishRequest",
+      "extraction",
+      "mechanism",
+      "occupancy",
+      "occupancyState",
+      "reach",
+      "reachTask",
+      "registerOccupancy",
+      "releaseOccupancyDenied",
+      "request",
+      "startWork",
+      "temporalObject",
+      "work",
+    ],
   },
   NamedActorAdapter: {
     methods: [

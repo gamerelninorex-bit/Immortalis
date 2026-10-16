@@ -74,7 +74,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/world/pc-locus-custody.ts":
       "2fd911ec1abfcfba49055fb5ff266d86ff79b45197fc7493215f840e43f41eed",
     "packages/engine/src/pc-movement/derive.ts":
-      "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+      "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
     "packages/contracts/src/pc-locus-custody.ts":
       "181218063894d0458e8143ac7a4866d70732ff967410b18846a78cc457b30a0a",
     // the kernel, GIP's own sunset expiry and enrollment, the owner registry and the canonical campaign
@@ -87,14 +87,14 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+      "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98",
     "packages/engine/src/world/canonical-campaign.ts":
-      "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+      "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
     "packages/protocol/src/index.ts":
-      "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
+      "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
     "packages/protocol/src/pc-transfer-advance.ts":
       "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
     "packages/protocol/src/pc-relocation.ts":
@@ -114,7 +114,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
   it("the gateway module is the one scoped delta, pinned at the slice head (any further edit is a new, visible change to this table)", () => {
     const delta = {
       base: "50b828821ecd6218502113d31e9cf74985bc297ff1c776069c9545696439735c",
-      head: "bc1447da88e8abe9326fee82a84366a8559a22429870ad6631c9bcd5b46547cc",
+      head: "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
     };
     expect(delta.base).not.toBe(delta.head);
     expect(sha(MODULE)).toBe(delta.head);

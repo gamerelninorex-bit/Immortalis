@@ -43,13 +43,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol-causal.ts":
     "a535533b4ae92b71805634bc742627e45bb2223a0311631303b63c211ed588d5",
   "packages/engine/src/pc-movement/derive.ts":
-    "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+    "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   "packages/engine/src/pc-movement/integrity.ts":
     "37d20ecd819d9ac330d17a183e00dbd29f81f697f6b4f6c123b5e893c4cdf0ff",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
     "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
   "packages/engine/src/logistics/derive.ts":
@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/engine/src/projection/event-signal.ts":
@@ -92,6 +92,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

@@ -1,0 +1,184 @@
+import {
+  PcCollectionCommitmentSchema,
+  PcCollectionMechanismSchema,
+  PcCollectionReachDecisionSchema,
+  PopulationPcOccupancySchema,
+  ProductionExtractionSchema,
+  ProductionPcCollectionWorkSchema,
+  ProductionRequestSchema,
+  TEMPORAL_STATE_KEY,
+  pcCollectionRequestId,
+  productionExtractionKey,
+  type OwnerFact,
+} from "@immortalis/contracts";
+import { canonicalEqual } from "../hash.ts";
+import { PRODUCTION_PC_COLLECTION_WORK_RULE, resolveKey } from "../owners/registry.ts";
+import type { CampaignStore } from "../persistence/store.ts";
+import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
+import {
+  deriveOccupancyInterval,
+  pcCollectionCommitmentViolation,
+  pcCollectionMechanismViolation,
+  pcCollectionReachViolation,
+  pcCollectionRequestViolation,
+  pcCollectionWorkViolation,
+} from "./derive.ts";
+
+/**
+ * CPAA-C1 v0.2 PROVISIONAL — re-verifies, from committed state and the journal alone, that every loaded collection fact still tells
+ * one story. Replay proves the HISTORY is intact and canonical integrity proves each fact's owner/facet, typed value, governing rule
+ * and authority; this proves the facts still mean what admission required, by applying the SAME single rule admission applied to the
+ * facts as they stood before each write (the source, the Reserve and the occupancy slot ADVANCE with their owners' own deliveries,
+ * credits and releases, so those are read as current and their pins may not exceed the current version):
+ *
+ *  - every commitment-of-record, PC-owned request, mechanism, reach judgment and Production work record holds;
+ *  - every work record has its extraction, its OPEN-then-closed occupancy history is coherent, and no extraction in the PC-owned
+ *    request key space exists without Production's derived work record (a caller-crafted boundary has no lawful value);
+ *  - a denied occupancy has no extraction.
+ *
+ * Cost: lists committed facts once per open (a diagnostic path, CAL-06), and returns immediately when no collection fact exists.
+ */
+export function verifyPcCollectionIntegrity(store: CampaignStore): readonly IntegrityViolation[] {
+  const out: IntegrityViolation[] = [];
+  const bad = (key: string, message: string) =>
+    out.push({ key, code: "PC_COLLECTION_STATE", message });
+  const all = store.listFacts();
+  const kindOf = (f: OwnerFact) => resolveKey(f.key)?.kind.id;
+  const ofKind = (id: string) => all.filter((f) => kindOf(f) === id);
+  const commitments = ofKind("pc_collection_commitment");
+  const requests = ofKind("pc_collection_request");
+  const mechanisms = ofKind("pc_collection_mechanism");
+  const reaches = ofKind("pc_collection_reach_decision");
+  const occupancies = ofKind("population_pc_occupancy");
+  const works = ofKind("production_pc_collection_work");
+  if (
+    commitments.length +
+      requests.length +
+      mechanisms.length +
+      reaches.length +
+      occupancies.length +
+      works.length ===
+    0
+  ) {
+    return out;
+  }
+  const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));
+  const revisionOf = (f: OwnerFact) => store.lookupReceipt(f.provenance.intent_id)?.revision ?? 0;
+  // sealed facts as they stood before the write; ADVANCING ones (source, Reserve, temporal state, occupancy) as they are now
+  const ADVANCING = (k: string) =>
+    k === TEMPORAL_STATE_KEY ||
+    /^world\/[^/]+\/source\//.test(k) ||
+    k.startsWith("production/reserve/") ||
+    k.startsWith("population-pc/");
+  const view = (revision: number) => {
+    const before = factsBefore(revision, byKey, revisionOf);
+    return {
+      get: (k: string) => (ADVANCING(k) ? byKey.get(k) : before.get(k)),
+      has: (k: string) => (ADVANCING(k) ? byKey.has(k) : before.has(k)),
+    };
+  };
+
+  const checkPins = (fact: OwnerFact, keys: readonly string[]) => {
+    const group = store.committedGroup(fact.provenance.intent_id);
+    const revision = revisionOf(fact);
+    for (const key of keys) {
+      const target = byKey.get(key);
+      if (!target) {
+        bad(fact.key, `a pinned fact is committed: ${key}`);
+        continue;
+      }
+      if (!ADVANCING(key) && revisionOf(target) >= revision)
+        bad(fact.key, `a pinned fact was not committed before this fact: ${key}`);
+      if (!group || !group.reads.some((r) => r.key === key))
+        bad(fact.key, `the fact read the pinned fact: ${key}`);
+    }
+  };
+
+  for (const f of commitments) {
+    const c = PcCollectionCommitmentSchema.safeParse(f.value);
+    if (!c.success) continue; // canonical integrity reports the malformed value
+    const v = pcCollectionCommitmentViolation(f.key, c.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [c.data.intent.source.fact_key, c.data.intent.destination.fact_key]);
+  }
+  for (const f of requests) {
+    const r = ProductionRequestSchema.safeParse(f.value);
+    if (!r.success) continue;
+    const v = pcCollectionRequestViolation(f.key, r.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+  }
+  for (const f of mechanisms) {
+    const m = PcCollectionMechanismSchema.safeParse(f.value);
+    if (!m.success) continue;
+    const v = pcCollectionMechanismViolation(f.key, m.data, view(revisionOf(f)));
+    if (v) bad(f.key, v);
+  }
+  for (const f of reaches) {
+    const d = PcCollectionReachDecisionSchema.safeParse(f.value);
+    if (!d.success) continue;
+    const v = pcCollectionReachViolation(f.key, d.data, view(revisionOf(f)), false);
+    if (v) bad(f.key, v);
+    checkPins(f, [d.data.task.source.fact_key, d.data.task.mechanism.fact_key]);
+  }
+  for (const f of occupancies) {
+    const o = PopulationPcOccupancySchema.safeParse(f.value);
+    if (!o.success) continue;
+    const commitment = byKey.get(o.data.commitment.fact_key);
+    const mechanism = byKey.get(o.data.mechanism.fact_key);
+    const c = commitment ? PcCollectionCommitmentSchema.safeParse(commitment.value) : undefined;
+    const m = mechanism ? PcCollectionMechanismSchema.safeParse(mechanism.value) : undefined;
+    if (!c?.success || !m?.success || c.data.pc_id !== o.data.pc_id) {
+      bad(f.key, "an occupancy registers the PC's own committed commitment and mechanism");
+      continue;
+    }
+    const interval = deriveOccupancyInterval(c.data, m.data, o.data.interval.from);
+    if (!interval.ok || !canonicalEqual(interval.value.to, o.data.interval.to))
+      bad(
+        f.key,
+        "an occupied interval is exactly the interval the commitment and the mechanism derive",
+      );
+    if (
+      o.data.status === "RELEASED_DENIED" &&
+      byKey.has(productionExtractionKey(pcCollectionRequestId(o.data.pc_id, o.data.act_id)))
+    )
+      bad(f.key, "a denied occupancy has no admitted extraction");
+  }
+  const workIds = new Set<string>();
+  for (const f of works) {
+    const w = ProductionPcCollectionWorkSchema.safeParse(f.value);
+    if (!w.success) continue;
+    workIds.add(w.data.work_id);
+    const v = pcCollectionWorkViolation(f.key, w.data, view(revisionOf(f)), false);
+    if (v) bad(f.key, v);
+    const ex = byKey.get(productionExtractionKey(w.data.work_id));
+    const e = ex ? ProductionExtractionSchema.safeParse(ex.value) : undefined;
+    if (
+      !e?.success ||
+      !canonicalEqual(e.data.timing.started_at, w.data.derivation.started_at) ||
+      !canonicalEqual(e.data.timing.boundary.at, w.data.derivation.completes_at) ||
+      e.data.request.fact_key !== w.data.pins.request.fact_key
+    )
+      bad(
+        f.key,
+        "a work record answers its extraction: the declared start and boundary are exactly the derived ones",
+      );
+    checkPins(f, [
+      w.data.pins.commitment.fact_key,
+      w.data.pins.mechanism.fact_key,
+      w.data.pins.reach.fact_key,
+    ]);
+  }
+  for (const f of all) {
+    if (kindOf(f) !== "production_extraction") continue;
+    const e = ProductionExtractionSchema.safeParse(f.value);
+    if (!e.success || e.data.request.owner !== "pc_existence") continue;
+    if (!workIds.has(e.data.extraction_id))
+      bad(
+        f.key,
+        "an extraction on a PC-owned request has Production's derived work record: no caller-declared boundary",
+      );
+    if (!canonicalEqual(f.provenance.rule, PRODUCTION_PC_COLLECTION_WORK_RULE))
+      bad(f.key, "a PC-owned extraction is governed by the provisional PC-collection work rule");
+  }
+  return out;
+}

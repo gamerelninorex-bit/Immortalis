@@ -35,6 +35,8 @@ export * from "./actor-capability.ts";
 export * from "./actor-coupling.ts";
 export * from "./pc-locus-custody.ts";
 export * from "./pc-movement.ts";
+export * from "./pc-collection.ts";
+export * from "./protocol-pc-collection.ts";
 export * from "./epistemic-access.ts";
 export * from "./campaign-package.ts";
 export * from "./causal-draw.ts";

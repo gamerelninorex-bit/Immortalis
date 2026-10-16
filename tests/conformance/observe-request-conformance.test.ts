@@ -30,7 +30,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
-    "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
+    "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
   "packages/protocol/src/event-signal.ts":
@@ -164,6 +164,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

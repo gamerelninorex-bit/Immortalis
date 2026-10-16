@@ -91,6 +91,7 @@ import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
+import { verifyPcCollectionIntegrity } from "../pc-collection/integrity.ts";
 import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
 import {
   derivePcPhysicalLocusCustody,
@@ -822,6 +823,7 @@ function verifyAll(
     ...verifyExistingActorCouplingIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
     ...verifyPcMovementIntegrity(store),
+    ...verifyPcCollectionIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),

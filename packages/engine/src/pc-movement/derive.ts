@@ -29,6 +29,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { pcHasOpenOccupancy } from "../pc-collection/state.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
@@ -154,6 +155,11 @@ export function pcMovementCommitmentViolation(
   const custodyViolation = pcPhysicalLocusCustodyViolation(custodyKey, custody.data, facts);
   if (custodyViolation)
     return `the PC's custody does not hold as the one authority: ${custodyViolation}`;
+  // CPAA-C1 v0.2 PROVISIONAL, bilateral exclusion: the movement record shapes and the one-journey slot are unchanged, but a PC that is
+  // occupied by an open collection cannot commit to a voluntary movement (a read-only refusal; no cancellation, no abandonment).
+  if (pcHasOpenOccupancy(facts, pcId)) {
+    return "the PC is occupied by an in-flight collection: it cannot commit to a voluntary movement in the same occupied interval";
+  }
   const d = c.intent.destination;
   const worldKey = worldProfileKey(d.world.entity_id);
   const locusKey = worldLocusKey(d.world.entity_id, d.locus.entity_id);

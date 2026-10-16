@@ -44,17 +44,17 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/production.ts":
     "40ff84c02029ecd43811eb8c8cd6b5d32e8e6e505953c9bd3e997a6ae8f41e4b",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "f2d69980e67aeb7115a3f34f48760a5cba1f3891c73187a7744cc533f210aa98", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "7ba53a340aae6a6375db8933d52f1e0c46adca7fee662419d7bda5324d53affd", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":
-    "00b58b5cba3b0552afbeb95d7dd002ad6e6e7ce09795e9f5ef2ed113def09d85",
+    "7dfa1d0b7f1612aa0dbab35ceb3b62f313c9010523b4242a5b14ccc9a153b79f",
   "packages/engine/src/source-drawdown/integrity.ts":
     "4ab03e1cad8c8f09f5e748b9310503229e9adb01dc8b0aadc2101a98e9562f91",
   "packages/operator/src/bin.ts":

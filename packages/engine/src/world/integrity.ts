@@ -56,6 +56,8 @@ export interface IntegrityViolation {
     | "PC_LOCUS_CUSTODY_STATE"
     /** IM-07 active-PC voluntary-movement commitment-of-record and PC-owned request: see verifyPcMovementIntegrity */
     | "PC_MOVEMENT_STATE"
+    /** CPAA-C1 v0.2 PROVISIONAL collection commitment, request, mechanism, reach judgment, occupancy and Production work record: see verifyPcCollectionIntegrity */
+    | "PC_COLLECTION_STATE"
     /** IM-07 Named-Actor capability state: see verifyNamedActorIntegrity */
     | "NAMED_ACTOR_STATE"
     /** IM-07 PC capability profile state (a facet of the one PC owner): see verifyPcCapabilityIntegrity */
