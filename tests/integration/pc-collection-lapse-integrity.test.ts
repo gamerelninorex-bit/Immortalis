@@ -4,14 +4,14 @@
 // re-derived from facts that moved afterwards: a consistent, replayable journal that is not canonical (a lapse that kept its claim, pinned a
 // stale record, stated another plan, cited a drifted rule, or a release with no lapse or no retirement) is refused by the verifiers.
 import { describe, expect, it } from "vitest";
-import { CanonicalCampaign } from "@immortalis/engine";
-import { lapseBasisViolation } from "@immortalis/engine";
 import {
-  productionSourceAccountKey,
-  type CommitGroup,
-  type OwnerFact,
-} from "@immortalis/contracts";
-import { ACTOR_FIXTURE_EXTENSION, FIXTURE_LOCUS_ID } from "@immortalis/testkit";
+  CanonicalCampaign,
+  PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+  TemporalCoordinator,
+  deriveLapse,
+} from "@immortalis/engine";
+import { productionSourceAccountKey, type CommitGroup } from "@immortalis/contracts";
+import { ACTOR_FIXTURE_EXTENSION, FIXTURE_LOCUS_ID, advanceToRequest } from "@immortalis/testkit";
 import { rogueReplay } from "../support/existing-actor.ts";
 import {
   ACT_A,
@@ -22,9 +22,10 @@ import {
   W,
   at,
   collectionCampaign,
+  collectionProviders,
   confirmAndStart,
 } from "../support/pc-collection.ts";
-import { keys } from "../support/pc-cessation.ts";
+import { forge, keys } from "../support/pc-cessation.ts";
 import {
   addLedger,
   advanceTo,
@@ -177,54 +178,79 @@ describe("an R-4 history built OUTSIDE admission is refused by the load verifier
   }, 600_000);
 });
 
-describe("RED C-1 window (pure): a premise-input fact committed after the crossing opened, and before the lapse, is not an admissible cause", () => {
-  const fact = (key: string): OwnerFact => ({ key }) as OwnerFact;
-  const rev = (m: Record<string, number>) => (f: OwnerFact) => m[f.key];
-  it("judges only premise-input spaces, only inside the window, and fails closed on an unknown revision", () => {
-    const facts = [
-      fact("world/w/locus/l"),
-      fact("population/ledger-1/ledger"),
-      fact("temporal/state"),
-    ];
-    // before the opening: admissible
-    expect(
-      lapseBasisViolation(
-        facts,
-        10,
-        null,
-        rev({ "world/w/locus/l": 5, "population/ledger-1/ledger": 9, "temporal/state": 50 }),
-      ),
-    ).toBeNull();
-    // at or after the opening and before the lapse: not admissible
-    expect(
-      lapseBasisViolation(
-        facts,
-        10,
-        20,
-        rev({ "world/w/locus/l": 5, "population/ledger-1/ledger": 12, "temporal/state": 50 }),
-      ),
-    ).toMatch(/population\/ledger-1\/ledger changed after the crossing transaction opened/);
-    // after the lapse itself: not the lapse's basis at all (a later, unrelated change)
-    expect(
-      lapseBasisViolation(
-        facts,
-        10,
-        20,
-        rev({ "world/w/locus/l": 5, "population/ledger-1/ledger": 25, "temporal/state": 50 }),
-      ),
-    ).toBeNull();
-    // Temporal and Production bookkeeping are never premise inputs
-    expect(
-      lapseBasisViolation(
-        [fact("temporal/state"), fact("production/x")],
-        10,
-        null,
-        rev({ "temporal/state": 99, "production/x": 99 }),
-      ),
-    ).toBeNull();
-    // an unknown revision fails closed
-    expect(lapseBasisViolation([fact("world/w/locus/l")], 10, null, () => undefined)).toMatch(
-      /unknown/,
+describe("RED C-1 on load: a lapse derived from a sole cause committed after the crossing opened is refused by the load verifier", () => {
+  it("a lapse forced past the presenter's guard by a raw commit (admission cannot read revisions) is not a canonical campaign", async () => {
+    const dir = tempDir("immortalis-col-lapse-sibling-");
+    const s = await collectionCampaign({ dir });
+    await confirmAndStart(s, ACT_A, 3);
+    await advanceTo(s, T0.value + 4, "tx-pre");
+    // an owner write (a resident arrives) committed the instant the crossing opens: after the opening, before the stage, undeclared
+    const inner = s.campaign.store;
+    let fired = false;
+    const wrapped = new Proxy(inner, {
+      get(target, prop) {
+        const member = (target as any)[prop];
+        if (prop !== "commit") return typeof member === "function" ? member.bind(target) : member;
+        return async (group: any) => {
+          const out = await target.commit(group);
+          if (
+            !fired &&
+            out.ok &&
+            group.writes.some((w: any) =>
+              String(w.key).startsWith("temporal/transaction-authority/"),
+            )
+          ) {
+            fired = true;
+            await addLedger(s, "ledger-sibling", [resident("unit-sibling", FIXTURE_LOCUS_ID)], 956);
+          }
+          return out;
+        };
+      },
+    });
+    const crossed = await new TemporalCoordinator(wrapped as never, collectionProviders()).advance(
+      advanceToRequest("tx-sibling", at(TARGET)),
     );
-  });
+    expect(crossed.ok && fired).toBe(true);
+    // the presenter refuses it; the owners' admission, which has no revision to read, derives the same record from the current facts
+    expect((await settle(s)).ok).toBe(false);
+    const facts = {
+      get: (key: string) => inner.getFact(key),
+      has: (key: string) => inner.getFact(key) !== undefined,
+      values: () => inner.listFacts(),
+    };
+    const derived = deriveLapse(PC, ACT_A, facts);
+    expect(derived.ok).toBe(true);
+    if (!derived.ok) return;
+    const account = inner.getFact(productionSourceAccountKey(W, SRC_SOURCE_KEY))!;
+    const group = forge(
+      s,
+      "lapse-sibling",
+      "production",
+      "production_state",
+      PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+      [
+        { key: lapse, value: derived.value, expected_version: 0 },
+        {
+          key: accountKey,
+          value: { ...(account.value as any), open: [] },
+          expected_version: account.version,
+        },
+      ],
+      [
+        k.commitment,
+        k.work,
+        derived.value.pins.extraction.fact_key,
+        derived.value.pins.held_transaction.fact_key,
+        k.occupancy,
+        k.clock,
+        k.index,
+        k.object,
+        accountKey,
+      ],
+    );
+    expect((await inner.commit(group)).ok).toBe(true);
+    await s.campaign.close();
+    const out = await codes(dir);
+    expect(out).toMatch(/PC_COLLECTION_STATE/);
+  }, 240_000);
 });

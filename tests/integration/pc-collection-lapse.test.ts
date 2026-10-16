@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read and tamper with raw facts */
 // R-4 — BLUE Lapse Settlement v1.2 (NEWLY AUTHORIZED; independent BLUE review pending). Positive AND falsifying, each from a real campaign
 // driven through the existing gateways; the only new surface is the mechanical settlement presenter. Nothing is a real player or GM.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   PlayerCharacterBindingSchema,
@@ -9,9 +10,15 @@ import {
 } from "@immortalis/contracts";
 import {
   PcCollectionAdapter,
+  TemporalCoordinator,
   POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
   acceptableHeldLineage,
+  changedPremiseKeys,
+  declaredDependencyKeys,
+  deriveLapse,
+  lapseCauseViolation,
+  heldPcCollections,
   lapseLineageHolds,
   lapseReasonClass,
 } from "@immortalis/engine";
@@ -27,6 +34,7 @@ import {
   at,
   accountOf,
   collectionCampaign,
+  collectionProviders,
   confirmAndStart,
   reserveAmount,
   sourceRemaining,
@@ -49,6 +57,7 @@ import {
 const viewOf = (s: { campaign: any }) => ({
   get: (k: string) => s.campaign.store.getFact(k),
   has: (k: string) => s.campaign.store.getFact(k) !== undefined,
+  values: () => s.campaign.store.listFacts() as Iterable<any>,
 });
 const B = T0.value + 3 * TAU;
 const TARGET = T0.value + 4 * TAU;
@@ -205,14 +214,98 @@ describe("R-4 lapse settlement: nothing applicable derives → the one refusal a
     expect(s.campaign.store.getFact(lapseKey())).toBeUndefined();
   }, 240_000);
 
-  it("RED C-1: a premise-input fact committed AFTER the crossing transaction opened is not an admissible cause, so nothing is derived from it", async () => {
+  it("RED C-1 (cause-specific): the identified cause predates the crossing; an UNRELATED later owner write, in the very owner spaces the old blanket guard watched, does not block the settlement", async () => {
     const { s } = await held();
-    // an unrelated later arrival, committed after the stop
+    // the cause is exactly the arrival that was committed before the crossing opened
+    const work = new PcCollectionAdapter(s.campaign.store).work(PC, ACT_A)!.value;
+    expect(changedPremiseKeys(work, viewOf(s) as any)).toContain(
+      "population/ledger-arrivals/ledger",
+    );
+    // an unrelated later arrival elsewhere, committed after the stop
     await addLedger(s, "ledger-late", [resident("unit-late", "place-elsewhere")], 954);
-    expect(JSON.stringify(await unchanged(s, () => settle(s)))).toBe(COLLECTION_REFUSAL);
-    expect(s.campaign.store.getFact(lapseKey())).toBeUndefined();
-    // the clock stays held and the voluntary stop stays unavailable: this is the documented conservative residue of C-1
+    const before = stateOf(s);
+    expect(await settle(s)).toEqual(COMMITTED);
+    expect(s.collect.occupancyState(PC)).toEqual({
+      state: "RELEASED",
+      act_id: ACT_A,
+      why: "LAPSED",
+    });
+    expect(sourceRemaining(s)).toBe(5);
+    expect(reserveAmount(s)).toBe(0);
+    expect(stateOf(s)).toEqual(before);
+  }, 240_000);
+
+  it("RED C-1 (a real undeclared same-instant sibling): a premise change committed AFTER the crossing transaction opened and BEFORE its stage, as the sole cause, does not cause a lapse", async () => {
+    const s = await collectionCampaign();
+    await confirmAndStart(s, ACT_A, 3);
+    await advanceTo(s, T0.value + 4, "tx-pre");
+    // the kernel's own advance, over a store that commits an OWNER write (a resident arrives at the locus) the instant the crossing opens
+    const inner = s.campaign.store;
+    let fired = false;
+    const wrapped = new Proxy(inner, {
+      get(target, prop) {
+        const member = (target as any)[prop];
+        if (prop !== "commit") return typeof member === "function" ? member.bind(target) : member;
+        return async (group: any) => {
+          const out = await target.commit(group);
+          if (
+            !fired &&
+            out.ok &&
+            group.writes.some((w: any) =>
+              String(w.key).startsWith("temporal/transaction-authority/"),
+            )
+          ) {
+            fired = true;
+            await addLedger(s, "ledger-sibling", [resident("unit-sibling", FIXTURE_LOCUS_ID)], 956);
+          }
+          return out;
+        };
+      },
+    });
+    const coordinator = new TemporalCoordinator(wrapped as never, collectionProviders());
+    const crossed = await coordinator.advance(advanceToRequest("tx-sibling", at(TARGET)));
+    expect(fired).toBe(true);
+    expect(crossed.ok).toBe(true);
+    // the first stage was refused by Production's own premise check: held at B with the sibling's arrival as the only change
     expect(stateOf(s).continuation).not.toBeNull();
+    expect(stateOf(s).canonical_time).toEqual(at(B));
+    const work = new PcCollectionAdapter(s.campaign.store).work(PC, ACT_A)!.value;
+    expect(changedPremiseKeys(work, viewOf(s) as any)).toEqual([
+      "population/ledger-sibling/ledger",
+    ]);
+    const before = s.campaign.store.head().state_sha256;
+    expect(JSON.stringify(await settle(s))).toBe(COLLECTION_REFUSAL);
+    expect(s.campaign.store.head().state_sha256).toBe(before);
+    expect(s.campaign.store.getFact(lapseKey())).toBeUndefined();
+  }, 240_000);
+
+  it("v1.2(c) as built: a cause committed at or after the opening is admitted only when the extraction's own object declares it as a dependency; the extraction declares none of the premise owners' facts", async () => {
+    const { s } = await held();
+    const f = viewOf(s) as any;
+    const work = new PcCollectionAdapter(s.campaign.store).work(PC, ACT_A)!.value;
+    const keysChanged = changedPremiseKeys(work, f);
+    expect(keysChanged.length).toBeGreaterThan(0);
+    const declared = declaredDependencyKeys(f, work.work_id);
+    // the declared chain is Production's own extraction, delta and World-State's delivery: no premise-input owner fact is among them
+    for (const k of keysChanged) expect(declared.has(k), k).toBe(false);
+    const late = () => 10_000;
+    const call = (over: Record<string, unknown>) =>
+      lapseCauseViolation({
+        work,
+        facts: f,
+        openedAt: 5,
+        until: null,
+        revisionOf: late,
+        ...over,
+      } as any);
+    // every changed key committed after the opening and undeclared → inadmissible (an undeclared same-instant sibling)
+    expect(call({})).toMatch(/not an admissible cause/);
+    // the same keys declared as the extraction's dependencies → admissible (a declared at-B cause)
+    expect(call({ declared: new Set(keysChanged) })).toBeNull();
+    // one genuinely earlier cause is enough, whatever else is late
+    expect(call({ revisionOf: (k: string) => (k === keysChanged[0] ? 1 : 10_000) })).toBeNull();
+    // an unknown revision is never admitted
+    expect(call({ revisionOf: () => undefined })).toMatch(/not an admissible cause/);
   }, 240_000);
 });
 
@@ -351,5 +444,84 @@ describe("R-4 RED C-2: Temporal independently requires a held lineage a held-res
       has: (k: string) => s.campaign.store.getFact(k) !== undefined,
     };
     expect(lapseLineageHolds(consumed)).toMatch(/no held continuation/);
+  }, 240_000);
+});
+
+describe("BLUE D-1: the affected PC and act come from the held work, never from the active binding", () => {
+  const overlay = (s: { campaign: any }, binding: "other" | "none") => {
+    const facts = new Map<string, any>(s.campaign.store.listFacts().map((f: any) => [f.key, f]));
+    const b = facts.get(PLAYER_CHARACTER_BINDING_KEY)!;
+    if (binding === "none") facts.delete(PLAYER_CHARACTER_BINDING_KEY);
+    else {
+      const parsed = PlayerCharacterBindingSchema.parse(b.value);
+      facts.set(PLAYER_CHARACTER_BINDING_KEY, {
+        ...b,
+        value: { ...parsed, active_pc: { ...parsed.active_pc, entity_id: "pc-unrelated" } },
+      });
+    }
+    return {
+      get: (k: string) => facts.get(k),
+      has: (k: string) => facts.has(k),
+      values: () => facts.values(),
+    };
+  };
+
+  it("the held lineage names the PC and the act by Production's own work record, whatever the binding says or does not say", async () => {
+    const { s } = await held();
+    expect(heldPcCollections(viewOf(s))).toEqual([{ pcId: PC, actId: ACT_A }]);
+    for (const kind of ["other", "none"] as const) {
+      const v = overlay(s, kind);
+      expect(heldPcCollections(v), kind).toEqual([{ pcId: PC, actId: ACT_A }]);
+      // the lapse derives for THAT PC (an affirmative INCOMPATIBLE: it is no longer the operative bound PC), never for the bound stranger
+      const derived = deriveLapse(PC, ACT_A, v);
+      expect(derived.ok, kind).toBe(true);
+      if (derived.ok) {
+        expect(derived.value.pc_id).toBe(PC);
+        expect(derived.value.reason).toBe("INCOMPATIBLE");
+      }
+      expect(deriveLapse("pc-unrelated", ACT_A, v).ok, kind).toBe(false);
+    }
+  }, 240_000);
+
+  it("the presenter takes no identity and reads no binding to choose what to settle", () => {
+    const text = readFileSync("packages/protocol/src/pc-collection.ts", "utf8");
+    const body = text.slice(text.indexOf("export async function settlePcCollectionLapse"));
+    expect(body).not.toMatch(/PLAYER_CHARACTER_BINDING_KEY|PlayerCharacterBinding|\.binding\(/);
+    expect(body).toMatch(/heldPcCollections/);
+    expect(
+      /export async function settlePcCollectionLapse\(\s*campaign: CollectionCampaign,?\s*\)/.test(
+        body,
+      ),
+    ).toBe(true);
+  });
+
+  it("EXACT DEFICIT: no canonical transition can lose, null or replace the active binding after it is committed (it is SEALED), so the lost-binding state cannot be reached end to end", async () => {
+    const { s } = await held();
+    const binding = s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!;
+    const k = keys();
+    for (const expected of [0, binding.version]) {
+      const r = await s.campaign.store.commit(
+        forge(
+          s,
+          `binding-${expected}`,
+          "role_registry",
+          "player_character_binding",
+          binding.provenance.rule,
+          [
+            {
+              key: k.binding,
+              value: {
+                ...(binding.value as any),
+                active_pc: { ...(binding.value as any).active_pc, entity_id: "pc-unrelated" },
+              },
+              expected_version: expected,
+            },
+          ],
+          [k.binding],
+        ),
+      );
+      expect(r.ok, `expected_version ${expected}`).toBe(false);
+    }
+    expect(s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!.version).toBe(binding.version);
   }, 240_000);
 });

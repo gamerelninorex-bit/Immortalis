@@ -1,4 +1,5 @@
 import {
+  EXTRACTION_PROCESS_PREFIX,
   PC_COLLECTION_LAPSE_DISPOSITION,
   PC_LAPSE_REASON_INCOMPATIBLE,
   PC_LAPSE_REASON_NOT_ESTABLISHED,
@@ -8,6 +9,10 @@ import {
   PcCollectionCommitmentSchema,
   PcPhysicalLocusCustodySchema,
   ProductionPcCollectionLapseSchema,
+  ProductionPcCollectionWorkSchema,
+  PcCollectionReachDecisionSchema,
+  PopulationPcRepresentationSchema,
+  WorldSceneClosureSchema,
   ResolutionTransactionSchema,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
@@ -18,16 +23,21 @@ import {
   pcCollectionCessationKey,
   pcCollectionCommitmentKey,
   pcCollectionRequestId,
+  pcCollectionReachKey,
+  popPcRepresentationKey,
+  worldActorCouplingKey,
   pcExistenceContractKey,
   productionExtractionKey,
   productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
+  productionPcCollectionWorkKey,
   productionSourceDeltaStage,
   temporalTransactionKey,
   worldPcLocusCustodyKey,
   type CanonicalTime,
   type OwnerFact,
   type ProductionPcCollectionLapse,
+  type ProductionPcCollectionWork,
   type ResolutionTransaction,
   type Result,
   type UnresolvedDependent,
@@ -36,8 +46,8 @@ import { canonicalEqual } from "../hash.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import type { FactView } from "../world/pc-locus-custody.ts";
 import { collectionFacts, engagedExtractionObject } from "./cessation.ts";
-import { pcCollectionPremiseViolation, pcStandingViolation } from "./derive.ts";
-import type { ScanFacts } from "./determinations.ts";
+import { accessFactsDigest, pcCollectionPremiseViolation, pcStandingViolation } from "./derive.ts";
+import { liveSceneCoverage, type ScanFacts } from "./determinations.ts";
 import { extractionCredited, pcOccupancyRecord } from "./state.ts";
 
 /**
@@ -130,6 +140,38 @@ export function acceptableHeldLineage(facts: FactView): Result<HeldLineage, type
   return ok({ held, target, unresolved: c.unresolved_dependents });
 }
 
+/**
+ * The PC-owned collections the HELD lineage is held on, identified MECHANICALLY from the sealed held lineage and the work records it
+ * names — never from the currently active PC, an operator-provided identity or a newly bound unrelated PC. Each unresolved dependent that
+ * is Production's own refused first stage (`VALIDATION_REJECTED`) of an extraction carries that extraction's identity in its causal
+ * process; the sealed Production work record under that identity names the PC and the act. A dependent that names no PC-owned work is
+ * not a collection and is ignored here (it remains, holding the clock, exactly as the kernel holds it).
+ */
+export function heldPcCollections(
+  facts: FactView,
+): readonly { readonly pcId: string; readonly actId: string }[] {
+  const lineage = acceptableHeldLineage(facts);
+  if (!lineage.ok) return [];
+  const found = new Map<string, { pcId: string; actId: string }>();
+  for (const d of lineage.value.unresolved) {
+    if (d.reason !== "VALIDATION_REJECTED") continue;
+    const process = d.stage.causal_process_id;
+    if (!process.startsWith(EXTRACTION_PROCESS_PREFIX)) continue;
+    const extractionId = process.slice(EXTRACTION_PROCESS_PREFIX.length);
+    if (!canonicalEqual(d.stage, productionSourceDeltaStage(extractionId))) continue;
+    const work = parse(
+      facts,
+      productionPcCollectionWorkKey(extractionId),
+      ProductionPcCollectionWorkSchema,
+    );
+    if (work && work.value.work_id === extractionId)
+      found.set(extractionId, { pcId: work.value.pc_id, actId: work.value.act_id });
+  }
+  return [...found.values()].sort((a, b) =>
+    `${a.pcId}\u0000${a.actId}` < `${b.pcId}\u0000${b.actId}` ? -1 : 1,
+  );
+}
+
 // ---------------------------------------------------------------------------------------------
 // T-1 — the closed reason classes.
 // ---------------------------------------------------------------------------------------------
@@ -148,7 +190,8 @@ export function lapseReasonClass(
 ): typeof PC_LAPSE_REASON_INCOMPATIBLE | typeof PC_LAPSE_REASON_NOT_ESTABLISHED {
   const bindingFact = facts.get(PLAYER_CHARACTER_BINDING_KEY);
   const binding = bindingFact ? PlayerCharacterBindingSchema.safeParse(bindingFact.value) : null;
-  if (binding?.success && binding.data.active_pc.entity_id !== pcId)
+  // the slot names another PC, or (NULL) names none: the PC is affirmatively no longer the operative bound PC
+  if (!bindingFact || (binding?.success && binding.data.active_pc.entity_id !== pcId))
     return PC_LAPSE_REASON_INCOMPATIBLE;
   const commitment = parse(
     facts,
@@ -341,40 +384,117 @@ export function lapseLineageHolds(facts: FactView): string | null {
 }
 
 // ---------------------------------------------------------------------------------------------
-// C-1 — the cause is judged against the crossing transaction's admissible basis.
+// C-1 — the cause is judged against the crossing transaction's admissible basis (cause-specific).
 // ---------------------------------------------------------------------------------------------
 
-/** The owner spaces whose facts the C6 premise judgment can read (the PC's standing, the scene, Population, the source, the mechanism). */
-const PREMISE_INPUT_PREFIXES = [
-  "world/",
-  "world-state/",
-  "population/",
-  "population-pc/",
-  "population-scope/",
-  "pc/",
-  "role-registry/",
-] as const;
+/**
+ * The owner facts that CHANGED relative to what the act itself pinned or was judged against, each of which by itself falsifies a premise
+ * the C6 re-evaluation requires. A premise is a version-equality (binding, custody, mechanism, reach, the scene's pinned world, locus,
+ * closure and ledgers), a path-facts digest, the source's locus, the live scene coverage (a ledger, actor or PC the closure did not cover) or
+ * Population's determination; so a key listed here is, alone, a SUFFICIENT cause. An unchanged fact is never a cause, whatever its age.
+ * Pure: a function of the work record and the committed facts.
+ */
+export function changedPremiseKeys(w: ProductionPcCollectionWork, facts: ScanFacts): string[] {
+  const out = new Set<string>();
+  const changed = (key: string, pinned: number) => {
+    const f = facts.get(key);
+    if (!f || f.version !== pinned) out.add(key);
+  };
+  changed(PLAYER_CHARACTER_BINDING_KEY, w.pins.binding);
+  changed(worldPcLocusCustodyKey(w.pc_id), w.pins.custody);
+  changed(w.pins.mechanism.fact_key, w.pins.mechanism.version);
+  changed(w.pins.reach.fact_key, w.pins.reach.version);
+  const commitment = parse(
+    facts,
+    pcCollectionCommitmentKey(w.pc_id, w.act_id),
+    PcCollectionCommitmentSchema,
+  );
+  const sourceKey = commitment?.value.intent.source.fact_key;
+  const sourceFact = sourceKey ? facts.get(sourceKey) : undefined;
+  const source = sourceFact ? WorldSourceConditionSchema.safeParse(sourceFact.value) : undefined;
+  if (!commitment || !sourceKey || !source?.success) {
+    if (sourceKey) out.add(sourceKey);
+    return [...out].sort();
+  }
+  const reach = parse(
+    facts,
+    pcCollectionReachKey(w.pc_id, w.act_id),
+    PcCollectionReachDecisionSchema,
+  );
+  if (reach) {
+    if (reach.value.task.access_facts_digest !== accessFactsDigest(source.data)) out.add(sourceKey);
+    const scene = reach.value.scene_evidence;
+    for (const p of [scene.world, scene.locus, scene.closure, ...scene.ledgers])
+      changed(p.fact_key, p.version);
+    // what the owners hold at the locus NOW that the declaration did not cover: each such fact alone makes the closure stale
+    const closure = parse(facts, scene.closure.fact_key, WorldSceneClosureSchema);
+    if (closure && facts.values) {
+      const live = liveSceneCoverage(facts, source.data.locality);
+      const known = new Set(closure.value.covered.population_ledgers.map((l) => l.fact_key));
+      for (const l of live.population_ledgers) if (!known.has(l.fact_key)) out.add(l.fact_key);
+      for (const a of live.actors)
+        if (!closure.value.covered.actors.includes(a)) out.add(worldActorCouplingKey(a));
+      for (const pc of live.pcs)
+        if (!closure.value.covered.pcs.includes(pc)) out.add(worldPcLocusCustodyKey(pc));
+    }
+  }
+  const standing = pcStandingViolation(w.pc_id, facts);
+  if (!("reason" in standing) && !canonicalEqual(source.data.locality, standing.sourceLocus))
+    out.add(sourceKey);
+  const rep = facts.get(popPcRepresentationKey(w.pc_id));
+  const repValue = rep ? PopulationPcRepresentationSchema.safeParse(rep.value) : undefined;
+  if (rep && repValue?.success && repValue.data.status !== "OUTSIDE_AGGREGATE") out.add(rep.key);
+  return [...out].sort();
+}
+
+/** The facts the extraction's own temporal object declares it depends on: a cause produced at B by a stage of this crossing through one of them is admissible (v1.2(c)). */
+export function declaredDependencyKeys(facts: FactView, extractionId: string): ReadonlySet<string> {
+  const object = engagedExtractionObject(facts, extractionId);
+  const keys = new Set<string>();
+  if (!object) return keys;
+  for (const d of object.value.dependencies) for (const r of d.reads) keys.add(r.source.fact_key);
+  for (const i of object.value.invalidators) keys.add(i.fact_key);
+  return keys;
+}
 
 /**
- * RED C-1. The decisive premise is judged against what was committed BEFORE the crossing transaction opened (an earlier-than-B cause);
- * a premise-input fact whose current version was committed at or after that opening is NOT an admissible cause, because the engine
- * cannot tell a post-stop (or undeclared same-instant sibling) change from a decisive one, and a lapse is never derived from it. A fact
- * committed after the lapse itself (`until`) is not the lapse's basis at all. `revisionOf` is the commit revision of a fact's current
- * version (the store's receipt); a fact with no revision is judged as post-opening (fail closed).
+ * RED C-1, cause-specific. The decisive premise is judged against the crossing transaction's admissible basis: a CHANGED premise key whose
+ * current version was committed BEFORE the crossing transaction opened (an earlier-than-B cause), or that this extraction's object declares
+ * as a dependency (a declared at-B cause), is an admissible cause. A key committed at or after the opening that is not so declared (a
+ * post-stop write, an undeclared same-instant sibling) is not, and never erases an admissible cause: UNRELATED later writes do not matter.
+ * A key whose current version post-dates the opening hides its own earlier versions (the engine has no point-in-time read of an ADVANCING
+ * fact), so it cannot be admitted alone; another admissible cause still suffices. `revisionOf` is the commit revision of a key's current
+ * version (undefined: unknown, never admitted).
+ *
+ * `until` bounds the window for LOAD verification: keys committed at or after the lapse itself are later moves and are neither admissible
+ * nor a violation, so a campaign is never refused for what happened after its lapse.
  */
-export function lapseBasisViolation(
-  facts: Iterable<OwnerFact>,
-  openedAt: number,
-  until: number | null,
-  revisionOf: (f: OwnerFact) => number | undefined,
-): string | null {
-  for (const f of facts) {
-    if (!PREMISE_INPUT_PREFIXES.some((p) => f.key.startsWith(p))) continue;
-    const r = revisionOf(f);
-    if (r === undefined)
-      return `the commit revision of ${f.key} is unknown: no lapse is derived from it`;
-    if (r >= openedAt && (until === null || r < until))
-      return `${f.key} changed after the crossing transaction opened: a later or same-instant change is not an admissible cause`;
+export function lapseCauseViolation(input: {
+  readonly work: ProductionPcCollectionWork;
+  readonly facts: ScanFacts;
+  readonly openedAt: number;
+  readonly until: number | null;
+  readonly revisionOf: (key: string) => number | undefined;
+  /** the declared dependency keys (default: read from the extraction's own temporal object) */
+  readonly declared?: ReadonlySet<string>;
+}): string | null {
+  const keys = changedPremiseKeys(input.work, input.facts);
+  if (keys.length === 0)
+    return "no changed premise fact is identified: no prior cause supports a lapse";
+  const declared = input.declared ?? declaredDependencyKeys(input.facts, input.work.work_id);
+  const admissible = (k: string): boolean => {
+    const r = input.revisionOf(k);
+    return (
+      input.facts.get(k) === undefined || (r !== undefined && r < input.openedAt) || declared.has(k)
+    );
+  };
+  if (keys.some(admissible)) return null;
+  if (input.until !== null) {
+    const inWindow = keys.some((k) => {
+      const r = input.revisionOf(k);
+      return r !== undefined && r >= input.openedAt && r < input.until!;
+    });
+    if (!inWindow) return null; // every cause is a later move: nothing here can be judged against the crossing
   }
-  return null;
+  return `every changed premise fact (${keys.join(", ")}) was committed after the crossing transaction opened and none is a declared dependency: a later or undeclared same-instant change is not an admissible cause`;
 }

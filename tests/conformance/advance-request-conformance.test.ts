@@ -44,7 +44,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/gip/provider.ts":
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
-    "93e9466141f39777a5e5d47991dc92fd6bda4c9e058b06f4655845a4cf69c68b",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/confirmation.ts":
     "12a6a291ca1f07472d2a2ed6b17157d37cb3d1b77a177b2c7e2958a6f5cdea41",
   "packages/operator/src/cli.ts":

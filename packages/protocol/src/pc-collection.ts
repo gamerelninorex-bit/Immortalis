@@ -10,8 +10,6 @@ import {
   GetPcCollectionReachTaskRequestSchema,
   PC_COLLECTION_COMMITTED,
   PcCollectionCommitInputSchema,
-  PLAYER_CHARACTER_BINDING_KEY,
-  PlayerCharacterBindingSchema,
   PublicationSchema,
   StartConfirmedPcCollectionRequestSchema,
   SubmitPcCollectionReachRequestSchema,
@@ -33,6 +31,7 @@ import {
 import {
   PcCollectionAdapter,
   StageProviderRegistry,
+  heldPcCollections,
   TemporalCoordinator,
   type CanonicalCampaign,
 } from "@immortalis/engine";
@@ -501,54 +500,84 @@ export async function settlePcCollectionLapse(
   let attempted = false;
   try {
     const store = campaign.store;
-    const bindingFact = store.getFact(PLAYER_CHARACTER_BINDING_KEY);
-    const binding = bindingFact ? PlayerCharacterBindingSchema.safeParse(bindingFact.value) : null;
-    if (!binding?.success) return refusal();
-    const pcId = binding.data.active_pc.entity_id;
+    const view = {
+      get: (k: string) => store.getFact(k),
+      has: (k: string) => store.getFact(k) !== undefined,
+    };
+    // the affected PC and act come from the sealed HELD lineage and the work records it names: never from the active binding (which may
+    // name another PC, or none), an operator-provided identity or a newly bound unrelated PC
+    const heldWork = heldPcCollections(view);
     const adapter = new PcCollectionAdapter(store);
-    const occupancy = adapter.occupancyState(pcId);
-    // finished already (by this or an earlier presentation): a replay writes nothing
-    if (occupancy.state === "RELEASED" && occupancy.why === "LAPSED")
-      return ok({ status: PC_COLLECTION_COMMITTED });
-    if (occupancy.state !== "OPEN") return refusal();
-    const actId = occupancy.act_id;
-    attempted = adapter.lapseRecord(pcId, actId) !== undefined;
-    const fail_ = (outcome: Outcome): PcCollectionResult =>
-      outcome.error?.code === "UNKNOWN_OUTCOME" || attempted ? unknownOutcome() : refusal();
-    if (!adapter.lapseRecord(pcId, actId)) {
-      const lapsed = await adapter.lapse({
-        ...lapsePublication(pcId, actId, "lapse"),
-        pc_id: pcId,
-        act_id: actId,
-      });
-      if (!lapsed.ok) return fail_(lapsed);
-      attempted = true;
+    let any = false;
+    for (const { pcId, actId } of heldWork) {
+      const occupancy = adapter.occupancyState(pcId);
+      if (
+        occupancy.state === "RELEASED" &&
+        occupancy.why === "LAPSED" &&
+        occupancy.act_id === actId
+      ) {
+        any = true;
+        continue;
+      }
+      if (occupancy.state !== "OPEN" || occupancy.act_id !== actId) continue;
+      const step = await settleOne(store, adapter, pcId, actId, (v) => (attempted = v));
+      if (step === "REFUSED") continue;
+      if (step === "UNKNOWN") return unknownOutcome();
+      any = true;
     }
-    const extractionId = pcCollectionRequestId(pcId, actId);
-    const object = store.getFact(temporalObjectKey(productionExtractionObjectId(extractionId)));
-    const pending = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
-    if (pending?.success && pending.data.next_boundary !== null) {
-      const retired = await new TemporalCoordinator(
-        store,
-        new StageProviderRegistry(),
-      ).retireLapsedObject({
-        ...lapsePublication(pcId, actId, "retirement"),
-        object_id: productionExtractionObjectId(extractionId),
-        evidence_key: productionPcCollectionLapseKey(extractionId),
-      });
-      if (!retired.ok) return fail_(retired);
-      attempted = true;
-    }
-    if (adapter.occupancyState(pcId).state === "OPEN") {
-      const released = await adapter.releaseOccupancyLapsed({
-        ...lapsePublication(pcId, actId, "release"),
-        pc_id: pcId,
-        act_id: actId,
-      });
-      if (!released.ok) return fail_(released);
-    }
-    return ok({ status: PC_COLLECTION_COMMITTED });
+    // finished already (by this or an earlier presentation), or applied now: only a settled lapse is reported as committed
+    if (any) return ok({ status: PC_COLLECTION_COMMITTED });
+    return attempted ? unknownOutcome() : refusal();
   } catch {
     return attempted ? unknownOutcome() : refusal();
   }
+}
+
+/** One collection's chain, each step under an identity derived from the PC and act; a refusal before anything committed is the one refusal. */
+async function settleOne(
+  store: CollectionCampaign["store"],
+  adapter: PcCollectionAdapter,
+  pcId: string,
+  actId: string,
+  mark: (attempted: boolean) => void,
+): Promise<"DONE" | "REFUSED" | "UNKNOWN"> {
+  let attempted = adapter.lapseRecord(pcId, actId) !== undefined;
+  mark(attempted);
+  const fail_ = (outcome: Outcome): "REFUSED" | "UNKNOWN" =>
+    outcome.error?.code === "UNKNOWN_OUTCOME" || attempted ? "UNKNOWN" : "REFUSED";
+  if (!adapter.lapseRecord(pcId, actId)) {
+    const lapsed = await adapter.lapse({
+      ...lapsePublication(pcId, actId, "lapse"),
+      pc_id: pcId,
+      act_id: actId,
+    });
+    if (!lapsed.ok) return fail_(lapsed);
+    attempted = true;
+    mark(true);
+  }
+  const extractionId = pcCollectionRequestId(pcId, actId);
+  const object = store.getFact(temporalObjectKey(productionExtractionObjectId(extractionId)));
+  const pending = object ? TemporalObjectSchema.safeParse(object.value) : undefined;
+  if (pending?.success && pending.data.next_boundary !== null) {
+    const retired = await new TemporalCoordinator(
+      store,
+      new StageProviderRegistry(),
+    ).retireLapsedObject({
+      ...lapsePublication(pcId, actId, "retirement"),
+      object_id: productionExtractionObjectId(extractionId),
+      evidence_key: productionPcCollectionLapseKey(extractionId),
+    });
+    if (!retired.ok) return fail_(retired);
+    attempted = true;
+    mark(true);
+  }
+  if (adapter.occupancyState(pcId).state === "OPEN") {
+    const released = await adapter.releaseOccupancyLapsed({
+      ...lapsePublication(pcId, actId, "release"),
+      pc_id: pcId,
+      act_id: actId,
+    });
+    if (!released.ok) return fail_(released);
+  }
+  return "DONE";
 }

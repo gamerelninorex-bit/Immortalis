@@ -37,7 +37,7 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
-import { lapseBasisViolation, pcCollectionLapseViolation } from "./lapse.ts";
+import { lapseCauseViolation, pcCollectionLapseViolation } from "./lapse.ts";
 import {
   pcCycleAttestationViolation,
   pcRepresentationViolation,
@@ -368,18 +368,32 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     const o = occ ? PopulationPcOccupancySchema.safeParse(occ.value) : undefined;
     if (o?.success && o.data.act_id === l.data.act_id && o.data.status === "RELEASED_DENIED")
       bad(f.key, "a lapsed collection is not a denied one");
-    // C-1: no premise-input fact was committed between the crossing transaction's opening and the lapse itself
+    // C-1 (cause-specific): at least one changed premise fact predates the crossing transaction's opening (or is a declared dependency);
+    // later moves, after the lapse itself, are never judged
     const txFact = byKey.get(l.data.pins.held_transaction.fact_key);
     const heldId = txFact ? txFact.key.slice(temporalTransactionKey("").length) : "";
     const authority = byKey.get(temporalTransactionAuthorityKey(heldId));
     if (authority) {
-      const basis = lapseBasisViolation(
-        all,
-        revisionOf(authority),
-        revisionOf(f),
-        (x) => store.lookupReceipt(x.provenance.intent_id)?.revision,
-      );
-      if (basis) bad(f.key, basis);
+      const work = byKey.get(l.data.pins.work.fact_key);
+      const w = work ? ProductionPcCollectionWorkSchema.safeParse(work.value) : undefined;
+      if (w?.success) {
+        const live = {
+          get: (k: string) => byKey.get(k),
+          has: (k: string) => byKey.has(k),
+          values: () => byKey.values(),
+        };
+        const basis = lapseCauseViolation({
+          work: w.data,
+          facts: live,
+          openedAt: revisionOf(authority),
+          until: revisionOf(f),
+          revisionOf: (k) => {
+            const x = byKey.get(k);
+            return x ? store.lookupReceipt(x.provenance.intent_id)?.revision : undefined;
+          },
+        });
+        if (basis) bad(f.key, basis);
+      }
     }
   }
   const workIds = new Set<string>();

@@ -801,6 +801,10 @@ export async function nullAdvance(ctx: CommandContext, input: unknown): Promise<
 export async function nullResume(ctx: CommandContext): Promise<CommandResult> {
   const refused = nullPcGuard(ctx);
   if (refused) return refused;
+  // R-4 (NEWLY AUTHORIZED): the same mechanical settlement is presented first here too. It identifies the affected PC and act from the held
+  // lineage and the work it names (never from a binding, which may name another PC or none) and resumes nothing by itself.
+  const settlement = await presentLapseSettlement(ctx);
+  if (settlement) return settlement;
   const { session, terminal } = ctx;
   const state = temporalState(session.campaign);
   if (!state || state.continuation === null) return result("UNAVAILABLE");

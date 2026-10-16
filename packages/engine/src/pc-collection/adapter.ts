@@ -94,7 +94,7 @@ import {
   factKind,
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
-import { acceptableHeldLineage, deriveLapse, lapseBasisViolation } from "./lapse.ts";
+import { acceptableHeldLineage, deriveLapse, lapseCauseViolation } from "./lapse.ts";
 import {
   sceneClosureStatus,
   workforceScopeStatus,
@@ -973,12 +973,19 @@ export class PcCollectionAdapter {
       : undefined;
     if (openedAt === undefined)
       return fail("PREREQUISITE_MISSING", "the held transaction's opening is not committed");
-    const basis = lapseBasisViolation(
-      this.#store.listFacts(),
+    const work = collectionFacts(facts, input.pc_id, input.act_id);
+    if (!work)
+      return fail("PREREQUISITE_MISSING", "no started collection of this PC and act is committed");
+    const basis = lapseCauseViolation({
+      work: work.work.value,
+      facts,
       openedAt,
-      null,
-      (f) => this.#store.lookupReceipt(f.provenance.intent_id)?.revision,
-    );
+      until: null,
+      revisionOf: (k) => {
+        const f = this.#store.getFact(k);
+        return f ? this.#store.lookupReceipt(f.provenance.intent_id)?.revision : undefined;
+      },
+    });
     if (basis) return fail("PREREQUISITE_MISSING", basis);
     const derived = deriveLapse(input.pc_id, input.act_id, facts);
     if (!derived.ok) return fail("PREREQUISITE_MISSING", derived.error.message);
