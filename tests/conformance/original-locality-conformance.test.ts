@@ -66,7 +66,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
+    "2c555c2c7707f196159669ea8423dbbf385a5ef651ce13219b57485df425c5a8",
 };
 
 describe("the owners, contracts, shipped binary and frozen artifacts are untouched: the slice consumes them, never edits or duplicates them", () => {

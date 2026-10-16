@@ -104,7 +104,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/protocol/src/null-pc-ooc-held-continuation.ts":
       "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
     "packages/operator/src/commands.ts":
-      "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
+      "2c555c2c7707f196159669ea8423dbbf385a5ef651ce13219b57485df425c5a8",
   };
 
   it("each is byte-identical to main", () => {

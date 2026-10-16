@@ -36,9 +36,13 @@ beforeAll(async () => {
 
 describe("the NULL-PC commands cannot author a world fact, a time, or an authority", () => {
   it("the operator names no GIP term, lifecycle, expiry, Temporal resolution, stage or process anywhere in its source", () => {
+    // `time-initialization.ts` alone may name `establishCanonicalTime` (the author's starting chronology, once); it is bound by its own,
+    // narrower check (tests/conformance/time-initialization-conformance.test.ts) and names none of the other terms
     for (const f of files)
       expect(identifiers(f), f).not.toMatch(
-        /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
+        f.endsWith("/time-initialization.ts")
+          ? /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject/i
+          : /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
       );
   });
 

@@ -116,6 +116,7 @@ export type CommandStatus =
   | typeof PC_TARGET_ADVANCE_OUTCOME_UNKNOWN
   | typeof PC_COLLECTION_COMMITTED
   | typeof COLLECTION_OUTCOME_UNKNOWN
+  | "TIME_ESTABLISHED"
   | "DECLINED"
   | "UNAVAILABLE"
   | "INVALID_INPUT"
@@ -155,6 +156,8 @@ const MESSAGES: Record<CommandStatus, string> = {
     "the collection step is committed; this is a transaction status only, not a report that anything was collected, that time passed, or what the character or anyone perceives or knows",
   COLLECTION_OUTCOME_UNKNOWN:
     "the outcome is not known; close, reopen and reconcile it by its original identity",
+  TIME_ESTABLISHED:
+    "the campaign's starting chronology is established once; this is its origin only, not the passing of any time, an arrival or anything perceived",
   DECLINED: "not confirmed; nothing was changed",
   UNAVAILABLE: "no such action is available",
   INVALID_INPUT: "the input is not a valid choice",
@@ -202,6 +205,19 @@ export type RelocateInput = z.infer<typeof RelocateInputSchema>;
 
 const activePc = (campaign: CanonicalCampaign): string | undefined =>
   campaign.binding()?.value.active_pc.entity_id;
+
+/**
+ * A collection that holds the PC's time (in flight, invalidated, registered or part-way through its stop) refuses EVERY arbitrary-target
+ * or resume route, whatever horizon is asked and whether or not that horizon would cross the work's own boundary or a hidden one: the
+ * refusal is a fact about the pending work, never a function of the requested time (C8). The only routes that move that work are the
+ * separately confirmed finish (target derived from the admitted work, no caller horizon) and the separately confirmed cessation.
+ */
+function collectionPending(campaign: CanonicalCampaign): CommandResult | undefined {
+  const pc = activePc(campaign);
+  return pc !== undefined && new PcCollectionAdapter(campaign.store).hold(pc).state !== "NONE"
+    ? result("UNAVAILABLE")
+    : undefined;
+}
 
 function guard(ctx: CommandContext): CommandResult | undefined {
   if (!ctx.session.isOpen) return result("SESSION_CLOSED");
@@ -471,7 +487,8 @@ async function presentAdvance(ctx: CommandContext, intent: AdvanceIntent): Promi
  * identity. A held remainder is consumed only by a transaction confirmed here; a previous confirmation never progresses anything.
  */
 export async function advance(ctx: CommandContext): Promise<CommandResult> {
-  const refused = guard(ctx) ?? unreconciledPcTarget(ctx);
+  const refused =
+    guard(ctx) ?? unreconciledPcTarget(ctx) ?? collectionPending(ctx.session.campaign);
   if (refused) return refused;
   const { session, terminal } = ctx;
   const campaign = session.campaign;
@@ -943,6 +960,8 @@ export async function pcTargetAdvance(ctx: CommandContext, input: unknown): Prom
   const guarded = pcTargetGuard(ctx);
   if (typeof guarded !== "string") return guarded;
   const pcId = guarded;
+  const pending = collectionPending(ctx.session.campaign);
+  if (pending) return pending;
   const parsed = NullAdvanceInputSchema.safeParse(input);
   if (!parsed.success) return result("INVALID_INPUT");
   const { session, terminal } = ctx;
@@ -1007,6 +1026,8 @@ export async function pcTargetResume(ctx: CommandContext): Promise<CommandResult
   const guarded = pcTargetGuard(ctx);
   if (typeof guarded !== "string") return guarded;
   const pcId = guarded;
+  const pending = collectionPending(ctx.session.campaign);
+  if (pending) return pending;
   const { session, terminal } = ctx;
   const state = temporalState(session.campaign);
   if (!state || state.continuation === null) return result("UNAVAILABLE");
@@ -1375,6 +1396,73 @@ async function presentCessation(
     if (!forgotten.ok) session.markAmbiguous();
   }
   return result("UNAVAILABLE");
+}
+
+/**
+ * The separately confirmed FINISH of the PC's in-flight collection: let time run to the earned completion of the admitted work and no
+ * further. The player states NO horizon — the target is derived from Production's work record for the act that is positively in
+ * flight (never from a caller, a default or a hidden boundary) — and it needs its own confirmation, never standing for another. It
+ * runs through the same unchanged gateway as every active-PC advance; the world resolves whatever falls due by that time, each owner
+ * its own. The result is a transaction status only: not a report that anything was collected, or perceived, or known. If anything
+ * independent cannot be crossed, the advance is refused as the gateway refuses it, and the work stays held (the only other way out
+ * is the separately confirmed cessation).
+ */
+export async function collectFinish(ctx: CommandContext): Promise<CommandResult> {
+  const guarded = pcTargetGuard(ctx);
+  if (typeof guarded !== "string") return guarded;
+  const pcId = guarded;
+  const { session, terminal } = ctx;
+  const campaign = session.campaign;
+  const adapter = new PcCollectionAdapter(campaign.store);
+  const hold = adapter.hold(pcId);
+  if (hold.state !== "IN_FLIGHT") return result("UNAVAILABLE");
+  const target = adapter.extraction(pcId, hold.act_id)?.value.timing.boundary.at;
+  const state = temporalState(campaign);
+  const where = stationedAt(campaign, pcId);
+  if (!target || !state || state.continuation !== null || !where) return result("UNAVAILABLE");
+
+  const ordinal = session.ledger.pcTargetChoices().length + 1;
+  const subject = subjectOf({
+    verb: "collect-finish",
+    campaign_id: session.campaignId,
+    pc_id: pcId,
+    act_id: hold.act_id,
+    target,
+    ordinal,
+  });
+  const confirmation = await requestOperatorConfirmation(terminal, "collect-finish", subject, [
+    `CONFIRMATION — FINISH THE COLLECTION, ACTIVE CHARACTER (choice #${ordinal})`,
+    OOC_BANNER,
+    `  campaign:  ${session.campaignId}`,
+    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+    `  character: ${pcId}`,
+    `  act:       ${hold.act_id}`,
+    `  (operator/debug: canon places the character, stationary, at ${where})`,
+    ``,
+    `YOUR CHOICE (the one thing you are confirming):`,
+    `  let your collection act run to its earned completion — canonical time to exactly ${target.value} ${target.unit}, and no further.`,
+    ``,
+    `You state no time here: that moment is derived from the work the owners admitted for this very act. The world resolves whatever`,
+    `falls due by then, each by its own owner. The result reports a transaction status only; it does not say that anything was`,
+    `collected, that anything occurred, or what the character or anyone perceives or knows.`,
+    OOC_DEBUG_NOTE,
+  ]);
+  if (!confirmation) return result("DECLINED");
+  if (!consumeConfirmation(confirmation, "collect-finish", subject)) return result("UNAVAILABLE");
+
+  const uid = (ctx.newId ?? randomUUID)();
+  const retained = await session.ledger.record({
+    kind: "PC_TARGET_ADVANCE",
+    intent_id: `operator-intent:${uid}`,
+    pc_id: pcId,
+    target,
+    transaction: pcTargetTransaction("advance", uid),
+  });
+  if (!retained.ok) {
+    session.markAmbiguous();
+    return result("UNAVAILABLE");
+  }
+  return presentPcTargetChoice(ctx, retained.value as PcTargetAdvanceIntent);
 }
 
 /**

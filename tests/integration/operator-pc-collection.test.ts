@@ -7,7 +7,13 @@
 // 5→2, Reserve 0→3. Negatives: every unconfirmed or invented attempt writes nothing. A scripted reading host proves transport only.
 // Local success is NOT provider/recovery acceptance (IA-07 BLOCKED).
 import { describe, expect, it } from "vitest";
-import { collect, collectContinue, pcTargetAdvance, reconcile } from "@immortalis/operator";
+import {
+  collect,
+  collectContinue,
+  collectFinish,
+  pcTargetAdvance,
+  reconcile,
+} from "@immortalis/operator";
 import { T0, TAU, W, MECH, PC, collectionCampaign, hostAnswer } from "../support/pc-collection.ts";
 import {
   copyCampaign,
@@ -91,20 +97,41 @@ describe("the operator's confirmation is the only ingress: positive over the who
     expect(started.status).toBe("COLLECTION_COMMITTED");
     expect(sourceAmount(s)).toBe(5);
 
-    // the player's SEPARATE time choice, through the existing operator command
+    // while the work is pending the operator's arbitrary-target route refuses WHATEVER horizon is asked: short of the boundary, at it,
+    // beyond it, or malformed — the refusal is a fact about the pending work, never a function of the requested time (C8)
     const end = T0.value + 3 * TAU;
-    const before = pcTargetAdvance(ctxOf(s, scriptedTerminal("confirm"), fixedIds("t1")), {
-      target: { unit: T0.unit, value: end - 1 },
-    });
-    expect((await before).status).toBe("PC_TARGET_ADVANCE_COMMITTED");
+    for (const value of [T0.value + 1, end - 1, end, end + 100]) {
+      const t1 = scriptedTerminal("confirm");
+      const refused = await pcTargetAdvance(ctxOf(s, t1, fixedIds(`r${value}`)), {
+        target: { unit: T0.unit, value },
+      });
+      expect(refused.status, String(value)).toBe("UNAVAILABLE");
+      expect(t1.asked()).toBe(0);
+    }
+    expect((await pcTargetAdvance(ctxOf(s, scriptedTerminal(), fixedIds("rx")), {})).status).toBe(
+      "UNAVAILABLE",
+    );
     expect(sourceAmount(s)).toBe(5);
     expect(reserveAmount(s)).toBe(0);
-    const reach = await pcTargetAdvance(ctxOf(s, scriptedTerminal("confirm"), fixedIds("t2")), {
-      target: { unit: T0.unit, value: end },
-    });
-    expect(reach.status).toBe("PC_TARGET_ADVANCE_COMMITTED");
+
+    // the player's SEPARATE finish choice: no horizon is stated, the target is derived from the admitted work, and it needs its own
+    // confirmation
+    const tf = scriptedTerminal("confirm");
+    const finished = await collectFinish(ctxOf(s, tf, fixedIds("t2")));
+    expect(finished.status).toBe("PC_TARGET_ADVANCE_COMMITTED");
+    expect(tf.asked()).toBe(1);
+    expect(tf.said.join("\n")).toMatch(/You state no time here/);
+    expect(tf.said.join("\n")).toContain(`${end} ${T0.unit}`);
     expect(sourceAmount(s)).toBe(2);
     expect(reserveAmount(s)).toBe(3);
+    // with nothing pending, the arbitrary-target route is available again
+    expect(
+      (
+        await pcTargetAdvance(ctxOf(s, scriptedTerminal("confirm"), fixedIds("t3")), {
+          target: { unit: T0.unit, value: end + 1 },
+        })
+      ).status,
+    ).toBe("PC_TARGET_ADVANCE_COMMITTED");
 
     // act B: a NEW confirmation for 3 meets the real remaining 2 at Production's own admission
     const second = await collect(ctxOf(s, scriptedTerminal("confirm"), fixedIds("c2")), INPUT());
@@ -326,4 +353,40 @@ describe("no unconfirmed or invented attempt reaches the owners", () => {
     expect(t.asked()).toBe(0);
     await s.close();
   }, 120_000);
+
+  it("the finish is offered only for work positively in flight, and it needs its own confirmation: no work, a declined or an end-of-input confirmation moves no time", async () => {
+    const dirs = copyCampaign(await template());
+    const s = await openSession(dirs);
+    const head = () => s.campaign.store.head().state_sha256;
+    const start = head();
+    // nothing is in flight: the console is not even asked
+    const none = scriptedTerminal("confirm");
+    expect((await collectFinish(ctxOf(s, none, fixedIds("n0")))).status).toBe("UNAVAILABLE");
+    expect(none.asked()).toBe(0);
+    expect(head()).toBe(start);
+    // a confirmed attempt that is merely committed (not started) is not in flight either
+    expect(
+      (await collect(ctxOf(s, scriptedTerminal("confirm"), fixedIds("c1")), INPUT())).status,
+    ).toBe("COLLECTION_COMMITTED");
+    const committed = head();
+    expect(
+      (await collectFinish(ctxOf(s, scriptedTerminal("confirm"), fixedIds("n1")))).status,
+    ).toBe("UNAVAILABLE");
+    expect(head()).toBe(committed);
+    // in flight: a declined or ended confirmation moves nothing
+    expect(
+      (await collectContinue({ ...ctxOf(s, scriptedTerminal()), reachHost: gm() })).status,
+    ).toBe("COLLECTION_COMMITTED");
+    const flying = head();
+    expect(
+      (await collectFinish(ctxOf(s, scriptedTerminal("decline"), fixedIds("n2")))).status,
+    ).toBe("DECLINED");
+    expect((await collectFinish(ctxOf(s, scriptedTerminal("eof"), fixedIds("n3")))).status).toBe(
+      "DECLINED",
+    );
+    expect(head()).toBe(flying);
+    expect(sourceAmount(s)).toBe(5);
+    expect(reserveAmount(s)).toBe(0);
+    await s.close();
+  }, 180_000);
 });

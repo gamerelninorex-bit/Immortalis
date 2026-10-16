@@ -39,7 +39,7 @@ const unavailable = (): CommandResult => ({
 });
 
 /** One descriptor, owner-verified regular file; no symlink, shared writable file, script or arbitrary owner write. */
-function readPreparation(path: string): unknown {
+export function readOwnedSetupFile(path: string): unknown {
   const uid = process.getuid?.();
   if (uid === undefined) return undefined;
   try {
@@ -65,7 +65,7 @@ function readPreparation(path: string): unknown {
 export async function prepareCollection(ctx: CommandContext, path: string): Promise<CommandResult> {
   const { session, terminal } = ctx;
   if (!session.isOpen || session.isAmbiguous) return unavailable();
-  const parsed = CollectionPreparationSchema.safeParse(readPreparation(path));
+  const parsed = CollectionPreparationSchema.safeParse(readOwnedSetupFile(path));
   if (!parsed.success)
     return { status: "INVALID_INPUT", message: "the preparation file is not a valid owned setup" };
   const setup = parsed.data;

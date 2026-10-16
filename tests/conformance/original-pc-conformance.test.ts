@@ -55,7 +55,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
+    "2c555c2c7707f196159669ea8423dbbf385a5ef651ce13219b57485df425c5a8",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/locality-pin.ts":

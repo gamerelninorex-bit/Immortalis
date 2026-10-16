@@ -57,3 +57,4 @@ export * from "./referee-console.ts";
 export * from "./referee-session.ts";
 export * from "./session.ts";
 export * from "./terminal.ts";
+export * from "./time-initialization.ts";

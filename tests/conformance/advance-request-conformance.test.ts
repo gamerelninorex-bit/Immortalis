@@ -44,17 +44,17 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/gip/provider.ts":
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
-    "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
+    "2c555c2c7707f196159669ea8423dbbf385a5ef651ce13219b57485df425c5a8",
   "packages/operator/src/confirmation.ts":
-    "ecf1926d037220c1d8a528d0a5bc79b107516975ae204019a88959f353372457",
+    "d3516d8c2fc0c9e570563cd34e424716b0896c731817961ae53459426be725ee",
   "packages/operator/src/cli.ts":
-    "faa160aebc74405ae690b2f84fce85ebea71f893cdfa11209a7ac02550fc7330",
+    "bec3c6004c55f3c7275f9ea9dcfbe1836f5e268ac7b1f4964dcf218c7cf6760c",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/index.ts":
-    "c250d684e844627ed2a6a5683ddf1467b88aee86ded8147185c060e7b2e91e07",
+    "bd2072834a904019157d43b46dfb0d91a49633c1b7519955b4a743818099b920",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":

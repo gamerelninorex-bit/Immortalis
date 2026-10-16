@@ -6,7 +6,19 @@
 // confirmation is the owners' own chain. Negatives: every unconfirmed, declined, stale, mistyped, not-in-flight or invented stop writes
 // nothing. A scripted console proves transport and enforcement only; it is not a live player.
 import { describe, expect, it } from "vitest";
-import { cease, collect, collectContinue, pcTargetAdvance, reconcile } from "@immortalis/operator";
+import {
+  cease,
+  collect,
+  collectContinue,
+  collectFinish,
+  pcTargetAdvance,
+  reconcile,
+} from "@immortalis/operator";
+import {
+  advanceActivePcToTarget,
+  bindTrustedActivePcTargetAdvanceContext,
+} from "@immortalis/protocol";
+import { pcTargetTransaction } from "../support/pc-target-advance.ts";
 import { PcCollectionAdapter } from "@immortalis/engine";
 import { pcCollectionCessationKey } from "@immortalis/contracts";
 import { SRC_BASIS_ID, SRC_RESERVE, SRC_SOURCE_KEY, SRC_UNIT } from "@immortalis/testkit";
@@ -53,6 +65,22 @@ const advance = (s: Session, value: number, uid: string) =>
     target: { unit: T0.unit, value },
   });
 
+/**
+ * The world's time passing over the PC's pending work by another lawful means (the protocol gateway the operator route itself calls). The
+ * operator's OWN arbitrary-target route is closed while work is pending, whatever horizon is asked, so a test that needs time to have
+ * partly passed lets it pass at this lower layer.
+ */
+const passTime = async (s: Session, value: number, tx: string) =>
+  advanceActivePcToTarget(
+    bindTrustedActivePcTargetAdvanceContext({
+      campaign: s.campaign as never,
+      pc_id: PC,
+      target: { unit: T0.unit, value },
+      transaction: pcTargetTransaction(tx) as never,
+    }),
+    { operation: "advance_active_pc_to_target" },
+  );
+
 /** a confirmed attempt that Production has started and that time has partly passed over */
 async function inFlight(s: Session, at = T0.value + 10) {
   expect(
@@ -61,7 +89,7 @@ async function inFlight(s: Session, at = T0.value + 10) {
   expect((await collectContinue({ ...ctxOf(s, scriptedTerminal()), reachHost: gm })).status).toBe(
     "COLLECTION_COMMITTED",
   );
-  expect((await advance(s, at, "t1")).status).toBe("PC_TARGET_ADVANCE_COMMITTED");
+  expect(await passTime(s, at, "t1")).toMatchObject({ ok: true });
   expect(holdOf(s)).toEqual({ state: "IN_FLIGHT", act_id: act("c1") });
 }
 
@@ -124,9 +152,9 @@ describe("D-1 operator ingress: the player's separate console confirmation is th
     expect((await collectContinue({ ...ctxOf(r, scriptedTerminal()), reachHost: gm })).status).toBe(
       "COLLECTION_COMMITTED",
     );
-    expect((await advance(r, T0.value + 10 + 3 * TAU, "t2")).status).toBe(
-      "PC_TARGET_ADVANCE_COMMITTED",
-    );
+    expect(
+      (await collectFinish(ctxOf(r, scriptedTerminal("confirm"), fixedIds("f2")))).status,
+    ).toBe("PC_TARGET_ADVANCE_COMMITTED");
     expect(sourceAmount(r)).toBe(2);
     expect(reserveAmount(r)).toBe(3);
     await r.close();
@@ -181,7 +209,12 @@ describe("D-1 operator ingress: no unconfirmed, declined, wrong-verb, not-in-fli
     expect((await collectContinue({ ...ctxOf(s, scriptedTerminal()), reachHost: gm })).status).toBe(
       "COLLECTION_COMMITTED",
     );
-    expect((await advance(s, T0.value + 3 * TAU, "t1")).status).toBe("PC_TARGET_ADVANCE_COMMITTED");
+    // the arbitrary-target route is closed while the work is pending, whatever the horizon; the finish derives its own target
+    expect((await advance(s, T0.value + 3 * TAU, "t1")).status).toBe("UNAVAILABLE");
+    expect(sourceAmount(s)).toBe(5);
+    expect(
+      (await collectFinish(ctxOf(s, scriptedTerminal("confirm"), fixedIds("f1")))).status,
+    ).toBe("PC_TARGET_ADVANCE_COMMITTED");
     expect(sourceAmount(s)).toBe(2);
     await asked("UNAVAILABLE");
     expect(reserveAmount(s)).toBe(3);
