@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { CanonicalTimeSchema, Text, canonicalJson } from "@immortalis/contracts";
 import { StageProviderRegistry, TemporalCoordinator } from "@immortalis/engine";
-import { readOwnedSetupFile } from "./collection-preparation.ts";
+import { onlyOriginalWorlds, readOwnedSetupFile } from "./collection-preparation.ts";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
 import type { CommandContext, CommandResult } from "./commands.ts";
 
@@ -41,6 +41,8 @@ export async function initializeTime(ctx: CommandContext, path: string): Promise
     };
   const chronology = parsed.data;
   const campaign = session.campaign;
+  // the delegated author rule covers an ORIGINAL domain only: a campaign with no world, or with any reference-setting world, has no such author
+  if (!onlyOriginalWorlds(campaign)) return unavailable("no original domain is established");
   const digest = createHash("sha256")
     .update(
       canonicalJson({

@@ -5,6 +5,7 @@ import {
   EstablishExtractionBasisInputSchema,
   EstablishPcCollectionMechanismInputSchema,
   EstablishReserveInputSchema,
+  WorldProfileSchema,
   canonicalJson,
 } from "@immortalis/contracts";
 import {
@@ -32,6 +33,24 @@ export const CollectionPreparationSchema = z.strictObject({
     "only an empty Reserve may be initialized",
   ),
 });
+
+/**
+ * The delegated author rule covers ORIGINAL domains only: the campaign holds at least one world profile and EVERY committed world is
+ * strictly ORIGINAL (the author of an original setting is its operator-owner; a reference setting has no such author). Judged from
+ * canon, never from a file.
+ */
+export function onlyOriginalWorlds(campaign: {
+  store: { listFacts(): readonly { key: string; value: unknown }[] };
+}): boolean {
+  const worlds = campaign.store.listFacts().filter((f) => /^world\/[^/]+\/profile$/.test(f.key));
+  return (
+    worlds.length > 0 &&
+    worlds.every((f) => {
+      const parsed = WorldProfileSchema.safeParse(f.value);
+      return parsed.success && parsed.data.reference_causal_basis.mode === "ORIGINAL";
+    })
+  );
+}
 
 const unavailable = (): CommandResult => ({
   status: "UNAVAILABLE",
@@ -70,6 +89,7 @@ export async function prepareCollection(ctx: CommandContext, path: string): Prom
     return { status: "INVALID_INPUT", message: "the preparation file is not a valid owned setup" };
   const setup = parsed.data;
   const campaign = session.campaign;
+  if (!onlyOriginalWorlds(campaign)) return unavailable();
   if (campaign.binding()?.value.active_pc.entity_id !== setup.mechanism.pc_id) return unavailable();
   if (
     setup.reserve.world_id !== setup.extraction_basis.world_id ||

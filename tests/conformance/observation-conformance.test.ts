@@ -43,7 +43,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "f9edd9a00b2be123d0768c3981ab41778e0868d38a8c902fce8404a55c2e564f",
+    "af2a2cf4cdc5d1c02824324b50be10711b0b24964015614b1b600b417458d869",
   "packages/engine/src/owners/registry.ts":
     "bdba96b219e7107dd950c0f5f4026d47dce855d16aa89a108df8f4ccc20708fe",
   "packages/engine/src/referee/adapter.ts":

@@ -10,7 +10,7 @@ import {
   worldSourceConditionKey,
 } from "@immortalis/contracts";
 import { PcCollectionAdapter, canonicalEqual } from "@immortalis/engine";
-import { readOwnedSetupFile } from "./collection-preparation.ts";
+import { onlyOriginalWorlds, readOwnedSetupFile } from "./collection-preparation.ts";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
 import type { CommandContext, CommandResult } from "./commands.ts";
 
@@ -55,6 +55,7 @@ export async function declareClosedSetting(
     };
   const d = parsed.data;
   const campaign = session.campaign;
+  if (!onlyOriginalWorlds(campaign)) return unavailable("no original domain is established");
   const adapter = new PcCollectionAdapter(campaign.store);
   const authoredRights = d.source_rights
     .map((r) => ({

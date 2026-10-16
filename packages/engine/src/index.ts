@@ -163,7 +163,10 @@ export * from "./pc-collection/adapter.ts";
 export * from "./pc-collection/admission.ts";
 export * from "./pc-collection/cessation.ts";
 export * from "./pc-collection/derive.ts";
-export { interpretCycleAnswer } from "./pc-collection/determinations.ts";
+export {
+  foreignEngagementViolation,
+  interpretCycleAnswer,
+} from "./pc-collection/determinations.ts";
 export * from "./pc-collection/integrity.ts";
 export * from "./pc-collection/state.ts";
 export * from "./pc-movement/derive.ts";

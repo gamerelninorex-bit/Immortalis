@@ -284,7 +284,8 @@ export function liveSceneCoverage(facts: ScanFacts, locality: LocusRef) {
         .filter((l) => atLocus(l.value, locality))
         .map((l) => pin(l.fact)),
     ),
-    actors: [...new Set(actors)].sort(),
+    // a Player Character that was an existing actor keeps its immutable coupling as provenance: it is the PC (listed below), not another actor
+    actors: [...new Set(actors)].filter((a) => !pcs.includes(a)).sort(),
     pcs: [...new Set(pcs)].sort(),
   };
 }
@@ -327,6 +328,10 @@ export function sceneClosureViolation(
   if (!now) return "no canonical temporal basis is established: a closure has an effective time";
   if (compareTime(now, c.effective_at) !== 0)
     return "a closure is effective at the canonical time it is established";
+  // the delegated rule covers a strictly ORIGINAL, author-closed domain only: no reference-setting world can be declared closed here
+  const world = parse(facts, c.world.fact_key, WorldProfileSchema);
+  if (!world || world.value.reference_causal_basis.mode !== "ORIGINAL")
+    return "a closed-domain declaration is lawful only for a strictly ORIGINAL world its author established";
   const status = sceneClosureStatus(c, facts);
   if (status !== null) return status;
   for (const r of c.source_rights) {
@@ -426,7 +431,8 @@ export function foreignEngagementViolation(
   const index = parse(facts, TEMPORAL_BOUNDARY_INDEX_KEY, BoundaryIndexSchema);
   const own = productionExtractionObjectId(a.extractionId);
   const other = index?.value.entries.find(
-    (e) => e.object_id !== own && (compareTime(e.at, a.completesAt) ?? 1) <= 0,
+    // an incomparable boundary (another unit) cannot be placed outside the interval, so it fails closed
+    (e) => e.object_id !== own && (compareTime(e.at, a.completesAt) ?? 0) <= 0,
   );
   return other
     ? "another process falls due within the work's interval: the interval is not covered by the closure alone"

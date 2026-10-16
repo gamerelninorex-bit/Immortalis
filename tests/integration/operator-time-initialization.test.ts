@@ -6,10 +6,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CanonicalCampaign, StageProviderRegistry, TemporalCoordinator } from "@immortalis/engine";
-import { initializeTime } from "@immortalis/operator";
+import { declareClosedSetting, initializeTime, prepareCollection } from "@immortalis/operator";
 import { FIXTURE_CAMPAIGN } from "../support/operator.ts";
+import { fixtureWorld, publication } from "@immortalis/testkit";
 import { copyCampaign, ctxOf, openSession, scriptedTerminal } from "../support/operator.ts";
 import { must } from "../support/temporal.ts";
+import { ACCESS, LOCUS_ID, SOURCE_KEY, SOURCE_UNIT, WORLD_ID } from "../support/locality.ts";
+import { PC_ID } from "../support/observation.ts";
+import { ACTUATOR_WORDS, TRAVERSAL_CANNOT, cycleWords } from "../support/pc-collection.ts";
+import { SALT, TAU_UNIT } from "../support/pc-collection-original.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const chronology = (value = 7, unit = "season", over: Record<string, unknown> = {}) => ({
@@ -25,11 +30,29 @@ const fileOf = (c: unknown, mode = 0o600): string => {
   chmodSync(path, mode);
   return path;
 };
-async function bare() {
+/** a campaign that holds one ORIGINAL world and no time at all (`world: false` leaves it with no world; a reference mode makes it non-original) */
+async function bare(world: "original" | "none" | "reference" = "original") {
   const dir = tempDir("immortalis-time-init-");
   const c = await must(
     CanonicalCampaign.create(dir, { campaignId: FIXTURE_CAMPAIGN, buildId: "time-init-seed" }),
   );
+  if (world !== "none")
+    await must(
+      c.establishWorld({
+        ...publication(1),
+        world: fixtureWorld(
+          world === "reference"
+            ? {
+                reference_causal_basis: {
+                  mode: "EXACT_NAMED_SETTING",
+                  setting: "SYNTHETIC FIXTURE: a named reference setting",
+                  era_version_continuity: null,
+                },
+              }
+            : {},
+        ),
+      }),
+    );
   await c.close();
   return dir;
 }
@@ -53,6 +76,74 @@ describe("initialize-time", () => {
     expect((await run(fileOf(chronology()), "eof")).status).toBe("DECLINED");
     expect(s.campaign.store.head().state_sha256).toBe(head);
     expect(timeOf(s)).toBeUndefined();
+    await s.close();
+  }, 120_000);
+
+  it("the delegated author rule covers an ORIGINAL domain only: no world, or a reference-setting world, has no such author and nothing is written", async () => {
+    for (const kind of ["none", "reference"] as const) {
+      const s = await openSession(copyCampaign(await bare(kind)));
+      const head = s.campaign.store.head().state_sha256;
+      const t = scriptedTerminal("confirm");
+      expect((await initializeTime(ctxOf(s, t), fileOf(chronology()))).status, kind).toBe(
+        "UNAVAILABLE",
+      );
+      expect(t.asked(), kind).toBe(0);
+      expect(s.campaign.store.head().state_sha256, kind).toBe(head);
+      expect(timeOf(s), kind).toBeUndefined();
+      await s.close();
+    }
+  }, 120_000);
+
+  it("the same ORIGINAL-only rule stops prepare-collection and declare-closed-setting on a reference-setting world: unavailable, nothing asked, nothing written", async () => {
+    const preparation = {
+      format: "immortalis-collection-preparation",
+      format_version: 1,
+      mechanism: {
+        pc_id: PC_ID,
+        mechanism_id: SALT.mechanism,
+        claims: [{ section: "embodiment_topology", index: 0 }],
+        actuator: { statement: ACTUATOR_WORDS },
+        traversal: { statement: TRAVERSAL_CANNOT },
+        cycle_duration: TAU_UNIT,
+        cycle_quote: cycleWords(TAU_UNIT),
+      },
+      extraction_basis: {
+        basis_id: SALT.basis,
+        world_id: WORLD_ID,
+        source_key: SOURCE_KEY,
+        material_class: SALT.material,
+        unit: SOURCE_UNIT,
+        relies_on: { ...ACCESS },
+      },
+      reserve: {
+        reserve_id: SALT.reserve,
+        material_class: SALT.material,
+        quantity: { amount: 0, unit: SOURCE_UNIT },
+        condition: "dry",
+        world_id: WORLD_ID,
+        locus_id: LOCUS_ID,
+      },
+    };
+    const declaration = {
+      format: "immortalis-closed-setting-declaration",
+      format_version: 1,
+      world_id: WORLD_ID,
+      locus_id: LOCUS_ID,
+      domain: { designation: "SYNTHETIC FIXTURE: a place", topology: "SYNTHETIC FIXTURE: closed" },
+      closure: { statement: "SYNTHETIC FIXTURE: nothing else acts" },
+      source_rights: [{ source_key: SOURCE_KEY, ground: "SYNTHETIC FIXTURE: unclaimed" }],
+      workforce_scope: { statement: "SYNTHETIC FIXTURE: the representations held" },
+    };
+    const s = await openSession(copyCampaign(await bare("reference")));
+    const head = s.campaign.store.head().state_sha256;
+    const t = scriptedTerminal("confirm", "confirm");
+    const prep = await prepareCollection(ctxOf(s, t), fileOf(preparation));
+    expect(prep.status).toBe("UNAVAILABLE");
+    expect((await declareClosedSetting(ctxOf(s, t), fileOf(declaration))).status).toBe(
+      "UNAVAILABLE",
+    );
+    expect(t.asked()).toBe(0);
+    expect(s.campaign.store.head().state_sha256).toBe(head);
     await s.close();
   }, 120_000);
 
