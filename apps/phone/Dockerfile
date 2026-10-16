@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production \
     IMMORTALIS_DATA_DIR=/data \
     IMMORTALIS_TRANSPORT=proxy
-VOLUME ["/data"]
+# /data is a persistent volume mounted by the host (Railway Volume or `docker run -v`); the image declares none.
 COPY apps/phone/entrypoint.sh /usr/local/bin/immortalis-phone-entrypoint
 RUN chmod 0755 /usr/local/bin/immortalis-phone-entrypoint
 EXPOSE 8080
