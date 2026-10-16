@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "5a3300cff25fa233c2fc93722072a110d391ce4492c4f73b3847289a9c2b03b7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "8223079f733f3e54737dd2cf356edabdddddce241c9aa6bd64104454afb33faf",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -248,6 +248,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "askIr",
       "askObservation",
       "askPhysical",
+      "attestCycle",
       "authorCharacter",
       "authorizeHost",
       "awaitDecision",

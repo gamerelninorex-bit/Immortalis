@@ -188,7 +188,12 @@ export async function commitConfirmedPcCollection(
       return refusal();
     const adapter = new PcCollectionAdapter(b.campaign.store);
     const steps: readonly (() => Promise<Outcome>)[] = [
-      () => adapter.commit({ ...publicationFor(b, "commitment"), commitment: b.choice }),
+      () =>
+        adapter.commit({
+          ...publicationFor(b, "commitment"),
+          commitment: b.choice,
+          mechanism_id: b.mechanism_id,
+        }),
       () =>
         adapter.establishRequest({
           ...publicationFor(b, "request"),
@@ -277,7 +282,18 @@ export async function startConfirmedPcCollection(
     if (!reach || reach.value.verdict !== "REACHABLE") return refusal();
     const registered = !!adapter.occupancy(pcId) && adapter.occupancy(pcId)!.value.act_id === actId;
     if (!registered) {
+      // v0.3 F-3: Population determines the PC's relation to its aggregate workforce (derived from its ledgers, never supplied); only
+      // a proven OUTSIDE lets the registration proceed, otherwise the class WITHHOLDS and nothing is registered
+      const sourceKey = adapter.commitment(pcId, actId)?.value.intent.source.fact_key;
+      if (!sourceKey) return refusal();
       attempted = true;
+      const determined = await adapter.determineRepresentation({
+        ...publicationFor(b, "representation"),
+        pc_id: pcId,
+        source_fact_key: sourceKey,
+      });
+      if (!determined.ok)
+        return determined.error.code === "UNKNOWN_OUTCOME" ? unknownOutcome() : refusal();
       const occ = await adapter.registerOccupancy({
         ...publicationFor(b, "occupancy"),
         pc_id: pcId,

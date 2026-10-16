@@ -128,6 +128,17 @@ describe("deriveCollectionTiming: cycles × τ, derived; a foreign unit or a non
 });
 
 describe("interpretPcCollectionReachAnswer: a quote-anchored reading, a DERIVED verdict", () => {
+  const scene = {
+    world: { fact_key: "world/w/profile", version: 1 },
+    locus: { fact_key: "world/w/locus/l", version: 1 },
+    statements: [
+      "SYNTHETIC FIXTURE: the committed premise of the world",
+      "SYNTHETIC FIXTURE: the committed locus wording",
+    ],
+    ledgers: [{ fact_key: "population/l1/ledger", version: 1 }],
+    presence_here: [],
+    digest: "0".repeat(64),
+  };
   const source = {
     key: "world/w/source/s",
     value: {
@@ -136,11 +147,17 @@ describe("interpretPcCollectionReachAnswer: a quote-anchored reading, a DERIVED 
       ],
     } as any,
   };
-  const task = buildPcCollectionReachTask("pc", "act", source, {
-    key: "pc/pc/collection-mechanism/m",
-    version: 1,
-    value: mech(),
-  });
+  const task = buildPcCollectionReachTask(
+    "pc",
+    "act",
+    source,
+    {
+      key: "pc/pc/collection-mechanism/m",
+      version: 1,
+      value: mech(),
+    },
+    scene,
+  );
   const ok = (path: "OPEN" | "CLOSED", m: "ABLE_TO_PASS" | "UNABLE_TO_PASS" | "NOT_AT_ISSUE") =>
     interpretPcCollectionReachAnswer(task, hostAnswer(task, path, m));
 
@@ -191,6 +208,7 @@ describe("interpretPcCollectionReachAnswer: a quote-anchored reading, a DERIVED 
         } as any,
       },
       { key: "pc/pc/collection-mechanism/m", version: 1, value: mech() },
+      scene,
     );
     expect(other.digest).not.toBe(task.digest);
     expect(

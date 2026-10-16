@@ -593,6 +593,27 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "pc/p1/collection/a1/cessation",
   },
+  /**
+   * CPAA-C1 v0.3 (design RATIFIED; implementation acceptance pending): two more kinds, no new owner and no new facet. The I-002 owner's
+   * versioned semantic attestation of the PC's serial handling cycle (the existing `pc_collection_mechanism` facet, create-only) and
+   * Population's determination of the PC's relation to its aggregate workforce (the existing `population_pc_occupancy` facet).
+   */
+  {
+    id: "pc_collection_cycle_attestation",
+    owner: "pc_existence",
+    facet: "pc_collection_mechanism",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/collection-attestation/m1",
+  },
+  {
+    id: "population_pc_representation",
+    owner: "population",
+    facet: "population_pc_occupancy",
+    lifecycle: "ADVANCING",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "population-pc/p1/representation",
+  },
   {
     id: "production_pc_collection_termination",
     owner: "production",
@@ -855,11 +876,15 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   PcCollectionAdapter: {
     methods: [
       "adjudicateReach",
+      "attestCycle",
+      "attestation",
       "cease",
       "cessation",
       "closed",
       "commit",
       "commitment",
+      "cycleTask",
+      "determineRepresentation",
       "establishMechanism",
       "establishRequest",
       "extraction",
@@ -872,6 +897,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "registerOccupancy",
       "releaseOccupancyDenied",
       "releaseOccupancyTerminated",
+      "representation",
       "request",
       "startWork",
       "temporalObject",

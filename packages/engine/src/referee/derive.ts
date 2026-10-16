@@ -208,7 +208,7 @@ export function i002Context(input: {
 type Facts = (key: string) => OwnerFact | undefined;
 
 /** World and locus facts delivered to the host, each with a stable identity the host must assess. */
-function deliveredFacts(
+export function deliveredFacts(
   world: ReturnType<typeof WorldProfileSchema.parse>,
   locus: ReturnType<typeof WorldLocusSchema.parse>,
 ): DeliveredFact[] {

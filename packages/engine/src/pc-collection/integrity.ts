@@ -1,4 +1,8 @@
 import {
+  PcCollectionCycleAttestationSchema,
+  PopulationBasisSchema,
+  PopulationPcRepresentationSchema,
+  popPcRepresentationKey,
   PcCollectionCessationSchema,
   ProductionPcCollectionTerminationSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
@@ -27,6 +31,7 @@ import type { CampaignStore } from "../persistence/store.ts";
 import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
+import { pcCycleAttestationViolation, pcRepresentationViolation } from "./determinations.ts";
 import { extractionCredited } from "./state.ts";
 import {
   deriveOccupancyInterval,
@@ -66,6 +71,8 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const works = ofKind("production_pc_collection_work");
   const cessations = ofKind("pc_collection_cessation");
   const terminations = ofKind("production_pc_collection_termination");
+  const attestations = ofKind("pc_collection_cycle_attestation");
+  const representations = ofKind("population_pc_representation");
   if (
     commitments.length +
       requests.length +
@@ -74,7 +81,9 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       occupancies.length +
       works.length +
       cessations.length +
-      terminations.length ===
+      terminations.length +
+      attestations.length +
+      representations.length ===
     0
   ) {
     return out;
@@ -119,7 +128,50 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     if (!c.success) continue; // canonical integrity reports the malformed value
     const v = pcCollectionCommitmentViolation(f.key, c.data, view(revisionOf(f)), true);
     if (v) bad(f.key, v);
-    checkPins(f, [c.data.intent.source.fact_key, c.data.intent.destination.fact_key]);
+    checkPins(f, [
+      c.data.intent.source.fact_key,
+      c.data.intent.destination.fact_key,
+      c.data.basis.cycle.mechanism.fact_key,
+      c.data.basis.cycle.attestation.fact_key,
+    ]);
+  }
+  // v0.3 F-2 / F-3: the owner-qualified attestations and Population's representation determinations
+  for (const f of attestations) {
+    const a = PcCollectionCycleAttestationSchema.safeParse(f.value);
+    if (!a.success) continue;
+    const v = pcCycleAttestationViolation(f.key, a.data, view(revisionOf(f)), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [a.data.mechanism.fact_key]);
+  }
+  for (const f of representations) {
+    const r = PopulationPcRepresentationSchema.safeParse(f.value);
+    if (!r.success) continue;
+    const v = pcRepresentationViolation(f.key, r.data, view(revisionOf(f)), undefined, true);
+    if (v) bad(f.key, v);
+    // the recorded status must agree with the ledgers it pins, for every pinned ledger still at the pinned version (a ledger that has
+    // advanced since is Population's own later business: the status as then cannot be re-derived from the current ledger)
+    const pinned = r.data.ledgers.flatMap((p) => {
+      const lf = byKey.get(p.fact_key);
+      const lv = lf ? PopulationBasisSchema.safeParse(lf.value) : undefined;
+      return lf && lv?.success && lf.version === p.version ? [lv.data] : [];
+    });
+    const unchanged = pinned.length === r.data.ledgers.length;
+    const counted = pinned.some((l) => l.units.some((u) => u.unit_id === r.data.pc_id));
+    const here = pinned.some(
+      (l) =>
+        l.locality.world.entity_id === r.data.locality.world_id &&
+        l.locality.locus.entity_id === r.data.locality.locus_id,
+    );
+    if (
+      r.data.status === "OUTSIDE_AGGREGATE" &&
+      (r.data.ledgers.length === 0 || (unchanged && (counted || !here)))
+    )
+      bad(
+        f.key,
+        "a proven-outside determination rests on a ledger at the PC's locus that does not count the PC",
+      );
+    if (r.data.status === "INCLUDED" && unchanged && !counted)
+      bad(f.key, "an included determination rests on a ledger that counts the PC");
   }
   for (const f of requests) {
     const r = ProductionRequestSchema.safeParse(f.value);
@@ -157,6 +209,11 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
         f.key,
         "an occupied interval is exactly the interval the commitment and the mechanism derive",
       );
+    if (
+      o.data.representation.fact_key !== popPcRepresentationKey(o.data.pc_id) ||
+      !byKey.has(o.data.representation.fact_key)
+    )
+      bad(f.key, "an occupancy registers on Population's determination of the PC's representation");
     if (
       o.data.status === "RELEASED_DENIED" &&
       byKey.has(productionExtractionKey(pcCollectionRequestId(o.data.pc_id, o.data.act_id)))

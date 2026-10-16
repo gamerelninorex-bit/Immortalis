@@ -56,6 +56,7 @@ import {
   sourceRemaining,
   trustedCollection,
   type CollectionSeeded,
+  determineRepresentation,
 } from "../support/pc-collection.ts";
 import { GipAdapter } from "@immortalis/engine";
 import {
@@ -117,6 +118,7 @@ async function prepared(
   expect(
     await submitPcCollectionReach(ctx, reachReq(hostAnswer(task.value.task, ...reading))),
   ).toEqual(COLLECTION_COMMITTED);
+  await determineRepresentation(s);
   const occ = await s.collect.registerOccupancy({
     ...colPublication(300),
     pc_id: PC,

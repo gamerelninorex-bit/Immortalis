@@ -40,6 +40,7 @@ import {
   temporalTransactionKey,
   type CanonicalTime,
   type PcCollectionCommitInput,
+  type PcCollectionCycleTask,
   type PcCollectionReachTask,
   type PcMovementCommitInput,
 } from "@immortalis/contracts";
@@ -185,6 +186,12 @@ export interface CommandContext {
    * and the attempt stays held. Nothing here is the player's confirmation.
    */
   readonly reachHost?: (task: PcCollectionReachTask) => Promise<unknown>;
+  /**
+   * The I-002 compiler/adjudicator `role.gm` host that attests the PC's serial handling cycle (CPAA-C1 v0.3 F-2): given the bounded task it
+   * returns its UNTRUSTED reading, which the engine validates; `role.archivist` then writes the owner's attestation. A referee act BEFORE any
+   * player choice, never the player's confirmation. Absent: no attestation is available and no exact act is offered.
+   */
+  readonly attestHost?: (task: PcCollectionCycleTask) => Promise<unknown>;
 }
 
 const RelocateInputSchema = z.strictObject({
@@ -1158,10 +1165,19 @@ export async function collect(ctx: CommandContext, input: unknown): Promise<Comm
     worldSourceConditionKey(draft.source.world_id, draft.source.source_key),
   );
   const reserveFact = campaign.store.getFact(productionReserveKey(draft.reserve_id));
-  const mechanism = new PcCollectionAdapter(campaign.store).mechanism(pcId, mechanismId);
+  const adapter = new PcCollectionAdapter(campaign.store);
+  const mechanism = adapter.mechanism(pcId, mechanismId);
+  // v0.3 F-2: the exact positive is offered only for a cycle the I-002 owner has attested BEFORE the act (never retrofitted after it)
+  const attested = adapter.attestation(pcId, mechanismId);
   const source = sourceFact?.value as
     { material_class?: string; locality?: { locus?: { entity_id?: string } } } | undefined;
-  if (!sourceFact || !reserveFact || !mechanism || !campaign.pcPhysicalLocusCustody(pcId))
+  if (
+    !sourceFact ||
+    !reserveFact ||
+    !mechanism ||
+    !attested ||
+    !campaign.pcPhysicalLocusCustody(pcId)
+  )
     return result("UNAVAILABLE");
 
   const ordinal = session.ledger.collections().length + 1;
@@ -1267,6 +1283,50 @@ export async function collectContinue(ctx: CommandContext): Promise<CommandResul
   });
   if (started.ok) return result(PC_COLLECTION_COMMITTED);
   if (started.error.code === COLLECTION_OUTCOME_UNKNOWN) {
+    session.markAmbiguous();
+    return result(COLLECTION_OUTCOME_UNKNOWN);
+  }
+  return result("UNAVAILABLE");
+}
+
+// -- CPAA-C1 v0.3 F-2: the I-002 semantic attestation of the PC's serial cycle (a referee act, not a player choice) ----------------
+
+const AttestInputSchema = z.strictObject({ mechanism_id: EntityId });
+
+/**
+ * Obtains the `role.gm` reading that attests the PC's serial handling cycle from `ctx.attestHost` and has the engine validate it and the
+ * I-002 owner's attestation written (`role.archivist`). It is NOT a player choice and asks the operator nothing: it creates no commitment,
+ * starts no work and passes no time. Without a reading, or when the reading does not establish exactly one same-form unit in one serial
+ * cycle with verbatim grounds, nothing is written and no exact act is offered. Re-presenting it reconciles by identity.
+ */
+export async function attestCycle(ctx: CommandContext, input: unknown): Promise<CommandResult> {
+  const refused = guard(ctx);
+  if (refused) return refused;
+  const parsed = AttestInputSchema.safeParse(input);
+  if (!parsed.success) return result("INVALID_INPUT");
+  const { session } = ctx;
+  const campaign = session.campaign;
+  const pcId = activePc(campaign);
+  if (!pcId) return result("UNAVAILABLE");
+  const adapter = new PcCollectionAdapter(campaign.store);
+  if (adapter.attestation(pcId, parsed.data.mechanism_id)) return result(PC_COLLECTION_COMMITTED);
+  const task = adapter.cycleTask(pcId, parsed.data.mechanism_id);
+  if (!task || !ctx.attestHost) return result("UNAVAILABLE");
+  let answer: unknown;
+  try {
+    answer = await ctx.attestHost(task);
+  } catch {
+    return result("UNAVAILABLE");
+  }
+  if (typeof answer !== "object" || answer === null || Array.isArray(answer))
+    return result("UNAVAILABLE");
+  const written = await adapter.attestCycle({
+    pc_id: pcId,
+    mechanism_id: parsed.data.mechanism_id,
+    answer,
+  });
+  if (written.ok) return result(PC_COLLECTION_COMMITTED);
+  if (written.error.code === "UNKNOWN_OUTCOME") {
     session.markAmbiguous();
     return result(COLLECTION_OUTCOME_UNKNOWN);
   }

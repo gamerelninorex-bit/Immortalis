@@ -11,6 +11,7 @@ import {
 } from "@immortalis/contracts";
 import {
   PcCollectionAdapter,
+  PopulationAdapter,
   ProductionAdapter,
   RefereeAdjudicationAdapter,
   SourceDrawdownAdapter,
@@ -26,7 +27,7 @@ import {
   submitPcCollectionReach,
 } from "@immortalis/protocol";
 import { REFEREE_AUTHORITY } from "@immortalis/contracts";
-import { drawdownPublication, prodPublication } from "@immortalis/testkit";
+import { drawdownPublication, popPublication, prodPublication } from "@immortalis/testkit";
 import { ACCESS, LOCUS_ID, SOURCE_KEY, SOURCE_UNIT, WORLD_ID, openOrdinary } from "./locality.ts";
 import {
   BASIS,
@@ -42,6 +43,7 @@ import {
   START_REQ,
   TASK_REQ,
   TRAVERSAL_CANNOT,
+  cycleAnswer,
   cycleWords,
   hostAnswer,
   reachReq,
@@ -115,6 +117,38 @@ export async function originalCollectionCampaign(
           traversal: { statement: TRAVERSAL_CANNOT },
           cycle_duration: TAU_UNIT,
           cycle_quote: cycleWords(TAU_UNIT),
+        },
+      }),
+    );
+    // v0.3 F-2: the I-002 compiler/adjudicator's reading of the delivered cycle task, validated and written by the archivist path
+    const pcAdapter = new PcCollectionAdapter(campaign.store);
+    const cycleTask = pcAdapter.cycleTask(PC_ID, SALT.mechanism);
+    if (!cycleTask) throw new Error("no cycle task");
+    await must(
+      pcAdapter.attestCycle({
+        pc_id: PC_ID,
+        mechanism_id: SALT.mechanism,
+        answer: cycleAnswer(cycleTask),
+      }),
+    );
+    // v0.3 F-1 / F-3: Population's own ledger attaches to the locus (one resident who is not the character), the owners' presence evidence
+    await must(
+      new PopulationAdapter(campaign.store).establishLedger({
+        ...popPublication(1),
+        ledger: {
+          ledger_id: "ledger-salt",
+          unit_class: "synthetic-unit-class",
+          world_id: WORLD_ID,
+          locus_id: LOCUS_ID,
+          units: [
+            {
+              unit_id: "unit-salt-resident",
+              residence: "place-village",
+              presence: "place-village",
+              burden_allocation: null,
+            },
+          ],
+          point: BASIS,
         },
       }),
     );

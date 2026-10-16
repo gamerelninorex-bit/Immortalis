@@ -10,6 +10,14 @@ import {
   PcCollectionReachAnswerSchema,
   PcCollectionReachDecisionSchema,
   PcCollectionReachTaskSchema,
+  PC_REPRESENTATION_OUTSIDE,
+  PC_SCENE_VERDICT_ESTABLISHED,
+  PcCollectionCycleAttestationSchema,
+  PopulationPcRepresentationSchema,
+  pcCollectionAttestationKey,
+  popPcRepresentationKey,
+  worldLocusKey,
+  worldProfileKey,
   ProductionPcCollectionWorkSchema,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
@@ -48,6 +56,7 @@ import {
   type PcCollectionMechanism,
   type PcCollectionReachDecision,
   type PcCollectionReachTask,
+  type PcCollectionSceneEvidence,
   type ProductionPcCollectionWork,
   type ProductionQuantity,
   type ProductionRequest,
@@ -55,6 +64,14 @@ import {
   type WorldSourceCondition,
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import {
+  buildSceneEvidence,
+  deriveSceneVerdict,
+  derivePcRepresentation,
+  pcCycleAttestationViolation,
+  statesExactDuration,
+  type ScanFacts,
+} from "./determinations.ts";
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
@@ -95,6 +112,7 @@ const sourceOf = (facts: FactView, key: string) =>
 export function derivePcCollectionCommitment(
   input: PcCollectionCommitInput,
   source: { getFact(key: string): OwnerFact | undefined },
+  mechanismId: string,
 ): Result<PcCollectionCommitment, typeof PREREQ> {
   const get = (k: string) => source.getFact(k);
   const sourceKey = worldSourceConditionKey(input.source.world_id, input.source.source_key);
@@ -105,6 +123,14 @@ export function derivePcCollectionCommitment(
   if (!reserve) return refuse("the destination Production Reserve is not established");
   const version = (k: string): number => get(k)?.version ?? 0;
   const pcId = input.pc_id;
+  // v0.3 F-2: the act rests on the PC's mechanism AND its owner-qualified semantic attestation, both committed BEFORE the act
+  const mechKey = pcCollectionMechanismKey(pcId, mechanismId);
+  const attKey = pcCollectionAttestationKey(pcId, mechanismId);
+  if (!get(mechKey)) return refuse("no established mechanism of this PC is committed");
+  if (!get(attKey))
+    return refuse(
+      "no semantic attestation of the PC's serial cycle is committed: the exact positive is withheld",
+    );
   const value = PcCollectionCommitmentSchema.safeParse({
     commitment_id: pcCollectionCommitmentId(pcId, input.act_id),
     pc_id: pcId,
@@ -128,6 +154,10 @@ export function derivePcCollectionCommitment(
         custody: version(worldPcLocusCustodyKey(pcId)),
         source: version(sourceKey),
         reserve: version(reserveKey),
+      },
+      cycle: {
+        mechanism: { fact_key: mechKey, version: version(mechKey) },
+        attestation: { fact_key: attKey, version: version(attKey) },
       },
     },
     committer: { owner: OWNER_PC_EXISTENCE, facet: "pc_voluntary_commitment" },
@@ -303,6 +333,28 @@ export function pcCollectionCommitmentViolation(
     !advancing(pins.reserve, reserveFact.version)
   )
     return "the commitment was not authored against the committed contract, binding, custody, source and Reserve versions: a stale or forged commitment fails";
+  // v0.3 F-2 (effective before the act): the mechanism and its attestation are committed, pinned at their exact (sealed) versions,
+  // and the attestation holds against the mechanism it attests
+  const cycle = c.basis.cycle;
+  const mechId = (/^pc\/[^/]+\/collection-mechanism\/([^/]+)$/.exec(cycle.mechanism.fact_key) ??
+    [])[1];
+  if (!mechId || cycle.mechanism.fact_key !== pcCollectionMechanismKey(pcId, mechId))
+    return "the commitment rests on one of the PC's own mechanisms";
+  if (cycle.attestation.fact_key !== pcCollectionAttestationKey(pcId, mechId))
+    return "the commitment rests on the attestation of that very mechanism";
+  const mechFact = facts.get(cycle.mechanism.fact_key);
+  const attFact = facts.get(cycle.attestation.fact_key);
+  if (
+    !mechFact ||
+    !attFact ||
+    mechFact.version !== cycle.mechanism.version ||
+    attFact.version !== cycle.attestation.version
+  )
+    return "the commitment pins the committed mechanism and its semantic attestation at their exact versions: an unattested cycle grounds no exact completion";
+  const att = PcCollectionCycleAttestationSchema.safeParse(attFact.value);
+  if (!att.success) return "the attestation is a well-formed owner record";
+  const av = pcCycleAttestationViolation(attFact.key, att.data, facts, true);
+  if (av) return `the attestation does not hold: ${av}`;
   return null;
 }
 
@@ -385,11 +437,7 @@ export function pcCollectionMechanismViolation(
   return null;
 }
 
-/** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
-export function statesExactDuration(quote: string, duration: CanonicalTime): boolean {
-  const numeral = new RegExp(`(?<![0-9.])${duration.value}(?![0-9]|\\.[0-9])`);
-  return numeral.test(quote) && quote.includes(duration.unit);
-}
+export { statesExactDuration };
 
 export interface CollectionTiming {
   readonly cycles: number;
@@ -441,6 +489,7 @@ export function buildPcCollectionReachTask(
   actId: string,
   source: { key: string; value: WorldSourceCondition },
   mechanism: { key: string; version: number; value: PcCollectionMechanism },
+  scene: PcCollectionSceneEvidence,
 ): PcCollectionReachTask {
   const body = {
     pc_id: pcId,
@@ -452,6 +501,7 @@ export function buildPcCollectionReachTask(
       traversal: mechanism.value.traversal.statement,
       actuator: mechanism.value.actuator.statement,
     },
+    scene,
   };
   return PcCollectionReachTaskSchema.parse({ ...body, digest: sha256Canonical(body) });
 }
@@ -472,6 +522,7 @@ export function interpretPcCollectionReachAnswer(
   {
     answer: ReturnType<typeof PcCollectionReachAnswerSchema.parse>;
     verdict: "REACHABLE" | "NOT_REACHABLE";
+    scene_verdict: "SOLITARY_CLASS_ESTABLISHED" | "ENGAGED_NOT_SOLITARY" | "WITHHELD";
   },
   "ANSWER_INVALID"
 > {
@@ -498,7 +549,9 @@ export function interpretPcCollectionReachAnswer(
     a.path.reading === "OPEN" || a.mechanism.reading === "ABLE_TO_PASS"
       ? "REACHABLE"
       : "NOT_REACHABLE";
-  return ok({ answer: a, verdict });
+  const scene = deriveSceneVerdict(a.scene, task.scene);
+  if (!scene.ok) return bad(scene.error.message);
+  return ok({ answer: a, verdict, scene_verdict: scene.value });
 }
 
 /**
@@ -509,7 +562,7 @@ export function interpretPcCollectionReachAnswer(
 export function pcCollectionReachViolation(
   key: string,
   d: PcCollectionReachDecision,
-  facts: FactView,
+  facts: ScanFacts,
   strictVersions: boolean,
 ): string | null {
   if (key !== pcCollectionReachKey(d.pc_id, d.act_id))
@@ -549,11 +602,20 @@ export function pcCollectionReachViolation(
     return "the decision interpreted the source at its pinned version";
   if (d.task.access_facts_digest !== accessFactsDigest(src.value))
     return "the source's stated path facts are those the decision interpreted: a changed path fact makes it stale";
+  // v0.3 F-1: the scene evidence the host interpreted is the owners' evidence. At admission it is exactly the evidence the owners
+  // hold NOW; on re-verification (the ledgers advance) it is re-judged as recorded, and a later change is the premise check's business.
+  if (strictVersions) {
+    const live = buildSceneEvidence(facts, d.pc_id, src.value.locality);
+    if ("reason" in live) return live.reason;
+    if (!canonicalEqual(live, d.scene_evidence))
+      return "the scene evidence the decision interpreted is the owners' evidence now: a changed scene is a different question";
+  }
   const task = buildPcCollectionReachTask(
     d.pc_id,
     d.act_id,
     { key: srcKey, value: src.value },
     { key: mechKey, version: mech.fact.version, value: mech.value },
+    d.scene_evidence,
   );
   if (task.digest !== d.task.digest || task.digest !== d.answer.task_digest)
     return "the decision answers the task the committed premises determine";
@@ -561,6 +623,8 @@ export function pcCollectionReachViolation(
   if (!derived.ok) return `the answer does not validate: ${derived.error.message}`;
   if (derived.value.verdict !== d.verdict)
     return "the verdict is exactly what the validated answer derives, never what a host states";
+  if (derived.value.scene_verdict !== d.scene_verdict)
+    return "the scene verdict is exactly what the validated scene reading and the owners' evidence derive";
   return null;
 }
 
@@ -611,6 +675,8 @@ export function pcCollectionPreconditions(
   );
   if (cv) return { reason: `the commitment-of-record does not hold: ${cv}` };
   const mechKey = pcCollectionMechanismKey(pcId, mechanismId);
+  if (commitment.value.basis.cycle.mechanism.fact_key !== mechKey)
+    return { reason: "the act rests on the mechanism and attestation its commitment pinned" };
   const mechanism = parseFact<PcCollectionMechanism>(facts, mechKey, PcCollectionMechanismSchema);
   if (!mechanism) return { reason: "no established mechanism of this PC is committed" };
   const mv = pcCollectionMechanismViolation(mechKey, mechanism.value, facts);
@@ -694,6 +760,10 @@ export function pcCollectionWorkViolation(
   if (dv) return dv;
   if (reach.value.verdict !== "REACHABLE")
     return "the judged physical reach is not reachable: Production admits no extraction";
+  // v0.3 F-1: exact completion rests on the solitary class being ESTABLISHED by the owners' evidence; an engaged counterpart or
+  // absent evidence WITHHOLDS (no band is invented and no absence-of-counterpart default exists)
+  if (reach.value.scene_verdict !== PC_SCENE_VERDICT_ESTABLISHED)
+    return "solitary handling is not established by the owners' scene evidence: F-014B §11 applies or the evidence is absent, so exact completion is withheld";
   const occ = pcOccupancyRecord(facts, w.pc_id);
   // the occupancy slot ADVANCES (a later act replaces it once this work closes): only at the start is it required to be this act's
   if (atStart && (!occ || occ.value.act_id !== w.act_id))
@@ -715,6 +785,8 @@ export function pcCollectionWorkViolation(
   if (atStart) {
     if (occ!.fact.version !== pins.occupancy.version || occ!.value.status !== "OPEN")
       return "the work pins the PC's OPEN occupancy registration";
+    const rv = pcRepresentationHolds(facts, w.pc_id, occ!.value.representation);
+    if (rv) return rv;
     if (!canonicalEqual(w.derivation.started_at, pre.now))
       return "the work starts at the canonical time";
   }
@@ -754,7 +826,7 @@ export function pcCollectionWorkViolation(
  */
 export function pcCollectionPremiseViolation(
   w: ProductionPcCollectionWork,
-  facts: FactView,
+  facts: ScanFacts,
 ): string | null {
   const standing = pcStandingViolation(w.pc_id, facts);
   if ("reason" in standing) return `the PC no longer stands as at the start: ${standing.reason}`;
@@ -782,9 +854,59 @@ export function pcCollectionPremiseViolation(
     return "the physical-reach judgment changed";
   if (reach.value.task.access_facts_digest !== accessFactsDigest(src.value))
     return "the source's stated path facts changed since the judgment: the work is invalidated, not completed";
+  // v0.3 F-1: the solitary class is re-evaluated throughout the occupied interval. A changed scene (world or locus wording, a ledger
+  // attached to this locus, who Population records as present) re-opens the question: the work is neither completed nor credited
+  const scene = reach.value.scene_evidence;
+  const pinned = [scene.world, scene.locus, ...scene.ledgers];
+  if (pinned.some((p) => facts.get(p.fact_key)?.version !== p.version))
+    return "the scene evidence changed since the judgment: solitary handling is no longer established";
+  if (facts.values) {
+    const live = buildSceneEvidence(facts, w.pc_id, src.value.locality);
+    if ("reason" in live || !canonicalEqual(live, scene))
+      return "the scene evidence changed since the judgment: solitary handling is no longer established";
+  }
   const state = pcOccupancyState(facts, w.pc_id);
   if (state.state !== "OPEN" || state.act_id !== w.act_id)
     return "the PC's occupancy is no longer open for this act";
+  const occ = pcOccupancyRecord(facts, w.pc_id);
+  if (!occ) return "the PC's occupancy is registered";
+  const rv = pcRepresentationHolds(facts, w.pc_id, occ.value.representation, false);
+  if (rv) return rv;
+  return null;
+}
+
+/**
+ * v0.3 F-3: the Population determination the registration rests on is the committed one and says OUTSIDE_AGGREGATE. `strict` (the
+ * start) requires the very version the registration pinned; later (the occupied interval) a re-determination may have advanced it.
+ * Where the view can enumerate the ledgers it is also re-derived NOW: a PC a ledger came to count is no longer provably free of the
+ * aggregate workforce, and the class WITHHOLDS.
+ */
+export function pcRepresentationHolds(
+  facts: ScanFacts,
+  pcId: string,
+  pinned: { fact_key: string; version: number },
+  strict = true,
+): string | null {
+  const rep = parseFact(facts, popPcRepresentationKey(pcId), PopulationPcRepresentationSchema);
+  if (!rep || pinned.fact_key !== popPcRepresentationKey(pcId))
+    return "Population has determined the PC's relation to its aggregate workforce: the registration pins that determination";
+  if (strict ? rep.fact.version !== pinned.version : rep.fact.version < pinned.version)
+    return "the registration pins the committed Population determination";
+  if (rep.value.status !== PC_REPRESENTATION_OUTSIDE)
+    return "Population has not proven the PC outside its aggregate workforce: the act is withheld pending a lawful reconciliation";
+  if (facts.values) {
+    const loc = rep.value.locality;
+    const live = derivePcRepresentation(
+      pcId,
+      {
+        world: { fact_key: worldProfileKey(loc.world_id), entity_id: loc.world_id },
+        locus: { fact_key: worldLocusKey(loc.world_id, loc.locus_id), entity_id: loc.locus_id },
+      },
+      facts,
+    );
+    if (!live.ok || live.value.status !== PC_REPRESENTATION_OUTSIDE)
+      return "Population's ledgers no longer prove the PC outside its aggregate workforce";
+  }
   return null;
 }
 
@@ -813,7 +935,7 @@ export type PcCollectionHold =
  * (a separately confirmed request, Production's terminal disposition, then Population's release) lets that occupation end otherwise.
  * No cancellation, abandonment, partial credit or re-choice is derived here or anywhere else.
  */
-export function pcCollectionHold(facts: FactView, pcId: string): PcCollectionHold {
+export function pcCollectionHold(facts: ScanFacts, pcId: string): PcCollectionHold {
   const occupancy = pcOccupancyState(facts, pcId);
   if (occupancy.state !== "OPEN") return { state: "NONE" };
   const work = parseFact<ProductionPcCollectionWork>(
@@ -836,6 +958,19 @@ export function pcCollectionHold(facts: FactView, pcId: string): PcCollectionHol
 /** Is a request key one in the PC-owned collection key space? */
 export const isPcCollectionRequestKey = (key: string): boolean =>
   PC_COLLECTION_REQUEST_KEY_RE.test(key);
+
+/**
+ * CPAA-C1 v0.3 F-5 — the C8 declaration (design RATIFIED). The single uniform fail-closed refusal on a crossing of another unresolved due
+ * boundary is PROVISIONAL and NOT a complete or knowledge-neutral in-flight advance route: whether it is refused depends on the horizon
+ * the player chose, so repeated chosen horizons can probe a hidden boundary even though every return is the same status. That timing is
+ * an observable disclosure channel, not lawful Epistemic receipt, and it must not be used by I-001/NPK or an accepted player-facing loop.
+ * D-2 (real Actionable-Knowledge-Time and standing-contingency carriers), or an independently demonstrated equivalent non-leaking rule,
+ * is a PRECONDITION for any claim that in-flight time advance is complete, epistemically safe or First Playable PASS. Until then
+ * unsafe crossings are refused uniformly with no explanation, no next-boundary timestamp and no side-channel distinction; a uniform string
+ * alone does not remove horizon probing, and D-1 voluntary cessation is not D-2.
+ */
+export const PC_COLLECTION_C8_DECLARATION =
+  "PROVISIONAL, NOT A COMPLETE OR KNOWLEDGE-NEUTRAL IN-FLIGHT ADVANCE ROUTE: the horizon-dependent refusal is an observable timing-disclosure channel for hidden events; D-2 or an independently demonstrated equivalent is a precondition for any epistemic-safety or First Playable claim";
 
 /**
  * CPAA-C1 v0.2 PROVISIONAL (C8): may the PC's own time be advanced to `target` over its collection? The PC's in-flight collection is

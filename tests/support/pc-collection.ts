@@ -6,6 +6,8 @@ import {
   productionReserveKey,
   productionSourceAccountKey,
   pcCollectionRequestId,
+  worldSourceConditionKey,
+  type PcCollectionCycleTask,
   type CanonicalTime,
   type PcCollectionCommitInput,
   type PcCollectionReachTask,
@@ -13,6 +15,7 @@ import {
 import {
   CanonicalCampaign,
   PcCollectionAdapter,
+  PopulationAdapter,
   ProductionAdapter,
   SourceDrawdownAdapter,
   StageProviderRegistry,
@@ -44,6 +47,7 @@ import {
   T0,
   basisInput,
   drawdownPublication,
+  popPublication,
   prodPublication,
   publication,
   reserveRawInput,
@@ -128,8 +132,43 @@ export interface CollectionSeedOptions {
   /** the cycle duration the mechanism asserts (default: the authored tau) */
   readonly assertedTau?: CanonicalTime;
   readonly noMechanism?: boolean;
+  /** no I-002 semantic attestation of the cycle is committed (the exact positive is then withheld) */
+  readonly noAttestation?: boolean;
+  /** no Population ledger attaches to the PC's locus (the owners then hold no presence or representation evidence) */
+  readonly noLedger?: boolean;
+  /** the units Population's ledger at the PC's locus counts (default: one resident of another place) */
+  readonly ledgerUnits?: readonly {
+    unit_id: string;
+    residence: string;
+    presence: string;
+    burden_allocation: string | null;
+  }[];
   readonly sourceAmount?: number;
 }
+
+/** What a faithful I-002 compiler/adjudicator host reads from the delivered task: one same-form unit in one serial cycle, quoted. */
+export const cycleAnswer = (
+  task: PcCollectionCycleTask,
+  over: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  task_digest: task.digest,
+  reading: "ONE_SAME_FORM_UNIT_ONE_SERIAL_CYCLE",
+  actuator_ground: task.actuator,
+  cycle_ground: cycleWords(task.cycle),
+  grounds: [task.actuator],
+  ...over,
+});
+
+export const LEDGER_COL = "ledger-col";
+export const OTHER_RESIDENT = "unit-other-resident";
+const defaultUnits = () => [
+  {
+    unit_id: OTHER_RESIDENT,
+    residence: "place-village",
+    presence: "place-village",
+    burden_allocation: null,
+  },
+];
 
 export const authoredClaim = (o: CollectionSeedOptions = {}): string =>
   o.claimStatement ??
@@ -168,9 +207,57 @@ export async function collectionCampaign(o: CollectionSeedOptions = {}): Promise
   await must(
     s.production.establishReserve({ ...prodPublication(950), reserve: reserveRawInput() }),
   );
-  if (!o.noMechanism) await must(establishMechanism(s, o));
+  if (!o.noLedger)
+    await must(
+      new PopulationAdapter(s.campaign.store).establishLedger({
+        ...popPublication(950),
+        ledger: {
+          ledger_id: LEDGER_COL,
+          unit_class: "synthetic-unit-class",
+          world_id: FIXTURE_WORLD_ID,
+          locus_id: FIXTURE_LOCUS_ID,
+          units: o.ledgerUnits ?? defaultUnits(),
+          point: T0,
+        },
+      }),
+    );
+  if (!o.noMechanism) {
+    await must(establishMechanism(s, o));
+    if (!o.noAttestation) {
+      // a cycle authored in a unit that is not the campaign's canonical unit CANNOT be attested (Temporal keeps unit authority)
+      const attested = await attestMechanism(s);
+      if (!attested.ok && !o.tau) throw new Error(JSON.stringify(attested.error));
+    }
+  }
   return s;
 }
+
+/** the I-002 compiler/adjudicator reading of the delivered task, validated by the engine and written by the archivist path */
+export async function attestMechanism(
+  s: CollectionSeeded,
+  over: Record<string, unknown> = {},
+  mechanismId = MECH,
+) {
+  const task = s.collect.cycleTask(PC, mechanismId);
+  if (!task) throw new Error("no cycle task");
+  return s.collect.attestCycle({
+    pc_id: PC,
+    mechanism_id: mechanismId,
+    answer: cycleAnswer(task, over),
+  });
+}
+
+/** Population's own determination of the PC's relation to its aggregate workforce (derived; the caller supplies no content) */
+export const determineRepresentation = (s: CollectionSeeded, n = 301) =>
+  s.collect.determineRepresentation({
+    group_id: `rep-group-${n}`,
+    intent_id: `rep-intent-${n}`,
+    cause: `rep-cause-${n}`,
+    basis: "fixture-basis",
+    secrecy: "fixture-visibility",
+    pc_id: PC,
+    source_fact_key: worldSourceConditionKey(W, SRC_SOURCE_KEY),
+  });
 
 export const establishMechanism = (s: CollectionSeeded, o: CollectionSeedOptions = {}, n = 951) =>
   s.collect.establishMechanism({
@@ -214,6 +301,27 @@ export async function establishDestinationSource(s: CollectionSeeded): Promise<v
     s.production.establishReserve({
       ...prodPublication(970),
       reserve: { ...reserveRawInput(DEST_RESERVE), locus_id: DEST_LOCUS_ID },
+    }),
+  );
+  // the owners' presence evidence at the destination: a ledger attached to that locus (one resident who is not the PC)
+  await must(
+    new PopulationAdapter(s.campaign.store).establishLedger({
+      ...popPublication(970),
+      ledger: {
+        ledger_id: "ledger-dest",
+        unit_class: "synthetic-unit-class",
+        world_id: FIXTURE_WORLD_ID,
+        locus_id: DEST_LOCUS_ID,
+        units: [
+          {
+            unit_id: "unit-dest-resident",
+            residence: "place-hamlet",
+            presence: "place-hamlet",
+            burden_allocation: null,
+          },
+        ],
+        point: T0,
+      },
     }),
   );
 }
@@ -268,8 +376,27 @@ export function hostAnswer(
   task: PcCollectionReachTask,
   path: "OPEN" | "CLOSED",
   mechanism: "ABLE_TO_PASS" | "UNABLE_TO_PASS" | "NOT_AT_ISSUE",
+  scene: "SOLITARY" | "ENGAGED" | "UNDETERMINED" | "SOLITARY_UNACKNOWLEDGED" = "SOLITARY",
 ): Record<string, unknown> {
+  const sceneGrounds =
+    scene === "UNDETERMINED"
+      ? []
+      : [
+          task.scene.statements[0]!,
+          ...(scene === "SOLITARY_UNACKNOWLEDGED"
+            ? []
+            : task.scene.presence_here.map((p) => p.statement)),
+        ];
   return {
+    scene: {
+      reading:
+        scene === "ENGAGED"
+          ? "CO_PRESENT_CONSEQUENTIAL_INTERACTION"
+          : scene === "UNDETERMINED"
+            ? "NOT_ESTABLISHED"
+            : "NO_CO_PRESENT_CONSEQUENTIAL_INTERACTION",
+      grounds: sceneGrounds,
+    },
     task_digest: task.digest,
     path: {
       reading: path,
@@ -287,10 +414,11 @@ export async function confirmAndStart(
   s: CollectionSeeded,
   actId: string,
   quantity = 3,
-  reading: [Parameters<typeof hostAnswer>[1], Parameters<typeof hostAnswer>[2]] = [
-    "OPEN",
-    "NOT_AT_ISSUE",
-  ],
+  reading: [
+    Parameters<typeof hostAnswer>[1],
+    Parameters<typeof hostAnswer>[2],
+    Parameters<typeof hostAnswer>[3]?,
+  ] = ["OPEN", "NOT_AT_ISSUE"],
 ) {
   const ctx = trustedCollection(s, actId, quantity);
   const committed = await commitConfirmedPcCollection(ctx, COMMIT_REQ);
@@ -307,10 +435,11 @@ export async function prepareToStart(
   s: CollectionSeeded,
   act: string,
   quantity: number,
-  reading: [Parameters<typeof hostAnswer>[1], Parameters<typeof hostAnswer>[2]] = [
-    "OPEN",
-    "NOT_AT_ISSUE",
-  ],
+  reading: [
+    Parameters<typeof hostAnswer>[1],
+    Parameters<typeof hostAnswer>[2],
+    Parameters<typeof hostAnswer>[3]?,
+  ] = ["OPEN", "NOT_AT_ISSUE"],
 ) {
   const ctx = trustedCollection(s, act, quantity);
   const committed = await commitConfirmedPcCollection(ctx, COMMIT_REQ);
@@ -320,6 +449,7 @@ export async function prepareToStart(
     ctx,
     reachReq(hostAnswer(task.value.task, ...reading)),
   );
+  await determineRepresentation(s);
   const occ = await s.collect.registerOccupancy({
     ...colPublication(300),
     pc_id: PC,
@@ -358,3 +488,15 @@ export const clock = (s: Pick<CollectionSeeded, "coordinator">) =>
 export const extractionOf = (s: CollectionSeeded, actId: string) => s.collect.extraction(PC, actId);
 export const extractionId = (actId: string) => pcCollectionRequestId(PC, actId);
 export { at, FIXTURE_LOCUS_ID, SRC_RESERVE, SRC_SOURCE_KEY, SRC_BASIS_ID, SRC_UNIT, SRC_ACCESS };
+
+/** The gateway's own identities (RC-16) for Population's determination, so a test that stops the chain half-way converges by identity. */
+export const gatewayRepresentation = (s: CollectionSeeded, act: string) =>
+  s.collect.determineRepresentation({
+    group_id: `pc-collect-group:representation:${PC}:${act}`,
+    intent_id: `pc-collect-intent:representation:${PC}:${act}`,
+    cause: `cause-${act}`,
+    basis: "fixture-basis",
+    secrecy: "fixture-visibility",
+    pc_id: PC,
+    source_fact_key: worldSourceConditionKey(W, SRC_SOURCE_KEY),
+  });

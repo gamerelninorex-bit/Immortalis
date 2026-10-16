@@ -4,6 +4,9 @@ import {
   PC_OCCUPANCY_RELEASED_DENIED,
   PC_OCCUPANCY_RELEASED_TERMINATED,
   PcCollectionCessationSchema,
+  PcCollectionCycleAttestationSchema,
+  PopulationPcRepresentationSchema,
+  popPcRepresentationKey,
   ProductionPcCollectionTerminationSchema,
   BoundaryIndexSchema,
   SourceAccountSchema,
@@ -38,12 +41,14 @@ import {
   REFEREE_DECISION_BASIS,
   REFEREE_SECRECY,
   type CommitGroup,
+  type LocusRef,
   type ProductionExtraction,
   type WorldSourceCondition,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
+  PC_COLLECTION_ATTESTATION_RULE,
   PC_COLLECTION_CESSATION_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
@@ -59,7 +64,10 @@ import {
   pcCollectionTerminationViolation,
 } from "./cessation.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
+import { pcCycleAttestationViolation, pcRepresentationViolation } from "./determinations.ts";
 import {
+  pcStandingViolation,
+  pcRepresentationHolds,
   deriveOccupancyInterval,
   pcCollectionCommitmentViolation,
   pcCollectionMechanismViolation,
@@ -109,6 +117,8 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
       [worldPcLocusCustodyKey(c.pc_id), "the PC's physical-locus custody record"],
       [c.intent.source.fact_key, "the World-State Source Condition"],
       [c.intent.destination.fact_key, "the destination Production Reserve"],
+      [c.basis.cycle.mechanism.fact_key, "the PC's mechanism"],
+      [c.basis.cycle.attestation.fact_key, "the semantic attestation of the PC's serial cycle"],
     ]);
     if (missing) return missing;
     const v = pcCollectionCommitmentViolation(w.key, c, state.facts);
@@ -140,6 +150,22 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
     const v = pcCollectionMechanismViolation(w.key, mech, state.facts);
     return v ? ref(v, { key: w.key }) : null;
   }
+  if (kind === "pc_collection_cycle_attestation" && group.facet === FACET_PC_COLLECTION_MECHANISM) {
+    const a = PcCollectionCycleAttestationSchema.parse(w.value);
+    // v0.3 F-2: the I-002 owner's versioned attestation, created once and re-derived
+    if (!canonicalEqual(group.rule, PC_COLLECTION_ATTESTATION_RULE))
+      return ref("an attestation is governed by the ratified v0.3 P-1 attestation rule", {
+        key: w.key,
+      });
+    const missing = need(group, state, [
+      [a.mechanism.fact_key, "the PC's mechanism"],
+      [pcExistenceContractKey(a.pc_id), "the PC's released contract"],
+      [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    ]);
+    if (missing) return missing;
+    const v = pcCycleAttestationViolation(w.key, a, state.facts);
+    return v ? ref(v, { key: w.key }) : null;
+  }
   if (kind === "pc_collection_cessation") {
     const c = PcCollectionCessationSchema.parse(w.value);
     // D-1 (PROVISIONAL)
@@ -166,7 +192,7 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
   }
   return reject(
     "VALUE_INVALID",
-    "the PC collection facets hold only the commitment, the request, the mechanism and the cessation",
+    "the PC collection facets hold only the commitment, the request, the mechanism, its attestation and the cessation",
   );
 }
 
@@ -334,6 +360,16 @@ export function pcOccupancyGroupCheck(group: CommitGroup, state: CampaignState):
   if (group.writes.length !== 1)
     return reject("VALUE_INVALID", "one registration or release concerns exactly one PC occupancy");
   const w = group.writes[0]!;
+  if (resolveKey(w.key)?.kind.id === "population_pc_representation") {
+    // v0.3 F-3: Population's own determination, derived from its ledgers; never a caller's statement
+    const r = PopulationPcRepresentationSchema.parse(w.value);
+    const standing = pcStandingViolation(r.pc_id, state.facts);
+    const locality = "reason" in standing ? undefined : (standing.sourceLocus as LocusRef);
+    const missing = need(group, state, [[TEMPORAL_STATE_KEY, "the canonical temporal state"]]);
+    if (missing) return missing;
+    const v = pcRepresentationViolation(w.key, r, state.facts, locality);
+    return v ? ref(v, { key: w.key }) : null;
+  }
   if (resolveKey(w.key)?.kind.id !== "population_pc_occupancy")
     return reject("VALUE_INVALID", "the PC occupancy facet holds only the occupancy registration");
   const occ = PopulationPcOccupancySchema.parse(w.value);
@@ -432,6 +468,14 @@ export function pcOccupancyGroupCheck(group: CommitGroup, state: CampaignState):
     occ.mechanism.version !== pre.mechanism.fact.version
   )
     return ref("the registration pins the exact committed commitment and mechanism");
+  // v0.3 F-3: individual occupancy proceeds only on Population's determination that the PC is OUTSIDE its aggregate workforce
+  const repMissing = need(group, state, [
+    [popPcRepresentationKey(occ.pc_id), "Population's representation determination"],
+  ]);
+  if (repMissing) return repMissing;
+  const repViolation = pcRepresentationHolds(state.facts, occ.pc_id, occ.representation, true);
+  if (repViolation)
+    return reject("CLAIM_INCOMPATIBLE", repViolation, { reason: "PC_REPRESENTATION_WITHHELD" });
   const interval = deriveOccupancyInterval(pre.commitment.value, pre.mechanism.value, pre.now);
   if (!interval.ok)
     return reject("CLAIM_INCOMPATIBLE", interval.error.message, { reason: "COLLECTION_WITHHELD" });

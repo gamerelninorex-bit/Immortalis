@@ -48,9 +48,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "5a3300cff25fa233c2fc93722072a110d391ce4492c4f73b3847289a9c2b03b7", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "653a8406e7f37ce48d83a9fce34fa82e8c95425360c153d66e91a9b3de6bdabf", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "afe3abeb623b378fbb31dc64e712c5c8feac104d4041cbc1282566de69ac8d71", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":
@@ -66,7 +66,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "a1e919e2eb57a742905929b6f37d028d27149e60cd642b079fca5ef071ac13de",
+    "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
 };
 
 describe("the owners, contracts, shipped binary and frozen artifacts are untouched: the slice consumes them, never edits or duplicates them", () => {

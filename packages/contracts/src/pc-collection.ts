@@ -49,6 +49,14 @@ export const pcCollectionCommitmentKey = (pcId: string, actId: string): string =
   `pc/${pcId}/collection/${actId}/commitment`;
 export const pcCollectionRequestKey = (pcId: string, actId: string): string =>
   `pc/${pcId}/collection/${actId}/request`;
+/** v0.3 F-2: the versioned owner-authored semantic attestation of the PC's serial handling cycle (one per mechanism). */
+export const pcCollectionAttestationKey = (pcId: string, mechanismId: string): string =>
+  `pc/${pcId}/collection-attestation/${mechanismId}`;
+export const pcCollectionAttestationId = (pcId: string, mechanismId: string): string =>
+  `pc-collect-attestation:${pcId}:${mechanismId}`;
+/** v0.3 F-3: Population's determination of one PC's representation relation to its effective aggregate workforce (one per PC). */
+export const popPcRepresentationKey = (pcId: string): string =>
+  `population-pc/${pcId}/representation`;
 /** D-1 (PROVISIONAL): the PC-side request to cease the SAME in-flight collection: one per act, create-only. */
 export const pcCollectionCessationKey = (pcId: string, actId: string): string =>
   `pc/${pcId}/collection/${actId}/cessation`;
@@ -150,6 +158,11 @@ export const PcCollectionCommitmentSchema = z.strictObject({
       source: Version.min(1),
       reserve: Version.min(1),
     }),
+    /**
+     * v0.3 F-2 (effective before the act): the PC's mechanism and the OWNER-QUALIFIED semantic attestation of its serial cycle this
+     * act rests on, both committed before the commitment. A commitment without them states no exact cycle and no exact completion follows.
+     */
+    cycle: z.strictObject({ mechanism: Pin, attestation: Pin }),
   }),
   committer: z.strictObject({
     owner: z.literal(OWNER_PC_EXISTENCE),
@@ -236,8 +249,42 @@ export const PC_REACH_MECHANISM_READINGS = [
 export const PC_REACH_VERDICTS = ["REACHABLE", "NOT_REACHABLE"] as const;
 
 /**
+ * v0.3 F-1 — the solitary material-handling class. The host's reading of the OWNER-established scene evidence; the engine derives the
+ * verdict. `NO_CO_PRESENT_CONSEQUENTIAL_INTERACTION` is never a default and never a player or model `solitary=true` assertion: it needs
+ * the engine-built evidence below (no evidence → no task → WITHHELD) and quoted grounds.
+ */
+export const PC_SCENE_READINGS = [
+  "NO_CO_PRESENT_CONSEQUENTIAL_INTERACTION",
+  "CO_PRESENT_CONSEQUENTIAL_INTERACTION",
+  "NOT_ESTABLISHED",
+] as const;
+export const PC_SCENE_VERDICT_ESTABLISHED = "SOLITARY_CLASS_ESTABLISHED";
+export const PC_SCENE_VERDICTS = [
+  PC_SCENE_VERDICT_ESTABLISHED,
+  "ENGAGED_NOT_SOLITARY",
+  "WITHHELD",
+] as const;
+
+/**
+ * The scene evidence the owners hold, delivered verbatim and pinned: the committed world and locus wording and the Population
+ * ledgers that attach to this very locus (each unit's identity and presence are Population's own facts). `presence_here` is the
+ * mechanical list of OTHER units whose Population presence is this locus. The digest changes whenever any of it changes, so a changed
+ * scene re-opens the question before the act can close (the occupied interval).
+ */
+export const PcCollectionSceneEvidenceSchema = z.strictObject({
+  world: Pin,
+  locus: Pin,
+  statements: z.array(Text).min(1),
+  ledgers: z.array(Pin).min(1),
+  presence_here: z.array(z.strictObject({ unit_id: EntityId, statement: Text })),
+  digest: Sha256,
+});
+export type PcCollectionSceneEvidence = z.infer<typeof PcCollectionSceneEvidenceSchema>;
+
+/**
  * The bounded task a host interprets: the already established premises of ONE attempt, delivered as committed wording (the source
- * owner's stated access facts, the PC owner's stated mechanism). The task creates no obstacle, capability, consent or result.
+ * owner's stated access facts, the PC owner's stated mechanism, the owners' scene evidence). The task creates no obstacle,
+ * capability, consent or result.
  */
 export const PcCollectionReachTaskSchema = z.strictObject({
   pc_id: EntityId,
@@ -252,6 +299,7 @@ export const PcCollectionReachTaskSchema = z.strictObject({
     traversal: Text,
     actuator: Text,
   }),
+  scene: PcCollectionSceneEvidenceSchema,
   digest: Sha256,
 });
 export type PcCollectionReachTask = z.infer<typeof PcCollectionReachTaskSchema>;
@@ -265,6 +313,10 @@ export const PcCollectionReachAnswerSchema = z.strictObject({
   }),
   mechanism: z.strictObject({
     reading: z.enum(PC_REACH_MECHANISM_READINGS),
+    grounds: z.array(Text),
+  }),
+  scene: z.strictObject({
+    reading: z.enum(PC_SCENE_READINGS),
     grounds: z.array(Text),
   }),
 });
@@ -281,14 +333,122 @@ export const PcCollectionReachDecisionSchema = z.strictObject({
     mechanism: Pin,
     commitment: Pin,
   }),
+  /** the scene evidence the answer interpreted, exactly as delivered: a changed scene makes the solitary class unestablished again */
+  scene_evidence: PcCollectionSceneEvidenceSchema,
   answer: PcCollectionReachAnswerSchema,
   verdict: z.enum(PC_REACH_VERDICTS),
+  /** v0.3 F-1: derived by the engine from the validated scene answer and the evidence; never read from the answer */
+  scene_verdict: z.enum(PC_SCENE_VERDICTS),
   authority: z.strictObject({
     role: z.literal("role.gm"),
     permission: z.literal("permission.rule.adjudicate"),
   }),
 });
 export type PcCollectionReachDecision = z.infer<typeof PcCollectionReachDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// v0.3 F-2 — P-1 semantic attestation of the PC's serial handling cycle (I-002 §5 Capability/Effect Module + Temporal Hook).
+// ---------------------------------------------------------------------------------------------
+
+export const PC_CYCLE_READINGS = [
+  "ONE_SAME_FORM_UNIT_ONE_SERIAL_CYCLE",
+  "NOT_ONE_UNIT_ONE_SERIAL_CYCLE",
+  "NOT_ESTABLISHED",
+] as const;
+export const PC_CYCLE_MEANING =
+  "ONE_SAME_FORM_UNIT_HANDLED_BY_THE_NAMED_ACTUATOR_IN_ONE_SERIAL_CYCLE";
+
+/**
+ * The bounded task the PC-intrinsic compiler/adjudicator (`role.gm`, I-002 declared) interprets: the cited accepted claims'
+ * wording exactly as committed, the mechanism's actuator and its stated cycle. An INTERPRETATION of PC-intrinsic meaning only: it
+ * judges nothing of the physical source, its access, rights or success.
+ */
+export const PcCollectionCycleTaskSchema = z.strictObject({
+  pc_id: EntityId,
+  mechanism: Pin,
+  claims: z.array(z.strictObject({ locator: PcClaimLocatorSchema, statement: Text })).min(1),
+  actuator: Text,
+  cycle: CanonicalTimeSchema,
+  digest: Sha256,
+});
+export type PcCollectionCycleTask = z.infer<typeof PcCollectionCycleTaskSchema>;
+
+/** The host's UNTRUSTED reading: no verdict, role or permission; every ground a verbatim quotation of the delivered claim wording. */
+export const PcCollectionCycleAnswerSchema = z.strictObject({
+  task_digest: Sha256,
+  reading: z.enum(PC_CYCLE_READINGS),
+  actuator_ground: Text,
+  cycle_ground: Text,
+  grounds: z.array(Text),
+});
+export type PcCollectionCycleAnswer = z.infer<typeof PcCollectionCycleAnswerSchema>;
+
+/**
+ * The versioned owner-authored attestation (the I-002 owner's record, written by `role.archivist` + `permission.canon.write` after the
+ * `role.gm` interpretation validated): it retains the attestor role, the claim and mechanism versions, the accepted meaning, the
+ * operative Temporal Hook and the canonical time from which it is effective. An accepted claim without it cannot ground an exact
+ * cycle. It is created once per mechanism and never amended retroactively: a commitment pins it, so it is effective BEFORE the act.
+ */
+export const PcCollectionCycleAttestationSchema = z.strictObject({
+  attestation_id: EntityId,
+  pc_id: EntityId,
+  mechanism: Pin,
+  contract: Pin,
+  claims: z.array(PcClaimLocatorSchema).min(1),
+  attestor: z.strictObject({
+    role: z.literal("role.gm"),
+    permission: z.literal("permission.rule.adjudicate"),
+  }),
+  meaning: z.literal(PC_CYCLE_MEANING),
+  actuator_ground: Text,
+  cycle_ground: Text,
+  grounds: z.array(Text),
+  /** the operative, versioned Temporal Hook: the one serial cycle's duration in the canonical unit (Temporal keeps unit authority) */
+  temporal_hook: z.strictObject({
+    hook_id: EntityId,
+    version: z.literal(1),
+    operation: z.literal("serial-handling-cycle"),
+    per_cycle: CanonicalTimeSchema.refine((d) => d.value > 0, "a cycle duration is positive"),
+  }),
+  effective_from: CanonicalTimeSchema,
+  task_digest: Sha256,
+  committer: z.strictObject({
+    owner: z.literal(OWNER_PC_EXISTENCE),
+    facet: z.literal(FACET_PC_COLLECTION_MECHANISM),
+  }),
+});
+export type PcCollectionCycleAttestation = z.infer<typeof PcCollectionCycleAttestationSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// v0.3 F-3 — Population's determination of the PC's relation to its effective aggregate workforce.
+// ---------------------------------------------------------------------------------------------
+
+export const PC_REPRESENTATION_OUTSIDE = "OUTSIDE_AGGREGATE";
+export const PC_REPRESENTATION_INCLUDED = "INCLUDED";
+export const PC_REPRESENTATION_UNKNOWN = "UNKNOWN";
+
+/**
+ * Population's own determination, derived from its committed ledgers (never from a caller or from the PC's binding): the PC is
+ * `INCLUDED` when any ledger counts a unit with its identity; `OUTSIDE_AGGREGATE` only when at least one ledger attaches to the PC's
+ * locus, enumerates its units with identities, and none of them is the PC; otherwise `UNKNOWN`. Only OUTSIDE proceeds on individual
+ * occupancy alone; INCLUDED and UNKNOWN WITHHOLD. It carries no layer tag, no headcount, no cohort, no flexible-labor debit, no labor token.
+ */
+export const PopulationPcRepresentationSchema = z.strictObject({
+  pc_id: EntityId,
+  status: z.enum([
+    PC_REPRESENTATION_OUTSIDE,
+    PC_REPRESENTATION_INCLUDED,
+    PC_REPRESENTATION_UNKNOWN,
+  ]),
+  locality: z.strictObject({ world_id: EntityId, locus_id: EntityId }),
+  ledgers: z.array(Pin),
+  determined_at: CanonicalTimeSchema,
+  committer: z.strictObject({
+    owner: z.literal("population"),
+    facet: z.literal(FACET_POPULATION_PC_OCCUPANCY),
+  }),
+});
+export type PopulationPcRepresentation = z.infer<typeof PopulationPcRepresentationSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // C5 / PROVISIONAL P-2 — Population's registration of one active PC's individual occupied work interval.
@@ -318,6 +478,8 @@ export const PopulationPcOccupancySchema = z.strictObject({
   interval: z.strictObject({ from: CanonicalTimeSchema, to: CanonicalTimeSchema }),
   commitment: Pin,
   mechanism: Pin,
+  /** v0.3 F-3: the Population determination (OUTSIDE_AGGREGATE) this registration proceeds on */
+  representation: Pin,
   committer: z.strictObject({
     owner: z.literal("population"),
     facet: z.literal(FACET_POPULATION_PC_OCCUPANCY),

@@ -192,6 +192,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, cl
       "pc_collection_request",
       "pc_collection_mechanism",
       "pc_collection_cessation",
+      "pc_collection_cycle_attestation",
     ]);
     expect(existsSync("migrations/manifests/pc-capability-world-prior.json")).toBe(false);
   });

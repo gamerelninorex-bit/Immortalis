@@ -256,7 +256,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "653a8406e7f37ce48d83a9fce34fa82e8c95425360c153d66e91a9b3de6bdabf",
+    "afe3abeb623b378fbb31dc64e712c5c8feac104d4041cbc1282566de69ac8d71",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
@@ -276,7 +276,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/commands.ts":
-    "a1e919e2eb57a742905929b6f37d028d27149e60cd642b079fca5ef071ac13de",
+    "467a877a789cbfbf973ddb734af1f009a74bf331156882e37b17c876e18589f2",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
@@ -310,7 +310,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1",
+    head: "5a3300cff25fa233c2fc93722072a110d391ce4492c4f73b3847289a9c2b03b7",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -326,7 +326,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "7a240407abf8b02ddeb527f07591c81ef929477a02b754abf207205fd5b9a06a",
+    head: "9b169bb45e5e684c8b34ea5deb6def45afe94692c7572f8b4fc11157072c2d6b",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",

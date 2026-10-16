@@ -57,9 +57,12 @@ const C1_KIND_IDS = [
   "production_pc_collection_work",
 ] as const;
 const D1_KIND_IDS = ["pc_collection_cessation", "production_pc_collection_termination"] as const;
+// CPAA-C1 v0.3 (design ratified; implementation acceptance pending): the attestation and Population's representation determination
+const V03_KIND_IDS = ["pc_collection_cycle_attestation", "population_pc_representation"] as const;
 const MODULES = [
   "packages/contracts/src/pc-collection.ts",
   "packages/engine/src/pc-collection/cessation.ts",
+  "packages/engine/src/pc-collection/determinations.ts",
   "packages/contracts/src/protocol-pc-collection.ts",
   "packages/engine/src/pc-collection/state.ts",
   "packages/engine/src/pc-collection/derive.ts",
@@ -72,7 +75,12 @@ const GATEWAY = "packages/protocol/src/pc-collection.ts";
 
 describe("IA-01 provisional status: every new kind is tagged as an unratified candidate lowering, never as a pinned rule", () => {
   it("the six C1 kinds' governing rule cites the candidate and the Sovereign's non-final direction, with effective_basis provisional", () => {
-    expect(PC_COLLECTION_FACT_KINDS.map((k) => k.id)).toEqual([...C1_KIND_IDS, ...D1_KIND_IDS]);
+    expect(PC_COLLECTION_FACT_KINDS.map((k) => k.id)).toEqual([
+      ...C1_KIND_IDS,
+      "pc_collection_cessation",
+      ...V03_KIND_IDS,
+      "production_pc_collection_termination",
+    ]);
     for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
       (C1_KIND_IDS as readonly string[]).includes(k.id),
     )) {
@@ -168,6 +176,12 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "lexical guard, not a semantic adjudication",
       "RELEASED_TERMINATED",
       "units_credited",
+      // v0.3 conformity repair: ratified design, implementation acceptance pending
+      "v0.3 conformity repair",
+      "not code acceptance, a source-lock amendment or merge permission",
+      "OUTSIDE_AGGREGATE",
+      "CONTINUATION_HELD",
+      "not** knowledge-neutral",
     ])
       expect(doc, text).toContain(text);
     for (const notImplemented of [
@@ -246,6 +260,23 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
         "SEALED",
         "IM-07",
         ["RC-02", "RC-15", "RC-16"],
+      ],
+      // CPAA-C1 v0.3 (design ratified; implementation acceptance pending): the attestation and Population's determination
+      [
+        "pc_collection_cycle_attestation",
+        "pc_existence",
+        "pc_collection_mechanism",
+        "SEALED",
+        "IM-07",
+        ["RC-02", "RC-03", "RC-16"],
+      ],
+      [
+        "population_pc_representation",
+        "population",
+        "population_pc_occupancy",
+        "ADVANCING",
+        "IM-04",
+        ["RC-02", "RC-06"],
       ],
       [
         "production_pc_collection_termination",
@@ -350,6 +381,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "admission.ts",
       "cessation.ts",
       "derive.ts",
+      "determinations.ts",
       "integrity.ts",
       "state.ts",
     ]);
@@ -358,11 +390,15 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
     expect(existsSync("migrations/manifests/pc-collection.json")).toBe(false);
     expect(adapterMethods(PcCollectionAdapter)).toEqual([
       "adjudicateReach",
+      "attestCycle",
+      "attestation",
       "cease",
       "cessation",
       "closed",
       "commit",
       "commitment",
+      "cycleTask",
+      "determineRepresentation",
       "establishMechanism",
       "establishRequest",
       "extraction",
@@ -375,6 +411,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "registerOccupancy",
       "releaseOccupancyDenied",
       "releaseOccupancyTerminated",
+      "representation",
       "request",
       "startWork",
       "temporalObject",
@@ -432,10 +469,19 @@ describe("the slice is one closed class: no action bus, no universal action law,
       ].sort(),
     );
     expect(Object.keys(PcCollectionReachAnswerSchema.shape).sort()).toEqual(
-      ["mechanism", "path", "task_digest"].sort(),
+      ["mechanism", "path", "scene", "task_digest"].sort(),
     );
     expect(Object.keys(PopulationPcOccupancySchema.shape).sort()).toEqual(
-      ["act_id", "commitment", "committer", "interval", "mechanism", "pc_id", "status"].sort(),
+      [
+        "act_id",
+        "commitment",
+        "committer",
+        "interval",
+        "mechanism",
+        "pc_id",
+        "representation",
+        "status",
+      ].sort(),
     );
     expect(Object.keys(ProductionPcCollectionWorkSchema.shape).sort()).toEqual(
       ["act_id", "derivation", "pc_id", "pins", "work_id"].sort(),

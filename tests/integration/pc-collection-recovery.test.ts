@@ -49,6 +49,7 @@ import {
   sourceRemaining,
   trustedCollection,
   type CollectionSeeded,
+  gatewayRepresentation,
 } from "../support/pc-collection.ts";
 import { pcTargetTransaction } from "../support/pc-target-advance.ts";
 import { tempDir } from "../support/tmp.ts";
@@ -112,6 +113,7 @@ const cuts: { name: string; build: (s: CollectionSeeded) => Promise<void> }[] = 
         reachReq(hostAnswer(t.value.task, "OPEN", "NOT_AT_ISSUE")),
       );
       // the gateway's own identities (RC-16): the continuation presents the same registration and converges by identity
+      await gatewayRepresentation(s, ACT_A);
       await s.collect.registerOccupancy({
         group_id: `pc-collect-group:occupancy:${PC}:${ACT_A}`,
         intent_id: `pc-collect-intent:occupancy:${PC}:${ACT_A}`,

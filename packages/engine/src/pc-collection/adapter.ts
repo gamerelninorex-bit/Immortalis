@@ -4,6 +4,15 @@ import {
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
   PC_OCCUPANCY_RELEASED_TERMINATED,
+  PC_CYCLE_MEANING,
+  PcCollectionCycleAttestationSchema,
+  PopulationPcRepresentationSchema,
+  pcCollectionAttestationId,
+  pcCollectionAttestationKey,
+  popPcRepresentationKey,
+  type PcCollectionCycleAttestation,
+  type PcCollectionCycleTask,
+  type PopulationPcRepresentation,
   PcCollectionCessationInputSchema,
   PcCollectionCessationSchema,
   ProductionPcCollectionTerminationSchema,
@@ -69,6 +78,13 @@ import {
   factKind,
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
+import {
+  buildCycleTask,
+  buildSceneEvidence,
+  derivePcRepresentation,
+  interpretCycleAnswer,
+  pcCycleHookId,
+} from "./determinations.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { SourceDrawdownAdapter } from "../source-drawdown/adapter.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
@@ -115,6 +131,8 @@ const byId = (a: { extraction_id: string }, b: { extraction_id: string }): numbe
   a.extraction_id < b.extraction_id ? -1 : a.extraction_id > b.extraction_id ? 1 : 0;
 
 type KindId =
+  | "pc_collection_cycle_attestation"
+  | "population_pc_representation"
   | "pc_collection_cessation"
   | "pc_collection_commitment"
   | "pc_collection_request"
@@ -139,13 +157,17 @@ export class PcCollectionAdapter {
 
   /** C2/C3: the player's confirmed commitment-of-record (willingness to attempt only). */
   commit(
-    input: Publication & { readonly commitment: unknown },
+    input: Publication & { readonly commitment: unknown; readonly mechanism_id: string },
   ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
     const p = PublicationSchema.safeParse(pick(input));
     if (!p.success) return Promise.resolve(invalid("publication", p.error));
     const c = PcCollectionCommitInputSchema.safeParse(input.commitment);
     if (!c.success) return Promise.resolve(invalid("commitment", c.error));
-    const derived = derivePcCollectionCommitment(c.data as PcCollectionCommitInput, this.#store);
+    const derived = derivePcCollectionCommitment(
+      c.data as PcCollectionCommitInput,
+      this.#store,
+      input.mechanism_id,
+    );
     if (!derived.ok) return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
     const v = derived.value;
     return this.#publish(
@@ -160,6 +182,8 @@ export class PcCollectionAdapter {
         worldPcLocusCustodyKey(v.pc_id),
         v.intent.source.fact_key,
         v.intent.destination.fact_key,
+        v.basis.cycle.mechanism.fact_key,
+        v.basis.cycle.attestation.fact_key,
       ],
     );
   }
@@ -238,6 +262,117 @@ export class PcCollectionAdapter {
     );
   }
 
+  /**
+   * v0.3 F-2: the bounded task the I-002 compiler/adjudicator (`role.gm`) interprets to attest the PC's serial handling cycle: the cited
+   * claims' committed wording, the mechanism's actuator and its stated cycle. Undefined while the mechanism is not committed.
+   */
+  cycleTask(pcId: string, mechanismId: string): PcCollectionCycleTask | undefined {
+    const mech = this.mechanism(pcId, mechanismId);
+    if (!mech) return undefined;
+    const task = buildCycleTask(this.#view(), mech);
+    return task.ok ? task.value : undefined;
+  }
+
+  /**
+   * v0.3 F-2: validates the host's UNTRUSTED reading against the task and, only for the reading that the cited content denotes ONE
+   * same-form unit handled by the named actuator in ONE serial cycle with every ground a verbatim quotation, writes the I-002 owner's
+   * versioned attestation under `role.archivist` + `permission.canon.write` (applied here, never read from the answer), effective from
+   * the canonical time and never retroactively. Anything else writes nothing: an unattested claim cannot ground an exact cycle. The
+   * identities derive from the PC and the mechanism, so presenting it again reconciles by identity.
+   */
+  async attestCycle(input: {
+    readonly pc_id: string;
+    readonly mechanism_id: string;
+    readonly answer: unknown;
+  }): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const id = pcCollectionAttestationId(input.pc_id, input.mechanism_id);
+    const identity = {
+      group_id: `pc-attest-group:${input.pc_id}:${input.mechanism_id}`,
+      intent_id: `pc-attest-intent:${input.pc_id}:${input.mechanism_id}`,
+      cause: `pc-attest-cause:${input.pc_id}:${input.mechanism_id}`,
+      basis: REFEREE_DECISION_BASIS,
+      secrecy: REFEREE_SECRECY,
+    };
+    const replay = this.#store.committedGroup(identity.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const mech = this.mechanism(input.pc_id, input.mechanism_id);
+    const task = this.cycleTask(input.pc_id, input.mechanism_id);
+    if (!mech || !task)
+      return fail("PREREQUISITE_MISSING", "the premises of the attestation are not committed");
+    const interpreted = interpretCycleAnswer(task, input.answer);
+    if (!interpreted.ok) return fail("ANSWER_INVALID", interpreted.error.message);
+    const now = this.#view().get(TEMPORAL_STATE_KEY);
+    const clock = now
+      ? (now.value as { canonical_time: PcCollectionCycleAttestation["effective_from"] })
+          .canonical_time
+      : undefined;
+    if (!clock) return fail("PREREQUISITE_MISSING", "no canonical temporal basis is established");
+    const m = mech.value;
+    const value = PcCollectionCycleAttestationSchema.safeParse({
+      attestation_id: id,
+      pc_id: input.pc_id,
+      mechanism: { fact_key: mech.fact.key, version: mech.fact.version },
+      contract: m.authored_from.contract,
+      claims: m.authored_from.claims,
+      attestor: { role: "role.gm", permission: "permission.rule.adjudicate" },
+      meaning: PC_CYCLE_MEANING,
+      actuator_ground: interpreted.value.actuator_ground,
+      cycle_ground: interpreted.value.cycle_ground,
+      grounds: interpreted.value.grounds,
+      temporal_hook: {
+        hook_id: pcCycleHookId(input.pc_id, input.mechanism_id),
+        version: 1,
+        operation: "serial-handling-cycle",
+        per_cycle: m.cycle.duration,
+      },
+      effective_from: clock,
+      task_digest: task.digest,
+      committer: { owner: "pc_existence", facet: "pc_collection_mechanism" },
+    });
+    if (!value.success) return invalid("attestation", value.error);
+    return this.#publish(
+      identity,
+      "pc_collection_cycle_attestation",
+      pcCollectionAttestationKey(input.pc_id, input.mechanism_id),
+      value.data,
+      0,
+      [mech.fact.key, pcExistenceContractKey(input.pc_id), TEMPORAL_STATE_KEY],
+    );
+  }
+
+  /**
+   * v0.3 F-3: Population's own determination of the PC's relation to its effective aggregate workforce, DERIVED from its ledgers and
+   * the PC's identity (a caller supplies nothing). Whatever it derives is recorded as it is (OUTSIDE_AGGREGATE, INCLUDED or UNKNOWN);
+   * only OUTSIDE lets the registration proceed.
+   */
+  determineRepresentation(
+    input: Publication & { readonly pc_id: string; readonly source_fact_key: string },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const src = this.#store.getFact(input.source_fact_key);
+    const source = src ? this.#sourceValue(src) : undefined;
+    if (!source)
+      return Promise.resolve(fail("PREREQUISITE_MISSING", "the source is not committed"));
+    const derived = derivePcRepresentation(input.pc_id, source.locality, this.#view());
+    if (!derived.ok) return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    const prior = this.#store.getFact(popPcRepresentationKey(input.pc_id));
+    return this.#publish(
+      p.data,
+      "population_pc_representation",
+      popPcRepresentationKey(input.pc_id),
+      derived.value,
+      prior?.version ?? 0,
+      [
+        TEMPORAL_STATE_KEY,
+        ...derived.value.ledgers.map((l) => l.fact_key),
+        ...(prior ? [prior.key] : []),
+      ],
+    );
+  }
+
   /** C5: the bounded task a host interprets for one attempt, or undefined while its premises are not committed. */
   reachTask(pcId: string, actId: string, mechanismId: string): PcCollectionReachTask | undefined {
     const commitment = this.commitment(pcId, actId);
@@ -247,11 +382,15 @@ export class PcCollectionAdapter {
       : undefined;
     const source = srcFact ? this.#sourceValue(srcFact) : undefined;
     if (!commitment || !mech || !srcFact || !source) return undefined;
+    // v0.3 F-1: no owner scene evidence, no task: the solitary class is withheld before any host is asked
+    const scene = buildSceneEvidence(this.#view(), pcId, source.locality);
+    if ("reason" in scene) return undefined;
     return buildPcCollectionReachTask(
       pcId,
       actId,
       { key: srcFact.key, value: source },
       { key: mech.fact.key, version: mech.fact.version, value: mech.value },
+      scene,
     );
   }
 
@@ -285,8 +424,10 @@ export class PcCollectionAdapter {
         mechanism: { fact_key: mech.fact.key, version: mech.fact.version },
         commitment: { fact_key: commitment.fact.key, version: commitment.fact.version },
       },
+      scene_evidence: task.scene,
       answer: interpreted.value.answer,
       verdict: interpreted.value.verdict,
+      scene_verdict: interpreted.value.scene_verdict,
       authority: { role: "role.gm", permission: "permission.rule.adjudicate" },
     });
     if (!decision.success) return invalid("judgment", decision.error);
@@ -327,6 +468,12 @@ export class PcCollectionAdapter {
     const interval = deriveOccupancyInterval(pre.commitment.value, pre.mechanism.value, pre.now);
     if (!interval.ok) return fail("PREREQUISITE_MISSING", interval.error.message);
     const prior = this.#store.getFact(popPcOccupancyKey(input.pc_id));
+    const representation = this.#store.getFact(popPcRepresentationKey(input.pc_id));
+    if (!representation)
+      return fail(
+        "PREREQUISITE_MISSING",
+        "Population has not determined the PC's relation to its aggregate workforce: the class is withheld",
+      );
     const value = PopulationPcOccupancySchema.safeParse({
       pc_id: input.pc_id,
       act_id: input.act_id,
@@ -334,6 +481,7 @@ export class PcCollectionAdapter {
       interval: { from: interval.value.from, to: interval.value.to },
       commitment: { fact_key: pre.commitment.fact.key, version: pre.commitment.fact.version },
       mechanism: { fact_key: pre.mechanism.fact.key, version: pre.mechanism.fact.version },
+      representation: { fact_key: representation.key, version: representation.version },
       committer: { owner: "population", facet: "population_pc_occupancy" },
     });
     if (!value.success) return invalid("occupancy", value.error);
@@ -349,6 +497,7 @@ export class PcCollectionAdapter {
         PLAYER_CHARACTER_BINDING_KEY,
         worldPcLocusCustodyKey(input.pc_id),
         TEMPORAL_STATE_KEY,
+        representation.key,
         ...(prior ? [prior.key] : []),
       ],
     );
@@ -705,6 +854,15 @@ export class PcCollectionAdapter {
   reach(pcId: string, actId: string): Typed<PcCollectionReachDecision> | undefined {
     return this.#typed(pcCollectionReachKey(pcId, actId), PcCollectionReachDecisionSchema);
   }
+  attestation(pcId: string, mechanismId: string): Typed<PcCollectionCycleAttestation> | undefined {
+    return this.#typed(
+      pcCollectionAttestationKey(pcId, mechanismId),
+      PcCollectionCycleAttestationSchema,
+    );
+  }
+  representation(pcId: string): Typed<PopulationPcRepresentation> | undefined {
+    return this.#typed(popPcRepresentationKey(pcId), PopulationPcRepresentationSchema);
+  }
   cessation(pcId: string, actId: string): Typed<PcCollectionCessation> | undefined {
     return this.#typed(pcCollectionCessationKey(pcId, actId), PcCollectionCessationSchema);
   }
@@ -723,10 +881,7 @@ export class PcCollectionAdapter {
   }
   /** What holds the PC's time, derived from committed facts alone (a read; it releases or decides nothing). */
   hold(pcId: string): PcCollectionHold {
-    return pcCollectionHold(
-      { get: (k) => this.#store.getFact(k), has: (k) => this.#store.getFact(k) !== undefined },
-      pcId,
-    );
+    return pcCollectionHold(this.#view(), pcId);
   }
   occupancyState(pcId: string): PcOccupancyState {
     return pcOccupancyState(
@@ -760,6 +915,8 @@ export class PcCollectionAdapter {
     return {
       get: (k: string) => this.#store.getFact(k),
       has: (k: string) => this.#store.getFact(k) !== undefined,
+      // only the Population ledgers are ever found by enumerating (a diagnostic-grade scan, by key shape)
+      values: () => this.#store.listFacts(),
     };
   }
 

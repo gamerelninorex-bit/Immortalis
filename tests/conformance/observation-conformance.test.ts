@@ -45,13 +45,13 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/index.ts":
     "0c5c3885920d742ca541df7b9c5f9d0345f3292d8dc6cc727f7386209da263df",
   "packages/engine/src/owners/registry.ts":
-    "dc12c2ef0820ab540bfb3538854bbca6ca9114c6388c45e3bb883b7e3a2154c1",
+    "5a3300cff25fa233c2fc93722072a110d391ce4492c4f73b3847289a9c2b03b7",
   "packages/engine/src/referee/adapter.ts":
     "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
   "packages/engine/src/referee/admission.ts":
     "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   "packages/engine/src/referee/derive.ts":
-    "7a240407abf8b02ddeb527f07591c81ef929477a02b754abf207205fd5b9a06a",
+    "9b169bb45e5e684c8b34ea5deb6def45afe94692c7572f8b4fc11157072c2d6b",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":

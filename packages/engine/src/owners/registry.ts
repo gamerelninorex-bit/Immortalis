@@ -3,6 +3,8 @@ import {
   CPAA_C1_PROVISIONAL,
   FACET_PC_COLLECTION_MECHANISM,
   PcCollectionCessationSchema,
+  PcCollectionCycleAttestationSchema,
+  PopulationPcRepresentationSchema,
   ProductionPcCollectionTerminationSchema,
   FACET_POPULATION_PC_OCCUPANCY,
   PcCollectionCommitmentSchema,
@@ -341,6 +343,8 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "production_pc_collection_work",
   "pc_collection_cessation",
   "production_pc_collection_termination",
+  "pc_collection_cycle_attestation",
+  "population_pc_representation",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -1508,6 +1512,38 @@ const d1Rule = (clause: string): SourceRef => ({
   supersedes: null,
 });
 
+const CPAA_C1_V03 = {
+  artifact: "https://app.notion.com/p/3fb20af901e08115b141f5e2e55ca37e",
+  native_pin: "2026-10-16T07:19:16.351Z",
+} as const;
+const CPAA_C1_V03_LINEAGE =
+  "CPAA-C1 v0.3 design RATIFIED by the Sovereign (ratification record https://app.notion.com/p/3fb20af901e08124a6a8fe243b2ec351, native pin 2026-10-16T07:56:18.556Z; independent RED CONCUR https://app.notion.com/p/3fb20af901e081c6928bc0e6371ff1c1, native pin 2026-10-16T07:43:50.948Z). Ratification is a DESIGN decision only: it is not implementation acceptance, a source-lock amendment or merge authority";
+
+/**
+ * The governing rule of the CPAA-C1 v0.3 kinds. The design is ratified, the implementation is not yet accepted and no source lock
+ * changed, so the effective basis is neither the pending-ratification marker nor `pinned-by-spec-lock`.
+ */
+const v03Rule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_V03.artifact,
+  native_pin: CPAA_C1_V03.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_V03_LINEAGE,
+    CPAA_C1_D1_PROVISIONAL,
+    CPAA_C1_PROVISIONAL,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "ratified-design-implementation-acceptance-pending",
+  supersedes: null,
+});
+
+export const PC_COLLECTION_ATTESTATION_RULE: SourceRef = v03Rule(
+  "v0.3 F-2 replacement P-1: the eligible intrinsic premise is a lawfully authored accepted I-002 Capability/Effect claim with an operative Temporal Hook; I-002's declared compiler/adjudicator role.gm attests that the cited content denotes exactly one same-form unit handled by the named actuator in one serial cycle with the stated duration (PC-intrinsic meaning only); role.archivist canonically writes the versioned attestation (attestor role, claim and mechanism versions, accepted meaning, Temporal Hook, effective-before-act); Temporal keeps unit authority; quotation and number/unit matching are necessary but insufficient; no hallucinated attestation, post-commit retrofit or invented rate",
+);
+export const POPULATION_PC_AGGREGATE_STATUS_RULE: SourceRef = v03Rule(
+  "v0.3 F-3 replacement P-2: a distinct Population-owned identity-qualified individual active-PC occupied-interval registration, outside Population section 28 labor-claim accounting (no layer tag, Occupational Draw Reference, headcount, cohort, flexible-labor debit or labor token); Population independently determines the PC's relation to its effective aggregate workforce from its own identity and count provenance: proven outside proceeds on individual occupancy alone, proven included or unknown WITHHOLDS pending a lawful no-double-counting reconciliation",
+);
+
 export const PC_COLLECTION_CESSATION_RULE: SourceRef = d1Rule(
   "D-1 proposed PC Collection Voluntary Cessation: the player's separately confirmed request to cease the SAME in-flight collection identity (role.player + permission.player_choice.commit) is a new action cause recorded by the PC-side owner with identity and version provenance, at the canonical time read at the request and strictly before the earned boundary; it is not a claim that earlier work never occurred, not a source status and not a Production cancellation",
 );
@@ -1630,6 +1666,28 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^pc/${ID}/collection/${ID}/cessation$`),
     PcCollectionCessationSchema,
     PC_COLLECTION_CESSATION_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_cycle_attestation",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_COLLECTION_MECHANISM,
+    "IM-07",
+    ["RC-02", "RC-03", "RC-16"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection-attestation/${ID}$`),
+    PcCollectionCycleAttestationSchema,
+    PC_COLLECTION_ATTESTATION_RULE,
+  ),
+  pcCollectionKind(
+    "population_pc_representation",
+    OWNER_POPULATION,
+    FACET_POPULATION_PC_OCCUPANCY,
+    "IM-04",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^population-pc/${ID}/representation$`),
+    PopulationPcRepresentationSchema,
+    POPULATION_PC_AGGREGATE_STATUS_RULE,
   ),
   pcCollectionKind(
     "production_pc_collection_termination",
