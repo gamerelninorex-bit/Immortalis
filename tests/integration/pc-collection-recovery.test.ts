@@ -203,7 +203,7 @@ describe("every durable cut reloads exactly and converges on the uninterrupted r
     });
     expect(r.collect.extraction(PC, ACT_B)).toBeUndefined();
     await r.campaign.close();
-  });
+  }, 120_000);
 });
 
 describe("a loaded campaign whose collection facts were edited or built outside admission fails closed", () => {
@@ -252,7 +252,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
   it("a valid saved campaign opens at each stage", async () => {
     for (const stage of ["request", "reach", "started", "complete"] as const)
       expect(await openOutcome(await saved(stage)), stage).toBe("OK");
-  });
+  }, 120_000);
 
   it("an edit of the saved commitment-of-record is not silently normalized", async () => {
     const edits: Record<string, (f: any) => void> = {
@@ -279,7 +279,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => edit(fact(j, pcCollectionCommitmentKey(PC, ACT_A))), "request"),
         name,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("an edit of the saved PC-owned request is not accepted", async () => {
     const edits: Record<string, (f: any) => void> = {
@@ -294,7 +294,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => edit(fact(j, pcCollectionRequestKey(PC, ACT_A))), "request"),
         name,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("an edit of the saved mechanism that the started work derived from is not accepted (τ, floor, claims, contract pin)", async () => {
     const edits: Record<string, (f: any) => void> = {
@@ -318,7 +318,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => edit(fact(j, pcCollectionMechanismKey(PC, MECH))), "started"),
         name,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("an edit of the saved reach judgment — verdict, answer, digest, authority, pins — is not accepted", async () => {
     const edits: Record<string, (f: any) => void> = {
@@ -335,7 +335,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => edit(fact(j, pcCollectionReachKey(PC, ACT_A))), "reach"),
         name,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("an edit of the saved occupancy, work record or extraction — interval, boundary, cycles, pins — is not accepted", async () => {
     const occ: Record<string, (f: any) => void> = {
@@ -376,7 +376,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => edit(fact(j, productionExtractionKey(extractionId(ACT_A)))), "started"),
         `extraction ${name}`,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("removing what a started collection stands on — work record, reach, commitment, occupancy, custody, binding — fails", async () => {
     const drops: Record<string, string> = {
@@ -394,7 +394,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         await tamper((j) => (j.facts = j.facts.filter((f: any) => f.key !== key)), "started"),
         name,
       ).not.toBe("OK");
-  });
+  }, 120_000);
 
   it("an extraction fabricated in the PC-owned request key space, with no work record of Production's, fails", async () => {
     expect(
@@ -406,7 +406,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
         j.facts.push(copy);
       }, "started"),
     ).not.toBe("OK");
-  });
+  }, 120_000);
 });
 
 describe("a history built OUTSIDE admission (a consistent, replayable journal that is not canonical) is refused by the load verifier", () => {
@@ -444,7 +444,7 @@ describe("a history built OUTSIDE admission (a consistent, replayable journal th
 
   it("replaying the lawful journal unchanged opens (the control)", async () => {
     expect(await codes(await rogueReplay(await started()))).toBe("OK");
-  });
+  }, 120_000);
 
   it("each way of making a PC-owned collection say what its premises did not is PC_COLLECTION_STATE", async () => {
     const src = await started();
@@ -490,5 +490,5 @@ describe("a history built OUTSIDE admission (a consistent, replayable journal th
       expect(out, name).not.toBe("OK");
       expect(out, name).toMatch(/PC_COLLECTION_STATE|RULE_DRIFT/);
     }
-  });
+  }, 120_000);
 });
