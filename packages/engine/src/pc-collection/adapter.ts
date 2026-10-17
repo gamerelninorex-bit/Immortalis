@@ -6,6 +6,7 @@ import {
   PcIntrinsicClarificationSchema,
   pcIntrinsicClarificationKey,
   type ClarifiedClaimRef,
+  type I002ClarificationContext,
   type PcIntrinsicClarification,
   PopulationWorkforceScopeSchema,
   WorldSceneClosureSchema,
@@ -101,7 +102,7 @@ import {
   factKind,
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
-import { pcClarificationIdOf } from "./clarification.ts";
+import { pcClarificationIdOf, pcClarificationScope } from "./clarification.ts";
 import { acceptableHeldLineage, deriveLapse, lapseCauseViolation } from "./lapse.ts";
 import {
   sceneClosureStatus,
@@ -339,7 +340,7 @@ export class PcCollectionAdapter {
       );
     const clock = (state.value as { canonical_time: PcIntrinsicClarification["effective_from"] })
       .canonical_time;
-    const id = pcClarificationIdOf(input.pc_id, input.statements);
+    const id = pcClarificationIdOf(input.pc_id);
     const value = PcIntrinsicClarificationSchema.safeParse({
       clarification_id: id,
       pc_id: input.pc_id,
@@ -373,6 +374,15 @@ export class PcCollectionAdapter {
       pcIntrinsicClarificationKey(pcId, clarificationId),
       PcIntrinsicClarificationSchema,
     );
+  }
+
+  /**
+   * R-5 (BLUE H-1): the scope the PC owner interprets a clarification within, from committed facts only (the accepted baseline, the
+   * precise branch and any earlier closure of it); `undefined` without a released contract. The operator delivers exactly this to the
+   * referee host and the owner re-derives it at admission and at every load.
+   */
+  clarificationScope(pcId: string): I002ClarificationContext | undefined {
+    return pcClarificationScope(this.#view(), pcId);
   }
 
   /**

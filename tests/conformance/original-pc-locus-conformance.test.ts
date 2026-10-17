@@ -306,7 +306,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "17278e17bbfe01ede76e41b334cf5cfeed1ad091b5cdea37268e9a5f06803d45",
+    head: "efc6b9de73ec969804baf960095a85cbbf24bc8c2471e9e74be2b899e03c8dc9",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
@@ -318,7 +318,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
+    head: "d325d06417a221e731d0999be3da633684a9ce56f42b7f30582a4d3e9266823e",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
@@ -326,7 +326,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "5c2b3e20f1c193e03f511413f1189e20ca9d3764497af62d57fa6d0c92c0f047",
+    head: "aa4f6f168b203886c89e35248788a8fb2a8b79be6b233c95a613b8bd8c7b9e6f",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
@@ -362,7 +362,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "e2575b3490d80ce5ece7a0027824762c99e1dbed7849571eaa3a9d15c0c40469",
+    head: "f19ee8c74b6906b9334829b516ce7ca61b51b1ed2320f9c77c8bf18484d14543",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
@@ -370,7 +370,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
+    head: "00e1cae440bbf1431e66c3fb388916c5d811317c30ac4d4c339fc23c7353637a",
   },
 };
 // DELTAS:END

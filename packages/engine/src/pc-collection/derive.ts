@@ -397,17 +397,22 @@ export function pcCollectionMechanismViolation(
       return "every cited claim is an accepted claim of the PC's contract: a hypothesis or unresolved item grounds nothing";
     cited.push(found.statement);
   }
-  // R-5: the accepted claims of the character's own prospective clarifications are cited at their exact committed versions
+  // R-5: the accepted claims of the character's own prospective clarifications are cited at their exact committed versions. They are
+  // the character's accepted timing of the actuator the released contract already accepts (BLUE H-1): they ground the CYCLE quotation
+  // only, never the actuator or the traversal, which stay quotations of the released contract's own accepted claims
   const clarified = resolveClarifiedClaims(m.pc_id, m.authored_from.clarified, facts);
   if (!clarified.ok) return clarified.message;
-  for (const c of clarified.claims) cited.push(c.statement);
+  const citedForCycle = [...cited, ...clarified.claims.map((c) => c.statement)];
   const grounded = (quote: string) =>
     quote.length >= MIN_QUOTE_LENGTH && cited.some((statement) => statement.includes(quote));
+  const groundedCycle = (quote: string) =>
+    quote.length >= MIN_QUOTE_LENGTH &&
+    citedForCycle.some((statement) => statement.includes(quote));
   if (!grounded(m.actuator.statement))
     return "the actuator statement is a verbatim quotation of a cited accepted claim: wording the PC's content does not state is not a mechanism";
   if (!grounded(m.traversal.statement))
     return "the traversal statement is a verbatim quotation of a cited accepted claim: wording the PC's content does not state is not a mechanism";
-  if (!grounded(m.cycle.authored_quote))
+  if (!groundedCycle(m.cycle.authored_quote))
     return "the cycle is stated by a verbatim quotation of a cited accepted claim: a cycle the PC's authored content does not state cannot be established";
   if (!statesExactDuration(m.cycle.authored_quote, m.cycle.duration))
     return "the quoted authored words state exactly this cycle's numeral and canonical time unit: a number the content does not state is not an exact cycle";

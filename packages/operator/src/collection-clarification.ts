@@ -7,6 +7,7 @@ import {
   TemporalStateSchema,
   pcIntrinsicClarificationKey,
   type CanonicalTime,
+  type I002ClarificationReading,
 } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
@@ -14,6 +15,7 @@ import {
   RefereeAdjudicationAdapter,
   clarificationCandidateItems,
   pcClarificationIdOf,
+  pcClarificationWordsDigest,
   type FsOps,
 } from "@immortalis/engine";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
@@ -94,6 +96,20 @@ export async function clarifyCollectionCycle(
     await closeQuietly(session);
   }
 }
+
+/** What the host read, shown to the player at the separate confirmation (nothing here is chosen for them). */
+const scopeLines = (r: I002ClarificationReading | undefined): string[] =>
+  r
+    ? [
+        `branch reading: ${r.branch}`,
+        `scope reading: ${r.scope}`,
+        ...(r.baseline_ground
+          ? [`your character's accepted statement it times: ${JSON.stringify(r.baseline_ground)}`]
+          : []),
+        `the duration it read: ${JSON.stringify(r.candidate_ground)}`,
+        ...(r.clarification ? [`the referee asks: ${r.clarification}`] : []),
+      ]
+    : [];
 
 const NOT_AVAILABLE = (why: string, pcKey?: string): CharacterResult =>
   result("CLARIFICATION_NOT_AVAILABLE", [...(pcKey ? [`character: ${pcKey}`] : []), why]);
@@ -199,19 +215,34 @@ async function run(
   const words = await askWords(terminal, at.unit);
   if (!words.ok) return result("DECLINED", ["nothing was clarified; nothing was changed"]);
   const statements = [words.text];
-  const id = pcClarificationIdOf(pcId, statements);
+  const id = pcClarificationIdOf(pcId);
+  const wordsId = pcClarificationWordsDigest(statements);
   const collection = new PcCollectionAdapter(campaign.store);
 
-  // the same words already accepted converge: nothing is asked, confirmed or decided again
-  if (collection.clarification(pcId, id)) return accepted(p, session, id, statements, at, true);
+  // the branch has ONE slot per character (BLUE H-1): the same words already accepted converge (nothing is asked, confirmed or decided
+  // again); other words find the branch closed, and nothing is written
+  const held = collection.clarification(pcId, id);
+  if (held) {
+    if (held.value.claims.map((x) => x.statement).join("\n") === statements.join("\n"))
+      return accepted(p, session, id, statements, at, true);
+    return NOT_AVAILABLE(
+      `this character's collection-cycle branch is already closed by an accepted clarification (${id}); another definition cannot be added`,
+      pc.fact.key,
+    );
+  }
 
+  const scope = collection.clarificationScope(pcId);
+  if (!scope) return NOT_AVAILABLE("the character has no released contract", pc.fact.key);
   const candidate = clarificationCandidateItems(statements);
   const refereeAdapter = new RefereeAdjudicationAdapter(campaign.store);
-  terminal.say("Asking the AI referee host to read what you wrote ...");
+  terminal.say(
+    "Asking the AI referee host to read what you wrote against what your character already is ...",
+  );
   const asked = await askI002(refereeAdapter, rt, {
     campaign_id: campaignId,
     pc_id: pcId,
     items: candidate,
+    clarification: scope,
   });
   if (asked.kind !== "ANSWERED") {
     const detail = [`character: ${pc.fact.key} (nothing clarified)`];
@@ -221,7 +252,10 @@ async function run(
         ? result("REFEREE_UNAVAILABLE", [...detail, asked.message], asked.code)
         : result("REFEREE_ANSWER_REFUSED", [...detail, asked.message]);
   }
-  const findings = findingsLines(candidate, asked.decision, asked.verdict, asked.host);
+  const findings = [
+    ...findingsLines(candidate, asked.decision, asked.verdict, asked.host),
+    ...scopeLines(asked.decision.clarification),
+  ];
   if (asked.verdict !== "CLOSED") {
     for (const l of findings) terminal.say(l);
     return result("CLARIFICATION_NOT_ACCEPTED", [
@@ -263,6 +297,7 @@ async function run(
     pc_id: pcId,
     attempt: asked.attempt,
     items: candidate,
+    clarification: scope,
     answer: asked.decision,
   });
   if (!recorded.ok) {
@@ -278,9 +313,9 @@ async function run(
   }
   terminal.say(`PROGRESS referee DECIDED ${recorded.value.record.key}`);
   const written = await collection.clarify({
-    group_id: `pc-clarify-group:${campaignId}:${id}`,
-    intent_id: `pc-clarify-intent:${campaignId}:${id}`,
-    cause: `pc-clarify-cause:${campaignId}:${id}`,
+    group_id: `pc-clarify-group:${campaignId}:${id}:${wordsId}`,
+    intent_id: `pc-clarify-intent:${campaignId}:${id}:${wordsId}`,
+    cause: `pc-clarify-cause:${campaignId}:${id}:${wordsId}`,
     basis: "operator-confirmed-player-clarification",
     secrecy: "local-operator-session",
     pc_id: pcId,

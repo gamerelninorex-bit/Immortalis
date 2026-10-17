@@ -13,15 +13,17 @@ import {
   pcExistenceContractKey,
   pcIntrinsicClarificationKey,
   type CommitGroup,
+  type I002ClarificationContext,
 } from "@immortalis/contracts";
 import {
   PC_INTRINSIC_CLARIFICATION_RULE,
+  PcCollectionAdapter,
   RefereeAdjudicationAdapter,
   clarificationCandidateItems,
   pcClarificationIdOf,
   type CampaignStore,
 } from "@immortalis/engine";
-import { scriptedPolicy, type ClassifyRule } from "./original-pc.ts";
+import { scriptedPolicy, type ClarifyRule, type ClassifyRule } from "./original-pc.ts";
 import { ACTUATOR_WORDS, MECH, PC, T0, TRAVERSAL_CANNOT, colPublication } from "./pc-collection.ts";
 
 export const BODY = "One ordinary human body";
@@ -64,17 +66,27 @@ export async function retain(
   classify: readonly ClassifyRule[] = [],
   attempt = 0,
   pcId = PC,
+  opt: { clarify?: ClarifyRule; unscoped?: boolean; scope?: I002ClarificationContext } = {},
 ) {
   const adapter = new RefereeAdjudicationAdapter(campaign.store);
   const items = clarificationCandidateItems(statements);
-  const { context, task_id } = adapter.i002Task({ pc_id: pcId, attempt, items });
-  const answer = scriptedPolicy({ classify })({ operation: "I002_CLASSIFY", task_id, context });
+  // BLUE H-1: the host is delivered the owner-derived scope (baseline, branch, prior closures); `unscoped` is the legacy form
+  const clarification = opt.unscoped
+    ? undefined
+    : (opt.scope ?? new PcCollectionAdapter(campaign.store).clarificationScope(pcId));
+  const { context, task_id } = adapter.i002Task({ pc_id: pcId, attempt, items, clarification });
+  const answer = scriptedPolicy({ classify, ...(opt.clarify ? { clarify: opt.clarify } : {}) })({
+    operation: "I002_CLASSIFY",
+    task_id,
+    context,
+  });
   return adapter.recordI002({
     operation: { ...REFEREE_AUTHORITY },
     host: { host_id: "engine-direct-test", claimed_model: null },
     pc_id: pcId,
     attempt,
     items,
+    clarification,
     answer,
   });
 }
@@ -93,7 +105,7 @@ export function clarificationGroup(
   const binding = store.getFact(PLAYER_CHARACTER_BINDING_KEY)!;
   const referee = store.getFact(refereeKey)!;
   const state = store.getFact(TEMPORAL_STATE_KEY)!;
-  const id = pcClarificationIdOf(PC, statements);
+  const id = pcClarificationIdOf(PC);
   const value: any = {
     clarification_id: id,
     pc_id: PC,

@@ -11,8 +11,12 @@ import {
   pcClarificationViolation,
 } from "@immortalis/engine";
 import {
+  PLAYER_CHARACTER_BINDING_KEY,
+  TEMPORAL_STATE_KEY,
+  pcExistenceContractKey,
   pcIntrinsicClarificationKey,
   PcIntrinsicClarificationSchema,
+  worldPcLocusCustodyKey,
   type CommitGroup,
 } from "@immortalis/contracts";
 import { ACTOR_FIXTURE_EXTENSION } from "@immortalis/testkit";
@@ -37,10 +41,11 @@ import {
   mechanismInput,
   retain,
 } from "../support/pc-clarification.ts";
+import { advanceTo } from "../support/pc-lapse.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const WORDS = [clarWords()];
-const ID = pcClarificationIdOf(PC, WORDS);
+const ID = pcClarificationIdOf(PC);
 const KEY = pcIntrinsicClarificationKey(PC, ID);
 
 /** the live starting shape: bound, custodied, clock established, source and Reserve present, NO stated cycle and no mechanism */
@@ -55,13 +60,29 @@ const clarify = (s: Awaited<ReturnType<typeof startingShape>>, refereeKey: strin
     referee_key: refereeKey,
   });
 
-const snapshot = (s: Awaited<ReturnType<typeof startingShape>>) => ({
-  contract: JSON.stringify(s.campaign.store.getFact(`pc/${PC}/existence-contract`)),
-  binding: JSON.stringify(s.campaign.store.getFact("role/player-character-binding")),
-  clock: JSON.stringify(s.campaign.store.getFact("temporal/state")),
-  source: sourceRemaining(s),
-  reserve: reserveAmount(s),
-});
+/**
+ * BLUE H-3: the preservation oracle reads the CANONICAL keys, requires every record to exist (an absent record would compare
+ * equal to itself and prove nothing), and compares the actual committed values.
+ */
+const snapshot = (s: Awaited<ReturnType<typeof startingShape>>) => {
+  const raw = (key: string) => {
+    const fact = s.campaign.store.getFact(key);
+    expect(fact, `the preserved record ${key} exists`).toBeDefined();
+    return JSON.stringify(fact);
+  };
+  const source = sourceRemaining(s);
+  const reserve = reserveAmount(s);
+  expect(source).toBeDefined();
+  expect(reserve).toBeDefined();
+  return {
+    contract: raw(pcExistenceContractKey(PC)),
+    binding: raw(PLAYER_CHARACTER_BINDING_KEY),
+    custody: raw(worldPcLocusCustodyKey(PC)),
+    clock: raw(TEMPORAL_STATE_KEY),
+    source,
+    reserve,
+  };
+};
 
 describe("R-5 the starting shape: before the clarification no exact cycle can be prepared", () => {
   it("no quotation of the released claims states a cycle, an invented quotation is refused, and a mechanism citing a clarification that does not exist is refused", async () => {
@@ -510,4 +531,276 @@ describe("R-5 load verification: a history built OUTSIDE admission is refused by
     );
     expect(await codes(late)).not.toBe("OK");
   }, 480_000);
+});
+
+const clarifyWith = (
+  s: Awaited<ReturnType<typeof startingShape>>,
+  statements: readonly string[],
+  refereeKey: string,
+  n: number,
+) =>
+  s.collect.clarify({
+    ...colPublication(n),
+    pc_id: PC,
+    statements,
+    referee_key: refereeKey,
+  });
+const keyOf = (r: unknown): string => (r as any).value.record.key as string;
+
+describe("R-5 BLUE H-1: the interpretation is bound to the accepted baseline, the precise branch and any prior closure", () => {
+  const COMPOUND = `It takes me ${CLAR_TAU} ${T0.unit} to lift and carry one handful, and my third arm can carry a whole cart`;
+
+  it("the first compatible closure succeeds, and the retained record carries the exact scope the owner derives", async () => {
+    const s = await startingShape();
+    try {
+      const scope = s.collect.clarificationScope(PC)!;
+      expect(scope.prior_closures).toEqual([]);
+      expect(scope.baseline.map((b) => b.text).join("\n")).toContain(NO_CYCLE_CLAIM.slice(0, 20));
+      const r = await retain(s.campaign, WORDS);
+      expect(r.ok).toBe(true);
+      const record = s.campaign.store.getFact(keyOf(r))!.value as any;
+      expect(record.input.clarification).toEqual(scope);
+      expect(record.decision.clarification.branch).toBe("UNRESOLVED_BEFORE");
+      expect(record.decision.clarification.scope).toBe(
+        "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE",
+      );
+      expect((await clarify(s, keyOf(r))).ok).toBe(true);
+    } finally {
+      await s.campaign.close();
+    }
+  }, 120_000);
+
+  it("an identical replay writes nothing; a conflicting second definition is refused and the first stands", async () => {
+    const s = await startingShape();
+    try {
+      const r = await retain(s.campaign, WORDS);
+      expect((await clarify(s, keyOf(r))).ok).toBe(true);
+      const head = s.campaign.store.head().state_sha256;
+      expect((await clarify(s, keyOf(r))).ok).toBe(true); // the same presentation reconciles by identity
+      // a fresh presentation of even the same words finds the one slot taken: create-only, nothing is written
+      expect((await clarify(s, keyOf(r), 7101)).ok).toBe(false);
+      expect(s.campaign.store.head().state_sha256).toBe(head);
+
+      // a second, different rate: the one slot is taken, whatever the host would say
+      const other = [clarWords(CLAR_TAU + 4)];
+      const r2 = await retain(s.campaign, other);
+      const conflicted = await clarifyWith(s, other, keyOf(r2), 7102);
+      expect(conflicted.ok).toBe(false);
+      // and the scope a host is delivered afterwards names the earlier closure
+      expect(s.collect.clarificationScope(PC)!.prior_closures).toEqual([
+        { clarification_id: ID, statements: WORDS },
+      ]);
+      expect(s.collect.clarification(PC, ID)!.value.claims[0]!.statement).toBe(WORDS[0]);
+      expect(s.campaign.store.getFact(KEY)!.version).toBe(1);
+      expect(s.campaign.verify()).toEqual([]);
+    } finally {
+      await s.campaign.close();
+    }
+  }, 180_000);
+
+  it("a compound statement that adds an actuator or a power is not CLOSED whatever else it states, and is refused", async () => {
+    const s = await startingShape();
+    try {
+      const r = await retain(s.campaign, [COMPOUND], [], 0, PC, {
+        clarify: { adds: /third arm/ },
+      });
+      expect(r.ok).toBe(true);
+      expect((r as any).value.verdict).not.toBe("CLOSED");
+      expect((await clarifyWith(s, [COMPOUND], keyOf(r), 7110)).ok).toBe(false);
+      expect(s.collect.clarification(PC, ID)).toBeUndefined();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 120_000);
+
+  it("words the baseline already states, or that contradict a prior closure, are not CLOSED", async () => {
+    const s = await startingShape();
+    try {
+      for (const [attempt, branch] of (
+        ["ALREADY_STATED_IN_BASELINE", "CONTRADICTS_PRIOR_CLOSURE"] as const
+      ).entries()) {
+        const r = await retain(s.campaign, WORDS, [], attempt, PC, { clarify: { branch } });
+        expect((r as any).value.verdict).not.toBe("CLOSED");
+        expect((await clarify(s, keyOf(r), 7120 + branch.length)).ok).toBe(false);
+      }
+      expect(s.collect.clarification(PC, ID)).toBeUndefined();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 120_000);
+
+  it("a legacy classification with no scope, and one over another baseline or a falsified prior closure, does not qualify", async () => {
+    const s = await startingShape();
+    try {
+      const legacy = await retain(s.campaign, WORDS, [], 0, PC, { unscoped: true });
+      expect(legacy.ok).toBe(true);
+      expect((await clarify(s, keyOf(legacy), 7130)).ok).toBe(false);
+
+      const real = s.collect.clarificationScope(PC)!;
+      const elsewhere = await retain(s.campaign, WORDS, [], 0, PC, {
+        scope: {
+          ...real,
+          baseline: real.baseline.map((b, i) =>
+            i === 0 ? { ...b, text: `${b.text}; and a flying carpet` } : b,
+          ),
+        },
+      });
+      expect(elsewhere.ok).toBe(true);
+      expect((await clarify(s, keyOf(elsewhere), 7131)).ok).toBe(false);
+
+      const claimed = await retain(s.campaign, WORDS, [], 0, PC, {
+        scope: {
+          ...real,
+          prior_closures: [
+            { clarification_id: "clarification-0000000000000000", statements: ["x 1"] },
+          ],
+        },
+      });
+      expect(claimed.ok).toBe(true);
+      expect((await clarify(s, keyOf(claimed), 7132)).ok).toBe(false);
+
+      expect(s.collect.clarification(PC, ID)).toBeUndefined();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 180_000);
+
+  it("a clarification can never ground the actuator or the traversal of a mechanism, even if a host misread a compound statement as compatible", async () => {
+    const s = await startingShape();
+    try {
+      // PLUMBING: a host that wrongly reads the compound words as only a duration (the engine cannot read minds)
+      const r = await retain(s.campaign, [COMPOUND]);
+      expect(r.ok).toBe(true);
+      expect((await clarifyWith(s, [COMPOUND], keyOf(r), 7140)).ok).toBe(true);
+      const mech = (over: Record<string, unknown>, n: number) =>
+        s.collect.establishMechanism({
+          ...colPublication(n),
+          mechanism: mechanismInput(ID, {
+            cycle_quote: COMPOUND.slice(0, 50),
+            ...over,
+          }),
+        });
+      expect(
+        (await mech({ actuator: { statement: "my third arm can carry a whole cart" } }, 7141)).ok,
+      ).toBe(false);
+      expect(
+        (await mech({ traversal: { statement: "my third arm can carry a whole cart" } }, 7142)).ok,
+      ).toBe(false);
+      expect(s.collect.mechanism(PC, MECH)).toBeUndefined();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 180_000);
+});
+
+describe("R-5 BLUE H-2: the acceptance time is witnessed by the Temporal owner's own sealed history, immutably", () => {
+  const codes = async (d: string): Promise<string> => {
+    const r = await CanonicalCampaign.open(d, { extension: ACTOR_FIXTURE_EXTENSION });
+    if (r.ok) {
+      await r.value.close();
+      return "OK";
+    }
+    return r.error.code === "CANON_INTEGRITY"
+      ? (r.error.details?.["violations"] as { code: string }[]).map((v) => v.code).join(",")
+      : r.error.code;
+  };
+  const withTime =
+    (value: number) =>
+    (g: CommitGroup): CommitGroup =>
+      g.writes.some((w) => w.key === KEY)
+        ? {
+            ...g,
+            writes: g.writes.map((w) =>
+              w.key === KEY
+                ? {
+                    ...w,
+                    value: {
+                      ...(w.value as any),
+                      effective_from: { ...(w.value as any).effective_from, value },
+                    },
+                  }
+                : w,
+            ),
+          }
+        : g;
+
+  it("a lawful acceptance stays valid after the clock later advances (and across a reopen and a replay); the consumers still follow it", async () => {
+    const dir = tempDir("immortalis-clarify-h2-lawful-");
+    const s = await startingShape(dir);
+    const r = await retain(s.campaign, WORDS);
+    expect((await clarify(s, keyOf(r))).ok).toBe(true);
+    const moved = await advanceTo(s, T0.value + 5, "h2-a");
+    expect(moved.ok, JSON.stringify(moved)).toBe(true);
+    // the record is exactly as accepted; only the clock moved
+    expect(s.collect.clarification(PC, ID)!.value.effective_from).toEqual(T0);
+    expect(s.campaign.verify()).toEqual([]);
+    // and the consumer still follows it at the later time
+    expect(
+      (
+        await s.collect.establishMechanism({
+          ...colPublication(7200),
+          mechanism: mechanismInput(ID),
+        })
+      ).ok,
+    ).toBe(true);
+    await s.campaign.close();
+    expect(await codes(dir)).toBe("OK");
+    expect(await codes(await rogueReplay(dir))).toBe("OK");
+  }, 480_000);
+
+  it("a rogue backdated time, and one shifted from the acceptance time to the current time, each fail the load witness (even though neither is in the future)", async () => {
+    const dir = tempDir("immortalis-clarify-h2-rogue-");
+    const s = await startingShape(dir);
+    const r = await retain(s.campaign, WORDS);
+    expect((await clarify(s, keyOf(r))).ok).toBe(true);
+    expect((await advanceTo(s, T0.value + 5, "h2-b")).ok).toBe(true);
+    await s.campaign.close();
+    // the lawful journal opens; each shifted copy of it does not
+    expect(await codes(await rogueReplay(dir))).toBe("OK");
+    for (const [name, value] of [
+      ["backdated before the acceptance", T0.value - 1],
+      ["shifted to the current (later) time", T0.value + 5],
+      ["shifted to a time between", T0.value + 2],
+    ] as const) {
+      expect(await codes(await rogueReplay(dir, withTime(value))), name).not.toBe("OK");
+    }
+  }, 480_000);
+
+  it("a clarification accepted AFTER an earlier advance is witnessed at the later time, and cannot be moved to the earlier one", async () => {
+    const dir = tempDir("immortalis-clarify-h2-later-");
+    const s = await startingShape(dir);
+    expect((await advanceTo(s, T0.value + 3, "h2-c")).ok).toBe(true);
+    const r = await retain(s.campaign, WORDS);
+    expect((await clarify(s, keyOf(r))).ok).toBe(true);
+    expect(s.collect.clarification(PC, ID)!.value.effective_from.value).toBe(T0.value + 3);
+    expect((await advanceTo(s, T0.value + 9, "h2-d")).ok).toBe(true);
+    await s.campaign.close();
+    expect(await codes(await rogueReplay(dir))).toBe("OK");
+    for (const value of [T0.value, T0.value + 9]) {
+      expect(await codes(await rogueReplay(dir, withTime(value))), String(value)).not.toBe("OK");
+    }
+  }, 480_000);
+});
+
+describe("R-5 BLUE H-3: the preservation oracle is itself sensitive", () => {
+  it("reads existing canonical records, and reports a change to the clock, the binding, the custody or the material", async () => {
+    const s = await startingShape();
+    try {
+      const a = snapshot(s); // asserts that every preserved record exists at its canonical key
+      expect(a.binding).toContain("active_pc");
+      expect(a.custody).toContain(PC);
+      expect(a.contract).toContain(PC);
+      // mutation: the clock moves (a lawful, sealed Temporal transaction) and ONLY the clock differs
+      expect((await advanceTo(s, T0.value + 4, "h3-a")).ok).toBe(true);
+      const b = snapshot(s);
+      expect(b).not.toEqual(a);
+      expect(b.clock).not.toBe(a.clock);
+      expect({ ...b, clock: "" }).toEqual({ ...a, clock: "" });
+      // the oracle cannot pass vacuously: a record that is not there fails it, rather than comparing equal to itself
+      const hollow = { campaign: { store: { getFact: () => undefined } } } as never;
+      expect(() => snapshot(hollow)).toThrow();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 180_000);
 });

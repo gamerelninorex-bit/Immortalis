@@ -583,14 +583,18 @@ export function interpretCycleAnswer(
   if (!a.success) return fail("ANSWER_INVALID", "the reading is not a well-formed cycle reading");
   if (a.data.task_digest !== task.digest)
     return fail("ANSWER_INVALID", "the reading answers a different task");
-  const text = [...task.claims, ...(task.clarified ?? [])].map((c) => c.statement);
+  // the actuator is the released contract's own accepted statement; the clarified timing may ground the cycle and the grounds (BLUE H-1)
+  const contractText = task.claims.map((c) => c.statement);
+  const text = [...contractText, ...(task.clarified ?? []).map((c) => c.statement)];
   const quoted = (q: string) => q.length >= MIN_QUOTE_LENGTH && text.some((t) => t.includes(q));
+  const quotedContract = (q: string) =>
+    q.length >= MIN_QUOTE_LENGTH && contractText.some((t) => t.includes(q));
   if (a.data.reading !== "ONE_SAME_FORM_UNIT_ONE_SERIAL_CYCLE")
     return fail(
       "ANSWER_INVALID",
       "no attestation exists unless the content is read as one same-form unit in one serial cycle",
     );
-  if (a.data.actuator_ground !== task.actuator || !quoted(a.data.actuator_ground))
+  if (a.data.actuator_ground !== task.actuator || !quotedContract(a.data.actuator_ground))
     return fail("ANSWER_INVALID", "the actuator ground is the mechanism's own quoted actuator");
   if (!quoted(a.data.cycle_ground) || !statesExactDuration(a.data.cycle_ground, task.cycle))
     return fail(

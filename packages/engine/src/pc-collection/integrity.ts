@@ -22,6 +22,8 @@ import {
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
   PcIntrinsicClarificationSchema,
+  ResolutionTransactionSchema,
+  TemporalStateSchema,
   PcCollectionReachDecisionSchema,
   PopulationPcOccupancySchema,
   ProductionExtractionSchema,
@@ -39,7 +41,11 @@ import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
 import { lapseCauseViolation, pcCollectionLapseViolation } from "./lapse.ts";
-import { pcClarificationViolation } from "./clarification.ts";
+import {
+  pcClarificationAcceptanceTimeViolation,
+  pcClarificationViolation,
+  type AcceptanceWitness,
+} from "./clarification.ts";
 import {
   pcCycleAttestationViolation,
   pcRepresentationViolation,
@@ -232,6 +238,43 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     const v = pcCollectionRequestViolation(f.key, r.data, view(revisionOf(f)), true);
     if (v) bad(f.key, v);
   }
+  const acceptanceWitness = (
+    f: OwnerFact,
+    revision: number,
+  ): { ok: true; witness: AcceptanceWitness } | { ok: false; message: string } => {
+    const group = store.committedGroup(f.provenance.intent_id);
+    const read = group?.reads.find((r) => r.key === TEMPORAL_STATE_KEY);
+    const stateFact = byKey.get(TEMPORAL_STATE_KEY);
+    const state = stateFact ? TemporalStateSchema.safeParse(stateFact.value) : undefined;
+    if (!read || !stateFact || !state?.success)
+      return {
+        ok: false,
+        message:
+          "the clarification's commit read the Temporal state, and the current Temporal state is committed: the acceptance time is witnessed",
+      };
+    const transactions = all.flatMap((t) => {
+      if (kindOf(t) !== "resolution_transaction") return [];
+      const tx = ResolutionTransactionSchema.safeParse(t.value);
+      return tx.success
+        ? [
+            {
+              state_version: tx.data.opening.state_version,
+              basis_time: tx.data.opening.basis_time,
+              revision: revisionOf(t),
+            },
+          ]
+        : [];
+    });
+    return {
+      ok: true,
+      witness: {
+        read_version: read.version,
+        revision,
+        transactions,
+        current: { version: stateFact.version, time: state.data.canonical_time },
+      },
+    };
+  };
   for (const f of clarifications) {
     const c = PcIntrinsicClarificationSchema.safeParse(f.value);
     if (!c.success) continue;
@@ -239,6 +282,14 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     const v = pcClarificationViolation(f.key, c.data, view(at), true);
     if (v) bad(f.key, v);
     checkPins(f, [c.data.contract.fact_key, c.data.binding.fact_key, c.data.referee.fact_key]);
+    // BLUE H-2: the exact acceptance time, from the Temporal owner's sealed, commit-ordered history and the version this record's own
+    // commit group read (kernel-recorded), never from the record's own claim or the current clock
+    const witnessed = acceptanceWitness(f, at);
+    if (!witnessed.ok) bad(f.key, witnessed.message);
+    else {
+      const t = pcClarificationAcceptanceTimeViolation(c.data, witnessed.witness);
+      if (t) bad(f.key, t);
+    }
     // prospective: no collection commitment of this character was committed before the clarification
     for (const other of commitments) {
       const oc = PcCollectionCommitmentSchema.safeParse(other.value);

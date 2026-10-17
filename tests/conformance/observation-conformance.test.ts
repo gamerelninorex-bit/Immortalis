@@ -31,7 +31,7 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "17278e17bbfe01ede76e41b334cf5cfeed1ad091b5cdea37268e9a5f06803d45",
+    "efc6b9de73ec969804baf960095a85cbbf24bc8c2471e9e74be2b899e03c8dc9",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
@@ -47,11 +47,11 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/owners/registry.ts":
     "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e",
   "packages/engine/src/referee/adapter.ts":
-    "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
+    "d325d06417a221e731d0999be3da633684a9ce56f42b7f30582a4d3e9266823e",
   "packages/engine/src/referee/admission.ts":
     "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   "packages/engine/src/referee/derive.ts":
-    "5c2b3e20f1c193e03f511413f1189e20ca9d3764497af62d57fa6d0c92c0f047",
+    "aa4f6f168b203886c89e35248788a8fb2a8b79be6b233c95a613b8bd8c7b9e6f",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
@@ -67,11 +67,11 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/original-pc.ts":
     "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/referee-exchange.ts":
-    "e2575b3490d80ce5ece7a0027824762c99e1dbed7849571eaa3a9d15c0c40469",
+    "f19ee8c74b6906b9334829b516ce7ca61b51b1ed2320f9c77c8bf18484d14543",
   "packages/operator/src/referee-mcp.ts":
     "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-session.ts":
-    "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
+    "00e1cae440bbf1431e66c3fb388916c5d811317c30ac4d4c339fc23c7353637a",
 };
 const SPEC: Record<string, string> = {
   "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",

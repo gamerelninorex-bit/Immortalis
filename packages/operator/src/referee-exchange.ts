@@ -330,7 +330,28 @@ export function taskDocument(
             clarification: "<AMBIGUOUS only: one narrow question; else null>",
           },
         ],
+        ...(context.clarification
+          ? {
+              clarification: {
+                branch:
+                  "<UNRESOLVED_BEFORE | ALREADY_STATED_IN_BASELINE | CONTRADICTS_PRIOR_CLOSURE>",
+                scope:
+                  "<ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE | ADDS_OR_CHANGES_A_CAPABILITY_OR_ACTUATOR | UNCLEAR>",
+                baseline_ground:
+                  "<verbatim excerpt (8+ chars) of a context.clarification.baseline text that states the actuator the new words time; REQUIRED for the first scope, else null>",
+                candidate_ground:
+                  "<verbatim excerpt (8+ chars) of the new words (context.candidate) that state the duration>",
+                clarification: "<scope UNCLEAR only: one narrow question; else null>",
+              },
+            }
+          : {}),
       },
+      ...(context.clarification
+        ? {
+            clarification_notice:
+              "This task is a CLARIFICATION of a character that is already accepted, not a new character. `context.clarification.baseline` is what the character already accepts; `context.clarification.question` is the one open branch; `prior_closures` lists any earlier accepted answer to it. Read the new words ONLY within that scope and answer the `clarification` block: `branch` is UNRESOLVED_BEFORE only if the baseline neither states the answer nor is contradicted (ALREADY_STATED_IN_BASELINE if the baseline already states it; CONTRADICTS_PRIOR_CLOSURE if a prior closure exists that the words change). `scope` is ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE only if the words state nothing but how long ONE handling cycle of an actuator the baseline ALREADY accepts takes; words that add or change a capability, an actuator, a power, a reach, a load or a limit are ADDS_OR_CHANGES_A_CAPABILITY_OR_ACTUATOR, even when they also state a duration; if you cannot tell, UNCLEAR with one narrow question. The new words still need their ordinary item decision (INTRINSIC_PC for an `exception` item). You never choose, suggest or default a duration.",
+          }
+        : {}),
       context,
     };
   }

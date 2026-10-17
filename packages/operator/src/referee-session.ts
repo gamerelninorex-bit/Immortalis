@@ -1,4 +1,5 @@
 import type {
+  I002ClarificationContext,
   I002HostDecision,
   IrHostDecision,
   ObservationHostDecision,
@@ -89,7 +90,13 @@ export async function refereeConfigured(
 export async function askI002(
   adapter: RefereeAdjudicationAdapter,
   rt: RefereeRuntime,
-  input: { campaign_id: string; pc_id: string; items: readonly CandidateItem[] },
+  input: {
+    campaign_id: string;
+    pc_id: string;
+    items: readonly CandidateItem[];
+    /** R-5: the scope a clarification is read within (built by the PC owner's `pcClarificationScope`) */
+    clarification?: I002ClarificationContext | undefined;
+  },
 ): Promise<Asked<I002HostDecision, I002Context>> {
   const configured = await refereeConfigured(input.campaign_id, rt);
   if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
@@ -99,6 +106,7 @@ export async function askI002(
       pc_id: input.pc_id,
       attempt,
       items: input.items,
+      clarification: input.clarification,
     });
     if (await isSetAside(p, task_id)) continue;
     const task = await publishTask(p, { task_id, operation: "I002_CLASSIFY", context });
