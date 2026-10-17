@@ -146,8 +146,9 @@ function describe(config: PhoneConfig, run: Run, after: number, runs: PlayerRuns
       ? {
           outcome: "UNCERTAIN",
           ...(blocked ? { blocker: blocked } : {}),
-          recovery:
-            "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
+          recovery: runs.structural()
+            ? "Whether the earlier action changed anything is not established, and nothing this chat offers can establish it: the operator must inspect it. Do NOT retry the action, do not call reconcile_last_action again, and do not tell the player it did or did not happen; tell them it needs the operator."
+            : "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. If it ends UNCERTAIN again with the same blocker, stop and tell the player the outcome could not be established and needs the operator. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
         }
       : {}),
     next_after: next,
@@ -425,7 +426,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     simple(
       "reconcile_last_action",
       "Reconcile an uncertain outcome",
-      "After an interrupted or uncertain action, ask the engine to reconcile what it actually committed. Never retry an action instead of calling this.",
+      "After an interrupted or uncertain action, have the owners' own records read back for THAT action: a confirmed action is presented again by identity (it replays what committed and finishes what did not), an observation is read back at its original basis and completed by identity if it is partial. It asks the player nothing new. Never retry an action instead of calling this.",
       "reconcile",
     ),
     {
@@ -472,7 +473,13 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       handler: async () => {
         const run = runs.current();
         if (!run || run.done) return text("there is no action in progress", true);
-        // a withdrawal is a decline of the pending confirmation: the command then ends by its own account
+        // a withdrawal is a decline of a PENDING confirmation: the command then ends by its own account. With no confirmation waiting
+        // there is nothing to withdraw, and nothing here knows whether the player has already confirmed, so nothing is claimed either way.
+        if (!run.terminal.snapshot(0).pending)
+          return text(
+            "no confirmation is waiting, so there is nothing to withdraw; the action is still running and its outcome is not known yet. Call await_action to follow it, and do not tell the player it was cancelled.",
+            true,
+          );
         runs.decline();
         return text("the proposal was withdrawn; nothing was confirmed");
       },

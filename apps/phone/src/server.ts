@@ -47,6 +47,8 @@ export interface PhoneDeps {
   readonly askExpiryMs?: number;
   /** how long an idle or caught-up poll is held open before it answers (default 20 s) */
   readonly pollMs?: number;
+  /** how long a shutdown waits for a running command to wind down (it must release the campaign's writer lock) before giving up (default 8 s) */
+  readonly shutdownMs?: number;
   /** owner readback seams for the pending-operation recovery (tests substitute them; the defaults read the real campaign) */
   readonly recovery?: RecoveryDeps;
   /** the ordinary-chat adapter's collaborators (tests substitute the earned-Glance read and the referee exchange; never the confirmation) */
@@ -67,6 +69,9 @@ const MAX_FAILS = 5;
 const GLOBAL_FAILS = 60;
 const MAX_BODY = 128 * 1024;
 const POLL_MS = 20_000;
+const SHUTDOWN_MS = 8_000;
+const UNREADABLE_BLOCKER =
+  "the pending-operation record is unreadable; engineering must inspect it";
 const newRunId = () => randomBytes(8).toString("hex");
 const COOKIE = "immortalis_sid";
 
@@ -95,6 +100,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let pending: PendingOperation | null = null;
   let unresolvedOutcome = false;
   let blocker: string | null = null;
+  /** true when no further `reconcile` can help (the record is unreadable, unsupported or unclearable): the operator must intervene */
+  let structuralBlock = false;
   {
     const restored = readPending(config);
     if (restored.kind === "PENDING") {
@@ -105,7 +112,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         "the server restarted while this action's outcome was not established";
     } else if (restored.kind === "UNREADABLE") {
       unresolvedOutcome = true;
-      blocker = "the pending-operation record is unreadable; engineering must inspect it";
+      structuralBlock = true;
+      blocker = UNREADABLE_BLOCKER;
     }
   }
   const rec = {
@@ -113,6 +121,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     observationEvidence: deps.recovery?.observationEvidence ?? observationEvidence,
   };
   let launching = false;
+  const inflight = new Set<Promise<void>>();
   let referee: Run | null = null;
   let refereeCalls = 0;
   const pollMs = deps.pollMs ?? POLL_MS;
@@ -322,24 +331,37 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   // -- the player lane's single run slot ---------------------------------------------------------------------------------------
-  /** the shipped commands whose effects reach canon through a chat-offered choice: each is recorded before it is dispatched */
-  const JOURNALED = new Set([
+  /** the closed commands that only read: every other one may write canon or owner state, so it is recorded before it is dispatched */
+  const READ_ONLY = new Set(["status", "locality-status", "character-status"]);
+  /** what the ordinary-chat adapter may start: the player's choices and their follow-up, never setup, binding or authoring */
+  const CHAT_COMMANDS = new Set([
     "observe-surroundings",
     "collect",
     "collect-continue",
     "collect-finish",
     "cease",
     "settle-collection-lapse",
+    "reconcile",
   ]);
-  /** commands whose every effect begins with a CONFIRMED ledger intent, which the shipped `reconcile` presents again by identity */
-  const LEDGER_BACKED = new Set(["collect", "collect-continue", "collect-finish", "cease"]);
+  /**
+   * commands whose every effect begins with a CONFIRMED ledger intent, which the shipped `reconcile` presents again by identity (and a
+   * `reconcile` that itself ended unknown is recovered the same way). `collect-continue` is NOT here: it records no intent of its own.
+   */
+  const LEDGER_BACKED = new Set(["collect", "collect-finish", "cease", "reconcile"]);
+  /** commands that derive their work from canon and take no new input: recovered by presenting the SAME command again, by identity */
+  const REPRESENT = new Set(["collect-continue", "settle-collection-lapse"]);
   const RECONCILE_OK =
     /^STATUS (NOTHING_TO_RECONCILE|\S*COMMITTED|TIME_ESTABLISHED|SETTING_DECLARED)\b/;
+  const COMMITTED_ONLY = /^STATUS \S*COMMITTED\b/;
   const UNKNOWN_STATUS = /STATUS \S*(OUTCOME_UNKNOWN|RECONCILIATION_REQUIRED)\b/;
 
   const refuse = (status: number, reason: string): Launch => ({ ok: false, status, reason });
-  const uncertainReason = (): string =>
-    `an earlier action${pending ? ` (${pending.command}, run ${pending.run_id})` : ""} ended with an UNCERTAIN outcome and is not yet resolved${blocker ? `: ${blocker}` : ""}. Run reconcile_last_action first; do not retry the action.`;
+  const uncertainReason = (lane: "page" | "chat"): string =>
+    `an earlier action${pending ? ` (${pending.command}, run ${pending.run_id})` : ""} ended with an UNCERTAIN outcome and is not yet resolved${blocker ? `: ${blocker}` : ""}. ${
+      structuralBlock
+        ? "Engineering must inspect it; do not retry the action."
+        : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
+    }`;
   const statusLines = (run: Run): string[] =>
     run.terminal
       .snapshot(0)
@@ -354,9 +376,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     },
     close: () => t.close(),
   });
-  const block = (why: string): void => {
+  const block = (why: string, structural = false): void => {
     unresolvedOutcome = true;
     blocker = why;
+    structuralBlock = structural;
     if (pending) {
       pending = { ...pending, state: "UNCERTAIN", blocker: why };
       writePending(config, pending); // a record that cannot be rewritten stays as it was: still blocking
@@ -364,12 +387,13 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
   const resolve = (): boolean => {
     if (!clearPending(config)) {
-      block("the pending-operation record could not be cleared");
+      block("the pending-operation record could not be cleared", true);
       return false;
     }
     pending = null;
     unresolvedOutcome = false;
     blocker = null;
+    structuralBlock = false;
     return true;
   };
   /** a recovery that needs no command: its account is the run */
@@ -405,7 +429,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const env = opts.quiet
       ? { terminal: noAsking(terminal), out: (line: string) => terminal.say(line) }
       : { terminal, out: (line: string) => terminal.say(line) };
-    void cli(argv, env)
+    const chain = cli(argv, env)
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
         await after(run, code);
@@ -420,13 +444,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       })
       .catch(() => {
         run.uncertain = true;
-        block("the outcome of this action could not be recorded");
+        block("the outcome of this action could not be recorded", true);
       })
       .finally(() => {
         cleanup();
         run.done = true;
         terminal.close();
-      });
+      })
+      .catch(() => undefined);
+    // a shutdown waits for it: the command releases the campaign's writer lock only when it has wound down
+    inflight.add(chain);
+    void chain.finally(() => inflight.delete(chain));
     return run;
   }
 
@@ -448,23 +476,43 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
    * Resolution of the pending operation, ONLY on owner-side evidence about that operation (BLUE R3-b). A generic `reconcile` exit 0 is
    * evidence for a confirmed-ledger operation (which is what it presents) and for nothing else: an observation has no ledger intent, so
    * it is read back from its own records at its ORIGINAL basis and, if partial, completed by the same command by identity — which cannot
-   * ask the player anything or consult the referee again — never by an unrelated reconcile.
+   * ask the player anything or consult the referee again — never by an unrelated reconcile. A command that derives its work from canon and
+   * takes no new input (the collection's continuation, a lapse settlement) is presented again by identity and resolves only on a COMMITTED
+   * status. Everything else has no supported owner readback: it stays blocked, with the exact blocker.
    */
   async function recoverPending(): Promise<Launch> {
-    const cur = pending;
+    let cur = pending;
     const label = "reconcile";
-    const blocked = (why: string, lines: string[] = []): Launch => {
-      block(why);
+    const blocked = (why: string, lines: string[] = [], structural = false): Launch => {
+      block(why, structural);
       return {
         ok: true,
         run: finishedRun(label, [...lines, `RECOVERY BLOCKED: ${why}`], 4),
       };
     };
-    if (!cur) return blocked(blocker ?? "no recoverable operation is recorded");
+    if (!cur) {
+      // no operation is held in memory (the record was unreadable at startup): the engineer's inspection and removal of that record is the
+      // documented remedy, and it takes effect here — the very state a restart would find
+      const again = readPending(config);
+      if (again.kind === "NONE") {
+        unresolvedOutcome = false;
+        blocker = null;
+        structuralBlock = false;
+        return {
+          ok: true,
+          run: finishedRun(label, ["owner readback: no pending-operation record remains"], 0),
+        };
+      }
+      if (again.kind !== "PENDING") return blocked(blocker ?? UNREADABLE_BLOCKER, [], true);
+      pending = again.pending;
+      cur = again.pending;
+    }
     if (cur.command === "observe-surroundings") {
       if (!cur.identity)
         return blocked(
           "the observation's original identity was not recorded; it cannot be read back",
+          [],
+          true,
         );
       const ev = await rec.observationEvidence(config, cur.identity);
       if (ev.kind === "UNAVAILABLE") return blocked(ev.detail);
@@ -474,13 +522,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             ? "owner readback: no record of that observation exists at its basis; nothing was committed"
             : ev.kind === "NEGATIVE"
               ? "owner readback: the retained reading for that observation is final (nothing was received); nothing further is pending"
-              : "owner readback: the observation's event and sealed packet are both committed and verified";
-        if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [said]);
+              : "owner readback: the observation's event, sealed packet and transaction are all committed and verified";
+        if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [said], true);
         return { ok: true, run: finishedRun(label, [said], 0) };
       }
       // PARTIAL: the same command completes it by identity (no new choice, no referee reroll); a prompt it reaches is a decline
       const built = buildPlayerCommand(config, { command: cur.command, options: cur.options });
-      if (!built.ok) return blocked("the original command could not be rebuilt for recovery");
+      if (!built.ok)
+        return blocked("the original command could not be rebuilt for recovery", [], true);
       const identity = cur.identity;
       const run = startRun(
         newRunId(),
@@ -492,23 +541,27 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           const after = await rec.observationEvidence(config, identity);
           if (code === 0 && after.kind === "COMPLETE") {
             r.terminal.say(
-              "owner readback: the observation is now complete (event and sealed packet committed and verified)",
+              "owner readback: the observation is now complete (event, sealed packet and transaction committed and verified)",
             );
             resolve();
           } else {
             r.uncertain = true;
             block(
-              `the partial observation (${ev.detail}) was not completed${after.kind === "UNAVAILABLE" ? `: ${after.detail}` : ""}`,
+              `the observation's owner records are incomplete and the same command could not complete them${after.kind === "UNAVAILABLE" ? `: ${after.detail}` : ""}`,
             );
           }
         },
       );
       return { ok: true, run };
     }
-    if (LEDGER_BACKED.has(cur.command) || cur.command === "settle-collection-lapse") {
-      const command = LEDGER_BACKED.has(cur.command) ? "reconcile" : "settle-collection-lapse";
-      const built = buildPlayerCommand(config, { command });
-      if (!built.ok) return blocked("the recovery command could not be built");
+    if (LEDGER_BACKED.has(cur.command) || REPRESENT.has(cur.command)) {
+      const represent = REPRESENT.has(cur.command);
+      const command = represent ? cur.command : "reconcile";
+      const built = buildPlayerCommand(
+        config,
+        represent ? { command, options: cur.options } : { command },
+      );
+      if (!built.ok) return blocked("the recovery command could not be built", [], true);
       const run = startRun(
         newRunId(),
         label,
@@ -517,11 +570,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         { quiet: true },
         (r, code) => {
           const statuses = statusLines(r);
+          // presenting a confirmed-ledger operation again settles it (or finds nothing left); presenting a derived one again is evidence
+          // only when it reports COMMITTED — a refusal cannot be told from a read that failed
           const ok =
             code === 0 &&
             statuses.length > 0 &&
-            statuses.every((t) => RECONCILE_OK.test(t)) &&
-            (command === "reconcile" || statuses.some((t) => /COMMITTED/.test(t)));
+            statuses.every((t) => (represent ? COMMITTED_ONLY : RECONCILE_OK).test(t));
           if (ok) resolve();
           else {
             r.uncertain = true;
@@ -533,15 +587,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       );
       return { ok: true, run };
     }
-    return blocked(`no supported owner readback exists for ${cur.command}`);
+    return blocked(`no supported owner readback exists for ${cur.command}`, [], true);
   }
 
   /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
-  async function launchPlayer(request: {
-    command: unknown;
-    options?: unknown;
-    setup?: unknown;
-  }): Promise<Launch> {
+  async function launchPlayer(
+    request: { command: unknown; options?: unknown; setup?: unknown },
+    lane: "page" | "chat",
+  ): Promise<Launch> {
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
     launching = true;
@@ -553,70 +606,74 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         built.value.cleanup();
         return await recoverPending();
       }
-      const journaled = JOURNALED.has(command);
-      if (journaled) {
-        if (unresolvedOutcome) {
-          built.value.cleanup();
-          return refuse(409, uncertainReason());
-        }
-        const options: Record<string, string> = {};
-        if (request.options && typeof request.options === "object")
-          for (const [k, v] of Object.entries(request.options as Record<string, unknown>))
-            if (typeof v === "string") options[k] = v;
-        const id = newRunId();
-        let identity = null;
-        if (command === "observe-surroundings") {
-          identity = await rec.captureObservation(config, options["player-character"] ?? "");
-          if (!identity) {
-            built.value.cleanup();
-            return refuse(
-              503,
-              "the observation's identity could not be established; nothing was dispatched",
-            );
-          }
-        }
-        const record: PendingOperation = {
-          format: PENDING_FORMAT,
-          format_version: 1,
-          campaign_id: config.campaignId,
-          run_id: id,
-          command,
-          options,
-          dispatched_at: now(),
-          state: "DISPATCHED",
-          blocker: null,
-          identity,
-        };
-        if (!writePending(config, record)) {
-          built.value.cleanup();
-          return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
-        }
-        pending = record;
+      if (READ_ONLY.has(command)) {
         return {
           ok: true,
           run: startRun(
-            id,
+            newRunId(),
             command,
             built.value.argv,
             built.value.cleanup,
             { quiet: false },
-            settleNormal,
+            (run, code) => {
+              // it only reads: an unusual end is reported on the run and gates nothing
+              if (
+                code === null ||
+                code === 4 ||
+                statusLines(run).some((t) => UNKNOWN_STATUS.test(t))
+              )
+                run.uncertain = true;
+            },
           ),
         };
       }
+      // every command that may write is recorded before it is dispatched, and none starts while an earlier outcome is unresolved
+      if (unresolvedOutcome) {
+        built.value.cleanup();
+        return refuse(409, uncertainReason(lane));
+      }
+      const options: Record<string, string> = {};
+      if (request.options && typeof request.options === "object")
+        for (const [k, v] of Object.entries(request.options as Record<string, unknown>))
+          if (typeof v === "string") options[k] = v;
+      const id = newRunId();
+      let identity = null;
+      if (command === "observe-surroundings") {
+        identity = await rec.captureObservation(config, options["player-character"] ?? "");
+        if (!identity) {
+          built.value.cleanup();
+          return refuse(
+            503,
+            "the observation's identity could not be established; nothing was dispatched",
+          );
+        }
+      }
+      const record: PendingOperation = {
+        format: PENDING_FORMAT,
+        format_version: 1,
+        campaign_id: config.campaignId,
+        run_id: id,
+        command,
+        options,
+        dispatched_at: now(),
+        state: "DISPATCHED",
+        blocker: null,
+        identity,
+      };
+      if (!writePending(config, record)) {
+        built.value.cleanup();
+        return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
+      }
+      pending = record;
       return {
         ok: true,
         run: startRun(
-          newRunId(),
+          id,
           command,
           built.value.argv,
           built.value.cleanup,
           { quiet: false },
-          (run, code) => {
-            // not a chat-offered choice: its own uncertainty is reported, and does not gate the chat adapter
-            if (code === null || code === 4 || statusLines(run).some((t) => UNKNOWN_STATUS.test(t)))
-              run.uncertain = true;
-          },
+          settleNormal,
         ),
       };
     } finally {
@@ -624,24 +681,22 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     }
   }
   async function startPlayer(res: ServerResponse, body: Record<string, unknown>) {
-    const started = await launchPlayer({
-      command: body["command"],
-      options: body["options"],
-      setup: body["setup"],
-    });
+    const started = await launchPlayer(
+      { command: body["command"], options: body["options"], setup: body["setup"] },
+      "page",
+    );
     if (!started.ok) return deny(res, started.status, started.reason);
     json(res, 200, { ok: true });
   }
-  /** the chat adapter may start only these shipped commands: choices and their follow-up, never setup, binding or authoring */
-  const CHAT_COMMANDS = new Set([...JOURNALED, "reconcile"]);
   const playerRuns: PlayerRuns = {
     current: () => player,
     unresolved: () => unresolvedOutcome,
     blocker: () => blocker,
+    structural: () => structuralBlock,
     launch: async (command, options) => {
       if (!CHAT_COMMANDS.has(command))
         return { ok: false, status: 400, reason: "that action is not offered here" };
-      return launchPlayer({ command, options });
+      return launchPlayer({ command, options }, "chat");
     },
     abort: () => player?.terminal.abort(),
     decline: () => {
@@ -936,15 +991,26 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           resolve(typeof address === "object" && address ? address.port : config.port);
         });
       }),
-    close: () =>
-      new Promise((resolve) => {
-        player?.terminal.abort();
-        referee?.terminal.abort();
-        mcp?.closeAll();
-        wakeLane("player");
-        wakeLane("referee");
+    close: async () => {
+      player?.terminal.abort();
+      referee?.terminal.abort();
+      mcp?.closeAll();
+      wakeLane("player");
+      wakeLane("referee");
+      // a command that is still running holds the campaign's writer lock until it has wound down: wait for it (bounded) before the
+      // process can exit, or a redeploy during any action strands the lock and the restart cannot even read the campaign back
+      let timer: NodeJS.Timeout | undefined;
+      await Promise.race([
+        Promise.allSettled([...inflight]),
+        new Promise<void>((done) => {
+          timer = setTimeout(done, deps.shutdownMs ?? SHUTDOWN_MS);
+        }),
+      ]);
+      clearTimeout(timer);
+      await new Promise<void>((resolve) => {
         server.closeAllConnections();
         server.close(() => resolve());
-      }),
+      });
+    },
   };
 }

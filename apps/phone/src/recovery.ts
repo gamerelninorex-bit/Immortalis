@@ -11,7 +11,14 @@ import {
 } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { accessEventKey, accessPacketKey, type CanonicalTime } from "@immortalis/contracts";
+import {
+  CanonicalTimeSchema,
+  accessEventKey,
+  accessPacketKey,
+  observationTransactionId,
+  temporalTransactionKey,
+  type CanonicalTime,
+} from "@immortalis/contracts";
 import {
   CanonicalCampaign,
   RefereeAdjudicationAdapter,
@@ -31,10 +38,20 @@ import type { PhoneConfig } from "./config.ts";
  */
 export const PENDING_FORMAT = "immortalis-chat-pending-operation";
 
+/**
+ * How many answers the shipped observation asks a host for at one basis before it gives up (its own bound, mirrored here: a host's answer
+ * that is set aside is asked again as the next attempt, and the answer that finally lands is retained under THAT attempt's task identity).
+ * A test pins this to the shipped command's own constant.
+ */
+export const OBSERVATION_ATTEMPTS = 5;
+
 export interface ObservationIdentity {
   readonly pc_id: string;
   readonly basis: CanonicalTime;
+  /** the attempt-0 task identity (kept for the record's readers) */
   readonly task_id: string;
+  /** the task identity of EVERY attempt the shipped command may ask at this basis, captured together before dispatch */
+  readonly task_ids: readonly string[];
   readonly event_id: string;
 }
 
@@ -54,8 +71,9 @@ export interface PendingOperation {
   readonly identity: ObservationIdentity | null;
 }
 
+/** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
 export const pendingPath = (config: PhoneConfig): string =>
-  join(config.operatorDir, "chat-pending-operation.json");
+  join(config.operatorDir, `chat-pending-operation.${config.campaignId}.json`);
 
 export type PendingRead =
   | { readonly kind: "NONE" }
@@ -64,6 +82,18 @@ export type PendingRead =
 
 const record = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v);
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const validIdentity = (v: unknown): boolean =>
+  record(v) &&
+  typeof v["pc_id"] === "string" &&
+  typeof v["event_id"] === "string" &&
+  typeof v["task_id"] === "string" &&
+  CanonicalTimeSchema.safeParse(v["basis"]).success &&
+  Array.isArray(v["task_ids"]) &&
+  v["task_ids"].length === OBSERVATION_ATTEMPTS &&
+  v["task_ids"].every((t) => typeof t === "string" && HEX64.test(t)) &&
+  v["task_ids"][0] === v["task_id"];
 
 export function readPending(config: PhoneConfig): PendingRead {
   let text: string;
@@ -87,7 +117,8 @@ export function readPending(config: PhoneConfig): PendingRead {
       Object.values(v["options"]).some((x) => typeof x !== "string") ||
       typeof v["dispatched_at"] !== "number" ||
       (v["state"] !== "DISPATCHED" && v["state"] !== "UNCERTAIN") ||
-      (v["blocker"] !== null && typeof v["blocker"] !== "string")
+      (v["blocker"] !== null && typeof v["blocker"] !== "string") ||
+      !(v["identity"] === null || validIdentity(v["identity"]))
     )
       return { kind: "UNREADABLE" };
     return { kind: "PENDING", pending: v as unknown as PendingOperation };
@@ -167,16 +198,21 @@ export async function captureObservation(
   if (!opened.ok) return null;
   const c = opened.value;
   try {
-    const first = new RefereeAdjudicationAdapter(c.store).observationTask({
-      pc_id: pcId,
-      attempt: 0,
-    });
-    if (!first.ok) return null;
-    const basis = first.value.context.observed_at;
+    const adapter = new RefereeAdjudicationAdapter(c.store);
+    const taskIds: string[] = [];
+    let basis: CanonicalTime | null = null;
+    for (let attempt = 0; attempt < OBSERVATION_ATTEMPTS; attempt++) {
+      const built = adapter.observationTask({ pc_id: pcId, attempt });
+      if (!built.ok) return null;
+      basis ??= built.value.context.observed_at;
+      taskIds.push(built.value.task_id);
+    }
+    if (basis === null) return null;
     return {
       pc_id: pcId,
       basis,
-      task_id: first.value.task_id,
+      task_id: taskIds[0]!,
+      task_ids: taskIds,
       event_id: observationEventId(pcId, basis),
     };
   } catch {
@@ -187,9 +223,10 @@ export async function captureObservation(
 }
 
 /**
- * What the owners hold for THAT observation (the recorded basis, never the current one): nothing at all; a retained negative reading (the
- * sealed final word at that basis); a retained affirmative reading or an earned event without its sealed packet (a partial write that the
- * same command completes by identity); or the event and packet both formed and the Epistemic owner's own verification clean.
+ * What the owners hold for THAT observation (the recorded basis, never the current one, read under every attempt's task identity): nothing
+ * at all; a retained negative reading (the final word at that basis); a retained affirmative reading, an earned event or a packet without
+ * the rest of the formation (a partial write that the same command completes by identity, or fails to and stays blocked); or the event,
+ * the packet AND the sealed Temporal transaction all formed with the Epistemic owner's own verification clean.
  */
 export async function observationEvidence(
   config: PhoneConfig,
@@ -200,33 +237,33 @@ export async function observationEvidence(
     return { kind: "UNAVAILABLE", detail: `the campaign did not open: ${opened.error.code}` };
   const c = opened.value;
   try {
-    const decision = new RefereeAdjudicationAdapter(c.store).decision(identity.task_id);
+    const adapter = new RefereeAdjudicationAdapter(c.store);
+    // the answer that landed is retained under the task identity of the attempt that produced it: every attempt asked at this basis is read
+    const decisions = identity.task_ids.flatMap((id) => {
+      const d = adapter.decision(id);
+      return d ? [d] : [];
+    });
     const event = c.store.getFact(accessEventKey(identity.event_id));
     const packet = c.store.getFact(accessPacketKey(identity.event_id, identity.pc_id));
-    if (event && packet) {
+    // the sealed Temporal transaction is the last write of packet formation: a packet without it is a formation the same command finishes
+    const sealed = c.store.getFact(
+      temporalTransactionKey(observationTransactionId(identity.event_id)),
+    );
+    if (event && packet && sealed) {
       const problems = verifyEpistemicIntegrity(c.store);
       return problems.length === 0
         ? { kind: "COMPLETE" }
         : {
             kind: "UNAVAILABLE",
-            detail: "the Epistemic owner reports violations over the observation",
+            detail: "the Epistemic owner's integrity check reports violations (store-wide)",
           };
     }
+    // the detail is deliberately neutral: it reaches the assistant, and what a half-formed observation holds is sealed referee material
     if (event || packet)
-      return {
-        kind: "PARTIAL",
-        detail: event
-          ? "the observation event is committed without its sealed packet"
-          : "a packet without its event",
-      };
-    if (decision) {
-      return decision.value.verdict === "OBSERVATION_ESTABLISHED"
-        ? {
-            kind: "PARTIAL",
-            detail: "the affirmative reading is retained but no event is committed",
-          }
-        : { kind: "NEGATIVE" };
-    }
+      return { kind: "PARTIAL", detail: "the observation's owner records are incomplete" };
+    if (decisions.some((d) => d.value.verdict === "OBSERVATION_ESTABLISHED"))
+      return { kind: "PARTIAL", detail: "the observation's owner records are incomplete" };
+    if (decisions.length > 0) return { kind: "NEGATIVE" };
     return { kind: "NONE" };
   } catch {
     return { kind: "UNAVAILABLE", detail: "the owner readback failed" };

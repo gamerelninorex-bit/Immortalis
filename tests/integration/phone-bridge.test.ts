@@ -12,6 +12,7 @@ import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
 import { COMMON_JS, REFEREE_TOOLS_JS } from "../../apps/phone/src/pages.ts";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
+import { pendingPath } from "../../apps/phone/src/recovery.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
 import { LOCALITY_CAMPAIGN, openOrdinary, setupDoc } from "../support/locality.ts";
 import { tempDir } from "../support/tmp.ts";
@@ -30,7 +31,7 @@ import {
 
 // the operator directory is real (the front end keeps its pending-operation record there) and private to this file
 const OPERATOR_DIR = tempDir("immortalis-phone-operator-");
-beforeEach(() => rmSync(join(OPERATOR_DIR, "chat-pending-operation.json"), { force: true }));
+beforeEach(() => rmSync(pendingPath(config()), { force: true }));
 
 const PLAYER = "player-secret-0123456789-abcdefghijklmnopqrstuv";
 const REFEREE = "referee-secret-0123456789-abcdefghijklmnopqrstuv";

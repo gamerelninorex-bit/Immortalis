@@ -23,6 +23,8 @@ export interface PlayerRuns {
   readonly unresolved: () => boolean;
   /** why the pending operation is still blocked (null when nothing is blocked or no recovery attempt failed yet) */
   readonly blocker: () => string | null;
+  /** true when running a reconcile cannot help (the record is unreadable, the operation unsupported or the record unclearable) */
+  readonly structural: () => boolean;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

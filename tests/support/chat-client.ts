@@ -63,14 +63,20 @@ export class Chat {
   }
 
   async raw(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
-    const res = await fetch(`${this.base}${path}`, {
-      method,
-      redirect: "manual",
-      headers: {
-        ...(body !== undefined ? { "content-type": "application/json" } : {}),
-        ...headers,
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    const send = () =>
+      fetch(`${this.base}${path}`, {
+        method,
+        redirect: "manual",
+        headers: {
+          ...(body !== undefined ? { "content-type": "application/json" } : {}),
+          ...headers,
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+    // a connection pooled from a server that has since been replaced on the same port is closed under the first request: send it once more
+    const res = await send().catch((e: unknown) => {
+      if ((e as { cause?: { code?: string } }).cause?.code !== "UND_ERR_SOCKET") throw e;
+      return send();
     });
     const text = await res.text();
     let json: any;
