@@ -21,6 +21,7 @@ import {
   temporalObjectKey,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
+  PcIntrinsicClarificationSchema,
   PcCollectionReachDecisionSchema,
   PopulationPcOccupancySchema,
   ProductionExtractionSchema,
@@ -38,6 +39,7 @@ import { factsBefore, type IntegrityViolation } from "../world/integrity.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
 import { pcCollectionCessationViolation, pcCollectionTerminationViolation } from "./cessation.ts";
 import { lapseCauseViolation, pcCollectionLapseViolation } from "./lapse.ts";
+import { pcClarificationViolation } from "./clarification.ts";
 import {
   pcCycleAttestationViolation,
   pcRepresentationViolation,
@@ -85,6 +87,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const terminations = ofKind("production_pc_collection_termination");
   const lapses = ofKind("production_pc_collection_lapse");
   const attestations = ofKind("pc_collection_cycle_attestation");
+  const clarifications = ofKind("pc_intrinsic_clarification");
   const representations = ofKind("population_pc_representation");
   const closures = ofKind("world_scene_closure");
   const scopes = ofKind("population_workforce_scope");
@@ -99,6 +102,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       terminations.length +
       lapses.length +
       attestations.length +
+      clarifications.length +
       representations.length +
       closures.length +
       scopes.length ===
@@ -227,6 +231,23 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
     if (!r.success) continue;
     const v = pcCollectionRequestViolation(f.key, r.data, view(revisionOf(f)), true);
     if (v) bad(f.key, v);
+  }
+  for (const f of clarifications) {
+    const c = PcIntrinsicClarificationSchema.safeParse(f.value);
+    if (!c.success) continue;
+    const at = revisionOf(f);
+    const v = pcClarificationViolation(f.key, c.data, view(at), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [c.data.contract.fact_key, c.data.binding.fact_key, c.data.referee.fact_key]);
+    // prospective: no collection commitment of this character was committed before the clarification
+    for (const other of commitments) {
+      const oc = PcCollectionCommitmentSchema.safeParse(other.value);
+      if (oc.success && oc.data.pc_id === c.data.pc_id && revisionOf(other) < at)
+        bad(
+          f.key,
+          "a clarification precedes every collection commitment of its character: it retrofits no act",
+        );
+    }
   }
   for (const f of mechanisms) {
     const m = PcCollectionMechanismSchema.safeParse(f.value);

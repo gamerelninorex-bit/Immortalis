@@ -1,5 +1,7 @@
 import {
   FACET_PC_COLLECTION_MECHANISM,
+  FACET_PC_INTRINSIC_CLARIFICATION,
+  PcIntrinsicClarificationSchema,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
   PC_OCCUPANCY_RELEASED_LAPSED,
@@ -56,6 +58,7 @@ import { canonicalEqual } from "../hash.ts";
 import {
   PC_COLLECTION_ATTESTATION_RULE,
   PC_COLLECTION_CESSATION_RULE,
+  PC_INTRINSIC_CLARIFICATION_RULE,
   POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
   PRODUCTION_PC_COLLECTION_LAPSE_RULE,
@@ -94,6 +97,7 @@ import {
   pcOccupancyState,
 } from "./derive.ts";
 import { lapseLineageHolds, pcCollectionLapseViolation } from "./lapse.ts";
+import { pcClarificationViolation } from "./clarification.ts";
 import { pcOccupancyRecord } from "./state.ts";
 
 /**
@@ -182,6 +186,27 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
     const v = pcCycleAttestationViolation(w.key, a, state.facts);
     return v ? ref(v, { key: w.key }) : null;
   }
+  if (kind === "pc_intrinsic_clarification" && group.facet === FACET_PC_INTRINSIC_CLARIFICATION) {
+    const c = PcIntrinsicClarificationSchema.parse(w.value);
+    // R-5 (NEWLY AUTHORIZED): the prospective clarification of one unresolved operative detail, created once and re-derived
+    if (!canonicalEqual(group.rule, PC_INTRINSIC_CLARIFICATION_RULE))
+      return ref("a clarification is governed by the R-5 prospective clarification rule", {
+        key: w.key,
+      });
+    if (w.expected_version !== 0)
+      return reject("VALUE_INVALID", "a clarification is created once and never amended", {
+        key: w.key,
+      });
+    const missing = need(group, state, [
+      [pcExistenceContractKey(c.pc_id), "the PC's released contract"],
+      [PLAYER_CHARACTER_BINDING_KEY, "the operative PC binding"],
+      [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+      [c.referee.fact_key, "the retained I-002 classification of exactly these words"],
+    ]);
+    if (missing) return missing;
+    const v = pcClarificationViolation(w.key, c, state.facts);
+    return v ? ref(v, { key: w.key }) : null;
+  }
   if (kind === "pc_collection_cessation") {
     const c = PcCollectionCessationSchema.parse(w.value);
     // D-1 (PROVISIONAL)
@@ -208,7 +233,7 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
   }
   return reject(
     "VALUE_INVALID",
-    "the PC collection facets hold only the commitment, the request, the mechanism, its attestation and the cessation",
+    "the PC collection facets hold only the commitment, the request, the mechanism, its attestation, the clarification and the cessation",
   );
 }
 

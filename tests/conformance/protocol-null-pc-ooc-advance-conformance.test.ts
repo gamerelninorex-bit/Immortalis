@@ -83,7 +83,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":

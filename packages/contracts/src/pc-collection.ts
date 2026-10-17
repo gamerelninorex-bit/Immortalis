@@ -44,6 +44,11 @@ export const CPAA_C1_PROVISIONAL =
 export const FACET_PC_COLLECTION_MECHANISM = "pc_collection_mechanism";
 /** Population's registration of one active PC's individual occupied interval (PROVISIONAL P-2). */
 export const FACET_POPULATION_PC_OCCUPANCY = "population_pc_occupancy";
+/** R-5: the PC owner's prospective intrinsic clarification of one unresolved operative detail (I-002 §22), a facet of the one PC owner. */
+export const FACET_PC_INTRINSIC_CLARIFICATION = "pc_intrinsic_clarification";
+
+export const pcIntrinsicClarificationKey = (pcId: string, clarificationId: string): string =>
+  `pc/${pcId}/intrinsic-clarification/${clarificationId}`;
 
 export const pcCollectionCommitmentKey = (pcId: string, actId: string): string =>
   `pc/${pcId}/collection/${actId}/commitment`;
@@ -195,6 +200,65 @@ export type PcCollectionCommitment = z.infer<typeof PcCollectionCommitmentSchema
 export const PcCollectionRequestSchema = ProductionRequestSchema;
 
 // ---------------------------------------------------------------------------------------------
+// R-5 — the prospective intrinsic clarification of the collection handling cycle (I-002 §§8, 22–23; CPAA-C1 v0.3 F-2).
+// ---------------------------------------------------------------------------------------------
+
+/** A reference to ONE accepted claim of a committed (sealed) clarification, at the exact version the consumer follows. */
+export const ClarifiedClaimRefSchema = z.strictObject({ clarification: Pin, index: Version });
+export type ClarifiedClaimRef = z.infer<typeof ClarifiedClaimRefSchema>;
+
+/** The one unresolved operative detail this invocation branch settles. */
+export const PC_CLARIFICATION_BRANCH = "COLLECTION_SERIAL_HANDLING_CYCLE";
+/**
+ * The question the branch puts to the PLAYER, fixed by the engine and never composed by a caller. It asks for the character's OWN
+ * account (the number and the unit of time are the player's words); it supplies, suggests and defaults no rate.
+ */
+export const PC_CLARIFICATION_QUESTION =
+  "How long does your character take to handle ONE unit of loose material (lift it and carry it away) in one serial cycle? Say it in your own words, with the number and the unit of time. This is your character's own account: nothing is chosen for you.";
+
+/**
+ * R-5 (NEWLY AUTHORIZED bounded repair, BLUE handoff v1 pin 2026-10-17T09:28:13.827Z; I-002 §§8, 22–23 frozen, CPAA-C1 v0.3 F-2 ratified):
+ * a PROSPECTIVE clarification of an unresolved operative intrinsic detail of an ALREADY RELEASED, ALREADY BOUND character, accepted
+ * BEFORE any dependent collection commitment. It is a NEW, create-only PC-owner fact: the sealed released Existence Contract, the KEEP,
+ * the binding, the custody, the clock and every earlier record are untouched. The player's words are the claims (provenance
+ * PLAYER-AUTHORED); the AI referee host's I-002 classification of exactly those words is retained and cited (`referee`); the owner's
+ * acceptance is written by `role.archivist` + `permission.canon.write`, effective from the canonical time at acceptance and never
+ * retroactively. It contains no rate of its own: the cycle is whatever the player's accepted words state, and the mechanism's textual
+ * grounding still requires that exact numeral and canonical unit in a cited claim. Delegation of the choice to a host is NOT offered.
+ */
+export const PcIntrinsicClarificationSchema = z.strictObject({
+  clarification_id: EntityId,
+  pc_id: EntityId,
+  invocation: z.strictObject({
+    branch: z.literal(PC_CLARIFICATION_BRANCH),
+    question: z.literal(PC_CLARIFICATION_QUESTION),
+  }),
+  /** the released contract, the operative binding and the retained I-002 classification this rests on, at their exact versions */
+  contract: Pin,
+  binding: Pin,
+  referee: Pin,
+  claims: z
+    .array(z.strictObject({ statement: Text, provenance: z.literal("PLAYER-AUTHORED") }))
+    .min(1)
+    .max(3),
+  interpreted_by: z.strictObject({
+    role: z.literal("role.gm"),
+    permission: z.literal("permission.rule.adjudicate"),
+  }),
+  accepted_by: z.strictObject({
+    role: z.literal("role.archivist"),
+    permission: z.literal("permission.canon.write"),
+  }),
+  /** the canonical time from which it is effective: never earlier than the acceptance, so never a retrofit of earlier work */
+  effective_from: CanonicalTimeSchema,
+  committer: z.strictObject({
+    owner: z.literal(OWNER_PC_EXISTENCE),
+    facet: z.literal(FACET_PC_INTRINSIC_CLARIFICATION),
+  }),
+});
+export type PcIntrinsicClarification = z.infer<typeof PcIntrinsicClarificationSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // C6 / PROVISIONAL P-1 — the intrinsic exact-cycle mechanism carrier (PC-side, intrinsic, sealed).
 // ---------------------------------------------------------------------------------------------
 
@@ -224,6 +288,11 @@ export const PcCollectionMechanismSchema = z.strictObject({
   authored_from: z.strictObject({
     contract: Pin,
     claims: z.array(PcClaimLocatorSchema).min(1),
+    /**
+     * R-5: accepted claims of the PC's own PROSPECTIVE intrinsic clarifications (I-002 §22) the mechanism also follows, each at its
+     * exact committed (sealed) version. Absent for a mechanism that follows the released contract alone.
+     */
+    clarified: z.array(ClarifiedClaimRefSchema).optional(),
   }),
   actuator: z.strictObject({ statement: Text }),
   /** what this mechanism can and cannot pass or bypass, as authored: interpreted against the source's stated path facts, never encoded as a vocabulary */
@@ -246,6 +315,8 @@ export const EstablishPcCollectionMechanismInputSchema = z.strictObject({
   pc_id: EntityId,
   mechanism_id: EntityId,
   claims: z.array(PcClaimLocatorSchema).min(1),
+  /** R-5: claims of the PC's own committed clarifications, named by identity; the pins are applied from what is committed */
+  clarified: z.array(z.strictObject({ clarification_id: EntityId, index: Version })).optional(),
   actuator: z.strictObject({ statement: Text }),
   traversal: z.strictObject({ statement: Text }),
   cycle_duration: PositiveDuration,
@@ -389,6 +460,8 @@ export const PcCollectionCycleTaskSchema = z.strictObject({
   pc_id: EntityId,
   mechanism: Pin,
   claims: z.array(z.strictObject({ locator: PcClaimLocatorSchema, statement: Text })).min(1),
+  /** R-5: the clarified claims' committed wording, as the host reads it beside the contract's claims */
+  clarified: z.array(z.strictObject({ ref: ClarifiedClaimRefSchema, statement: Text })).optional(),
   actuator: Text,
   cycle: CanonicalTimeSchema,
   digest: Sha256,
@@ -417,6 +490,8 @@ export const PcCollectionCycleAttestationSchema = z.strictObject({
   mechanism: Pin,
   contract: Pin,
   claims: z.array(PcClaimLocatorSchema).min(1),
+  /** R-5: the clarified claims the attested mechanism follows (exactly the mechanism's own) */
+  clarified: z.array(ClarifiedClaimRefSchema).optional(),
   attestor: z.strictObject({
     role: z.literal("role.gm"),
     permission: z.literal("permission.rule.adjudicate"),

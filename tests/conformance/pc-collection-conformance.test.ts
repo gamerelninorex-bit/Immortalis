@@ -88,6 +88,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "population_workforce_scope",
       "production_pc_collection_termination",
       "production_pc_collection_lapse",
+      "pc_intrinsic_clarification",
     ]);
     for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
       (C1_KIND_IDS as readonly string[]).includes(k.id),
@@ -338,6 +339,15 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
         "IM-05",
         ["RC-02", "RC-06", "RC-10"],
       ],
+      // R-5 (NEWLY AUTHORIZED): the PC owner's create-only prospective intrinsic clarification, a further facet of the one PC owner
+      [
+        "pc_intrinsic_clarification",
+        "pc_existence",
+        "pc_intrinsic_clarification",
+        "SEALED",
+        "IM-07",
+        ["RC-02", "RC-03"],
+      ],
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
       [
@@ -364,6 +374,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "existence_contract",
       "pc_capability_profile",
       "pc_collection_mechanism",
+      "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.get("population")!].sort()).toEqual([
@@ -443,6 +454,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "adapter.ts",
       "admission.ts",
       "cessation.ts",
+      "clarification.ts",
       "derive.ts",
       "determinations.ts",
       "integrity.ts",
@@ -458,6 +470,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "attestation",
       "cease",
       "cessation",
+      "clarification",
+      "clarify",
       "closed",
       "commit",
       "commitment",
@@ -534,6 +548,7 @@ describe("the slice is one closed class: no action bus, no universal action law,
       [
         "actuator",
         "claims",
+        "clarified",
         "cycle_duration",
         "cycle_quote",
         "mechanism_id",

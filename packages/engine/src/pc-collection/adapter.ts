@@ -1,5 +1,12 @@
 import {
   CANON_WRITE_AUTHORITY,
+  FACET_PC_INTRINSIC_CLARIFICATION,
+  PC_CLARIFICATION_BRANCH,
+  PC_CLARIFICATION_QUESTION,
+  PcIntrinsicClarificationSchema,
+  pcIntrinsicClarificationKey,
+  type ClarifiedClaimRef,
+  type PcIntrinsicClarification,
   PopulationWorkforceScopeSchema,
   WorldSceneClosureSchema,
   popWorkforceScopeKey,
@@ -94,6 +101,7 @@ import {
   factKind,
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
+import { pcClarificationIdOf } from "./clarification.ts";
 import { acceptableHeldLineage, deriveLapse, lapseCauseViolation } from "./lapse.ts";
 import {
   sceneClosureStatus,
@@ -152,6 +160,7 @@ const byId = (a: { extraction_id: string }, b: { extraction_id: string }): numbe
   a.extraction_id < b.extraction_id ? -1 : a.extraction_id > b.extraction_id ? 1 : 0;
 
 type KindId =
+  | "pc_intrinsic_clarification"
   | "pc_collection_cycle_attestation"
   | "population_pc_representation"
   | "pc_collection_cessation"
@@ -257,12 +266,26 @@ export class PcCollectionAdapter {
       return Promise.resolve(
         fail("PREREQUISITE_MISSING", "the PC's released contract is not committed"),
       );
+    // R-5: the claims of the PC's own committed clarifications the mechanism also follows, pinned at their exact versions
+    const clarifiedPins: ClarifiedClaimRef[] = [];
+    for (const c of d.clarified ?? []) {
+      const found = this.#store.getFact(pcIntrinsicClarificationKey(d.pc_id, c.clarification_id));
+      if (!found)
+        return Promise.resolve(
+          fail("PREREQUISITE_MISSING", "a cited clarification of the PC is not committed"),
+        );
+      clarifiedPins.push({
+        clarification: { fact_key: found.key, version: found.version },
+        index: c.index,
+      });
+    }
     const value = PcCollectionMechanismSchema.safeParse({
       mechanism_id: d.mechanism_id,
       pc_id: d.pc_id,
       authored_from: {
         contract: { fact_key: contract.key, version: contract.version },
         claims: d.claims,
+        ...(clarifiedPins.length > 0 ? { clarified: clarifiedPins } : {}),
       },
       actuator: d.actuator,
       traversal: d.traversal,
@@ -281,7 +304,74 @@ export class PcCollectionAdapter {
       pcCollectionMechanismKey(d.pc_id, d.mechanism_id),
       value.data,
       0,
-      [pcExistenceContractKey(d.pc_id)],
+      [pcExistenceContractKey(d.pc_id), ...clarifiedPins.map((c) => c.clarification.fact_key)],
+    );
+  }
+
+  /**
+   * R-5 (NEWLY AUTHORIZED): the prospective intrinsic clarification of the one unresolved operative detail collection needs. The
+   * caller supplies the player's own words and names the retained I-002 classification of exactly those words; everything else
+   * (the identity, the pins of the contract, the binding and the classification, the canonical time it is effective from, the
+   * invocation branch and question, the interpreting and accepting roles) is DERIVED here from committed state or fixed, never
+   * supplied. Create-only and re-derived by admission; presenting it again reconciles by identity.
+   */
+  clarify(
+    input: Publication & {
+      readonly pc_id: string;
+      readonly statements: readonly string[];
+      readonly referee_key: string;
+    },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const contract = this.#store.getFact(pcExistenceContractKey(input.pc_id));
+    const binding = this.#store.getFact(PLAYER_CHARACTER_BINDING_KEY);
+    const referee = this.#store.getFact(input.referee_key);
+    const state = this.#view().get(TEMPORAL_STATE_KEY);
+    if (!contract || !binding || !referee || !state)
+      return Promise.resolve(
+        fail(
+          "PREREQUISITE_MISSING",
+          "the released contract, the operative binding, the retained classification and a canonical time are committed",
+        ),
+      );
+    const clock = (state.value as { canonical_time: PcIntrinsicClarification["effective_from"] })
+      .canonical_time;
+    const id = pcClarificationIdOf(input.pc_id, input.statements);
+    const value = PcIntrinsicClarificationSchema.safeParse({
+      clarification_id: id,
+      pc_id: input.pc_id,
+      invocation: { branch: PC_CLARIFICATION_BRANCH, question: PC_CLARIFICATION_QUESTION },
+      contract: { fact_key: contract.key, version: contract.version },
+      binding: { fact_key: binding.key, version: binding.version },
+      referee: { fact_key: referee.key, version: referee.version },
+      claims: input.statements.map((statement) => ({ statement, provenance: "PLAYER-AUTHORED" })),
+      interpreted_by: { role: "role.gm", permission: "permission.rule.adjudicate" },
+      accepted_by: { role: "role.archivist", permission: "permission.canon.write" },
+      effective_from: clock,
+      committer: { owner: "pc_existence", facet: FACET_PC_INTRINSIC_CLARIFICATION },
+    });
+    if (!value.success) return Promise.resolve(invalid("clarification", value.error));
+    return this.#publish(
+      p.data,
+      "pc_intrinsic_clarification",
+      pcIntrinsicClarificationKey(input.pc_id, id),
+      value.data,
+      0,
+      [contract.key, binding.key, TEMPORAL_STATE_KEY, referee.key],
+    );
+  }
+
+  /** The PC's committed clarification of this identity, if any. */
+  clarification(
+    pcId: string,
+    clarificationId: string,
+  ): Typed<PcIntrinsicClarification> | undefined {
+    return this.#typed(
+      pcIntrinsicClarificationKey(pcId, clarificationId),
+      PcIntrinsicClarificationSchema,
     );
   }
 
@@ -337,6 +427,9 @@ export class PcCollectionAdapter {
       mechanism: { fact_key: mech.fact.key, version: mech.fact.version },
       contract: m.authored_from.contract,
       claims: m.authored_from.claims,
+      ...(m.authored_from.clarified && m.authored_from.clarified.length > 0
+        ? { clarified: m.authored_from.clarified }
+        : {}),
       attestor: { role: "role.gm", permission: "permission.rule.adjudicate" },
       meaning: PC_CYCLE_MEANING,
       actuator_ground: interpreted.value.actuator_ground,
@@ -359,7 +452,12 @@ export class PcCollectionAdapter {
       pcCollectionAttestationKey(input.pc_id, input.mechanism_id),
       value.data,
       0,
-      [mech.fact.key, pcExistenceContractKey(input.pc_id), TEMPORAL_STATE_KEY],
+      [
+        mech.fact.key,
+        pcExistenceContractKey(input.pc_id),
+        TEMPORAL_STATE_KEY,
+        ...(m.authored_from.clarified ?? []).map((c) => c.clarification.fact_key),
+      ],
     );
   }
 

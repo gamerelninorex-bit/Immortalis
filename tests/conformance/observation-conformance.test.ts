@@ -43,15 +43,15 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "6e8eb9969b1e32b10cc2b882255e55a2541aebe2251d2ba29ad0cd05b4e467c7",
+    "e0c6fd64dc9f08a37422509017f690139cf38dd463eb72001346c6cc2a0477be",
   "packages/engine/src/owners/registry.ts":
-    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa",
+    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e",
   "packages/engine/src/referee/adapter.ts":
     "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
   "packages/engine/src/referee/admission.ts":
     "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   "packages/engine/src/referee/derive.ts":
-    "9b169bb45e5e684c8b34ea5deb6def45afe94692c7572f8b4fc11157072c2d6b",
+    "5c2b3e20f1c193e03f511413f1189e20ca9d3764497af62d57fa6d0c92c0f047",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
@@ -59,13 +59,13 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "266e7988697ffc929819b78df27e4cef117bc4e657bfc1a3726d51aeda5ab0ba",
+    "72e4256ae4388987d7f935ea4b85b78b483fd78f237a56de841a92286f87e02e",
   "packages/operator/src/confirmation.ts":
-    "12a6a291ca1f07472d2a2ed6b17157d37cb3d1b77a177b2c7e2958a6f5cdea41",
+    "9527fc0b634f47dc0c412f80301bed0ed369a0bf27531dd84601c3660a2f073f",
   "packages/operator/src/index.ts":
-    "633ce6f79dd9cdf5368e4c2b06b33bb92a989592e88a8ae96953b869cf15e5b7",
+    "6d54d8ba0793d332a7af2a45b44d0728a774329951073eb2532dbfb95751fe5e",
   "packages/operator/src/original-pc.ts":
-    "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/referee-exchange.ts":
     "e2575b3490d80ce5ece7a0027824762c99e1dbed7849571eaa3a9d15c0c40469",
   "packages/operator/src/referee-mcp.ts":

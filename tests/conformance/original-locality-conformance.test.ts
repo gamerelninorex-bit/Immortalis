@@ -48,9 +48,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "d872c10539d9e6db189314aea171bfc1427cbb1db422734776b996b5995c1aba", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "bcf8fe73d9b175ebb6d20201d836d7ab9852d1b8192fda935769d6ef1aab72d2", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":

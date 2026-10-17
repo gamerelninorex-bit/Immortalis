@@ -10,6 +10,7 @@ export * from "./commands.ts";
 export * from "./closed-setting.ts";
 export * from "./collection-referee.ts";
 export * from "./collection-preparation.ts";
+export * from "./collection-clarification.ts";
 export * from "./confirmation.ts";
 export * from "./ledger.ts";
 export * from "./locality.ts";

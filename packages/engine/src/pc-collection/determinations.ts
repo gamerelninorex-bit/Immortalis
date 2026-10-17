@@ -59,6 +59,7 @@ import { deliveredFacts } from "../referee/derive.ts";
 import type { FactView } from "../world/pc-locus-custody.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
 import { pcHasMovementRecords } from "./state.ts";
+import { resolveClarifiedClaims } from "./clarification.ts";
 
 /**
  * CPAA-C1 v0.3 (design RATIFIED by the Sovereign; implementation acceptance pending) — the determinations the closed class rests on,
@@ -552,10 +553,16 @@ export function buildCycleTask(
     if (!found) return refuse("a cited claim is not an accepted claim of the PC's contract");
     claims.push({ locator, statement: found.statement });
   }
+  // R-5: the clarified claims the mechanism also follows, at their exact committed versions (absent for a contract-only mechanism)
+  const clarified = resolveClarifiedClaims(m.pc_id, m.authored_from.clarified, facts);
+  if (!clarified.ok) return refuse(clarified.message);
   const body = {
     pc_id: m.pc_id,
     mechanism: pin(mechanism.fact),
     claims,
+    ...(clarified.claims.length > 0
+      ? { clarified: clarified.claims.map((c) => ({ ref: c.ref, statement: c.statement })) }
+      : {}),
     actuator: m.actuator.statement,
     cycle: m.cycle.duration,
   };
@@ -576,7 +583,7 @@ export function interpretCycleAnswer(
   if (!a.success) return fail("ANSWER_INVALID", "the reading is not a well-formed cycle reading");
   if (a.data.task_digest !== task.digest)
     return fail("ANSWER_INVALID", "the reading answers a different task");
-  const text = task.claims.map((c) => c.statement);
+  const text = [...task.claims, ...(task.clarified ?? [])].map((c) => c.statement);
   const quoted = (q: string) => q.length >= MIN_QUOTE_LENGTH && text.some((t) => t.includes(q));
   if (a.data.reading !== "ONE_SAME_FORM_UNIT_ONE_SERIAL_CYCLE")
     return fail(
@@ -628,6 +635,7 @@ export function pcCycleAttestationViolation(
     m.pc_id !== a.pc_id ||
     !canonicalEqual(m.authored_from.contract, a.contract) ||
     !canonicalEqual(m.authored_from.claims, a.claims) ||
+    !canonicalEqual(m.authored_from.clarified ?? [], a.clarified ?? []) ||
     !canonicalEqual(m.cycle.duration, a.temporal_hook.per_cycle) ||
     m.actuator.statement !== a.actuator_ground
   )
