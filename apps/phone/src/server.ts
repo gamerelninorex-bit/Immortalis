@@ -11,15 +11,17 @@ import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
 import { landingPage, playerPage, refereePage } from "./pages.ts";
 import { createWebTerminal, type WebTerminal } from "./web-terminal.ts";
+import { callRefereeTool } from "./referee-tools.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
- * end, nothing more. Every prompt shown comes from the shipped command; every answer is typed by the authenticated person; nothing is
- * defaulted, scripted or confirmed here. It adds no gameplay, no model and no engine rule, and the existing guards (the operator's
+ * end, nothing more. Player confirmations are typed by the authenticated player. The private referee lane also exposes the existing
+ * three MCP operations to a compatible active AI browser host; no answer is defaulted or scripted. It adds no gameplay, no model and
+ * no engine rule, and the existing guards (the operator's
  * owner-only files, the referee exchange's host proofs, the owners' admission) still decide everything that matters.
  *
  * TWO LANES with SEPARATE secrets: the player lane (choices, typed confirmations, the author's setting documents) and the referee lane
- * (the bound referee console: read a task, give your own reading). A session of one lane can call nothing of the other.
+ * (bound AI tools, with an optional developer console). A session of one lane can call nothing of the other.
  */
 export interface PhoneDeps {
   readonly runCli?: (argv: readonly string[], env: CliEnvironment) => Promise<number>;
@@ -76,6 +78,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let globalFails: number[] = [];
   let player: Run | null = null;
   let referee: Run | null = null;
+  let refereeCalls = 0;
   const pollMs = deps.pollMs ?? POLL_MS;
   // an idle or finished lane holds a poll open until a new run starts (or `pollMs`), instead of answering at once
   const laneWaiters: Record<Role, Set<() => void>> = { player: new Set(), referee: new Set() };
@@ -429,6 +432,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       if (path === "/api/play/reply") return reply(res, player, body);
       if (path === "/api/play/stop") return stop(res, player);
     } else {
+      if (path === "/api/ref/tool") {
+        if (refereeCalls >= 8) return deny(res, 429, "referee is busy; retry later");
+        refereeCalls++;
+        try {
+          const called = await callRefereeTool(config, body);
+          return json(res, called.status, called.result);
+        } finally {
+          refereeCalls--;
+        }
+      }
       if (path === "/api/ref/start") return startReferee(res, body);
       if (path === "/api/ref/reply") return reply(res, referee, body);
       if (path === "/api/ref/stop") return stop(res, referee);

@@ -2,6 +2,18 @@
 
 > **OOC DEVELOPMENT INSTRUMENT.** This is a transport and a front end, nothing else. It adds no gameplay, no model, no paid API and no engine rule: it shows the shipped commands' own prompts on a phone and returns what the authenticated person types. **Nothing in the repository's tests of it is a real player or a real game master**; every test is labelled a MECHANISM test. It claims no First Playable PASS, gate, source-lock change or merge readiness. Built on a separate branch because the Sovereign has no computer (BLUE comment 6221232360 on PR #72).
 
+## AI host connection repair — 17 October 2026
+
+The authenticated `/referee` page now registers `referee_list_tasks`, `referee_get_task` and `referee_submit_decision` as browser WebMCP tools where that browser API is supported. A compatible **active AI session** reads the actual task and supplies its own interpretation and optional self-reported `claimed_model`. No player copies tasks or JSON. Registration starts no model, background worker or inference service. This is a session-based host connection, not an unattended deployment.
+
+The tools POST to `/api/ref/tool` under the existing referee cookie, request token, JSON/same-origin/TLS checks, expiry and lane separation. The route accepts only configured host identities, the three operation names and their bounded arguments, with at most eight calls in flight. Campaign/directory/secret-file paths come only from server configuration. Each request runs the unchanged `runRefereeMcpCli` in process over streams: the existing owner-only host secret, operation binding, task/nonce proof, source coverage/quotation checks, write-once decision and downstream owner validation remain authoritative. The browser receives no secret. An offered but unbound host fails closed; listing a host in the environment does not bind it. The tool cannot issue player commands or confirmations. A submission with an uncertain outcome must be inspected before any retry.
+
+The console remains an optional developer fallback and still labels its typed readings as human declarations. AI tool submissions retain the supplied provenance label instead. The player page exposes no referee tools. Browsers without WebMCP report that limitation explicitly; there is no scripted semantic fallback, paid API or hidden credential use. HTTP 200 can contain an MCP `isError` refusal; it does not itself mean a ruling was accepted or canonical facts committed.
+
+Tests in `phone-bridge.test.ts` exercise the actual MCP task exchange with **explicitly scripted mechanism answers**, incomplete-answer and duplicate refusals, authentication/lane/path/authority checks, and tool registration without automatic submission. They do not prove AI judgment. Live semantic acceptance requires an actual AI session interpreting genuine pending tasks and the engine independently validating/committing them. Keep PR #72 and PR #73 unmerged; no gate or First Playable claim follows from this connection.
+
+The sections below describe the original console bridge and its historical evidence. They do not supersede this repair or turn the console into an autonomous referee.
+
 ## What it is
 
 `apps/phone` is a small Node HTTP service (`node:http`, no new dependency). It runs the **unchanged** `immortalis-operator` command line (`runCli`) and the **unchanged** human referee console (`runRefereeConsole`) in its own process, with a browser-backed `OperatorTerminal`:

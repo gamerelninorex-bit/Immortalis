@@ -10,11 +10,19 @@ import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
-import { COMMON_JS } from "../../apps/phone/src/pages.ts";
+import { COMMON_JS, REFEREE_TOOLS_JS } from "../../apps/phone/src/pages.ts";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
 import { LOCALITY_CAMPAIGN, setupDoc } from "../support/locality.ts";
 import { tempDir } from "../support/tmp.ts";
+import {
+  HOST_ID,
+  STANDARD,
+  author,
+  localityCampaign,
+  plainPolicy,
+  respondingConsole,
+} from "../support/original-pc.ts";
 
 const PLAYER = "player-secret-0123456789-abcdefghijklmnopqrstuv";
 const REFEREE = "referee-secret-0123456789-abcdefghijklmnopqrstuv";
@@ -94,6 +102,140 @@ async function serve(over: Partial<PhoneConfig> = {}, deps: PhoneDeps = {}) {
   const port = await app.listen();
   return { app, base: `http://127.0.0.1:${port}` };
 }
+
+describe("MECHANISM: authenticated AI browser tools over the unchanged referee MCP", () => {
+  it("only the referee session can call tools; player, cross-origin, wrong token and extra authority/path inputs are refused", async () => {
+    const { app, base } = await serve();
+    const request = { host_id: "gm-setup", tool: "referee_list_tasks", arguments: {} };
+    try {
+      const p = new Browser(base);
+      expect((await p.req("POST", "/api/ref/tool", request)).status).toBe(401);
+      await p.login("player", PLAYER);
+      expect((await p.req("POST", "/api/ref/tool", request)).status).toBe(403);
+      const r = new Browser(base);
+      await r.login("referee", REFEREE);
+      expect(
+        (await r.req("POST", "/api/ref/tool", request, { origin: "https://evil.example" })).status,
+      ).toBe(403);
+      expect(
+        (await r.req("POST", "/api/ref/tool", request, { "x-immortalis-csrf": "wrong" })).status,
+      ).toBe(403);
+      for (const changed of [
+        { ...request, host_id: "../other" },
+        { ...request, tool: "run_shell" },
+        { ...request, campaign_id: "other" },
+        { ...request, arguments: { permission: "rule.adjudicate" } },
+        { ...request, tool: "referee_get_task", arguments: { task_id: "bad" } },
+      ])
+        expect((await r.req("POST", "/api/ref/tool", changed)).status).toBe(400);
+      // Offered is not bound: no engine or canned answer stands in for the missing host.
+      expect((await r.req("POST", "/api/ref/tool", request)).status).toBe(503);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("carries actual engine tasks and rejects incomplete readings before accepting a scripted mechanism answer, once", async () => {
+    const dirs = await localityCampaign();
+    const asked = await author(
+      dirs,
+      respondingConsole(STANDARD),
+      { refereePolls: 1, refereePollMs: 1 },
+      null,
+    );
+    expect(asked.result.status).toBe("REFEREE_PENDING");
+    const { app, base } = await serve({
+      operatorDir: dirs.operatorDir,
+      campaignDir: dirs.campaignDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      refereeHostIds: [HOST_ID],
+    });
+    try {
+      const r = new Browser(base);
+      await r.login("referee", REFEREE);
+      const call = (tool: string, args: Record<string, unknown>) =>
+        r.req("POST", "/api/ref/tool", { host_id: HOST_ID, tool, arguments: args });
+      const listed = await call("referee_list_tasks", {});
+      const tasks = JSON.parse(listed.json.content[0].text).tasks;
+      expect(tasks).toHaveLength(1);
+      const task_id = tasks[0].task_id;
+      const got = await call("referee_get_task", { task_id });
+      const doc = JSON.parse(got.json.content[0].text);
+      expect(doc.task_id).toBe(task_id);
+      expect(doc.nonce).toBeTruthy();
+      expect(got.text).not.toContain(dirs.operatorDir);
+      const answer = plainPolicy(doc) as { items: unknown[] };
+      const bad = await call("referee_submit_decision", {
+        task_id,
+        answer: { ...answer, items: answer.items.slice(1) },
+      });
+      expect(bad.json.isError).toBe(true);
+      expect(bad.text).toContain("COVERAGE_INCOMPLETE");
+      expect(
+        JSON.parse((await call("referee_list_tasks", {})).json.content[0].text).tasks,
+      ).toHaveLength(1);
+      const good = await call("referee_submit_decision", {
+        task_id,
+        answer,
+        claimed_model: "scripted transport test, NOT AI",
+      });
+      expect(good.status).toBe(200);
+      expect(good.json.isError).not.toBe(true);
+      expect((await call("referee_submit_decision", { task_id, answer })).json.isError).toBe(true);
+      expect(JSON.parse((await call("referee_list_tasks", {})).json.content[0].text).tasks).toEqual(
+        [],
+      );
+    } finally {
+      await app.close();
+    }
+  }, 120_000);
+
+  it("registers exactly three tools without making an inference or submission; the AI supplies the answer and provenance", async () => {
+    const registered: any[] = [];
+    const calls: any[] = [];
+    const state = { textContent: "" };
+    const ctx = createContext({
+      document: { modelContext: { registerTool: (spec: unknown) => registered.push(spec) } },
+      navigator: {},
+      HOSTS: ["gm-setup"],
+      $: () => state,
+      addLine: () => undefined,
+      post: async (path: string, body: unknown) => {
+        calls.push({ path, body });
+        return { status: 200, body: { content: [{ type: "text", text: "recorded" }] } };
+      },
+    });
+    await runInContext(REFEREE_TOOLS_JS, ctx);
+    expect(registered.map((s) => s.name)).toEqual([
+      "referee_list_tasks",
+      "referee_get_task",
+      "referee_submit_decision",
+    ]);
+    expect(calls).toEqual([]);
+    const input = {
+      host_id: "gm-setup",
+      task_id: "a".repeat(64),
+      answer: { reading: "the AI's own reasoning" },
+      claimed_model: "actual host label",
+    };
+    await registered[2].execute(input);
+    expect(calls).toEqual([
+      {
+        path: "/api/ref/tool",
+        body: {
+          host_id: input.host_id,
+          tool: "referee_submit_decision",
+          arguments: {
+            task_id: input.task_id,
+            answer: input.answer,
+            claimed_model: input.claimed_model,
+          },
+        },
+      },
+    ]);
+    expect(state.textContent).toContain("No unattended AI worker");
+  });
+});
 
 describe("MECHANISM: configuration fails closed", () => {
   it("refuses to start without every secret, with a short, whitespace or shared token, or with plain HTTP off loopback", () => {
@@ -1088,6 +1230,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "config.ts",
       "main.ts",
       "pages.ts",
+      "referee-tools.ts",
       "server.ts",
       "web-terminal.ts",
     ]);
