@@ -921,6 +921,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "cease",
       "cessation",
       "clarification",
+      "clarificationScope",
       "clarify",
       "closed",
       "commit",

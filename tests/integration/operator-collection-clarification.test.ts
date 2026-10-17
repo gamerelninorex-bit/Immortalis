@@ -15,7 +15,13 @@ import {
   type ClarifyCollectionCycleParams,
 } from "@immortalis/operator";
 import { PcCollectionAdapter } from "@immortalis/engine";
-import { pcIntrinsicClarificationKey } from "@immortalis/contracts";
+import {
+  PLAYER_CHARACTER_BINDING_KEY,
+  TEMPORAL_STATE_KEY,
+  pcExistenceContractKey,
+  pcIntrinsicClarificationKey,
+  worldPcLocusCustodyKey,
+} from "@immortalis/contracts";
 import { ACTUATOR_WORDS, TRAVERSAL_CANNOT } from "../support/pc-collection.ts";
 import {
   LOCALITY_CAMPAIGN,
@@ -113,15 +119,24 @@ async function clarify(
   }
 }
 
+/**
+ * BLUE H-3: every preserved record is read at its CANONICAL key and must exist (an absent record would compare equal to itself and
+ * prove nothing); and every fact that existed before is compared whole (key, version, value) afterwards.
+ */
 const sealedState = async (dirs: LocalityDirs) => {
   const c = await openOrdinary(dirs.campaignDir);
   try {
-    const f = (k: string) => JSON.stringify(c.store.getFact(k));
+    const f = (k: string) => {
+      const fact = c.store.getFact(k);
+      expect(fact, `the preserved record ${k} exists`).toBeDefined();
+      return JSON.stringify(fact);
+    };
     return {
-      contract: f(`pc/${PC_ID}/existence-contract`),
-      binding: f("role/player-character-binding"),
-      custody: f(`world/${WORLD_ID}/pc/${PC_ID}/physical-locus`),
-      clock: f("temporal/state"),
+      contract: f(pcExistenceContractKey(PC_ID)),
+      binding: f(PLAYER_CHARACTER_BINDING_KEY),
+      custody: f(worldPcLocusCustodyKey(PC_ID)),
+      clock: f(TEMPORAL_STATE_KEY),
+      facts: new Map(c.store.listFacts().map((x) => [x.key, JSON.stringify(x)])),
       keys: c.store
         .listFacts()
         .map((x) => x.key)
@@ -130,6 +145,30 @@ const sealedState = async (dirs: LocalityDirs) => {
   } finally {
     await c.close();
   }
+};
+/** the keys alone (for a campaign that legitimately lacks some record, e.g. no clock yet) */
+const keysOf = async (dirs: LocalityDirs) => {
+  const c = await openOrdinary(dirs.campaignDir);
+  try {
+    return c.store
+      .listFacts()
+      .map((x) => x.key)
+      .sort();
+  } finally {
+    await c.close();
+  }
+};
+/** the sealed records are as they were, and no fact that existed before was changed (new facts may only be added) */
+const unchanged = (
+  before: Awaited<ReturnType<typeof sealedState>>,
+  after: Awaited<ReturnType<typeof sealedState>>,
+) => {
+  expect({ ...after, keys: undefined, facts: undefined }).toEqual({
+    ...before,
+    keys: undefined,
+    facts: undefined,
+  });
+  for (const [k, v] of before.facts) expect(after.facts.get(k), k).toBe(v);
 };
 const clarificationKeys = (keys: readonly string[]) =>
   keys.filter((k) => k.startsWith(`pc/${PC_ID}/intrinsic-clarification/`));
@@ -154,7 +193,7 @@ describe("clarify-collection-cycle: the shipped command, from the live starting 
     expect(player.said.join("\n")).toContain("nothing is chosen for you");
 
     const after = await sealedState(dirs);
-    expect({ ...after, keys: undefined }).toEqual({ ...before, keys: undefined });
+    unchanged(before, after);
     const added = after.keys.filter((k) => !before.keys.includes(k));
     expect(added.filter((k) => !k.startsWith("referee/"))).toHaveLength(1);
     expect(clarificationKeys(added)).toHaveLength(1);
@@ -246,7 +285,7 @@ describe("clarify-collection-cycle: the shipped command, from the live starting 
     }
     // the sealed release, the binding, the custody and the clock are still exactly as they were; the material was never touched
     const end = await sealedState(dirs);
-    expect({ ...end, keys: undefined }).toEqual({ ...before, keys: undefined });
+    unchanged(before, end);
     expect(
       end.keys.filter((k) => k.startsWith("production/")).filter((k) => k.includes("account")),
     ).toEqual([]);
@@ -262,6 +301,59 @@ describe("clarify-collection-cycle: the shipped command, from the live starting 
     expect(again.result.status).toBe("CLARIFICATION_ACCEPTED");
     expect(again.host!.answered).toEqual([]);
     expect(await headOf(dirs.campaignDir)).toEqual(head);
+  }, 240_000);
+
+  it("BLUE H-1: a conflicting second rate finds the branch closed; the host is not asked and nothing changes, while the first rate stands", async () => {
+    const dirs = await startingShape();
+    expect((await clarify(dirs, playerConsole([WORDS]))).result.status).toBe(
+      "CLARIFICATION_ACCEPTED",
+    );
+    const head = await headOf(dirs.campaignDir);
+    const second = await clarify(
+      dirs,
+      playerConsole([`It takes me ${TAU + 5} ${BASIS.unit} to lift and carry one lump`], false),
+    );
+    expect(second.result.status).toBe("CLARIFICATION_NOT_AVAILABLE");
+    expect(second.result.details.join("\n")).toMatch(/already closed/);
+    expect(second.host!.answered).toEqual([]);
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+    const c = await openOrdinary(dirs.campaignDir);
+    try {
+      const keys = clarificationKeys(c.store.listFacts().map((x) => x.key));
+      expect(keys).toHaveLength(1);
+      expect(
+        new PcCollectionAdapter(c.store).clarification(PC_ID, keys[0]!.split("/").pop()!)!.value
+          .claims[0]!.statement,
+      ).toBe(WORDS);
+    } finally {
+      await c.close();
+    }
+  }, 240_000);
+
+  it("BLUE H-1: a compound statement that also adds an actuator or a power is read by the host as out of scope and writes nothing; the host was delivered the accepted baseline", async () => {
+    const dirs = await startingShape();
+    const head = await headOf(dirs.campaignDir);
+    const compound = `It takes me ${TAU} ${BASIS.unit} to lift and carry one lump, and my third arm can carry a whole cart`;
+    const player = playerConsole([compound]);
+    const adds = scriptedPolicy({ clarify: { adds: /third arm/ } });
+    const seen: unknown[] = [];
+    const spy: Policy = (doc) => {
+      seen.push((doc["context"] as { clarification?: unknown }).clarification);
+      return adds(doc);
+    };
+    const out = await clarify(dirs, player, spy);
+    expect(out.result.status).toBe("CLARIFICATION_NOT_ACCEPTED");
+    expect(player.said.join("\n")).toContain("ADDS_OR_CHANGES_A_CAPABILITY_OR_ACTUATOR");
+    expect(seen).toHaveLength(1);
+    const delivered = seen[0] as {
+      branch: string;
+      baseline: { text: string }[];
+      prior_closures: unknown[];
+    };
+    expect(delivered.baseline.map((b) => b.text).join("\n")).toContain(ACTUATOR_WORDS);
+    expect(delivered.prior_closures).toEqual([]);
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+    expect(clarificationKeys(await keysOf(dirs))).toEqual([]);
   }, 240_000);
 
   it("writes nothing unless the player confirms, the host accepts the words as the player's own, and the host answers", async () => {
@@ -323,7 +415,7 @@ describe("clarify-collection-cycle: the shipped command, from the live starting 
     const r = await clarify(noClock.dirs, playerConsole([WORDS]));
     expect(r.result.status).toBe("CLARIFICATION_NOT_AVAILABLE");
     expect(r.host!.answered).toEqual([]);
-    expect(clarificationKeys((await sealedState(noClock.dirs)).keys)).toEqual([]);
+    expect(clarificationKeys(await keysOf(noClock.dirs))).toEqual([]);
     expect(pcIntrinsicClarificationKey(PC_ID, "x")).toContain(PC_ID);
   }, 480_000);
 

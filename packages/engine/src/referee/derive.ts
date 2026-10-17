@@ -28,6 +28,8 @@ import {
   worldSourceDeliveryKey,
   type CanonicalTime,
   type ExistenceContract,
+  type I002ClarificationContext,
+  type I002ClarificationReading,
   type I002HostDecision,
   type IrHostDecision,
   type ObservationHostDecision,
@@ -120,6 +122,8 @@ export interface I002Context {
   readonly attempt: number;
   readonly subject: { readonly pc_id: string };
   readonly candidate: readonly CandidateItem[];
+  /** R-5: the scope of a CLARIFICATION (the accepted baseline, the precise branch, prior closures); absent for an ordinary classification */
+  readonly clarification?: I002ClarificationContext;
 }
 
 export interface DeliveredFact {
@@ -210,6 +214,7 @@ export function i002Context(input: {
   attempt: number;
   pc_id: string;
   items: readonly CandidateItem[];
+  clarification?: I002ClarificationContext | undefined;
 }): I002Context {
   return {
     operation: REFEREE_OP_I002,
@@ -217,6 +222,7 @@ export function i002Context(input: {
     attempt: input.attempt,
     subject: { pc_id: input.pc_id },
     candidate: input.items,
+    ...(input.clarification ? { clarification: input.clarification } : {}),
   };
 }
 
@@ -677,16 +683,87 @@ export function deriveI002(
       ok: false,
       refusal: refuse("COVERAGE_INCOMPLETE", "every delivered item must be decided exactly once"),
     };
-  return { ok: true, verdict: i002VerdictOf(decision, (id) => byId.get(id)?.slot) };
+  const scoped = clarificationRefusal(ctx, decision);
+  if (scoped) return { ok: false, refusal: scoped };
+  return {
+    ok: true,
+    verdict: i002VerdictOf(decision, (id) => byId.get(id)?.slot, ctx.clarification !== undefined),
+  };
+}
+
+const MIN_GROUND = 8;
+/**
+ * R-5 (BLUE H-1): a clarification task is answered with its scope reading and an ordinary one is not. The reading is anchored to
+ * verbatim quotations of the DELIVERED text: the new words state the duration, and (for the compatible scope) the character's own
+ * accepted baseline states the actuator whose cycle they time, so words that time something the baseline does not accept cannot be read
+ * as compatible. The verdict is derived from it (i002VerdictOf), never read.
+ */
+function clarificationRefusal(ctx: I002Context, decision: I002HostDecision): RefereeRefusal | null {
+  const reading: I002ClarificationReading | undefined = decision.clarification;
+  if (!ctx.clarification) {
+    return reading === undefined
+      ? null
+      : refuse(
+          "DECISION_INCOHERENT",
+          "an ordinary classification carries no clarification reading",
+        );
+  }
+  if (!reading)
+    return refuse(
+      "COVERAGE_INCOMPLETE",
+      "a clarification task is answered with its scope reading: whether the branch is still unresolved and what the words state",
+    );
+  const candidateText = ctx.candidate.map((c) => c.text);
+  const baselineText = ctx.clarification.baseline.map((b) => b.text);
+  const inAny = (q: string, texts: readonly string[]) =>
+    q.length >= MIN_GROUND && texts.some((t) => t.includes(q));
+  if (!inAny(reading.candidate_ground, candidateText))
+    return refuse(
+      "GROUNDS_UNSUPPORTED",
+      "the clarification's candidate ground is a verbatim quotation of the new words",
+    );
+  if (reading.baseline_ground !== null && !inAny(reading.baseline_ground, baselineText))
+    return refuse(
+      "GROUNDS_UNSUPPORTED",
+      "the clarification's baseline ground is a verbatim quotation of the character's accepted statements",
+    );
+  if (reading.scope === "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE") {
+    if (reading.baseline_ground === null)
+      return refuse(
+        "GROUNDS_UNSUPPORTED",
+        "words read as only a duration of the existing cycle quote the accepted baseline statement of the actuator they time",
+      );
+    if (reading.clarification !== null)
+      return refuse("DECISION_INCOHERENT", "only an unclear scope asks a question");
+  } else if (reading.scope === "UNCLEAR") {
+    if (reading.clarification === null)
+      return refuse("DECISION_INCOHERENT", "an unclear scope asks its one narrow question");
+  } else if (reading.clarification !== null) {
+    return refuse("DECISION_INCOHERENT", "only an unclear scope asks a question");
+  }
+  return null;
 }
 
 /** The I-002 verdict as a function of the answer and each item's slot alone (re-derivable from the retained record). */
 export function i002VerdictOf(
   decision: I002HostDecision,
   slotOf: (itemId: string) => RefereeCandidateSlot | undefined,
+  clarificationTask = false,
 ): "CLOSED" | "BLOCKED" | "CLARIFY" {
   let blocked = false;
   let clarify = false;
+  if (clarificationTask) {
+    // R-5: closed only when the branch is still unresolved AND the words state only the duration of the accepted actuator's cycle
+    const r = decision.clarification;
+    if (
+      !r ||
+      r.branch !== "UNRESOLVED_BEFORE" ||
+      r.scope !== "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE"
+    ) {
+      blocked = true;
+      if (r?.scope === "UNCLEAR") clarify = true;
+    }
+  }
   for (const d of decision.items) {
     const slot = slotOf(d.item_id) ?? d.slot;
     if (d.class === I002_ADMITTED_CLASS[slot]) continue;
@@ -1155,6 +1232,7 @@ export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): 
       attempt: r.attempt,
       pc_id: r.subject.pc_id,
       items: r.input.candidate,
+      clarification: r.input.clarification,
     });
     if (
       r.input.digest !== contextDigest(ctx) ||
