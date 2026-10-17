@@ -4,10 +4,10 @@
 // EVERYTHING IN THIS FILE IS A MECHANISM TEST. The HTTP client below is a script, not a person: it proves transport, authentication,
 // lane separation, the closed command set, fail-closed configuration and that the shipped commands run unchanged behind the front end.
 // It is NOT a real player's choice, NOT a real game master's reading, and NOT First Playable evidence. No model or paid API is involved.
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createContext, runInContext } from "node:vm";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
 import { COMMON_JS, REFEREE_TOOLS_JS } from "../../apps/phone/src/pages.ts";
@@ -28,13 +28,17 @@ import {
   startScriptedHost,
 } from "../support/original-pc.ts";
 
+// the operator directory is real (the front end keeps its pending-operation record there) and private to this file
+const OPERATOR_DIR = tempDir("immortalis-phone-operator-");
+beforeEach(() => rmSync(join(OPERATOR_DIR, "chat-pending-operation.json"), { force: true }));
+
 const PLAYER = "player-secret-0123456789-abcdefghijklmnopqrstuv";
 const REFEREE = "referee-secret-0123456789-abcdefghijklmnopqrstuv";
 
 const baseEnv = (over: Record<string, string> = {}): Record<string, string> => ({
   IMMORTALIS_CAMPAIGN_DIR: "/data/campaign",
   IMMORTALIS_CAMPAIGN_ID: "campaign-test",
-  IMMORTALIS_OPERATOR_DIR: "/data/operator",
+  IMMORTALIS_OPERATOR_DIR: OPERATOR_DIR,
   IMMORTALIS_PLAYER_TOKEN: PLAYER,
   IMMORTALIS_REFEREE_TOKEN: REFEREE,
   IMMORTALIS_REFEREE_HOST_IDS: "gm-setup,gm-collection",
