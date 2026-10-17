@@ -1238,6 +1238,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "mcp-http.ts",
       "oauth.ts",
       "pages.ts",
+      "recovery.ts",
       "referee-tools.ts",
       "runs.ts",
       "server.ts",

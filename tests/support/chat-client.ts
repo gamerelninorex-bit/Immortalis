@@ -174,11 +174,14 @@ export class Chat {
   /** one JSON-RPC request; an event-stream answer is followed to its response, answering any elicitation through `human` */
   async rpc(method: string, params: any = {}, human?: Human, extra: Record<string, string> = {}) {
     const id = ++this.id;
-    const res = await fetch(`${this.base}/mcp`, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...this.headers(extra) },
-      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-    });
+    const send = () =>
+      fetch(`${this.base}/mcp`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...this.headers(extra) },
+        body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+      });
+    // a pooled connection to a server that was just restarted is gone; only the idempotent `initialize` is sent again
+    const res = await (method === "initialize" ? send().catch(send) : send());
     const type = res.headers.get("content-type") ?? "";
     const elicited: Elicit[] = [];
     if (!type.startsWith("text/event-stream")) {

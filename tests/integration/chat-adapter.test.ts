@@ -5,9 +5,14 @@
 // scripts; the "human" is a script that types a confirmation only where a test says so. None of it is a real chat session, a real model,
 // a real player's choice or a real game master's judgment. It proves authentication, scope separation, that a model-side caller cannot
 // confirm anything, the confirmation channels, orchestration without deadlock, and that the SHIPPED commands run unchanged behind it.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  CanonicalCampaign,
+  EpistemicAccessAdapter,
+  verifyEpistemicIntegrity,
+} from "@immortalis/engine";
 import { runCli } from "@immortalis/operator";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
@@ -26,7 +31,24 @@ import {
 import { tempDir } from "../support/tmp.ts";
 import { LOCALITY_CAMPAIGN, openOrdinary } from "../support/locality.ts";
 import { HOST_ID } from "../support/original-pc.ts";
-import { PC_ID, observationCampaign, observationPolicy } from "../support/observation.ts";
+import { PC_ID, observationCampaign, observationPolicy, observe } from "../support/observation.ts";
+import {
+  MECH as COL_MECH,
+  PC as COL_PC,
+  W as COL_W,
+  collectionCampaign,
+} from "../support/pc-collection.ts";
+import { copyCampaign, openSession } from "../support/operator.ts";
+import { readLedger } from "../support/operator-pc-target.ts";
+import {
+  FIXTURE_CAMPAIGN,
+  SRC_BASIS_ID,
+  SRC_RESERVE,
+  SRC_SOURCE_KEY,
+  SRC_UNIT,
+  ACTOR_FIXTURE_EXTENSION,
+} from "@immortalis/testkit";
+import { pcCollectionCommitmentKey } from "@immortalis/contracts";
 import { Browser } from "../support/phone-browser.ts";
 
 const SCENARIO = {
@@ -39,6 +61,17 @@ const SCENARIO = {
   basis: "basis-test",
 };
 
+/** owner readback stand-ins for the stub-CLI tests (the real-engine tests below use the real readback) */
+const STUB_RECOVERY = {
+  captureObservation: async (_c: PhoneConfig, pc: string) => ({
+    pc_id: pc,
+    basis: { unit: "fixture-time-unit", value: 100 },
+    task_id: "a".repeat(64),
+    event_id: "event-stub",
+  }),
+  observationEvidence: async () => ({ kind: "NONE" as const }),
+};
+
 interface Stub {
   readonly argvs: string[][];
   /** the phrase each confirmation prompt asked for, in order */
@@ -48,16 +81,33 @@ interface Stub {
 
 /** a stand-in for the shipped CLI: prints a proposal and a challenge, asks, and finishes by the typed answer (it never answers itself) */
 function stubCli(
-  opts: { gate?: Promise<void>; crash?: boolean; crashAfterConfirm?: boolean } = {},
+  opts: {
+    gate?: Promise<void>;
+    crash?: boolean;
+    crashAfterConfirm?: boolean;
+    /** the (stand-in) shipped command ends with an unknown outcome WITHOUT throwing */
+    unknownExit?: { code: number; status: string };
+    /** what the stand-in `reconcile` / `settle-collection-lapse` / recovery re-run reports */
+    reconcile?: { code: number; status: string };
+    /** the first `settle-collection-lapse` ends unknown; later ones report `reconcile` */
+    settleUnknownOnce?: boolean;
+  } = {},
 ): [NonNullable<PhoneDeps["runCli"]>, Stub] {
   const stub: Stub = { argvs: [], phrases: [], release: () => undefined };
+  let settled = false;
   const cli: NonNullable<PhoneDeps["runCli"]> = async (argv, env) => {
     stub.argvs.push([...argv]);
     const t = env.terminal!;
     if (opts.crash) throw new Error("boom");
-    if (argv[0] === "reconcile") {
-      t.say("STATUS NOTHING_TO_RECONCILE");
-      return 0;
+    if (argv[0] === "settle-collection-lapse" && opts.settleUnknownOnce && !settled) {
+      settled = true;
+      t.say("STATUS COLLECTION_OUTCOME_UNKNOWN");
+      return 4;
+    }
+    if (argv[0] === "reconcile" || argv[0] === "settle-collection-lapse") {
+      const r = opts.reconcile ?? { code: 0, status: "NOTHING_TO_RECONCILE" };
+      t.say(`STATUS ${r.status}`);
+      return r.code;
     }
     t.say(`PROPOSAL ${argv[0]}`);
     if (opts.gate) await opts.gate;
@@ -70,6 +120,10 @@ function stubCli(
       t.say("STATUS COMMITTED");
       // a failure that FOLLOWS the human's confirmation and the (stand-in) owner write
       if (opts.crashAfterConfirm) throw new Error("late failure");
+      if (opts.unknownExit) {
+        t.say(`STATUS ${opts.unknownExit.status}`);
+        return opts.unknownExit.code;
+      }
       return 0;
     }
     t.say("STATUS DECLINED");
@@ -95,7 +149,7 @@ async function serve(
     operatorDir,
     ...over,
   });
-  const app = createPhoneServer(config, { pollMs: 300, ...deps });
+  const app = createPhoneServer(config, { pollMs: 300, recovery: STUB_RECOVERY, ...deps });
   await app.listen();
   return { app, config, base: `http://127.0.0.1:${config.port}` };
 }
@@ -832,30 +886,18 @@ describe("MECHANISM: the SHIPPED observe-surroundings, the real referee exchange
       expect(glance.text).toBeTruthy();
 
       // a second proposal that the human declines changes nothing
-      const keysBefore = await keysOf(dirs.campaignDir);
+      const keysBefore = await factsOf(dirs.campaignDir);
       const second = await chat.call("observe_surroundings");
       expect(second.isError).toBe(false);
       const declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
       expect(declined.data.state).toBe("FINISHED");
       expect(JSON.stringify(declined.data.engine_report)).not.toMatch(/COMMITTED|ESTABLISHED/);
-      expect(await keysOf(dirs.campaignDir)).toEqual(keysBefore);
+      expect(await factsOf(dirs.campaignDir)).toEqual(keysBefore);
     } finally {
       await app.close();
     }
   }, 240_000);
 });
-
-const keysOf = async (campaignDir: string): Promise<string[]> => {
-  const c = await openOrdinary(campaignDir);
-  try {
-    return c.store
-      .listFacts()
-      .map((f) => f.key)
-      .sort();
-  } finally {
-    await c.close();
-  }
-};
 
 describe("static scope of the ordinary-chat adapter", () => {
   const read = (f: string) => readFileSync(join("apps/phone/src", f), "utf8");
@@ -1172,11 +1214,21 @@ describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the 
       expect(JSON.stringify(done?.data.engine_report)).not.toContain("nothing was confirmed");
       expect(JSON.stringify(done?.data.engine_report)).toContain("UNKNOWN");
 
-      // canonical readback: the owner DID commit the observation decision, once
-      const committed = await keysOf(dirs.campaignDir);
-      const decisions = committed.filter((k) => /^referee\/.+\/decision$/.test(k));
-      const observed = decisions.filter((k) => !k.includes("pc-"));
-      expect(observed.length).toBeGreaterThan(0);
+      // canonical readback (names, versions AND values): the command had completed, so the observation is whole: the affirmative
+      // F-014D reading, the event, the sealed packet and provenance, verified by the Epistemic owner - exactly once
+      const committed = await factsOf(dirs.campaignDir);
+      const readings = [...committed.entries()].filter(
+        ([k, v]) =>
+          /^referee\/.+\/decision$/.test(k) &&
+          JSON.parse(v.slice(v.indexOf(":") + 1)).operation === "F014D_DIRECT_PERCEPTION",
+      );
+      expect(readings).toHaveLength(1);
+      expect(JSON.parse(readings[0]![1].slice(readings[0]![1].indexOf(":") + 1)).verdict).toBe(
+        "OBSERVATION_ESTABLISHED",
+      );
+      const packets = [...committed.keys()].filter((k) => /^access\/.+\/packet\//.test(k));
+      expect(packets).toHaveLength(1);
+      expect([...committed.keys()].filter((k) => /^access\/.+\/event$/.test(k))).toHaveLength(1);
 
       // no blind retry of this or any other action
       for (const again of ["observe_surroundings", "cease_collection"]) {
@@ -1184,7 +1236,7 @@ describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the 
         expect(r.isError, again).toBe(true);
         expect(r.text).toMatch(/UNCERTAIN/);
       }
-      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+      expect(await factsOf(dirs.campaignDir)).toEqual(committed);
 
       // the existing owner-backed reconcile reads the canonical record and creates no second consequence
       expect((await chat.call("reconcile_last_action")).isError).toBe(false);
@@ -1194,16 +1246,652 @@ describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the 
       expect(rec.data.state).toBe("FINISHED");
       expect(rec.data.exit_code).toBe(0);
       expect(rec.data.outcome).toBeUndefined();
-      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+      expect(await factsOf(dirs.campaignDir)).toEqual(committed);
 
       // recovery is complete: the engine is not asked again for a decision it already holds, and nothing is duplicated
       const next = await chat.call("observe_surroundings");
       expect(next.isError, next.text).toBe(false);
       const declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
       expect(declined.data.state).toBe("FINISHED");
-      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+      expect(await factsOf(dirs.campaignDir)).toEqual(committed);
     } finally {
       await app.close();
     }
   }, 240_000);
 });
+
+const pendingFile = (c: PhoneConfig) => join(c.operatorDir, "chat-pending-operation.json");
+const MUTATING: [string, any][] = [
+  ["collect", { amount: 1 }],
+  ["observe_surroundings", {}],
+  ["continue_collection", {}],
+  ["finish_collection", {}],
+  ["cease_collection", {}],
+  ["settle_collection_lapse", {}],
+];
+
+describe("MECHANISM (BLUE R3-a): the recovery block is a persisted, campaign-bound pending operation", () => {
+  it("restart after a lost confirmed outcome keeps every mutation blocked until the SAME operation is resolved from its recorded identity", async () => {
+    const [cli] = stubCli({ crashAfterConfirm: true });
+    const s = await withChat({ runCli: cli });
+    let app2: ReturnType<typeof createPhoneServer> | undefined;
+    try {
+      await s.chat.call("collect", { amount: 2 });
+      const lost = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
+      expect(lost.data.outcome).toBe("UNCERTAIN");
+      // the trusted record exists, names the original operation and its arguments, and is owner-only
+      const rec = JSON.parse(readFileSync(pendingFile(s.config), "utf8"));
+      expect(rec).toMatchObject({
+        format: "immortalis-chat-pending-operation",
+        campaign_id: s.config.campaignId,
+        command: "collect",
+        state: "UNCERTAIN",
+      });
+      expect(rec.options["amount"]).toBe("2");
+      expect(rec.run_id).toBe(lost.data.run_id);
+      expect(statSync(pendingFile(s.config)).mode & 0o777).toBe(0o600);
+
+      // the process is lost; a healthy one comes back on the same persistent directories
+      await s.app.close();
+      const [cli2, stub2] = stubCli();
+      app2 = createPhoneServer(s.config, { pollMs: 300, recovery: STUB_RECOVERY, runCli: cli2 });
+      await app2.listen();
+      await s.chat.init({ elicitation: {} });
+      for (const [tool, args] of MUTATING) {
+        const r = await s.chat.call(tool, args);
+        expect(r.isError, tool).toBe(true);
+        expect(r.text, tool).toMatch(/UNCERTAIN/);
+        expect(r.text, tool).toContain("collect");
+        expect(r.text, tool).toContain(rec.run_id);
+      }
+      expect(stub2.argvs).toEqual([]); // nothing was dispatched on the strength of a forgotten block
+      // the SAME operation is resolved (here by the shipped reconcile, for a confirmed-ledger operation), and play resumes
+      expect((await s.chat.call("reconcile_last_action")).isError).toBe(false);
+      const done = await s.chat.call("await_action", { wait_seconds: 5 });
+      expect(done.data.state).toBe("FINISHED");
+      expect(done.data.exit_code).toBe(0);
+      expect(done.data.outcome).toBeUndefined();
+      expect(existsSync(pendingFile(s.config))).toBe(false);
+      expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
+    } finally {
+      await s.app.close();
+      await app2?.close();
+    }
+  });
+
+  it("a server that is lost while an action is still running comes back blocked, with the dispatched operation on record", async () => {
+    const never = new Promise<void>(() => undefined); // the command never returns: the process is lost
+    const [cli] = stubCli({ gate: never });
+    const s = await withChat({ runCli: cli });
+    let app2: ReturnType<typeof createPhoneServer> | undefined;
+    try {
+      const started = await s.chat.call("collect", { amount: 3 });
+      expect(started.data.state).toBe("RUNNING");
+      expect(JSON.parse(readFileSync(pendingFile(s.config), "utf8")).state).toBe("DISPATCHED");
+      await s.app.close();
+      const [cli2, stub2] = stubCli();
+      app2 = createPhoneServer(s.config, { pollMs: 300, recovery: STUB_RECOVERY, runCli: cli2 });
+      await app2.listen();
+      await s.chat.init({ elicitation: {} });
+      for (const [tool, args] of MUTATING)
+        expect((await s.chat.call(tool, args)).isError, tool).toBe(true);
+      expect(stub2.argvs).toEqual([]);
+    } finally {
+      await s.app.close();
+      await app2?.close();
+    }
+  });
+
+  it("an unreadable record, or one that cannot be written, never admits an action", async () => {
+    // unreadable at startup
+    const [cli, stub] = stubCli();
+    const s = await serve({ runCli: cli }, {}, SCENARIO);
+    await s.app.close();
+    writeFileSync(pendingFile(s.config), "{ not json");
+    const app = createPhoneServer(s.config, { pollMs: 300, recovery: STUB_RECOVERY, runCli: cli });
+    await app.listen();
+    try {
+      const chat = new Chat(s.base);
+      expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+      await chat.init({});
+      const r = await chat.call("collect", { amount: 1 });
+      expect(r.isError).toBe(true);
+      expect(r.text).toMatch(/unreadable/);
+      // the reconcile route cannot identify what to resolve: an exact blocker, still blocked
+      await chat.call("reconcile_last_action");
+      const blocked = await chat.call("await_action", { wait_seconds: 2 });
+      expect(blocked.data.outcome).toBe("UNCERTAIN");
+      expect(blocked.data.blocker).toMatch(/unreadable|no recoverable/);
+      expect((await chat.call("collect", { amount: 1 })).isError).toBe(true);
+      expect(stub.argvs.map((a) => a[0])).toEqual([]);
+    } finally {
+      await app.close();
+    }
+    // the record cannot be maintained: nothing is dispatched
+    const [cli2, stub2] = stubCli();
+    const t = await withChat({ runCli: cli2 });
+    try {
+      mkdirSync(pendingFile(t.config)); // a directory where the record file must go: it cannot be replaced
+      const refused = await t.chat.call("collect", { amount: 1 });
+      expect(refused.isError).toBe(true);
+      expect(refused.text).toMatch(
+        /recovery record could not be maintained; nothing was dispatched/,
+      );
+      expect(stub2.argvs).toEqual([]);
+    } finally {
+      await t.app.close();
+    }
+  });
+});
+
+describe("MECHANISM (BLUE R3-b): resolution only on owner-side evidence about the ORIGINAL operation", () => {
+  it("an engine status of RECONCILIATION_REQUIRED (exit 4, no exception) is uncertain; an unsettled or failed recovery leaves the block, with the exact blocker", async () => {
+    for (const bad of [
+      { code: 4, status: "RECONCILIATION_REQUIRED" },
+      { code: 0, status: "STALE_INTENT" },
+      { code: 3, status: "UNAVAILABLE" },
+      { code: 0, status: "COLLECTION_OUTCOME_UNKNOWN" },
+    ]) {
+      const [cli] = stubCli({
+        unknownExit: { code: 4, status: "RECONCILIATION_REQUIRED" },
+        reconcile: bad,
+      });
+      const s = await withChat({ runCli: cli });
+      try {
+        await s.chat.call("collect", { amount: 1 });
+        const first = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
+        expect(first.data.exit_code).toBe(4);
+        expect(first.data.outcome, JSON.stringify(bad)).toBe("UNCERTAIN"); // no exception was thrown
+        expect((await s.chat.call("reconcile_last_action")).isError).toBe(false);
+        const tried = await s.chat.call("await_action", { wait_seconds: 5 });
+        expect(tried.data.state).toBe("FINISHED");
+        expect(tried.data.outcome, JSON.stringify(bad)).toBe("UNCERTAIN");
+        expect(tried.data.blocker).toContain(bad.status);
+        // and everything stays blocked
+        expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(true);
+        expect(existsSync(pendingFile(s.config))).toBe(true);
+      } finally {
+        await s.app.close();
+      }
+    }
+  });
+
+  it("a lapse settlement is recovered by re-presenting it (it derives from canon), and only a COMMITTED status resolves it", async () => {
+    for (const [reconcile, resolves] of [
+      [{ code: 0, status: "COLLECTION_COMMITTED" }, true],
+      [{ code: 0, status: "NOTHING_TO_RECONCILE" }, false],
+      [{ code: 3, status: "UNAVAILABLE" }, false],
+    ] as const) {
+      const [cli] = stubCli({ settleUnknownOnce: true, reconcile });
+      const s = await withChat({ runCli: cli });
+      try {
+        expect((await s.chat.call("settle_collection_lapse")).isError).toBe(false);
+        const first = await s.chat.call("await_action", { wait_seconds: 3 });
+        expect(first.data.outcome).toBe("UNCERTAIN");
+        expect((await s.chat.call("reconcile_last_action")).isError).toBe(false);
+        const rec = await s.chat.call("await_action", { wait_seconds: 3 });
+        expect(rec.data.state).toBe("FINISHED");
+        if (resolves) {
+          expect(rec.data.outcome).toBeUndefined();
+          expect(existsSync(pendingFile(s.config))).toBe(false);
+        } else {
+          expect(rec.data.outcome, reconcile.status).toBe("UNCERTAIN");
+          expect(rec.data.blocker).toContain(reconcile.status);
+          expect(existsSync(pendingFile(s.config))).toBe(true);
+          expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(true);
+        }
+      } finally {
+        await s.app.close();
+      }
+    }
+  });
+});
+
+describe("MECHANISM (BLUE R3-b): an observation is read back from ITS OWN records at its ORIGINAL basis, never cleared by a generic reconcile", () => {
+  type Ev = import("../../apps/phone/src/recovery.ts").ObservationEvidence;
+  const lostObservation = async (
+    evidence: () => Ev,
+    cliOpts: Parameters<typeof stubCli>[0] = {},
+  ) => {
+    const [cli, stub] = stubCli({ crashAfterConfirm: true, ...cliOpts });
+    const captured: string[] = [];
+    const s = await withChat({
+      runCli: cli,
+      recovery: {
+        captureObservation: async (_c, pc) => {
+          captured.push(pc);
+          return {
+            pc_id: pc,
+            basis: { unit: "fixture-time-unit", value: 100 },
+            task_id: "b".repeat(64),
+            event_id: "event-original",
+          };
+        },
+        observationEvidence: async (_c, identity) => {
+          // the readback is of the ORIGINAL identity captured before dispatch
+          expect(identity.event_id).toBe("event-original");
+          expect(identity.basis.value).toBe(100);
+          return evidence();
+        },
+      },
+    });
+    expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
+    const lost = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
+    expect(lost.data.outcome).toBe("UNCERTAIN");
+    expect(JSON.parse(readFileSync(pendingFile(s.config), "utf8")).identity.event_id).toBe(
+      "event-original",
+    );
+    return { s, stub, captured };
+  };
+
+  it("nothing at the original basis, a retained negative, or a verified complete observation resolve it from OWNER evidence, without running any command", async () => {
+    for (const kind of ["NONE", "NEGATIVE", "COMPLETE"] as const) {
+      const { s, stub } = await lostObservation(() => ({ kind }));
+      try {
+        expect((await s.chat.call("reconcile_last_action")).isError).toBe(false);
+        const done = await s.chat.call("await_action", { wait_seconds: 3 });
+        expect(done.data.state).toBe("FINISHED");
+        expect(done.data.outcome, kind).toBeUndefined();
+        expect(JSON.stringify(done.data.engine_report)).toContain("owner readback");
+        expect(stub.argvs.map((a) => a[0])).toEqual(["observe-surroundings"]); // no reconcile, no re-run
+        expect(existsSync(pendingFile(s.config))).toBe(false);
+      } finally {
+        await s.app.close();
+      }
+    }
+  });
+
+  it("an unsupported or unavailable readback stays uncertain with the exact blocker; so does a partial observation the same command cannot complete", async () => {
+    // owner readback unavailable
+    let { s } = await lostObservation(() => ({
+      kind: "UNAVAILABLE",
+      detail: "the campaign did not open: LOCKED",
+    }));
+    try {
+      await s.chat.call("reconcile_last_action");
+      const r = await s.chat.call("await_action", { wait_seconds: 3 });
+      expect(r.data.outcome).toBe("UNCERTAIN");
+      expect(r.data.blocker).toBe("the campaign did not open: LOCKED");
+      expect((await s.chat.call("observe_surroundings")).isError).toBe(true);
+    } finally {
+      await s.app.close();
+    }
+    // PARTIAL: the same command is re-run by identity (it cannot ask the player anything); here it does not complete it
+    let evidence: Ev = {
+      kind: "PARTIAL",
+      detail: "the observation event is committed without its sealed packet",
+    };
+    const lost = await lostObservation(() => evidence);
+    s = lost.s;
+    try {
+      await s.chat.call("reconcile_last_action");
+      const r = await s.chat.call("await_action", { wait_seconds: 5 });
+      expect(r.data.state).toBe("FINISHED");
+      expect(r.data.outcome).toBe("UNCERTAIN");
+      expect(r.data.blocker).toMatch(/partial observation .* was not completed/);
+      // the recovery re-ran ONLY the original command, never the generic reconcile; the stand-in asked the player (a decline), twice at most
+      expect(lost.stub.argvs.map((a) => a[0])).toEqual([
+        "observe-surroundings",
+        "observe-surroundings",
+      ]);
+      expect(lost.stub.argvs[1]).toEqual(lost.stub.argvs[0]); // the original arguments, unchanged
+      expect(JSON.stringify(r.data.engine_report)).toContain(
+        "a recovery cannot ask the player anything",
+      );
+      expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(true);
+      // once the owners hold the completed observation, the same recovery resolves it
+      evidence = { kind: "COMPLETE" };
+      await s.chat.call("reconcile_last_action");
+      const ok = await s.chat.call("await_action", { wait_seconds: 3 });
+      expect(ok.data.outcome).toBeUndefined();
+      expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(false);
+    } finally {
+      await s.app.close();
+    }
+  });
+});
+
+/** follows the action in progress until it has finished (each call is bounded; a loaded machine may need several) */
+async function untilFinished(chat: Chat, tries = 10) {
+  let r = await chat.call("await_action", { wait_seconds: 20 });
+  for (let i = 0; i < tries && r.data?.state !== "FINISHED"; i++)
+    r = await chat.call("await_action", { wait_seconds: 20 });
+  return r;
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+/** every fact of a campaign with its version and its VALUE (not just its name) */
+const factsOf = async (
+  campaignDir: string,
+  extension?: typeof ACTOR_FIXTURE_EXTENSION,
+): Promise<Map<string, string>> => {
+  const opened = await CanonicalCampaign.open(campaignDir, {
+    buildId: "chat-adapter-reader",
+    ...(extension ? { extension } : {}),
+  });
+  if (!opened.ok) throw new Error(`did not open: ${JSON.stringify(opened.error)}`);
+  const c = opened.value;
+  try {
+    return new Map(
+      c.store.listFacts().map((f) => [f.key, `${f.version}:${JSON.stringify(f.value)}`]),
+    );
+  } finally {
+    await c.close();
+  }
+};
+
+describe("MECHANISM (BLUE R3): a REAL partial observation is completed by identity from owner evidence, never cleared by a generic reconcile", () => {
+  it("the retained reading and the earned event land, the reply is lost before the packet forms: UNCERTAIN, blocked across a restart, a failed recovery stays blocked, and the recovery completes the SAME observation with no new choice, reroll or duplicate — equal to an uninterrupted run", async () => {
+    // the reference: the same campaign, uninterrupted
+    const refDirs = (await observationCampaign()).dirs;
+    expect((await observe(refDirs)).result.status).toBe("OBSERVATION_RECEIVED");
+    const reference = await factsOf(refDirs.campaignDir);
+
+    const dirs = (await observationCampaign()).dirs;
+    const before = await factsOf(dirs.campaignDir);
+    const dir = tempDir("immortalis-chat-r3-partial-");
+    const scenarioFile = join(dir, "chat-scenario.json");
+    writeFileSync(scenarioFile, JSON.stringify({ ...SCENARIO, player_character: PC_ID }));
+    const config = await chatConfig({
+      campaignDir: dirs.campaignDir,
+      operatorDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      refereeHostIds: [HOST_ID],
+      scenarioFile,
+      setupDir: join(dir, "setup"),
+      playerViewHostId: "glance-host",
+    });
+    const ran: string[] = [];
+    const deps: PhoneDeps = {
+      pollMs: 300,
+      runCli: async (argv, env) => {
+        ran.push(argv[0]!);
+        return runCli(argv, env);
+      },
+    };
+    let app = createPhoneServer(config, deps);
+    await app.listen();
+    try {
+      const chat = new Chat(`http://127.0.0.1:${config.port}`);
+      expect((await chat.link("player referee", { player: PLAYER, referee: REFEREE })).ok).toBe(
+        true,
+      );
+      await chat.init({ elicitation: {} });
+
+      // the Epistemic owner's event commits, then its reply is lost: the packet is never formed
+      const proto = EpistemicAccessAdapter.prototype as any;
+      const original = proto.establishObservedAccess as (...a: unknown[]) => Promise<unknown>;
+      const spy = vi.spyOn(proto, "establishObservedAccess").mockImplementation(async function (
+        this: object,
+        ...args: unknown[]
+      ) {
+        await original.apply(this, args);
+        return { ok: false, error: { code: "UNKNOWN_OUTCOME", message: "reply lost" } };
+      });
+
+      expect((await chat.call("observe_surroundings")).isError).toBe(false);
+      const confirmed = await chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
+      expect(confirmed.elicited).toHaveLength(1);
+      const policy = observationPolicy();
+      let submitted = 0;
+      let last: Awaited<ReturnType<typeof chat.call>> | undefined;
+      for (let i = 0; i < 40 && last?.data?.state !== "FINISHED"; i++) {
+        for (const t of (JSON.parse(
+          (await chat.call("referee_list_tasks", { host_id: HOST_ID })).text ?? "{}",
+        ).tasks ?? []) as { task_id: string }[]) {
+          const doc = JSON.parse(
+            (await chat.call("referee_get_task", { host_id: HOST_ID, task_id: t.task_id })).text!,
+          );
+          const answer = policy(doc.document ?? doc);
+          if (answer !== null) {
+            await chat.call("referee_submit_decision", {
+              host_id: HOST_ID,
+              task_id: t.task_id,
+              answer,
+              claimed_model: "scripted-test-policy (NOT an AI)",
+            });
+            submitted++;
+          }
+        }
+        last = await chat.call("await_action", { wait_seconds: 2 });
+      }
+      // an engine status of UNKNOWN (exit 4), not an exception: the shipped classification must catch it
+      expect(last?.data.state).toBe("FINISHED");
+      expect(last?.data.exit_code).toBe(4);
+      expect(last?.data.outcome).toBe("UNCERTAIN");
+      expect(submitted).toBe(1);
+
+      // the owners hold exactly a PARTIAL observation: the affirmative reading and the event, but no sealed packet
+      const partial = await factsOf(dirs.campaignDir);
+      const added = [...partial.keys()].filter((k) => !before.has(k));
+      expect(added.some((k) => /^referee\/.+\/decision$/.test(k))).toBe(true);
+      expect(added.some((k) => k.startsWith("access/event/") || /access.*event/i.test(k))).toBe(
+        true,
+      );
+      expect(added.some((k) => /packet/i.test(k))).toBe(false);
+      for (const [k, v] of before) expect(partial.get(k), k).toBe(v); // nothing that existed changed
+
+      // the record names the ORIGINAL operation, basis and identities
+      const rec = JSON.parse(readFileSync(pendingFile(config), "utf8"));
+      expect(rec).toMatchObject({ command: "observe-surroundings", state: "UNCERTAIN" });
+      expect(rec.options["player-character"]).toBe(PC_ID);
+      expect(rec.identity.basis).toEqual({ unit: "fixture-time-unit", value: 100 });
+
+      // a restart loses nothing: every other mutation is refused, with the original operation named
+      await app.close();
+      app = createPhoneServer(config, deps);
+      await app.listen();
+      await chat.init({ elicitation: {} });
+      for (const [tool, args] of MUTATING) {
+        const r = await chat.call(tool, args);
+        expect(r.isError, tool).toBe(true);
+        expect(r.text, tool).toContain("observe-surroundings");
+      }
+      expect(await factsOf(dirs.campaignDir)).toEqual(partial);
+
+      // the recovery is attempted while the owner step still loses its reply: it stays blocked, with the exact blocker
+      const ranBefore = ran.length;
+      expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+      const failed = await untilFinished(chat);
+      expect(failed.data.state).toBe("FINISHED");
+      expect(failed.data.outcome).toBe("UNCERTAIN");
+      expect(failed.data.blocker).toMatch(/partial observation .* was not completed/);
+      expect(ran.slice(ranBefore)).toEqual(["observe-surroundings"]); // the original command, never the generic reconcile
+      expect((await chat.call("collect", { amount: 1 })).isError).toBe(true);
+      expect(await factsOf(dirs.campaignDir)).toEqual(partial);
+
+      // the owner step works again: the SAME command, by identity, completes the SAME observation
+      spy.mockRestore();
+      const ranMid = ran.length;
+      expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+      const done = await untilFinished(chat);
+      expect(done.data.state).toBe("FINISHED");
+      expect(done.data.exit_code).toBe(0);
+      expect(done.data.outcome).toBeUndefined();
+      expect(ran.slice(ranMid)).toEqual(["observe-surroundings"]);
+      expect(done.elicited).toEqual([]);
+      expect(JSON.stringify(done.data.engine_report)).toContain("owner readback");
+      expect(existsSync(pendingFile(config))).toBe(false);
+
+      // no new player choice (one human confirmation in all), no referee reroll (one reading in all, nothing pending)
+      expect(
+        JSON.parse((await chat.call("referee_list_tasks", { host_id: HOST_ID })).text ?? "{}")
+          .tasks,
+      ).toEqual([]);
+      expect(submitted).toBe(1);
+
+      // the final canon equals an uninterrupted run's, fact for fact and version for version, and keeps everything that pre-existed
+      const after = await factsOf(dirs.campaignDir);
+      // everything that existed is unchanged, except the Temporal state the packet formation lawfully advances at an UNCHANGED canonical time
+      for (const [k, v] of before) {
+        if (k === "temporal/state") {
+          const was = JSON.parse(v.slice(v.indexOf(":") + 1));
+          const now_ = JSON.parse(after.get(k)!.slice(after.get(k)!.indexOf(":") + 1));
+          expect(now_.canonical_time).toEqual(was.canonical_time);
+          expect(now_.continuation).toEqual(was.continuation);
+        } else expect(after.get(k), k).toBe(v);
+      }
+      // ... and the observation's evidence equals the uninterrupted run's, value for value (event, packet, provenance, the Temporal
+      // transaction and state; the referee decisions by operation and verdict - their task identities are per campaign)
+      const evidenceOf = (m: Map<string, string>) => ({
+        facts: [...m]
+          .filter(([k]) => /^(access|temporal)\//.test(k))
+          .sort((a, b) => a[0].localeCompare(b[0])),
+        decisions: [...m]
+          .filter(([k]) => /^referee\/.+\/decision$/.test(k))
+          .map(([, v]) => {
+            const r = JSON.parse(v.slice(v.indexOf(":") + 1));
+            return `${r.operation}:${r.verdict}`;
+          })
+          .sort(),
+      });
+      expect(evidenceOf(after)).toEqual(evidenceOf(reference));
+      expect(
+        evidenceOf(after).decisions.filter((d) => d.startsWith("F014D_DIRECT_PERCEPTION")),
+      ).toEqual(["F014D_DIRECT_PERCEPTION:OBSERVATION_ESTABLISHED"]); // one reading in all: no reroll
+      // operation-specific evidence: an affirmative retained reading, the event, the sealed packet, the Epistemic owner's own verification
+      const c = await openOrdinary(dirs.campaignDir);
+      try {
+        const keys = [...after.keys()];
+        const decisionKey = keys.find(
+          (k) =>
+            /^referee\/.+\/decision$/.test(k) &&
+            !k.includes("pc-") &&
+            JSON.parse(after.get(k)!.slice(after.get(k)!.indexOf(":") + 1)).verdict ===
+              "OBSERVATION_ESTABLISHED",
+        );
+        expect(decisionKey).toBeDefined();
+        expect(keys.some((k) => /packet/i.test(k))).toBe(true);
+        expect(verifyEpistemicIntegrity(c.store)).toEqual([]);
+      } finally {
+        await c.close();
+      }
+      // and what the player may now learn comes only through the earned presentation
+      const glance = await chat.call("read_current_observation_glance");
+      expect(glance.isError, glance.text).toBe(false);
+    } finally {
+      await app.close();
+    }
+  }, 300_000);
+});
+
+describe("MECHANISM (BLUE R3): a REAL collection uncertainty is resolved by the shipped reconcile (the retained positive), and only by evidence that covers it", () => {
+  it("the confirmed attempt was recorded by the trusted side and the process step then threw: UNCERTAIN, blocked, and the shipped reconcile presents the ORIGINAL act to the owners; a second reconcile writes nothing", async () => {
+    const dirs = copyCampaign(await collectionTemplate());
+    const before = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
+    const dir = tempDir("immortalis-chat-r3-collect-");
+    const scenarioFile = join(dir, "chat-scenario.json");
+    writeFileSync(
+      scenarioFile,
+      JSON.stringify({
+        player_character: COL_PC,
+        world: COL_W,
+        source: SRC_SOURCE_KEY,
+        reserve: SRC_RESERVE,
+        quantity_unit: SRC_UNIT,
+        mechanism: COL_MECH,
+        basis: SRC_BASIS_ID,
+      }),
+    );
+    const config = await chatConfig({
+      campaignDir: dirs.campaignDir,
+      operatorDir: dirs.operatorDir,
+      campaignId: FIXTURE_CAMPAIGN,
+      scenarioFile,
+      setupDir: join(dir, "setup"),
+    });
+    const ran: string[] = [];
+    const app = createPhoneServer(config, {
+      pollMs: 300,
+      runCli: async (argv, env) => {
+        ran.push(argv[0]!);
+        if (argv[0] === "collect") {
+          // what the shipped `collect` does first: the trusted side retains the player's confirmed attempt durably ...
+          const session = await openSession(dirs);
+          const retained = await session.ledger.record({
+            kind: "COLLECTION",
+            intent_id: "operator-intent:lost",
+            pc_id: COL_PC,
+            choice: {
+              pc_id: COL_PC,
+              act_id: "operator-act-lost",
+              source: { world_id: COL_W, source_key: SRC_SOURCE_KEY },
+              reserve_id: SRC_RESERVE,
+              quantity: { amount: 3, unit: SRC_UNIT },
+              authored_under: {
+                role: "role.player",
+                permission: "permission.player_choice.commit",
+              },
+            },
+            mechanism_id: COL_MECH,
+            basis_id: SRC_BASIS_ID,
+            publication: {
+              cause: "operator-collection-cause:lost",
+              basis: "local-operator-confirmed-choice",
+              secrecy: "local-operator-session",
+            },
+          });
+          expect(retained.ok).toBe(true);
+          await session.close();
+          // ... and the process around it then fails before the owners are invoked
+          throw new Error("failure after the confirmed attempt was retained");
+        }
+        return runCli(argv, { ...env, extension: ACTOR_FIXTURE_EXTENSION });
+      },
+    });
+    await app.listen();
+    try {
+      const chat = new Chat(`http://127.0.0.1:${config.port}`);
+      expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+      await chat.init({});
+      expect((await chat.call("collect", { amount: 3 })).isError).toBe(false);
+      const lost = await chat.call("await_action", { wait_seconds: 5 });
+      expect(lost.data.outcome).toBe("UNCERTAIN");
+      expect(readLedger({ operatorDir: dirs.operatorDir }).intents[0].status).toBe("CONFIRMED");
+      const mid = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
+      expect(mid.has(pcCollectionCommitmentKey(COL_PC, "operator-act-lost"))).toBe(false);
+      expect(mid).toEqual(before);
+      // blocked until that SAME operation is resolved
+      for (const [tool, args] of MUTATING)
+        expect((await chat.call(tool, args)).isError, tool).toBe(true);
+      expect(await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION)).toEqual(before);
+
+      // the shipped reconcile presents the retained act to the owners by its ORIGINAL identity
+      expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+      const done = await untilFinished(chat);
+      expect(done.text, done.text).toContain('"FINISHED"');
+      expect(done.data.state).toBe("FINISHED");
+      expect(done.data.exit_code).toBe(0);
+      expect(done.data.outcome).toBeUndefined();
+      expect(JSON.stringify(done.data.engine_report)).toContain("STATUS COLLECTION_COMMITTED");
+      expect(ran).toEqual(["collect", "reconcile"]);
+      const after = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
+      expect(after.has(pcCollectionCommitmentKey(COL_PC, "operator-act-lost"))).toBe(true);
+      expect(readLedger({ operatorDir: dirs.operatorDir }).intents[0].status).toBe("COMMITTED");
+      // what existed is unchanged in value and version, except what the commitment lawfully advances
+      for (const [k, v] of before) {
+        if (after.get(k) === v) continue;
+        expect(k, `${k} changed`).toMatch(/^(temporal\/state|production\/|population\/|world\/)/);
+      }
+      expect(existsSync(pendingFile(config))).toBe(false);
+
+      // presenting it again is a no-op, and an unrelated mutation is admitted again
+      const head = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
+      expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+      const again = await chat.call("await_action", { wait_seconds: 10 });
+      expect(JSON.stringify(again.data.engine_report)).toContain("STATUS NOTHING_TO_RECONCILE");
+      expect(await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION)).toEqual(head);
+      expect(ran.at(-1)).toBe("reconcile");
+    } finally {
+      await app.close();
+    }
+  }, 240_000);
+});
+
+async function collectionTemplate(): Promise<string> {
+  const dir = tempDir("immortalis-chat-collect-");
+  const s = await collectionCampaign({ dir });
+  await s.campaign.close();
+  return dir;
+}

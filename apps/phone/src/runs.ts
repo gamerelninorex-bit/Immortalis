@@ -10,16 +10,19 @@ export interface Run {
   uncertain: boolean;
 }
 
+export type Launch =
+  | { readonly ok: true; readonly run: Run }
+  | { readonly ok: false; readonly status: number; readonly reason: string };
+
 /** The player lane's single run slot, shared by the phone page and the ordinary-chat adapter: at most one command at a time. */
 export interface PlayerRuns {
   readonly current: () => Run | null;
   /** starts one of the closed player commands with options the CLOSED builder validates; refused while another is running */
-  readonly launch: (
-    command: string,
-    options: Readonly<Record<string, string>>,
-  ) => { readonly ok: true; readonly run: Run } | { readonly ok: false; readonly reason: string };
+  readonly launch: (command: string, options: Readonly<Record<string, string>>) => Promise<Launch>;
   /** true while an earlier action's outcome is uncertain and no reconcile has completed since: only a reconcile may be started */
   readonly unresolved: () => boolean;
+  /** why the pending operation is still blocked (null when nothing is blocked or no recovery attempt failed yet) */
+  readonly blocker: () => string | null;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

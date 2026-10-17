@@ -15,7 +15,17 @@ import { callRefereeTool } from "./referee-tools.ts";
 import { TOOL_INSTRUCTIONS, buildChatTools, type ChatToolDeps } from "./chat-tools.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
-import type { PlayerRuns, Run } from "./runs.ts";
+import type { Launch, PlayerRuns, Run } from "./runs.ts";
+import {
+  captureObservation,
+  clearPending,
+  observationEvidence,
+  readPending,
+  writePending,
+  type PendingOperation,
+  type RecoveryDeps,
+} from "./recovery.ts";
+import { PENDING_FORMAT } from "./recovery.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -37,6 +47,8 @@ export interface PhoneDeps {
   readonly askExpiryMs?: number;
   /** how long an idle or caught-up poll is held open before it answers (default 20 s) */
   readonly pollMs?: number;
+  /** owner readback seams for the pending-operation recovery (tests substitute them; the defaults read the real campaign) */
+  readonly recovery?: RecoveryDeps;
   /** the ordinary-chat adapter's collaborators (tests substitute the earned-Glance read and the referee exchange; never the confirmation) */
   readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance">;
 }
@@ -75,8 +87,32 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   const fails = new Map<string, { count: number; until: number }>();
   let globalFails: number[] = [];
   let player: Run | null = null;
-  /** an earlier action ended uncertain and no `reconcile` has completed since (the chat adapter then starts nothing else) */
+  /**
+   * The action whose outcome is not established (BLUE R3), restored from the trusted pending-operation record on startup: while it is
+   * unresolved NO other mutating action starts (page or chat). It is cleared only by a definite outcome or by owner-side evidence about
+   * THAT operation (see recoverPending); a record that cannot be read or maintained keeps everything blocked.
+   */
+  let pending: PendingOperation | null = null;
   let unresolvedOutcome = false;
+  let blocker: string | null = null;
+  {
+    const restored = readPending(config);
+    if (restored.kind === "PENDING") {
+      pending = restored.pending;
+      unresolvedOutcome = true;
+      blocker =
+        restored.pending.blocker ??
+        "the server restarted while this action's outcome was not established";
+    } else if (restored.kind === "UNREADABLE") {
+      unresolvedOutcome = true;
+      blocker = "the pending-operation record is unreadable; engineering must inspect it";
+    }
+  }
+  const rec = {
+    captureObservation: deps.recovery?.captureObservation ?? captureObservation,
+    observationEvidence: deps.recovery?.observationEvidence ?? observationEvidence,
+  };
+  let launching = false;
   let referee: Run | null = null;
   let refereeCalls = 0;
   const pollMs = deps.pollMs ?? POLL_MS;
@@ -285,57 +321,310 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       : deny(res, 409, "that prompt is no longer waiting for an answer");
   };
 
-  /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
-  function launchPlayer(request: {
-    command: unknown;
-    options?: unknown;
-    setup?: unknown;
-  }): { ok: true; run: Run } | { ok: false; reason: string; status: number } {
-    if (player && !player.done)
-      return {
-        ok: false,
-        status: 409,
-        reason: "a command is already running: answer it or stop it first",
-      };
-    const built = buildPlayerCommand(config, request);
-    if (!built.ok) return { ok: false, status: 400, reason: built.reason };
+  // -- the player lane's single run slot ---------------------------------------------------------------------------------------
+  /** the shipped commands whose effects reach canon through a chat-offered choice: each is recorded before it is dispatched */
+  const JOURNALED = new Set([
+    "observe-surroundings",
+    "collect",
+    "collect-continue",
+    "collect-finish",
+    "cease",
+    "settle-collection-lapse",
+  ]);
+  /** commands whose every effect begins with a CONFIRMED ledger intent, which the shipped `reconcile` presents again by identity */
+  const LEDGER_BACKED = new Set(["collect", "collect-continue", "collect-finish", "cease"]);
+  const RECONCILE_OK =
+    /^STATUS (NOTHING_TO_RECONCILE|\S*COMMITTED|TIME_ESTABLISHED|SETTING_DECLARED)\b/;
+  const UNKNOWN_STATUS = /STATUS \S*(OUTCOME_UNKNOWN|RECONCILIATION_REQUIRED)\b/;
+
+  const refuse = (status: number, reason: string): Launch => ({ ok: false, status, reason });
+  const uncertainReason = (): string =>
+    `an earlier action${pending ? ` (${pending.command}, run ${pending.run_id})` : ""} ended with an UNCERTAIN outcome and is not yet resolved${blocker ? `: ${blocker}` : ""}. Run reconcile_last_action first; do not retry the action.`;
+  const statusLines = (run: Run): string[] =>
+    run.terminal
+      .snapshot(0)
+      .lines.map((l) => l.text)
+      .filter((t) => t.startsWith("STATUS "));
+  /** a recovery cannot ask the player anything: a prompt it reaches is a decline, never a new choice */
+  const noAsking = (t: Run["terminal"]) => ({
+    say: (text: string) => t.say(text),
+    ask: async (prompt: string) => {
+      t.say(`(a recovery cannot ask the player anything; declined) ${prompt}`);
+      return null;
+    },
+    close: () => t.close(),
+  });
+  const block = (why: string): void => {
+    unresolvedOutcome = true;
+    blocker = why;
+    if (pending) {
+      pending = { ...pending, state: "UNCERTAIN", blocker: why };
+      writePending(config, pending); // a record that cannot be rewritten stays as it was: still blocking
+    }
+  };
+  const resolve = (): boolean => {
+    if (!clearPending(config)) {
+      block("the pending-operation record could not be cleared");
+      return false;
+    }
+    pending = null;
+    unresolvedOutcome = false;
+    blocker = null;
+    return true;
+  };
+  /** a recovery that needs no command: its account is the run */
+  const finishedRun = (label: string, lines: string[], code: number): Run => {
+    const terminal = createWebTerminal();
+    for (const l of lines) terminal.say(l);
+    terminal.say(`— command finished (exit code ${code}) —`);
+    terminal.close();
+    const run: Run = { id: newRunId(), label, terminal, done: true, uncertain: code !== 0 };
+    player = run;
+    wakeLane("player");
+    return run;
+  };
+
+  /**
+   * Starts one command on the player lane. `after` decides what its end means: a normal journaled run is settled by its own definite
+   * outcome; a recovery run is settled only by the owner-side evidence its caller gathers.
+   */
+  function startRun(
+    id: string,
+    label: string,
+    argv: readonly string[],
+    cleanup: () => void,
+    opts: { quiet: boolean },
+    after: (run: Run, code: number | null) => Promise<void> | void,
+  ): Run {
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = {
-      id: newRunId(),
-      label: String(request.command),
-      terminal,
-      done: false,
-      uncertain: false,
-    };
+    const run: Run = { id, label, terminal, done: false, uncertain: false };
     player = run;
     wakeLane("player");
-    void cli(built.value.argv, { terminal, out: (line) => terminal.say(line) })
-      .then((code) => {
+    const env = opts.quiet
+      ? { terminal: noAsking(terminal), out: (line: string) => terminal.say(line) }
+      : { terminal, out: (line: string) => terminal.say(line) };
+    void cli(argv, env)
+      .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
-        // the engine itself said it cannot tell what was committed
-        if (terminal.snapshot(0).lines.some((l) => /OUTCOME_UNKNOWN/.test(l.text)))
-          run.uncertain = true;
-        if (run.label === "reconcile" && code === 0 && !run.uncertain) unresolvedOutcome = false;
+        await after(run, code);
       })
-      .catch(() => {
+      .catch(async () => {
         // an exception can follow a human's confirmation and an owner write: nothing here can establish that nothing was committed
         run.uncertain = true;
         terminal.say(
           "— the command stopped unexpectedly. Whether it changed anything is UNKNOWN: it may have been confirmed and committed. Run `reconcile` (the owner-backed check) before any retry —",
         );
+        await after(run, null);
+      })
+      .catch(() => {
+        run.uncertain = true;
+        block("the outcome of this action could not be recorded");
       })
       .finally(() => {
-        built.value.cleanup();
-        if (run.uncertain) unresolvedOutcome = true;
+        cleanup();
         run.done = true;
         terminal.close();
       });
-    return { ok: true, run };
+    return run;
   }
-  function startPlayer(res: ServerResponse, body: Record<string, unknown>) {
-    const started = launchPlayer({
+
+  /** the end of a normal journaled run: a definite outcome settles it; anything else leaves it pending and blocking */
+  const settleNormal = (run: Run, code: number | null): void => {
+    const statuses = run.terminal.snapshot(0).lines.map((l) => l.text);
+    const unknown = code === null || code === 4 || statuses.some((t) => UNKNOWN_STATUS.test(t));
+    if (unknown) {
+      run.uncertain = true;
+      block(
+        code === null
+          ? "the command ended in an exception"
+          : "the command reported an unknown outcome (reconciliation required)",
+      );
+    } else resolve();
+  };
+
+  /**
+   * Resolution of the pending operation, ONLY on owner-side evidence about that operation (BLUE R3-b). A generic `reconcile` exit 0 is
+   * evidence for a confirmed-ledger operation (which is what it presents) and for nothing else: an observation has no ledger intent, so
+   * it is read back from its own records at its ORIGINAL basis and, if partial, completed by the same command by identity — which cannot
+   * ask the player anything or consult the referee again — never by an unrelated reconcile.
+   */
+  async function recoverPending(): Promise<Launch> {
+    const cur = pending;
+    const label = "reconcile";
+    const blocked = (why: string, lines: string[] = []): Launch => {
+      block(why);
+      return {
+        ok: true,
+        run: finishedRun(label, [...lines, `RECOVERY BLOCKED: ${why}`], 4),
+      };
+    };
+    if (!cur) return blocked(blocker ?? "no recoverable operation is recorded");
+    if (cur.command === "observe-surroundings") {
+      if (!cur.identity)
+        return blocked(
+          "the observation's original identity was not recorded; it cannot be read back",
+        );
+      const ev = await rec.observationEvidence(config, cur.identity);
+      if (ev.kind === "UNAVAILABLE") return blocked(ev.detail);
+      if (ev.kind === "NONE" || ev.kind === "NEGATIVE" || ev.kind === "COMPLETE") {
+        const said =
+          ev.kind === "NONE"
+            ? "owner readback: no record of that observation exists at its basis; nothing was committed"
+            : ev.kind === "NEGATIVE"
+              ? "owner readback: the retained reading for that observation is final (nothing was received); nothing further is pending"
+              : "owner readback: the observation's event and sealed packet are both committed and verified";
+        if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [said]);
+        return { ok: true, run: finishedRun(label, [said], 0) };
+      }
+      // PARTIAL: the same command completes it by identity (no new choice, no referee reroll); a prompt it reaches is a decline
+      const built = buildPlayerCommand(config, { command: cur.command, options: cur.options });
+      if (!built.ok) return blocked("the original command could not be rebuilt for recovery");
+      const identity = cur.identity;
+      const run = startRun(
+        newRunId(),
+        label,
+        built.value.argv,
+        built.value.cleanup,
+        { quiet: true },
+        async (r, code) => {
+          const after = await rec.observationEvidence(config, identity);
+          if (code === 0 && after.kind === "COMPLETE") {
+            r.terminal.say(
+              "owner readback: the observation is now complete (event and sealed packet committed and verified)",
+            );
+            resolve();
+          } else {
+            r.uncertain = true;
+            block(
+              `the partial observation (${ev.detail}) was not completed${after.kind === "UNAVAILABLE" ? `: ${after.detail}` : ""}`,
+            );
+          }
+        },
+      );
+      return { ok: true, run };
+    }
+    if (LEDGER_BACKED.has(cur.command) || cur.command === "settle-collection-lapse") {
+      const command = LEDGER_BACKED.has(cur.command) ? "reconcile" : "settle-collection-lapse";
+      const built = buildPlayerCommand(config, { command });
+      if (!built.ok) return blocked("the recovery command could not be built");
+      const run = startRun(
+        newRunId(),
+        label,
+        built.value.argv,
+        built.value.cleanup,
+        { quiet: true },
+        (r, code) => {
+          const statuses = statusLines(r);
+          const ok =
+            code === 0 &&
+            statuses.length > 0 &&
+            statuses.every((t) => RECONCILE_OK.test(t)) &&
+            (command === "reconcile" || statuses.some((t) => /COMMITTED/.test(t)));
+          if (ok) resolve();
+          else {
+            r.uncertain = true;
+            block(
+              `${command} did not settle the operation (${statuses.join("; ") || `exit ${code ?? "none"}`})`,
+            );
+          }
+        },
+      );
+      return { ok: true, run };
+    }
+    return blocked(`no supported owner readback exists for ${cur.command}`);
+  }
+
+  /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
+  async function launchPlayer(request: {
+    command: unknown;
+    options?: unknown;
+    setup?: unknown;
+  }): Promise<Launch> {
+    if (launching || (player && !player.done))
+      return refuse(409, "a command is already running: answer it or stop it first");
+    launching = true;
+    try {
+      const built = buildPlayerCommand(config, request);
+      if (!built.ok) return refuse(400, built.reason);
+      const command = String(request.command);
+      if (command === "reconcile" && unresolvedOutcome) {
+        built.value.cleanup();
+        return await recoverPending();
+      }
+      const journaled = JOURNALED.has(command);
+      if (journaled) {
+        if (unresolvedOutcome) {
+          built.value.cleanup();
+          return refuse(409, uncertainReason());
+        }
+        const options: Record<string, string> = {};
+        if (request.options && typeof request.options === "object")
+          for (const [k, v] of Object.entries(request.options as Record<string, unknown>))
+            if (typeof v === "string") options[k] = v;
+        const id = newRunId();
+        let identity = null;
+        if (command === "observe-surroundings") {
+          identity = await rec.captureObservation(config, options["player-character"] ?? "");
+          if (!identity) {
+            built.value.cleanup();
+            return refuse(
+              503,
+              "the observation's identity could not be established; nothing was dispatched",
+            );
+          }
+        }
+        const record: PendingOperation = {
+          format: PENDING_FORMAT,
+          format_version: 1,
+          campaign_id: config.campaignId,
+          run_id: id,
+          command,
+          options,
+          dispatched_at: now(),
+          state: "DISPATCHED",
+          blocker: null,
+          identity,
+        };
+        if (!writePending(config, record)) {
+          built.value.cleanup();
+          return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
+        }
+        pending = record;
+        return {
+          ok: true,
+          run: startRun(
+            id,
+            command,
+            built.value.argv,
+            built.value.cleanup,
+            { quiet: false },
+            settleNormal,
+          ),
+        };
+      }
+      return {
+        ok: true,
+        run: startRun(
+          newRunId(),
+          command,
+          built.value.argv,
+          built.value.cleanup,
+          { quiet: false },
+          (run, code) => {
+            // not a chat-offered choice: its own uncertainty is reported, and does not gate the chat adapter
+            if (code === null || code === 4 || statusLines(run).some((t) => UNKNOWN_STATUS.test(t)))
+              run.uncertain = true;
+          },
+        ),
+      };
+    } finally {
+      launching = false;
+    }
+  }
+  async function startPlayer(res: ServerResponse, body: Record<string, unknown>) {
+    const started = await launchPlayer({
       command: body["command"],
       options: body["options"],
       setup: body["setup"],
@@ -344,34 +633,20 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     json(res, 200, { ok: true });
   }
   /** the chat adapter may start only these shipped commands: choices and their follow-up, never setup, binding or authoring */
-  const CHAT_COMMANDS = new Set([
-    "observe-surroundings",
-    "collect",
-    "collect-continue",
-    "collect-finish",
-    "cease",
-    "settle-collection-lapse",
-    "reconcile",
-  ]);
+  const CHAT_COMMANDS = new Set([...JOURNALED, "reconcile"]);
   const playerRuns: PlayerRuns = {
     current: () => player,
     unresolved: () => unresolvedOutcome,
-    launch: (command, options) => {
+    blocker: () => blocker,
+    launch: async (command, options) => {
       if (!CHAT_COMMANDS.has(command))
-        return { ok: false, reason: "that action is not offered here" };
-      if (unresolvedOutcome && command !== "reconcile")
-        return {
-          ok: false,
-          reason:
-            "an earlier action ended with an UNCERTAIN outcome (it may have been committed). Run reconcile_last_action first; do not retry the action.",
-        };
-      const started = launchPlayer({ command, options });
-      return started.ok ? started : { ok: false, reason: started.reason };
+        return { ok: false, status: 400, reason: "that action is not offered here" };
+      return launchPlayer({ command, options });
     },
     abort: () => player?.terminal.abort(),
     decline: () => {
-      const pending = player?.terminal.snapshot(0).pending;
-      if (player && pending) player.terminal.reply(pending.id, "");
+      const waiting = player?.terminal.snapshot(0).pending;
+      if (player && waiting) player.terminal.reply(waiting.id, "");
     },
   };
 

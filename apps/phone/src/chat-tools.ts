@@ -132,7 +132,9 @@ const stateOf = (run: Run): RunState =>
 const REPORT_NOTICE =
   "engine_report is the operator-level account of what the engine did or refused. It is not what the character knows: tell the player only what read_current_observation_glance returns, and report the outcome of their choice plainly.";
 
-function describe(config: PhoneConfig, run: Run, after: number, unresolved: boolean): ToolResult {
+function describe(config: PhoneConfig, run: Run, after: number, runs: PlayerRuns): ToolResult {
+  const unresolved = runs.unresolved();
+  const blocked = runs.blocker();
   const { lines, next } = reportOf(run, after);
   const state = stateOf(run);
   return asJson({
@@ -143,6 +145,7 @@ function describe(config: PhoneConfig, run: Run, after: number, unresolved: bool
     ...(state === "FINISHED" && (run.uncertain || unresolved)
       ? {
           outcome: "UNCERTAIN",
+          ...(blocked ? { blocker: blocked } : {}),
           recovery:
             "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
         }
@@ -285,12 +288,12 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     command: string,
     options: Readonly<Record<string, string>>,
   ): Promise<ToolResult> => {
-    const launched = runs.launch(command, options);
+    const launched = await runs.launch(command, options);
     if (!launched.ok) return text(launched.reason, true);
     const run = launched.run;
     // a start returns quickly: the engine continues on its own, and await_action follows it
     await run.terminal.changed(0, settleMs);
-    return describe(config, run, 0, runs.unresolved());
+    return describe(config, run, 0, runs);
   };
   const scenarioOr = (): { ok: true; s: Scenario } | { ok: false; r: ToolResult } => {
     const s = readScenario(config.scenarioFile);
@@ -634,7 +637,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     }
     // let the lines that trail a final status flush, so a finished command is reported as finished
     if (!run.done) await new Promise((r) => setTimeout(r, 120));
-    return describe(config, run, after, runs.unresolved());
+    return describe(config, run, after, runs);
   }
 
   return tools;
