@@ -1231,11 +1231,15 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
   const files = readdirSync(dir).filter((f) => f.endsWith(".ts"));
   it("has no process execution, dynamic code, wall-clock identity or provider reference, and reads the environment in main.ts alone", () => {
     expect(files.sort()).toEqual([
+      "chat-tools.ts",
       "commands.ts",
       "config.ts",
       "main.ts",
+      "mcp-http.ts",
+      "oauth.ts",
       "pages.ts",
       "referee-tools.ts",
+      "runs.ts",
       "server.ts",
       "web-terminal.ts",
     ]);

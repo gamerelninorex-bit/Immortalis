@@ -9,9 +9,13 @@ import {
 } from "@immortalis/operator";
 import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
-import { landingPage, playerPage, refereePage } from "./pages.ts";
-import { createWebTerminal, type WebTerminal } from "./web-terminal.ts";
+import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
+import { createWebTerminal } from "./web-terminal.ts";
 import { callRefereeTool } from "./referee-tools.ts";
+import { TOOL_INSTRUCTIONS, buildChatTools, type ChatToolDeps } from "./chat-tools.ts";
+import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
+import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
+import type { PlayerRuns, Run } from "./runs.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -33,6 +37,8 @@ export interface PhoneDeps {
   readonly askExpiryMs?: number;
   /** how long an idle or caught-up poll is held open before it answers (default 20 s) */
   readonly pollMs?: number;
+  /** the ordinary-chat adapter's collaborators (tests substitute the earned-Glance read and the referee exchange; never the confirmation) */
+  readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance">;
 }
 
 type Role = "player" | "referee";
@@ -42,14 +48,6 @@ interface Session {
   readonly created: number;
   seen: number;
 }
-interface Run {
-  /** server-issued identity of THIS run: the transcript's sequence numbers restart with every run, so a cursor means nothing without it */
-  readonly id: string;
-  readonly label: string;
-  readonly terminal: WebTerminal;
-  done: boolean;
-}
-
 const IDLE_MS = 30 * 60_000;
 const ABSOLUTE_MS = 8 * 3600_000;
 const LOCK_MS = 15 * 60_000;
@@ -195,26 +193,33 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     });
 
   // -- login ---------------------------------------------------------------------------------------------------------------
-  function login(req: IncomingMessage, res: ServerResponse, body: Record<string, unknown>) {
+  /**
+   * The one place a lane secret is checked (the page sign-in and the OAuth consent both use it): compared as digests in constant time,
+   * a wrong role and a wrong secret are the same refusal, and repeated failures lock the address and then everyone out for a while.
+   */
+  function checkLane(who: string, role: unknown, token: unknown): SecretCheck {
     const t = now();
-    const who = clientOf(req);
     globalFails = globalFails.filter((x) => t - x < 10 * 60_000);
     const held = fails.get(who);
-    if (globalFails.length >= GLOBAL_FAILS || (held && held.until > t))
-      return deny(res, 429, "too many attempts: wait before trying again");
-    const role = body["role"];
-    const token = body["token"];
+    if (globalFails.length >= GLOBAL_FAILS || (held && held.until > t)) return "locked";
     const expected =
       role === "player" ? config.playerToken : role === "referee" ? config.refereeToken : undefined;
-    // compared as digests in constant time; a wrong role and a wrong token are the same refusal
     if (typeof token !== "string" || expected === undefined || !same(token, expected)) {
       globalFails.push(t);
       const prior = fails.get(who);
       const count = (prior && prior.until === 0 ? prior.count : 0) + 1;
       fails.set(who, { count, until: count >= MAX_FAILS ? t + LOCK_MS : 0 });
-      return deny(res, 401, "not authenticated");
+      return "bad";
     }
     fails.delete(who);
+    return "ok";
+  }
+  function login(req: IncomingMessage, res: ServerResponse, body: Record<string, unknown>) {
+    const t = now();
+    const checked = checkLane(clientOf(req), body["role"], body["token"]);
+    if (checked === "locked") return deny(res, 429, "too many attempts: wait before trying again");
+    if (checked === "bad") return deny(res, 401, "not authenticated");
+    const role = body["role"];
     // one session per lane: signing in again ends the earlier one
     for (const [sid, s] of sessions) if (s.role === role) sessions.delete(sid);
     const sid = randomBytes(32).toString("hex");
@@ -278,19 +283,24 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       : deny(res, 409, "that prompt is no longer waiting for an answer");
   };
 
-  function startPlayer(res: ServerResponse, body: Record<string, unknown>) {
+  /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
+  function launchPlayer(request: {
+    command: unknown;
+    options?: unknown;
+    setup?: unknown;
+  }): { ok: true; run: Run } | { ok: false; reason: string; status: number } {
     if (player && !player.done)
-      return deny(res, 409, "a command is already running: answer it or stop it first");
-    const built = buildPlayerCommand(config, {
-      command: body["command"],
-      options: body["options"],
-      setup: body["setup"],
-    });
-    if (!built.ok) return deny(res, 400, built.reason);
+      return {
+        ok: false,
+        status: 409,
+        reason: "a command is already running: answer it or stop it first",
+      };
+    const built = buildPlayerCommand(config, request);
+    if (!built.ok) return { ok: false, status: 400, reason: built.reason };
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { id: newRunId(), label: String(body["command"]), terminal, done: false };
+    const run: Run = { id: newRunId(), label: String(request.command), terminal, done: false };
     player = run;
     wakeLane("player");
     void cli(built.value.argv, { terminal, out: (line) => terminal.say(line) })
@@ -301,8 +311,41 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         run.done = true;
         terminal.close();
       });
+    return { ok: true, run };
+  }
+  function startPlayer(res: ServerResponse, body: Record<string, unknown>) {
+    const started = launchPlayer({
+      command: body["command"],
+      options: body["options"],
+      setup: body["setup"],
+    });
+    if (!started.ok) return deny(res, started.status, started.reason);
     json(res, 200, { ok: true });
   }
+  /** the chat adapter may start only these shipped commands: choices and their follow-up, never setup, binding or authoring */
+  const CHAT_COMMANDS = new Set([
+    "observe-surroundings",
+    "collect",
+    "collect-continue",
+    "collect-finish",
+    "cease",
+    "settle-collection-lapse",
+    "reconcile",
+  ]);
+  const playerRuns: PlayerRuns = {
+    current: () => player,
+    launch: (command, options) => {
+      if (!CHAT_COMMANDS.has(command))
+        return { ok: false, reason: "that action is not offered here" };
+      const started = launchPlayer({ command, options });
+      return started.ok ? started : { ok: false, reason: started.reason };
+    },
+    abort: () => player?.terminal.abort(),
+    decline: () => {
+      const pending = player?.terminal.snapshot(0).pending;
+      if (player && pending) player.terminal.reply(pending.id, "");
+    },
+  };
 
   function startReferee(res: ServerResponse, body: Record<string, unknown>) {
     if (referee && !referee.done)
@@ -340,6 +383,112 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     json(res, 200, { ok: true });
   };
 
+  // -- the ordinary-chat adapter (off unless the public origin is configured) -------------------------------------------------
+  let oauth: OAuthServer | null = null;
+  let mcp: McpHttp | null = null;
+  if (config.publicUrl !== null) {
+    oauth = createOAuth(config, now, (who, role, token) => checkLane(who, role, token));
+    mcp = createMcpHttp({
+      oauth,
+      now,
+      serverInfo: { name: "immortalis-chat", version: "0.1.0" },
+      instructions: TOOL_INSTRUCTIONS,
+      tools: buildChatTools({ config, runs: playerRuns, ...(deps.chat ?? {}) }),
+    });
+  }
+  const readForm = (req: IncomingMessage): Promise<Record<string, unknown> | undefined> =>
+    new Promise((resolve) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      req.on("data", (c: Buffer) => {
+        size += c.length;
+        if (size > 16 * 1024) {
+          resolve(undefined);
+          req.destroy();
+          return;
+        }
+        chunks.push(c);
+      });
+      req.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        try {
+          if ((req.headers["content-type"] ?? "").startsWith("application/json")) {
+            const parsed: unknown = JSON.parse(text);
+            return resolve(
+              parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+                ? (parsed as Record<string, unknown>)
+                : undefined,
+            );
+          }
+          resolve(Object.fromEntries(new URLSearchParams(text)));
+        } catch {
+          resolve(undefined);
+        }
+      });
+      req.on("error", () => resolve(undefined));
+    });
+  const sameOrigin = (req: IncomingMessage): boolean => {
+    const origin = req.headers.origin;
+    if (origin === undefined) return true;
+    try {
+      return new URL(origin).host === req.headers.host;
+    } catch {
+      return false;
+    }
+  };
+
+  /** the discovery, consent, token and MCP routes; `true` when the request was one of them */
+  async function chatRoutes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+    if (!oauth || !mcp) return false;
+    const path = url.pathname;
+    const open = { "access-control-allow-origin": "*" };
+    if (req.method === "GET") {
+      if (
+        path === "/.well-known/oauth-protected-resource" ||
+        path === "/.well-known/oauth-protected-resource/mcp"
+      )
+        return (json(res, 200, oauth.protectedResourceMetadata(), open), true);
+      if (
+        path === "/.well-known/oauth-authorization-server" ||
+        path === "/.well-known/openid-configuration"
+      )
+        return (json(res, 200, oauth.authorizationServerMetadata(), open), true);
+      if (path === "/oauth/authorize") {
+        const described = oauth.describeRequest(url.searchParams);
+        const n = nonce();
+        if (!described.ok)
+          return (send(res, 400, described.reason, "text/plain; charset=utf-8"), true);
+        const q: Record<string, string> = {};
+        for (const [k, v] of url.searchParams) q[k] = v.slice(0, 1024);
+        return (
+          send(res, 200, consentPage(n, q, described), "text/html; charset=utf-8", {}, n),
+          true
+        );
+      }
+      return false;
+    }
+    if (path === "/oauth/register" && req.method === "POST") {
+      const body = await readBody(req);
+      if (body === undefined) return (json(res, 400, { error: "invalid_client_metadata" }), true);
+      const r = oauth.register(body);
+      return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/token" && req.method === "POST") {
+      const form = await readForm(req);
+      if (form === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const r = oauth.token(form);
+      return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/decision" && req.method === "POST") {
+      if (!sameOrigin(req)) return (deny(res, 403, "cross-origin request refused"), true);
+      const body = await readBody(req);
+      if (body === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const r = oauth.decide(body, clientOf(req));
+      return (json(res, r.status, r.body), true);
+    }
+    return false;
+  }
+
   // -- routing ---------------------------------------------------------------------------------------------------------------
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://phone.invalid");
@@ -351,11 +500,26 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const first = (Array.isArray(proto) ? proto[0] : proto)?.split(",")[0]?.trim();
       if (first !== "https") return deny(res, 421, "this service is reachable only over HTTPS");
     }
+    if (!mcp && (path === "/mcp" || path.startsWith("/oauth/") || path.startsWith("/.well-known/")))
+      return deny(res, 404, "not available");
+    if (path === "/mcp" && mcp) return mcp.handle(req, res);
+    if (await chatRoutes(req, res, url)) return;
     // an automatic poll is not human activity (see sessionOf)
     const found = sessionOf(req, !(req.method === "GET" && path.endsWith("/poll")));
     if (req.method === "GET") {
       const n = nonce();
       if (path === "/") return send(res, 200, landingPage(n), "text/html; charset=utf-8", {}, n);
+      if (path === "/confirm" && config.publicUrl !== null) {
+        const signedIn = found?.session.role === "player";
+        return send(
+          res,
+          200,
+          confirmPage(n, signedIn ? found.session.csrf : "", signedIn),
+          "text/html; charset=utf-8",
+          {},
+          n,
+        );
+      }
       if (path === "/play" || path === "/referee") {
         const want: Role = path === "/play" ? "player" : "referee";
         if (!found || found.session.role !== want)
@@ -473,6 +637,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       new Promise((resolve) => {
         player?.terminal.abort();
         referee?.terminal.abort();
+        mcp?.closeAll();
         wakeLane("player");
         wakeLane("referee");
         server.closeAllConnections();

@@ -1,0 +1,77 @@
+# Ordinary-chat host adapter (remote MCP + OAuth 2.1)
+
+A **transport and nothing else**: it lets a compatible, ordinary chat host that you link yourself play the existing campaign by conversation — without a technical console — while every rule, every record and every confirmation stays where it already was. It adds no gameplay, no model, no provider key, no owner rule and no engine change. Source brief: BLUE live-recovery continuation brief v2 (OB-058, native pin `2026-10-17T13:38:11.385Z`, PR #73 comment 6234545963). Not deployed by this change; both PRs stay draft and unmerged.
+
+**Everything below the "Evidence" heading that is labelled MECHANISM is a script, not a chat session.** No real ordinary-chat client, model or player has used this yet.
+
+## Neutral contract (host-independent)
+
+The operations are typed requests over the existing shipped operations; MCP (Streamable HTTP, spec 2025-06-18) is only the first transport. Another qualified host needs only an adapter that can (1) authenticate, (2) call these typed operations, and (3) put a **human-typed** reply to the engine's printed confirmation, from somewhere the model cannot write.
+
+| Scope     | Operation                                                                                                          | What it is                                                                                              | What the caller supplies (untrusted)       |
+| --------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `player`  | `read_current_observation_glance`                                                                                  | the existing earned, current Active-PC Glance read (unchanged player-view transport)                    | nothing                                    |
+| `player`  | `observe_surroundings`                                                                                             | the shipped `observe-surroundings`                                                                      | nothing (character from the scenario file) |
+| `player`  | `collect`                                                                                                          | the shipped `collect`                                                                                   | the **amount** only                        |
+| `player`  | `continue_collection`, `finish_collection`, `cease_collection`, `settle_collection_lapse`, `reconcile_last_action` | the shipped `collect-continue`, `collect-finish`, `cease`, `settle-collection-lapse`, `reconcile`       | nothing                                    |
+| `player`  | `await_action`, `cancel_action`                                                                                    | follow the one action in progress (the human's confirmation is collected here); withdraw it (a decline) | optional run id / cursor / wait            |
+| `referee` | `referee_list_tasks`, `referee_get_task`, `referee_submit_decision`                                                | the existing bounded referee exchange, byte-for-byte the same operations the browser tools use          | host id, task id, the AI's own reading     |
+
+Never offered: a generic command, shell, file reader, owner query, campaign/path/role/permission/time argument, hidden-state dump, setup or authoring command, **or any tool that can reply to a prompt or carry a confirmation**. An unsupported action fails closed.
+
+## Authentication (OAuth 2.1)
+
+ChatGPT documents OAuth 2.1 (authorization code + PKCE `S256`) as its only supported authenticated mode (no API keys, no machine-to-machine); the adapter implements exactly that and nothing wider.
+
+- Discovery: `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`; a `401` carries `WWW-Authenticate: Bearer resource_metadata=…`.
+- Registration: dynamic client registration (`/oauth/register`), public clients only, `https` redirect URIs only (loopback `http` only when the whole service is in `insecure-loopback` development mode).
+- Consent (`/oauth/authorize`): a page that states in plain words what is asked. **A scope is granted only by typing that lane's own secret** — `player` by the player secret, `referee` by the (different) referee secret — through the same constant-time, rate-limited check the lane sign-in uses. A client, a registration or a model's wording grants nothing. The player secret never grants `referee`, nor the reverse.
+- Tokens: stateless, HMAC-signed, audience-bound to `<public origin>/mcp`, access 1 h, refresh 30 d and single-use (rotated); the signing key derives from **both** lane secrets, so rotating either secret revokes every token. Codes are 5 min and single-use. Sessions (`Mcp-Session-Id`) are in memory and bound to the client that initialized them; a restart ends them and the client simply re-initializes.
+- The endpoint answers only under its own public host name (DNS-rebinding guard) and refuses any foreign browser `Origin`.
+
+## Confirmation: the human's, never the model's
+
+The shipped commands print an exact proposal and a fresh, subject-bound challenge phrase and accept only that phrase typed to their terminal (anything else declines). The adapter keeps that terminal unchanged and offers exactly **two** places for the _human_ to type it:
+
+1. **The client's own elicitation** (MCP `elicitation/create`, when the client declared the capability at `initialize` and negotiated 2025-06-18). `await_action` carries the question on its own response stream; the engine's proposal text and phrase go to the **human's** client UI; the answer returns to the server directly and is typed into the terminal. It is never a tool argument or result, and `accept` with the wrong phrase, `decline`, `cancel`, a closed connection and silence are all the same non-confirmation.
+2. **The confirm page** `/confirm` for a client that cannot elicit: single-purpose, requires the **player secret** (the assistant has no way to present a session cookie or the secret), shows the same proposal and prompt, and takes the typed phrase once.
+
+What the model is given instead: the engine's report with the challenge phrase **removed** ("the phrase is not shown to the assistant"), no `ask`/`reply` transcript lines and no audit `PROGRESS` lines, a state (`RUNNING`, `AWAITING_CONFIRMATION`, `FINISHED`) and an exit code. `cancel_action` can only decline. A phrase from an earlier proposal does not confirm a later one (each run prints its own).
+
+**Client-capability limit (must be verified live):** the elicitation channel is non-model-controlled only if the client renders it to the _human_ and does not hand it to the model to fill. OpenAI's connection documentation does not mention elicitation; support in the Sovereign's actual account/mobile client is **unverified**. If the live client can supply neither channel acceptably, the correct result is a STOP for that live route, not a weaker flow.
+
+## Orchestration without deadlock
+
+Every player operation **returns** (it never waits for the engine to finish): `RUNNING` means the engine is working, perhaps waiting for a referee reading. `await_action` is bounded (≤ 25 s) and returns on news, so the same assistant can serve the referee side between two of its own calls (`referee_list_tasks` → `referee_get_task` → `referee_submit_decision`) while the engine waits. Only one action runs at a time; a second is refused. An interrupted or uncertain outcome is reconciled by the shipped `reconcile`, never by re-sending the action; nothing in the adapter retries a mutation or advances canonical time from a wall clock.
+
+## Configuration (ready to connect once reviewed)
+
+| Variable                                                                                         | Meaning                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IMMORTALIS_PUBLIC_URL`                                                                          | the service's bare `https` origin (e.g. `https://immortalis-r5.up.railway.app`); **unset = the chat adapter is off** and `/mcp`, `/oauth/*`, `/.well-known/*` and `/confirm` do not exist |
+| `IMMORTALIS_SCENARIO_FILE`                                                                       | operator-written, owner-only JSON (default `<operator dir>/chat-scenario.json`); engineering plumbing the player never names                                                              |
+| `IMMORTALIS_PLAYER_VIEW_HOST_ID`                                                                 | host identity for the earned-Glance read; the trusted server process binds it once (proving the view against canon) on first use. Unset = the Glance tool returns the one opaque refusal  |
+| existing `IMMORTALIS_PLAYER_TOKEN`, `IMMORTALIS_REFEREE_TOKEN`, `IMMORTALIS_REFEREE_HOST_IDS`, … | unchanged; the two lane secrets are the consent secrets                                                                                                                                   |
+
+Scenario file (all seven keys, nothing else; an absent or malformed file makes the collection tools refuse with the exact gap, and starts nothing):
+
+```json
+{
+  "player_character": "pc-namar-1",
+  "world": "world-namar",
+  "source": "source-namar-salt",
+  "reserve": "<reserve id>",
+  "quantity_unit": "<unit>",
+  "mechanism": "<mechanism id>",
+  "basis": "<basis id>"
+}
+```
+
+The engine still validates every identity against canon; preparation (`prepare-collection`, `declare-closed-setting`, `attest-cycle`, clarification) remains an engineering step on the existing console and is **not** a player operation. If the live scenario lacks a substantive prerequisite (scene closure, source access, workforce representation, a prepared and attested mechanism) the commands refuse as they do today; the adapter invents none.
+
+**Connect (one time, after BLUE review and the Sovereign's deployment decision):** in the chat client add a custom MCP server with URL `<IMMORTALIS_PUBLIC_URL>/mcp` and OAuth; on the consent page the Sovereign types the **player secret** (and, only if this same chat is also to be the referee, the separate **referee secret**). Nothing else is entered.
+
+## Evidence and its limits
+
+- `tests/integration/chat-adapter.test.ts` — **MECHANISM**: OAuth (registration, consent, PKCE, redirect/client binding, code and refresh single use, expiry, key rotation); MCP lifecycle, session/client binding, scope-filtered tool lists, origin and host guards; no tool property can carry a reply/confirmation; the challenge phrase never reaches the model; elicitation exact/wrong/decline/cancel/silence; replayed phrase refused; the confirm page; the same assistant serving the referee side between its own calls without deadlock; a crashed command; the shipped `observe-surroundings` with the real referee exchange and the real player-view Glance behind the endpoint, with a declined second proposal changing nothing; static scope checks. Mutation-checked (removing the redaction, scope filtering, PKCE, client binding or the secret check each fails a named test).
+- **Not claimed:** any real ordinary-chat session; that the live client elicits to the human; that an AI understood any sentence; unattended play (an active conversation is required, and no always-on worker, paid API or model credential is involved); any change to the engine or to the previously reviewed #72 runtime.

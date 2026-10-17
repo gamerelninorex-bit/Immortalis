@@ -22,6 +22,15 @@ export interface PhoneConfig {
   readonly trustProxy: boolean;
   /** where the pasted setting files are written for one command (owner-only; removed afterwards) */
   readonly setupDir: string;
+  /**
+   * The ordinary-chat adapter (a remote MCP endpoint at `/mcp` with its OAuth 2.1 authorization server) is OFF unless the service's
+   * public HTTPS origin is configured: every issuer, audience and redirect is derived from it, never from a request header.
+   */
+  readonly publicUrl: string | null;
+  /** the operator-written, owner-only scenario file (world/source/reserve/mechanism/basis identities the player never has to name) */
+  readonly scenarioFile: string;
+  /** the player-view host identity used for the earned-Glance read (bound once by the trusted server process); null disables the read */
+  readonly playerViewHostId: string | null;
 }
 
 export type ConfigResult =
@@ -72,6 +81,33 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
   if (isIP(bindHost) === 0) problems.push("IMMORTALIS_BIND_HOST must be an IP address");
   if (transport === "insecure-loopback" && bindHost !== "127.0.0.1" && bindHost !== "::1")
     problems.push("plain HTTP is allowed only on a loopback address");
+  const publicRaw = env["IMMORTALIS_PUBLIC_URL"];
+  let publicUrl: string | null = null;
+  if (publicRaw !== undefined && publicRaw !== "") {
+    try {
+      const u = new URL(publicRaw);
+      const loopback = u.hostname === "127.0.0.1" || u.hostname === "localhost";
+      if (
+        (u.protocol !== "https:" && !(transport === "insecure-loopback" && loopback)) ||
+        u.pathname !== "/" ||
+        u.search !== "" ||
+        u.hash !== "" ||
+        u.username !== "" ||
+        u.password !== ""
+      )
+        problems.push("IMMORTALIS_PUBLIC_URL must be the service's bare https origin");
+      else publicUrl = u.origin;
+    } catch {
+      problems.push("IMMORTALIS_PUBLIC_URL is not a valid URL");
+    }
+  }
+  const scenarioRaw = env["IMMORTALIS_SCENARIO_FILE"];
+  if (scenarioRaw !== undefined && scenarioRaw !== "" && !PATH.test(scenarioRaw))
+    problems.push("IMMORTALIS_SCENARIO_FILE must be an absolute path");
+  const viewRaw = env["IMMORTALIS_PLAYER_VIEW_HOST_ID"];
+  const playerViewHostId = viewRaw === undefined || viewRaw === "" ? null : viewRaw;
+  if (playerViewHostId !== null && !ID.test(playerViewHostId))
+    problems.push("IMMORTALIS_PLAYER_VIEW_HOST_ID is not a valid identity");
   const portRaw = env["PORT"] ?? "8080";
   const port = /^[0-9]{1,5}$/.test(portRaw) ? Number(portRaw) : -1;
   if (port < 1 || port > 65535) problems.push("PORT is not a valid port");
@@ -90,6 +126,9 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
       transport,
       trustProxy: transport === "proxy" && env["IMMORTALIS_TRUST_PROXY"] !== "0",
       setupDir: env["IMMORTALIS_SETUP_DIR"] ?? `${operatorDir}/phone-setup`,
+      publicUrl,
+      scenarioFile: env["IMMORTALIS_SCENARIO_FILE"] ?? `${operatorDir}/chat-scenario.json`,
+      playerViewHostId,
     },
   };
 }

@@ -191,3 +191,53 @@ loop('/api/ref');` +
     REFEREE_TOOLS_JS;
   return SHELL("IMMORTALIS — referee", nonce, body, script);
 }
+
+/**
+ * The player's single-purpose confirmation page (the fallback human-input surface when a chat client cannot collect a typed reply
+ * itself). It shows the engine's own proposal text and its prompt for the ONE run in progress, and only the signed-in player (who holds
+ * the player secret) can answer: the assistant has no tool that can reach this page's reply path. It carries no command picker.
+ */
+export function confirmPage(nonce: string, csrf: string, signedIn: boolean): string {
+  const body = signedIn
+    ? `<meta name="csrf" content="${esc(csrf)}"><main>
+<h1>Confirm your choice <small id="state" class="mut">idle</small></h1>
+<p class="mut">Out of character. Read what is proposed below. To confirm, type exactly the phrase the prompt shows; anything else declines. The assistant cannot do this for you.</p>
+<div id="log"></div><div id="prompt" class="b ask" hidden></div>
+<p><button class="sec" id="stop">Decline / withdraw</button> <button class="sec" id="out">Sign out</button></p></main>
+<div class="bar"><div class="in"><textarea id="reply" placeholder="Type the phrase shown, exactly" disabled></textarea><button id="send" disabled>Send</button></div></div>`
+    : `<main><h1>Confirm your choice</h1>
+<p class="warn">Sign in with your player secret to see and confirm what your assistant has proposed.</p>
+<label for="token">Player secret</label><input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+<p><button id="go">Sign in</button></p><p id="msg" class="mut"></p></main>`;
+  const script = signedIn
+    ? COMMON_JS +
+      `$('send').onclick=()=>sendReply('/api/play');$('stop').onclick=()=>stopRun('/api/play');$('out').onclick=logout;function onState(){}
+loop('/api/play');`
+    : `const $=(i)=>document.getElementById(i);$('go').onclick=async()=>{const r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({role:'player',token:$('token').value})});const j=await r.json().catch(()=>({}));$('token').value='';if(r.status===200)location.href='/confirm';else $('msg').textContent=j.error||'not signed in'}`;
+  return SHELL("IMMORTALIS — confirm", nonce, body, script);
+}
+
+/**
+ * The OAuth consent page: what is being asked is stated in plain words, and a scope is granted only by typing that lane's own secret.
+ * The assistant, the client and the registration grant nothing by themselves.
+ */
+export function consentPage(
+  nonce: string,
+  q: Readonly<Record<string, string>>,
+  info: { clientName: string; redirectHost: string; scopes: readonly string[] },
+): string {
+  const player = info.scopes.includes("player");
+  const referee = info.scopes.includes("referee");
+  const body = `<main><h1>Link an assistant to your campaign</h1>
+<p class="warn"><b>${esc(info.clientName)}</b> (it will be sent back to <b>${esc(info.redirectHost)}</b>) asks to connect to this campaign. Only continue if you started this yourself.</p>
+${player ? `<h2 style="font-size:1rem">Player access</h2><p class="mut">Lets the assistant propose your character's choices and read what the character perceives. Every choice still needs your own confirmation; the assistant cannot give it.</p><label for="pt">Player secret</label><input id="pt" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">` : ""}
+${referee ? `<h2 style="font-size:1rem">Referee access</h2><p class="mut">Lets the assistant read the engine's private referee tasks and give its own reading. Leave this empty to grant the player access only.</p><label for="rt">Referee secret</label><input id="rt" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">` : ""}
+<div class="row"><button id="ok">Allow</button><button class="sec" id="no">Cancel</button></div><p id="msg" class="mut"></p></main>`;
+  const script = `const $=(i)=>document.getElementById(i);const Q=${JSON.stringify(q).replace(/</g, "\\u003c")};
+async function decide(approve){const b={...Q,approve};if($('pt'))b.player_token=$('pt').value;if($('rt'))b.referee_token=$('rt').value;
+const r=await fetch('/oauth/decision',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(b)});const j=await r.json().catch(()=>({}));
+if($('pt'))$('pt').value='';if($('rt'))$('rt').value='';
+if(r.status===200&&j.redirect){location.assign(j.redirect);return}$('msg').textContent=j.error_description||'not allowed'}
+$('ok').onclick=()=>decide(true);$('no').onclick=()=>decide(false);`;
+  return SHELL("IMMORTALIS — link", nonce, body, script);
+}
