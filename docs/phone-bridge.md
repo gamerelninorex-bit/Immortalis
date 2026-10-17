@@ -34,7 +34,7 @@ The repository's existing guards still decide everything that matters: the opera
 
 The two secrets must differ (the service refuses to start otherwise). A reading copied from BLUE or anyone else reaches the engine **only** if the referee-lane person types it into the referee page; a GitHub or chat message is not authentication.
 
-**Closed player command set** (built from the configured campaign; the phone cannot name a campaign, directory, role, permission or "confirmed" flag): `establish-locality`, `locality-status`, `referee-bind-host`, `referee-bind-collection-host`, `author-character`, `establish-character-locus`, `character-status`, `initialize-time`, `prepare-collection`, `declare-closed-setting`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `cease`, `settle-collection-lapse`, `observe-surroundings`, `reconcile`, `status`. A pasted setting document (JSON, at most 64 KB) is written to a fresh `0600` file in a `0700` directory the server names, passed as `--setup`, and removed afterwards. There is no shell, no free-text command and no file path from the phone.
+**Closed player command set** (built from the configured campaign; the phone cannot name a campaign, directory, role, permission or "confirmed" flag): `establish-locality`, `locality-status`, `referee-bind-host`, `referee-bind-collection-host`, `author-character`, `establish-character-locus`, `character-status`, `initialize-time`, `clarify-collection-cycle`, `prepare-collection`, `declare-closed-setting`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `cease`, `settle-collection-lapse`, `observe-surroundings`, `reconcile`, `status`. A pasted setting document (JSON, at most 64 KB) is written to a fresh `0600` file in a `0700` directory the server names, passed as `--setup`, and removed afterwards. There is no shell, no free-text command and no file path from the phone.
 
 ## Authentication and transport
 
@@ -53,7 +53,7 @@ The two secrets must differ (the service refuses to start otherwise). A reading 
 2. Choose **Player**, type the player secret, **Sign in**.
 3. Under **Choose a command**: pick `establish-locality`, paste (or write) the setting document; the **Show format example** button fills a format guide that is never sent until you edit and press **Run**. Press **Run**.
 4. The command's prompt appears as a chat bubble. To confirm, **type the exact phrase it shows** in the reply box and press **Send**. Anything else declines.
-5. Continue with the sequence in [`pc-collection-play.md`](pc-collection-play.md): `referee-bind-host`, `author-character`, `establish-character-locus`, `initialize-time`, `prepare-collection`, `declare-closed-setting`, `referee-bind-collection-host`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `observe-surroundings`, then close and reopen (sign out, sign in, `status`) and make a second, different `collect`.
+5. Continue with the sequence in [`pc-collection-play.md`](pc-collection-play.md): `referee-bind-host`, `author-character`, `establish-character-locus`, `initialize-time`, (only if your accepted character states no duration for one handling cycle: `clarify-collection-cycle`, below) `prepare-collection`, `declare-closed-setting`, `referee-bind-collection-host`, `attest-cycle`, `collect`, `collect-continue`, `collect-finish`, `observe-surroundings`, then close and reopen (sign out, sign in, `status`) and make a second, different `collect`.
 6. The game master opens `/referee` (their own phone or browser), signs in with the **referee** secret, picks the bound host, **Open console**, then types `list`, a task id, and their own reading as one JSON object.
 
 ## Deploying (NOT done by this change)
@@ -78,6 +78,18 @@ Nothing is deployed or billable from this repository. **Do not overwrite the unr
 5. Never expose an instance with default, short, shared or example secrets: the service will not start with them.
 
 Local trial (no deployment): `IMMORTALIS_TRANSPORT=insecure-loopback IMMORTALIS_CAMPAIGN_DIR=… IMMORTALIS_CAMPAIGN_ID=… IMMORTALIS_OPERATOR_DIR=… IMMORTALIS_PLAYER_TOKEN=… IMMORTALIS_REFEREE_TOKEN=… IMMORTALIS_REFEREE_HOST_IDS=gm-setup pnpm phone`.
+
+## Clarifying the handling cycle from the phone (R-5, when the accepted character states no duration)
+
+Only when `prepare-collection` cannot quote any accepted claim for the exact cycle, and **before any `collect`**:
+
+1. Player lane → **Choose a command** → `clarify-collection-cycle`. Fill **player-character** (the id your character was authored under); **referee-wait** is optional (seconds to wait for the referee host, default 600). Press **Run**.
+2. The chat shows the engine's fixed question and asks for **your character's own account**. Type it in your own words in the reply box with **the number in digits and the unit of time the campaign uses** (for example "It takes me 12 second to lift and carry one lump"), then **Send**. Nothing is suggested to you and nothing is chosen for you; an empty reply stops.
+3. The referee host (a real GM, or the bound AI host, on the referee lane/tools) classifies exactly those words. If it does not accept them as your own character, the chat says why and **nothing is written**; change your words and run the command again.
+4. If it accepts them, the chat shows its findings and asks for a **separate typed confirmation**: type the exact `accept-clarification …` phrase it shows. Anything else declines.
+5. The chat then reports `CLARIFICATION_ACCEPTED` with the clarification id and claim 0, and the exact line to add to the preparation document's `mechanism`: `"clarified": [{"clarification_id": "<id>", "index": 0}]`, with a `cycle_quote` that is a verbatim part of claim 0 stating the number and unit, and a `cycle_duration` equal to what those words state. Then continue with `prepare-collection` and `attest-cycle`.
+
+The phone cannot supply the words in the request (they are typed at the prompt), cannot choose a rate for you, cannot confirm for you, and cannot clarify after your first `collect` commitment. A restart of the service ends a signed-in session and an unanswered prompt (a decline); re-run the command: the same words, once accepted, converge.
 
 ## What is verified, and what a real human must still do
 

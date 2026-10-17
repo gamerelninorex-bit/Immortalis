@@ -39,6 +39,11 @@ export const PLAYER_COMMANDS: Readonly<Record<string, Spec>> = {
     optional: ["referee-wait"],
   },
   "initialize-time": { options: {}, setup: true },
+  // R-5: the player's own words for the one unresolved handling cycle (typed at the console prompt, never in this request)
+  "clarify-collection-cycle": {
+    options: { "player-character": "id", "referee-wait": "int" },
+    optional: ["referee-wait"],
+  },
   "prepare-collection": { options: {}, setup: true },
   "declare-closed-setting": { options: {}, setup: true },
   "attest-cycle": {

@@ -13,15 +13,19 @@ import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/comman
 import { COMMON_JS, REFEREE_TOOLS_JS } from "../../apps/phone/src/pages.ts";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
-import { LOCALITY_CAMPAIGN, setupDoc } from "../support/locality.ts";
+import { LOCALITY_CAMPAIGN, openOrdinary, setupDoc } from "../support/locality.ts";
 import { tempDir } from "../support/tmp.ts";
+import { ACTUATOR_WORDS, TRAVERSAL_CANNOT } from "../support/pc-collection.ts";
+import { BASIS, PC_WORDS, observationCampaign } from "../support/observation.ts";
 import {
   HOST_ID,
   STANDARD,
   author,
+  PC_ID,
   localityCampaign,
   plainPolicy,
   respondingConsole,
+  startScriptedHost,
 } from "../support/original-pc.ts";
 
 const PLAYER = "player-secret-0123456789-abcdefghijklmnopqrstuv";
@@ -367,6 +371,7 @@ describe("MECHANISM: the closed command set builds the argument vector from the 
         "author-character",
         "cease",
         "character-status",
+        "clarify-collection-cycle",
         "collect",
         "collect-continue",
         "collect-finish",
@@ -1260,4 +1265,101 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
     const cmd = readFileSync(join(dir, "commands.ts"), "utf8");
     expect(cmd).not.toMatch(/exec|spawn/);
   });
+});
+
+describe("MECHANISM (R-5): the SHIPPED clarify-collection-cycle runs unchanged behind the front end (a script types the player's words; this is not a person)", () => {
+  it("the player's words are typed at the console prompt; a wrong confirmation writes nothing; the exact phrase makes them an accepted claim; the request itself can carry neither words nor a rate", async () => {
+    const dirs = (
+      await observationCampaign({
+        words: { embodiment: `${PC_WORDS.embodiment}; ${ACTUATOR_WORDS}; ${TRAVERSAL_CANNOT}` },
+      })
+    ).dirs;
+    const host = startScriptedHost(dirs, plainPolicy); // PLUMBING ONLY: the scripted policy stands in for the bound referee host
+    const { app, base } = await serve({
+      campaignDir: dirs.campaignDir,
+      operatorDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      setupDir: join(dirs.operatorDir, "phone-setup"),
+    });
+    const keysOf = async () => {
+      const c = await openOrdinary(dirs.campaignDir);
+      try {
+        return c.store.listFacts().map((f) => f.key);
+      } finally {
+        await c.close();
+      }
+    };
+    const clarifications = (keys: string[]) =>
+      keys.filter((k) => k.startsWith(`pc/${PC_ID}/intrinsic-clarification/`));
+    try {
+      const p = new Browser(base);
+      await p.login("player", PLAYER);
+      const phraseOf = (lines: any[]) => {
+        const m = /type exactly "([^"]+)"/.exec(lines.map((l: any) => l.text).join("\n"));
+        if (!m) throw new Error("no challenge phrase was shown");
+        return m[1]!;
+      };
+      const finish = async () => {
+        let after = 0;
+        for (let i = 0; i < 400; i++) {
+          const s = await p.req("GET", `/api/play/poll?after=${after}`);
+          after = s.json.seq ?? after;
+          if (s.json.running === false) return s.json;
+        }
+        throw new Error("the command did not finish");
+      };
+      const transcript = async () =>
+        (await p.req("GET", "/api/play/poll?after=0")).json.lines
+          .map((l: any) => l.text)
+          .join("\n");
+      const start = () =>
+        p.req("POST", "/api/play/command", {
+          command: "clarify-collection-cycle",
+          options: { "player-character": PC_ID, "referee-wait": "20" },
+        });
+      const words = `It takes me 12 ${BASIS.unit} to lift and carry one lump`;
+      expect(clarifications(await keysOf())).toEqual([]);
+
+      // the words are NOT part of the request: the command accepts no words, no rate and no option beyond its two
+      expect(
+        (
+          await p.req("POST", "/api/play/command", {
+            command: "clarify-collection-cycle",
+            options: { "player-character": PC_ID, words, rate: "12" },
+          })
+        ).status,
+      ).toBe(400);
+
+      // 1. the words are typed at the prompt; a WRONG confirmation ("confirm") declines and writes nothing
+      expect((await start()).status).toBe(200);
+      let step = await p.untilPrompt("play");
+      expect(step.snap.pending.prompt).toMatch(/own account/);
+      await p.req("POST", "/api/play/reply", { prompt_id: step.snap.pending.id, text: words });
+      step = await p.untilPrompt("play", step.after);
+      expect(phraseOf(step.seen)).toMatch(/^accept-clarification [0-9a-f]+$/);
+      await p.req("POST", "/api/play/reply", { prompt_id: step.snap.pending.id, text: "confirm" });
+      await finish();
+      expect(await transcript()).toContain("STATUS DECLINED");
+      expect(clarifications(await keysOf())).toEqual([]);
+
+      // 2. the exact phrase, typed: the same shipped command makes the words an accepted claim of the character
+      expect((await start()).status).toBe(200);
+      step = await p.untilPrompt("play");
+      await p.req("POST", "/api/play/reply", { prompt_id: step.snap.pending.id, text: words });
+      step = await p.untilPrompt("play", step.after);
+      await p.req("POST", "/api/play/reply", {
+        prompt_id: step.snap.pending.id,
+        text: phraseOf(step.seen),
+      });
+      const end = await finish();
+      expect(end.running).toBe(false);
+      const shown = await transcript();
+      expect(shown).toContain("STATUS CLARIFICATION_ACCEPTED");
+      expect(shown).toContain('"clarified"');
+      expect(clarifications(await keysOf())).toHaveLength(1);
+    } finally {
+      await app.close();
+      await host.stop();
+    }
+  }, 240_000);
 });
