@@ -23,6 +23,7 @@ import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
+import { clarifyCollectionCycle } from "./collection-clarification.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
 import { collectionRefereeHosts } from "./collection-referee.ts";
 import { prepareCollection } from "./collection-preparation.ts";
@@ -55,6 +56,7 @@ usage:
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
+  immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator referee-bind-collection-host --campaign <dir> --campaign-id <id> --host-id <id>
@@ -127,6 +129,15 @@ observe-surroundings: for a character that author-character released and bound A
   was received: every non-receipt is the same message. It advances no time (canonical time stays exactly where it was) and gives the
   character no recognition, comprehension, belief, memory or action. One observation per character per canonical instant; running it
   again at the same basis reaches the same records. A new observation is a new basis and a new choice.
+clarify-collection-cycle: for a character that author-character released and bound (verified), at a campaign whose canonical time is
+  established and BEFORE any collection commitment of that character. When the character's accepted content says it can lift and carry but
+  states no duration for ONE handling cycle, you may say it in your OWN words (the number in digits and the unit of time); nothing is
+  suggested, defaulted or chosen for you, and the choice cannot be delegated to a host. The AI referee host (the same I-002 classification
+  your character's Mirror used) is asked whether exactly those words are your own character-local claim; only if it accepts them, and only
+  after your separate fresh confirmation, they become a new accepted claim of your character from the current canonical time. The sealed
+  release, your keep, the binding, the custody and the clock are untouched; no time passes and no material is created. The exact cycle
+  still needs a collection preparation that quotes those words and a separate semantic attestation. Running it again with the same words
+  converges.
 referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's four referee operations (I-002
   character classification; native/compatibility; physical placement; direct perception) and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
@@ -174,6 +185,7 @@ const exitOf = (
     case "CHARACTER_NONE":
     case "LOCUS_ESTABLISHED":
     case "OBSERVATION_RECEIVED":
+    case "CLARIFICATION_ACCEPTED":
       return EXIT.OK;
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -243,6 +255,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
+  "clarify-collection-cycle": ["player-character"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
   "referee-bind-collection-host": ["host-id"],
@@ -262,6 +275,7 @@ const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
   "observe-surroundings": ["referee-wait"],
+  "clarify-collection-cycle": ["referee-wait"],
   "attest-cycle": ["referee-wait"],
   "collect-continue": ["referee-wait"],
 };
@@ -421,6 +435,23 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     }
     if (command === "observe-surroundings") {
       const r = await observeSurroundings({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        pcId: str("player-character") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "clarify-collection-cycle") {
+      const r = await clarifyCollectionCycle({
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",

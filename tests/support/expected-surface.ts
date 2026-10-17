@@ -651,6 +651,15 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "production/pc-collection-lapse/x1",
   },
+  /** R-5 (NEWLY AUTHORIZED): the PC owner's create-only prospective intrinsic clarification, its own facet. */
+  {
+    id: "pc_intrinsic_clarification",
+    owner: "pc_existence",
+    facet: "pc_intrinsic_clarification",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/intrinsic-clarification/c1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -667,6 +676,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "pc_capability_profile",
     "pc_voluntary_commitment",
     "pc_collection_mechanism",
+    "pc_intrinsic_clarification",
   ],
   role_registry: ["player_character_binding"],
   temporal_kernel: ["temporal_coordination"],
@@ -910,6 +920,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "attestation",
       "cease",
       "cessation",
+      "clarification",
+      "clarify",
       "closed",
       "commit",
       "commitment",

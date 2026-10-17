@@ -76,6 +76,7 @@ import {
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
 import { pcOccupancyRecord, pcOccupancyState } from "./state.ts";
+import { resolveClarifiedClaims } from "./clarification.ts";
 
 /**
  * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERING (see `@immortalis/contracts` `pc-collection.ts`): not ratified, not adopted design
@@ -396,6 +397,10 @@ export function pcCollectionMechanismViolation(
       return "every cited claim is an accepted claim of the PC's contract: a hypothesis or unresolved item grounds nothing";
     cited.push(found.statement);
   }
+  // R-5: the accepted claims of the character's own prospective clarifications are cited at their exact committed versions
+  const clarified = resolveClarifiedClaims(m.pc_id, m.authored_from.clarified, facts);
+  if (!clarified.ok) return clarified.message;
+  for (const c of clarified.claims) cited.push(c.statement);
   const grounded = (quote: string) =>
     quote.length >= MIN_QUOTE_LENGTH && cited.some((statement) => statement.includes(quote));
   if (!grounded(m.actuator.statement))

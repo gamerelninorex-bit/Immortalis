@@ -93,6 +93,21 @@ export function refereeCandidateItems(c: ContractBody): readonly CandidateItem[]
   ];
 }
 
+/**
+ * R-5: the candidate of a prospective intrinsic CLARIFICATION: exactly the player's own statements, each under the one slot that
+ * admits a character-local claim over the released baseline (`exception`), with the same item identity the Mirror gives a statement.
+ * Nothing else is delivered, so the host decides these words and no others.
+ */
+export function clarificationCandidateItems(
+  statements: readonly string[],
+): readonly CandidateItem[] {
+  return statements.map((text, i) => ({
+    item_id: refereeItemId(`clarification-${i + 1}`, text),
+    slot: "exception" as const,
+    text,
+  }));
+}
+
 export const candidateDigest = (items: readonly CandidateItem[]): string => sha256Canonical(items);
 
 // ---------------------------------------------------------------------------------------------

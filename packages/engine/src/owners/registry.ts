@@ -14,6 +14,8 @@ import {
   WorldSceneClosureSchema,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
+  PcIntrinsicClarificationSchema,
+  FACET_PC_INTRINSIC_CLARIFICATION,
   PcCollectionReachDecisionSchema,
   PcCollectionRequestSchema,
   PopulationPcOccupancySchema,
@@ -353,6 +355,7 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "population_pc_representation",
   "world_scene_closure",
   "population_workforce_scope",
+  "pc_intrinsic_clarification",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -1627,6 +1630,29 @@ export const POPULATION_PC_OCCUPANCY_LAPSE_RULE: SourceRef = lapseRule(
   "R-4 (d)(3): only after Production sealed the lapse and Temporal retired the boundary is the SAME PC's individual occupied interval released, exactly once, with the status RELEASED_LAPSED (distinct from the denial and the termination); never before, never twice, never by a caller",
 );
 
+/**
+ * R-5 — the prospective collection clarification (NEWLY AUTHORIZED construction repair: BLUE R-5 repair handoff v1, Notion pin
+ * 2026-10-17T09:28:13.827Z, invoked by the Sovereign's explicit direction and BLUE's comment on PR #72). It adds NO substantive owner
+ * rule: it is a typed ingress for the frozen I-002 invocation branch (§§8, 22–23: precision follows consequence; an unresolved operative
+ * intrinsic detail is settled narrowly, prospectively, before the invoked consequence, preserving history) as CPAA-C1 v0.3 F-2 already
+ * permits before the collection commitment. Not a frozen-source rule, not a spec-lock pin, independent BLUE review pending.
+ */
+const CPAA_C1_R5 = {
+  artifact: "https://app.notion.com/p/3fa20af901e081b29bb6d9ad2b7caede",
+  native_pin: "2026-10-17T09:28:13.827Z",
+} as const;
+const CPAA_C1_R5_LINEAGE =
+  "CPAA-C1 R-5 prospective collection clarification (BLUE R-5 repair handoff v1, OB-058, Notion pin 2026-10-17T09:28:13.827Z) under frozen I-002 (https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718, native pin 2026-09-25T00:15:54.536Z) §§5, 8, 9, 22–23, 25 and ratified CPAA-C1 v0.3 F-2 (native pin 2026-10-16T07:19:16.351Z); the Sovereign explicitly directed this construction on 2026-10-17 (PR #72 comment 6232293616). NEWLY AUTHORIZED construction, not a frozen-source rule, not a spec-lock pin, independent BLUE review pending; it lifts no First Playable or merge exclusion";
+export const PC_INTRINSIC_CLARIFICATION_RULE: SourceRef = {
+  artifact: CPAA_C1_R5.artifact,
+  native_pin: CPAA_C1_R5.native_pin,
+  clause:
+    "R-5 (I-002 §22 Invocation Branch, prospective): for an already released and bound player character whose accepted content leaves the operative one-unit serial handling cycle unresolved, the player's OWN words are accepted as that character's intrinsic claims only when the declared I-002 compiler/adjudicator role.gm has classified exactly those words as the player's own character-local claims (retained, closed) and role.archivist writes the owner's create-only record, effective from the canonical time at acceptance and never retroactively, before any dependent collection commitment; it overwrites no sealed record, supplies no rate and delegates the choice to no host; the later mechanism and attestation follow it by exact version and still require the exact numeral and canonical unit in a cited accepted claim",
+  authority_lineage: [CPAA_C1_R5_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-directed-construction-independent-review-pending",
+  supersedes: null,
+};
+
 const pcCollectionKind = (
   id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
   owner: string,
@@ -1810,6 +1836,17 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^production/pc-collection-lapse/${ID}$`),
     ProductionPcCollectionLapseSchema,
     PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+  ),
+  pcCollectionKind(
+    "pc_intrinsic_clarification",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_INTRINSIC_CLARIFICATION,
+    "IM-07",
+    ["RC-02", "RC-03"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/intrinsic-clarification/${ID}$`),
+    PcIntrinsicClarificationSchema,
+    PC_INTRINSIC_CLARIFICATION_RULE,
   ),
 ];
 

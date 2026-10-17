@@ -171,6 +171,7 @@ describe("registry: every key space has exactly one owner/facet and there is no 
           "existence_contract",
           "pc_capability_profile",
           "pc_collection_mechanism",
+          "pc_intrinsic_clarification",
           "pc_voluntary_commitment",
         ],
       ],

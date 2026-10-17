@@ -4,6 +4,7 @@ import {
   ExistingActorCouplingSchema,
   FACET_PC_CAPABILITY_PROFILE,
   FACET_PC_COLLECTION_MECHANISM,
+  FACET_PC_INTRINSIC_CLARIFICATION,
   FACET_PC_VOLUNTARY_COMMITMENT,
   FACET_POPULATION_PC_OCCUPANCY,
   FACET_POPULATION_WORKFORCE_SCOPE,
@@ -488,6 +489,9 @@ export const canonicalAdmission: WriteAdmission = {
     // CPAA-C1 v0.2 PROVISIONAL: the P-1 intrinsic exact-cycle mechanism (a further facet of the one PC owner), re-derived.
     if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_COLLECTION_MECHANISM)
       return pcCollectionGroupCheck(group, state);
+    // R-5: the prospective intrinsic clarification (a further facet of the one PC owner), re-derived.
+    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_INTRINSIC_CLARIFICATION)
+      return pcCollectionGroupCheck(group, state);
     // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
@@ -597,6 +601,10 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
         ? null
         : "pc_id and act_id do not match the key";
+    case "pc_intrinsic_clarification":
+      return v["pc_id"] === ids[0] && v["clarification_id"] === ids[1]
+        ? null
+        : "pc_id and clarification_id do not match the key";
     case "pc_collection_cycle_attestation":
       return v["pc_id"] === ids[0] &&
         (v["mechanism"] as { fact_key: string }).fact_key ===

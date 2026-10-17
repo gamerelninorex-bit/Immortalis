@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -206,6 +206,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "StageProviderRegistry",
       "TemporalCoordinator",
       "canonicalEqual",
+      "clarificationCandidateItems",
       "committedCanonicalTime",
       "deriveI002",
       "deriveIr",
@@ -216,6 +217,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "interpretPcCollectionReachAnswer",
       "nodeFs",
       "observationEventId",
+      "pcClarificationIdOf",
       "refereeCandidateItems",
       "refereeQualificationViolation",
       "verifyEpistemicIntegrity",
@@ -267,6 +269,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "bindingIdOf",
       "cease",
       "characterStatus",
+      "clarifyCollectionCycle",
       "collect",
       "collectContinue",
       "collectFinish",

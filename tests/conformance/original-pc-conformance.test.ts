@@ -84,11 +84,11 @@ const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "293e373d730bd88fe215f455b8108110c69e4343066831f3613409e21773e2aa",
+    head: "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "d872c10539d9e6db189314aea171bfc1427cbb1db422734776b996b5995c1aba",
+    head: "bcf8fe73d9b175ebb6d20201d836d7ab9852d1b8192fda935769d6ef1aab72d2",
   },
 };
 

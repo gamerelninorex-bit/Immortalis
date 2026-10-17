@@ -126,6 +126,7 @@ describe("IA-03 owner exclusivity: ONE lawful PC owner; the capability profile i
       "existence_contract",
       "pc_capability_profile",
       "pc_collection_mechanism",
+      "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
     ]);
     for (const key of ["pc/p/capability-basis/c", "pc/p/capability/c"])

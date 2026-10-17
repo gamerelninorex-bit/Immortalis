@@ -420,6 +420,10 @@ export type CharacterStatus =
   | "OBSERVATION_NOT_ESTABLISHED"
   | "OBSERVATION_NOT_AVAILABLE"
   | "OBSERVATION_VERIFICATION_FAILED"
+  | "CLARIFICATION_ACCEPTED"
+  | "CLARIFICATION_NOT_ACCEPTED"
+  | "CLARIFICATION_NOT_AVAILABLE"
+  | "CLARIFICATION_VERIFICATION_FAILED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -470,6 +474,14 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "no observation can be asked now: the character has no committed physical position, or no canonical temporal basis is established, or the character is not the verified player character of this command; nothing was changed. An observation never establishes either, and never advances time",
   OBSERVATION_VERIFICATION_FAILED:
     "what the campaign holds does not match what was established; the observation is NOT reported as received",
+  CLARIFICATION_ACCEPTED:
+    "your words are an accepted claim of your character from the canonical time shown: the AI referee host classified exactly those words as your own, you separately confirmed them, and a fresh owner-verified open reads them back. Nothing earlier was changed; no time passed; no material was created and no collection was started or made possible by itself - the exact cycle still needs a preparation that quotes these words and a separate semantic attestation",
+  CLARIFICATION_NOT_ACCEPTED:
+    "the AI referee host did not accept your words as your own character-local claim; nothing was written. Change what you say and run the command again",
+  CLARIFICATION_NOT_AVAILABLE:
+    "no clarification can be made now: the character is not the verified bound player character of this command, no canonical time is established, or a collection commitment of this character already exists (a clarification is prospective); nothing was changed",
+  CLARIFICATION_VERIFICATION_FAILED:
+    "what the campaign holds does not match what you confirmed; the clarification is NOT reported as accepted",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:
