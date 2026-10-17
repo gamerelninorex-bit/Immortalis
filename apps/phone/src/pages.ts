@@ -34,13 +34,14 @@ export const COMMON_JS = `
 const $=(i)=>document.getElementById(i);
 const csrf=document.querySelector('meta[name=csrf]')?.content||'';
 async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-immortalis-csrf':csrf},body:JSON.stringify(body),credentials:'same-origin'});let j={};try{j=await r.json()}catch{}kick();return{status:r.status,body:j}}
-function addLine(l){const d=document.createElement('div');d.className='b '+l.kind;d.textContent=l.text;$('log').appendChild(d);d.scrollIntoView({block:'end'})}
+let prevDiv=null,prevMore=false,prevKind='';
+function addLine(l){if(prevMore&&prevDiv&&prevKind===l.kind){prevDiv.textContent+=l.text;prevMore=!!l.more;return}const d=document.createElement('div');d.className='b '+l.kind;d.textContent=l.text;$('log').appendChild(d);d.scrollIntoView({block:'end'});prevDiv=d;prevMore=!!l.more;prevKind=l.kind}
 let after=0,pending=null,runningLabel='',runId=null,nudge=null,idle=0;
 function kick(){idle=0;if(nudge){const n=nudge;nudge=null;n()}}
 function nap(ms){return new Promise((r)=>{const t=setTimeout(()=>{nudge=null;r()},ms);nudge=()=>{clearTimeout(t);r()}})}
 async function loop(base){for(;;){let news=false,live=false;try{const r=await fetch(base+'/poll?after='+after+(runId?'&run='+runId:''),{credentials:'same-origin'});if(r.status===401||r.status===403){location.href='/';return}
 const s=await r.json();live=!!s.running;
-if((s.run||null)!==runId){if(runId!==null)addLine({kind:'system',text:'— a new run begins —'});runId=s.run||null;after=0;news=true}
+if((s.run||null)!==runId){if(runId!==null)addLine({kind:'system',text:'— a new run begins —'});runId=s.run||null;after=0;prevMore=false;news=true}
 for(const l of s.lines||[]){addLine(l);after=Math.max(after,l.seq);news=true}after=Math.max(after,s.seq||0);
 const p=s.pending||null;if((p&&p.id)!==(pending&&pending.id))news=true;pending=p;
 $('state').textContent=s.running?('running: '+(s.label||'')):'idle';$('send').disabled=!pending;$('reply').disabled=!pending;

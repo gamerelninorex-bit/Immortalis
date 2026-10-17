@@ -579,28 +579,28 @@ const until = async (cond: () => boolean, what: string, ms = 8000) => {
   }
 };
 
-describe("MECHANISM (BLUE P-2): every new run replays from its own start; no line of a later command is lost", () => {
-  /** a page whose script talks to the real server as the signed-in browser */
-  async function signedInPage(base: string, role: "player" | "referee") {
-    const b = new Browser(base);
-    await b.login(role, role === "player" ? PLAYER : REFEREE);
-    let halt = false;
-    const page = pageClient({
-      csrf: b.csrf,
-      fetchImpl: async (url, init = {}) => {
-        if (halt) return { status: 401, json: async () => ({}) };
-        const res = await fetch(`${base}${url}`, {
-          ...init,
-          headers: { ...(init.headers ?? {}), cookie: b.cookie },
-        });
-        return { status: res.status, json: () => res.json() };
-      },
-    });
-    const base_ = role === "player" ? "/api/play" : "/api/ref";
-    void page.api.loop(base_);
-    return { page, base_, stop: () => (halt = true) };
-  }
+/** a page whose script talks to the real server as the signed-in browser */
+async function signedInPage(base: string, role: "player" | "referee") {
+  const b = new Browser(base);
+  await b.login(role, role === "player" ? PLAYER : REFEREE);
+  let halt = false;
+  const page = pageClient({
+    csrf: b.csrf,
+    fetchImpl: async (url, init = {}) => {
+      if (halt) return { status: 401, json: async () => ({}) };
+      const res = await fetch(`${base}${url}`, {
+        ...init,
+        headers: { ...(init.headers ?? {}), cookie: b.cookie },
+      });
+      return { status: res.status, json: () => res.json() };
+    },
+  });
+  const base_ = role === "player" ? "/api/play" : "/api/ref";
+  void page.api.loop(base_);
+  return { page, base_, stop: () => (halt = true) };
+}
 
+describe("MECHANISM (BLUE P-2): every new run replays from its own start; no line of a later command is lost", () => {
   it("two successive real commands on one signed-in phone session: every output line and prompt of the second command is shown, and each reply reaches only the current prompt", async () => {
     const answers: (string | null)[] = [];
     let n = 0;
@@ -851,6 +851,141 @@ describe("MECHANISM (BLUE P-1): an idle or finished page does not hammer the ser
       t += 10 * 60_000; // 35 min after the person; the poll five lines above does not count
       expect((await q.req("GET", "/api/play/poll?after=0")).status).toBe(401);
     } finally {
+      await app.close();
+    }
+  });
+});
+
+// -- BLUE live R-5 blocker: a complete referee task must reach the phone whole ------------------------------------------------------
+/** what a consumer of successive polls sees: consecutive lines of one text (`more`) are one text, in order */
+const reconstruct = (
+  lines: readonly { kind: string; text: string; more?: boolean }[],
+): string[] => {
+  const out: string[] = [];
+  let open = false;
+  for (const l of lines) {
+    if (open) out[out.length - 1] += l.text;
+    else out.push(l.text);
+    open = l.more === true;
+  }
+  return out;
+};
+
+/** a referee task as the exchange returns it: many candidate items with long quoted evidence, well over one line and over 16 kB */
+const bigTask = () => {
+  const items = Array.from({ length: 90 }, (_, i) => ({
+    item_id: `item-${String(i).padStart(3, "0")}-${"f".repeat(48)}`,
+    quoted_evidence: `Continuity text ${i}: “I am one co${"mrade among many, ".repeat(6)}” 😀 — naïve café ${"ü".repeat(10)}`,
+  }));
+  return JSON.stringify(
+    {
+      task_id: "b63c08048c155684f8b6face88aaa9d13398ccb6003461885bbe75b0d75b5a5b",
+      context: { candidate: items },
+      response_shape: { each_item: "required" },
+    },
+    null,
+    2,
+  );
+};
+
+describe("MECHANISM (BLUE live R-5 blocker): a long referee task is carried whole to the phone, never cut", () => {
+  it("carries a text of any length above one line as ordered lines that rebuild the original exactly, never splitting a character", () => {
+    const edge = `${"a".repeat(8191)}😀${"b".repeat(100)}`; // a surrogate pair straddles the line boundary
+    const cases = [
+      "",
+      "x",
+      "y".repeat(8192),
+      "z".repeat(8193),
+      edge,
+      bigTask(),
+      `${bigTask()}${bigTask()}${bigTask()}`,
+    ];
+    for (const text of cases) {
+      const t = createWebTerminal();
+      t.say(text);
+      const { lines } = t.snapshot(0);
+      expect(reconstruct(lines)).toEqual([text]);
+      for (const l of lines) {
+        expect(l.text.length).toBeLessThanOrEqual(8192);
+        expect(l.text).not.toContain("…");
+        expect(() => encodeURIComponent(l.text)).not.toThrow(); // no lone surrogate at a cut
+      }
+      expect(lines.map((l) => l.seq)).toEqual(lines.map((_, i) => i + 1));
+      expect(lines.slice(0, -1).every((l) => l.more === true)).toBe(true);
+      expect(lines.at(-1)!.more).toBeUndefined();
+    }
+    expect(bigTask().length).toBeGreaterThan(16 * 1024);
+  });
+
+  it("an ask and a typed reply longer than one line are carried whole too; only a text beyond the bound is shortened, and the loss is announced", async () => {
+    const t = createWebTerminal({ askExpiryMs: 5000 });
+    const question = bigTask();
+    const answer = JSON.stringify({ reading: "r".repeat(15000) });
+    const asked = t.ask(question);
+    const snap = t.snapshot(0);
+    expect(snap.pending!.prompt).toBe(question);
+    expect(t.reply(snap.pending!.id, answer)).toBe(true);
+    expect(await asked).toBe(answer);
+    expect(reconstruct(t.snapshot(0).lines)).toEqual([question, answer]);
+
+    const huge = "h".repeat(1024 * 1024 + 500);
+    const u = createWebTerminal();
+    u.say(huge);
+    const rebuilt = reconstruct(u.snapshot(0).lines);
+    expect(rebuilt[0]).toBe("h".repeat(1024 * 1024));
+    expect(rebuilt[1]).toMatch(/500 further characters .* too long to show/);
+  });
+
+  it("the whole task reaches the GM's phone through successive polls (real server, the page's own script), and the player lane cannot see it", async () => {
+    const task = bigTask();
+    const answers: (string | null)[] = [];
+    const { app, base } = await serve(
+      {},
+      {
+        runRefereeConsole: async (_argv, terminal) => {
+          terminal.say(task); // exactly what the real console does with `got.text`
+          answers.push(await terminal.ask("Enter your own answer as one JSON object, or skip:"));
+          return 0;
+        },
+      },
+    );
+    const { page, stop } = await signedInPage(base, "referee");
+    try {
+      expect((await page.api.post("/api/ref/start", { host_id: "gm-setup" })).status).toBe(200);
+      await until(() => page.api.state().pending !== null, "the GM prompt");
+      // the page shows the task as ONE contiguous text, complete, in the order sent
+      expect(page.texts()).toContain(task);
+      expect(page.texts().filter((x) => x.includes("item-089-"))).toHaveLength(1);
+      expect(
+        JSON.parse(page.texts().find((x) => x.startsWith("{"))!).context.candidate,
+      ).toHaveLength(90);
+
+      // the same, read by hand over several raw polls with the cursor
+      const gm = new Browser(base);
+      await gm.login("referee", REFEREE);
+      const got: any[] = [];
+      let after = 0;
+      let run = "";
+      for (let i = 0; i < 20; i++) {
+        const r = await gm.req("GET", `/api/ref/poll?after=${after}${run ? `&run=${run}` : ""}`);
+        got.push(...r.json.lines);
+        after = r.json.seq;
+        run = r.json.run;
+        if (r.json.pending) break;
+      }
+      expect(got.filter((l) => l.kind === "say").length).toBeGreaterThan(2); // several mobile-sized lines
+      expect(reconstruct(got.filter((l) => l.kind === "say"))).toEqual([task]);
+
+      // role separation: the player lane (and no one) cannot read the GM's text
+      const player = new Browser(base);
+      await player.login("player", PLAYER);
+      const denied = await player.req("GET", "/api/ref/poll?after=0");
+      expect(denied.status).toBe(403);
+      expect(denied.text).not.toContain("item-000");
+      expect((await new Browser(base).req("GET", "/api/ref/poll?after=0")).status).toBe(401);
+      expect(answers).toEqual([]); // nothing answered it
+    } finally {
+      stop();
       await app.close();
     }
   });

@@ -10,6 +10,8 @@ export interface TranscriptLine {
   readonly seq: number;
   readonly kind: "say" | "ask" | "reply" | "system";
   readonly text: string;
+  /** set when the NEXT line continues this one's text: a long text is carried whole, in order, as consecutive lines */
+  readonly more?: true;
 }
 
 export interface WebTerminal {
@@ -32,6 +34,8 @@ export interface WebTerminal {
 
 const MAX_LINES = 2000;
 const MAX_LINE = 8192;
+/** a single say/ask/reply is carried in full up to this many characters (a lawful referee task is far smaller); beyond it the loss is announced */
+const MAX_TEXT = 1024 * 1024;
 const MAX_REPLY = 16384;
 
 export function createWebTerminal(options: { readonly askExpiryMs?: number } = {}): WebTerminal {
@@ -49,12 +53,32 @@ export function createWebTerminal(options: { readonly askExpiryMs?: number } = {
   const notify = () => {
     for (const w of [...waiters]) w();
   };
+  const pushLine = (kind: TranscriptLine["kind"], text: string, more: boolean) => {
+    lines.push(more ? { seq: ++seq, kind, text, more: true } : { seq: ++seq, kind, text });
+  };
+  /**
+   * Nothing is cut: a text longer than one line is split into consecutive, ordered lines (all but the last marked `more`), never in the
+   * middle of a surrogate pair, so concatenating them reproduces the original text exactly. Only a text beyond MAX_TEXT is shortened,
+   * and then a visible notice says how much was not shown.
+   */
   const push = (kind: TranscriptLine["kind"], text: string) => {
-    lines.push({
-      seq: ++seq,
-      kind,
-      text: text.length > MAX_LINE ? `${text.slice(0, MAX_LINE)}…` : text,
-    });
+    const shown = text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) : text;
+    let from = 0;
+    do {
+      let to = Math.min(from + MAX_LINE, shown.length);
+      if (to < shown.length) {
+        const code = shown.charCodeAt(to - 1);
+        if (code >= 0xd800 && code <= 0xdbff && to - from > 1) to -= 1;
+      }
+      pushLine(kind, shown.slice(from, to), to < shown.length);
+      from = to;
+    } while (from < shown.length);
+    if (shown.length < text.length)
+      pushLine(
+        "system",
+        `— ${text.length - shown.length} further characters of that text were too long to show —`,
+        false,
+      );
     if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
     notify();
   };
