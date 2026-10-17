@@ -48,14 +48,22 @@ export interface McpTool {
   readonly handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
 }
 
+/** a question put to the human, bound to the authorization under which the call that asked it was made */
+interface Pending {
+  readonly grant: string;
+  readonly finish: (v: Elicited | null) => void;
+}
+
 interface Session {
   readonly id: string;
   readonly client: string;
+  /** the authorization (consent) this session was initialized under: another grant, even of the same client, is not this session's */
+  readonly grant: string;
   readonly protocol: string;
   readonly elicitation: boolean;
   initialized: boolean;
   seen: number;
-  readonly waiting: Map<string, (v: Elicited | null) => void>;
+  readonly waiting: Map<string, Pending>;
 }
 
 const record = (v: unknown): v is Record<string, unknown> =>
@@ -133,7 +141,7 @@ export function createMcpHttp(o: {
     const t = o.now();
     for (const [id, s] of sessions)
       if (t - s.seen > SESSION_IDLE_MS) {
-        for (const w of s.waiting.values()) w(null);
+        for (const w of s.waiting.values()) w.finish(null);
         sessions.delete(id);
       }
   };
@@ -181,7 +189,7 @@ export function createMcpHttp(o: {
       open.add(res);
       // a client that goes away ends every question it was asked: nothing stays waiting for a reply that cannot come
       res.on("close", () => {
-        for (const eid of asked) session.waiting.get(eid)?.(null);
+        for (const eid of asked) session.waiting.get(eid)?.finish(null);
       });
     }
     const ctx: ToolContext = {
@@ -205,7 +213,7 @@ export function createMcpHttp(o: {
             });
             finish(null);
           }, timeoutMs);
-          session.waiting.set(eid, finish);
+          session.waiting.set(eid, { grant: claims.grant, finish });
           asked.add(eid);
           write({
             jsonrpc: "2.0",
@@ -246,8 +254,9 @@ export function createMcpHttp(o: {
 
     if (req.method === "DELETE") {
       const s = sessionId ? sessions.get(sessionId) : undefined;
-      if (!s || s.client !== claims.client) return json(res, 404, { error: "no such session" });
-      for (const w of s.waiting.values()) w(null);
+      if (!s || s.client !== claims.client || s.grant !== claims.grant)
+        return json(res, 404, { error: "no such session" });
+      for (const w of s.waiting.values()) w.finish(null);
       sessions.delete(s.id);
       res.writeHead(204, head());
       return void res.end();
@@ -270,13 +279,17 @@ export function createMcpHttp(o: {
     // the human's reply to an elicitation (or any client response) arrives as a response message
     if (method === undefined) {
       const s = sessionId ? sessions.get(sessionId) : undefined;
-      if (!s || s.client !== claims.client) return json(res, 404, { error: "no such session" });
+      if (!s || s.client !== claims.client || s.grant !== claims.grant)
+        return json(res, 404, { error: "no such session" });
       s.seen = o.now();
       const waiting = typeof id === "string" ? s.waiting.get(id) : undefined;
+      // a question is answered only under the authorization that asked it; a public client id is not the authority of a person
+      if (waiting && waiting.grant !== claims.grant)
+        return json(res, 403, { error: "this authorization did not ask that question" });
       if (waiting && "result" in body) {
         const r = body["result"];
         const action = record(r) ? r["action"] : undefined;
-        waiting(
+        waiting.finish(
           action === "accept" || action === "decline" || action === "cancel"
             ? {
                 action,
@@ -284,7 +297,7 @@ export function createMcpHttp(o: {
               }
             : null,
         );
-      } else if (waiting) waiting(null);
+      } else if (waiting) waiting.finish(null);
       res.writeHead(202, head());
       return void res.end();
     }
@@ -315,6 +328,7 @@ export function createMcpHttp(o: {
       const s: Session = {
         id: randomBytes(24).toString("hex"),
         client: claims.client,
+        grant: claims.grant,
         protocol,
         elicitation: record(params["capabilities"]["elicitation"]),
         initialized: false,
@@ -342,7 +356,7 @@ export function createMcpHttp(o: {
     const session = sessionId ? sessions.get(sessionId) : undefined;
     if (!sessionId)
       return json(res, 400, rpcError(id, -32600, "the Mcp-Session-Id header is required"));
-    if (!session || session.client !== claims.client)
+    if (!session || session.client !== claims.client || session.grant !== claims.grant)
       return json(res, 404, rpcError(id, -32600, "no such session: initialize again"));
     session.seen = o.now();
 
@@ -381,7 +395,7 @@ export function createMcpHttp(o: {
   return {
     handle,
     closeAll: () => {
-      for (const s of sessions.values()) for (const w of s.waiting.values()) w(null);
+      for (const s of sessions.values()) for (const w of s.waiting.values()) w.finish(null);
       sessions.clear();
       for (const r of open) r.end();
       open.clear();

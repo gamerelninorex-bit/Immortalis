@@ -75,6 +75,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   const fails = new Map<string, { count: number; until: number }>();
   let globalFails: number[] = [];
   let player: Run | null = null;
+  /** an earlier action ended uncertain and no `reconcile` has completed since (the chat adapter then starts nothing else) */
+  let unresolvedOutcome = false;
   let referee: Run | null = null;
   let refereeCalls = 0;
   const pollMs = deps.pollMs ?? POLL_MS;
@@ -300,14 +302,33 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { id: newRunId(), label: String(request.command), terminal, done: false };
+    const run: Run = {
+      id: newRunId(),
+      label: String(request.command),
+      terminal,
+      done: false,
+      uncertain: false,
+    };
     player = run;
     wakeLane("player");
     void cli(built.value.argv, { terminal, out: (line) => terminal.say(line) })
-      .then((code) => terminal.say(`— command finished (exit code ${code}) —`))
-      .catch(() => terminal.say("— the command could not run; nothing was confirmed —"))
+      .then((code) => {
+        terminal.say(`— command finished (exit code ${code}) —`);
+        // the engine itself said it cannot tell what was committed
+        if (terminal.snapshot(0).lines.some((l) => /OUTCOME_UNKNOWN/.test(l.text)))
+          run.uncertain = true;
+        if (run.label === "reconcile" && code === 0 && !run.uncertain) unresolvedOutcome = false;
+      })
+      .catch(() => {
+        // an exception can follow a human's confirmation and an owner write: nothing here can establish that nothing was committed
+        run.uncertain = true;
+        terminal.say(
+          "— the command stopped unexpectedly. Whether it changed anything is UNKNOWN: it may have been confirmed and committed. Run `reconcile` (the owner-backed check) before any retry —",
+        );
+      })
       .finally(() => {
         built.value.cleanup();
+        if (run.uncertain) unresolvedOutcome = true;
         run.done = true;
         terminal.close();
       });
@@ -334,9 +355,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   ]);
   const playerRuns: PlayerRuns = {
     current: () => player,
+    unresolved: () => unresolvedOutcome,
     launch: (command, options) => {
       if (!CHAT_COMMANDS.has(command))
         return { ok: false, reason: "that action is not offered here" };
+      if (unresolvedOutcome && command !== "reconcile")
+        return {
+          ok: false,
+          reason:
+            "an earlier action ended with an UNCERTAIN outcome (it may have been committed). Run reconcile_last_action first; do not retry the action.",
+        };
       const started = launchPlayer({ command, options });
       return started.ok ? started : { ok: false, reason: started.reason };
     },
@@ -366,7 +394,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { id: newRunId(), label: hostId, terminal, done: false };
+    const run: Run = { id: newRunId(), label: hostId, terminal, done: false, uncertain: false };
     referee = run;
     wakeLane("referee");
     void console_(argv, terminal)

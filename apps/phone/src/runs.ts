@@ -6,6 +6,8 @@ export interface Run {
   readonly label: string;
   readonly terminal: WebTerminal;
   done: boolean;
+  /** the command ended in an exception (or reported an unknown outcome): whether it changed anything is NOT established */
+  uncertain: boolean;
 }
 
 /** The player lane's single run slot, shared by the phone page and the ordinary-chat adapter: at most one command at a time. */
@@ -16,6 +18,8 @@ export interface PlayerRuns {
     command: string,
     options: Readonly<Record<string, string>>,
   ) => { readonly ok: true; readonly run: Run } | { readonly ok: false; readonly reason: string };
+  /** true while an earlier action's outcome is uncertain and no reconcile has completed since: only a reconcile may be started */
+  readonly unresolved: () => boolean;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

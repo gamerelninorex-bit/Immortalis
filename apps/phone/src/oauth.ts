@@ -1,4 +1,6 @@
 import { createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { PhoneConfig } from "./config.ts";
 
 /**
@@ -30,6 +32,12 @@ const safeEqual = (a: string, b: string) => {
 export interface AccessClaims {
   readonly client: string;
   readonly scopes: readonly OAuthScope[];
+  /**
+   * The identity of the one authorization the human gave on the consent page. It is carried unchanged through every refresh of that
+   * grant, and differs between separate grants (even of the same registered client and even for the same scopes): it is what a
+   * session and a pending question are bound to, because a public client id is not the authority of a person.
+   */
+  readonly grant: string;
 }
 
 export type SecretCheck = "ok" | "bad" | "locked";
@@ -81,7 +89,6 @@ export function createOAuth(
       32,
     ),
   );
-  const used = new Map<string, number>();
   const sign = (payload: Record<string, unknown>): string => {
     const body = b64(JSON.stringify(payload));
     return `${body}.${b64(createHmac("sha256", key).update(body).digest())}`;
@@ -108,11 +115,39 @@ export function createOAuth(
       return null;
     }
   };
-  const consume = (jti: unknown): boolean => {
+  /**
+   * Single redemption that survives a restart. A spent code or refresh token leaves one marker file (named by its random id) created
+   * with exclusive-create semantics, so the first redemption wins atomically — in this process, across concurrent requests, and after a
+   * restart — and every later one fails. Any failure to record the redemption refuses it (fail closed); a redemption lost to a crash
+   * between recording and answering simply needs a new authorization, which is the honest reconnect. Markers are removed once the
+   * grant they spent could no longer be redeemed anyway (it has expired).
+   */
+  const spentDir = join(config.operatorDir, "oauth-spent");
+  let swept = 0;
+  const sweepSpent = () => {
     const t = now();
-    for (const [k, exp] of used) if (exp <= t) used.delete(k);
-    if (typeof jti !== "string" || used.has(jti)) return false;
-    used.set(jti, t + REFRESH_MS);
+    if (t - swept < 10 * 60_000) return;
+    swept = t;
+    try {
+      for (const f of readdirSync(spentDir)) {
+        if (!/^[0-9a-f]{32}$/.test(f)) continue;
+        const exp = Number(readFileSync(join(spentDir, f), "utf8"));
+        if (Number.isFinite(exp) && exp < t - 60_000) unlinkSync(join(spentDir, f));
+      }
+    } catch {
+      // nothing to sweep, or a marker raced away: a marker that stays is only ever extra safety
+    }
+  };
+  const consume = (jti: unknown, exp: unknown): boolean => {
+    if (typeof jti !== "string" || !/^[0-9a-f]{32}$/.test(jti) || typeof exp !== "number")
+      return false;
+    try {
+      mkdirSync(spentDir, { recursive: true, mode: 0o700 });
+      writeFileSync(join(spentDir, jti), String(exp), { flag: "wx", mode: 0o600 });
+    } catch {
+      return false;
+    }
+    sweepSpent();
     return true;
   };
 
@@ -300,6 +335,7 @@ export function createOAuth(
         cc: described.challenge,
         sc: granted,
         jti: randomBytes(16).toString("hex"),
+        gid: randomBytes(16).toString("hex"),
         exp: now() + CODE_MS,
       });
       return back({ code });
@@ -308,7 +344,7 @@ export function createOAuth(
       const grant = form["grant_type"];
       const clientId = form["client_id"];
       if (!clientOf(clientId)) return err(401, "invalid_client", "unknown client");
-      const issue = (scopes: readonly OAuthScope[]) => {
+      const issue = (scopes: readonly OAuthScope[], gid: string) => {
         const t = now();
         return {
           status: 200,
@@ -317,6 +353,7 @@ export function createOAuth(
               t: "at",
               cid: clientId,
               sc: scopes,
+              gid,
               aud: resource,
               exp: t + ACCESS_MS,
             }),
@@ -326,6 +363,7 @@ export function createOAuth(
               t: "rt",
               cid: clientId,
               sc: scopes,
+              gid,
               jti: randomBytes(16).toString("hex"),
               exp: t + REFRESH_MS,
             }),
@@ -346,16 +384,22 @@ export function createOAuth(
           c["ru"] !== form["redirect_uri"] ||
           typeof c["cc"] !== "string" ||
           !safeEqual(c["cc"], createHash("sha256").update(verifier).digest("base64url")) ||
-          !consume(c["jti"])
+          typeof c["gid"] !== "string" ||
+          !consume(c["jti"], c["exp"])
         )
           return err(400, "invalid_grant", "the authorization code is not valid");
-        return issue(scopesIn(c["sc"]));
+        return issue(scopesIn(c["sc"]), c["gid"]);
       }
       if (grant === "refresh_token") {
         const r = open(form["refresh_token"], "rt");
-        if (!r || r["cid"] !== clientId || !consume(r["jti"]))
+        if (
+          !r ||
+          r["cid"] !== clientId ||
+          typeof r["gid"] !== "string" ||
+          !consume(r["jti"], r["exp"])
+        )
           return err(400, "invalid_grant", "the refresh token is not valid");
-        return issue(scopesIn(r["sc"]));
+        return issue(scopesIn(r["sc"]), r["gid"]);
       }
       return err(
         400,
@@ -369,7 +413,9 @@ export function createOAuth(
       const scopes = Array.isArray(a["sc"])
         ? (a["sc"] as unknown[]).filter((s): s is OAuthScope => OAUTH_SCOPES.some((o) => o === s))
         : [];
-      return scopes.length > 0 ? { client: a["cid"], scopes } : null;
+      return scopes.length > 0 && typeof a["gid"] === "string"
+        ? { client: a["cid"], scopes, grant: a["gid"] }
+        : null;
     },
   };
 }

@@ -48,9 +48,8 @@ export interface Elicit {
   readonly message: string;
   readonly requestedSchema: any;
 }
-export type Human = (
-  e: Elicit,
-) => { action: "accept" | "decline" | "cancel"; content?: any } | null;
+type Answer = { action: "accept" | "decline" | "cancel"; content?: any } | null;
+export type Human = (e: Elicit) => Answer | Promise<Answer>;
 
 export class Chat {
   access = "";
@@ -128,11 +127,15 @@ export class Chat {
     );
   }
   async token(form: Record<string, string>) {
-    const res = await fetch(`${this.base}/oauth/token`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(form),
-    });
+    const send = () =>
+      fetch(`${this.base}/oauth/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(form),
+      });
+    // a pooled connection to a server that was just restarted is gone: one more attempt opens a new one
+    // (a retry here is safe: a redemption is recorded only when it is answered by the server that received it)
+    const res = await send().catch(send);
     return { status: res.status, json: (await res.json().catch(() => undefined)) as any };
   }
   /** the full link: register, the human types the lane secrets on the consent page, the code is exchanged */
@@ -215,7 +218,7 @@ export class Chat {
         const msg = JSON.parse(data);
         if (msg.method === "elicitation/create") {
           elicited.push(msg.params);
-          const answer = human?.(msg.params) ?? null;
+          const answer = (await human?.(msg.params)) ?? null;
           if (answer)
             await fetch(`${this.base}/mcp`, {
               method: "POST",

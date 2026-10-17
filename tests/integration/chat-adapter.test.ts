@@ -8,6 +8,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { runCli } from "@immortalis/operator";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
 import {
@@ -18,6 +19,7 @@ import {
   humanConfirms,
   humanDeclines,
   phraseOf,
+  pkce,
   withHost,
   type Human,
 } from "../support/chat-client.ts";
@@ -46,13 +48,17 @@ interface Stub {
 
 /** a stand-in for the shipped CLI: prints a proposal and a challenge, asks, and finishes by the typed answer (it never answers itself) */
 function stubCli(
-  opts: { gate?: Promise<void>; crash?: boolean } = {},
+  opts: { gate?: Promise<void>; crash?: boolean; crashAfterConfirm?: boolean } = {},
 ): [NonNullable<PhoneDeps["runCli"]>, Stub] {
   const stub: Stub = { argvs: [], phrases: [], release: () => undefined };
   const cli: NonNullable<PhoneDeps["runCli"]> = async (argv, env) => {
     stub.argvs.push([...argv]);
     const t = env.terminal!;
     if (opts.crash) throw new Error("boom");
+    if (argv[0] === "reconcile") {
+      t.say("STATUS NOTHING_TO_RECONCILE");
+      return 0;
+    }
     t.say(`PROPOSAL ${argv[0]}`);
     if (opts.gate) await opts.gate;
     const phrase = `${argv[0]} ${Math.random().toString(16).slice(2, 14)}`;
@@ -62,6 +68,8 @@ function stubCli(
     const typed = await t.ask(">");
     if (typed === phrase) {
       t.say("STATUS COMMITTED");
+      // a failure that FOLLOWS the human's confirmation and the (stand-in) owner write
+      if (opts.crashAfterConfirm) throw new Error("late failure");
       return 0;
     }
     t.say("STATUS DECLINED");
@@ -79,7 +87,14 @@ async function serve(
   const scenarioFile = join(dir, "chat-scenario.json");
   if (scenario) writeFileSync(scenarioFile, JSON.stringify(scenario));
   mkdirSync(join(dir, "setup"), { recursive: true });
-  const config = await chatConfig({ scenarioFile, setupDir: join(dir, "setup"), ...over });
+  const operatorDir = join(dir, "operator");
+  mkdirSync(operatorDir, { recursive: true });
+  const config = await chatConfig({
+    scenarioFile,
+    setupDir: join(dir, "setup"),
+    operatorDir,
+    ...over,
+  });
   const app = createPhoneServer(config, { pollMs: 300, ...deps });
   await app.listen();
   return { app, config, base: `http://127.0.0.1:${config.port}` };
@@ -661,20 +676,59 @@ describe("MECHANISM: orchestration without deadlock, and no blind retry", () => 
     }
   });
 
-  it("an action that is still running blocks a second one; a crashed command is reported as not confirmed; reconcile is a shipped command, never a retry", async () => {
-    const [cli] = stubCli({ crash: true });
+  it("a command that ends in an exception is reported as UNCERTAIN, never as 'nothing was confirmed'; nothing else may start until the owner-backed reconcile has run; then play resumes", async () => {
+    const [cli, stub] = stubCli({ crashAfterConfirm: true });
     const s = await withChat({ runCli: cli });
     try {
       const started = await s.chat.call("collect", { amount: 1 });
-      const done = await s.chat.call("await_action", { wait_seconds: 2 });
       expect(started.data.run_id).toBeTruthy();
+      // the human confirms; the (stand-in) owner write happens; THEN the command throws
+      const done = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
       expect(done.data.state).toBe("FINISHED");
-      expect(JSON.stringify(done.data.engine_report)).toContain("nothing was confirmed");
+      expect(done.data.outcome).toBe("UNCERTAIN");
+      expect(done.data.recovery).toMatch(/reconcile_last_action/);
+      const report = JSON.stringify(done.data.engine_report);
+      expect(report).toContain("UNKNOWN");
+      expect(report).toContain("STATUS COMMITTED"); // what the engine itself had already said is not hidden
+      expect(report).not.toContain("nothing was confirmed");
+      // no blind retry of this or any other action
+      for (const again of [
+        "collect",
+        "observe_surroundings",
+        "cease_collection",
+        "finish_collection",
+      ]) {
+        const r = await s.chat.call(again, again === "collect" ? { amount: 1 } : {});
+        expect(r.isError, again).toBe(true);
+        expect(r.text).toMatch(/UNCERTAIN/);
+      }
+      expect(stub.argvs.map((a) => a[0])).toEqual(["collect"]);
+      // the owner-backed reconcile is the way out, and it is a shipped command
       const rec = await s.chat.call("reconcile_last_action");
       expect(rec.isError).toBe(false);
       expect(rec.data.action).toBe("reconcile");
+      const reconciled = await s.chat.call("await_action", { wait_seconds: 5 });
+      expect(reconciled.data.state).toBe("FINISHED");
+      expect(reconciled.data.exit_code).toBe(0);
+      expect(reconciled.data.outcome).toBeUndefined();
+      // play resumes
+      expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
       // the follow-up tool names a stale run: refused
       expect((await s.chat.call("await_action", { run_id: "0".repeat(16) })).isError).toBe(true);
+    } finally {
+      await s.app.close();
+    }
+  });
+
+  it("a crash before any prompt is just as uncertain (nothing can establish that nothing was committed)", async () => {
+    const [cli] = stubCli({ crash: true });
+    const s = await withChat({ runCli: cli });
+    try {
+      await s.chat.call("collect", { amount: 1 });
+      const done = await s.chat.call("await_action", { wait_seconds: 3 });
+      expect(done.data.state).toBe("FINISHED");
+      expect(done.data.outcome).toBe("UNCERTAIN");
+      expect(JSON.stringify(done.data.engine_report)).not.toContain("nothing was confirmed");
     } finally {
       await s.app.close();
     }
@@ -813,12 +867,343 @@ describe("static scope of the ordinary-chat adapter", () => {
     expect(tools.match(/\.terminal\.reply\(/g) ?? []).toHaveLength(1);
     expect(tools).toMatch(/asked\.action === "accept"/);
     expect(mcp).not.toMatch(/\.reply\(|terminal/);
-    // no process, shell, provider, network client or file write in any of the three modules
+    // no process, shell, provider or network client in any of the three modules; only the OAuth module writes, and only an
+    // exclusive-create marker for a spent grant
     for (const code of [tools, mcp, oauth])
       expect(code).not.toMatch(
-        /child_process|execSync|execFile|spawn|writeFile|fetch\(|anthropic|openai|@modelcontextprotocol|XMLHttpRequest|eval\(|new Function/i,
+        /child_process|execSync|execFile|spawn|fetch\(|anthropic|openai|@modelcontextprotocol|XMLHttpRequest|eval\(|new Function/i,
       );
+    for (const code of [tools, mcp]) expect(code).not.toMatch(/writeFile/);
+    expect(oauth.match(/writeFileSync\(/g) ?? []).toHaveLength(1);
+    expect(oauth).toMatch(/flag: "wx"/);
     // the model-supplied arguments never name a campaign, path, role, permission, identity, time, owner key or confirmation
     expect(tools).not.toMatch(/args\["(campaign|path|role|permission|confirm|reply|time|key)/);
   });
+});
+
+describe("MECHANISM (BLUE R1): spent OAuth grants stay spent across a restart", () => {
+  it("a redeemed code and a rotated refresh token are refused after the process is recreated; the unspent refresh and a new consent still work; concurrent redemption spends once", async () => {
+    const s = await serve();
+    let app2: ReturnType<typeof createPhoneServer> | undefined;
+    try {
+      const a = new Chat(s.base);
+      await a.register();
+      const redeem = async () => {
+        const { verifier, challenge } = pkce();
+        const d = await a.decision(a.authorizeQuery({ challenge, scope: "player" }), {
+          player: PLAYER,
+        });
+        const code = new URL(d.json.redirect).searchParams.get("code")!;
+        return { code, verifier };
+      };
+      const form = (c: { code: string; verifier: string }) => ({
+        grant_type: "authorization_code",
+        client_id: a.clientId,
+        code: c.code,
+        redirect_uri: a.redirect,
+        code_verifier: c.verifier,
+      });
+      // a code is redeemed once; its first refresh token is rotated away
+      const spent = await redeem();
+      const t1 = await a.token(form(spent));
+      expect(t1.status).toBe(200);
+      const oldRefresh: string = t1.json.refresh_token;
+      const t2 = await a.token({
+        grant_type: "refresh_token",
+        client_id: a.clientId,
+        refresh_token: oldRefresh,
+      });
+      expect(t2.status).toBe(200);
+      const liveRefresh: string = t2.json.refresh_token;
+      // the same instance refuses both replays
+      expect((await a.token(form(spent))).status).toBe(400);
+      expect(
+        (
+          await a.token({
+            grant_type: "refresh_token",
+            client_id: a.clientId,
+            refresh_token: oldRefresh,
+          })
+        ).status,
+      ).toBe(400);
+      // an unredeemed code that was never used is still usable after the restart (it is not spent)
+      const unused = await redeem();
+
+      // the process is lost and recreated with identical configuration
+      await s.app.close();
+      app2 = createPhoneServer(s.config, { pollMs: 300 });
+      await app2.listen();
+
+      // NEGATIVES: nothing spent revives
+      expect((await a.token(form(spent))).json.error).toBe("invalid_grant");
+      expect(
+        (
+          await a.token({
+            grant_type: "refresh_token",
+            client_id: a.clientId,
+            refresh_token: oldRefresh,
+          })
+        ).json.error,
+      ).toBe("invalid_grant");
+      // POSITIVES: the rotated, unspent refresh token continues the grant — exactly once
+      const t3 = await a.token({
+        grant_type: "refresh_token",
+        client_id: a.clientId,
+        refresh_token: liveRefresh,
+      });
+      expect(t3.status).toBe(200);
+      expect(
+        (
+          await a.token({
+            grant_type: "refresh_token",
+            client_id: a.clientId,
+            refresh_token: liveRefresh,
+          })
+        ).status,
+      ).toBe(400);
+      // a never-redeemed code, and a brand-new consent, still work
+      expect((await a.token(form(unused))).status).toBe(200);
+      const fresh = await new Chat(s.base).link("player", { player: PLAYER });
+      expect(fresh.ok).toBe(true);
+      // the access token issued before the restart is still valid (the signing key derives from the lane secrets), its session is not
+      const before = new Chat(s.base);
+      before.access = t1.json.access_token;
+      expect((await before.rpc("ping")).status).toBe(400);
+
+      // CONCURRENCY: the same code redeemed by many requests at once spends exactly once
+      const race = await redeem();
+      const results = await Promise.all(Array.from({ length: 8 }, () => a.token(form(race))));
+      expect(results.filter((r) => r.status === 200)).toHaveLength(1);
+      expect(results.filter((r) => r.status === 400)).toHaveLength(7);
+      // and the same for one refresh token
+      const racer = (await a.token(form(await redeem()))).json.refresh_token as string;
+      const refreshes = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          a.token({ grant_type: "refresh_token", client_id: a.clientId, refresh_token: racer }),
+        ),
+      );
+      expect(refreshes.filter((r) => r.status === 200)).toHaveLength(1);
+    } finally {
+      await s.app.close();
+      await app2?.close();
+    }
+  });
+
+  it("a redemption that cannot be recorded is refused (fail closed), not granted", async () => {
+    // the operator directory is a regular file: no marker can be created
+    const dir = tempDir("immortalis-chat-nostate-");
+    const blocker = join(dir, "not-a-directory");
+    writeFileSync(blocker, "x");
+    const s = await serve({}, { operatorDir: blocker });
+    try {
+      const a = new Chat(s.base);
+      const linked = await a.link("player", { player: PLAYER });
+      expect(linked.ok).toBe(false);
+      expect(JSON.stringify(linked)).toContain("invalid_grant");
+    } finally {
+      await s.app.close();
+    }
+  });
+});
+
+describe("MECHANISM (BLUE R2): a question is answered only under the authorization that asked it", () => {
+  it("a referee-only grant of the SAME registered client cannot answer, use or end a player session's elicitation; the authorized human still can, across a refresh", async () => {
+    const [cli, stub] = stubCli();
+    const s = await serve({ runCli: cli, chat: { elicitMs: 1500 } });
+    try {
+      const player = new Chat(s.base);
+      expect((await player.link("player", { player: PLAYER })).ok).toBe(true);
+      await player.init({ elicitation: {} });
+      // the same registered client, a different authorization with the OTHER scope only
+      const ref = new Chat(s.base);
+      ref.clientId = player.clientId;
+      expect((await ref.link("referee", { referee: REFEREE })).ok).toBe(true);
+
+      const forge = (id: string, phrase: string) =>
+        fetch(`${s.base}/mcp`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...ref.headers({ "mcp-session-id": player.session }),
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            result: { action: "accept", content: { reply: phrase } },
+          }),
+        });
+
+      // 1. the forged answer arrives while the player's question is open, and the human then stays silent
+      expect((await player.call("collect", { amount: 1 })).data.state).toBe(
+        "AWAITING_CONFIRMATION",
+      );
+      const forged: number[] = [];
+      const silent = await player.call("await_action", { wait_seconds: 5 }, async (e) => {
+        forged.push((await forge("elicit-0", phraseOf(e.message))).status);
+        return null; // the human says nothing
+      });
+      expect(forged).toEqual([404]);
+      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
+      expect(JSON.stringify(silent.data.engine_report)).not.toContain("COMMITTED");
+
+      // 2. the referee-only token cannot use the player's session at all, nor end it
+      const asRef = await ref.rpc("tools/list", {}, undefined, {
+        "mcp-session-id": player.session,
+      });
+      expect(asRef.status).toBe(404);
+      const del = await fetch(`${s.base}/mcp`, {
+        method: "DELETE",
+        headers: ref.headers({ "mcp-session-id": player.session }),
+      });
+      expect(del.status).toBe(404);
+      expect((await player.rpc("ping")).status).toBe(200);
+
+      // 3. the authorized human answers (here after the player's grant refreshed its access token): that works
+      const answered = await player.call("await_action", { wait_seconds: 5 }, async (e) => {
+        const t = await player.token({
+          grant_type: "refresh_token",
+          client_id: player.clientId,
+          refresh_token: player.refresh,
+        });
+        player.access = t.json.access_token;
+        player.refresh = t.json.refresh_token;
+        return { action: "accept", content: { reply: phraseOf(e.message) } };
+      });
+      expect(answered.data.state).toBe("FINISHED");
+      expect(JSON.stringify(answered.data.engine_report)).toContain("STATUS COMMITTED");
+      expect(stub.phrases).toHaveLength(1);
+
+      // 4. a replayed answer to a question that is already closed does nothing
+      const replay = await fetch(`${s.base}/mcp`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...player.headers() },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "elicit-0",
+          result: { action: "accept", content: { reply: stub.phrases[0] } },
+        }),
+      });
+      expect(replay.status).toBe(202);
+      expect(stub.argvs).toHaveLength(1);
+    } finally {
+      await s.app.close();
+    }
+  });
+
+  it("a deliberately dual-scoped grant keeps working: one assistant asks, the human answers, and it serves the referee side", async () => {
+    const [cli] = stubCli();
+    const s = await withChat(
+      { runCli: cli },
+      { scope: "player referee", player: PLAYER, referee: REFEREE },
+    );
+    try {
+      await s.chat.call("collect", { amount: 1 });
+      const done = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
+      expect(done.data.state).toBe("FINISHED");
+      expect(
+        (await s.chat.call("referee_list_tasks", { host_id: "gm-setup" })).json.error,
+      ).toBeUndefined();
+    } finally {
+      await s.app.close();
+    }
+  });
+});
+
+describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the owner's commit is UNCERTAIN, and recovery is the owner-backed reconcile", () => {
+  it("the SHIPPED observe-surroundings commits, then the process step throws: the report is UNCERTAIN, nothing else may start, reconcile reads back what committed, and play resumes with no duplicate consequence", async () => {
+    const dirs = (await observationCampaign()).dirs;
+    const dir = tempDir("immortalis-chat-r3-");
+    const scenarioFile = join(dir, "chat-scenario.json");
+    writeFileSync(scenarioFile, JSON.stringify({ ...SCENARIO, player_character: PC_ID }));
+    const config = await chatConfig({
+      campaignDir: dirs.campaignDir,
+      operatorDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      refereeHostIds: [HOST_ID],
+      scenarioFile,
+      setupDir: join(dir, "setup"),
+    });
+    let failed = false;
+    const app = createPhoneServer(config, {
+      pollMs: 300,
+      // the real command runs to completion and commits; the failure then arrives from the process around it
+      runCli: async (argv, env) => {
+        const code = await runCli(argv, env);
+        if (argv[0] === "observe-surroundings" && !failed) {
+          failed = true;
+          throw new Error("failure after the commit");
+        }
+        return code;
+      },
+    });
+    await app.listen();
+    try {
+      const chat = new Chat(`http://127.0.0.1:${config.port}`);
+      expect((await chat.link("player referee", { player: PLAYER, referee: REFEREE })).ok).toBe(
+        true,
+      );
+      await chat.init({ elicitation: {} });
+      expect((await chat.call("observe_surroundings")).isError).toBe(false);
+      const confirmed = await chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
+      expect(confirmed.elicited).toHaveLength(1);
+
+      // the same assistant serves the engine's real referee task until the command ends
+      const policy = observationPolicy();
+      let done: Awaited<ReturnType<typeof chat.call>> | undefined;
+      for (let i = 0; i < 40 && done?.data?.state !== "FINISHED"; i++) {
+        const listed = await chat.call("referee_list_tasks", { host_id: HOST_ID });
+        for (const t of (JSON.parse(listed.text ?? "{}").tasks ?? []) as { task_id: string }[]) {
+          const got = await chat.call("referee_get_task", { host_id: HOST_ID, task_id: t.task_id });
+          const doc = JSON.parse(got.text!);
+          const answer = policy(doc.document ?? doc);
+          if (answer !== null)
+            await chat.call("referee_submit_decision", {
+              host_id: HOST_ID,
+              task_id: t.task_id,
+              answer,
+              claimed_model: "scripted-test-policy (NOT an AI)",
+            });
+        }
+        done = await chat.call("await_action", { wait_seconds: 2 });
+      }
+      expect(failed).toBe(true);
+      expect(done?.data.state).toBe("FINISHED");
+      expect(done?.data.outcome).toBe("UNCERTAIN");
+      expect(JSON.stringify(done?.data.engine_report)).not.toContain("nothing was confirmed");
+      expect(JSON.stringify(done?.data.engine_report)).toContain("UNKNOWN");
+
+      // canonical readback: the owner DID commit the observation decision, once
+      const committed = await keysOf(dirs.campaignDir);
+      const decisions = committed.filter((k) => /^referee\/.+\/decision$/.test(k));
+      const observed = decisions.filter((k) => !k.includes("pc-"));
+      expect(observed.length).toBeGreaterThan(0);
+
+      // no blind retry of this or any other action
+      for (const again of ["observe_surroundings", "cease_collection"]) {
+        const r = await chat.call(again);
+        expect(r.isError, again).toBe(true);
+        expect(r.text).toMatch(/UNCERTAIN/);
+      }
+      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+
+      // the existing owner-backed reconcile reads the canonical record and creates no second consequence
+      expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+      let rec = await chat.call("await_action", { wait_seconds: 20 });
+      for (let i = 0; i < 10 && rec.data.state !== "FINISHED"; i++)
+        rec = await chat.call("await_action", { wait_seconds: 5 });
+      expect(rec.data.state).toBe("FINISHED");
+      expect(rec.data.exit_code).toBe(0);
+      expect(rec.data.outcome).toBeUndefined();
+      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+
+      // recovery is complete: the engine is not asked again for a decision it already holds, and nothing is duplicated
+      const next = await chat.call("observe_surroundings");
+      expect(next.isError, next.text).toBe(false);
+      const declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
+      expect(declined.data.state).toBe("FINISHED");
+      expect(await keysOf(dirs.campaignDir)).toEqual(committed);
+    } finally {
+      await app.close();
+    }
+  }, 240_000);
 });
