@@ -19,6 +19,7 @@ import type { Launch, PlayerRuns, Run } from "./runs.ts";
 import {
   captureObservation,
   clearPending,
+  completeObservation,
   observationEvidence,
   readPending,
   writePending,
@@ -26,6 +27,11 @@ import {
   type RecoveryDeps,
 } from "./recovery.ts";
 import { PENDING_FORMAT } from "./recovery.ts";
+import {
+  COLLECTION_COMMANDS,
+  captureCollection,
+  runCollectionOperation,
+} from "./collection-recovery.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -119,6 +125,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   const rec = {
     captureObservation: deps.recovery?.captureObservation ?? captureObservation,
     observationEvidence: deps.recovery?.observationEvidence ?? observationEvidence,
+    completeObservation: deps.recovery?.completeObservation ?? completeObservation,
+    captureCollection: deps.recovery?.captureCollection ?? captureCollection,
+    runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
   };
   let launching = false;
   const inflight = new Set<Promise<void>>();
@@ -343,16 +352,6 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     "settle-collection-lapse",
     "reconcile",
   ]);
-  /**
-   * commands whose every effect begins with a CONFIRMED ledger intent, which the shipped `reconcile` presents again by identity (and a
-   * `reconcile` that itself ended unknown is recovered the same way). `collect-continue` is NOT here: it records no intent of its own.
-   */
-  const LEDGER_BACKED = new Set(["collect", "collect-finish", "cease", "reconcile"]);
-  /** commands that derive their work from canon and take no new input: recovered by presenting the SAME command again, by identity */
-  const REPRESENT = new Set(["collect-continue", "settle-collection-lapse"]);
-  const RECONCILE_OK =
-    /^STATUS (NOTHING_TO_RECONCILE|\S*COMMITTED|TIME_ESTABLISHED|SETTING_DECLARED)\b/;
-  const COMMITTED_ONLY = /^STATUS \S*COMMITTED\b/;
   const UNKNOWN_STATUS = /STATUS \S*(OUTCOME_UNKNOWN|RECONCILIATION_REQUIRED)\b/;
 
   const refuse = (status: number, reason: string): Launch => ({ ok: false, status, reason });
@@ -419,6 +418,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     cleanup: () => void,
     opts: { quiet: boolean },
     after: (run: Run, code: number | null) => Promise<void> | void,
+    execute: (env: CliEnvironment) => Promise<number> = (env) => cli(argv, env),
   ): Run {
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
@@ -429,7 +429,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const env = opts.quiet
       ? { terminal: noAsking(terminal), out: (line: string) => terminal.say(line) }
       : { terminal, out: (line: string) => terminal.say(line) };
-    const chain = cli(argv, env)
+    const chain = execute(env)
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
         await after(run, code);
@@ -472,14 +472,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     } else resolve();
   };
 
-  /**
-   * Resolution of the pending operation, ONLY on owner-side evidence about that operation (BLUE R3-b). A generic `reconcile` exit 0 is
-   * evidence for a confirmed-ledger operation (which is what it presents) and for nothing else: an observation has no ledger intent, so
-   * it is read back from its own records at its ORIGINAL basis and, if partial, completed by the same command by identity — which cannot
-   * ask the player anything or consult the referee again — never by an unrelated reconcile. A command that derives its work from canon and
-   * takes no new input (the collection's continuation, a lapse settlement) is presented again by identity and resolves only on a COMMITTED
-   * status. Everything else has no supported owner readback: it stays blocked, with the exact blocker.
-   */
+  /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
+   * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
     let cur = pending;
     const label = "reconcile";
@@ -526,64 +520,52 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [said], true);
         return { ok: true, run: finishedRun(label, [said], 0) };
       }
-      // PARTIAL: the same command completes it by identity (no new choice, no referee reroll); a prompt it reaches is a decline
-      const built = buildPlayerCommand(config, { command: cur.command, options: cur.options });
-      if (!built.ok)
-        return blocked("the original command could not be rebuilt for recovery", [], true);
-      const identity = cur.identity;
-      const run = startRun(
-        newRunId(),
-        label,
-        built.value.argv,
-        built.value.cleanup,
-        { quiet: true },
-        async (r, code) => {
-          const after = await rec.observationEvidence(config, identity);
-          if (code === 0 && after.kind === "COMPLETE") {
-            r.terminal.say(
-              "owner readback: the observation is now complete (event, sealed packet and transaction committed and verified)",
-            );
-            resolve();
-          } else {
-            r.uncertain = true;
-            block(
-              `the observation's owner records are incomplete and the same command could not complete them${after.kind === "UNAVAILABLE" ? `: ${after.detail}` : ""}`,
-            );
-          }
-        },
-      );
-      return { ok: true, run };
+      const after = await rec.completeObservation(config, cur.identity);
+      if (after.kind !== "COMPLETE")
+        return blocked(
+          `the observation's owner records remain incomplete${after.kind === "UNAVAILABLE" ? `: ${after.detail}` : ""}`,
+        );
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [], true);
+      return {
+        ok: true,
+        run: finishedRun(
+          label,
+          [
+            "owner readback: the original observation's event, packet and Temporal seal are complete and verified",
+          ],
+          0,
+        ),
+      };
     }
-    if (LEDGER_BACKED.has(cur.command) || REPRESENT.has(cur.command)) {
-      const represent = REPRESENT.has(cur.command);
-      const command = represent ? cur.command : "reconcile";
-      const built = buildPlayerCommand(
-        config,
-        represent ? { command, options: cur.options } : { command },
-      );
-      if (!built.ok) return blocked("the recovery command could not be built", [], true);
+    if (COLLECTION_COMMANDS.has(cur.command)) {
+      if (!cur.collection)
+        return blocked(
+          "the original collection/ledger identity was not recorded; engineering must inspect it",
+          [],
+          true,
+        );
+      const original = cur;
       const run = startRun(
         newRunId(),
         label,
-        built.value.argv,
-        built.value.cleanup,
+        [],
+        () => undefined,
         { quiet: true },
         (r, code) => {
-          const statuses = statusLines(r);
-          // presenting a confirmed-ledger operation again settles it (or finds nothing left); presenting a derived one again is evidence
-          // only when it reports COMMITTED — a refusal cannot be told from a read that failed
-          const ok =
-            code === 0 &&
-            statuses.length > 0 &&
-            statuses.every((t) => (represent ? COMMITTED_ONLY : RECONCILE_OK).test(t));
-          if (ok) resolve();
+          if (code === 0) resolve();
           else {
             r.uncertain = true;
+            const why = r.terminal
+              .snapshot(0)
+              .lines.map((l) => l.text)
+              .findLast((l) => l.startsWith("RECOVERY BLOCKED:"));
             block(
-              `${command} did not settle the operation (${statuses.join("; ") || `exit ${code ?? "none"}`})`,
+              why?.slice("RECOVERY BLOCKED: ".length) ??
+                "the original operation's owner evidence did not settle it",
             );
           }
         },
+        (env) => rec.runCollection(config, original, env, true),
       );
       return { ok: true, run };
     }
@@ -648,6 +630,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           );
         }
       }
+      const collection = COLLECTION_COMMANDS.has(command)
+        ? await rec.captureCollection(config, id)
+        : null;
+      if (COLLECTION_COMMANDS.has(command) && !collection) {
+        built.value.cleanup();
+        return refuse(
+          503,
+          "the operation identity could not be established; nothing was dispatched",
+        );
+      }
       const record: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
@@ -659,6 +651,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         state: "DISPATCHED",
         blocker: null,
         identity,
+        collection,
       };
       if (!writePending(config, record)) {
         built.value.cleanup();
@@ -674,6 +667,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           built.value.cleanup,
           { quiet: false },
           settleNormal,
+          COLLECTION_COMMANDS.has(command)
+            ? (env) => rec.runCollection(config, record, env)
+            : undefined,
         ),
       };
     } finally {

@@ -15,7 +15,10 @@ import {
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
 import { collect, collectContinue, reconcile, runCli } from "@immortalis/operator";
-import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
+import {
+  createPhoneServer as realPhoneServer,
+  type PhoneDeps,
+} from "../../apps/phone/src/server.ts";
 import {
   OBSERVATION_ATTEMPTS,
   captureObservation as realCapture,
@@ -72,6 +75,28 @@ import {
 } from "@immortalis/testkit";
 import { pcCollectionCommitmentKey } from "@immortalis/contracts";
 import { Browser } from "../support/phone-browser.ts";
+import { stubCollectionIdentity, stubCollectionRecovery } from "../support/chat-recovery.ts";
+import {
+  captureCollection,
+  runCollectionOperation,
+} from "../../apps/phone/src/collection-recovery.ts";
+
+// Stub-CLI cases isolate transport behavior. Cases without a recovery double use the real owners.
+const createPhoneServer: typeof realPhoneServer = (config, deps = {}) =>
+  realPhoneServer(config, {
+    ...deps,
+    ...(deps.recovery
+      ? {
+          recovery: {
+            ...stubCollectionRecovery(deps.runCli),
+            ...deps.recovery,
+            completeObservation:
+              deps.recovery.completeObservation ??
+              (async () => ({ kind: "PARTIAL", detail: "incomplete" })),
+          },
+        }
+      : {}),
+  });
 
 const SCENARIO = {
   player_character: "pc-test-1",
@@ -941,7 +966,9 @@ describe("MECHANISM: the SHIPPED observe-surroundings, the real referee exchange
       const keysBefore = await factsOf(dirs.campaignDir);
       const second = await chat.call("observe_surroundings");
       expect(second.isError).toBe(false);
-      const declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
+      let declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
+      for (let i = 0; i < 10 && declined.data.state !== "FINISHED"; i++)
+        declined = await chat.call("await_action", { wait_seconds: 5 }, humanDeclines);
       expect(declined.data.state).toBe("FINISHED");
       expect(JSON.stringify(declined.data.engine_report)).not.toMatch(/COMMITTED|ESTABLISHED/);
       expect(await factsOf(dirs.campaignDir)).toEqual(keysBefore);
@@ -1303,7 +1330,9 @@ describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the 
       // recovery is complete: the engine is not asked again for a decision it already holds, and nothing is duplicated
       const next = await chat.call("observe_surroundings");
       expect(next.isError, next.text).toBe(false);
-      const declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
+      let declined = await chat.call("await_action", { wait_seconds: 20 }, humanDeclines);
+      for (let i = 0; i < 10 && declined.data.state !== "FINISHED"; i++)
+        declined = await chat.call("await_action", { wait_seconds: 5 }, humanDeclines);
       expect(declined.data.state).toBe("FINISHED");
       expect(await factsOf(dirs.campaignDir)).toEqual(committed);
     } finally {
@@ -1553,7 +1582,7 @@ describe("MECHANISM (BLUE R3-b): an observation is read back from ITS OWN record
     }
   });
 
-  it("an unsupported or unavailable readback stays uncertain with the exact blocker; so does a partial observation the same command cannot complete", async () => {
+  it("an unsupported or unavailable readback stays uncertain with the exact blocker; so does a partial observation the owner cannot complete", async () => {
     // owner readback unavailable
     let { s } = await lostObservation(() => ({
       kind: "UNAVAILABLE",
@@ -1568,7 +1597,7 @@ describe("MECHANISM (BLUE R3-b): an observation is read back from ITS OWN record
     } finally {
       await s.app.close();
     }
-    // PARTIAL: the same command is re-run by identity (it cannot ask the player anything); here it does not complete it
+    // PARTIAL: the owner completion is attempted by retained identity; here the test seam cannot complete it.
     let evidence: Ev = {
       kind: "PARTIAL",
       detail: "the observation's owner records are incomplete",
@@ -1580,16 +1609,9 @@ describe("MECHANISM (BLUE R3-b): an observation is read back from ITS OWN record
       const r = await s.chat.call("await_action", { wait_seconds: 5 });
       expect(r.data.state).toBe("FINISHED");
       expect(r.data.outcome).toBe("UNCERTAIN");
-      expect(r.data.blocker).toMatch(/owner records are incomplete and the same command could not/);
-      // the recovery re-ran ONLY the original command, never the generic reconcile; the stand-in asked the player (a decline), twice at most
-      expect(lost.stub.argvs.map((a) => a[0])).toEqual([
-        "observe-surroundings",
-        "observe-surroundings",
-      ]);
-      expect(lost.stub.argvs[1]).toEqual(lost.stub.argvs[0]); // the original arguments, unchanged
-      expect(JSON.stringify(r.data.engine_report)).toContain(
-        "a recovery cannot ask the player anything",
-      );
+      expect(r.data.blocker).toMatch(/owner records remain incomplete/);
+      expect(lost.stub.argvs.map((a) => a[0])).toEqual(["observe-surroundings"]);
+      expect(r.elicited).toEqual([]); // owner completion has no human or referee interaction
       expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(true);
       // once the owners hold the completed observation, the same recovery resolves it
       evidence = { kind: "COMPLETE" };
@@ -1748,14 +1770,12 @@ describe("MECHANISM (BLUE R3): a REAL partial observation is completed by identi
       const failed = await untilFinished(chat);
       expect(failed.data.state).toBe("FINISHED");
       expect(failed.data.outcome).toBe("UNCERTAIN");
-      expect(failed.data.blocker).toMatch(
-        /owner records are incomplete and the same command could not/,
-      );
-      expect(ran.slice(ranBefore)).toEqual(["observe-surroundings"]); // the original command, never the generic reconcile
+      expect(failed.data.blocker).toMatch(/owner records remain incomplete/);
+      expect(ran.slice(ranBefore)).toEqual([]); // direct owner completion, no command selection
       expect((await chat.call("collect", { amount: 1 })).isError).toBe(true);
       expect(await factsOf(dirs.campaignDir)).toEqual(partial);
 
-      // the owner step works again: the SAME command, by identity, completes the SAME observation
+      // the owner step works again: the retained decision completes the SAME observation
       spy.mockRestore();
       const ranMid = ran.length;
       expect((await chat.call("reconcile_last_action")).isError).toBe(false);
@@ -1763,7 +1783,7 @@ describe("MECHANISM (BLUE R3): a REAL partial observation is completed by identi
       expect(done.data.state).toBe("FINISHED");
       expect(done.data.exit_code).toBe(0);
       expect(done.data.outcome).toBeUndefined();
-      expect(ran.slice(ranMid)).toEqual(["observe-surroundings"]);
+      expect(ran.slice(ranMid)).toEqual([]);
       expect(done.elicited).toEqual([]);
       expect(JSON.stringify(done.data.engine_report)).toContain("owner readback");
       expect(existsSync(pendingFile(config))).toBe(false);
@@ -1856,42 +1876,51 @@ describe("MECHANISM (BLUE R3): a REAL collection uncertainty is resolved by the 
       setupDir: join(dir, "setup"),
     });
     const ran: string[] = [];
+    let originalAct = "";
     const app = createPhoneServer(config, {
       pollMs: 300,
-      runCli: async (argv, env) => {
-        ran.push(argv[0]!);
-        if (argv[0] === "collect") {
-          // what the shipped `collect` does first: the trusted side retains the player's confirmed attempt durably ...
-          const session = await openSession(dirs);
-          const retained = await session.ledger.record({
-            kind: "COLLECTION",
-            intent_id: "operator-intent:lost",
-            pc_id: COL_PC,
-            choice: {
+      recovery: {
+        captureCollection: (c, uid) =>
+          captureCollection(c, uid, { extension: ACTOR_FIXTURE_EXTENSION }),
+        runCollection: async (c, p, env, recovering) => {
+          ran.push(recovering ? "reconcile" : p.command);
+          if (!recovering && p.command === "collect") {
+            const uid = p.collection!.uid;
+            originalAct = `operator-act-${uid}`;
+            // what the shipped `collect` does first: the trusted side retains the player's confirmed attempt durably ...
+            const session = await openSession(dirs);
+            const retained = await session.ledger.record({
+              kind: "COLLECTION",
+              intent_id: `operator-intent:${uid}`,
               pc_id: COL_PC,
-              act_id: "operator-act-lost",
-              source: { world_id: COL_W, source_key: SRC_SOURCE_KEY },
-              reserve_id: SRC_RESERVE,
-              quantity: { amount: 3, unit: SRC_UNIT },
-              authored_under: {
-                role: "role.player",
-                permission: "permission.player_choice.commit",
+              choice: {
+                pc_id: COL_PC,
+                act_id: originalAct,
+                source: { world_id: COL_W, source_key: SRC_SOURCE_KEY },
+                reserve_id: SRC_RESERVE,
+                quantity: { amount: 3, unit: SRC_UNIT },
+                authored_under: {
+                  role: "role.player",
+                  permission: "permission.player_choice.commit",
+                },
               },
-            },
-            mechanism_id: COL_MECH,
-            basis_id: SRC_BASIS_ID,
-            publication: {
-              cause: "operator-collection-cause:lost",
-              basis: "local-operator-confirmed-choice",
-              secrecy: "local-operator-session",
-            },
+              mechanism_id: COL_MECH,
+              basis_id: SRC_BASIS_ID,
+              publication: {
+                cause: `operator-collection-cause:${c.campaignId}:${uid}`,
+                basis: "local-operator-confirmed-choice",
+                secrecy: "local-operator-session",
+              },
+            });
+            expect(retained.ok).toBe(true);
+            await session.close();
+            // ... and the process around it then fails before the owners are invoked
+            throw new Error("failure after the confirmed attempt was retained");
+          }
+          return runCollectionOperation(c, p, env, recovering, {
+            extension: ACTOR_FIXTURE_EXTENSION,
           });
-          expect(retained.ok).toBe(true);
-          await session.close();
-          // ... and the process around it then fails before the owners are invoked
-          throw new Error("failure after the confirmed attempt was retained");
-        }
-        return runCli(argv, { ...env, extension: ACTOR_FIXTURE_EXTENSION });
+        },
       },
     });
     await app.listen();
@@ -1904,7 +1933,7 @@ describe("MECHANISM (BLUE R3): a REAL collection uncertainty is resolved by the 
       expect(lost.data.outcome).toBe("UNCERTAIN");
       expect(readLedger({ operatorDir: dirs.operatorDir }).intents[0].status).toBe("CONFIRMED");
       const mid = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
-      expect(mid.has(pcCollectionCommitmentKey(COL_PC, "operator-act-lost"))).toBe(false);
+      expect(mid.has(pcCollectionCommitmentKey(COL_PC, originalAct))).toBe(false);
       expect(mid).toEqual(before);
       // blocked until that SAME operation is resolved
       for (const [tool, args] of MUTATING)
@@ -1921,7 +1950,7 @@ describe("MECHANISM (BLUE R3): a REAL collection uncertainty is resolved by the 
       expect(JSON.stringify(done.data.engine_report)).toContain("STATUS COLLECTION_COMMITTED");
       expect(ran).toEqual(["collect", "reconcile"]);
       const after = await factsOf(dirs.campaignDir, ACTOR_FIXTURE_EXTENSION);
-      expect(after.has(pcCollectionCommitmentKey(COL_PC, "operator-act-lost"))).toBe(true);
+      expect(after.has(pcCollectionCommitmentKey(COL_PC, originalAct))).toBe(true);
       expect(readLedger({ operatorDir: dirs.operatorDir }).intents[0].status).toBe("COMMITTED");
       // what existed is unchanged in value and version, except what the commitment lawfully advances
       for (const [k, v] of before) {
@@ -1964,6 +1993,7 @@ const recordOf = (config: PhoneConfig, over: Record<string, unknown> = {}) => ({
   state: "UNCERTAIN",
   blocker: null,
   identity: null,
+  collection: stubCollectionIdentity("0123456789abcdef"),
   ...over,
 });
 
@@ -2081,6 +2111,10 @@ describe("MECHANISM (BLUE R3 delta): the real collect-continue, lost part-way, i
     });
     expect(committed.status).toBe("COLLECTION_COMMITTED");
     await session.close();
+    const collection = await captureCollection(config, "0123456789abcdef", {
+      extension: ACTOR_FIXTURE_EXTENSION,
+    });
+    expect(collection).not.toBeNull();
     // 2. collect-continue: the reach reading lands, then the start chain loses its reply part-way
     const lose = vi
       .spyOn(PcCollectionAdapter.prototype as any, "registerOccupancy")
@@ -2122,15 +2156,21 @@ describe("MECHANISM (BLUE R3 delta): the real collect-continue, lost part-way, i
     // the process that ran collect-continue is lost: its record is what a restart finds
     expect(
       writePending(config, {
-        ...recordOf(config, { command: "collect-continue", state: "DISPATCHED" }),
+        ...recordOf(config, { command: "collect-continue", state: "DISPATCHED", collection }),
       } as any),
     ).toBe(true);
     const ran: string[] = [];
     const app = createPhoneServer(config, {
       pollMs: 300,
-      runCli: async (argv, env) => {
-        ran.push(argv[0]!);
-        return runCli(argv, { ...env, extension: ACTOR_FIXTURE_EXTENSION });
+      recovery: {
+        captureCollection: (c, uid) =>
+          captureCollection(c, uid, { extension: ACTOR_FIXTURE_EXTENSION }),
+        runCollection: async (c, p, env, recovering) => {
+          ran.push(p.command);
+          return runCollectionOperation(c, p, env, recovering, {
+            extension: ACTOR_FIXTURE_EXTENSION,
+          });
+        },
       },
     });
     await app.listen();
@@ -2489,7 +2529,7 @@ describe("MECHANISM (BLUE R3 delta): the readback is of the ORIGINAL identity, a
       await s.chat.call("reconcile_last_action");
       const r = await s.chat.call("await_action", { wait_seconds: 5 });
       expect(r.data.outcome).toBe("UNCERTAIN");
-      expect(r.data.blocker).toMatch(/owner records are incomplete and the same command could not/);
+      expect(r.data.blocker).toMatch(/owner records remain incomplete/);
       const refused = await s.chat.call("collect", { amount: 1 });
       expect(refused.isError).toBe(true);
       for (const text of [JSON.stringify(r.data), refused.text ?? ""])
@@ -2637,7 +2677,7 @@ const observationEvidenceOf = (m: Map<string, string>) => ({
 });
 
 describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries the review found", () => {
-  it("the packet is formed but the sealed Temporal transaction (the last write) is lost: UNCERTAIN, never 'complete'; the SAME command finishes it, and the evidence equals an uninterrupted run's", async () => {
+  it("the packet is formed but the sealed Temporal transaction (the last write) is lost: UNCERTAIN, never 'complete'; its retained decision finishes it, and the evidence equals an uninterrupted run's", async () => {
     const refDirs = (await observationCampaign()).dirs;
     expect((await observe(refDirs)).result.status).toBe("OBSERVATION_RECEIVED");
     const reference = await factsOf(refDirs.campaignDir);
@@ -2675,14 +2715,14 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
       expect(added.some((k) => /packet/i.test(k))).toBe(true);
       expect(added.some((k) => k.startsWith("temporal/transaction/"))).toBe(false); // sealed: no
 
-      // the owners can read the packet and still the observation is NOT complete: recovery re-runs the same command by identity
+      // the owners can read the packet and still the observation is NOT complete: recovery completes the retained decision
       loseSeal = false;
       const ranBefore = s.ran.length;
       expect((await s.chat.call("reconcile_last_action")).isError).toBe(false);
       const done = await untilFinished(s.chat);
       expect(done.data.exit_code).toBe(0);
       expect(done.data.outcome).toBeUndefined();
-      expect(s.ran.slice(ranBefore)).toEqual(["observe-surroundings"]); // never the generic reconcile
+      expect(s.ran.slice(ranBefore)).toEqual([]); // no CLI or referee replay
       expect(done.elicited).toEqual([]); // nothing was asked of the player
       expect(JSON.stringify(done.data.engine_report)).toContain("owner readback");
       expect(existsSync(pendingFile(s.config))).toBe(false);
@@ -2707,7 +2747,7 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
     }
   }, 300_000);
 
-  it("a reading retained under attempt >= 1 (the first answer was set aside) survives a lost reply and a RESTART as a PARTIAL observation: the block stays, with a neutral blocker, and no new choice, reroll or duplicate is made", async () => {
+  it("a reading retained under attempt >= 1 survives a lost reply and a RESTART: the original decision completes without a new choice, reroll or duplicate", async () => {
     const { dirs } = await observationCampaign();
     const dir = tempDir("immortalis-chat-r3-attempt-");
     const scenarioFile = join(dir, "chat-scenario.json");
@@ -2777,20 +2817,33 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
         expect((await chat.call(tool, args)).isError, tool).toBe(true);
       expect((await chat.call("reconcile_last_action")).isError).toBe(false);
       const r = await untilFinished(chat);
-      // NOT cleared as "nothing was committed": the owners hold the reading, and the quiet re-run cannot ask the player to choose again
-      expect(r.data.outcome).toBe("UNCERTAIN");
-      expect(r.data.blocker).toMatch(/owner records are incomplete and the same command could not/);
+      expect(r.data.exit_code).toBe(0);
+      expect(r.data.outcome).toBeUndefined();
+      expect(JSON.stringify(r.data.engine_report)).toContain("original observation");
       expect(JSON.stringify(r.data)).not.toMatch(/affirmative|OBSERVATION_ESTABLISHED/i);
       expect(r.elicited).toEqual([]); // no new player choice
-      expect(ran).toEqual(["observe-surroundings"]); // the original command, by identity — never the generic reconcile
+      expect(ran).toEqual([]); // the owner uses the attempt-1 decision; no CLI or referee replay
       expect(
         JSON.parse((await chat.call("referee_list_tasks", { host_id: HOST_ID })).text ?? "{}")
           .tasks,
       ).toEqual([]); // no referee reroll
-      expect(await factsOf(dirs.campaignDir)).toEqual(partial); // no duplicate, no overwrite
-      expect(existsSync(pendingFile(config))).toBe(true);
-      for (const [tool, args] of MUTATING)
-        expect((await chat.call(tool, args)).isError, tool).toBe(true);
+      const complete = await factsOf(dirs.campaignDir);
+      for (const [k, v] of partial) {
+        if (k === "temporal/state") {
+          const value = (s: string) => JSON.parse(s.slice(s.indexOf(":") + 1));
+          expect(value(complete.get(k)!).canonical_time).toEqual(value(v).canonical_time);
+        } else expect(complete.get(k), k).toBe(v);
+      }
+      expect(complete.get(readings[0]![0])).toBe(readings[0]![1]);
+      expect([...complete.keys()].some((k) => /packet/i.test(k))).toBe(true);
+      expect(
+        [...complete.keys()].some((k) => k.startsWith("temporal/transaction/observation-tx-")),
+      ).toBe(true);
+      expect(existsSync(pendingFile(config))).toBe(false);
+      expect((await chat.call("read_current_observation_glance")).isError).toBe(false);
+      await chat.call("reconcile_last_action");
+      await untilFinished(chat);
+      expect(await factsOf(dirs.campaignDir)).toEqual(complete);
     } finally {
       await app.close();
     }

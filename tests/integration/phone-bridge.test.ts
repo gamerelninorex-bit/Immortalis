@@ -12,6 +12,7 @@ import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { buildPlayerCommand, PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
 import { COMMON_JS, REFEREE_TOOLS_JS } from "../../apps/phone/src/pages.ts";
 import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.ts";
+import { stubCollectionRecovery } from "../support/chat-recovery.ts";
 import { pendingPath } from "../../apps/phone/src/recovery.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
 import { LOCALITY_CAMPAIGN, openOrdinary, setupDoc } from "../support/locality.ts";
@@ -107,7 +108,24 @@ class Browser {
 }
 
 async function serve(over: Partial<PhoneConfig> = {}, deps: PhoneDeps = {}) {
-  const app = createPhoneServer(config(over), { pollMs: 300, ...deps });
+  const app = createPhoneServer(config(over), {
+    pollMs: 300,
+    ...(deps.runCli
+      ? {
+          recovery: {
+            ...stubCollectionRecovery(deps.runCli),
+            captureObservation: async (_c, pc) => ({
+              pc_id: pc,
+              basis: { value: 0, unit: "second" },
+              task_id: "0".repeat(64),
+              task_ids: Array.from({ length: 5 }, (_, i) => String(i).repeat(64)),
+              event_id: "stub-observation",
+            }),
+          },
+        }
+      : {}),
+    ...deps,
+  });
   const port = await app.listen();
   return { app, base: `http://127.0.0.1:${port}` };
 }
@@ -1237,6 +1255,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
   it("has no process execution, dynamic code, wall-clock identity or provider reference, and reads the environment in main.ts alone", () => {
     expect(files.sort()).toEqual([
       "chat-tools.ts",
+      "collection-recovery.ts",
       "commands.ts",
       "config.ts",
       "main.ts",

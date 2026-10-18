@@ -12,6 +12,7 @@ import { CanonicalCampaign, EpistemicAccessAdapter } from "@immortalis/engine";
 import {
   OBSERVATION_ATTEMPTS,
   captureObservation,
+  completeObservation,
   observationEvidence,
   type ObservationEvidence,
   type ObservationIdentity,
@@ -257,5 +258,36 @@ describe("MECHANISM (BLUE R3-b): the owner readback of an observation, against a
     );
     expect(ev.kind).toBe("UNAVAILABLE");
     expect((ev as { detail: string }).detail).toMatch(/the campaign did not open/);
+  });
+
+  it("completion refuses foreign campaign, PC or basis identity without changing the retained partial observation", async () => {
+    const { dirs } = await observationCampaign();
+    const config = cfg(dirs);
+    const identity = await identityOf(dirs);
+    const fault = lostReply(true);
+    expect((await observe(dirs)).result.status).toBe("CHARACTER_OUTCOME_UNKNOWN");
+    fault.mockRestore();
+    const facts = async () => {
+      const c = await CanonicalCampaign.open(dirs.campaignDir, { buildId: "identity-negative" });
+      if (!c.ok) throw new Error("cannot open");
+      try {
+        return c.value.store.listFacts();
+      } finally {
+        await c.value.close();
+      }
+    };
+    const partial = await facts();
+    for (const [config_, identity_] of [
+      [{ ...config, campaignId: "foreign-campaign" }, identity],
+      [config, { ...identity, pc_id: "another-pc" }],
+      [config, { ...identity, basis: { ...identity.basis, value: identity.basis.value + 1 } }],
+    ] as const) {
+      expect((await completeObservation(config_, identity_)).kind).toBe("UNAVAILABLE");
+      expect(await facts()).toEqual(partial);
+    }
+    expect((await completeObservation(config, identity)).kind).toBe("COMPLETE");
+    const complete = await facts();
+    expect((await completeObservation(config, identity)).kind).toBe("COMPLETE");
+    expect(await facts()).toEqual(complete);
   });
 });

@@ -13,6 +13,9 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import {
   CanonicalTimeSchema,
+  REFEREE_OP_OBSERVATION,
+  TEMPORAL_STATE_KEY,
+  TemporalStateSchema,
   accessEventKey,
   accessPacketKey,
   observationTransactionId,
@@ -22,10 +25,18 @@ import {
 import {
   CanonicalCampaign,
   RefereeAdjudicationAdapter,
+  canonicalEqual,
+  formObservedPacket,
   observationEventId,
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
 import type { PhoneConfig } from "./config.ts";
+import {
+  captureCollection,
+  runCollectionOperation,
+  validCollectionIdentity,
+  type CollectionIdentity,
+} from "./collection-recovery.ts";
 
 /**
  * The chat adapter's trusted pending-operation record (BLUE R3). A player action that may change canon is written here, atomically and
@@ -69,6 +80,8 @@ export interface PendingOperation {
   readonly blocker: string | null;
   /** the original observation's basis and record identities, captured before dispatch (observation only) */
   readonly identity: ObservationIdentity | null;
+  /** The original collection/ledger identities. Absent in older records, which remain blocked rather than being guessed. */
+  readonly collection?: CollectionIdentity | null;
 }
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
@@ -118,7 +131,12 @@ export function readPending(config: PhoneConfig): PendingRead {
       typeof v["dispatched_at"] !== "number" ||
       (v["state"] !== "DISPATCHED" && v["state"] !== "UNCERTAIN") ||
       (v["blocker"] !== null && typeof v["blocker"] !== "string") ||
-      !(v["identity"] === null || validIdentity(v["identity"]))
+      !(v["identity"] === null || validIdentity(v["identity"])) ||
+      !(
+        v["collection"] === undefined ||
+        v["collection"] === null ||
+        validCollectionIdentity(v["collection"])
+      )
     )
       return { kind: "UNREADABLE" };
     return { kind: "PENDING", pending: v as unknown as PendingOperation };
@@ -181,6 +199,9 @@ export interface RecoveryDeps {
     config: PhoneConfig,
     identity: ObservationIdentity,
   ) => Promise<ObservationEvidence>;
+  readonly completeObservation?: typeof completeObservation;
+  readonly captureCollection?: typeof captureCollection;
+  readonly runCollection?: typeof runCollectionOperation;
 }
 
 const BUILD = "immortalis-chat-recovery";
@@ -198,6 +219,7 @@ export async function captureObservation(
   if (!opened.ok) return null;
   const c = opened.value;
   try {
+    if (c.store.head().campaign_id !== config.campaignId) return null;
     const adapter = new RefereeAdjudicationAdapter(c.store);
     const taskIds: string[] = [];
     let basis: CanonicalTime | null = null;
@@ -237,11 +259,19 @@ export async function observationEvidence(
     return { kind: "UNAVAILABLE", detail: `the campaign did not open: ${opened.error.code}` };
   const c = opened.value;
   try {
+    if (c.store.head().campaign_id !== config.campaignId)
+      return { kind: "UNAVAILABLE", detail: "the campaign identity does not match" };
     const adapter = new RefereeAdjudicationAdapter(c.store);
     // the answer that landed is retained under the task identity of the attempt that produced it: every attempt asked at this basis is read
     const decisions = identity.task_ids.flatMap((id) => {
       const d = adapter.decision(id);
-      return d ? [d] : [];
+      return d &&
+        d.value.operation === REFEREE_OP_OBSERVATION &&
+        d.value.campaign_id === config.campaignId &&
+        d.value.subject.pc_id === identity.pc_id &&
+        canonicalEqual(d.value.input.observed_at, identity.basis)
+        ? [d]
+        : [];
     });
     const event = c.store.getFact(accessEventKey(identity.event_id));
     const packet = c.store.getFact(accessPacketKey(identity.event_id, identity.pc_id));
@@ -249,7 +279,12 @@ export async function observationEvidence(
     const sealed = c.store.getFact(
       temporalTransactionKey(observationTransactionId(identity.event_id)),
     );
-    if (event && packet && sealed) {
+    if (
+      event &&
+      packet &&
+      sealed &&
+      decisions.some((d) => d.value.verdict === "OBSERVATION_ESTABLISHED")
+    ) {
       const problems = verifyEpistemicIntegrity(c.store);
       return problems.length === 0
         ? { kind: "COMPLETE" }
@@ -259,7 +294,7 @@ export async function observationEvidence(
           };
     }
     // the detail is deliberately neutral: it reaches the assistant, and what a half-formed observation holds is sealed referee material
-    if (event || packet)
+    if (event || packet || sealed)
       return { kind: "PARTIAL", detail: "the observation's owner records are incomplete" };
     if (decisions.some((d) => d.value.verdict === "OBSERVATION_ESTABLISHED"))
       return { kind: "PARTIAL", detail: "the observation's owner records are incomplete" };
@@ -270,4 +305,50 @@ export async function observationEvidence(
   } finally {
     await c.close().catch(() => undefined);
   }
+}
+
+/** Complete only the original retained affirmative decision through the existing owner's idempotent formation path. No CLI
+ * re-selection of the current basis, confirmation, exchange publication or referee invocation occurs here. */
+export async function completeObservation(
+  config: PhoneConfig,
+  identity: ObservationIdentity,
+): Promise<ObservationEvidence> {
+  const opened = await CanonicalCampaign.open(config.campaignDir, { buildId: BUILD });
+  if (!opened.ok)
+    return { kind: "UNAVAILABLE", detail: "the original observation cannot be opened" };
+  try {
+    const c = opened.value;
+    if (c.store.head().campaign_id !== config.campaignId)
+      return { kind: "UNAVAILABLE", detail: "the campaign identity does not match" };
+    const adapter = new RefereeAdjudicationAdapter(c.store);
+    const state = TemporalStateSchema.safeParse(c.store.getFact(TEMPORAL_STATE_KEY)?.value);
+    if (
+      c.binding()?.value.active_pc.entity_id !== identity.pc_id ||
+      !state.success ||
+      !canonicalEqual(state.data.canonical_time, identity.basis)
+    )
+      return { kind: "UNAVAILABLE", detail: "the original character or canonical basis changed" };
+    const decisions = identity.task_ids.flatMap((id) => {
+      const d = adapter.decision(id);
+      return d &&
+        d.value.operation === REFEREE_OP_OBSERVATION &&
+        d.value.campaign_id === config.campaignId &&
+        d.value.subject.pc_id === identity.pc_id &&
+        canonicalEqual(d.value.input.observed_at, identity.basis) &&
+        d.value.verdict === "OBSERVATION_ESTABLISHED"
+        ? [d]
+        : [];
+    });
+    if (decisions.length !== 1)
+      return {
+        kind: "UNAVAILABLE",
+        detail: "the original retained decision cannot be identified uniquely",
+      };
+    await formObservedPacket(c.store, decisions[0]!.fact.key);
+  } catch {
+    return { kind: "UNAVAILABLE", detail: "the original observation's owner completion failed" };
+  } finally {
+    await opened.value.close();
+  }
+  return observationEvidence(config, identity);
 }
