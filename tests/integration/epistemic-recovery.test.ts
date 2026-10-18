@@ -59,7 +59,7 @@ import {
   type EpistemicSeeded,
 } from "../support/epistemic.ts";
 import { must } from "../support/temporal.ts";
-import { tempDir } from "../support/tmp.ts";
+import { copyDir, tempDir } from "../support/tmp.ts";
 
 const A = ACTOR_SMITH;
 const C = CAP_METALWORKING;
@@ -492,8 +492,12 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 13, 
       "provenance capability dropped": [provKey, (f) => (f.value.capability_close = null)],
       "provenance payload added": [provKey, (f) => (f.value.payload = { content: "x" })],
     };
+    // Build and verify one durable control; isolate every edit in its own copied package.
+    // Rebuilding the identical multi-commit fixture for all 16 edits exhausts the test budget.
+    const control = await saved();
+    expect(await openOutcome(control)).toBe("OK");
     for (const [name, [key, edit]] of Object.entries(edits)) {
-      const dir = await saved();
+      const dir = copyDir(control);
       const p = join(dir, stateFile(dir));
       const j = JSON.parse(readFileSync(p, "utf8"));
       edit(j.facts.find((f: any) => f.key === key));
