@@ -5,6 +5,7 @@
 // original identities. No remote authentication, interpreter, game rule, narration or owner is added here.
 // OUT-OF-CHARACTER development/scenario instrumentation: the delivery boundary is an operator-declared scenario premise, not a
 // travel-time choice (see ooc.ts).
+export * from "./additional-source.ts";
 export * from "./cli.ts";
 export * from "./commands.ts";
 export * from "./confirmation.ts";
