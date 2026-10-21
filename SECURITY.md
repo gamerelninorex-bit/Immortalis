@@ -19,4 +19,4 @@ Production runtime must not contain design/governance material, developer ration
 
 ## Reporting a vulnerability
 
-This is a private repository under the Sovereign's account. Report vulnerabilities privately to the repository owner (via GitHub private security advisory on this repository, or directly to the owner). Do not open a public issue. Include affected commit SHA and a minimal reproduction, without embedding real credentials.
+Report vulnerabilities privately to the repository owner using GitHub's private vulnerability reporting or security-advisory workflow where available, or another private channel agreed with the owner. Do not disclose an unpatched vulnerability or credentials in a public issue or pull request. Include the affected commit SHA and a minimal reproduction without real credentials.
