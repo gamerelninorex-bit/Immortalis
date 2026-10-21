@@ -251,16 +251,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   // -- login ---------------------------------------------------------------------------------------------------------------
   /**
    * The one place a lane secret is checked (the page sign-in and the OAuth consent both use it): compared as digests in constant time,
-   * a wrong role and a wrong secret are the same refusal, and repeated failures lock the address and then everyone out for a while.
+   * a wrong role and a wrong secret are the same refusal. Address lockouts still apply; unrelated global failures cannot deny a valid secret.
    */
   function checkLane(who: string, role: unknown, token: unknown): SecretCheck {
     const t = now();
     globalFails = globalFails.filter((x) => t - x < 10 * 60_000);
     const held = fails.get(who);
-    if (globalFails.length >= GLOBAL_FAILS || (held && held.until > t)) return "locked";
+    if (held && held.until > t) return "locked";
     const expected =
       role === "player" ? config.playerToken : role === "referee" ? config.refereeToken : undefined;
     if (typeof token !== "string" || expected === undefined || !same(token, expected)) {
+      if (globalFails.length >= GLOBAL_FAILS) return "locked";
       globalFails.push(t);
       const prior = fails.get(who);
       const count = (prior && prior.until === 0 ? prior.count : 0) + 1;

@@ -248,6 +248,44 @@ const withChat = async (
 };
 
 describe("MECHANISM: OAuth 2.1 authentication and scope separation for the ordinary-chat endpoint", () => {
+  it("unrelated global login failures do not deny valid page or OAuth lane secrets, while bad secrets and locked sources remain refused", async () => {
+    let clock = 1_000_000;
+    // A trusted edge supplies distinct source identities; no production proxy is contacted.
+    const s = await serve({ now: () => clock }, { trustProxy: true });
+    const source = (n: number) => ({ "x-forwarded-for": `192.0.2.${n}` });
+    try {
+      // Twelve sources each exhaust the existing five-failure address limit.
+      for (let n = 1; n <= 12; n++) {
+        const attacker = new Browser(s.base, source(n));
+        for (let i = 0; i < 5; i++)
+          expect((await attacker.login("player", "wrong")).status).toBe(401);
+        expect((await attacker.login("player", PLAYER)).status).toBe(429);
+      }
+      const fresh = new Browser(s.base, source(20));
+      expect((await fresh.login("player", "wrong")).status).toBe(429);
+      expect((await fresh.login("referee", PLAYER)).status).toBe(429);
+      expect((await fresh.login("player", PLAYER)).status).toBe(200);
+      expect((await new Browser(s.base, source(21)).login("referee", REFEREE)).status).toBe(200);
+      const chat = new Chat(s.base);
+      expect((await chat.register()).status).toBe(201);
+      const q = chat.authorizeQuery({ challenge: pkce().challenge, scope: "player referee" });
+      expect((await chat.decision(q, { player: "wrong" }, source(22))).status).toBe(429);
+      const linked = await chat.decision(q, { player: PLAYER, referee: REFEREE }, source(22));
+      expect(linked.status).toBe(200);
+      expect(new URL(linked.json.redirect).searchParams.get("code")).toBeTruthy();
+      // Correct logins did not reset the global bad-attempt budget.
+      expect((await new Browser(s.base, source(23)).login("player", "wrong")).status).toBe(429);
+      clock += 11 * 60_000;
+      expect((await new Browser(s.base, source(23)).login("player", "wrong")).status).toBe(401);
+      // The original source's fifteen-minute lock still has not expired.
+      expect((await new Browser(s.base, source(1)).login("player", PLAYER)).status).toBe(429);
+      clock += 5 * 60_000;
+      expect((await new Browser(s.base, source(1)).login("player", PLAYER)).status).toBe(200);
+    } finally {
+      await s.app.close();
+    }
+  });
+
   it("is off without a configured public origin; with one, an unauthenticated call is a 401 that points to the protected-resource metadata", async () => {
     const off = await serve({}, { publicUrl: null });
     try {
