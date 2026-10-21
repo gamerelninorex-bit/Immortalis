@@ -39,3 +39,7 @@ pnpm run check:spec
 pnpm test            # or test:unit | test:contract | test:conformance | test:security | test:integration
 pnpm run ci          # all of the above
 ```
+
+## License
+
+Original IMMORTALIS / Resurreccion Engine material for which the copyright holder has licensing rights is made available under the [GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`), except where otherwise noted. Copyright (C) 2026 Juan Anton Gabriel Resurreccion. See [COPYRIGHT.md](COPYRIGHT.md) for scope and third-party rights.
