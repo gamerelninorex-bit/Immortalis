@@ -13,6 +13,8 @@ import { join } from "node:path";
 import {
   EstablishSourceConditionInputSchema,
   PLAYER_CHARACTER_BINDING_KEY,
+  WorldLocusSchema,
+  WorldProfileSchema,
   WorldSourceConditionSchema,
   canonicalJson,
   fail,
@@ -29,7 +31,6 @@ import {
 import { CanonicalCampaign, canonicalEqual, type FsOps } from "@immortalis/engine";
 import { OPERATOR_PUBLICATION_BASIS, OPERATOR_PUBLICATION_SECRECY } from "./commands.ts";
 import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
-import { establishedLocality } from "./locality.ts";
 import { OOC_BANNER } from "./ooc.ts";
 import { LocalOperatorSession } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
@@ -600,4 +601,79 @@ function ready(
       ? ["the world, the locus, the first source and every other earlier fact are unchanged"]
       : []),
   ]);
+}
+
+/** The group identity `establish-locality` publishes each stage of a confirmed setup under (see locality.ts; read here, never written). */
+const LOCALITY_GROUP = /^operator-locality:([0-9a-f]{32}):(world|locus|source)$/;
+
+type EstablishedLocality =
+  | {
+      readonly kind: "ESTABLISHED";
+      readonly setup_id: string;
+      readonly world_id: string;
+      readonly locus_id: string;
+      readonly source_key: string;
+      /** the three facts exactly as the confirmed setup committed them (all still at version 1) */
+      readonly world: OwnerFact;
+      readonly locus: OwnerFact;
+      readonly source: OwnerFact;
+    }
+  | { readonly kind: "ABSENT"; readonly reason: string }
+  | { readonly kind: "MODIFIED"; readonly reason: string };
+
+/**
+ * Reads, from canon alone, the ONE operator-confirmed ORIGINAL locality of an open campaign: the world, the locus and the first source
+ * committed under one setup identity by `establish-locality`. ABSENT when no such complete locality is held; MODIFIED when it is held
+ * but one of its facts is no longer the version-1 fact the confirmed setup committed (a later owner write advanced it). Read-only.
+ */
+function establishedLocality(campaign: CanonicalCampaign): EstablishedLocality {
+  const store = campaign.store;
+  const world = store
+    .listFacts()
+    .find(
+      (f) =>
+        f.owner === "world_state" &&
+        f.facet === "world_profile" &&
+        LOCALITY_GROUP.test(f.provenance.group_id),
+    );
+  const match = world ? LOCALITY_GROUP.exec(world.provenance.group_id) : null;
+  if (!world || !match)
+    return { kind: "ABSENT", reason: "no operator-confirmed original locality is committed" };
+  const id = match[1]!;
+  const committed = (name: "locus" | "source"): OwnerFact | undefined => {
+    const group = store.committedGroup(`operator-locality-intent:${id}:${name}`);
+    if (group === null || group.group_id !== `operator-locality:${id}:${name}`) return undefined;
+    const key = group.writes[0]?.key;
+    return key === undefined ? undefined : store.getFact(key);
+  };
+  const locus = committed("locus");
+  const source = committed("source");
+  if (!locus || !source)
+    return { kind: "ABSENT", reason: "the confirmed original locality is not fully committed" };
+  const parsedWorld = WorldProfileSchema.safeParse(world.value);
+  const parsedLocus = WorldLocusSchema.safeParse(locus.value);
+  if (!parsedWorld.success || !parsedLocus.success)
+    return { kind: "ABSENT", reason: "the committed locality facts are not valid" };
+  if (parsedWorld.data.reference_causal_basis.mode !== "ORIGINAL")
+    return { kind: "ABSENT", reason: "the committed world is not an ORIGINAL world" };
+  for (const [name, f] of [
+    ["world", world],
+    ["locus", locus],
+    ["source", source],
+  ] as const)
+    if (f.version !== 1 || f.provenance.group_id !== `operator-locality:${id}:${name}`)
+      return {
+        kind: "MODIFIED",
+        reason: `the established ${name} has been changed since it was committed`,
+      };
+  return {
+    kind: "ESTABLISHED",
+    setup_id: id,
+    world_id: parsedWorld.data.world_id,
+    locus_id: parsedLocus.data.locus_id,
+    source_key: String((source.value as { source_key?: unknown }).source_key),
+    world,
+    locus,
+    source,
+  };
 }

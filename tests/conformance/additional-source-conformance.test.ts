@@ -36,6 +36,8 @@ const UNCHANGED: Record<string, string> = {
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/engine/src/world/canonical-campaign.ts":
     "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+  "packages/operator/src/locality.ts":
+    "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/commands.ts":
     "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
 };

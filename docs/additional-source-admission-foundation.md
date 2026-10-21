@@ -53,6 +53,10 @@ The full source (quantity, material class, key, access facts and statement) is s
 
 Nothing here makes a host discover sources or permits collection. The existing `observe-surroundings --source <key>` can independently name the new fact, using only its `source.access.N` premises, at an unoccupied canonical observation instant for an original co-located active PC; one event exists per character per instant, so **two sources cannot be observed at one instant**. Any downstream observation with a scripted host is level-1 mechanism evidence, not genuine AI-host semantics or normal-client gameplay. No test in this slice asserts a perception, availability, extraction or collection verdict.
 
+## Mechanical conformance-pin adjustments
+
+Seven predecessor conformance tests pin the bytes of the operator files this command must touch to exist at all (`cli.ts`: the new command; `confirmation.ts`: its own confirmation verb, so its confirmation cannot be presented as the locality's; `index.ts`: three named exports) and the operator package's module inventory. Their hashes and inventories were adjusted openly, as the previous slice did, and nothing else in those tests changed. `locality.ts`, the confirmation semantics, `commands.ts`, the contracts, the engine owner API, the spec lock, gates and register remain byte-identical to `main` (pinned in `tests/conformance/additional-source-conformance.test.ts`).
+
 ## Not claimed
 
 - A general or autonomous source generator, random source estimation, source enumeration, or any delegation.
