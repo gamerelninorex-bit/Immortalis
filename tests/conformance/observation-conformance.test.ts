@@ -31,7 +31,7 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "17278e17bbfe01ede76e41b334cf5cfeed1ad091b5cdea37268e9a5f06803d45",
+    "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
@@ -47,11 +47,11 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/owners/registry.ts":
     "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
   "packages/engine/src/referee/adapter.ts":
-    "bbe9e5136b8241c1cf9c59b4e7dfb36f3621adc74121dc25383cb5676989dc13",
+    "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
   "packages/engine/src/referee/admission.ts":
     "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   "packages/engine/src/referee/derive.ts":
-    "3197f50fba0dabd5150b1995d2cf6879060f6f40b5d5dccc8b905bc8a7fbf9e1",
+    "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
@@ -59,7 +59,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
+    "338ee04c15b5ff4df27a113f85069e2c97e9f509751591b5714a115ef1003729",
   "packages/operator/src/confirmation.ts":
     "3d88a1e8c0fcea7bd8b9a374dcaa5d8dae2b1f5f05d3660e180fc2895030db5e",
   "packages/operator/src/index.ts":
@@ -67,11 +67,11 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/referee-exchange.ts":
-    "9c9a628c2417a1d5277afc934a1989fd7a44bfae4a40d195f091f7c13e68d6a7",
+    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
   "packages/operator/src/referee-mcp.ts":
     "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   "packages/operator/src/referee-session.ts":
-    "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
+    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
 };
 const SPEC: Record<string, string> = {
   "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",

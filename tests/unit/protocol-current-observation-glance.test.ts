@@ -62,8 +62,9 @@ describe("the trusted handle is opaque and the read is identity-only", () => {
     expect(JSON.stringify(readCurrentObservationGlance(ctx, GLANCE_REQUEST()))).toBe(
       PROTOCOL_REFUSAL,
     );
-    // the gateway's own eight identity reads and one group read, then IM-13's fixed seven and one
-    expect(keys).toHaveLength(8 + 7);
+    // the gateway's own nine identity reads (the sixth premise slot included: a sentinel for an observation that cites no source) and one
+    // group read, then IM-13's fixed seven and one
+    expect(keys).toHaveLength(9 + 7);
     expect(groups).toHaveLength(1 + 1);
     expect(keys[0]).toBe(TEMPORAL_STATE_KEY);
   });
@@ -99,7 +100,7 @@ describe("the trusted handle is opaque and the read is identity-only", () => {
     expect(JSON.stringify(readCurrentObservationGlance(ctx, GLANCE_REQUEST()))).toBe(
       PROTOCOL_REFUSAL,
     );
-    expect(attempts).toHaveLength(8 + 1 + 7 + 1);
+    expect(attempts).toHaveLength(9 + 1 + 7 + 1);
   });
 
   it("a forged context has no view: nothing is read and it is refused", () => {

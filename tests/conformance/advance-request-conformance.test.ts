@@ -48,7 +48,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/confirmation.ts":
     "3d88a1e8c0fcea7bd8b9a374dcaa5d8dae2b1f5f05d3660e180fc2895030db5e",
   "packages/operator/src/cli.ts":
-    "5e04149c346496a178d6f3e2e0fc6570a11a881fea5579236150cefaec5df4e4",
+    "338ee04c15b5ff4df27a113f85069e2c97e9f509751591b5714a115ef1003729",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
@@ -62,7 +62,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
-    "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
+    "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/original-pc-keep.ts":
@@ -98,9 +98,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   "packages/operator/src/referee-exchange.ts":
-    "9c9a628c2417a1d5277afc934a1989fd7a44bfae4a40d195f091f7c13e68d6a7",
+    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
   "packages/operator/src/referee-session.ts":
-    "d6e1b40103abe3aaa8e894bed3d06bbc5d0fc912dd06129a53d8c4ae69ea1b9a",
+    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
 };
 
 const NEW_MODULES = [

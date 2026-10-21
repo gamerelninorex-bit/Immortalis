@@ -49,10 +49,12 @@ import {
  * a plain function over values; no model, provider, network or credential.
  *
  * RC-14 / IM-13 control-flow non-disclosure holds for the WHOLE gateway, not only inside the projection. The read has ONE fixed shape,
- * the same discipline as `deriveEventSignalProjection`: exactly nine identity reads of its own (eight `getFact`, one `committedGroup`)
- * in one fixed order — the Temporal state, the derived event, the group that committed it, the retained decision, and the five premises
- * that decision cites (always exactly the released character, binding, custody, world and locus) — then the unchanged projection's own
- * fixed eight, and every named step runs, in one fixed order, whatever any earlier step found. There is no early return and no
+ * the same discipline as `deriveEventSignalProjection`: exactly ten identity reads of its own (nine `getFact`, one `committedGroup`)
+ * in one fixed order — the Temporal state, the derived event, the group that committed it, the retained decision, and the six premises
+ * slots that decision cites (always the released character, binding, custody, world and locus, and, for a source-scoped observation, the
+ * ONE Source Condition it is about; the sixth slot of any other observation reads a sentinel, so a source-scoped and an ordinary
+ * observation take the identical read shape) — then the unchanged projection's own fixed eight, and every named step runs, in one fixed
+ * order, whatever any earlier step found. There is no early return and no
  * short-circuit between steps, and no read whose existence depends on an earlier result: where a read's identity would depend on a
  * value that is absent or invalid, a fixed sentinel identity that can name no committed fact is read instead, so the read still
  * happens. The Epistemic owner's qualification (`observationEventViolation`) always runs, over a fixed stand-in when there is no
@@ -162,7 +164,7 @@ export function readCurrentObservationGlance(
     () => ReadCurrentObservationGlanceRequestSchema.safeParse(request).success,
   );
 
-  // -- the nine identity reads: always these, always in this order --------------------------------------------------------
+  // -- the ten identity reads: always these, always in this order ---------------------------------------------------------
   const stateFact = step(undefined, () => view.getFact(TEMPORAL_STATE_KEY));
   const eventId = step(ABSENT_ID, () => currentObservationEventId(stateFact, recipient_id));
   const eventFact = step(undefined, () => view.getFact(accessEventKey(eventId)));
@@ -179,6 +181,8 @@ export function readCurrentObservationGlance(
   const premise2 = step(undefined, () => view.getFact(premiseKey(2)));
   const premise3 = step(undefined, () => view.getFact(premiseKey(3)));
   const premise4 = step(undefined, () => view.getFact(premiseKey(4)));
+  // the sixth slot: the one Source Condition of a source-scoped observation, or the sentinel (an ordinary observation cites five)
+  const premise5 = step(undefined, () => view.getFact(premiseKey(5)));
 
   // -- the owner's source qualification, over exactly those facts; it makes no read of its own ----------------------------
   const prefetched = new Map<string, OwnerFact | undefined>([
@@ -189,6 +193,7 @@ export function readCurrentObservationGlance(
     [premiseKey(2), premise2],
     [premiseKey(3), premise3],
     [premiseKey(4), premise4],
+    [premiseKey(5), premise5],
   ]);
   const violation = step<string | null>("the qualification did not complete", () =>
     observationEventViolation(

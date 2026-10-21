@@ -48,6 +48,7 @@ import {
   i002Context,
   irContext,
   observationContext,
+  observationWithheld,
   physicalContext,
   recordContextViolation,
   refereeTaskId,
@@ -309,11 +310,13 @@ export class RefereeAdjudicationAdapter {
 
   /**
    * The context of a direct-perception task (BLUE v5.2), built ONLY from committed facts at the CURRENT canonical basis: the caller names
-   * the character and the attempt, nothing else. Refused when no canonical basis is established.
+   * the character and the attempt, and — only when the TRUSTED side has chosen one existing candidate source to investigate — that one
+   * source's key. It names no scene, target, fact or expected result. Refused when no canonical basis is established.
    */
   observationTask(input: {
     pc_id: string;
     attempt: number;
+    source_key?: string;
   }): Result<{ context: ObservationContext; task_id: string }, RefereeErrorCode> {
     const facts = (k: string) => this.#store.getFact(k);
     const at = committedCanonicalTime(facts);
@@ -335,7 +338,10 @@ export class RefereeAdjudicationAdapter {
   ): Result<{ verdict: RefereeVerdict; decision: ObservationHostDecision }, RefereeErrorCode> {
     const parsed = parseAnswer(ObservationHostDecisionSchema, answer);
     if (!parsed.ok) return parsed;
-    const derived = deriveObservation(context, parsed.value);
+    // the values a source-scoped appearance may never carry are re-read from the committed Source Condition the question pins
+    const withheld = observationWithheld((k) => this.#store.getFact(k), context);
+    if (!withheld) return fail("CONTEXT_UNAVAILABLE", "no source is available to this observation");
+    const derived = deriveObservation(context, parsed.value, withheld);
     return derived.ok
       ? ok({ verdict: derived.verdict, decision: parsed.value })
       : fail(derived.refusal.code, derived.refusal.message);
@@ -351,6 +357,7 @@ export class RefereeAdjudicationAdapter {
     host: RefereeHost;
     pc_id: string;
     attempt: number;
+    source_key?: string;
     answer: unknown;
   }): Promise<Result<RefereeOutcome, RefereeErrorCode>> {
     const denied = this.#authority(input.operation);
