@@ -44,7 +44,7 @@ usage:
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
-  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
+  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
@@ -107,6 +107,11 @@ observe-surroundings: for a character that author-character released and bound A
   was received: every non-receipt is the same message. It advances no time (canonical time stays exactly where it was) and gives the
   character no recognition, comprehension, belief, memory or action. One observation per character per canonical instant; running it
   again at the same basis reaches the same records. A new observation is a new basis and a new choice.
+  --source names ONE already committed World-State Source Condition at the character's own locus as the candidate to look at: it is your
+  choice of what to investigate, never what the character sees. The host is given only that source's owner-authored access facts (no
+  quantity, material, key or establishment statement), and the character can receive only a raw appearance of it. A source that is
+  absent, elsewhere, exhausted or undescribed is refused with nothing written. An observation of another scope at the same basis is
+  never replaced: a different look needs a new basis.
 referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's four referee operations (I-002
   character classification; native/compatibility; physical placement; direct perception) and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
@@ -186,6 +191,7 @@ const OPTIONS = {
   "player-character": { type: "string" },
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
+  source: { type: "string" },
 } as const;
 
 const COMMAND_OPTIONS: Record<string, readonly string[]> = {
@@ -210,7 +216,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
 const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
-  "observe-surroundings": ["referee-wait"],
+  "observe-surroundings": ["referee-wait", "source"],
 };
 
 type Parsed =
@@ -355,6 +361,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
+        ...(str("source") !== undefined ? { sourceKey: str("source")! } : {}),
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),

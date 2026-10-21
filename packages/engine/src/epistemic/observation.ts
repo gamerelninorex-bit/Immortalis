@@ -1,5 +1,6 @@
 import {
   AccessEventSchema,
+  OBSERVATION_BASE_REFS as OBSERVATION_SOURCE_INDEX,
   OBSERVATION_EVENT_BASIS,
   OWNER_REFEREE_KERNEL,
   OWNER_WORLD_STATE,
@@ -11,6 +12,7 @@ import {
   observationEventGroupId,
   observationEventIntentId,
   ok,
+  parseWorldSourceConditionKey,
   refereeDecisionKey,
   timeEquals,
   worldLocusKey,
@@ -80,11 +82,28 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   const locusMatch = locusRef ? /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locusRef.fact_key) : null;
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
+  // the appearance is OF a world or locus fact (five cited premises) or, in a source-scoped question, of the ONE Source Condition the
+  // record cites as its sixth: a record never mixes the two, so a source-scoped reading cannot earn a receipt about a neighbouring fact
+  const scoped = record.input.refs[OBSERVATION_SOURCE_INDEX];
+  const scopedKey =
+    record.input.refs.length === OBSERVATION_SOURCE_INDEX + 1 &&
+    scoped &&
+    parseWorldSourceConditionKey(scoped.fact_key)?.world_id === worldId
+      ? scoped.fact_key
+      : null;
+  if (
+    (record.input.refs.length !== OBSERVATION_SOURCE_INDEX && scopedKey === null) ||
+    d.payload.source_fact_id.startsWith("source.") !== (scopedKey !== null)
+  )
+    return fail(
+      "OBSERVATION_RECORD_INVALID",
+      "the appearance is of the one source the record is scoped to, and only of it",
+    );
   const sourceKey = d.payload.source_fact_id.startsWith("world.")
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : null;
+      : scopedKey;
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(

@@ -3,6 +3,7 @@ import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  OBSERVATION_BASE_REFS,
   OBSERVATION_FACULTY_STATES,
   OBSERVATION_PATH_STATES,
   OBSERVATION_PLACEMENT_REF,
@@ -415,11 +416,17 @@ export function taskDocument(
     };
   }
   if (context.operation === REFEREE_OP_OBSERVATION) {
+    // a question scoped to ONE Source Condition (the trusted operator's candidate) says so; every other question's document is unchanged
+    const scoped = context.facts.some((f) => f.from === "source");
+    const sourceScopeNote = scoped
+      ? " This question is scoped to ONE physical feature at the locus: the facts of `context.facts` whose `fact_id` begins with `source.` are the access and appearance circumstances its owner committed for that feature, and they are premises like any other fact: assess each, and quote them. The raw appearance, if all three states are established, MUST be an appearance OF that feature: `payload.source_fact_id` must be one of those `source.` facts, and the appearance is anchored to a quotation of it; an appearance of any other fact is refused. A circumstance that hides, buries, covers or otherwise denies sight of the feature is a quoted blocking fact (BLOCKED), and one that merely does not say it can be seen leaves the path NOT_ESTABLISHED. The appearance is only what the eye receives: it carries no identifier of the feature, no material class and no exact quantity or count, none of which is delivered to you or may be inferred into it."
+      : "";
     return {
       ...common,
       operation: REFEREE_OP_OBSERVATION,
       purpose:
-        "Direct perception at ONE canonical basis (F-014D §6). `context.subject` is a character who is a stationary physical body at the locus described in `context.facts`; `context.statement` is the player's confirmed statement of where the character is, and `context.pc` is the character's own accepted statements. Decide, ONLY from this delivered text and by quoting it: (1) `faculty` — is the character's SIGHT established by the character's OWN statements? (the faculty is established only by `context.pc`; nothing in the world or the placement can give a character a sense, and a missing statement is NOT_ESTABLISHED, never assumed). (2) `position` — are the character's OWN exact viewing circumstances established by the confirmed placement statement read with the world facts: where it is, which way it faces, whether its eyes are open or its visual surfaces exposed? A shared locus does not establish them, the faculty alone does not, and you must not assume a posture, direction or open eyes that is not stated: NOT_ESTABLISHED if it is not. (3) `path` — is the path from the physical feature to the character, under the world's own laws as committed (light, air, distance, any obstruction), OPEN, BLOCKED (a quoted world fact that blocks it from the viewing position), or NOT_ESTABLISHED? (4) `payload` — ONLY if all three are affirmatively established, the minimal raw appearance that follows: what the eye directly receives - colour, shape, size, position, illumination - in plain descriptive words, anchored to quotations of the world facts it comes from. It does not say what anything is made of, what it is called, what it is for, what caused it or what it means (a seen surface is described by how it looks, not by its material or its maker's intent), and it names no place and carries no fact_id or key. Otherwise `payload` is null. A missing faculty, a missing circumstance or an unsettled fact is NOT_ESTABLISHED / UNCLEAR and is NEVER reported as an obstruction: BLOCKED needs an established blocking fact. Apply this world's laws as committed, not outside defaults. Invent no world fact, light, posture, threshold or chance. Perception grants no recognition, comprehension, belief, memory, action or time.",
+        "Direct perception at ONE canonical basis (F-014D §6). `context.subject` is a character who is a stationary physical body at the locus described in `context.facts`; `context.statement` is the player's confirmed statement of where the character is, and `context.pc` is the character's own accepted statements. Decide, ONLY from this delivered text and by quoting it: (1) `faculty` — is the character's SIGHT established by the character's OWN statements? (the faculty is established only by `context.pc`; nothing in the world or the placement can give a character a sense, and a missing statement is NOT_ESTABLISHED, never assumed). (2) `position` — are the character's OWN exact viewing circumstances established by the confirmed placement statement read with the world facts: where it is, which way it faces, whether its eyes are open or its visual surfaces exposed? A shared locus does not establish them, the faculty alone does not, and you must not assume a posture, direction or open eyes that is not stated: NOT_ESTABLISHED if it is not. (3) `path` — is the path from the physical feature to the character, under the world's own laws as committed (light, air, distance, any obstruction), OPEN, BLOCKED (a quoted world fact that blocks it from the viewing position), or NOT_ESTABLISHED? (4) `payload` — ONLY if all three are affirmatively established, the minimal raw appearance that follows: what the eye directly receives - colour, shape, size, position, illumination - in plain descriptive words, anchored to quotations of the world facts it comes from. It does not say what anything is made of, what it is called, what it is for, what caused it or what it means (a seen surface is described by how it looks, not by its material or its maker's intent), and it names no place and carries no fact_id or key. Otherwise `payload` is null. A missing faculty, a missing circumstance or an unsettled fact is NOT_ESTABLISHED / UNCLEAR and is NEVER reported as an obstruction: BLOCKED needs an established blocking fact. Apply this world's laws as committed, not outside defaults. Invent no world fact, light, posture, threshold or chance. Perception grants no recognition, comprehension, belief, memory, action or time." +
+        sourceScopeNote,
       rules: rules([
         "F014D-2",
         "F014D-5",
@@ -434,8 +441,9 @@ export function taskDocument(
         [OBSERVATION_PREMISE_KINDS[0]]:
           "one of the character's own statements: `ref` = an item_id of context.pc. The ONLY premise kind that may establish `faculty`",
         [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}. The kind that must establish \`position\` (with world facts)`,
-        [OBSERVATION_PREMISE_KINDS[2]]:
-          "a committed world or locus fact: `ref` = a fact_id of context.facts. The only kind that may establish `path` and the appearance",
+        [OBSERVATION_PREMISE_KINDS[2]]: scoped
+          ? "a committed world or locus fact, or a `source.` access fact of the one feature this question is scoped to: `ref` = a fact_id of context.facts. The only kind that may establish `path` and the appearance"
+          : "a committed world or locus fact: `ref` = a fact_id of context.facts. The only kind that may establish `path` and the appearance",
       },
       states: {
         faculty: OBSERVATION_FACULTY_STATES,
@@ -496,7 +504,16 @@ export function taskDocument(
         ],
         unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],
       },
-      context,
+      // the host never receives the identifier of a scoped source: its premises are the `source.` facts above, and the engine, which holds
+      // the real context, validates the answer against it
+      context: scoped
+        ? {
+            ...context,
+            refs: context.refs.map((r, i) =>
+              i === OBSERVATION_BASE_REFS ? { ...r, fact_key: "(the scoped source: withheld)" } : r,
+            ),
+          }
+        : context,
     };
   }
   return {
