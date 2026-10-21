@@ -58,8 +58,15 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // `original-pc.ts` is likewise the one module the original-PC brief authorizes to call `releasePlayerCharacter` and
     // `bindPlayerCharacter`; it is bound by its own, narrower checks (tests/conformance/original-pc-conformance.test.ts and
     // tests/security/original-pc-security.test.ts).
+    // `additional-source.ts` is likewise the one module the additional-source brief authorizes to call the existing
+    // `establishSourceCondition` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards) republishes the
+    // committed world and locus to prove the owner path admits the source. It is bound by its own, narrower checks
+    // (tests/security/additional-source-security.test.ts and tests/conformance/additional-source-conformance.test.ts).
     for (const f of files.filter(
-      (x) => !x.endsWith("/locality.ts") && !x.endsWith("/original-pc.ts"),
+      (x) =>
+        !x.endsWith("/locality.ts") &&
+        !x.endsWith("/original-pc.ts") &&
+        !x.endsWith("/additional-source.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,
