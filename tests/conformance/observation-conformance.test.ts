@@ -59,7 +59,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "9bc43dd47f3875fe825cf5ad3b86b4318eb4dbf0c677a5e2f23ed4309b218fbc",
+    "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
   "packages/operator/src/confirmation.ts":
     "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
   "packages/operator/src/index.ts":

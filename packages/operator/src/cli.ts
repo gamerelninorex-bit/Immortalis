@@ -162,7 +162,8 @@ establish-local-demand: for a campaign whose ORIGINAL locality establish-localit
   earlier demand is never rolled back. NO time is advanced, no Temporal object is registered, no output exists and the demand is NOT satisfied: only a
   separately authorized canonical advance to the declared boundary, through the existing owner stages, can consume the Reserve and record realized
   access. It is a stipulated opening premise only: no need formation, valuation, exchange, actor, decision, labour, rate or yield. This command never
-  creates or alters a campaign package.
+  creates, adopts, repairs or clears a campaign package; it does commit the two separately confirmed owner acts (the demand with its request,
+  then the Production operation with its claim and the Reserve's open claim) as canonical facts into the existing fresh pre-play package.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers

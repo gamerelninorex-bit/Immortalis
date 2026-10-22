@@ -255,6 +255,29 @@ describe("the command reuses the two existing owner operations in dependency ord
     expect(operator.USAGE).toContain("the demand is NOT satisfied");
     expect(operator.USAGE).toContain("before any character is bound");
   });
+
+  it("the new command's own help says it commits canonical facts and never claims it leaves the package unaltered", () => {
+    const from = operator.USAGE.indexOf("establish-local-demand: for a campaign");
+    const to = operator.USAGE.indexOf("locality-status:", from);
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    const help = operator.USAGE.slice(from, to).replace(/\s+/g, " ");
+    expect(help).toContain("never creates, adopts, repairs or clears a campaign package");
+    expect(help).toContain(
+      "does commit the two separately confirmed owner acts (the demand with its request, then the Production operation with its claim and the Reserve's open claim) as canonical facts into the existing fresh pre-play package",
+    );
+    expect(help).not.toMatch(/never creates or alters a campaign package|never alters/);
+    // the independent acts, the confirmation, the sequencing and the exclusions are intact
+    for (const kept of [
+      "SEPARATE act",
+      "ONE explicit typed confirmation",
+      "committed first and the Production start only after them",
+      "an earlier demand is never rolled back",
+      "NO time is advanced",
+      "the demand is NOT satisfied",
+    ])
+      expect(help, kept).toContain(kept);
+  });
 });
 
 describe("the document states what the slice is and is not", () => {
