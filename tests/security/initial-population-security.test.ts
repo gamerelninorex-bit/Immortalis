@@ -5,10 +5,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "@immortalis/operator";
+import {
+  EXIT,
+  consumeConfirmation,
+  requestOperatorConfirmation,
+  runCli,
+  subjectOf,
+} from "@immortalis/operator";
 import { code } from "../support/f027.ts";
 import { scriptedTerminal } from "../support/operator.ts";
-import { runShipped } from "../support/locality.ts";
 import {
   COHORT_ID,
   LEDGER_ID,
@@ -137,6 +142,7 @@ describe("the confirmation is a one-time token for exactly what was shown", () =
   });
 
   it("no command-line flag can attest the confirmation, a role, an owner, a status or a result", async () => {
+    // in-process: the argument parser refuses an unknown option before any package, file or console is touched
     const dirs = await timedCampaign();
     for (const flag of [
       "--confirm",
@@ -148,14 +154,15 @@ describe("the confirmation is a one-time token for exactly what was shown", () =
       "--count",
       "--members",
     ]) {
-      const run = await runShipped([
-        ...populationArgs(dirs, writePopulation(populationDoc())),
-        flag,
-        "x",
-      ]);
-      expect(run.code, flag).toBe(64);
+      const out: string[] = [];
+      const code = await runCli(
+        [...populationArgs(dirs, writePopulation(populationDoc())), flag, "x"],
+        { out: (line) => out.push(line) },
+      );
+      expect(code, flag).toBe(EXIT.USAGE);
+      expect(out.join("\n"), flag).not.toContain("POPULATION_READY");
     }
-  }, 60_000);
+  });
 });
 
 describe("the authored population reaches the operator's console and the package only", () => {
