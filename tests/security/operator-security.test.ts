@@ -71,6 +71,13 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // throwaway package, removed afterwards) republishes the committed world and locus to prove the owner path admits the population. It
     // is bound by its own, narrower checks (tests/security/initial-population-security.test.ts and
     // tests/conformance/initial-population-conformance.test.ts), which also forbid it any clock, close or reconciliation.
+    // `initial-timed-governance.ts` is likewise the one module the initial-timed-governance brief authorizes to call the existing
+    // `GipAdapter.establishInstitution`, `establishOffice`, `establishScopeBinding` and `establishSunsetInstrument` on the operator's
+    // campaign (the last of which has the Temporal owner register the earned sunset boundary); its scratch dry run (a throwaway package,
+    // removed afterwards) receives the campaign's canonical time through the Temporal owner's own ordinary route to prove the owner path
+    // admits and registers the opening. It is bound by its own, narrower checks (tests/security/initial-timed-governance-security.test.ts
+    // and tests/conformance/initial-timed-governance-conformance.test.ts), which also forbid it any live clock, advance, expiry or
+    // lifecycle write.
     // `production-reserve.ts` is likewise the one module the initial-Production-Reserve brief authorizes to call the existing
     // `ProductionAdapter.establishReserve` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
     // republishes the committed world and locus to prove the owner path admits the Reserve. It is bound by its own, narrower checks
@@ -82,7 +89,8 @@ describe("the mechanism cannot reach authority it was not given", () => {
         !x.endsWith("/additional-source.ts") &&
         !x.endsWith("/additional-locality.ts") &&
         !x.endsWith("/production-reserve.ts") &&
-        !x.endsWith("/initial-population.ts"),
+        !x.endsWith("/initial-population.ts") &&
+        !x.endsWith("/initial-timed-governance.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,

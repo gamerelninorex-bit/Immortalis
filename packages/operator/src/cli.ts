@@ -22,6 +22,10 @@ import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
 import { establishProductionReserve, type ProductionReserveStatus } from "./production-reserve.ts";
 import { establishInitialPopulation, type InitialPopulationStatus } from "./initial-population.ts";
+import {
+  establishInitialTimedGovernance,
+  type InitialTimedGovernanceStatus,
+} from "./initial-timed-governance.ts";
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
@@ -53,6 +57,7 @@ usage:
   immortalis-operator establish-additional-locality --campaign <dir> --campaign-id <id> --locality-file <file>
   immortalis-operator establish-reserve --campaign <dir> --campaign-id <id> --reserve-file <file>
   immortalis-operator establish-population --campaign <dir> --campaign-id <id> --population-file <file>
+  immortalis-operator establish-timed-governance --campaign <dir> --campaign-id <id> --governance-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
@@ -126,6 +131,18 @@ establish-population: for a campaign whose ORIGINAL locality establish-locality 
   lock was left behind); anything else under the same keys, or while another ledger is held, is refused. The Cohort holds no result: its
   members and count come only from Population's own later ordinary close. It is an opening setting only: no actor, mind, social truth,
   labour, perception, collection, movement or time. This command never creates or alters a campaign package.
+establish-timed-governance: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed and which already holds a
+  canonical time, before any character is bound: establishes ONE continuing Institution Identity, its ONE Office / Authority Locus, that
+  office's ONE Scope Binding and ONE initially active Governance Instrument with ONE exact future sunset_condition, from a local file YOU author
+  (a regular file you own that nobody else can write: the four strict GIP records exactly as the GIP owner defines them, the explicit publication
+  basis and secrecy, and the canonical time, which must be the campaign's canonical time; see docs/initial-timed-governance-admission-foundation.md).
+  The whole proposal is shown back for ONE explicit typed confirmation before anything is written; the records are committed in dependency order
+  through the existing GIP owner operations, the last together with GIP's enrollment receipt and the Temporal owner's registration of the earned
+  sunset boundary, every other fact is left exactly as it is, and success is reported only after a fresh owner-verified reopen reads every record
+  and the registration back. Repeating it converges and finishes a partly committed opening (pass --reclaim-stale-lock if the package lock was left
+  behind); anything else under the same keys, or while other governance state is held, is refused. It is a stipulated opening premise only: no
+  finding of legal validity, no actor, consent or deliberation, and NO time is advanced and nothing is expired: only a separately authorized canonical
+  advance can reach the sunset, and then only GIP's own stage changes the lifecycle. This command never creates or alters a campaign package.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers
@@ -195,6 +212,7 @@ const exitOf = (
     | AdditionalLocalityStatus
     | ProductionReserveStatus
     | InitialPopulationStatus
+    | InitialTimedGovernanceStatus
     | CharacterStatus
     | "REFEREE_HOST_BOUND",
 ): number => {
@@ -219,6 +237,10 @@ const exitOf = (
     case "POPULATION_READY":
       return EXIT.OK;
     case "POPULATION_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "GOVERNANCE_READY":
+      return EXIT.OK;
+    case "GOVERNANCE_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "ADDITIONAL_LOCALITY_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -263,6 +285,7 @@ const OPTIONS = {
   "locality-file": { type: "string" },
   "reserve-file": { type: "string" },
   "population-file": { type: "string" },
+  "governance-file": { type: "string" },
   "player-character": { type: "string" },
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
@@ -284,6 +307,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-additional-locality": ["locality-file"],
   "establish-reserve": ["reserve-file"],
   "establish-population": ["population-file"],
+  "establish-timed-governance": ["governance-file"],
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
@@ -471,6 +495,22 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         populationFile: str("population-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-timed-governance") {
+      const r = await establishInitialTimedGovernance({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        governanceFile: str("governance-file") ?? "",
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
