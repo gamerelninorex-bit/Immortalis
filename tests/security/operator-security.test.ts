@@ -78,6 +78,12 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // admits and registers the opening. It is bound by its own, narrower checks (tests/security/initial-timed-governance-security.test.ts
     // and tests/conformance/initial-timed-governance-conformance.test.ts), which also forbid it any live clock, advance, expiry or
     // lifecycle write.
+    // `initial-local-demand.ts` is likewise the one module the initial-local-demand brief authorizes to call the existing
+    // `EconomyAdapter.issueDemand` and then `ProductionAdapter.startOperation` on the operator's campaign; its owner-path check (a copy
+    // of the package's committed files in a private scratch directory, removed afterwards) runs the same two owner operations on the
+    // copy. It is bound by its own, narrower checks (tests/security/initial-local-demand-security.test.ts and
+    // tests/conformance/initial-local-demand-conformance.test.ts), which also forbid it any clock, advance, registration, stage or
+    // realization write.
     // `production-reserve.ts` is likewise the one module the initial-Production-Reserve brief authorizes to call the existing
     // `ProductionAdapter.establishReserve` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
     // republishes the committed world and locus to prove the owner path admits the Reserve. It is bound by its own, narrower checks
@@ -90,7 +96,8 @@ describe("the mechanism cannot reach authority it was not given", () => {
         !x.endsWith("/additional-locality.ts") &&
         !x.endsWith("/production-reserve.ts") &&
         !x.endsWith("/initial-population.ts") &&
-        !x.endsWith("/initial-timed-governance.ts"),
+        !x.endsWith("/initial-timed-governance.ts") &&
+        !x.endsWith("/initial-local-demand.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,

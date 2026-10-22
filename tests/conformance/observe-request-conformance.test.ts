@@ -43,7 +43,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/confirmation.ts":
-    "7497b4b04d8d2898bb0c9e387b78be1d29dbf1f1d1e3801e81ecf2156cbe6f23",
+    "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/original-pc-keep.ts":
@@ -77,9 +77,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-session.ts":
     "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
   "packages/operator/src/cli.ts":
-    "db52db296e30ac1ec4f71e06470c5233a7ecef132ac3cc9d38ac441d0d984017",
+    "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
   "packages/operator/src/index.ts":
-    "1268da84a387543b2e30de5f3b30f7a5f2ccd82d343b0f4b816ba658f2bb76e8",
+    "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
 };
 
 const NEW_MODULES = [
@@ -134,6 +134,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "commands.ts",
         "confirmation.ts",
         "index.ts",
+        "initial-local-demand.ts",
         "initial-population.ts",
         "initial-timed-governance.ts",
         "ledger.ts",

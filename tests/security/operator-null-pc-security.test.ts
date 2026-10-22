@@ -39,7 +39,12 @@ describe("the NULL-PC commands cannot author a world fact, a time, or an authori
     // `initial-timed-governance.ts` is the one module the initial-timed-governance brief authorizes to name the GIP owner operations
     // (and the sunset term they register); it is not a NULL-PC command, and it is bound by its own, narrower checks
     // (tests/security/initial-timed-governance-security.test.ts), which forbid it any live clock, advance, expiry or lifecycle write.
-    for (const f of files.filter((x) => !x.endsWith("/initial-timed-governance.ts")))
+    // `initial-local-demand.ts` is likewise not a NULL-PC command: it writes the RC-06 claim's `lifecycle` literal into the value it derives
+    // independently to verify the Production owner's claim, and is bound by its own checks
+    // (tests/security/initial-local-demand-security.test.ts), which forbid it any clock, advance, registration or stage surface.
+    for (const f of files.filter(
+      (x) => !x.endsWith("/initial-timed-governance.ts") && !x.endsWith("/initial-local-demand.ts"),
+    ))
       expect(identifiers(f), f).not.toMatch(
         /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
       );
