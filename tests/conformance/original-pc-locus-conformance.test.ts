@@ -346,7 +346,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "bb966894f64e71f1ad11689f388ca1c68a458483959554184e8d506287e5cd89",
+    head: "4e3adec4338cf231014a46b86f923c4265ef5b662ced099e27f5b9d344b6bd79",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",

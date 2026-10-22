@@ -112,7 +112,7 @@ establish-reserve: for a campaign whose ORIGINAL locality establish-locality alr
   Production owner operation, every other fact is left exactly as it is, and success is reported only after a fresh owner-verified reopen.
   Repeating it converges (pass --reclaim-stale-lock if the package lock was left behind); a different Reserve under the same identifier is
   refused. It is an initial physical setting only: not a collection, conversion or delivery from any source, and no entitlement, title,
-  access right, character, time or consumption. This command never creates or alters a campaign package.
+  access right, character, time or consumption. This command never creates or replaces a campaign package; it adds exactly one Reserve fact to an existing one.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers

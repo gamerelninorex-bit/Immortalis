@@ -461,6 +461,9 @@ async function run(a: RunArgs): Promise<ProductionReserveResult> {
       return result("PRE_PLAY_CLOSED", [
         "the Reserve has been changed by Production since it was established",
       ]);
+    // a committed Reserve is left as it is, but this pre-play path never advertises readiness once a player character is bound
+    if (store.getFact(PLAYER_CHARACTER_BINDING_KEY))
+      return result("PRE_PLAY_CLOSED", ["a player character is already bound to this campaign"]);
     const verify = factProblems(campaign, fact, publication, reserve);
     if (verify.length > 0) return result("RESERVE_VERIFICATION_FAILED", verify);
     return ready(params.campaignId, id, fact, reserve);

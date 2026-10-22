@@ -23,6 +23,7 @@ import {
   localityCampaign,
   openOrdinary,
   reserveDoc,
+  runReserve,
   writeReserve,
 } from "../support/production-reserve.ts";
 
@@ -313,6 +314,62 @@ describe("the campaign must still be at its pre-play setting", () => {
     expect(terminal.asked()).toBe(0);
     expect(await headOf(dirs.campaignDir)).toEqual(head);
     expect(await noReserve(dirs.campaignDir)).toEqual([]);
+  });
+
+  it("an already confirmed Reserve is not reported READY once a player character is bound: identical replay is PRE_PLAY_CLOSED, with no prompt and no write", async () => {
+    const dirs = await localityCampaign();
+    const file = writeReserve(reserveDoc());
+    expect((await addReserve(dirs, file)).result.status).toBe("RESERVE_READY");
+    await bindPlayer(dirs);
+    const head = await headOf(dirs.campaignDir);
+    const before = await openOrdinary(dirs.campaignDir);
+    const factsBefore = before.store.listFacts();
+    await before.close();
+
+    const again = await addReserve(dirs, file, []);
+    expect(again.result.status).toBe("PRE_PLAY_CLOSED");
+    expect(again.result.details.join(" ")).toContain("player character is already bound");
+    expect(again.terminal.asked()).toBe(0);
+    expect(again.terminal.said.some((l) => l.startsWith("PROGRESS"))).toBe(false);
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+    const after = await openOrdinary(dirs.campaignDir);
+    try {
+      expect(after.store.listFacts()).toEqual(factsBefore);
+      // the committed Reserve itself is left untouched at version 1
+      expect(after.store.getFact(productionReserveKey(RESERVE_ID))!.version).toBe(1);
+    } finally {
+      await after.close();
+    }
+  });
+
+  it("the same replay in the shipped binary exits non-zero with PRE_PLAY_CLOSED", async () => {
+    const dirs = await localityCampaign();
+    const file = writeReserve(reserveDoc());
+    expect((await addReserve(dirs, file)).result.status).toBe("RESERVE_READY");
+    await bindPlayer(dirs);
+    const head = await headOf(dirs.campaignDir);
+    const run = await runReserve(dirs, file);
+    expect(run.code).not.toBe(0);
+    expect(run.stdout).toContain("STATUS PRE_PLAY_CLOSED");
+    expect(run.stdout).not.toContain("To confirm");
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+  });
+
+  it("a distinct Reserve identifier is closed too once a player character is bound", async () => {
+    const dirs = await localityCampaign();
+    expect((await addReserve(dirs, writeReserve(reserveDoc()))).result.status).toBe(
+      "RESERVE_READY",
+    );
+    await bindPlayer(dirs);
+    const head = await headOf(dirs.campaignDir);
+    const { result, terminal } = await addReserve(
+      dirs,
+      writeReserve(reserveDoc({ reserve_id: "reserve-second" })),
+      [],
+    );
+    expect(result.status).toBe("PRE_PLAY_CLOSED");
+    expect(terminal.asked()).toBe(0);
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
   });
 
   it("an established source that World-State has since advanced closes the path: refused with nothing written", async () => {
