@@ -400,7 +400,10 @@ describe("the PC operation is not widened, and the actor's route is not the PC's
 
   it("the actor route writes no actor-side, World-State, PC or Temporal key and never names a role", () => {
     for (const f of NEW_SOURCES.filter((f) => /engine/.test(f))) {
-      const text = read(f);
+      // code only: the module's comments say that the role is omitted
+      const text = read(f)
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
       expect(text, f).not.toMatch(
         /NamedActorAdapter|actorCapabilityBasisKey|worldActorCouplingKey|pcExistenceContractKey|PLAYER_CHARACTER_BINDING_KEY|establishCanonicalTime|OWNER_NAMED_ACTOR|OWNER_POPULATION/,
       );
