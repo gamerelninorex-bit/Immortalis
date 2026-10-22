@@ -27,6 +27,18 @@ export type {
   EstablishAdditionalSourceParams,
   SourceFileErrorCode,
 } from "./additional-source.ts";
+export {
+  establishProductionReserve,
+  expectedReserve,
+  productionReserveId,
+  readProductionReserveFile,
+} from "./production-reserve.ts";
+export type {
+  EstablishProductionReserveParams,
+  ProductionReserveResult,
+  ProductionReserveStatus,
+  ReserveFileErrorCode,
+} from "./production-reserve.ts";
 export * from "./cli.ts";
 export * from "./commands.ts";
 export * from "./confirmation.ts";

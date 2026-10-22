@@ -1,0 +1,71 @@
+# Initial Production Reserve Admission Foundation
+
+> **OOC DEVELOPMENT / SCENARIO INSTRUMENTATION.** This is an out-of-character local console path that lets an operator author, confirm and commit **ONE initially unclaimed Production Reserve** at an already committed World-State world and locus of a fresh, operator-confirmed, **pre-play** scenario, **before any player character is bound**. It is **mechanism only**: one initial physical-state declaration under the Production owner. It is not a Production owner, not a material-flow mechanic, not a collection or extraction action, not a conversion, not a delivery of any source quantity, not a physical title declaration, not an entitlement, access right or permission, not a transfer, labour allocation, movement or perception, and not autonomous NPC behaviour. It creates no world, locus, source, game actor, cohort, relationship or character, and advances no time.
+
+Bounded implementation slice (`@immortalis/operator`: `establish-reserve`), composed from the **already implemented** Production owner operation `ProductionAdapter.establishReserve`. No `packages/contracts`, `packages/engine`, `packages/protocol` or `packages/testkit` module changed; there is no new Production operation, owner, facet, schema, key class, lifecycle, persistent receipt format, status gate or general resource initializer. The shipped binary registers no owner extension.
+
+Authority: the BLUE v5.2-A1 bounded implementation brief "Initial Production Reserve Admission" (native pin `2026-10-22T04:15:36.156Z`) on official `main` `6021693c1cf79e4a9c5d9216b7211fb65726c193` (after merged #75, #76 and #77), under F-027 v1.0 (`spec/f027/spec-lock.json`, blob `43e4325789488e155c60f2deae5028e44286d795`, unchanged) and the frozen WS-003 §§2, 4, 9, 10, 18–19 (Production exclusively owns its physical Reserve identity, quantity, condition, local holding and consumption ledger; it owns neither title or consent, World-State source quantity, Logistics in-transfer locus nor Population labour) and WG (World-State alone writes the world profile and locus facts the Reserve references). **No source pin, Runtime Contract snapshot, open gate, acceptance row or status changed. F-028/OB-030 remains Blocked, PF-6 inactive, IA/V unpromoted.** Local success is not provider or recovery acceptance. PR #72 and PR #73 remain untouched and on hold; this slice is an independent change from `main` and depends on neither, on no Railway service, no API payment and no live client, and writes no existing campaign (`campaign-r5-phone`, `pc-namar-1` and every other save are untouched: every test builds a new, disposable, local pre-play package).
+
+## The command
+
+```
+immortalis-operator establish-reserve --campaign <dir> --campaign-id <id> --reserve-file <file> [--operator-dir <dir>] [--reclaim-stale-lock]
+```
+
+The Reserve file is one strict JSON document, exactly the unchanged `EstablishReserveInput` (`packages/contracts/src/production.ts`) with no wrapper:
+
+```
+{ "reserve_id", "material_class", "quantity": { "amount", "unit" }, "condition", "world_id", "locus_id" }
+```
+
+Every object is strict and every field required: the file can carry no owner, facet, version, holding, established or held quantity, consumption, inflow, claim, title, entitlement, source reference, publication label or "confirmed" claim (each is an unknown field and is refused). `quantity.amount` is a nonnegative safe integer exactly as the schema permits: **zero is admitted as authored** (an empty Reserve is a lawful starting setting), and a negative, fractional, string, ranged or estimated quantity has no representation. Nothing is defaulted, inferred or relaxed.
+
+The file is read once, from one open descriptor: a regular file (not a link) owned by the invoking OS user and writable by nobody else, of bounded size. What was read is what is shown, confirmed and committed; a file changed afterwards cannot change it.
+
+**The starting quantity is an authored initial setting, not a demonstrated collection or conversion.** Establishing a Reserve cannot itself prove access rights, actor intent, title, productive success or consumption, and it credits nothing from any source.
+
+## Sequence
+
+1. **Read and check the file** (above). Nothing is asked of the console if it is refused.
+2. **Open the existing package** for the local operator (the usual OS-user verification, the package lock, journal replay and canonical integrity). This command **never creates, adopts, repairs or clears** a package: a missing or foreign directory, or another campaign identity, is `SESSION_UNAVAILABLE`.
+3. **Read the established locality from canon** (`establishedLocality`, read-only, shared with the earlier commands): the ORIGINAL world, the first locus and the first source that one `establish-locality` setup identity committed, each still the version-1 fact that setup wrote. None held → `LOCALITY_NOT_ESTABLISHED`; held but since advanced → `PRE_PLAY_CLOSED`.
+4. **If this identity already committed** (a repeat, a lost reply, a restart): judge it on the immutable committed record. When the record is exactly the one write of this Reserve, with the exact derived value and reads of — and dependencies on — exactly the world and locus, it is verified and reported **without asking again and without a write**. An identity committed with other content, or whose fact is not held, is `RESERVE_CONFLICT`; a Reserve that Production has since advanced beyond version 1 is `PRE_PLAY_CLOSED`, never "established".
+5. **Pre-play and consistency refusals**, all before the console is asked and with no write: a bound player character (`role.player_character` binding present) → `PRE_PLAY_CLOSED`; a world other than the established world, or a locus that is not committed, → `RESERVE_NOT_AT_LOCALITY`; the Reserve key already held (by this command, by another writer, with identical or different content) → `RESERVE_CONFLICT`.
+   The locus must be one the operator-confirmed scenario established at version 1: the first locus `establish-locality` wrote, or a **complete** additional locality's locus (its source stage committed as well). A locus another writer committed, or an additional locus whose source is not committed, is not offered here. A co-located finite source is **not required** and, if present, is never read for a quantity or written.
+6. **Prove the owner path admits it**: the committed world and locus are republished on a scratch package that is then removed, and the Reserve is run through the genuine `ProductionAdapter.establishReserve`. A refusal is `INVALID_RESERVE` with nothing written. The scratch package is never reused.
+7. **Confirm, once.** The whole Reserve is shown (authored text JSON-quoted so a control sequence cannot rewrite the console) with what it does **not** do. The operator types `establish-reserve <fresh challenge>` on the very next line; anything else, a stale or pre-typed line, another verb's phrase or end of input declines and nothing has been written. The confirmation is a one-time token bound to the verb and the exact subject (campaign, established locality, Reserve identity and the full input).
+8. **Commit** the one new key through `ProductionAdapter.establishReserve` (`PROGRESS reserve COMMITTED …`). The owner derives the value: `established` = `quantity` = the authored quantity, `consumed: []`, `claims: []`, `holding: HELD_LOCAL_BY_PRODUCTION`, the locality references, no `inflows`; it publishes under owner **`production`**, facet **`production_state`**, at create version 1, reading and depending on the world and locus. The operator never writes through any raw `store.commit`, never marks input stock as consumed, delivered, entitled or earned, and never authors a Source Delta.
+9. **Verify on a fresh reopen.** The package is closed and reopened through the engine's owner-verified open; the new fact's key, owner/facet, version 1, typed value and committed provenance are compared with the confirmed Reserve, **every fact the campaign held before is compared with its pre-commit self** (key, owner, facet, value, version, provenance), and the fact count is exactly one greater. Only then is `RESERVE_READY` reported.
+
+Statuses: `RESERVE_READY`, `RESERVE_OUTCOME_UNKNOWN`, `RESERVE_REFUSED`, `RESERVE_VERIFICATION_FAILED`, `LOCALITY_NOT_ESTABLISHED`, `PRE_PLAY_CLOSED`, `RESERVE_NOT_AT_LOCALITY`, `RESERVE_CONFLICT`, `SESSION_UNAVAILABLE`, `DECLINED`, `INVALID_RESERVE`, `RESERVE_FILE_UNTRUSTED`, `RESERVE_FILE_UNREADABLE`. `RESERVE_READY` means exactly: this Reserve is committed under this identity at version 1, verifies, and nothing earlier changed. An unknown write outcome is `RESERVE_OUTCOME_UNKNOWN` — **not** a false refusal and not a success — until it is reconciled by reopening and rerunning the same command.
+
+## Identity, convergence and fail-closed
+
+The service authors only the technical publication identities and derives them from the exact authored content, never from a clock or a random value: `<id>` is a hash of the campaign identity and the full authored input, giving group `operator-production-reserve:<id>`, intent `operator-production-reserve-intent:<id>` and cause `operator-production-reserve-cause:<id>`.
+
+- **The same confirmed proposal always reaches the same identity.** A retry after a crash or a lost reply replays what committed (RC-16, by the store's own identity check) and finishes what did not; it never writes a second, rerolled or altered Reserve.
+- **Any different content under the same Reserve identifier meets the committed key and is refused**; committed facts are never replaced.
+- **No retained state is added.** There is no new pin, receipt or ledger format: the committed record in the package is the only memory of what committed (the session still opens the existing owner-only retained-intent directory, unchanged). An uncertain outcome is resolved only by reopening and reading canon.
+- **No arbitrary global restriction on lawful distinct keys.** The command can be invoked again with a distinct lawful reserve identifier — at the same locus or another established locus — with no per-locality, per-campaign or per-pull-request limit.
+
+## Recovery
+
+The package's own file lock and durable-write order are used unchanged. A kill leaves the lock; it is refused until the operator explicitly passes `--reclaim-stale-lock`, which the engine honours only for a provably dead holder. Tests interrupt after the commit and before the reply (a lost acknowledgement), by a commit that never reached the store, by a failed reopen after the close, by a real `SIGKILL` of the shipped binary at the console and after the commit, and by a failure before **and** after every mutating filesystem operation of the whole command; each converges on the uninterrupted campaign (equal head, state and journal hashes).
+
+## Security
+
+The full proposal (identifier, material, quantity, condition and location) is shown only on the operator's own console and held only in the owner-verified package. It is not written to the retained-state directory, and no host-facing surface (referee, player-view, observe-request or advance-request MCP servers, the protocol package) imports or names this command. **No MCP, phone or client Reserve list, search or creation tool is added.** No model, MCP client or command-line flag can attest the human confirmation. The module has no network, child-process, environment or global-state access.
+
+## Downstream boundary
+
+A genuine Owner-persisted Reserve can later be named by a downstream route that has its own acceptance; this slice neither builds nor accepts one. `tests/integration/production-reserve-drawdown.test.ts` is **mechanical owner integration only**: an operator-established Reserve is the destination of the existing mainline `SourceDrawdownAdapter`, and it is credited only by the owners' own chain — Production's Source Delta, World-State's delivery, then Production's inflow. A changed upstream cause changes the credit and an omitted or unresolved one prevents it. That test is not live PC work, not a collection action, not genuine AI-host interpretation, and carries no collection verdict: its amounts are derived by the owners, and its request, basis and source are the existing test-owned premises of that engine path. Any positive gameplay result would need the separately held collection acceptance, a real client and a verified result, none of which this slice provides or claims.
+
+## Mechanical pin adjustments
+
+Seven predecessor conformance tests pin the bytes of the operator files this command must touch to exist at all (`cli.ts`: the new command; `confirmation.ts`: its own confirmation verb, so its confirmation cannot be presented as the locality's, the source's or the additional locality's; `index.ts`: named exports), the operator package's module inventory, its exported surface and the engine names it imports (`ProductionAdapter`, the one Production owner operation it is authorized to call). Their hashes, inventories and lists were adjusted openly, as the previous slices did, and nothing else in those tests changed. One predecessor security scan was taught about the new module: the scan for canon-writing calls exempts it as it exempts the earlier admission modules, because its scratch dry run republishes the committed world and locus on a throwaway package; it is bound instead by `tests/security/production-reserve-security.test.ts`, which requires that, outside that dry run, the module's only write is the existing `establishReserve`.
+
+`locality.ts`, `additional-source.ts`, `additional-locality.ts`, the confirmation semantics, `commands.ts`, `session.ts`, the contracts, the engine Production owner API, the spec lock, gates and register remain byte-identical to `main` (pinned in `tests/conformance/production-reserve-conformance.test.ts`).
+
+## Not claimed
+
+Nothing here is deployment, a Railway dependency, API payment, a live client or a gate promotion. It is not a resource builder, a generic stock initializer, a collection, a title or an owner truth derived from language. Local success is level-1 mechanism evidence only, not genuine AI-host semantics or normal-client gameplay, and its merge is separately reserved to the Sovereign.

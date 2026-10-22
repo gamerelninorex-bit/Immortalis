@@ -85,7 +85,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/source-drawdown/admission.ts":
     "00b58b5cba3b0552afbeb95d7dd002ad6e6e7ce09795e9f5ef2ed113def09d85",
   "packages/operator/src/confirmation.ts":
-    "88a302978b5e37a27fce8f871bc39a585867fac148f089bf7b1c6d9d21d8087f",
+    "0d6cee7f910c55f0b1bba312a5e4021cf6435dc58fd53f7738f3da881cc3b560",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/original-pc-keep.ts":
@@ -101,7 +101,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/index.ts":
-    "f47dfc60cc1364b83edc2ff8d098f44bcf5500bd7efc8cf110fd736b3226baec",
+    "1a6f5097b1a5e4b356b49866117f5125a4cedd86395e5377238a3bf2d5982885",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
@@ -133,7 +133,7 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/derive.ts":
     "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
   "packages/operator/src/cli.ts":
-    "7cd76d94cad41b9d058ecd107bfec0a1289eb34258376e464ddbea31be640094",
+    "bb966894f64e71f1ad11689f388ca1c68a458483959554184e8d506287e5cd89",
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/referee-exchange.ts":
