@@ -60,15 +60,33 @@ describe("no host-facing surface can create, list or search corridors", () => {
       const text = readFileSync(join("packages/operator/src", file), "utf8");
       expect(text).not.toMatch(/corridor|Corridor/);
     });
-  it("no protocol or contract surface that a host sees names a corridor", () => {
+  // The one opt-in corridor-QUALIFIED confirmed relocation gateway (and the index that re-exports it) is the only host-facing surface that
+  // names a corridor. It lets the trusted side bind one exact corridor key and refuses unless it is the committed connection; it never
+  // creates, lists, searches or authors one, and its host request is the operation name alone.
+  const QUALIFIED = new Set([
+    "pc-corridor-relocation.ts",
+    "index.ts",
+    "protocol-corridor-relocation.ts",
+  ]);
+  it("no protocol or contract surface that a host sees names a corridor, but the one opt-in qualified relocation gateway, which never creates, lists or searches one", () => {
     for (const file of readdirSync("packages/protocol/src")) {
       const text = readFileSync(join("packages/protocol/src", file), "utf8");
+      if (QUALIFIED.has(file)) {
+        expect(text, file).not.toMatch(
+          /establishCorridor|\.corridor\(|listFacts|startsWith\(|corridors\b/,
+        );
+        continue;
+      }
       expect(text, file).not.toMatch(/corridor|Corridor/);
     }
     for (const file of readdirSync("packages/contracts/src").filter((f) =>
       /^(protocol|presentation|projection|referee)/.test(f),
     )) {
       const text = readFileSync(join("packages/contracts/src", file), "utf8");
+      if (QUALIFIED.has(file)) {
+        expect(text, file).not.toMatch(/establishCorridor|EstablishCorridor|corridorOfInput/);
+        continue;
+      }
       expect(text, file).not.toMatch(/corridor|Corridor/);
     }
   });

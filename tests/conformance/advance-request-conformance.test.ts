@@ -26,7 +26,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/protocol/src/active-pc-target-advance.ts":
     "bc1447da88e8abe9326fee82a84366a8559a22429870ad6631c9bcd5b46547cc",
   "packages/protocol/src/index.ts":
-    "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
+    "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
   "packages/contracts/src/protocol-pc-target-advance.ts":
     "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
   "packages/contracts/src/temporal.ts":
@@ -146,6 +146,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

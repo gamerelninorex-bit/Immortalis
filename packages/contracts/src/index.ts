@@ -70,6 +70,7 @@ export * from "./protocol-pc-target-advance.ts";
 export * from "./protocol-causal.ts";
 export * from "./protocol-current-glance.ts";
 export * from "./protocol-relocation.ts";
+export * from "./protocol-corridor-relocation.ts";
 export * from "./protocol.ts";
 export * from "./result.ts";
 export * from "./source-ref.ts";

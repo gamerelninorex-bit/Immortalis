@@ -199,9 +199,10 @@ export function deriveCommitment(
       "the entity has already changed locus: a later movement needs semantics this tranche does not ratify",
     );
   if (p.corridor !== undefined) {
-    // the source-qualified path moves a fallback entity only: the active PC's travel needs its own admission (not ratified here)
-    if (e.kind === "ACTIVE_PC")
-      return refuse("the source-qualified corridor path does not move the active PC");
+    // the source-qualified path reads the corridor of the subject's stationary origin and the requested destination. It moves a fallback
+    // entity, or the active PC only by its OWN PC-owned request (refused above otherwise): the confirmed post-handover PC's single
+    // transfer is the one the ratified Post-Handover contract §§4, 8-16 already authorizes, and the corridor adds topology to it, never
+    // a second journey, an original-activation move, a duration or any other permission
     const violation = corridorReadViolation(p.corridor, e.locality, to);
     if (violation) return refuse(violation);
   }

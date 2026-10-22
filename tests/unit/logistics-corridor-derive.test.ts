@@ -178,36 +178,119 @@ describe("deriveCommitment with a corridor", () => {
     ).toBe(false);
   });
 
-  it("does not move the active PC: the corridor path is the fallback entity's only", () => {
-    const custody: PcPhysicalLocusCustody = {
-      pc_id: "pc-1",
-      stationary_locus: ref("w", "l1"),
-      basis: {
-        established_from: "EXISTING_ACTOR_HANDOVER",
-      },
-    } as any;
+  describe("the active PC, moved only by its OWN PC-owned request", () => {
+    const custody = (locus = "l1"): PcPhysicalLocusCustody =>
+      ({
+        pc_id: "pc-1",
+        stationary_locus: ref("w", locus),
+        basis: { established_from: "EXISTING_ACTOR_HANDOVER" },
+      }) as any;
     const pcKey = "world-state/pc/pc-1/locus-custody";
-    const pcRequest: MovementServiceRequest = {
+    const pcRequest = (to = "l2"): MovementServiceRequest => ({
       request_id: "pc-m",
       source: { owner: "pc_existence", cause_ref: "intent" },
       subject: { fact_key: pcKey, entity_id: "pc-1" },
-      destination: ref("w", "l2"),
+      destination: ref("w", to),
       priority_authority_ref: null,
-    };
-    const base = prior({
-      request: {
-        key: pcMovementRequestKey("pc-1"),
-        owner: "pc_existence",
-        version: 1,
-        value: pcRequest,
-      },
-      entity: { key: pcKey, version: 1, value: custody },
     });
-    const without = deriveCommitment(base);
-    const withCorridor = deriveCommitment({ ...base, corridor: corridorFact() });
-    // the foundation derivation of the PC subject is unchanged; the corridor path refuses it
-    expect(without.ok).toBe(true);
-    expect(message(withCorridor)).toMatch(/does not move the active PC/);
+    const pcPrior = (over: Partial<CommitmentPrior> = {}, locus = "l1", to = "l2") =>
+      prior({
+        request: {
+          key: pcMovementRequestKey("pc-1"),
+          owner: "pc_existence",
+          version: 1,
+          value: pcRequest(to),
+        },
+        entity: { key: pcKey, version: 1, value: custody(locus) },
+        ...over,
+      });
+
+    it("is source-qualified exactly as a fallback entity is: the pin of the corridor read, and nothing else about the PC's commitment changes", () => {
+      const plain = deriveCommitment(pcPrior());
+      const withCorridor = deriveCommitment(pcPrior({ corridor: corridorFact() }));
+      expect(plain.ok && withCorridor.ok).toBe(true);
+      if (!plain.ok || !withCorridor.ok) return;
+      expect("corridor" in plain.value).toBe(false);
+      expect(withCorridor.value.corridor).toEqual({
+        owner: "world_state",
+        fact_key: worldCorridorKey("w", "l1", "l2"),
+        version: 1,
+      });
+      const { corridor, ...rest } = withCorridor.value;
+      expect(corridor).toBeDefined();
+      expect(rest).toEqual(plain.value);
+      // the corridor still supplies no boundary
+      expect(withCorridor.value.delivery.at).toEqual(t(200));
+    });
+
+    it("still requires the corridor to be the ordered connection of THE PC's custody origin to its requested destination", () => {
+      // reverse, another origin, another destination, another world, a foreign owner
+      for (const [name, corridor] of [
+        [
+          "reverse",
+          corridorFact({
+            key: worldCorridorKey("w", "l2", "l1"),
+            value: corridorValue("l2", "l1"),
+          }),
+        ],
+        [
+          "another origin",
+          corridorFact({
+            key: worldCorridorKey("w", "l3", "l2"),
+            value: corridorValue("l3", "l2"),
+          }),
+        ],
+        [
+          "another destination",
+          corridorFact({
+            key: worldCorridorKey("w", "l1", "l3"),
+            value: corridorValue("l1", "l3"),
+          }),
+        ],
+        [
+          "another world",
+          corridorFact({
+            key: worldCorridorKey("x", "l1", "l2"),
+            value: corridorValue("l1", "l2", "x"),
+          }),
+        ],
+        ["a foreign owner", corridorFact({ owner: "logistics" })],
+      ] as const)
+        expect(message(deriveCommitment(pcPrior({ corridor }))), name).not.toBeNull();
+      // the origin is the custody's stationary locus, not whatever the corridor says
+      expect(message(deriveCommitment(pcPrior({ corridor: corridorFact() }, "l5")))).not.toBeNull();
+    });
+
+    it("never moves the PC by another's request, never a fallback entity by the PC's request, and never twice", () => {
+      const foreign = pcPrior({
+        corridor: corridorFact(),
+        request: {
+          key: "mover/request/pc-m",
+          owner: "mover",
+          version: 1,
+          value: { ...pcRequest(), source: { owner: "mover", cause_ref: "x" } },
+        },
+      });
+      expect(message(deriveCommitment(foreign))).toMatch(/own PC-owned Movement Service Request/);
+      expect(
+        message(
+          deriveCommitment(
+            prior({
+              corridor: corridorFact(),
+              request: {
+                key: pcMovementRequestKey("pc-1"),
+                owner: "pc_existence",
+                version: 1,
+                value: { ...request, source: { owner: "pc_existence", cause_ref: "x" } },
+              },
+            }),
+          ),
+        ),
+      ).not.toBeNull();
+      expect(
+        message(deriveCommitment(pcPrior({ corridor: corridorFact(), transitioned: true }))),
+      ).toMatch(/already changed locus/);
+    });
   });
 });
 

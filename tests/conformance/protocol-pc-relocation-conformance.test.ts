@@ -53,7 +53,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/adapter.ts":
     "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/derive.ts":
-    "564eb6aa53c0bdca174db9d5027c0dec63fd9e84a9c97f002114847c5161be51",
+    "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4",
   "packages/engine/src/logistics/admission.ts":
     "3c3c1a577e274139c26c266781ac2839e7123b76e545d24fcceb4b798df67bcd",
   "packages/engine/src/logistics/declaration.ts":
@@ -92,6 +92,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

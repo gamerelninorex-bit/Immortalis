@@ -253,7 +253,10 @@ describe("the document states what the slice is and is not", () => {
       "It is not original-PC travel, general pathfinding, route or time calibration",
     );
     expect(doc).toContain("The corridor **supplies no duration or boundary**");
-    expect(doc).toContain("The active PC is not moved by this path");
+    expect(doc).toContain("The active PC is moved by this path only by its own PC-owned request");
+    expect(doc).toContain(
+      "Original-PC travel, which needs its own movement admission, identity and authority, is still not provided",
+    );
     expect(doc).toContain("the source corridor is not an answer to any of those later results");
   });
   it("leaves PR #72 and PR #73 untouched and on hold", () => {

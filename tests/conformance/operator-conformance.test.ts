@@ -47,7 +47,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
   "packages/protocol/src/index.ts":
-    "2abd69a045e19c9d08d937fc21a12c895a6eb3d612fbdd01719be31d94052be5",
+    "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/protocol-relocation.ts":
@@ -98,6 +98,7 @@ describe("existing owners, gateways and the frozen artifacts are untouched: the 
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
