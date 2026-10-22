@@ -3,6 +3,9 @@ import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  ACTOR_OBSERVATION_COUPLING_REF,
+  ACTOR_OBSERVATION_PREMISE_KINDS,
+  ACTOR_OBSERVATION_SOURCE_INDEX,
   OBSERVATION_BASE_REFS,
   OBSERVATION_FACULTY_STATES,
   OBSERVATION_PATH_STATES,
@@ -13,6 +16,7 @@ import {
   PHYSICAL_DEPENDENCY_KINDS,
   PHYSICAL_EMBODIMENT_MODES,
   PHYSICAL_PRESENCE_MODES,
+  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -28,6 +32,7 @@ import {
 } from "@immortalis/contracts";
 import {
   nodeFs,
+  type ActorObservationContext,
   type FsOps,
   type IrContext,
   type I002Context,
@@ -43,7 +48,7 @@ import {
  * It lives in the owner-only retained-state directory, outside the package, so the engine side never has to give up the package's
  * single-writer lock and a host never touches canon:
  *
- *   referee-<campaign>/config.json            the TRUSTED campaign binding of concrete host identities to the four operations (written by
+ *   referee-<campaign>/config.json            the TRUSTED campaign binding of concrete host identities to the referee operations (written by
  *                                              the operator, never by a host, a player or a model)
  *   referee-<campaign>/<host>.secret          the host's shared secret (owner-only), given to the host's tool server by path
  *   referee-<campaign>/tasks/<task>.json      one question: the exact bounded context, the closed source clauses and a one-time nonce
@@ -77,7 +82,7 @@ const ConfigSchema = z.strictObject({
       z.strictObject({
         host_id: HostId,
         secret: Secret,
-        operations: z.array(RefereeOperationSchema).min(1).max(4),
+        operations: z.array(RefereeOperationSchema).min(1).max(5),
       }),
     )
     .max(MAX_HOSTS),
@@ -252,7 +257,7 @@ export async function bindHost(
  */
 export function taskDocument(
   taskId: string,
-  context: I002Context | IrContext | PhysicalContext | ObservationContext,
+  context: I002Context | IrContext | PhysicalContext | ObservationContext | ActorObservationContext,
   nonce: string,
 ): Record<string, unknown> {
   const rules = (ids: readonly string[]) =>
@@ -516,6 +521,100 @@ export function taskDocument(
         : context,
     };
   }
+  if (context.operation === REFEREE_OP_ACTOR_OBSERVATION) {
+    return {
+      ...common,
+      operation: REFEREE_OP_ACTOR_OBSERVATION,
+      purpose:
+        "Direct perception by ONE independent non-player actor at ONE canonical basis (F-014D §6). `context.subject` is an actor (NOT a player character) who is currently coupled, by the world's owner, to the locus described in `context.facts`; `context.statement` is the engine's own statement of that coupling and `context.actor` is the actor's own committed capability. The facts of `context.facts` whose `fact_id` begins with `source.` are the access and appearance circumstances the source's owner committed for ONE physical feature at the locus: this question is scoped to that feature, and the facts are premises like any other. Decide, ONLY from this delivered text and by quoting it: (1) `faculty` — is the actor's relevant SENSE (sight) established by the actor's OWN committed capability? (the faculty is established only by `context.actor`; nothing in the world or the coupling can give an actor a sense, an unrelated capability is not a sense, and a missing or unrelated capability is NOT_ESTABLISHED, never assumed). (2) `position` — are the actor's OWN exact viewing circumstances established by the coupling statement read with the world and source facts: where it is, whether the feature is in its line of sight? A shared locus does not establish them, the faculty alone does not, and you must not assume a posture, direction or attention that is not stated: NOT_ESTABLISHED if it is not. (3) `path` — is the path from the feature to the actor, under the world's own laws as committed (light, air, distance, any obstruction), OPEN, BLOCKED (a quoted world fact that blocks it), or NOT_ESTABLISHED? (4) `payload` — ONLY if all three are affirmatively established, the minimal raw appearance of THE FEATURE that follows: what the senses directly receive - colour, shape, size, position, illumination - in plain descriptive words, anchored to quotations of the facts it comes from. `payload.source_fact_id` MUST be one of the `source.` facts; an appearance of any other fact is refused. It does not say what anything is made of, what it is called, what it is for, what caused it or what it means, carries no identifier of the feature, no material class and no exact quantity or count (none of which is delivered to you or may be inferred into it), names no place and carries no fact_id or key. Otherwise `payload` is null. You decide NOTHING about what the actor makes of it, wants, believes or does: those are not part of this question. A missing faculty, a missing circumstance or an unsettled fact is NOT_ESTABLISHED / UNCLEAR and is NEVER reported as an obstruction: BLOCKED needs an established blocking fact. Apply this world's laws as committed, not outside defaults. Invent no world fact, light, posture, threshold or chance. Perception grants no recognition, comprehension, belief, stance, memory, action or time.",
+      rules: rules([
+        "F014D-2",
+        "F014D-5",
+        "F014D-6",
+        "F014D-18",
+        "F014D-24",
+        "IR-12",
+        "IR-5",
+        "IR-7",
+      ]),
+      premise_kinds: {
+        [ACTOR_OBSERVATION_PREMISE_KINDS[0]]:
+          "the actor's own committed capability: `ref` = an item_id of context.actor. The ONLY premise kind that may establish `faculty`",
+        [ACTOR_OBSERVATION_PREMISE_KINDS[1]]: `the engine's statement of the actor's coupling to the locus: \`ref\` = ${ACTOR_OBSERVATION_COUPLING_REF}. The kind that must establish \`position\` (with world facts)`,
+        [ACTOR_OBSERVATION_PREMISE_KINDS[2]]:
+          "a committed world or locus fact, or a `source.` access fact of the one feature this question is scoped to: `ref` = a fact_id of context.facts. The only kind that may establish `path` and the appearance",
+      },
+      states: {
+        faculty: OBSERVATION_FACULTY_STATES,
+        position: OBSERVATION_POSITION_STATES,
+        path: OBSERVATION_PATH_STATES,
+      },
+      relations: {
+        SUPPORTS:
+          "the fact bears on this question and is consistent with the other delivered premises; quote it. A fact that blocks, dims or limits the path (an obstruction, darkness, distance) is SUPPORTS: state what it does in `path`, not here",
+        NOT_RELEVANT: "the fact bears on neither the question nor the actor",
+        CONTRADICTS:
+          "the fact, as written, is INCONSISTENT with another delivered premise (a contradiction among the committed words, so that the question cannot be settled on them); quote it. An obstruction, darkness or distance is NOT a contradiction - it is the answer to `path`. 'not observed' is not 'cannot exist'",
+        UNCLEAR: "it is not possible to tell whether the fact bears on or blocks the perception",
+      },
+      response_shape: {
+        task_id: "<this task_id>",
+        faculty: {
+          state: `<one of ${OBSERVATION_FACULTY_STATES.join(" | ")}>`,
+          premises: [
+            {
+              from: "<a premise kind above>",
+              ref: "<its ref>",
+              evidence_quote: "<verbatim excerpt of that premise's delivered text>",
+            },
+          ],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        position: {
+          state: `<one of ${OBSERVATION_POSITION_STATES.join(" | ")}>`,
+          premises: ["<as above>"],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        path: {
+          state: `<one of ${OBSERVATION_PATH_STATES.join(" | ")}>`,
+          premises: ["<as above>"],
+          rule_ids: ["<rule_id>"],
+          grounds: "<why>",
+        },
+        payload: {
+          source_fact_id: "<the `source.` fact_id of context.facts the appearance is OF>",
+          referent: "<what is perceived, plain words, at most 200 chars>",
+          content: "<how it appears, plain descriptive words, at most 500 chars>",
+          basis: ["<one or more WORLD_FACT premises as above, including one of the source fact>"],
+        },
+        payload_note:
+          "`payload` is the object above ONLY when all three states are affirmative; otherwise the answer's payload is null",
+        assessments: [
+          {
+            fact_id: "<each fact_id in context.facts, exactly once>",
+            relation: "<one relation above>",
+            rule_ids: ["<rule_id>"],
+            grounds: "<why>",
+            evidence_quote:
+              "<verbatim excerpt of that fact; REQUIRED for SUPPORTS and CONTRADICTS, else null or a verbatim excerpt>",
+          },
+        ],
+        unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],
+      },
+      // the host never receives the identifier of the scoped source: its premises are the `source.` facts above, and the engine, which holds
+      // the real context, validates the answer against it
+      context: {
+        ...context,
+        refs: context.refs.map((r, i) =>
+          i === ACTOR_OBSERVATION_SOURCE_INDEX
+            ? { ...r, fact_key: "(the scoped source: withheld)" }
+            : r,
+        ),
+      },
+    };
+  }
   return {
     ...common,
     operation: REFEREE_OP_IR,
@@ -571,7 +670,8 @@ export async function publishTask(
   input: {
     task_id: string;
     operation: RefereeOperation;
-    context: I002Context | IrContext | PhysicalContext | ObservationContext;
+    context:
+      I002Context | IrContext | PhysicalContext | ObservationContext | ActorObservationContext;
   },
 ): Promise<Result<RefereeTaskFile, ExchangeErrorCode>> {
   const fs = fsOf(p);

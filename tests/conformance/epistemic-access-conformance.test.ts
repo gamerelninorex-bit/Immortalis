@@ -491,6 +491,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 
   it("the Epistemic module set is exactly the IM-10 owner path; no other engine directory beyond the tenth slice's was added", () => {
     expect(readdirSync(EPISTEMIC_DIR).sort()).toEqual([
+      "actor-observation.ts",
       "adapter.ts",
       "admission.ts",
       "declaration.ts",

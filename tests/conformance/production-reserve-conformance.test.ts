@@ -37,7 +37,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/production/admission.ts":
     "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
   "packages/engine/src/owners/registry.ts":
-    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
+    "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
   "packages/engine/src/world/canonical-campaign.ts":
     "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
   "packages/operator/src/locality.ts":

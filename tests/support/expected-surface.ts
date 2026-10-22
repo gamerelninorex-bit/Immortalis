@@ -643,12 +643,14 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
   },
   /**
    * The infrastructure-only host-driven AI referee owner path (PR #61, B61-A3; BLUE v5.1 adds the third, physical-placement operation; BLUE v5.2
-   * adds the fourth, direct-perception operation): four recorders (`recordI002`, `recordIr`, `recordPhysical`, `recordObservation`) that all publish through the adapter's single `.commit(` call, the pure task/evaluation helpers and one typed read by identity. No
+   * adds the fourth, direct-perception operation; BLUE v5.2-A1 adds the fifth, a non-PC Named Actor's direct perception): five recorders (`recordI002`, `recordIr`, `recordPhysical`, `recordObservation`, `recordActorObservation`) that all publish through the adapter's single `.commit(` call, the pure task/evaluation helpers and one typed read by identity. No
    * model, host or provider is called from it; no world, PC, binding or Culture fact is written by it.
    */
   RefereeAdjudicationAdapter: {
     methods: [
+      "actorObservationTask",
       "decision",
+      "evaluateActorObservation",
       "evaluateI002",
       "evaluateIr",
       "evaluateObservation",
@@ -657,6 +659,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "irTask",
       "observationTask",
       "physicalTask",
+      "recordActorObservation",
       "recordI002",
       "recordIr",
       "recordObservation",
@@ -729,6 +732,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "broadcastExposure",
       "disseminationEvent",
       "engineSealedProvenance",
+      "establishActorObservedAccess",
       "establishBoundedSharedAccess",
       "establishBroadcastExposure",
       "establishObservedAccess",

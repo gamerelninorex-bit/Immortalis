@@ -4,6 +4,7 @@ import {
   PlayerCharacterBindingSchema,
   REFEREE_AUTHORITY,
   REFEREE_DECISION_BASIS,
+  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -23,7 +24,12 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  REFEREE_ACTOR_OBSERVATION_RULE,
+  REFEREE_OBSERVATION_RULE,
+  REFEREE_PHYSICAL_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import {
   candidateDigest,
@@ -101,16 +107,25 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
       "the direct-perception decision, and only it, carries the direct-perception governing citation",
       { key: w.key },
     );
+  // the actor direct-perception decision, and only it, carries its own governing citation
   if (
-    r.operation === REFEREE_OP_OBSERVATION &&
-    !canonicalEqual(r.validated_under, OBSERVATION_RESOLVER_AUTHORITY)
+    canonicalEqual(group.rule, REFEREE_ACTOR_OBSERVATION_RULE) !==
+    (r.operation === REFEREE_OP_ACTOR_OBSERVATION)
   )
+    return reject(
+      "VALUE_INVALID",
+      "the actor direct-perception decision, and only it, carries the actor direct-perception governing citation",
+      { key: w.key },
+    );
+  const observing =
+    r.operation === REFEREE_OP_OBSERVATION || r.operation === REFEREE_OP_ACTOR_OBSERVATION;
+  if (observing && !canonicalEqual(r.validated_under, OBSERVATION_RESOLVER_AUTHORITY))
     return reject(
       "VALUE_INVALID",
       "the direct-perception record carries role.resolver + permission.resolution.execute as the context its validation ran under",
       { key: w.key },
     );
-  if (r.operation === REFEREE_OP_OBSERVATION) {
+  if (observing) {
     const now = committedCanonicalTime((k) => state.facts.get(k));
     if (!now || !timeEquals(r.input.observed_at, now))
       return reject(

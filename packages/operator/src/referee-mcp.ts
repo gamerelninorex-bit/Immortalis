@@ -2,10 +2,12 @@ import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import {
+  ActorObservationHostDecisionSchema,
   I002HostDecisionSchema,
   IrHostDecisionSchema,
   ObservationHostDecisionSchema,
   PhysicalHostDecisionSchema,
+  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -14,10 +16,13 @@ import {
   type RefereeOperation,
 } from "@immortalis/contracts";
 import {
+  deriveActorObservation,
   deriveI002,
   deriveIr,
   deriveObservation,
   derivePhysical,
+  refereeTaskId,
+  type ActorObservationContext,
   type FsOps,
   type I002Context,
   type IrContext,
@@ -208,6 +213,26 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
           true,
         );
       const d = deriveObservation(ctx as ObservationContext, parsed.data);
+      if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
+    } else if (op === REFEREE_OP_ACTOR_OBSERVATION) {
+      const parsed = ActorObservationHostDecisionSchema.safeParse(answer);
+      if (!parsed.success)
+        return text(
+          `the answer does not satisfy the shape: ${parsed.error.issues
+            .slice(0, 3)
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; ")}`,
+          true,
+        );
+      // the delivered context redacts the scoped source's key, so the task identity cannot be recomputed here: the answer must name THIS
+      // task, and the rest of the answer is checked against the delivered words (the engine re-derives everything against the real context)
+      if (parsed.data.task_id !== taskId)
+        return text("TASK_MISMATCH: the answer is for another task", true);
+      const delivered = ctx as ActorObservationContext;
+      const d = deriveActorObservation(delivered, {
+        ...parsed.data,
+        task_id: refereeTaskId(delivered),
+      });
       if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
     }
     const written = await submitDecision(p, {

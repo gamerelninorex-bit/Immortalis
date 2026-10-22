@@ -24,11 +24,13 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
+  EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE,
   EPISTEMIC_ACCESS_BROADCAST_RULE,
   EPISTEMIC_ACCESS_OBSERVATION_RULE,
   EPISTEMIC_ACCESS_RULE,
   resolveKey,
 } from "../owners/registry.ts";
+import { actorObservationEventViolation } from "./actor-observation.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import {
@@ -41,7 +43,7 @@ import {
   recipientBoundaryViolation,
   requiredCapability,
 } from "./derive.ts";
-import { isObservationEarnedFact, observationTriggerViolation } from "./declaration.ts";
+import { isEventTriggeredFormationFact, observationTriggerViolation } from "./declaration.ts";
 import { observationEventViolation } from "./observation.ts";
 
 /**
@@ -101,6 +103,8 @@ export function epistemicGroupCheck(group: CommitGroup, state: CampaignState): R
       }
       if (canonicalEqual(group.rule, EPISTEMIC_ACCESS_OBSERVATION_RULE))
         return checkObservationEvent(group, state, w);
+      if (canonicalEqual(group.rule, EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE))
+        return checkActorObservationEvent(group, state, w);
       return rule() ?? checkEvent(group, state, w);
     }
   }
@@ -185,6 +189,30 @@ function checkObservationEvent(
   const generic = checkEvent(group, state, w);
   if (generic) return generic;
   const violation = observationEventViolation(
+    {
+      group,
+      value: w.value,
+      basis: w.basis,
+      factOf: (k) => state.facts.get(k),
+    },
+    "ADMISSION",
+  );
+  return violation ? ref(violation, { key: w.key }) : null;
+}
+
+/**
+ * An ACTOR-OBSERVATION-EARNED event: every generic event rule (a lawful non-PC Named-Actor recipient, a pinned foreign source, no future
+ * access) AND exactly what its retained actor direct-perception decision determines (see `actorObservationEventViolation`). It never
+ * asserts the active-PC role: that route has its own citation and record.
+ */
+function checkActorObservationEvent(
+  group: CommitGroup,
+  state: CampaignState,
+  w: Write,
+): Rejection | null {
+  const generic = checkEvent(group, state, w);
+  if (generic) return generic;
+  const violation = actorObservationEventViolation(
     {
       group,
       value: w.value,
@@ -395,7 +423,7 @@ function checkFormation(
     "ADMISSION",
   );
   if (identity) return ref(identity, { key: packetW.key });
-  if (isObservationEarnedFact(eventFact)) {
+  if (isEventTriggeredFormationFact(eventFact)) {
     const id = group.cause.slice("transaction:".length);
     const fact = state.facts.get(temporalTransactionAuthorityKey(id));
     const authority = fact ? TransactionAuthoritySchema.safeParse(fact.value) : undefined;

@@ -87,7 +87,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
+      "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
     "packages/engine/src/world/canonical-campaign.ts":
       "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator

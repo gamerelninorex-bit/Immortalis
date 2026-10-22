@@ -19,6 +19,7 @@ import {
 import { establishAdditionalSource, type AdditionalSourceStatus } from "./additional-source.ts";
 import { establishCorridor, type CorridorStatus } from "./corridor.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
+import { observeActor, type ActorObservationStatus } from "./actor-observation.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
 import { establishProductionReserve, type ProductionReserveStatus } from "./production-reserve.ts";
@@ -68,8 +69,9 @@ usage:
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
+  immortalis-operator observe-actor     --campaign <dir> --campaign-id <id> --actor <id> --capability <id> --source <source-key> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
-  immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
+  immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id> [--actor-perception]
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
 
@@ -210,8 +212,23 @@ observe-surroundings: for a character that author-character released and bound A
   quantity, material, key or establishment statement), and the character can receive only a raw appearance of it. A source that is
   absent, elsewhere, exhausted or undescribed is refused with nothing written. An observation of another scope at the same basis is
   never replaced: a different look needs a new basis.
+observe-actor: for an already-existing NON-PLAYER Named Actor that its owner has given a closed capability and World-State holds coupled to
+  one locus, at a campaign whose canonical time is established. This is YOUR request, as the trusted operator (never a host's, a client's
+  or a model's), that the actor's sense be asked about ONE co-located Source Condition at the current canonical basis: --actor, the
+  capability its sense rests on (--capability, the actor's own closed capability) and the source (--source, a candidate to have perceived,
+  never what the actor perceives). The AI referee host is asked ONE bounded question built only from committed facts (the actor's
+  capability, its coupling, the world, the locus and that source's owner-authored access facts - never its quantity, material, key or
+  establishment statement): is the sense established, are the actor's exact viewing circumstances established, is the path from the source
+  to it open or blocked - and, only if all three are affirmatively answered, what minimal raw appearance of the source follows. The engine
+  validates the answer against the delivered text and derives the verdict. Only an established reading earns a receipt: the Epistemic
+  owner then commits the event and forms the actor's sealed Accessible Content Packet. You are NEVER shown the setting, the appearance,
+  the host's reasoning or why nothing was received: the packet is the actor's, and showing it would make your out-of-character knowledge a
+  receipt. It advances no time and decides nothing about what the actor makes of it, wants, believes or does. One observation per actor
+  per canonical instant; running it again at the same basis reaches the same records. The shipped binary has no embedding's owner
+  registrations: a campaign that holds such an actor is opened by the embedding that wrote it.
 referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's four referee operations (I-002
-  character classification; native/compatibility; physical placement; direct perception) and writes that host's owner-only secret file. It confers nothing by itself: the
+  character classification; native/compatibility; physical placement; direct perception) - and, only with --actor-perception, also to the fifth
+  (a non-player actor's direct perception) - and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
   --host-id and --secret-file) lets the host read ONE bounded question and submit ONE answer, and the engine validates the answer
   and derives the verdict. No model API, credential or network is used by the engine. author-character waits --referee-wait
@@ -248,6 +265,7 @@ const exitOf = (
     | InitialTimedGovernanceStatus
     | InitialLocalDemandStatus
     | CharacterStatus
+    | ActorObservationStatus
     | "REFEREE_HOST_BOUND",
 ): number => {
   switch (s) {
@@ -257,7 +275,10 @@ const exitOf = (
     case "CHARACTER_NONE":
     case "LOCUS_ESTABLISHED":
     case "OBSERVATION_RECEIVED":
+    case "ACTOR_OBSERVATION_RECORDED":
       return EXIT.OK;
+    case "ACTOR_OBSERVATION_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "LOCALITY_READY":
@@ -315,6 +336,9 @@ const OPTIONS = {
   "campaign-id": { type: "string" },
   "operator-dir": { type: "string" },
   "reclaim-stale-lock": { type: "boolean" },
+  "actor-perception": { type: "boolean" },
+  actor: { type: "string" },
+  capability: { type: "string" },
   world: { type: "string" },
   locus: { type: "string" },
   "delivery-unit": { type: "string" },
@@ -356,6 +380,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
+  "observe-actor": ["actor", "capability", "source"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
 };
@@ -365,6 +390,8 @@ const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
   "observe-surroundings": ["referee-wait", "source"],
+  "observe-actor": ["referee-wait"],
+  "referee-bind-host": ["actor-perception"],
 };
 
 type Parsed =
@@ -634,6 +661,26 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       for (const line of r.details) out(line);
       return exitOf(r.status);
     }
+    if (command === "observe-actor") {
+      const r = await observeActor({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        actorId: str("actor") ?? "",
+        capabilityId: str("capability") ?? "",
+        sourceKey: str("source") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.extension ? { extension: env.extension } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
     if (command === "author-character") {
       const r = await authorCharacter({
         campaignDir: str("campaign") ?? "",
@@ -688,6 +735,9 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
             "IR_NATIVE_COMPATIBILITY",
             "IR_PHYSICAL_PLACEMENT",
             "F014D_DIRECT_PERCEPTION",
+            ...(values["actor-perception"] === true
+              ? (["F014D_ACTOR_DIRECT_PERCEPTION"] as const)
+              : []),
           ],
           ...(env.ledgerFs ? { fs: env.ledgerFs } : {}),
         });
@@ -698,7 +748,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         }
         out("STATUS REFEREE_HOST_BOUND");
         out(
-          `host ${str("host-id")} is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).`,
+          `host ${str("host-id")} is bound to this campaign for the ${values["actor-perception"] === true ? "five" : "four"} referee operations (I-002 classification; native/compatibility; physical placement; direct perception${values["actor-perception"] === true ? "; a non-player actor's direct perception" : ""}).`,
         );
         out(
           `secret file (owner-only; give the PATH to the host's tool server, never the contents): ${bound.value.secret_file}`,

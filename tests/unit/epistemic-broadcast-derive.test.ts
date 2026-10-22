@@ -151,10 +151,10 @@ describe("the governing-rule citation of the new mode is additive: no existing c
     }
   });
 
-  it("only the event kind carries the broadcast citation, and it admits only a BROADCAST_EXPOSURE value (the observation-earned citation is the kind's other, separate alternate)", () => {
+  it("only the event kind carries the broadcast citation, and it admits only a BROADCAST_EXPOSURE value (the observation-earned citations, the active Player Character's and a Named Actor's, are the kind's other, separate alternates)", () => {
     expect(packet!.alternateRules).toBeUndefined();
     expect(provenance!.alternateRules).toBeUndefined();
-    expect(event!.alternateRules).toHaveLength(2);
+    expect(event!.alternateRules).toHaveLength(3);
     const alt = event!.alternateRules![0]!;
     expect(alt.rule).toBe(EPISTEMIC_ACCESS_BROADCAST_RULE);
     expect(alt.admits(broadcastEvent("e1"))).toBe(true);

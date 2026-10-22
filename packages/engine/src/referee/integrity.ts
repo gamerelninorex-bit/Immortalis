@@ -4,6 +4,7 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   REFEREE_AUTHORITY,
+  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   RefereeDecisionRecordSchema,
@@ -14,7 +15,12 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  REFEREE_ACTOR_OBSERVATION_RULE,
+  REFEREE_OBSERVATION_RULE,
+  REFEREE_PHYSICAL_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { recordContextViolation } from "./derive.ts";
@@ -79,7 +85,9 @@ export function verifyRefereeIntegrity(store: CampaignStore): readonly Integrity
         ? REFEREE_PHYSICAL_RULE
         : r.operation === REFEREE_OP_OBSERVATION
           ? REFEREE_OBSERVATION_RULE
-          : resolveKey(f.key)!.kind.rule;
+          : r.operation === REFEREE_OP_ACTOR_OBSERVATION
+            ? REFEREE_ACTOR_OBSERVATION_RULE
+            : resolveKey(f.key)!.kind.rule;
     if (!canonicalEqual(f.provenance.rule, expectedRule))
       bad(f.key, "the record carries the governing citation of its own operation");
   }

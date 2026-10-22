@@ -31,47 +31,47 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
+    "9cd92b021479862c1688faf9bc69bc8bf98e0c22642e89e516c84b3d4d8a1bdd",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
-    "91dadeae31967c1363bd010a1459943b2036685305bed7b343c302ce787634ab",
+    "b0034d6bd43c71a109c04b5ff03069f19eac02525bd18b78e3ee0413c085d0ba",
   "packages/engine/src/epistemic/admission.ts":
-    "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
+    "58f68c0ecb1c0da0de9a056694d6b3ce8775be94cfec54a9750d17a6aabdbb76",
   "packages/engine/src/epistemic/declaration.ts":
-    "754866e721064059052d4f37a170a7339d1a81eb29b9dd0ee9b9fa8f812b7257",
+    "9a64dcff91afbe7230b5f8b2780900a6dd10dbc865c340aeaf46c804fdf57be8",
   "packages/engine/src/epistemic/integrity.ts":
-    "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
+    "0c7431eab036831715c4fe0f349bd8dbd2f0be5a8e90af09338593411a314cc8",
   "packages/engine/src/index.ts":
-    "979e435c37d3398f0d9d36de3d0998a62bafe15539f1c3bf8b757ff930e451b8",
+    "9f717f96c1c1c6255dd8b1e6ba3303533eed0c46d67e12caaa4ee8f3b604dc55",
   "packages/engine/src/owners/registry.ts":
-    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
+    "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
   "packages/engine/src/referee/adapter.ts":
-    "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
+    "7efa630d106c2e12e80fa405e9e246c392f9e2f0356c4f0be4a095d2dd3ac201",
   "packages/engine/src/referee/admission.ts":
-    "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
+    "c9bb21544624656c53b61132853d15e8ea6560f7f6f7f9a83b32bc895e7ac193",
   "packages/engine/src/referee/derive.ts":
-    "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
+    "697a8d92c7a0eab6598d06519d3717e7ab15f5a20279dea5e00ee2028c8f83ef",
   "packages/engine/src/referee/integrity.ts":
-    "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
+    "1b90545cf278d55d457db65ab52aa8bc1b1ef42fb406472feef0e85b2d54d01b",
   "packages/engine/src/temporal/admission.ts":
     "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
   "packages/operator/src/confirmation.ts":
-    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    "14bb6413dbd968c13879b0457627ddfe693322df84ad0ad89490ece0f9e2f971",
   "packages/operator/src/index.ts":
-    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    "f5c1ed2f38eb7540da5a467f7c7012c7ffc5e14a7ddb50247728e1936739f552",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/referee-exchange.ts":
-    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    "59179f98e55b5774ef33c830be28da4cdfdc3985ed7c508e5f2d7d81060e3612",
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "0499a87bd642f66c1968888f4156067177926b48f8e56b578ffc8c81fbd3a399",
   "packages/operator/src/referee-session.ts":
-    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    "92a09f989789734efcdd4388d74b1b7535d9b4a7135276253b2e2ab27c018526",
 };
 const SPEC: Record<string, string> = {
   "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",

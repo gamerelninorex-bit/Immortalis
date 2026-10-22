@@ -50,11 +50,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/direct-observation.ts":
     "a0ca78beee98677b855fa863c449bf88a371b997713e68ce59807dbce8801033",
   "packages/engine/src/epistemic/declaration.ts":
-    "754866e721064059052d4f37a170a7339d1a81eb29b9dd0ee9b9fa8f812b7257",
+    "9a64dcff91afbe7230b5f8b2780900a6dd10dbc865c340aeaf46c804fdf57be8",
   "packages/engine/src/epistemic/integrity.ts":
-    "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
+    "0c7431eab036831715c4fe0f349bd8dbd2f0be5a8e90af09338593411a314cc8",
   "packages/engine/src/epistemic/admission.ts":
-    "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
+    "58f68c0ecb1c0da0de9a056694d6b3ce8775be94cfec54a9750d17a6aabdbb76",
   "packages/engine/src/temporal/coordinator.ts":
     "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/operator/src/observation.ts":

@@ -33,6 +33,16 @@ import { EntityId } from "./world-foundation.ts";
  *                               path from the physical feature to the character is open or blocked, and the minimal raw appearance that
  *                               follows. It never decides recognition, comprehension, belief, memory, action or time.
  *
+ *   F014D_ACTOR_DIRECT_PERCEPTION — (non-PC Named-Actor source-qualified direct physical perception, BLUE v5.2-A1 2026-10-23) F-014D §§2, 5 steps
+ *                               2-4, 6, 18, 24: the same bounded F-014D §6 question for ONE already-established non-PC Named Actor, never a
+ *                               Player Character: the host reads the bounded, source-pinned context of ONE current basis (the actor's own
+ *                               committed capability at its owner's declared close, the World-State owner's coupling of the actor to ONE
+ *                               locus, the world and the locus as committed, and ONE co-located owner-committed Source Condition's access
+ *                               facts) and says — anchored to verbatim quotations of those premises — whether the actor's sensory faculty is
+ *                               established, whether its exact viewing circumstances are, whether the path from the source to the actor is open
+ *                               or blocked, and the minimal raw appearance that follows. It never decides recognition, comprehension, belief,
+ *                               stance, goals or action, which stay F-014A's.
+ *
  * What is here is mechanism, never meaning. A host's answer carries NO canon, NO role and NO permission: the engine alone validates
  * it (closed vocabularies, verbatim-quoted grounds, full coverage of what was delivered, a verdict DERIVED from the answer and never
  * taken from it), and a decision is retained as a create-only record under `role.gm` + `permission.rule.adjudicate` bound by the
@@ -65,11 +75,14 @@ export const REFEREE_OP_I002 = "I002_CLASSIFY";
 export const REFEREE_OP_IR = "IR_NATIVE_COMPATIBILITY";
 export const REFEREE_OP_PHYSICAL = "IR_PHYSICAL_PLACEMENT";
 export const REFEREE_OP_OBSERVATION = "F014D_DIRECT_PERCEPTION";
+/** The non-PC Named-Actor operation: its own literal, so the PC operation and its `pc_id` subject are never widened or passed an actor. */
+export const REFEREE_OP_ACTOR_OBSERVATION = "F014D_ACTOR_DIRECT_PERCEPTION";
 export const RefereeOperationSchema = z.enum([
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_OBSERVATION,
+  REFEREE_OP_ACTOR_OBSERVATION,
 ]);
 export type RefereeOperation = z.infer<typeof RefereeOperationSchema>;
 
@@ -522,6 +535,80 @@ export const ObservationHostDecisionSchema = z.strictObject({
 export type ObservationHostDecision = z.infer<typeof ObservationHostDecisionSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// F014D_ACTOR_DIRECT_PERCEPTION
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Where a premise of the actor's direct-perception question comes from. The host cites ONLY delivered text, each time by a verbatim
+ * quotation, and the engine fixes what each kind of premise may establish (see `deriveActorObservation`):
+ *   ACTOR_CAPABILITY     the actor's OWN committed Named-Actor capability, as its owner closed it (`context.actor`, by `item_id`): the ONLY
+ *                        premise that can establish the actor's sensory faculty (nothing in the world or the coupling gives an actor a sense);
+ *   COUPLING_STATEMENT   the World-State owner's own statement that the actor is currently coupled to the one locus (`context.statement`,
+ *                        `ref` = `coupling.statement`): the ONLY premise that can establish the actor's own exact viewing circumstances
+ *                        (with world facts: a shared locus identity alone does not, and the faculty alone does not);
+ *   WORLD_FACT           a committed world, locus or Source Condition access fact (`context.facts`, by `fact_id`): the physical setting, the
+ *                        light, the air path, any obstruction, and the owner-authored access or appearance circumstance of the ONE source
+ *                        the question is scoped to.
+ */
+export const ACTOR_OBSERVATION_PREMISE_KINDS = [
+  "ACTOR_CAPABILITY",
+  "COUPLING_STATEMENT",
+  "WORLD_FACT",
+] as const;
+export type ActorObservationPremiseKind = (typeof ACTOR_OBSERVATION_PREMISE_KINDS)[number];
+/** The `ref` of a COUPLING_STATEMENT premise: there is exactly one such statement in a delivered context. */
+export const ACTOR_OBSERVATION_COUPLING_REF = "coupling.statement";
+/** The `ref` of the one ACTOR_CAPABILITY premise a delivered context holds. */
+export const ACTOR_OBSERVATION_CAPABILITY_REF = "actor.capability";
+/**
+ * The facts every actor direct-perception question cites, in order: the actor's own capability fact at its close, the World-State
+ * coupling of the actor, the world, the locus and the ONE Source Condition the trusted side scoped the question to. There is no unscoped
+ * actor question: an actor perceives a co-located owner-committed source or nothing.
+ */
+export const ACTOR_OBSERVATION_REFS = 5;
+export const ACTOR_OBSERVATION_SOURCE_INDEX = 4;
+
+export const ActorObservationPremiseSchema = z.strictObject({
+  from: z.enum(ACTOR_OBSERVATION_PREMISE_KINDS),
+  ref: Id,
+  /** a verbatim excerpt of the cited premise's delivered text */
+  evidence_quote: Quote,
+});
+export type ActorObservationPremise = z.infer<typeof ActorObservationPremiseSchema>;
+
+const ActorElementOf = <S extends readonly [string, ...string[]]>(states: S) =>
+  z.strictObject({
+    state: z.enum(states),
+    premises: z.array(ActorObservationPremiseSchema).max(8),
+    rule_ids: RuleIds,
+    grounds: Grounds,
+  });
+
+/** The minimal perceptible payload, as for the PC: the raw appearance of the ONE source only, carrying no recognition, function or identity. */
+export const ActorObservationPayloadSchema = z.strictObject({
+  source_fact_id: Id,
+  referent: Trimmed(200),
+  content: Trimmed(500),
+  basis: z.array(ActorObservationPremiseSchema).min(1).max(8),
+});
+export type ActorObservationPayload = z.infer<typeof ActorObservationPayloadSchema>;
+
+export const ActorObservationHostDecisionSchema = z.strictObject({
+  task_id: RefereeTaskIdSchema,
+  /** F-014D §5 step 4 Q2: is the actor's relevant sensory modality available (established by its own capability)? */
+  faculty: ActorElementOf(OBSERVATION_FACULTY_STATES),
+  /** F-014D §6 step 2 "actual sensory position": are the actor's own exact viewing circumstances established? */
+  position: ActorElementOf(OBSERVATION_POSITION_STATES),
+  /** F-014D §6 step 2 "range/obstruction/channel": is the path from the source to the actor open, blocked, or not established? */
+  path: ActorElementOf(OBSERVATION_PATH_STATES),
+  /** the raw appearance; null unless the whole direct-perception question is affirmatively answered */
+  payload: ActorObservationPayloadSchema.nullable(),
+  assessments: z.array(IrFactAssessmentSchema).min(1).max(96),
+  unresolved_forks: z.array(Grounds).max(6),
+});
+export type ActorObservationHostDecision = z.infer<typeof ActorObservationHostDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The verdicts (always DERIVED by the engine from the answer, never taken from it)
 // ---------------------------------------------------------------------------------------------
 
@@ -635,6 +722,19 @@ export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
     }),
     operation: z.literal(REFEREE_OP_OBSERVATION),
     decision: ObservationHostDecisionSchema,
+    verdict: z.enum(OBSERVATION_VERDICTS),
+  }),
+  z.strictObject({
+    ...RecordCore,
+    /** the NON-PC Named Actor the question is about: never a `pc_id` */
+    subject: z.strictObject({ actor_id: EntityId }),
+    input: ObservationRecordInput,
+    validated_under: z.strictObject({
+      role: z.literal(OBSERVATION_RESOLVER_AUTHORITY.role),
+      permission: z.literal(OBSERVATION_RESOLVER_AUTHORITY.permission),
+    }),
+    operation: z.literal(REFEREE_OP_ACTOR_OBSERVATION),
+    decision: ActorObservationHostDecisionSchema,
     verdict: z.enum(OBSERVATION_VERDICTS),
   }),
 ]);

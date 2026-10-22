@@ -1,16 +1,26 @@
 import {
+  ACTOR_OBSERVATION_CAPABILITY_REF,
+  ACTOR_OBSERVATION_COUPLING_REF,
+  ACTOR_OBSERVATION_REFS,
+  ACTOR_OBSERVATION_SOURCE_INDEX,
+  ACTOR_PROFILE_CAPABILITY_CLOSE,
   EntityId,
   ExistenceContractSchema,
+  ExistingActorCouplingSchema,
+  FACET_WORLD_FALLBACK_ENTITY,
   FACET_WORLD_SOURCE_CONDITION,
   I002_ADMITTED_CLASS,
   I002_NON_INTRINSIC_CLASSES,
+  NamedActorCapabilitySchema,
   OBSERVATION_BASE_REFS,
   OBSERVATION_PLACEMENT_REF,
   ORIGINAL_ACTIVATION,
+  OWNER_NAMED_ACTOR,
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
+  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -21,12 +31,17 @@ import {
   WorldLocusSchema,
   WorldProfileSchema,
   WorldSourceConditionSchema,
+  actorCapabilityKey,
+  actorCapabilityStage,
   parseWorldSourceConditionKey,
   pcExistenceContractKey,
+  worldActorCouplingKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
   worldSourceConditionKey,
+  type ActorObservationHostDecision,
+  type ActorObservationPremise,
   type CanonicalTime,
   type ExistenceContract,
   type I002HostDecision,
@@ -41,7 +56,9 @@ import {
   type RefereeRefusalCode,
   type RefereeVerdict,
 } from "@immortalis/contracts";
-import { sha256Canonical } from "../hash.ts";
+import { actorBoundaryViolation, existingActorSourceViolation } from "../actor/derive.ts";
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import { stageGroupId } from "../temporal/identity.ts";
 
 /**
  * Deterministic mechanism of the host-callable AI referee (PR #61, BLUE B61-A3). Nothing here understands language: it builds the
@@ -189,7 +206,36 @@ export interface ObservationContext {
   readonly refs: readonly RefereeInputRef[];
 }
 
-export type RefereeContext = I002Context | IrContext | PhysicalContext | ObservationContext;
+/**
+ * The actor direct-perception context (BLUE v5.2-A1, F-014D §6 for a NON-PC Named Actor). Built ONLY from committed facts at ONE canonical
+ * basis: the actor's own committed Named-Actor capability as its owner closed it (the only source of a sensory faculty), the World-State
+ * owner's coupling of the actor to ONE locus (the engine-worded statement of where the actor is), the world and the locus as committed, and
+ * ONE co-located World-State Source Condition, of which only its owner-authored access facts are delivered (as for the PC question: never its
+ * quantity, material class, dimension, key, deliveries or establishment statement). The caller names the actor, the capability, the source and
+ * the attempt, and nothing else: no scene, no expected result, no test label and no admission bit exists in it.
+ */
+export interface ActorObservationContext {
+  readonly operation: typeof REFEREE_OP_ACTOR_OBSERVATION;
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly actor_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  /** the canonical basis the question is asked at: a changed basis is a different question */
+  readonly observed_at: CanonicalTime;
+  /** the engine's wording of the World-State coupling the actor holds (a fixed sentence: it states no facing, posture or opening of the senses) */
+  readonly statement: string;
+  /** the actor's own committed capability, one item */
+  readonly actor: readonly { readonly item_id: string; readonly text: string }[];
+  readonly facts: readonly DeliveredFact[];
+  /** the actor's capability, its coupling, the world, the locus and the one source, at the versions delivered (in that order) */
+  readonly refs: readonly RefereeInputRef[];
+}
+
+export type RefereeContext =
+  I002Context | IrContext | PhysicalContext | ObservationContext | ActorObservationContext;
 
 export const contextDigest = (ctx: RefereeContext): string => sha256Canonical(ctx);
 /** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
@@ -380,7 +426,7 @@ export function committedCanonicalTime(facts: Facts): CanonicalTime | null {
 }
 
 /** The one refusal of every source problem, so that no cause (absent, foreign, elsewhere, exhausted, undescribed) can be told from another. */
-const SOURCE_UNAVAILABLE = "no source is available to this observation";
+export const SOURCE_UNAVAILABLE = "no source is available to this observation";
 
 /**
  * The ONE Source Condition a source-scoped question may be about: a committed World-State fact at its own derived key, whose own locality
@@ -1196,6 +1242,463 @@ export function observationVerdictOf(decision: ObservationHostDecision): Observa
   return "OBSERVATION_ESTABLISHED";
 }
 
+// ---------------------------------------------------------------------------------------------
+// The NON-PC Named-Actor direct-perception question (BLUE v5.2-A1, F-014D §6)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The engine's wording of the one World-State coupling an actor holds. A fixed sentence on purpose: the coupling states WHERE the actor is
+ * (one established locus), and nothing of facing, posture, open senses or attention, none of which any owner has committed for an actor.
+ */
+export const ACTOR_COUPLING_STATEMENT =
+  "The World-State owner records this actor as currently coupled to this locus of this world.";
+
+const ACTOR_CAPABILITY_KEY =
+  /^actor\/([A-Za-z0-9][A-Za-z0-9._:-]*)\/capability\/([A-Za-z0-9][A-Za-z0-9._:-]*)$/;
+
+/** The actor and capability a cited capability key names, or null. */
+export function actorCapabilityOfKey(
+  key: string,
+): { actor_id: string; capability_id: string } | null {
+  const m = ACTOR_CAPABILITY_KEY.exec(key);
+  return m ? { actor_id: m[1]!, capability_id: m[2]! } : null;
+}
+
+/**
+ * The actor direct-perception context, built ONLY from committed facts (see `ActorObservationContext`) at the supplied canonical basis.
+ * Refused unless the identity is a lawful non-PC Named Actor, its own committed capability is held at its owner's declared close, the
+ * World-State owner holds exactly one coupling of it to a locus of a committed world, and the named source is a committed, non-exhausted,
+ * access-described Source Condition of exactly that world and locus. `capability_id` and `source_key` are TRUSTED-SIDE input only (the
+ * operator's choice of what to ask), never a host, client or model input, and nothing is discovered, enumerated or inferred here.
+ */
+export function actorObservationContext(
+  facts: Facts,
+  input: {
+    campaign_id: string;
+    attempt: number;
+    actor_id: string;
+    capability_id: string;
+    source_key: string;
+    observed_at: CanonicalTime;
+  },
+):
+  | { ok: true; context: ActorObservationContext }
+  | { ok: false; code: RefereeRefusalCode; message: string } {
+  const unavailable = (message: string) => ({
+    ok: false as const,
+    code: "CONTEXT_UNAVAILABLE" as const,
+    message,
+  });
+  if (
+    !EntityId.safeParse(input.actor_id).success ||
+    !EntityId.safeParse(input.capability_id).success
+  )
+    return unavailable("the actor and capability identities must be valid");
+  const view = { get: (k: string) => facts(k), has: (k: string) => facts(k) !== undefined };
+  const boundary = actorBoundaryViolation(view, input.actor_id);
+  if (boundary !== null)
+    return unavailable(
+      "the identity is a lawful non-PC Named Actor: it is no Player Character, no entity under player control and no aggregate",
+    );
+  const couplingFact = facts(worldActorCouplingKey(input.actor_id));
+  const parsedCoupling = couplingFact
+    ? ExistingActorCouplingSchema.safeParse(couplingFact.value)
+    : undefined;
+  if (
+    !couplingFact ||
+    !parsedCoupling?.success ||
+    couplingFact.owner !== OWNER_WORLD_STATE ||
+    couplingFact.facet !== FACET_WORLD_FALLBACK_ENTITY ||
+    parsedCoupling.data.actor_id !== input.actor_id
+  )
+    return unavailable("the actor's World-State coupling to one locus must be committed");
+  const coupling = parsedCoupling.data;
+  if (existingActorSourceViolation(input.actor_id, coupling.actor_state, view) !== null)
+    return unavailable("the coupling rests on the actor's own committed Named-Actor state");
+  const capKey = actorCapabilityKey(input.actor_id, input.capability_id);
+  const capFact = facts(capKey);
+  const cap = capFact ? NamedActorCapabilitySchema.safeParse(capFact.value) : undefined;
+  if (
+    !capFact ||
+    !cap?.success ||
+    capFact.key !== capKey ||
+    capFact.owner !== OWNER_NAMED_ACTOR ||
+    cap.data.actor_id !== input.actor_id ||
+    cap.data.capability_id !== input.capability_id ||
+    cap.data.close.name !== ACTOR_PROFILE_CAPABILITY_CLOSE ||
+    !canonicalEqual(
+      cap.data.close.stage,
+      actorCapabilityStage(input.actor_id, input.capability_id),
+    ) ||
+    capFact.provenance.group_id !== stageGroupId(cap.data.close.stage)
+  )
+    return unavailable(
+      "the actor's own capability must be committed at its owner's declared close",
+    );
+  const worldId = coupling.coupling.world.entity_id;
+  const locusId = coupling.coupling.locus.entity_id;
+  const worldFact = facts(worldProfileKey(worldId));
+  const locusFact = facts(worldLocusKey(worldId, locusId));
+  if (!worldFact || !locusFact) return unavailable("the coupled world and locus must be committed");
+  const world = WorldProfileSchema.safeParse(worldFact.value);
+  const locus = WorldLocusSchema.safeParse(locusFact.value);
+  if (
+    !world.success ||
+    !locus.success ||
+    worldFact.key !== coupling.coupling.world.fact_key ||
+    locusFact.key !== coupling.coupling.locus.fact_key ||
+    !canonicalEqual(locus.data.world, coupling.coupling.world)
+  )
+    return unavailable("a committed fact does not satisfy its contract");
+  const source = sourceScope(facts, coupling.coupling, input.source_key);
+  if (!source) return unavailable(SOURCE_UNAVAILABLE);
+  const ref = (f: OwnerFact): RefereeInputRef => ({
+    fact_key: f.key,
+    version: f.version,
+    group_id: f.provenance.group_id,
+  });
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_ACTOR_OBSERVATION,
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { actor_id: input.actor_id, world_id: worldId, locus_id: locusId },
+      observed_at: input.observed_at,
+      statement: ACTOR_COUPLING_STATEMENT,
+      actor: [
+        {
+          item_id: ACTOR_OBSERVATION_CAPABILITY_REF,
+          text: `A capability of this actor, committed by its owner at the owner's close: ${input.capability_id}`,
+        },
+      ],
+      facts: [...deliveredFacts(world.data, locus.data), ...source.delivered],
+      refs: [ref(capFact), ref(couplingFact), ref(worldFact), ref(locusFact), ref(source.fact)],
+    },
+  };
+}
+
+/**
+ * The values of the scoped source that no appearance may carry (see `ObservationWithheld`), re-read from the committed Source Condition the
+ * question pins, wherever an answer is definitively validated. `null` when the question's pinned source cannot be read as one (fail closed).
+ */
+export function actorObservationWithheld(
+  facts: Facts,
+  ctx: ActorObservationContext,
+): ObservationWithheld | null {
+  const pin = ctx.refs[ACTOR_OBSERVATION_SOURCE_INDEX];
+  const key = ctx.refs.length === ACTOR_OBSERVATION_REFS ? pin?.fact_key : undefined;
+  const named = key ? parseWorldSourceConditionKey(key) : null;
+  const fact = key ? facts(key) : undefined;
+  const parsed = fact ? WorldSourceConditionSchema.safeParse(fact.value) : undefined;
+  if (!named || !parsed?.success || named.world_id !== ctx.subject.world_id) return null;
+  const s = parsed.data;
+  return {
+    names: [s.source_key, s.material_class],
+    amounts: [
+      ...new Set([
+        s.establishment.quantity.amount,
+        s.recoverable.amount,
+        ...s.delivered.map((d) => d.quantity.amount),
+      ]),
+    ],
+  };
+}
+
+/** The delivered text one premise of the actor question cites, or undefined when it names nothing that was delivered. */
+function actorPremiseText(
+  ctx: ActorObservationContext,
+  p: ActorObservationPremise,
+): string | undefined {
+  if (p.from === "ACTOR_CAPABILITY") return ctx.actor.find((i) => i.item_id === p.ref)?.text;
+  if (p.from === "COUPLING_STATEMENT")
+    return p.ref === ACTOR_OBSERVATION_COUPLING_REF ? ctx.statement : undefined;
+  return ctx.facts.find((f) => f.fact_id === p.ref)?.text;
+}
+
+/**
+ * Validates a host's actor direct-perception answer against the context it was given and derives the verdict (F-014D §5 steps 2-4, §6). The
+ * discipline is the PC question's, with the actor's own premise kinds: every claim is anchored to a verbatim quotation of DELIVERED text of the
+ * kind of premise that may establish it (the faculty only on the actor's own committed capability; the viewing circumstances on the engine's
+ * coupling statement read with world facts, and never without the coupling; the path and the appearance only on world facts), every delivered
+ * fact is assessed exactly once, a payload exists only when the whole question is affirmatively answered and is OF the one scoped source, and it
+ * carries no engine reference and none of the values the source's owner withholds. The verdict is DERIVED: a missing faculty, unestablished
+ * circumstances or an open fork is UNRESOLVED and is never read as an obstruction.
+ */
+export function deriveActorObservation(
+  ctx: ActorObservationContext,
+  decision: ActorObservationHostDecision,
+  withheld: ObservationWithheld = NOTHING_WITHHELD,
+): { ok: true; verdict: ObservationVerdict } | { ok: false; refusal: RefereeRefusal } {
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  const elements = [decision.faculty, decision.position, decision.path] as const;
+  const cited: ActorObservationPremise[] = [
+    ...elements.flatMap((e) => e.premises),
+    ...(decision.payload?.basis ?? []),
+  ];
+  for (const p of cited) {
+    const text = actorPremiseText(ctx, p);
+    if (text === undefined)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `a premise names text that was not delivered: ${p.ref}`,
+        ),
+      };
+    if (!text.includes(p.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          `${p.ref}: the quotation is not in the premise it cites`,
+        ),
+      };
+  }
+  const only = (list: readonly ActorObservationPremise[], kinds: readonly string[]) =>
+    list.every((p) => kinds.includes(p.from));
+  if (!only(decision.faculty.premises, ["ACTOR_CAPABILITY"]))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "the faculty rests only on the actor's own committed capability: no sensory ability is invented from the world, the coupling or a label",
+      ),
+    };
+  if (!only(decision.position.premises, ["COUPLING_STATEMENT", "WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "the viewing circumstances rest on the coupling statement and world facts, never on the actor's capability",
+      ),
+    };
+  if (!only(decision.path.premises, ["WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse("DECISION_INCOHERENT", "the path rests only on committed world facts"),
+    };
+  if (decision.payload && !only(decision.payload.basis, ["WORLD_FACT"]))
+    return {
+      ok: false,
+      refusal: refuse("DECISION_INCOHERENT", "the appearance rests only on committed world facts"),
+    };
+  const needs = (
+    state: string,
+    ok: string,
+    list: readonly ActorObservationPremise[],
+    what: string,
+  ) =>
+    state === ok && list.length === 0
+      ? refuse("GROUNDS_UNSUPPORTED", `${what} is established only by quoted premises`)
+      : null;
+  const missing =
+    needs(decision.faculty.state, "ESTABLISHED", decision.faculty.premises, "the faculty") ??
+    needs(decision.position.state, "ESTABLISHED", decision.position.premises, "the position") ??
+    needs(decision.path.state, "OPEN", decision.path.premises, "an open path") ??
+    needs(decision.path.state, "BLOCKED", decision.path.premises, "a blocked path");
+  if (missing) return { ok: false, refusal: missing };
+  if (
+    decision.position.state === "ESTABLISHED" &&
+    !decision.position.premises.some((p) => p.from === "COUPLING_STATEMENT")
+  )
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the actor's own viewing circumstances are established by its coupling read with the world facts: a shared locus alone does not establish them",
+      ),
+    };
+  const checked = checkAssessments(ctx.facts, decision.assessments);
+  if (!checked.ok) return checked;
+  const verdict = actorObservationVerdictOf(decision);
+  const payload = decision.payload;
+  if (payload !== null) {
+    if (verdict !== "OBSERVATION_ESTABLISHED")
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "an appearance is stated only when the whole direct-perception question is affirmatively answered",
+        ),
+      };
+    const source = ctx.facts.find((f) => f.fact_id === payload.source_fact_id);
+    if (!source)
+      return {
+        ok: false,
+        refusal: refuse(
+          "COVERAGE_INCOMPLETE",
+          `the appearance names a source fact that was not delivered: ${payload.source_fact_id}`,
+        ),
+      };
+    // the question is scoped to ONE Source Condition and answered by an appearance OF it: the receipt pins it, never a neighbouring fact
+    if (source.from !== "source")
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "an actor observation states the appearance of the one source, not of another fact",
+        ),
+      };
+    if (!payload.basis.some((p) => p.ref === payload.source_fact_id))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "the appearance is anchored to a quotation of the source fact it is of",
+        ),
+      };
+    const forbidden = [
+      ...ctx.facts.map((f) => f.fact_id),
+      ...ctx.refs.map((r) => r.fact_key),
+      ...ctx.actor.map((i) => i.item_id),
+      ACTOR_OBSERVATION_COUPLING_REF,
+      ctx.subject.actor_id,
+      ctx.subject.world_id,
+      ctx.subject.locus_id,
+    ];
+    for (const text of [payload.referent, payload.content]) {
+      if (forbidden.some((t) => text.includes(t)))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "an appearance carries no engine reference: no fact, key or identity",
+          ),
+        };
+      if (carriesWithheld(text, withheld))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "an appearance carries nothing the source's owner withholds: no source identifier, material class or exact quantity",
+          ),
+        };
+    }
+  }
+  return { ok: true, verdict };
+}
+
+/**
+ * The actor direct-perception verdict as a function of the answer alone (re-derivable from the retained record): the PC question's rule. A
+ * contradicted world fact is a conflict; an ESTABLISHED blocked path from an ESTABLISHED viewing position is the physical negative; anything
+ * else not fully and affirmatively answered is UNRESOLVED, never an obstruction; only the remainder is a receipt.
+ */
+export function actorObservationVerdictOf(
+  decision: ActorObservationHostDecision,
+): ObservationVerdict {
+  if (decision.assessments.some((a) => a.relation === "CONTRADICTS"))
+    return "OBSERVATION_WORLD_CONFLICT";
+  if (decision.path.state === "BLOCKED" && decision.position.state === "ESTABLISHED")
+    return "OBSERVATION_OBSTRUCTED";
+  if (
+    decision.faculty.state !== "ESTABLISHED" ||
+    decision.position.state !== "ESTABLISHED" ||
+    decision.path.state !== "OPEN" ||
+    decision.assessments.some((a) => a.relation === "UNCLEAR") ||
+    decision.payload === null
+  )
+    return "OBSERVATION_UNRESOLVED";
+  return "OBSERVATION_ESTABLISHED";
+}
+
+/** The actor direct-perception record's context, re-derived from the committed facts it cites (the same discipline as the PC record). */
+function actorObservationRecordViolation(
+  r: Extract<RefereeDecisionRecord, { operation: typeof REFEREE_OP_ACTOR_OBSERVATION }>,
+  facts: Facts,
+): RecordViolation {
+  const incoherent = (message: string): RecordViolation => ({
+    code: "DECISION_INCOHERENT",
+    message,
+    stale: false,
+  });
+  if (r.input.statement === null || r.input.candidate !== null)
+    return incoherent("an actor direct-perception record carries its statement and no candidate");
+  let superseded = false;
+  for (const ref of r.input.refs) {
+    const f = facts(ref.fact_key);
+    if (!f)
+      return {
+        code: "CONTEXT_UNAVAILABLE",
+        message: `a cited fact is not committed: ${ref.fact_key}`,
+        stale: false,
+      };
+    if (f.version > ref.version) {
+      superseded = true;
+      continue;
+    }
+    if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
+      return {
+        code: "CONTEXT_STALE",
+        message: `a cited fact is not at the cited version: ${ref.fact_key}`,
+        stale: true,
+      };
+  }
+  const ids = irIdentities(r);
+  const keys = r.input.refs.map((x) => x.fact_key);
+  const cap = keys[0] ? actorCapabilityOfKey(keys[0]) : null;
+  const named = keys[ACTOR_OBSERVATION_SOURCE_INDEX]
+    ? parseWorldSourceConditionKey(keys[ACTOR_OBSERVATION_SOURCE_INDEX])
+    : null;
+  if (
+    !ids ||
+    keys.length !== ACTOR_OBSERVATION_REFS ||
+    !cap ||
+    cap.actor_id !== r.subject.actor_id ||
+    keys[1] !== worldActorCouplingKey(r.subject.actor_id) ||
+    keys[2] !== worldProfileKey(ids.world_id) ||
+    keys[3] !== worldLocusKey(ids.world_id, ids.locus_id) ||
+    !named ||
+    named.world_id !== ids.world_id
+  )
+    return incoherent(
+      "an actor direct-perception record cites the actor's own capability, its coupling, the world, the locus and the one source it is scoped to",
+    );
+  if (superseded) {
+    if (
+      r.input.statement_digest !== statementDigest(r.input.statement) ||
+      r.decision.task_id !== r.task_id
+    )
+      return incoherent("the record's statement digest or task binding is not its own");
+    // the scope of the appearance is a property of the record alone: the appearance is of the source, and only of it
+    if (r.decision.payload !== null && !r.decision.payload.source_fact_id.startsWith("source."))
+      return incoherent("an actor reading states the appearance of its source, and only it");
+    return actorObservationVerdictOf(r.decision) === r.verdict
+      ? null
+      : incoherent("the record's verdict is not the one its answer derives");
+  }
+  const built = actorObservationContext(facts, {
+    campaign_id: r.campaign_id,
+    attempt: r.attempt,
+    actor_id: r.subject.actor_id,
+    capability_id: cap.capability_id,
+    source_key: named.source_key,
+    observed_at: r.input.observed_at,
+  });
+  if (!built.ok) return { code: built.code, message: built.message, stale: false };
+  if (
+    built.context.statement !== r.input.statement ||
+    built.context.subject.world_id !== ids.world_id ||
+    built.context.subject.locus_id !== ids.locus_id ||
+    r.input.digest !== contextDigest(built.context) ||
+    r.task_id !== refereeTaskId(built.context) ||
+    r.input.statement_digest !== statementDigest(r.input.statement)
+  )
+    return incoherent(
+      "the record's digests are not those of the context built from the cited facts",
+    );
+  if (!sameRefs(built.context.refs, r.input.refs))
+    return incoherent("the record cites exactly the facts its context was built from");
+  const withheld = actorObservationWithheld(facts, built.context);
+  if (!withheld) return { code: "CONTEXT_UNAVAILABLE", message: SOURCE_UNAVAILABLE, stale: false };
+  const d = deriveActorObservation(built.context, r.decision, withheld);
+  if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+  return d.verdict === r.verdict
+    ? null
+    : incoherent("the record's verdict is not the one its answer derives");
+}
+
 /** The context a retained record was decided on, re-derived from the record alone (I-002) or from committed facts (IR). */
 export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): RecordViolation {
   if (r.operation === REFEREE_OP_I002) {
@@ -1239,6 +1742,8 @@ export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): 
   }
   if (r.operation === REFEREE_OP_PHYSICAL) return physicalRecordViolation(r, facts);
   if (r.operation === REFEREE_OP_OBSERVATION) return observationRecordViolation(r, facts);
+  if (r.operation === REFEREE_OP_ACTOR_OBSERVATION)
+    return actorObservationRecordViolation(r, facts);
   if (r.input.statement === null || r.input.candidate !== null)
     return {
       code: "DECISION_INCOHERENT",

@@ -66,6 +66,7 @@ export * from "./economy/holding.ts";
 export * from "./economy/holding-integrity.ts";
 export * from "./economy/integrity.ts";
 export * from "./economy/provider.ts";
+export * from "./epistemic/actor-observation.ts";
 export * from "./epistemic/adapter.ts";
 export * from "./epistemic/admission.ts";
 export * from "./epistemic/declaration.ts";
