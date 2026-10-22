@@ -28,6 +28,19 @@ export type {
   SourceFileErrorCode,
 } from "./additional-source.ts";
 export {
+  establishInitialPopulation,
+  expectedCohort,
+  expectedLedger,
+  initialPopulationId,
+  readInitialPopulationFile,
+} from "./initial-population.ts";
+export type {
+  EstablishInitialPopulationParams,
+  InitialPopulationResult,
+  InitialPopulationStatus,
+  PopulationFileErrorCode,
+} from "./initial-population.ts";
+export {
   establishProductionReserve,
   expectedReserve,
   productionReserveId,

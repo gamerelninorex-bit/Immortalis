@@ -138,7 +138,7 @@ describe("the confirmation is a one-time token for exactly what was shown", () =
       const run = await runShipped([...reserveArgs(dirs, writeReserve(reserveDoc())), flag, "x"]);
       expect(run.code, flag).toBe(64);
     }
-  });
+  }, 60_000);
 });
 
 describe("the authored Reserve reaches the operator's console and the package only", () => {

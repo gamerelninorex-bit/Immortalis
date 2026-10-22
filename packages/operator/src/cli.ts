@@ -21,6 +21,7 @@ import { establishLocality, localityStatus, type LocalityStatus } from "./locali
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
 import { establishProductionReserve, type ProductionReserveStatus } from "./production-reserve.ts";
+import { establishInitialPopulation, type InitialPopulationStatus } from "./initial-population.ts";
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
@@ -51,6 +52,7 @@ usage:
   immortalis-operator establish-additional-source --campaign <dir> --campaign-id <id> --source-file <file>
   immortalis-operator establish-additional-locality --campaign <dir> --campaign-id <id> --locality-file <file>
   immortalis-operator establish-reserve --campaign <dir> --campaign-id <id> --reserve-file <file>
+  immortalis-operator establish-population --campaign <dir> --campaign-id <id> --population-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
@@ -113,6 +115,17 @@ establish-reserve: for a campaign whose ORIGINAL locality establish-locality alr
   Repeating it converges (pass --reclaim-stale-lock if the package lock was left behind); a different Reserve under the same identifier is
   refused. It is an initial physical setting only: not a collection, conversion or delivery from any source, and no entitlement, title,
   access right, character, time or consumption. This command never creates or replaces a campaign package; it adds exactly one Reserve fact to an existing one.
+establish-population: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed and which already holds a canonical
+  time, before any character is bound: establishes ONE disjoint resident Population ledger and ONE Population-owned RESIDENCE Cohort reference
+  to it, at the established world and a locus the confirmed scenario established, from a local file YOU author (a regular file you own that
+  nobody else can write: a strict ledger section, exactly the Population owner's EstablishLedgerInput, whose point must be the campaign's
+  canonical time, and exactly one full strict CohortRef; see docs/initial-population-admission-foundation.md). The whole proposal is shown
+  back for ONE explicit typed confirmation before anything is written; the ledger is committed first and the Cohort only after it, through
+  the existing Population owner operations, every other fact is left exactly as it is, and success is reported only after a fresh
+  owner-verified reopen. Repeating it converges and finishes a ledger committed without its Cohort (pass --reclaim-stale-lock if the package
+  lock was left behind); anything else under the same keys, or while another ledger is held, is refused. The Cohort holds no result: its
+  members and count come only from Population's own later ordinary close. It is an opening setting only: no actor, mind, social truth,
+  labour, perception, collection, movement or time. This command never creates or alters a campaign package.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers
@@ -181,6 +194,7 @@ const exitOf = (
     | AdditionalSourceStatus
     | AdditionalLocalityStatus
     | ProductionReserveStatus
+    | InitialPopulationStatus
     | CharacterStatus
     | "REFEREE_HOST_BOUND",
 ): number => {
@@ -201,6 +215,10 @@ const exitOf = (
     case "RESERVE_READY":
       return EXIT.OK;
     case "RESERVE_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "POPULATION_READY":
+      return EXIT.OK;
+    case "POPULATION_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "ADDITIONAL_LOCALITY_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -244,6 +262,7 @@ const OPTIONS = {
   "source-file": { type: "string" },
   "locality-file": { type: "string" },
   "reserve-file": { type: "string" },
+  "population-file": { type: "string" },
   "player-character": { type: "string" },
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
@@ -264,6 +283,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-additional-source": ["source-file"],
   "establish-additional-locality": ["locality-file"],
   "establish-reserve": ["reserve-file"],
+  "establish-population": ["population-file"],
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
@@ -435,6 +455,22 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         reserveFile: str("reserve-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-population") {
+      const r = await establishInitialPopulation({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        populationFile: str("population-file") ?? "",
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
