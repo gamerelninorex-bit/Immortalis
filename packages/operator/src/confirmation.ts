@@ -28,6 +28,7 @@ export type ConfirmationVerb =
   | "establish-locality"
   | "establish-additional-source"
   | "establish-additional-locality"
+  | "establish-corridor"
   | "establish-reserve"
   | "establish-population"
   | "establish-timed-governance"

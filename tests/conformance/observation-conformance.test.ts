@@ -45,7 +45,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/index.ts":
     "979e435c37d3398f0d9d36de3d0998a62bafe15539f1c3bf8b757ff930e451b8",
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
   "packages/engine/src/referee/adapter.ts":
     "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
   "packages/engine/src/referee/admission.ts":
@@ -59,11 +59,11 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
+    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   "packages/operator/src/confirmation.ts":
-    "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
+    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
   "packages/operator/src/index.ts":
-    "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
+    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/referee-exchange.ts":

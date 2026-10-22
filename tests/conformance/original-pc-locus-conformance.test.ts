@@ -256,11 +256,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "da6765cb36246da4363be0796a2438a301eff164f5e121977d125bca0291eec0",
+    "9927d3f4624b061da38c2a8c61458bbad199c457136d6e53a52c472869f82a3b",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "71541c4a368740ff91be93b65f3de77aad62caef144403a1db7a1e3fae1e305d",
+    "0bf047d85464ff89ece139655421570d9e0b2dbd0a6859e0d9d52be3f183c516",
   "packages/engine/src/world/actor-coupling.ts":
     "4469c7605461dc0942fc092e9fa85f180b9f067d6a8ab972edb9db7aca764cf6",
   "packages/engine/src/world/actor-coupling-integrity.ts":
@@ -310,7 +310,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+    head: "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -334,7 +334,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+    head: "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -346,15 +346,15 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
+    head: "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
+    head: "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
+    head: "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",

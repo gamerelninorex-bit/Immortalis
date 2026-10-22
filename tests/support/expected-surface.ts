@@ -42,6 +42,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world/w1/locus/l1",
   },
   {
+    id: "world_corridor",
+    owner: "world_state",
+    facet: "world_locus",
+    lifecycle: "SEALED",
+    group: "WORLD_CORRIDOR_FACT_KINDS",
+    exampleKey: "world/w1/corridor/l1/l2",
+  },
+  {
     id: "pc_existence_contract",
     owner: "pc_existence",
     facet: "existence_contract",
@@ -764,7 +772,15 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     ],
   },
   LogisticsAdapter: {
-    methods: ["commitMovement", "commitment", "currentLocus", "delivery", "dispatch", "transfer"],
+    methods: [
+      "commitCorridorMovement",
+      "commitMovement",
+      "commitment",
+      "currentLocus",
+      "delivery",
+      "dispatch",
+      "transfer",
+    ],
   },
   NamedActorAdapter: {
     methods: [

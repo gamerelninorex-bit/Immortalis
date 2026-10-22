@@ -39,11 +39,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8",
+    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
   "packages/engine/src/index.ts":
     "979e435c37d3398f0d9d36de3d0998a62bafe15539f1c3bf8b757ff930e451b8",
   "packages/contracts/src/index.ts":
-    "9647c60c0a743e641af0891f53f26b1b81eb46bbce6a2daead976add5d7da95a",
+    "64c9c3a18d98b170bbae8440865ea02f4b745ab3d06e2a759cbcb43b143c3161",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/protocol-current-glance.ts":
@@ -79,13 +79,13 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e",
+    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
     "00b58b5cba3b0552afbeb95d7dd002ad6e6e7ce09795e9f5ef2ed113def09d85",
   "packages/operator/src/confirmation.ts":
-    "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
+    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
   "packages/operator/src/original-pc.ts":
     "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
   "packages/operator/src/original-pc-keep.ts":
@@ -101,7 +101,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/index.ts":
-    "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
+    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
@@ -133,7 +133,7 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/derive.ts":
     "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
   "packages/operator/src/cli.ts":
-    "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
+    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/referee-exchange.ts":

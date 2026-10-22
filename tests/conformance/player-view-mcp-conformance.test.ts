@@ -68,11 +68,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-session.ts":
     "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
   "packages/operator/src/cli.ts":
-    "737f544a05f3a1fb247a959ae75be1fdfbb0511b23b76a0b78d239d279126ea4",
+    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   "packages/operator/src/index.ts":
-    "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
+    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   "packages/operator/src/confirmation.ts":
-    "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
+    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
 };
 
 const NEW_MODULES = [
@@ -128,6 +128,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "cli.ts",
         "commands.ts",
         "confirmation.ts",
+        "corridor.ts",
         "index.ts",
         "initial-local-demand.ts",
         "initial-population.ts",

@@ -23,6 +23,7 @@ import {
   OWNER_WORLD_STATE,
   OWNER_TEMPORAL_KERNEL,
   PlayerCharacterBindingSchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
@@ -56,6 +57,7 @@ import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
+import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
@@ -74,6 +76,21 @@ function checkLocus(group: CommitGroup, state: CampaignState, key: string, value
   }
   const world = requirePrerequisite(group, state, worldKey, "the world profile");
   return isRejection(world) ? world : null;
+}
+
+function checkCorridor(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
+  const c = WorldCorridorSchema.parse(value);
+  // the world and both endpoints are read at their current versions and depended on, never created here, in dependency order
+  for (const [pin, what] of [
+    [c.world.fact_key, "the world profile"],
+    [c.from.fact_key, "the corridor's origin locus"],
+    [c.to.fact_key, "the corridor's destination locus"],
+  ] as const) {
+    const required = requirePrerequisite(group, state, pin, what);
+    if (isRejection(required)) return required;
+  }
+  const violation = worldCorridorViolation(key, value, state.facts);
+  return violation ? reject("REFERENCE_INVALID", violation, { key }) : null;
 }
 
 /**
@@ -507,6 +524,14 @@ export function identityMismatch(
       return v["locus_id"] === ids[1] && (v["world"] as { entity_id: string }).entity_id === ids[0]
         ? null
         : "locus identity does not match the key";
+    case "world_corridor": {
+      const world = v["world"] as { entity_id: string };
+      const from = v["from"] as { entity_id: string };
+      const to = v["to"] as { entity_id: string };
+      return world.entity_id === ids[0] && from.entity_id === ids[1] && to.entity_id === ids[2]
+        ? null
+        : "corridor identity does not match the key";
+    }
     case "pc_existence_contract":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "player_character_binding":
@@ -701,6 +726,8 @@ function dependencyCheck(
   switch (kind.id) {
     case "world_locus":
       return checkLocus(group, state, key, value);
+    case "world_corridor":
+      return checkCorridor(group, state, key, value);
     case "pc_existence_contract":
       return checkExistenceContract(group, state, value);
     case "player_character_binding":

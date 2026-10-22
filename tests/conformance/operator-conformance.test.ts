@@ -59,13 +59,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/contracts/src/logistics.ts":
-    "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
+    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -81,7 +81,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/gip/adapter.ts":
     "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
   "packages/engine/src/logistics/adapter.ts":
-    "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
+    "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
@@ -254,12 +254,14 @@ describe("the package composes only the existing gateways and canonical reads", 
       "characterStatus",
       "compileContract",
       "consumeConfirmation",
+      "corridorId",
       "custodyProblems",
       "defaultOperatorDir",
       "ensureOperatorStateDirectory",
       "establishAdditionalLocality",
       "establishAdditionalSource",
       "establishCharacterLocus",
+      "establishCorridor",
       "establishInitialLocalDemand",
       "establishInitialPopulation",
       "establishInitialTimedGovernance",
@@ -299,6 +301,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "readAdditionalLocalityFile",
       "readAdditionalSourceFile",
       "readConfig",
+      "readCorridorFile",
       "readInitialLocalDemandFile",
       "readInitialPopulationFile",
       "readInitialTimedGovernanceFile",

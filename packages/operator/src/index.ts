@@ -16,6 +16,13 @@ export type {
   EstablishAdditionalLocalityParams,
   LocalityFileErrorCode,
 } from "./additional-locality.ts";
+export { corridorId, establishCorridor, readCorridorFile } from "./corridor.ts";
+export type {
+  CorridorFileErrorCode,
+  CorridorResult,
+  CorridorStatus,
+  EstablishCorridorParams,
+} from "./corridor.ts";
 export {
   additionalSourceId,
   establishAdditionalSource,

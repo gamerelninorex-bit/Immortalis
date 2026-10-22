@@ -2,6 +2,7 @@ import {
   CANON_WRITE_AUTHORITY,
   type SourceRef,
   EXISTING_ACTOR_HANDOVER,
+  EstablishCorridorInputSchema,
   EstablishSourceConditionInputSchema,
   ExistenceContractSchema,
   InsertionFactSchema,
@@ -20,15 +21,18 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   PublicationSchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   WorldProfileSchema,
   WorldSourceConditionSchema,
+  corridorOfInput,
   fail,
   ok,
   pcExistenceContractKey,
   pcMovementCommitmentKey,
   pcMovementRequestKey,
   worldActorCouplingKey,
+  worldCorridorKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
@@ -45,6 +49,7 @@ import {
   type Result,
   type SchemaIssues,
   type ValueSchema,
+  type WorldCorridor,
   type WorldLocus,
   type WorldProfile,
   type WorldSourceCondition,
@@ -108,6 +113,7 @@ export const CANONICAL_STORE_BINDINGS = {
 
 export type EstablishWorldInput = Publication & { readonly world: unknown };
 export type EstablishLocusInput = Publication & { readonly locus: unknown };
+export type EstablishCorridorPublication = Publication & { readonly corridor: unknown };
 export type EstablishSourceConditionPublication = Publication & { readonly source: unknown };
 export type ReleasePcInput = Publication & {
   readonly contract: unknown;
@@ -299,6 +305,31 @@ export class CanonicalCampaign {
     if (!locus.success) return Promise.resolve(inputInvalid("locus", locus.error));
     const key = worldLocusKey(locus.data.world.entity_id, locus.data.locus_id);
     return this.#publish(input, "world_locus", key, locus.data, [locus.data.world.fact_key]);
+  }
+
+  /**
+   * WG "Geography / Traversal" and "Edge / Corridor State": ONE directed physical corridor between two established, distinct loci of one
+   * committed world, as the scenario author stated it. It reads and depends on the world and both loci (never creating them) and is the
+   * topological fact that the first is connected TO the second, in that order, and nothing more: the caller names the three identities
+   * and the authored statement, and can state no distance, travel time, rate, access right, hazard, capability or outcome (none has a
+   * representation). The reverse connection, intermediate loci and the absence of hazards are never inferred. It is create-only: a second
+   * or changed corridor for the same ordered pair is a version conflict.
+   */
+  establishCorridor(
+    input: EstablishCorridorPublication,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const i = EstablishCorridorInputSchema.safeParse(input.corridor);
+    if (!i.success) return Promise.resolve(inputInvalid("corridor", i.error));
+    const corridor = WorldCorridorSchema.safeParse(corridorOfInput(i.data));
+    if (!corridor.success) return Promise.resolve(inputInvalid("corridor", corridor.error));
+    const c = corridor.data;
+    return this.#publish(
+      input,
+      "world_corridor",
+      worldCorridorKey(c.world.entity_id, c.from.entity_id, c.to.entity_id),
+      c,
+      [c.world.fact_key, c.from.fact_key, c.to.fact_key],
+    );
   }
 
   /**
@@ -697,6 +728,14 @@ export class CanonicalCampaign {
   }
   locus(worldId: string, locusId: string): Typed<WorldLocus> | undefined {
     return this.#typed(worldLocusKey(worldId, locusId), WorldLocusSchema);
+  }
+  /** The directed corridor from one locus to another, or undefined when none is established (the reverse is a different fact). */
+  corridor(
+    worldId: string,
+    fromLocusId: string,
+    toLocusId: string,
+  ): Typed<WorldCorridor> | undefined {
+    return this.#typed(worldCorridorKey(worldId, fromLocusId, toLocusId), WorldCorridorSchema);
   }
   /** The World-State Source Condition, net of every delivery World-State has committed, or undefined when none is established. */
   sourceCondition(worldId: string, sourceKey: string): Typed<WorldSourceCondition> | undefined {
