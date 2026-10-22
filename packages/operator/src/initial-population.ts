@@ -726,12 +726,13 @@ async function run(a: RunArgs): Promise<InitialPopulationResult> {
 
   const locality = establishedLocality(campaign);
   if (locality.kind === "ABSENT") return result("LOCALITY_NOT_ESTABLISHED", [locality.reason]);
+  // an established locality that a later owner write has advanced ends pre-play, whatever else this identity has committed
+  if (locality.kind === "MODIFIED") return result("PRE_PLAY_CLOSED", [locality.reason]);
 
   const committed = committedOf(campaign, doc, stages);
   if (committed.kind === "CONFLICT") return result(committed.status, [committed.reason]);
   if (committed.kind === "BOTH") {
     // the whole identity already committed (a repeat, a lost reply, a restart): verified and reported without asking again
-    if (locality.kind !== "ESTABLISHED") return result("PRE_PLAY_CLOSED", [locality.reason]);
     if (store.getFact(PLAYER_CHARACTER_BINDING_KEY))
       return result("PRE_PLAY_CLOSED", ["a player character is already bound to this campaign"]);
     const closed = advancedProblems(store, stages);
@@ -741,7 +742,6 @@ async function run(a: RunArgs): Promise<InitialPopulationResult> {
     return ready(params.campaignId, id, doc, campaign, stages);
   }
 
-  if (locality.kind === "MODIFIED") return result("PRE_PLAY_CLOSED", [locality.reason]);
   const violations = campaign.verify();
   if (violations.length > 0)
     return result("POPULATION_VERIFICATION_FAILED", [

@@ -580,6 +580,33 @@ describe("the campaign must still be at its pre-play setting", () => {
   );
 });
 
+describe("a committed population is not replayed over an advanced locality", () => {
+  it("the world advanced by a later owner write after the population was established: an identical rerun is PRE_PLAY_CLOSED, never READY or a conflict", async () => {
+    const dirs = await timedCampaign();
+    const file = writePopulation(populationDoc());
+    expect((await addPopulation(dirs, file)).result.status).toBe("POPULATION_READY");
+    const head = await headOf(dirs.campaignDir);
+    const open = LocalOperatorSession.open;
+    vi.spyOn(LocalOperatorSession, "open").mockImplementation(async (p) => {
+      const opened = await open.call(LocalOperatorSession, p);
+      if (opened.ok) {
+        const store = opened.value.campaign.store;
+        const advance = (f: any) => (f && f.key.endsWith("/profile") ? { ...f, version: 2 } : f);
+        const getFact = store.getFact.bind(store);
+        vi.spyOn(store, "getFact").mockImplementation((key: string) => advance(getFact(key)));
+        const listFacts = store.listFacts.bind(store);
+        vi.spyOn(store, "listFacts").mockImplementation(() => listFacts().map(advance));
+      }
+      return opened;
+    });
+    const { result, terminal } = await addPopulation(dirs, file, []);
+    vi.restoreAllMocks();
+    expect(result.status).toBe("PRE_PLAY_CLOSED");
+    expect(terminal.asked()).toBe(0);
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+  });
+});
+
 describe("nobody can supply the count, the Cohort result or a close around the owner", () => {
   const rawAsPopulation = (
     store: CanonicalCampaign["store"],
