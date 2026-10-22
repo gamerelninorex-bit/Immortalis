@@ -346,15 +346,15 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "338ee04c15b5ff4df27a113f85069e2c97e9f509751591b5714a115ef1003729",
+    head: "ccfd9866e0048768200943cd37b7bdc1356629fe50f129e46f7cd16e4daafaf9",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "3d88a1e8c0fcea7bd8b9a374dcaa5d8dae2b1f5f05d3660e180fc2895030db5e",
+    head: "94cb43b6b81c70ea126848a141a752ca4a9c2ae57ecfe673c3205c5128dd5404",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "bd97f7c3b300ad48c80d25943aca1c7d9b0e14e930a650650044e2a3b97e16ba",
+    head: "b1a9d158d697a10b826931c8b04cdd77ded6d39f6614ff55d9077b7989f37e2b",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
