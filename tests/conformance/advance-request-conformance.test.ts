@@ -46,15 +46,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
   "packages/operator/src/confirmation.ts":
-    "7497b4b04d8d2898bb0c9e387b78be1d29dbf1f1d1e3801e81ecf2156cbe6f23",
+    "f0350fbd18cbf971afb30347d4a83400ef59d1fab8591eb07cfb815b98fcdbbf",
   "packages/operator/src/cli.ts":
-    "db52db296e30ac1ec4f71e06470c5233a7ecef132ac3cc9d38ac441d0d984017",
+    "9bc43dd47f3875fe825cf5ad3b86b4318eb4dbf0c677a5e2f23ed4309b218fbc",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
   "packages/operator/src/index.ts":
-    "1268da84a387543b2e30de5f3b30f7a5f2ccd82d343b0f4b816ba658f2bb76e8",
+    "3b15338caa7dcbbc6e12c528c76e342612b3eb540b1fd30a631ec81b96515a92",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":

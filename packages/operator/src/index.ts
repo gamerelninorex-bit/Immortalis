@@ -28,6 +28,20 @@ export type {
   SourceFileErrorCode,
 } from "./additional-source.ts";
 export {
+  establishInitialLocalDemand,
+  expectedDemand,
+  expectedRequest,
+  expectedStart,
+  initialLocalDemandId,
+  readInitialLocalDemandFile,
+} from "./initial-local-demand.ts";
+export type {
+  EstablishInitialLocalDemandParams,
+  InitialLocalDemandResult,
+  InitialLocalDemandStatus,
+  ProcessFileErrorCode,
+} from "./initial-local-demand.ts";
+export {
   establishInitialPopulation,
   expectedCohort,
   expectedLedger,

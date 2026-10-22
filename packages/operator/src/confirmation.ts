@@ -31,6 +31,7 @@ export type ConfirmationVerb =
   | "establish-reserve"
   | "establish-population"
   | "establish-timed-governance"
+  | "establish-local-demand"
   | "keep-character"
   | "place-character"
   | "establish-character-locus"
