@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/store.ts":
     "c5c05a17ec7b9835564a1ccbbe5465e4f46ba71893c96fabc01ee87f79e2e077",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {

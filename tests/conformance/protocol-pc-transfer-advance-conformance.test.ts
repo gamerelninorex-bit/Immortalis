@@ -39,7 +39,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/logistics.ts":
-    "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
+    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/contracts/src/protocol-relocation.ts":
     "9251e5f50811651f1f0973dd20f2c2b36af08094f32346d0a4f51fdd552e773d",
   "packages/contracts/src/protocol.ts":
@@ -65,19 +65,19 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition.ts":
     "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
   "packages/engine/src/world/canonical-campaign.ts":
-    "956f6fe71ce244037785a4d08ad09acfd419693f91c3f5698b875206a7c70b6e", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
-    "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
+    "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/declaration.ts":
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/logistics/derive.ts":
-    "96d1ee7fcaa317bcb3ce15e097671bcfebf9bf963f6c8694b15e0a1355ac4fa9",
+    "564eb6aa53c0bdca174db9d5027c0dec63fd9e84a9c97f002114847c5161be51",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "c3c085fa2a124e9eb3ce86b03742f6be189851d017a461e7245dc2b33c9ad3a8", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":

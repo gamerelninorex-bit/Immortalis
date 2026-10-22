@@ -146,6 +146,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
       "world_profile",
       "world_locus",
+      "world_corridor",
       "world_fallback_entity",
       "world_entity_transition",
       "world_actor_coupling",
@@ -178,6 +179,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
       "canonical-campaign.ts",
+      "corridor.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
       "entity-transition.ts",

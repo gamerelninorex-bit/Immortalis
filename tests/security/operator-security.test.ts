@@ -88,9 +88,15 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // `ProductionAdapter.establishReserve` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
     // republishes the committed world and locus to prove the owner path admits the Reserve. It is bound by its own, narrower checks
     // (tests/security/production-reserve-security.test.ts and tests/conformance/production-reserve-conformance.test.ts).
+    // `corridor.ts` is likewise the one module the source-qualified-corridor brief authorizes to call the existing
+    // `CanonicalCampaign.establishCorridor` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
+    // republishes the committed world and both loci to prove the owner path admits the corridor. It is bound by its own, narrower checks
+    // (tests/security/corridor-security.test.ts and tests/conformance/corridor-conformance.test.ts), which also forbid it any request,
+    // movement, Logistics, clock, advance or registration surface.
     for (const f of files.filter(
       (x) =>
         !x.endsWith("/locality.ts") &&
+        !x.endsWith("/corridor.ts") &&
         !x.endsWith("/original-pc.ts") &&
         !x.endsWith("/additional-source.ts") &&
         !x.endsWith("/additional-locality.ts") &&

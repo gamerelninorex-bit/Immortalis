@@ -116,6 +116,7 @@ import {
   TemporalObjectSchema,
   TemporalStateSchema,
   TransactionAuthoritySchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   WorldProfileSchema,
   type SourceRef,
@@ -294,6 +295,7 @@ export const WORLD_SOURCE_CONDITION_FACT_KIND_IDS = [
   "world_source_condition",
   "world_source_delivery",
 ] as const;
+export const WORLD_CORRIDOR_FACT_KIND_IDS = ["world_corridor"] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
@@ -364,6 +366,7 @@ export type FactKindId =
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
   | (typeof SOURCE_DRAWDOWN_FACT_KIND_IDS)[number]
   | (typeof WORLD_SOURCE_CONDITION_FACT_KIND_IDS)[number]
+  | (typeof WORLD_CORRIDOR_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
@@ -838,6 +841,50 @@ export const WORLD_SOURCE_CONDITION_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world/${ID}/source-delivery/${ID}$`),
     valueSchema: WorldSourceDeliverySchema,
     rule: WORLD_SOURCE_CONDITION_RULE,
+  },
+];
+
+/** BLUE v5.2-A1 Bounded Implementation Brief — Source-Qualified Local Corridor and Logistics Read (a construction source, NOT a spec-lock pin). */
+export const WORLD_CORRIDOR_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/40120af901e0817f9d6dc4e10b5d0f87",
+  native_pin: "2026-10-22T13:47:37.910Z",
+} as const;
+
+const WORLD_CORRIDOR_BRIEF_LINEAGE = `BLUE v5.2-A1 Bounded Implementation Brief — Source-Qualified Local Corridor and Logistics Read, verified native pin ${WORLD_CORRIDOR_BRIEF_SOURCE.native_pin} (${WORLD_CORRIDOR_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment of any frozen source, NOT a spec-lock pin)`;
+
+const WS010_CORRIDOR_LINEAGE = `WS-010 Logistics §§2-5, 7-10, 19.3, 20, 23 (a source-owned physical topology is an input; Logistics determines only its own movement-service consequences and cannot invent route, permission, service, compatibility or time), spec-locked pin ${WS010_SOURCE.native_pin} (${WS010_SOURCE.artifact}); F-014B (preserve canonical declared boundaries and owner/stage ordering; a corridor itself never advances time), spec-locked pin ${F014B_SOURCE.native_pin} (${F014B_SOURCE.artifact})`;
+
+/**
+ * The World-State physical corridor (IM-03): WG "Geography / Traversal" and "Edge / Corridor State" — "a connection between nodes or
+ * regions may carry independent causal state without becoming a World-State Node ... Nodes own consequential domains; edges/corridors
+ * may own consequential access and transit between them" — with "Ownership Guards — World Generation May Own: World-State topology;
+ * world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem" and
+ * "World Generation May Not Own: Temporal scheduling". The corridor is World-State's own topological fact; it claims no distance,
+ * duration, access, throughput, capability or delivery, which the source leaves to the owners of those distinctions.
+ */
+export const WORLD_CORRIDOR_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Geography / Traversal; Edge / Corridor State (a connection between nodes or regions may carry independent causal state without becoming a World-State Node; edges/corridors may own consequential access and transit between them; do not collapse meaningful travel into costless adjacency merely because both endpoints are already known); Ownership Guards — World Generation May Own: World-State topology, world-side setting facts, world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem; World Generation May Not Own: Temporal scheduling; Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners (provide relevant physical world conditions)",
+  [WS010_CORRIDOR_LINEAGE, WORLD_CORRIDOR_BRIEF_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED: one directed corridor per (world, origin locus, destination locus), create-only. The key IS the ordered pair, so a second,
+ * changed or duplicate corridor for the same ordered pair is a version conflict and never a sibling truth, and the reverse connection
+ * is a different key that exists only when independently authored. It is the existing World-State owner's existing locus facet's
+ * own topology (no new owner, facet or Location/Movement owner), and it is not a World-State Node.
+ */
+export const WORLD_CORRIDOR_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_corridor",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_LOCUS,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/corridor/${ID}/${ID}$`),
+    valueSchema: WorldCorridorSchema,
+    rule: WORLD_CORRIDOR_RULE,
   },
 ];
 
@@ -2329,6 +2376,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
   ...SOURCE_DRAWDOWN_FACT_KINDS,
+  ...WORLD_CORRIDOR_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,

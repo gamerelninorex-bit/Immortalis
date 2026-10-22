@@ -17,6 +17,7 @@ import {
   type AdditionalLocalityStatus,
 } from "./additional-locality.ts";
 import { establishAdditionalSource, type AdditionalSourceStatus } from "./additional-source.ts";
+import { establishCorridor, type CorridorStatus } from "./corridor.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
@@ -59,6 +60,7 @@ usage:
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
   immortalis-operator establish-additional-source --campaign <dir> --campaign-id <id> --source-file <file>
   immortalis-operator establish-additional-locality --campaign <dir> --campaign-id <id> --locality-file <file>
+  immortalis-operator establish-corridor --campaign <dir> --campaign-id <id> --corridor-file <file>
   immortalis-operator establish-reserve --campaign <dir> --campaign-id <id> --reserve-file <file>
   immortalis-operator establish-population --campaign <dir> --campaign-id <id> --population-file <file>
   immortalis-operator establish-timed-governance --campaign <dir> --campaign-id <id> --governance-file <file>
@@ -116,6 +118,15 @@ establish-additional-locality: for a campaign whose ORIGINAL locality establish-
   package lock was left behind); anything else under the same keys, or while another additional locus is incomplete, is refused. It is a
   physical setting only: no route, corridor, distance, travel or time between loci, no character, and nobody perceives, knows or may
   extract anything because of it. This command never creates or alters a campaign package.
+establish-corridor: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is bound: admits ONE
+  physical corridor, the directed topological connection from one already-established locus of that world to another, distinct, already-established locus
+  of it, from a local file YOU author (a regular file you own that nobody else can write: the world, the origin locus, the destination locus and a
+  statement; see docs/world-corridor-logistics-read-foundation.md). The whole connection is shown back for ONE explicit typed confirmation before anything
+  is written; only that one new fact is written (through the existing World-State owner operation), the world, both loci and every other fact are left
+  exactly as they are, and success is reported only after a fresh owner-verified reopen. Repeating it converges (pass --reclaim-stale-lock if the package
+  lock was left behind); a different corridor for the same ordered pair is refused. It is a topological connection only: no reverse corridor, distance,
+  travel time, speed, access right, hazard verdict or route calibration is stated or implied, nothing is requested, moved or delivered, no character exists and no
+  time passes. This command never creates or alters a campaign package.
 establish-reserve: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is bound:
   establishes ONE initially unclaimed Production Reserve at the established world and a locus the confirmed scenario established, from a
   local file YOU author (a regular file you own that nobody else can write: exactly one strict EstablishReserveInput, namely reserve_id,
@@ -231,6 +242,7 @@ const exitOf = (
     | LocalityStatus
     | AdditionalSourceStatus
     | AdditionalLocalityStatus
+    | CorridorStatus
     | ProductionReserveStatus
     | InitialPopulationStatus
     | InitialTimedGovernanceStatus
@@ -251,7 +263,10 @@ const exitOf = (
     case "LOCALITY_READY":
     case "ADDITIONAL_SOURCE_READY":
     case "ADDITIONAL_LOCALITY_READY":
+    case "CORRIDOR_READY":
       return EXIT.OK;
+    case "CORRIDOR_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "RESERVE_READY":
       return EXIT.OK;
     case "RESERVE_OUTCOME_UNKNOWN":
@@ -309,6 +324,7 @@ const OPTIONS = {
   setup: { type: "string" },
   "source-file": { type: "string" },
   "locality-file": { type: "string" },
+  "corridor-file": { type: "string" },
   "reserve-file": { type: "string" },
   "population-file": { type: "string" },
   "governance-file": { type: "string" },
@@ -332,6 +348,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "locality-status": [],
   "establish-additional-source": ["source-file"],
   "establish-additional-locality": ["locality-file"],
+  "establish-corridor": ["corridor-file"],
   "establish-reserve": ["reserve-file"],
   "establish-population": ["population-file"],
   "establish-timed-governance": ["governance-file"],
@@ -491,6 +508,22 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         localityFile: str("locality-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-corridor") {
+      const r = await establishCorridor({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        corridorFile: str("corridor-file") ?? "",
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),

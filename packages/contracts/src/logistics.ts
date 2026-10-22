@@ -106,6 +106,12 @@ export const logisticsRetirementStage = (requestId: string) =>
 
 const Locality = z.strictObject({ world: FactRefSchema, locus: FactRefSchema });
 const FactPin = z.strictObject({ fact_key: Id, version: Version.min(1) });
+/** A World-State corridor read by Logistics: its owner, its own key and the exact committed version read. */
+const CorridorPin = z.strictObject({
+  owner: z.literal(OWNER_WORLD_STATE),
+  fact_key: Id,
+  version: Version.min(1),
+});
 
 /** The substantive owner of the moved entity: World-State's fallback custodian. Logistics is never it. */
 const SubstantiveOwner = z.strictObject({
@@ -152,6 +158,13 @@ export const LogisticsCommitmentSchema = z
       request_id: EntityId,
       version: Version.min(1),
     }),
+    /**
+     * Present ONLY on the explicitly source-qualified path: the World-State corridor (the topological fact that the origin locus is
+     * connected to the destination locus, in that order) this commitment read, pinned at the version read and never copied. Its
+     * absence is the route-less foundation commitment, unchanged and still lawful. The pin supplies no duration, access, capability or
+     * delivery: it only records which source-owned connection Logistics read before it committed.
+     */
+    corridor: CorridorPin.optional(),
     /** the moved entity, pinned at the version read: identity, quantity and condition stay with its owner */
     moved: z.strictObject({
       fact_key: Id,
@@ -259,6 +272,18 @@ export const CommitMovementInputSchema = z.strictObject({
   delivery_at: CanonicalTimeSchema,
 });
 export type CommitMovementInput = z.infer<typeof CommitMovementInputSchema>;
+
+/**
+ * The explicitly source-qualified commitment: the request and the declared delivery boundary as for `CommitMovementInput`, plus the
+ * key of the World-State corridor Logistics must read and pin. The corridor key is named, never searched for, and it supplies no
+ * delivery boundary: the declared boundary stays the caller's, and no route, duration or access is representable.
+ */
+export const CommitCorridorMovementInputSchema = z.strictObject({
+  request_key: Id,
+  corridor_key: Id,
+  delivery_at: CanonicalTimeSchema,
+});
+export type CommitCorridorMovementInput = z.infer<typeof CommitCorridorMovementInputSchema>;
 
 export const DispatchMovementInputSchema = z.strictObject({
   request_key: Id,

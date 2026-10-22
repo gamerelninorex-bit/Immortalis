@@ -314,6 +314,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
       "canonical-campaign.ts",
+      "corridor.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
       "entity-transition.ts",

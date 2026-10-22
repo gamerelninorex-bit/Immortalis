@@ -209,6 +209,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
       "world_profile",
       "world_locus",
+      "world_corridor",
       "world_fallback_entity",
       "world_entity_transition",
       "world_actor_coupling",
@@ -239,9 +240,10 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       );
     }
     expect(existsSync("migrations/manifests/pc-movement.json")).toBe(false);
-    // the Logistics adapter surface is unchanged: no new writer, no cancel, no reroute, no delivery or retirement writer
+    // the Logistics adapter gained only the explicitly source-qualified commitment (commitCorridorMovement): no cancel, no reroute, no delivery or retirement writer
     expect(adapterMethods(LogisticsAdapter)).toEqual(expectedAdapterMethods("LogisticsAdapter"));
     expect(adapterMethods(LogisticsAdapter)).toEqual([
+      "commitCorridorMovement",
       "commitMovement",
       "commitment",
       "currentLocus",

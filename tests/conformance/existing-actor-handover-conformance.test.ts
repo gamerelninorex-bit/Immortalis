@@ -115,6 +115,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
       "canonical-campaign.ts",
+      "corridor.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
       "entity-transition.ts",

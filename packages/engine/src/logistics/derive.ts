@@ -20,6 +20,7 @@ import {
   logisticsTransferKey,
   ok,
   pcMovementRequestKey,
+  worldCorridorKey,
   worldEntityTransitionKey,
   worldFallbackEntityKey,
   worldLocusKey,
@@ -32,6 +33,7 @@ import {
   type LogisticsTransfer,
   type MovementServiceRequest,
   type Result,
+  type WorldCorridor,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
@@ -94,6 +96,41 @@ export function requestSourceViolation(
   return null;
 }
 
+/**
+ * Whether a World-State corridor, read by Logistics on the explicitly source-qualified path, is the one source-owned connection of the
+ * movement the request names: World-State's own fact, at the key the ORDERED endpoints derive (so a reverse, wrong-endpoint or
+ * wrong-world corridor is a different key and is refused), connecting exactly the entity's current stationary origin locus to the
+ * requested destination locus of the same world. It judges topology only: the corridor supplies no duration, access, capability or
+ * delivery, and Logistics reads none from it. Returns a message, or null.
+ */
+export function corridorReadViolation(
+  corridor: LogisticsFact<WorldCorridor>,
+  origin: MovementServiceRequest["destination"],
+  destination: MovementServiceRequest["destination"],
+): string | null {
+  const c = corridor.value;
+  if (corridor.owner !== OWNER_WORLD_STATE)
+    return "a corridor is World-State's own topology fact, never another owner's";
+  if (
+    corridor.key !==
+    worldCorridorKey(
+      destination.world.entity_id,
+      origin.locus.entity_id,
+      destination.locus.entity_id,
+    )
+  )
+    return "the corridor connects the entity's origin to the requested destination, in that order, within their world: a reverse, wrong-endpoint or wrong-world corridor is a different connection";
+  if (
+    c.world.entity_id !== destination.world.entity_id ||
+    c.from.fact_key !== origin.locus.fact_key ||
+    c.from.entity_id !== origin.locus.entity_id ||
+    c.to.fact_key !== destination.locus.fact_key ||
+    c.to.entity_id !== destination.locus.entity_id
+  )
+    return "the corridor's endpoints are the entity's origin and the requested destination";
+  return null;
+}
+
 export interface CommitmentPrior {
   readonly request: LogisticsFact<MovementServiceRequest>;
   /**
@@ -111,6 +148,11 @@ export interface CommitmentPrior {
   readonly now: CanonicalTime;
   /** the explicit, declared delivery boundary */
   readonly delivery_at: CanonicalTime;
+  /**
+   * The World-State corridor read on the explicitly source-qualified path (pinned at the version read), or absent for the route-less
+   * foundation commitment, which is unchanged. It is a topological prerequisite only: it never supplies the delivery boundary.
+   */
+  readonly corridor?: LogisticsFact<WorldCorridor>;
 }
 
 /**
@@ -156,6 +198,13 @@ export function deriveCommitment(
     return refuse(
       "the entity has already changed locus: a later movement needs semantics this tranche does not ratify",
     );
+  if (p.corridor !== undefined) {
+    // the source-qualified path moves a fallback entity only: the active PC's travel needs its own admission (not ratified here)
+    if (e.kind === "ACTIVE_PC")
+      return refuse("the source-qualified corridor path does not move the active PC");
+    const violation = corridorReadViolation(p.corridor, e.locality, to);
+    if (violation) return refuse(violation);
+  }
   const rid = r.request_id;
   const value = LogisticsCommitmentSchema.safeParse({
     commitment_id: logisticsCommitmentId(rid),
@@ -165,6 +214,16 @@ export function deriveCommitment(
       request_id: rid,
       version: request.version,
     },
+    // absent (never `undefined`) for the route-less foundation commitment, whose serialization is unchanged
+    ...(p.corridor !== undefined
+      ? {
+          corridor: {
+            owner: OWNER_WORLD_STATE,
+            fact_key: p.corridor.key,
+            version: p.corridor.version,
+          },
+        }
+      : {}),
     moved: {
       fact_key: entity.key,
       entity_id: e.entity_id,
