@@ -66,12 +66,17 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // and then `establishSourceCondition` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
     // republishes the committed world to prove the owner path admits the locus and source. It is bound by its own, narrower checks
     // (tests/security/additional-locality-security.test.ts and tests/conformance/additional-locality-conformance.test.ts).
+    // `production-reserve.ts` is likewise the one module the initial-Production-Reserve brief authorizes to call the existing
+    // `ProductionAdapter.establishReserve` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
+    // republishes the committed world and locus to prove the owner path admits the Reserve. It is bound by its own, narrower checks
+    // (tests/security/production-reserve-security.test.ts and tests/conformance/production-reserve-conformance.test.ts).
     for (const f of files.filter(
       (x) =>
         !x.endsWith("/locality.ts") &&
         !x.endsWith("/original-pc.ts") &&
         !x.endsWith("/additional-source.ts") &&
-        !x.endsWith("/additional-locality.ts"),
+        !x.endsWith("/additional-locality.ts") &&
+        !x.endsWith("/production-reserve.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,
