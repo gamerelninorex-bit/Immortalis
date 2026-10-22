@@ -27,6 +27,7 @@ export type ConfirmationVerb =
   | "pc-target-resume"
   | "establish-locality"
   | "establish-additional-source"
+  | "establish-additional-locality"
   | "keep-character"
   | "place-character"
   | "establish-character-locus"
