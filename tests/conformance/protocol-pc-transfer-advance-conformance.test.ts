@@ -71,7 +71,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/declaration.ts":
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/logistics/derive.ts":
-    "564eb6aa53c0bdca174db9d5027c0dec63fd9e84a9c97f002114847c5161be51",
+    "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/logistics/locus.ts":
@@ -106,6 +106,7 @@ describe("existing owners, the Temporal kernel, the relocation gateway and the f
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

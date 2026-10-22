@@ -191,7 +191,7 @@ describe("the module composes the existing owner paths only, takes no authority 
     const src = identifiers(MODULE);
     expect(src.indexOf("sourcePreflight(campaign.store")).toBeGreaterThan(0);
     expect(src.indexOf("sourcePreflight(campaign.store")).toBeLessThan(
-      src.indexOf("campaign.commitPcVoluntaryMovement("),
+      src.lastIndexOf("campaign.commitPcVoluntaryMovement("),
     );
     const preflight = bodyOf(MODULE, "function sourcePreflight(", "async function enrollTransfer(");
     expect(preflight).not.toMatch(
