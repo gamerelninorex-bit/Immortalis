@@ -6,6 +6,17 @@
 // OUT-OF-CHARACTER development/scenario instrumentation: the delivery boundary is an operator-declared scenario premise, not a
 // travel-time choice (see ooc.ts).
 export {
+  additionalLocalityId,
+  establishAdditionalLocality,
+  readAdditionalLocalityFile,
+} from "./additional-locality.ts";
+export type {
+  AdditionalLocalityResult,
+  AdditionalLocalityStatus,
+  EstablishAdditionalLocalityParams,
+  LocalityFileErrorCode,
+} from "./additional-locality.ts";
+export {
   additionalSourceId,
   establishAdditionalSource,
   readAdditionalSourceFile,

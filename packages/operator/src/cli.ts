@@ -12,6 +12,10 @@ import {
   type CommandResult,
   type CommandStatus,
 } from "./commands.ts";
+import {
+  establishAdditionalLocality,
+  type AdditionalLocalityStatus,
+} from "./additional-locality.ts";
 import { establishAdditionalSource, type AdditionalSourceStatus } from "./additional-source.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
@@ -44,6 +48,7 @@ usage:
   immortalis-operator establish-locality --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
   immortalis-operator establish-additional-source --campaign <dir> --campaign-id <id> --source-file <file>
+  immortalis-operator establish-additional-locality --campaign <dir> --campaign-id <id> --locality-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
@@ -87,6 +92,16 @@ establish-additional-source: for a campaign whose ORIGINAL locality establish-lo
   after a fresh owner-verified reopen. Repeating it converges (pass --reclaim-stale-lock if the package lock was left behind); a different
   source under the same key, or a different additional source, is refused. It is a physical setting only: no character, no time, and nobody
   perceives, knows or may extract anything because of it. This command never creates or alters a campaign package.
+establish-additional-locality: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is
+  bound: adds ONE further distinct locus of that same world and ONE authored EXACT_FINITE source condition AT THAT NEW LOCUS, from a local
+  file YOU author (a regular file you own that nobody else can write: a strict locus section and exactly the source section of the setup
+  file; the source must state at least one physical access fact; see docs/additional-locality-admission-foundation.md). The whole proposal
+  is shown back for ONE explicit typed confirmation before anything is written; the locus is committed first and the source only after it,
+  the world, the first locus, the first source and every other fact are left exactly as they are, and success is reported only after a
+  fresh owner-verified reopen. Repeating it converges and finishes a locus committed without its source (pass --reclaim-stale-lock if the
+  package lock was left behind); anything else under the same keys, or while another additional locus is incomplete, is refused. It is a
+  physical setting only: no route, corridor, distance, travel or time between loci, no character, and nobody perceives, knows or may
+  extract anything because of it. This command never creates or alters a campaign package.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers
@@ -153,6 +168,7 @@ const exitOf = (
     | CommandStatus
     | LocalityStatus
     | AdditionalSourceStatus
+    | AdditionalLocalityStatus
     | CharacterStatus
     | "REFEREE_HOST_BOUND",
 ): number => {
@@ -168,7 +184,10 @@ const exitOf = (
       return EXIT.UNKNOWN;
     case "LOCALITY_READY":
     case "ADDITIONAL_SOURCE_READY":
+    case "ADDITIONAL_LOCALITY_READY":
       return EXIT.OK;
+    case "ADDITIONAL_LOCALITY_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "ADDITIONAL_SOURCE_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "LOCALITY_OUTCOME_UNKNOWN":
@@ -207,6 +226,7 @@ const OPTIONS = {
   "target-value": { type: "string" },
   setup: { type: "string" },
   "source-file": { type: "string" },
+  "locality-file": { type: "string" },
   "player-character": { type: "string" },
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
@@ -225,6 +245,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-locality": ["setup"],
   "locality-status": [],
   "establish-additional-source": ["source-file"],
+  "establish-additional-locality": ["locality-file"],
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
@@ -364,6 +385,22 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         sourceFile: str("source-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-additional-locality") {
+      const r = await establishAdditionalLocality({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        localityFile: str("locality-file") ?? "",
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),

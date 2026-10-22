@@ -209,7 +209,10 @@ const publicationOf = (id: string): Publication => ({
 });
 
 /** Problems of a Source Condition value against the confirmed source (identity, material, establishment, locality, access facts). */
-function sourceProblems(v: WorldSourceCondition, s: EstablishSourceConditionInput): string[] {
+export function sourceProblems(
+  v: WorldSourceCondition,
+  s: EstablishSourceConditionInput,
+): string[] {
   const problems: string[] = [];
   if (
     v.source_key !== s.source_key ||
@@ -606,7 +609,7 @@ function ready(
 /** The group identity `establish-locality` publishes each stage of a confirmed setup under (see locality.ts; read here, never written). */
 const LOCALITY_GROUP = /^operator-locality:([0-9a-f]{32}):(world|locus|source)$/;
 
-type EstablishedLocality =
+export type EstablishedLocality =
   | {
       readonly kind: "ESTABLISHED";
       readonly setup_id: string;
@@ -626,7 +629,7 @@ type EstablishedLocality =
  * committed under one setup identity by `establish-locality`. ABSENT when no such complete locality is held; MODIFIED when it is held
  * but one of its facts is no longer the version-1 fact the confirmed setup committed (a later owner write advanced it). Read-only.
  */
-function establishedLocality(campaign: CanonicalCampaign): EstablishedLocality {
+export function establishedLocality(campaign: CanonicalCampaign): EstablishedLocality {
   const store = campaign.store;
   const world = store
     .listFacts()
