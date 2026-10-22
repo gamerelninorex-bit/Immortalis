@@ -30,6 +30,7 @@ export type ConfirmationVerb =
   | "establish-additional-locality"
   | "establish-reserve"
   | "establish-population"
+  | "establish-timed-governance"
   | "keep-character"
   | "place-character"
   | "establish-character-locus"

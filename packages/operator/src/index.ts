@@ -41,6 +41,18 @@ export type {
   PopulationFileErrorCode,
 } from "./initial-population.ts";
 export {
+  establishInitialTimedGovernance,
+  expectedEnrollment,
+  initialTimedGovernanceId,
+  readInitialTimedGovernanceFile,
+} from "./initial-timed-governance.ts";
+export type {
+  EstablishInitialTimedGovernanceParams,
+  GovernanceFileErrorCode,
+  InitialTimedGovernanceResult,
+  InitialTimedGovernanceStatus,
+} from "./initial-timed-governance.ts";
+export {
   establishProductionReserve,
   expectedReserve,
   productionReserveId,
