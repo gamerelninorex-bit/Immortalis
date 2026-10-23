@@ -43,9 +43,9 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "c5942b06b2d81d5e063bcbe2813f83dc9e322f1bbda7f839eb827dab162fc058",
+    "20e30c40f73ef569c613d149c77bc66fd7728c2d1c6824c7f5084bcd0092f4e9",
   "packages/engine/src/owners/registry.ts":
-    "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
+    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
   "packages/engine/src/referee/adapter.ts":
     "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
   "packages/engine/src/referee/admission.ts":
@@ -74,7 +74,7 @@ const MODIFIED: Record<string, string> = {
     "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
 };
 const SPEC: Record<string, string> = {
-  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",

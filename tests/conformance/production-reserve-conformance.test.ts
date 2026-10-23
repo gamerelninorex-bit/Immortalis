@@ -29,7 +29,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/production.ts":
     "40ff84c02029ecd43811eb8c8cd6b5d32e8e6e505953c9bd3e997a6ae8f41e4b",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/production/adapter.ts":
@@ -37,9 +37,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/production/admission.ts":
     "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
   "packages/engine/src/owners/registry.ts":
-    "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
+    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
   "packages/engine/src/world/canonical-campaign.ts":
-    "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
+    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/additional-source.ts":
@@ -56,7 +56,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, contracts, the Production owner, the registry, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -126,7 +126,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T04:15:36.156Z");
     expect(doc).toContain("6021693c1cf79e4a9c5d9216b7211fb65726c193");
-    expect(doc).toContain("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no collection, conversion, delivery, entitlement, title or downstream success", () => {

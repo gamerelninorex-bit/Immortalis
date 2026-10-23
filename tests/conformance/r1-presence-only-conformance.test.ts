@@ -63,6 +63,8 @@ describe("negative reachability: no actor observation can be produced on this he
         .sort(),
     ).toEqual([
       "actor_physical_presence",
+      // S1-P1 W1: the actor's raw physical faculty and receptivity, a World-State fact; it is not an observation, a receipt or a packet
+      "actor_raw_sensory_state",
       "actor_setup_placement",
       "named_actor_capability",
       "named_actor_capability_basis",
@@ -106,6 +108,35 @@ describe("negative reachability: no actor observation can be produced on this he
     expect(forged.ok).toBe(false);
     expect(s.campaign.store.getFact(key)).toBeUndefined();
     expect(s.campaign.store.head()).toEqual(head);
+    await s.campaign.close();
+  });
+});
+
+describe("S1-P1 added physical source premises, not an observation route", () => {
+  it("no registered kind or key space can state an observation, a perception, a receipt or a hearing: the observation vocabulary is exactly main's", () => {
+    expect(
+      ALL_FACT_KINDS.map((k) => k.id)
+        .filter((id) => /observ|percept|receipt|hearing|heard|health/.test(id))
+        .sort(),
+    ).toEqual([]);
+    expect(ALL_FACT_KINDS.filter((k) => k.owner === "epistemic_access").map((k) => k.id)).toEqual([
+      "epistemic_access_event",
+      "epistemic_accessible_packet",
+      "epistemic_sealed_provenance",
+    ]);
+  });
+
+  it("the full P1 chain commits no referee decision, access event, packet or provenance, and the pure read cannot create one", async () => {
+    const { p1Chain, p1Scene, evaluate } = await import("../support/auditory-premises.ts");
+    const s = await p1Scene(tempDir());
+    await p1Chain(s);
+    const result = evaluate(s);
+    expect(result.result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
+    const owners = new Set(s.campaign.store.listFacts().map((f) => f.owner));
+    expect([...owners].sort()).toEqual(["named_actor", "temporal_kernel", "world_state"]);
+    expect(
+      s.campaign.store.listFacts().some((f) => /^(access|epistemic|referee)\//.test(f.key)),
+    ).toBe(false);
     await s.campaign.close();
   });
 });

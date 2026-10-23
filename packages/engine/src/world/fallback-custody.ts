@@ -27,6 +27,7 @@ import {
   presenceBearing,
   worldActorPresenceGroupCheck,
 } from "./actor-presence.ts";
+import { worldActorRawSensoryGroupCheck } from "./auditory-premises.ts";
 import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { worldPcLocusCustodyGroupCheck } from "./pc-locus-custody.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
@@ -90,6 +91,9 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
     })
   )
     return worldActorPresenceGroupCheck(group, state);
+  // S1-P1 W1: the actor's owner-authored raw auditory faculty and receptivity, first version only (auditory-premises.ts)
+  if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "actor_raw_sensory_state"))
+    return worldActorRawSensoryGroupCheck(group, state);
   // the custodian's fact kind for an existing non-PC actor's one current locus coupling (actor-coupling.ts)
   if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_actor_coupling"))
     return worldActorCouplingGroupCheck(group, state);

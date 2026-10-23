@@ -219,6 +219,8 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "actor_setup_placement",
       "world_setup_closure",
       "actor_physical_presence",
+      "actor_raw_sensory_state",
+      "world_acoustic_emission",
       "world_source_condition",
       "world_source_delivery",
     ]);

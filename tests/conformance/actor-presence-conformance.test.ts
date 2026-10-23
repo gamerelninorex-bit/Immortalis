@@ -175,8 +175,9 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
   });
 
   it("the executable lowering composes with F-027, cites exactly the lineage it lowers and names exactly the three kinds", () => {
+    // S1-P1 appended ONE further lowering after R1's (auditory-premises-conformance.test.ts); the R1 row stays first and byte-unchanged
     const [low] = lock.executable_lowerings as any[];
-    expect(lock.executable_lowerings).toHaveLength(1);
+    expect(lock.executable_lowerings).toHaveLength(2);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");
@@ -188,7 +189,7 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     expect(low.cites_design_lineage.every((id: string) => id in REQUIRED_DESIGN_LINEAGE)).toBe(
       true,
     );
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual([low.id]);
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)[0]).toBe(low.id);
     // the implementation-authority-addendum slot is not reused to imply partial-source executable authority
     expect(JSON.stringify(lock.implementation_authority_addenda)).not.toContain("R1-");
   });

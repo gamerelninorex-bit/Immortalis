@@ -250,6 +250,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world-state/actor/a1/presence",
   },
   {
+    id: "actor_raw_sensory_state",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "ADVANCING",
+    group: "WORLD_AUDITORY_PREMISES_FACT_KINDS",
+    exampleKey: "world-state/actor/a1/raw-sensory/AIRBORNE_HEARING",
+  },
+  {
+    id: "world_acoustic_emission",
+    owner: "world_state",
+    facet: "world_locus",
+    lifecycle: "SEALED",
+    group: "WORLD_AUDITORY_PREMISES_FACT_KINDS",
+    exampleKey: "world/w1/locus/l1/acoustic-emission/e1",
+  },
+  {
     id: "economy_demand",
     owner: "economy",
     facet: "economy_state",
