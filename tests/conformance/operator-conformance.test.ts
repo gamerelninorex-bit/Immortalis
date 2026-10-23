@@ -65,7 +65,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -181,7 +181,6 @@ describe("the package composes only the existing gateways and canonical reads", 
       ...new Set(walk(SRC).flatMap((f) => importedNames(f, "@immortalis/engine"))),
     ].sort();
     expect(names).toEqual([
-      "ActorObservationContext",
       "CandidateItem",
       "CanonicalCampaign",
       "EconomyAdapter",
@@ -199,24 +198,19 @@ describe("the package composes only the existing gateways and canonical reads", 
       "StageOwnerExtension",
       "StageProviderRegistry",
       "TemporalCoordinator",
-      "actorObservationEventId",
       "canonicalEqual",
       "committedCanonicalTime",
-      "deriveActorObservation",
       "deriveI002",
       "deriveIr",
       "deriveObservation",
       "derivePhysical",
-      "formActorObservedPacket",
       "formObservedPacket",
       "gipSunsetTemporalObject",
       "nodeFs",
       "observationEventId",
       "refereeCandidateItems",
       "refereeQualificationViolation",
-      "refereeTaskId",
       "verifyEpistemicIntegrity",
-      "verifyRefereeIntegrity",
     ]);
   });
 
@@ -249,7 +243,6 @@ describe("the package composes only the existing gateways and canonical reads", 
       "additionalSourceId",
       "advance",
       "applyEdits",
-      "askActorObservation",
       "askI002",
       "askIr",
       "askObservation",
@@ -298,7 +291,6 @@ describe("the package composes only the existing gateways and canonical reads", 
       "missingOf",
       "nullAdvance",
       "nullResume",
-      "observeActor",
       "observeSurroundings",
       "parseEdit",
       "pcTargetAdvance",

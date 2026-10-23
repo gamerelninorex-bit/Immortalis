@@ -1,6 +1,5 @@
 import {
   ORIGINAL_ACTIVATION,
-  REFEREE_OP_ACTOR_OBSERVATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   AccessDisseminationEventSchema,
@@ -1707,32 +1706,6 @@ export const REFEREE_OBSERVATION_RULE: SourceRef = {
 };
 
 /**
- * BLUE v5.2-A1 Bounded Implementation Brief — Named-Actor Source-Qualified Direct Perception (a construction source, NOT a spec-lock pin),
- * mechanism-only: one bounded F-014D §6 direct-perception ingress for ONE already-established non-PC Named Actor at ONE existing World-State
- * locus, of at most ONE owner-committed Source Condition. Native pin: the brief page as verified at its last edit.
- */
-export const ACTOR_OBSERVATION_BRIEF_SOURCE = {
-  artifact: "https://app.notion.com/p/40120af901e0814b98d5de8e1976b58b",
-  native_pin: "2026-10-22T20:32:06.873Z",
-} as const;
-
-const ACTOR_OBSERVATION_LINEAGE = `BLUE v5.2-A1 Bounded Implementation Brief — Named-Actor Source-Qualified Direct Perception, verified native pin ${ACTOR_OBSERVATION_BRIEF_SOURCE.native_pin} (${ACTOR_OBSERVATION_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT a spec-lock pin); F-014D Epistemic Access §2 (route, actual payload, receipt and sensory availability are Epistemic-owned; world truth is not), §5 steps 2-4 and §6 Direct Perception Adapter (an actor can materially perceive world state directly; apply actual sensory position/range/obstruction/channel; form only the perceptible payload; inference is handed off) and §18 (the Accessible Content Packet excludes Sealed Engine Provenance) at the frozen lock pin ${F014D_SOURCE.native_pin} (${F014D_SOURCE.artifact}); WS-006 Named Actors (F-014A: consequential comprehension, goals, belief, stance and action are the actor-side owner's, not F-014D's) at the spec-locked pin ${WS006_SOURCE.native_pin}; WS-016 Character Capability (a Named-Actor capability is the F-014A owner's, read AS-OF-DECLARED-CLOSE) at the spec-locked pin ${WS016_SOURCE.native_pin}; WG Ownership Guards (World-State is the fallback custodian of the actor's current locus coupling and owns the Source Condition, not a recipient's knowledge) at the spec-locked pin ${WG_SOURCE.native_pin}; Canonical Role Registry v1: \`role.gm\` / \`permission.rule.adjudicate\` interprets, \`role.resolver\` / \`permission.resolution.execute\` validates, \`role.archivist\` / \`permission.canon.write\` commits`;
-
-/**
- * The actor direct-perception decision's own governing citation: an exclusive current rule for the \`F014D_ACTOR_DIRECT_PERCEPTION\` value
- * class (see \`FactKind.alternateRules\`); every other decision keeps its own, and \`F014D_DIRECT_PERCEPTION\` is unchanged.
- */
-export const REFEREE_ACTOR_OBSERVATION_RULE: SourceRef = {
-  artifact: ACTOR_OBSERVATION_BRIEF_SOURCE.artifact,
-  native_pin: ACTOR_OBSERVATION_BRIEF_SOURCE.native_pin,
-  clause:
-    "Chosen executable objective and source-lawful causal witness steps 2-4 (one separately authorized F-014D direct-perception operation for a non-PC Named Actor through the existing provider-neutral referee pattern: a bounded, source-pinned physical context of ONE current basis, built only from committed facts, never a caller-authored admission bit or a forged role.gm string; the interpretation accounts for each material premise, anchored to supplied evidence, and derives no numeric threshold; an unresolved fork is UNRESOLVED and never proof of obstruction; role.gm / permission.rule.adjudicate interprets, the engine validates and derives the verdict, and the retained record is create-only RC-09/IM-12 provenance, not a second physical-truth or actor-knowledge ledger; the PC F014D_DIRECT_PERCEPTION operation and its pc_id subject are neither widened nor passed an actor)",
-  authority_lineage: [REFEREE_LINEAGE, ACTOR_OBSERVATION_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
-  effective_basis: "blue-bounded-brief-not-spec-locked",
-  supersedes: null,
-};
-
-/**
  * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the
  * Culture one. IM-03 routes only the dedicated key space `referee/<64 lowercase hex>/decision` to it; the kind is SEALED, i.e.
  * create-only. It authorizes no write of any world, PC, binding, Culture, Population, GIP, KTI or economic fact, and is no
@@ -1762,13 +1735,6 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
         admits: (value) => {
           const r = RefereeDecisionRecordSchema.safeParse(value);
           return r.success && r.data.operation === REFEREE_OP_OBSERVATION;
-        },
-      },
-      {
-        rule: REFEREE_ACTOR_OBSERVATION_RULE,
-        admits: (value) => {
-          const r = RefereeDecisionRecordSchema.safeParse(value);
-          return r.success && r.data.operation === REFEREE_OP_ACTOR_OBSERVATION;
         },
       },
     ],
@@ -1855,27 +1821,6 @@ export const EPISTEMIC_ACCESS_OBSERVATION_RULE: SourceRef = rule(
   ],
 );
 
-/**
- * The governing-rule citation of an ACTOR-OBSERVATION-EARNED BOUNDED_SHARED_ACCESS event (BLUE v5.2-A1): the event the Epistemic owner derives
- * from a retained \`F014D_ACTOR_DIRECT_PERCEPTION\` referee decision whose engine-derived verdict is OBSERVATION_ESTABLISHED, for ONE non-PC
- * Named-Actor recipient (the event omits \`recipient_role\`: it is never the active Player Character). It is the only citation under which
- * the owner commits such an event; the authored event and the PC observation-earned event keep \`EPISTEMIC_ACCESS_RULE\` and
- * \`EPISTEMIC_ACCESS_OBSERVATION_RULE\` byte for byte, and no existing fact is rewritten, re-cited or migrated.
- */
-export const EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE: SourceRef = rule(
-  F014D_SOURCE,
-  "§2 Ownership Contract (F-014D owns the causal route, source/carrier provenance, actual payload, receipt/access and representational-intelligibility prerequisites such as sensory availability; it does not own objective world truth, hidden-state generation, comprehension, inference, credibility, belief/stance or decision); §2.1 R-T1 (current source/carrier/world facts read AS-OF-NOW; a Named-Actor capability read AS-OF-DECLARED-CLOSE; the sealed Accessible Content Packet consumed AS-OF-NOW after packet formation) and role-context rule (Sealed Engine Provenance is not an admissible actor input); §3 Consequential Epistemic Trigger; §4.2 BOUNDED_SHARED_ACCESS mode (explicit named participant, mode fixed at creation and immutable); §5 steps 2-4 (establish the causal route source → channel → recipient; resolve the actual payload at the correct basis; resolve receipt and whether the relevant sensory modality is available — never comprehension, significance, inference, credibility, belief or action); §6 Direct Perception Adapter (an actor can materially perceive world state directly: read authoritative world state at the lawful observation basis; apply actual sensory position/range/obstruction/channel; form only the perceptible payload; hand off inference to capability + Actor Fidelity; perception does not grant ontology); §14 Sparse Persistence and Lifecycle; §18 Named Actor / Actor Fidelity Handoff (the Accessible Content Packet excludes Sealed Engine Provenance); §21.1 no epistemic effect precedes its causal access route; §24 Failure Conditions (authority = receipt, record exists = actor knows, access = comprehension, engine omniscience = actor omniscience, narrative revelation creating access, backdated access); and, for this actor-observation-earned event only, the retained F014D_ACTOR_DIRECT_PERCEPTION decision of the BLUE v5.2-A1 Implementation Brief (pin " +
-    ACTOR_OBSERVATION_BRIEF_SOURCE.native_pin +
-    ") from which every field of the event is derived and which is read, never copied",
-  [
-    F014D_LINEAGE,
-    ACTOR_OBSERVATION_LINEAGE,
-    WS016_LINEAGE,
-    ROLE_REGISTRY_LINEAGE,
-    RUNTIME_TRANSLATION_LINEAGE,
-  ],
-);
-
 const epistemicKind = (
   id: (typeof EPISTEMIC_ACCESS_FACT_KIND_IDS)[number],
   rc: readonly string[],
@@ -1922,19 +1867,6 @@ export const EPISTEMIC_ACCESS_FACT_KINDS: readonly FactKind[] = [
           return (
             e.success &&
             e.data.recipient_role === RECIPIENT_ROLE_PLAYER_CHARACTER &&
-            e.data.channel === "PERCEPTION" &&
-            e.data.representation === null
-          );
-        },
-      },
-      {
-        // an actor-observation-earned event: one non-PC Named-Actor recipient (no recipient role), the PERCEPTION channel, a form that depends on no capability
-        rule: EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE,
-        admits: (value) => {
-          const e = AccessEventSchema.safeParse(value);
-          return (
-            e.success &&
-            e.data.recipient_role === undefined &&
             e.data.channel === "PERCEPTION" &&
             e.data.representation === null
           );

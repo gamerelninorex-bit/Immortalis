@@ -1,5 +1,4 @@
 import type {
-  ActorObservationHostDecision,
   I002HostDecision,
   IrHostDecision,
   ObservationHostDecision,
@@ -8,7 +7,6 @@ import type {
 } from "@immortalis/contracts";
 import {
   RefereeAdjudicationAdapter,
-  type ActorObservationContext,
   type CandidateItem,
   type FsOps,
   type I002Context,
@@ -259,63 +257,6 @@ export async function askObservation(
     if (got.value === null)
       return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
     const evaluated = adapter.evaluateObservation(context, got.value.answer);
-    if (!evaluated.ok) {
-      await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
-      continue;
-    }
-    return {
-      kind: "ANSWERED",
-      task_id,
-      attempt,
-      context,
-      verdict: evaluated.value.verdict,
-      decision: evaluated.value.decision,
-      host: { host_id: got.value.host_id, claimed_model: got.value.claimed_model },
-    };
-  }
-  return { kind: "REFUSED", message: "the host's answers were not valid; none was used" };
-}
-
-/**
- * The ACTOR direct-perception question (BLUE v5.2-A1): built ONLY from committed facts at the CURRENT canonical basis, so the TRUSTED
- * caller names the actor, the one capability its sense rests on and the one co-located source, and nothing else (not the scene, the target,
- * the time or any expectation). Never asked of a host that is not bound to this operation: the exchange authenticates the host for THIS
- * operation before any of the context is disclosed.
- */
-export async function askActorObservation(
-  adapter: RefereeAdjudicationAdapter,
-  rt: RefereeRuntime,
-  input: { campaign_id: string; actor_id: string; capability_id: string; source_key: string },
-): Promise<Asked<ActorObservationHostDecision, ActorObservationContext>> {
-  const configured = await refereeConfigured(input.campaign_id, rt);
-  if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
-  const p = exchange(input.campaign_id, rt);
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const built = adapter.actorObservationTask({
-      actor_id: input.actor_id,
-      capability_id: input.capability_id,
-      source_key: input.source_key,
-      attempt,
-    });
-    if (!built.ok)
-      return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
-    const { context, task_id } = built.value;
-    if (await isSetAside(p, task_id)) continue;
-    const task = await publishTask(p, {
-      task_id,
-      operation: "F014D_ACTOR_DIRECT_PERCEPTION",
-      context,
-    });
-    if (!task.ok)
-      return { kind: "UNAVAILABLE", code: task.error.code, message: task.error.message };
-    const got = await awaitDecision(p, task.value, rt.polls, rt.pollMs);
-    if (!got.ok) {
-      await setAsideDecision(p, task_id, got.error.code);
-      continue;
-    }
-    if (got.value === null)
-      return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
-    const evaluated = adapter.evaluateActorObservation(context, got.value.answer);
     if (!evaluated.ok) {
       await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
       continue;

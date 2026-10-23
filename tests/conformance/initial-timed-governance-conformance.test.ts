@@ -64,7 +64,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/owners/registry.ts":
-    "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a",
+    "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/additional-source.ts":

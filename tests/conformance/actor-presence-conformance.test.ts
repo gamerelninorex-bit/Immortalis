@@ -107,7 +107,7 @@ describe("nothing outside the frozen lowering was built", () => {
     expect(source).not.toMatch(/\bNAMED_ACTOR\b/);
   });
 
-  it("the actor-observation derivation still reads the coupling statement: B2 is a prerequisite, not yet its premise (H1 stays STOP)", () => {
+  it("no referee derivation reads B2 as a position premise (H1 stays STOP; presence is not a viewpoint)", () => {
     const derive = readFileSync("packages/engine/src/referee/derive.ts", "utf8");
     expect(derive).not.toContain("actor_physical_presence");
     expect(derive).not.toContain("actorPhysicalPresenceKey");

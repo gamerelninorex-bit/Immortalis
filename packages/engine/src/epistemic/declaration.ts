@@ -28,10 +28,7 @@ import {
 import { namedActorCapabilityCloseRead } from "../actor/declaration.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import {
-  EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE,
-  EPISTEMIC_ACCESS_OBSERVATION_RULE,
-} from "../owners/registry.ts";
+import { EPISTEMIC_ACCESS_OBSERVATION_RULE } from "../owners/registry.ts";
 import { pcCapabilityCloseRead } from "../pc-capability/declaration.ts";
 import {
   eventRecipient,
@@ -110,21 +107,9 @@ export function epistemicPacketDeclaration(event: AccessEvent): DependencyDeclar
   };
 }
 
-/** True when the committed event fact is ACTOR-OBSERVATION-EARNED: committed under the governing citation of the actor direct-perception path. */
-export const isActorObservationEarnedFact = (fact: { provenance: { rule: unknown } }): boolean =>
-  canonicalEqual(fact.provenance.rule, EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE);
-
 /** True when the committed event fact is OBSERVATION-EARNED: committed under the governing citation of the direct-perception path. */
 export const isObservationEarnedFact = (fact: { provenance: { rule: unknown } }): boolean =>
   canonicalEqual(fact.provenance.rule, EPISTEMIC_ACCESS_OBSERVATION_RULE);
-
-/**
- * True when the committed event triggers its own packet formation: it is observation-earned by the active Player Character's direct
- * perception OR by a non-PC Named Actor's. The two share one event-triggered formation and nothing else; `isObservationEarnedFact` stays
- * the Player Character's predicate (the current-observation Glance reads it).
- */
-export const isEventTriggeredFormationFact = (fact: { provenance: { rule: unknown } }): boolean =>
-  isObservationEarnedFact(fact) || isActorObservationEarnedFact(fact);
 
 /**
  * F-017 §§3–4: a committed event can trigger its own dependency-ordered owner stage.
@@ -145,7 +130,7 @@ export function observationTriggerViolation(
     !fact ||
     !parsed?.success ||
     fact.owner !== OWNER_EPISTEMIC_ACCESS ||
-    !isEventTriggeredFormationFact(fact) ||
+    !isObservationEarnedFact(fact) ||
     fact.key !== accessEventKey(parsed.data.event_id)
   )
     return "only a committed observation-earned event triggers direct packet formation";
@@ -250,10 +235,7 @@ export function epistemicObjectViolation(
       if (!canonicalEqual(d, epistemicPacketDeclaration(event.data))) {
         return "an Epistemic stage is exactly the declaration derived from its committed event";
       }
-      if (
-        isEventTriggeredFormationFact(eventFact) &&
-        o.owning_ref.owner !== OWNER_EPISTEMIC_ACCESS
-      ) {
+      if (isObservationEarnedFact(eventFact) && o.owning_ref.owner !== OWNER_EPISTEMIC_ACCESS) {
         return "an observation-earned event's packet is formed only by that event's own causal trigger, never inside a consequence that could time it elsewhere";
       }
       if (isPcRecipientEvent(event.data) && recipientBoundaryViolation(state.facts, event.data)) {

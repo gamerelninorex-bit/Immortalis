@@ -62,17 +62,17 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
   "packages/operator/src/referee-mcp.ts":
-    "0499a87bd642f66c1968888f4156067177926b48f8e56b578ffc8c81fbd3a399",
+    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   "packages/operator/src/referee-exchange.ts":
-    "59179f98e55b5774ef33c830be28da4cdfdc3985ed7c508e5f2d7d81060e3612",
+    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
   "packages/operator/src/referee-session.ts":
-    "92a09f989789734efcdd4388d74b1b7535d9b4a7135276253b2e2ab27c018526",
+    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
   "packages/operator/src/cli.ts":
-    "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
+    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   "packages/operator/src/index.ts":
-    "f5c1ed2f38eb7540da5a467f7c7012c7ffc5e14a7ddb50247728e1936739f552",
+    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   "packages/operator/src/confirmation.ts":
-    "14bb6413dbd968c13879b0457627ddfe693322df84ad0ad89490ece0f9e2f971",
+    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
 };
 
 const NEW_MODULES = [
@@ -122,7 +122,6 @@ describe("existing owners, the gateway, the referee surface and the specificatio
   it("the operator package gained exactly the five transport modules (and, mechanically, the sixteen BLUE v5.2-A1 request modules), and the engine, contracts, protocol and testkit packages gained nothing", () => {
     expect(readdirSync("packages/operator/src").sort()).toEqual(
       [
-        "actor-observation.ts",
         "additional-locality.ts",
         "additional-source.ts",
         "bin.ts",

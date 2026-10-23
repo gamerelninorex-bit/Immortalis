@@ -245,7 +245,6 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
   it("the trusted operator side that names one: the observation command, its referee session and the console — and `locality.ts`, `additional-source.ts` and `additional-locality.ts`, which ESTABLISH a source from the operator's own file", () => {
     const naming = files("packages/operator/src").filter((f) => NAMES.test(SRC(f)));
     expect(naming.map((f) => f.replace(/^.*\//, "")).sort()).toEqual([
-      "actor-observation.ts",
       "additional-locality.ts",
       "additional-source.ts",
       "cli.ts",

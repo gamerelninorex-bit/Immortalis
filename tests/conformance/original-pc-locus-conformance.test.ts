@@ -167,8 +167,8 @@ describe("one fact kind, no new owner, no new facet: the second basis is an excl
     };
     expect(custody.alternateRules![0]!.admits(handover)).toBe(false);
     const referee = factKind("referee_decision");
-    // the physical-placement citation, (BLUE v5.2) the direct-perception citation and (BLUE v5.2-A1) the actor direct-perception citation, each exclusive to its own value class
-    expect(referee.alternateRules).toHaveLength(3);
+    // the physical-placement citation, and (BLUE v5.2) the direct-perception citation, each exclusive to its own value class
+    expect(referee.alternateRules).toHaveLength(2);
     expect(referee.alternateRules![0]!.rule).toEqual(REFEREE_PHYSICAL_RULE);
     expect(referee.alternateRules![1]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
     expect(referee.alternateRules![0]!.admits({ operation: "IR_NATIVE_COMPATIBILITY" })).toBe(
@@ -306,11 +306,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "9cd92b021479862c1688faf9bc69bc8bf98e0c22642e89e516c84b3d4d8a1bdd",
+    head: "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a",
+    head: "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -318,19 +318,19 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "7efa630d106c2e12e80fa405e9e246c392f9e2f0356c4f0be4a095d2dd3ac201",
+    head: "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
-    head: "c9bb21544624656c53b61132853d15e8ea6560f7f6f7f9a83b32bc895e7ac193",
+    head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   },
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "6ecaae7e602f1780be6bcafeb3981b539d93fb91ea36bacff052db09ff9ea483",
+    head: "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
-    head: "1b90545cf278d55d457db65ab52aa8bc1b1ef42fb406472feef0e85b2d54d01b",
+    head: "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
@@ -346,15 +346,15 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
+    head: "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "14bb6413dbd968c13879b0457627ddfe693322df84ad0ad89490ece0f9e2f971",
+    head: "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "f5c1ed2f38eb7540da5a467f7c7012c7ffc5e14a7ddb50247728e1936739f552",
+    head: "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
@@ -362,15 +362,15 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "59179f98e55b5774ef33c830be28da4cdfdc3985ed7c508e5f2d7d81060e3612",
+    head: "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "0499a87bd642f66c1968888f4156067177926b48f8e56b578ffc8c81fbd3a399",
+    head: "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "92a09f989789734efcdd4388d74b1b7535d9b4a7135276253b2e2ab27c018526",
+    head: "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
   },
 };
 // DELTAS:END

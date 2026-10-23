@@ -46,15 +46,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
   "packages/operator/src/confirmation.ts":
-    "14bb6413dbd968c13879b0457627ddfe693322df84ad0ad89490ece0f9e2f971",
+    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
   "packages/operator/src/cli.ts":
-    "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
+    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
   "packages/operator/src/index.ts":
-    "f5c1ed2f38eb7540da5a467f7c7012c7ffc5e14a7ddb50247728e1936739f552",
+    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -96,11 +96,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
   "packages/operator/src/referee-mcp.ts":
-    "0499a87bd642f66c1968888f4156067177926b48f8e56b578ffc8c81fbd3a399",
+    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
   "packages/operator/src/referee-exchange.ts":
-    "59179f98e55b5774ef33c830be28da4cdfdc3985ed7c508e5f2d7d81060e3612",
+    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
   "packages/operator/src/referee-session.ts":
-    "92a09f989789734efcdd4388d74b1b7535d9b4a7135276253b2e2ab27c018526",
+    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
 };
 
 const NEW_MODULES = [

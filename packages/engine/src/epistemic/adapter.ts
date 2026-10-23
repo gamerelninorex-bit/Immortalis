@@ -28,17 +28,10 @@ import {
   type SealedEngineProvenance,
 } from "@immortalis/contracts";
 import {
-  EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE,
   EPISTEMIC_ACCESS_BROADCAST_RULE,
   EPISTEMIC_ACCESS_OBSERVATION_RULE,
   factKind,
 } from "../owners/registry.ts";
-import {
-  actorObservationEventDependencies,
-  actorObservationEventReads,
-  actorObservationRecordOf,
-  deriveActorObservationEvent,
-} from "./actor-observation.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import {
   deriveObservationEvent,
@@ -184,50 +177,6 @@ export class EpistemicAccessAdapter {
       observationEventReads(record, decision),
       observationEventDependencies(record, decision.provenance.group_id),
       EPISTEMIC_ACCESS_OBSERVATION_RULE,
-    );
-  }
-
-  /**
-   * Commits the ACTOR-OBSERVATION-EARNED BOUNDED_SHARED_ACCESS event of a source-qualified direct perception by ONE non-PC Named Actor
-   * (BLUE v5.2-A1). The caller names ONE retained `F014D_ACTOR_DIRECT_PERCEPTION` referee decision and nothing else: the recipient (the
-   * Named Actor, with no recipient role), the PERCEPTION channel, the basis time, the foreign physical source pin (the committed Source
-   * Condition, pinned at its cited version, never copied) and the minimal payload are all DERIVED from that record, and the group reads and
-   * depends on the decision and every premise it cites, so the receipt is bound to the qualified interpretation and to the authoritative
-   * material reads — never to a caller-supplied access. Only an engine-derived OBSERVATION_ESTABLISHED reading earns an event. The event is
-   * NOT the packet: the packet exists only after its formation stage commits (see `formActorObservedPacket`).
-   */
-  async establishActorObservedAccess(input: {
-    readonly decision_key: string;
-  }): Promise<Result<CommitOutcome, EpistemicAccessErrorCode>> {
-    const decision = this.#store.getFact(input.decision_key);
-    const record = actorObservationRecordOf(decision);
-    if (!decision || !record)
-      return fail(
-        "INPUT_INVALID",
-        "the cited decision is not a retained actor direct-perception decision",
-      );
-    const derived = deriveActorObservationEvent(record);
-    if (!derived.ok)
-      return fail(
-        derived.error.code === "OBSERVATION_NOT_ESTABLISHED"
-          ? "OBSERVATION_NOT_ESTABLISHED"
-          : "OBSERVATION_RECORD_INVALID",
-        derived.error.message,
-      );
-    const e = derived.value;
-    return this.#publish(
-      {
-        group_id: observationEventGroupId(e.event_id),
-        intent_id: observationEventIntentId(e.event_id),
-        cause: observationEventCause(e.event_id),
-        basis: OBSERVATION_EVENT_BASIS,
-        secrecy: ACCESS_CLASS_ENGINE_SEALED,
-      },
-      accessEventKey(e.event_id),
-      e,
-      actorObservationEventReads(record, decision),
-      actorObservationEventDependencies(record, decision.provenance.group_id),
-      EPISTEMIC_ACCESS_ACTOR_OBSERVATION_RULE,
     );
   }
 

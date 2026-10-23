@@ -1,8 +1,8 @@
 # R1 Stage-One v1.1 — First Non-PC Actor Physical Presence (foundation)
 
 **Status: mechanism only.** This document records what the R1 stage-one construction on PR #84 builds, the authority it rests on, and
-what it deliberately does not do. It is not a claim that PR #84's H1 is cured: the actor-observation derivation still reads the actor's
-coupling statement as its position premise, and no sensory faculty, Health close or acoustic coverage exists.
+what it deliberately does not do. It is not a claim that H1 is cured: no actor observation exists on this head, and no sensory faculty,
+Health close or acoustic coverage exists.
 
 ## Authority
 
@@ -50,14 +50,24 @@ left unbindable. Nothing is erased or converted.
 
 ## Not built
 
-W1 sensory, Health and W2 acoustic evidence; any change to `deriveActorObservation`; operator commands for B1, the closure or
+W1 sensory, Health and W2 acoustic evidence; any actor observation, receipt or packet; operator commands for B1, the closure or
 Temporal establishment (B2 is therefore fixture-only in production until a Temporal establishment path exists); caller
 authentication (OB-016/IA-28); NPC movement, successors, time carry, off-screen action or free-form AI placement; saved-game backfill.
 
-## Open conflict reported to BLUE
+## Design lineage in the lock
 
-The frozen section lists the PC physical-custody page (`3f320af901e08166ad96ca0fc5e5069d`, handover-exclusion overlay) among the design
-lineage the lock should record. Five predecessor conformance assertions state that this page's id appears nowhere in the lock. They
-guard the 8 October contract as "not a lock pin". Recording the overlay requires narrowing those assertions to look past the new lineage
-block, which the builder did not do unilaterally. The lock therefore records the WG, Temporal and Epistemic lineage and the executable
-lowering, and omits the PC-custody lineage entry pending a ruling.
+The lock records four non-executable `DESIGN_RATIFIED` lineage rows (WG, Temporal, Epistemic and the PC-custody Handover Exclusion
+Overlay, `of_frozen_source: null`) and the one executable lowering, apart from `implementation_authority_addenda`. The 8 October
+PC-locus contract stays out of the frozen pins and the addenda, and its own native pins appear nowhere in the lock; the five
+predecessor assertions that guard this look past the new lineage block (BLUE ruling on PR #84).
+
+## Scope disposition: R1 foundation only (BLUE order, 23 October 2026)
+
+This PR is the R1 Stage-One foundation **only**. The earlier `observe-actor` mechanism (actor-observation host operation, referee
+decision, Epistemic event, packet and provenance, the operator command, and its tests and document) was **removed** from this PR, not
+quarantined: nothing in the contracts, engine or operator can produce an actor observation, a receipt or a packet. The reason is H1: that
+route derived an actor's viewing circumstances from a locus coupling, without a source-owned raw or receptive faculty (W1), a certified
+Health close or typed acoustic reach (W2). A green mechanism fixture cannot cure that, and presence at a locus (B2) is not a viewpoint.
+`tests/conformance/r1-presence-only-conformance.test.ts` is the negative reachability proof.
+
+**H1 and the S1 sensory design (F-014D S1, W1, Health, W2) are unbuilt, not passed.** They are a separate, later implementation.

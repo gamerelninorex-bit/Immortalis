@@ -31,11 +31,9 @@ import {
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
-import { actorObservationEventViolation } from "./actor-observation.ts";
 import {
   epistemicObjectViolation,
-  isActorObservationEarnedFact,
-  isEventTriggeredFormationFact,
+  isObservationEarnedFact,
   observationTriggerViolation,
 } from "./declaration.ts";
 import { observationEventViolation } from "./observation.ts";
@@ -191,12 +189,10 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     const boundary = recipientBoundaryViolation(factsBefore(revisionOf(ef)), e);
     if (boundary) bad(ef.key, boundary);
     // an observation-earned event is exactly what its retained direct-perception decision determines (and only such a decision earns one)
-    if (isEventTriggeredFormationFact(ef)) {
+    if (isObservationEarnedFact(ef)) {
       const committing = store.committedGroup(ef.provenance.intent_id);
       const why = committing
-        ? (isActorObservationEarnedFact(ef)
-            ? actorObservationEventViolation
-            : observationEventViolation)(
+        ? observationEventViolation(
             { group: committing, value: ef.value, basis: ef.basis, factOf: (k) => byKey.get(k) },
             "VERIFICATION",
           )
@@ -342,7 +338,7 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         authority.data.opening.basis_time,
       );
       if (identity) bad(pf.key, identity);
-      if (isEventTriggeredFormationFact(eventFact)) {
+      if (isObservationEarnedFact(eventFact)) {
         const why = observationTriggerViolation(
           authority.data,
           eventFact,
@@ -363,7 +359,7 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         o.value.dependencies.some((d) => canonicalEqual(d.stage, stage)),
     );
     const triggeredPending =
-      isEventTriggeredFormationFact(eventFact) &&
+      isObservationEarnedFact(eventFact) &&
       authority?.success &&
       !byKey.has(temporalTransactionKey(authority.data.transaction_id)) &&
       observationTriggerViolation(authority.data, eventFact, authority.data.opening.basis_time) ===
