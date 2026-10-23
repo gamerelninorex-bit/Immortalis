@@ -54,6 +54,10 @@ export interface IntegrityViolation {
     | "ENTITY_TRANSITION_STATE"
     /** World-State existing-actor coupling anchors: see verifyExistingActorCouplingIntegrity */
     | "ACTOR_COUPLING_STATE"
+    /** R1 Stage-One v1.1 actor setup placements and world setup closures: see verifyActorPresenceIntegrity */
+    | "ACTOR_SETUP_STATE"
+    /** R1 Stage-One v1.1 first actor physical presence: see verifyActorPresenceIntegrity */
+    | "ACTOR_PRESENCE_STATE"
     /** World-State active-PC post-handover physical-locus custody: see verifyPcPhysicalLocusCustodyIntegrity */
     | "PC_LOCUS_CUSTODY_STATE"
     /** IM-07 active-PC voluntary-movement commitment-of-record and PC-owned request: see verifyPcMovementIntegrity */

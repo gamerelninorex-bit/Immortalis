@@ -33,6 +33,7 @@
 // Culture & Society Established Shared Meaning / Norm Result-Close contracts (IM-09: the sealed Social Update Context, the Culture-defined evidence reading and the Culture-owned shared meaning/norm committed at the Communicative Convention Close).
 export * from "./actor-capability.ts";
 export * from "./actor-coupling.ts";
+export * from "./actor-presence.ts";
 export * from "./pc-locus-custody.ts";
 export * from "./pc-movement.ts";
 export * from "./epistemic-access.ts";

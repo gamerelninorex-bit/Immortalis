@@ -49,6 +49,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { PRESENCE_EXCLUSION, presenceBearing } from "./actor-presence.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
@@ -561,6 +562,11 @@ export function worldTransitionGroupCheck(
     return ref(
       "the transition is at the key derived from its entity, and its identity from its cause",
     );
+  }
+
+  // R1 exact-identity exclusion: a presence-bearing non-PC actor's identity is never a movable fallback entity
+  if (presenceBearing(t.entity.entity_id, state.facts)) {
+    return ref(PRESENCE_EXCLUSION, { key: w.key });
   }
 
   // every upstream fact is read at its CURRENT version and depended upon (a stage pins what it read)

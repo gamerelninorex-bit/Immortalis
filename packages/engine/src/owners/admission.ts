@@ -27,6 +27,7 @@ import {
   WorldLocusSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
+  actorSetupPlacementKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
@@ -57,6 +58,11 @@ import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
+import {
+  PRESENCE_EXCLUSION,
+  presenceBearing,
+  worldActorPresenceHistoricalCheck,
+} from "../world/actor-presence.ts";
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
@@ -286,6 +292,8 @@ export function coupledActorFreshContractViolation(
   facts: Pick<ReadonlyMap<string, OwnerFact>, "has">,
 ): string | null {
   if (contract.existing_actor_compilation !== undefined) return null;
+  if (presenceBearing(contract.pc_id, facts) || facts.has(actorSetupPlacementKey(contract.pc_id)))
+    return `a fresh Player Character cannot re-author an identity that holds a setup placement or physical presence: ${PRESENCE_EXCLUSION}`;
   return facts.has(worldActorCouplingKey(contract.pc_id))
     ? "the identity is already coupled to a world locus as an existing non-PC actor: a fresh Player Character cannot re-author it, and only the existing-actor compilation may name it"
     : null;
@@ -318,6 +326,10 @@ function checkExistenceContract(group: CommitGroup, state: CampaignState, value:
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
+  // a presence-bearing non-PC actor is refused in BOTH branches before the binding commits, so no PC-custody write can follow
+  if (presenceBearing(b.active_pc.entity_id, state.facts)) {
+    return reject("REFERENCE_INVALID", PRESENCE_EXCLUSION, { key: PLAYER_CHARACTER_BINDING_KEY });
+  }
   // a first ACTIVATION that cites a referee decision must be the one that decision qualifies
   const qualification = refereeQualificationViolation(group, (k) => state.facts.get(k), "BIND", {
     binding: b,
@@ -422,6 +434,9 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  * Pure: a function of (group, state) only.
  */
 export const canonicalAdmission: WriteAdmission = {
+  verifyHistorical(group, state) {
+    return worldActorPresenceHistoricalCheck(group, state);
+  },
   check(group, state) {
     for (const w of group.writes) {
       const resolved = resolveKey(w.key);
@@ -617,6 +632,13 @@ export function identityMismatch(
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
     case "world_pc_locus_custody":
       return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
+    case "actor_setup_placement":
+    case "actor_physical_presence":
+      return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
+    case "world_setup_closure":
+      return (v["world"] as { entity_id: string }).entity_id === ids[0]
+        ? null
+        : "world identity does not match the key";
     case "logistics_commitment": {
       const moved = v["moved"] as { entity_id: string };
       const origin = v["origin"] as { world: { entity_id: string } };

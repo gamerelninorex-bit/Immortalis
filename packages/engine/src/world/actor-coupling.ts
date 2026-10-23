@@ -15,6 +15,7 @@ import {
 import { actorBoundaryViolation, existingActorSourceViolation } from "../actor/derive.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { couplingPlacementViolation } from "./actor-presence.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 
 /**
@@ -103,7 +104,8 @@ export function existingActorCouplingViolation(
   if (!committed.success || !canonicalEqual(committed.data.world, c.coupling.world)) {
     return "the locus does not belong to the world being coupled";
   }
-  return null;
+  // R1: a coupling is provenance, never a second locator: it agrees with the actor's committed setup placement or presence
+  return couplingPlacementViolation(c.actor_id, c.coupling, facts);
 }
 
 /**

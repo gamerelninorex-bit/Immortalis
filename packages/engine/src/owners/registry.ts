@@ -50,6 +50,9 @@ import {
   EconomyReallocationSchema,
   EntityTransitionCauseSchema,
   ExistingActorCouplingSchema,
+  ActorPhysicalPresenceSchema,
+  ActorSetupPlacementSchema,
+  WorldSetupClosureSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   ExternalRecognitionSchema,
@@ -301,6 +304,11 @@ export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
 export const WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS = ["world_pc_locus_custody"] as const;
+export const WORLD_ACTOR_PRESENCE_FACT_KIND_IDS = [
+  "actor_setup_placement",
+  "world_setup_closure",
+  "actor_physical_presence",
+] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -372,6 +380,7 @@ export type FactKindId =
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
+  | (typeof WORLD_ACTOR_PRESENCE_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_HOLDING_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
@@ -1057,6 +1066,68 @@ export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
         },
       },
     ],
+  },
+];
+
+const R1_PRESENCE_LINEAGE =
+  "R1 Stage-One v1.1 (23 October 2026) design lineage, cited as the ownership and lowering rule only and NOT as a spec-lock pin: WG World Generation & World-State Kernel (https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d), sections 'R1 Sovereign-Ratified Successor Amendment — NPC Locus Presence — 23 October 2026', 'R1 Stage-One v1.1 Sovereign-Ratified Successor — Setup Placement and Exclusive NPC Presence — 23 October 2026' and 'R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026' (native pin 2026-10-23T09:27:39.157Z); Temporal F-014B (https://app.notion.com/p/3e020af901e081fb88e9f691748db990), sections 'R1 Sovereign-Ratified Interface Amendment — Physical Presence Temporal Read — 23 October 2026' and 'R1 Stage-One v1.1 Ratified Temporal Cutoff and Read — 23 October 2026'";
+
+/**
+ * The World-State fallback custodian's first-stage NPC physical presence chain (IM-03): WG "Ownership Guards — World Generation
+ * May Own: ... F-016 Ratified Fallback Objective Physical-Entity Custody (... physical/entity identity or reference,
+ * continuity-dependency binding)" with the R1 Stage-One v1.1 lineage. Setup evidence (B1), the once-per-world closed inventory
+ * and the first current physical record (B2) are one rule: no coupling, capability identity or host text is a position.
+ */
+export const WORLD_ACTOR_PRESENCE_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact: physical/entity identity or reference, continuity-dependency binding); Interface Handoffs — To Insertion/Reconciliation (latent/realized local state needed for coupling)",
+  [
+    WS006_ACTOR_COUPLING_LINEAGE,
+    HANDOVER_SEAM_LINEAGE,
+    R1_PRESENCE_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * B1 and the closure are SEALED (create-only). B2 is ADVANCING in kind but stage one admits only its initial version
+ * (expected_version 0) and refuses every successor: the owner's admission and the load verifier enforce it, because no
+ * movement, transition or carry exists.
+ */
+export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "actor_setup_placement",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/setup-placement$`),
+    valueSchema: ActorSetupPlacementSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+  {
+    id: "world_setup_closure",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/setup-closure$`),
+    valueSchema: WorldSetupClosureSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+  {
+    id: "actor_physical_presence",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/presence$`),
+    valueSchema: ActorPhysicalPresenceSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
   },
 ];
 
@@ -2449,6 +2520,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
+  ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...ECONOMY_HOLDING_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,

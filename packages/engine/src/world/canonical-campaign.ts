@@ -94,6 +94,7 @@ import type { CommitOutcome, StoreCommitErrorCode } from "../persistence/store.t
 import { expectedHandoverMigration } from "../owners/admission.ts";
 import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
+import { verifyActorPresenceIntegrity } from "./actor-presence-integrity.ts";
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
 import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
@@ -859,6 +860,7 @@ function verifyAll(
     ...verifyEconomyIntegrity(store),
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),
+    ...verifyActorPresenceIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
     ...verifyPcMovementIntegrity(store),
     ...verifyLogisticsIntegrity(store),
