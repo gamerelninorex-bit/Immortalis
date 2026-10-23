@@ -29,7 +29,7 @@ const kind = ECONOMY_HOLDING_FACT_KINDS.find((k) => k.id === "economy_reallocati
 
 /** Byte-identical to the merged base (#55): this slice consumes them, never edits or duplicates them. */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -46,9 +46,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/economy/declaration.ts":
     "155c19637229779675a2a489ddbcd3a77e33123913ff581fbbc158391bfd16bd",
   "packages/engine/src/persistence/store.ts":
-    "c5c05a17ec7b9835564a1ccbbe5465e4f46ba71893c96fabc01ee87f79e2e077",
+    "b9bbbf127627afa29e95fc34009b8bed5261aae83340a29648cbf08d69ad61c9",
   "packages/engine/src/world/canonical-campaign.ts":
-    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {

@@ -22,7 +22,7 @@ const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
   it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+      "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     );
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
@@ -64,7 +64,7 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+    "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":
@@ -72,7 +72,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     // the shared predicate and the handover-only movement branch
     "packages/engine/src/world/pc-locus-custody.ts":
-      "2fd911ec1abfcfba49055fb5ff266d86ff79b45197fc7493215f840e43f41eed",
+      "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
     "packages/engine/src/pc-movement/derive.ts":
       "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
     "packages/contracts/src/pc-locus-custody.ts":
@@ -87,9 +87,9 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "cbb74c3661bf3663ad32b4b6533c89c29717a0336a5b4189b06b8d5a8550cbeb",
+      "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
     "packages/engine/src/world/canonical-campaign.ts":
-      "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
+      "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",

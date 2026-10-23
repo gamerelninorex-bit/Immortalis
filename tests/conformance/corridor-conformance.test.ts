@@ -63,7 +63,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
   "packages/engine/src/world/entity-transition.ts":
-    "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
+    "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/commands.ts":
@@ -80,7 +80,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the corridor and its one consumer is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, World-State contracts, the temporal coordinator, the delivery/retirement providers, the temporal declaration, the locus resolver, the ECT-01 seam and the session are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("43e4325789488e155c60f2deae5028e44286d795");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -245,7 +245,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T13:47:37.910Z");
     expect(doc).toContain("9f7a8f425a296784a2460c6f68eb4f4e6f502e7a");
-    expect(doc).toContain("43e4325789488e155c60f2deae5028e44286d795");
+    expect(doc).toContain("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no route calibration, travel time, access, delivery, original-PC travel or actor agreement", () => {

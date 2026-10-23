@@ -251,6 +251,110 @@
       "source_validation": "Live Notion page fetched 2026-10-02; the page_last_edited_at value observed equals the cleared native pin above."
     }
   ],
+  "design_lineage_successors": [
+    {
+      "id": "R1-WG-LINEAGE",
+      "of_frozen_source": "WG",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T06:19:21.435Z",
+      "sections": [
+        "R1 Sovereign-Ratified Successor Amendment — NPC Locus Presence — 23 October 2026",
+        "R1 Stage-One v1.1 Sovereign-Ratified Successor — Setup Placement and Exclusive NPC Presence — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-TEMPORAL-LINEAGE",
+      "of_frozen_source": "F-014B",
+      "url": "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
+      "native_pin": "2026-10-23T06:19:22.288Z",
+      "sections": [
+        "R1 Sovereign-Ratified Interface Amendment — Physical Presence Temporal Read — 23 October 2026",
+        "R1 Stage-One v1.1 Ratified Temporal Cutoff and Read — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-EPISTEMIC-LINEAGE",
+      "of_frozen_source": "F-014D",
+      "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+      "native_pin": "2026-10-23T06:20:01.146Z",
+      "sections": [
+        "R1 Ratified Upstream Physical-Presence Boundary — 23 October 2026",
+        "R1 Stage-One v1.1 Ratified Prerequisite for Non-PC Direct Perception — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-PC-CUSTODY-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+      "native_pin": "2026-10-23T06:20:02.171Z",
+      "sections": [
+        "R1 Stage-One v1.1 Ratified Handover Exclusion Overlay — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input. It is a governance-source page with no F-027 frozen-source entry; it composes with the prior frozen 8 October 2026 Active-PC Post-Handover Physical Locus Ownership & Relocation Contract, which stays the ownership rule it already is and is not added to the frozen pins or the addenda."
+    }
+  ],
+  "executable_lowerings": [
+    {
+      "id": "R1-STAGE-ONE-V1.1-LOWERING",
+      "title": "R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T09:27:39.157Z",
+      "section": "R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "R1-WG-LINEAGE",
+        "R1-TEMPORAL-LINEAGE",
+        "R1-EPISTEMIC-LINEAGE",
+        "R1-PC-CUSTODY-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": [
+        "actor_setup_placement",
+        "world_setup_closure",
+        "actor_physical_presence"
+      ],
+      "scope": "First-stage non-PC actor physical presence mechanism only: B1 actor_setup_placement (SEALED setup evidence), the once-per-world world_setup_closure, and the first-version-only ADVANCING B2 actor_physical_presence, with the setup-eligibility predicate, the narrow historical replay verification, the fail-closed load of an R1-bearing journal and the exact-identity physical-custody exclusions.",
+      "does_not": [
+        "enable any sensory faculty, Health close, acoustic coverage or true NPC perception positive (PR #84 H1 remains STOP)",
+        "change deriveActorObservation or its coupling-as-position premise",
+        "add an operator, Temporal-establishment or caller-authentication command (OB-016/IA-28 unresolved)",
+        "permit NPC movement, a second current locus, a successor presence or an NPC->PC handover of a presence-bearing actor",
+        "supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins"
+      ]
+    }
+  ],
   "snapshot_files": {
     "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml": "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -270,6 +374,7 @@
     "A newer timestamp does not silently supersede this lock.",
     "Changing this file is a substantive PR requiring exact-version review.",
     "Code built against a different spec lock is a different review object.",
-    "An implementation-authority addendum composes with the package it names; it never rewrites or silently supersedes it, and its exact native pin is the only version the repository builds against."
+    "An implementation-authority addendum composes with the package it names; it never rewrites or silently supersedes it, and its exact native pin is the only version the repository builds against.",
+    "A design-lineage successor records that a section of an already-frozen source (or of an existing governance source) is ratified; it is never executable authority, never replaces, narrows or silently supersedes a frozen pin, and its newer whole-page native pin is not a build input. An executable lowering composes with the package, cites the design lineage it lowers, and is the only recorded executable authority for the R1 stage-one presence chain."
   ]
 }

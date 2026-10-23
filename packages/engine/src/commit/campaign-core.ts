@@ -34,6 +34,14 @@ export type OwnerRegistry = ReadonlyMap<string, ReadonlySet<string>>;
  */
 export interface WriteAdmission {
   check(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
+  /**
+   * OPTIONAL pure historical verification (R1 Stage-One v1.1). Replay runs it on each journal group against the ACTUAL
+   * incremental pre-state, so a rule that depends on a fact that later advanced (the Temporal state, for one) is judged against
+   * what was committed at that revision, not against the final snapshot. It is deliberately narrow: it returns null at once for
+   * a group that writes no fact of a kind that needs it, so legacy journals replay exactly as before; it never re-runs the
+   * whole of today's write admission over history. A `check` that applies the same rule keeps admission and replay one rule.
+   */
+  verifyHistorical?(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
 }
 
 export const CommitErrorCodes = [
@@ -151,6 +159,12 @@ export class CampaignCore {
   #headSha256: string;
   readonly #byIntent = new Map<string, LedgerRecord>();
   readonly #byGroup = new Map<string, string>(); // group_id -> intent_id
+  /**
+   * The groups whose admission rules demonstrably ran in THIS process: a live commit that passed `admission.check`, or a replayed
+   * entry that `admission.verifyHistorical` judged. It is evidence, not configuration: a group that is not here was adopted
+   * without the owner's rule being applied to it.
+   */
+  readonly #ruleChecked = new Set<string>();
   readonly #params: CoreParams;
 
   constructor(params: CoreParams) {
@@ -191,6 +205,12 @@ export class CampaignCore {
   /** Called by a store after the entry is durable. */
   accept(prepared: Extract<Prepared, { kind: "apply" }>): void {
     this.adopt(prepared.entry, prepared.nextState);
+    if (this.#params.admission !== undefined) this.#ruleChecked.add(prepared.entry.group.group_id);
+  }
+
+  /** The ids of the groups whose owner rules demonstrably ran in this process (see `#ruleChecked`). */
+  ruleCheckedGroupIds(): ReadonlySet<string> {
+    return this.#ruleChecked;
   }
 
   #register(group: CommitGroup, receipt: CommitReceipt): void {
@@ -252,6 +272,11 @@ export class CampaignCore {
     }
     const rejection = this.#validate(this.#state, entry.group, false);
     if (rejection) return mismatch(`entry is not a valid transition: ${rejection.code}`);
+    const historical = this.#params.admission?.verifyHistorical;
+    if (historical !== undefined) {
+      const failed = historical.call(this.#params.admission, entry.group, this.#state);
+      if (failed) return mismatch(`entry fails historical verification: ${failed.code}`);
+    }
     // The lock hash in force at commit time is recorded (and hash-chained) in the receipt; replay
     // takes it from there so a later evidence-only lock change cannot alter history.
     // The lock hash in force at commit time is recorded (and hash-chained) in the receipt; replay
@@ -260,6 +285,7 @@ export class CampaignCore {
     if (canonicalEqual(computed.entry, entry) === false)
       return mismatch("recomputed entry differs");
     this.adopt(computed.entry, computed.nextState);
+    if (historical !== undefined) this.#ruleChecked.add(entry.group.group_id);
     return ok(undefined);
   }
 

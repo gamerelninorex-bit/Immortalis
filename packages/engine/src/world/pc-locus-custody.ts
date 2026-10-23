@@ -30,6 +30,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { PRESENCE_EXCLUSION, presenceBearing } from "./actor-presence.ts";
 import { existingActorHandoverViolation } from "../owners/admission.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
@@ -410,6 +411,10 @@ export function worldPcLocusCustodyGroupCheck(
   }
   const w = group.writes[0]!;
   const c = PcPhysicalLocusCustodySchema.parse(w.value);
+  // R1 exact-identity exclusion, the mirror of the binding refusal: one current physical custodian per canonical identity
+  if (presenceBearing(c.pc_id, state.facts)) {
+    return reject("REFERENCE_INVALID", PRESENCE_EXCLUSION, { key: w.key });
+  }
   // dependency direction: the PC's contract, the binding that consumed it, the coupling (handover) or the qualifying decisions
   // (original activation), then the world and the locus
   const basis = c.basis;

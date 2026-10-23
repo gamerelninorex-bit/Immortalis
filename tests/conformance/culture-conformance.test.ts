@@ -522,7 +522,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
 describe("acceptance-register and open-gate honesty: the frozen spec files are untouched", () => {
   it("the lock, the acceptance register, the open gates and the Runtime Contract are byte-identical to the base", () => {
     expect(sha256File("spec/f027/spec-lock.json")).toBe(
-      "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+      "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     );
     expect(lock.snapshot_files["spec/f027/acceptance-register.yaml"]).toBe(
       "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
