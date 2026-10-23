@@ -41,7 +41,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
   "package.json": "66e7975f046947a4b51c51fd920b15ceab3450f81695306f232cdf4c59b80a86",
   "pnpm-lock.yaml": "60ccaabdaabfff2dd66003b0400303663bd072ca78551d112ca1859f3fb3bb28",
   "packages/contracts/package.json":
@@ -56,8 +56,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
-  "packages/contracts/src/index.ts":
-    "d916c2fb2c3a5b4295dd501ed54ac32e8720296b8e08de711869262619fec382",
   "packages/contracts/src/world-foundation.ts":
     "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
   "packages/contracts/src/actor-capability.ts":
@@ -96,14 +94,8 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
-  "packages/engine/src/world/actor-coupling.ts":
-    "4469c7605461dc0942fc092e9fa85f180b9f067d6a8ab972edb9db7aca764cf6",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
-  "packages/engine/src/world/integrity.ts":
-    "0bf047d85464ff89ece139655421570d9e0b2dbd0a6859e0d9d52be3f183c516",
   "packages/engine/src/temporal/admission.ts":
     "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
   "packages/engine/src/temporal/coordinator.ts":
@@ -176,8 +168,14 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 
 /** The existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
+  "packages/contracts/src/index.ts":
+    "4c7f0ea77f88359c1170443f94ace4dc769b5845c00928dbd61704a663e0409e",
   "packages/contracts/src/referee.ts":
     "9cd92b021479862c1688faf9bc69bc8bf98e0c22642e89e516c84b3d4d8a1bdd",
+  "packages/contracts/src/spec-identity.ts":
+    "21a7fe20111b83c1d9dc48f542dae4771a2ec5943c98e14c583a3848a2ec23e7",
+  "packages/engine/src/commit/campaign-core.ts":
+    "64fdfd3347f1fb36a105846e8c5139f06ecc8e7630baf9fd47a4a048d5354d9e",
   "packages/engine/src/epistemic/adapter.ts":
     "b0034d6bd43c71a109c04b5ff03069f19eac02525bd18b78e3ee0413c085d0ba",
   "packages/engine/src/epistemic/admission.ts":
@@ -187,9 +185,17 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/integrity.ts":
     "0c7431eab036831715c4fe0f349bd8dbd2f0be5a8e90af09338593411a314cc8",
   "packages/engine/src/index.ts":
-    "9f717f96c1c1c6255dd8b1e6ba3303533eed0c46d67e12caaa4ee8f3b604dc55",
+    "258f63ce1d2e3c2f32a122e1f6db8c11860f8c873b36272b77bb24aff98a25a2",
+  "packages/engine/src/owners/admission.ts":
+    "095d497523a354a87af742c93eef32ed9486407511202af0ef1025d7d26d150c",
+  "packages/engine/src/owners/extension.ts":
+    "315005a1489ea65e7ca847e21c67d3f920cd46bf0b7ec603d4f946d87977279e",
   "packages/engine/src/owners/registry.ts":
-    "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
+    "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a",
+  "packages/engine/src/persistence/file-package.ts":
+    "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518",
+  "packages/engine/src/persistence/store.ts":
+    "b9bbbf127627afa29e95fc34009b8bed5261aae83340a29648cbf08d69ad61c9",
   "packages/engine/src/referee/adapter.ts":
     "7efa630d106c2e12e80fa405e9e246c392f9e2f0356c4f0be4a095d2dd3ac201",
   "packages/engine/src/referee/admission.ts":
@@ -198,6 +204,18 @@ const MODIFIED: Readonly<Record<string, string>> = {
     "6ecaae7e602f1780be6bcafeb3981b539d93fb91ea36bacff052db09ff9ea483",
   "packages/engine/src/referee/integrity.ts":
     "1b90545cf278d55d457db65ab52aa8bc1b1ef42fb406472feef0e85b2d54d01b",
+  "packages/engine/src/world/actor-coupling.ts":
+    "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
+  "packages/engine/src/world/canonical-campaign.ts":
+    "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
+  "packages/engine/src/world/entity-transition.ts":
+    "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
+  "packages/engine/src/world/fallback-custody.ts":
+    "71ac96175e485baf74f87230e8c9e6a5154e2e6a4091bfb007e7361dfc6a1c21",
+  "packages/engine/src/world/integrity.ts":
+    "64889019dd2742948027a3232a0c19b63359f50657377ed7b051852e2930e4c5",
+  "packages/engine/src/world/pc-locus-custody.ts":
+    "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
   "packages/operator/src/cli.ts":
     "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
   "packages/operator/src/confirmation.ts":
@@ -240,7 +258,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("43e4325789488e155c60f2deae5028e44286d795");
+    expect(blob).toBe("98830019d8aea67392808308e588678c99d57e2c");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
     expect(pin("WS-006")).toBe("2026-09-25T00:18:36.828Z");
@@ -251,17 +269,30 @@ describe("the frozen specification, the owners and the surfaces the slice stands
   it("the existing source files the slice modified are exactly these, each differs from the base and is pinned at the slice head", () => {
     for (const [file, hash] of Object.entries(MODIFIED)) expect(sha(file), file).toBe(hash);
     expect(Object.keys(MODIFIED).sort()).toEqual([
+      "packages/contracts/src/index.ts",
       "packages/contracts/src/referee.ts",
+      "packages/contracts/src/spec-identity.ts",
+      "packages/engine/src/commit/campaign-core.ts",
       "packages/engine/src/epistemic/adapter.ts",
       "packages/engine/src/epistemic/admission.ts",
       "packages/engine/src/epistemic/declaration.ts",
       "packages/engine/src/epistemic/integrity.ts",
       "packages/engine/src/index.ts",
+      "packages/engine/src/owners/admission.ts",
+      "packages/engine/src/owners/extension.ts",
       "packages/engine/src/owners/registry.ts",
+      "packages/engine/src/persistence/file-package.ts",
+      "packages/engine/src/persistence/store.ts",
       "packages/engine/src/referee/adapter.ts",
       "packages/engine/src/referee/admission.ts",
       "packages/engine/src/referee/derive.ts",
       "packages/engine/src/referee/integrity.ts",
+      "packages/engine/src/world/actor-coupling.ts",
+      "packages/engine/src/world/canonical-campaign.ts",
+      "packages/engine/src/world/entity-transition.ts",
+      "packages/engine/src/world/fallback-custody.ts",
+      "packages/engine/src/world/integrity.ts",
+      "packages/engine/src/world/pc-locus-custody.ts",
       "packages/operator/src/cli.ts",
       "packages/operator/src/confirmation.ts",
       "packages/operator/src/index.ts",

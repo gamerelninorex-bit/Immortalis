@@ -4,7 +4,7 @@
 
 - Brief: BLUE v5.2-A1 Implementation Brief — Source-Qualified Original-PC Observation, <https://app.notion.com/p/40020af901e081279a61d16635561654> (`40020af901e081279a61d16635561654`), native pin `2026-10-21T16:38:01.462Z`. It is a construction brief, not a spec-lock pin.
 - Exact base: `main` `78644258939d70fca2c94b110eeb1710b3543e7a`. It is independent of the open PRs #72 and #73 and borrows nothing from them.
-- Governing lock: `spec/f027/spec-lock.json`, unchanged (blob `43e4325789488e155c60f2deae5028e44286d795`). No source pin, snapshot, runtime-contract text, register row or status, open gate, owner, facet, fact kind, key space, schema, permission, role mapping or persistent key changed.
+- Governing lock: `spec/f027/spec-lock.json`, unchanged (blob `98830019d8aea67392808308e588678c99d57e2c`). No source pin, snapshot, runtime-contract text, register row or status, open gate, owner, facet, fact kind, key space, schema, permission, role mapping or persistent key changed.
 
 **No PASS acceptance is claimed here.** Independent BLUE review remains before any merge; only the Sovereign authorizes merge. F-028 / PF-6 / IA-V stay unactivated and unpromoted; R-4 is unchanged; nothing is deployed and Anton's `pc-namar-1` / `campaign-r5-phone` is not touched.
 

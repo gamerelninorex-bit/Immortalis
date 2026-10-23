@@ -114,6 +114,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
+      "actor-presence-integrity.ts",
+      "actor-presence.ts",
       "canonical-campaign.ts",
       "corridor.ts",
       "entity-transition-integrity.ts",
@@ -124,6 +126,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "setup-eligibility.ts",
       "source-condition.ts",
     ]);
   });

@@ -151,6 +151,9 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_entity_transition",
       "world_actor_coupling",
       "world_pc_locus_custody",
+      "actor_setup_placement",
+      "world_setup_closure",
+      "actor_physical_presence",
       "world_source_condition",
       "world_source_delivery",
     ]);
@@ -178,6 +181,8 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
+      "actor-presence-integrity.ts",
+      "actor-presence.ts",
       "canonical-campaign.ts",
       "corridor.ts",
       "entity-transition-integrity.ts",
@@ -188,6 +193,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "setup-eligibility.ts",
       "source-condition.ts",
     ]);
     for (const f of COUPLING_MODULES) {

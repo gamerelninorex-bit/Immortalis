@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact values */
 // R1 Stage-One v1.1 — enforcement and recovery of the presence chain: the strict setup-eligibility predicate (kind and referee
 // operation), B1 ↔ coupling agreement in both commit orders, the exact-identity physical-custody exclusion (handover refused BEFORE
 // commit; an unbound existing-actor compilation stays allowed), and the historical verifier: a forged history (wrong instant, a

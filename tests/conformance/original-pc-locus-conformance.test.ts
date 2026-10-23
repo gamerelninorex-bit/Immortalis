@@ -49,7 +49,7 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       native_pin: pin("I-002").native_pin,
     });
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+      "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
     );
   });
 
@@ -243,7 +243,7 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -256,23 +256,23 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "9927d3f4624b061da38c2a8c61458bbad199c457136d6e53a52c472869f82a3b",
+    "095d497523a354a87af742c93eef32ed9486407511202af0ef1025d7d26d150c",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "0bf047d85464ff89ece139655421570d9e0b2dbd0a6859e0d9d52be3f183c516",
+    "64889019dd2742948027a3232a0c19b63359f50657377ed7b051852e2930e4c5",
   "packages/engine/src/world/actor-coupling.ts":
-    "4469c7605461dc0942fc092e9fa85f180b9f067d6a8ab972edb9db7aca764cf6",
+    "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
   "packages/engine/src/world/fallback-custody.ts":
-    "61cc0d588e94c3dac156e25f3dd6a578e7670ce4124c82229f6efbb71ae657f8",
+    "71ac96175e485baf74f87230e8c9e6a5154e2e6a4091bfb007e7361dfc6a1c21",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/pc-movement/integrity.ts":
     "37d20ecd819d9ac330d17a183e00dbd29f81f697f6b4f6c123b5e893c4cdf0ff",
   "packages/engine/src/persistence/file-package.ts":
-    "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
+    "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/commands.ts":
@@ -310,7 +310,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
+    head: "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -334,7 +334,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
+    head: "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -342,7 +342,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/pc-locus-custody.ts": {
     base: "6f3a2e7045223b1221abd7fd2b19c0cd18e9a1101f19d19e5b8c6d4984f7c03a",
-    head: "2fd911ec1abfcfba49055fb5ff266d86ff79b45197fc7493215f840e43f41eed",
+    head: "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",

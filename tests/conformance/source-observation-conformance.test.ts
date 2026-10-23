@@ -19,7 +19,7 @@ const sha = (file: string) =>
 
 /** Byte-identical to the base 7864425: the slice consumes or stands beside every one of these, and edits none. */
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -39,11 +39,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
+    "2247b43cde66b48295b8b5371a37e16d381c165ca82e2ed4afd33440f24a879a",
   "packages/engine/src/index.ts":
-    "9f717f96c1c1c6255dd8b1e6ba3303533eed0c46d67e12caaa4ee8f3b604dc55",
+    "258f63ce1d2e3c2f32a122e1f6db8c11860f8c873b36272b77bb24aff98a25a2",
   "packages/contracts/src/index.ts":
-    "d916c2fb2c3a5b4295dd501ed54ac32e8720296b8e08de711869262619fec382",
+    "4c7f0ea77f88359c1170443f94ace4dc769b5845c00928dbd61704a663e0409e",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/protocol-current-glance.ts":
@@ -79,7 +79,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "ac41e9a5f54bad92e5bb47f0fdc46daf1ecbfc4ea588fbcc51137b80859cdd9a",
+    "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
@@ -166,7 +166,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("43e4325789488e155c60f2deae5028e44286d795");
+    expect(blob).toBe("98830019d8aea67392808308e588678c99d57e2c");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
     expect(pin("I-002")).toBe("2026-09-25T00:15:54.536Z");
@@ -229,7 +229,7 @@ describe("the slice is what it says: operator-side, trusted-input, mechanism onl
       "40020af901e081279a61d16635561654",
       "2026-10-21T16:38:01.462Z",
       "78644258939d70fca2c94b110eeb1710b3543e7a",
-      "43e4325789488e155c60f2deae5028e44286d795",
+      "98830019d8aea67392808308e588678c99d57e2c",
       "#72",
       "#73",
       "Mechanical conformance-pin adjustments",

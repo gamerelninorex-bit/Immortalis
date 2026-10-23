@@ -21,7 +21,6 @@ import {
   A,
   CAP,
   CLOSURE_KEY,
-  L,
   L2,
   PLACEMENT_KEY,
   PRESENCE_KEY,

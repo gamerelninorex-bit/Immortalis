@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests build and tamper with arbitrary fact values */
 // SYNTHETIC TEST SUPPORT for R1 Stage-One v1.1 (actor setup placement B1, world setup closure, first actor physical presence B2).
 // The owners are the real ones. The chain is MECHANISM-ONLY evidence: no perception, no faculty, no Health, no movement. The actor's
 // pre-Temporal Named-Actor basis is caused by a committed World-State fact (the locus), a foreign non-kernel cause; whether that
