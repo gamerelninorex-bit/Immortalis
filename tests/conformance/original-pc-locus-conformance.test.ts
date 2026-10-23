@@ -49,7 +49,7 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       native_pin: pin("I-002").native_pin,
     });
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+      "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     );
   });
 
@@ -243,7 +243,7 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",

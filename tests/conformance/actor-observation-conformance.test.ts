@@ -41,7 +41,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "package.json": "66e7975f046947a4b51c51fd920b15ceab3450f81695306f232cdf4c59b80a86",
   "pnpm-lock.yaml": "60ccaabdaabfff2dd66003b0400303663bd072ca78551d112ca1859f3fb3bb28",
   "packages/contracts/package.json":
@@ -173,7 +173,7 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
     "9cd92b021479862c1688faf9bc69bc8bf98e0c22642e89e516c84b3d4d8a1bdd",
   "packages/contracts/src/spec-identity.ts":
-    "21a7fe20111b83c1d9dc48f542dae4771a2ec5943c98e14c583a3848a2ec23e7",
+    "0f1c21b03b165ef48389f7eae297ced857fd8496ab41716686166b83ccaa723b",
   "packages/engine/src/commit/campaign-core.ts":
     "64fdfd3347f1fb36a105846e8c5139f06ecc8e7630baf9fd47a4a048d5354d9e",
   "packages/engine/src/epistemic/adapter.ts":
@@ -258,7 +258,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("98830019d8aea67392808308e588678c99d57e2c");
+    expect(blob).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
     expect(pin("WS-006")).toBe("2026-09-25T00:18:36.828Z");

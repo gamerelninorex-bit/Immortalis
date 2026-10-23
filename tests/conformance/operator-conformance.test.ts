@@ -36,7 +36,7 @@ const importedNames = (file: string, from: string): string[] =>
 
 /** Everything the mechanism composes or must leave untouched, exactly as it stood at the base (main f0e4069). */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":

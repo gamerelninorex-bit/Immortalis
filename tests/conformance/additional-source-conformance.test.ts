@@ -44,7 +44,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, contracts and engine owner API are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("98830019d8aea67392808308e588678c99d57e2c");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -108,7 +108,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-21T18:33:04.910Z");
     expect(doc).toContain("c739ec3834376dc42f7d83c827904f7d94c91911");
-    expect(doc).toContain("98830019d8aea67392808308e588678c99d57e2c");
+    expect(doc).toContain("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no downstream perception, availability, extraction or collection", () => {

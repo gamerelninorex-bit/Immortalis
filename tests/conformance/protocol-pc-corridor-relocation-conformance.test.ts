@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { code, gates, lock, register } from "../support/f027.ts";
 import { protocolIndexExports, PROTOCOL_ONLY_EVENT_SIGNAL_READ } from "../support/protocol.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const MODULE = "packages/protocol/src/pc-corridor-relocation.ts";
 const CONTRACT = "packages/contracts/src/protocol-corridor-relocation.ts";
@@ -99,8 +100,8 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the F-027 spec lock is unchanged: blob 98830019d8aea67392808308e588678c99d57e2c", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("98830019d8aea67392808308e588678c99d57e2c");
+  it("the F-027 spec lock is unchanged: blob ba46a5d19985bd360ba0cc47217d0947dc3fc4f3", () => {
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
   });
 
   it("the one engine edit is the Logistics derivation, narrowed and nothing else: the route-less foundation, every other refusal and the single corridor read remain", () => {
@@ -317,7 +318,7 @@ describe("the gateway advances no time, resolves nothing, plans no route, invent
       "MECHANISM ONLY",
       "2026-10-22T16:13:49.400Z",
       "3b06e6591303e72ee7523555dc08d13c4c9c7d5b",
-      "98830019d8aea67392808308e588678c99d57e2c",
+      "ba46a5d19985bd360ba0cc47217d0947dc3fc4f3",
       "2026-10-08T01:25:36.611Z",
       "commit_confirmed_pc_corridor_relocation",
       "bindTrustedConfirmedPcCorridorRelocationContext",
@@ -346,7 +347,7 @@ describe("register, lock and gate honesty: nothing moved", () => {
     expect(lock.frozen_sources.find((s) => s.id === "I-002")!.native_pin).toBe(
       "2026-09-25T00:15:54.536Z",
     );
-    expect(JSON.stringify(lock)).not.toContain("3f320af901e08166ad96ca0fc5e5069d");
+    expectNotALockPin(lock, "3f320af901e08166ad96ca0fc5e5069d");
   });
 
   it("no register row was promoted or mentions this slice", () => {

@@ -60,6 +60,13 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     pin: "2026-10-23T06:20:01.146Z",
     sections: 2,
   },
+  // a governance-source page with no F-027 frozen-source entry: it is never added to the frozen pins or the addenda
+  "R1-PC-CUSTODY-LINEAGE": {
+    of: null,
+    url: "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+    pin: "2026-10-23T06:20:02.171Z",
+    sections: 1,
+  },
 };
 
 /**
@@ -77,6 +84,7 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       "R1-WG-LINEAGE": 0,
       "R1-TEMPORAL-LINEAGE": 0,
       "R1-EPISTEMIC-LINEAGE": 0,
+      "R1-PC-CUSTODY-LINEAGE": 0,
     }),
   },
 };
@@ -216,6 +224,15 @@ export function checkSpec(root: string): string[] {
       );
     if (e["of_frozen_source"] !== want.of)
       errors.push(`spec-lock.json: design lineage ${id} extends ${String(want.of)}`);
+    if (want.of === null) {
+      // a governance-source page is never promoted into the frozen pins or the implementation-authority addenda
+      if ([...frozenById.values()].some((f) => f.url === want.url))
+        errors.push(`spec-lock.json: ${id} may not be promoted into the frozen sources`);
+      if (addenda.some((a) => a.url === want.url))
+        errors.push(
+          `spec-lock.json: ${id} may not be promoted into the implementation authority addenda`,
+        );
+    }
     if (want.of !== null) {
       const frozen = frozenById.get(want.of);
       if (!frozen || frozen.url !== want.url)

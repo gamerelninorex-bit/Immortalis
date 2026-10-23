@@ -299,6 +299,21 @@
       "supersedes": null,
       "superseded_by": null,
       "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-PC-CUSTODY-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+      "native_pin": "2026-10-23T06:20:02.171Z",
+      "sections": [
+        "R1 Stage-One v1.1 Ratified Handover Exclusion Overlay — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input. It is a governance-source page with no F-027 frozen-source entry; it composes with the prior frozen 8 October 2026 Active-PC Post-Handover Physical Locus Ownership & Relocation Contract, which stays the ownership rule it already is and is not added to the frozen pins or the addenda."
     }
   ],
   "executable_lowerings": [
@@ -319,7 +334,8 @@
       "cites_design_lineage": [
         "R1-WG-LINEAGE",
         "R1-TEMPORAL-LINEAGE",
-        "R1-EPISTEMIC-LINEAGE"
+        "R1-EPISTEMIC-LINEAGE",
+        "R1-PC-CUSTODY-LINEAGE"
       ],
       "supersedes": null,
       "superseded_by": null,

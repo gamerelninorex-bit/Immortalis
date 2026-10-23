@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gates, lock, register, code } from "../support/f027.ts";
 import { protocolIndexExports, PROTOCOL_ONLY_EVENT_SIGNAL_READ } from "../support/protocol.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const MODULE = "packages/protocol/src/pc-relocation.ts";
 const CONTRACT = "packages/contracts/src/protocol-relocation.ts";
@@ -294,7 +295,7 @@ describe("register, lock and gate honesty: nothing moved", () => {
     expect(lock.frozen_sources.find((s) => s.id === "I-002")!.native_pin).toBe(
       "2026-09-25T00:15:54.536Z",
     );
-    expect(JSON.stringify(lock)).not.toContain("3f320af901e08166ad96ca0fc5e5069d");
+    expectNotALockPin(lock, "3f320af901e08166ad96ca0fc5e5069d");
   });
 
   it("no register row was promoted or mentions this slice", () => {

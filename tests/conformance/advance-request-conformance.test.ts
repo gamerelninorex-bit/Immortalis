@@ -16,7 +16,7 @@ const sha = (file: string) =>
 
 /** Byte-identical to the base e799fb8: the slice consumes or stands beside every one of these, and edits none. */
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -124,7 +124,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("98830019d8aea67392808308e588678c99d57e2c");
+    expect(blob).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014B")).toBe("2026-09-25T23:42:29.547Z");
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");

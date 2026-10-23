@@ -31,7 +31,7 @@ const importedNames = (file: string, from: string): string[] =>
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 7fe37737165ce5085c89401cddf421a651441796. */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+  "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",

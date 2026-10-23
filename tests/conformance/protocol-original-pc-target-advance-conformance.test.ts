@@ -22,7 +22,7 @@ const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
   it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+      "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     );
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
@@ -64,7 +64,7 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "1fbeb0edd93ea96eb03896eb8faf2eb2441a9991b24b1d85b2f0e6b164dcdfa6",
+    "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":

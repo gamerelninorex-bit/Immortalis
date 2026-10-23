@@ -24,6 +24,7 @@ import {
 import { code, gates, lock, register } from "../support/f027.ts";
 import { expectedAdapterMethods, expectedOwnerFacetSet } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!;
 const MODULES = [
@@ -74,8 +75,9 @@ describe("IA-01 source/version fidelity: the composed authority lineage is cited
 
   it("the frozen contract and the brief's working pin are not lock pins: the lock, Runtime Contract and open-gate snapshots are untouched", () => {
     const lockText = readFileSync("spec/f027/spec-lock.json", "utf8");
-    for (const frozen of [FROZEN_CONTRACT_ID, FROZEN_CONTRACT_PIN, BRIEF_PIN])
-      expect(lockText, frozen).not.toContain(frozen);
+    // the frozen contract is in no frozen source, addendum, governance reference or rule; its page id may appear only as the
+    // non-executable R1 design-lineage row, and the contract's and the brief's own native pins appear nowhere (BLUE ruling on PR #84)
+    expectNotALockPin(JSON.parse(lockText), FROZEN_CONTRACT_ID, [FROZEN_CONTRACT_PIN, BRIEF_PIN]);
     expect(lock.frozen_sources).toHaveLength(23);
     expect(lock.incorporated_tranches).toHaveLength(2);
     expect(

@@ -159,6 +159,21 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     }
   });
 
+  it("the 8 October frozen contract is cited as lineage only: its page id is a non-executable design row, its own native pins appear nowhere, and it is in no frozen source or addendum", () => {
+    const id = "3f320af901e08166ad96ca0fc5e5069d";
+    expect(JSON.stringify(lock.frozen_sources)).not.toContain(id);
+    expect(JSON.stringify(lock.implementation_authority_addenda)).not.toContain(id);
+    expect(JSON.stringify(lock.executable_lowerings)).not.toContain(id);
+    const rows = lock.design_lineage_successors.filter((e: any) => e.url.includes(id));
+    expect(rows.map((e: any) => e.id)).toEqual(["R1-PC-CUSTODY-LINEAGE"]);
+    expect(rows[0].of_frozen_source).toBeNull();
+    expect(rows[0].sections).toEqual([
+      "R1 Stage-One v1.1 Ratified Handover Exclusion Overlay \u2014 23 October 2026",
+    ]);
+    for (const pin of ["2026-10-08T01:25:36.611Z", "2026-10-08T01:30:19.780Z"])
+      expect(rawLock).not.toContain(pin);
+  });
+
   it("the executable lowering composes with F-027, cites exactly the lineage it lowers and names exactly the three kinds", () => {
     const [low] = lock.executable_lowerings as any[];
     expect(lock.executable_lowerings).toHaveLength(1);
@@ -252,6 +267,66 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     has(
       mutate((l) => delete l.executable_lowerings),
       /appears 0 times/,
+    );
+    // the fourth lineage row (the PC-custody handover-exclusion overlay): missing, mispinned, executable, superseding/narrowing, promoted
+    const pc = (l: any) =>
+      l.design_lineage_successors.find((e: any) => e.id === "R1-PC-CUSTODY-LINEAGE");
+    has(
+      mutate(
+        (l) =>
+          (l.design_lineage_successors = l.design_lineage_successors.filter(
+            (e: any) => e.id !== "R1-PC-CUSTODY-LINEAGE",
+          )),
+      ),
+      /R1-PC-CUSTODY-LINEAGE appears 0 times/,
+    );
+    has(
+      mutate((l) => (pc(l).native_pin = "2026-10-08T01:25:36.611Z")),
+      /R1-PC-CUSTODY-LINEAGE must be pinned at exactly/,
+    );
+    has(
+      mutate((l) => (pc(l).executable = true)),
+      /R1-PC-CUSTODY-LINEAGE is DESIGN_RATIFIED and never executable/,
+    );
+    has(
+      mutate((l) => (pc(l).status = "FROZEN_EXECUTABLE_LOWERING")),
+      /R1-PC-CUSTODY-LINEAGE is DESIGN_RATIFIED and never executable/,
+    );
+    has(
+      mutate((l) => (pc(l).narrows_frozen_pin = true)),
+      /R1-PC-CUSTODY-LINEAGE may not supersede or narrow/,
+    );
+    has(
+      mutate((l) => (pc(l).superseded_by = "x")),
+      /R1-PC-CUSTODY-LINEAGE may not supersede or narrow/,
+    );
+    has(
+      mutate((l) => (pc(l).of_frozen_source = "WG")),
+      /R1-PC-CUSTODY-LINEAGE extends null/,
+    );
+    has(
+      mutate((l) => (pc(l).sections = [])),
+      /R1-PC-CUSTODY-LINEAGE must list its 1 exact section/,
+    );
+    has(
+      mutate((l) =>
+        l.frozen_sources.push({ id: "PC-CUSTODY", url: pc(l).url, native_pin: pc(l).native_pin }),
+      ),
+      /may not be promoted into the frozen sources/,
+    );
+    has(
+      mutate((l) =>
+        l.implementation_authority_addenda.push({
+          ...l.implementation_authority_addenda[0],
+          id: "X",
+          url: pc(l).url,
+        }),
+      ),
+      /may not be promoted into the implementation authority addenda/,
+    );
+    has(
+      mutate((l) => l.executable_lowerings[0].cites_design_lineage.pop()),
+      /exactly the design lineage/,
     );
     // reusing the closed addendum slot for the new authority is refused
     has(
