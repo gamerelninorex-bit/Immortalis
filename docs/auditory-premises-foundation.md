@@ -39,19 +39,29 @@ before the fact. There is no carry across elapsed time, no backdating, no future
 yields no W1, a W1 may not be established after the emission it would qualify, and an emission after elapsed time is a later event that
 the earlier B2 and W1 can never qualify. No new public GM, referee or host "make actor hear" command exists.
 
+The sequence guards the emission's own admission, not only the read. An emission is admitted only where an actual committed R1 B2 and a
+World-State W1 of one non-PC actor already stand at this locus, both established at the emission's own event basis (the same Temporal
+canonical time), and its group reads and depends on those exact versions like every other premise it relies on. The emission value is
+unchanged: it names no listener and no new actor-emission binding exists. Write admission, historical replay and the load verifier all
+apply that one rule, so a history that is lawful in every other respect but has no such chain (no B2, no W1, a W1 committed after the
+event, or a B2 and W1 stale at an earlier basis) is neither admitted nor replayed nor loaded as canon. This is a physical-source premise,
+not a perception.
+
 ## The pure read
 
 `evaluateAuditoryPremises(reader, { actor_id, world_id, locus_id, emission_id })` reads the **actual committed exact pins** and writes
 nothing. It is not a canonical fact, an access event, a receipt or a packet.
 
-| answer                             | meaning                                                                                                                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SOURCE_PREMISES_READY_FOR_HEALTH` | every physical premise exists in the lawful order: a proposal to run Health later, never proof that hearing occurred                                               |
-| `REFUSED` (coded)                  | a conclusive negative: transduction absent, not receptive, no typed profile, no actual emission, an unqualified emitter, an emission at another locus, a non-actor |
-| `UNRESOLVED` (coded)               | a premise is missing, unknown, stale, malformed, contradicted, or its Temporal or journal order conflicts; owner rules not demonstrably run                        |
+| answer                             | meaning                                                                                                                                                                            |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOURCE_PREMISES_READY_FOR_HEALTH` | every physical premise exists in the lawful order: a proposal to run Health later, never proof that hearing occurred                                                               |
+| `REFUSED` (coded)                  | a conclusive negative: transduction absent, not receptive, no typed profile, an unqualified emitter, an emission at another locus, a non-actor                                     |
+| `UNRESOLVED` (coded)               | a premise is missing (including a never-committed emission), unknown, stale, malformed, contradicted, or its Temporal or journal order conflicts; owner rules not demonstrably run |
 
-An absent emission is a typed refusal (a possible impulse is not an event); a missing B2 or W1 is `UNRESOLVED`. Singleton
-`BOUNDED_SHARED_ACCESS` and `BROADCAST_EXPOSURE` are never an individual hearing verdict.
+A missing committed emission is `UNRESOLVED` (`EMISSION_NOT_COMMITTED`): a never-committed event is a missing physical premise, the
+profile's possible impulse is not an event, and none is manufactured. A missing B2 or W1 is `UNRESOLVED` as well. `REFUSED` is kept for
+a conclusive negative, such as an absent or nonreceptive faculty, no typed profile, an unqualified emitter or a channel failure.
+Singleton `BOUNDED_SHARED_ACCESS` and `BROADCAST_EXPOSURE` are never an individual hearing verdict.
 
 ## Admission, replay and load
 

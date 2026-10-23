@@ -25,10 +25,14 @@ import {
   worldAcousticEmissionKey,
   worldLocusKey,
   worldProfileKey,
+  actorSetupPlacementKey,
   type CommitGroup,
+  type NamedActorCapabilityBasis,
 } from "@immortalis/contracts";
 import {
   ACTOR_FIXTURE_EXTENSION,
+  ACTOR_OTHER,
+  capabilityBasis,
   FIXTURE_CAMPAIGN,
   T0,
   actorProviders,
@@ -45,6 +49,7 @@ import {
 import { must } from "./temporal.ts";
 import {
   A,
+  CAP,
   L,
   L2,
   R1_BASIS,
@@ -245,11 +250,14 @@ export const rawPins = (actor = A, locus = L) => [
   actorPhysicalPresenceKey(actor),
   "temporal/state",
 ];
-export const emissionPins = (locus = L) => [
+/** What an emission group reads and depends on: the world, the original locus, the closure, the clock and the chain it follows. */
+export const emissionPins = (locus = L, actor = A) => [
   worldProfileKey(W),
   worldLocusKey(W, locus),
   `world/${W}/setup-closure`,
   "temporal/state",
+  actorPhysicalPresenceKey(actor),
+  actorRawSensoryStateKey(actor),
 ];
 
 export const commitRaw = (
@@ -276,13 +284,14 @@ export const commitEmission = (
   locus = L,
   group: Partial<CommitGroup> = {},
   id = EMISSION,
+  actor = A,
 ) =>
   s.campaign.store.commit(
     p1Group(
       s.campaign.store,
       worldAcousticEmissionKey(W, locus, id),
       emissionValue({ emission_id: id, ...over }, locus),
-      emissionPins(locus),
+      emissionPins(locus, actor),
       FACET_WORLD_LOCUS,
       group,
     ),
@@ -304,6 +313,56 @@ export async function advanceTime(s: R1Scene, n = 1): Promise<void> {
     }),
   );
   await must(s.coordinator.advance(consumerAdvanceRequest(`tx-adv${n}`, `adv${n}`)));
+}
+
+/** A second, independent non-PC actor (its own Named-Actor basis, B1, B2 and W1), so that order and locus can be tested honestly. */
+export const B = ACTOR_OTHER;
+
+/** B's pre-Temporal basis: caused, like A's, by the committed World-State locus (a foreign, non-kernel cause). */
+export const secondActorBasis = (): NamedActorCapabilityBasis =>
+  capabilityBasis(B, CAP, {
+    establishment: {
+      method: "CAUSALLY_DETERMINED",
+      causes: [
+        {
+          aspect: "BIOGRAPHY_HISTORY",
+          owner: OWNER_WORLD_STATE,
+          fact_key: worldLocusKey(W, L),
+          version: 1,
+        },
+      ],
+    },
+  });
+
+export const establishSecondActor = async (s: Pick<R1Scene, "actors">): Promise<void> => {
+  await must(
+    s.actors.establishCapabilityBasis({ ...actorPublication(2), capability: secondActorBasis() }),
+  );
+};
+
+/**
+ * Two lawful non-PC actors through real admission, up to and including their B2: A at L and B at the same locus (default) or at the
+ * second, separately profiled locus L2. Neither has a W1 yet.
+ */
+export async function p1TwoActors(
+  dir: string,
+  o: { readonly secondAt?: "same" | "elsewhere" } = {},
+): Promise<R1Scene> {
+  const at = o.secondAt === "elsewhere" ? L2 : L;
+  const s = await p1Scene(dir, o.secondAt === "elsewhere" ? { extras: "profiled" } : {});
+  await establishSecondActor(s);
+  await must(commitPlacement(s));
+  await must(commitPlacement(s, {}, B, at));
+  await must(
+    commitClosure(s, [
+      { fact_key: actorSetupPlacementKey(B), version: 1 },
+      { fact_key: actorSetupPlacementKey(A), version: 1 },
+    ]),
+  );
+  await must(establishClock(s));
+  await must(commitPresence(s));
+  await must(commitPresence(s, {}, B, at));
+  return s;
 }
 
 export const evaluate = (

@@ -161,13 +161,14 @@ describe("the owner rules must have demonstrably run: a snapshot that says nothi
 });
 
 describe("missing sources are never invented", () => {
-  it("a missing world or locus, closure, B2 or W1 is UNRESOLVED; a missing emission or typed profile is a typed refusal", () => {
+  it("every missing physical premise is UNRESOLVED (the emission included); only an absent typed profile on the original locus is a refusal", () => {
     expectOutcome(ask({ facts: drop(KEYS.locus) }), "UNRESOLVED", "LOCUS_MISSING");
     expectOutcome(ask({ facts: drop(KEYS.world) }), "UNRESOLVED", "LOCUS_MISSING");
     expectOutcome(ask({ facts: drop(KEYS.closure) }), "UNRESOLVED", "SETUP_CLOSURE_MISSING");
     expectOutcome(ask({ facts: drop(KEYS.b2) }), "UNRESOLVED", "PRESENCE_MISSING");
     expectOutcome(ask({ facts: drop(KEYS.w1) }), "UNRESOLVED", "RAW_SENSORY_MISSING");
-    expectOutcome(ask({ facts: drop(KEYS.emission) }), "REFUSED", "NO_ACTUAL_EMISSION");
+    // F-1 (BLUE HOLD): a never-committed event is a MISSING premise, not a conclusive negative
+    expectOutcome(ask({ facts: drop(KEYS.emission) }), "UNRESOLVED", "EMISSION_NOT_COMMITTED");
     expectOutcome(
       ask({
         facts: (m) => {
@@ -386,6 +387,52 @@ describe("journal order: profile, closure, B2, W1, emission", () => {
       }),
       "UNRESOLVED",
       "CAUSAL_ORDER_CONFLICT",
+    );
+  });
+});
+
+describe("classification: REFUSED is for conclusive physical negatives only, UNRESOLVED for everything merely missing", () => {
+  it("no refusal code names a missing premise, and every missing-premise code is UNRESOLVED", () => {
+    expect(AUDITORY_REFUSAL_CODES).toEqual([
+      "ACTOR_NOT_LAWFUL_NON_PC",
+      "ACOUSTIC_PROFILE_ABSENT",
+      "EMITTER_NOT_QUALIFIED",
+      "EMISSION_NOT_AT_ACTOR_LOCUS",
+      "RAW_TRANSDUCTION_ABSENT",
+      "ORDINARY_RECEPTIVITY_NONRECEPTIVE",
+    ]);
+    for (const code of [
+      "LOCUS_MISSING",
+      "EMISSION_NOT_COMMITTED",
+      "SETUP_CLOSURE_MISSING",
+      "PRESENCE_MISSING",
+      "RAW_SENSORY_MISSING",
+    ])
+      expect(AUDITORY_UNRESOLVED_CODES, code).toContain(code);
+    expect(AUDITORY_REFUSAL_CODES.filter((c) => /MISSING|NOT_COMMITTED|NO_ACTUAL/.test(c))).toEqual(
+      [],
+    );
+  });
+
+  it("with the emission absent the answer is UNRESOLVED whatever else is wrong with the actor's faculty: a conclusive faculty negative still refuses", () => {
+    // the emission is missing: nothing about the channel can be concluded, so the faculty is not consulted
+    expectOutcome(
+      ask({
+        facts: (m) => (drop(KEYS.emission)(m), patch(KEYS.w1, { raw_transduction: "ABSENT" })(m)),
+      }),
+      "UNRESOLVED",
+      "EMISSION_NOT_COMMITTED",
+    );
+    // with the emission present, ABSENT and NONRECEPTIVE remain substantive refusals
+    expectOutcome(
+      ask({ facts: patch(KEYS.w1, { raw_transduction: "ABSENT" }) }),
+      "REFUSED",
+      "RAW_TRANSDUCTION_ABSENT",
+    );
+    expectOutcome(
+      ask({ facts: patch(KEYS.w1, { ordinary_receptivity: "NONRECEPTIVE" }) }),
+      "REFUSED",
+      "ORDINARY_RECEPTIVITY_NONRECEPTIVE",
     );
   });
 });

@@ -6,7 +6,10 @@
 import { describe, expect, it } from "vitest";
 import {
   actorCapabilityBasisKey,
+  actorPhysicalPresenceKey,
+  actorRawSensoryStateKey,
   comparePlacementPins,
+  worldAcousticEmissionKey,
   worldLocusKey,
 } from "@immortalis/contracts";
 import { factKind } from "@immortalis/engine";
@@ -21,6 +24,7 @@ import {
   EMISSION,
   EMISSION_KEY,
   EMITTER,
+  B,
   EMITTER_2,
   L,
   L2,
@@ -41,6 +45,7 @@ import {
   p1Chain,
   p1Group,
   p1Scene,
+  p1TwoActors,
   rawPins,
   rawSensoryValue,
 } from "../support/auditory-premises.ts";
@@ -214,18 +219,25 @@ describe("W1: the actor's owner-authored raw auditory faculty and receptivity", 
       /PREREQUISITE_MISSING: .*physical presence is not committed/,
     );
     expect(s.campaign.store.getFact(RAW_KEY)).toBeUndefined();
-    // and an independent emission does not conjure the missing premises
-    await must(commitEmission(s));
-    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "PRESENCE_MISSING" });
+    // and an independent emission does not conjure the missing premises: with no B2 and no W1 it is refused at its own admission
+    expect(await why(commitEmission(s))).toMatch(/STALE_READ/);
+    expect(await why(commitEmission(s, {}, L, honest(s, emissionPins())))).toMatch(
+      /REFERENCE_INVALID: .*follows an actual committed R1 B2 and World-State W1/,
+    );
+    expect(s.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
   });
 
   it("is never substituted by a Named-Actor capability basis, a coupling or a B2 co-location: no W1, no positive", async () => {
     const s = await p1Scene(tempDir());
     await must(coupleActor(s, 1, A));
     await fullChain(s);
-    await must(commitEmission(s));
     expect(s.campaign.store.getFact(actorCapabilityBasisKey(A, CAP))).toBeDefined();
-    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "RAW_SENSORY_MISSING" });
+    // the basis, the coupling and B2 are all committed, and none of them is a faculty: there is no W1, so no emission may follow
+    expect(await why(commitEmission(s, {}, L, honest(s, emissionPins())))).toMatch(
+      /REFERENCE_INVALID: .*follows an actual committed R1 B2 and World-State W1/,
+    );
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
     // a capability pin offered as a premise is refused: the premises are exactly the world, locus and B2
     const withCapability = [
       ...(rawSensoryValue() as any).dependency_refs,
@@ -315,15 +327,20 @@ describe("W1: the actor's owner-authored raw auditory faculty and receptivity", 
     }
   });
 
-  it("a W1 committed after the event it would qualify is refused, and the read has no faculty to use", async () => {
-    const s = await p1Scene(tempDir());
-    await fullChain(s);
+  it("a W1 committed after the event it would qualify is refused, and the read has no faculty to use for that actor", async () => {
+    // two lawful actors at one locus; only A has a W1 when the physical event occurs (the emission names no listener)
+    const s = await p1TwoActors(tempDir());
+    await must(commitRaw(s));
     await must(commitEmission(s));
-    expect(await why(commitRaw(s))).toMatch(
+    expect(await why(commitRaw(s, {}, B, L))).toMatch(
       /REFERENCE_INVALID: .*already committed: a raw sensory fact is never established after the event it would qualify/,
     );
-    expect(s.campaign.store.getFact(RAW_KEY)).toBeUndefined();
-    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "RAW_SENSORY_MISSING" });
+    expect(s.campaign.store.getFact(actorRawSensoryStateKey(B))).toBeUndefined();
+    expect(evaluate(s).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH"); // A, whose W1 preceded it
+    expect(evaluate(s, { actor_id: B })).toMatchObject({
+      result: "UNRESOLVED",
+      code: "RAW_SENSORY_MISSING",
+    });
   });
 
   it("a B2 that went stale after elapsed time yields no W1, whichever instant the caller states", async () => {
@@ -424,13 +441,14 @@ describe("W2b: the separately committed, source-authored acoustic emission", () 
     return s;
   };
 
-  it("a possible impulse is not an event: with no emission committed the read refuses, for any identity it is asked about", async () => {
+  it("a possible impulse is not an event: with no emission committed the read is UNRESOLVED (a missing premise), for any identity it is asked about", async () => {
     const s = await upToW1();
-    expect(evaluate(s)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
     expect(evaluate(s, { emission_id: "another" })).toMatchObject({
-      result: "REFUSED",
-      code: "NO_ACTUAL_EMISSION",
+      result: "UNRESOLVED",
+      code: "EMISSION_NOT_COMMITTED",
     });
+    // none is manufactured
     expect(s.campaign.store.listFacts().some((f) => f.key.includes("acoustic-emission"))).toBe(
       false,
     );
@@ -559,35 +577,153 @@ describe("W2b: the separately committed, source-authored acoustic emission", () 
     expect(evaluate(s).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
   });
 
-  it("an emission at a neighbouring locus is admitted as the physical event it is, and gives the actor elsewhere no positive", async () => {
-    const s = await upToW1({ extras: "profiled" });
-    await must(
-      commitEmission(
-        s,
-        {
-          emitter_id: EMITTER_2,
-          emission_id: "emission-bell-2",
-          emitting_source: { fact_key: `world/${W}/locus/${L2}`, version: 1 },
-        },
-        L2,
-        {},
-        "emission-bell-2",
-      ),
+  it("an emission at a neighbouring locus follows ITS OWN locus' chain, and gives the actor elsewhere no positive", async () => {
+    // A is at L; B is at L2, a second, separately profiled locus. Only B has a chain at L2.
+    const s = await p1TwoActors(tempDir(), { secondAt: "elsewhere" });
+    await must(commitRaw(s));
+    await must(commitRaw(s, {}, B, L2));
+    const at2 = {
+      emitter_id: EMITTER_2,
+      emission_id: "emission-bell-2",
+      emitting_source: { fact_key: `world/${W}/locus/${L2}`, version: 1 },
+    };
+    await must(commitEmission(s, at2, L2, {}, "emission-bell-2", B));
+    // for B, who is there, it is the one positive; for A, elsewhere, a conclusive channel failure: no neighbour, path or propagation
+    expect(evaluate(s, { actor_id: B, locus_id: L2, emission_id: "emission-bell-2" }).result).toBe(
+      "SOURCE_PREMISES_READY_FOR_HEALTH",
     );
-    const r = evaluate(s, { locus_id: L2, emission_id: "emission-bell-2" });
-    expect(r).toMatchObject({ result: "REFUSED", code: "EMISSION_NOT_AT_ACTOR_LOCUS" });
+    expect(evaluate(s, { locus_id: L2, emission_id: "emission-bell-2" })).toMatchObject({
+      result: "REFUSED",
+      code: "EMISSION_NOT_AT_ACTOR_LOCUS",
+    });
     // and no propagation from there to here
-    expect(evaluate(s)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
   });
 
-  it("a late emission (after elapsed time) is a real, later event: admitted at ITS time, and never qualified by the earlier B2 and W1", async () => {
+  it("a late emission (after elapsed time) is refused: the earlier B2 and W1 can never qualify a later event", async () => {
     const s = await upToW1();
     await advanceTime(s);
     // backdating to the old basis is refused
     expect(await why(commitEmission(s))).toMatch(/REFERENCE_INVALID: .*not backdated/);
+    // at its own new time no B2 or W1 was established at that basis: B2 and W1 are not carried across elapsed time
     const now = (s.campaign.store.getFact("temporal/state")!.value as any).canonical_time;
-    await must(commitEmission(s, { event_instant: now }));
-    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "TEMPORAL_BASIS_CONFLICT" });
+    expect(await why(commitEmission(s, { event_instant: now }))).toMatch(
+      /REFERENCE_INVALID: .*follows an actual committed R1 B2 and World-State W1.*same event basis/,
+    );
+    expect(s.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// F-2 (BLUE HOLD, PR #85): the stage-one B2 -> W1 -> emission sequence guards the emission's own admission
+// ---------------------------------------------------------------------------------------------
+
+describe("F-2: an emission is admitted only after an actual committed B2 and W1, at the same event basis", () => {
+  const chainRefusal = /REFERENCE_INVALID: .*follows an actual committed R1 B2 and World-State W1/;
+
+  it("BLUE's counterexample: a typed original locus, B1, closure and initial Temporal, with NO B2 and NO W1, then an otherwise valid emission: refused", async () => {
+    const s = await p1Scene(tempDir());
+    await must(commitPlacement(s));
+    await must(commitClosure(s));
+    await must(establishClock(s));
+    expect(s.campaign.store.getFact(actorPhysicalPresenceKey(A))).toBeUndefined();
+    expect(s.campaign.store.getFact(RAW_KEY)).toBeUndefined();
+    // read honestly at the current versions (0 for the absent B2 and W1): only the OWNER rule can refuse it
+    expect(await why(commitEmission(s, {}, L, honest(s, emissionPins())))).toMatch(chainRefusal);
+    expect(s.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
+  });
+
+  it("no W1 (B2 committed): refused; with the chain restored the same emission is lawful", async () => {
+    const s = await p1Scene(tempDir());
+    await fullChain(s); // B2, no W1
+    expect(await why(commitEmission(s, {}, L, honest(s, emissionPins())))).toMatch(chainRefusal);
+    await must(commitRaw(s));
+    await must(commitEmission(s));
+    expect(evaluate(s).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
+  });
+
+  it("a W1 stale after elapsed time (committed at the old basis) does not qualify an emission at the new one", async () => {
+    const s = await p1Scene(tempDir());
+    await fullChain(s);
+    await must(commitRaw(s));
+    await advanceTime(s);
+    const now = (s.campaign.store.getFact("temporal/state")!.value as any).canonical_time;
+    expect(await why(commitEmission(s, { event_instant: now }))).toMatch(chainRefusal);
+    expect(await why(commitEmission(s))).toMatch(/not backdated/);
+  });
+
+  it("a chain at another locus authorizes nothing here", async () => {
+    const s = await p1Scene(tempDir(), { extras: "profiled" });
+    await fullChain(s);
+    await must(commitRaw(s)); // A's chain is at L
+    const at2 = {
+      emitter_id: EMITTER_2,
+      emission_id: "emission-bell-2",
+      emitting_source: { fact_key: `world/${W}/locus/${L2}`, version: 1 },
+    };
+    expect(
+      await why(commitEmission(s, at2, L2, honest(s, emissionPins(L2)), "emission-bell-2")),
+    ).toMatch(chainRefusal);
+    expect(
+      s.campaign.store.getFact(worldAcousticEmissionKey(W, L2, "emission-bell-2")),
+    ).toBeUndefined();
+  });
+
+  it("the emission group must READ and DEPEND ON the exact B2 and W1 it follows, like every other premise it relies on", async () => {
+    const s = await p1Scene(tempDir());
+    await fullChain(s);
+    await must(commitRaw(s));
+    const four = [`world/${W}/profile`, LOCUS_KEY, `world/${W}/setup-closure`, "temporal/state"];
+    const unpinned = p1Group(
+      s.campaign.store,
+      EMISSION_KEY,
+      emissionValue(),
+      four,
+      FACET_WORLD_LOCUS,
+    );
+    expect(await why(s.campaign.store.commit(unpinned))).toMatch(
+      /REFERENCE_INVALID: .*must read the followed actor's/,
+    );
+    // reading them without depending on the groups that committed them is refused too
+    const noDeps = p1Group(
+      s.campaign.store,
+      EMISSION_KEY,
+      emissionValue(),
+      emissionPins(),
+      FACET_WORLD_LOCUS,
+    );
+    noDeps.depends_on = noDeps.depends_on.filter(
+      (g) => g !== s.campaign.store.getFact(RAW_KEY)!.provenance.group_id,
+    );
+    expect(await why(s.campaign.store.commit(noDeps))).toMatch(
+      /must depend on the group that committed/,
+    );
+    expect(s.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
+    await must(commitEmission(s));
+  });
+
+  it("the emission stays owner-neutral: it names no listener, and one chain among several lawful actors suffices", async () => {
+    const s = await p1TwoActors(tempDir());
+    await must(commitRaw(s, {}, B, L)); // only B has a W1 when it occurs
+    await must(commitEmission(s, {}, L, {}, EMISSION, B));
+    expect(Object.keys(s.campaign.store.getFact(EMISSION_KEY)!.value as object).sort()).toEqual(
+      [
+        "audible_material",
+        "channel",
+        "emission_id",
+        "emitter_id",
+        "emitting_source",
+        "event_instant",
+        "locus",
+        "profile_locus_version",
+        "source_provenance",
+        "world",
+      ].sort(),
+    );
+    expect(evaluate(s, { actor_id: B }).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "RAW_SENSORY_MISSING" }); // A has no faculty on record
   });
 });
 
@@ -599,9 +735,9 @@ describe("the contrast: the same chain with each premise restored yields the one
   it("only the complete, ordered chain answers SOURCE_PREMISES_READY_FOR_HEALTH", async () => {
     const s = await p1Scene(tempDir());
     await fullChain(s);
-    expect(evaluate(s).result).toBe("REFUSED"); // no emission yet
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" }); // no emission yet
     await must(commitRaw(s));
-    expect(evaluate(s).result).toBe("REFUSED"); // still no emission
+    expect(evaluate(s)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" }); // still none
     await must(commitEmission(s));
     expect(evaluate(s).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
     void p1Chain;

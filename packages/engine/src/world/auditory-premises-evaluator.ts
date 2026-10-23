@@ -30,9 +30,11 @@ import type { CampaignStore } from "../persistence/store.ts";
  *    SUBSEQUENT event-basis Health Sensory Function Close may be requested. It is a proposal to run Health later. It is not a
  *    hearing, not a Health `AVAILABLE`, not an access event, packet, receipt, retention or knowledge, and no singleton
  *    `BOUNDED_SHARED_ACCESS` or `BROADCAST_EXPOSURE` may stand for it.
- *  - `REFUSED`: a conclusive negative of the faculty or of the channel/source (raw transduction absent, not receptive, no typed
- *    profile, no qualified or actual emission, an emission at another locus, a non-actor subject).
- *  - `UNRESOLVED`: a premise is missing, unknown, stale, malformed, contradictory or its Temporal or journal order conflicts.
+ *  - `REFUSED`: a conclusive physical negative of the faculty or of the channel/source (raw transduction absent, not receptive,
+ *    no typed profile on the original locus, an unqualified emitter, an emission at another locus, a non-actor subject).
+ *  - `UNRESOLVED`: a premise is missing, unknown, stale, malformed, contradictory or its Temporal or journal order conflicts. A
+ *    physical premise that was never committed is MISSING, not negated: that includes the emission itself (the profile's possible
+ *    impulse is not an event, and none is manufactured here), the actor's B2 and W1, and the world's closure.
  *
  * It is NOT a canonical fact: it takes a reader, never a writer, performs no commit, touches no Health, Epistemic, Named-Actor or
  * cognition state, and reads no clock (every instant it compares was fixed by the committed Temporal state at its own admission,
@@ -42,11 +44,10 @@ import type { CampaignStore } from "../persistence/store.ts";
 
 export const SOURCE_PREMISES_READY_FOR_HEALTH = "SOURCE_PREMISES_READY_FOR_HEALTH" as const;
 
-/** Conclusive negatives of the faculty or of the channel/source. */
+/** Conclusive physical negatives of the faculty or of the channel/source (never a premise that is merely missing). */
 export const AUDITORY_REFUSAL_CODES = [
   "ACTOR_NOT_LAWFUL_NON_PC",
   "ACOUSTIC_PROFILE_ABSENT",
-  "NO_ACTUAL_EMISSION",
   "EMITTER_NOT_QUALIFIED",
   "EMISSION_NOT_AT_ACTOR_LOCUS",
   "RAW_TRANSDUCTION_ABSENT",
@@ -57,6 +58,7 @@ export type AuditoryRefusalCode = (typeof AUDITORY_REFUSAL_CODES)[number];
 /** Missing, unknown, stale, malformed, contradictory or order-conflicted premises. */
 export const AUDITORY_UNRESOLVED_CODES = [
   "LOCUS_MISSING",
+  "EMISSION_NOT_COMMITTED",
   "SETUP_CLOSURE_MISSING",
   "PRESENCE_MISSING",
   "RAW_SENSORY_MISSING",
@@ -154,9 +156,9 @@ export function evaluateAuditoryPremises(
   }
   const emissionFact = reader.getFact(emissionKey);
   if (!emissionFact) {
-    return refused(
-      "NO_ACTUAL_EMISSION",
-      "no source-authored emission is committed: the profile's possible impulse is not an event",
+    return unresolved(
+      "EMISSION_NOT_COMMITTED",
+      "no source-authored emission is committed: a never-committed event is a missing physical premise, the profile's possible impulse is not an event, and none is manufactured",
     );
   }
   const presenceFact = reader.getFact(presenceKey);

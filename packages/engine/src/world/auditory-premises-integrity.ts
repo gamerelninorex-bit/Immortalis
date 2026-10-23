@@ -13,6 +13,7 @@ import { presenceRivalViolation } from "./actor-presence.ts";
 import {
   acousticProfileLocusViolation,
   actorRawSensoryStateViolation,
+  emissionPrecedents,
   isAuditoryPremisesFact,
   worldAcousticEmissionViolation,
 } from "./auditory-premises.ts";
@@ -53,6 +54,16 @@ export function verifyAuditoryPremisesIntegrity(
   const bad = (fact: OwnerFact, message: string) =>
     out.push({ key: fact.key, code: "AUDITORY_PREMISES_STATE", message });
 
+  /** The group read this exact pinned version and depended on the group that committed it. */
+  const readAndDepended = (
+    group: CommitGroup | null,
+    pin: { key: string; version: number },
+    target: OwnerFact,
+  ): boolean =>
+    group !== null &&
+    group.reads.some((r) => r.key === pin.key && r.version === pin.version) &&
+    group.depends_on.includes(target.provenance.group_id);
+
   const pinsRead = (
     fact: OwnerFact,
     group: CommitGroup | null,
@@ -67,11 +78,7 @@ export function verifyAuditoryPremisesIntegrity(
       if (revisionOf(target) >= revisionOf(fact)) {
         bad(fact, `a pinned fact was not committed before this fact: ${pin.key}`);
       }
-      if (
-        !group ||
-        !group.reads.some((r) => r.key === pin.key && r.version === pin.version) ||
-        !group.depends_on.includes(target.provenance.group_id)
-      ) {
+      if (!readAndDepended(group, pin, target)) {
         bad(
           fact,
           `the group read the exact pinned fact and depended on the group that committed it: ${pin.key}`,
@@ -132,6 +139,23 @@ export function verifyAuditoryPremisesIntegrity(
       ]);
       if (!group || !group.reads.some((r) => r.key === TEMPORAL_STATE_KEY)) {
         bad(fact, "the emission read the committed Temporal state");
+      }
+      // the chain it follows is read at its exact versions and depended on: B2 and W1 were committed BEFORE the emission
+      const followed = emissionPrecedents(
+        e.world.entity_id,
+        e.locus.entity_id,
+        e.event_instant,
+        facts,
+      ).some((p) =>
+        [p.presence, p.raw].every((f) =>
+          readAndDepended(group, { key: f.key, version: f.version }, f),
+        ),
+      );
+      if (!followed) {
+        bad(
+          fact,
+          "the emission read and depended on the exact committed B2 and W1 of one actor at this locus and event basis",
+        );
       }
       const source = byKey.get(e.emitting_source.fact_key);
       if (source && closure && revisionOf(source) >= revisionOf(closure)) {

@@ -280,6 +280,64 @@ export function actorRawSensoryStateViolation(
 // W2b
 // ---------------------------------------------------------------------------------------------
 
+/** The committed B2 and W1 of one actor that an emission may follow. */
+export interface EmissionPrecedent {
+  readonly presence: OwnerFact;
+  readonly raw: OwnerFact;
+}
+
+/**
+ * The stage-one chains a physical emission at this world, locus and event basis may follow (WG S1-P1 §W2: "Emission follows R1 B2
+ * and W1 at the same defensible event basis with journal order resolving same-time causes; no backdating"). The emission names no
+ * listener and this binds it to none: it requires only that the committed facts ALREADY contain, for one lawful non-PC actor at
+ * this very locus, the exact first-version R1 B2 and the exact first-version W1 that pins it, both established at this event
+ * instant. A fact that exists in the pre-state was journaled before the emission, so the order B2 → W1 → emission is carried by
+ * existence; W1's own rule carries B2 → W1. No B2, no W1, a stale B2 or W1 (another instant), another locus, a successor, or an
+ * actor that is no longer a lawful non-PC actor yields no precedent.
+ */
+export function emissionPrecedents(
+  worldId: string,
+  locusId: string,
+  instant: unknown,
+  facts: Facts,
+): EmissionPrecedent[] {
+  const out: EmissionPrecedent[] = [];
+  for (const raw of facts.values()) {
+    if (kindOf(raw.key) !== RAW_SENSORY_KIND || raw.version !== 1) continue;
+    if (raw.owner !== OWNER_WORLD_STATE || raw.facet !== FACET_WORLD_FALLBACK_ENTITY) continue;
+    const parsed = ActorRawSensoryStateSchema.safeParse(raw.value);
+    if (!parsed.success) continue;
+    const w = parsed.data;
+    if (raw.key !== actorRawSensoryStateKey(w.actor_id)) continue;
+    if (w.world.entity_id !== worldId || w.locus.entity_id !== locusId) continue;
+    if (!canonicalEqual(w.effective_instant, instant)) continue;
+    const presence = facts.get(w.presence.fact_key);
+    if (
+      !presence ||
+      presence.key !== actorPhysicalPresenceKey(w.actor_id) ||
+      presence.version !== 1 ||
+      presence.owner !== OWNER_WORLD_STATE ||
+      presence.facet !== FACET_WORLD_FALLBACK_ENTITY
+    ) {
+      continue;
+    }
+    const b2 = ActorPhysicalPresenceSchema.safeParse(presence.value);
+    if (
+      !b2.success ||
+      b2.data.actor_id !== w.actor_id ||
+      !canonicalEqual(b2.data.world, w.world) ||
+      !canonicalEqual(b2.data.locus, w.locus) ||
+      !canonicalEqual(b2.data.effective_instant, instant)
+    ) {
+      continue;
+    }
+    if (rawSensoryPremisesViolation(w, (k) => facts.get(k)) !== null) continue;
+    if (actorBoundaryViolation(facts, w.actor_id) !== null) continue;
+    out.push({ presence, raw });
+  }
+  return out;
+}
+
 /**
  * W2b: one genuine, instantaneous, source-authored airborne-sound event at a locus whose ORIGINAL source value carries the typed
  * environmental emitter that could produce it. The potential impulse the profile states is not the event; the event is this
@@ -350,6 +408,9 @@ export function worldAcousticEmissionViolation(
   if (options.checkClock) {
     const clock = clockViolation(facts, e.event_instant, "an emission");
     if (clock) return clock;
+  }
+  if (emissionPrecedents(worldId, locusId, e.event_instant, facts).length === 0) {
+    return "the emission follows an actual committed R1 B2 and World-State W1 of one non-PC actor at this locus, both established at this same event basis: no such chain is committed (a missing, stale, successor, other-locus or post-event premise yields no P1-qualified emission)";
   }
   return null;
 }
@@ -446,7 +507,23 @@ export function worldAcousticEmissionGroupCheck(
   ]);
   if (missing) return missing;
   const violation = worldAcousticEmissionViolation(w.key, e, state.facts);
-  return violation ? refInvalid(violation, { key: w.key }) : null;
+  if (violation) return refInvalid(violation, { key: w.key });
+  // the chain the emission follows is pinned by exact version in the journal, like every other premise a group relies on
+  let first: Rejection | null = null;
+  for (const p of emissionPrecedents(
+    e.world.entity_id,
+    e.locus.entity_id,
+    e.event_instant,
+    state.facts,
+  )) {
+    const pinned = pinAll(group, state, [
+      [p.presence.key, "the followed actor's R1 B2 presence"],
+      [p.raw.key, "the followed actor's raw sensory state (W1)"],
+    ]);
+    if (pinned === null) return null;
+    first ??= pinned;
+  }
+  return first;
 }
 
 /**

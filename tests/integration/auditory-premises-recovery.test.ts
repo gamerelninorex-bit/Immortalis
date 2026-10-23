@@ -13,13 +13,19 @@ import {
   openFileCampaign,
   verifyAuditoryPremisesIntegrity,
 } from "@immortalis/engine";
-import { FACET_WORLD_LOCUS, worldLocusKey } from "@immortalis/contracts";
+import {
+  FACET_WORLD_LOCUS,
+  actorPhysicalPresenceKey,
+  actorSetupPlacementKey,
+  worldLocusKey,
+} from "@immortalis/contracts";
 import { ACTOR_FIXTURE_EXTENSION, T0, fixtureLocus } from "@immortalis/testkit";
 import { must } from "../support/temporal.ts";
 import { copyDir, tempDir } from "../support/tmp.ts";
 import { reopen } from "../support/actor-presence.ts";
 import {
   A,
+  B,
   EMISSION,
   EMISSION_KEY,
   L,
@@ -34,7 +40,9 @@ import {
   commitPlacement,
   commitPresence,
   commitRaw,
+  emissionPins,
   establishClock,
+  establishSecondActor,
   evaluate,
   fullChain,
   p1Chain,
@@ -65,6 +73,35 @@ const openWhy = async (dir: string): Promise<string> => {
 };
 
 const LATER = { unit: T0.unit, value: T0.value + 40 };
+
+/** Reads each pin at the version actually committed (0 when it is not), so only the OWNER rule can judge the group. */
+const honest = (v: R1Scene, pins: readonly string[]) => ({
+  reads: pins.map((k) => ({ key: k, version: v.campaign.store.getFact(k)?.version ?? 0 })),
+  depends_on: [
+    ...new Set(
+      pins.flatMap((k) => {
+        const f = v.campaign.store.getFact(k);
+        return f ? [f.provenance.group_id] : [];
+      }),
+    ),
+  ],
+});
+
+/** Two lawful actors at one locus, up to and including both B2s, in a store with no admission. */
+const twoActorsRogue = async (v: R1Scene): Promise<void> => {
+  await establishSecondActor(v);
+  await must(commitPlacement(v));
+  await must(commitPlacement(v, {}, B, L));
+  await must(
+    commitClosure(v, [
+      { fact_key: actorSetupPlacementKey(B), version: 1 },
+      { fact_key: actorSetupPlacementKey(A), version: 1 },
+    ]),
+  );
+  await must(establishClock(v));
+  await must(commitPresence(v));
+  await must(commitPresence(v, {}, B, L));
+};
 
 // ---------------------------------------------------------------------------------------------
 // save, reopen, replay
@@ -204,12 +241,63 @@ describe("a forged or non-canonical history fails the open closed, whichever rul
       },
     ],
     [
-      "a W1 journaled AFTER the emission it would qualify (post-event)",
+      "a W1 journaled AFTER the emission it would qualify (post-event; the emission itself followed A's lawful chain)",
+      "REFERENCE_INVALID",
+      async (v) => {
+        await twoActorsRogue(v);
+        await must(commitRaw(v));
+        await must(commitEmission(v));
+        await must(commitRaw(v, {}, B, L));
+      },
+    ],
+    [
+      "an emission with NO B2 and NO W1: a typed locus, B1, closure and initial Temporal, then an otherwise valid emission (BLUE's counterexample)",
+      "REFERENCE_INVALID",
+      async (v) => {
+        await must(commitPlacement(v));
+        await must(commitClosure(v));
+        await must(establishClock(v));
+        await must(commitEmission(v, {}, L, honest(v, emissionPins())));
+      },
+    ],
+    [
+      "an emission after a B2 but with NO W1 (a presence is not a faculty)",
       "REFERENCE_INVALID",
       async (v) => {
         await fullChain(v);
-        await must(commitEmission(v));
+        await must(commitEmission(v, {}, L, honest(v, emissionPins())));
+      },
+    ],
+    [
+      "an emission whose W1 and B2 are stale: committed at the old event basis, the emission at the new one",
+      "REFERENCE_INVALID",
+      async (v) => {
+        await fullChain(v);
         await must(commitRaw(v));
+        await advanceTime(v);
+        const now = (v.campaign.store.getFact("temporal/state")!.value as any).canonical_time;
+        await must(commitEmission(v, { event_instant: now }));
+      },
+    ],
+    [
+      "an emission whose group does not pin the B2 and W1 it follows (a valid chain exists, but the journal does not say which)",
+      "REFERENCE_INVALID",
+      async (v) => {
+        await fullChain(v);
+        await must(commitRaw(v));
+        await must(
+          commitEmission(
+            v,
+            {},
+            L,
+            honest(v, [
+              `world/${W}/profile`,
+              LOCUS_KEY,
+              `world/${W}/setup-closure`,
+              "temporal/state",
+            ]),
+          ),
+        );
       },
     ],
     [
@@ -473,6 +561,114 @@ describe("a history that bears P1 facts must have been verified: it fails CLOSED
 });
 
 // ---------------------------------------------------------------------------------------------
+// the load verifier is a layer of its own
+// ---------------------------------------------------------------------------------------------
+
+describe("the load verifier judges the chain an emission followed even where the historical verifier is lenient", () => {
+  const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...ACTOR_FIXTURE_EXTENSION.owners]);
+  /** evidence that a rule ran, with no rule behind it: only the load verifier's own judgement is left to refuse the history */
+  const lenient = { check: () => null, verifyHistorical: () => null };
+  const violationsOf = async (build: (v: R1Scene) => Promise<void>) => {
+    const dir = tempDir();
+    const r = await rogueP1(dir);
+    await build(r.view);
+    await r.store.close();
+    const store = await must(openFileCampaign(dir, { owners, admission: lenient }));
+    const found = verifyAuditoryPremisesIntegrity(store).map((x) => `${x.key}: ${x.message}`);
+    await store.close();
+    return found;
+  };
+  const followed = /read and depended on the exact committed B2 and W1 of one actor/;
+
+  it("control: the lawful chain, however leniently replayed, is not flagged", async () => {
+    expect(
+      await violationsOf(async (v) => {
+        await fullChain(v);
+        await must(commitRaw(v));
+        await must(commitEmission(v));
+      }),
+    ).toEqual([]);
+  });
+
+  it("an emission whose group names neither the B2 nor the W1 it follows is flagged", async () => {
+    const found = await violationsOf(async (v) => {
+      await fullChain(v);
+      await must(commitRaw(v));
+      await must(
+        commitEmission(
+          v,
+          {},
+          L,
+          honest(v, [
+            `world/${W}/profile`,
+            LOCUS_KEY,
+            `world/${W}/setup-closure`,
+            "temporal/state",
+          ]),
+        ),
+      );
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(new RegExp(`^${EMISSION_KEY}: .*${followed.source}`));
+  });
+
+  it.each([
+    ["the W1 but not the B2", actorPhysicalPresenceKey(A)],
+    ["the B2 but not the W1", RAW_KEY],
+  ])("an emission whose group pins %s is flagged", async (_name, omitted) => {
+    const found = await violationsOf(async (v) => {
+      await fullChain(v);
+      await must(commitRaw(v));
+      await must(
+        commitEmission(
+          v,
+          {},
+          L,
+          honest(
+            v,
+            emissionPins().filter((k) => k !== omitted),
+          ),
+        ),
+      );
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(new RegExp(`^${EMISSION_KEY}: .*${followed.source}`));
+  });
+
+  it("an emission that read the chain without depending on the groups that committed it is flagged", async () => {
+    const found = await violationsOf(async (v) => {
+      await fullChain(v);
+      await must(commitRaw(v));
+      const pinned = honest(v, emissionPins());
+      const chainGroups = [actorPhysicalPresenceKey(A), RAW_KEY].map(
+        (k) => v.campaign.store.getFact(k)!.provenance.group_id,
+      );
+      await must(
+        commitEmission(v, {}, L, {
+          reads: pinned.reads,
+          depends_on: pinned.depends_on.filter((g) => !chainGroups.includes(g)),
+        }),
+      );
+    });
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.some((x) => followed.test(x))).toBe(true);
+    expect(found.every((x) => x.startsWith(`${EMISSION_KEY}: `))).toBe(true);
+  });
+
+  it("an emission with no chain at all (no B2, no W1) is flagged by the same shared rule", async () => {
+    const found = await violationsOf(async (v) => {
+      await must(commitPlacement(v));
+      await must(commitClosure(v));
+      await must(establishClock(v));
+      await must(commitEmission(v, {}, L, honest(v, emissionPins())));
+    });
+    expect(found.some((x) => /follows an actual committed R1 B2 and World-State W1/.test(x))).toBe(
+      true,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
 // on-disk tampering
 // ---------------------------------------------------------------------------------------------
 
@@ -569,17 +765,26 @@ describe("copies, branches and rollbacks are isolated: no premise crosses from o
     await branchA.campaign.close();
 
     const branchB = await reopen(b);
-    expect(evaluate(branchB)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(branchB)).toMatchObject({
+      result: "UNRESOLVED",
+      code: "EMISSION_NOT_COMMITTED",
+    });
     // B authors a DIFFERENT emission identity: it is B's event, evaluated only as B's
     await must(commitEmission(branchB, {}, L, {}, "emission-b-only"));
     expect(evaluate(branchB, { emission_id: "emission-b-only" }).result).toBe(
       "SOURCE_PREMISES_READY_FOR_HEALTH",
     );
-    expect(evaluate(branchB)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(branchB)).toMatchObject({
+      result: "UNRESOLVED",
+      code: "EMISSION_NOT_COMMITTED",
+    });
     await branchB.campaign.close();
 
     const original = await reopen(dir);
-    expect(evaluate(original)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(original)).toMatchObject({
+      result: "UNRESOLVED",
+      code: "EMISSION_NOT_COMMITTED",
+    });
     expect(original.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
     await original.campaign.close();
 
@@ -604,13 +809,18 @@ describe("copies, branches and rollbacks are isolated: no premise crosses from o
 
     const rolledBack = await reopen(beforeW1);
     expect(rolledBack.campaign.store.getFact(RAW_KEY)).toBeUndefined();
-    expect(evaluate(rolledBack)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
-    // an emission authored on the rolled-back line before any W1 can never be qualified by one
-    await must(commitEmission(rolledBack));
     expect(evaluate(rolledBack)).toMatchObject({
       result: "UNRESOLVED",
-      code: "RAW_SENSORY_MISSING",
+      code: "EMISSION_NOT_COMMITTED",
     });
+    // the rolled-back line has no W1, so no emission may be authored on it before one: the owner refuses it
+    const early = await commitEmission(rolledBack, {}, L, honest(rolledBack, emissionPins()));
+    expect(!early.ok && early.error.code).toBe("REFERENCE_INVALID");
+    expect(rolledBack.campaign.store.getFact(EMISSION_KEY)).toBeUndefined();
+    // the live line's later W1 and emission are not in this copy, and this line proceeds lawfully on its own
+    await must(commitRaw(rolledBack));
+    await must(commitEmission(rolledBack));
+    expect(evaluate(rolledBack).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
     await rolledBack.campaign.close();
   });
 
@@ -621,7 +831,7 @@ describe("copies, branches and rollbacks are isolated: no premise crosses from o
     await fullChain(two);
     await must(commitRaw(two));
     expect(evaluate(one).result).toBe("SOURCE_PREMISES_READY_FOR_HEALTH");
-    expect(evaluate(two)).toMatchObject({ result: "REFUSED", code: "NO_ACTUAL_EMISSION" });
+    expect(evaluate(two)).toMatchObject({ result: "UNRESOLVED", code: "EMISSION_NOT_COMMITTED" });
     void EMISSION;
     void commitPresence;
   });

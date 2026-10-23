@@ -5,6 +5,7 @@
 // appears under an identity the chain already uses).
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  actorCapabilityBasisKey,
   actorPhysicalPresenceKey,
   actorRawSensoryStateKey,
   actorSetupPlacementKey,
@@ -20,12 +21,14 @@ import {
   acousticProfileLocusViolation,
   actorRawSensoryStateViolation,
   auditoryPremisesHistoricalCheck,
+  emissionPrecedents,
   emitterIdentityViolation,
   rawSensoryPremisesViolation,
   worldAcousticEmissionViolation,
 } from "@immortalis/engine";
 import { T0, fixtureLocus } from "@immortalis/testkit";
 import { tempDir } from "../support/tmp.ts";
+import { CAP } from "../support/actor-presence.ts";
 import {
   A,
   EMISSION,
@@ -421,6 +424,144 @@ describe("W2b: worldAcousticEmissionViolation", () => {
     expect(
       worldAcousticEmissionViolation(EMISSION_KEY, em(), later, { checkClock: false }),
     ).toBeNull();
+  });
+});
+
+describe("F-2: the emission follows an actual committed B2 and W1 at the same event basis (the pure rule, on its own)", () => {
+  const chain =
+    /follows an actual committed R1 B2 and World-State W1 of one non-PC actor at this locus/;
+  const B2 = actorPhysicalPresenceKey(A);
+
+  it("control: exactly one precedent, naming the committed B2 and W1 of the actor", () => {
+    const found = emissionPrecedents(W, L, T0, preEmission());
+    expect(found.map((p) => [p.presence.key, p.raw.key])).toEqual([[B2, RAW_KEY]]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), preEmission())).toBeNull();
+  });
+
+  it("BLUE's counterexample: closure and clock committed, NO B2 and NO W1: no precedent, no emission", () => {
+    const m = preEmission();
+    m.delete(B2);
+    m.delete(RAW_KEY);
+    expect(emissionPrecedents(W, L, T0, m)).toEqual([]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), m)).toMatch(chain);
+  });
+
+  it("no B2, or no W1, alone", () => {
+    const noB2 = preEmission();
+    noB2.delete(B2);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), noB2)).toMatch(chain);
+    const noW1 = preEmission();
+    noW1.delete(RAW_KEY);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), noW1)).toMatch(chain);
+  });
+
+  it("a stale W1 or B2 (another instant: not carried across elapsed time) is no precedent, and neither is an emission at another instant", () => {
+    const old = { unit: T0.unit, value: T0.value - 10 };
+    const staleW1 = patched(preEmission(), RAW_KEY, { effective_instant: old });
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), staleW1)).toMatch(chain);
+    const staleB2 = patched(preEmission(), B2, { effective_instant: old });
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), staleB2)).toMatch(chain);
+    // the verifier's mode leaves the clock to the historical verifier, yet the same-basis rule still holds
+    const later = { unit: T0.unit, value: T0.value + 40 };
+    expect(
+      worldAcousticEmissionViolation(EMISSION_KEY, em({ event_instant: later }), preEmission(), {
+        checkClock: false,
+      }),
+    ).toMatch(chain);
+    expect(emissionPrecedents(W, L, later, preEmission())).toEqual([]);
+  });
+
+  it("a W1 or B2 of another locus or world, a successor version, a foreign custodian or an inexact premise is no precedent", () => {
+    const elsewhere = { fact_key: worldLocusKey(W, "elsewhere"), entity_id: "elsewhere" };
+    expect(
+      worldAcousticEmissionViolation(
+        EMISSION_KEY,
+        em(),
+        patched(preEmission(), RAW_KEY, { locus: elsewhere }),
+      ),
+    ).toMatch(chain);
+    expect(
+      worldAcousticEmissionViolation(
+        EMISSION_KEY,
+        em(),
+        patched(preEmission(), B2, { locus: elsewhere }),
+      ),
+    ).toMatch(chain);
+    const otherWorld = { fact_key: worldProfileKey("other"), entity_id: "other" };
+    expect(
+      worldAcousticEmissionViolation(
+        EMISSION_KEY,
+        em(),
+        patched(preEmission(), RAW_KEY, { world: otherWorld }),
+      ),
+    ).toMatch(chain);
+    for (const key of [RAW_KEY, B2]) {
+      const second = preEmission();
+      second.set(key, { ...second.get(key)!, version: 2 });
+      expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), second), key).toMatch(chain);
+    }
+    expect(
+      worldAcousticEmissionViolation(
+        EMISSION_KEY,
+        em(),
+        patched(preEmission(), B2, {}, { owner: "someone_else" }),
+      ),
+    ).toMatch(chain);
+    expect(
+      worldAcousticEmissionViolation(
+        EMISSION_KEY,
+        em(),
+        patched(preEmission(), RAW_KEY, {}, { facet: "world_locus" }),
+      ),
+    ).toMatch(chain);
+    const inexact = patched(preEmission(), RAW_KEY, {
+      dependency_refs: (all.get(RAW_KEY)!.value as any).dependency_refs.map((r: any) => ({
+        ...r,
+        version: 9,
+      })),
+    });
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), inexact)).toMatch(chain);
+  });
+
+  it("a chain whose actor is not (or is no longer) a lawful non-PC actor is no precedent", () => {
+    const m = preEmission();
+    const f = forged(`pc/${A}/existence-contract`);
+    m.set(f.key, f);
+    expect(emissionPrecedents(W, L, T0, m)).toEqual([]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), m)).toMatch(chain);
+  });
+
+  it("a chain is asked for by world and locus: the same committed chain answers no other world, and no other locus", () => {
+    expect(emissionPrecedents(W, L, T0, preEmission())).toHaveLength(1);
+    expect(emissionPrecedents("another-world", L, T0, preEmission())).toEqual([]);
+    expect(emissionPrecedents(W, "another-locus", T0, preEmission())).toEqual([]);
+  });
+
+  it("a W1 resting on a premise that is not this actor's physical one (a capability basis offered as a premise) is no precedent", () => {
+    const refs = (all.get(RAW_KEY)!.value as any).dependency_refs;
+    const offered = patched(preEmission(), RAW_KEY, {
+      dependency_refs: [...refs, { fact_key: actorCapabilityBasisKey(A, CAP), version: 1 }],
+    });
+    expect(emissionPrecedents(W, L, T0, offered)).toEqual([]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), offered)).toMatch(chain);
+  });
+
+  it("a W1 not at the slot derived from its own actor is no precedent", () => {
+    const moved = preEmission();
+    const f = moved.get(RAW_KEY)!;
+    moved.delete(RAW_KEY);
+    const foreign = "world-state/actor/zed/raw-sensory/AIRBORNE_HEARING";
+    moved.set(foreign, { ...f, key: foreign });
+    expect(emissionPrecedents(W, L, T0, moved)).toEqual([]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), moved)).toMatch(chain);
+  });
+
+  it("one lawful chain among several suffices, and an unreadable W1 among them is simply not a chain", () => {
+    const m = preEmission();
+    const noise = forged("world-state/actor/zed/raw-sensory/AIRBORNE_HEARING", { garbage: true });
+    m.set(noise.key, noise);
+    expect(emissionPrecedents(W, L, T0, m).map((p) => p.raw.key)).toEqual([RAW_KEY]);
+    expect(worldAcousticEmissionViolation(EMISSION_KEY, em(), m)).toBeNull();
   });
 });
 
