@@ -35,9 +35,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/world/canonical-campaign.ts":
-    "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
+    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/commands.ts":
@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, contracts, engine owner API, locality.ts, commands.ts and the session are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -74,9 +74,12 @@ describe("nothing outside the operator is touched", () => {
         "world_id",
       ].sort(),
     );
+    // the four original fields are unchanged; S1-P1 W2a added the one OPTIONAL typed acoustic_profile_v1 (absent on every locus this
+    // slice authors, so its serialization and its admission are exactly what they were)
     expect(Object.keys(WorldLocusSchema.shape).sort()).toEqual(
-      ["constraints", "designation", "locus_id", "world"].sort(),
+      ["acoustic_profile_v1", "constraints", "designation", "locus_id", "world"].sort(),
     );
+    expect(WorldLocusSchema.shape.acoustic_profile_v1.safeParse(undefined).success).toBe(true);
     expect(OWNER_WORLD_STATE).toBe("world_state");
     expect(FACET_WORLD_LOCUS).toBe("world_locus");
     expect(FACET_WORLD_SOURCE_CONDITION).toBe("world_source_condition");
@@ -142,7 +145,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T01:26:01.691Z");
     expect(doc).toContain("a10421dd2f433bc5bdd90d03ff39ebccfc96448b");
-    expect(doc).toContain("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no route, travel, movement, perception, availability, extraction or collection", () => {

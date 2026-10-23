@@ -47,7 +47,7 @@ const UNCHANGED: Record<string, string> = {
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/contracts/src/temporal.ts":
@@ -80,7 +80,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the corridor and its one consumer is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, World-State contracts, the temporal coordinator, the delivery/retirement providers, the temporal declaration, the locus resolver, the ECT-01 seam and the session are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -245,7 +245,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T13:47:37.910Z");
     expect(doc).toContain("9f7a8f425a296784a2460c6f68eb4f4e6f502e7a");
-    expect(doc).toContain("ba46a5d19985bd360ba0cc47217d0947dc3fc4f3");
+    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no route calibration, travel time, access, delivery, original-PC travel or actor agreement", () => {

@@ -87,6 +87,14 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       "R1-PC-CUSTODY-LINEAGE": 0,
     }),
   },
+  // S1-P1 (23 October 2026): one additive executable lowering of the BLUE-frozen S1 World-State physical-source owner boundary. It cites no
+  // design-lineage row (none is recorded for the S1 freeze) and extends the existing world_locus without adding a fact kind for it.
+  "S1-P1-WG-LOWERING": {
+    url: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+    pin: "2026-10-23T12:26:49.599Z",
+    kinds: ["actor_raw_sensory_state", "world_acoustic_emission"],
+    lineage: [],
+  },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
 const range = (prefix: string, n: number) =>

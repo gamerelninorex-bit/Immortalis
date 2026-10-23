@@ -4,7 +4,7 @@
 
 Bounded implementation slice (`@immortalis/operator`: `establish-additional-source`), composed from the **already implemented** World-State owner operation `CanonicalCampaign.establishSourceCondition`. No `packages/contracts`, `packages/engine`, `packages/protocol` or `packages/testkit` module changed; there is no new World-State operation, owner, facet, schema, source key class, persistent receipt format, status gate or universal multiple-source initializer. The shipped binary registers no owner extension.
 
-Authority: the BLUE v5.2-A1 bounded implementation brief "Additional Pre-Play Finite Source Admission" (native pin `2026-10-21T18:33:04.910Z`) on official `main` `c739ec3834376dc42f7d83c827904f7d94c91911`, under F-027 v1.0 (`spec/f027/spec-lock.json`, blob `ba46a5d19985bd360ba0cc47217d0947dc3fc4f3`, unchanged) and the frozen WG / WS-003 §§4, 4A, 4B authority that `establish-locality` already uses. **No source pin, Runtime Contract snapshot, open gate, acceptance row or status changed. F-028/OB-030 stays Blocked, PF-6 inactive, IA/V unpromoted.** Local success is not provider or recovery acceptance.
+Authority: the BLUE v5.2-A1 bounded implementation brief "Additional Pre-Play Finite Source Admission" (native pin `2026-10-21T18:33:04.910Z`) on official `main` `c739ec3834376dc42f7d83c827904f7d94c91911`, under F-027 v1.0 (`spec/f027/spec-lock.json`, blob `2df29edfd08b1fb986666c94153f9432cf227324`, unchanged) and the frozen WG / WS-003 §§4, 4A, 4B authority that `establish-locality` already uses. **No source pin, Runtime Contract snapshot, open gate, acceptance row or status changed. F-028/OB-030 stays Blocked, PF-6 inactive, IA/V unpromoted.** Local success is not provider or recovery acceptance.
 
 ## The command
 

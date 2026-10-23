@@ -5,6 +5,7 @@ import {
   FACET_PC_CAPABILITY_PROFILE,
   FACET_PC_VOLUNTARY_COMMITMENT,
   FACET_WORLD_FALLBACK_ENTITY,
+  FACET_WORLD_LOCUS,
   FACET_WORLD_SOURCE_CONDITION,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
@@ -63,6 +64,11 @@ import {
   presenceBearing,
   worldActorPresenceHistoricalCheck,
 } from "../world/actor-presence.ts";
+import {
+  acousticProfileLocusViolation,
+  auditoryPremisesHistoricalCheck,
+  worldAcousticEmissionGroupCheck,
+} from "../world/auditory-premises.ts";
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
@@ -81,7 +87,13 @@ function checkLocus(group: CommitGroup, state: CampaignState, key: string, value
     });
   }
   const world = requirePrerequisite(group, state, worldKey, "the world profile");
-  return isRejection(world) ? world : null;
+  if (isRejection(world)) return world;
+  // S1-P1 W2a: a typed acoustic profile is a pre-seal source authored only with the original locus commit
+  if (locus.acoustic_profile_v1 !== undefined) {
+    const violation = acousticProfileLocusViolation(key, locus, state.facts);
+    if (violation) return reject("REFERENCE_INVALID", violation, { key });
+  }
+  return null;
 }
 
 function checkCorridor(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
@@ -435,7 +447,10 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  */
 export const canonicalAdmission: WriteAdmission = {
   verifyHistorical(group, state) {
-    return worldActorPresenceHistoricalCheck(group, state);
+    return (
+      worldActorPresenceHistoricalCheck(group, state) ??
+      auditoryPremisesHistoricalCheck(group, state)
+    );
   },
   check(group, state) {
     for (const w of group.writes) {
@@ -522,6 +537,9 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
       return worldSourceGroupCheck(group, state);
+    // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
+      return worldAcousticEmissionGroupCheck(group, state);
     return null;
   },
 };
@@ -639,6 +657,14 @@ export function identityMismatch(
       return (v["world"] as { entity_id: string }).entity_id === ids[0]
         ? null
         : "world identity does not match the key";
+    case "actor_raw_sensory_state":
+      return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
+    case "world_acoustic_emission":
+      return v["emission_id"] === ids[2] &&
+        (v["world"] as { entity_id: string }).entity_id === ids[0] &&
+        (v["locus"] as { entity_id: string }).entity_id === ids[1]
+        ? null
+        : "emission identity does not match the key";
     case "logistics_commitment": {
       const moved = v["moved"] as { entity_id: string };
       const origin = v["origin"] as { world: { entity_id: string } };

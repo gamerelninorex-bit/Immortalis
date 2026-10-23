@@ -205,6 +205,8 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "actor_setup_placement",
       "world_setup_closure",
       "actor_physical_presence",
+      "actor_raw_sensory_state",
+      "world_acoustic_emission",
       "world_source_condition",
       "world_source_delivery",
     ]);
@@ -243,6 +245,9 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "actor-coupling.ts",
       "actor-presence-integrity.ts",
       "actor-presence.ts",
+      "auditory-premises-evaluator.ts",
+      "auditory-premises-integrity.ts",
+      "auditory-premises.ts",
       "canonical-campaign.ts",
       "corridor.ts",
       "entity-transition-integrity.ts",

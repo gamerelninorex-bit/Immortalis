@@ -22,7 +22,7 @@ const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
   it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
+      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
     );
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
@@ -64,7 +64,7 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "070edbb49c41d997dd625d5599a3ed56ff5d87c683acfcd7a6118feadae069e7",
+    "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":
@@ -87,9 +87,9 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "24e38e0d59077a4665e28a6a16a0c20e21f02f8b8238d5b3af90893d55185867",
+      "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
     "packages/engine/src/world/canonical-campaign.ts":
-      "f0d5652625ae9b23de8485bdc7bac3dd68518bcd40d36c75631f0d7e75339639",
+      "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",

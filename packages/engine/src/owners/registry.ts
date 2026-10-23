@@ -50,7 +50,9 @@ import {
   EntityTransitionCauseSchema,
   ExistingActorCouplingSchema,
   ActorPhysicalPresenceSchema,
+  ActorRawSensoryStateSchema,
   ActorSetupPlacementSchema,
+  WorldAcousticEmissionSchema,
   WorldSetupClosureSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
@@ -308,6 +310,10 @@ export const WORLD_ACTOR_PRESENCE_FACT_KIND_IDS = [
   "world_setup_closure",
   "actor_physical_presence",
 ] as const;
+export const WORLD_AUDITORY_PREMISES_FACT_KIND_IDS = [
+  "actor_raw_sensory_state",
+  "world_acoustic_emission",
+] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -380,6 +386,7 @@ export type FactKindId =
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_PRESENCE_FACT_KIND_IDS)[number]
+  | (typeof WORLD_AUDITORY_PREMISES_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_HOLDING_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
@@ -1127,6 +1134,58 @@ export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world-state/actor/${ID}/presence$`),
     valueSchema: ActorPhysicalPresenceSchema,
     rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+];
+
+const S1_P1_LINEAGE =
+  "S1-P1 (23 October 2026) executable lowering, recorded in spec/f027/spec-lock.json `executable_lowerings` and cited here as the ownership and lowering rule, NOT as a frozen spec-lock pin: WG World Generation & World-State Kernel (https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d), section 'S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026' with its 'S1-P1 emitter-source executability clarification' (native pin 2026-10-23T12:26:49.599Z); consumer boundary F-014D (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e), section 'S1-P1 Upstream Auditory Premises Consumer Boundary' (native pin 2026-10-23T12:28:14.041Z), a physical-input boundary only; Health (https://app.notion.com/p/3e620af901e0817c8b1ac2caf852e3aa) native pin 2026-10-23T09:37:46.110Z and Temporal F-014B (https://app.notion.com/p/3e020af901e081fb88e9f691748db990) native pin 2026-10-23T09:37:46.817Z, read as the unbuilt Health close and the Temporal authority respectively";
+
+/**
+ * The World-State physical-source chain of S1-P1 (IM-03): W1 the owner-authored raw auditory faculty and receptivity of one
+ * non-PC actor (the fallback custodian of objective physical facts, only while F-016 physical fallback is active) and W2b the
+ * separately committed, instantaneous airborne-sound emission of a locus whose ORIGINAL source value carries the typed
+ * acoustic profile. Neither is a hearing result, a Health clearance, a capability score or an epistemic event.
+ */
+export const WORLD_AUDITORY_PREMISES_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact); Interface Handoffs — To Epistemics (world-state physical source facts, not a recipient's knowledge)",
+  [
+    WS006_ACTOR_COUPLING_LINEAGE,
+    R1_PRESENCE_LINEAGE,
+    S1_P1_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * W1 is ADVANCING in kind but stage one admits only its first version (expected_version 0): the owner's admission and the load
+ * verifier enforce it, because no replacement, displacement, carry across elapsed time or other modality exists. The emission is
+ * SEALED (create-only) under the locus facet: it is the locus's own physical event, and the owner of the locus source is the
+ * owner of the emission, not a Named Actor, F-014D, Health or a referee.
+ */
+export const WORLD_AUDITORY_PREMISES_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "actor_raw_sensory_state",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/raw-sensory/AIRBORNE_HEARING$`),
+    valueSchema: ActorRawSensoryStateSchema,
+    rule: WORLD_AUDITORY_PREMISES_RULE,
+  },
+  {
+    id: "world_acoustic_emission",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_LOCUS,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/acoustic-emission/${ID}$`),
+    valueSchema: WorldAcousticEmissionSchema,
+    rule: WORLD_AUDITORY_PREMISES_RULE,
   },
 ];
 
@@ -2453,6 +2512,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
   ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
+  ...WORLD_AUDITORY_PREMISES_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...ECONOMY_HOLDING_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,

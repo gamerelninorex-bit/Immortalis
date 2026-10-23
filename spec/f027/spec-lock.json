@@ -353,6 +353,51 @@
         "permit NPC movement, a second current locus, a successor presence or an NPC->PC handover of a presence-bearing actor",
         "supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins"
       ]
+    },
+    {
+      "id": "S1-P1-WG-LOWERING",
+      "title": "S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T12:26:49.599Z",
+      "section": "S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026, with its S1-P1 emitter-source executability clarification",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": [
+        "actor_raw_sensory_state",
+        "world_acoustic_emission"
+      ],
+      "extends_fact_kinds": [
+        {
+          "kind": "world_locus",
+          "field": "acoustic_profile_v1",
+          "optional": true
+        }
+      ],
+      "consumer_boundary": {
+        "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+        "native_pin": "2026-10-23T12:28:14.041Z",
+        "section": "S1-P1 Upstream Auditory Premises Consumer Boundary — BLUE technical alignment — 23 October 2026",
+        "role": "physical-input consumer boundary only; F-014D is not a writer in this slice"
+      },
+      "scope": "Paired World-State physical-source premises for one non-PC actor, one existing locus and one bounded airborne-sound emission, as one mechanism-only owner slice: the OPTIONAL typed acoustic_profile_v1 (with its mandatory environmental_emitter_basis) on the existing strict world_locus, authored only before the world's setup closure; the first-version-only ADVANCING W1 actor_raw_sensory_state; the create-only SEALED W2b world_acoustic_emission; their admission, the narrow historical replay verification, the fail-closed load of a P1-bearing journal; and the pure read-only S1 P1 Auditory Premises derivation (SOURCE_PREMISES_READY_FOR_HEALTH, a coded refusal, or a coded UNRESOLVED). The earlier BLUE-frozen S1 World-State physical-source owner boundary is the design context this lowers; no separate lineage row is recorded for it.",
+      "does_not": [
+        "produce a Health Sensory Function Close or any Health AVAILABLE, IMPAIRED or UNKNOWN result, or infer one from an empty Health ledger",
+        "produce an F-014D access or dissemination event, access packet, individual receipt, retention, PERCEIVED event or actor knowledge, or treat a singleton BOUNDED_SHARED_ACCESS or BROADCAST_EXPOSURE as an individual hearing verdict",
+        "enable NPC observation, actor eyesight or line of sight, position-dependent or directional acoustics, neighbouring-locus propagation, attenuation, duration, recurrence or an actor-initiated emission",
+        "add an operator command, host operation, endpoint, player-visible rendering or any public make-actor-hear command",
+        "change the R1 Stage-One lowering, its design lineage, its presence semantics or its non-receipt conformance, or supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins",
+        "close H1, reach First Playable, or touch the held PR #72 and PR #73"
+      ]
     }
   ],
   "snapshot_files": {
