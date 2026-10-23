@@ -131,7 +131,7 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/adapter.ts":
     "7efa630d106c2e12e80fa405e9e246c392f9e2f0356c4f0be4a095d2dd3ac201",
   "packages/engine/src/referee/derive.ts":
-    "697a8d92c7a0eab6598d06519d3717e7ab15f5a20279dea5e00ee2028c8f83ef",
+    "6ecaae7e602f1780be6bcafeb3981b539d93fb91ea36bacff052db09ff9ea483",
   "packages/operator/src/cli.ts":
     "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
   "packages/operator/src/observation.ts":

@@ -1582,15 +1582,21 @@ export function deriveActorObservation(
 
 /**
  * The actor direct-perception verdict as a function of the answer alone (re-derivable from the retained record): the PC question's rule. A
- * contradicted world fact is a conflict; an ESTABLISHED blocked path from an ESTABLISHED viewing position is the physical negative; anything
- * else not fully and affirmatively answered is UNRESOLVED, never an obstruction; only the remainder is a receipt.
+ * contradicted world fact is a conflict; an ESTABLISHED blocked path from an ESTABLISHED viewing position of an actor whose sense is
+ * ESTABLISHED is the physical negative (an obstruction is an obstruction of THIS actor's sense: with no established faculty there is
+ * nothing for the path to obstruct); anything else not fully and affirmatively answered is UNRESOLVED, never an obstruction; only the
+ * remainder is a receipt.
  */
 export function actorObservationVerdictOf(
   decision: ActorObservationHostDecision,
 ): ObservationVerdict {
   if (decision.assessments.some((a) => a.relation === "CONTRADICTS"))
     return "OBSERVATION_WORLD_CONFLICT";
-  if (decision.path.state === "BLOCKED" && decision.position.state === "ESTABLISHED")
+  if (
+    decision.path.state === "BLOCKED" &&
+    decision.position.state === "ESTABLISHED" &&
+    decision.faculty.state === "ESTABLISHED"
+  )
     return "OBSERVATION_OBSTRUCTED";
   if (
     decision.faculty.state !== "ESTABLISHED" ||

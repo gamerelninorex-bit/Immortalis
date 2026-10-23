@@ -176,40 +176,8 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 
 /** The existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
-  "packages/contracts/src/referee.ts":
-    "9cd92b021479862c1688faf9bc69bc8bf98e0c22642e89e516c84b3d4d8a1bdd",
-  "packages/engine/src/epistemic/adapter.ts":
-    "b0034d6bd43c71a109c04b5ff03069f19eac02525bd18b78e3ee0413c085d0ba",
-  "packages/engine/src/epistemic/admission.ts":
-    "58f68c0ecb1c0da0de9a056694d6b3ce8775be94cfec54a9750d17a6aabdbb76",
-  "packages/engine/src/epistemic/declaration.ts":
-    "9a64dcff91afbe7230b5f8b2780900a6dd10dbc865c340aeaf46c804fdf57be8",
-  "packages/engine/src/epistemic/integrity.ts":
-    "0c7431eab036831715c4fe0f349bd8dbd2f0be5a8e90af09338593411a314cc8",
-  "packages/engine/src/index.ts":
-    "9f717f96c1c1c6255dd8b1e6ba3303533eed0c46d67e12caaa4ee8f3b604dc55",
-  "packages/engine/src/owners/registry.ts":
-    "13a9b46e8633898efc473f5c8ad77065960f3c82e712d6a9cdb16a64e562b364",
-  "packages/engine/src/referee/adapter.ts":
-    "7efa630d106c2e12e80fa405e9e246c392f9e2f0356c4f0be4a095d2dd3ac201",
-  "packages/engine/src/referee/admission.ts":
-    "c9bb21544624656c53b61132853d15e8ea6560f7f6f7f9a83b32bc895e7ac193",
   "packages/engine/src/referee/derive.ts":
-    "697a8d92c7a0eab6598d06519d3717e7ab15f5a20279dea5e00ee2028c8f83ef",
-  "packages/engine/src/referee/integrity.ts":
-    "1b90545cf278d55d457db65ab52aa8bc1b1ef42fb406472feef0e85b2d54d01b",
-  "packages/operator/src/cli.ts":
-    "bdf3ad73053383f6272baf0cf17b22b6950d17ded0d789a501592dae5277691e",
-  "packages/operator/src/confirmation.ts":
-    "14bb6413dbd968c13879b0457627ddfe693322df84ad0ad89490ece0f9e2f971",
-  "packages/operator/src/index.ts":
-    "f5c1ed2f38eb7540da5a467f7c7012c7ffc5e14a7ddb50247728e1936739f552",
-  "packages/operator/src/referee-exchange.ts":
-    "59179f98e55b5774ef33c830be28da4cdfdc3985ed7c508e5f2d7d81060e3612",
-  "packages/operator/src/referee-mcp.ts":
-    "0499a87bd642f66c1968888f4156067177926b48f8e56b578ffc8c81fbd3a399",
-  "packages/operator/src/referee-session.ts":
-    "92a09f989789734efcdd4388d74b1b7535d9b4a7135276253b2e2ab27c018526",
+    "6ecaae7e602f1780be6bcafeb3981b539d93fb91ea36bacff052db09ff9ea483",
 };
 
 const NEW_SOURCES = [

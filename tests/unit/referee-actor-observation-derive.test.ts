@@ -276,6 +276,33 @@ describe("an answer is validated against the delivered words, and the verdict is
     expect(actorObservationVerdictOf(a)).toBe("OBSERVATION_UNRESOLVED");
   });
 
+  it("a blocked path from an established position is UNRESOLVED, not an obstruction, when the actor's sense is not established (BLUE H2); a contradicted fact still wins", async () => {
+    const { ctx, answer, derive } = await ready();
+    const a = answer();
+    a.faculty = { ...a.faculty, state: "NOT_ESTABLISHED", premises: [] };
+    a.path = { ...a.path, state: "BLOCKED" };
+    a.payload = null;
+    expect(a.position.state).toBe("ESTABLISHED");
+    expect(actorObservationVerdictOf(a)).toBe("OBSERVATION_UNRESOLVED");
+    // the same through the full derivation, from the delivered words alone (a screened scene and an actor with no sight to cite)
+    const d = derive(a);
+    expect(d.ok && d.verdict).toBe("OBSERVATION_UNRESOLVED");
+    // with the sense established the same blocked path IS the obstruction
+    const sighted = answer();
+    sighted.path = { ...sighted.path, state: "BLOCKED" };
+    sighted.payload = null;
+    expect(actorObservationVerdictOf(sighted)).toBe("OBSERVATION_OBSTRUCTED");
+    // an established world conflict keeps its precedence over both
+    a.assessments[0] = {
+      ...a.assessments[0],
+      relation: "CONTRADICTS",
+      evidence_quote: ctx.facts
+        .find((f) => f.fact_id === a.assessments[0].fact_id)!
+        .text.slice(0, 5),
+    };
+    expect(actorObservationVerdictOf(a)).toBe("OBSERVATION_WORLD_CONFLICT");
+  });
+
   it("refuses a faculty that rests on anything but the actor's own capability: the coupling, a world fact or an invented premise", async () => {
     const { answer, derive } = await ready();
     for (const from of ["COUPLING_STATEMENT", "WORLD_FACT"] as const) {

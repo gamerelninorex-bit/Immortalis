@@ -36,6 +36,7 @@ import {
   deriveActorObservationEvent,
   factKind,
   formActorObservedPacket,
+  recordContextViolation,
   statementDigest,
   verifyEpistemicIntegrity,
   verifyRefereeIntegrity,
@@ -54,6 +55,8 @@ import {
   actorCapabilityKey,
   actorScene,
   decide,
+  reopenScene,
+  SCREEN,
   sourceFactKey,
   type ActorScene,
 } from "../support/actor-observation.ts";
@@ -588,5 +591,53 @@ describe("the owners stay isolated", () => {
       base(epistemic.owner, epistemic.facet, actorCapabilityKey(ACTOR, "forged"), {}),
     );
     await refused(s, base(referee.owner, referee.facet, `world-state/actor/${ACTOR}/coupling`, {}));
+  });
+});
+
+describe("a blocked path of an actor whose sense is not established is UNRESOLVED end to end, and earns no packet (BLUE H2)", () => {
+  it("is retained as UNRESOLVED, re-derives on admission and after reopen, and a record that calls it an obstruction is refused", async () => {
+    const dir = tempDir();
+    const s = await actorScene(dir, { path: SCREEN });
+    const d = await decide(s, { noFaculty: true });
+    // the scripted host establishes the position (the coupling) and reads the screen as blocking, but cites no sense
+    const answer: any = d.answer;
+    expect([
+      answer.faculty.state,
+      answer.position.state,
+      answer.path.state,
+      answer.payload,
+    ]).toEqual(["NOT_ESTABLISHED", "ESTABLISHED", "BLOCKED", null]);
+    expect(d.verdict).toBe("OBSERVATION_UNRESOLVED");
+    const formed = await formActorObservedPacket(s.campaign.store, d.record.key);
+    expect(formed.ok).toBe(false);
+    expect(accessCount(s)).toBe(0);
+    // admission re-derives: the same reading recorded as an obstruction is refused, the derived verdict is admitted
+    const t = await actorScene(tempDir(), { path: SCREEN });
+    await refused(
+      t,
+      decisionGroup(t, {
+        rule_answer: { noFaculty: true },
+        record: (r) => (r.verdict = "OBSERVATION_OBSTRUCTED"),
+      }).group,
+    );
+    const ok = await t.campaign.store.commit(
+      decisionGroup(t, { rule_answer: { noFaculty: true } }).group,
+    );
+    expect(ok.ok, JSON.stringify(ok.ok ? null : ok.error)).toBe(true);
+    // reopened, the retained reading verifies and still earns nothing
+    await s.campaign.close();
+    const r = await reopenScene(dir);
+    expect(verifyRefereeIntegrity(r.campaign.store)).toEqual([]);
+    expect(r.campaign.verify()).toEqual([]);
+    const record = actorObservationRecordOf(r.campaign.store.getFact(d.record.key))!;
+    expect(record.verdict).toBe("OBSERVATION_UNRESOLVED");
+    const flipped: any = structuredClone(record);
+    flipped.verdict = "OBSERVATION_OBSTRUCTED";
+    expect(recordContextViolation(flipped, (k) => r.campaign.store.getFact(k))).toMatchObject({
+      code: "DECISION_INCOHERENT",
+    });
+    expect((await formActorObservedPacket(r.campaign.store, d.record.key)).ok).toBe(false);
+    expect(r.campaign.store.listFacts().some((f) => f.key.startsWith("access/"))).toBe(false);
+    await r.campaign.close();
   });
 });
