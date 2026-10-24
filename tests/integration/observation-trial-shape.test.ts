@@ -4,12 +4,16 @@
 // pins what the observation question then DELIVERS to the referee host. The "host" is a script (PLUMBING ONLY; not an AI, not a game
 // master's judgment); the trial's own campaign and its retained reading are not touched or read.
 //
-// What it shows: a character whose own statements state no sense, whose confirmed placement states neither a facing nor open eyes, in a
-// scene whose prose states no light, air, path or appearance, is delivered a question in which none of faculty, position, path or
-// appearance rests on any statement - and the only consequence of the gathering is the mechanical sentence that it was completed. The
-// result is therefore the lawful non-receipt, retained at that basis and not asked again. The repair for such a SAVED campaign is not in
-// this file (its world, locus, contract and placement are sealed); the six statements a positive rests on are authored through the
-// existing owners in the explicit campaigns of pc-collection-perception.test.ts and observation-foundation.test.ts.
+// What it pins is the TEXT delivered: the character's accepted words are the shorthand alone, the confirmed placement states neither a
+// facing nor open eyes, and the scene's prose states no light, air, path or appearance, so the only consequence of the gathering is the
+// mechanical sentence that it was completed. The keyword checks below are a pin of those delivered words; they do NOT claim that the absence
+// of a keyword is the absence of a meaning (I-002 section 10 lets a source-grounded reading take an ordinary human's vision as strongly
+// entailed by a baseline-human statement, and nothing here decides what a real host reads). What a real host reads of these words is not
+// shown by this file. The scripted policy used in the second test is lexical and is NOT an authority on what a faithful host must derive.
+// Position (a facing, open eyes), path and appearance have no delivered statement in this shape, so whatever the host takes of the
+// faculty, a positive is not resting on them; the scripted outcome is the non-receipt, retained at that basis and not asked again. The
+// repair for such a SAVED campaign is not in this file (its world, locus, contract and placement are sealed); the explicit campaigns of
+// pc-collection-perception.test.ts and observation-foundation.test.ts are ONE constructive witness of a positive, not a required schema.
 import { describe, expect, it } from "vitest";
 import { RefereeAdjudicationAdapter, verifyEpistemicIntegrity } from "@immortalis/engine";
 import { openOrdinary, SOURCE_KEY, WORLD_ID } from "../support/locality.ts";
@@ -44,6 +48,7 @@ const trialScene = (doc: any) => {
   ];
 };
 
+// keyword pins of the DELIVERED TEXT only (see the header): not a statement about what the words mean
 const SIGHT_WORDS = /\b(sight|sighted|vision|see|sees|seeing|eye|eyes)\b/i;
 const FACING_OR_EYES = /\b(facing|faces|eye|eyes)\b/i;
 const EXPOSURE_ASPECTS = /^(light|air|path|surface|appearance|colou?r)\b/i;
@@ -57,8 +62,8 @@ async function reading<T>(dirs: { campaignDir: string }, fn: (c: any) => Promise
   }
 }
 
-describe("MECHANISM: a campaign authored the way the Render trial describes is delivered a question that rests on nothing, and the result is the lawful non-receipt", () => {
-  it("delivers no sight statement, no facing or eyes, no light, air, path or appearance fact - only the mechanical sentence that the gathering was completed", async () => {
+describe("MECHANISM: a campaign authored the way the Render trial describes is delivered a question whose words state no facing, eyes, light, air, path or appearance; with a scripted host the result is the retained non-receipt", () => {
+  it("delivers no statement that uses a sight keyword, states a facing or eyes, or states a light, air, path or appearance - only the mechanical sentence that the gathering was completed", async () => {
     const { dirs } = await originalCollectionCampaign({
       scene: trialScene,
       body: SHORTHAND_BODY,
@@ -72,7 +77,7 @@ describe("MECHANISM: a campaign authored the way the Render trial describes is d
       });
       expect(task.ok, JSON.stringify(task)).toBe(true);
       const ctx = (task as any).value.context;
-      // the character's own statements: nothing about any sense
+      // the character's own statements: the delivered words use no sight keyword (a pin of the text, not of the meaning)
       expect(ctx.pc.map((i: any) => i.text).join(" | ")).not.toMatch(SIGHT_WORDS);
       // the confirmed placement: where the character is, and nothing about a facing or open eyes
       expect(ctx.statement).toBe(PC_WORDS.presenceBare);
@@ -99,7 +104,7 @@ describe("MECHANISM: a campaign authored the way the Render trial describes is d
     });
   }, 180_000);
 
-  it("the shipped observe-surroundings then returns the neutral non-receipt, retains the reading, and a second look at the same basis asks no one; nothing in the canon moves", async () => {
+  it("with a scripted (lexical, plumbing-only) host the shipped observe-surroundings returns the neutral non-receipt, retains the reading, and a second look at the same basis asks no one; nothing in the canon moves", async () => {
     const { dirs } = await originalCollectionCampaign({
       scene: trialScene,
       body: SHORTHAND_BODY,
@@ -117,7 +122,8 @@ describe("MECHANISM: a campaign authored the way the Render trial describes is d
     });
     expect(before).toMatchObject({ source: 117, reserve: 3 });
 
-    // the scripted host reads the words it is delivered; this question delivers none that establish a sense, a position or a path
+    // the scripted host is a keyword policy: it establishes nothing from these words. That is a property of the script, NOT a ruling on what a faithful
+    // host must read (I-002 section 10); what the test pins is the mechanism that follows an unresolved reading
     const policy = (doc: any) =>
       doc["operation"] === "F014D_DIRECT_PERCEPTION" ? observationAnswer(doc) : plainPolicy(doc);
     const first = await observe(dirs, verbConsole("observe-surroundings"), {}, policy);
