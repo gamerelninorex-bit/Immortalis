@@ -38,6 +38,8 @@ export type ConfigResult =
   | { readonly ok: false; readonly problems: readonly string[] };
 
 const ID = /^[A-Za-z0-9._:-]{1,64}$/;
+/** a host identity as the referee and player-view exchanges accept it (a looser one would bind nowhere and fail silently) */
+const HOST_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const TOKEN = /^[\x21-\x7e]{32,256}$/; // printable, no whitespace, 32+ characters
 const PATH = /^\/[^\0\n\r]{1,512}$/;
 
@@ -72,7 +74,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     problems.push("the player and referee tokens must differ: they are separate lanes");
   if (hostIds.length === 0 || hostIds.length > 8 || new Set(hostIds).size !== hostIds.length)
     problems.push("IMMORTALIS_REFEREE_HOST_IDS must list 1 to 8 distinct host identities");
-  if (hostIds.some((h) => !ID.test(h))) problems.push("a referee host identity is not valid");
+  if (hostIds.some((h) => !HOST_ID.test(h))) problems.push("a referee host identity is not valid");
   const transportRaw = env["IMMORTALIS_TRANSPORT"] ?? "proxy";
   if (transportRaw !== "proxy" && transportRaw !== "insecure-loopback")
     problems.push("IMMORTALIS_TRANSPORT must be proxy or insecure-loopback");
@@ -106,7 +108,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     problems.push("IMMORTALIS_SCENARIO_FILE must be an absolute path");
   const viewRaw = env["IMMORTALIS_PLAYER_VIEW_HOST_ID"];
   const playerViewHostId = viewRaw === undefined || viewRaw === "" ? null : viewRaw;
-  if (playerViewHostId !== null && !ID.test(playerViewHostId))
+  if (playerViewHostId !== null && !HOST_ID.test(playerViewHostId))
     problems.push("IMMORTALIS_PLAYER_VIEW_HOST_ID is not a valid identity");
   const portRaw = env["PORT"] ?? "8080";
   const port = /^[0-9]{1,5}$/.test(portRaw) ? Number(portRaw) : -1;

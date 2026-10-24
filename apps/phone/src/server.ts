@@ -58,7 +58,7 @@ export interface PhoneDeps {
   /** owner readback seams for the pending-operation recovery (tests substitute them; the defaults read the real campaign) */
   readonly recovery?: RecoveryDeps;
   /** the ordinary-chat adapter's collaborators (tests substitute the earned-Glance read and the referee exchange; never the confirmation) */
-  readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance">;
+  readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance" | "note">;
 }
 
 type Role = "player" | "referee";

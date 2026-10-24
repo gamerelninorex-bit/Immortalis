@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
 // the player-view transport is reached by its own modules, unchanged: the operator package's public surface is not enlarged for the front end
 import {
@@ -8,6 +8,7 @@ import {
 import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
 import type { PhoneConfig } from "./config.ts";
+import { checkScenarioFile, type Scenario } from "./scenario.ts";
 import type { PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
 
@@ -26,44 +27,7 @@ import { callRefereeTool } from "./referee-tools.ts";
  * elicitation surface or the authenticated confirm page) into the unchanged trusted terminal. There is no tool that can reply to a prompt.
  */
 
-const ID = /^[A-Za-z0-9._:-]{1,128}$/;
-const UNIT = /^[A-Za-z0-9._ :-]{1,64}$/;
-
-export interface Scenario {
-  readonly player_character: string;
-  readonly world: string;
-  readonly source: string;
-  readonly reserve: string;
-  readonly quantity_unit: string;
-  readonly mechanism: string;
-  readonly basis: string;
-}
-
-/** The engineering-owned scenario identities the player never has to name; absent or malformed means the collection tools fail closed. */
-export function readScenario(file: string): Scenario | null {
-  try {
-    if (!existsSync(file)) return null;
-    const v: unknown = JSON.parse(readFileSync(file, "utf8"));
-    if (v === null || typeof v !== "object" || Array.isArray(v)) return null;
-    const r = v as Record<string, unknown>;
-    const keys = [
-      "player_character",
-      "world",
-      "source",
-      "reserve",
-      "quantity_unit",
-      "mechanism",
-      "basis",
-    ];
-    if (Object.keys(r).length !== keys.length || !keys.every((k) => typeof r[k] === "string"))
-      return null;
-    for (const k of keys)
-      if (!(k === "quantity_unit" ? UNIT : ID).test(r[k] as string)) return null;
-    return r as unknown as Scenario;
-  } catch {
-    return null;
-  }
-}
+export { readScenario, type Scenario } from "./scenario.ts";
 
 const text = (t: string, isError = false): ToolResult => ({
   content: [{ type: "text", text: t }],
@@ -174,9 +138,18 @@ function describe(config: PhoneConfig, run: Run, after: number, runs: PlayerRuns
 const OPAQUE =
   "Nothing is available to present. This says nothing about why; do not guess or add anything.";
 
-async function readGlance(config: PhoneConfig): Promise<ToolResult> {
+/**
+ * `note` carries a cause to the OPERATOR (the service log), never to the player or the assistant: every failure of the read is the same
+ * cause-free refusal to them, so a misconfiguration would otherwise look like a legitimate non-receipt.
+ */
+async function readGlance(config: PhoneConfig, note?: (m: string) => void): Promise<ToolResult> {
   const host = config.playerViewHostId;
-  if (host === null) return text(OPAQUE, true);
+  if (host === null) {
+    note?.(
+      "IMMORTALIS_PLAYER_VIEW_HOST_ID is not set: the earned Glance is disabled and every read returns the opaque refusal",
+    );
+    return text(OPAQUE, true);
+  }
   const params = { stateDir: config.operatorDir, campaignId: config.campaignId };
   const secret = playerViewSecretPath(params, host);
   try {
@@ -195,7 +168,12 @@ async function readGlance(config: PhoneConfig): Promise<ToolResult> {
         ],
         { out: () => undefined, error: () => undefined },
       );
-      if (code !== 0) return text(OPAQUE, true);
+      if (code !== 0) {
+        note?.(
+          `the player-view host ${host} could not be bound (exit ${code}): it needs a kept and placed character, and a free campaign`,
+        );
+        return text(OPAQUE, true);
+      }
     }
     const input = new PassThrough();
     const output = new PassThrough();
@@ -238,7 +216,10 @@ async function readGlance(config: PhoneConfig): Promise<ToolResult> {
       ],
       { input, output, error: () => undefined },
     );
-    if (code !== 0) return text(OPAQUE, true);
+    if (code !== 0) {
+      note?.(`the player-view read failed (exit ${code}): see the preflight`);
+      return text(OPAQUE, true);
+    }
     for (const raw of Buffer.concat(chunks).toString("utf8").split("\n")) {
       if (raw.trim() === "") continue;
       const msg: unknown = JSON.parse(raw);
@@ -259,6 +240,7 @@ async function readGlance(config: PhoneConfig): Promise<ToolResult> {
     }
     return text(OPAQUE, true);
   } catch {
+    note?.("the player-view read raised an error: see the preflight");
     return text(OPAQUE, true);
   }
 }
@@ -276,6 +258,8 @@ export interface ChatToolDeps {
   readonly elicitMs?: number;
   readonly callReferee?: typeof callRefereeTool;
   readonly glance?: (config: PhoneConfig) => Promise<ToolResult>;
+  /** a cause for the OPERATOR's log (the preflight names the same causes); never shown to the player or the assistant */
+  readonly note?: (message: string) => void;
 }
 
 export function buildChatTools(d: ChatToolDeps): McpTool[] {
@@ -283,7 +267,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
   const settleMs = d.settleMs ?? 2500;
   const elicitMs = d.elicitMs ?? 5 * 60_000;
   const callReferee = d.callReferee ?? callRefereeTool;
-  const glance = d.glance ?? readGlance;
+  const note = d.note;
+  const glance = d.glance ?? ((c: PhoneConfig) => readGlance(c, note));
 
   const start = async (
     command: string,
@@ -297,9 +282,10 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, run, 0, runs);
   };
   const scenarioOr = (): { ok: true; s: Scenario } | { ok: false; r: ToolResult } => {
-    const s = readScenario(config.scenarioFile);
-    return s
-      ? { ok: true, s }
+    const checked = checkScenarioFile(config.scenarioFile);
+    if (!checked.ok) note?.(`${checked.defect} (${config.scenarioFile})`);
+    return checked.ok
+      ? { ok: true, s: checked.scenario }
       : {
           ok: false,
           r: text(

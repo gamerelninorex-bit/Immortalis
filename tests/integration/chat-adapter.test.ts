@@ -2910,6 +2910,53 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
   }, 120_000);
 });
 
+describe("MECHANISM (24 October repair): the cause of a cause-free refusal reaches the OPERATOR's log, never the player or the assistant", () => {
+  it("a defective scenario file and an unset player-view host are named to the operator note; the assistant is told only that nothing is available or configured", async () => {
+    const notes: string[] = [];
+    const [cli] = stubCli();
+    const s = await serve(
+      { runCli: cli, chat: { note: (m: string) => notes.push(m) } },
+      { playerViewHostId: null },
+      { ...SCENARIO, host: "not-offered" },
+    );
+    try {
+      const chat = new Chat(s.base);
+      expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+      await chat.init({});
+      const collect = await chat.call("collect", { amount: 1 });
+      expect(collect.isError).toBe(true);
+      expect(collect.text).toMatch(/scenario is not configured for chat play/);
+      const glance = await chat.call("read_current_observation_glance");
+      expect(glance.isError).toBe(true);
+      expect(glance.text).toMatch(/Nothing is available to present/);
+      // the operator hears both causes, in words
+      expect(notes.join("\n")).toMatch(/the scenario file has keys that are not offered: host/);
+      expect(notes.join("\n")).toMatch(/IMMORTALIS_PLAYER_VIEW_HOST_ID is not set/);
+      // the assistant hears neither, and the glance refusal is the same cause-free text it always was
+      for (const t of [collect.text ?? "", glance.text ?? ""]) {
+        expect(t).not.toMatch(/IMMORTALIS_|not offered|host/i);
+      }
+    } finally {
+      await s.app.close();
+    }
+  });
+
+  it("a well-formed scenario and a configured host raise no note", async () => {
+    const notes: string[] = [];
+    const [cli] = stubCli();
+    const s = await serve({ runCli: cli, chat: { note: (m: string) => notes.push(m) } });
+    try {
+      const chat = new Chat(s.base);
+      expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+      await chat.init({});
+      expect((await chat.call("collect", { amount: 1 })).isError).toBe(false);
+      expect(notes.filter((n) => /scenario/.test(n))).toEqual([]);
+    } finally {
+      await s.app.close();
+    }
+  });
+});
+
 async function collectionTemplate(): Promise<string> {
   const dir = tempDir("immortalis-chat-collect-");
   const s = await collectionCampaign({ dir });

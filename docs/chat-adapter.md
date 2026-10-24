@@ -73,6 +73,8 @@ Scenario file (all seven keys, nothing else; an absent or malformed file makes t
 }
 ```
 
+The service reads this file as before; the operator preflight (`docs/phone-bridge.md`, "Operator preflight") additionally demands a regular file owned by the service user and not writable by anyone else, names each defect, and checks every identity against the campaign before a long setup. A refusal to the player or the assistant stays cause-free; the cause goes to the operator's log. **An unset `IMMORTALIS_PLAYER_VIEW_HOST_ID` disables the earned Glance** (every read returns the same opaque refusal a genuine non-receipt would), so the preflight fails it when the route is on.
+
 The engine still validates every identity against canon; preparation (`prepare-collection`, `declare-closed-setting`, `attest-cycle`, clarification) remains an engineering step on the existing console and is **not** a player operation. If the live scenario lacks a substantive prerequisite (scene closure, source access, workforce representation, a prepared and attested mechanism) the commands refuse as they do today; the adapter invents none.
 
 **Connect (one time, after BLUE review and the Sovereign's deployment decision):** in the chat client add a custom MCP server with URL `<IMMORTALIS_PUBLIC_URL>/mcp` and OAuth; on the consent page the Sovereign types the **player secret** (and, only if this same chat is also to be the referee, the separate **referee secret**). Nothing else is entered.
