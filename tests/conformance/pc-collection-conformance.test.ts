@@ -386,10 +386,16 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
       "world_profile",
       "world_locus",
+      "world_corridor",
       "world_fallback_entity",
       "world_entity_transition",
       "world_actor_coupling",
       "world_pc_locus_custody",
+      "actor_setup_placement",
+      "world_setup_closure",
+      "actor_physical_presence",
+      "actor_raw_sensory_state",
+      "world_acoustic_emission",
       "world_source_condition",
       "world_source_delivery",
       // the bounded semantic delegation (newly authorized): the one World-State kind this slice adds, under its own new facet
@@ -609,10 +615,12 @@ describe("the BLUE repair: the exact cycle is grounded, the §11 determination i
       (n) => `packages/engine/src/epistemic/${n}`,
     ))
       expect(code(f), f).not.toMatch(/pc-collection|PcCollection|pcCollection/);
-    // the Glance read keeps its one fixed shape: it was not edited for the outcome
-    expect(code("packages/protocol/src/current-observation-glance.ts")).not.toMatch(
-      /collection|outcome|source-delivery/i,
-    );
+    // The consumer now supplies a fixed qualification closure, without adding owner writes or a question selector.
+    const module = code("packages/protocol/src/current-observation-glance.ts");
+    const glance = module.slice(module.indexOf("export function readCurrentObservationGlance"));
+    expect(glance.match(/view\.getFact\(/g)).toHaveLength(12);
+    expect(glance.match(/view\.committedGroup\(/g)).toHaveLength(1);
+    expect(glance).not.toMatch(/\.commit\(|\.listFacts\(|outcome\?:|source_key\?:/);
   });
 });
 

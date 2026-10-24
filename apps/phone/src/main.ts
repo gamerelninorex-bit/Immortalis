@@ -1,6 +1,7 @@
 import { loadConfig } from "./config.ts";
 import { preflightA, preflightB, type PreflightReport } from "./preflight.ts";
 import { createPhoneServer } from "./server.ts";
+import { prepareChat } from "./prepare-chat.ts";
 
 /**
  * The phone bridge's entry point. It reads its configuration once, refuses to start on any problem and never prints a secret.
@@ -20,6 +21,17 @@ if (!config.ok) {
 const show = (r: PreflightReport, sink: (line: string) => void) => {
   for (const f of r.findings) sink(`[${f.severity}] ${f.phase}/${f.id} ${f.message}`);
 };
+
+if (process.argv[2] === "prepare-chat") {
+  const args = process.argv.slice(3);
+  if (args.length !== 2 || args[0] !== "--scenario" || !args[1]) {
+    process.stderr.write("usage: main.ts prepare-chat --scenario <owned-seven-key-json-file>\n");
+    process.exit(64);
+  }
+  const prepared = await prepareChat(config.value, args[1]);
+  for (const message of prepared.messages) process.stdout.write(`${message}\n`);
+  process.exit(prepared.ok ? 0 : 1);
+}
 
 if (process.argv[2] === "preflight") {
   const args = process.argv.slice(3);

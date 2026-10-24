@@ -16,7 +16,7 @@ const sha = (file: string) =>
 
 /** Byte-identical to the base e799fb8: the slice consumes or stands beside every one of these, and edits none. */
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -26,7 +26,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/protocol/src/active-pc-target-advance.ts":
     "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
   "packages/protocol/src/index.ts":
-    "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/contracts/src/protocol-pc-target-advance.ts":
     "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
   "packages/contracts/src/temporal.ts":
@@ -46,15 +46,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/confirmation.ts":
-    "9527fc0b634f47dc0c412f80301bed0ed369a0bf27531dd84601c3660a2f073f",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   "packages/operator/src/cli.ts":
-    "72e4256ae4388987d7f935ea4b85b78b483fd78f237a56de841a92286f87e02e",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/index.ts":
-    "6d54d8ba0793d332a7af2a45b44d0728a774329951073eb2532dbfb95751fe5e",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -62,7 +62,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
-    "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
+    "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/original-pc.ts":
     "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/original-pc-keep.ts":
@@ -98,9 +98,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "f19ee8c74b6906b9334829b516ce7ca61b51b1ed2320f9c77c8bf18484d14543",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-session.ts":
-    "00e1cae440bbf1431e66c3fb388916c5d811317c30ac4d4c339fc23c7353637a",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
 
 const NEW_MODULES = [
@@ -124,7 +124,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("43e4325789488e155c60f2deae5028e44286d795");
+    expect(blob).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014B")).toBe("2026-09-25T23:42:29.547Z");
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");
@@ -147,6 +147,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

@@ -2378,6 +2378,84 @@ describe("MECHANISM (BLUE R3 delta): every command that can write is recorded fi
 });
 
 describe("MECHANISM (BLUE R3 delta): the pending record is per campaign, validated, and an unreadable one is the operator's to inspect", () => {
+  it.each(["NONE", "COMPLETE", "PARTIAL"] as const)(
+    "dispatch pins the setup document and reconciles %s without another command or confirmation",
+    async (kind) => {
+      const cli = vi.fn(async () => {
+        throw new Error("synthetic lost reply");
+      });
+      const evidence = vi.fn<NonNullable<NonNullable<PhoneDeps["recovery"]>["setupEvidence"]>>(
+        async () => ({ kind }),
+      );
+      const s = await withChat({ runCli: cli, recovery: { setupEvidence: evidence } });
+      const page = new Browser(s.base);
+      await page.login("player", PLAYER);
+      try {
+        const setup = JSON.stringify({
+          format: "immortalis-starting-chronology",
+          format_version: 1,
+          time: { unit: "season", value: 7 },
+          statement: "SYNTHETIC FIXTURE: survey morning",
+        });
+        expect(
+          (await page.req("POST", "/api/play/command", { command: "initialize-time", setup }))
+            .status,
+        ).toBe(200);
+        await s.chat.call("await_action", { wait_seconds: 1 });
+        const original = JSON.parse(readFileSync(pendingFile(s.config), "utf8"));
+        expect(original.setup.document).toBe(setup);
+        await s.chat.call("reconcile_last_action");
+        const result = await s.chat.call("await_action", { wait_seconds: 1 });
+        expect(evidence.mock.calls[0]?.[1]).toEqual(original.setup);
+        expect(result.data.outcome).toBe(kind === "PARTIAL" ? "UNCERTAIN" : undefined);
+        expect(existsSync(pendingFile(s.config))).toBe(kind === "PARTIAL");
+        expect(cli).toHaveBeenCalledTimes(1);
+        expect(result.elicited).toEqual([]);
+      } finally {
+        await s.app.close();
+      }
+    },
+  );
+  it("re-reads a cached operation after trusted same-process removal, replacement, corruption or an unreadable replacement", async () => {
+    const [cli] = stubCli({ crash: true });
+    const s = await withChat({ runCli: cli });
+    try {
+      await s.chat.call("collect", { amount: 1 });
+      await s.chat.call("await_action", { wait_seconds: 1 });
+      expect(existsSync(pendingFile(s.config))).toBe(true);
+      const replacement = recordOf(s.config, { command: "attest-cycle", run_id: "replacement" });
+      writeFileSync(pendingFile(s.config), JSON.stringify(replacement));
+      await s.chat.call("reconcile_last_action");
+      expect((await s.chat.call("await_action", { wait_seconds: 1 })).data.blocker).toBe(
+        "no supported owner readback exists for attest-cycle",
+      );
+      expect(JSON.parse(readFileSync(pendingFile(s.config), "utf8")).run_id).toBe("replacement");
+      for (const text of ["{ torn", JSON.stringify({ ...replacement, campaign_id: "foreign" })]) {
+        writeFileSync(pendingFile(s.config), text);
+        await s.chat.call("reconcile_last_action");
+        expect((await s.chat.call("await_action", { wait_seconds: 1 })).data.outcome).toBe(
+          "UNCERTAIN",
+        );
+        expect(readFileSync(pendingFile(s.config), "utf8")).toBe(text);
+      }
+      rmSync(pendingFile(s.config));
+      mkdirSync(pendingFile(s.config));
+      await s.chat.call("reconcile_last_action");
+      expect((await s.chat.call("await_action", { wait_seconds: 1 })).data.outcome).toBe(
+        "UNCERTAIN",
+      );
+      expect(statSync(pendingFile(s.config)).isDirectory()).toBe(true);
+      rmSync(pendingFile(s.config), { recursive: true });
+      await s.chat.call("reconcile_last_action");
+      const lifted = await s.chat.call("await_action", { wait_seconds: 1 });
+      expect(lifted.data.outcome).toBeUndefined();
+      expect(JSON.stringify(lifted.data.engine_report)).not.toMatch(
+        /nothing was committed|all committed/,
+      );
+    } finally {
+      await s.app.close();
+    }
+  });
   it("another campaign's record never blocks this one and is never touched; a record under this campaign's name for another campaign, a malformed identity and a directory in its place are all unreadable", async () => {
     const [cli, stub] = stubCli();
     const s = await serve({ runCli: cli }, {}, SCENARIO);
@@ -2607,6 +2685,135 @@ describe("MECHANISM (BLUE R3 delta): cancel_action does not claim what it cannot
 });
 
 describe("MECHANISM (BLUE R3 delta): a shutdown waits for the running command to wind down, so the campaign's writer lock is not stranded", () => {
+  it("drains a recovery read and preserves the original uncertainty instead of dispatching completion after closing", async () => {
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const started = new Promise<void>((r) => (entered = r));
+    const complete = vi.fn(async () => ({ kind: "COMPLETE" as const }));
+    const [cli] = stubCli({ crash: true });
+    const s = await withChat({
+      runCli: cli,
+      recovery: {
+        ...STUB_RECOVERY,
+        observationEvidence: async () => {
+          entered();
+          await gate;
+          return { kind: "PARTIAL", detail: "synthetic incomplete operation" };
+        },
+        completeObservation: complete,
+      },
+    });
+    await s.chat.call("observe_surroundings");
+    await s.chat.call("await_action", { wait_seconds: 1 });
+    const original = readFileSync(pendingFile(s.config), "utf8");
+    const recovery = s.chat.call("reconcile_last_action").catch(() => undefined);
+    await started;
+    let closed = false;
+    const closing = s.app.close().then(() => {
+      closed = true;
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    const closedBeforeReadFinished = closed;
+    release();
+    await closing;
+    await recovery;
+    expect(closedBeforeReadFinished).toBe(false);
+    expect(complete).not.toHaveBeenCalled();
+    expect(readFileSync(pendingFile(s.config), "utf8")).toBe(original);
+  });
+  it("drains an already active referee tool before close completes", async () => {
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const started = new Promise<void>((r) => (entered = r));
+    const s = await withChat(
+      {
+        chat: {
+          callReferee: async () => {
+            entered();
+            await gate;
+            return { status: 200, result: { content: [] } };
+          },
+        },
+      },
+      { scope: "referee", referee: REFEREE },
+    );
+    const call = s.chat.call("referee_list_tasks", { host_id: "gm-setup" }).catch(() => undefined);
+    await started;
+    let closed = false;
+    const closing = s.app.close().then(() => {
+      closed = true;
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    const closedBeforeToolFinished = closed;
+    release();
+    await closing;
+    await call;
+    expect(closedBeforeToolFinished).toBe(false);
+  });
+  it("latches shutdown and drains a launch already capturing identity without dispatching it", async () => {
+    let release!: () => void;
+    let captured!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const entered = new Promise<void>((r) => (captured = r));
+    const cli = vi.fn(async () => 0);
+    const s = await withChat({
+      runCli: cli,
+      recovery: {
+        captureObservation: async (_c, pc) => {
+          captured();
+          await gate;
+          return stubIdentity(pc);
+        },
+      },
+    });
+    const page = new Browser(s.base);
+    await page.login("player", PLAYER);
+    const launch = page
+      .req("POST", "/api/play/command", {
+        command: "observe-surroundings",
+        options: { "player-character": SCENARIO.player_character },
+      })
+      .catch(() => undefined);
+    await entered;
+    let closed = false;
+    const closing = s.app.close().then(() => {
+      closed = true;
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    const closedBeforeCaptureFinished = closed;
+    release();
+    await closing;
+    await launch;
+    expect(closedBeforeCaptureFinished).toBe(false);
+    expect(cli).not.toHaveBeenCalled();
+    expect(existsSync(pendingFile(s.config))).toBe(false);
+  });
+
+  it("an await on an aborted terminal yields while the command winds down", async () => {
+    let winding = false;
+    const cli: NonNullable<PhoneDeps["runCli"]> = async (_a, env) => {
+      await env.terminal!.ask(">");
+      await new Promise((r) => setTimeout(r, 50));
+      winding = true;
+      return 1;
+    };
+    const s = await withChat({ runCli: cli }, undefined, {});
+    const page = new Browser(s.base);
+    await page.login("player", PLAYER);
+    try {
+      await s.chat.call("collect", { amount: 1 });
+      const waiting = await s.chat.call("await_action", { wait_seconds: 1 });
+      await page.req("POST", "/api/play/stop", {});
+      const started = Date.now();
+      await s.chat.call("await_action", { after: waiting.data.next_after, wait_seconds: 1 });
+      expect(winding).toBe(true);
+      expect(Date.now() - started).toBeLessThan(800);
+    } finally {
+      await s.app.close();
+    }
+  });
   it("close() resolves only after the aborted command has finished its own teardown, and the definite end clears the record", async () => {
     let wound = false;
     const cli: NonNullable<PhoneDeps["runCli"]> = async (_argv, env) => {

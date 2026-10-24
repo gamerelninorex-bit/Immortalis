@@ -313,7 +313,13 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",
       "actor-coupling.ts",
+      "actor-presence-integrity.ts",
+      "actor-presence.ts",
+      "auditory-premises-evaluator.ts",
+      "auditory-premises-integrity.ts",
+      "auditory-premises.ts",
       "canonical-campaign.ts",
+      "corridor.ts",
       "entity-transition-integrity.ts",
       "entity-transition-provider.ts",
       "entity-transition.ts",
@@ -322,6 +328,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "setup-eligibility.ts",
       "source-condition.ts",
     ]);
     expect(

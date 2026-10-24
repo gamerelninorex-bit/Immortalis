@@ -16,6 +16,7 @@ import { TOOL_INSTRUCTIONS, buildChatTools, type ChatToolDeps } from "./chat-too
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import type { Launch, PlayerRuns, Run } from "./runs.ts";
+import { SETUP_READBACK_COMMANDS, captureSetup, setupEvidence } from "./setup-recovery.ts";
 import {
   captureObservation,
   clearPending,
@@ -123,6 +124,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     }
   }
   const rec = {
+    setupEvidence: deps.recovery?.setupEvidence ?? setupEvidence,
     captureObservation: deps.recovery?.captureObservation ?? captureObservation,
     observationEvidence: deps.recovery?.observationEvidence ?? observationEvidence,
     completeObservation: deps.recovery?.completeObservation ?? completeObservation,
@@ -130,7 +132,22 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
   };
   let launching = false;
-  const inflight = new Set<Promise<void>>();
+  let closing = false;
+  let closePromise: Promise<void> | undefined;
+  const inflight = new Set<Promise<unknown>>();
+  const track = <T>(work: Promise<T>): Promise<T> => {
+    inflight.add(work);
+    void work.finally(() => inflight.delete(work)).catch(() => undefined);
+    return work;
+  };
+  const refereeTool: typeof callRefereeTool = (c, body) => {
+    if (closing)
+      return Promise.resolve({
+        status: 503,
+        result: { content: [{ type: "text", text: "the server is closing" }], isError: true },
+      });
+    return track((deps.chat?.callReferee ?? callRefereeTool)(c, body));
+  };
   let referee: Run | null = null;
   let refereeCalls = 0;
   const pollMs = deps.pollMs ?? POLL_MS;
@@ -454,8 +471,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       })
       .catch(() => undefined);
     // a shutdown waits for it: the command releases the campaign's writer lock only when it has wound down
-    inflight.add(chain);
-    void chain.finally(() => inflight.delete(chain));
+    track(chain);
     return run;
   }
 
@@ -476,7 +492,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
    * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
-    let cur = pending;
+    // The trusted operator may have inspected/replaced/removed the durable record since startup or the last failed run.
+    // Never let cached memory overwrite an unreadable replacement or settle a different original operation.
+    const again = readPending(config);
+    pending = again.kind === "PENDING" ? again.pending : null;
+    const cur = pending;
     const label = "reconcile";
     const blocked = (why: string, lines: string[] = [], structural = false): Launch => {
       block(why, structural);
@@ -486,21 +506,53 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       };
     };
     if (!cur) {
-      // no operation is held in memory (the record was unreadable at startup): the engineer's inspection and removal of that record is the
-      // documented remedy, and it takes effect here — the very state a restart would find
-      const again = readPending(config);
       if (again.kind === "NONE") {
         unresolvedOutcome = false;
         blocker = null;
         structuralBlock = false;
         return {
           ok: true,
-          run: finishedRun(label, ["owner readback: no pending-operation record remains"], 0),
+          run: finishedRun(
+            label,
+            [
+              "no pending-operation record remains; this is not evidence of the earlier action's outcome",
+            ],
+            0,
+          ),
         };
       }
-      if (again.kind !== "PENDING") return blocked(blocker ?? UNREADABLE_BLOCKER, [], true);
-      pending = again.pending;
-      cur = again.pending;
+      return blocked(UNREADABLE_BLOCKER, [], true);
+    }
+    if (SETUP_READBACK_COMMANDS.has(cur.command)) {
+      if (!cur.setup)
+        return blocked(
+          "the original setup document identity was not recorded; engineering must inspect it",
+          [],
+          true,
+        );
+      const evidence = await rec.setupEvidence(config, cur.setup);
+      if (closing) return refuse(503, "the server is closing; the operation remains pending");
+      if (evidence.kind === "UNAVAILABLE")
+        return blocked("the original setup's owner records could not be verified");
+      if (evidence.kind === "PARTIAL")
+        return blocked(
+          "the original setup is partially committed; the operator must inspect and finish the identical document",
+          [],
+          true,
+        );
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [], true);
+      return {
+        ok: true,
+        run: finishedRun(
+          label,
+          [
+            evidence.kind === "NONE"
+              ? "owner readback: no publication of that original setup was committed"
+              : "owner readback: every publication of that original setup is committed and verified",
+          ],
+          0,
+        ),
+      };
     }
     if (cur.command === "observe-surroundings") {
       if (!cur.identity)
@@ -510,6 +562,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           true,
         );
       const ev = await rec.observationEvidence(config, cur.identity);
+      if (closing) return refuse(503, "the server is closing; the operation remains pending");
       if (ev.kind === "UNAVAILABLE") return blocked(ev.detail);
       if (ev.kind === "NONE" || ev.kind === "NEGATIVE" || ev.kind === "COMPLETE") {
         const said =
@@ -574,10 +627,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   }
 
   /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
-  async function launchPlayer(
+  function launchPlayer(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
   ): Promise<Launch> {
+    return track(launchPlayerWork(request, lane));
+  }
+  async function launchPlayerWork(
+    request: { command: unknown; options?: unknown; setup?: unknown },
+    lane: "page" | "chat",
+  ): Promise<Launch> {
+    if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
     launching = true;
@@ -620,6 +680,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         for (const [k, v] of Object.entries(request.options as Record<string, unknown>))
           if (typeof v === "string") options[k] = v;
       const id = newRunId();
+      const setupAt = built.value.argv.indexOf("--setup");
+      const setup = SETUP_READBACK_COMMANDS.has(command)
+        ? captureSetup(config, command, built.value.argv[setupAt + 1] ?? "")
+        : null;
+      if (SETUP_READBACK_COMMANDS.has(command) && !setup) {
+        built.value.cleanup();
+        return refuse(503, "the setup identity could not be established; nothing was dispatched");
+      }
       let identity = null;
       if (command === "observe-surroundings") {
         identity = await rec.captureObservation(config, options["player-character"] ?? "");
@@ -641,6 +709,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           "the operation identity could not be established; nothing was dispatched",
         );
       }
+      if (closing) {
+        built.value.cleanup();
+        return refuse(503, "the server is closing; nothing was dispatched");
+      }
       const record: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
@@ -653,6 +725,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         blocker: null,
         identity,
         collection,
+        setup,
       };
       if (!writePending(config, record)) {
         built.value.cleanup();
@@ -703,6 +776,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   function startReferee(res: ServerResponse, body: Record<string, unknown>) {
+    if (closing) return deny(res, 503, "the server is closing");
     if (referee && !referee.done)
       return deny(res, 409, "a referee session is already open: stop it first");
     const hostId = body["host_id"];
@@ -724,13 +798,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const run: Run = { id: newRunId(), label: hostId, terminal, done: false, uncertain: false };
     referee = run;
     wakeLane("referee");
-    void console_(argv, terminal)
-      .then((code) => terminal.say(`— referee session closed (code ${code}) —`))
-      .catch(() => terminal.say("— the referee session could not run —"))
-      .finally(() => {
-        run.done = true;
-        terminal.close();
-      });
+    track(
+      console_(argv, terminal)
+        .then((code) => terminal.say(`— referee session closed (code ${code}) —`))
+        .catch(() => terminal.say("— the referee session could not run —"))
+        .finally(() => {
+          run.done = true;
+          terminal.close();
+        }),
+    );
     json(res, 200, { ok: true });
   }
   const stop = (res: ServerResponse, run: Run | null) => {
@@ -748,7 +824,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       now,
       serverInfo: { name: "immortalis-chat", version: "0.1.0" },
       instructions: TOOL_INSTRUCTIONS,
-      tools: buildChatTools({ config, runs: playerRuns, ...(deps.chat ?? {}) }),
+      tools: buildChatTools({
+        config,
+        runs: playerRuns,
+        ...(deps.chat ?? {}),
+        callReferee: refereeTool,
+      }),
     });
   }
   const readForm = (req: IncomingMessage): Promise<Record<string, unknown> | undefined> =>
@@ -929,6 +1010,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     )
       return deny(res, 403, "cross-origin request refused");
     const body = await readBody(req);
+    if (closing) return deny(res, 503, "the server is closing");
     if (body === undefined)
       return deny(res, 400, "the request body is not a JSON object within the size limit");
     if (path === "/api/login") return login(req, res, body);
@@ -955,7 +1037,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         if (refereeCalls >= 8) return deny(res, 429, "referee is busy; retry later");
         refereeCalls++;
         try {
-          const called = await callRefereeTool(config, body);
+          const called = await refereeTool(config, body);
           return json(res, called.status, called.result);
         } finally {
           refereeCalls--;
@@ -969,6 +1051,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   }
 
   const server = createServer((req, res) => {
+    if (closing) return deny(res, 503, "the server is closing");
     handle(req, res).catch(() => {
       if (!res.headersSent) deny(res, 500, "the request could not be handled");
       else res.end();
@@ -988,26 +1071,31 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           resolve(typeof address === "object" && address ? address.port : config.port);
         });
       }),
-    close: async () => {
-      player?.terminal.abort();
-      referee?.terminal.abort();
-      mcp?.closeAll();
-      wakeLane("player");
-      wakeLane("referee");
-      // a command that is still running holds the campaign's writer lock until it has wound down: wait for it (bounded) before the
-      // process can exit, or a redeploy during any action strands the lock and the restart cannot even read the campaign back
-      let timer: NodeJS.Timeout | undefined;
-      await Promise.race([
-        Promise.allSettled([...inflight]),
-        new Promise<void>((done) => {
-          timer = setTimeout(done, deps.shutdownMs ?? SHUTDOWN_MS);
-        }),
-      ]);
-      clearTimeout(timer);
-      await new Promise<void>((resolve) => {
-        server.closeAllConnections();
-        server.close(() => resolve());
-      });
+    close: () => {
+      if (closePromise) return closePromise;
+      closing = true;
+      closePromise = (async () => {
+        player?.terminal.abort();
+        referee?.terminal.abort();
+        mcp?.closeAll();
+        wakeLane("player");
+        wakeLane("referee");
+        // a command that is still running holds the campaign's writer lock until it has wound down: wait for it (bounded) before the
+        // process can exit, or a redeploy during any action strands the lock and the restart cannot even read the campaign back
+        let timer: NodeJS.Timeout | undefined;
+        await Promise.race([
+          Promise.allSettled([...inflight]),
+          new Promise<void>((done) => {
+            timer = setTimeout(done, deps.shutdownMs ?? SHUTDOWN_MS);
+          }),
+        ]);
+        clearTimeout(timer);
+        await new Promise<void>((resolve) => {
+          server.closeAllConnections();
+          server.close(() => resolve());
+        });
+      })();
+      return closePromise;
     },
   };
 }

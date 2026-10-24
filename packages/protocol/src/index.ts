@@ -14,6 +14,7 @@ export * from "./causal-event-signal.ts";
 export * from "./current-observation-glance.ts";
 export * from "./event-signal.ts";
 export * from "./pc-relocation.ts";
+export * from "./pc-corridor-relocation.ts";
 export * from "./pc-transfer-advance.ts";
 export * from "./null-pc-ooc-advance.ts";
 export * from "./null-pc-ooc-held-continuation.ts";

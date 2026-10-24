@@ -1,5 +1,6 @@
 import {
   AccessEventSchema,
+  OBSERVATION_BASE_REFS as OBSERVATION_SOURCE_INDEX,
   OBSERVATION_EVENT_BASIS,
   OWNER_REFEREE_KERNEL,
   OWNER_WORLD_STATE,
@@ -11,6 +12,7 @@ import {
   observationEventGroupId,
   observationEventIntentId,
   ok,
+  parseWorldSourceConditionKey,
   refereeDecisionKey,
   timeEquals,
   worldLocusKey,
@@ -84,18 +86,31 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   const locusMatch = locusRef ? /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locusRef.fact_key) : null;
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
-  // the appearance is of a world fact, a locus fact, or (CPAA-C1 v0.2 PROVISIONAL) the sealed delivery of the character's own
-  // completed collection: always a committed World-State fact the record cites
-  const deliveryRef = record.input.refs.find((r) =>
-    new RegExp(`^world/${worldId}/source-delivery/.+$`).test(r.fact_key),
-  );
+  // The optional sixth citation is one of two separate variants; never conflate a Source Condition and a delivery.
+  const sixth = record.input.refs[OBSERVATION_SOURCE_INDEX];
+  const delivery = sixth ? /^world\/([^/]+)\/source-delivery\/(.+)$/.exec(sixth.fact_key) : null;
+  const deliveryRef = delivery?.[1] === worldId ? sixth : undefined;
+  const scopedKey =
+    sixth && parseWorldSourceConditionKey(sixth.fact_key)?.world_id === worldId
+      ? sixth.fact_key
+      : null;
+  if (
+    (record.input.refs.length !== OBSERVATION_SOURCE_INDEX &&
+      !(record.input.refs.length === OBSERVATION_SOURCE_INDEX + 1 && (scopedKey || deliveryRef))) ||
+    d.payload.source_fact_id.startsWith("source.") !== (scopedKey !== null)
+  )
+    return fail(
+      "OBSERVATION_RECORD_INVALID",
+      "the record cites only one qualified observation variant",
+    );
   const sourceKey = d.payload.source_fact_id.startsWith("world.")
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
-        ? deliveryRef.fact_key
-        : null;
+      : (scopedKey ??
+        (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
+          ? deliveryRef.fact_key
+          : null));
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(

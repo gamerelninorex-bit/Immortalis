@@ -1,4 +1,18 @@
 import {
+  EntityId,
+  OwnerFactSchema,
+  FACET_WORLD_SOURCE_CONDITION,
+  FACET_PRODUCTION_STATE,
+  OWNER_WORLD_STATE,
+  OWNER_PRODUCTION,
+  ProductionExtractionSchema,
+  ProductionReserveSchema,
+  WorldSourceConditionSchema,
+  WorldSourceDeliverySchema,
+  productionExtractionKey,
+  productionReserveKey,
+  worldSourceDeliveryKey,
+  worldSourceConditionKey,
   OWNER_TEMPORAL_KERNEL,
   PROJECTION_UNAVAILABLE,
   PROJECTION_UNAVAILABLE_MESSAGE,
@@ -49,10 +63,12 @@ import {
  * a plain function over values; no model, provider, network or credential.
  *
  * RC-14 / IM-13 control-flow non-disclosure holds for the WHOLE gateway, not only inside the projection. The read has ONE fixed shape,
- * the same discipline as `deriveEventSignalProjection`: exactly nine identity reads of its own (eight `getFact`, one `committedGroup`)
- * in one fixed order — the Temporal state, the derived event, the group that committed it, the retained decision, and the five premises
- * that decision cites (always exactly the released character, binding, custody, world and locus) — then the unchanged projection's own
- * fixed eight, and every named step runs, in one fixed order, whatever any earlier step found. There is no early return and no
+ * the same discipline as `deriveEventSignalProjection`: thirteen identity reads (twelve `getFact`, one `committedGroup`).
+ * The order is Temporal state, derived event, committing group, retained decision, five base premises, optional sixth cited fact,
+ * and three collection qualification facts: its source condition, original Production extraction and Reserve. The sixth citation is
+ * either a Source Condition or a completed delivery; the extra three are qualification dependencies, not question premises.
+ * Ordinary/source-scoped questions use sentinels for the collection dependencies. Then the unchanged projection reads its fixed eight.
+ * Every step runs in the same order whatever an earlier step found. There is no early return and no
  * short-circuit between steps, and no read whose existence depends on an earlier result: where a read's identity would depend on a
  * value that is absent or invalid, a fixed sentinel identity that can name no committed fact is read instead, so the read still
  * happens. The Epistemic owner's qualification (`observationEventViolation`) always runs, over a fixed stand-in when there is no
@@ -145,6 +161,48 @@ const currentObservationEventId = (stateFact: OwnerFact | undefined, recipient: 
   return state.success ? observationEventId(recipient, state.data.canonical_time) : ABSENT_ID;
 };
 
+/** Derive only the original delivery's keys. No occupancy/LATEST lookup, scan or new question. */
+function collectionKeys(fact: OwnerFact | undefined, decision: OwnerFact | undefined) {
+  const record = observationRecordOf(decision);
+  const parsed = WorldSourceDeliverySchema.safeParse(fact?.value);
+  const named = /^world\/([^/]+)\/source-delivery\/(.+)$/.exec(fact?.key ?? "");
+  if (
+    !record ||
+    record.input.refs.length !== 6 ||
+    !fact ||
+    !OwnerFactSchema.safeParse(fact).success ||
+    !parsed.success ||
+    !named ||
+    fact.owner !== OWNER_WORLD_STATE ||
+    fact.facet !== FACET_WORLD_SOURCE_CONDITION ||
+    !EntityId.safeParse(named[1]).success ||
+    !EntityId.safeParse(named[2]).success ||
+    parsed.data.delivery_id !== named[2] ||
+    !named[2]!.startsWith(`pc-collect:${record.subject.pc_id}:`) ||
+    fact.key !== worldSourceDeliveryKey(named[1]!, parsed.data.delivery_id) ||
+    parsed.data.source.fact_key !==
+      worldSourceConditionKey(named[1]!, parsed.data.source.source_key)
+  )
+    return null;
+  return {
+    source: parsed.data.source.fact_key,
+    extraction: productionExtractionKey(parsed.data.delivery_id),
+  };
+}
+
+function reserveKey(fact: OwnerFact | undefined, extractionKey: string): string {
+  const parsed = ProductionExtractionSchema.safeParse(fact?.value);
+  return fact?.key === extractionKey &&
+    OwnerFactSchema.safeParse(fact).success &&
+    fact.owner === OWNER_PRODUCTION &&
+    fact.facet === FACET_PRODUCTION_STATE &&
+    parsed.success &&
+    extractionKey === productionExtractionKey(parsed.data.extraction_id) &&
+    parsed.data.reserve.fact_key === productionReserveKey(parsed.data.reserve.reserve_id)
+    ? parsed.data.reserve.fact_key
+    : ABSENT_ID;
+}
+
 /**
  * The one host operation. `context` is the trusted campaign/player binding; `request` is the untrusted host input.
  */
@@ -162,7 +220,7 @@ export function readCurrentObservationGlance(
     () => ReadCurrentObservationGlanceRequestSchema.safeParse(request).success,
   );
 
-  // -- the nine identity reads: always these, always in this order --------------------------------------------------------
+  // -- thirteen identity reads: always these, always in this order ---------------------------------------------------------
   const stateFact = step(undefined, () => view.getFact(TEMPORAL_STATE_KEY));
   const eventId = step(ABSENT_ID, () => currentObservationEventId(stateFact, recipient_id));
   const eventFact = step(undefined, () => view.getFact(accessEventKey(eventId)));
@@ -179,6 +237,15 @@ export function readCurrentObservationGlance(
   const premise2 = step(undefined, () => view.getFact(premiseKey(2)));
   const premise3 = step(undefined, () => view.getFact(premiseKey(3)));
   const premise4 = step(undefined, () => view.getFact(premiseKey(4)));
+  // The sixth slot is a Source Condition, a completed delivery, or the sentinel (five-base-premise observation).
+  const premise5 = step(undefined, () => view.getFact(premiseKey(5)));
+  const collection = step(null, () => collectionKeys(premise5, decisionFact));
+  const sourceKey = collection?.source ?? ABSENT_ID;
+  const source = step(undefined, () => view.getFact(sourceKey));
+  const extractionKey = collection?.extraction ?? ABSENT_ID;
+  const extraction = step(undefined, () => view.getFact(extractionKey));
+  const reserveFactKey = step(ABSENT_ID, () => reserveKey(extraction, extractionKey));
+  const reserve = step(undefined, () => view.getFact(reserveFactKey));
 
   // -- the owner's source qualification, over exactly those facts; it makes no read of its own ----------------------------
   const prefetched = new Map<string, OwnerFact | undefined>([
@@ -189,6 +256,32 @@ export function readCurrentObservationGlance(
     [premiseKey(2), premise2],
     [premiseKey(3), premise3],
     [premiseKey(4), premise4],
+    [premiseKey(5), premise5],
+    [
+      sourceKey,
+      step(undefined, () =>
+        source?.owner === OWNER_WORLD_STATE &&
+        OwnerFactSchema.safeParse(source).success &&
+        source.facet === FACET_WORLD_SOURCE_CONDITION &&
+        source.key === sourceKey &&
+        WorldSourceConditionSchema.safeParse(source.value).success
+          ? source
+          : undefined,
+      ),
+    ],
+    [extractionKey, extraction],
+    [
+      reserveFactKey,
+      step(undefined, () =>
+        reserve?.owner === OWNER_PRODUCTION &&
+        OwnerFactSchema.safeParse(reserve).success &&
+        reserve.facet === FACET_PRODUCTION_STATE &&
+        reserve.key === reserveFactKey &&
+        ProductionReserveSchema.safeParse(reserve.value).success
+          ? reserve
+          : undefined,
+      ),
+    ],
   ]);
   const violation = step<string | null>("the qualification did not complete", () =>
     observationEventViolation(

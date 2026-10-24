@@ -18,9 +18,25 @@ import {
   type CommandResult,
   type CommandStatus,
 } from "./commands.ts";
+import {
+  establishAdditionalLocality,
+  type AdditionalLocalityStatus,
+} from "./additional-locality.ts";
+import { establishAdditionalSource, type AdditionalSourceStatus } from "./additional-source.ts";
+import { establishCorridor, type CorridorStatus } from "./corridor.ts";
 import { establishLocality, localityStatus, type LocalityStatus } from "./locality.ts";
 import { OOC_BANNER, OOC_DEBUG_NOTE } from "./ooc.ts";
 import { observeSurroundings } from "./observation.ts";
+import { establishProductionReserve, type ProductionReserveStatus } from "./production-reserve.ts";
+import { establishInitialPopulation, type InitialPopulationStatus } from "./initial-population.ts";
+import {
+  establishInitialLocalDemand,
+  type InitialLocalDemandStatus,
+} from "./initial-local-demand.ts";
+import {
+  establishInitialTimedGovernance,
+  type InitialTimedGovernanceStatus,
+} from "./initial-timed-governance.ts";
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { clarifyCollectionCycle } from "./collection-clarification.ts";
@@ -53,9 +69,16 @@ usage:
   immortalis-operator reconcile --campaign <dir> --campaign-id <id>
   immortalis-operator establish-locality --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator locality-status    --campaign <dir> [--campaign-id <id>]
+  immortalis-operator establish-additional-source --campaign <dir> --campaign-id <id> --source-file <file>
+  immortalis-operator establish-additional-locality --campaign <dir> --campaign-id <id> --locality-file <file>
+  immortalis-operator establish-corridor --campaign <dir> --campaign-id <id> --corridor-file <file>
+  immortalis-operator establish-reserve --campaign <dir> --campaign-id <id> --reserve-file <file>
+  immortalis-operator establish-population --campaign <dir> --campaign-id <id> --population-file <file>
+  immortalis-operator establish-timed-governance --campaign <dir> --campaign-id <id> --governance-file <file>
+  immortalis-operator establish-local-demand --campaign <dir> --campaign-id <id> --demand-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
-  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
+  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
   immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
@@ -99,6 +122,81 @@ establish-locality: creates (or faithfully resumes) ONE standard campaign packag
   if the package lock was left behind); a different setup is refused for a campaign that already holds one. It is a physical
   setting only: it creates no character, actor or relationship, advances no time, and grants nobody perception, knowledge or
   permission to extract.
+establish-additional-source: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is
+  bound: adds ONE further authored EXACT_FINITE source condition at that same world and locus, from a local file YOU author (exactly the
+  source section of the setup file: a regular file you own that nobody else can write; it must state at least one physical access fact; see
+  docs/additional-source-admission-foundation.md). The whole source is shown back for ONE explicit typed confirmation before anything is
+  written; only that one new fact is written, the world, locus and first source are left exactly as they are, and success is reported only
+  after a fresh owner-verified reopen. Repeating it converges (pass --reclaim-stale-lock if the package lock was left behind); a different
+  source under the same key, or a different additional source, is refused. It is a physical setting only: no character, no time, and nobody
+  perceives, knows or may extract anything because of it. This command never creates or alters a campaign package.
+establish-additional-locality: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is
+  bound: adds ONE further distinct locus of that same world and ONE authored EXACT_FINITE source condition AT THAT NEW LOCUS, from a local
+  file YOU author (a regular file you own that nobody else can write: a strict locus section and exactly the source section of the setup
+  file; the source must state at least one physical access fact; see docs/additional-locality-admission-foundation.md). The whole proposal
+  is shown back for ONE explicit typed confirmation before anything is written; the locus is committed first and the source only after it,
+  the world, the first locus, the first source and every other fact are left exactly as they are, and success is reported only after a
+  fresh owner-verified reopen. Repeating it converges and finishes a locus committed without its source (pass --reclaim-stale-lock if the
+  package lock was left behind); anything else under the same keys, or while another additional locus is incomplete, is refused. It is a
+  physical setting only: no route, corridor, distance, travel or time between loci, no character, and nobody perceives, knows or may
+  extract anything because of it. This command never creates or alters a campaign package.
+establish-corridor: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is bound: admits ONE
+  physical corridor, the directed topological connection from one already-established locus of that world to another, distinct, already-established locus
+  of it, from a local file YOU author (a regular file you own that nobody else can write: the world, the origin locus, the destination locus and a
+  statement; see docs/world-corridor-logistics-read-foundation.md). The whole connection is shown back for ONE explicit typed confirmation before anything
+  is written; only that one new fact is written (through the existing World-State owner operation), the world, both loci and every other fact are left
+  exactly as they are, and success is reported only after a fresh owner-verified reopen. Repeating it converges (pass --reclaim-stale-lock if the package
+  lock was left behind); a different corridor for the same ordered pair is refused. It is a topological connection only: no reverse corridor, distance,
+  travel time, speed, access right, hazard verdict or route calibration is stated or implied, nothing is requested, moved or delivered, no character exists and no
+  time passes. This command never creates or alters a campaign package.
+establish-reserve: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, before any character is bound:
+  establishes ONE initially unclaimed Production Reserve at the established world and a locus the confirmed scenario established, from a
+  local file YOU author (a regular file you own that nobody else can write: exactly one strict EstablishReserveInput, namely reserve_id,
+  material_class, quantity {amount, unit}, condition, world_id and locus_id; see docs/production-reserve-admission-foundation.md). The
+  whole Reserve is shown back for ONE explicit typed confirmation before anything is written; it is committed only through the existing
+  Production owner operation, every other fact is left exactly as it is, and success is reported only after a fresh owner-verified reopen.
+  Repeating it converges (pass --reclaim-stale-lock if the package lock was left behind); a different Reserve under the same identifier is
+  refused. It is an initial physical setting only: not a collection, conversion or delivery from any source, and no entitlement, title,
+  access right, character, time or consumption. This command never creates or replaces a campaign package; it adds exactly one Reserve fact to an existing one.
+establish-population: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed and which already holds a canonical
+  time, before any character is bound: establishes ONE disjoint resident Population ledger and ONE Population-owned RESIDENCE Cohort reference
+  to it, at the established world and a locus the confirmed scenario established, from a local file YOU author (a regular file you own that
+  nobody else can write: a strict ledger section, exactly the Population owner's EstablishLedgerInput, whose point must be the campaign's
+  canonical time, and exactly one full strict CohortRef; see docs/initial-population-admission-foundation.md). The whole proposal is shown
+  back for ONE explicit typed confirmation before anything is written; the ledger is committed first and the Cohort only after it, through
+  the existing Population owner operations, every other fact is left exactly as it is, and success is reported only after a fresh
+  owner-verified reopen. Repeating it converges and finishes a ledger committed without its Cohort (pass --reclaim-stale-lock if the package
+  lock was left behind); anything else under the same keys, or while another ledger is held, is refused. The Cohort holds no result: its
+  members and count come only from Population's own later ordinary close. It is an opening setting only: no actor, mind, social truth,
+  labour, perception, collection, movement or time. This command never creates or alters a campaign package.
+establish-timed-governance: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed and which already holds a
+  canonical time, before any character is bound: establishes ONE continuing Institution Identity, its ONE Office / Authority Locus, that
+  office's ONE Scope Binding and ONE initially active Governance Instrument with ONE exact future sunset_condition, from a local file YOU author
+  (a regular file you own that nobody else can write: the four strict GIP records exactly as the GIP owner defines them, the explicit publication
+  basis and secrecy, and the canonical time, which must be the campaign's canonical time; see docs/initial-timed-governance-admission-foundation.md).
+  The whole proposal is shown back for ONE explicit typed confirmation before anything is written; the records are committed in dependency order
+  through the existing GIP owner operations, the last together with GIP's enrollment receipt and the Temporal owner's registration of the earned
+  sunset boundary, every other fact is left exactly as it is, and success is reported only after a fresh owner-verified reopen reads every record
+  and the registration back. Repeating it converges and finishes a partly committed opening (pass --reclaim-stale-lock if the package lock was left
+  behind); anything else under the same keys, or while other governance state is held, is refused. It is a stipulated opening premise only: no
+  finding of legal validity, no actor, consent or deliberation, and NO time is advanced and nothing is expired: only a separately authorized canonical
+  advance can reach the sunset, and then only GIP's own stage changes the lifecycle. This command never creates or alters a campaign package.
+establish-local-demand: for a campaign whose ORIGINAL locality establish-locality already confirmed and committed, which already holds a canonical
+  time, a Population ledger (and, if the demand is carried by a Cohort, its Cohort) that establish-population committed and a fresh Reserve that
+  establish-reserve committed at the same world and locus, before any character is bound: establishes ONE material demand attributable to ONE
+  Population Unit or Cohort, and, as a SEPARATE act you also author, ONE Production start against that Reserve with an explicit input/output
+  transformation and an exact future completion boundary, from a local file YOU author (a regular file you own that nobody else can write: a strict
+  demand section, exactly the Economy owner's IssueDemandInput, and a strict production section, exactly the Production owner's StartOperationInput,
+  naming the request that demand allocates to; see docs/initial-local-demand-admission-foundation.md). Both acts are shown back, labelled apart, for ONE
+  explicit typed confirmation before anything is written; the demand and its one Production Request are committed first and the Production start only
+  after them, through the existing Economy and Production owner operations, every other fact is left exactly as it is except the Reserve's open-claim
+  entry, and success is reported only after a fresh owner-verified reopen. Repeating it converges and finishes a demand committed without its start
+  (pass --reclaim-stale-lock if the package lock was left behind); anything else under the same keys, or while another process is held, is refused, and an
+  earlier demand is never rolled back. NO time is advanced, no Temporal object is registered, no output exists and the demand is NOT satisfied: only a
+  separately authorized canonical advance to the declared boundary, through the existing owner stages, can consume the Reserve and record realized
+  access. It is a stipulated opening premise only: no need formation, valuation, exchange, actor, decision, labour, rate or yield. This command never
+  creates, adopts, repairs or clears a campaign package; it does commit the two separately confirmed owner acts (the demand with its request,
+  then the Production operation with its claim and the Reserve's open claim) as canonical facts into the existing fresh pre-play package.
 locality-status: reports what a campaign holds of an operator-confirmed locality and says READY only when all three facts are
   committed and the campaign verifies; a partially constructed campaign is INCOMPLETE.
 author-character: for a campaign whose --world and --locus are ALREADY established (this command never creates, defaults or infers
@@ -129,6 +227,11 @@ observe-surroundings: for a character that author-character released and bound A
   was received: every non-receipt is the same message. It advances no time (canonical time stays exactly where it was) and gives the
   character no recognition, comprehension, belief, memory or action. One observation per character per canonical instant; running it
   again at the same basis reaches the same records. A new observation is a new basis and a new choice.
+  --source names ONE already committed World-State Source Condition at the character's own locus as the candidate to look at: it is your
+  choice of what to investigate, never what the character sees. The host is given only that source's owner-authored access facts (no
+  quantity, material, key or establishment statement), and the character can receive only a raw appearance of it. A source that is
+  absent, elsewhere, exhausted or undescribed is refused with nothing written. An observation of another scope at the same basis is
+  never replaced: a different look needs a new basis.
 clarify-collection-cycle: for a character that author-character released and bound (verified), at a campaign whose canonical time is
   established and BEFORE any collection commitment of that character. When the character's accepted content says it can lift and carry but
   states no duration for ONE handling cycle, you may say it in your OWN words (the number in digits and the unit of time); nothing is
@@ -176,7 +279,18 @@ export const EXIT = {
 } as const;
 
 const exitOf = (
-  s: CommandStatus | LocalityStatus | CharacterStatus | "REFEREE_HOST_BOUND",
+  s:
+    | CommandStatus
+    | LocalityStatus
+    | AdditionalSourceStatus
+    | AdditionalLocalityStatus
+    | CorridorStatus
+    | ProductionReserveStatus
+    | InitialPopulationStatus
+    | InitialTimedGovernanceStatus
+    | InitialLocalDemandStatus
+    | CharacterStatus
+    | "REFEREE_HOST_BOUND",
 ): number => {
   switch (s) {
     case "REFEREE_HOST_BOUND":
@@ -190,7 +304,32 @@ const exitOf = (
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "LOCALITY_READY":
+    case "ADDITIONAL_SOURCE_READY":
+    case "ADDITIONAL_LOCALITY_READY":
+    case "CORRIDOR_READY":
       return EXIT.OK;
+    case "CORRIDOR_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "RESERVE_READY":
+      return EXIT.OK;
+    case "RESERVE_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "POPULATION_READY":
+      return EXIT.OK;
+    case "POPULATION_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "LOCAL_DEMAND_READY":
+      return EXIT.OK;
+    case "LOCAL_DEMAND_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "GOVERNANCE_READY":
+      return EXIT.OK;
+    case "GOVERNANCE_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "ADDITIONAL_LOCALITY_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
+    case "ADDITIONAL_SOURCE_OUTCOME_UNKNOWN":
+      return EXIT.UNKNOWN;
     case "LOCALITY_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
     case "RELOCATION_COMMITTED":
@@ -230,6 +369,13 @@ const OPTIONS = {
   "target-unit": { type: "string" },
   "target-value": { type: "string" },
   setup: { type: "string" },
+  "source-file": { type: "string" },
+  "locality-file": { type: "string" },
+  "corridor-file": { type: "string" },
+  "reserve-file": { type: "string" },
+  "population-file": { type: "string" },
+  "governance-file": { type: "string" },
+  "demand-file": { type: "string" },
   "player-character": { type: "string" },
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
@@ -252,6 +398,13 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   status: [],
   "establish-locality": ["setup"],
   "locality-status": [],
+  "establish-additional-source": ["source-file"],
+  "establish-additional-locality": ["locality-file"],
+  "establish-corridor": ["corridor-file"],
+  "establish-reserve": ["reserve-file"],
+  "establish-population": ["population-file"],
+  "establish-timed-governance": ["governance-file"],
+  "establish-local-demand": ["demand-file"],
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
@@ -274,7 +427,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
 const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
-  "observe-surroundings": ["referee-wait"],
+  "observe-surroundings": ["referee-wait", "source"],
   "clarify-collection-cycle": ["referee-wait"],
   "attest-cycle": ["referee-wait"],
   "collect-continue": ["referee-wait"],
@@ -416,6 +569,118 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       for (const line of r.details) out(line);
       return exitOf(r.status);
     }
+    if (command === "establish-additional-source") {
+      const r = await establishAdditionalSource({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        sourceFile: str("source-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-additional-locality") {
+      const r = await establishAdditionalLocality({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        localityFile: str("locality-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-corridor") {
+      const r = await establishCorridor({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        corridorFile: str("corridor-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-reserve") {
+      const r = await establishProductionReserve({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        reserveFile: str("reserve-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-population") {
+      const r = await establishInitialPopulation({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        populationFile: str("population-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-timed-governance") {
+      const r = await establishInitialTimedGovernance({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        governanceFile: str("governance-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "establish-local-demand") {
+      const r = await establishInitialLocalDemand({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        demandFile: str("demand-file") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
     if (command === "establish-character-locus") {
       const r = await establishCharacterLocus({
         campaignDir: str("campaign") ?? "",
@@ -438,6 +703,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
+        ...(str("source") !== undefined ? { sourceKey: str("source")! } : {}),
         terminal: terminal!,
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),

@@ -282,7 +282,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, run, 0, runs);
   };
   const scenarioOr = (): { ok: true; s: Scenario } | { ok: false; r: ToolResult } => {
-    const checked = checkScenarioFile(config.scenarioFile);
+    const checked = checkScenarioFile(config.scenarioFile, { strict: true });
     if (!checked.ok) note?.(`${checked.defect} (${config.scenarioFile})`);
     return checked.ok
       ? { ok: true, s: checked.scenario }
@@ -619,6 +619,12 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         continue;
       }
       if (run.done || snap.pending || Date.now() >= deadline) break;
+      // An aborted terminal is closed before its command releases the writer lock. changed() then resolves immediately;
+      // yield to timers/I/O instead of spinning in microtasks and starving that teardown.
+      if (snap.closed) {
+        await new Promise((r) => setTimeout(r, Math.min(50, Math.max(1, deadline - Date.now()))));
+        continue;
+      }
       if (snap.lines.length > 0) {
         // news: give the engine one short moment to reach its confirmation (or its end) so one call carries it, then report
         if (graced) break;

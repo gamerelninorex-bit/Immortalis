@@ -50,7 +50,7 @@ export const EVALUATOR_LEGEND = [
   "faculty rests only on the character's own accepted statements",
   "position rests only on the confirmed placement statement (where, which way it faces, eyes open)",
   "path and appearance rest only on committed world and locus statements",
-  "nothing is assumed, defaulted or inferred for any of them",
+  "I-002 permits safely conventional intrinsic baseline properties; current exposure, path and appearance still need their own grounded reading",
 ] as const;
 
 const REQUIRED_PLAY_OPERATIONS = [
@@ -202,6 +202,10 @@ export async function preflightB(
   }
   const campaign = opened.value;
   try {
+    if (campaign.store.head().campaign_id !== config.campaignId) {
+      c.add("B0", "FAIL", "the opened campaign does not match the configured campaign identity");
+      return finish(c.findings);
+    }
     c.add("B0", "PASS", "the campaign opened read-only and verified");
     scenarioIdentities(c, campaign, scenario);
     await referee(c, config, opts, uid);
@@ -290,6 +294,14 @@ function scenarioIdentities(c: Collector, campaign: CanonicalCampaign, s: Scenar
     `basis ${s.basis} does not name world ${s.world}, source ${s.source} and unit ${s.quantity_unit}`,
   );
   const adapter = new PcCollectionAdapter(campaign.store);
+  const custody = campaign.pcPhysicalLocusCustody(s.player_character)?.value.stationary_locus;
+  row(
+    "B12a",
+    custody?.world.entity_id === s.world &&
+      custody?.locus.entity_id === src?.locality?.locus?.entity_id,
+    "the character is placed in the scenario source's world and locus",
+    "the character's current physical locus does not match the scenario source",
+  );
   row(
     "B11",
     adapter.mechanism(s.player_character, s.mechanism) !== undefined,

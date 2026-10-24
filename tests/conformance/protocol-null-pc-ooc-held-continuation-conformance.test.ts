@@ -51,7 +51,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol-causal.ts":
     "a535533b4ae92b71805634bc742627e45bb2223a0311631303b63c211ed588d5",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/temporal/admission.ts":
     "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/graph.ts":
@@ -67,11 +67,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/fallback-custody.ts":
-    "61cc0d588e94c3dac156e25f3dd6a578e7670ce4124c82229f6efbb71ae657f8",
+    "6a216705bb3b16fc3e1a1eb359821675a25afeedc52956552bd22ece0be7128d",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/production/provider.ts":
@@ -91,7 +91,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -100,7 +100,7 @@ const UNCHANGED: Record<string, string> = {
     "9b1713f26f43b1eb58725ce5e88ea3499a52c5ede08d8838de7d1367d9f5031d",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -127,6 +127,7 @@ describe("existing owners, the Temporal kernel, the predecessor gateways and the
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

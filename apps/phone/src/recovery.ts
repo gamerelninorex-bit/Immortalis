@@ -31,6 +31,7 @@ import {
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
 import type { PhoneConfig } from "./config.ts";
+import { validSetupIdentity, type SetupIdentity, type setupEvidence } from "./setup-recovery.ts";
 import {
   captureCollection,
   runCollectionOperation,
@@ -45,7 +46,8 @@ import {
  * keeps every other mutation blocked until the same operation is resolved. If the record cannot be maintained, nothing is dispatched.
  *
  * It is the adapter's own bookkeeping file in the operator directory (never an owner fact, never model-readable, never a model-written
- * value): it holds only identities and the closed command options the builder already validated.
+ * value): it holds identities, validated closed command options and the original document for the two document-derived setup classes.
+ * It retains no typed authoring replies or keep secret.
  */
 export const PENDING_FORMAT = "immortalis-chat-pending-operation";
 
@@ -82,6 +84,8 @@ export interface PendingOperation {
   readonly identity: ObservationIdentity | null;
   /** The original collection/ledger identities. Absent in older records, which remain blocked rather than being guessed. */
   readonly collection?: CollectionIdentity | null;
+  /** Exact pinned input for the two document-only setup publication classes; absent legacy records stay blocked. */
+  readonly setup?: SetupIdentity | null;
 }
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
@@ -136,6 +140,11 @@ export function readPending(config: PhoneConfig): PendingRead {
         v["collection"] === undefined ||
         v["collection"] === null ||
         validCollectionIdentity(v["collection"])
+      ) ||
+      !(
+        v["setup"] === undefined ||
+        v["setup"] === null ||
+        validSetupIdentity(config, v["command"], v["setup"])
       )
     )
       return { kind: "UNREADABLE" };
@@ -191,6 +200,7 @@ export type ObservationEvidence =
 
 /** the seams a test may replace; the defaults read the real campaign through the engine's own owner-verified open */
 export interface RecoveryDeps {
+  readonly setupEvidence?: typeof setupEvidence;
   readonly captureObservation?: (
     config: PhoneConfig,
     pcId: string,

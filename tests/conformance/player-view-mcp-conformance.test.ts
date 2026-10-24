@@ -27,7 +27,7 @@ const identifiers = (file: string): string =>
 /** Byte-identical to the base 76b3209: the transport consumes or stands beside every one of these, and edits none. */
 const UNCHANGED: Readonly<Record<string, string>> = {
   // the frozen specification snapshot, the lock, the register and the gates
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -36,11 +36,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
   "packages/protocol/src/current-observation-glance.ts":
-    "24e49fff98b86cf6710ec3d3c81b83985fd67a92a710f35da96003acab1e85d5",
+    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
-    "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
   "packages/protocol/src/event-signal.ts":
@@ -51,7 +51,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the operator modules the trusted read re-uses without edit
   "packages/operator/src/observation.ts":
-    "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
+    "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/original-pc.ts":
     "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/original-pc-keep.ts":
@@ -64,15 +64,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "f19ee8c74b6906b9334829b516ce7ca61b51b1ed2320f9c77c8bf18484d14543",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-session.ts":
-    "00e1cae440bbf1431e66c3fb388916c5d811317c30ac4d4c339fc23c7353637a",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/operator/src/cli.ts":
-    "72e4256ae4388987d7f935ea4b85b78b483fd78f237a56de841a92286f87e02e",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/index.ts":
-    "6d54d8ba0793d332a7af2a45b44d0728a774329951073eb2532dbfb95751fe5e",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/confirmation.ts":
-    "9527fc0b634f47dc0c412f80301bed0ed369a0bf27531dd84601c3660a2f073f",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
 };
 
 const NEW_MODULES = [
@@ -111,7 +111,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("43e4325789488e155c60f2deae5028e44286d795");
+    expect(blob).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
@@ -122,6 +122,8 @@ describe("existing owners, the gateway, the referee surface and the specificatio
   it("the operator package gained exactly the five transport modules (and, mechanically, the sixteen BLUE v5.2-A1 request modules), and the engine, contracts, protocol and testkit packages gained nothing", () => {
     expect(readdirSync("packages/operator/src").sort()).toEqual(
       [
+        "additional-locality.ts",
+        "additional-source.ts",
         "bin.ts",
         "cli.ts",
         "closed-setting.ts",
@@ -130,7 +132,11 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "collection-referee.ts",
         "commands.ts",
         "confirmation.ts",
+        "corridor.ts",
         "index.ts",
+        "initial-local-demand.ts",
+        "initial-population.ts",
+        "initial-timed-governance.ts",
         "ledger.ts",
         "local-operator.ts",
         "locality-pin.ts",
@@ -140,6 +146,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "original-pc-keep.ts",
         "original-pc-locus.ts",
         "original-pc.ts",
+        "production-reserve.ts",
         "referee-bin.ts",
         "referee-console-bin.ts",
         "referee-console.ts",
@@ -161,6 +168,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);

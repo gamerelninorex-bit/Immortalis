@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gates, lock, register, code } from "../support/f027.ts";
 import { protocolIndexExports, PROTOCOL_ONLY_EVENT_SIGNAL_READ } from "../support/protocol.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const MODULE = "packages/protocol/src/pc-relocation.ts";
 const CONTRACT = "packages/contracts/src/protocol-relocation.ts";
@@ -37,7 +38,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/logistics.ts":
-    "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
+    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/contracts/src/protocol.ts":
     "426cb9e790b435d75a4f6a1df39c792616310421e17eb953aa2f382ae4370e0c",
   "packages/contracts/src/protocol-causal.ts":
@@ -49,23 +50,23 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
-    "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
+    "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/derive.ts":
-    "96d1ee7fcaa317bcb3ce15e097671bcfebf9bf963f6c8694b15e0a1355ac4fa9",
+    "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4",
   "packages/engine/src/logistics/admission.ts":
-    "c936d655de7d8518b12b72a1591bd29950ecb619bb8a678777e5fd5a632d4a50",
+    "3c3c1a577e274139c26c266781ac2839e7123b76e545d24fcceb4b798df67bcd",
   "packages/engine/src/logistics/declaration.ts":
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/logistics/integrity.ts":
-    "cc063bd929644d14d9ff7481f88299629842845beca669cdb0c7078122711c07",
+    "4eb298089ebfd930f40d80a1ea6fb433bfc4308f7aef2454c469f1ae773f1fef",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/projection/event-signal.ts":
@@ -93,6 +94,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
@@ -294,7 +296,7 @@ describe("register, lock and gate honesty: nothing moved", () => {
     expect(lock.frozen_sources.find((s) => s.id === "I-002")!.native_pin).toBe(
       "2026-09-25T00:15:54.536Z",
     );
-    expect(JSON.stringify(lock)).not.toContain("3f320af901e08166ad96ca0fc5e5069d");
+    expectNotALockPin(lock, "3f320af901e08166ad96ca0fc5e5069d");
   });
 
   it("no register row was promoted or mentions this slice", () => {

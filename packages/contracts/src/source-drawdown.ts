@@ -50,6 +50,15 @@ export const FACET_WORLD_SOURCE_CONDITION = "world_source_condition";
 
 export const worldSourceConditionKey = (worldId: string, sourceKey: string): string =>
   `world/${worldId}/source/${sourceKey}`;
+/** The world and source-resolution key a Source Condition fact key names, or null when the key is not exactly one. */
+export const parseWorldSourceConditionKey = (
+  key: string,
+): { readonly world_id: string; readonly source_key: string } | null => {
+  const m = /^world\/([^/]+)\/source\/([^/]+)$/.exec(key);
+  return m && worldSourceConditionKey(m[1]!, m[2]!) === key
+    ? { world_id: m[1]!, source_key: m[2]! }
+    : null;
+};
 export const worldSourceDeliveryKey = (worldId: string, deliveryId: string): string =>
   `world/${worldId}/source-delivery/${deliveryId}`;
 export const productionExtractionBasisKey = (basisId: string): string =>

@@ -34,6 +34,68 @@ const REQUIRED_GATES = [
 export const REQUIRED_ADDENDA: Readonly<Record<string, string>> = {
   "F-027-CD1": "2026-10-02T15:11:03.450Z",
 };
+/**
+ * R1 Stage-One v1.1 section-scoped DESIGN lineage the lock records (23 October 2026), by id. A design-lineage successor says that named
+ * sections of an already-frozen source (or of an existing governance source) are Sovereign-ratified; it is never executable authority and
+ * never replaces, narrows or supersedes a frozen pin. `of` is the frozen source id the page extends, or null for a governance source.
+ */
+export const REQUIRED_DESIGN_LINEAGE: Readonly<
+  Record<string, { of: string | null; url: string; pin: string; sections: number }>
+> = {
+  "R1-WG-LINEAGE": {
+    of: "WG",
+    url: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+    pin: "2026-10-23T06:19:21.435Z",
+    sections: 2,
+  },
+  "R1-TEMPORAL-LINEAGE": {
+    of: "F-014B",
+    url: "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
+    pin: "2026-10-23T06:19:22.288Z",
+    sections: 2,
+  },
+  "R1-EPISTEMIC-LINEAGE": {
+    of: "F-014D",
+    url: "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+    pin: "2026-10-23T06:20:01.146Z",
+    sections: 2,
+  },
+  // a governance-source page with no F-027 frozen-source entry: it is never added to the frozen pins or the addenda
+  "R1-PC-CUSTODY-LINEAGE": {
+    of: null,
+    url: "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+    pin: "2026-10-23T06:20:02.171Z",
+    sections: 1,
+  },
+};
+
+/**
+ * The executable lowerings the lock records, by id: an executable lowering composes with the F-027 package, cites the design lineage it
+ * lowers and names its exact native pin. It is the only recorded executable authority for what it lowers.
+ */
+export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
+  Record<string, { url: string; pin: string; kinds: readonly string[]; lineage: readonly string[] }>
+> = {
+  "R1-STAGE-ONE-V1.1-LOWERING": {
+    url: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+    pin: "2026-10-23T09:27:39.157Z",
+    kinds: ["actor_setup_placement", "world_setup_closure", "actor_physical_presence"],
+    lineage: Object.keys({
+      "R1-WG-LINEAGE": 0,
+      "R1-TEMPORAL-LINEAGE": 0,
+      "R1-EPISTEMIC-LINEAGE": 0,
+      "R1-PC-CUSTODY-LINEAGE": 0,
+    }),
+  },
+  // S1-P1 (23 October 2026): one additive executable lowering of the BLUE-frozen S1 World-State physical-source owner boundary. It cites no
+  // design-lineage row (none is recorded for the S1 freeze) and extends the existing world_locus without adding a fact kind for it.
+  "S1-P1-WG-LOWERING": {
+    url: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+    pin: "2026-10-23T12:26:49.599Z",
+    kinds: ["actor_raw_sensory_state", "world_acoustic_emission"],
+    lineage: [],
+  },
+};
 const pad = (n: number) => String(n).padStart(2, "0");
 const range = (prefix: string, n: number) =>
   Array.from({ length: n }, (_, i) => `${prefix}-${pad(i + 1)}`);
@@ -72,6 +134,8 @@ export function checkSpec(root: string): string[] {
       superseded_by?: unknown;
       composed_with?: { id?: unknown; version?: unknown; package_native_pin?: unknown };
     }[];
+    design_lineage_successors?: Record<string, unknown>[];
+    executable_lowerings?: Record<string, unknown>[];
     supersedes?: unknown;
     superseded_by?: unknown;
   };
@@ -126,6 +190,118 @@ export function checkSpec(root: string): string[] {
     errors.push(
       "spec-lock.json: the F-027 package is composed with its addenda and may not be superseded",
     );
+  }
+
+  // -- R1 Stage-One v1.1: section-scoped design lineage and the executable lowering, kept apart ---------------------------------
+  const frozenById = new Map(
+    (lock.frozen_sources as { id?: string; url?: string; native_pin?: string }[] | undefined)?.map(
+      (f) => [f.id ?? "", f] as const,
+    ) ?? [],
+  );
+  const lineage = lock.design_lineage_successors ?? [];
+  for (const [id, want] of Object.entries(REQUIRED_DESIGN_LINEAGE)) {
+    const matches = lineage.filter((e) => e["id"] === id);
+    if (matches.length !== 1) {
+      errors.push(
+        `spec-lock.json: design lineage ${id} appears ${matches.length} times (expected 1)`,
+      );
+      continue;
+    }
+    const e = matches[0]!;
+    if (e["url"] !== want.url)
+      errors.push(`spec-lock.json: design lineage ${id} must name ${want.url}`);
+    if (e["native_pin"] !== want.pin)
+      errors.push(`spec-lock.json: design lineage ${id} must be pinned at exactly ${want.pin}`);
+    if (e["status"] !== "DESIGN_RATIFIED" || e["executable"] !== false)
+      errors.push(`spec-lock.json: design lineage ${id} is DESIGN_RATIFIED and never executable`);
+    if (
+      e["narrows_frozen_pin"] !== false ||
+      e["supersedes"] !== null ||
+      e["superseded_by"] !== null
+    )
+      errors.push(
+        `spec-lock.json: design lineage ${id} may not supersede or narrow any frozen pin`,
+      );
+    if (
+      !Array.isArray(e["sections"]) ||
+      e["sections"].length !== want.sections ||
+      !e["sections"].every((t) => typeof t === "string" && t.length > 0)
+    )
+      errors.push(
+        `spec-lock.json: design lineage ${id} must list its ${want.sections} exact section title(s)`,
+      );
+    if (e["of_frozen_source"] !== want.of)
+      errors.push(`spec-lock.json: design lineage ${id} extends ${String(want.of)}`);
+    if (want.of === null) {
+      // a governance-source page is never promoted into the frozen pins or the implementation-authority addenda
+      if ([...frozenById.values()].some((f) => f.url === want.url))
+        errors.push(`spec-lock.json: ${id} may not be promoted into the frozen sources`);
+      if (addenda.some((a) => a.url === want.url))
+        errors.push(
+          `spec-lock.json: ${id} may not be promoted into the implementation authority addenda`,
+        );
+    }
+    if (want.of !== null) {
+      const frozen = frozenById.get(want.of);
+      if (!frozen || frozen.url !== want.url)
+        errors.push(
+          `spec-lock.json: design lineage ${id} must extend the frozen ${want.of} page, whose own pin stays unchanged`,
+        );
+      else if (frozen.native_pin === e["native_pin"])
+        errors.push(
+          `spec-lock.json: design lineage ${id} may not restate the frozen pin as its own`,
+        );
+    }
+  }
+  for (const e of lineage) {
+    if (typeof e["id"] !== "string" || !(e["id"] in REQUIRED_DESIGN_LINEAGE))
+      errors.push(`spec-lock.json: unexpected design lineage ${String(e["id"])}`);
+  }
+  const lowerings = lock.executable_lowerings ?? [];
+  for (const [id, want] of Object.entries(REQUIRED_EXECUTABLE_LOWERINGS)) {
+    const matches = lowerings.filter((e) => e["id"] === id);
+    if (matches.length !== 1) {
+      errors.push(
+        `spec-lock.json: executable lowering ${id} appears ${matches.length} times (expected 1)`,
+      );
+      continue;
+    }
+    const e = matches[0]!;
+    if (e["url"] !== want.url)
+      errors.push(`spec-lock.json: executable lowering ${id} must name ${want.url}`);
+    if (e["native_pin"] !== want.pin)
+      errors.push(
+        `spec-lock.json: executable lowering ${id} must be pinned at exactly ${want.pin}`,
+      );
+    if (e["status"] !== "FROZEN_EXECUTABLE_LOWERING" || e["executable"] !== true)
+      errors.push(`spec-lock.json: ${id} is the frozen executable lowering`);
+    if (
+      e["relation"] !== "COMPOSES_WITH" ||
+      e["supersedes"] !== null ||
+      e["superseded_by"] !== null
+    )
+      errors.push(`spec-lock.json: ${id} must COMPOSE with F-027, never replace it`);
+    const w = e["composed_with"] as {
+      id?: unknown;
+      version?: unknown;
+      package_native_pin?: unknown;
+    };
+    if (
+      w?.id !== "F-027" ||
+      w.version !== lock.package?.version ||
+      w.package_native_pin !== lock.package?.native_pin
+    )
+      errors.push(
+        `spec-lock.json: ${id} must name the F-027 package version and native pin it composes with`,
+      );
+    if (JSON.stringify(e["cites_design_lineage"]) !== JSON.stringify(want.lineage))
+      errors.push(`spec-lock.json: ${id} must cite exactly the design lineage it lowers`);
+    if (JSON.stringify(e["fact_kinds"]) !== JSON.stringify(want.kinds))
+      errors.push(`spec-lock.json: ${id} must name exactly its fact kinds`);
+  }
+  for (const e of lowerings) {
+    if (typeof e["id"] !== "string" || !(e["id"] in REQUIRED_EXECUTABLE_LOWERINGS))
+      errors.push(`spec-lock.json: unexpected executable lowering ${String(e["id"])}`);
   }
 
   const snapshot = lock.snapshot_files ?? {};

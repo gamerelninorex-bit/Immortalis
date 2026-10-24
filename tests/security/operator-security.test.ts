@@ -61,11 +61,53 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // `time-initialization.ts` is the one module the bounded semantic delegation authorizes to call `establishCanonicalTime` (once, from the
     // author's owner-verified, separately confirmed starting chronology); it is bound by its own, narrower check
     // (tests/conformance/time-initialization-conformance.test.ts).
+    // `additional-source.ts` is likewise the one module the additional-source brief authorizes to call the existing
+    // `establishSourceCondition` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards) republishes the
+    // committed world and locus to prove the owner path admits the source. It is bound by its own, narrower checks
+    // (tests/security/additional-source-security.test.ts and tests/conformance/additional-source-conformance.test.ts).
+    // `additional-locality.ts` is likewise the one module the additional-locality brief authorizes to call the existing `establishLocus`
+    // and then `establishSourceCondition` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
+    // republishes the committed world to prove the owner path admits the locus and source. It is bound by its own, narrower checks
+    // (tests/security/additional-locality-security.test.ts and tests/conformance/additional-locality-conformance.test.ts).
+    // `initial-population.ts` is likewise the one module the initial-Population brief authorizes to call the existing
+    // `PopulationAdapter.establishLedger` and `PopulationAdapter.instantiateCohort` on the operator's campaign; its scratch dry run (a
+    // throwaway package, removed afterwards) republishes the committed world and locus to prove the owner path admits the population. It
+    // is bound by its own, narrower checks (tests/security/initial-population-security.test.ts and
+    // tests/conformance/initial-population-conformance.test.ts), which also forbid it any clock, close or reconciliation.
+    // `initial-timed-governance.ts` is likewise the one module the initial-timed-governance brief authorizes to call the existing
+    // `GipAdapter.establishInstitution`, `establishOffice`, `establishScopeBinding` and `establishSunsetInstrument` on the operator's
+    // campaign (the last of which has the Temporal owner register the earned sunset boundary); its scratch dry run (a throwaway package,
+    // removed afterwards) receives the campaign's canonical time through the Temporal owner's own ordinary route to prove the owner path
+    // admits and registers the opening. It is bound by its own, narrower checks (tests/security/initial-timed-governance-security.test.ts
+    // and tests/conformance/initial-timed-governance-conformance.test.ts), which also forbid it any live clock, advance, expiry or
+    // lifecycle write.
+    // `initial-local-demand.ts` is likewise the one module the initial-local-demand brief authorizes to call the existing
+    // `EconomyAdapter.issueDemand` and then `ProductionAdapter.startOperation` on the operator's campaign; its owner-path check (a copy
+    // of the package's committed files in a private scratch directory, removed afterwards) runs the same two owner operations on the
+    // copy. It is bound by its own, narrower checks (tests/security/initial-local-demand-security.test.ts and
+    // tests/conformance/initial-local-demand-conformance.test.ts), which also forbid it any clock, advance, registration, stage or
+    // realization write.
+    // `production-reserve.ts` is likewise the one module the initial-Production-Reserve brief authorizes to call the existing
+    // `ProductionAdapter.establishReserve` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
+    // republishes the committed world and locus to prove the owner path admits the Reserve. It is bound by its own, narrower checks
+    // (tests/security/production-reserve-security.test.ts and tests/conformance/production-reserve-conformance.test.ts).
+    // `corridor.ts` is likewise the one module the source-qualified-corridor brief authorizes to call the existing
+    // `CanonicalCampaign.establishCorridor` on the operator's campaign; its scratch dry run (a throwaway package, removed afterwards)
+    // republishes the committed world and both loci to prove the owner path admits the corridor. It is bound by its own, narrower checks
+    // (tests/security/corridor-security.test.ts and tests/conformance/corridor-conformance.test.ts), which also forbid it any request,
+    // movement, Logistics, clock, advance or registration surface.
     for (const f of files.filter(
       (x) =>
         !x.endsWith("/locality.ts") &&
+        !x.endsWith("/corridor.ts") &&
         !x.endsWith("/original-pc.ts") &&
-        !x.endsWith("/time-initialization.ts"),
+        !x.endsWith("/time-initialization.ts") &&
+        !x.endsWith("/additional-source.ts") &&
+        !x.endsWith("/additional-locality.ts") &&
+        !x.endsWith("/production-reserve.ts") &&
+        !x.endsWith("/initial-population.ts") &&
+        !x.endsWith("/initial-timed-governance.ts") &&
+        !x.endsWith("/initial-local-demand.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
         /\.commit\(|\.registerObject\(|\.advance\(|establishCanonicalTime|continueRemainder|commitPcVoluntaryMovement|establishPcMovementRequest|commitMovement|\.dispatch\(|establishWorld|establishLocus|releasePlayerCharacter|bindPlayerCharacter|handoverExistingActor|coupleExistingActor|establishPcPhysicalLocusCustody|CanonicalCampaign\.create|createFileCampaign|CANON_WRITE_AUTHORITY|OWNER_|FACET_|\bfactKind\b/,

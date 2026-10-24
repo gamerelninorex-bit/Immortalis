@@ -36,7 +36,7 @@ const importedNames = (file: string, from: string): string[] =>
 
 /** Everything the mechanism composes or must leave untouched, exactly as it stood at the base (main f0e4069). */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -47,7 +47,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
   "packages/protocol/src/index.ts":
-    "bea2ba9f64fa7c761fa361632e7518d47f00f8ab42a25a3d22c9568b29214709",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/protocol-relocation.ts":
@@ -59,13 +59,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/contracts/src/logistics.ts":
-    "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
+    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
-    "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
+    "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -81,7 +81,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/gip/adapter.ts":
     "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
   "packages/engine/src/logistics/adapter.ts":
-    "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
+    "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
@@ -99,6 +99,7 @@ describe("existing owners, gateways and the frozen artifacts are untouched: the 
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
@@ -191,14 +192,17 @@ describe("the package composes only the existing gateways and canonical reads", 
     expect(names).toEqual([
       "CandidateItem",
       "CanonicalCampaign",
+      "EconomyAdapter",
       "FileCampaignOptions",
       "FsOps",
+      "GipAdapter",
       "I002Context",
       "IrContext",
       "LogisticsAdapter",
       "ObservationContext",
       "PcCollectionAdapter",
       "PhysicalContext",
+      "PopulationAdapter",
       "ProductionAdapter",
       "RefereeAdjudicationAdapter",
       "SourceDrawdownAdapter",
@@ -213,6 +217,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "deriveObservation",
       "derivePhysical",
       "formObservedPacket",
+      "gipSunsetTemporalObject",
       "interpretCycleAnswer",
       "interpretPcCollectionReachAnswer",
       "nodeFs",
@@ -256,6 +261,8 @@ describe("the package composes only the existing gateways and canonical reads", 
       "StartingChronologySchema",
       "USAGE",
       "WORLD_CLAIMS_NONE_TEXT",
+      "additionalLocalityId",
+      "additionalSourceId",
       "advance",
       "applyEdits",
       "askI002",
@@ -279,13 +286,31 @@ describe("the package composes only the existing gateways and canonical reads", 
       "collectionTaskId",
       "compileContract",
       "consumeConfirmation",
+      "corridorId",
       "custodyProblems",
       "declareClosedSetting",
       "defaultOperatorDir",
       "ensureOperatorStateDirectory",
+      "establishAdditionalLocality",
+      "establishAdditionalSource",
       "establishCharacterLocus",
+      "establishCorridor",
+      "establishInitialLocalDemand",
+      "establishInitialPopulation",
+      "establishInitialTimedGovernance",
       "establishLocality",
+      "establishProductionReserve",
+      "expectedCohort",
+      "expectedDemand",
+      "expectedEnrollment",
+      "expectedLedger",
+      "expectedRequest",
+      "expectedReserve",
+      "expectedStart",
       "findingsLines",
+      "initialLocalDemandId",
+      "initialPopulationId",
+      "initialTimedGovernanceId",
       "initializeTime",
       "isSetAside",
       "judgeOperatorDirectory",
@@ -306,12 +331,20 @@ describe("the package composes only the existing gateways and canonical reads", 
       "pcTargetResume",
       "pendingTasks",
       "prepareCollection",
+      "productionReserveId",
       "proofOf",
       "publishRefereeDocument",
       "publishTask",
+      "readAdditionalLocalityFile",
+      "readAdditionalSourceFile",
       "readConfig",
+      "readCorridorFile",
+      "readInitialLocalDemandFile",
+      "readInitialPopulationFile",
+      "readInitialTimedGovernanceFile",
       "readLocalitySetupFile",
       "readOwnedSetupFile",
+      "readProductionReserveFile",
       "readTask",
       "reconcile",
       "refereeConfigured",

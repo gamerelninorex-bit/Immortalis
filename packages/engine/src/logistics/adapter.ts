@@ -1,5 +1,6 @@
 import {
   CANON_WRITE_AUTHORITY,
+  CommitCorridorMovementInputSchema,
   CommitMovementInputSchema,
   DispatchMovementInputSchema,
   LogisticsCommitmentSchema,
@@ -8,10 +9,12 @@ import {
   PublicationSchema,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
+  WorldCorridorSchema,
   fail,
   logisticsCommitmentKey,
   logisticsTransferKey,
   worldEntityTransitionKey,
+  type CanonicalTime,
   type CommitGroup,
   type LogisticsCommitment,
   type LogisticsTransfer,
@@ -19,9 +22,10 @@ import {
   type Publication,
   type Result,
   type SchemaIssues,
+  type WorldCorridor,
 } from "@immortalis/contracts";
 import { factKind } from "../owners/registry.ts";
-import { parsePhysicalSubject } from "../world/physical-subject.ts";
+import { parsePhysicalSubject, physicalSubjectOf } from "../world/physical-subject.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { deriveCommitment, deriveTransfer } from "./derive.ts";
 import { logisticsFactsOf, resolveEntityLocus, type ResolvedEntityLocus } from "./locus.ts";
@@ -63,6 +67,8 @@ export class LogisticsAdapter {
    * request (a foreign fact, referenced), the entity (identity, quantity and condition stay with World-State), the
    * destination locus and the canonical temporal basis. One movement slot exists per entity: a second request for
    * the same entity, or one for an entity that already changed locus, is refused.
+   *
+   * This is the route-less foundation path, unchanged: it reads no corridor and a committed corridor neither helps nor hinders it.
    */
   async commitMovement(
     input: Publication & { readonly commit: unknown },
@@ -71,7 +77,40 @@ export class LogisticsAdapter {
     if (!p.success) return invalid("publication", p.error);
     const i = CommitMovementInputSchema.safeParse(input.commit);
     if (!i.success) return invalid("commit", i.error);
-    const requestFact = this.#store.getFact(i.data.request_key);
+    return this.#commitMovement(p.data, i.data.request_key, i.data.delivery_at, undefined);
+  }
+
+  /**
+   * The explicitly source-qualified commitment: exactly `commitMovement`, but Logistics first reads the named World-State corridor and
+   * pins it (key, owner and exact committed version) together with the request and the entity's current origin and requested
+   * destination, and refuses before committing anything when the corridor is missing, is not the connection of THIS ordered origin to
+   * THIS destination in THIS world (a reverse, wrong-endpoint or wrong-world corridor), or is not World-State's own fact. The corridor
+   * is a topological prerequisite only: it supplies no delivery boundary (the declared one stays the caller's), no duration, access,
+   * capability or delivery, and no other engaged input is waived. A commitment of the route-less foundation path is a different,
+   * unchanged path, so a world with corridors does not retroactively change any historic commitment.
+   */
+  async commitCorridorMovement(
+    input: Publication & { readonly commit: unknown },
+  ): Promise<Result<CommitOutcome, LogisticsErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return invalid("publication", p.error);
+    const i = CommitCorridorMovementInputSchema.safeParse(input.commit);
+    if (!i.success) return invalid("commit", i.error);
+    return this.#commitMovement(
+      p.data,
+      i.data.request_key,
+      i.data.delivery_at,
+      i.data.corridor_key,
+    );
+  }
+
+  async #commitMovement(
+    p: Publication,
+    requestKey: string,
+    deliveryAt: CanonicalTime,
+    corridorKey: string | undefined,
+  ): Promise<Result<CommitOutcome, LogisticsErrorCode>> {
+    const requestFact = this.#store.getFact(requestKey);
     const request = requestFact
       ? MovementServiceRequestSchema.safeParse(requestFact.value)
       : undefined;
@@ -80,7 +119,7 @@ export class LogisticsAdapter {
         "PREREQUISITE_MISSING",
         "no Movement Service Request is committed at the given key",
         {
-          key: i.data.request_key,
+          key: requestKey,
         },
       );
     }
@@ -94,13 +133,33 @@ export class LogisticsAdapter {
         key: r.subject.fact_key,
       });
     }
-    const prior = this.#store.committedGroup(p.data.intent_id);
+    // the corridor, when named, is read as the committed World-State fact it is; an absent or malformed one is a missing prerequisite
+    let corridorFact: OwnerFact | undefined;
+    let corridor: WorldCorridor | undefined;
+    if (corridorKey !== undefined) {
+      corridorFact = this.#store.getFact(corridorKey);
+      const parsedCorridor = corridorFact
+        ? WorldCorridorSchema.safeParse(corridorFact.value)
+        : undefined;
+      if (!corridorFact || !parsedCorridor?.success) {
+        return fail(
+          "PREREQUISITE_MISSING",
+          "no World-State corridor is committed at the given key",
+          {
+            key: corridorKey,
+          },
+        );
+      }
+      corridor = parsedCorridor.data;
+    }
+    const prior = this.#store.committedGroup(p.intent_id);
     const priorW = prior?.writes.find((w) => w.key === slot);
     let now;
     let reads: CommitGroup["reads"];
     let depends_on: readonly string[];
     let requestVersion = requestFact.version;
     let entityVersion = entityFact.version;
+    let corridorVersion = corridorFact?.version;
     let transitioned: boolean;
     if (prior && priorW) {
       // reconcile by identity: rebuild on the committed basis
@@ -109,6 +168,7 @@ export class LogisticsAdapter {
       now = was.data.committed_at;
       requestVersion = was.data.request.version;
       entityVersion = was.data.moved.version;
+      corridorVersion = was.data.corridor?.version ?? corridorVersion;
       reads = prior.reads;
       depends_on = prior.depends_on;
       transitioned = false;
@@ -126,11 +186,13 @@ export class LogisticsAdapter {
         });
       }
       now = clock.data.canonical_time;
+      const origin = physicalSubjectOf(entity).locality;
       const pinned = [
-        i.data.request_key,
+        requestKey,
         r.subject.fact_key,
         r.destination.world.fact_key,
         r.destination.locus.fact_key,
+        ...(corridorKey !== undefined ? [origin.locus.fact_key, corridorKey] : []),
         TEMPORAL_STATE_KEY,
       ];
       reads = pinned.map((k) => ({ key: k, version: this.#store.getFact(k)?.version ?? 0 }));
@@ -150,13 +212,23 @@ export class LogisticsAdapter {
       entity: { key: entityFact.key, version: entityVersion, value: entity },
       transitioned,
       now,
-      delivery_at: i.data.delivery_at,
+      delivery_at: deliveryAt,
+      ...(corridorFact && corridor && corridorVersion !== undefined
+        ? {
+            corridor: {
+              key: corridorFact.key,
+              owner: corridorFact.owner,
+              version: corridorVersion,
+              value: corridor,
+            },
+          }
+        : {}),
     });
     if (!derived.ok) {
-      return fail("INPUT_INVALID", derived.error.message, { key: i.data.request_key });
+      return fail("INPUT_INVALID", derived.error.message, { key: requestKey });
     }
     return this.#publish(
-      p.data,
+      p,
       "logistics_commitment",
       [{ key: slot, value: derived.value, expected_version: 0 }],
       reads,

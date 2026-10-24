@@ -49,7 +49,7 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       native_pin: pin("I-002").native_pin,
     });
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
     );
   });
 
@@ -243,36 +243,36 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/contracts/src/actor-coupling.ts":
     "ee204eb2426b4c86c2a80207fbf1eec2192f0d83d5ae5bb22f469fb86830e681",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "bcf8fe73d9b175ebb6d20201d836d7ab9852d1b8192fda935769d6ef1aab72d2",
+    "50573f859ed5864428e493a254225a4aafd7d323b31e177b9dd4b5bf3b9a8add",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "3c9ad7e48ae35c96790aee88c5a8585b20e1d13d6c31dcdf4f5637d43d2070b7",
+    "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   "packages/engine/src/world/actor-coupling.ts":
-    "4469c7605461dc0942fc092e9fa85f180b9f067d6a8ab972edb9db7aca764cf6",
+    "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
   "packages/engine/src/world/fallback-custody.ts":
-    "61cc0d588e94c3dac156e25f3dd6a578e7670ce4124c82229f6efbb71ae657f8",
+    "6a216705bb3b16fc3e1a1eb359821675a25afeedc52956552bd22ece0be7128d",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/pc-movement/integrity.ts":
     "37d20ecd819d9ac330d17a183e00dbd29f81f697f6b4f6c123b5e893c4cdf0ff",
   "packages/engine/src/persistence/file-package.ts":
-    "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
+    "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/commands.ts":
@@ -306,11 +306,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "efc6b9de73ec969804baf960095a85cbbf24bc8c2471e9e74be2b899e03c8dc9",
+    head: "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -318,7 +318,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "d325d06417a221e731d0999be3da633684a9ce56f42b7f30582a4d3e9266823e",
+    head: "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
@@ -326,7 +326,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "aa4f6f168b203886c89e35248788a8fb2a8b79be6b233c95a613b8bd8c7b9e6f",
+    head: "07e115fdbc9e2d242f4e15dbf3cfc041597c8e349e15b8d731c0c4691d34e625",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
@@ -334,7 +334,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
+    head: "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -342,19 +342,19 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/pc-locus-custody.ts": {
     base: "6f3a2e7045223b1221abd7fd2b19c0cd18e9a1101f19d19e5b8c6d4984f7c03a",
-    head: "2fd911ec1abfcfba49055fb5ff266d86ff79b45197fc7493215f840e43f41eed",
+    head: "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "72e4256ae4388987d7f935ea4b85b78b483fd78f237a56de841a92286f87e02e",
+    head: "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "9527fc0b634f47dc0c412f80301bed0ed369a0bf27531dd84601c3660a2f073f",
+    head: "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "6d54d8ba0793d332a7af2a45b44d0728a774329951073eb2532dbfb95751fe5e",
+    head: "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
@@ -362,7 +362,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "f19ee8c74b6906b9334829b516ce7ca61b51b1ed2320f9c77c8bf18484d14543",
+    head: "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
@@ -370,7 +370,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "00e1cae440bbf1431e66c3fb388916c5d811317c30ac4d4c339fc23c7353637a",
+    head: "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   },
 };
 // DELTAS:END

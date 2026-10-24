@@ -1,9 +1,12 @@
 import {
   EntityId,
+  OBSERVATION_BASE_REFS,
   REFEREE_AUTHORITY,
   REFEREE_OP_OBSERVATION,
+  RefereeDecisionRecordSchema,
   accessEventKey,
   accessPacketKey,
+  parseWorldSourceConditionKey,
   type CanonicalTime,
   type EventSignalPresentation,
 } from "@immortalis/contracts";
@@ -52,6 +55,13 @@ import type { OperatorTerminal } from "./terminal.ts";
  * stage through one event-triggered resolution transaction at the unchanged canonical time (F-017 §4; no Temporal object, no indexed
  * boundary), and the sealed Accessible Content Packet and its Sealed Engine Provenance form together. The player is then shown the result through the existing trusted, read-only Event-Signal delivery.
  *
+ * SOURCE-SCOPED observation (`sourceKey`, trusted-operator input only). The operator may name ONE already committed World-State
+ * Source Condition at the character's own locus as the candidate to look at. That names a candidate for investigation, never what the
+ * character sees: the engine accepts it only if it is a committed, non-exhausted, access-described Source Condition of exactly the
+ * character's world and locus, pins it as a sixth premise, and delivers the referee only its owner-authored access facts (never its
+ * quantity, material, key or statement). Everything after the question is the unchanged route: only a derived OBSERVATION_ESTABLISHED
+ * reading earns the event and packet, and an observation already earned at the basis is replayed only for the same scope.
+ *
  * What the player is NEVER shown: the world's facts, the host's reasoning, the verdict, or any difference between "nothing is there",
  * "something blocks it" and "this could not be settled". Every non-receipt is the same message; the retained decision is sealed
  * engine-side evidence. The command advances no time, writes no actor-side state and grants no recognition, comprehension, belief,
@@ -64,6 +74,8 @@ export interface ObserveSurroundingsParams {
   readonly campaignId: string;
   readonly pcId: string;
   readonly terminal: OperatorTerminal;
+  /** TRUSTED-SIDE: the one existing candidate Source Condition to look at (see above). Never a host, client or model input. */
+  readonly sourceKey?: string;
   readonly operatorDir?: string;
   readonly reclaimStaleLock?: boolean;
   readonly buildId?: string;
@@ -78,6 +90,8 @@ const TIME = (t: CanonicalTime): string => `${t.value} ${t.unit}`;
 export async function observeSurroundings(p: ObserveSurroundingsParams): Promise<CharacterResult> {
   if (!EntityId.safeParse(p.pcId).success)
     return result("INVALID_REQUEST", ["the character identity is not valid"]);
+  if (p.sourceKey !== undefined && !EntityId.safeParse(p.sourceKey).success)
+    return result("INVALID_REQUEST", ["the source identity is not valid"]);
   const opened = await openSession({
     campaignDir: p.campaignDir,
     campaignId: p.campaignId,
@@ -169,7 +183,8 @@ async function run(
   if (custody.length > 0) return result("LOCUS_CONFLICT", custody);
 
   const adapter = new RefereeAdjudicationAdapter(campaign.store);
-  const first = adapter.observationTask({ pc_id: pcId, attempt: 0 });
+  const scope = p.sourceKey !== undefined ? { source_key: p.sourceKey } : {};
+  const first = adapter.observationTask({ pc_id: pcId, attempt: 0, ...scope });
   if (!first.ok)
     return result("OBSERVATION_NOT_AVAILABLE", [first.error.message], first.error.code);
   const at = first.value.context.observed_at;
@@ -183,6 +198,25 @@ async function run(
     const cited = campaign.store.committedGroup(earned.provenance.intent_id)?.reads[0]?.key;
     if (cited === undefined)
       return result("OBSERVATION_VERIFICATION_FAILED", ["the earned event has no decision"]);
+    // a replay is of THIS choice's own observation: an observation of another scope (a different source, or none) holds the one basis
+    // and is never shown as, nor overwritten by, this one
+    const earnedFact = campaign.store.getFact(cited);
+    const earnedParsed = earnedFact
+      ? RefereeDecisionRecordSchema.safeParse(earnedFact.value)
+      : undefined;
+    if (!earnedParsed?.success || earnedParsed.data.operation !== REFEREE_OP_OBSERVATION)
+      return result("OBSERVATION_VERIFICATION_FAILED", ["the earned event has no decision"]);
+    const earnedRecord = earnedParsed.data;
+    const earnedScope =
+      earnedRecord.input.refs.length > OBSERVATION_BASE_REFS
+        ? (parseWorldSourceConditionKey(earnedRecord.input.refs[OBSERVATION_BASE_REFS]!.fact_key)
+            ?.source_key ?? null)
+        : null;
+    if (earnedScope !== (p.sourceKey ?? null))
+      return result("OBSERVATION_NOT_AVAILABLE", [
+        `character: ${pc.fact.key} (nothing was changed)`,
+        "an observation of another scope already holds this canonical basis; a different look needs a new basis",
+      ]);
     decisionKey = cited;
   } else {
     // a decision already retained for this very question (a negative or unresolved one included) is not asked again: the host is never
@@ -194,12 +228,15 @@ async function run(
     } else {
       const worldId = binding.value.coupling.world.entity_id;
       const locusId = binding.value.coupling.locus.entity_id;
+      const sourcePin = first.value.context.refs[OBSERVATION_BASE_REFS];
       const pins = {
         pc: pc.fact.version,
         binding: binding.fact.version,
         custody: campaign.pcPhysicalLocusCustody(pcId)!.fact.version,
         world: campaign.world(worldId)!.fact.version,
         locus: campaign.locus(worldId, locusId)!.fact.version,
+        // a source-scoped choice is bound to the exact source version it was shown at; an unscoped choice's subject is unchanged
+        ...(sourcePin ? { source: sourcePin.version } : {}),
       };
       const subject = subjectOf({
         verb: "observe-surroundings",
@@ -209,6 +246,7 @@ async function run(
         locus_id: locusId,
         pins,
         observed_at: at,
+        ...(p.sourceKey !== undefined ? { source_key: p.sourceKey } : {}),
       });
       const decision = await requestOperatorDecision(
         terminal,
@@ -219,6 +257,11 @@ async function run(
           OOC_BANNER,
           `character: ${pcId}`,
           `canonical basis: ${TIME(at)}`,
+          ...(p.sourceKey !== undefined
+            ? [
+                `candidate source named by you: ${p.sourceKey} - a candidate to look at, not what the character sees; its quantity, material and key are never given to the host or shown to the character`,
+              ]
+            : []),
           "Confirming is your choice that your character looks at its surroundings NOW, at this basis. The AI referee host is asked what its sight directly receives from the committed physical setting; you will be shown only the raw appearance it receives, if any - never the setting, the host's reasoning or why nothing was received.",
           "It advances no time and gives the character no recognition, comprehension, belief, memory or action.",
         ],
@@ -230,7 +273,11 @@ async function run(
       )
         return result("DECLINED", ["nothing was observed; nothing was changed"]);
 
-      const asked = await askObservation(adapter, rt, { campaign_id: campaignId, pc_id: pcId });
+      const asked = await askObservation(adapter, rt, {
+        campaign_id: campaignId,
+        pc_id: pcId,
+        ...scope,
+      });
       if (asked.kind !== "ANSWERED") {
         const detail = [`character: ${pc.fact.key} (no observation made)`];
         return asked.kind === "PENDING"
@@ -245,6 +292,7 @@ async function run(
         host: { host_id: asked.host.host_id, claimed_model: asked.host.claimed_model },
         pc_id: pcId,
         attempt: asked.attempt,
+        ...scope,
         answer: asked.decision,
       });
       if (!recorded.ok) {

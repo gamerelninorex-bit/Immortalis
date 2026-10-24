@@ -10,12 +10,13 @@ import {
   chmodSync,
   mkdirSync,
   readFileSync,
+  statSync,
   readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bindHost } from "@immortalis/operator";
 import { runPlayerViewBindCli } from "../../packages/operator/src/player-view-mcp.ts";
@@ -27,6 +28,7 @@ import { loadConfig, type PhoneConfig } from "../../apps/phone/src/config.ts";
 import { PLAYER_COMMANDS } from "../../apps/phone/src/commands.ts";
 import { preflightA, preflightB, type Finding } from "../../apps/phone/src/preflight.ts";
 import { checkScenarioFile, SCENARIO_KEYS } from "../../apps/phone/src/scenario.ts";
+import { prepareChat } from "../../apps/phone/src/prepare-chat.ts";
 import { PLAYER, REFEREE, chatConfig } from "../support/chat-client.ts";
 import {
   LOCALITY_CAMPAIGN,
@@ -57,6 +59,31 @@ const SCENARIO = {
 };
 const VIEW_HOST = "glance-host";
 const COLLECTION_HOST = "gm-collection";
+
+describe("explicit operator chat preparation", () => {
+  it("installs a private canon-checked scenario and the configured view, is repeatable, and preserves canon", async () => {
+    const r = await rig();
+    const input = join(dirname(r.scenarioFile), "input.json");
+    writeScenario(input, SCENARIO);
+    rmSync(r.scenarioFile);
+    const before = await snapshot(r.dirs.campaignDir);
+    expect(await prepareChat(r.config, input)).toMatchObject({ ok: true });
+    expect(JSON.parse(readFileSync(r.scenarioFile, "utf8"))).toEqual(SCENARIO);
+    expect(statSync(r.scenarioFile).mode & 0o777).toBe(0o600);
+    expect(await prepareChat(r.config, input)).toMatchObject({ ok: true });
+    expect(await snapshot(r.dirs.campaignDir)).toEqual(before);
+    expect((await preflightB(r.config)).ok).toBe(true);
+    expect((await prepareChat({ ...r.config, playerViewHostId: null }, input)).ok).toBe(false);
+    expect((await prepareChat({ ...r.config, campaignId: "foreign-campaign" }, input)).ok).toBe(
+      false,
+    );
+    writeScenario(input, { ...SCENARIO, player_character: "foreign-pc" });
+    expect((await prepareChat(r.config, input)).ok).toBe(false);
+    expect(JSON.parse(readFileSync(r.scenarioFile, "utf8"))).toEqual(SCENARIO);
+    chmodSync(input, 0o666);
+    expect((await prepareChat(r.config, input)).ok).toBe(false);
+  });
+});
 
 interface Rig {
   readonly dirs: { campaignDir: string; operatorDir: string };
@@ -433,7 +460,9 @@ describe("MECHANISM: the dry run shows what the referee would be shown, never wh
     const bare = text(first.findings);
     expect(bare).not.toContain("colour vision"); // the statements themselves are not printed...
     expect(bare).not.toContain(PC_WORDS.presence);
-    expect(text(by(first.findings, "B20"))).toMatch(/nothing is assumed, defaulted or inferred/);
+    expect(text(by(first.findings, "B20"))).toMatch(
+      /safely conventional intrinsic baseline properties/,
+    );
     const verbatim = await preflightB(r.config, { verbatim: true });
     expect(text(verbatim.findings)).toContain(PC_WORDS.presence); // ...unless the operator asks at their own console
     expect(text(verbatim.findings)).toContain("colour vision");

@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gates, lock, register, code } from "../support/f027.ts";
 import { protocolIndexExports, PROTOCOL_ONLY_EVENT_SIGNAL_READ } from "../support/protocol.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const MODULE = "packages/protocol/src/pc-transfer-advance.ts";
 const CONTRACT = "packages/contracts/src/protocol-advance.ts";
@@ -39,7 +40,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/contracts/src/logistics.ts":
-    "44704b92e056bfc4b69896887b5798c15a97c1762301144c4cf790dd06e38382",
+    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/contracts/src/protocol-relocation.ts":
     "9251e5f50811651f1f0973dd20f2c2b36af08094f32346d0a4f51fdd552e773d",
   "packages/contracts/src/protocol.ts":
@@ -63,28 +64,28 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/entity-transition.ts":
-    "a3d4fdd9b8d0a3d3ef8292cf87a5c4e10f100b5fc961fbf07b28fce5d3ab7961",
+    "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/engine/src/world/canonical-campaign.ts":
-    "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
-    "e54a7b239bed8fe5f59599566b9888bc854fb7f932ca9ddd650f986aea54e943",
+    "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/declaration.ts":
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/logistics/derive.ts":
-    "96d1ee7fcaa317bcb3ce15e097671bcfebf9bf963f6c8694b15e0a1355ac4fa9",
+    "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/owners/registry.ts":
-    "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/event-signal.ts":
     "9b1713f26f43b1eb58725ce5e88ea3499a52c5ede08d8838de7d1367d9f5031d",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -107,6 +108,7 @@ describe("existing owners, the Temporal kernel, the relocation gateway and the f
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
@@ -316,7 +318,7 @@ describe("register, lock and gate honesty: nothing moved", () => {
     expect(lock.frozen_sources.find((s) => s.id === "I-001")!.native_pin).toBe(
       "2026-09-25T00:17:49.551Z",
     );
-    expect(JSON.stringify(lock)).not.toContain("3f320af901e08166ad96ca0fc5e5069d");
+    expectNotALockPin(lock, "3f320af901e08166ad96ca0fc5e5069d");
   });
 
   it("no register row was promoted or mentions this slice", () => {

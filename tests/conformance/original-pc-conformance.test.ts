@@ -36,16 +36,16 @@ const importedNames = (file: string, from: string): string[] =>
 
 /** Everything the slice composes or must leave untouched, byte-identical to main 884d09e889d6908e0244a7dbdfb49bbdde060843. */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "packages/contracts/src/world-foundation.ts":
-    "c22e815d803c4c677db8d3c1d47c9ddf920ac386db2809de37dfd42d47ba9337",
+    "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/persistence/file-package.ts":
-    "f11ccfa9d6411f0d3130b1d215fe3642489666298e71548de82f6cb0091a83d6", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
+    "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
@@ -76,19 +76,19 @@ const UNCHANGED: Record<string, string> = {
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
-    head: "18fa5e9ea8c632d7aca468e08ce53e8ee513fe603ef73db9de5aa525f65c214c",
+    head: "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   },
   "packages/engine/src/world/integrity.ts": {
     base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
-    head: "3c9ad7e48ae35c96790aee88c5a8585b20e1d13d6c31dcdf4f5637d43d2070b7",
+    head: "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "a95829eb72a0ec8e871c17e5ff0f0347dfdbbb662838aa5e71308c0bbfd9c29e",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "bcf8fe73d9b175ebb6d20201d836d7ab9852d1b8192fda935769d6ef1aab72d2",
+    head: "50573f859ed5864428e493a254225a4aafd7d323b31e177b9dd4b5bf3b9a8add",
   },
 };
 

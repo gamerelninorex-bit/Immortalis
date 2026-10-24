@@ -771,6 +771,10 @@ class FilePackageStore implements FileCampaignStore {
     return this.#core.lookupGroupById(groupId);
   }
 
+  ruleCheckedGroupIds(): ReadonlySet<string> {
+    return this.#core.ruleCheckedGroupIds();
+  }
+
   commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
     const run = this.#queue.then(() => this.#commit(group));
     this.#queue = run.catch(() => undefined);
