@@ -76,7 +76,16 @@ if (config.value.publicUrl !== null) {
     if (!line.startsWith("[PASS]")) note(`preflight ${line}`);
   });
 }
-const app = createPhoneServer(config.value, { chat: { note } });
+// one line per accepted MCP initialize, deliberately NOT de-duplicated above: a repeated identical handshake is exactly what the operator needs
+// to see. The line is built from a closed whitelist (see negotiationLine) and carries no client-sent string, token or identifier.
+const negotiation = (line: string) => {
+  try {
+    process.stderr.write(`immortalis-phone: ${line}\n`);
+  } catch {
+    // a log that cannot be written never affects the service
+  }
+};
+const app = createPhoneServer(config.value, { chat: { note }, negotiation });
 const port = await app.listen();
 process.stdout.write(
   `immortalis-phone: listening on ${config.value.bindHost}:${port} (${config.value.transport}); campaign ${config.value.campaignId}\n`,

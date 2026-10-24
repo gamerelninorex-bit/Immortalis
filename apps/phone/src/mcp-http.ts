@@ -69,6 +69,29 @@ interface Session {
 const record = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v);
 
+/**
+ * The operator's one line about an ACCEPTED initialize (24 October diagnostic). It is built from a closed whitelist and nothing a client
+ * sent is copied into it: the protocol the client asked for only as one of the supported literals (else OTHER), the protocol answered, whether
+ * the client declared `elicitation` (ABSENT, an OBJECT, or OTHER for any other value) with the presence of its `form` and `url` members as
+ * booleans, and whether the session is eligible for the existing eliciting transport. No client name or version, no capability key or value,
+ * no header, token, session, grant or client identity, and no path or campaign fact can reach it. It is engineering evidence of what a client
+ * declared; it shows nothing about whether any client renders a confirmation control.
+ */
+export function negotiationLine(requested: string, protocol: string, elicitation: unknown): string {
+  const kind = elicitation === undefined ? "ABSENT" : record(elicitation) ? "OBJECT" : "OTHER";
+  const member = (name: string): string =>
+    record(elicitation) ? String(Object.hasOwn(elicitation, name)) : "n/a";
+  return [
+    "mcp initialize accepted:",
+    `requested=${SUPPORTED.includes(requested) ? requested : "OTHER"}`,
+    `negotiated=${protocol}`,
+    `elicitation=${kind}`,
+    `form=${member("form")}`,
+    `url=${member("url")}`,
+    `eligible=${kind === "OBJECT" && protocol === MCP_LATEST}`,
+  ].join(" ");
+}
+
 export interface McpHttp {
   readonly handle: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
   readonly closeAll: () => void;
@@ -80,6 +103,11 @@ export function createMcpHttp(o: {
   readonly instructions: string;
   readonly now: () => number;
   readonly serverInfo: { readonly name: string; readonly version: string };
+  /**
+   * The operator's diagnostic sink (see `negotiationLine`), called once per accepted initialize and never de-duplicated here. It is optional,
+   * and a missing, throwing or rejecting sink changes nothing about the handshake, the session or the authorization.
+   */
+  readonly negotiation?: (line: string) => void;
 }): McpHttp {
   const sessions = new Map<string, Session>();
   const open = new Set<ServerResponse>();
@@ -336,6 +364,14 @@ export function createMcpHttp(o: {
         waiting: new Map(),
       };
       sessions.set(s.id, s);
+      try {
+        const reported: unknown = o.negotiation?.(
+          negotiationLine(requested, protocol, params["capabilities"]["elicitation"]),
+        );
+        if (reported instanceof Promise) reported.catch(() => undefined);
+      } catch {
+        // a diagnostic that fails is never the client's problem
+      }
       return json(
         res,
         200,

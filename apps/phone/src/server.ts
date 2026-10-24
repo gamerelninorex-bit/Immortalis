@@ -60,6 +60,8 @@ export interface PhoneDeps {
   readonly recovery?: RecoveryDeps;
   /** the ordinary-chat adapter's collaborators (tests substitute the earned-Glance read and the referee exchange; never the confirmation) */
   readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance" | "note">;
+  /** the operator's initialize-negotiation sink: one bounded line per accepted initialize, controlled values only (see `negotiationLine`) */
+  readonly negotiation?: (line: string) => void;
 }
 
 type Role = "player" | "referee";
@@ -823,6 +825,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       oauth,
       now,
       serverInfo: { name: "immortalis-chat", version: "0.1.0" },
+      ...(deps.negotiation ? { negotiation: deps.negotiation } : {}),
       instructions: TOOL_INSTRUCTIONS,
       tools: buildChatTools({
         config,
