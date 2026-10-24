@@ -541,6 +541,9 @@ describe("MECHANISM: the MCP transport", () => {
           "read_current_observation_glance",
           "reconcile_last_action",
           "settle_collection_lapse",
+          "propose_original_setting",
+          "original_setting_status",
+          "resume_original_setting",
         ].sort(),
       );
       // there is no tool that can reply to a prompt or confirm: no property of any tool is a reply, answer, confirm or challenge

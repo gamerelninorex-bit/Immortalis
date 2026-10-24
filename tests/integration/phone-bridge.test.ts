@@ -1258,6 +1258,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "collection-recovery.ts",
       "commands.ts",
       "config.ts",
+      "locality-evidence.ts",
       "main.ts",
       "mcp-http.ts",
       "oauth.ts",

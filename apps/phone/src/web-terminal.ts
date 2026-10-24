@@ -32,8 +32,11 @@ export interface WebTerminal {
   readonly changed: (after: number, ms: number) => Promise<void>;
 }
 
-const MAX_LINES = 2000;
-const MAX_LINE = 8192;
+/** the transcript keeps this many lines (the earliest are dropped beyond it) of at most MAX_LINE characters each */
+export const TERMINAL_MAX_LINES = 2000;
+export const TERMINAL_MAX_LINE = 8192;
+const MAX_LINES = TERMINAL_MAX_LINES;
+const MAX_LINE = TERMINAL_MAX_LINE;
 /** a single say/ask/reply is carried in full up to this many characters (a lawful referee task is far smaller); beyond it the loss is announced */
 const MAX_TEXT = 1024 * 1024;
 const MAX_REPLY = 16384;
