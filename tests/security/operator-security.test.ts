@@ -125,7 +125,7 @@ describe("the mechanism cannot reach authority it was not given", () => {
     expect(all.match(/advanceActivePcToTarget\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedActivePcTargetAdvanceContext\(/g)).toHaveLength(1);
     expect(all.match(/bindTrustedActivePcHeldTargetAdvanceContext\(/g)).toHaveLength(1);
-    // CPAA-C1 v0.2 PROVISIONAL: the confirmed collection path, each operation once, bound only from what the operator's own console confirmed
+    // CPAA-C1 (v0.3 design ratified; implementation acceptance pending): the confirmed collection path, each operation once, bound only from what the operator's own console confirmed
     expect(all.match(/commitConfirmedPcCollection\(/g)).toHaveLength(1);
     expect(all.match(/getPcCollectionReachTask\(/g)).toHaveLength(1);
     expect(all.match(/submitPcCollectionReach\(/g)).toHaveLength(1);

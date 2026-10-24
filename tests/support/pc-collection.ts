@@ -59,7 +59,7 @@ import { custodiedCampaign, type PcMoveSeeded, PC } from "./pc-movement.ts";
 import { must } from "./temporal.ts";
 
 /**
- * SYNTHETIC TEST SUPPORT for the CPAA-C1 v0.2 PROVISIONAL consequential-collection slice. Every owner is the real one: the existing-actor
+ * SYNTHETIC TEST SUPPORT for the CPAA-C1 (v0.3 design ratified; implementation acceptance pending) consequential-collection slice. Every owner is the real one: the existing-actor
  * harness supplies the completed handover, PR #41's custody path the stationary custody record, World-State the finite Source Condition,
  * Production its Capability / Access basis and Reserve, the PC-side owner the P-1 mechanism, and the Temporal kernel the clock. The
  * only fixture values are the numbers the test coordinates use: the source holds five units; τ (the mechanism's authored cycle) is a

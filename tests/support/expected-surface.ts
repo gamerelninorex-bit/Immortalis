@@ -574,7 +574,7 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world/w1/source-delivery/x1",
   },
   /**
-   * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERINGS (not ratified): six kinds, no new owner. The PC-side commitment-of-record and PC-owned
+   * CPAA-C1 lowerings (v0.2 provisional lineage; v0.3 design ratified, implementation acceptance pending): six kinds, no new owner. The PC-side commitment-of-record and PC-owned
    * request (existing `pc_voluntary_commitment` facet, a collection key space disjoint from movement's), the P-1 mechanism
    * carrier (a second PC-owner facet), the physical-reach judgment (the referee provenance facet), Population's P-2 individual
    * occupancy registration (ADVANCING, one slot per PC) and Production's work record.
@@ -965,7 +965,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     ],
   },
   /**
-   * CPAA-C1 v0.2 PROVISIONAL: the confirmed direct-collection publications and typed reads. Every writer publishes through the
+   * CPAA-C1 (v0.3 design ratified; implementation acceptance pending): the confirmed direct-collection publications and typed reads. Every writer publishes through the
    * adapter's private publish helper or Production's own atomic start group; no method accepts a boundary, a result, a verdict, a
    * duration, a source remainder or a Reserve increase.
    */

@@ -2,8 +2,8 @@ import { z } from "zod";
 import { PcCollectionReachTaskSchema } from "./pc-collection.ts";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL — IM-15 Host Protocol Gateway: the allowlisted, CONFIRMED active-PC direct-collection operations — host-visible
- * contracts. Not ratified; see `pc-collection.ts`.
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — IM-15 Host Protocol Gateway: the allowlisted, CONFIRMED active-PC
+ * direct-collection operations — host-visible contracts. See `pc-collection.ts` for the authority status.
  *
  * What a host may say is exactly the operation it invokes (plus, for the one judgment, its UNTRUSTED reading). Every request schema is
  * strict and has NO field for a campaign, PC, act, source, amount, destination, mechanism, confirmation, role, permission, boundary,

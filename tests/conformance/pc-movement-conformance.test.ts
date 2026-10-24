@@ -318,7 +318,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       ...named,
       ...MODULES,
       "packages/engine/src/world/integrity.ts", // the violation code vocabulary
-      // CPAA-C1 v0.2 PROVISIONAL: the bilateral movement/collection exclusion is the one narrow, named seam (a PC with a movement
+      // CPAA-C1 (v0.3 design ratified; implementation acceptance pending): the bilateral movement/collection exclusion is the one narrow, named seam (a PC with a movement
       // record is not eligible for a collection; a PC with an open occupancy may not start a movement)
       "packages/engine/src/pc-collection/state.ts",
       "packages/engine/src/pc-collection/derive.ts",

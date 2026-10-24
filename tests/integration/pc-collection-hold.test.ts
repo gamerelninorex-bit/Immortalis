@@ -1,4 +1,4 @@
-// CPAA-C1 v0.2 PROVISIONAL — in-flight safety. The existing contracts authorise a release of the PC's occupied time only by the work's
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — in-flight safety. The existing contracts authorise a release of the PC's occupied time only by the work's
 // CLOSE or by the lawful DENIAL of work that was never admitted; Timed Work preserves resolved progress and recalculates only an
 // unresolved future, and CPAA-C1 C6 forbids marking the attempt cancelled, fabricating partial output or creating a new player choice.
 // So the safe behavior is FAIL-CLOSED and DURABLE: an act that cannot cross keeps the PC occupied, visibly (`hold`), across reopen, and

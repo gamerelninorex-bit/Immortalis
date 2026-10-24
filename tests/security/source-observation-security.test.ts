@@ -297,6 +297,23 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
       );
   });
 
+  it("the completed-collection withheld set is TWO reads at identities the delivery itself derives: the delivery its citation names and the source that delivery names — no listing, scan, search, loop, clock, random or network", () => {
+    const text = SRC("packages/engine/src/referee/derive.ts");
+    const body = text.slice(
+      text.indexOf("function deliveryWithheld("),
+      text.indexOf("export function observationWithheld("),
+    );
+    expect(body.match(/\bfacts\(/g)).toHaveLength(2);
+    expect(body).toMatch(/facts\(key\)/);
+    expect(body).toMatch(/facts\(sourceKey\)/);
+    expect(body).toMatch(
+      /const sourceKey = worldSourceConditionKey\(worldId, d\.source\.source_key\)/,
+    );
+    expect(body).not.toMatch(
+      /\blistFacts\b|\bfor\s*\(|\bwhile\b|Object\.(keys|values|entries)|\.find\(|\.filter\(|\.some\(|Date|Math\.random|randomBytes|fetch\(|node:/,
+    );
+  });
+
   it("an unavailable source has one message: absent, malformed, foreign, mislocated, exhausted and undescribed sources cannot be told apart", () => {
     const text = SRC("packages/engine/src/referee/derive.ts");
     expect(text.match(/SOURCE_UNAVAILABLE/g)!.length).toBeGreaterThanOrEqual(3);

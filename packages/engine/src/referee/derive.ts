@@ -411,9 +411,10 @@ export const OBSERVATION_OUTCOME_FACT_ID = "outcome.collection";
 const DELIVERY_KEY = /^world\/([^/]+)\/source-delivery\/(.+)$/;
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL: which completed collection of the character an observation question may cite. `LATEST`: the act the PC's one
- * occupancy slot names (a NEW question); `NONE`: a record asked before any outcome was cited; or exactly the delivery a retained record
- * cited. Never a caller's choice of a fact: the identities are derived from the PC's own records.
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending): which completed collection of the character an observation
+ * question may cite. `LATEST`: the act the PC's one occupancy slot names (a NEW question); `NONE`: a record asked before any outcome
+ * was cited; or exactly the delivery a retained record cited. Never a caller's choice of a fact: the identities are derived from the
+ * PC's own records.
  */
 export type ObservationOutcomeSelector = "LATEST" | "NONE" | { readonly extraction_id: string };
 
@@ -635,16 +636,73 @@ export function observationContext(
 }
 
 /**
- * The values of a source-scoped question's Source Condition that no appearance may carry: its identifiers, and every exact quantity it
- * ever stated or holds. They are NOT in the delivered context (the host is never told them), so they are re-read from the committed
- * Source Condition the question pins, here, wherever an answer is definitively validated. `null` when the question names a source that
- * cannot be read as one (fail closed).
+ * The values that no appearance may carry: a source's identifiers and every exact quantity it ever stated or holds. For a source-scoped
+ * question they are NOT in the delivered context (the host is never told them), so they are re-read from the committed Source Condition
+ * the question pins, here, wherever an answer is definitively validated. For a question citing the character's completed collection the
+ * host IS told the gathering's amount and material, so the set is built from the delivery and its source (`deliveryWithheld`) and what the
+ * host may SAY is validated instead. `null` when the question names a source or delivery that cannot be read as one (fail closed).
  */
 export interface ObservationWithheld {
   readonly names: readonly string[];
   readonly amounts: readonly number[];
 }
 const NOTHING_WITHHELD: ObservationWithheld = { names: [], amounts: [] };
+
+/**
+ * The same set for the question that cites the character's completed collection. That question DELIVERS the sentence announcing the
+ * gathering (its amount, unit and material) to the bound host, so the premise stays and the OUTPUT is validated instead: what the host may
+ * say about it is not what the host was told. The set is built from the two committed facts the question's own qualification already
+ * validated — the delivery its sixth citation names and the Source Condition that delivery names — at the keys they derive, with no
+ * request-supplied selector, search, listing or further read. `null` when either cannot be read as what its key says (fail closed).
+ */
+function deliveryWithheld(
+  facts: Facts,
+  ctx: ObservationContext,
+  key: string,
+): ObservationWithheld | null {
+  const cited = DELIVERY_KEY.exec(key);
+  const worldId = ctx.subject.world_id;
+  if (!cited || cited[1] !== worldId || !cited[2]!.startsWith(`pc-collect:${ctx.subject.pc_id}:`))
+    return null;
+  const deliveryFact = facts(key);
+  const delivery =
+    deliveryFact && deliveryFact.key === key && deliveryFact.owner === OWNER_WORLD_STATE
+      ? WorldSourceDeliverySchema.safeParse(deliveryFact.value)
+      : undefined;
+  if (!delivery?.success || delivery.data.delivery_id !== cited[2]) return null;
+  const d = delivery.data;
+  const sourceKey = worldSourceConditionKey(worldId, d.source.source_key);
+  if (d.source.fact_key !== sourceKey) return null;
+  const sourceFact = facts(sourceKey);
+  const source =
+    sourceFact &&
+    sourceFact.key === sourceKey &&
+    sourceFact.owner === OWNER_WORLD_STATE &&
+    sourceFact.facet === FACET_WORLD_SOURCE_CONDITION
+      ? WorldSourceConditionSchema.safeParse(sourceFact.value)
+      : undefined;
+  if (
+    !source?.success ||
+    source.data.source_key !== d.source.source_key ||
+    source.data.locality.world.entity_id !== worldId ||
+    source.data.locality.locus.entity_id !== ctx.subject.locus_id
+  )
+    return null;
+  const s = source.data;
+  return {
+    names: [s.source_key, s.material_class],
+    amounts: [
+      ...new Set([
+        d.delivered.amount,
+        d.before.amount,
+        d.after.amount,
+        s.establishment.quantity.amount,
+        s.recoverable.amount,
+        ...s.delivered.map((x) => x.quantity.amount),
+      ]),
+    ],
+  };
+}
 
 export function observationWithheld(
   facts: Facts,
@@ -653,8 +711,8 @@ export function observationWithheld(
   if (ctx.refs.length === OBSERVATION_BASE_REFS) return NOTHING_WITHHELD;
   const pin = ctx.refs[OBSERVATION_BASE_REFS];
   const key = ctx.refs.length === OBSERVATION_BASE_REFS + 1 ? pin?.fact_key : undefined;
-  // The other six-reference variant cites a completed delivery; it is qualified by collectionOutcome, not sourceScope.
-  if (key && DELIVERY_KEY.test(key)) return NOTHING_WITHHELD;
+  // The other six-reference variant cites a completed delivery: qualified by collectionOutcome, its withheld set built from that delivery.
+  if (key && DELIVERY_KEY.test(key)) return deliveryWithheld(facts, ctx, key);
   const named = key ? parseWorldSourceConditionKey(key) : null;
   const fact = key ? facts(key) : undefined;
   const parsed = fact ? WorldSourceConditionSchema.safeParse(fact.value) : undefined;

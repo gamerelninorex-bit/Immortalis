@@ -6,15 +6,20 @@ import { CanonicalTimeSchema, StageKeySchema } from "./temporal.ts";
 import { EntityId, OWNER_PC_EXISTENCE, PLAYER_CHOICE_AUTHORITY, Text } from "./world-foundation.ts";
 
 /**
- * CPAA-C1 v0.2 — consequential active-PC action: bounded direct collection from a finite source — PROVISIONAL executable contracts.
+ * CPAA-C1 — consequential active-PC action: bounded direct collection from a finite source — executable contracts.
  *
- * STATUS: PROVISIONAL CANDIDATE LOWERING. The governing candidate is the BLUE report "CPAA-C1 v0.2 — RED MODIFY R-1–R-7 Bounded
- * Repair" (native pin 2026-10-16T00:31:39.142Z), constructed under the Sovereign's non-final execution direction (native pin
- * 2026-10-16T01:38:29.022Z). C1, P-1 and P-2 are NOT ratified, NOT a spec-lock pin and NOT adopted design authority: the existence of
- * this code gives them none. Every kind below is tagged `CPAA_C1_PROVISIONAL` in its governing rule, so a later ratification, a
- * correction or a withdrawal is a visible, bounded change. Nothing here generalises beyond the closed class of C1: one active
- * stationary PC, directly collecting a finite amount of one loose same-form material from its own current locus into an already
- * existing local Production Reserve, with no transformation, travel, external labor, specialist work or unresolved rights prerequisite.
+ * STATUS (read `docs/pc-collection-foundation.md`, "CURRENT AUTHORITY", first). These contracts were first built as the v0.2 PROVISIONAL
+ * CANDIDATE LOWERING: the BLUE report "CPAA-C1 v0.2 — RED MODIFY R-1–R-7 Bounded Repair" (native pin 2026-10-16T00:31:39.142Z),
+ * constructed under the Sovereign's non-final execution direction (native pin 2026-10-16T01:38:29.022Z). The CPAA-C1 v0.3 DESIGN has
+ * since been ratified by the Sovereign; that ratifies the design only: this implementation is NOT accepted, no source lock was amended
+ * and none is claimed, and the existence of this code gives no design authority. The v0.2 kinds below still carry the
+ * `CPAA_C1_PROVISIONAL` lineage in their governing rules; those strings are the historical record of how they were first built, not a
+ * current claim about the v0.3 design, and the v0.3 kinds carry `ratified-design-implementation-acceptance-pending`. The R-4 lapse
+ * settlement and the R-5 prospective clarification are separate, NEWLY AUTHORIZED additions that are NOT ratified: they are labelled
+ * where they are built. A later ratification, correction or withdrawal is a visible, bounded change. Nothing here generalises beyond
+ * the closed class of C1: one active stationary PC, directly collecting a finite amount of one loose same-form material from its own
+ * current locus into an already existing local Production Reserve, with no transformation, travel, external labor, specialist work or
+ * unresolved rights prerequisite.
  * The names `pc_existence` / `pc_voluntary_commitment` are non-normative technical lowering names, not the authority, and this is not
  * a precedent for any other non-movement action (an action needs its own ruling).
  *

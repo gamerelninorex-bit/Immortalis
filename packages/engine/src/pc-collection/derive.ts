@@ -79,8 +79,8 @@ import { pcOccupancyRecord, pcOccupancyState } from "./state.ts";
 import { resolveClarifiedClaims } from "./clarification.ts";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERING (see `@immortalis/contracts` `pc-collection.ts`): not ratified, not adopted design
- * authority. The rules below are the single statement of each fact (used by admission when a fact is written and again by load
+ * CPAA-C1 lowering, first built as the v0.2 PROVISIONAL CANDIDATE (the v0.3 design is ratified, implementation acceptance pending; see
+ * `@immortalis/contracts` `pc-collection.ts`): the existence of this code gives its rulings no authority. The rules below are the single statement of each fact (used by admission when a fact is written and again by load
  * verification against the facts as they stood before it, so the two cannot drift). They judge identity, authority, provenance and
  * derivation only; they invent no rate, duration, floor, access verdict or availability: each is read from the owner that holds it.
  */
@@ -967,7 +967,7 @@ export const PC_COLLECTION_C8_DECLARATION =
   "PROVISIONAL, NOT A COMPLETE OR KNOWLEDGE-NEUTRAL IN-FLIGHT ADVANCE ROUTE: the horizon-dependent refusal is an observable timing-disclosure channel for hidden events; D-2 or an independently demonstrated equivalent is a precondition for any epistemic-safety or First Playable claim";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL (C8): may the PC's own time be advanced to `target` over its collection? The PC's in-flight collection is
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) (C8): may the PC's own time be advanced to `target` over its collection? The PC's in-flight collection is
  * POSITIVELY recognised, never read as "nothing in flight". While the PC is occupied by an OPEN collection, a separately confirmed
  * advance may cross the interval only when the crossed interval is positively established to contain no event that could interrupt
  * the player: every boundary that falls due by the target must be the PC's own collection object's, and the target must be comparable

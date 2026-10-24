@@ -1,4 +1,4 @@
-// CPAA-C1 v0.2 PROVISIONAL — consequential active-PC action: bounded direct collection from a finite source. "The player confirms one
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — consequential active-PC action: bounded direct collection from a finite source. "The player confirms one
 // exact attempt; the PC-owned commitment and request exist; a role.gm reading of the physical reach is judged; Population registers
 // the PC's occupied interval; Production DERIVES the cycles, the causal duration and the earned completion; the PC's time passes
 // through the existing Temporal → Production → World-State → Production chain; the source drops once, the Reserve rises once; a

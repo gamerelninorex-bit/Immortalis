@@ -1,8 +1,10 @@
-// Conformance evidence for the CPAA-C1 v0.2 PROVISIONAL consequential active-PC collection slice. It proves what the slice IS NOT as
-// carefully as what it is: every new kind is tagged as an unratified candidate lowering; no new owner, adapter-of-everything, action
+// Conformance evidence for the CPAA-C1 (v0.3 design ratified; implementation acceptance pending) consequential active-PC collection
+// slice. It proves what the slice IS NOT as carefully as what it is: every v0.2 kind keeps its provisional-lineage tag (the historical
+// record of how it was first built, pinned here so it cannot be silently promoted); no new owner, adapter-of-everything, action
 // bus or universal action law exists; the host surface has no field a host could state a result in; the frozen lock, Runtime
-// Contract and open-gate snapshots are untouched. The candidate (BLUE CPAA-C1 v0.2, pin 2026-10-16T00:31:39.142Z) lacks RED
-// re-check, consensus and ratification; nothing here is a spec-lock pin. PF-6/F-028 stays BLOCKED / NOT ACTIVATED.
+// Contract and open-gate snapshots are untouched. The v0.2 candidate (BLUE CPAA-C1 v0.2, pin 2026-10-16T00:31:39.142Z) lacked RED
+// re-check, consensus and ratification when built; the v0.3 design that succeeds it is ratified, this implementation is not accepted,
+// and nothing here is a spec-lock pin. PF-6/F-028 stays BLOCKED / NOT ACTIVATED.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {

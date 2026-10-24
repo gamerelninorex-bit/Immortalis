@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw persisted records */
-// CPAA-C1 v0.2 PROVISIONAL — canonical truth is not the character's knowledge. The completed collection's Production/World-State outcome
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — canonical truth is not the character's knowledge. The completed collection's Production/World-State outcome
 // (source 120 → 117, Reserve 0 → 3) reaches the character ONLY through the existing F-014D direct-perception receipt: the sealed
 // World-State delivery is delivered to the referee host as one world fact at the character's locus, the host's quote-anchored reading
 // decides whether it is perceivable (faculty, position, path), the engine derives the verdict, and only an ESTABLISHED reading earns
