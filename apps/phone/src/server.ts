@@ -15,8 +15,18 @@ import { callRefereeTool } from "./referee-tools.ts";
 import { TOOL_INSTRUCTIONS, buildChatTools, type ChatToolDeps } from "./chat-tools.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
-import type { Launch, PlayerRuns, Run } from "./runs.ts";
-import { SETUP_READBACK_COMMANDS, captureSetup, setupEvidence } from "./setup-recovery.ts";
+import type { Launch, PlayerRuns, Run, SettingStatus } from "./runs.ts";
+import {
+  LOCALITY_COMMAND,
+  SETUP_DOCUMENT_COMMANDS,
+  SETUP_READBACK_COMMANDS,
+  campaignSetting,
+  captureSetup,
+  explainLocalitySetup,
+  localityEvidence,
+  setupEvidence,
+} from "./setup-recovery.ts";
+import type { LocalityOutcome } from "./locality-evidence.ts";
 import {
   captureObservation,
   clearPending,
@@ -111,6 +121,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let blocker: string | null = null;
   /** true when no further `reconcile` can help (the record is unreadable, unsupported or unclearable): the operator must intervene */
   let structuralBlock = false;
+  /** true while the unresolved operation is the ORIGINAL locality setup, confirmed and partly committed: only its own resumption finishes it */
+  let resumableBlock = false;
   {
     const restored = readPending(config);
     if (restored.kind === "PENDING") {
@@ -127,6 +139,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   }
   const rec = {
     setupEvidence: deps.recovery?.setupEvidence ?? setupEvidence,
+    localityEvidence: deps.recovery?.localityEvidence ?? localityEvidence,
+    campaignSetting: deps.recovery?.campaignSetting ?? campaignSetting,
     captureObservation: deps.recovery?.captureObservation ?? captureObservation,
     observationEvidence: deps.recovery?.observationEvidence ?? observationEvidence,
     completeObservation: deps.recovery?.completeObservation ?? completeObservation,
@@ -134,6 +148,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
   };
   let launching = false;
+  /** while the setting is being read from the campaign, a command that would open the same package waits (it would meet the writer lock) */
+  let readingSetting = 0;
   let closing = false;
   let closePromise: Promise<void> | undefined;
   const inflight = new Set<Promise<unknown>>();
@@ -379,7 +395,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     `an earlier action${pending ? ` (${pending.command}, run ${pending.run_id})` : ""} ended with an UNCERTAIN outcome and is not yet resolved${blocker ? `: ${blocker}` : ""}. ${
       structuralBlock
         ? "Engineering must inspect it; do not retry the action."
-        : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
+        : resumableBlock
+          ? lane === "chat"
+            ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
+            : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
+          : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
     }`;
   const statusLines = (run: Run): string[] =>
     run.terminal
@@ -395,10 +415,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     },
     close: () => t.close(),
   });
-  const block = (why: string, structural = false): void => {
+  const block = (why: string, structural = false, resumable = false): void => {
     unresolvedOutcome = true;
     blocker = why;
     structuralBlock = structural;
+    resumableBlock = resumable && !structural;
     if (pending) {
       pending = { ...pending, state: "UNCERTAIN", blocker: why };
       writePending(config, pending); // a record that cannot be rewritten stays as it was: still blocking
@@ -413,6 +434,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     unresolvedOutcome = false;
     blocker = null;
     structuralBlock = false;
+    resumableBlock = false;
     return true;
   };
   /** a recovery that needs no command: its account is the run */
@@ -491,6 +513,43 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     } else resolve();
   };
 
+  const RESUME_BLOCKER =
+    "the original setup is confirmed but not complete; only that same retained document, confirmed again by the player, can finish it";
+  /**
+   * Applies owner-side evidence about the ORIGINAL locality setup to the barrier: a verified completion or a proven absence of effect
+   * settles it; a confirmed, partly committed setup keeps it (resumable by the same document only); anything the evidence cannot
+   * reconcile keeps it, and a read that failed keeps it. Returns true only when the barrier was cleared.
+   */
+  const applyLocalityEvidence = (ev: LocalityOutcome, run?: Run): boolean => {
+    if (ev.kind === "COMPLETE" || ev.kind === "NO_EFFECT") {
+      const settled = resolve();
+      // the owners' evidence has answered what the run itself could not: it is no longer an uncertain run
+      if (run && settled) run.uncertain = false;
+      return settled;
+    }
+    if (run) run.uncertain = true;
+    if (ev.kind === "RESUMABLE") block(RESUME_BLOCKER, false, true);
+    else if (ev.kind === "BLOCKED") block(ev.detail, true);
+    else block("the original setup's owner records could not be verified");
+    return false;
+  };
+  /** the end of a locality setup run (page or chat, first dispatch or resumption): settled by owner evidence about THAT document, never by a status line */
+  const settleLocality = async (run: Run): Promise<void> => {
+    const cur = pending;
+    if (!cur?.setup || !SETUP_DOCUMENT_COMMANDS.has(cur.command)) {
+      run.uncertain = true;
+      block(
+        "the original setup document identity was not recorded; engineering must inspect it",
+        true,
+      );
+      return;
+    }
+    const ev = await rec.localityEvidence(config, cur.setup);
+    // a shutdown leaves the record as it is: the restart reads the same evidence
+    if (closing) return;
+    applyLocalityEvidence(ev, run);
+  };
+
   /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
    * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
@@ -524,6 +583,46 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         };
       }
       return blocked(UNREADABLE_BLOCKER, [], true);
+    }
+    if (cur.command === LOCALITY_COMMAND) {
+      if (!cur.setup)
+        return blocked(
+          "the original setup document identity was not recorded; engineering must inspect it",
+          [],
+          true,
+        );
+      const ev = await rec.localityEvidence(config, cur.setup);
+      if (closing) return refuse(503, "the server is closing; the operation remains pending");
+      if (ev.kind === "RESUMABLE") {
+        block(RESUME_BLOCKER, false, true);
+        return {
+          ok: true,
+          run: finishedRun(
+            label,
+            [
+              `owner readback: the original setup is confirmed; ${ev.committed.length} of 3 publications are committed${ev.package === "ABSENT" ? " (the package does not exist yet)" : ""}`,
+              `RECOVERY BLOCKED: ${RESUME_BLOCKER}`,
+            ],
+            4,
+          ),
+        };
+      }
+      if (ev.kind === "BLOCKED") return blocked(ev.detail, [], true);
+      if (ev.kind === "UNAVAILABLE")
+        return blocked("the original setup's owner records could not be verified");
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [], true);
+      return {
+        ok: true,
+        run: finishedRun(
+          label,
+          [
+            ev.kind === "COMPLETE"
+              ? "owner readback: the original setup's retained identity, all three publications and a fresh owner-verified open agree with its document"
+              : "owner readback: that original setup was never confirmed; no publication of it exists",
+          ],
+          0,
+        ),
+      };
     }
     if (SETUP_READBACK_COMMANDS.has(cur.command)) {
       if (!cur.setup)
@@ -642,6 +741,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
+    if (readingSetting > 0)
+      return refuse(
+        409,
+        "the setting is being read; try again in a moment. Nothing was dispatched",
+      );
     launching = true;
     try {
       const built = buildPlayerCommand(config, request);
@@ -683,12 +787,21 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           if (typeof v === "string") options[k] = v;
       const id = newRunId();
       const setupAt = built.value.argv.indexOf("--setup");
-      const setup = SETUP_READBACK_COMMANDS.has(command)
+      const setup = SETUP_DOCUMENT_COMMANDS.has(command)
         ? captureSetup(config, command, built.value.argv[setupAt + 1] ?? "")
         : null;
-      if (SETUP_READBACK_COMMANDS.has(command) && !setup) {
+      if (SETUP_DOCUMENT_COMMANDS.has(command) && !setup) {
+        const why =
+          command === LOCALITY_COMMAND
+            ? explainLocalitySetup(built.value.argv[setupAt + 1] ?? "")
+            : [];
         built.value.cleanup();
-        return refuse(503, "the setup identity could not be established; nothing was dispatched");
+        return why.length > 0
+          ? refuse(
+              400,
+              `the setting is not a complete, valid ORIGINAL locality setup (${why.join("; ")}); nothing was dispatched`,
+            )
+          : refuse(503, "the setup identity could not be established; nothing was dispatched");
       }
       let identity = null;
       if (command === "observe-surroundings") {
@@ -742,7 +855,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           built.value.argv,
           built.value.cleanup,
           { quiet: false },
-          settleNormal,
+          command === LOCALITY_COMMAND ? settleLocality : settleNormal,
           COLLECTION_COMMANDS.has(command)
             ? (env) => rec.runCollection(config, record, env)
             : undefined,
@@ -760,11 +873,187 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     if (!started.ok) return deny(res, started.status, started.reason);
     json(res, 200, { ok: true });
   }
+  /**
+   * Finishes the ONE retained, confirmed, interrupted locality setup with ITS OWN document: the document comes from the trusted pending
+   * record (validated against its digest and this campaign), never from the caller, and the shipped `establish-locality` asks the player
+   * for a fresh confirmation exactly as it would for a first run. It is offered only when the owners' evidence says this setup is
+   * confirmed and not yet whole; every other state is refused with its own reason and nothing is dispatched.
+   */
+  async function resumeSetupWork(): Promise<Launch> {
+    if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+    if (launching || (player && !player.done))
+      return refuse(409, "a command is already running: answer it or stop it first");
+    if (readingSetting > 0)
+      return refuse(
+        409,
+        "the setting is being read; try again in a moment. Nothing was dispatched",
+      );
+    launching = true;
+    try {
+      const again = readPending(config);
+      pending = again.kind === "PENDING" ? again.pending : null;
+      if (again.kind === "UNREADABLE") {
+        block(UNREADABLE_BLOCKER, true);
+        return refuse(409, UNREADABLE_BLOCKER);
+      }
+      const cur = pending;
+      if (!cur || cur.command !== LOCALITY_COMMAND)
+        return refuse(409, "no interrupted original setup is waiting to be resumed");
+      unresolvedOutcome = true;
+      if (!cur.setup) {
+        block(
+          "the original setup document identity was not recorded; engineering must inspect it",
+          true,
+        );
+        return refuse(409, blocker ?? "the original setup cannot be resumed");
+      }
+      const ev = await rec.localityEvidence(config, cur.setup);
+      if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+      if (ev.kind !== "RESUMABLE") {
+        if (ev.kind === "BLOCKED") block(ev.detail, true);
+        return refuse(
+          409,
+          ev.kind === "COMPLETE" || ev.kind === "NO_EFFECT"
+            ? "the owners' evidence already settles the original setup: run reconcile_last_action"
+            : ev.kind === "BLOCKED"
+              ? `the original setup cannot be resumed: ${ev.detail}; engineering must inspect it`
+              : "the original setup's owner records could not be verified now; nothing was dispatched",
+        );
+      }
+      const built = buildPlayerCommand(config, {
+        command: LOCALITY_COMMAND,
+        setup: cur.setup.document,
+      });
+      if (!built.ok)
+        return refuse(503, "the retained setup could not be prepared; nothing was dispatched");
+      if (closing) {
+        built.value.cleanup();
+        return refuse(503, "the server is closing; nothing was dispatched");
+      }
+      return {
+        ok: true,
+        run: startRun(
+          newRunId(),
+          LOCALITY_COMMAND,
+          built.value.argv,
+          built.value.cleanup,
+          { quiet: false },
+          settleLocality,
+        ),
+      };
+    } finally {
+      launching = false;
+    }
+  }
+  const settingProposal = (identity: PendingOperation["setup"]): unknown => {
+    if (!identity) return undefined;
+    try {
+      return JSON.parse(identity.document);
+    } catch {
+      return undefined;
+    }
+  };
+  /** the owner-backed account of the setting: read-only, it settles nothing, starts nothing and reads no campaign while a command holds it */
+  async function settingStatusWork(): Promise<SettingStatus> {
+    // a command that is starting or running holds (or is about to take) the campaign's writer lock: reading now would meet it
+    if (launching)
+      return { state: "UNAVAILABLE", barrier: "NONE", detail: "another command is starting now" };
+    readingSetting++;
+    try {
+      return await readSetting();
+    } finally {
+      readingSetting--;
+    }
+  }
+  async function readSetting(): Promise<SettingStatus> {
+    const running = player && !player.done && player.label === LOCALITY_COMMAND ? player : null;
+    const held = readPending(config);
+    const mine =
+      held.kind === "PENDING" && held.pending.command === LOCALITY_COMMAND ? held.pending : null;
+    if (running) {
+      const proposal = settingProposal(mine?.setup);
+      return {
+        state: running.terminal.snapshot(0).pending ? "AWAITING_CONFIRMATION" : "IN_PROGRESS",
+        barrier: "NONE",
+        ...(proposal !== undefined ? { proposal } : {}),
+      };
+    }
+    if (held.kind === "UNREADABLE")
+      return { state: "BLOCKED", barrier: "ENGINEERING", detail: UNREADABLE_BLOCKER };
+    if (player && !player.done)
+      return { state: "UNAVAILABLE", barrier: "NONE", detail: "another command is running now" };
+    if (mine) {
+      if (!mine.setup)
+        return {
+          state: "BLOCKED",
+          barrier: "ENGINEERING",
+          detail: "the original setup document identity was not recorded",
+        };
+      const ev = await rec.localityEvidence(config, mine.setup);
+      const proposal = settingProposal(mine.setup);
+      if (ev.kind === "COMPLETE")
+        return { state: "ESTABLISHED", barrier: "RECONCILE", readback: ev.readback };
+      if (ev.kind === "NO_EFFECT")
+        return {
+          state: "NOT_CONFIRMED",
+          barrier: "RECONCILE",
+          detail: ev.detail,
+          ...(proposal !== undefined ? { proposal } : {}),
+        };
+      if (ev.kind === "RESUMABLE")
+        return {
+          state: "RESUMABLE",
+          barrier: "RESUME",
+          committed: ev.committed,
+          ...(proposal !== undefined ? { proposal } : {}),
+        };
+      if (ev.kind === "BLOCKED")
+        return {
+          state: "BLOCKED",
+          barrier: "ENGINEERING",
+          detail: ev.detail,
+          ...(proposal !== undefined ? { proposal } : {}),
+        };
+      return {
+        state: "UNAVAILABLE",
+        barrier: "RECONCILE",
+        detail: ev.detail,
+        ...(proposal !== undefined ? { proposal } : {}),
+      };
+    }
+    const slot = await rec.campaignSetting(config);
+    if (slot.kind === "ESTABLISHED")
+      return { state: "ESTABLISHED", barrier: "NONE", readback: slot.readback };
+    if (slot.kind === "NOT_STARTED") return { state: "NOT_STARTED", barrier: "NONE" };
+    if (slot.kind === "INCOMPLETE")
+      return {
+        state: "BLOCKED",
+        barrier: "ENGINEERING",
+        committed: slot.committed,
+        detail:
+          "a confirmed setup is not complete and the adapter holds no record of its document; the operator must finish it",
+      };
+    if (slot.kind === "BLOCKED")
+      return { state: "BLOCKED", barrier: "ENGINEERING", detail: slot.detail };
+    return { state: "UNAVAILABLE", barrier: "NONE", detail: slot.detail };
+  }
   const playerRuns: PlayerRuns = {
+    proposeSetup: (document) =>
+      launchPlayer({ command: LOCALITY_COMMAND, setup: document }, "chat"),
+    resumeSetup: () => track(resumeSetupWork()),
+    settingStatus: () =>
+      closing
+        ? Promise.resolve({
+            state: "UNAVAILABLE",
+            barrier: "NONE",
+            detail: "the server is closing",
+          })
+        : track(settingStatusWork()),
     current: () => player,
     unresolved: () => unresolvedOutcome,
     blocker: () => blocker,
     structural: () => structuralBlock,
+    resumable: () => resumableBlock,
     launch: async (command, options) => {
       if (!CHAT_COMMANDS.has(command))
         return { ok: false, status: 400, reason: "that action is not offered here" };
