@@ -131,7 +131,9 @@ describe("the positive: a perceivable completed gathering earns the receipt, the
       expect(JSON.stringify(seen)).toContain("pale grains");
       expect(JSON.stringify(seen)).not.toMatch(/117|120|reserve-salt|source-delivery|pc-collect/);
       // KNOWN LIMIT (fail-closed): the separate event-ID-free Glance read has one FIXED nine-read shape over exactly five cited premises
-      // (RC-14); a record that also cites the delivery is not that shape, so the Glance refuses it rather than being widened here
+      // (RC-14); a record that also cites the delivery is not that shape, so the Glance refuses it rather than being widened here.
+      // A sixth premise slot alone does not change this: the owner's re-derivation of a delivery-citing record also reads the delivery's source
+      // condition, its Production extraction and the Reserve it credits (24 October: verified, and returned to BLUE with the exact schedule)
       expect(glance(c)).toMatchObject({ ok: false });
       expect(c.verify()).toEqual([]);
       expect(verifyEpistemicIntegrity(c.store)).toEqual([]);
