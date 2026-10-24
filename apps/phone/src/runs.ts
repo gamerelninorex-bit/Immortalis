@@ -6,6 +6,8 @@ export interface Run {
   readonly label: string;
   readonly terminal: WebTerminal;
   done: boolean;
+  /** settles when the run has wound down (its `done` is then true); a waiter uses it instead of polling a terminal that is already closed */
+  readonly ended: Promise<void>;
   /** the command ended in an exception (or reported an unknown outcome): whether it changed anything is NOT established */
   uncertain: boolean;
 }

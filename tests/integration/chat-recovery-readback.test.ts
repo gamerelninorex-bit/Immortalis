@@ -8,7 +8,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CanonicalCampaign, EpistemicAccessAdapter } from "@immortalis/engine";
+import {
+  CanonicalCampaign,
+  EpistemicAccessAdapter,
+  RefereeAdjudicationAdapter,
+} from "@immortalis/engine";
 import {
   OBSERVATION_ATTEMPTS,
   captureObservation,
@@ -20,6 +24,7 @@ import {
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
 import {
   PC_ID,
+  decide,
   observationAnswer,
   observationCampaign,
   observe,
@@ -289,5 +294,68 @@ describe("MECHANISM (BLUE R3-b): the owner readback of an observation, against a
     const complete = await facts();
     expect((await completeObservation(config, identity)).kind).toBe("COMPLETE");
     expect(await facts()).toEqual(complete);
+  });
+});
+
+describe("MECHANISM (24 October repair, BLUE Q4): recovery replays the ORIGINAL operation and decision; a different question at the same instant is never adopted in its place", () => {
+  // These tests pin only what RECOVERY does. They do not claim the shipped code fences a changed-context question at the same instant:
+  // a retained decision is keyed by its whole question and the earned event by the character and the basis, and a new question needs its
+  // own lawful cause. Nothing here rerolls, injects a premise, changes an attempt of the original operation or advances time.
+  const asked = async (c: CanonicalCampaign, attempt: number) => {
+    const t = new RefereeAdjudicationAdapter(c.store).observationTask({ pc_id: PC_ID, attempt });
+    if (!t.ok) throw new Error("no task");
+    return t.value.task_id;
+  };
+
+  it("a reading retained for a question OUTSIDE the original operation is not its evidence: the readback stays NONE and the completion refuses and writes nothing", async () => {
+    const { dirs } = await observationCampaign();
+    const config = cfg(dirs);
+    const identity = await identityOf(dirs);
+    const opened = await CanonicalCampaign.open(dirs.campaignDir, { buildId: "q4-outside" });
+    if (!opened.ok) throw new Error("did not open");
+    let other: string;
+    try {
+      // a different question at the same instant (a different identity: its attempt is outside the original operation's), answered affirmatively
+      other = await asked(opened.value, OBSERVATION_ATTEMPTS);
+      expect(identity.task_ids).not.toContain(other);
+      await decide(opened.value, {}, OBSERVATION_ATTEMPTS);
+    } finally {
+      await opened.value.close();
+    }
+    const before = await held(dirs.campaignDir);
+    expect(before.decisions).toEqual([
+      { attempt: OBSERVATION_ATTEMPTS, verdict: "OBSERVATION_ESTABLISHED" },
+    ]);
+    // the original operation committed nothing: the later question's reading is not adopted as the original's
+    expect(await observationEvidence(config, identity)).toEqual({ kind: "NONE" });
+    expect((await completeObservation(config, identity)).kind).toBe("UNAVAILABLE");
+    expect(await held(dirs.campaignDir)).toEqual(before); // no event, packet or seal was formed from it
+  });
+
+  it("the original retained NEGATIVE stays the final word of the original operation when another question at that instant holds an affirmative reading", async () => {
+    const { dirs } = await observationCampaign();
+    const config = cfg(dirs);
+    const identity = await identityOf(dirs);
+    // the original operation: the host's reading establishes no sense, so a non-receipt is retained under attempt 0
+    const first = await observe(dirs, verbConsole("observe-surroundings"), {}, ((doc: any) =>
+      doc.operation === "F014D_DIRECT_PERCEPTION"
+        ? observationAnswer(doc, { noFaculty: true })
+        : plainPolicy(doc)) as any);
+    expect(first.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
+    expect(await observationEvidence(config, identity)).toEqual({ kind: "NEGATIVE" });
+    // a different question at the same instant is later answered affirmatively by direct engine access
+    const opened = await CanonicalCampaign.open(dirs.campaignDir, { buildId: "q4-negative" });
+    if (!opened.ok) throw new Error("did not open");
+    try {
+      await decide(opened.value, {}, OBSERVATION_ATTEMPTS);
+    } finally {
+      await opened.value.close();
+    }
+    const before = await held(dirs.campaignDir);
+    expect(before.decisions).toHaveLength(2);
+    // recovery replays the original: still the retained negative, never promoted, completed or replaced by the other question's reading
+    expect(await observationEvidence(config, identity)).toEqual({ kind: "NEGATIVE" });
+    expect((await completeObservation(config, identity)).kind).toBe("UNAVAILABLE");
+    expect(await held(dirs.campaignDir)).toEqual(before);
   });
 });

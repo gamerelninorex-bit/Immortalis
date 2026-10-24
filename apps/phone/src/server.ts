@@ -76,6 +76,7 @@ const GLOBAL_FAILS = 60;
 const MAX_BODY = 128 * 1024;
 const POLL_MS = 20_000;
 const SHUTDOWN_MS = 8_000;
+const SHUTTING_DOWN = "the service is shutting down; nothing was started";
 const UNREADABLE_BLOCKER =
   "the pending-operation record is unreadable; engineering must inspect it";
 const newRunId = () => randomBytes(8).toString("hex");
@@ -130,6 +131,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
   };
   let launching = false;
+  /** set the moment a shutdown begins: from then on nothing new is dispatched, and a launch that was already waiting is refused when it resumes */
+  let closing = false;
   const inflight = new Set<Promise<void>>();
   let referee: Run | null = null;
   let refereeCalls = 0;
@@ -402,7 +405,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     for (const l of lines) terminal.say(l);
     terminal.say(`— command finished (exit code ${code}) —`);
     terminal.close();
-    const run: Run = { id: newRunId(), label, terminal, done: true, uncertain: code !== 0 };
+    const run: Run = {
+      id: newRunId(),
+      label,
+      terminal,
+      done: true,
+      ended: Promise.resolve(),
+      uncertain: code !== 0,
+    };
     player = run;
     wakeLane("player");
     return run;
@@ -424,7 +434,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { id, label, terminal, done: false, uncertain: false };
+    let ended!: () => void;
+    const run: Run = {
+      id,
+      label,
+      terminal,
+      done: false,
+      ended: new Promise<void>((r) => (ended = r)),
+      uncertain: false,
+    };
     player = run;
     wakeLane("player");
     const env = opts.quiet
@@ -451,6 +469,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         cleanup();
         run.done = true;
         terminal.close();
+        ended();
       })
       .catch(() => undefined);
     // a shutdown waits for it: the command releases the campaign's writer lock only when it has wound down
@@ -476,7 +495,6 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
    * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
-    let cur = pending;
     const label = "reconcile";
     const blocked = (why: string, lines: string[] = [], structural = false): Launch => {
       block(why, structural);
@@ -485,23 +503,26 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         run: finishedRun(label, [...lines, `RECOVERY BLOCKED: ${why}`], 4),
       };
     };
-    if (!cur) {
-      // no operation is held in memory (the record was unreadable at startup): the engineer's inspection and removal of that record is the
-      // documented remedy, and it takes effect here — the very state a restart would find
-      const again = readPending(config);
-      if (again.kind === "NONE") {
-        unresolvedOutcome = false;
-        blocker = null;
-        structuralBlock = false;
-        return {
-          ok: true,
-          run: finishedRun(label, ["owner readback: no pending-operation record remains"], 0),
-        };
-      }
-      if (again.kind !== "PENDING") return blocked(blocker ?? UNREADABLE_BLOCKER, [], true);
-      pending = again.pending;
-      cur = again.pending;
+    // The durable, campaign-bound record is the authority at every reconcile, never a copy this process cached earlier: the engineer's
+    // inspection, removal or replacement of it is the documented remedy and takes effect here (the very state a restart would find), and
+    // a stale copy is never used or written back over what the operator did.
+    const again = readPending(config);
+    if (again.kind === "NONE") {
+      pending = null;
+      unresolvedOutcome = false;
+      blocker = null;
+      structuralBlock = false;
+      return {
+        ok: true,
+        run: finishedRun(label, ["owner readback: no pending-operation record remains"], 0),
+      };
     }
+    if (again.kind !== "PENDING") {
+      pending = null; // an unreadable or foreign record is never replaced by a cached one
+      return blocked(UNREADABLE_BLOCKER, [], true);
+    }
+    pending = again.pending;
+    const cur = again.pending;
     if (cur.command === "observe-surroundings") {
       if (!cur.identity)
         return blocked(
@@ -574,10 +595,25 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   }
 
   /** the one way a player command starts (the phone page and the chat adapter both use it): the CLOSED builder validates everything */
-  async function launchPlayer(
+  function launchPlayer(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
   ): Promise<Launch> {
+    const work = launchNow(request, lane);
+    // a launch is itself work the shutdown waits for: it may be mid-recovery or mid-capture, holding the campaign's writer lock
+    const tracked = work.then(
+      () => undefined,
+      () => undefined,
+    );
+    inflight.add(tracked);
+    void tracked.finally(() => inflight.delete(tracked));
+    return work;
+  }
+  async function launchNow(
+    request: { command: unknown; options?: unknown; setup?: unknown },
+    lane: "page" | "chat",
+  ): Promise<Launch> {
+    if (closing) return refuse(503, SHUTTING_DOWN);
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
     launching = true;
@@ -641,6 +677,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           "the operation identity could not be established; nothing was dispatched",
         );
       }
+      // the identity captures above are asynchronous: a shutdown that began while they ran must not be followed by a dispatch, and nothing
+      // has been recorded yet (the record and the dispatch below follow with no further wait)
+      if (closing) {
+        built.value.cleanup();
+        return refuse(503, SHUTTING_DOWN);
+      }
       const record: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
@@ -703,6 +745,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   function startReferee(res: ServerResponse, body: Record<string, unknown>) {
+    if (closing) return deny(res, 503, SHUTTING_DOWN);
     if (referee && !referee.done)
       return deny(res, 409, "a referee session is already open: stop it first");
     const hostId = body["host_id"];
@@ -721,7 +764,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const terminal = createWebTerminal(
       deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
     );
-    const run: Run = { id: newRunId(), label: hostId, terminal, done: false, uncertain: false };
+    let ended!: () => void;
+    const run: Run = {
+      id: newRunId(),
+      label: hostId,
+      terminal,
+      done: false,
+      ended: new Promise<void>((r) => (ended = r)),
+      uncertain: false,
+    };
     referee = run;
     wakeLane("referee");
     void console_(argv, terminal)
@@ -730,6 +781,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       .finally(() => {
         run.done = true;
         terminal.close();
+        ended();
       });
     json(res, 200, { ok: true });
   }
@@ -989,6 +1041,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         });
       }),
     close: async () => {
+      closing = true; // before anything else: no launch that resumes from here on is dispatched
       player?.terminal.abort();
       referee?.terminal.abort();
       mcp?.closeAll();

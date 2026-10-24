@@ -262,6 +262,22 @@ export interface ChatToolDeps {
   readonly note?: (message: string) => void;
 }
 
+/** resolves when `p` settles or after `ms`, whichever is first; the timer never outlives the wait */
+const untilOrDeadline = (p: Promise<void>, ms: number): Promise<void> =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    void p.then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+    );
+  });
+
 export function buildChatTools(d: ChatToolDeps): McpTool[] {
   const { config, runs } = d;
   const settleMs = d.settleMs ?? 2500;
@@ -626,7 +642,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         await run.terminal.changed(snap.seq, 500);
         continue;
       }
-      await run.terminal.changed(news, Math.max(50, deadline - Date.now()));
+      const left = Math.max(50, deadline - Date.now());
+      // a closed terminal reports "changed" at once, so waiting on it would spin without ever yielding the event loop the winding-down
+      // command needs: wait for the run's own end instead (bounded by the same deadline)
+      if (snap.closed) await untilOrDeadline(run.ended, left);
+      else await run.terminal.changed(news, left);
     }
     // let the lines that trail a final status flush, so a finished command is reported as finished
     if (!run.done) await new Promise((r) => setTimeout(r, 120));

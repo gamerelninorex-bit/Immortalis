@@ -2516,6 +2516,99 @@ describe("MECHANISM (BLUE R3 delta): the pending record is per campaign, validat
   });
 });
 
+describe("MECHANISM (24 October repair, BLUE triage 1): the durable record is re-read at every reconcile, and a stale cached copy never replaces what the operator did", () => {
+  /** a server that restored one valid record (so the process HOLDS it in memory) and an assistant linked to it */
+  const heldRecord = async (over: Record<string, unknown>) => {
+    const [cli, stub] = stubCli();
+    const s = await serve({ runCli: cli }, {}, SCENARIO);
+    await s.app.close();
+    writeFileSync(pendingFile(s.config), JSON.stringify(recordOf(s.config, over)));
+    const app = createPhoneServer(s.config, { pollMs: 300, recovery: STUB_RECOVERY, runCli: cli });
+    await app.listen();
+    const chat = new Chat(s.base);
+    expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+    await chat.init({});
+    expect((await chat.call("collect", { amount: 1 })).isError).toBe(true); // blocked by the held record
+    return { app, chat, stub, config: s.config };
+  };
+  const reconcile = async (chat: Chat) => {
+    await chat.call("reconcile_last_action");
+    return chat.call("await_action", { wait_seconds: 2 });
+  };
+
+  it("an operator who removes a record the process holds lifts the block on the next reconcile, with no restart, and the record is not written back", async () => {
+    const h = await heldRecord({ command: "attest-cycle" });
+    try {
+      const first = await reconcile(h.chat);
+      expect(first.data.outcome).toBe("UNCERTAIN");
+      expect(first.data.blocker).toBe("no supported owner readback exists for attest-cycle");
+      expect(existsSync(pendingFile(h.config))).toBe(true);
+      rmSync(pendingFile(h.config)); // the documented remedy: the operator inspects the record and removes it
+      const lifted = await reconcile(h.chat);
+      expect(lifted.data.state).toBe("FINISHED");
+      expect(lifted.data.exit_code).toBe(0);
+      expect(lifted.data.outcome).toBeUndefined();
+      expect(existsSync(pendingFile(h.config))).toBe(false); // the cached copy was not resurrected
+      expect((await h.chat.call("collect", { amount: 1 })).isError).toBe(false);
+      expect(h.stub.argvs.map((a) => a[0])).toEqual(["collect"]); // no recovery ran any gameplay
+    } finally {
+      await h.app.close();
+    }
+  });
+
+  it("an operator's replacement is the record that is read, kept and reported: the cached copy of the old one is never persisted over it", async () => {
+    const h = await heldRecord({ command: "attest-cycle" });
+    try {
+      expect((await reconcile(h.chat)).data.blocker).toBe(
+        "no supported owner readback exists for attest-cycle",
+      );
+      const replacement = recordOf(h.config, { command: "relocate", run_id: "fedcba9876543210" });
+      writeFileSync(pendingFile(h.config), JSON.stringify(replacement));
+      const again = await reconcile(h.chat);
+      expect(again.data.outcome).toBe("UNCERTAIN");
+      expect(again.data.blocker).toBe("no supported owner readback exists for relocate");
+      const kept = JSON.parse(readFileSync(pendingFile(h.config), "utf8"));
+      expect(kept).toMatchObject({ command: "relocate", run_id: "fedcba9876543210" }); // the operator's identity survives
+      expect((await h.chat.call("collect", { amount: 1 })).isError).toBe(true);
+      expect(h.stub.argvs).toEqual([]);
+    } finally {
+      await h.app.close();
+    }
+  });
+
+  it("a record that becomes unreadable, or foreign, while held stays blocked for the operator and is never overwritten by the cached copy", async () => {
+    for (const [why, bodyOf] of [
+      ["corrupted", () => "{ not json"],
+      [
+        "another campaign's",
+        (c: PhoneConfig) => JSON.stringify(recordOf(c, { campaign_id: "some-other-campaign" })),
+      ],
+    ] as const) {
+      const h = await heldRecord({ command: "attest-cycle" });
+      try {
+        const body = bodyOf(h.config);
+        writeFileSync(pendingFile(h.config), body);
+        await h.chat.call("reconcile_last_action");
+        const r = await h.chat.call("await_action", { wait_seconds: 2 });
+        expect(r.data.outcome, why).toBe("UNCERTAIN");
+        expect(r.data.blocker, why).toMatch(/unreadable/);
+        expect(readFileSync(pendingFile(h.config), "utf8"), why).toBe(body); // untouched
+        const refused = await h.chat.call("collect", { amount: 1 });
+        expect(refused.isError, why).toBe(true);
+        expect(refused.text, why).toMatch(/Engineering must inspect it/);
+        // the operator repairs it by removal: the very next reconcile lifts the block
+        rmSync(pendingFile(h.config));
+        const lifted = await reconcile(h.chat);
+        expect(lifted.data.state, why).toBe("FINISHED");
+        expect(existsSync(pendingFile(h.config)), why).toBe(false);
+        expect(h.stub.argvs, why).toEqual([]);
+      } finally {
+        await h.app.close();
+      }
+    }
+  });
+});
+
 describe("MECHANISM (BLUE R3 delta): the readback is of the ORIGINAL identity, and what the assistant is told is neutral", () => {
   it("a clock that has moved on never changes what is read back: every identity the readback is given is the one captured before dispatch", async () => {
     let captures = 0;
@@ -2637,6 +2730,116 @@ describe("MECHANISM (BLUE R3 delta): a shutdown waits for the running command to
     // and the lost command leaves exactly what a restart needs: the dispatched record
     expect(JSON.parse(readFileSync(pendingFile(s.config), "utf8")).state).toBe("DISPATCHED");
   });
+});
+
+describe("MECHANISM (24 October repair, BLUE triage 3): the shutdown lifecycle, reproduced on the current head", () => {
+  it("a launch that is still establishing its identity when the shutdown begins is refused, not dispatched afterwards: nothing runs and nothing is recorded", async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const [cli, stub] = stubCli();
+    const s = await serve(
+      {
+        runCli: cli,
+        shutdownMs: 200, // the shutdown waits for that launch, but only this long
+        recovery: {
+          ...STUB_RECOVERY,
+          captureCollection: async (_c: PhoneConfig, uid: string) => {
+            await gate; // the identity capture is slow: the launch is in flight, but no command exists yet
+            return stubCollectionIdentity(uid);
+          },
+        },
+      },
+      {},
+      SCENARIO,
+    );
+    const chat = new Chat(s.base);
+    expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+    await chat.init({});
+    const launched = chat.call("collect", { amount: 1 }).catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 200));
+    await s.app.close(); // the shutdown begins and completes while that launch is waiting
+    open();
+    await launched;
+    await new Promise((r) => setTimeout(r, 400));
+    expect(stub.argvs).toEqual([]); // no command was started after the shutdown
+    expect(existsSync(pendingFile(s.config))).toBe(false); // and nothing was recorded for one
+  });
+
+  it("a reconcile that is already reading the owners back when the shutdown begins is waited for, not abandoned half-way", async () => {
+    let finished = false;
+    const [cli] = stubCli();
+    const s = await serve({ runCli: cli }, {}, SCENARIO);
+    await s.app.close();
+    writeFileSync(
+      pendingFile(s.config),
+      JSON.stringify(
+        recordOf(s.config, {
+          command: "observe-surroundings",
+          identity: stubIdentity(SCENARIO.player_character),
+          collection: null,
+        }),
+      ),
+    );
+    const app = createPhoneServer(s.config, {
+      pollMs: 300,
+      runCli: cli,
+      recovery: {
+        ...STUB_RECOVERY,
+        observationEvidence: async () => {
+          await new Promise((r) => setTimeout(r, 400)); // the owner readback takes a while
+          finished = true;
+          return { kind: "NONE" as const };
+        },
+      },
+    });
+    await app.listen();
+    const chat = new Chat(s.base);
+    expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
+    await chat.init({});
+    const reconciling = chat.call("reconcile_last_action").catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 100));
+    await app.close(); // begins while the readback is still running
+    expect(finished).toBe(true); // the shutdown did not return before the owner readback did
+    await reconciling;
+  });
+
+  it("an await_action that is still waiting when the shutdown begins does not starve the command that is winding down", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let wound = false;
+    const cli: NonNullable<PhoneDeps["runCli"]> = async (_argv, env) => {
+      const t = env.terminal!;
+      t.say("PROPOSAL collect");
+      const phrase = "collect 0123456789ab";
+      t.say(`To confirm, type exactly "${phrase}"`);
+      if ((await t.ask(">")) !== phrase) return 1;
+      await gate; // confirmed, and working
+      await new Promise((r) => setTimeout(r, 250)); // the teardown needs the event loop (a timer), as closing a campaign does
+      wound = true;
+      t.say("STATUS COMMITTED");
+      return 0;
+    };
+    const s = await withChat({ runCli: cli });
+    try {
+      expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(false);
+      const confirmed = await s.chat.call("await_action", { wait_seconds: 1 }, humanConfirms);
+      expect(confirmed.data.state).toBe("RUNNING");
+      const waiting = s.chat
+        .call("await_action", { after: confirmed.data.next_after, wait_seconds: 6 })
+        .catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 200));
+      const started = Date.now();
+      const closing = s.app.close();
+      await new Promise((r) => setTimeout(r, 100));
+      release();
+      await closing;
+      expect(wound).toBe(true);
+      expect(Date.now() - started).toBeLessThan(3000); // the wait must not hold the event loop for its whole deadline
+      await waiting;
+    } finally {
+      release();
+    }
+  }, 30_000);
 });
 
 // -- BLUE R3 delta: real-engine restart/recovery scenarios behind the chat adapter -----------------------------------------------------
