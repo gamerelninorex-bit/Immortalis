@@ -56,6 +56,11 @@ export function storeBindings(
       }
       return extension.admission?.check(group, state) ?? null;
     },
+    // the canonical historical verification is forwarded unchanged: an extension owner's groups write no canonical key
+    verifyHistorical(group, state) {
+      if (extension.owners.has(group.owner)) return null;
+      return canonicalAdmission.verifyHistorical?.(group, state) ?? null;
+    },
   };
   return ok({ owners, admission });
 }

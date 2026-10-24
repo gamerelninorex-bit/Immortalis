@@ -53,9 +53,9 @@ Run the operator as `node --experimental-strip-types packages/operator/src/bin.t
 
 ## Before you look: what `observe-surroundings` can rest on (authoring guidance, no content is suggested)
 
-`observe-surroundings` earns a receipt **only** from statements that already exist; nothing is assumed, defaulted or inferred, and a look that rests on too little is retained as a non-receipt at that basis and is **not asked again**. The statements are yours to write or to leave unwritten:
+`observe-surroundings` earns a receipt **only** from statements that already exist; I-002 §10 permits safely conventional intrinsic baseline properties, while actual viewing circumstances and world evidence remain separately required. A look that rests on too little is retained as a non-receipt at that basis and is **not asked again**. The statements are yours to write or to leave unwritten:
 
-- **The character's own words** (`author-character`): a sense appears in the accepted statements only if you wrote it. "One ordinary human body" states no sense.
+- **The character's own words** (`author-character`): ordinary-human shorthand can support ordinary intrinsic vision absent contrary facts. Literal sight keywords are not a universal requirement; that baseline does not establish current exposure, facing or light.
 - **The placement** you type and confirm (`author-character`, native presence): it is the only statement the question reads for _where_ the character is, _which way_ it faces and whether its eyes are open. It cannot be amended afterwards.
 - **The setting's prose** (`establish-locality`, `locus.constraints`): the only statements the question reads for the **light**, the **clarity of the air**, whether the **path** is open or blocked, and **how what is in view looks**. The author states only what is the author's to state, and may state any of it as blocked or dark.
 - **After a gathering,** the only consequence delivered is the mechanical sentence that it was completed. It does not describe how anything looks.

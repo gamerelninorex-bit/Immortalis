@@ -5,6 +5,7 @@ import {
   ExistingActorCouplingSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   pcExistenceContractKey,
   worldActorCouplingKey,
@@ -21,6 +22,7 @@ import {
 } from "../owners/admission.ts";
 import { resolveKey, type FactKind } from "../owners/registry.ts";
 import { couplingActorStillNonPcViolation } from "./actor-coupling.ts";
+import { worldCorridorViolation } from "./corridor.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 
 export interface IntegrityViolation {
@@ -52,6 +54,12 @@ export interface IntegrityViolation {
     | "ENTITY_TRANSITION_STATE"
     /** World-State existing-actor coupling anchors: see verifyExistingActorCouplingIntegrity */
     | "ACTOR_COUPLING_STATE"
+    /** R1 Stage-One v1.1 actor setup placements and world setup closures: see verifyActorPresenceIntegrity */
+    | "ACTOR_SETUP_STATE"
+    /** R1 Stage-One v1.1 first actor physical presence: see verifyActorPresenceIntegrity */
+    | "ACTOR_PRESENCE_STATE"
+    /** S1-P1 raw sensory states, acoustic emissions and typed acoustic profiles: see verifyAuditoryPremisesIntegrity */
+    | "AUDITORY_PREMISES_STATE"
     /** World-State active-PC post-handover physical-locus custody: see verifyPcPhysicalLocusCustodyIntegrity */
     | "PC_LOCUS_CUSTODY_STATE"
     /** IM-07 active-PC voluntary-movement commitment-of-record and PC-owned request: see verifyPcMovementIntegrity */
@@ -204,6 +212,33 @@ export function verifyCanonicalIntegrity(
         bad(fact.key, "REFERENCE_INVALID", "locus world reference does not match its key");
       }
       needs(fact, worldProfileKey(locus.world.entity_id));
+    } else if (kind.id === "world_corridor") {
+      // a corridor is re-verified from committed state: the world and both endpoint loci were committed before it, the corridor read
+      // those exact versions and depended on the groups that committed them (referenced, never copied), and the one topology rule
+      // admission applies holds against the facts as they stood when it was written
+      const corridor = WorldCorridorSchema.parse(parsed.data);
+      const group = store.committedGroup(fact.provenance.intent_id);
+      for (const pin of [corridor.world, corridor.from, corridor.to]) {
+        const target = needs(fact, pin.fact_key);
+        if (
+          target &&
+          (!group ||
+            !group.reads.some((r) => r.key === target.key && r.version === target.version) ||
+            !group.depends_on.includes(target.provenance.group_id))
+        ) {
+          bad(
+            fact.key,
+            "REFERENCE_INVALID",
+            `a corridor read the exact world and endpoint loci and depended on the groups that committed them: ${pin.fact_key}`,
+          );
+        }
+      }
+      const violation = worldCorridorViolation(
+        fact.key,
+        corridor,
+        factsBefore(revisionOf(fact), facts, revisionOf),
+      );
+      if (violation) bad(fact.key, "REFERENCE_INVALID", violation);
     } else if (kind.id === "pc_existence_contract") {
       const contract = ExistenceContractSchema.parse(parsed.data);
       if (contract.existing_actor_compilation !== undefined) {

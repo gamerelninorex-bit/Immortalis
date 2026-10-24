@@ -107,6 +107,63 @@ export type WorldProfile = z.infer<typeof WorldProfileSchema>;
 // World locus — owner world_state / facet world_locus. Not asserted to be a World-State Node.
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * S1-P1 W2a — the OPTIONAL typed, geometry-free, whole-locus acoustic eligibility of one locus (WG "S1-P1 — BLUE executable
+ * lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises", native pin 2026-10-23T12:26:49.599Z, "W2: pre-seal
+ * typed acoustic geometry-free constraint and bounded emission" and the emitter-source executability clarification).
+ *
+ * It is authored ONLY inside the original `world_locus` source value, before that world's `world_setup_closure`; admission and
+ * historical verification refuse every later or backfilled profile. Absence is lawful and means no P1 full-locus premise, so an
+ * existing saved locus is neither rewritten nor invalidated. The three `coverage_basis` statements are independent
+ * source-authored physical claims about this specific locus, not interpreted `constraints` text; `exclusions` is empty in this
+ * first stage (any actual or unknown exclusion is nonqualifying); `environmental_emitter_basis` states the concrete
+ * environmental source able to produce one bounded impulse, never that the impulse happened. Type-checking proves a bounded
+ * owner-authored physical premise, not a propagation simulation: there is no position, direction, ray, attenuation figure,
+ * neighbouring locus, path, duration or recurrence field in which one could be stated.
+ */
+export const AIRBORNE_SOUND = "AIRBORNE_SOUND" as const;
+
+export const EnvironmentalEmitterBasisSchema = z.strictObject({
+  /** the concrete environmental source's identity: the one an emission must name (never an actor, a PC or a fallback entity) */
+  emitter_id: EntityId,
+  physical_source_statement: Text,
+  bounded_impulse_possible_statement: Text,
+});
+export type EnvironmentalEmitterBasis = z.infer<typeof EnvironmentalEmitterBasisSchema>;
+
+export const AcousticProfileV1Schema = z
+  .strictObject({
+    channel: z.literal(AIRBORNE_SOUND),
+    scope: z.literal("FULL_LOCUS"),
+    coverage: z.literal("FULL_LOCUS_STRONG"),
+    coverage_basis: z.strictObject({
+      whole_locus_reach: Text,
+      no_material_obstruction: Text,
+      no_material_attenuation: Text,
+    }),
+    exclusions: z.tuple([]),
+    environmental_emitter_basis: EnvironmentalEmitterBasisSchema,
+  })
+  .superRefine((p, ctx) => {
+    // "independently authored": a technical encoding of independence is that no two physical statements are the same text
+    const statements = [
+      p.coverage_basis.whole_locus_reach,
+      p.coverage_basis.no_material_obstruction,
+      p.coverage_basis.no_material_attenuation,
+      p.environmental_emitter_basis.physical_source_statement,
+      p.environmental_emitter_basis.bounded_impulse_possible_statement,
+    ];
+    if (new Set(statements).size !== statements.length) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "the coverage basis and the environmental emitter basis are independently authored: no two physical statements are the same text",
+        path: ["coverage_basis"],
+      });
+    }
+  });
+export type AcousticProfileV1 = z.infer<typeof AcousticProfileV1Schema>;
+
 export const WorldLocusSchema = z.strictObject({
   locus_id: EntityId,
   /** the world this locus belongs to (reference, not a copy) */
@@ -114,6 +171,12 @@ export const WorldLocusSchema = z.strictObject({
   /** the broad locus as authored */
   designation: Text,
   constraints: z.array(WorldConstraintSchema),
+  /**
+   * S1-P1 W2a: present only for a locus authored together with its typed whole-locus acoustic eligibility before its world's
+   * setup closure (see AcousticProfileV1Schema); absent for every other locus, whose serialization is unchanged. Optional by
+   * encoding, not by meaning: its absence is "no P1 full-locus premise".
+   */
+  acoustic_profile_v1: AcousticProfileV1Schema.optional(),
 });
 export type WorldLocus = z.infer<typeof WorldLocusSchema>;
 

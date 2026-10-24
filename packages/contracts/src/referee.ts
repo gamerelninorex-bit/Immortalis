@@ -497,8 +497,9 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
  *                        `ref` = `placement.statement`): the ONLY premise that can establish the character's own exact viewing
  *                        circumstances (a shared locus identity does not, and the faculty alone does not);
- *   WORLD_FACT           a committed world or locus fact (`context.facts`, by `fact_id`): the physical setting, the light, the air path and
- *                        any obstruction.
+ *   WORLD_FACT           a committed world, locus or (source-scoped questions only) Source Condition access fact (`context.facts`, by
+ *                        `fact_id`): the physical setting, the light, the air path, any obstruction, and the owner-authored access or
+ *                        appearance circumstance of the one source the question is scoped to.
  */
 export const OBSERVATION_PREMISE_KINDS = [
   "PC_STATEMENT",
@@ -508,6 +509,11 @@ export const OBSERVATION_PREMISE_KINDS = [
 export type ObservationPremiseKind = (typeof OBSERVATION_PREMISE_KINDS)[number];
 /** The `ref` of a PLACEMENT_STATEMENT premise: there is exactly one such statement in a delivered context. */
 export const OBSERVATION_PLACEMENT_REF = "placement.statement";
+/**
+ * The facts every direct-perception question cites, in order: the released character, the binding, the custody, the world and the locus.
+ * A question the trusted side scoped to ONE Source Condition cites that source as a sixth, at this index, and never any other.
+ */
+export const OBSERVATION_BASE_REFS = 5;
 
 export const ObservationPremiseSchema = z.strictObject({
   from: z.enum(OBSERVATION_PREMISE_KINDS),
@@ -538,10 +544,10 @@ export const OBSERVATION_POSITION_STATES = ["ESTABLISHED", "NOT_ESTABLISHED"] as
 export const OBSERVATION_PATH_STATES = ["OPEN", "BLOCKED", "NOT_ESTABLISHED"] as const;
 
 /**
- * The minimal perceptible payload (F-014D §6 step 3): the raw appearance only. `source_fact_id` names the ONE delivered world or locus
- * fact the appearance is of (the engine pins that committed fact as the event's foreign source); `basis` anchors the appearance in
+ * The minimal perceptible payload (F-014D §6 step 3): the raw appearance only. `source_fact_id` names the ONE delivered world, locus or
+ * source fact the appearance is of (the engine pins that committed fact as the event's foreign source); `basis` anchors the appearance in
  * verbatim quotations of delivered WORLD_FACT text. It carries no recognition, function, identity, place name or hidden composition:
- * the schema has no field for them, and the engine refuses any engine reference in the text.
+ * the schema has no field for them, and the engine refuses any engine reference, and any withheld source value, in the text.
  */
 export const ObservationPayloadSchema = z.strictObject({
   source_fact_id: Id,

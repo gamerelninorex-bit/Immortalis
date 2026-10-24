@@ -33,6 +33,8 @@
 // Culture & Society Established Shared Meaning / Norm Result-Close contracts (IM-09: the sealed Social Update Context, the Culture-defined evidence reading and the Culture-owned shared meaning/norm committed at the Communicative Convention Close).
 export * from "./actor-capability.ts";
 export * from "./actor-coupling.ts";
+export * from "./actor-presence.ts";
+export * from "./auditory-premises.ts";
 export * from "./pc-locus-custody.ts";
 export * from "./pc-movement.ts";
 export * from "./pc-collection.ts";
@@ -72,10 +74,12 @@ export * from "./protocol-pc-target-advance.ts";
 export * from "./protocol-causal.ts";
 export * from "./protocol-current-glance.ts";
 export * from "./protocol-relocation.ts";
+export * from "./protocol-corridor-relocation.ts";
 export * from "./protocol.ts";
 export * from "./result.ts";
 export * from "./source-ref.ts";
 export * from "./spec-identity-schema.ts";
 export * from "./temporal.ts";
+export * from "./world-corridor.ts";
 export * from "./world-foundation.ts";
 export { BUILD_SPEC_IDENTITY } from "./spec-identity.ts";

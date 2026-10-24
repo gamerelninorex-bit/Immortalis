@@ -239,13 +239,17 @@ export async function askPhysical(
 export async function askObservation(
   adapter: RefereeAdjudicationAdapter,
   rt: RefereeRuntime,
-  input: { campaign_id: string; pc_id: string },
+  input: { campaign_id: string; pc_id: string; source_key?: string },
 ): Promise<Asked<ObservationHostDecision, ObservationContext>> {
   const configured = await refereeConfigured(input.campaign_id, rt);
   if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
   const p = exchange(input.campaign_id, rt);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const built = adapter.observationTask({ pc_id: input.pc_id, attempt });
+    const built = adapter.observationTask({
+      pc_id: input.pc_id,
+      attempt,
+      ...(input.source_key !== undefined ? { source_key: input.source_key } : {}),
+    });
     if (!built.ok)
       return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
     const { context, task_id } = built.value;

@@ -70,6 +70,11 @@ import {
   EconomyReallocationSchema,
   EntityTransitionCauseSchema,
   ExistingActorCouplingSchema,
+  ActorPhysicalPresenceSchema,
+  ActorRawSensoryStateSchema,
+  ActorSetupPlacementSchema,
+  WorldAcousticEmissionSchema,
+  WorldSetupClosureSchema,
   EntityTransitionCloseSchema,
   ExistenceContractSchema,
   ExternalRecognitionSchema,
@@ -137,6 +142,7 @@ import {
   TemporalObjectSchema,
   TemporalStateSchema,
   TransactionAuthoritySchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   WorldProfileSchema,
   type SourceRef,
@@ -315,10 +321,20 @@ export const WORLD_SOURCE_CONDITION_FACT_KIND_IDS = [
   "world_source_condition",
   "world_source_delivery",
 ] as const;
+export const WORLD_CORRIDOR_FACT_KIND_IDS = ["world_corridor"] as const;
 export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
 export const WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS = ["world_pc_locus_custody"] as const;
+export const WORLD_ACTOR_PRESENCE_FACT_KIND_IDS = [
+  "actor_setup_placement",
+  "world_setup_closure",
+  "actor_physical_presence",
+] as const;
+export const WORLD_AUDITORY_PREMISES_FACT_KIND_IDS = [
+  "actor_raw_sensory_state",
+  "world_acoustic_emission",
+] as const;
 export const ECONOMY_FACT_KIND_IDS = [
   "economy_demand",
   "economy_request",
@@ -403,10 +419,13 @@ export type FactKindId =
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
   | (typeof SOURCE_DRAWDOWN_FACT_KIND_IDS)[number]
   | (typeof WORLD_SOURCE_CONDITION_FACT_KIND_IDS)[number]
+  | (typeof WORLD_CORRIDOR_FACT_KIND_IDS)[number]
   | (typeof WORLD_FALLBACK_FACT_KIND_IDS)[number]
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
+  | (typeof WORLD_ACTOR_PRESENCE_FACT_KIND_IDS)[number]
+  | (typeof WORLD_AUDITORY_PREMISES_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_HOLDING_FACT_KIND_IDS)[number]
   | (typeof LOGISTICS_FACT_KIND_IDS)[number];
@@ -880,6 +899,50 @@ export const WORLD_SOURCE_CONDITION_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+/** BLUE v5.2-A1 Bounded Implementation Brief — Source-Qualified Local Corridor and Logistics Read (a construction source, NOT a spec-lock pin). */
+export const WORLD_CORRIDOR_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/40120af901e0817f9d6dc4e10b5d0f87",
+  native_pin: "2026-10-22T13:47:37.910Z",
+} as const;
+
+const WORLD_CORRIDOR_BRIEF_LINEAGE = `BLUE v5.2-A1 Bounded Implementation Brief — Source-Qualified Local Corridor and Logistics Read, verified native pin ${WORLD_CORRIDOR_BRIEF_SOURCE.native_pin} (${WORLD_CORRIDOR_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment of any frozen source, NOT a spec-lock pin)`;
+
+const WS010_CORRIDOR_LINEAGE = `WS-010 Logistics §§2-5, 7-10, 19.3, 20, 23 (a source-owned physical topology is an input; Logistics determines only its own movement-service consequences and cannot invent route, permission, service, compatibility or time), spec-locked pin ${WS010_SOURCE.native_pin} (${WS010_SOURCE.artifact}); F-014B (preserve canonical declared boundaries and owner/stage ordering; a corridor itself never advances time), spec-locked pin ${F014B_SOURCE.native_pin} (${F014B_SOURCE.artifact})`;
+
+/**
+ * The World-State physical corridor (IM-03): WG "Geography / Traversal" and "Edge / Corridor State" — "a connection between nodes or
+ * regions may carry independent causal state without becoming a World-State Node ... Nodes own consequential domains; edges/corridors
+ * may own consequential access and transit between them" — with "Ownership Guards — World Generation May Own: World-State topology;
+ * world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem" and
+ * "World Generation May Not Own: Temporal scheduling". The corridor is World-State's own topological fact; it claims no distance,
+ * duration, access, throughput, capability or delivery, which the source leaves to the owners of those distinctions.
+ */
+export const WORLD_CORRIDOR_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Geography / Traversal; Edge / Corridor State (a connection between nodes or regions may carry independent causal state without becoming a World-State Node; edges/corridors may own consequential access and transit between them; do not collapse meaningful travel into costless adjacency merely because both endpoints are already known); Ownership Guards — World Generation May Own: World-State topology, world-side setting facts, world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem; World Generation May Not Own: Temporal scheduling; Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners (provide relevant physical world conditions)",
+  [WS010_CORRIDOR_LINEAGE, WORLD_CORRIDOR_BRIEF_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED: one directed corridor per (world, origin locus, destination locus), create-only. The key IS the ordered pair, so a second,
+ * changed or duplicate corridor for the same ordered pair is a version conflict and never a sibling truth, and the reverse connection
+ * is a different key that exists only when independently authored. It is the existing World-State owner's existing locus facet's
+ * own topology (no new owner, facet or Location/Movement owner), and it is not a World-State Node.
+ */
+export const WORLD_CORRIDOR_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_corridor",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_LOCUS,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/corridor/${ID}/${ID}$`),
+    valueSchema: WorldCorridorSchema,
+    rule: WORLD_CORRIDOR_RULE,
+  },
+];
+
 /** SEALED: after acceptance no amendment mechanism exists, so the entity is create-only (exactly once). */
 export const WORLD_FALLBACK_FACT_KINDS: readonly FactKind[] = [
   {
@@ -1048,6 +1111,120 @@ export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
         },
       },
     ],
+  },
+];
+
+const R1_PRESENCE_LINEAGE =
+  "R1 Stage-One v1.1 (23 October 2026) design lineage, cited as the ownership and lowering rule only and NOT as a spec-lock pin: WG World Generation & World-State Kernel (https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d), sections 'R1 Sovereign-Ratified Successor Amendment — NPC Locus Presence — 23 October 2026', 'R1 Stage-One v1.1 Sovereign-Ratified Successor — Setup Placement and Exclusive NPC Presence — 23 October 2026' and 'R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026' (native pin 2026-10-23T09:27:39.157Z); Temporal F-014B (https://app.notion.com/p/3e020af901e081fb88e9f691748db990), sections 'R1 Sovereign-Ratified Interface Amendment — Physical Presence Temporal Read — 23 October 2026' and 'R1 Stage-One v1.1 Ratified Temporal Cutoff and Read — 23 October 2026'";
+
+/**
+ * The World-State fallback custodian's first-stage NPC physical presence chain (IM-03): WG "Ownership Guards — World Generation
+ * May Own: ... F-016 Ratified Fallback Objective Physical-Entity Custody (... physical/entity identity or reference,
+ * continuity-dependency binding)" with the R1 Stage-One v1.1 lineage. Setup evidence (B1), the once-per-world closed inventory
+ * and the first current physical record (B2) are one rule: no coupling, capability identity or host text is a position.
+ */
+export const WORLD_ACTOR_PRESENCE_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact: physical/entity identity or reference, continuity-dependency binding); Interface Handoffs — To Insertion/Reconciliation (latent/realized local state needed for coupling)",
+  [
+    WS006_ACTOR_COUPLING_LINEAGE,
+    HANDOVER_SEAM_LINEAGE,
+    R1_PRESENCE_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * B1 and the closure are SEALED (create-only). B2 is ADVANCING in kind but stage one admits only its initial version
+ * (expected_version 0) and refuses every successor: the owner's admission and the load verifier enforce it, because no
+ * movement, transition or carry exists.
+ */
+export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "actor_setup_placement",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/setup-placement$`),
+    valueSchema: ActorSetupPlacementSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+  {
+    id: "world_setup_closure",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/setup-closure$`),
+    valueSchema: WorldSetupClosureSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+  {
+    id: "actor_physical_presence",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/presence$`),
+    valueSchema: ActorPhysicalPresenceSchema,
+    rule: WORLD_ACTOR_PRESENCE_RULE,
+  },
+];
+
+const S1_P1_LINEAGE =
+  "S1-P1 (23 October 2026) executable lowering, recorded in spec/f027/spec-lock.json `executable_lowerings` and cited here as the ownership and lowering rule, NOT as a frozen spec-lock pin: WG World Generation & World-State Kernel (https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d), section 'S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026' with its 'S1-P1 emitter-source executability clarification' (native pin 2026-10-23T12:26:49.599Z); consumer boundary F-014D (https://app.notion.com/p/3e020af901e08103b81aec5f7119318e), section 'S1-P1 Upstream Auditory Premises Consumer Boundary' (native pin 2026-10-23T12:28:14.041Z), a physical-input boundary only; Health (https://app.notion.com/p/3e620af901e0817c8b1ac2caf852e3aa) native pin 2026-10-23T09:37:46.110Z and Temporal F-014B (https://app.notion.com/p/3e020af901e081fb88e9f691748db990) native pin 2026-10-23T09:37:46.817Z, read as the unbuilt Health close and the Temporal authority respectively";
+
+/**
+ * The World-State physical-source chain of S1-P1 (IM-03): W1 the owner-authored raw auditory faculty and receptivity of one
+ * non-PC actor (the fallback custodian of objective physical facts, only while F-016 physical fallback is active) and W2b the
+ * separately committed, instantaneous airborne-sound emission of a locus whose ORIGINAL source value carries the typed
+ * acoustic profile. Neither is a hearing result, a Health clearance, a capability score or an epistemic event.
+ */
+export const WORLD_AUDITORY_PREMISES_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards — World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact); Interface Handoffs — To Epistemics (world-state physical source facts, not a recipient's knowledge)",
+  [
+    WS006_ACTOR_COUPLING_LINEAGE,
+    R1_PRESENCE_LINEAGE,
+    S1_P1_LINEAGE,
+    F016_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+);
+
+/**
+ * W1 is ADVANCING in kind but stage one admits only its first version (expected_version 0): the owner's admission and the load
+ * verifier enforce it, because no replacement, displacement, carry across elapsed time or other modality exists. The emission is
+ * SEALED (create-only) under the locus facet: it is the locus's own physical event, and the owner of the locus source is the
+ * owner of the emission, not a Named Actor, F-014D, Health or a referee.
+ */
+export const WORLD_AUDITORY_PREMISES_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "actor_raw_sensory_state",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^world-state/actor/${ID}/raw-sensory/AIRBORNE_HEARING$`),
+    valueSchema: ActorRawSensoryStateSchema,
+    rule: WORLD_AUDITORY_PREMISES_RULE,
+  },
+  {
+    id: "world_acoustic_emission",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_LOCUS,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/acoustic-emission/${ID}$`),
+    valueSchema: WorldAcousticEmissionSchema,
+    rule: WORLD_AUDITORY_PREMISES_RULE,
   },
 ];
 
@@ -2841,10 +3018,13 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
   ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,
+  ...WORLD_CORRIDOR_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
+  ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
+  ...WORLD_AUDITORY_PREMISES_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,
   ...ECONOMY_HOLDING_FACT_KINDS,
   ...LOGISTICS_FACT_KINDS,

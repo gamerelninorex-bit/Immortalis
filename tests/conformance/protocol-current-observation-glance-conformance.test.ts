@@ -46,7 +46,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/engine/src/epistemic/observation.ts":
-    "d4a83cb3bedfae403eb78dab6e101188c0dca01662fe88661e161d9749edbc85",
+    "3bb16b6274b30504e8a46c909d35a578fd4de26ef5e3cefc35a8971679e615b9",
   "packages/engine/src/epistemic/direct-observation.ts":
     "a0ca78beee98677b855fa863c449bf88a371b997713e68ce59807dbce8801033",
   "packages/engine/src/epistemic/declaration.ts":
@@ -58,8 +58,8 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/operator/src/observation.ts":
-    "148f9b0fca3bd33f4579ac913bd55c4c94cb6b843ebe1591be7eea72253b30c0",
-  "spec/f027/spec-lock.json": "8546dd1f09e22a19c1748d513117783277b6d46b9e22f8cfcb6f47c171bf0cb7",
+    "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
+  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
@@ -80,6 +80,7 @@ describe("existing owners, projection, presentation and predecessors are untouch
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
       "pc-collection.ts",
+      "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
     ]);
@@ -143,7 +144,9 @@ describe("the read composes the existing path only, and takes no authority, iden
 
   it("the parsed request is used for validation, never read: no event identity, recipient, basis or time can come from the host", () => {
     const src = identifiers(MODULE);
-    expect(src).not.toMatch(/parsed\.data|request\.|request\[/);
+    // Typed owner facts are parsed separately; the untrusted request is consumed only as a success boolean.
+    expect(src).not.toMatch(/request\.|request\[/);
+    expect(src).toMatch(/ReadCurrentObservationGlanceRequestSchema.safeParse\(request\).success/);
     expect(src).toMatch(/event_id: eventId/);
     expect(src).toMatch(
       /deriveEventSignalProjection\(view, \{ event_id: eventId, recipient_id \}\)/,
@@ -189,7 +192,7 @@ describe("the read is read-only, causally inert and has no discovery surface", (
     );
     // no branch between the reads: each step is individually guarded, none is conditional on an earlier result
     expect(body).not.toMatch(/\bif\b[^;]*\bview\./);
-    expect(body.match(/view\.getFact\(/g)).toHaveLength(8);
+    expect(body.match(/view\.getFact\(/g)).toHaveLength(12);
     expect(body.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(src.match(/observationEventViolation\(/g)).toHaveLength(1);
     expect(src.match(/deriveEventSignalProjection\(/g)).toHaveLength(1);

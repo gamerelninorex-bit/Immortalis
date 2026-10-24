@@ -4,12 +4,9 @@
 // pins what the observation question then DELIVERS to the referee host. The "host" is a script (PLUMBING ONLY; not an AI, not a game
 // master's judgment); the trial's own campaign and its retained reading are not touched or read.
 //
-// What it shows: a character whose own statements state no sense, whose confirmed placement states neither a facing nor open eyes, in a
-// scene whose prose states no light, air, path or appearance, is delivered a question in which none of faculty, position, path or
-// appearance rests on any statement - and the only consequence of the gathering is the mechanical sentence that it was completed. The
-// result is therefore the lawful non-receipt, retained at that basis and not asked again. The repair for such a SAVED campaign is not in
-// this file (its world, locus, contract and placement are sealed); the six statements a positive rests on are authored through the
-// existing owners in the explicit campaigns of pc-collection-perception.test.ts and observation-foundation.test.ts.
+// It pins literal delivered words and the retained result of this scripted host policy. Absence of sight keywords does not
+// establish semantic absence of a faculty: I-002 §10 permits safely conventional intrinsic baseline properties. The fixture's
+// incomplete viewing circumstances and world inputs remain distinct, and a completion sentence supplies no physical appearance.
 import { describe, expect, it } from "vitest";
 import { RefereeAdjudicationAdapter, verifyEpistemicIntegrity } from "@immortalis/engine";
 import { openOrdinary, SOURCE_KEY, WORLD_ID } from "../support/locality.ts";
@@ -57,8 +54,8 @@ async function reading<T>(dirs: { campaignDir: string }, fn: (c: any) => Promise
   }
 }
 
-describe("MECHANISM: a campaign authored the way the Render trial describes is delivered a question that rests on nothing, and the result is the lawful non-receipt", () => {
-  it("delivers no sight statement, no facing or eyes, no light, air, path or appearance fact - only the mechanical sentence that the gathering was completed", async () => {
+describe("MECHANISM: trial-shaped delivered inputs and a scripted retained non-receipt", () => {
+  it("preserves the literal shorthand and world prose alongside the mechanical completion sentence", async () => {
     const { dirs } = await originalCollectionCampaign({
       scene: trialScene,
       body: SHORTHAND_BODY,
@@ -72,7 +69,7 @@ describe("MECHANISM: a campaign authored the way the Render trial describes is d
       });
       expect(task.ok, JSON.stringify(task)).toBe(true);
       const ctx = (task as any).value.context;
-      // the character's own statements: nothing about any sense
+      // A literal keyword assertion only; ordinary-human shorthand may entail ordinary vision under I-002 §10.
       expect(ctx.pc.map((i: any) => i.text).join(" | ")).not.toMatch(SIGHT_WORDS);
       // the confirmed placement: where the character is, and nothing about a facing or open eyes
       expect(ctx.statement).toBe(PC_WORDS.presenceBare);
@@ -117,7 +114,7 @@ describe("MECHANISM: a campaign authored the way the Render trial describes is d
     });
     expect(before).toMatchObject({ source: 117, reserve: 3 });
 
-    // the scripted host reads the words it is delivered; this question delivers none that establish a sense, a position or a path
+    // This scripted lexical policy returns an unresolved reading; it is not a universal interpretation of ordinary-human words.
     const policy = (doc: any) =>
       doc["operation"] === "F014D_DIRECT_PERCEPTION" ? observationAnswer(doc) : plainPolicy(doc);
     const first = await observe(dirs, verbConsole("observe-surroundings"), {}, policy);

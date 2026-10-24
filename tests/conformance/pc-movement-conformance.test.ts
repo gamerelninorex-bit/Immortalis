@@ -24,6 +24,7 @@ import {
 import { code, gates, lock, register } from "../support/f027.ts";
 import { expectedAdapterMethods, expectedOwnerFacetSet } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
+import { expectNotALockPin } from "../support/lock.ts";
 
 const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!;
 const MODULES = [
@@ -74,8 +75,9 @@ describe("IA-01 source/version fidelity: the composed authority lineage is cited
 
   it("the frozen contract and the brief's working pin are not lock pins: the lock, Runtime Contract and open-gate snapshots are untouched", () => {
     const lockText = readFileSync("spec/f027/spec-lock.json", "utf8");
-    for (const frozen of [FROZEN_CONTRACT_ID, FROZEN_CONTRACT_PIN, BRIEF_PIN])
-      expect(lockText, frozen).not.toContain(frozen);
+    // the frozen contract is in no frozen source, addendum, governance reference or rule; its page id may appear only as the
+    // non-executable R1 design-lineage row, and the contract's and the brief's own native pins appear nowhere (BLUE ruling on PR #84)
+    expectNotALockPin(JSON.parse(lockText), FROZEN_CONTRACT_ID, [FROZEN_CONTRACT_PIN, BRIEF_PIN]);
     expect(lock.frozen_sources).toHaveLength(23);
     expect(lock.incorporated_tranches).toHaveLength(2);
     expect(
@@ -217,10 +219,16 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
       "world_profile",
       "world_locus",
+      "world_corridor",
       "world_fallback_entity",
       "world_entity_transition",
       "world_actor_coupling",
       "world_pc_locus_custody",
+      "actor_setup_placement",
+      "world_setup_closure",
+      "actor_physical_presence",
+      "actor_raw_sensory_state",
+      "world_acoustic_emission",
       "world_source_condition",
       "world_source_delivery",
       "world_scene_closure",
@@ -248,9 +256,10 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       );
     }
     expect(existsSync("migrations/manifests/pc-movement.json")).toBe(false);
-    // the Logistics adapter surface is unchanged: no new writer, no cancel, no reroute, no delivery or retirement writer
+    // the Logistics adapter gained only the explicitly source-qualified commitment (commitCorridorMovement): no cancel, no reroute, no delivery or retirement writer
     expect(adapterMethods(LogisticsAdapter)).toEqual(expectedAdapterMethods("LogisticsAdapter"));
     expect(adapterMethods(LogisticsAdapter)).toEqual([
+      "commitCorridorMovement",
       "commitMovement",
       "commitment",
       "currentLocus",

@@ -7,6 +7,7 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   compareTime,
   logisticsBoundaryId,
@@ -24,12 +25,14 @@ import {
   worldProfileKey,
   type CanonicalTime,
   type CommitGroup,
+  type WorldCorridor,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { pcMovementRequestViolation } from "../pc-movement/derive.ts";
+import { worldCorridorViolation } from "../world/corridor.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import {
   isPcSubjectKey,
@@ -184,6 +187,42 @@ function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Re
       key: dest.locus.fact_key,
     });
   }
+  // the source-qualified path: the World-State corridor is a committed fact of the world's own owner, read at its current version and
+  // depended on (never copied, never created here), and the commitment pins exactly the version read
+  let corridor: { key: string; owner: string; version: number; value: WorldCorridor } | undefined;
+  if (c.corridor !== undefined) {
+    const originP = requirePrerequisite(group, state, c.origin.locus.fact_key, "the origin locus");
+    if (isRejection(originP)) return originP;
+    const corridorP = requirePrerequisite(
+      group,
+      state,
+      c.corridor.fact_key,
+      "the World-State corridor",
+    );
+    if (isRejection(corridorP)) return corridorP;
+    const parsedCorridor = WorldCorridorSchema.safeParse(corridorP.fact.value);
+    if (
+      !parsedCorridor.success ||
+      corridorP.fact.owner !== c.corridor.owner ||
+      corridorP.fact.version !== c.corridor.version
+    ) {
+      return ref("the corridor is World-State's own fact, pinned at its current version", {
+        key: c.corridor.fact_key,
+      });
+    }
+    const corridorHolds = worldCorridorViolation(
+      corridorP.fact.key,
+      corridorP.fact.value,
+      state.facts,
+    );
+    if (corridorHolds) return ref(corridorHolds, { key: c.corridor.fact_key });
+    corridor = {
+      key: corridorP.fact.key,
+      owner: corridorP.fact.owner,
+      version: corridorP.fact.version,
+      value: parsedCorridor.data,
+    };
+  }
   const now = pinnedNow(group, state);
   if ("code" in now) return now;
   if (compareTime(now, c.committed_at) !== 0)
@@ -200,6 +239,7 @@ function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Re
     transitioned: state.facts.has(worldEntityTransitionKey(world, c.moved.entity_id)),
     now,
     delivery_at: c.delivery.at,
+    ...(corridor !== undefined ? { corridor } : {}),
   });
   if (!derived.ok) return bad(derived.error.message, { key: w.key });
   if (!canonicalEqual(derived.value, c)) {

@@ -1,9 +1,13 @@
 import {
+  EntityId,
   ExistenceContractSchema,
+  FACET_WORLD_SOURCE_CONDITION,
   I002_ADMITTED_CLASS,
   I002_NON_INTRINSIC_CLASSES,
+  OBSERVATION_BASE_REFS,
   OBSERVATION_PLACEMENT_REF,
   ORIGINAL_ACTIVATION,
+  OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
@@ -20,12 +24,14 @@ import {
   WorldSourceConditionSchema,
   WorldSourceDeliverySchema,
   pcCollectionRequestId,
+  parseWorldSourceConditionKey,
   pcExistenceContractKey,
   popPcOccupancyKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
   worldSourceDeliveryKey,
+  worldSourceConditionKey,
   type CanonicalTime,
   type ExistenceContract,
   type I002ClarificationContext,
@@ -128,8 +134,8 @@ export interface I002Context {
 
 export interface DeliveredFact {
   readonly fact_id: string;
-  /** which committed fact the text is from (`outcome`: the sealed World-State delivery of the character's own completed collection) */
-  readonly from: "world" | "locus" | "outcome";
+  /** A world/locus fact, a scoped Source Condition, or the sealed completed-collection delivery. */
+  readonly from: "world" | "locus" | "source" | "outcome";
   readonly label: string;
   readonly text: string;
 }
@@ -179,6 +185,11 @@ export interface PhysicalContext {
  * setting, as committed), and the character's committed physical-locus custody (cited so that a character with no physical position
  * is never asked about). The caller names the character, the attempt and the basis, and nothing else: no scene, no target, no
  * expected result and no test label exists in it.
+ *
+ * A SOURCE-SCOPED question (the trusted side named ONE already committed World-State Source Condition at the character's own locus)
+ * additionally pins that Source Condition as a sixth reference and delivers ONLY its owner-authored access facts, as `source.access.N`
+ * facts. Nothing else of the Source Condition is delivered: no quantity, recoverable amount, material class, dimension, key,
+ * delivery or establishment statement (the establishment statement is the owner's quantity assertion, not a descriptive premise).
  */
 export interface ObservationContext {
   readonly operation: typeof REFEREE_OP_OBSERVATION;
@@ -196,7 +207,10 @@ export interface ObservationContext {
   /** the accepted character's own statements */
   readonly pc: readonly CandidateItem[];
   readonly facts: readonly DeliveredFact[];
-  /** the released character, the binding, the custody, the world and the locus, at the versions delivered (in that order) */
+  /**
+   * the released character, the binding, the custody, the world and the locus, at the versions delivered (in that order); a source-scoped
+   * question adds the one Source Condition last
+   */
   readonly refs: readonly RefereeInputRef[];
 }
 
@@ -457,10 +471,63 @@ function collectionOutcome(
   };
 }
 
+/** The one refusal of every source problem, so that no cause (absent, foreign, elsewhere, exhausted, undescribed) can be told from another. */
+const SOURCE_UNAVAILABLE = "no source is available to this observation";
+
+/**
+ * The ONE Source Condition a source-scoped question may be about: a committed World-State fact at its own derived key, whose own locality
+ * is exactly the world and locus the character's binding couples (and so its ORIGINAL custody holds), still physically present (not
+ * exhausted) and stating at least one access fact. Anything else — an absent, malformed, foreign-owned, mislocated or depleted source,
+ * or a source that states no descriptive circumstance — is `null`: the question fails closed and nothing is guessed or discovered.
+ */
+function sourceScope(
+  facts: Facts,
+  scope: {
+    world: { entity_id: string; fact_key: string };
+    locus: { entity_id: string; fact_key: string };
+  },
+  sourceKey: string,
+): { fact: OwnerFact; delivered: DeliveredFact[] } | null {
+  if (!EntityId.safeParse(sourceKey).success) return null;
+  const key = worldSourceConditionKey(scope.world.entity_id, sourceKey);
+  const fact = facts(key);
+  if (
+    !fact ||
+    fact.key !== key ||
+    fact.owner !== OWNER_WORLD_STATE ||
+    fact.facet !== FACET_WORLD_SOURCE_CONDITION
+  )
+    return null;
+  const parsed = WorldSourceConditionSchema.safeParse(fact.value);
+  if (!parsed.success) return null;
+  const s = parsed.data;
+  if (
+    s.source_key !== sourceKey ||
+    s.locality.world.entity_id !== scope.world.entity_id ||
+    s.locality.world.fact_key !== scope.world.fact_key ||
+    s.locality.locus.entity_id !== scope.locus.entity_id ||
+    s.locality.locus.fact_key !== scope.locus.fact_key ||
+    s.exhaustion !== null ||
+    s.access_facts.length === 0
+  )
+    return null;
+  return {
+    fact,
+    delivered: s.access_facts.map((a, i): DeliveredFact => ({
+      fact_id: `source.access.${i + 1}`,
+      from: "source",
+      label: `source access fact (${a.aspect})`,
+      text: `${a.aspect}: ${a.statement}`,
+    })),
+  };
+}
+
 /**
  * The direct-perception context, built ONLY from committed facts (see `ObservationContext`) at the supplied canonical basis. Refused
  * unless the operative binding is the first ACTIVATION of exactly this character, the character holds a committed ORIGINAL physical-locus
- * custody at the very locus the binding couples, and the world and locus are committed.
+ * custody at the very locus the binding couples, and the world and locus are committed. `source_key` is TRUSTED-SIDE input only (the
+ * operator's choice of one existing candidate source to investigate); the source it names must pass `sourceScope`, and is never
+ * discovered, enumerated or inferred here.
  */
 export function observationContext(
   facts: Facts,
@@ -471,6 +538,7 @@ export function observationContext(
     observed_at: CanonicalTime;
     /** default `LATEST`: a new question cites the PC's own most recent completed collection, if any */
     outcome?: ObservationOutcomeSelector;
+    source_key?: string;
   },
 ):
   | { ok: true; context: ObservationContext }
@@ -523,12 +591,20 @@ export function observationContext(
     version: f.version,
     group_id: f.provenance.group_id,
   });
+  const source =
+    input.source_key === undefined
+      ? undefined
+      : sourceScope(facts, binding.coupling, input.source_key);
+  if (input.source_key !== undefined && !source) return unavailable(SOURCE_UNAVAILABLE);
+  // Source-scoped and outcome-citing contexts are separate six-reference variants.
+  if (input.source_key !== undefined && input.outcome !== undefined && input.outcome !== "NONE")
+    return unavailable(SOURCE_UNAVAILABLE);
   const outcome = collectionOutcome(
     facts,
     input.pc_id,
     worldId,
     locusId,
-    input.outcome ?? "LATEST",
+    input.source_key === undefined ? (input.outcome ?? "LATEST") : "NONE",
   );
   return {
     ok: true,
@@ -540,7 +616,11 @@ export function observationContext(
       observed_at: input.observed_at,
       statement: binding.transition.basis.statement,
       pc: refereeCandidateItems(pc.data),
-      facts: [...deliveredFacts(world.data, locus.data), ...(outcome ? [outcome.fact] : [])],
+      facts: [
+        ...deliveredFacts(world.data, locus.data),
+        ...(source?.delivered ?? []),
+        ...(outcome ? [outcome.fact] : []),
+      ],
       refs: [
         ref(pcFact),
         ref(bindingFact),
@@ -548,9 +628,70 @@ export function observationContext(
         ref(worldFact),
         ref(locusFact),
         ...(outcome ? [outcome.ref] : []),
+        ...(source ? [ref(source.fact)] : []),
       ],
     },
   };
+}
+
+/**
+ * The values of a source-scoped question's Source Condition that no appearance may carry: its identifiers, and every exact quantity it
+ * ever stated or holds. They are NOT in the delivered context (the host is never told them), so they are re-read from the committed
+ * Source Condition the question pins, here, wherever an answer is definitively validated. `null` when the question names a source that
+ * cannot be read as one (fail closed).
+ */
+export interface ObservationWithheld {
+  readonly names: readonly string[];
+  readonly amounts: readonly number[];
+}
+const NOTHING_WITHHELD: ObservationWithheld = { names: [], amounts: [] };
+
+export function observationWithheld(
+  facts: Facts,
+  ctx: ObservationContext,
+): ObservationWithheld | null {
+  if (ctx.refs.length === OBSERVATION_BASE_REFS) return NOTHING_WITHHELD;
+  const pin = ctx.refs[OBSERVATION_BASE_REFS];
+  const key = ctx.refs.length === OBSERVATION_BASE_REFS + 1 ? pin?.fact_key : undefined;
+  // The other six-reference variant cites a completed delivery; it is qualified by collectionOutcome, not sourceScope.
+  if (key && DELIVERY_KEY.test(key)) return NOTHING_WITHHELD;
+  const named = key ? parseWorldSourceConditionKey(key) : null;
+  const fact = key ? facts(key) : undefined;
+  const parsed = fact ? WorldSourceConditionSchema.safeParse(fact.value) : undefined;
+  if (!named || !parsed?.success || named.world_id !== ctx.subject.world_id) return null;
+  const s = parsed.data;
+  return {
+    names: [s.source_key, s.material_class],
+    amounts: [
+      ...new Set([
+        s.establishment.quantity.amount,
+        s.recoverable.amount,
+        ...s.delivered.map((d) => d.quantity.amount),
+      ]),
+    ],
+  };
+}
+
+/** Case-folded text with every identifier separator and run of spaces read as one space, so `raw-salt` and `Raw salt` are one phrase. */
+const spelled = (t: string): string =>
+  t
+    .toLowerCase()
+    .replace(/[-_.:/\s]+/g, " ")
+    .trim();
+const escaped = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Whether an appearance's text carries a withheld identifier (as a whole word or phrase, however its separators are spelled) or an
+ * exact withheld quantity (as a whole number). Mechanical only: it cannot see that a text MEANS the hidden thing, which stays the
+ * host's instructed responsibility.
+ */
+function carriesWithheld(text: string, withheld: ObservationWithheld): boolean {
+  const plain = spelled(text);
+  return (
+    withheld.names.some((n) =>
+      new RegExp(`(?<![a-z0-9])${escaped(spelled(n))}(?![a-z0-9])`).test(plain),
+    ) || withheld.amounts.some((n) => new RegExp(`(?<![0-9])${n}(?![0-9])`).test(text))
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1066,6 +1207,7 @@ function premiseText(ctx: ObservationContext, p: ObservationPremise): string | u
 export function deriveObservation(
   ctx: ObservationContext,
   decision: ObservationHostDecision,
+  withheld: ObservationWithheld = NOTHING_WITHHELD,
 ): { ok: true; verdict: ObservationVerdict } | { ok: false; refusal: RefereeRefusal } {
   if (decision.task_id !== refereeTaskId(ctx))
     return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
@@ -1168,6 +1310,18 @@ export function deriveObservation(
           `the appearance names a source fact that was not delivered: ${payload.source_fact_id}`,
         ),
       };
+    // a question scoped to one Source Condition is answered by an appearance OF that source: the receipt pins it, never a neighbouring fact
+    if (
+      parseWorldSourceConditionKey(ctx.refs[OBSERVATION_BASE_REFS]?.fact_key ?? "") &&
+      source.from !== "source"
+    )
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "a source-scoped observation states the appearance of that source, not of another fact",
+        ),
+      };
     if (!payload.basis.some((p) => p.ref === payload.source_fact_id))
       return {
         ok: false,
@@ -1183,7 +1337,7 @@ export function deriveObservation(
       ctx.subject.world_id,
       ctx.subject.locus_id,
     ];
-    for (const text of [payload.referent, payload.content])
+    for (const text of [payload.referent, payload.content]) {
       if (forbidden.some((t) => text.includes(t)))
         return {
           ok: false,
@@ -1192,6 +1346,15 @@ export function deriveObservation(
             "an appearance carries no engine reference: no fact, key or identity",
           ),
         };
+      if (carriesWithheld(text, withheld))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "an appearance carries nothing the source's owner withholds: no source identifier, material class or exact quantity",
+          ),
+        };
+    }
   }
   return { ok: true, verdict };
 }
@@ -1471,11 +1634,14 @@ function observationRecordViolation(
   const ids = irIdentities(r);
   const pcKey = pcExistenceContractKey(r.subject.pc_id);
   const keys = r.input.refs.map((x) => x.fact_key);
-  // the sixth citation, when there is one, is the sealed delivery of the character's own completed collection (never another fact)
-  const cited = keys.length === 6 ? DELIVERY_KEY.exec(keys[5]!) : null;
+  const cited = keys.length === OBSERVATION_BASE_REFS + 1 ? DELIVERY_KEY.exec(keys[5]!) : null;
+  const named =
+    keys.length === OBSERVATION_BASE_REFS + 1 ? parseWorldSourceConditionKey(keys[5]!) : null;
   if (
     !ids ||
-    (keys.length !== 5 && !(keys.length === 6 && cited && cited[1] === ids.world_id)) ||
+    (keys.length !== OBSERVATION_BASE_REFS &&
+      !(named && named.world_id === ids.world_id) &&
+      !(cited && cited[1] === ids.world_id)) ||
     keys[0] !== pcKey ||
     keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
     keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
@@ -1483,7 +1649,7 @@ function observationRecordViolation(
     keys[4] !== worldLocusKey(ids.world_id, ids.locus_id)
   )
     return incoherent(
-      "a direct-perception record cites the released character, the binding, the custody, the world and the locus (and, when it cites one, the delivery of the character's own completed collection)",
+      "a direct-perception record cites five base premises and at most one scoped Source Condition or completed-collection delivery",
     );
   if (superseded) {
     if (
@@ -1491,6 +1657,12 @@ function observationRecordViolation(
       r.decision.task_id !== r.task_id
     )
       return incoherent("the record's statement digest or task binding is not its own");
+    // the scope of the appearance is a property of the record alone: a source-scoped reading is of its source, an ordinary one never is
+    if (
+      (r.decision.payload?.source_fact_id.startsWith("source.") ?? false) !== (named !== null) &&
+      r.decision.payload !== null
+    )
+      return incoherent("a source-scoped reading states the appearance of its source, and only it");
     return observationVerdictOf(r.decision) === r.verdict
       ? null
       : incoherent("the record's verdict is not the one its answer derives");
@@ -1501,6 +1673,7 @@ function observationRecordViolation(
     pc_id: r.subject.pc_id,
     observed_at: r.input.observed_at,
     outcome: cited ? { extraction_id: cited[2]! } : "NONE",
+    ...(named ? { source_key: named.source_key } : {}),
   });
   if (!built.ok) return { code: built.code, message: built.message, stale: false };
   if (
@@ -1516,7 +1689,9 @@ function observationRecordViolation(
     );
   if (!sameRefs(built.context.refs, r.input.refs))
     return incoherent("the record cites exactly the facts its context was built from");
-  const d = deriveObservation(built.context, r.decision);
+  const withheld = observationWithheld(facts, built.context);
+  if (!withheld) return { code: "CONTEXT_UNAVAILABLE", message: SOURCE_UNAVAILABLE, stale: false };
+  const d = deriveObservation(built.context, r.decision, withheld);
   if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
   return d.verdict === r.verdict
     ? null

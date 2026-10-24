@@ -70,6 +70,11 @@ export interface CampaignStore {
    * it fails every dependent historical proof CLOSED rather than being assumed truthful.
    */
   committedGroupById?(groupId: string): CommitGroup | null;
+  /**
+   * The ids of the groups whose owner admission rules demonstrably ran in this process (a live commit through admission, or a
+   * replay through the historical verifier). OPTIONAL: a store without it proves nothing, so an R1-bearing history fails CLOSED.
+   */
+  ruleCheckedGroupIds?(): ReadonlySet<string>;
   /** Releases the campaign. Committed state is already durable; close never "saves". */
   close(): Promise<void>;
 }

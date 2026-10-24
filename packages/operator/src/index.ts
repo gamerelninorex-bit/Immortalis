@@ -5,6 +5,86 @@
 // original identities. No remote authentication, interpreter, game rule, narration or owner is added here.
 // OUT-OF-CHARACTER development/scenario instrumentation: the delivery boundary is an operator-declared scenario premise, not a
 // travel-time choice (see ooc.ts).
+export {
+  additionalLocalityId,
+  establishAdditionalLocality,
+  readAdditionalLocalityFile,
+} from "./additional-locality.ts";
+export type {
+  AdditionalLocalityResult,
+  AdditionalLocalityStatus,
+  EstablishAdditionalLocalityParams,
+  LocalityFileErrorCode,
+} from "./additional-locality.ts";
+export { corridorId, establishCorridor, readCorridorFile } from "./corridor.ts";
+export type {
+  CorridorFileErrorCode,
+  CorridorResult,
+  CorridorStatus,
+  EstablishCorridorParams,
+} from "./corridor.ts";
+export {
+  additionalSourceId,
+  establishAdditionalSource,
+  readAdditionalSourceFile,
+} from "./additional-source.ts";
+export type {
+  AdditionalSourceResult,
+  AdditionalSourceStatus,
+  EstablishAdditionalSourceParams,
+  SourceFileErrorCode,
+} from "./additional-source.ts";
+export {
+  establishInitialLocalDemand,
+  expectedDemand,
+  expectedRequest,
+  expectedStart,
+  initialLocalDemandId,
+  readInitialLocalDemandFile,
+} from "./initial-local-demand.ts";
+export type {
+  EstablishInitialLocalDemandParams,
+  InitialLocalDemandResult,
+  InitialLocalDemandStatus,
+  ProcessFileErrorCode,
+} from "./initial-local-demand.ts";
+export {
+  establishInitialPopulation,
+  expectedCohort,
+  expectedLedger,
+  initialPopulationId,
+  readInitialPopulationFile,
+} from "./initial-population.ts";
+export type {
+  EstablishInitialPopulationParams,
+  InitialPopulationResult,
+  InitialPopulationStatus,
+  PopulationFileErrorCode,
+} from "./initial-population.ts";
+export {
+  establishInitialTimedGovernance,
+  expectedEnrollment,
+  initialTimedGovernanceId,
+  readInitialTimedGovernanceFile,
+} from "./initial-timed-governance.ts";
+export type {
+  EstablishInitialTimedGovernanceParams,
+  GovernanceFileErrorCode,
+  InitialTimedGovernanceResult,
+  InitialTimedGovernanceStatus,
+} from "./initial-timed-governance.ts";
+export {
+  establishProductionReserve,
+  expectedReserve,
+  productionReserveId,
+  readProductionReserveFile,
+} from "./production-reserve.ts";
+export type {
+  EstablishProductionReserveParams,
+  ProductionReserveResult,
+  ProductionReserveStatus,
+  ReserveFileErrorCode,
+} from "./production-reserve.ts";
 export * from "./cli.ts";
 export * from "./commands.ts";
 export * from "./closed-setting.ts";

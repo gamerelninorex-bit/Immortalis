@@ -6,6 +6,7 @@ import {
   MovementServiceRequestSchema,
   ResolutionTransactionSchema,
   TemporalObjectSchema,
+  WorldCorridorSchema,
   logisticsBoundaryId,
   logisticsCommitmentId,
   logisticsCommitmentKey,
@@ -19,11 +20,13 @@ import {
   type LogisticsCommitment,
   type LogisticsTransfer,
   type OwnerFact,
+  type WorldCorridor,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
+import { worldCorridorViolation } from "../world/corridor.ts";
 import { parsePhysicalSubject } from "../world/physical-subject.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { logisticsObjectViolation } from "./declaration.ts";
@@ -123,6 +126,46 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     }
     const source = requestSourceViolation(requestFact.key, requestFact.owner, request);
     if (source) bad(cf.key, source);
+    // the source-qualified path: the corridor the commitment pins is World-State's own committed topology fact, was committed before
+    // the commitment, was read at exactly the pinned version with its group depended on (never copied), and the one topology rule
+    // admission applies still holds. A route-less foundation commitment pins none and is judged exactly as before.
+    let corridor: { key: string; owner: string; version: number; value: WorldCorridor } | undefined;
+    if (c.corridor !== undefined) {
+      const corridorFact = byKey.get(c.corridor.fact_key);
+      const corridorValue = parsed(corridorFact, WorldCorridorSchema);
+      if (
+        !corridorFact ||
+        !corridorValue ||
+        corridorFact.owner !== c.corridor.owner ||
+        corridorFact.version !== c.corridor.version ||
+        worldCorridorViolation(corridorFact.key, corridorFact.value, byKey) !== null
+      ) {
+        bad(cf.key, "a commitment pins a committed World-State corridor that still holds");
+        continue;
+      }
+      corridor = {
+        key: corridorFact.key,
+        owner: corridorFact.owner,
+        version: corridorFact.version,
+        value: corridorValue,
+      };
+      if (cf.version === 1) {
+        if (revisionOf(cf) <= revisionOf(corridorFact))
+          bad(cf.key, "the commitment was not committed after the corridor it pins");
+        const group = store.committedGroup(cf.provenance.intent_id);
+        if (
+          !group ||
+          !group.reads.some(
+            (r) => r.key === corridorFact.key && r.version === corridorFact.version,
+          ) ||
+          !group.depends_on.includes(corridorFact.provenance.group_id)
+        )
+          bad(
+            cf.key,
+            "a corridor-qualified commitment read the exact pinned corridor and depended on the group that committed it",
+          );
+      }
+    }
     // Re-derived against the request and entity at the versions pinned. A pin is history: the sources keep their
     // own lifecycle, so the derivation is checked where each source is unchanged.
     if (requestFact.version === c.request.version && entityFact.version === c.moved.version) {
@@ -137,6 +180,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
         transitioned: false,
         now: c.committed_at,
         delivery_at: c.delivery.at,
+        ...(corridor !== undefined ? { corridor } : {}),
       });
       const committed = { ...c, state: { status: "COMMITTED" as const } };
       if (!derived.ok || !canonicalEqual(derived.value, committed)) {

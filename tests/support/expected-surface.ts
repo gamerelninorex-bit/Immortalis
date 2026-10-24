@@ -42,6 +42,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world/w1/locus/l1",
   },
   {
+    id: "world_corridor",
+    owner: "world_state",
+    facet: "world_locus",
+    lifecycle: "SEALED",
+    group: "WORLD_CORRIDOR_FACT_KINDS",
+    exampleKey: "world/w1/corridor/l1/l2",
+  },
+  {
     id: "pc_existence_contract",
     owner: "pc_existence",
     facet: "existence_contract",
@@ -216,6 +224,46 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     lifecycle: "SEALED",
     group: "WORLD_PC_LOCUS_CUSTODY_FACT_KINDS",
     exampleKey: "world-state/pc/p1/locus-custody",
+  },
+  {
+    id: "actor_setup_placement",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_ACTOR_PRESENCE_FACT_KINDS",
+    exampleKey: "world-state/actor/a1/setup-placement",
+  },
+  {
+    id: "world_setup_closure",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_ACTOR_PRESENCE_FACT_KINDS",
+    exampleKey: "world/w1/setup-closure",
+  },
+  {
+    id: "actor_physical_presence",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "ADVANCING",
+    group: "WORLD_ACTOR_PRESENCE_FACT_KINDS",
+    exampleKey: "world-state/actor/a1/presence",
+  },
+  {
+    id: "actor_raw_sensory_state",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "ADVANCING",
+    group: "WORLD_AUDITORY_PREMISES_FACT_KINDS",
+    exampleKey: "world-state/actor/a1/raw-sensory/AIRBORNE_HEARING",
+  },
+  {
+    id: "world_acoustic_emission",
+    owner: "world_state",
+    facet: "world_locus",
+    lifecycle: "SEALED",
+    group: "WORLD_AUDITORY_PREMISES_FACT_KINDS",
+    exampleKey: "world/w1/locus/l1/acoustic-emission/e1",
   },
   {
     id: "economy_demand",
@@ -906,7 +954,15 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
     ],
   },
   LogisticsAdapter: {
-    methods: ["commitMovement", "commitment", "currentLocus", "delivery", "dispatch", "transfer"],
+    methods: [
+      "commitCorridorMovement",
+      "commitMovement",
+      "commitment",
+      "currentLocus",
+      "delivery",
+      "dispatch",
+      "transfer",
+    ],
   },
   /**
    * CPAA-C1 v0.2 PROVISIONAL: the confirmed direct-collection publications and typed reads. Every writer publishes through the

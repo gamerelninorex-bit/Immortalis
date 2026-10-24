@@ -11,6 +11,7 @@ import {
   FACET_WORLD_SCENE_CLOSURE,
   pcCollectionRequestId,
   FACET_WORLD_FALLBACK_ENTITY,
+  FACET_WORLD_LOCUS,
   FACET_WORLD_SOURCE_CONDITION,
   OWNER_CAUSAL_DRAW_KERNEL,
   OWNER_DIPLOMACY,
@@ -29,9 +30,11 @@ import {
   OWNER_WORLD_STATE,
   OWNER_TEMPORAL_KERNEL,
   PlayerCharacterBindingSchema,
+  WorldCorridorSchema,
   WorldLocusSchema,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
+  actorSetupPlacementKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
@@ -69,6 +72,17 @@ import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
+import {
+  PRESENCE_EXCLUSION,
+  presenceBearing,
+  worldActorPresenceHistoricalCheck,
+} from "../world/actor-presence.ts";
+import {
+  acousticProfileLocusViolation,
+  auditoryPremisesHistoricalCheck,
+  worldAcousticEmissionGroupCheck,
+} from "../world/auditory-premises.ts";
+import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
 import { resolveKey, type FactKind } from "./registry.ts";
@@ -86,7 +100,28 @@ function checkLocus(group: CommitGroup, state: CampaignState, key: string, value
     });
   }
   const world = requirePrerequisite(group, state, worldKey, "the world profile");
-  return isRejection(world) ? world : null;
+  if (isRejection(world)) return world;
+  // S1-P1 W2a: a typed acoustic profile is a pre-seal source authored only with the original locus commit
+  if (locus.acoustic_profile_v1 !== undefined) {
+    const violation = acousticProfileLocusViolation(key, locus, state.facts);
+    if (violation) return reject("REFERENCE_INVALID", violation, { key });
+  }
+  return null;
+}
+
+function checkCorridor(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
+  const c = WorldCorridorSchema.parse(value);
+  // the world and both endpoints are read at their current versions and depended on, never created here, in dependency order
+  for (const [pin, what] of [
+    [c.world.fact_key, "the world profile"],
+    [c.from.fact_key, "the corridor's origin locus"],
+    [c.to.fact_key, "the corridor's destination locus"],
+  ] as const) {
+    const required = requirePrerequisite(group, state, pin, what);
+    if (isRejection(required)) return required;
+  }
+  const violation = worldCorridorViolation(key, value, state.facts);
+  return violation ? reject("REFERENCE_INVALID", violation, { key }) : null;
 }
 
 /**
@@ -282,6 +317,8 @@ export function coupledActorFreshContractViolation(
   facts: Pick<ReadonlyMap<string, OwnerFact>, "has">,
 ): string | null {
   if (contract.existing_actor_compilation !== undefined) return null;
+  if (presenceBearing(contract.pc_id, facts) || facts.has(actorSetupPlacementKey(contract.pc_id)))
+    return `a fresh Player Character cannot re-author an identity that holds a setup placement or physical presence: ${PRESENCE_EXCLUSION}`;
   return facts.has(worldActorCouplingKey(contract.pc_id))
     ? "the identity is already coupled to a world locus as an existing non-PC actor: a fresh Player Character cannot re-author it, and only the existing-actor compilation may name it"
     : null;
@@ -314,6 +351,10 @@ function checkExistenceContract(group: CommitGroup, state: CampaignState, value:
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
+  // a presence-bearing non-PC actor is refused in BOTH branches before the binding commits, so no PC-custody write can follow
+  if (presenceBearing(b.active_pc.entity_id, state.facts)) {
+    return reject("REFERENCE_INVALID", PRESENCE_EXCLUSION, { key: PLAYER_CHARACTER_BINDING_KEY });
+  }
   // a first ACTIVATION that cites a referee decision must be the one that decision qualifies
   const qualification = refereeQualificationViolation(group, (k) => state.facts.get(k), "BIND", {
     binding: b,
@@ -418,6 +459,12 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  * Pure: a function of (group, state) only.
  */
 export const canonicalAdmission: WriteAdmission = {
+  verifyHistorical(group, state) {
+    return (
+      worldActorPresenceHistoricalCheck(group, state) ??
+      auditoryPremisesHistoricalCheck(group, state)
+    );
+  },
   check(group, state) {
     for (const w of group.writes) {
       const resolved = resolveKey(w.key);
@@ -522,6 +569,9 @@ export const canonicalAdmission: WriteAdmission = {
     // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
       return sceneClosureGroupCheck(group, state);
+    // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
+      return worldAcousticEmissionGroupCheck(group, state);
     return null;
   },
 };
@@ -539,6 +589,14 @@ export function identityMismatch(
       return v["locus_id"] === ids[1] && (v["world"] as { entity_id: string }).entity_id === ids[0]
         ? null
         : "locus identity does not match the key";
+    case "world_corridor": {
+      const world = v["world"] as { entity_id: string };
+      const from = v["from"] as { entity_id: string };
+      const to = v["to"] as { entity_id: string };
+      return world.entity_id === ids[0] && from.entity_id === ids[1] && to.entity_id === ids[2]
+        ? null
+        : "corridor identity does not match the key";
+    }
     case "pc_existence_contract":
       return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "player_character_binding":
@@ -676,6 +734,21 @@ export function identityMismatch(
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
     case "world_pc_locus_custody":
       return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
+    case "actor_setup_placement":
+    case "actor_physical_presence":
+      return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
+    case "world_setup_closure":
+      return (v["world"] as { entity_id: string }).entity_id === ids[0]
+        ? null
+        : "world identity does not match the key";
+    case "actor_raw_sensory_state":
+      return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
+    case "world_acoustic_emission":
+      return v["emission_id"] === ids[2] &&
+        (v["world"] as { entity_id: string }).entity_id === ids[0] &&
+        (v["locus"] as { entity_id: string }).entity_id === ids[1]
+        ? null
+        : "emission identity does not match the key";
     case "logistics_commitment": {
       const moved = v["moved"] as { entity_id: string };
       const origin = v["origin"] as { world: { entity_id: string } };
@@ -785,6 +858,8 @@ function dependencyCheck(
   switch (kind.id) {
     case "world_locus":
       return checkLocus(group, state, key, value);
+    case "world_corridor":
+      return checkCorridor(group, state, key, value);
     case "pc_existence_contract":
       return checkExistenceContract(group, state, value);
     case "player_character_binding":

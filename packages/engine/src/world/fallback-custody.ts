@@ -22,6 +22,12 @@ import { canonicalEqual } from "../hash.ts";
 import { WORLD_FALLBACK_RULE, resolveKey } from "../owners/registry.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
 import { worldActorCouplingGroupCheck } from "./actor-coupling.ts";
+import {
+  PRESENCE_EXCLUSION,
+  presenceBearing,
+  worldActorPresenceGroupCheck,
+} from "./actor-presence.ts";
+import { worldActorRawSensoryGroupCheck } from "./auditory-premises.ts";
 import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { worldPcLocusCustodyGroupCheck } from "./pc-locus-custody.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
@@ -73,6 +79,21 @@ export function deriveAcceptedEntity(
  * conserved reference: a second acceptance of the same reference is a version conflict.
  */
 export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
+  // R1 Stage-One v1.1: the actor setup placement, the once-per-world closure and the first physical presence (actor-presence.ts)
+  if (
+    group.writes.some((w) => {
+      const id = resolveKey(w.key)?.kind.id;
+      return (
+        id === "actor_setup_placement" ||
+        id === "world_setup_closure" ||
+        id === "actor_physical_presence"
+      );
+    })
+  )
+    return worldActorPresenceGroupCheck(group, state);
+  // S1-P1 W1: the actor's owner-authored raw auditory faculty and receptivity, first version only (auditory-premises.ts)
+  if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "actor_raw_sensory_state"))
+    return worldActorRawSensoryGroupCheck(group, state);
   // the custodian's fact kind for an existing non-PC actor's one current locus coupling (actor-coupling.ts)
   if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_actor_coupling"))
     return worldActorCouplingGroupCheck(group, state);
@@ -136,6 +157,10 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
       "an active PC's identity is never accepted as a fallback physical entity: its physical-locus custody is the one authority",
       { key: w.key },
     );
+  }
+  // likewise a presence-bearing non-PC actor's identity is never also a fallback physical entity (R1 exact-identity exclusion)
+  if (presenceBearing(entity.entity_id, state.facts)) {
+    return reject("REFERENCE_INVALID", PRESENCE_EXCLUSION, { key: w.key });
   }
   if (!canonicalEqual(entity, deriveAcceptedEntity(envelope.data, completion.fact.version))) {
     return bad(
