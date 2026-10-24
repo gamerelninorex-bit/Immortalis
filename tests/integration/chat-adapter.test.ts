@@ -5,6 +5,7 @@
 // scripts; the "human" is a script that types a confirmation only where a test says so. None of it is a real chat session, a real model,
 // a real player's choice or a real game master's judgment. It proves authentication, scope separation, that a model-side caller cannot
 // confirm anything, the confirmation channels, orchestration without deadlock, and that the SHIPPED commands run unchanged behind it.
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,6 +28,7 @@ import {
   type ObservationIdentity,
 } from "../../apps/phone/src/recovery.ts";
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
+import type { SetupEvidence } from "../../apps/phone/src/setup-recovery.ts";
 import {
   Chat,
   PLAYER,
@@ -2604,6 +2606,132 @@ describe("MECHANISM (24 October repair, BLUE triage 1): the durable record is re
         expect(h.stub.argvs, why).toEqual([]);
       } finally {
         await h.app.close();
+      }
+    }
+  });
+});
+
+describe("MECHANISM (24 October repair, BLUE triage 2): a setup command that ends unknown is read back by the identity of its ORIGINAL document, and only where that identity names its owner records", () => {
+  const CHRONOLOGY = JSON.stringify({
+    format: "immortalis-starting-chronology",
+    format_version: 1,
+    time: { unit: "season", value: 7 },
+    statement: "SYNTHETIC FIXTURE: the morning the survey began",
+  });
+  /** a page-launched setup command whose stand-in ends in an exception, so it is recorded UNCERTAIN; the owners' answer is the test's */
+  const uncertainSetup = async (
+    command: string,
+    setup: string,
+    answer: { current: SetupEvidence },
+  ) => {
+    const [cli, stub] = stubCli({ crash: true });
+    const s = await withChat({
+      runCli: cli,
+      recovery: { ...STUB_RECOVERY, setupEvidence: async () => answer.current },
+    });
+    const page = new Browser(s.base);
+    expect((await page.login("player", PLAYER)).status).toBe(200);
+    expect((await page.req("POST", "/api/play/command", { command, setup })).status).toBe(200);
+    for (let i = 0; i < 40 && !existsSync(pendingFile(s.config)); i++)
+      await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 300));
+    return { ...s, stub };
+  };
+  const recordOn = (config: PhoneConfig) => JSON.parse(readFileSync(pendingFile(config), "utf8"));
+  const reconcileAndWait = async (chat: Chat) => {
+    expect((await chat.call("reconcile_last_action")).isError).toBe(false);
+    return chat.call("await_action", { wait_seconds: 3 });
+  };
+
+  it("the record carries the pin of the exact document and the owner publications it makes, taken before dispatch", async () => {
+    const answer = { current: { kind: "PARTIAL" } as SetupEvidence };
+    const s = await uncertainSetup("initialize-time", CHRONOLOGY, answer);
+    try {
+      const r = recordOn(s.config);
+      expect(r).toMatchObject({ command: "initialize-time", state: "UNCERTAIN" });
+      expect(r.setup.document_sha256).toBe(createHash("sha256").update(CHRONOLOGY).digest("hex"));
+      expect(r.setup.campaign_id).toBe(s.config.campaignId);
+      expect(r.setup.intents).toHaveLength(1);
+      expect(r.setup.intents[0].intent_id).toBe(`starting-chronology:${r.setup.digest}:intent`);
+    } finally {
+      await s.app.close();
+    }
+  });
+
+  it("nothing committed, or everything committed, settles it from owner evidence with no command run; a partial or unavailable readback does not", async () => {
+    const answer = { current: { kind: "PARTIAL" } as SetupEvidence };
+    const s = await uncertainSetup("initialize-time", CHRONOLOGY, answer);
+    try {
+      // some of the publications landed: only the operator's own repeat of the identical setup finishes it, so it stays blocked for the operator
+      const partial = await reconcileAndWait(s.chat);
+      expect(partial.data.outcome).toBe("UNCERTAIN");
+      expect(partial.data.blocker).toMatch(/only some of the setup's owner records are committed/);
+      expect(partial.data.recovery).toMatch(/operator must inspect/);
+      expect(recordOn(s.config).setup).toBeTruthy(); // the pin survives a failed recovery
+      // a campaign that cannot be read is neither complete nor empty, and a later reconcile may still help
+      answer.current = { kind: "UNAVAILABLE", detail: "the campaign did not open: BUSY" };
+      const unavailable = await reconcileAndWait(s.chat);
+      expect(unavailable.data.outcome).toBe("UNCERTAIN");
+      expect(unavailable.data.blocker).toBe("the campaign did not open: BUSY");
+      expect((await s.chat.call("collect", { amount: 1 })).isError).toBe(true);
+      // everything committed: the barrier is lifted on the owners' evidence alone
+      answer.current = { kind: "COMPLETE" };
+      const done = await reconcileAndWait(s.chat);
+      expect(done.data.state).toBe("FINISHED");
+      expect(done.data.exit_code).toBe(0);
+      expect(JSON.stringify(done.data.engine_report)).toMatch(
+        /every owner record of that setup operation is committed/,
+      );
+      expect(existsSync(pendingFile(s.config))).toBe(false);
+      expect(s.stub.argvs.map((a) => a[0])).toEqual(["initialize-time"]); // recovery ran nothing and asked nobody
+    } finally {
+      await s.app.close();
+    }
+    // nothing committed: also lifted, and it says plainly that nothing was committed
+    const none = await uncertainSetup("initialize-time", CHRONOLOGY, { current: { kind: "NONE" } });
+    try {
+      const done = await reconcileAndWait(none.chat);
+      expect(done.data.state).toBe("FINISHED");
+      expect(JSON.stringify(done.data.engine_report)).toMatch(/nothing was committed/);
+      expect(existsSync(pendingFile(none.config))).toBe(false);
+      expect(none.stub.argvs.map((a) => a[0])).toEqual(["initialize-time"]);
+    } finally {
+      await none.app.close();
+    }
+  });
+
+  it("a document the operator's own schema would refuse is recorded with no identity, so its recovery stays blocked with the exact cause; so does every command with no readback", async () => {
+    const cases: [string, string, RegExp][] = [
+      [
+        "initialize-time",
+        JSON.stringify({ format: "immortalis-starting-chronology", nonsense: true }),
+        /the setup document's original identity was not recorded/,
+      ],
+      [
+        "declare-closed-setting",
+        JSON.stringify({ any: "thing" }),
+        /no supported owner readback exists for declare-closed-setting/,
+      ],
+      [
+        "establish-locality",
+        JSON.stringify({ any: "thing" }),
+        /no supported owner readback exists for establish-locality/,
+      ],
+    ];
+    for (const [command, setup, blocker] of cases) {
+      const s = await uncertainSetup(command, setup, { current: { kind: "COMPLETE" } });
+      try {
+        expect(recordOn(s.config).setup ?? null, command).toBeNull();
+        const blocked = await reconcileAndWait(s.chat);
+        expect(blocked.data.outcome, command).toBe("UNCERTAIN");
+        expect(blocked.data.blocker, command).toMatch(blocker);
+        expect(existsSync(pendingFile(s.config)), command).toBe(true); // nothing was cleared on a "COMPLETE" that is not about it
+        expect(
+          s.stub.argvs.map((a) => a[0]),
+          command,
+        ).toEqual([command]);
+      } finally {
+        await s.app.close();
       }
     }
   });

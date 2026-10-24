@@ -1268,6 +1268,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "runs.ts",
       "scenario.ts",
       "server.ts",
+      "setup-recovery.ts",
       "web-terminal.ts",
     ]);
     for (const f of files) {

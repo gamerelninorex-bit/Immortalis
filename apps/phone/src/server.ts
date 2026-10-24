@@ -32,6 +32,7 @@ import {
   captureCollection,
   runCollectionOperation,
 } from "./collection-recovery.ts";
+import { SETUP_COMMANDS, captureSetup, setupEvidence } from "./setup-recovery.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -129,6 +130,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     completeObservation: deps.recovery?.completeObservation ?? completeObservation,
     captureCollection: deps.recovery?.captureCollection ?? captureCollection,
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
+    captureSetup: deps.recovery?.captureSetup ?? captureSetup,
+    setupEvidence: deps.recovery?.setupEvidence ?? setupEvidence,
   };
   let launching = false;
   /** set the moment a shutdown begins: from then on nothing new is dispatched, and a launch that was already waiting is refused when it resumes */
@@ -559,6 +562,28 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         ),
       };
     }
+    if (SETUP_COMMANDS.has(cur.command)) {
+      if (!cur.setup)
+        return blocked(
+          "the setup document's original identity was not recorded; engineering must inspect it",
+          [],
+          true,
+        );
+      const ev = await rec.setupEvidence(config, cur.setup);
+      if (ev.kind === "UNAVAILABLE") return blocked(ev.detail);
+      if (ev.kind === "PARTIAL")
+        return blocked(
+          "only some of the setup's owner records are committed; engineering must inspect it, and the identical setting can then be presented again to finish it",
+          [],
+          true,
+        );
+      const said =
+        ev.kind === "NONE"
+          ? "owner readback: no owner record of that setup operation exists; nothing was committed (paste the setting document again if it is still wanted)"
+          : "owner readback: every owner record of that setup operation is committed";
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [said], true);
+      return { ok: true, run: finishedRun(label, [said], 0) };
+    }
     if (COLLECTION_COMMANDS.has(cur.command)) {
       if (!cur.collection)
         return blocked(
@@ -683,6 +708,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         built.value.cleanup();
         return refuse(503, SHUTTING_DOWN);
       }
+      // a setup command whose owner publications derive from its document alone is pinned by that document before it can run
+      const setup =
+        SETUP_COMMANDS.has(command) && typeof request.setup === "string"
+          ? rec.captureSetup(config, command, request.setup)
+          : null;
       const record: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
@@ -695,6 +725,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         blocker: null,
         identity,
         collection,
+        setup,
       };
       if (!writePending(config, record)) {
         built.value.cleanup();

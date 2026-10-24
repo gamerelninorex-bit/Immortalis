@@ -32,6 +32,12 @@ import {
 } from "@immortalis/engine";
 import type { PhoneConfig } from "./config.ts";
 import {
+  captureSetup,
+  setupEvidence,
+  validSetupIdentity,
+  type SetupIdentity,
+} from "./setup-recovery.ts";
+import {
   captureCollection,
   runCollectionOperation,
   validCollectionIdentity,
@@ -82,6 +88,8 @@ export interface PendingOperation {
   readonly identity: ObservationIdentity | null;
   /** The original collection/ledger identities. Absent in older records, which remain blocked rather than being guessed. */
   readonly collection?: CollectionIdentity | null;
+  /** The original setup document's pin and the owner publications it makes (initialize-time and prepare-collection only). Absent otherwise. */
+  readonly setup?: SetupIdentity | null;
 }
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
@@ -136,7 +144,8 @@ export function readPending(config: PhoneConfig): PendingRead {
         v["collection"] === undefined ||
         v["collection"] === null ||
         validCollectionIdentity(v["collection"])
-      )
+      ) ||
+      !(v["setup"] === undefined || v["setup"] === null || validSetupIdentity(v["setup"]))
     )
       return { kind: "UNREADABLE" };
     return { kind: "PENDING", pending: v as unknown as PendingOperation };
@@ -202,6 +211,8 @@ export interface RecoveryDeps {
   readonly completeObservation?: typeof completeObservation;
   readonly captureCollection?: typeof captureCollection;
   readonly runCollection?: typeof runCollectionOperation;
+  readonly captureSetup?: typeof captureSetup;
+  readonly setupEvidence?: typeof setupEvidence;
 }
 
 const BUILD = "immortalis-chat-recovery";
