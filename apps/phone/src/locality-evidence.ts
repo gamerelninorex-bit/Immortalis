@@ -11,6 +11,7 @@ import {
   OPERATOR_PUBLICATION_BASIS,
   OPERATOR_PUBLICATION_SECRECY,
   defaultOperatorDir,
+  LocalitySetupSchema,
   localitySetupId,
   verifyLocalOperator,
   type LocalitySetup,
@@ -54,7 +55,12 @@ export const LOCALITY_STATUSES = [
 
 const BUILD_ID = "immortalis-chat-setup-readback";
 
-/** What an owner-verified read of a campaign holds of an operator-confirmed locality, in the allowlisted terms a front end may relay. */
+/**
+ * What an owner-verified read of a campaign holds of an operator-confirmed locality, in the allowlisted terms a front end may relay to the
+ * player: the IMMUTABLE authored setting only (identities, designation, material, the authored established quantity). It deliberately carries
+ * no current remainder, delivery or any other later owner state: that is world truth the player has no access basis for here, and gameplay
+ * information reaches the player only through the earned Glance. The owner values are verified internally and never exported.
+ */
 export interface LocalityReadback {
   readonly world_id: string;
   readonly locus_id: string;
@@ -63,7 +69,6 @@ export interface LocalityReadback {
   readonly dimension: string;
   readonly material_class: string;
   readonly established: { readonly amount: number; readonly unit: string };
-  readonly recoverable: { readonly amount: number; readonly unit: string };
 }
 
 /**
@@ -274,7 +279,6 @@ const readbackOf = (
     dimension: source.value.dimension,
     material_class: source.value.material_class,
     established: { amount: q.amount, unit: q.unit },
-    recoverable: { amount: source.value.recoverable.amount, unit: source.value.recoverable.unit },
   };
   return readback;
 };
@@ -388,14 +392,23 @@ export async function localityOutcome(p: LocalityOutcomeParams): Promise<Localit
   }
 }
 
-/** What an open campaign holds of an operator-confirmed locality, read from canon alone (no setup document). */
+/**
+ * What an open campaign holds of an operator-confirmed locality, read without a setup document but NEVER without the trusted retained
+ * confirmation identity (`pin`, first-writer-wins, created only after the human confirmed). The committed publications must carry exactly
+ * that identity; the setup they hold is reconstructed from the owners' own facts and must hash to it; and the same provenance and value
+ * checks as the exact-document readback must pass. A missing, different or malformed identity is never positive.
+ */
 export type LocalityCampaignRead =
   | { readonly kind: "NONE" }
   | { readonly kind: "INCOMPLETE"; readonly committed: readonly string[] }
   | { readonly kind: "READY"; readonly readback: LocalityReadback }
   | { readonly kind: "FAILED"; readonly detail: string };
 
-export function readLocality(campaign: CanonicalCampaign): LocalityCampaignRead {
+export function readLocality(
+  campaign: CanonicalCampaign,
+  campaignId: string,
+  pin: string | null,
+): LocalityCampaignRead {
   const store = campaign.store;
   // a full listing is an exceptional diagnostic path; this is an operator inspection, not a runtime read
   const facts = store.listFacts().filter((f) => f.owner === "world_state");
@@ -403,6 +416,16 @@ export function readLocality(campaign: CanonicalCampaign): LocalityCampaignRead 
   const match = world ? GROUP.exec(world.provenance.group_id) : null;
   if (!world || !match) return { kind: "NONE" };
   const id = match[1]!;
+  if (pin === null)
+    return {
+      kind: "FAILED",
+      detail: "publications of a locality setup exist without its retained confirmation identity",
+    };
+  if (pin !== id)
+    return {
+      kind: "FAILED",
+      detail: "the retained confirmation identity is not the one of the committed setup",
+    };
   const held = STAGES.filter((name) => {
     const group = store.committedGroup(`operator-locality-intent:${id}:${name}`);
     return group !== null && group.group_id === `operator-locality:${id}:${name}`;
@@ -417,15 +440,44 @@ export function readLocality(campaign: CanonicalCampaign): LocalityCampaignRead 
   const parsedWorld = WorldProfileSchema.safeParse(world.value);
   if (!locusFact || !sourceFact || !parsedWorld.success)
     return { kind: "FAILED", detail: "a committed stage is not held or is not valid" };
-  if (campaign.verify().length > 0)
-    return { kind: "FAILED", detail: "canonical integrity reports a violation" };
   const w = parsedWorld.data.world_id;
   const locusId = (locusFact.value as { locus_id?: unknown }).locus_id;
   const key = (sourceFact.value as { source_key?: unknown }).source_key;
-  const readback =
-    typeof locusId === "string" && typeof key === "string"
-      ? readbackOf(campaign, w, locusId, key)
-      : undefined;
+  if (typeof locusId !== "string" || typeof key !== "string")
+    return { kind: "FAILED", detail: "the facts are not valid" };
+  const locus = campaign.locus(w, locusId);
+  const source = campaign.sourceCondition(w, key);
+  if (!locus || !source) return { kind: "FAILED", detail: "the facts are not valid" };
+  // the setting the owners hold, rebuilt from their own facts: it must be the very setup the retained identity names
+  const rebuilt = LocalitySetupSchema.safeParse({
+    format: "immortalis-original-locality-setup",
+    format_version: 1,
+    world: parsedWorld.data,
+    locus: {
+      world_id: w,
+      locus_id: locus.value.locus_id,
+      designation: locus.value.designation,
+      constraints: locus.value.constraints,
+    },
+    source: {
+      source_key: source.value.source_key,
+      world_id: w,
+      locus_id: locus.value.locus_id,
+      dimension: source.value.dimension,
+      material_class: source.value.material_class,
+      quantity: source.value.establishment.quantity,
+      access_facts: source.value.access_facts,
+      statement: source.value.establishment.statement,
+    },
+  });
+  if (!rebuilt.success || localitySetupId(campaignId, rebuilt.data) !== id)
+    return {
+      kind: "FAILED",
+      detail: "the committed setting is not the one the retained confirmation identity names",
+    };
+  const problems = problemsOf(campaign, rebuilt.data, stagesOf(id, rebuilt.data));
+  if (problems.length > 0) return { kind: "FAILED", detail: problems.join("; ") };
+  const readback = readbackOf(campaign, w, locus.value.locus_id, source.value.source_key);
   return readback
     ? { kind: "READY", readback }
     : { kind: "FAILED", detail: "the facts are not valid" };

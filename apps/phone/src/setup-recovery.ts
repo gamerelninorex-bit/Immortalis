@@ -224,7 +224,7 @@ export async function campaignSetting(config: PhoneConfig): Promise<CampaignSett
   try {
     if (c.store.head().campaign_id !== config.campaignId)
       return { kind: "BLOCKED", detail: "the package holds another campaign" };
-    const read = readLocality(c);
+    const read = readLocality(c, config.campaignId, pin.value);
     if (read.kind === "READY") return { kind: "ESTABLISHED", readback: read.readback };
     if (read.kind === "INCOMPLETE") return { kind: "INCOMPLETE", committed: read.committed };
     if (read.kind === "FAILED") return { kind: "BLOCKED", detail: read.detail };

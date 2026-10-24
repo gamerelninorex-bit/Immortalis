@@ -143,13 +143,19 @@ describe("localityOutcome: COMPLETE needs the retained identity, the exact publi
         locus_id: "locus-salt-pans",
         source_key: "src-salt-pan-1",
         established: { amount: 120, unit: "sack" },
-        recoverable: { amount: 120, unit: "sack" },
       },
     });
+    // the player-visible readback is the immutable authored setting only: never a current remainder
+    if (outcome.kind === "COMPLETE") expect(outcome.readback).not.toHaveProperty("recoverable");
     const c = await openOrdinary(dirs.campaignDir);
     try {
-      const canon = readLocality(c);
+      const id = localitySetupId(LOCALITY_CAMPAIGN, setupA());
+      const canon = readLocality(c, LOCALITY_CAMPAIGN, id);
       expect(canon.kind).toBe("READY");
+      // the retained confirmation identity is required: absent, different or malformed is never positive
+      for (const pin of [null, "0".repeat(32), localitySetupId(LOCALITY_CAMPAIGN, setupB())])
+        expect(readLocality(c, LOCALITY_CAMPAIGN, pin).kind).toBe("FAILED");
+      expect(readLocality(c, "another-campaign", id).kind).toBe("FAILED");
       if (outcome.kind === "COMPLETE" && canon.kind === "READY")
         expect(canon.readback).toEqual(outcome.readback);
     } finally {

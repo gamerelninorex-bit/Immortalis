@@ -13,6 +13,12 @@ import { CanonicalCampaign } from "@immortalis/engine";
 import { runCli } from "@immortalis/operator";
 import { Chat, PLAYER, REFEREE, phraseOf, type Human } from "../support/chat-client.ts";
 import { Browser } from "../support/phone-browser.ts";
+import { BASIS } from "../support/observation.ts";
+import { SOURCE_KEY, WORLD_ID } from "../support/locality.ts";
+import {
+  collectAndComplete,
+  originalCollectionCampaign,
+} from "../support/pc-collection-original.ts";
 import {
   LOCALITY_CAMPAIGN,
   LOCUS,
@@ -25,6 +31,7 @@ import {
   follow,
   headOf,
   loseReply,
+  openOrdinary,
   pendingPath,
   pinFiles,
   pinPublishFails,
@@ -55,8 +62,10 @@ describe("MECHANISM: a chat host proposes, the human confirms, the owners commit
         world_id: WORLD,
         source_key: SOURCE,
         established: { amount: STONES, unit: "stone" },
-        recoverable: { amount: STONES, unit: "stone" },
       });
+      // only the immutable authored setting is shown to the player: the owner's current remainder is verified, never exported
+      expect(finished.data.setting.readback).not.toHaveProperty("recoverable");
+      expect(JSON.stringify(finished.data)).not.toMatch(/recoverable/);
       expect(finished.data.readiness).toEqual({
         setting_established: true,
         campaign_ready_for_play: false,
@@ -86,7 +95,8 @@ describe("MECHANISM: a chat host proposes, the human confirms, the owners commit
       expect(readdirSync(s.config.setupDir)).toEqual([]);
       const after = await r.chat.call("original_setting_status");
       expect(after.data.setting).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
-      expect(after.data.setting.readback.recoverable).toEqual({ amount: STONES, unit: "stone" });
+      expect(after.data.setting.readback.established).toEqual({ amount: STONES, unit: "stone" });
+      expect(JSON.stringify(after.data)).not.toMatch(/recoverable/);
     } finally {
       await r.app.close();
     }
@@ -1182,4 +1192,89 @@ describe("static: the evidence module only reads, and the three tools carry no c
       /reply|answer|challenge|phrase|campaign|path|role|permission|secret|token|confirm/i,
     );
   });
+});
+
+describe("MECHANISM (BLUE H1): the status without a pending operation requires the trusted original confirmation identity", () => {
+  it("after the ordinary pending record cleared, a missing, mismatched, malformed or other-campaign retained identity is never ESTABLISHED; canon and consent are untouched; the original positive stays", async () => {
+    const s = await slot();
+    const r = await run(s);
+    try {
+      await establishViaChat(r.chat);
+      expect(existsSync(pendingPath(s.config))).toBe(false);
+      const head = await headOf(s.campaignDir);
+      const file = join(s.operatorDir, pinFiles(s)[0]!);
+      const original = readFileSync(file, "utf8");
+      const positive = await r.chat.call("original_setting_status");
+      expect(positive.data.setting).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
+
+      const wrong = (over: Record<string, unknown>) =>
+        JSON.stringify({ ...JSON.parse(original), ...over });
+      const cases: [string, string | null][] = [
+        ["missing", null],
+        ["a well-formed but different setup identity", wrong({ setup_id: "0".repeat(32) })],
+        ["another campaign's", wrong({ campaign_id: "another-campaign" })],
+        ["another operator's", wrong({ operator_uid: process.getuid!() + 1 })],
+        ["malformed", "{ not json"],
+        ["empty", ""],
+      ];
+      for (const [name, content] of cases) {
+        if (content === null) rmSync(file);
+        else writeFileSync(file, content);
+        const status = await r.chat.call("original_setting_status");
+        expect(status.data.setting.state, name).toBe("BLOCKED");
+        expect(status.data.setting.barrier, name).toBe("ENGINEERING");
+        expect(status.data.setting.readback, name).toBeUndefined();
+        expect(status.data.readiness.setting_established, name).toBe(false);
+        // no mutation, no inferred consent: the canon is as it was, and no identity was recreated or adopted
+        expect(await headOf(s.campaignDir)).toEqual(head);
+        expect(existsSync(file)).toBe(content !== null);
+        if (content !== null) expect(readFileSync(file, "utf8")).toBe(content);
+      }
+      // restoring the original identity restores the original positive
+      writeFileSync(file, original);
+      const restored = await r.chat.call("original_setting_status");
+      expect(restored.data.setting).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
+      expect(await headOf(s.campaignDir)).toEqual(head);
+    } finally {
+      await r.app.close();
+    }
+  }, 120_000);
+});
+
+describe("MECHANISM (BLUE H2): the player's setup output never carries a later current source remainder", () => {
+  it("120 authored sacks, 117 after a real collection with no access fact: the status still shows the authored 120 and exports no remainder; owner quantity is asserted separately", async () => {
+    const { dirs } = await originalCollectionCampaign();
+    const c = await openOrdinary(dirs.campaignDir);
+    try {
+      await collectAndComplete(c, "blue-current-stock", 3, "blue-current-stock-tx", {
+        unit: BASIS.unit,
+        value: BASIS.value + 21,
+      });
+      // the owner's truth is 117 and nothing has made it knowable: no access fact exists
+      expect(c.sourceCondition(WORLD_ID, SOURCE_KEY)!.value.recoverable.amount).toBe(117);
+      expect(c.store.listFacts().filter((f) => f.key.startsWith("access/"))).toEqual([]);
+    } finally {
+      await c.close();
+    }
+    const sl = await slot({
+      campaignDir: dirs.campaignDir,
+      operatorDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+    });
+    const r = await run(sl);
+    try {
+      const status = await r.chat.call("original_setting_status");
+      expect(status.data.setting).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
+      expect(status.data.setting.readback.established).toEqual({ amount: 120, unit: "sack" });
+      expect(status.data.setting.readback).not.toHaveProperty("recoverable");
+      // neither 117 nor any remainder, anywhere in the payload
+      expect(status.text).not.toMatch(/117|recoverable|remainder|delivered/);
+      // the same allowlist on the completion / recovery returns of the same campaign
+      await r.chat.call("reconcile_last_action");
+      const reconciled = await follow(r.chat, null);
+      expect(JSON.stringify(reconciled.data)).not.toMatch(/117|recoverable/);
+    } finally {
+      await r.app.close();
+    }
+  }, 180_000);
 });
