@@ -51,6 +51,17 @@ Run the operator as `node --experimental-strip-types packages/operator/src/bin.t
 
 `preparation.json` is the strict shape `CollectionPreparationSchema` (format `immortalis-collection-preparation`): the PC mechanism (quoting an accepted claim), the extraction basis and an **empty** Reserve.
 
+## Before you look: what `observe-surroundings` can rest on (authoring guidance, no content is suggested)
+
+`observe-surroundings` earns a receipt **only** from statements that already exist; nothing is assumed, defaulted or inferred, and a look that rests on too little is retained as a non-receipt at that basis and is **not asked again**. The statements are yours to write or to leave unwritten:
+
+- **The character's own words** (`author-character`): a sense appears in the accepted statements only if you wrote it. "One ordinary human body" states no sense.
+- **The placement** you type and confirm (`author-character`, native presence): it is the only statement the question reads for _where_ the character is, _which way_ it faces and whether its eyes are open. It cannot be amended afterwards.
+- **The setting's prose** (`establish-locality`, `locus.constraints`): the only statements the question reads for the **light**, the **clarity of the air**, whether the **path** is open or blocked, and **how what is in view looks**. The author states only what is the author's to state, and may state any of it as blocked or dark.
+- **After a gathering,** the only consequence delivered is the mechanical sentence that it was completed. It does not describe how anything looks.
+
+All of this must be committed **before** the look; none of it can be added to a saved campaign (the world, locus, contract and placement are sealed), and a changed question at the same instant is a new question. The referee is shown exactly those statements (the character's accepted words, the placement statement, the world and locus prose and, after a gathering, that one sentence), verbatim; it is shown nothing else about the scene. What the evaluator requires, and what a shorthand-authored character is delivered, is in [`active-pc-direct-observation-foundation.md`](active-pc-direct-observation-foundation.md).
+
 ## What is verified, and how far
 
 - **By automated tests** (`tests/integration/pc-collection-bootstrap-loop.test.ts` and the operator / exchange suites): the whole sequence runs by the shipped commands from a campaign that begins with **no canonical time**; nothing is set up through the test kit. Every referee reading and every console line in those tests is **scripted by the test (plumbing only)**: that is _not_ a player's choice, a GM's reading or First Playable evidence.

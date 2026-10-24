@@ -68,12 +68,18 @@ export const TAU_UNIT: CanonicalTime = { unit: BASIS.unit, value: SALT_TAU };
  * locality's finite source, and the PC's mechanism quoting that claim. Nothing is collected and nothing is observed yet.
  */
 export async function originalCollectionCampaign(
-  o: { scene?: NonNullable<Parameters<typeof observationCampaign>[0]>["scene"] } = {},
+  o: {
+    scene?: NonNullable<Parameters<typeof observationCampaign>[0]>["scene"];
+    /** the character's own opening embodiment words, before the hands' work and cycle (default: ordinary stated colour vision) */
+    body?: string;
+    /** the player's confirmed native-presence statement (default: seated, facing the wall, eyes open) */
+    presence?: string;
+  } = {},
 ): Promise<{ dirs: LocalityDirs }> {
-  const embodiment = `${PC_WORDS.embodiment}; ${ACTUATOR_WORDS}; ${cycleWords(TAU_UNIT)}; ${TRAVERSAL_CANNOT}`;
+  const embodiment = `${o.body ?? PC_WORDS.embodiment}; ${ACTUATOR_WORDS}; ${cycleWords(TAU_UNIT)}; ${TRAVERSAL_CANNOT}`;
   const { dirs } = await observationCampaign({
     ...(o.scene ? { scene: o.scene } : {}),
-    words: { embodiment },
+    words: { embodiment, ...(o.presence !== undefined ? { presence: o.presence } : {}) },
   });
   const campaign = await openOrdinary(dirs.campaignDir);
   try {
