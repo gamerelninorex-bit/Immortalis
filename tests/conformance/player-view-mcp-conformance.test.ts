@@ -36,11 +36,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
   "packages/protocol/src/current-observation-glance.ts":
-    "2ddad80dbc7b1d79a452a1066f8ad3f3efcef5f43e101d789369d5947da32607",
+    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
-    "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
   "packages/protocol/src/event-signal.ts":
@@ -53,7 +53,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/original-pc.ts":
-    "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/local-operator.ts":
@@ -62,17 +62,17 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-session.ts":
-    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/operator/src/cli.ts":
-    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/index.ts":
-    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/confirmation.ts":
-    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
 };
 
 const NEW_MODULES = [
@@ -126,6 +126,10 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "additional-source.ts",
         "bin.ts",
         "cli.ts",
+        "closed-setting.ts",
+        "collection-clarification.ts",
+        "collection-preparation.ts",
+        "collection-referee.ts",
         "commands.ts",
         "confirmation.ts",
         "corridor.ts",
@@ -144,11 +148,14 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "original-pc.ts",
         "production-reserve.ts",
         "referee-bin.ts",
+        "referee-console-bin.ts",
+        "referee-console.ts",
         "referee-exchange.ts",
         "referee-mcp.ts",
         "referee-session.ts",
         "session.ts",
         "terminal.ts",
+        "time-initialization.ts",
         ...NEW_MODULES,
       ].sort(),
     );
@@ -160,6 +167,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
@@ -197,6 +205,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
     expect(pkg.bin).toEqual({
       "immortalis-operator": "./src/bin.ts",
       "immortalis-referee": "./src/referee-bin.ts",
+      "immortalis-referee-console": "./src/referee-console-bin.ts",
       "immortalis-player-view": "./src/player-view-bin.ts",
       "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
       // BLUE v5.2-A1 (host-requested observation): three further entry points, added mechanically; the player-view entries are unchanged

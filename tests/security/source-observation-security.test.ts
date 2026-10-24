@@ -239,7 +239,21 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
       "packages/contracts/src/protocol-current-glance.ts",
     ];
     expect(hostFacing.length).toBeGreaterThan(10);
-    for (const f of hostFacing) expect(SRC(f), f).not.toMatch(NAMES);
+    for (const f of hostFacing) {
+      if (f === "packages/protocol/src/current-observation-glance.ts") {
+        // The fixed consumer derives qualification keys from committed owner facts, never from the host request.
+        const body = SRC(f).slice(SRC(f).indexOf("export function readCurrentObservationGlance"));
+        expect(body).not.toMatch(/request\.source|request\[/);
+        expect(body).toMatch(
+          /ReadCurrentObservationGlanceRequestSchema.safeParse\(request\).success/,
+        );
+        expect(SRC("packages/contracts/src/protocol-current-glance.ts")).not.toMatch(NAMES);
+      } else if (f === "packages/protocol/src/pc-collection.ts") {
+        // The previously authorized collection gateway reads the source of its committed choice; it adds no observation selector.
+        expect(SRC(f)).toContain("adapter.commitment(pcId, actId)?.value.intent.source.fact_key");
+        expect(SRC(f)).not.toMatch(/request\.(sourceKey|source_key)|parsed\.data\.source_key/);
+      } else expect(SRC(f), f).not.toMatch(NAMES);
+    }
   });
 
   it("the trusted operator side that names one: the observation command, its referee session and the console — and `locality.ts`, `additional-source.ts` and `additional-locality.ts`, which ESTABLISH a source from the operator's own file", () => {
@@ -248,6 +262,8 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
       "additional-locality.ts",
       "additional-source.ts",
       "cli.ts",
+      "closed-setting.ts",
+      "commands.ts",
       "locality.ts",
       "observation.ts",
       "referee-session.ts",
@@ -279,6 +295,23 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
       expect(SRC(f), f).not.toMatch(
         /\blistFacts\b|Date\.now|new Date|Math\.random|randomBytes|\bfetch\(/,
       );
+  });
+
+  it("the completed-collection withheld set is TWO reads at identities the delivery itself derives: the delivery its citation names and the source that delivery names — no listing, scan, search, loop, clock, random or network", () => {
+    const text = SRC("packages/engine/src/referee/derive.ts");
+    const body = text.slice(
+      text.indexOf("function deliveryWithheld("),
+      text.indexOf("export function observationWithheld("),
+    );
+    expect(body.match(/\bfacts\(/g)).toHaveLength(2);
+    expect(body).toMatch(/facts\(key\)/);
+    expect(body).toMatch(/facts\(sourceKey\)/);
+    expect(body).toMatch(
+      /const sourceKey = worldSourceConditionKey\(worldId, d\.source\.source_key\)/,
+    );
+    expect(body).not.toMatch(
+      /\blistFacts\b|\bfor\s*\(|\bwhile\b|Object\.(keys|values|entries)|\.find\(|\.filter\(|\.some\(|Date|Math\.random|randomBytes|fetch\(|node:/,
+    );
   });
 
   it("an unavailable source has one message: absent, malformed, foreign, mislocated, exhausted and undescribed sources cannot be told apart", () => {

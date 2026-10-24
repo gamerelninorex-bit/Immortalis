@@ -33,6 +33,7 @@ import {
   ktiTransferResultCloseProvider,
   logisticsDeliveryProvider,
   logisticsRetirementProvider,
+  pcCollectionCrossingClear,
   namedActorCapabilityCloseProvider,
   pcCapabilityCloseProvider,
   populationBarrierEvaluator,
@@ -419,6 +420,8 @@ export async function advanceActivePcToTarget(
     } else {
       // a fresh advance exists only for the stationary PC: anything else is inert, before time is touched
       if (!isStationaryActivePc(campaign, coordinator, pcId)) return refusal();
+      // CPAA-C1 v0.2 PROVISIONAL (C8): the PC's own in-flight collection is recognised by the engine's single rule, or the crossing is refused
+      if (!pcCollectionCrossingClear(store, coordinator, pcId, target)) return refusal();
       const held = coordinator.state()?.value.continuation ?? null;
       // an initial choice never meets a held remainder; a resume meets exactly the remainder the player chose, no other
       if (heldId === null ? held !== null : held?.from_transaction !== heldId) return refusal();

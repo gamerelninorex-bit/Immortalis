@@ -122,6 +122,7 @@ describe("the registered kind", () => {
         "world_fallback_physical_entity",
         "world_locus",
         "world_profile",
+        "world_scene_closure",
         "world_source_condition",
       ].sort(),
     );

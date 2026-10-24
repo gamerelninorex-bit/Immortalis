@@ -53,7 +53,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/temporal/admission.ts":
-    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
+    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -65,9 +65,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/fallback-custody.ts":
@@ -91,7 +91,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -126,6 +126,7 @@ describe("existing owners, the Temporal kernel, the predecessor gateways and the
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",

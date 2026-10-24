@@ -174,6 +174,8 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
     expect([...CANONICAL_OWNER_REGISTRY.get("pc_existence")!].sort()).toEqual([
       "existence_contract",
       "pc_capability_profile",
+      "pc_collection_mechanism",
+      "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("pc_existence")).toEqual(
@@ -206,6 +208,12 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "pc_capability",
       "pc_movement_commitment",
       "pc_movement_request",
+      "pc_collection_commitment",
+      "pc_collection_request",
+      "pc_collection_mechanism",
+      "pc_collection_cessation",
+      "pc_collection_cycle_attestation",
+      "pc_intrinsic_clarification",
     ]);
     // World-State, Logistics and the Role Registry gained no kind
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([
@@ -223,6 +231,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "world_acoustic_emission",
       "world_source_condition",
       "world_source_delivery",
+      "world_scene_closure",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics").map((k) => k.id)).toEqual([
       "logistics_commitment",
@@ -309,6 +318,12 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       ...named,
       ...MODULES,
       "packages/engine/src/world/integrity.ts", // the violation code vocabulary
+      // CPAA-C1 (v0.3 design ratified; implementation acceptance pending): the bilateral movement/collection exclusion is the one narrow, named seam (a PC with a movement
+      // record is not eligible for a collection; a PC with an open occupancy may not start a movement)
+      "packages/engine/src/pc-collection/state.ts",
+      "packages/engine/src/pc-collection/derive.ts",
+      "packages/engine/src/pc-collection/admission.ts",
+      "packages/engine/src/pc-collection/integrity.ts",
     ]);
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>

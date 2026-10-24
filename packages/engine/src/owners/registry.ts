@@ -1,4 +1,25 @@
 import {
+  CPAA_C1_D1_PROVISIONAL,
+  CPAA_C1_PROVISIONAL,
+  FACET_PC_COLLECTION_MECHANISM,
+  PcCollectionCessationSchema,
+  PcCollectionCycleAttestationSchema,
+  PopulationPcRepresentationSchema,
+  ProductionPcCollectionLapseSchema,
+  ProductionPcCollectionTerminationSchema,
+  FACET_POPULATION_PC_OCCUPANCY,
+  FACET_POPULATION_WORKFORCE_SCOPE,
+  FACET_WORLD_SCENE_CLOSURE,
+  PopulationWorkforceScopeSchema,
+  WorldSceneClosureSchema,
+  PcCollectionCommitmentSchema,
+  PcCollectionMechanismSchema,
+  PcIntrinsicClarificationSchema,
+  FACET_PC_INTRINSIC_CLARIFICATION,
+  PcCollectionReachDecisionSchema,
+  PcCollectionRequestSchema,
+  PopulationPcOccupancySchema,
+  ProductionPcCollectionWorkSchema,
   ORIGINAL_ACTIVATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
@@ -335,6 +356,23 @@ export const NAMED_ACTOR_FACT_KIND_IDS = [
 ] as const;
 export const PC_CAPABILITY_FACT_KIND_IDS = ["pc_capability_basis", "pc_capability"] as const;
 export const PC_MOVEMENT_FACT_KIND_IDS = ["pc_movement_commitment", "pc_movement_request"] as const;
+/** CPAA-C1 v0.2 PROVISIONAL candidate lowerings (not ratified): see `PC_COLLECTION_FACT_KINDS`. */
+export const PC_COLLECTION_FACT_KIND_IDS = [
+  "pc_collection_commitment",
+  "pc_collection_request",
+  "pc_collection_mechanism",
+  "pc_collection_reach_decision",
+  "population_pc_occupancy",
+  "production_pc_collection_work",
+  "pc_collection_cessation",
+  "production_pc_collection_termination",
+  "production_pc_collection_lapse",
+  "pc_collection_cycle_attestation",
+  "population_pc_representation",
+  "world_scene_closure",
+  "population_workforce_scope",
+  "pc_intrinsic_clarification",
+] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
   "epistemic_accessible_packet",
@@ -375,6 +413,7 @@ export type FactKindId =
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof PC_CAPABILITY_FACT_KIND_IDS)[number]
   | (typeof PC_MOVEMENT_FACT_KIND_IDS)[number]
+  | (typeof PC_COLLECTION_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
   | (typeof PRODUCTION_FACT_KIND_IDS)[number]
@@ -1592,6 +1631,479 @@ export const PC_MOVEMENT_FACT_KINDS: readonly FactKind[] = [
   ),
 ];
 
+const CPAA_C1_CANDIDATE = {
+  artifact: "https://app.notion.com/p/3fb20af901e081c294cbf534d24de7c0",
+  native_pin: "2026-10-16T00:31:39.142Z",
+} as const;
+const CPAA_C1_DIRECTION_LINEAGE =
+  "Sovereign non-final execution direction: CPAA-C1 v0.2 provisional construction authorized, pin 2026-10-16T01:38:29.022Z (https://app.notion.com/p/3fb20af901e0815894edc6581ed9f4f2); RED defect report pin 2026-10-15T23:54:08.840Z (https://app.notion.com/p/3fa20af901e081d19f91d3eb6be48bd7); task OB-058 (https://app.notion.com/p/3fa20af901e081b29bb6d9ad2b7caede)";
+
+/**
+ * The governing rule of every CPAA-C1 v0.2 kind. It is a PROVISIONAL CANDIDATE citation, deliberately NOT `pinned-by-spec-lock`: the
+ * candidate is unratified, the correction is not a spec-lock pin, and this effective basis is the visible marker that a later
+ * ratification, correction or withdrawal changes it (never an implicit promotion).
+ */
+const cpaaRule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_CANDIDATE.artifact,
+  native_pin: CPAA_C1_CANDIDATE.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_PROVISIONAL,
+    CPAA_C1_DIRECTION_LINEAGE,
+    PC_MOVEMENT_WS010_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "provisional-candidate-lowering-pending-ratification",
+  supersedes: null,
+});
+
+export const PC_COLLECTION_COMMITMENT_RULE: SourceRef = cpaaRule(
+  "C1 closed class and ownership (PC-side confirmed collection commitment-of-record; a non-intrinsic cause fact, not I-002 intrinsic state; no analogy to other actions), C2 real choice (role.player + permission.player_choice.commit; willingness to attempt only), C3 per-act identity and the Production request mechanically derived from it (WS-003 §13A envelope), C4 admission by re-derivation",
+);
+export const PC_COLLECTION_MECHANISM_RULE: SourceRef = cpaaRule(
+  "C6 / P-1 proposed typed I-002 intrinsic exact-cycle carrier: a typed projection that follows accepted authored intrinsic content (I-002 §8 exact when explicitly authored and timing requires it, §19 PC-local causal bridge, §25 Temporal owns duration); every statement is a verbatim quotation of a cited accepted claim and the cycle quotation states the exact numeral and canonical unit, or no exact completion exists; the F-014B §11 determination is derived (the closed class has no counterpart actor), never authored",
+);
+export const PC_COLLECTION_REACH_RULE: SourceRef = cpaaRule(
+  "C5 / §4.2 physical reach: role.gm + permission.rule.adjudicate interpretive compatibility of separately established owner facts (source path facts, PC mechanism), host-interpreted and quote-anchored, verdict derived by the engine, consumed by Production; scripted hosts prove transport and enforcement only",
+);
+export const POPULATION_PC_OCCUPANCY_RULE: SourceRef = cpaaRule(
+  "C5 / P-2 proposed bounded Population registration of one active PC's individual occupied work interval (F-017 PC-01: owner proposal, Population registration/feasibility, consuming-owner read); not an Occupational Cohort, not Effective Labor Supply, not willingness",
+);
+export const PRODUCTION_PC_COLLECTION_WORK_RULE: SourceRef = cpaaRule(
+  "C4 / C6 Production alone admits feasible physical work and derives the cycles, the causal duration and the earned completion (Timed Work §§3-4, 14) from the owners' committed premises; the existing Production Source Delta, World-State delivery and Reserve inflow are unchanged",
+);
+
+const CPAA_C1_D1_DISPOSITION = {
+  artifact: "https://app.notion.com/p/3fb20af901e08170b369fdf2353a73d4",
+  native_pin: "2026-10-16T04:43:59.946Z",
+} as const;
+const CPAA_C1_D1_LINEAGE =
+  "Sovereign construction-approved non-final handoff: PR #72 same-PR provisional BLUE construction repair authorized (https://github.com/gamerelninorex-bit/Immortalis/pull/72#issuecomment-6208352198); the proposed clause is NOT adopted, NOT ratified and NOT a source-lock amendment";
+
+/**
+ * The governing rule of every BLUE clause D-1 (PC Collection Voluntary Cessation) kind. A PROVISIONAL CANDIDATE citation of a
+ * PROPOSED clause, deliberately NOT `pinned-by-spec-lock`: its effective basis is the visible marker that a later adoption, change
+ * or withdrawal is a bounded change, never an implicit promotion.
+ */
+const d1Rule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_D1_DISPOSITION.artifact,
+  native_pin: CPAA_C1_D1_DISPOSITION.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_D1_PROVISIONAL,
+    CPAA_C1_D1_LINEAGE,
+    CPAA_C1_PROVISIONAL,
+    PC_MOVEMENT_WS010_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "provisional-candidate-lowering-pending-ratification",
+  supersedes: null,
+});
+
+const CPAA_C1_V03 = {
+  artifact: "https://app.notion.com/p/3fb20af901e08115b141f5e2e55ca37e",
+  native_pin: "2026-10-16T07:19:16.351Z",
+} as const;
+const CPAA_C1_V03_LINEAGE =
+  "CPAA-C1 v0.3 design RATIFIED by the Sovereign (ratification record https://app.notion.com/p/3fb20af901e08124a6a8fe243b2ec351, native pin 2026-10-16T07:56:18.556Z; independent RED CONCUR https://app.notion.com/p/3fb20af901e081c6928bc0e6371ff1c1, native pin 2026-10-16T07:43:50.948Z). Ratification is a DESIGN decision only: it is not implementation acceptance, a source-lock amendment or merge authority";
+
+/**
+ * The governing rule of the CPAA-C1 v0.3 kinds. The design is ratified, the implementation is not yet accepted and no source lock
+ * changed, so the effective basis is neither the pending-ratification marker nor `pinned-by-spec-lock`.
+ */
+const v03Rule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_V03.artifact,
+  native_pin: CPAA_C1_V03.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_V03_LINEAGE,
+    CPAA_C1_D1_PROVISIONAL,
+    CPAA_C1_PROVISIONAL,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "ratified-design-implementation-acceptance-pending",
+  supersedes: null,
+});
+
+/**
+ * NEWLY AUTHORIZED rules (CPAA-C1 v0.3 bounded semantic delegation): the minimum rules the loop needs to replace two Boolean
+ * premises with canonical owner evidence. Not a frozen-source rule and not a spec-lock pin; independent BLUE review is pending.
+ */
+const CPAA_C1_DELEGATION = {
+  artifact: "https://app.notion.com/p/3fb20af901e0818d8406c3c6a422b608",
+  native_pin: "2026-10-16T12:07:41.219Z",
+} as const;
+const CPAA_C1_DELEGATION_LINEAGE =
+  "CPAA-C1 v0.3 BOUNDED SEMANTIC DELEGATION: the Sovereign's words, relayed by BLUE on PR #72 comment 6215171891 (https://github.com/gamerelninorex-bit/Immortalis/pull/72#issuecomment-6215171891): “I will allow him to make semantics if this is recommended to get the job finally done”; controlling mission addendum https://app.notion.com/p/3fb20af901e0818d8406c3c6a422b608 (native pin 2026-10-16T12:07:41.219Z). The rule it governs is NEWLY AUTHORIZED, is not attributed to any frozen source, is not a spec-lock pin, and awaits independent BLUE review";
+const delegatedRule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_DELEGATION.artifact,
+  native_pin: CPAA_C1_DELEGATION.native_pin,
+  clause,
+  authority_lineage: [CPAA_C1_DELEGATION_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-bounded-semantic-delegation-independent-review-pending",
+  supersedes: null,
+});
+
+export const WORLD_SCENE_CLOSURE_RULE: SourceRef = delegatedRule(
+  "NEWLY AUTHORIZED World-State scene closure: an ORIGINAL physical setting is declared a closed domain by its author (the domain, its topology, the closure statement and per-source unencumbered rights are AUTHORED canon); what the owners hold at the locus (Population ledgers attached to it, actors coupled to it, Player Characters whose physical locus it is) is DERIVED by World-State at admission and can never be supplied; the closure is CURRENT only while that derivation still equals what it covered, and a stale or missing closure establishes nothing. It grants no right beyond 'no encumbrance is established for this source in this closed domain', suppresses no independent cause and is re-declared by its author, never rewritten: each declaration is a new version derived afresh, and a changed version re-opens every act that rested on the previous one",
+);
+export const POPULATION_WORKFORCE_SCOPE_RULE: SourceRef = delegatedRule(
+  "NEWLY AUTHORIZED Population workforce scope: Population's declaration (AUTHORED statement) that the representations it lists are ALL those bearing on one locality's effective aggregate workforce; the representations (every ledger attached to the locality or one of whose units is present or burdened there) and their identity/count provenance are DERIVED by Population at admission and can never be supplied; the scope is CURRENT only while those ledgers are unchanged and no further one bears on the locality. Only a current scope lets an omitted identity be OUTSIDE; otherwise UNKNOWN. It is not Section 28 labor accounting: no layer tag, headcount arithmetic, cohort, flexible-labor debit or labor token",
+);
+
+export const PC_COLLECTION_ATTESTATION_RULE: SourceRef = v03Rule(
+  "v0.3 F-2 replacement P-1: the eligible intrinsic premise is a lawfully authored accepted I-002 Capability/Effect claim with an operative Temporal Hook; I-002's declared compiler/adjudicator role.gm attests that the cited content denotes exactly one same-form unit handled by the named actuator in one serial cycle with the stated duration (PC-intrinsic meaning only); role.archivist canonically writes the versioned attestation (attestor role, claim and mechanism versions, accepted meaning, Temporal Hook, effective-before-act); Temporal keeps unit authority; quotation and number/unit matching are necessary but insufficient; no hallucinated attestation, post-commit retrofit or invented rate",
+);
+export const POPULATION_PC_AGGREGATE_STATUS_RULE: SourceRef = v03Rule(
+  "v0.3 F-3 replacement P-2: a distinct Population-owned identity-qualified individual active-PC occupied-interval registration, outside Population section 28 labor-claim accounting (no layer tag, Occupational Draw Reference, headcount, cohort, flexible-labor debit or labor token); Population independently determines the PC's relation to its effective aggregate workforce from its own identity and count provenance: proven outside proceeds on individual occupancy alone, proven included or unknown WITHHOLDS pending a lawful no-double-counting reconciliation",
+);
+
+export const PC_COLLECTION_CESSATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed PC Collection Voluntary Cessation: the player's separately confirmed request to cease the SAME in-flight collection identity (role.player + permission.player_choice.commit) is a new action cause recorded by the PC-side owner with identity and version provenance, at the canonical time read at the request and strictly before the earned boundary; it is not a claim that earlier work never occurred, not a source status and not a Production cancellation",
+);
+export const PRODUCTION_PC_COLLECTION_TERMINATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed Production terminal disposition: Production alone resolves the terminal status of withdrawn in-flight collection work, derived from the committed cessation request, the work record and the canonical time; it retains the legitimately elapsed progress as evidence, awards no unearned unit (the present all-at-boundary class), leaves the source and the Reserve untouched and releases only Production's own claim on the source",
+);
+export const POPULATION_PC_OCCUPANCY_TERMINATION_RULE: SourceRef = d1Rule(
+  "D-1 proposed Population release: only after Production committed the lawful no-more-work termination of this act is the SAME PC's individual occupied interval released, exactly once; never before, never twice, never by a caller",
+);
+export const TEMPORAL_PC_COLLECTION_RETIREMENT_RULE: SourceRef = d1Rule(
+  "D-1 proposed Temporal retirement: only after Production committed the termination of this act's extraction is that extraction object's pending earned boundary retired (superseded, never resolved) and removed from the boundary index; canonical time, every other object and every other index entry are untouched",
+);
+
+/**
+ * R-4 — BLUE Lapse Settlement v1.2 (NEWLY AUTHORIZED: the Sovereign's standing bounded semantic delegation, invoked by BLUE on PR #72; the
+ * clause text is the Notion page below at its native pin; it adopts the exact replacement passages of the independent RED v1.1 MODIFY at pin
+ * 2026-10-16T15:09:20.386Z). Not a frozen-source rule, not a spec-lock pin, no separate RED CONCUR page was published, and independent BLUE
+ * review of the code is pending. It amends nothing silently: it adds a distinct class-level, nonphysical, nonproductive eligibility lapse for
+ * the original `condition: null` player route only, and leaves D-1 voluntary cessation and D-2 untouched.
+ */
+const CPAA_C1_R4 = {
+  artifact: "https://app.notion.com/p/3fb20af901e08142b884f3c88a4b307e",
+  native_pin: "2026-10-16T15:11:53.372Z",
+} as const;
+const CPAA_C1_R4_LINEAGE =
+  "CPAA-C1 R-4 Lapse Settlement v1.2 (BLUE, Notion pin 2026-10-16T15:11:53.372Z) adopting the exact replacement passages of the independent RED v1.1 MODIFY (pin 2026-10-16T15:09:20.386Z); invoked for construction by BLUE on PR #72 comment 6218689024 under the standing Sovereign mission delegation; NEWLY AUTHORIZED, not a frozen-source rule, not a spec-lock pin, no RED CONCUR page published, independent BLUE review pending; it does not lift the standing-loss First Playable/merge exclusion";
+const lapseRule = (clause: string): SourceRef => ({
+  artifact: CPAA_C1_R4.artifact,
+  native_pin: CPAA_C1_R4.native_pin,
+  clause,
+  authority_lineage: [
+    CPAA_C1_R4_LINEAGE,
+    CPAA_C1_DELEGATION_LINEAGE,
+    CPAA_C1_V03_LINEAGE,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "sovereign-bounded-semantic-delegation-independent-review-pending",
+  supersedes: null,
+});
+export const PRODUCTION_PC_COLLECTION_LAPSE_RULE: SourceRef = lapseRule(
+  "R-4 (a)(b)(c)(d)(1): Production alone seals ONE non-voluntary NONPRODUCTIVE_LAPSE of an admitted, OPEN-occupied, uncredited, not-D-1-terminated solitary PC collection whose original Temporal request has a null condition, at its own held earned boundary B only (never before B, never in response to a horizon, never by player or operator choice), as the owner re-evaluation C6 requires; the reason class is INCOMPATIBLE only on affirmative owner facts and otherwise NOT_ESTABLISHED, with identical effects, and claims nothing about whether anything was physically gathered; no handled cycle, progress or change time is asserted; units credited 0, Source and Reserve untouched; in the same group only this extraction's single claim on its own source account is released",
+);
+export const TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE: SourceRef = lapseRule(
+  "R-4 (d)(2)(e): only after Production sealed the lapse of this act, and only for a held lineage that an existing active-PC or NULL-PC held-resume gateway would itself accept, is that extraction object's pending earned boundary retired (superseded, never resolved) and removed from the boundary index; canonical time, the held state, the sealed transaction, every other object and index entry are untouched; the held continuation is not resumed, consumed or cancelled and no condition is removed, superseded, retargeted or invented",
+);
+export const POPULATION_PC_OCCUPANCY_LAPSE_RULE: SourceRef = lapseRule(
+  "R-4 (d)(3): only after Production sealed the lapse and Temporal retired the boundary is the SAME PC's individual occupied interval released, exactly once, with the status RELEASED_LAPSED (distinct from the denial and the termination); never before, never twice, never by a caller",
+);
+
+/**
+ * R-5 — the prospective collection clarification (NEWLY AUTHORIZED construction repair: BLUE R-5 repair handoff v1, Notion pin
+ * 2026-10-17T09:28:13.827Z, invoked by the Sovereign's explicit direction and BLUE's comment on PR #72). It adds NO substantive owner
+ * rule: it is a typed ingress for the frozen I-002 invocation branch (§§8, 22–23: precision follows consequence; an unresolved operative
+ * intrinsic detail is settled narrowly, prospectively, before the invoked consequence, preserving history) as CPAA-C1 v0.3 F-2 already
+ * permits before the collection commitment. Not a frozen-source rule, not a spec-lock pin, independent BLUE review pending.
+ */
+const CPAA_C1_R5 = {
+  artifact: "https://app.notion.com/p/3fa20af901e081b29bb6d9ad2b7caede",
+  native_pin: "2026-10-17T09:28:13.827Z",
+} as const;
+const CPAA_C1_R5_LINEAGE =
+  "CPAA-C1 R-5 prospective collection clarification (BLUE R-5 repair handoff v1, OB-058, Notion pin 2026-10-17T09:28:13.827Z) under frozen I-002 (https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718, native pin 2026-09-25T00:15:54.536Z) §§5, 8, 9, 22–23, 25 and ratified CPAA-C1 v0.3 F-2 (native pin 2026-10-16T07:19:16.351Z); the Sovereign explicitly directed this construction on 2026-10-17 (PR #72 comment 6232293616). NEWLY AUTHORIZED construction, not a frozen-source rule, not a spec-lock pin, independent BLUE review pending; it lifts no First Playable or merge exclusion";
+export const PC_INTRINSIC_CLARIFICATION_RULE: SourceRef = {
+  artifact: CPAA_C1_R5.artifact,
+  native_pin: CPAA_C1_R5.native_pin,
+  clause:
+    "R-5 (I-002 §22 Invocation Branch, prospective): for an already released and bound player character whose accepted content leaves the operative one-unit serial handling cycle unresolved, the player's OWN words are accepted as that character's intrinsic claims only when the declared I-002 compiler/adjudicator role.gm has classified exactly those words as the player's own character-local claims (retained, closed) and role.archivist writes the owner's create-only record, effective from the canonical time at acceptance and never retroactively, before any dependent collection commitment; it overwrites no sealed record, supplies no rate and delegates the choice to no host; the later mechanism and attestation follow it by exact version and still require the exact numeral and canonical unit in a cited accepted claim",
+  authority_lineage: [CPAA_C1_R5_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "sovereign-directed-construction-independent-review-pending",
+  supersedes: null,
+};
+
+const pcCollectionKind = (
+  id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
+  owner: string,
+  facet: string,
+  im: string,
+  rc: readonly string[],
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+  ruleRef: SourceRef,
+): FactKind => ({ id, owner, facet, im, rc, lifecycle, keyPattern, valueSchema, rule: ruleRef });
+
+/**
+ * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERINGS (not ratified; see `@immortalis/contracts` `pc-collection.ts`). Six kinds, no new
+ * owner: the PC-side commitment-of-record and the PC-owned Production Request (the existing PC owner's `pc_voluntary_commitment`
+ * facet, in a collection key space disjoint from movement's one-journey slots); the P-1 exact-cycle mechanism (a second PC-owner
+ * facet); the physical-reach judgment (the referee provenance facet); Population's P-2 individual occupancy registration (one
+ * ADVANCING slot per PC); and Production's work record. All but the occupancy are create-only.
+ */
+export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
+  pcCollectionKind(
+    "pc_collection_commitment",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_VOLUNTARY_COMMITMENT,
+    "IM-07",
+    ["RC-02", "RC-15", "RC-16"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection/${ID}/commitment$`),
+    PcCollectionCommitmentSchema,
+    PC_COLLECTION_COMMITMENT_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_request",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_VOLUNTARY_COMMITMENT,
+    "IM-07",
+    ["RC-02"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection/${ID}/request$`),
+    PcCollectionRequestSchema,
+    PC_COLLECTION_COMMITMENT_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_mechanism",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_COLLECTION_MECHANISM,
+    "IM-07",
+    ["RC-02"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection-mechanism/${ID}$`),
+    PcCollectionMechanismSchema,
+    PC_COLLECTION_MECHANISM_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_reach_decision",
+    OWNER_REFEREE_KERNEL,
+    FACET_REFEREE_PROVENANCE,
+    "IM-12",
+    ["RC-02", "RC-09", "RC-16"],
+    "SEALED",
+    new RegExp(`^referee/pc-collection-reach/${ID}/${ID}$`),
+    PcCollectionReachDecisionSchema,
+    PC_COLLECTION_REACH_RULE,
+  ),
+  {
+    ...pcCollectionKind(
+      "population_pc_occupancy",
+      OWNER_POPULATION,
+      FACET_POPULATION_PC_OCCUPANCY,
+      "IM-04",
+      ["RC-02", "RC-06"],
+      "ADVANCING",
+      new RegExp(`^population-pc/${ID}/occupancy$`),
+      PopulationPcOccupancySchema,
+      POPULATION_PC_OCCUPANCY_RULE,
+    ),
+    // D-1 (PROVISIONAL): the release after Production's termination carries the Population termination rule; the registration and
+    // the denial keep theirs
+    alternateRules: [
+      {
+        rule: POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
+        admits: (value: unknown) => {
+          const o = PopulationPcOccupancySchema.safeParse(value);
+          return o.success && o.data.status === "RELEASED_TERMINATED";
+        },
+      },
+      // R-4: the release after Production's lapse carries the Population lapse rule
+      {
+        rule: POPULATION_PC_OCCUPANCY_LAPSE_RULE,
+        admits: (value: unknown) => {
+          const o = PopulationPcOccupancySchema.safeParse(value);
+          return o.success && o.data.status === "RELEASED_LAPSED";
+        },
+      },
+    ],
+  },
+  pcCollectionKind(
+    "production_pc_collection_work",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/pc-collection-work/${ID}$`),
+    ProductionPcCollectionWorkSchema,
+    PRODUCTION_PC_COLLECTION_WORK_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_cessation",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_VOLUNTARY_COMMITMENT,
+    "IM-07",
+    ["RC-02", "RC-15", "RC-16"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection/${ID}/cessation$`),
+    PcCollectionCessationSchema,
+    PC_COLLECTION_CESSATION_RULE,
+  ),
+  pcCollectionKind(
+    "pc_collection_cycle_attestation",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_COLLECTION_MECHANISM,
+    "IM-07",
+    ["RC-02", "RC-03", "RC-16"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/collection-attestation/${ID}$`),
+    PcCollectionCycleAttestationSchema,
+    PC_COLLECTION_ATTESTATION_RULE,
+  ),
+  pcCollectionKind(
+    "population_pc_representation",
+    OWNER_POPULATION,
+    FACET_POPULATION_PC_OCCUPANCY,
+    "IM-04",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^population-pc/${ID}/representation$`),
+    PopulationPcRepresentationSchema,
+    POPULATION_PC_AGGREGATE_STATUS_RULE,
+  ),
+  pcCollectionKind(
+    "world_scene_closure",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_SCENE_CLOSURE,
+    "IM-03",
+    ["RC-02", "RC-16"],
+    "ADVANCING",
+    new RegExp(`^world/${ID}/locus/${ID}/scene-closure$`),
+    WorldSceneClosureSchema,
+    WORLD_SCENE_CLOSURE_RULE,
+  ),
+  pcCollectionKind(
+    "population_workforce_scope",
+    OWNER_POPULATION,
+    FACET_POPULATION_WORKFORCE_SCOPE,
+    "IM-04",
+    ["RC-02", "RC-06"],
+    "ADVANCING",
+    new RegExp(`^population-scope/${ID}/${ID}/workforce$`),
+    PopulationWorkforceScopeSchema,
+    POPULATION_WORKFORCE_SCOPE_RULE,
+  ),
+  pcCollectionKind(
+    "production_pc_collection_termination",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/pc-collection-termination/${ID}$`),
+    ProductionPcCollectionTerminationSchema,
+    PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+  ),
+  pcCollectionKind(
+    "production_pc_collection_lapse",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    ["RC-02", "RC-06", "RC-10"],
+    "SEALED",
+    new RegExp(`^production/pc-collection-lapse/${ID}$`),
+    ProductionPcCollectionLapseSchema,
+    PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+  ),
+  pcCollectionKind(
+    "pc_intrinsic_clarification",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_INTRINSIC_CLARIFICATION,
+    "IM-07",
+    ["RC-02", "RC-03"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/intrinsic-clarification/${ID}$`),
+    PcIntrinsicClarificationSchema,
+    PC_INTRINSIC_CLARIFICATION_RULE,
+  ),
+];
+
+/**
+ * CPAA-C1 v0.2 PROVISIONAL — the PC-owned start publishes the extraction, the key's account holding the commitment and Production's
+ * work record as ONE atomic group, and a group has one governing rule. That group is governed by `PRODUCTION_PC_COLLECTION_WORK_RULE`,
+ * which the extraction and the account may carry ONLY for a PC-owned value (additive: it supersedes nothing and never relaxes the
+ * drawdown rule they carry for every other request). Admission requires the PC-owned start to carry it, and load verification checks
+ * that no other extraction does. `SOURCE_DRAWDOWN_FACT_KINDS` itself is unchanged.
+ */
+const isPcOwnedExtraction = (value: unknown): boolean => {
+  const e = ProductionExtractionSchema.safeParse(value);
+  return e.success && e.data.request.owner === "pc_existence";
+};
+const holdsPcOwnedCommitment = (value: unknown): boolean => {
+  const a = SourceAccountSchema.safeParse(value);
+  return a.success && a.data.open.some((o) => o.extraction_id.startsWith("pc-collect:"));
+};
+const SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START: readonly FactKind[] =
+  SOURCE_DRAWDOWN_FACT_KINDS.map((k) =>
+    k.id === "production_extraction" || k.id === "production_source_account"
+      ? {
+          ...k,
+          alternateRules: [
+            {
+              rule: PRODUCTION_PC_COLLECTION_WORK_RULE,
+              admits:
+                k.id === "production_extraction" ? isPcOwnedExtraction : holdsPcOwnedCommitment,
+            },
+            // D-1 (PROVISIONAL): the termination group writes the key's account (releasing Production's own claim) under the
+            // termination rule; admission requires that group to be exactly the termination record plus that account
+            ...(k.id === "production_source_account"
+              ? [
+                  {
+                    rule: PRODUCTION_PC_COLLECTION_TERMINATION_RULE,
+                    admits: (value: unknown) => SourceAccountSchema.safeParse(value).success,
+                  },
+                  // R-4: the lapse group writes the key's account (releasing Production's own claim) under the lapse rule
+                  {
+                    rule: PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+                    admits: (value: unknown) => SourceAccountSchema.safeParse(value).success,
+                  },
+                ]
+              : []),
+          ],
+        }
+      : k,
+  );
+
+/**
+ * D-1 (PROVISIONAL) — the retirement of a terminated extraction's pending boundary writes the extraction's temporal object and the
+ * boundary index as ONE group governed by `TEMPORAL_PC_COLLECTION_RETIREMENT_RULE` (additive: it supersedes nothing and relaxes
+ * nothing; every transaction keeps `KERNEL_RULE`). Admission requires a group carrying it to be exactly that retirement.
+ */
+const TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT: readonly FactKind[] =
+  TEMPORAL_FACT_KINDS.map((k) =>
+    k.id === "temporal_object" || k.id === "temporal_boundary_index"
+      ? {
+          ...k,
+          alternateRules: [
+            {
+              rule: TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+              admits: (value: unknown) =>
+                k.id === "temporal_object"
+                  ? TemporalObjectSchema.safeParse(value).success
+                  : BoundaryIndexSchema.safeParse(value).success,
+            },
+            // R-4: the retirement after Production's lapse carries the Temporal lapse-retirement rule
+            {
+              rule: TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
+              admits: (value: unknown) =>
+                k.id === "temporal_object"
+                  ? TemporalObjectSchema.safeParse(value).success
+                  : BoundaryIndexSchema.safeParse(value).success,
+            },
+          ],
+        }
+      : k,
+  );
+
 const CAUSAL_DRAW_RED_CLEARANCE =
   "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
 
@@ -2502,10 +3014,10 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
  */
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
-  ...TEMPORAL_FACT_KINDS,
+  ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS,
-  ...SOURCE_DRAWDOWN_FACT_KINDS,
+  ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,
   ...WORLD_CORRIDOR_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
@@ -2528,6 +3040,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...CULTURE_ADJUDICATION_FACT_KINDS,
   ...REFEREE_FACT_KINDS,
   ...WORLD_SOURCE_CONDITION_FACT_KINDS,
+  ...PC_COLLECTION_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

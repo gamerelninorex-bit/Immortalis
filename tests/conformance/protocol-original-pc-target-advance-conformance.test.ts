@@ -74,12 +74,12 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/world/pc-locus-custody.ts":
       "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
     "packages/engine/src/pc-movement/derive.ts":
-      "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+      "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
     "packages/contracts/src/pc-locus-custody.ts":
       "181218063894d0458e8143ac7a4866d70732ff967410b18846a78cc457b30a0a",
     // the kernel, GIP's own sunset expiry and enrollment, the owner registry and the canonical campaign
     "packages/engine/src/temporal/coordinator.ts":
-      "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+      "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
     "packages/engine/src/temporal/providers.ts":
       "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
     "packages/engine/src/gip/provider.ts":
@@ -87,14 +87,14 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+      "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
     "packages/engine/src/world/canonical-campaign.ts":
-      "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+      "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
     "packages/protocol/src/index.ts":
-      "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
+      "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
     "packages/protocol/src/pc-transfer-advance.ts":
       "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
     "packages/protocol/src/pc-relocation.ts":
@@ -104,7 +104,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/protocol/src/null-pc-ooc-held-continuation.ts":
       "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
     "packages/operator/src/commands.ts":
-      "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+      "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   };
 
   it("each is byte-identical to main", () => {
@@ -114,7 +114,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
   it("the gateway module is the one scoped delta, pinned at the slice head (any further edit is a new, visible change to this table)", () => {
     const delta = {
       base: "50b828821ecd6218502113d31e9cf74985bc297ff1c776069c9545696439735c",
-      head: "bc1447da88e8abe9326fee82a84366a8559a22429870ad6631c9bcd5b46547cc",
+      head: "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
     };
     expect(delta.base).not.toBe(delta.head);
     expect(sha(MODULE)).toBe(delta.head);

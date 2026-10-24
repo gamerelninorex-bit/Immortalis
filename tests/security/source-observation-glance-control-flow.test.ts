@@ -47,7 +47,7 @@ import {
 } from "../support/source-observation.ts";
 
 /** Nine `getFact` and one `committedGroup` of the gateway's own, plus the unchanged IM-13 guard's fixed seven and one. */
-const EXPECTED_READS = 9 + 1 + 7 + 1;
+const EXPECTED_READS = 12 + 1 + 7 + 1;
 /** The sixth premise slot: state, event, group, decision, then premise slots 0..5. */
 const SIXTH_PREMISE = 9;
 const SENTINEL = "-";

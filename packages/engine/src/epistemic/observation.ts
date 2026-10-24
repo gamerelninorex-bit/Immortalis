@@ -26,7 +26,11 @@ import {
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
-import { committedCanonicalTime, recordContextViolation } from "../referee/derive.ts";
+import {
+  OBSERVATION_OUTCOME_FACT_ID,
+  committedCanonicalTime,
+  recordContextViolation,
+} from "../referee/derive.ts";
 
 /**
  * Pure derivations of the OBSERVATION-EARNED Access Event (BLUE v5.2, F-014D §§2, 5 steps 2-4, 6, 21.1). The Epistemic owner publishes
@@ -82,33 +86,36 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   const locusMatch = locusRef ? /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locusRef.fact_key) : null;
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
-  // the appearance is OF a world or locus fact (five cited premises) or, in a source-scoped question, of the ONE Source Condition the
-  // record cites as its sixth: a record never mixes the two, so a source-scoped reading cannot earn a receipt about a neighbouring fact
-  const scoped = record.input.refs[OBSERVATION_SOURCE_INDEX];
+  // The optional sixth citation is one of two separate variants; never conflate a Source Condition and a delivery.
+  const sixth = record.input.refs[OBSERVATION_SOURCE_INDEX];
+  const delivery = sixth ? /^world\/([^/]+)\/source-delivery\/(.+)$/.exec(sixth.fact_key) : null;
+  const deliveryRef = delivery?.[1] === worldId ? sixth : undefined;
   const scopedKey =
-    record.input.refs.length === OBSERVATION_SOURCE_INDEX + 1 &&
-    scoped &&
-    parseWorldSourceConditionKey(scoped.fact_key)?.world_id === worldId
-      ? scoped.fact_key
+    sixth && parseWorldSourceConditionKey(sixth.fact_key)?.world_id === worldId
+      ? sixth.fact_key
       : null;
   if (
-    (record.input.refs.length !== OBSERVATION_SOURCE_INDEX && scopedKey === null) ||
+    (record.input.refs.length !== OBSERVATION_SOURCE_INDEX &&
+      !(record.input.refs.length === OBSERVATION_SOURCE_INDEX + 1 && (scopedKey || deliveryRef))) ||
     d.payload.source_fact_id.startsWith("source.") !== (scopedKey !== null)
   )
     return fail(
       "OBSERVATION_RECORD_INVALID",
-      "the appearance is of the one source the record is scoped to, and only of it",
+      "the record cites only one qualified observation variant",
     );
   const sourceKey = d.payload.source_fact_id.startsWith("world.")
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : scopedKey;
+      : (scopedKey ??
+        (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
+          ? deliveryRef.fact_key
+          : null));
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(
       "OBSERVATION_RECORD_INVALID",
-      "the appearance is of a committed world or locus fact the record cites",
+      "the appearance is of a committed world fact, locus fact or collection outcome the record cites",
     );
   const event = AccessEventSchema.safeParse({
     event_id: observationEventId(record.subject.pc_id, record.input.observed_at),

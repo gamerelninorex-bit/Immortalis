@@ -44,7 +44,11 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
 import { continuationRequestViolation } from "./admission.ts";
-import { factKind } from "../owners/registry.ts";
+import {
+  TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
+  TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+  factKind,
+} from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import { analyzeStageGraph, type GraphEdge, type GraphNode } from "./graph.ts";
 import {
@@ -290,6 +294,87 @@ export class TemporalCoordinator {
         reads: [{ key: TEMPORAL_STATE_KEY, version: state.fact.version }],
         depends_on: [state.fact.provenance.group_id],
       }),
+    );
+  }
+
+  /**
+   * D-1 (PROVISIONAL, not adopted): retires the pending earned boundary of one TERMINATED object (superseded, never resolved) and
+   * removes it from the boundary index, as ONE group under the provisional retirement rule. The kernel knows no owner's state: the
+   * caller names the object and the one committed fact that terminated its work, and admission re-derives that this retirement is
+   * lawful for exactly that pair (and refuses any other). It advances nothing and resolves nothing; re-presenting the same intent
+   * reconciles by identity.
+   */
+  async retireTerminatedObject(
+    input: Publication & { readonly object_id: string; readonly evidence_key: string },
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    return this.#retireEvidenced(input, TEMPORAL_PC_COLLECTION_RETIREMENT_RULE);
+  }
+
+  /**
+   * R-4 (NEWLY AUTHORIZED, BLUE Lapse Settlement v1.2 (d)(2)): the same bounded retirement of one extraction object's pending earned boundary,
+   * but on the evidence of Production's sealed LAPSE of that act, under the Temporal lapse-retirement rule. Admission independently requires
+   * that the held lineage an existing held-resume gateway would accept is the one the lapse pinned (RED C-2). It moves no canonical time and
+   * does not write the held state or the sealed transaction: the held continuation is left untouched, to be consumed only by the player's
+   * later, separate resume.
+   */
+  async retireLapsedObject(
+    input: Publication & { readonly object_id: string; readonly evidence_key: string },
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    return this.#retireEvidenced(input, TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE);
+  }
+
+  async #retireEvidenced(
+    input: Publication & { readonly object_id: string; readonly evidence_key: string },
+    rule: typeof TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return failure("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const objectKey = temporalObjectKey(input.object_id);
+    const object = this.object(input.object_id);
+    const evidence = this.#store.getFact(input.evidence_key);
+    const indexFact = this.#store.getFact(TEMPORAL_BOUNDARY_INDEX_KEY);
+    if (!object || !object.value.next_boundary || !evidence || !indexFact)
+      return failure(
+        "OBJECT_INVALID",
+        "only a terminated object with a pending earned boundary is retired",
+      );
+    const entries = this.boundaryIndex().entries.filter(
+      (e) => e.object_id !== object.value.object_id,
+    );
+    return this.#store.commit(
+      this.#kernelGroup(
+        p.data,
+        [
+          {
+            key: objectKey,
+            value: { ...object.value, next_boundary: null },
+            expected_version: object.fact.version,
+          },
+          {
+            key: TEMPORAL_BOUNDARY_INDEX_KEY,
+            value: { entries },
+            expected_version: indexFact.version,
+          },
+        ],
+        {
+          reads: [
+            { key: evidence.key, version: evidence.version },
+            { key: objectKey, version: object.fact.version },
+            { key: TEMPORAL_BOUNDARY_INDEX_KEY, version: indexFact.version },
+          ],
+          depends_on: [evidence.provenance.group_id],
+          rule,
+        },
+      ),
     );
   }
 
@@ -1282,7 +1367,11 @@ export class TemporalCoordinator {
   #kernelGroup(
     p: Publication,
     writes: readonly KernelWrite[],
-    extra: { reads?: CommitGroup["reads"]; depends_on?: readonly string[] } = {},
+    extra: {
+      reads?: CommitGroup["reads"];
+      depends_on?: readonly string[];
+      rule?: SourceRef;
+    } = {},
   ): CommitGroup {
     const kind = factKind("temporal_state");
     return {
@@ -1292,7 +1381,7 @@ export class TemporalCoordinator {
       owner: kind.owner,
       facet: kind.facet,
       cause: p.cause,
-      rule: kind.rule,
+      rule: extra.rule ?? kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads: [...(extra.reads ?? [])],
       depends_on: [...new Set(extra.depends_on ?? [])],

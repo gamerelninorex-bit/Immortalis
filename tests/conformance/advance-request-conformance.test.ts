@@ -24,9 +24,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "packages/protocol/src/active-pc-target-advance.ts":
-    "bc1447da88e8abe9326fee82a84366a8559a22429870ad6631c9bcd5b46547cc",
+    "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
   "packages/protocol/src/index.ts":
-    "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/contracts/src/protocol-pc-target-advance.ts":
     "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
   "packages/contracts/src/temporal.ts":
@@ -34,27 +34,27 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/admission.ts":
-    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
+    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/gip/adapter.ts":
     "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
   "packages/engine/src/gip/provider.ts":
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/confirmation.ts":
-    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   "packages/operator/src/cli.ts":
-    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
-    "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/index.ts":
-    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -64,7 +64,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/original-pc.ts":
-    "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -96,11 +96,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-session.ts":
-    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
 
 const NEW_MODULES = [
@@ -146,6 +146,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",
@@ -159,6 +160,7 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
     expect(pkg.bin).toEqual({
       "immortalis-operator": "./src/bin.ts",
       "immortalis-referee": "./src/referee-bin.ts",
+      "immortalis-referee-console": "./src/referee-console-bin.ts",
       "immortalis-player-view": "./src/player-view-bin.ts",
       "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
       "immortalis-observe-request": "./src/observe-request-bin.ts",

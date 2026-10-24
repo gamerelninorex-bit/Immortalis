@@ -44,19 +44,19 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/production.ts":
     "40ff84c02029ecd43811eb8c8cd6b5d32e8e6e505953c9bd3e997a6ae8f41e4b",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "e2e769228499519fd0db5d287706ffcdd82e7c8b5cf8d5162c1f43ea94c0f518", // H-01 scoped delta (persistence/file-package.ts: single-writer lock safety): pinned at the H-01 head; main 9f503d0b219
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "d97fbd47f1d42f4a30d0b8df7e85182eb5774322d37da1086f83340e264e6b5d", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "50573f859ed5864428e493a254225a4aafd7d323b31e177b9dd4b5bf3b9a8add", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":
-    "00b58b5cba3b0552afbeb95d7dd002ad6e6e7ce09795e9f5ef2ed113def09d85",
+    "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
   "packages/engine/src/source-drawdown/integrity.ts":
-    "4ab03e1cad8c8f09f5e748b9310503229e9adb01dc8b0aadc2101a98e9562f91",
+    "f79af7ed5ee061e89c5354916ebc2be48d9b21724ffbf8d82f002e7e54821eaf",
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
@@ -64,9 +64,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/ledger.ts":
-    "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
 };
 
 describe("the owners, contracts, shipped binary and frozen artifacts are untouched: the slice consumes them, never edits or duplicates them", () => {

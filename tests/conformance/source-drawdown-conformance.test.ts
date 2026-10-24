@@ -153,6 +153,7 @@ describe("IA-03 owner exclusivity: World-State owns Source Condition truth; Prod
         "world_fallback_physical_entity",
         "world_locus",
         "world_profile",
+        "world_scene_closure",
         "world_source_condition",
       ].sort(),
     );

@@ -22,6 +22,7 @@ import {
   refereeDecisionIntentId,
   refereeDecisionKey,
   type CommitGroup,
+  type I002ClarificationContext,
   type I002HostDecision,
   type CanonicalTime,
   type IrHostDecision,
@@ -101,7 +102,13 @@ export class RefereeAdjudicationAdapter {
   }
 
   /** The context of an I-002 task for a candidate character (the player's own words, delivered as they are). */
-  i002Task(input: { pc_id: string; attempt: number; items: readonly CandidateItem[] }): {
+  i002Task(input: {
+    pc_id: string;
+    attempt: number;
+    items: readonly CandidateItem[];
+    /** R-5: the scope of a clarification (built from committed facts by the PC owner's `pcClarificationScope`) */
+    clarification?: I002ClarificationContext | undefined;
+  }): {
     context: I002Context;
     task_id: string;
   } {
@@ -110,6 +117,7 @@ export class RefereeAdjudicationAdapter {
       attempt: input.attempt,
       pc_id: input.pc_id,
       items: input.items,
+      clarification: input.clarification,
     });
     return { context, task_id: refereeTaskId(context) };
   }
@@ -194,6 +202,7 @@ export class RefereeAdjudicationAdapter {
     pc_id: string;
     attempt: number;
     items: readonly CandidateItem[];
+    clarification?: I002ClarificationContext | undefined;
     answer: unknown;
   }): Promise<Result<RefereeOutcome, RefereeErrorCode>> {
     const denied = this.#authority(input.operation);
@@ -213,6 +222,7 @@ export class RefereeAdjudicationAdapter {
         digest: contextDigest(context),
         candidate_digest: candidateDigest(context.candidate),
         candidate: context.candidate.map((c) => ({ ...c })),
+        ...(context.clarification ? { clarification: context.clarification } : {}),
         statement_digest: null,
         statement: null,
         refs: [],

@@ -32,6 +32,13 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import {
+  pcCollectionStageViolation,
+  pcCollectionLapseGroupCheck,
+  pcCollectionTerminationGroupCheck,
+  pcCollectionStartViolation,
+} from "../pc-collection/admission.ts";
+import { isPcCollectionRequestKey } from "../pc-collection/derive.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import { stageAuthorityViolation } from "../production/admission.ts";
@@ -69,6 +76,9 @@ import {
 type Write = CommitGroup["writes"][number];
 
 const EXTRACTION_KINDS = [
+  "production_pc_collection_work",
+  "production_pc_collection_termination",
+  "production_pc_collection_lapse",
   "production_extraction_basis",
   "production_extraction",
   "production_source_delta",
@@ -93,16 +103,27 @@ export function sourceDrawdownGroupCheck(
   const deltaW = of("production_source_delta");
   const accountW = of("production_source_account");
   const reserveW = of("production_reserve");
+  const workW = of("production_pc_collection_work");
+  const terminationW = of("production_pc_collection_termination");
+  const lapseW = of("production_pc_collection_lapse");
 
   if (basisW.length === 1 && ws.length === 1 && basisW[0]!.expected_version === 0)
     return checkBasis(group, state, basisW[0]!);
   if (
     extW.length === 1 &&
     accountW.length === 1 &&
-    ws.length === 2 &&
-    extW[0]!.expected_version === 0
+    workW.length <= 1 &&
+    ws.length === 2 + workW.length &&
+    extW[0]!.expected_version === 0 &&
+    (workW.length === 0 || workW[0]!.expected_version === 0)
   )
-    return checkStart(group, state, extW[0]!, accountW[0]!);
+    return checkStart(group, state, extW[0]!, accountW[0]!, workW[0]);
+  // D-1 (PROVISIONAL): Production's terminal disposition of withdrawn in-flight PC collection work, with the key's claim released
+  if (terminationW.length === 1 && accountW.length === 1 && ws.length === 2)
+    return pcCollectionTerminationGroupCheck(group, state, terminationW[0]!, accountW[0]!);
+  // R-4 (NEWLY AUTHORIZED): Production's non-voluntary, non-productive lapse at the held earned boundary, with the key's claim released
+  if (lapseW.length === 1 && accountW.length === 1 && ws.length === 2)
+    return pcCollectionLapseGroupCheck(group, state, lapseW[0]!, accountW[0]!);
   if (deltaW.length === 1 && ws.length === 1 && deltaW[0]!.expected_version === 0)
     return checkDelta(group, state, deltaW[0]!);
   if (
@@ -225,6 +246,7 @@ function checkStart(
   state: CampaignState,
   extW: Write,
   accountW: Write,
+  workW?: Write,
 ): Rejection | null {
   const e = ProductionExtractionSchema.parse(extW.value);
   const id = e.extraction_id;
@@ -277,8 +299,15 @@ function checkStart(
   if (e.material_class !== s.material_class || e.quantity.unit !== s.recoverable.unit)
     return bad("the extraction is for the Source Condition's own material and unit");
 
-  // the request: its source's own fact, pinned, scoped and exact
-  const req = requestViolation(group, state, e, s);
+  // the request: its source's own fact, pinned, scoped and exact. A request in the PC-owned collection key space (CPAA-C1 v0.2
+  // PROVISIONAL) is judged by its own branch: the PC's commitment, the mechanism-derived work, the judged reach and the occupancy;
+  // any other request keeps the existing extension-owned rule, and a work record is never accepted without a PC-owned request.
+  const pcRequest = isPcCollectionRequestKey(e.request.fact_key);
+  if (!pcRequest && workW)
+    return bad("a PC collection work record accompanies only a PC-owned request");
+  const req = pcRequest
+    ? pcCollectionStartViolation(group, state, e, s, workW)
+    : requestViolation(group, state, e, s);
   if (req) return req;
 
   // Production's own Capability / Access basis, pinned, covering exactly this source
@@ -466,6 +495,10 @@ function checkDelta(group: CommitGroup, state: CampaignState, w: Write): Rejecti
   if (identity) return ref(identity, { key: w.key });
   const engaged = extractionBoundaryViolation(state, e.data);
   if (engaged) return engaged;
+
+  // a PC-owned collection re-validates its owner premises at the boundary (CPAA-C1 C6 invalidation bound): never silently completed
+  const pcStage = pcCollectionStageViolation(state, e.data);
+  if (pcStage) return pcStage;
 
   // Production re-validates the source-owner key and the supportable exact quantity at the boundary (WS-003 §4A)
   const src = sourceOf(state, e.data.source.fact_key);

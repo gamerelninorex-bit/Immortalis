@@ -11,6 +11,7 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
+  PopulationPcOccupancySchema,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
@@ -21,14 +22,20 @@ import {
   WorldLocusSchema,
   WorldProfileSchema,
   WorldSourceConditionSchema,
+  WorldSourceDeliverySchema,
+  pcCollectionRequestId,
   parseWorldSourceConditionKey,
   pcExistenceContractKey,
+  popPcOccupancyKey,
   worldLocusKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
+  worldSourceDeliveryKey,
   worldSourceConditionKey,
   type CanonicalTime,
   type ExistenceContract,
+  type I002ClarificationContext,
+  type I002ClarificationReading,
   type I002HostDecision,
   type IrHostDecision,
   type ObservationHostDecision,
@@ -42,6 +49,7 @@ import {
   type RefereeVerdict,
 } from "@immortalis/contracts";
 import { sha256Canonical } from "../hash.ts";
+import { extractionCredited } from "../pc-collection/state.ts";
 
 /**
  * Deterministic mechanism of the host-callable AI referee (PR #61, BLUE B61-A3). Nothing here understands language: it builds the
@@ -93,6 +101,21 @@ export function refereeCandidateItems(c: ContractBody): readonly CandidateItem[]
   ];
 }
 
+/**
+ * R-5: the candidate of a prospective intrinsic CLARIFICATION: exactly the player's own statements, each under the one slot that
+ * admits a character-local claim over the released baseline (`exception`), with the same item identity the Mirror gives a statement.
+ * Nothing else is delivered, so the host decides these words and no others.
+ */
+export function clarificationCandidateItems(
+  statements: readonly string[],
+): readonly CandidateItem[] {
+  return statements.map((text, i) => ({
+    item_id: refereeItemId(`clarification-${i + 1}`, text),
+    slot: "exception" as const,
+    text,
+  }));
+}
+
 export const candidateDigest = (items: readonly CandidateItem[]): string => sha256Canonical(items);
 
 // ---------------------------------------------------------------------------------------------
@@ -105,12 +128,14 @@ export interface I002Context {
   readonly attempt: number;
   readonly subject: { readonly pc_id: string };
   readonly candidate: readonly CandidateItem[];
+  /** R-5: the scope of a CLARIFICATION (the accepted baseline, the precise branch, prior closures); absent for an ordinary classification */
+  readonly clarification?: I002ClarificationContext;
 }
 
 export interface DeliveredFact {
   readonly fact_id: string;
-  /** which committed fact the text is from (`source`: a Source Condition's own access fact, in a source-scoped observation question only) */
-  readonly from: "world" | "locus" | "source";
+  /** A world/locus fact, a scoped Source Condition, or the sealed completed-collection delivery. */
+  readonly from: "world" | "locus" | "source" | "outcome";
   readonly label: string;
   readonly text: string;
 }
@@ -203,6 +228,7 @@ export function i002Context(input: {
   attempt: number;
   pc_id: string;
   items: readonly CandidateItem[];
+  clarification?: I002ClarificationContext | undefined;
 }): I002Context {
   return {
     operation: REFEREE_OP_I002,
@@ -210,13 +236,14 @@ export function i002Context(input: {
     attempt: input.attempt,
     subject: { pc_id: input.pc_id },
     candidate: input.items,
+    ...(input.clarification ? { clarification: input.clarification } : {}),
   };
 }
 
 type Facts = (key: string) => OwnerFact | undefined;
 
 /** World and locus facts delivered to the host, each with a stable identity the host must assess. */
-function deliveredFacts(
+export function deliveredFacts(
   world: ReturnType<typeof WorldProfileSchema.parse>,
   locus: ReturnType<typeof WorldLocusSchema.parse>,
 ): DeliveredFact[] {
@@ -379,6 +406,72 @@ export function committedCanonicalTime(facts: Facts): CanonicalTime | null {
   return state?.success ? state.data.canonical_time : null;
 }
 
+/** The delivered fact id of the character's own completed collection (the only `outcome` fact there is). */
+export const OBSERVATION_OUTCOME_FACT_ID = "outcome.collection";
+const DELIVERY_KEY = /^world\/([^/]+)\/source-delivery\/(.+)$/;
+
+/**
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending): which completed collection of the character an observation
+ * question may cite. `LATEST`: the act the PC's one occupancy slot names (a NEW question); `NONE`: a record asked before any outcome
+ * was cited; or exactly the delivery a retained record cited. Never a caller's choice of a fact: the identities are derived from the
+ * PC's own records.
+ */
+export type ObservationOutcomeSelector = "LATEST" | "NONE" | { readonly extraction_id: string };
+
+/**
+ * The committed, sealed World-State delivery of the PC's own completed collection, rendered as ONE delivered world fact when it lies at
+ * the character's locus and Production has credited it. The text is a mechanical rendering of the typed delivery (amount, unit and the
+ * source's material), not a scene and not an appearance: whether the character can perceive it is the host's quote-anchored reading, so
+ * canonical truth alone is never the character's knowledge.
+ */
+function collectionOutcome(
+  facts: Facts,
+  pcId: string,
+  worldId: string,
+  locusId: string,
+  which: ObservationOutcomeSelector,
+): { readonly fact: DeliveredFact; readonly ref: RefereeInputRef } | undefined {
+  if (which === "NONE") return undefined;
+  let extractionId: string;
+  if (which === "LATEST") {
+    const slot = facts(popPcOccupancyKey(pcId));
+    const occupancy = slot ? PopulationPcOccupancySchema.safeParse(slot.value) : undefined;
+    if (!occupancy?.success) return undefined;
+    extractionId = pcCollectionRequestId(pcId, occupancy.data.act_id);
+  } else extractionId = which.extraction_id;
+  if (!extractionId.startsWith(`pc-collect:${pcId}:`)) return undefined;
+  const deliveryFact = facts(worldSourceDeliveryKey(worldId, extractionId));
+  const delivery = deliveryFact
+    ? WorldSourceDeliverySchema.safeParse(deliveryFact.value)
+    : undefined;
+  if (!deliveryFact || !delivery?.success || delivery.data.delivery_id !== extractionId)
+    return undefined;
+  const sourceFact = facts(delivery.data.source.fact_key);
+  const source = sourceFact ? WorldSourceConditionSchema.safeParse(sourceFact.value) : undefined;
+  if (
+    !source?.success ||
+    source.data.locality.world.entity_id !== worldId ||
+    source.data.locality.locus.entity_id !== locusId
+  )
+    return undefined;
+  if (!extractionCredited({ get: facts, has: (k) => facts(k) !== undefined }, extractionId))
+    return undefined;
+  const d = delivery.data.delivered;
+  return {
+    fact: {
+      fact_id: OBSERVATION_OUTCOME_FACT_ID,
+      from: "outcome",
+      label: "completed gathering",
+      text: `The gathering of ${d.amount} ${d.unit} of ${source.data.material_class} from the source at this place has been completed.`,
+    },
+    ref: {
+      fact_key: deliveryFact.key,
+      version: deliveryFact.version,
+      group_id: deliveryFact.provenance.group_id,
+    },
+  };
+}
+
 /** The one refusal of every source problem, so that no cause (absent, foreign, elsewhere, exhausted, undescribed) can be told from another. */
 const SOURCE_UNAVAILABLE = "no source is available to this observation";
 
@@ -444,6 +537,8 @@ export function observationContext(
     attempt: number;
     pc_id: string;
     observed_at: CanonicalTime;
+    /** default `LATEST`: a new question cites the PC's own most recent completed collection, if any */
+    outcome?: ObservationOutcomeSelector;
     source_key?: string;
   },
 ):
@@ -502,6 +597,16 @@ export function observationContext(
       ? undefined
       : sourceScope(facts, binding.coupling, input.source_key);
   if (input.source_key !== undefined && !source) return unavailable(SOURCE_UNAVAILABLE);
+  // Source-scoped and outcome-citing contexts are separate six-reference variants.
+  if (input.source_key !== undefined && input.outcome !== undefined && input.outcome !== "NONE")
+    return unavailable(SOURCE_UNAVAILABLE);
+  const outcome = collectionOutcome(
+    facts,
+    input.pc_id,
+    worldId,
+    locusId,
+    input.source_key === undefined ? (input.outcome ?? "LATEST") : "NONE",
+  );
   return {
     ok: true,
     context: {
@@ -512,13 +617,18 @@ export function observationContext(
       observed_at: input.observed_at,
       statement: binding.transition.basis.statement,
       pc: refereeCandidateItems(pc.data),
-      facts: [...deliveredFacts(world.data, locus.data), ...(source?.delivered ?? [])],
+      facts: [
+        ...deliveredFacts(world.data, locus.data),
+        ...(source?.delivered ?? []),
+        ...(outcome ? [outcome.fact] : []),
+      ],
       refs: [
         ref(pcFact),
         ref(bindingFact),
         ref(custodyFact),
         ref(worldFact),
         ref(locusFact),
+        ...(outcome ? [outcome.ref] : []),
         ...(source ? [ref(source.fact)] : []),
       ],
     },
@@ -526,16 +636,73 @@ export function observationContext(
 }
 
 /**
- * The values of a source-scoped question's Source Condition that no appearance may carry: its identifiers, and every exact quantity it
- * ever stated or holds. They are NOT in the delivered context (the host is never told them), so they are re-read from the committed
- * Source Condition the question pins, here, wherever an answer is definitively validated. `null` when the question names a source that
- * cannot be read as one (fail closed).
+ * The values that no appearance may carry: a source's identifiers and every exact quantity it ever stated or holds. For a source-scoped
+ * question they are NOT in the delivered context (the host is never told them), so they are re-read from the committed Source Condition
+ * the question pins, here, wherever an answer is definitively validated. For a question citing the character's completed collection the
+ * host IS told the gathering's amount and material, so the set is built from the delivery and its source (`deliveryWithheld`) and what the
+ * host may SAY is validated instead. `null` when the question names a source or delivery that cannot be read as one (fail closed).
  */
 export interface ObservationWithheld {
   readonly names: readonly string[];
   readonly amounts: readonly number[];
 }
 const NOTHING_WITHHELD: ObservationWithheld = { names: [], amounts: [] };
+
+/**
+ * The same set for the question that cites the character's completed collection. That question DELIVERS the sentence announcing the
+ * gathering (its amount, unit and material) to the bound host, so the premise stays and the OUTPUT is validated instead: what the host may
+ * say about it is not what the host was told. The set is built from the two committed facts the question's own qualification already
+ * validated — the delivery its sixth citation names and the Source Condition that delivery names — at the keys they derive, with no
+ * request-supplied selector, search, listing or further read. `null` when either cannot be read as what its key says (fail closed).
+ */
+function deliveryWithheld(
+  facts: Facts,
+  ctx: ObservationContext,
+  key: string,
+): ObservationWithheld | null {
+  const cited = DELIVERY_KEY.exec(key);
+  const worldId = ctx.subject.world_id;
+  if (!cited || cited[1] !== worldId || !cited[2]!.startsWith(`pc-collect:${ctx.subject.pc_id}:`))
+    return null;
+  const deliveryFact = facts(key);
+  const delivery =
+    deliveryFact && deliveryFact.key === key && deliveryFact.owner === OWNER_WORLD_STATE
+      ? WorldSourceDeliverySchema.safeParse(deliveryFact.value)
+      : undefined;
+  if (!delivery?.success || delivery.data.delivery_id !== cited[2]) return null;
+  const d = delivery.data;
+  const sourceKey = worldSourceConditionKey(worldId, d.source.source_key);
+  if (d.source.fact_key !== sourceKey) return null;
+  const sourceFact = facts(sourceKey);
+  const source =
+    sourceFact &&
+    sourceFact.key === sourceKey &&
+    sourceFact.owner === OWNER_WORLD_STATE &&
+    sourceFact.facet === FACET_WORLD_SOURCE_CONDITION
+      ? WorldSourceConditionSchema.safeParse(sourceFact.value)
+      : undefined;
+  if (
+    !source?.success ||
+    source.data.source_key !== d.source.source_key ||
+    source.data.locality.world.entity_id !== worldId ||
+    source.data.locality.locus.entity_id !== ctx.subject.locus_id
+  )
+    return null;
+  const s = source.data;
+  return {
+    names: [s.source_key, s.material_class],
+    amounts: [
+      ...new Set([
+        d.delivered.amount,
+        d.before.amount,
+        d.after.amount,
+        s.establishment.quantity.amount,
+        s.recoverable.amount,
+        ...s.delivered.map((x) => x.quantity.amount),
+      ]),
+    ],
+  };
+}
 
 export function observationWithheld(
   facts: Facts,
@@ -544,6 +711,8 @@ export function observationWithheld(
   if (ctx.refs.length === OBSERVATION_BASE_REFS) return NOTHING_WITHHELD;
   const pin = ctx.refs[OBSERVATION_BASE_REFS];
   const key = ctx.refs.length === OBSERVATION_BASE_REFS + 1 ? pin?.fact_key : undefined;
+  // The other six-reference variant cites a completed delivery: qualified by collectionOutcome, its withheld set built from that delivery.
+  if (key && DELIVERY_KEY.test(key)) return deliveryWithheld(facts, ctx, key);
   const named = key ? parseWorldSourceConditionKey(key) : null;
   const fact = key ? facts(key) : undefined;
   const parsed = fact ? WorldSourceConditionSchema.safeParse(fact.value) : undefined;
@@ -713,16 +882,87 @@ export function deriveI002(
       ok: false,
       refusal: refuse("COVERAGE_INCOMPLETE", "every delivered item must be decided exactly once"),
     };
-  return { ok: true, verdict: i002VerdictOf(decision, (id) => byId.get(id)?.slot) };
+  const scoped = clarificationRefusal(ctx, decision);
+  if (scoped) return { ok: false, refusal: scoped };
+  return {
+    ok: true,
+    verdict: i002VerdictOf(decision, (id) => byId.get(id)?.slot, ctx.clarification !== undefined),
+  };
+}
+
+const MIN_GROUND = 8;
+/**
+ * R-5 (BLUE H-1): a clarification task is answered with its scope reading and an ordinary one is not. The reading is anchored to
+ * verbatim quotations of the DELIVERED text: the new words state the duration, and (for the compatible scope) the character's own
+ * accepted baseline states the actuator whose cycle they time, so words that time something the baseline does not accept cannot be read
+ * as compatible. The verdict is derived from it (i002VerdictOf), never read.
+ */
+function clarificationRefusal(ctx: I002Context, decision: I002HostDecision): RefereeRefusal | null {
+  const reading: I002ClarificationReading | undefined = decision.clarification;
+  if (!ctx.clarification) {
+    return reading === undefined
+      ? null
+      : refuse(
+          "DECISION_INCOHERENT",
+          "an ordinary classification carries no clarification reading",
+        );
+  }
+  if (!reading)
+    return refuse(
+      "COVERAGE_INCOMPLETE",
+      "a clarification task is answered with its scope reading: whether the branch is still unresolved and what the words state",
+    );
+  const candidateText = ctx.candidate.map((c) => c.text);
+  const baselineText = ctx.clarification.baseline.map((b) => b.text);
+  const inAny = (q: string, texts: readonly string[]) =>
+    q.length >= MIN_GROUND && texts.some((t) => t.includes(q));
+  if (!inAny(reading.candidate_ground, candidateText))
+    return refuse(
+      "GROUNDS_UNSUPPORTED",
+      "the clarification's candidate ground is a verbatim quotation of the new words",
+    );
+  if (reading.baseline_ground !== null && !inAny(reading.baseline_ground, baselineText))
+    return refuse(
+      "GROUNDS_UNSUPPORTED",
+      "the clarification's baseline ground is a verbatim quotation of the character's accepted statements",
+    );
+  if (reading.scope === "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE") {
+    if (reading.baseline_ground === null)
+      return refuse(
+        "GROUNDS_UNSUPPORTED",
+        "words read as only a duration of the existing cycle quote the accepted baseline statement of the actuator they time",
+      );
+    if (reading.clarification !== null)
+      return refuse("DECISION_INCOHERENT", "only an unclear scope asks a question");
+  } else if (reading.scope === "UNCLEAR") {
+    if (reading.clarification === null)
+      return refuse("DECISION_INCOHERENT", "an unclear scope asks its one narrow question");
+  } else if (reading.clarification !== null) {
+    return refuse("DECISION_INCOHERENT", "only an unclear scope asks a question");
+  }
+  return null;
 }
 
 /** The I-002 verdict as a function of the answer and each item's slot alone (re-derivable from the retained record). */
 export function i002VerdictOf(
   decision: I002HostDecision,
   slotOf: (itemId: string) => RefereeCandidateSlot | undefined,
+  clarificationTask = false,
 ): "CLOSED" | "BLOCKED" | "CLARIFY" {
   let blocked = false;
   let clarify = false;
+  if (clarificationTask) {
+    // R-5: closed only when the branch is still unresolved AND the words state only the duration of the accepted actuator's cycle
+    const r = decision.clarification;
+    if (
+      !r ||
+      r.branch !== "UNRESOLVED_BEFORE" ||
+      r.scope !== "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE"
+    ) {
+      blocked = true;
+      if (r?.scope === "UNCLEAR") clarify = true;
+    }
+  }
   for (const d of decision.items) {
     const slot = slotOf(d.item_id) ?? d.slot;
     if (d.class === I002_ADMITTED_CLASS[slot]) continue;
@@ -1129,7 +1369,10 @@ export function deriveObservation(
         ),
       };
     // a question scoped to one Source Condition is answered by an appearance OF that source: the receipt pins it, never a neighbouring fact
-    if (ctx.refs.length > OBSERVATION_BASE_REFS && source.from !== "source")
+    if (
+      parseWorldSourceConditionKey(ctx.refs[OBSERVATION_BASE_REFS]?.fact_key ?? "") &&
+      source.from !== "source"
+    )
       return {
         ok: false,
         refusal: refuse(
@@ -1210,6 +1453,7 @@ export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): 
       attempt: r.attempt,
       pc_id: r.subject.pc_id,
       items: r.input.candidate,
+      clarification: r.input.clarification,
     });
     if (
       r.input.digest !== contextDigest(ctx) ||
@@ -1448,11 +1692,14 @@ function observationRecordViolation(
   const ids = irIdentities(r);
   const pcKey = pcExistenceContractKey(r.subject.pc_id);
   const keys = r.input.refs.map((x) => x.fact_key);
+  const cited = keys.length === OBSERVATION_BASE_REFS + 1 ? DELIVERY_KEY.exec(keys[5]!) : null;
   const named =
     keys.length === OBSERVATION_BASE_REFS + 1 ? parseWorldSourceConditionKey(keys[5]!) : null;
   if (
     !ids ||
-    (keys.length !== OBSERVATION_BASE_REFS && !(named && named.world_id === ids.world_id)) ||
+    (keys.length !== OBSERVATION_BASE_REFS &&
+      !(named && named.world_id === ids.world_id) &&
+      !(cited && cited[1] === ids.world_id)) ||
     keys[0] !== pcKey ||
     keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
     keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
@@ -1460,7 +1707,7 @@ function observationRecordViolation(
     keys[4] !== worldLocusKey(ids.world_id, ids.locus_id)
   )
     return incoherent(
-      "a direct-perception record cites the released character, the binding, the custody, the world and the locus, and at most the one source it is scoped to",
+      "a direct-perception record cites five base premises and at most one scoped Source Condition or completed-collection delivery",
     );
   if (superseded) {
     if (
@@ -1483,6 +1730,7 @@ function observationRecordViolation(
     attempt: r.attempt,
     pc_id: r.subject.pc_id,
     observed_at: r.input.observed_at,
+    outcome: cited ? { extraction_id: cited[2]! } : "NONE",
     ...(named ? { source_key: named.source_key } : {}),
   });
   if (!built.ok) return { code: built.code, message: built.message, stale: false };

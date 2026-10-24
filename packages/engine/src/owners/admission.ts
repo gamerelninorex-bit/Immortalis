@@ -3,7 +3,13 @@ import {
   ExistenceContractSchema,
   ExistingActorCouplingSchema,
   FACET_PC_CAPABILITY_PROFILE,
+  FACET_PC_COLLECTION_MECHANISM,
+  FACET_PC_INTRINSIC_CLARIFICATION,
   FACET_PC_VOLUNTARY_COMMITMENT,
+  FACET_POPULATION_PC_OCCUPANCY,
+  FACET_POPULATION_WORKFORCE_SCOPE,
+  FACET_WORLD_SCENE_CLOSURE,
+  pcCollectionRequestId,
   FACET_WORLD_FALLBACK_ENTITY,
   FACET_WORLD_LOCUS,
   FACET_WORLD_SOURCE_CONDITION,
@@ -53,6 +59,13 @@ import { refereeGroupCheck, refereeQualificationViolation } from "../referee/adm
 import { ktiGroupCheck } from "../kti/admission.ts";
 import { logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
+import {
+  pcCollectionGroupCheck,
+  sceneClosureGroupCheck,
+  workforceScopeGroupCheck,
+  pcOccupancyGroupCheck,
+  pcReachGroupCheck,
+} from "../pc-collection/admission.ts";
 import { pcMovementGroupCheck } from "../pc-movement/derive.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
@@ -495,7 +508,12 @@ export const canonicalAdmission: WriteAdmission = {
     // boundary-index and engaged-object updates).
     if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
     // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
-    if (group.owner === OWNER_POPULATION) return populationGroupCheck(group, state);
+    if (group.owner === OWNER_POPULATION)
+      return group.facet === FACET_POPULATION_PC_OCCUPANCY
+        ? pcOccupancyGroupCheck(group, state)
+        : group.facet === FACET_POPULATION_WORKFORCE_SCOPE
+          ? workforceScopeGroupCheck(group, state)
+          : populationGroupCheck(group, state);
     // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
     if (group.owner === OWNER_PRODUCTION)
       return group.writes.some((w) => isDrawdownProductionKey(w.key))
@@ -512,7 +530,15 @@ export const canonicalAdmission: WriteAdmission = {
       return pcCapabilityGroupCheck(group, state);
     // IM-07 PC movement groups (a third facet of the one I-002 PC owner): the player's commitment-of-record and the PC-owned request are each re-derived.
     if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_VOLUNTARY_COMMITMENT)
-      return pcMovementGroupCheck(group, state);
+      return group.writes.some((w) => resolveKey(w.key)?.kind.id.startsWith("pc_collection_"))
+        ? pcCollectionGroupCheck(group, state)
+        : pcMovementGroupCheck(group, state);
+    // CPAA-C1 v0.2 PROVISIONAL: the P-1 intrinsic exact-cycle mechanism (a further facet of the one PC owner), re-derived.
+    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_COLLECTION_MECHANISM)
+      return pcCollectionGroupCheck(group, state);
+    // R-5: the prospective intrinsic clarification (a further facet of the one PC owner), re-derived.
+    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_INTRINSIC_CLARIFICATION)
+      return pcCollectionGroupCheck(group, state);
     // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
     if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
     // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
@@ -529,7 +555,10 @@ export const canonicalAdmission: WriteAdmission = {
     if (group.owner === OWNER_CULTURE_ADJUDICATION_KERNEL)
       return cultureAdjudicationGroupCheck(group, state);
     // IM-12 referee provenance groups (PR #61, B61-A3): one decision record per task, created once and re-derived.
-    if (group.owner === OWNER_REFEREE_KERNEL) return refereeGroupCheck(group, state);
+    if (group.owner === OWNER_REFEREE_KERNEL)
+      return group.writes.some((w) => resolveKey(w.key)?.kind.id === "pc_collection_reach_decision")
+        ? pcReachGroupCheck(group, state)
+        : refereeGroupCheck(group, state);
     // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
     // entity transition from its causing result and the accepted entity.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
@@ -537,6 +566,9 @@ export const canonicalAdmission: WriteAdmission = {
     // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
       return worldSourceGroupCheck(group, state);
+    // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
+    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
+      return sceneClosureGroupCheck(group, state);
     // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
     if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
       return worldAcousticEmissionGroupCheck(group, state);
@@ -611,6 +643,58 @@ export function identityMismatch(
         ? null
         : "delivery identity does not match the key";
     }
+    case "pc_collection_commitment":
+      return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
+        ? null
+        : "pc_id and act_id do not match the key";
+    case "pc_collection_request":
+      return v["request_id"] === pcCollectionRequestId(ids[0]!, ids[1]!)
+        ? null
+        : "request_id does not match the key";
+    case "pc_collection_mechanism":
+      return v["pc_id"] === ids[0] && v["mechanism_id"] === ids[1]
+        ? null
+        : "pc_id and mechanism_id do not match the key";
+    case "pc_collection_reach_decision":
+      return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
+        ? null
+        : "pc_id and act_id do not match the key";
+    case "pc_intrinsic_clarification":
+      return v["pc_id"] === ids[0] && v["clarification_id"] === ids[1]
+        ? null
+        : "pc_id and clarification_id do not match the key";
+    case "pc_collection_cycle_attestation":
+      return v["pc_id"] === ids[0] &&
+        (v["mechanism"] as { fact_key: string }).fact_key ===
+          `pc/${ids[0]}/collection-mechanism/${ids[1]}`
+        ? null
+        : "pc_id and mechanism do not match the key";
+    case "population_pc_representation":
+      return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
+    case "world_scene_closure": {
+      const l = v["locality"] as { world_id: string; locus_id: string };
+      return l.world_id === ids[0] && l.locus_id === ids[1]
+        ? null
+        : "the closure's world and locus do not match the key";
+    }
+    case "population_workforce_scope": {
+      const l = v["locality"] as { world_id: string; locus_id: string };
+      return l.world_id === ids[0] && l.locus_id === ids[1]
+        ? null
+        : "the scope's world and locus do not match the key";
+    }
+    case "pc_collection_cessation":
+      return v["pc_id"] === ids[0] && v["act_id"] === ids[1]
+        ? null
+        : "pc_id and act_id do not match the key";
+    case "production_pc_collection_termination":
+      return v["termination_id"] === ids[0] ? null : "termination_id does not match the key";
+    case "production_pc_collection_lapse":
+      return v["lapse_id"] === ids[0] ? null : "lapse_id does not match the key";
+    case "population_pc_occupancy":
+      return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
+    case "production_pc_collection_work":
+      return v["work_id"] === ids[0] ? null : "work_id does not match the key";
     case "economy_demand":
       return v["demand_envelope_id"] === ids[0]
         ? null

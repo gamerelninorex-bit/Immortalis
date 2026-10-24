@@ -256,11 +256,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "d97fbd47f1d42f4a30d0b8df7e85182eb5774322d37da1086f83340e264e6b5d",
+    "50573f859ed5864428e493a254225a4aafd7d323b31e177b9dd4b5bf3b9a8add",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "412d82ff550432b662f3dc14e146eb5f574424bc8eedf5275ca207da217af749",
+    "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   "packages/engine/src/world/actor-coupling.ts":
     "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
@@ -276,11 +276,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
-    "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/original-pc-keep.ts":
@@ -306,27 +306,28 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
+    head: "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
-    head: "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+    head: "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
+    head: "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
     head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   },
+  // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
+    head: "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
@@ -334,7 +335,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+    head: "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -346,31 +347,31 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    head: "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    head: "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    head: "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
-    head: "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    head: "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    head: "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    head: "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    head: "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   },
 };
 // DELTAS:END

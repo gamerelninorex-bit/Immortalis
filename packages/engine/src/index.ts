@@ -165,6 +165,18 @@ export * from "./persistence/store.ts";
 export * from "./compat.ts";
 export * from "./hash.ts";
 export * from "./version.ts";
+export * from "./pc-collection/adapter.ts";
+export * from "./pc-collection/admission.ts";
+export * from "./pc-collection/cessation.ts";
+export * from "./pc-collection/derive.ts";
+export {
+  foreignEngagementViolation,
+  interpretCycleAnswer,
+} from "./pc-collection/determinations.ts";
+export * from "./pc-collection/integrity.ts";
+export * from "./pc-collection/lapse.ts";
+export * from "./pc-collection/clarification.ts";
+export * from "./pc-collection/state.ts";
 export * from "./pc-movement/derive.ts";
 export * from "./pc-movement/integrity.ts";
 export * from "./world/physical-subject.ts";

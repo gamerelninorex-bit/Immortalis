@@ -98,6 +98,7 @@ import { verifyActorPresenceIntegrity } from "./actor-presence-integrity.ts";
 import { verifyAuditoryPremisesIntegrity } from "./auditory-premises-integrity.ts";
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
+import { verifyPcCollectionIntegrity } from "../pc-collection/integrity.ts";
 import { verifyPcMovementIntegrity } from "../pc-movement/integrity.ts";
 import {
   derivePcPhysicalLocusCustody,
@@ -865,6 +866,7 @@ function verifyAll(
     ...verifyAuditoryPremisesIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
     ...verifyPcMovementIntegrity(store),
+    ...verifyPcCollectionIntegrity(store),
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),

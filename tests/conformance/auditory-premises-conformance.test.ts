@@ -5,7 +5,7 @@
 // Health, no F-014D event, receipt or packet, no operator command, no endpoint); R1 is untouched; PR #72 and PR #73 are not carried.
 // MECHANISM ONLY: no perception, no Health clearance, no individual hearing receipt.
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -152,12 +152,12 @@ describe("nothing outside the physical-source slice was built", () => {
       e.isDirectory() ? tree(join(dir, e.name)) : [join(dir, e.name)],
     );
 
-  it("no operator command, host operation, endpoint or protocol surface names the chain: both packages are byte-identical to main", () => {
+  it("no operator command, host operation, endpoint or protocol surface names the chain: the composed baseline remains pinned", () => {
     expect(treeSha("packages/operator/src")).toBe(
-      "96011d060d05b003bfd0661e719d93be196e6e5d3794862773b97841334b6da5",
+      "469ec6dbb564716e727a29af113351051ae1bf6e4fcb5164e59151cd38fc61fa",
     );
     expect(treeSha("packages/protocol/src")).toBe(
-      "4336cf76135fb94d3e57e1b4d244af6baefdc7f1274b592eeab8bf8aa98c18dc",
+      "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",
     );
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))
@@ -167,16 +167,17 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the Named-Actor, Epistemic, referee, Temporal, persistence and commit modules are byte-identical to main: no Health, F-014D, referee or Temporal producer was added", () => {
+  it("the composed predecessor modules are pinned; P1 adds no Health, F-014D, referee or Temporal producer", () => {
     const expected: Record<string, string> = {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       "packages/engine/src/epistemic":
-        "5ddaa483c67cd8836fd7bd2b9a0a578098307e85dd4a184750afebeda7ca2709",
+        "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186",
+      // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       "packages/engine/src/referee":
-        "d1e517543890660f962b22959dcb8d794f527a17c0c9c7807417a704691a9593",
+        "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098",
       "packages/engine/src/temporal":
-        "f3708fbb8fd76e2cfbd1fbc4ea6c793db5f95780db2b7bdfbb2b38e647631019",
+        "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
         "fde8445cb23d423826e672c5634fffab3baaf0fe113355580a33164595268eea",
       "packages/engine/src/commit":
@@ -455,9 +456,9 @@ describe("the foundation document says what the slice is and is not", () => {
   });
 });
 
-describe("the held PRs are neither carried nor depended on", () => {
+describe("the integrated stack supplies no dependency to auditory premises", () => {
   // The heads the brief pins at construction: #72 CPAA-C1 b9d51deab5485a84165f77dec8b6fbf70d50c99b and #73 R-5 phone bridge
-  // 87aed41af5099bd1d49dc99823937daaaf9edc77, both draft and unmerged. Every path they ADD must be absent from this tree.
+  // 87aed41af5099bd1d49dc99823937daaaf9edc77. Forward integration brings #72 into this tree; P1 must remain independent of both.
   const PR72_ADDED: readonly string[] = [
     "docs/pc-collection-foundation.md",
     "docs/pc-collection-play.md",
@@ -547,13 +548,13 @@ describe("the held PRs are neither carried nor depended on", () => {
     "tests/support/phone-browser.ts",
   ];
 
-  it("none of the files PR #72 adds exists on this branch", () => {
-    expect(PR72_ADDED.filter((p) => existsSync(p))).toEqual([]);
+  it("no auditory-premises source imports a PR72 collection mechanism", () => {
+    for (const source of P1_SOURCES)
+      for (const path of PR72_ADDED) expect(codeOf(source)).not.toContain(path);
   });
-  it("none of the files PR #73 adds exists on this branch, and there is no phone app, chat adapter or Docker context", () => {
-    expect(PR73_ADDED.filter((p) => existsSync(p))).toEqual([]);
-    expect(existsSync("apps")).toBe(false);
-    expect(existsSync(".dockerignore")).toBe(false);
+  it("no auditory-premises source imports a PR73 phone/chat mechanism", () => {
+    for (const source of P1_SOURCES)
+      for (const path of PR73_ADDED) expect(codeOf(source)).not.toContain(path);
   });
   it("no P1 source or test refers to either held PR's mechanism: no collection, phone, chat or MCP bridge", () => {
     for (const f of [

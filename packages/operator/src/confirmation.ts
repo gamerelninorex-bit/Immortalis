@@ -20,6 +20,12 @@ import type { OperatorTerminal } from "./terminal.ts";
 
 export type ConfirmationVerb =
   | "relocate"
+  | "collect"
+  | "prepare-collection"
+  | "initialize-time"
+  | "declare-closed-setting"
+  | "cease"
+  | "collect-finish"
   | "advance"
   | "null-advance"
   | "null-resume"
@@ -36,7 +42,8 @@ export type ConfirmationVerb =
   | "keep-character"
   | "place-character"
   | "establish-character-locus"
-  | "observe-surroundings";
+  | "observe-surroundings"
+  | "accept-clarification";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;

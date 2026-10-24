@@ -71,13 +71,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/corridor.ts":
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":
-    "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+    "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   "packages/engine/src/pc-movement/integrity.ts":
     "37d20ecd819d9ac330d17a183e00dbd29f81f697f6b4f6c123b5e893c4cdf0ff",
   "packages/engine/src/world/physical-subject.ts":
@@ -143,6 +143,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",

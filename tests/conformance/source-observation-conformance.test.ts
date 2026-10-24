@@ -33,23 +33,23 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/package.json":
     "9046279f28c13e77bed15960f6a5774b225b00f61df2f957175fc510a8b63d70",
   "packages/operator/package.json":
-    "63ee7a2d221f7ded42b346c46cf1f55df468451709c79d10320976cdefd54302",
+    "80925fae3972571622e7871ce4925baabdc58aad1071cee951cf402b4167bdd0",
   "packages/protocol/package.json":
     "f920e90c2898236e2aee2e6ba152d28eaa14a927c16681251618b1b3a71db918",
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/index.ts":
-    "20e30c40f73ef569c613d149c77bc66fd7728c2d1c6824c7f5084bcd0092f4e9",
+    "595b02d0b604a1ea32518fe23cf1f307c3bf102bde426cbc718755f82230e221",
   "packages/contracts/src/index.ts":
-    "2c4ddf3e055405ad80b5c31935d90205c7ddacea55c140d2e9bffd398d4a46eb",
+    "e5f7d5ad9eb83c16f9faa81fd13d0e2ec581406613461257d44c061e8d6859ef",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
-    "48931f5d25d9a4490d88bbbca5d925ee7534eddff4a64e2a55ed7cec08c8d58f",
+    "d5ab99e3dc2aea16ad113dc1d30cdee5fe7138b50bcb7ab5072a5a51f7051b75",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
   "packages/protocol/src/event-signal.ts":
@@ -79,15 +79,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
-    "00b58b5cba3b0552afbeb95d7dd002ad6e6e7ce09795e9f5ef2ed113def09d85",
+    "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
   "packages/operator/src/confirmation.ts":
-    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   "packages/operator/src/original-pc.ts":
-    "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -101,7 +101,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/index.ts":
-    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
@@ -109,7 +109,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/observe-request.ts":
     "ff97b8f7cc4b4441af72d676b055146881270931c860ae7f9b87d326e5789880",
   "packages/operator/src/observe-request-answer.ts":
@@ -123,25 +123,27 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
+    "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
-    "7c5ee28d4281fa7413cf9fcd7230f331c79ac6851e773e2ad58b96d4d1e1aef1",
+    "3bb16b6274b30504e8a46c909d35a578fd4de26ef5e3cefc35a8971679e615b9",
   "packages/engine/src/referee/adapter.ts":
-    "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
+    "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
+  // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
+  // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
+    "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/operator/src/cli.ts":
-    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/observation.ts":
     "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
   "packages/operator/src/referee-exchange.ts":
-    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-session.ts":
-    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/protocol/src/current-observation-glance.ts":
-    "2ddad80dbc7b1d79a452a1066f8ad3f3efcef5f43e101d789369d5947da32607",
+    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
 };
 
 const TESTS = [
@@ -256,10 +258,10 @@ describe("the slice is what it says: operator-side, trusted-input, mechanism onl
       expect(cli).not.toMatch(new RegExp(`"${cmd}": \\[[^\\]]*"source"`));
   });
 
-  it("the predecessor glance read-count pins moved with the one added slot and nothing else: nine identity getFacts and one group read of its own", () => {
+  it("the predecessor glance read-count pins moved with the one added slot and nothing else: twelve identity getFacts and one group read after the bounded collection qualification repair", () => {
     const body = read("packages/protocol/src/current-observation-glance.ts");
     const fn = body.slice(body.indexOf("export function readCurrentObservationGlance"));
-    expect(fn.match(/view\.getFact\(/g)).toHaveLength(9);
+    expect(fn.match(/view\.getFact\(/g)).toHaveLength(12);
     expect(fn.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(fn).toMatch(/premiseKey\(5\)/);
     expect(fn.match(/\breturn\b/g)).toHaveLength(2);

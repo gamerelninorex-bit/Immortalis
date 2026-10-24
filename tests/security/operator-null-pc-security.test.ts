@@ -36,6 +36,8 @@ beforeAll(async () => {
 
 describe("the NULL-PC commands cannot author a world fact, a time, or an authority", () => {
   it("the operator names no GIP term, lifecycle, expiry, Temporal resolution, stage or process anywhere in its source", () => {
+    // `time-initialization.ts` alone may name `establishCanonicalTime` (the author's starting chronology, once); it is bound by its own,
+    // narrower check (tests/conformance/time-initialization-conformance.test.ts) and names none of the other terms
     // `initial-timed-governance.ts` is the one module the initial-timed-governance brief authorizes to name the GIP owner operations
     // (and the sunset term they register); it is not a NULL-PC command, and it is bound by its own, narrower checks
     // (tests/security/initial-timed-governance-security.test.ts), which forbid it any live clock, advance, expiry or lifecycle write.
@@ -46,7 +48,9 @@ describe("the NULL-PC commands cannot author a world fact, a time, or an authori
       (x) => !x.endsWith("/initial-timed-governance.ts") && !x.endsWith("/initial-local-demand.ts"),
     ))
       expect(identifiers(f), f).not.toMatch(
-        /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
+        f.endsWith("/time-initialization.ts")
+          ? /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject/i
+          : /\bgip|expired|lifecycle|sunset|\bInstrument\b|resolveStage|StageKey|boundary_index|temporalBoundary|registerObject|establishCanonicalTime/i,
       );
   });
 

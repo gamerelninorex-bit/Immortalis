@@ -382,12 +382,47 @@ function physicalAnswer(doc: Doc, rule: PhysicalRule): unknown {
   };
 }
 
+/**
+ * R-5 scripted reading of a CLARIFICATION scope (PLUMBING ONLY: it proves what the engine enforces, nothing about whether an AI
+ * understood any sentence). By default the branch was unresolved and the words state only the duration of the baseline's actuator.
+ */
+export interface ClarifyRule {
+  /** the baseline already states the answer / a prior closure exists */
+  readonly branch?:
+    "UNRESOLVED_BEFORE" | "ALREADY_STATED_IN_BASELINE" | "CONTRADICTS_PRIOR_CLOSURE";
+  /** words matching this add or change a capability or an actuator */
+  readonly adds?: RegExp;
+  /** words matching this the host cannot place */
+  readonly unclear?: RegExp;
+}
+
+function clarificationReading(ctx: Doc, rule: ClarifyRule): Doc {
+  const text: string = ctx.candidate.map((c: Doc) => c["text"]).join(" ");
+  const baseline: Doc =
+    ctx.clarification.baseline.find((b: Doc) => /hand|grasp|lift|carry|gather/i.test(b["text"])) ??
+    ctx.clarification.baseline[0];
+  const adds = rule.adds?.test(text) ?? false;
+  const unclear = !adds && (rule.unclear?.test(text) ?? false);
+  return {
+    branch: rule.branch ?? "UNRESOLVED_BEFORE",
+    scope: adds
+      ? "ADDS_OR_CHANGES_A_CAPABILITY_OR_ACTUATOR"
+      : unclear
+        ? "UNCLEAR"
+        : "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE",
+    baseline_ground: unclear ? null : String(baseline["text"]).slice(0, 500),
+    candidate_ground: text.slice(0, 500),
+    clarification: unclear ? "Which handling cycle do you mean?" : null,
+  };
+}
+
 /** The scripted host's policy: ordinary answers unless a rule says otherwise. */
 export function scriptedPolicy(
   rules: {
     classify?: readonly ClassifyRule[];
     ir?: IrRule;
     physical?: PhysicalRule;
+    clarify?: ClarifyRule;
   } = {},
 ): Policy {
   return (doc) => {
@@ -396,6 +431,9 @@ export function scriptedPolicy(
     if (doc["operation"] === "I002_CLASSIFY") {
       return {
         task_id: doc["task_id"],
+        ...(doc["context"].clarification
+          ? { clarification: clarificationReading(doc["context"], rules.clarify ?? {}) }
+          : {}),
         items: doc["context"].candidate.map((i: Doc) => {
           const hit = (rules.classify ?? []).find((r) => r.match.test(i["text"]));
           if (!hit)

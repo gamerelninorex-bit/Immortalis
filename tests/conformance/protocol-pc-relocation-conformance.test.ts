@@ -44,13 +44,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol-causal.ts":
     "a535533b4ae92b71805634bc742627e45bb2223a0311631303b63c211ed588d5",
   "packages/engine/src/pc-movement/derive.ts":
-    "d3961777be3bd0f541124dc216eee76eebfc4a2150678f05879032e1894bf5cb",
+    "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   "packages/engine/src/pc-movement/integrity.ts":
     "37d20ecd819d9ac330d17a183e00dbd29f81f697f6b4f6c123b5e893c4cdf0ff",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
     "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/derive.ts":
@@ -66,9 +66,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
   "packages/engine/src/presentation/event-signal.ts":
@@ -93,6 +93,7 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
       "index.ts",
       "null-pc-ooc-advance.ts",
       "null-pc-ooc-held-continuation.ts",
+      "pc-collection.ts",
       "pc-corridor-relocation.ts",
       "pc-relocation.ts",
       "pc-transfer-advance.ts",

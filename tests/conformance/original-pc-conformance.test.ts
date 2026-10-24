@@ -53,9 +53,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/ledger.ts":
-    "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/locality-pin.ts":
@@ -76,19 +76,19 @@ const UNCHANGED: Record<string, string> = {
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
-    head: "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+    head: "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   },
   "packages/engine/src/world/integrity.ts": {
     base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
-    head: "412d82ff550432b662f3dc14e146eb5f574424bc8eedf5275ca207da217af749",
+    head: "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "d97fbd47f1d42f4a30d0b8df7e85182eb5774322d37da1086f83340e264e6b5d",
+    head: "50573f859ed5864428e493a254225a4aafd7d323b31e177b9dd4b5bf3b9a8add",
   },
 };
 

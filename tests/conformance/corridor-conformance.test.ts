@@ -61,13 +61,13 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/world/entity-transition.ts":
     "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/additional-locality.ts":
@@ -112,6 +112,7 @@ describe("the corridor reuses the existing World-State owner and facet and adds 
         "world_fallback_physical_entity",
         "world_locus",
         "world_profile",
+        "world_scene_closure",
         "world_source_condition",
       ].sort(),
     );

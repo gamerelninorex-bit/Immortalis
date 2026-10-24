@@ -25,13 +25,13 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
   "packages/engine/src/temporal/coordinator.ts":
-    "afe8c28a662f3c9e1f5329665c6fdf60d724775c389a447be56c7ed7a8e02318",
+    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "74a99f1aeebf737a472c3324fbb78d1b571f7b3c10503693c255c9518d5c62be",
+    "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
@@ -43,35 +43,37 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "20e30c40f73ef569c613d149c77bc66fd7728c2d1c6824c7f5084bcd0092f4e9",
+    "595b02d0b604a1ea32518fe23cf1f307c3bf102bde426cbc718755f82230e221",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/referee/adapter.ts":
-    "bebb8ed99b72ec1f7eee8df2a9ddc8d41c3c1dbd63a45ddea43a92df8309d297",
+    "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   "packages/engine/src/referee/admission.ts":
     "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
+  // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
+  // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "0cb8751f573d8b51697825b44f5ea328d483b73c1360febd4d73f5a69796a8f4",
+    "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
-    "1aa8b4acca2d0fe9967e93c07ef6d52479e7eba8b96d726e9923149afea0d193",
+    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "c73464ee2d4ab62f5613c88186b9c4dd24db7751c1cd87d0bf15b502430dfec6",
+    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
   "packages/operator/src/confirmation.ts":
-    "02326cfecf07d305682df7f9caff03690e3891527c02c48834801a9e6b936d0e",
+    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
   "packages/operator/src/index.ts":
-    "2419070a6e81ee795b02ee47efa7c579d9d8c868074165d1126ed49f5ae626fb",
+    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/original-pc.ts":
-    "ea023957d3ddd4e8dbab14111213d2d46d057a27564f59a413bb65e18a0d3f55",
+    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
   "packages/operator/src/referee-exchange.ts":
-    "9ca6cfa023179e143a671a72baa8c49c49f92b00cfb7693a6bcc4ac228e2cb40",
+    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-mcp.ts":
-    "288de65f95267c91608e577c5d4a3338225a10a34b93db2f5d187786c56b22a9",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-session.ts":
-    "d2b5931b1d736e4678ff3d97866220b3b2c6f95b5b8a788bf6b42881653a385d",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
 const SPEC: Record<string, string> = {
   "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",

@@ -9,6 +9,7 @@
   "bin": {
     "immortalis-operator": "./src/bin.ts",
     "immortalis-referee": "./src/referee-bin.ts",
+    "immortalis-referee-console": "./src/referee-console-bin.ts",
     "immortalis-player-view": "./src/player-view-bin.ts",
     "immortalis-player-view-bind": "./src/player-view-bind-bin.ts",
     "immortalis-observe-request": "./src/observe-request-bin.ts",

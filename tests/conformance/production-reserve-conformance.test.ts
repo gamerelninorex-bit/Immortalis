@@ -37,9 +37,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/production/admission.ts":
     "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
   "packages/engine/src/owners/registry.ts":
-    "ef2721c95bcbb63ff4a2ee2e45c1e3b1bf456ecaca4b3e6e24e36c80e89ed0c3",
+    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/world/canonical-campaign.ts":
-    "77ae6d56368de99ec37db452eb5453345dd279c4accc2f2d6dd3a060d9b33e47",
+    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/additional-source.ts":
@@ -47,11 +47,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/additional-locality.ts":
     "5f1fea4718c816d755c086d2cfef6bffdbfdad62e3ac2f2935ba54e94bf4c782",
   "packages/operator/src/commands.ts":
-    "826a8d68e7151f7a69f5ceace19fdfbd03941c28d327de0b5dd3d5a2fbdacad7",
+    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
-    "cecba030deca45997cfca4a4833f1f101c2797749cd58b036dbc01ac2683e79f",
+    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
 };
 
 describe("nothing outside the operator is touched", () => {

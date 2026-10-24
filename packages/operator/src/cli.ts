@@ -2,6 +2,12 @@ import { parseArgs } from "node:util";
 import type { StageOwnerExtension, FsOps } from "@immortalis/engine";
 import {
   advance,
+  attestCycle,
+  cease,
+  settleCollectionLapse,
+  collectFinish,
+  collect,
+  collectContinue,
   nullAdvance,
   nullResume,
   pcTargetAdvance,
@@ -33,7 +39,12 @@ import {
 } from "./initial-timed-governance.ts";
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
+import { clarifyCollectionCycle } from "./collection-clarification.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
+import { collectionRefereeHosts } from "./collection-referee.ts";
+import { prepareCollection } from "./collection-preparation.ts";
+import { initializeTime } from "./time-initialization.ts";
+import { declareClosedSetting } from "./closed-setting.ts";
 import { LocalOperatorSession, defaultOperatorDir } from "./session.ts";
 import { stdioTerminal, type OperatorTerminal } from "./terminal.ts";
 
@@ -68,8 +79,19 @@ usage:
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
+  immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
+  immortalis-operator referee-bind-collection-host --campaign <dir> --campaign-id <id> --host-id <id>
+  immortalis-operator attest-cycle --campaign <dir> --campaign-id <id> --mechanism <id> [--referee-wait <seconds>]
+  immortalis-operator initialize-time --campaign <dir> --campaign-id <id> --setup <file>
+  immortalis-operator declare-closed-setting --campaign <dir> --campaign-id <id> --setup <file>
+  immortalis-operator prepare-collection --campaign <dir> --campaign-id <id> --setup <file>
+  immortalis-operator collect --campaign <dir> --campaign-id <id> --world <id> --source <id> --reserve <id> --amount <n> --quantity-unit <unit> --mechanism <id> --basis <id>
+  immortalis-operator collect-continue --campaign <dir> --campaign-id <id> [--referee-wait <seconds>]
+  immortalis-operator collect-finish --campaign <dir> --campaign-id <id>
+  immortalis-operator cease --campaign <dir> --campaign-id <id>
+  immortalis-operator settle-collection-lapse --campaign <dir> --campaign-id <id>
   immortalis-operator status    --campaign <dir> [--campaign-id <id>]
 options (all commands): [--operator-dir <dir>] [--reclaim-stale-lock]
 
@@ -210,6 +232,15 @@ observe-surroundings: for a character that author-character released and bound A
   quantity, material, key or establishment statement), and the character can receive only a raw appearance of it. A source that is
   absent, elsewhere, exhausted or undescribed is refused with nothing written. An observation of another scope at the same basis is
   never replaced: a different look needs a new basis.
+clarify-collection-cycle: for a character that author-character released and bound (verified), at a campaign whose canonical time is
+  established and BEFORE any collection commitment of that character. When the character's accepted content says it can lift and carry but
+  states no duration for ONE handling cycle, you may say it in your OWN words (the number in digits and the unit of time); nothing is
+  suggested, defaulted or chosen for you, and the choice cannot be delegated to a host. The AI referee host (the same I-002 classification
+  your character's Mirror used) is asked whether exactly those words are your own character-local claim; only if it accepts them, and only
+  after your separate fresh confirmation, they become a new accepted claim of your character from the current canonical time. The sealed
+  release, your keep, the binding, the custody and the clock are untouched; no time passes and no material is created. The exact cycle
+  still needs a collection preparation that quotes those words and a separate semantic attestation. Running it again with the same words
+  converges.
 referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's four referee operations (I-002
   character classification; native/compatibility; physical placement; direct perception) and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
@@ -217,6 +248,17 @@ referee-bind-host: the TRUSTED operator action that binds one concrete AI host i
   and derives the verdict. No model API, credential or network is used by the engine. author-character waits --referee-wait
   seconds (default 600) for each answer and then stops with nothing changed; running it again finds the same question.
 character-status: reports from canon alone whether a character of this command is held, released but unbound, or bound (verified).
+referee-bind-collection-host: binds a NEW host identity only to the existing v0.3 cycle and reach/scene questions. An existing four-operation
+  setup host is not silently upgraded. The same immortalis-referee MCP server, or immortalis-referee-console for a human GM, reads and
+  answers the questions. No model API is required. Binding a host is not player confirmation or substantive owner authority.
+attest-cycle: asks the bound referee to interpret an ALREADY accepted PC claim and established mechanism; it never authors a rate or
+  a character. A negative or missing answer creates no attestation. collect records one separately confirmed willingness to attempt;
+  collect-continue asks for grounded reach/scene interpretation and invokes owner admission without inventing missing evidence. Source
+  rights, complete scene/workforce evidence and safe in-flight time remain acceptance prerequisites. These commands do not establish
+  those premises, complete the action, expose a hidden boundary or certify a playable loop. cease is the separately confirmed v0.3 D-1
+  request to stop the SAME enrolled act, not automatic cancellation or a cure for lost standing. settle-collection-lapse (R-4, NEWLY
+  AUTHORIZED) takes no input and asks nothing: it presents the mechanical, nonproductive lapse of an act held at its own earned boundary with its
+  eligibility no longer supported, only when canon derives it, and never resumes time (a later, separately confirmed pc-target-resume does).
 ${OOC_DEBUG_NOTE}`;
 
 export interface CliEnvironment {
@@ -257,6 +299,7 @@ const exitOf = (
     case "CHARACTER_NONE":
     case "LOCUS_ESTABLISHED":
     case "OBSERVATION_RECEIVED":
+    case "CLARIFICATION_ACCEPTED":
       return EXIT.OK;
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -294,6 +337,9 @@ const exitOf = (
     case "NULL_PC_ADVANCE_COMMITTED":
     case "NULL_PC_HELD_ADVANCE_COMMITTED":
     case "PC_TARGET_ADVANCE_COMMITTED":
+    case "COLLECTION_COMMITTED":
+    case "TIME_ESTABLISHED":
+    case "SETTING_DECLARED":
     case "NOTHING_TO_RECONCILE":
       return EXIT.OK;
     case "DECLINED":
@@ -303,6 +349,7 @@ const exitOf = (
     case "NULL_PC_ADVANCE_OUTCOME_UNKNOWN":
     case "NULL_PC_HELD_ADVANCE_OUTCOME_UNKNOWN":
     case "PC_TARGET_ADVANCE_OUTCOME_UNKNOWN":
+    case "COLLECTION_OUTCOME_UNKNOWN":
     case "RECONCILIATION_REQUIRED":
       return EXIT.UNKNOWN;
     default:
@@ -333,6 +380,11 @@ const OPTIONS = {
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
   source: { type: "string" },
+  reserve: { type: "string" },
+  amount: { type: "string" },
+  "quantity-unit": { type: "string" },
+  mechanism: { type: "string" },
+  basis: { type: "string" },
 } as const;
 
 const COMMAND_OPTIONS: Record<string, readonly string[]> = {
@@ -356,8 +408,19 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["world", "locus", "player-character"],
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
+  "clarify-collection-cycle": ["player-character"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
+  "referee-bind-collection-host": ["host-id"],
+  "attest-cycle": ["mechanism"],
+  "initialize-time": ["setup"],
+  "declare-closed-setting": ["setup"],
+  "prepare-collection": ["setup"],
+  collect: ["world", "source", "reserve", "amount", "quantity-unit", "mechanism", "basis"],
+  "collect-continue": [],
+  "collect-finish": [],
+  cease: [],
+  "settle-collection-lapse": [],
 };
 
 /** Options a command accepts but does not require. */
@@ -365,6 +428,9 @@ const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
   "observe-surroundings": ["referee-wait", "source"],
+  "clarify-collection-cycle": ["referee-wait"],
+  "attest-cycle": ["referee-wait"],
+  "collect-continue": ["referee-wait"],
 };
 
 type Parsed =
@@ -454,6 +520,21 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
   }
 
   let waitPolls: number | undefined;
+  let collectInput: unknown;
+  if (command === "collect") {
+    const amount = str("amount") ?? "";
+    if (!/^[1-9][0-9]*$/.test(amount) || !Number.isSafeInteger(Number(amount))) {
+      out(USAGE);
+      return EXIT.USAGE;
+    }
+    collectInput = {
+      source: { world_id: str("world"), source_key: str("source") },
+      reserve_id: str("reserve"),
+      quantity: { amount: Number(amount), unit: str("quantity-unit") },
+      mechanism_id: str("mechanism"),
+      basis_id: str("basis"),
+    };
+  }
   if (str("referee-wait") !== undefined) {
     const w = str("referee-wait")!;
     if (!/^[1-9][0-9]{0,5}$/.test(w)) {
@@ -467,7 +548,8 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     (command === "status" ||
     command === "locality-status" ||
     command === "character-status" ||
-    command === "referee-bind-host"
+    command === "referee-bind-host" ||
+    command === "referee-bind-collection-host"
       ? undefined
       : stdioTerminal());
   try {
@@ -634,6 +716,23 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       for (const line of r.details) out(line);
       return exitOf(r.status);
     }
+    if (command === "clarify-collection-cycle") {
+      const r = await clarifyCollectionCycle({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        pcId: str("player-character") ?? "",
+        terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
     if (command === "author-character") {
       const r = await authorCharacter({
         campaignDir: str("campaign") ?? "",
@@ -677,18 +776,21 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         for (const line of r.details) out(line);
         return exitOf(r.status);
       }
-      if (command === "referee-bind-host") {
+      if (command === "referee-bind-host" || command === "referee-bind-collection-host") {
+        const collection = command === "referee-bind-collection-host";
         const bound = await bindHost({
           stateDir: str("operator-dir") ?? defaultOperatorDir(str("campaign") ?? ""),
           campaignId: session.campaignId,
           operatorUid: session.operator.uid,
           hostId: str("host-id") ?? "",
-          operations: [
-            "I002_CLASSIFY",
-            "IR_NATIVE_COMPATIBILITY",
-            "IR_PHYSICAL_PLACEMENT",
-            "F014D_DIRECT_PERCEPTION",
-          ],
+          operations: collection
+            ? ["PC_COLLECTION_CYCLE", "PC_COLLECTION_REACH"]
+            : [
+                "I002_CLASSIFY",
+                "IR_NATIVE_COMPATIBILITY",
+                "IR_PHYSICAL_PLACEMENT",
+                "F014D_DIRECT_PERCEPTION",
+              ],
           ...(env.ledgerFs ? { fs: env.ledgerFs } : {}),
         });
         if (!bound.ok) {
@@ -698,7 +800,9 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         }
         out("STATUS REFEREE_HOST_BOUND");
         out(
-          `host ${str("host-id")} is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).`,
+          collection
+            ? `host ${str("host-id")} is bound only to the cycle and reach/scene interpretations; it grants no owner evidence or player choice.`
+            : `host ${str("host-id")} is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).`,
         );
         out(
           `secret file (owner-only; give the PATH to the host's tool server, never the contents): ${bound.value.secret_file}`,
@@ -744,21 +848,50 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         );
         return EXIT.OK;
       }
-      const ctx = { session, terminal: terminal! };
+      const ctx = {
+        session,
+        terminal: terminal!,
+        ...collectionRefereeHosts({
+          stateDir: str("operator-dir") ?? defaultOperatorDir(str("campaign") ?? ""),
+          campaignId: session.campaignId,
+          operatorUid: session.operator.uid,
+          polls: waitPolls ?? 1200,
+          pollMs: 500,
+          ...(env.ledgerFs ? { fs: env.ledgerFs } : {}),
+        }),
+      };
       const results: readonly CommandResult[] =
-        command === "relocate"
-          ? [await relocate(ctx, relocateInput)]
-          : command === "advance"
-            ? [await advance(ctx)]
-            : command === "null-advance"
-              ? [await nullAdvance(ctx, nullAdvanceInput)]
-              : command === "null-resume"
-                ? [await nullResume(ctx)]
-                : command === "pc-target-advance"
-                  ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
-                  : command === "pc-target-resume"
-                    ? [await pcTargetResume(ctx)]
-                    : await reconcile(ctx);
+        command === "initialize-time"
+          ? [await initializeTime(ctx, str("setup")!)]
+          : command === "declare-closed-setting"
+            ? [await declareClosedSetting(ctx, str("setup")!)]
+            : command === "prepare-collection"
+              ? [await prepareCollection(ctx, str("setup")!)]
+              : command === "collect"
+                ? [await collect(ctx, collectInput)]
+                : command === "collect-continue"
+                  ? [await collectContinue(ctx)]
+                  : command === "collect-finish"
+                    ? [await collectFinish(ctx)]
+                    : command === "attest-cycle"
+                      ? [await attestCycle(ctx, { mechanism_id: str("mechanism") })]
+                      : command === "cease"
+                        ? [await cease(ctx)]
+                        : command === "settle-collection-lapse"
+                          ? [await settleCollectionLapse(ctx)]
+                          : command === "relocate"
+                            ? [await relocate(ctx, relocateInput)]
+                            : command === "advance"
+                              ? [await advance(ctx)]
+                              : command === "null-advance"
+                                ? [await nullAdvance(ctx, nullAdvanceInput)]
+                                : command === "null-resume"
+                                  ? [await nullResume(ctx)]
+                                  : command === "pc-target-advance"
+                                    ? [await pcTargetAdvance(ctx, nullAdvanceInput)]
+                                    : command === "pc-target-resume"
+                                      ? [await pcTargetResume(ctx)]
+                                      : await reconcile(ctx);
       for (const r of results) {
         out(`STATUS ${r.status}`);
         out(r.message);

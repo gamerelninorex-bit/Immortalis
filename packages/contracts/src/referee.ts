@@ -296,9 +296,62 @@ export const I002ItemDecisionSchema = z.strictObject({
 });
 export type I002ItemDecision = z.infer<typeof I002ItemDecisionSchema>;
 
+/**
+ * R-5 (NEWLY AUTHORIZED; BLUE H-1): the scope an I-002 CLARIFICATION is interpreted within. A clarification settles ONE named, still
+ * unresolved operative detail of an already accepted character; so the host is delivered the character's accepted baseline, the precise
+ * branch and any prior accepted closure of it, and answers whether the branch is still unresolved and whether the new words state ONLY
+ * that detail (the duration of one handling cycle of the ACTUATOR the baseline already accepts) or add or change a capability. Present
+ * only in a clarification task: an ordinary classification carries and answers none of it.
+ */
+export const I002_CLARIFICATION_BRANCH_READINGS = [
+  "UNRESOLVED_BEFORE",
+  "ALREADY_STATED_IN_BASELINE",
+  "CONTRADICTS_PRIOR_CLOSURE",
+] as const;
+export const I002_CLARIFICATION_SCOPE_READINGS = [
+  "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE",
+  "ADDS_OR_CHANGES_A_CAPABILITY_OR_ACTUATOR",
+  "UNCLEAR",
+] as const;
+const ClarificationItem = z.strictObject({
+  item_id: Id,
+  slot: z.enum(REFEREE_CANDIDATE_SLOTS),
+  text: z.string().min(1).max(600),
+});
+export const I002ClarificationContextSchema = z.strictObject({
+  branch: Id,
+  /** the fixed question the branch puts to the player (never composed by a caller) */
+  question: z.string().min(1).max(600),
+  /** the character's accepted statements, as the released Existence Contract holds them, in Mirror order */
+  baseline: z.array(ClarificationItem).min(1).max(64),
+  /** earlier accepted closures of this very branch (none may exist for a new one to be accepted) */
+  prior_closures: z
+    .array(
+      z.strictObject({
+        clarification_id: Id,
+        statements: z.array(z.string().min(1).max(600)).min(1).max(3),
+      }),
+    )
+    .max(3),
+});
+export type I002ClarificationContext = z.infer<typeof I002ClarificationContextSchema>;
+export const I002ClarificationReadingSchema = z.strictObject({
+  branch: z.enum(I002_CLARIFICATION_BRANCH_READINGS),
+  scope: z.enum(I002_CLARIFICATION_SCOPE_READINGS),
+  /** a verbatim quotation of the BASELINE that states the actuator whose cycle the new words time; required for the compatible scope, else null */
+  baseline_ground: z.string().min(8).max(500).nullable(),
+  /** a verbatim quotation of the new words that state the duration */
+  candidate_ground: z.string().min(8).max(500),
+  /** UNCLEAR only: the one narrow question */
+  clarification: z.string().min(1).max(300).nullable(),
+});
+export type I002ClarificationReading = z.infer<typeof I002ClarificationReadingSchema>;
+
 export const I002HostDecisionSchema = z.strictObject({
   task_id: RefereeTaskIdSchema,
   items: z.array(I002ItemDecisionSchema).min(1).max(64),
+  /** R-5: present exactly when the task is a clarification (see I002ClarificationContextSchema) */
+  clarification: I002ClarificationReadingSchema.optional(),
 });
 export type I002HostDecision = z.infer<typeof I002HostDecisionSchema>;
 
@@ -584,6 +637,8 @@ const RecordCore = {
     digest: Sha256,
     /** I002: sha256 over the delivered candidate items; the released Existence Contract must derive exactly these */
     candidate_digest: Sha256.nullable(),
+    /** R-5: an I-002 CLARIFICATION's delivered scope (baseline, branch, prior closures), so the context re-derives from the record alone; absent for every other task */
+    clarification: I002ClarificationContextSchema.optional(),
     /** I002: the delivered candidate itself (the player's own words, as delivered), so the digest re-derives from the record alone */
     candidate: z
       .array(

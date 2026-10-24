@@ -358,6 +358,7 @@ export async function readyForHandover(
   s: Pick<ExistingActorSeeded, "campaign" | "actors">,
   actorId = ACTOR_SMITH,
   capabilityId = CAP_METALWORKING,
+  contract?: ExistenceContract,
 ): Promise<void> {
   await establishActorBasis(s, 1, actorId, capabilityId);
   await must(coupleActor(s, 1, actorId));
@@ -365,7 +366,7 @@ export async function readyForHandover(
     compileExistingActor(
       s,
       1,
-      existingActorContract(actorId, [actorBasisPin(actorId, capabilityId)]),
+      contract ?? existingActorContract(actorId, [actorBasisPin(actorId, capabilityId)]),
     ),
   );
 }
