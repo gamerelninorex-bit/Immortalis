@@ -17,5 +17,12 @@
     "skipLibCheck": true,
     "isolatedModules": true
   },
-  "include": ["packages/*/src", "tests", "tools", "vitest.config.ts", "eslint.config.js"]
+  "include": [
+    "packages/*/src",
+    "apps/*/src",
+    "tests",
+    "tools",
+    "vitest.config.ts",
+    "eslint.config.js"
+  ]
 }

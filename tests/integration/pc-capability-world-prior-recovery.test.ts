@@ -61,7 +61,7 @@ import {
 } from "../support/existing-actor.ts";
 import { crashBefore, isPrecommitGroup, isResultGroup, lostReply } from "../support/causal-draw.ts";
 import { must } from "../support/temporal.ts";
-import { tempDir } from "../support/tmp.ts";
+import { copyDir, tempDir } from "../support/tmp.ts";
 
 const A = ACTOR_SMITH;
 const D = CAP_SWORDSMANSHIP;
@@ -450,8 +450,12 @@ describe("load fails closed on a world-prior establishment that no longer tells 
       "close rule swapped for the superseded citation": (j) =>
         (fact(j, capKey).provenance.rule = PC_CAPABILITY_RULE_THIRTY_SECOND_SLICE),
     };
+    // Build and verify one durable control; isolate every edit in its own copied package.
+    // Rebuilding the identical multi-commit fixture for all 16 edits exhausts the test budget.
+    const control = await saved();
+    expect(await openOutcome(control)).toBe("OK");
     for (const [name, edit] of Object.entries(edits)) {
-      const dir = await saved();
+      const dir = copyDir(control);
       const p = join(dir, stateFile(dir));
       const j = JSON.parse(readFileSync(p, "utf8"));
       edit(j);
