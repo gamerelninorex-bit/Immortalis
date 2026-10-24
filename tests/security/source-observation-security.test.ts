@@ -248,6 +248,10 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
           /ReadCurrentObservationGlanceRequestSchema.safeParse\(request\).success/,
         );
         expect(SRC("packages/contracts/src/protocol-current-glance.ts")).not.toMatch(NAMES);
+      } else if (f === "packages/protocol/src/pc-collection.ts") {
+        // The previously authorized collection gateway reads the source of its committed choice; it adds no observation selector.
+        expect(SRC(f)).toContain("adapter.commitment(pcId, actId)?.value.intent.source.fact_key");
+        expect(SRC(f)).not.toMatch(/request\.(sourceKey|source_key)|parsed\.data\.source_key/);
       } else expect(SRC(f), f).not.toMatch(NAMES);
     }
   });
