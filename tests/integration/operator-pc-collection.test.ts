@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw facts and ledger values */
-// CPAA-C1 v0.2 PROVISIONAL — the NON-FIXTURE ingress. The only way a collection attempt reaches `bindTrustedConfirmedPcCollectionContext`
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — the NON-FIXTURE ingress. The only way a collection attempt reaches `bindTrustedConfirmedPcCollectionContext`
 // here is the operator's own fresh console confirmation of exactly that attempt (the same existing player-confirmation authority the
 // relocation and the time-advance choices use): the act identity is minted by the trusted side before the first write, retained
 // durably, and everything after it is the owners' own path. Nothing below calls the test fixture `trustedCollection`.

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests rewrite arbitrary fact values to attack admission */
-// CPAA-C1 v0.2 PROVISIONAL — enforcement. Each test tries to make the collection chain say something its owners did not establish: a
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — enforcement. Each test tries to make the collection chain say something its owners did not establish: a
 // pre-authored success, an invented eligibility or access verdict, a caller-declared duration or boundary, a host-supplied authority,
 // a movement/collection overlap, or a source the real remaining material does not support. Admission (IM-11) must refuse each from
 // committed state, record nothing, and leave the real facts as they were.

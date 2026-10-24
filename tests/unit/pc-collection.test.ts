@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary values */
-// Unit evidence for the pure rules of the CPAA-C1 v0.2 PROVISIONAL collection slice: the exact-cycle duration derivation (including
+// Unit evidence for the pure rules of the CPAA-C1 (v0.3 design ratified; implementation acceptance pending) collection slice: the exact-cycle duration derivation (including
 // the withheld cases), the quote-anchored reach interpretation with its DERIVED verdict, and the stage-time premise check that
 // invalidates a started act instead of completing it silently. Not ratified; see packages/contracts/src/pc-collection.ts.
 import { describe, expect, it } from "vitest";

@@ -324,9 +324,10 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
     head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   },
+  // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "07e115fdbc9e2d242f4e15dbf3cfc041597c8e349e15b8d731c0c4691d34e625",
+    head: "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",

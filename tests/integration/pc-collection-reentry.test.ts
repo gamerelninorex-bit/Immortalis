@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read arbitrary fact values */
-// CPAA-C1 v0.2 PROVISIONAL — movement re-entry. The historic movement records of a PC no longer exclude a collection once its single
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — movement re-entry. The historic movement records of a PC no longer exclude a collection once its single
 // voluntary leg has SETTLED: the PC is then stationary at World-State's destination (the one authority for it), and a collection
 // there is judged by the same rules. A movement that is pending or in flight still excludes it, and the settled PC cannot collect
 // at its old locus. No new journey rule, no travel and no cancellation is involved.

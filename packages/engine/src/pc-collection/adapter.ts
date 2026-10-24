@@ -174,7 +174,7 @@ type KindId =
   | "population_workforce_scope";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL — the owner publications of the confirmed collection path, each built over the engine's own store and
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — the owner publications of the confirmed collection path, each built over the engine's own store and
  * judged by IM-11 admission. A caller supplies authored content and identities only. It never supplies an owner, facet, authority,
  * governing rule, verdict, feasibility, cycle count, duration, boundary, source remainder or Reserve increase: those come from the
  * registry and from the owners' committed premises. There is no method that takes a boundary, a result or a verdict.

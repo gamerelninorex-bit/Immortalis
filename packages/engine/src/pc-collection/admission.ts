@@ -101,7 +101,7 @@ import { pcClarificationViolation } from "./clarification.ts";
 import { pcOccupancyRecord } from "./state.ts";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL — IM-11 admission of the collection facts. Pure: a function of (group, state) only, so it holds for a raw
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — IM-11 admission of the collection facts. Pure: a function of (group, state) only, so it holds for a raw
  * `store.commit` exactly as for the owner publications. Each fact is RE-DERIVED here from the committed owner facts it rests on
  * (never trusted), reads and depends on every foreign fact it references (never copies), and no fact asserts a verdict, a result, a
  * feasibility or a time it was handed.

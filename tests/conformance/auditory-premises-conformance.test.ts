@@ -173,8 +173,9 @@ describe("nothing outside the physical-source slice was built", () => {
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       "packages/engine/src/epistemic":
         "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186",
+      // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       "packages/engine/src/referee":
-        "d2d299876795b2a75b0bb113a5a1b1c48a56ebe019fe613407ab21cf844c2264",
+        "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

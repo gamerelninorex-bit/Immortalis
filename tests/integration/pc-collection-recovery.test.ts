@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
-// CPAA-C1 v0.2 PROVISIONAL — save → close → load → continue is exact at every durable cut of one collection, converges on the
+// CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — save → close → load → continue is exact at every durable cut of one collection, converges on the
 // uninterrupted run (one source drawdown, one Reserve credit, no duplicate), and a loaded campaign whose collection facts (or what
 // they consumed) were edited, or were built outside admission, fails closed. The slice adds no persistence path: every fact is an
 // ordinary OwnerFact, so the existing journal, receipts, replay and package integrity are the ones in force.

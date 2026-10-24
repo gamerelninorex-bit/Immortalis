@@ -12,7 +12,7 @@ import {
 } from "@immortalis/contracts";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL — the small, dependency-light state predicates both the collection rules and the (unchanged-in-meaning)
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — the small, dependency-light state predicates both the collection rules and the (unchanged-in-meaning)
  * movement admission read, so that the bilateral exclusion needs no import cycle. Pure functions of a committed fact view.
  */
 type Facts = Pick<ReadonlyMap<string, OwnerFact>, "get" | "has">;

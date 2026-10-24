@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw scripted-host documents */
-// TEST SUPPORT for the CPAA-C1 v0.2 PROVISIONAL outcome → perception connection, over an ORIGINAL active PC. The campaign is built by
+// TEST SUPPORT for the CPAA-C1 (v0.3 design ratified; implementation acceptance pending) outcome → perception connection, over an ORIGINAL active PC. The campaign is built by
 // the SHIPPED paths only (`establish-locality` commits the world, locus and the finite source; `author-character` releases and binds
 // the character; `establish-character-locus` has World-State commit the qualified custody; the Temporal owner establishes the basis),
 // and the collection then runs through the unchanged owner paths. The scripted referee host is a policy the TEST wrote that reads the

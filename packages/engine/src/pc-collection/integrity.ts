@@ -63,7 +63,7 @@ import {
 } from "./derive.ts";
 
 /**
- * CPAA-C1 v0.2 PROVISIONAL — re-verifies, from committed state and the journal alone, that every loaded collection fact still tells
+ * CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — re-verifies, from committed state and the journal alone, that every loaded collection fact still tells
  * one story. Replay proves the HISTORY is intact and canonical integrity proves each fact's owner/facet, typed value, governing rule
  * and authority; this proves the facts still mean what admission required, by applying the SAME single rule admission applied to the
  * facts as they stood before each write (the source, the Reserve and the occupancy slot ADVANCE with their owners' own deliveries,
