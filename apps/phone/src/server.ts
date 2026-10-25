@@ -13,7 +13,7 @@ import {
   type Edit,
   type OperatorTerminal,
 } from "@immortalis/operator";
-import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
+import { PLAYER_COMMANDS } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
 import { createWebTerminal } from "./web-terminal.ts";
@@ -47,7 +47,34 @@ import {
   type CharacterRecord,
   type CharacterRunOptions,
 } from "./character-recovery.ts";
+import { buildPlayerCommand } from "./commands.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
+import { expectationOf as stageReview, fitsReview } from "./route-confirm.ts";
+import {
+  installState,
+  deriveScenario,
+  refereeCoverage,
+  runFinish,
+  stageEvidence,
+} from "./route-finish.ts";
+import { probeFor, planStage, type PlannedRun, type StageRequest } from "./route-plan.ts";
+import {
+  dropInputs,
+  emptyRoute,
+  readRouteRecord,
+  retainInput,
+  type RouteRecord,
+} from "./route-record.ts";
+import {
+  readRoute,
+  probeOf,
+  stageOutcome,
+  type RouteFacts,
+  type StageOutcome,
+} from "./route-evidence.ts";
+import { refereeWaitSeconds, runClarify } from "./route-run.ts";
+import { routeStatus, type Barrier, type RouteStatus } from "./route-status.ts";
+import { STAGE_COMMAND, type StageIdentity, type StageKind } from "./route-stages.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import type {
   CharacterExpectation,
@@ -57,7 +84,9 @@ import type {
   PlayerRuns,
   Run,
   SettingStatus,
+  StageLaunch,
 } from "./runs.ts";
+import type { StageExpectation } from "./route-confirm.ts";
 import {
   LOCALITY_COMMAND,
   SETUP_DOCUMENT_COMMANDS,
@@ -168,7 +197,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   /** true while the unresolved operation is the ORIGINAL locality setup, confirmed and partly committed: only its own resumption finishes it */
   let resumableBlock = false;
   /** which retained operation a resumable barrier belongs to */
-  let resumeWhat: "SETTING" | "CHARACTER" = "SETTING";
+  let resumeWhat: "SETTING" | "CHARACTER" | "STAGE" = "SETTING";
   {
     const restored = readPending(config);
     if (restored.kind === "PENDING") {
@@ -194,6 +223,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
     characterOutcome: deps.recovery?.characterOutcome ?? characterOutcome,
     readCharacter: deps.recovery?.readCharacter ?? readCharacter,
+    stageOutcome: deps.recovery?.stageOutcome ?? stageEvidence,
   };
   let launching = false;
   /** while the setting is being read from the campaign, a command that would open the same package waits (it would meet the writer lock) */
@@ -444,13 +474,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       structuralBlock
         ? "Engineering must inspect it; do not retry the action."
         : resumableBlock
-          ? resumeWhat === "CHARACTER"
+          ? resumeWhat === "STAGE"
             ? lane === "chat"
-              ? "Only resume_original_character (the player's retained keep, finished without asking it again) can finish it; do not offer another character or retry."
-              : "Only the same retained keep, finished by the operator's author-character command, can finish it. Do not retry the action."
-            : lane === "chat"
-              ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
-              : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
+              ? "Only resume_collection_setup (the same retained input, confirmed again by the player) can finish it; do not offer anything else or retry."
+              : "Only the same retained input, confirmed again by the player, can finish it; the operator can repeat the identical shipped command. Do not retry the action."
+            : resumeWhat === "CHARACTER"
+              ? lane === "chat"
+                ? "Only resume_original_character (the player's retained keep, finished without asking it again) can finish it; do not offer another character or retry."
+                : "Only the same retained keep, finished by the operator's author-character command, can finish it. Do not retry the action."
+              : lane === "chat"
+                ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
+                : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
           : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
     }`;
   const statusLines = (run: Run): string[] =>
@@ -471,7 +505,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     why: string,
     structural = false,
     resumable = false,
-    what: "SETTING" | "CHARACTER" = "SETTING",
+    what: "SETTING" | "CHARACTER" | "STAGE" = "SETTING",
   ): void => {
     unresolvedOutcome = true;
     blocker = why;
@@ -649,6 +683,81 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     applyCharacterEvidence(ev, run);
   };
 
+  const STAGE_RESUME_BLOCKER =
+    "a stage of the collection preparation is confirmed but not complete; only that same retained input, confirmed again by the player, can finish it";
+  const ROUTE_WORDS_BLOCKER =
+    "the retained route inputs are unreadable; engineering must inspect them";
+  /** what a finished stage no longer needs the adapter to retain of the player's words */
+  const retainedByKind = (
+    kind: StageKind,
+  ): readonly (keyof Omit<RouteRecord, "format" | "format_version" | "campaign_id">)[] =>
+    kind === "CHRONOLOGY"
+      ? ["chronology"]
+      : kind === "CLARIFY"
+        ? ["handling"]
+        : kind === "PREPARE"
+          ? ["preparation"]
+          : kind === "DECLARE"
+            ? ["declaration"]
+            : [];
+  const retainedBy = (id: StageIdentity) => retainedByKind(id.kind);
+  /**
+   * Applies owner-side evidence about ONE dispatched stage to the barrier: a verified completion, a proven absence of effect, a committed
+   * stage that an owner's later change has made stale, and a finishing stage that is only partly done (it asks nobody, and running it
+   * again finishes exactly what is missing) settle it; a confirmed, partly committed stage keeps it (resumable by its own retained input
+   * alone); anything the evidence cannot reconcile keeps it, and a read that failed keeps it. Returns true only when the barrier was cleared.
+   */
+  const applyStageEvidence = (ev: StageOutcome, id: StageIdentity, run?: Run): boolean => {
+    if (
+      ev.kind === "COMPLETE" ||
+      ev.kind === "NO_EFFECT" ||
+      ev.kind === "STALE" ||
+      (ev.kind === "PARTIAL" && id.kind === "FINISH")
+    ) {
+      const settled = resolve();
+      // the owners' evidence has answered what the run itself could not: it is no longer an uncertain run
+      if (run && settled) run.uncertain = false;
+      // what the player said is dropped only once its stage stands in canon; a leftover noncanonical record is harmless
+      if (settled && ev.kind === "COMPLETE") dropInputs(config, retainedBy(id));
+      return settled;
+    }
+    if (run) run.uncertain = true;
+    if (ev.kind === "PARTIAL") block(STAGE_RESUME_BLOCKER, false, true, "STAGE");
+    else if (ev.kind === "BLOCKED") block(ev.detail, true);
+    else block("the stage's owner records could not be verified");
+    return false;
+  };
+  /** the end of a stage run (first dispatch or resumption): settled by owner evidence about THAT operation, never by a status line */
+  const settleStage = async (run: Run): Promise<void> => {
+    const cur = pending;
+    if (!cur?.stage || cur.run_id !== run.id) {
+      run.uncertain = true;
+      block("the stage's identity was not recorded; engineering must inspect it", true);
+      return;
+    }
+    const ev = await rec.stageOutcome(config, cur.stage);
+    // a shutdown leaves the record as it is: the restart reads the same evidence
+    if (closing) return;
+    applyStageEvidence(ev, cur.stage, run);
+  };
+  const stageReadback = (id: StageIdentity, ev: StageOutcome): string => {
+    const what: Record<StageKind, string> = {
+      LOCUS: "the character's physical location",
+      CHRONOLOGY: "the starting chronology",
+      CLARIFY: "the player's handling-cycle clarification",
+      PREPARE: "the collection preparation",
+      DECLARE: "the closed-setting declaration",
+      FINISH: "the cycle attestation and the connection",
+    };
+    return ev.kind === "COMPLETE"
+      ? `owner readback: ${what[id.kind]} is committed, current and verified`
+      : ev.kind === "STALE"
+        ? `owner readback: ${what[id.kind]} was committed and an owner's later change has made it stale; it must be declared again`
+        : ev.kind === "PARTIAL"
+          ? `owner readback: ${what[id.kind]} is partly done; running the finishing stage again completes exactly what is missing and asks nobody`
+          : "owner readback: nothing of that stage was committed";
+  };
+
   /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
    * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
@@ -682,6 +791,30 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         };
       }
       return blocked(UNREADABLE_BLOCKER, [], true);
+    }
+    if (cur.stage) {
+      const ev = await rec.stageOutcome(config, cur.stage);
+      if (closing) return refuse(503, "the server is closing; the operation remains pending");
+      if (ev.kind === "PARTIAL" && cur.stage.kind !== "FINISH") {
+        block(STAGE_RESUME_BLOCKER, false, true, "STAGE");
+        return {
+          ok: true,
+          run: finishedRun(
+            label,
+            [
+              `owner readback: ${ev.landed.join(", ")} of this stage are committed and the rest is not`,
+              `RECOVERY BLOCKED: ${STAGE_RESUME_BLOCKER}`,
+            ],
+            4,
+          ),
+        };
+      }
+      if (ev.kind === "BLOCKED") return blocked(ev.detail, [], true);
+      if (ev.kind === "UNAVAILABLE")
+        return blocked("the stage's owner records could not be verified");
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [], true);
+      if (ev.kind === "COMPLETE") dropInputs(config, retainedBy(cur.stage));
+      return { ok: true, run: finishedRun(label, [stageReadback(cur.stage, ev)], 0) };
     }
     if (cur.command === LOCALITY_COMMAND) {
       if (!cur.setup)
@@ -1631,6 +1764,291 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     return contract ? { stage: "KEEP", contract } : null;
   };
 
+  // -- the stages that follow the character: physical location, chronology, the player's handling duration, preparation, declaration, finishing ----
+  type RouteRequest = Exclude<StageRequest, { kind: "RESUME" }>;
+  const sentence = (reason: string): string =>
+    `${reason.replace(/[.;\s]+$/, "")}. Nothing was dispatched`;
+
+  /** the first retained input of the player (in route order) that a bare resumption offers again; null when nothing is retained */
+  const retainedRequest = (r: RouteRecord): RouteRequest | null =>
+    r.chronology
+      ? { kind: "CHRONOLOGY", input: r.chronology }
+      : r.handling
+        ? { kind: "CLARIFY", words: r.handling }
+        : r.preparation
+          ? { kind: "PREPARE", input: r.preparation }
+          : r.declaration
+            ? { kind: "DECLARE", input: r.declaration }
+            : null;
+
+  /** why the route cannot be read at all, in the words a refusal may carry */
+  const unreadable = (
+    read: Exclude<Awaited<ReturnType<typeof readRoute>>, { kind: "OPEN" }>,
+  ): string =>
+    read.kind === "NO_SETTING"
+      ? "the player's original setting is not established yet; establish it first. Nothing was dispatched"
+      : read.kind === "BLOCKED"
+        ? `the route cannot be continued: ${read.detail}; engineering must inspect it. Nothing was dispatched`
+        : "the campaign's owner records could not be verified now; nothing was dispatched";
+
+  /** the installation as the owners' files stand now, for a route whose scenario can be derived (null otherwise) */
+  const installOf = async (r: RouteFacts) => {
+    const derived = deriveScenario(r);
+    return derived.ok ? installState(config, derived.scenario) : null;
+  };
+
+  async function launchStageWork(req: StageRequest): Promise<StageLaunch> {
+    if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+    if (launching || (player && !player.done))
+      return refuse(409, "a command is already running: answer it or stop it first");
+    if (readingSetting > 0)
+      return refuse(
+        409,
+        "the setting is being read; try again in a moment. Nothing was dispatched",
+      );
+    launching = true;
+    try {
+      // the trusted operator may have inspected, replaced or removed the durable record: it is read afresh, never taken from memory
+      const again = readPending(config);
+      pending = again.kind === "PENDING" ? again.pending : null;
+      if (again.kind === "UNREADABLE") {
+        block(UNREADABLE_BLOCKER, true);
+        return refuse(409, UNREADABLE_BLOCKER);
+      }
+      if (again.kind === "PENDING" && !unresolvedOutcome) {
+        unresolvedOutcome = true;
+        blocker ??= "an earlier action's outcome is not established";
+      }
+      const held = readRouteRecord(config);
+      if (held.kind === "UNREADABLE") return refuse(409, ROUTE_WORDS_BLOCKER);
+      const record = held.kind === "RECORD" ? held.record : emptyRoute(config);
+      const wait = refereeWaitSeconds(deps.character);
+
+      let planned: PlannedRun;
+      let resuming = false;
+      if (unresolvedOutcome) {
+        // only the partly committed stage's own retained input, confirmed afresh, can continue: nothing else starts
+        const cur = pending;
+        if (req.kind !== "RESUME" || !cur?.stage) return refuse(409, uncertainReason("chat"));
+        const ev = await rec.stageOutcome(config, cur.stage);
+        if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+        if (ev.kind !== "PARTIAL" || cur.stage.kind === "FINISH") {
+          if (ev.kind === "BLOCKED") block(ev.detail, true);
+          return refuse(
+            409,
+            ev.kind === "BLOCKED"
+              ? `the stage cannot be resumed: ${ev.detail}; engineering must inspect it`
+              : ev.kind === "UNAVAILABLE"
+                ? "the stage's owner records could not be verified now; nothing was dispatched"
+                : "the owners' evidence already settles the stage: run reconcile_last_action",
+          );
+        }
+        const id = cur.stage;
+        if (id.kind === "PREPARE" || id.kind === "DECLARE") {
+          // the very document the human confirmed, run again with a fresh confirmation; a declaration is bound to the owners' CURRENT versions
+          let identity: StageIdentity = id;
+          if (id.kind === "DECLARE") {
+            const read = await readRoute(config);
+            if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+            if (read.kind !== "OPEN") return refuse(409, unreadable(read));
+            identity = {
+              ...id,
+              closure_version: read.route.declaration.closure?.version ?? 0,
+              scope_version: read.route.declaration.scope?.version ?? 0,
+            };
+          }
+          planned = {
+            identity,
+            command: STAGE_COMMAND[id.kind],
+            setup: id.kind === "PREPARE" ? id.setup.document : id.document,
+            options: {},
+            retain: {},
+          };
+          resuming = true;
+        } else
+          return refuse(
+            409,
+            "the owners' evidence already settles the stage: run reconcile_last_action",
+          );
+      } else {
+        let request: RouteRequest;
+        if (req.kind === "RESUME") {
+          const retained = retainedRequest(record);
+          if (retained === null)
+            return refuse(
+              409,
+              "nothing is retained to resume: the player's earlier words for a stage are kept only until that stage is complete",
+            );
+          request = retained;
+        } else request = req;
+        const coverage = await refereeCoverage(config);
+        const read = await readRoute(config, (facts) => probeFor(config, facts, request));
+        if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+        if (read.kind !== "OPEN") return refuse(409, unreadable(read));
+        const plan = planStage(
+          config,
+          read.route,
+          request,
+          coverage,
+          request.kind === "FINISH" ? await installOf(read.route) : null,
+        );
+        if (plan.kind === "REFUSE") return refuse(plan.status, sentence(plan.reason));
+        if (plan.kind === "DONE") {
+          // the owners already hold it: nobody is asked, nothing is dispatched, and what the player said for it is no longer needed
+          dropInputs(config, retainedByKind(plan.step));
+          return { ok: true, run: null, done: { step: plan.step, message: plan.message } };
+        }
+        planned = plan.run;
+        // the whole mandatory review must be deliverable, or nobody is asked
+        if (!fitsReview(planned.identity))
+          return refuse(
+            400,
+            "this is too large to be shown whole to the player for review; nothing was dispatched",
+          );
+      }
+
+      if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+      const options: Record<string, string> = { ...planned.options };
+      const direct = planned.identity.kind === "CLARIFY" || planned.identity.kind === "FINISH";
+      if (wait !== null && planned.identity.kind === "LOCUS") options["referee-wait"] = wait;
+      const built = direct
+        ? null
+        : buildPlayerCommand(config, {
+            command: planned.command,
+            options,
+            ...(planned.setup !== null ? { setup: planned.setup } : {}),
+          });
+      if (built && !built.ok) return refuse(400, `${built.reason}; nothing was dispatched`);
+      // the player's own words are retained BEFORE dispatch (never as consent), so an interruption, a decline or a restart costs them nothing
+      if (Object.keys(planned.retain).length > 0 && !retainInput(config, planned.retain)) {
+        built?.value.cleanup();
+        return refuse(503, "the player's words could not be retained; nothing was dispatched");
+      }
+      const id = newRunId();
+      const operation: PendingOperation = {
+        format: PENDING_FORMAT,
+        format_version: 1,
+        campaign_id: config.campaignId,
+        run_id: id,
+        command: planned.command,
+        options,
+        dispatched_at: now(),
+        state: "DISPATCHED",
+        blocker: null,
+        identity: null,
+        collection: null,
+        setup: null,
+        character: null,
+        stage: planned.identity,
+      };
+      if (!writePending(config, operation)) {
+        built?.value.cleanup();
+        return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
+      }
+      pending = operation;
+      // the earlier record is replaced by this run's: the barrier stays until the owners' evidence about THIS run settles it
+      if (resuming) unresolvedOutcome = true;
+      const identity = planned.identity;
+      const run = startRun(
+        id,
+        planned.command,
+        built ? built.value.argv : [],
+        built ? built.value.cleanup : () => undefined,
+        { quiet: false },
+        settleStage,
+        identity.kind === "CLARIFY"
+          ? (env) => runClarify(config, identity, env, deps.character)
+          : identity.kind === "FINISH"
+            ? (env) => runFinish(config, cli, identity, env, wait)
+            : undefined,
+      );
+      run.step = identity.kind;
+      return { ok: true, run };
+    } finally {
+      launching = false;
+    }
+  }
+
+  /** the owner-backed account of the route: read-only, it settles nothing, starts nothing and reads no campaign while a command holds it */
+  async function routeStatusWork(): Promise<RouteStatus> {
+    if (launching)
+      return {
+        state: "UNAVAILABLE",
+        stages: [],
+        next: null,
+        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        barrier: "NONE",
+        detail: "another command is starting now",
+      };
+    readingSetting++;
+    try {
+      return await readRouteStatus();
+    } finally {
+      readingSetting--;
+    }
+  }
+  async function readRouteStatus(): Promise<RouteStatus> {
+    const running = player && !player.done && player.step ? player : null;
+    if (player && !player.done && !running)
+      return {
+        state: "UNAVAILABLE",
+        stages: [],
+        next: null,
+        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        barrier: "NONE",
+        detail: "another command is running now",
+      };
+    const held = readPending(config);
+    const mine = held.kind === "PENDING" && held.pending.stage ? held.pending.stage : null;
+    const record = readRouteRecord(config);
+    // ONE owner-verified open serves the whole status, and the barrier's evidence when a stage is unresolved
+    const read = await readRoute(config, mine ? probeOf(mine) : {});
+    let barrier: Barrier = "NONE";
+    let barrierDetail: string | undefined;
+    if (held.kind === "UNREADABLE") {
+      barrier = "ENGINEERING";
+      barrierDetail = UNREADABLE_BLOCKER;
+    } else if (record.kind === "UNREADABLE") {
+      barrier = "ENGINEERING";
+      barrierDetail = ROUTE_WORDS_BLOCKER;
+    } else if (held.kind === "PENDING" && !running) {
+      if (mine) {
+        const ev =
+          read.kind === "OPEN" && mine.kind === "FINISH"
+            ? await stageEvidence(config, mine)
+            : stageOutcome(read, mine, config.campaignId);
+        barrier =
+          ev.kind === "PARTIAL" && mine.kind !== "FINISH"
+            ? "RESUME"
+            : ev.kind === "BLOCKED"
+              ? "ENGINEERING"
+              : "RECONCILE";
+        if (ev.kind === "BLOCKED") barrierDetail = ev.detail;
+      } else {
+        barrier = structuralBlock ? "ENGINEERING" : "RECONCILE";
+        barrierDetail = "another action's outcome is not established yet";
+      }
+    }
+    const coverage = await refereeCoverage(config);
+    return routeStatus({
+      read,
+      record,
+      playerViewHost: config.playerViewHostId !== null,
+      coverage,
+      install: read.kind === "OPEN" ? await installOf(read.route) : null,
+      running: running
+        ? { step: running.step ?? null, awaiting: running.terminal.snapshot(0).pending !== null }
+        : null,
+      barrier,
+      ...(barrierDetail !== undefined ? { barrierDetail } : {}),
+    });
+  }
+  const stageExpectationOf = (run: Run): StageExpectation | null => {
+    const cur = pending;
+    if (!run.step || !cur?.stage || cur.run_id !== run.id) return null;
+    return stageReview(cur.stage);
+  };
+
   const playerRuns: PlayerRuns = {
     resumeKind: () => (resumableBlock ? resumeWhat : null),
     proposeCharacter: (draft) => track(launchCharacterWork({ kind: "PROPOSE", draft })),
@@ -1646,6 +2064,19 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           } as CharacterStatusReport)
         : track(characterStatusWork()),
     characterExpectation: expectationOf,
+    stage: (request) => track(launchStageWork(request)),
+    routeStatus: () =>
+      closing
+        ? Promise.resolve({
+            state: "UNAVAILABLE",
+            stages: [],
+            next: null,
+            readiness: { prepared_to_request_collection: false, campaign_started: false },
+            barrier: "NONE",
+            detail: "the server is closing",
+          } as RouteStatus)
+        : track(routeStatusWork()),
+    stageExpectation: stageExpectationOf,
     proposeSetup: (document) =>
       launchPlayer({ command: LOCALITY_COMMAND, setup: document }, "chat"),
     resumeSetup: () => track(resumeSetupWork()),

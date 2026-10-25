@@ -120,117 +120,169 @@ export function readbackOf(
 }
 
 /**
+ * What an ALREADY OPEN, owner-verified campaign holds of the character, against the VERIFIED original setting. It is the whole of the
+ * judgement `readCharacter` makes once it has the campaign; a caller that has read more of the campaign (the route reader) uses it
+ * to avoid opening the package a second time. Read-only: it writes nothing and never closes the campaign.
+ */
+export function characterStateOf(
+  campaign: CanonicalCampaign,
+  config: Pick<PhoneConfig, "campaignId">,
+  pin: string,
+  keep: KeepRecord | null,
+): CharacterState {
+  if (campaign.store.head().campaign_id !== config.campaignId)
+    return blocked("CAMPAIGN_MISMATCH", "the package holds another campaign");
+  const setting = readLocality(campaign, config.campaignId, pin);
+  if (setting.kind === "NONE" || setting.kind === "INCOMPLETE")
+    return { kind: "NO_SETTING", detail: "the original setting is not established" };
+  if (setting.kind === "FAILED") return blocked("SETTING_BLOCKED", setting.detail);
+  const worldId = setting.readback.world_id;
+  const locusId = setting.readback.locus_id;
+  const characters = campaign.store
+    .listFacts()
+    .filter((f) => f.owner === "pc_existence" && f.facet === "existence_contract");
+  const binding = campaign.binding();
+  if (characters.length > 1)
+    return blocked("CHARACTER_CONFLICT", "more than one character is held");
+  if (characters.length === 0) {
+    if (binding)
+      return blocked(
+        "BINDING_CONFLICT",
+        "an operative binding is held without a character of this command",
+      );
+    if (keep === null) return { kind: "NONE", world_id: worldId, locus_id: locusId, pc_id: null };
+    // kept at this console and retained, not yet released: finished from exactly what was kept, never asked again
+    if (campaign.store.getFact(pcExistenceContractKey(keep.pc_id)))
+      return blocked("CHARACTER_CONFLICT", "the kept character is not the one held");
+    return {
+      kind: "KEPT_UNRELEASED",
+      pc_id: keep.pc_id,
+      world_id: worldId,
+      locus_id: locusId,
+      contract: keep.contract,
+    };
+  }
+  const fact = characters[0]!;
+  const pcId = fact.key.split("/")[1]!;
+  const problems = releaseProblems(config.campaignId, fact, keep, campaign.store);
+  if (problems.length > 0 || keep === null)
+    return blocked("CHARACTER_CONFLICT", problems.join("; ") || "no keep is on record");
+  const pc = campaign.playerCharacter(pcId);
+  if (!pc) return blocked("CHARACTER_CONFLICT", "the released character is not held");
+  if (!binding)
+    return {
+      kind: "RELEASED_UNBOUND",
+      pc_id: pcId,
+      world_id: worldId,
+      locus_id: locusId,
+      contract: pc.value,
+    };
+  const why = [
+    ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
+    ...bindingProblems({ campaign, campaignId: config.campaignId, keep }, pc.fact, {
+      worldId,
+      locusId,
+    }),
+  ];
+  if (why.length > 0) return blocked("BINDING_CONFLICT", why.join("; "));
+  const t = binding.value.transition;
+  if (t.type !== "ACTIVATION")
+    return blocked("BINDING_CONFLICT", "the binding is not a first ACTIVATION");
+  return {
+    kind: "BOUND",
+    pc_id: pcId,
+    world_id: worldId,
+    locus_id: locusId,
+    contract: pc.value,
+    statement: t.basis.statement,
+  };
+}
+
+/** A trusted, owner-verified open of the configured campaign and the retained records that judge it, or the state that says why not. */
+export type CharacterOpen =
+  | {
+      readonly ok: true;
+      readonly campaign: CanonicalCampaign;
+      readonly pin: string;
+      readonly keep: KeepRecord | null;
+      readonly uid: number;
+      readonly stateDir: string;
+    }
+  | { readonly ok: false; readonly state: CharacterState };
+
+/**
+ * Opens the campaign afresh (an owner-verified open) after the checks every read of it needs: a trusted operator and retained-state
+ * directory, the retained confirmation identity of the original setting (first-writer-wins) and the retained keep. A lock held by another
+ * process, an unreadable record or a package that cannot be verified is UNAVAILABLE ("neither done nor not done"); anything present but
+ * not trusted is BLOCKED and is never adopted, repaired or deleted. The caller closes the campaign.
+ */
+export async function openCharacterCampaign(
+  config: PhoneConfig,
+  buildId: string = BUILD_ID,
+): Promise<CharacterOpen> {
+  const no = (state: CharacterState): CharacterOpen => ({ ok: false, state });
+  const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
+  if (uid === undefined)
+    return no(blocked("OPERATOR_UNVERIFIED", "no local operator can be verified here"));
+  const stateDir = config.operatorDir || defaultOperatorDir(config.campaignDir);
+  if (existsSync(stateDir)) {
+    const trusted = verifyLocalOperator(stateDir, "operator-state");
+    if (!trusted.ok || trusted.value.uid !== uid)
+      return no(blocked("OPERATOR_UNVERIFIED", "the retained-state directory is not trusted"));
+  }
+  const pin = await readPin({ dir: stateDir, campaignId: config.campaignId, operatorUid: uid });
+  if (!pin.ok)
+    return no(
+      pin.error.code === "PIN_UNREADABLE"
+        ? unavailable(pin.error.code, "the retained setup identity cannot be read now")
+        : blocked(
+            pin.error.code,
+            "the retained setup identity is not a valid one of this campaign",
+          ),
+    );
+  if (pin.value === null)
+    return no({
+      kind: "NO_SETTING",
+      detail: "no original setting has been confirmed for this campaign",
+    });
+  const operator = verifyLocalOperator(config.campaignDir, "campaign");
+  if (!operator.ok || operator.value.uid !== uid) {
+    if (!existsSync(config.campaignDir))
+      return no({ kind: "NO_SETTING", detail: "no original setting has been established" });
+    return no(
+      blocked("OPERATOR_UNVERIFIED", "the campaign package is not trusted for this operator"),
+    );
+  }
+  const kept = await readKeep({ dir: stateDir, campaignId: config.campaignId, operatorUid: uid });
+  if (!kept.ok)
+    return no(
+      kept.error.code === "KEEP_UNREADABLE"
+        ? unavailable(kept.error.code, "the retained keep record cannot be read now")
+        : blocked(kept.error.code, "the retained keep record is not a valid one of this campaign"),
+    );
+  const opened = await CanonicalCampaign.open(config.campaignDir, { buildId });
+  if (!opened.ok)
+    return no(
+      unavailable(
+        "PACKAGE_UNAVAILABLE",
+        "the campaign package cannot be opened now (a lock is held or the package cannot be verified)",
+      ),
+    );
+  return { ok: true, campaign: opened.value, pin: pin.value, keep: kept.value, uid, stateDir };
+}
+
+/**
  * Reads the campaign afresh (an owner-verified open) and reports what it holds of the character, against the VERIFIED original setting
  * (the world and locus are the retained confirmation identity's, never guessed). A lock held by another process, an unreadable record
  * or a package that cannot be verified is UNAVAILABLE ("neither done nor not done"); anything present but not reconcilable is BLOCKED and
  * is never adopted, repaired or deleted.
  */
 export async function readCharacter(config: PhoneConfig): Promise<CharacterState> {
-  const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
-  if (uid === undefined)
-    return blocked("OPERATOR_UNVERIFIED", "no local operator can be verified here");
-  const stateDir = config.operatorDir || defaultOperatorDir(config.campaignDir);
-  if (existsSync(stateDir)) {
-    const trusted = verifyLocalOperator(stateDir, "operator-state");
-    if (!trusted.ok || trusted.value.uid !== uid)
-      return blocked("OPERATOR_UNVERIFIED", "the retained-state directory is not trusted");
-  }
-  const pin = await readPin({ dir: stateDir, campaignId: config.campaignId, operatorUid: uid });
-  if (!pin.ok)
-    return pin.error.code === "PIN_UNREADABLE"
-      ? unavailable(pin.error.code, "the retained setup identity cannot be read now")
-      : blocked(pin.error.code, "the retained setup identity is not a valid one of this campaign");
-  if (pin.value === null)
-    return {
-      kind: "NO_SETTING",
-      detail: "no original setting has been confirmed for this campaign",
-    };
-  const operator = verifyLocalOperator(config.campaignDir, "campaign");
-  if (!operator.ok || operator.value.uid !== uid) {
-    if (!existsSync(config.campaignDir))
-      return { kind: "NO_SETTING", detail: "no original setting has been established" };
-    return blocked("OPERATOR_UNVERIFIED", "the campaign package is not trusted for this operator");
-  }
-  const kept = await readKeep({ dir: stateDir, campaignId: config.campaignId, operatorUid: uid });
-  if (!kept.ok)
-    return kept.error.code === "KEEP_UNREADABLE"
-      ? unavailable(kept.error.code, "the retained keep record cannot be read now")
-      : blocked(kept.error.code, "the retained keep record is not a valid one of this campaign");
-  const keep: KeepRecord | null = kept.value;
-  const opened = await CanonicalCampaign.open(config.campaignDir, { buildId: BUILD_ID });
-  if (!opened.ok)
-    return unavailable(
-      "PACKAGE_UNAVAILABLE",
-      "the campaign package cannot be opened now (a lock is held or the package cannot be verified)",
-    );
-  const campaign = opened.value;
+  const open = await openCharacterCampaign(config);
+  if (!open.ok) return open.state;
+  const { campaign } = open;
   try {
-    if (campaign.store.head().campaign_id !== config.campaignId)
-      return blocked("CAMPAIGN_MISMATCH", "the package holds another campaign");
-    const setting = readLocality(campaign, config.campaignId, pin.value);
-    if (setting.kind === "NONE" || setting.kind === "INCOMPLETE")
-      return { kind: "NO_SETTING", detail: "the original setting is not established" };
-    if (setting.kind === "FAILED") return blocked("SETTING_BLOCKED", setting.detail);
-    const worldId = setting.readback.world_id;
-    const locusId = setting.readback.locus_id;
-    const characters = campaign.store
-      .listFacts()
-      .filter((f) => f.owner === "pc_existence" && f.facet === "existence_contract");
-    const binding = campaign.binding();
-    if (characters.length > 1)
-      return blocked("CHARACTER_CONFLICT", "more than one character is held");
-    if (characters.length === 0) {
-      if (binding)
-        return blocked(
-          "BINDING_CONFLICT",
-          "an operative binding is held without a character of this command",
-        );
-      if (keep === null) return { kind: "NONE", world_id: worldId, locus_id: locusId, pc_id: null };
-      // kept at this console and retained, not yet released: finished from exactly what was kept, never asked again
-      if (campaign.store.getFact(pcExistenceContractKey(keep.pc_id)))
-        return blocked("CHARACTER_CONFLICT", "the kept character is not the one held");
-      return {
-        kind: "KEPT_UNRELEASED",
-        pc_id: keep.pc_id,
-        world_id: worldId,
-        locus_id: locusId,
-        contract: keep.contract,
-      };
-    }
-    const fact = characters[0]!;
-    const pcId = fact.key.split("/")[1]!;
-    const problems = releaseProblems(config.campaignId, fact, keep, campaign.store);
-    if (problems.length > 0 || keep === null)
-      return blocked("CHARACTER_CONFLICT", problems.join("; ") || "no keep is on record");
-    const pc = campaign.playerCharacter(pcId);
-    if (!pc) return blocked("CHARACTER_CONFLICT", "the released character is not held");
-    if (!binding)
-      return {
-        kind: "RELEASED_UNBOUND",
-        pc_id: pcId,
-        world_id: worldId,
-        locus_id: locusId,
-        contract: pc.value,
-      };
-    const why = [
-      ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
-      ...bindingProblems({ campaign, campaignId: config.campaignId, keep }, pc.fact, {
-        worldId,
-        locusId,
-      }),
-    ];
-    if (why.length > 0) return blocked("BINDING_CONFLICT", why.join("; "));
-    const t = binding.value.transition;
-    if (t.type !== "ACTIVATION")
-      return blocked("BINDING_CONFLICT", "the binding is not a first ACTIVATION");
-    return {
-      kind: "BOUND",
-      pc_id: pcId,
-      world_id: worldId,
-      locus_id: locusId,
-      contract: pc.value,
-      statement: t.basis.statement,
-    };
+    return characterStateOf(campaign, config, open.pin, open.keep);
   } catch {
     return unavailable("READ_FAILED", "the campaign could not be read now");
   } finally {

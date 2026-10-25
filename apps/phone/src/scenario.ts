@@ -31,6 +31,22 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const UNIT = /^[A-Za-z0-9._ :-]{1,64}$/;
 const MAX_BYTES = 4096;
 
+/** True for exactly the seven keys of the scenario, each a valid identity (and the unit a valid unit): the same rule the file check applies, for a scenario held in memory. */
+export function isScenario(v: unknown): v is Scenario {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  const r = v as Record<string, unknown>;
+  const keys = Object.keys(r);
+  return (
+    keys.length === SCENARIO_KEYS.length &&
+    SCENARIO_KEYS.every(
+      (k) =>
+        Object.hasOwn(r, k) &&
+        typeof r[k] === "string" &&
+        (k === "quantity_unit" ? UNIT : ID).test(r[k]),
+    )
+  );
+}
+
 export type ScenarioCheck =
   | { readonly ok: true; readonly scenario: Scenario }
   | { readonly ok: false; readonly defect: string };

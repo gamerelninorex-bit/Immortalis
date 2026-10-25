@@ -2,6 +2,10 @@ import type { ExistenceContract } from "@immortalis/contracts";
 import type { CharacterDraft, Edit } from "@immortalis/operator";
 import type { CharacterReadback } from "./character-evidence.ts";
 import type { LocalityReadback } from "./locality-evidence.ts";
+import type { StageExpectation } from "./route-confirm.ts";
+import type { StageRequest } from "./route-plan.ts";
+import type { RouteStatus } from "./route-status.ts";
+import type { StageKind } from "./route-stages.ts";
 import type { WebTerminal } from "./web-terminal.ts";
 
 /** One command the player lane is running (or ran last). The sequence numbers of its transcript restart with every run. */
@@ -14,6 +18,8 @@ export interface Run {
   uncertain: boolean;
   /** set on a run of the player's ORIGINAL character: which of its two separate choices the run is (keep and release, or placement) */
   stage?: "KEEP" | "PLACE";
+  /** set on a run of a stage of the collection-preparation route: which stage the run is */
+  step?: StageKind;
 }
 
 export type Launch =
@@ -89,6 +95,18 @@ export type CharacterExpectation =
 export type CharacterLaunch =
   Launch | { readonly ok: true; readonly run: null; readonly retained: CharacterStatusReport };
 
+/**
+ * The result of asking for a stage: a run, a refusal with a reason the assistant may relay, or "nothing to do" - the owners already hold the
+ * stage, so nobody was asked and no run exists (`done` says what, in words that confirm nothing new).
+ */
+export type StageLaunch =
+  | Launch
+  | {
+      readonly ok: true;
+      readonly run: null;
+      readonly done: { readonly step: StageKind; readonly message: string };
+    };
+
 /** The player lane's single run slot, shared by the phone page and the ordinary-chat adapter: at most one command at a time. */
 export interface PlayerRuns {
   readonly current: () => Run | null;
@@ -109,7 +127,7 @@ export interface PlayerRuns {
   /** the owner-backed status of the setting (read-only: it settles nothing and starts nothing) */
   readonly settingStatus: () => Promise<SettingStatus>;
   /** which retained operation a resumable barrier belongs to (null when nothing is resumable) */
-  readonly resumeKind: () => "SETTING" | "CHARACTER" | null;
+  readonly resumeKind: () => "SETTING" | "CHARACTER" | "STAGE" | null;
   /** offers the player's own authored draft for the review, keep and release (the shipped `author-character`, staged); the human's keep is typed at the trusted terminal */
   readonly proposeCharacter: (draft: CharacterDraft) => Promise<CharacterLaunch>;
   /** applies the player's typed revision to the retained unkept draft, all or none, and offers the result; a revision invalidates the earlier question and confirmation */
@@ -122,6 +140,12 @@ export interface PlayerRuns {
   readonly characterStatus: () => Promise<CharacterStatusReport>;
   /** what the confirmation now pending on the player's run must show whole (null when the run is not a character run) */
   readonly characterExpectation: (run: Run) => CharacterExpectation | null;
+  /** one stage of the collection-preparation route (or the resumption of the one retained, partly committed stage); the human's confirmation is typed at the trusted terminal */
+  readonly stage: (request: StageRequest) => Promise<StageLaunch>;
+  /** the compact, owner-backed, READ-ONLY status of the whole route from one open of the campaign: it settles nothing and starts nothing */
+  readonly routeStatus: () => Promise<RouteStatus>;
+  /** what the confirmation now pending on the player's run must show whole (null when the run is not a stage run) */
+  readonly stageExpectation: (run: Run) => StageExpectation | null;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

@@ -66,6 +66,13 @@ export interface ClarifyCollectionCycleParams {
   readonly ledgerFs?: FsOps;
   readonly refereePolls?: number;
   readonly refereePollMs?: number;
+  /**
+   * An ordinary-chat front end that already carries the player's own words supplies them here instead of the console question. It is a
+   * typed input seam and nothing more: the same question is shown, the same bounds apply (a number in digits and the campaign's unit),
+   * nothing is suggested or chosen, and the classification, the player's separate confirmation and every owner operation are this
+   * command's own. A front end's words are an untrusted candidate until the referee reads them and the player confirms them.
+   */
+  readonly chat?: { readonly words: string };
 }
 
 const TIME = (t: CanonicalTime): string => `${t.value} ${t.unit}`;
@@ -114,15 +121,25 @@ const scopeLines = (r: I002ClarificationReading | undefined): string[] =>
 const NOT_AVAILABLE = (why: string, pcKey?: string): CharacterResult =>
   result("CLARIFICATION_NOT_AVAILABLE", [...(pcKey ? [`character: ${pcKey}`] : []), why]);
 
+/** Why the player's words cannot be used as the cycle's account, or null: a number in digits and the campaign's unit, or the collection could never quote them. */
+const unusable = (text: string, unit: string): string | null =>
+  !/[0-9]/.test(text) || !text.includes(unit)
+    ? `the words must state a number in digits and the unit "${unit}", or the collection could never quote them`
+    : null;
+
+const askLines = (terminal: OperatorTerminal, unit: string): void => {
+  terminal.say(PC_CLARIFICATION_QUESTION);
+  terminal.say(
+    `The campaign counts time in ${unit}. Your words must contain the number (in digits) and the word "${unit}". Nothing is suggested to you, and nothing is chosen for you.`,
+  );
+};
+
 /** How the player is asked, once, for the words: the question is the engine's fixed one and nothing is offered as an answer. */
 async function askWords(
   terminal: OperatorTerminal,
   unit: string,
 ): Promise<{ ok: true; text: string } | { ok: false }> {
-  terminal.say(PC_CLARIFICATION_QUESTION);
-  terminal.say(
-    `The campaign counts time in ${unit}. Your words must contain the number (in digits) and the word "${unit}". Nothing is suggested to you, and nothing is chosen for you.`,
-  );
+  askLines(terminal, unit);
   for (let tries = 0; tries < 3; tries++) {
     const line = await terminal.ask("your character's own account (or leave empty to stop)>");
     if (line === null || line.trim() === "") return { ok: false };
@@ -131,15 +148,34 @@ async function askWords(
       terminal.say(`NOT USED: ${judged.reason}.`);
       continue;
     }
-    if (!/[0-9]/.test(judged.text) || !judged.text.includes(unit)) {
-      terminal.say(
-        `NOT USED: the words must state a number in digits and the unit "${unit}", or the collection could never quote them.`,
-      );
+    const why = unusable(judged.text, unit);
+    if (why !== null) {
+      terminal.say(`NOT USED: ${why}.`);
       continue;
     }
     return { ok: true, text: judged.text };
   }
   return { ok: false };
+}
+
+/** The same question and bounds with the words already in hand (one try: a front end that holds them resubmits changed words as a new request). */
+function chatWords(
+  terminal: OperatorTerminal,
+  unit: string,
+  said: string,
+): { ok: true; text: string } | { ok: false } {
+  askLines(terminal, unit);
+  const judged = judgeStatement(said);
+  if (!judged.ok) {
+    terminal.say(`NOT USED: ${judged.reason}.`);
+    return { ok: false };
+  }
+  const why = unusable(judged.text, unit);
+  if (why !== null) {
+    terminal.say(`NOT USED: ${why}.`);
+    return { ok: false };
+  }
+  return { ok: true, text: judged.text };
 }
 
 async function run(
@@ -212,7 +248,9 @@ async function run(
     );
   const at = state.data.canonical_time;
 
-  const words = await askWords(terminal, at.unit);
+  const words = p.chat
+    ? chatWords(terminal, at.unit, p.chat.words)
+    : await askWords(terminal, at.unit);
   if (!words.ok) return result("DECLINED", ["nothing was clarified; nothing was changed"]);
   const statements = [words.text];
   const id = pcClarificationIdOf(pcId);

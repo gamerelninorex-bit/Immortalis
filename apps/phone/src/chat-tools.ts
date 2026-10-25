@@ -31,6 +31,16 @@ import type { PhoneConfig } from "./config.ts";
 import { checkScenarioFile, type Scenario } from "./scenario.ts";
 import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
+import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
+import { completeStageConfirmation } from "./route-confirm.ts";
+import type { StageRequest } from "./route-plan.ts";
+import {
+  MAX_TEXT,
+  parseChronology,
+  parseDeclare,
+  parseHandling,
+  parsePrepare,
+} from "./route-stages.ts";
 import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
 
 /**
@@ -56,6 +66,7 @@ import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
  */
 
 export { readScenario, type Scenario } from "./scenario.ts";
+export { splitConfirmation } from "./confirm-text.ts";
 
 const text = (t: string, isError = false): ToolResult => ({
   content: [{ type: "text", text: t }],
@@ -117,35 +128,13 @@ function confirmationText(run: Run): string {
   return trimmed.length > 6000 ? trimmed.slice(trimmed.length - 6000) : trimmed;
 }
 
+const SETUP_COMMAND = "establish-locality";
+
 /**
  * The WHOLE of the confirmation of an original setting (BLUE: no admitted field may be dropped). The text the human is asked to confirm
  * is the engine's own lines since the last reply, in order and untruncated; it is delivered in as many consecutive parts as the channel
  * needs (a part confirms nothing), and it is refused (null) when this transcript no longer holds it whole.
  */
-const SETUP_PART_CHARS = 12_000;
-const SETUP_COMMAND = "establish-locality";
-
-/** Cuts `body` into consecutive parts of at most `size` characters, at line ends where possible and never inside a surrogate pair; joining them (a newline after each part cut at a line end, nothing after a hard cut) restores `body` exactly. */
-export function splitConfirmation(body: string, size = SETUP_PART_CHARS): string[] {
-  const parts: string[] = [];
-  let rest = body;
-  while (rest.length > size) {
-    const at = rest.lastIndexOf("\n", size);
-    if (at > 0) {
-      parts.push(rest.slice(0, at));
-      rest = rest.slice(at + 1);
-      continue;
-    }
-    let cut = size;
-    const code = rest.charCodeAt(cut - 1);
-    if (code >= 0xd800 && code <= 0xdbff) cut -= 1;
-    parts.push(rest.slice(0, cut));
-    rest = rest.slice(cut);
-  }
-  parts.push(rest);
-  return parts;
-}
-
 export function completeSetupConfirmation(run: Run): string[] | null {
   const snap = run.terminal.snapshot(0);
   // the transcript drops its earliest lines beyond its capacity: a confirmation that starts after line 1 may have lost its beginning
@@ -166,34 +155,6 @@ export function completeSetupConfirmation(run: Run): string[] | null {
     : whole.indexOf(`\n${LOCALITY_CONFIRMATION_FIRST}\n`);
   if (head < 0 || !whole.slice(head).includes(`\n${LOCALITY_CONFIRMATION_LAST}\n`)) return null;
   return splitConfirmation(whole);
-}
-
-/** The lines of the engine's current confirmation, in order and untruncated; null when this transcript no longer holds them from the start of the run. */
-function wholeConfirmationBody(run: Run): string | null {
-  const snap = run.terminal.snapshot(0);
-  // the transcript drops its earliest lines beyond its capacity: a confirmation of a run whose line 1 is gone may have lost its beginning
-  if (snap.lines.length === 0 || snap.lines[0]!.seq !== 1) return null;
-  let from = 0;
-  snap.lines.forEach((l, i) => {
-    if (l.kind === "reply") from = i + 1;
-  });
-  let body = "";
-  for (const l of snap.lines.slice(from)) {
-    if (l.kind === "ask" || l.kind === "reply") continue;
-    body += l.more ? l.text : `${l.text}\n`;
-  }
-  return body.trim();
-}
-
-/** finds each needle in order after `from`; the index after the last, or -1 when one is missing */
-function inOrder(whole: string, from: number, needles: readonly string[]): number {
-  let at = from;
-  for (const n of needles) {
-    const found = whole.indexOf(n, at);
-    if (found < 0) return -1;
-    at = found + n.length;
-  }
-  return at;
 }
 
 const KEEP_FIRST = "+--- CHARACTER MIRROR (";
@@ -454,7 +415,7 @@ function findingsOf(run: Run): string[] {
   const out: string[] = [];
   let inside = false;
   for (const t of lines) {
-    if (t.startsWith("+--- AI REFEREE FINDINGS (")) inside = true;
+    if (t.startsWith("+--- AI REFEREE FINDINGS")) inside = true;
     if (inside) out.push(t.slice(0, 1200));
     if (inside && t === "+---") inside = false;
     if (out.length >= 160) break;
@@ -567,6 +528,143 @@ async function describeCharacter(
   });
 }
 
+// -- the stages that follow the character (physical location, starting moment, handling duration, preparation, declaration, finishing) ----
+
+const STAGE_NOTICE =
+  "This is the out-of-character account of preparing the player's own setting and character for a collection they have not yet requested. It is not what any character perceives or knows. Nothing here collects anything, observes anything, advances time, gives the character a right to any material or starts a game; the existing collection tools remain a separate request of the player's.";
+
+const STAGE_RECOVERY: Record<string, string> = {
+  RECONCILE:
+    "Whether the stage changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not offer another stage before that.",
+  RESUME:
+    "A stage the player confirmed is partly committed. Tell the player so. If they want it finished, call resume_collection_setup: it finishes ONLY that same retained input and the player confirms it again. You cannot supply or replace it, and you must not offer anything else.",
+  ENGINEERING:
+    "Whether and how far the stage was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the stage does or does not exist.",
+};
+
+/** what the model may be told next, by the stage's own final status (the player's choices stay the player's) */
+const STAGE_NEXT: Partial<Record<string, string>> = {
+  DECLINED:
+    "Nothing was committed by this stage. What the player said for it is retained: they may confirm it afresh with resume_collection_setup, or change it by offering the stage again with their changed words (a changed offer is a new review and a new confirmation).",
+  LOCUS_NOT_QUALIFIED:
+    "The referee did not read the character as one material body present at exactly that place, so no physical location was committed. This route supports one such body only; nothing was changed. Do not retry unchanged and do not invent a different place.",
+  CLARIFICATION_NOT_ACCEPTED:
+    "The referee did not accept those words as the character's own account of the duration alone. Nothing was written. Ask the player for their own words again; do not suggest a number.",
+  FINISH_NOT_ATTESTED:
+    "The referee did not establish the cycle, or has not answered. A genuine negative stays negative: do not retry it unchanged and invent no rate. Report it plainly and let the player decide what to change.",
+  REFEREE_PENDING:
+    "The AI referee host has not answered yet; nothing was changed. The referee scope answers the engine's task (referee_list_tasks, referee_get_task, referee_submit_decision); then call the same tool again or await_action.",
+  REFEREE_UNAVAILABLE:
+    "No AI referee host can be asked now; nothing was changed. There is no substitute for the referee. Tell the player the operator must connect one.",
+};
+
+/** the statuses that mean the stage's own work is committed: no detail lines are relayed for them (the owner-verified route status is the account) */
+const STAGE_SUCCESS = new Set([
+  "LOCUS_ESTABLISHED",
+  "TIME_ESTABLISHED",
+  "CLARIFICATION_ACCEPTED",
+  "COLLECTION_COMMITTED",
+  "SETTING_DECLARED",
+  "PC_COLLECTION_COMMITTED",
+  "FINISH_READY",
+]);
+
+/** the shipped command's own final status and fixed sentence, relayed only in a bounded, identity-free form */
+function stageResult(run: Run): { status: string; message: string; details?: string[] } | null {
+  const lines = run.terminal
+    .snapshot(0)
+    .lines.filter((l) => l.kind === "say" && !l.more)
+    .map((l) => l.text);
+  let at = -1;
+  lines.forEach((t, i) => {
+    if (/^STATUS [A-Z][A-Z0-9_]{2,63}/.test(t)) at = i;
+  });
+  if (at < 0) return null;
+  const status = /^STATUS ([A-Z][A-Z0-9_]{2,63})/.exec(lines[at]!)?.[1] ?? "";
+  const message = (lines[at + 1] ?? "").slice(0, 900);
+  const details = STAGE_SUCCESS.has(status)
+    ? []
+    : lines
+        .slice(at + 2)
+        .filter(
+          (t) =>
+            !t.startsWith("— command finished") &&
+            !t.startsWith("PROGRESS ") &&
+            !/\bgroup \S+ cause\b/.test(t) &&
+            !t.startsWith("+---") &&
+            !t.startsWith("|"),
+        )
+        .slice(0, 12)
+        .map((t) => t.slice(0, 300));
+  return { status, message, ...(details.length > 0 ? { details } : {}) };
+}
+
+async function describeStage(
+  config: PhoneConfig,
+  run: Run,
+  after: number,
+  runs: PlayerRuns,
+): Promise<ToolResult> {
+  const state = stateOf(run);
+  const { next } = reportOf(run, after);
+  const finished = state === "FINISHED";
+  const own = finished ? stageResult(run) : null;
+  const route = finished ? await runs.routeStatus() : null;
+  const findings = findingsOf(run);
+  return asJson({
+    run_id: run.id,
+    action: "collection_setup",
+    stage: run.step,
+    state,
+    exit_code: finished ? exitCodeOf(run) : null,
+    ...(own ? { result: own } : {}),
+    ...(findings.length > 0
+      ? {
+          referee_findings: findings,
+          findings_note:
+            "These are the referee's readings of the player's OWN words and of the committed facts, exactly as the player sees them. Relay them plainly; they are out-of-character.",
+        }
+      : {}),
+    ...(route ? { route } : {}),
+    ...(finished && (run.uncertain || runs.unresolved())
+      ? {
+          outcome: "UNCERTAIN",
+          ...(runs.blocker() ? { blocker: runs.blocker() } : {}),
+          recovery:
+            STAGE_RECOVERY[
+              route && route.barrier !== "NONE"
+                ? route.barrier
+                : runs.structural()
+                  ? "ENGINEERING"
+                  : "RECONCILE"
+            ],
+        }
+      : {}),
+    ...(undelivered.has(run)
+      ? {
+          confirmation_delivery:
+            "The whole of what the player was asked to confirm could not be shown to them, so it was declined and nothing was confirmed or changed. Do not offer it again unchanged.",
+        }
+      : {}),
+    next_after: next,
+    notice: STAGE_NOTICE,
+    ...(finished && own && STAGE_NEXT[own.status] ? { next: STAGE_NEXT[own.status] } : {}),
+    ...(state === "AWAITING_CONFIRMATION"
+      ? {
+          confirmation:
+            "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
+          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
+        }
+      : {}),
+    ...(state === "RUNNING"
+      ? {
+          waiting:
+            "The engine is waiting for the AI referee host's reading, or checking the committed facts. If this stays RUNNING, the referee scope answers with referee_list_tasks, referee_get_task and referee_submit_decision; then call await_action again.",
+        }
+      : {}),
+  });
+}
+
 async function describe(
   config: PhoneConfig,
   run: Run,
@@ -575,6 +673,7 @@ async function describe(
 ): Promise<ToolResult> {
   if (run.label === SETUP_COMMAND) return describeSetup(config, run, after, runs);
   if (run.label === CHARACTER_COMMAND) return describeCharacter(config, run, after, runs);
+  if (run.step) return describeStage(config, run, after, runs);
   const unresolved = runs.unresolved();
   const blocked = runs.blocker();
   const { lines, next } = reportOf(run, after);
@@ -593,7 +692,9 @@ async function describe(
             : runs.resumable()
               ? runs.resumeKind() === "CHARACTER"
                 ? CHARACTER_RECOVERY["RESUME"]
-                : SETUP_RECOVERY["RESUME"]
+                : runs.resumeKind() === "STAGE"
+                  ? STAGE_RECOVERY["RESUME"]
+                  : SETUP_RECOVERY["RESUME"]
               : "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. If it ends UNCERTAIN again with the same blocker, stop and tell the player the outcome could not be established and needs the operator. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
         }
       : {}),
@@ -1050,6 +1151,108 @@ export function parseEdits(args: Record<string, unknown>): Parsed<Edit[]> {
   return issues.length > 0 ? { ok: false, issues: issues.slice(0, 8) } : { ok: true, value: edits };
 }
 
+// -- the stages that follow the character: typed offers (the engine's own bounds are the authority; these tell the model the shape) ----
+const LONG = { type: "string", minLength: 1, maxLength: MAX_TEXT } as const;
+const QUOTE = { type: "string", minLength: 8, maxLength: MAX_TEXT } as const;
+const MOMENT_SCHEMA = {
+  type: "object",
+  properties: {
+    statement: {
+      ...LONG,
+      description: "the setting author's own words for the moment the campaign begins",
+    },
+    value: {
+      type: "integer",
+      minimum: 0,
+      description: "the exact coordinate of that moment, a whole number, in the author's own unit",
+    },
+    unit: {
+      type: "string",
+      minLength: 1,
+      maxLength: 64,
+      description: "the unit of time the campaign counts in, as the author names it",
+    },
+  },
+  required: ["statement", "value", "unit"],
+  additionalProperties: false,
+} as const;
+const PREPARATION_SCHEMA = {
+  type: "object",
+  properties: {
+    actuator_quote: {
+      ...QUOTE,
+      description:
+        "a verbatim quotation of one of the character's ACCEPTED statements that says what its hands (the actuator) do",
+    },
+    traversal_quote: {
+      ...QUOTE,
+      description:
+        "a verbatim quotation of an accepted statement that says what the mechanism can and cannot pass",
+    },
+    cycle_quote: {
+      ...QUOTE,
+      description:
+        "a verbatim quotation of an accepted statement (or of the player's accepted clarification) that states the duration of one handling cycle: its number and the campaign's unit",
+    },
+    cycle_value: {
+      type: "integer",
+      minimum: 1,
+      description: "the number that quotation states, in the campaign's unit",
+    },
+    reserve_condition: {
+      type: "string",
+      minLength: 1,
+      maxLength: 64,
+      description: "the author's own word for the condition the local Reserve keeps material in",
+    },
+    relies_on_aspect: {
+      type: "string",
+      minLength: 1,
+      maxLength: 200,
+      description:
+        "which stated physical access fact of the source the gathering relies on; needed only when the source states several",
+    },
+  },
+  required: [
+    "actuator_quote",
+    "traversal_quote",
+    "cycle_quote",
+    "cycle_value",
+    "reserve_condition",
+  ],
+  additionalProperties: false,
+} as const;
+const DECLARATION_SCHEMA = {
+  type: "object",
+  properties: {
+    domain_designation: { ...LONG, description: "what the author calls the closed domain" },
+    domain_topology: {
+      ...LONG,
+      description: "the author's account of the domain's shape and boundaries",
+    },
+    closure_statement: {
+      ...LONG,
+      description: "the author's statement of what else, if anything, acts in the domain",
+    },
+    source_ground: {
+      ...LONG,
+      description: "the author's ground for saying that no claim on the source is established",
+    },
+    workforce_statement: {
+      ...LONG,
+      description: "the author's statement of the workforce the place has",
+    },
+  },
+  required: [
+    "domain_designation",
+    "domain_topology",
+    "closure_statement",
+    "source_ground",
+    "workforce_statement",
+  ],
+  additionalProperties: false,
+} as const;
+
 export interface ChatToolDeps {
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
@@ -1133,6 +1336,19 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     await launched.run.terminal.changed(0, settleMs);
     return describe(config, launched.run, 0, runs);
   };
+  /** the result of a stage start: the run's account, or "nothing to do" when the owners already hold the stage (nobody is asked) */
+  const startStage = async (request: StageRequest): Promise<ToolResult> => {
+    const launched = await runs.stage(request);
+    if (!launched.ok) return text(launched.reason, true);
+    if (launched.run === null)
+      return asJson({
+        done: launched.done,
+        route: await runs.routeStatus(),
+        notice: STAGE_NOTICE,
+      });
+    await launched.run.terminal.changed(0, settleMs);
+    return describe(config, launched.run, 0, runs);
+  };
   /**
    * A new offer is a new question: when the player is still being asked about an EARLIER offer, that confirmation is withdrawn
    * (declined) first, so nothing answered to the old prompt can confirm the new whole. A character run that is merely waiting for the
@@ -1140,7 +1356,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
    */
   const supersede = async (): Promise<void> => {
     const run = runs.current();
-    if (!run || run.done || run.label !== CHARACTER_COMMAND) return;
+    if (!run || run.done || (run.label !== CHARACTER_COMMAND && !run.step)) return;
     if (!run.terminal.snapshot(0).pending) return;
     runs.decline();
     const deadline = Date.now() + 5_000;
@@ -1457,6 +1673,191 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       },
     },
     {
+      name: "collection_setup_status",
+      title: "Where the preparation for collecting stands",
+      description:
+        "Read where the player's ORIGINAL setting, character and preparation for a collection stand, from the engine's own records (read-only: it starts and settles nothing, and it recreates no question or confirmation). It lists every stage (done, next, waiting, not needed, stale, blocked), names the ONE next step and exactly what only the player can still tell you for it, shows any words of theirs that are already retained so you do not ask again, and says whether the campaign is prepared for the player to request the supported collection. Prepared is not started: nothing is ever collected, observed or advanced by setup.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        const route = await runs.routeStatus();
+        return asJson({
+          route,
+          ...(route.barrier !== "NONE" ? { recovery: STAGE_RECOVERY[route.barrier] } : {}),
+          notice: STAGE_NOTICE,
+        });
+      },
+    },
+    {
+      name: "establish_character_location",
+      title: "Place the player's character physically at the established place",
+      description: `After the player's character is kept and placed, and only when the player wants it physically at the established place, ask for the physical location. It takes no arguments: the AI referee host reads the character's own accepted words, the player's confirmed presence statement and the committed place, and only a reading of ONE material body at exactly that place can be confirmed, by the player themselves, before World-State holds it. Skip it if collection_setup_status says it is done. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: NONE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        await supersede();
+        return startStage({ kind: "LOCUS" });
+      },
+    },
+    {
+      name: "state_starting_moment",
+      title: "State the moment the campaign begins",
+      description: `Offer the moment the campaign begins, exactly as the setting's AUTHOR (the player) states it: their own words, an exact whole-number coordinate and the unit they count in. It is established once and shown to them whole for their confirmation. Nothing is defaulted, converted, estimated or guessed, and no time passes by stating it. If time already has an origin it is never reset. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: MOMENT_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = parseChronology(args);
+        if (!parsed.ok)
+          return asJson(
+            {
+              refused: "that is not a valid starting moment; nothing was started",
+              issues: parsed.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "CHRONOLOGY", input: parsed.value });
+      },
+    },
+    {
+      name: "state_handling_duration",
+      title: "State how long one handling cycle of the character's hands takes",
+      description: `Use ONLY when collection_setup_status names handling_duration as the next step, which it does only when none of the character's accepted words states a duration. Offer the PLAYER's own account, in their own words, of how long ONE handling cycle of the hands the character already has takes: the number in digits and the campaign's unit. Never suggest, estimate or choose a duration for them, and never include a new limb, power or reach. The AI referee host reads exactly those words, and the player then accepts them as a claim of their character in a separate confirmation. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          words: {
+            type: "string",
+            minLength: 1,
+            maxLength: 500,
+            description:
+              "the player's own account, with the number in digits and the campaign's unit",
+          },
+        },
+        required: ["words"],
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = parseHandling(args);
+        if (!parsed.ok)
+          return asJson(
+            { refused: "those are not valid words; nothing was started", issues: parsed.issues },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "CLARIFY", words: parsed.value });
+      },
+    },
+    {
+      name: "propose_collection_preparation",
+      title: "Offer the preparation for collecting from the source",
+      description: `Offer the preparation the PLAYER, as the setting's author, confirms: the character's own accepted words for what its hands do, what they cannot pass and the one-unit cycle (three VERBATIM quotations of accepted statements, taken from collection_setup_status, and the number the cycle quotation states), plus the author's word for the condition the empty local Reserve keeps material in. You supply no identity, claim reference, unit or quantity: the engine resolves them from committed facts, the Reserve starts EMPTY, and nothing is collected, extracted, owned or timed by preparing. The player reads ALL of it and confirms it themselves. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: PREPARATION_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = parsePrepare(args);
+        if (!parsed.ok)
+          return asJson(
+            {
+              refused: "that is not a valid preparation; nothing was started",
+              issues: parsed.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "PREPARE", input: parsed.value });
+      },
+    },
+    {
+      name: "declare_closed_setting",
+      title: "Declare the place a closed domain and its workforce",
+      description: `Offer the declaration the PLAYER, as the setting's AUTHOR (not the character), makes: the place as a closed domain (its designation and topology), the closure statement, the ground on which no claim on the source is established, and the statement of the workforce the place has. They are the author's own words, never the character's or yours; you assert no actor, absence, right or completeness. The owners derive who and what is present themselves and treat the declaration as stale if any of it changes, in which case it is declared again with a new confirmation. The player reads ALL of it and confirms it themselves. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: DECLARATION_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = parseDeclare(args);
+        if (!parsed.ok)
+          return asJson(
+            {
+              refused: "that is not a valid declaration; nothing was started",
+              issues: parsed.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "DECLARE", input: parsed.value });
+      },
+    },
+    {
+      name: "finish_collection_setup",
+      title: "Finish preparing for the collection",
+      description: `When collection_setup_status says everything before it is done, finish: the bound referee reads the character's cycle wording (an adjudicator's act, not a player choice; a negative or missing answer attests nothing), and the service installs the private connection for exactly this campaign's character, source, Reserve and mechanism. It takes no arguments, asks the player nothing, and collects, observes and advances nothing. It is safe to call again. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: NONE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        return startStage({ kind: "FINISH" });
+      },
+    },
+    {
+      name: "resume_collection_setup",
+      title: "Finish what the player already began in the preparation",
+      description: `Finish only what the engine's records show was begun: a stage the player confirmed that is only partly committed is finished from exactly the retained input with a FRESH confirmation, or the player's earlier words for a stage they declined or did not finish are offered again WITHOUT asking them again. It takes no arguments, cannot supply or change anything, and is refused unless the records show exactly such a situation. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: NONE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        await supersede();
+        return startStage({ kind: "RESUME" });
+      },
+    },
+    {
       name: "await_action",
       title: "Follow the action in progress",
       description:
@@ -1612,6 +2013,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
    */
   async function askHuman(ctx: ToolContext, run: Run, prompt: string): Promise<string | null> {
     const expected = run.label === CHARACTER_COMMAND ? runs.characterExpectation(run) : null;
+    const reviewed = run.step ? runs.stageExpectation(run) : null;
     const parts =
       run.label === SETUP_COMMAND
         ? completeSetupConfirmation(run)
@@ -1619,7 +2021,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           ? expected
             ? completeCharacterConfirmation(run, expected)
             : null
-          : [confirmationText(run)];
+          : run.step
+            ? reviewed
+              ? completeStageConfirmation(run, reviewed)
+              : null
+            : [confirmationText(run)];
     if (parts === null) {
       undelivered.add(run);
       return "";
@@ -1720,4 +2126,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game.";
+  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game. After the character is kept and placed, collection_setup_status is the one compact read of the preparation for the supported collection: it names the next step and exactly what only the player can still say, and you ask for nothing else. Offer the player's own words with establish_character_location (a separate choice), state_starting_moment, state_handling_duration (only when the status says the character's accepted words state no duration), propose_collection_preparation (verbatim quotations of the character's accepted statements), declare_closed_setting (the setting author's own words, never the character's) and finish_collection_setup (no question for the player: the bound referee reads the cycle and the service installs the connection). Every stage is shown to the player whole and confirmed by them alone; resume_collection_setup finishes only what was begun. Preparing is never starting: you collect, observe and advance nothing until the player separately asks for the supported collection with the existing tools.";

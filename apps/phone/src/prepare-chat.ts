@@ -16,43 +16,76 @@ import type { PhoneConfig } from "./config.ts";
 import { preflightB } from "./preflight.ts";
 import { checkScenarioFile } from "./scenario.ts";
 
+/** Why a preparation did not complete, in a closed vocabulary (the messages are for the operator; a code is what a front end may relay). */
+export type PrepareCode =
+  | "OK"
+  | "PUBLIC_URL_UNSET"
+  | "PLAYER_VIEW_HOST_UNSET"
+  | "SCENARIO_INPUT"
+  | "SCENARIO_DIRECTORY"
+  | "SCENARIO_CONFLICT"
+  | "SCENARIO_DEFECT"
+  | "NOT_READY"
+  | "CAMPAIGN_BUSY"
+  | "VIEW_BINDING"
+  | "INSTALL_FAILED";
+export interface PrepareResult {
+  readonly ok: boolean;
+  readonly messages: string[];
+  readonly code: PrepareCode;
+  /** the preflight finding identities that refused it (NOT_READY / CAMPAIGN_BUSY) */
+  readonly blockers?: readonly string[];
+}
+
 /** Explicit local-operator preparation, never a player/referee/model tool. Uses the configured host, campaign and destination only.
  * Validates all seven identities against canon, provisions its least-privilege view through the existing bind command, and installs
  * the private scenario file. It changes no owner facts, supplies no gameplay premise and never overwrites a different scenario. */
-export async function prepareChat(
-  config: PhoneConfig,
-  input: string,
-): Promise<{ ok: boolean; messages: string[] }> {
-  const no = (message: string) => ({ ok: false, messages: [message] });
-  if (config.publicUrl === null) return no("configure IMMORTALIS_PUBLIC_URL first");
+export async function prepareChat(config: PhoneConfig, input: string): Promise<PrepareResult> {
+  const no = (code: PrepareCode, message: string): PrepareResult => ({
+    ok: false,
+    messages: [message],
+    code,
+  });
+  if (config.publicUrl === null)
+    return no("PUBLIC_URL_UNSET", "configure IMMORTALIS_PUBLIC_URL first");
   if (config.playerViewHostId === null)
-    return no("explicitly configure IMMORTALIS_PLAYER_VIEW_HOST_ID first");
+    return no(
+      "PLAYER_VIEW_HOST_UNSET",
+      "explicitly configure IMMORTALIS_PLAYER_VIEW_HOST_ID first",
+    );
   const checked = checkScenarioFile(input, { strict: true });
-  if (!checked.ok) return no(checked.defect);
+  if (!checked.ok) return no("SCENARIO_INPUT", checked.defect);
   try {
     const parent = lstatSync(dirname(config.scenarioFile));
     if (!parent.isDirectory() || parent.uid !== process.getuid?.() || (parent.mode & 0o077) !== 0)
-      return no("the scenario destination needs an operator-owned private directory (0700)");
+      return no(
+        "SCENARIO_DIRECTORY",
+        "the scenario destination needs an operator-owned private directory (0700)",
+      );
   } catch {
-    return no("the scenario destination directory cannot be examined");
+    return no("SCENARIO_DIRECTORY", "the scenario destination directory cannot be examined");
   }
   const document = `${JSON.stringify(checked.scenario, null, 2)}\n`;
   const existing = checkScenarioFile(config.scenarioFile, { strict: true });
   if (existing.ok) {
     if (JSON.stringify(existing.scenario) !== JSON.stringify(checked.scenario))
       return no(
+        "SCENARIO_CONFLICT",
         "a different scenario already exists; the operator must inspect it before replacement",
       );
-  } else if (existing.defect !== "the scenario file does not exist") return no(existing.defect);
+  } else if (existing.defect !== "the scenario file does not exist")
+    return no("SCENARIO_DEFECT", existing.defect);
   const candidate = { ...config, scenarioFile: input };
   const before = await preflightB(candidate);
-  if (!before.ok)
+  if (!before.ok) {
+    const refused = before.findings.filter((f) => f.severity === "FAIL" || f.severity === "BUSY");
     return {
       ok: false,
-      messages: before.findings
-        .filter((f) => f.severity === "FAIL" || f.severity === "BUSY")
-        .map((f) => f.message),
+      messages: refused.map((f) => f.message),
+      code: refused.some((f) => f.severity === "BUSY") ? "CAMPAIGN_BUSY" : "NOT_READY",
+      blockers: refused.map((f) => f.id),
     };
+  }
   const secret = playerViewSecretPath(
     { stateDir: config.operatorDir, campaignId: config.campaignId },
     config.playerViewHostId,
@@ -61,7 +94,7 @@ export async function prepareChat(
     readFileSync(secret);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT")
-      return no("the configured view credential cannot be read");
+      return no("VIEW_BINDING", "the configured view credential cannot be read");
     const code = await runPlayerViewBindCli(
       [
         "--campaign",
@@ -76,11 +109,19 @@ export async function prepareChat(
       { out: () => undefined, error: () => undefined },
     );
     if (code !== 0)
-      return no("the configured player-view host could not be bound; inspect the operator binding");
+      return no(
+        "VIEW_BINDING",
+        "the configured player-view host could not be bound; inspect the operator binding",
+      );
   }
   const after = await preflightB(candidate);
   if (!after.ok)
-    return no("the prepared binding did not pass readiness; no scenario was installed");
+    return {
+      ...no("NOT_READY", "the prepared binding did not pass readiness; no scenario was installed"),
+      blockers: after.findings
+        .filter((f) => f.severity === "FAIL" || f.severity === "BUSY")
+        .map((f) => f.id),
+    };
   if (!existing.ok) {
     const temp = `${config.scenarioFile}.${randomBytes(8).toString("hex")}.tmp`;
     try {
@@ -94,13 +135,17 @@ export async function prepareChat(
       // Exclusive install: a concurrent operator configuration is never replaced.
       linkSync(temp, config.scenarioFile);
     } catch {
-      return no("the scenario could not be installed exclusively; inspect the destination");
+      return no(
+        "INSTALL_FAILED",
+        "the scenario could not be installed exclusively; inspect the destination",
+      );
     } finally {
       rmSync(temp, { force: true });
     }
   }
   return {
     ok: true,
+    code: "OK",
     messages: [
       "scenario and configured player-view binding are prepared; this proves no observation or client confirmation capability",
     ],

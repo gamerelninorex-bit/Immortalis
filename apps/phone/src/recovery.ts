@@ -51,6 +51,8 @@ import {
   type characterOutcome,
   type readCharacter,
 } from "./character-evidence.ts";
+import { validStageIdentity, type StageIdentity } from "./route-stages.ts";
+import type { StageOutcome } from "./route-evidence.ts";
 
 /**
  * The chat adapter's trusted pending-operation record (BLUE R3). A player action that may change canon is written here, atomically and
@@ -101,6 +103,12 @@ export interface PendingOperation {
   readonly setup?: SetupIdentity | null;
   /** The exact staged operation of the player's ORIGINAL character (keep and release, or placement); a console-run record carries none. */
   readonly character?: CharacterIdentity | null;
+  /**
+   * The exact stage of the collection-preparation route this operation is (physical location, chronology, the player's handling duration,
+   * the preparation, the declaration, or the finishing stage), with every document, word and version it was dispatched with; a page-run or
+   * console record carries none. Never consent: the human confirms each stage afresh at the trusted terminal.
+   */
+  readonly stage?: StageIdentity | null;
 }
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
@@ -165,6 +173,11 @@ export function readPending(config: PhoneConfig): PendingRead {
         v["character"] === undefined ||
         v["character"] === null ||
         (v["command"] === CHARACTER_COMMAND && validCharacterIdentity(v["character"]))
+      ) ||
+      !(
+        v["stage"] === undefined ||
+        v["stage"] === null ||
+        validStageIdentity(config, v["command"], v["stage"])
       )
     )
       return { kind: "UNREADABLE" };
@@ -236,6 +249,8 @@ export interface RecoveryDeps {
   readonly runCollection?: typeof runCollectionOperation;
   readonly characterOutcome?: typeof characterOutcome;
   readonly readCharacter?: typeof readCharacter;
+  /** what became of ONE dispatched stage of the collection-preparation route (the owners' own records, read once) */
+  readonly stageOutcome?: (config: PhoneConfig, id: StageIdentity) => Promise<StageOutcome>;
 }
 
 const BUILD = "immortalis-chat-recovery";

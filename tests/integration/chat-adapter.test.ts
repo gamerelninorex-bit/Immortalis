@@ -549,6 +549,14 @@ describe("MECHANISM: the MCP transport", () => {
           "place_original_character",
           "original_character_status",
           "resume_original_character",
+          "collection_setup_status",
+          "establish_character_location",
+          "state_starting_moment",
+          "state_handling_duration",
+          "propose_collection_preparation",
+          "declare_closed_setting",
+          "finish_collection_setup",
+          "resume_collection_setup",
         ].sort(),
       );
       // there is no tool that can reply to a prompt or confirm: no property of any tool is a reply, answer, confirm or challenge
