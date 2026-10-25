@@ -91,8 +91,15 @@ async function unrelated(s: any, extra: number, history: number) {
 
 function extractBase() {
   const dir = tempDir("immortalis-a2-base-");
-  const archive = execFileSync("git", ["archive", BASE, "apps/phone/src", "packages/operator/src"]);
-  execFileSync("tar", ["-x", "-C", dir], { input: archive });
+  const archive = join(dir, "baseline.tar");
+  execFileSync("git", [
+    "archive",
+    `--output=${archive}`,
+    BASE,
+    "apps/phone/src",
+    "packages/operator/src",
+  ]);
+  execFileSync("tar", ["-xf", archive, "-C", dir]);
   symlinkSync(join(root, "node_modules"), join(dir, "node_modules"), "dir");
   return dir;
 }
@@ -118,6 +125,14 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
         const referees = await hosts(s);
         const meter = routeMeter();
         const toolCounts: Record<string, number> = {};
+        const transport = { requests: 0, request_body_bytes: 0 };
+        const nativeFetch = globalThis.fetch;
+        globalThis.fetch = async (input, init) => {
+          transport.requests++;
+          if (typeof init?.body === "string" || init?.body instanceof URLSearchParams)
+            transport.request_body_bytes += Buffer.byteLength(String(init.body));
+          return nativeFetch(input, init);
+        };
         let hostBytes = 0,
           humanReviews = 0,
           humanParts = 0,
@@ -301,6 +316,8 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
             setup_work: setupWork,
             status: reads,
             tool_counts: toolCounts,
+            transport,
+            oauth_link_decisions: 1,
             emitted_allowlisted_bytes: hostBytes,
             setup_allowlisted_bytes: setupHostBytes,
             human_confirmations: humanReviews,
@@ -326,10 +343,25 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
         } finally {
           meter.stop();
           Chat.prototype.call = originalCall;
+          globalThis.fetch = nativeFetch;
           await r.app.close().catch(() => undefined);
           for (const h of referees) await h.stop();
         }
       }
+  for (const cycle of ["accepted", "R5"]) {
+    const rows = results.filter((r) => r.cycle === cycle);
+    expect(new Set(rows.map((r) => r.setup_work.prepare_groups)).size).toBe(1);
+    for (const row of rows) {
+      expect(row.status.every((r: any) => r.work.opens === 1 && r.work.prepare_groups === 0)).toBe(
+        true,
+      );
+      for (const key of ["common_before", "common_after", "added_route_read"])
+        expect(row[key].every((r: any) => r.work.opens === 1)).toBe(true);
+      expect(row.common_after.map((r: any) => r.work.replay_groups)).toEqual(
+        row.common_before.map((r: any) => r.work.replay_groups),
+      );
+    }
+  }
   emit("measurements", {
     base: BASE,
     head: HEAD,
@@ -403,6 +435,11 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
           },
         });
         expect(confirms).toBe(1);
+        expect(
+          trail.some(
+            (t) => t.includes("+retained") || t.startsWith("RESUME/resume_collection_setup"),
+          ),
+        ).toBe(true);
         const ms = performance.now() - begin;
         meter.stop();
         transcript.push(

@@ -9,7 +9,7 @@ import {
   type RouteProbe,
 } from "./route-evidence.ts";
 import type { InstallState } from "./route-finish.ts";
-import { deriveScenario } from "./route-finish.ts";
+import { deriveScenario, PLAY_OPERATIONS } from "./route-finish.ts";
 import type { RouteRecord } from "./route-record.ts";
 import {
   STAGE_COMMAND,
@@ -234,7 +234,7 @@ export function planStage(
 ): Plan {
   const covers = (op: string): boolean => coverage !== null && coverage.has(op);
   if (!r.original_only) return refuse("the route requires an entirely ORIGINAL setting");
-  if (coverage === null && ["LOCUS", "CLARIFY", "FINISH"].includes(req.kind))
+  if (coverage === null && req.kind === "FINISH")
     return refuse("the configured referee grants cannot be verified now", 503);
   const landed = (intent: string): boolean => r.landed?.get(intent) === true;
   if (req.kind === "PREPARE") {
@@ -270,7 +270,10 @@ export function planStage(
             );
       if (!covers("IR_PHYSICAL_PLACEMENT"))
         return refuse(
-          "no AI referee host that this service lists is bound to read where the character physically is; nothing was started. Binding one is an engineering step",
+          coverage === null
+            ? "the configured referee grants cannot be verified now"
+            : "no AI referee host that this service lists is bound to read where the character physically is; nothing was started. Binding one is an engineering step",
+          coverage === null ? 503 : 409,
         );
       return { kind: "RUN", run };
     }
@@ -322,7 +325,10 @@ export function planStage(
         );
       if (!covers("I002_CLASSIFY"))
         return refuse(
-          "no AI referee host that this service lists is bound to read the character's own words; nothing was started",
+          coverage === null
+            ? "the configured referee grants cannot be verified now"
+            : "no AI referee host that this service lists is bound to read the character's own words; nothing was started",
+          coverage === null ? 503 : 409,
         );
       return { kind: "RUN", run };
     }
@@ -375,7 +381,9 @@ export function planStage(
               ? "declare_closed_setting"
               : null;
       if (unmet !== null) return refuse(`an earlier stage is not complete: ${unmet} comes first`);
-      if (install?.kind === "BLOCKED" || install?.kind === "UNAVAILABLE")
+      const pendingAttestation =
+        id.attest && install?.kind === "BLOCKED" && install.code === "CAMPAIGN_NOT_RECONCILED";
+      if ((install?.kind === "BLOCKED" && !pendingAttestation) || install?.kind === "UNAVAILABLE")
         return refuse(install.detail, install.kind === "UNAVAILABLE" ? 503 : 409);
       if (id.attest && !covers("PC_COLLECTION_CYCLE"))
         return refuse(
@@ -384,6 +392,10 @@ export function planStage(
       if (config.playerViewHostId === null)
         return refuse(
           "the service has no player-view host configured, so the connection cannot be installed; this is an engineering step",
+        );
+      if (!PLAY_OPERATIONS.every((op) => covers(op)))
+        return refuse(
+          "the configured referee operation grants are incomplete for collection and earned observation; the operator must inspect them",
         );
       if (!id.attest && install?.kind === "COMPLETE")
         return {

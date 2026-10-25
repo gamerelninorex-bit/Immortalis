@@ -141,6 +141,20 @@ it("the same installed scenario in a different JSON member order converges witho
   }
 }, 120_000);
 
+it("a completed installation cannot claim collection readiness when a required play grant is no longer configured", async () => {
+  const s = await cloneSlot(steps.READY!);
+  const r = await resumed({ ...s, config: { ...s.config, refereeHostIds: ["gm-collection"] } });
+  try {
+    expect((await status(r.chat)).route.readiness.prepared_to_request_collection).toBe(false);
+    const out = await r.chat.call("finish_collection_setup");
+    expect(out.isError).toBe(true);
+    expect(out.elicited).toEqual([]);
+    expect(out.text).toContain("operation grants are incomplete");
+  } finally {
+    await r.stop();
+  }
+}, 120_000);
+
 it("a mismatched private referee credential withholds readiness without exposing it or recreating consent", async () => {
   const s = await cloneSlot(steps.READY!);
   const file = secretPath(

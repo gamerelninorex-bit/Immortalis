@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, expect, it } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 import { CanonicalCampaign } from "@immortalis/engine";
 import { shape } from "../support/chat-character.ts";
 import {
@@ -154,7 +154,14 @@ for (const b of boundaries)
       const r = await resumed(s);
       let asks = 0;
       try {
-        const initial = (await status(r.chat)).route;
+        const opens = vi.spyOn(CanonicalCampaign, "open");
+        let initial;
+        try {
+          initial = (await status(r.chat)).route;
+          expect(opens).toHaveBeenCalledTimes(1);
+        } finally {
+          opens.mockRestore();
+        }
         const done = (route: any) =>
           route.barrier === "NONE" &&
           route.stages.some((l: any) => l.stage === b.line && l.state === "DONE");

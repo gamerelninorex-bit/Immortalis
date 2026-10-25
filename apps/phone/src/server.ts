@@ -56,6 +56,7 @@ import {
   refereeCoverage,
   runFinish,
   stageEvidence,
+  finishOutcome,
 } from "./route-finish.ts";
 import { probeFor, planStage, type PlannedRun, type StageRequest } from "./route-plan.ts";
 import {
@@ -2019,6 +2020,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const record = readRouteRecord(config);
     // ONE owner-verified open serves the whole status, and the barrier's evidence when a stage is unresolved
     const read = await readRoute(config, mine ? probeOf(mine) : {});
+    const installation = read.kind === "OPEN" ? await installOf(read.route) : null;
     let barrier: Barrier = "NONE";
     let barrierDetail: string | undefined;
     if (held.kind === "UNREADABLE") {
@@ -2031,7 +2033,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       if (mine) {
         const ev =
           read.kind === "OPEN" && mine.kind === "FINISH"
-            ? await stageEvidence(config, mine)
+            ? finishOutcome(
+                read.route.attestation?.current === true,
+                installation ?? {
+                  kind: "UNAVAILABLE",
+                  code: "PREREQUISITES_UNAVAILABLE",
+                  detail: "the finishing prerequisites cannot be verified now",
+                },
+                mine,
+              )
             : stageOutcome(read, mine, config.campaignId);
         barrier =
           ev.kind === "PARTIAL" && mine.kind !== "FINISH"
@@ -2051,7 +2061,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       record,
       playerViewHost: config.playerViewHostId !== null,
       coverage,
-      install: read.kind === "OPEN" ? await installOf(read.route) : null,
+      install: installation,
       running: null,
       barrier,
       ...(barrierDetail !== undefined ? { barrierDetail } : {}),

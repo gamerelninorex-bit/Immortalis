@@ -106,13 +106,6 @@ export async function installState(
   scenario: Scenario,
   packageResidue: boolean,
 ): Promise<InstallState> {
-  if (packageResidue)
-    return {
-      kind: "BLOCKED",
-      code: "CAMPAIGN_NOT_RECONCILED",
-      detail:
-        "the existing player-view owner refuses package residue; the operator must inspect it before installation or play",
-    };
   const existing = checkScenarioFile(config.scenarioFile, { strict: true });
   let file: "SAME" | "ABSENT";
   if (existing.ok) {
@@ -173,6 +166,13 @@ export async function installState(
       bound = "YES";
     }
   }
+  if (packageResidue)
+    return {
+      kind: "BLOCKED",
+      code: "CAMPAIGN_NOT_RECONCILED",
+      detail:
+        "the existing player-view owner refuses package residue; the operator must inspect it before installation or play",
+    };
   if (file === "SAME" && bound === "YES") return { kind: "COMPLETE" };
   if (file === "ABSENT" && bound === "NO") return { kind: "NO_EFFECT" };
   return {
@@ -190,6 +190,21 @@ export function finishOutcome(
   install: InstallState,
   id: FinishStage,
 ): StageOutcome {
+  // Before the attestation's commit, the existing store can reconcile its own
+  // uncommitted tail by re-presenting this SAME owner publication. Installation
+  // still uses the unchanged player-view proof afterwards. Once attested, no new
+  // canonical write is justified merely to clear residue.
+  if (
+    !attested &&
+    id.attest &&
+    install.kind === "BLOCKED" &&
+    install.code === "CAMPAIGN_NOT_RECONCILED"
+  )
+    return {
+      kind: "NO_EFFECT",
+      detail:
+        "the attestation did not commit; its original owner operation can be presented again before installation",
+    };
   if (install.kind === "BLOCKED") return install;
   if (install.kind === "UNAVAILABLE") return install;
   if (attested && install.kind === "COMPLETE") return { kind: "COMPLETE" };
