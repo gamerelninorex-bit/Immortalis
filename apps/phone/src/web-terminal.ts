@@ -113,6 +113,9 @@ export function createWebTerminal(options: { readonly askExpiryMs?: number } = {
     close: () => {
       closed = true;
       finish(null);
+      // Completion with no pending prompt still changes the terminal state.
+      // Wake long polls after owner readback instead of waiting out their timeout.
+      notify();
     },
     reply: (promptId, text) => {
       if (closed || !pending || pending.id !== promptId || text.length > MAX_REPLY) return false;
