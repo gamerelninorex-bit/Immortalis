@@ -417,7 +417,23 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
       } finally {
         await r.stop();
       }
-      const fresh = await resumed(s);
+      const meter = routeMeter();
+      const transport = { requests: 0, request_body_bytes: 0 };
+      const nativeFetch = globalThis.fetch;
+      globalThis.fetch = async (input, init) => {
+        transport.requests++;
+        if (typeof init?.body === "string" || init?.body instanceof URLSearchParams)
+          transport.request_body_bytes += Buffer.byteLength(String(init.body));
+        return nativeFetch(input, init);
+      };
+      const completeBegin = performance.now();
+      const fresh = await resumed(s).catch((error: unknown) => {
+        meter.stop();
+        globalThis.fetch = nativeFetch;
+        throw error;
+      });
+      const restartAndLinkMs = performance.now() - completeBegin;
+      const restartAndLinkWork = meter.snapshot();
       const call = fresh.chat.call.bind(fresh.chat);
       const toolCounts: Record<string, number> = {};
       let emittedBytes = 0;
@@ -427,7 +443,6 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
         emittedBytes += Buffer.byteLength(result.text ?? "");
         return result;
       };
-      const meter = routeMeter();
       const begin = performance.now();
       let confirms = 0;
       try {
@@ -461,6 +476,10 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
           ),
         ).toBe(true);
         const ms = performance.now() - begin;
+        const completeMs = performance.now() - completeBegin;
+        const completeWork = meter.snapshot();
+        expect(completeMs).toBeGreaterThanOrEqual(ms);
+        expect(restartAndLinkWork.prepare_groups).toBe(0);
         meter.stop();
         transcript.push(
           `SERVICE RECOVERY: ${trail.join(" -> ")}; only the original retained declaration was completed.`,
@@ -469,7 +488,13 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
           variation,
           repetition,
           ms,
-          work: meter.snapshot(),
+          work: subtractWork(completeWork, restartAndLinkWork),
+          restart_and_link_ms: restartAndLinkMs,
+          restart_and_link_work: restartAndLinkWork,
+          complete_recovery_ms: completeMs,
+          complete_work: completeWork,
+          transport,
+          oauth_link_decisions: 1,
           trail,
           fresh_confirmations: confirms,
           reasked_authored_inputs: 0,
@@ -486,6 +511,7 @@ it("A2: interruption recovery with fixed input across unrelated state and histor
           });
       } finally {
         meter.stop();
+        globalThis.fetch = nativeFetch;
         await fresh.stop();
       }
     }
