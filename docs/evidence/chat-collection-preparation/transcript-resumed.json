@@ -1,0 +1,68 @@
+{
+  "base": "e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587",
+  "head": "86a389cea2d4d79a7d6450596a527ace8b714aa9",
+  "environment": {
+    "node": "v22.22.2",
+    "pnpm": "10.33.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "repetitions": 3
+  },
+  "transcript": [
+    "MECHANISM ONLY: scripted test-human and referee; real authenticated service shutdown/restart.",
+    "TEST HUMAN: The walled courtyard. One flagged yard ringed by a high wall with no gate in use. Nothing else acts in the courtyard beyond what its owners hold. The loose stones belong to no one and no claim on them is established. Only those the owners hold account for any labour in the yard",
+    "INTERRUPTION: service stopped before the human answered the mandatory declaration review. No consent was submitted.",
+    "READ-ONLY STATUS x2: {\"tool\":\"reconcile_last_action\",\"ask_the_player\":[],\"note\":\"An earlier action's outcome is not established: the owners' own records settle it. It asks the player nothing.\"}. No question or confirmation was recreated.",
+    "COMPLETE RESUMED HUMAN REVIEW:\nOOC DEVELOPMENT / SCENARIO INSTRUMENTATION - not a gameplay command, travel planner or player-facing ETA.\nCLOSED-SETTING DECLARATION — OUT OF CHARACTER; the setting author's own canon, derived coverage added by the owners.\n{\n  \"format\": \"immortalis-closed-setting-declaration\",\n  \"format_version\": 1,\n  \"world_id\": \"world-courtyard\",\n  \"locus_id\": \"locus-courtyard\",\n  \"domain\": {\n    \"designation\": \"The walled courtyard\",\n    \"topology\": \"One flagged yard ringed by a high wall with no gate in use\"\n  },\n  \"closure\": {\n    \"statement\": \"Nothing else acts in the courtyard beyond what its owners hold\"\n  },\n  \"source_rights\": [\n    {\n      \"source_key\": \"src-loose-stones\",\n      \"ground\": \"The loose stones belong to no one and no claim on them is established\"\n    }\n  ],\n  \"workforce_scope\": {\n    \"statement\": \"Only those the owners hold account for any labour in the yard\"\n  }\n}\nYou state the domain, its closure, and that no claim on each named source is established. You do NOT state who or what is present: World-State\nand Population derive that from the owners' own facts and will treat this declaration as STALE the moment any of them changes.\nIt is not the player's choice, grants no right beyond the grounds you state, suppresses no independent cause and advances no time.\nNEWLY AUTHORIZED under the bounded semantic delegation (independent BLUE review pending).\nTo confirm, type exactly \"<human-only challenge>\". Anything else declines.\n\n>",
+    "TEST HUMAN: confirms this retained, still-incomplete declaration afresh. [Challenge and reply redacted.]",
+    "SERVICE RECOVERY: RECONCILE/reconcile_last_action -> NONE/declare_closed_setting+retained -> NONE/finish_collection_setup; only the original retained declaration was completed."
+  ],
+  "variation": {
+    "facts": 0,
+    "history": 0
+  },
+  "repetition": 0,
+  "ms": 505.08730600000126,
+  "work": {
+    "opens": 10,
+    "open_ms": 238.17025500000454,
+    "verifies": 27,
+    "replay_groups": 156,
+    "prepare_groups": 2,
+    "prepare_ms": 2.4723939999821596,
+    "fact_reads": 451,
+    "fact_listings": 697,
+    "copied_fact_rows": 10930,
+    "fs_reads": 67,
+    "fs_read_bytes": 1693112,
+    "fs_writes": 26,
+    "fs_write_bytes": 151699,
+    "sync_reads": 26,
+    "sync_read_bytes": 10146,
+    "sync_writes": 3,
+    "sync_write_bytes": 2324,
+    "sync_fsyncs": 2,
+    "sync_renames": 2,
+    "sync_links": 0,
+    "sync_removes": 4,
+    "hashes": 2531,
+    "hash_input_bytes": 8500984,
+    "serializations": 339300,
+    "serialized_bytes": 14303532
+  },
+  "trail": [
+    "RECONCILE/reconcile_last_action",
+    "NONE/declare_closed_setting+retained",
+    "NONE/finish_collection_setup"
+  ],
+  "fresh_confirmations": 1,
+  "reasked_authored_inputs": 0,
+  "tool_counts": {
+    "collection_setup_status": 5,
+    "reconcile_last_action": 1,
+    "await_action": 2,
+    "resume_collection_setup": 1
+  },
+  "emitted_allowlisted_bytes": 12204
+}

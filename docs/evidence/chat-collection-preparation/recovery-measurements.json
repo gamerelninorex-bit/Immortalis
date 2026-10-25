@@ -1,0 +1,455 @@
+{
+  "base": "e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587",
+  "head": "86a389cea2d4d79a7d6450596a527ace8b714aa9",
+  "environment": {
+    "node": "v22.22.2",
+    "pnpm": "10.33.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "repetitions": 3
+  },
+  "measured": [
+    {
+      "variation": {
+        "facts": 0,
+        "history": 0
+      },
+      "repetition": 0,
+      "ms": 505.08730600000126,
+      "work": {
+        "opens": 10,
+        "open_ms": 238.17025500000454,
+        "verifies": 27,
+        "replay_groups": 156,
+        "prepare_groups": 2,
+        "prepare_ms": 2.4723939999821596,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 1693112,
+        "fs_writes": 26,
+        "fs_write_bytes": 151699,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 2531,
+        "hash_input_bytes": 8500984,
+        "serializations": 339300,
+        "serialized_bytes": 14303532
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 0,
+        "history": 0
+      },
+      "repetition": 1,
+      "ms": 485.5604319999984,
+      "work": {
+        "opens": 10,
+        "open_ms": 226.7788400000718,
+        "verifies": 27,
+        "replay_groups": 156,
+        "prepare_groups": 2,
+        "prepare_ms": 2.0246770000085235,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 1693112,
+        "fs_writes": 26,
+        "fs_write_bytes": 151699,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 2519,
+        "hash_input_bytes": 8500792,
+        "serializations": 339300,
+        "serialized_bytes": 14303532
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 0,
+        "history": 0
+      },
+      "repetition": 2,
+      "ms": 491.3047319999896,
+      "work": {
+        "opens": 10,
+        "open_ms": 225.78568000005907,
+        "verifies": 27,
+        "replay_groups": 156,
+        "prepare_groups": 2,
+        "prepare_ms": 2.0200569999869913,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 1693112,
+        "fs_writes": 26,
+        "fs_write_bytes": 151699,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 2519,
+        "hash_input_bytes": 8500792,
+        "serializations": 339300,
+        "serialized_bytes": 14303532
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 20,
+        "history": 0
+      },
+      "repetition": 0,
+      "ms": 780.8542340000276,
+      "work": {
+        "opens": 10,
+        "open_ms": 500.55968700008816,
+        "verifies": 27,
+        "replay_groups": 356,
+        "prepare_groups": 2,
+        "prepare_ms": 3.368257999973139,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 24870,
+        "fs_reads": 67,
+        "fs_read_bytes": 2654859,
+        "fs_writes": 26,
+        "fs_write_bytes": 214191,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 3295,
+        "hash_input_bytes": 22395243,
+        "serializations": 846760,
+        "serialized_bytes": 29941151
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 20,
+        "history": 0
+      },
+      "repetition": 1,
+      "ms": 757.4004499999864,
+      "work": {
+        "opens": 10,
+        "open_ms": 493.1198680000671,
+        "verifies": 27,
+        "replay_groups": 356,
+        "prepare_groups": 2,
+        "prepare_ms": 3.294893000012962,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 24870,
+        "fs_reads": 67,
+        "fs_read_bytes": 2654859,
+        "fs_writes": 26,
+        "fs_write_bytes": 214191,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 3299,
+        "hash_input_bytes": 22395307,
+        "serializations": 846760,
+        "serialized_bytes": 29941151
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 20,
+        "history": 0
+      },
+      "repetition": 2,
+      "ms": 751.4260899999936,
+      "work": {
+        "opens": 10,
+        "open_ms": 488.7830420000246,
+        "verifies": 27,
+        "replay_groups": 356,
+        "prepare_groups": 2,
+        "prepare_ms": 3.263334000017494,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 24870,
+        "fs_reads": 67,
+        "fs_read_bytes": 2654859,
+        "fs_writes": 26,
+        "fs_write_bytes": 214191,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 3277,
+        "hash_input_bytes": 22394955,
+        "serializations": 846760,
+        "serialized_bytes": 29941151
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 0,
+        "history": 40
+      },
+      "repetition": 0,
+      "ms": 909.5100180000009,
+      "work": {
+        "opens": 10,
+        "open_ms": 681.5411100000492,
+        "verifies": 27,
+        "replay_groups": 556,
+        "prepare_groups": 2,
+        "prepare_ms": 2.0387929999560583,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 4498149,
+        "fs_writes": 26,
+        "fs_write_bytes": 151701,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 4071,
+        "hash_input_bytes": 34475839,
+        "serializations": 1158100,
+        "serialized_bytes": 44510191
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 0,
+        "history": 40
+      },
+      "repetition": 1,
+      "ms": 883.3679030000058,
+      "work": {
+        "opens": 10,
+        "open_ms": 664.5111279999837,
+        "verifies": 27,
+        "replay_groups": 556,
+        "prepare_groups": 2,
+        "prepare_ms": 2.0111219999962486,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 4498149,
+        "fs_writes": 26,
+        "fs_write_bytes": 151701,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 4071,
+        "hash_input_bytes": 34475839,
+        "serializations": 1158100,
+        "serialized_bytes": 44510191
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    },
+    {
+      "variation": {
+        "facts": 0,
+        "history": 40
+      },
+      "repetition": 2,
+      "ms": 906.5826649999944,
+      "work": {
+        "opens": 10,
+        "open_ms": 679.2019959999307,
+        "verifies": 27,
+        "replay_groups": 556,
+        "prepare_groups": 2,
+        "prepare_ms": 2.005238999990979,
+        "fact_reads": 451,
+        "fact_listings": 697,
+        "copied_fact_rows": 10930,
+        "fs_reads": 67,
+        "fs_read_bytes": 4498149,
+        "fs_writes": 26,
+        "fs_write_bytes": 151701,
+        "sync_reads": 26,
+        "sync_read_bytes": 10146,
+        "sync_writes": 3,
+        "sync_write_bytes": 2324,
+        "sync_fsyncs": 2,
+        "sync_renames": 2,
+        "sync_links": 0,
+        "sync_removes": 4,
+        "hashes": 4071,
+        "hash_input_bytes": 34475839,
+        "serializations": 1158100,
+        "serialized_bytes": 44510191
+      },
+      "trail": [
+        "RECONCILE/reconcile_last_action",
+        "NONE/declare_closed_setting+retained",
+        "NONE/finish_collection_setup"
+      ],
+      "fresh_confirmations": 1,
+      "reasked_authored_inputs": 0,
+      "tool_counts": {
+        "collection_setup_status": 5,
+        "reconcile_last_action": 1,
+        "await_action": 2,
+        "resume_collection_setup": 1
+      },
+      "emitted_allowlisted_bytes": 12204
+    }
+  ]
+}
