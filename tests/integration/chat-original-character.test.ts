@@ -1445,6 +1445,99 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
       }
     }, 90_000);
 
+  for (const field of ["world_id", "locus_id", "pc_id"] as const)
+    it(`BLUE H1: retained words whose ${field} is not the verified one are a conflict (never absent, never re-identified): blocked for engineering, every mutation refused, the bytes kept`, async () => {
+      const r = await ready();
+      const host = referee(r.s);
+      try {
+        expect((await offer(r.chat, draft(), readsAndDeclines)).finished.data.result.status).toBe(
+          "DECLINED",
+        );
+        const file = wordsFile(r.s)!;
+        const record = JSON.parse(readFileSync(file, "utf8"));
+        const original = record[field];
+        record[field] = "foreign-identity";
+        writeFileSync(file, JSON.stringify(record));
+        const before = readFileSync(file, "utf8");
+        const head = (await held(r.s)).revision;
+        const status = (await r.chat.call("original_character_status")).data.character;
+        expect({ state: status.state, barrier: status.barrier }).toEqual({
+          state: "BLOCKED",
+          barrier: "ENGINEERING",
+        });
+        expect(status.draft).toBeUndefined();
+        for (const [tool, args] of [
+          ["propose_original_character", draft()],
+          ["revise_original_character", { edits: [{ op: "add", list: "open", text: "x" }] }],
+          ["resume_original_character", {}],
+          ["place_original_character", { statement: WORDS.presence }],
+        ] as const) {
+          const out = await r.chat.call(tool, args);
+          expect(out.isError, tool).toBe(true);
+          expect(out.text, tool).toMatch(/inspect them|released character/);
+        }
+        expect(readFileSync(file, "utf8")).toBe(before);
+        expect(existsSync(pendingPath(r.s.config))).toBe(false);
+        expect(keepFiles(r.s)).toEqual([]);
+        expect((await held(r.s)).revision).toBe(head);
+
+        // once the record is the verified identity's again, the ordinary same-identity journey is unaffected
+        record[field] = original;
+        writeFileSync(file, JSON.stringify(record));
+        expect((await r.chat.call("original_character_status")).data.character.state).toBe(
+          "DRAFT_RETAINED",
+        );
+        const revised = await r.chat.call("revise_original_character", {
+          edits: [{ op: "add", list: "open", text: "Left open on purpose" }],
+        });
+        expect(revised.isError).toBe(false);
+        expect((await follow(r.chat)).data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
+        expect((await place(r.chat)).finished.data.result.status).toBe("CHARACTER_BOUND");
+      } finally {
+        await host.stop();
+        await r.app.close();
+      }
+    }, 120_000);
+
+  for (const field of ["world_id", "locus_id", "pc_id"] as const)
+    it(`BLUE H1: a ${field} conflict is likewise blocked once the character is kept and released: placement and status refuse, nothing is bound, the bytes are kept`, async () => {
+      const r = await ready();
+      const host = referee(r.s);
+      try {
+        expect((await offer(r.chat)).finished.data.result.status).toBe(
+          "CHARACTER_RELEASED_UNBOUND",
+        );
+        const file = wordsFile(r.s)!;
+        const record = JSON.parse(readFileSync(file, "utf8"));
+        const original = record[field];
+        record[field] = "foreign-identity";
+        writeFileSync(file, JSON.stringify(record));
+        const before = readFileSync(file, "utf8");
+        const head = (await held(r.s)).revision;
+        expect((await r.chat.call("original_character_status")).data.character).toMatchObject({
+          state: "BLOCKED",
+          barrier: "ENGINEERING",
+        });
+        for (const [tool, args] of [
+          ["place_original_character", { statement: WORDS.presence }],
+          ["resume_original_character", {}],
+          ["propose_original_character", draft()],
+        ] as const)
+          expect((await r.chat.call(tool, args)).isError, tool).toBe(true);
+        expect(readFileSync(file, "utf8")).toBe(before);
+        expect((await held(r.s)).binding).toBeUndefined();
+        expect((await held(r.s)).revision).toBe(head);
+        expect(existsSync(pendingPath(r.s.config))).toBe(false);
+
+        record[field] = original;
+        writeFileSync(file, JSON.stringify(record));
+        expect((await place(r.chat)).finished.data.result.status).toBe("CHARACTER_BOUND");
+      } finally {
+        await host.stop();
+        await r.app.close();
+      }
+    }, 120_000);
+
   it("a record that cannot be written dispatches nothing", async () => {
     const r = await ready();
     const host = referee(r.s);

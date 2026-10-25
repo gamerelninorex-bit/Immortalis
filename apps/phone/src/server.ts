@@ -1189,12 +1189,23 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     BOUND:
       "a character has already been kept, released and placed for this campaign: a kept character is never replaced here",
   };
-  /** the retained words that belong to THIS verified setting, or null */
-  const wordsFor = (
+  const WORDS_CONFLICT =
+    "the retained character words belong to another world, place or character than the verified ones; engineering must inspect them";
+  /**
+   * A retained words record that is PRESENT must belong to the independently verified world, place and character (the kept or
+   * released character's own identity, or the service's technical one while none exists). Present-but-conflicting is a conflict, never
+   * "absent": it is not ignored, re-identified, adopted or overwritten.
+   */
+  const reconcileWords = (
     held: CharacterRecord | null,
-    st: { readonly world_id: string; readonly locus_id: string },
-  ): CharacterRecord | null =>
-    held && held.world_id === st.world_id && held.locus_id === st.locus_id ? held : null;
+    st: { readonly world_id: string; readonly locus_id: string; readonly pc_id: string | null },
+  ): { readonly ok: true; readonly words: CharacterRecord | null } | { readonly ok: false } =>
+    held === null ||
+    (held.world_id === st.world_id &&
+      held.locus_id === st.locus_id &&
+      held.pc_id === (st.pc_id ?? chosenCharacterId(config)))
+      ? { ok: true, words: held }
+      : { ok: false };
 
   async function launchCharacterWork(req: CharacterRequest): Promise<CharacterLaunch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
@@ -1259,7 +1270,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         );
       const pcId = st.kind === "NONE" ? chosenCharacterId(config) : st.pc_id;
       const place = { world_id: st.world_id, locus_id: st.locus_id };
-      const held = wordsFor(read.kind === "RECORD" ? read.record : null, st);
+      const reconciled = reconcileWords(read.kind === "RECORD" ? read.record : null, st);
+      if (!reconciled.ok) return refuse(409, `${WORDS_CONFLICT}; nothing was dispatched`);
+      const held = reconciled.words;
       const notReady = async (needs: Parameters<typeof refereeReadiness>[1]) => {
         const ready = await refereeReadiness(config, needs);
         return ready.ok ? null : refuse(409, `${ready.reason}; nothing was dispatched`);
@@ -1545,8 +1558,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             detail: "another action's outcome is not established yet",
           }
         : { barrier: "NONE" };
-    const wordsOf = (st: { world_id: string; locus_id: string }) =>
-      wordsFor(words.kind === "RECORD" ? words.record : null, st);
+    const wordsOf = (st: { world_id: string; locus_id: string; pc_id: string | null }) => {
+      const reconciled = reconcileWords(words.kind === "RECORD" ? words.record : null, st);
+      return reconciled.ok ? reconciled.words : null;
+    };
     const fromState = (
       st: CharacterState,
       base: Pick<CharacterStatusReport, "barrier"> & { detail?: string },
@@ -1561,6 +1576,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           barrier: base.barrier === "NONE" ? "NONE" : base.barrier,
           detail: st.detail,
         };
+      // a present record that is not the verified setting's and character's is a conflict, reported as one
+      if (!reconcileWords(words.kind === "RECORD" ? words.record : null, st).ok)
+        return { state: "BLOCKED", barrier: "ENGINEERING", detail: WORDS_CONFLICT };
       if (st.kind === "NONE") return draftReport(wordsOf(st), base);
       const readback = readbackOf(st);
       // only the retained keep, finished without a new question, completes a release: it is named whenever nothing else is in the way
