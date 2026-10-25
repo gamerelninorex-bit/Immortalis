@@ -6,11 +6,18 @@ import {
   runPlayerViewMcpCli,
 } from "../../../packages/operator/src/player-view-mcp.ts";
 import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
+import { LocalitySetupSchema, type LocalitySetup } from "@immortalis/operator";
+import {
+  LOCALITY_CONFIRMATION_FIRST,
+  LOCALITY_CONFIRMATION_LAST,
+  LOCALITY_STATUSES,
+} from "./locality-evidence.ts";
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
 import type { PhoneConfig } from "./config.ts";
 import { checkScenarioFile, type Scenario } from "./scenario.ts";
 import type { PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
+import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
 
 /**
  * The tools an ordinary chat host is given. Each is a THIN, closed wrapper over an operation that already exists:
@@ -18,6 +25,9 @@ import { callRefereeTool } from "./referee-tools.ts";
  *   player scope   read_current_observation_glance   the engine's earned, current awareness read (the player-view transport, unchanged)
  *                  observe_surroundings, collect, continue_collection, finish_collection, cease_collection, settle_collection_lapse,
  *                  reconcile_last_action              the SHIPPED operator commands, run exactly as the phone page runs them
+ *                  propose_original_setting, original_setting_status, resume_original_setting
+ *                                                     the player's OWN authored ORIGINAL setting (one world, one locality, one finite source),
+ *                                                     offered to the shipped `establish-locality`; status and same-setup resumption
  *                  await_action, cancel_action        progress of the one command that is running; the human's confirmation happens here
  *   referee scope  referee_list_tasks / referee_get_task / referee_submit_decision   the existing bounded referee exchange, unchanged
  *
@@ -89,6 +99,57 @@ function confirmationText(run: Run): string {
   return trimmed.length > 6000 ? trimmed.slice(trimmed.length - 6000) : trimmed;
 }
 
+/**
+ * The WHOLE of the confirmation of an original setting (BLUE: no admitted field may be dropped). The text the human is asked to confirm
+ * is the engine's own lines since the last reply, in order and untruncated; it is delivered in as many consecutive parts as the channel
+ * needs (a part confirms nothing), and it is refused (null) when this transcript no longer holds it whole.
+ */
+const SETUP_PART_CHARS = 12_000;
+const SETUP_COMMAND = "establish-locality";
+
+/** Cuts `body` into consecutive parts of at most `size` characters, at line ends where possible and never inside a surrogate pair; joining them (a newline after each part cut at a line end, nothing after a hard cut) restores `body` exactly. */
+export function splitConfirmation(body: string, size = SETUP_PART_CHARS): string[] {
+  const parts: string[] = [];
+  let rest = body;
+  while (rest.length > size) {
+    const at = rest.lastIndexOf("\n", size);
+    if (at > 0) {
+      parts.push(rest.slice(0, at));
+      rest = rest.slice(at + 1);
+      continue;
+    }
+    let cut = size;
+    const code = rest.charCodeAt(cut - 1);
+    if (code >= 0xd800 && code <= 0xdbff) cut -= 1;
+    parts.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
+  }
+  parts.push(rest);
+  return parts;
+}
+
+export function completeSetupConfirmation(run: Run): string[] | null {
+  const snap = run.terminal.snapshot(0);
+  // the transcript drops its earliest lines beyond its capacity: a confirmation that starts after line 1 may have lost its beginning
+  if (snap.lines.length === 0 || snap.lines[0]!.seq !== 1) return null;
+  let from = 0;
+  snap.lines.forEach((l, i) => {
+    if (l.kind === "reply") from = i + 1;
+  });
+  let body = "";
+  for (const l of snap.lines.slice(from)) {
+    if (l.kind === "ask" || l.kind === "reply") continue;
+    body += l.more ? l.text : `${l.text}\n`;
+  }
+  const whole = body.trim();
+  // the banner may precede the header; the header must open a line and the closing line must follow it
+  const head = whole.startsWith(LOCALITY_CONFIRMATION_FIRST)
+    ? 0
+    : whole.indexOf(`\n${LOCALITY_CONFIRMATION_FIRST}\n`);
+  if (head < 0 || !whole.slice(head).includes(`\n${LOCALITY_CONFIRMATION_LAST}\n`)) return null;
+  return splitConfirmation(whole);
+}
+
 type RunState = "RUNNING" | "AWAITING_CONFIRMATION" | "FINISHED";
 const stateOf = (run: Run): RunState =>
   run.done ? "FINISHED" : run.terminal.snapshot(0).pending ? "AWAITING_CONFIRMATION" : "RUNNING";
@@ -96,7 +157,129 @@ const stateOf = (run: Run): RunState =>
 const REPORT_NOTICE =
   "engine_report is the operator-level account of what the engine did or refused. It is not what the character knows: tell the player only what read_current_observation_glance returns, and report the outcome of their choice plainly.";
 
-function describe(config: PhoneConfig, run: Run, after: number, runs: PlayerRuns): ToolResult {
+const SETUP_NOTICE =
+  "This is the out-of-character account of establishing the physical setting only. It is not what any character perceives or knows. No character, activation, placement or play exists because of it, and nobody may extract anything because of it.";
+
+/** runs whose human confirmation could not be shown whole: they were declined, never confirmed (kept for the model's account, not for the engine) */
+const undelivered = new WeakSet<Run>();
+
+/** the engine's own final status of a setup run, only if it is one of the fixed statuses the shipped command can report */
+function setupResult(run: Run): { status: string; message: string; details?: string[] } | null {
+  const lines = run.terminal
+    .snapshot(0)
+    .lines.filter((l) => l.kind === "say" && !l.more)
+    .map((l) => l.text);
+  let at = -1;
+  lines.forEach((t, i) => {
+    if (/^STATUS [A-Z_]+/.test(t)) at = i;
+  });
+  if (at < 0) return null;
+  const status = /^STATUS ([A-Z_]+)/.exec(lines[at]!)?.[1] ?? "";
+  if (!(LOCALITY_STATUSES as readonly string[]).includes(status)) return null;
+  // the line after the status is the shipped command's fixed out-of-character sentence for it; only the bounded diagnostic lines of a refusal follow
+  const message = (lines[at + 1] ?? "").slice(0, 600);
+  const details =
+    status === "INVALID_SETUP" ||
+    status === "LOCALITY_REFUSED" ||
+    status === "SETUP_CONFLICT" ||
+    status === "PACKAGE_UNUSABLE"
+      ? lines
+          .slice(at + 2)
+          .filter((t) => !t.startsWith("— command finished") && !t.startsWith("PROGRESS "))
+          .slice(0, 12)
+          .map((t) => t.slice(0, 300))
+      : [];
+  return { status, message, ...(details.length > 0 ? { details } : {}) };
+}
+
+const SETUP_RECOVERY: Record<string, string> = {
+  RECONCILE:
+    "Whether the setup changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not propose a setting again before that.",
+  RESUME:
+    "The player's setup is confirmed but not complete. Tell the player so. If they want it finished, call resume_original_setting: it finishes ONLY that same retained setting and the player confirms it again. You cannot supply or replace the setting, and you must not propose a different one.",
+  ENGINEERING:
+    "Whether and how far the setup was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the setting does or does not exist.",
+};
+
+async function describeSetup(
+  config: PhoneConfig,
+  run: Run,
+  after: number,
+  runs: PlayerRuns,
+): Promise<ToolResult> {
+  const state = stateOf(run);
+  const { next } = reportOf(run, after);
+  const finished = state === "FINISHED";
+  const own = finished ? setupResult(run) : null;
+  const setting = finished ? await runs.settingStatus() : null;
+  // when the command's own account is "the outcome of a write is not known" but the owners' records were read back and agree, the readback is
+  // the account (that status arises only after THIS setup's identity was retained, so an established setting is this setting)
+  const settledByReadback =
+    own?.status === "LOCALITY_OUTCOME_UNKNOWN" && setting?.state === "ESTABLISHED";
+  const result = settledByReadback ? null : own;
+  return asJson({
+    run_id: run.id,
+    action: "original_setting",
+    state,
+    exit_code: finished ? exitCodeOf(run) : null,
+    ...(result ? { result } : {}),
+    ...(settledByReadback
+      ? {
+          settled_by:
+            "The command's own reply was lost or unclear, but the owners' records were read back afterwards and agree with the setting the player confirmed.",
+        }
+      : {}),
+    ...(setting
+      ? {
+          setting,
+          readiness: {
+            setting_established: setting.state === "ESTABLISHED",
+            campaign_ready_for_play: false,
+          },
+        }
+      : {}),
+    ...(finished && (run.uncertain || runs.unresolved())
+      ? {
+          outcome: "UNCERTAIN",
+          ...(runs.blocker() ? { blocker: runs.blocker() } : {}),
+          recovery:
+            SETUP_RECOVERY[
+              setting?.barrier === "NONE" || setting === null
+                ? runs.structural()
+                  ? "ENGINEERING"
+                  : "RECONCILE"
+                : setting.barrier
+            ],
+        }
+      : {}),
+    ...(undelivered.has(run)
+      ? {
+          confirmation_delivery:
+            "The whole of what the player was asked to confirm could not be shown to them, so it was declined and nothing was confirmed or changed. Do not propose it again unchanged.",
+        }
+      : {}),
+    next_after: next,
+    notice: SETUP_NOTICE,
+    ...(state === "AWAITING_CONFIRMATION"
+      ? {
+          confirmation:
+            "The player must confirm this setting themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
+          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
+        }
+      : {}),
+    ...(state === "RUNNING"
+      ? { waiting: "The engine is checking the setting. Call await_action again." }
+      : {}),
+  });
+}
+
+async function describe(
+  config: PhoneConfig,
+  run: Run,
+  after: number,
+  runs: PlayerRuns,
+): Promise<ToolResult> {
+  if (run.label === SETUP_COMMAND) return describeSetup(config, run, after, runs);
   const unresolved = runs.unresolved();
   const blocked = runs.blocker();
   const { lines, next } = reportOf(run, after);
@@ -112,7 +295,9 @@ function describe(config: PhoneConfig, run: Run, after: number, runs: PlayerRuns
           ...(blocked ? { blocker: blocked } : {}),
           recovery: runs.structural()
             ? "Whether the earlier action changed anything is not established, and nothing this chat offers can establish it: the operator must inspect it. Do NOT retry the action, do not call reconcile_last_action again, and do not tell the player it did or did not happen; tell them it needs the operator."
-            : "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. If it ends UNCERTAIN again with the same blocker, stop and tell the player the outcome could not be established and needs the operator. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
+            : runs.resumable()
+              ? SETUP_RECOVERY["RESUME"]
+              : "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. If it ends UNCERTAIN again with the same blocker, stop and tell the player the outcome could not be established and needs the operator. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
         }
       : {}),
     next_after: next,
@@ -249,6 +434,103 @@ async function readGlance(config: PhoneConfig, note?: (m: string) => void): Prom
 const NONE = { type: "object", properties: {}, additionalProperties: false } as const;
 const PLAYER_RULES =
   "The player makes the choice in their own words; you only propose it. The player's confirmation is collected by their client directly: never ask them to type, read out or relay a confirmation phrase to you, and never claim a choice was made until the result says so.";
+
+const TEXTUAL = { type: "string", minLength: 1 } as const;
+const CONSTRAINT = {
+  type: "object",
+  properties: { aspect: TEXTUAL, statement: TEXTUAL },
+  required: ["aspect", "statement"],
+  additionalProperties: false,
+} as const;
+/** The strict shape of the player's original setting (the engine's own schema is the authority; this tells the model its shape). */
+const SETTING_SCHEMA = {
+  type: "object",
+  properties: {
+    format: { const: "immortalis-original-locality-setup" },
+    format_version: { const: 1 },
+    world: {
+      type: "object",
+      properties: {
+        world_id: TEXTUAL,
+        premise: TEXTUAL,
+        reference_causal_basis: {
+          type: "object",
+          properties: { mode: { const: "ORIGINAL" }, established_canon: TEXTUAL },
+          required: ["mode", "established_canon"],
+          additionalProperties: false,
+        },
+        material_world_law_departures: { type: "array", items: TEXTUAL },
+        insertion_supporting_constraints: { type: "array", items: CONSTRAINT },
+      },
+      required: [
+        "world_id",
+        "premise",
+        "reference_causal_basis",
+        "material_world_law_departures",
+        "insertion_supporting_constraints",
+      ],
+      additionalProperties: false,
+    },
+    locus: {
+      type: "object",
+      properties: {
+        world_id: TEXTUAL,
+        locus_id: TEXTUAL,
+        designation: TEXTUAL,
+        constraints: { type: "array", items: CONSTRAINT },
+      },
+      required: ["world_id", "locus_id", "designation", "constraints"],
+      additionalProperties: false,
+    },
+    source: {
+      type: "object",
+      properties: {
+        source_key: TEXTUAL,
+        world_id: TEXTUAL,
+        locus_id: TEXTUAL,
+        dimension: TEXTUAL,
+        material_class: TEXTUAL,
+        quantity: {
+          type: "object",
+          properties: { amount: { type: "integer", minimum: 1 }, unit: TEXTUAL },
+          required: ["amount", "unit"],
+          additionalProperties: false,
+        },
+        access_facts: { type: "array", items: CONSTRAINT },
+        statement: TEXTUAL,
+      },
+      required: [
+        "source_key",
+        "world_id",
+        "locus_id",
+        "dimension",
+        "material_class",
+        "quantity",
+        "access_facts",
+        "statement",
+      ],
+      additionalProperties: false,
+    },
+  },
+  required: ["format", "format_version", "world", "locus", "source"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * True when the whole confirmation of this setting is sure to fit the transcript the human is shown (it keeps a bounded number of lines, and
+ * an overlong one is split across several). An upper bound from the document alone: every separate entry is a line of its own, and every
+ * line carries at most its label beside the authored text.
+ */
+export function fitsConfirmation(setup: LocalitySetup): boolean {
+  const items =
+    setup.world.material_world_law_departures.length +
+    setup.world.insertion_supporting_constraints.length +
+    setup.locus.constraints.length +
+    setup.source.access_facts.length;
+  const says = 45 + items;
+  const chars = JSON.stringify(setup).length + 120 * says;
+  return says + Math.ceil(chars / (TERMINAL_MAX_LINE - 2)) <= TERMINAL_MAX_LINES - 100;
+}
 
 export interface ChatToolDeps {
   readonly config: PhoneConfig;
@@ -416,6 +698,84 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       "reconcile",
     ),
     {
+      name: "propose_original_setting",
+      title: "Offer the player's own original setting",
+      description: `Offer the setting the PLAYER has chosen to author themselves as an ORIGINAL invented place: one world, one locality of it and ONE exact finite physical source, exactly as the player said it. This is an explicitly limited substrate mode: use it only when the player actually chose to write their own place; it is not world generation and you do not invent canon for them. Every field is the player's authored content; nothing is defaulted, estimated or completed for them. The engine checks it and the player reads ALL of it and confirms it themselves; only then is it committed as the physical setting. It establishes no character, perception, knowledge, right to take anything, or time. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: SETTING_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = LocalitySetupSchema.safeParse(args);
+        if (!parsed.success)
+          return asJson(
+            {
+              refused: "that is not a complete, valid ORIGINAL setting; nothing was started",
+              issues: parsed.error.issues
+                .slice(0, 8)
+                .map((i) => `${i.path.join(".") || "(setting)"}: ${i.message}`),
+            },
+            true,
+          );
+        // the confirmation shows every admitted field: a setting too large to show whole is refused here, before anything is started
+        if (!fitsConfirmation(parsed.data))
+          return text(
+            "this setting has too many separate entries to be shown whole to the player for confirmation; nothing was started. Offer fewer separate entries.",
+            true,
+          );
+        const launched = await runs.proposeSetup(JSON.stringify(parsed.data));
+        if (!launched.ok) return text(launched.reason, true);
+        await launched.run.terminal.changed(0, settleMs);
+        return describe(config, launched.run, 0, runs);
+      },
+    },
+    {
+      name: "original_setting_status",
+      title: "Where the player's original setting stands",
+      description:
+        "Read where the player's ORIGINAL setting stands, from the engine's own records (read-only: it starts and settles nothing). It reports whether the setting is established (with what the owners read back), not started, awaiting the player's confirmation, confirmed but not complete (resumable), or blocked, and what to do next. An established setting is only the physical place: it is not a started game.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        const setting = await runs.settingStatus();
+        return asJson({
+          setting,
+          readiness: {
+            setting_established: setting.state === "ESTABLISHED",
+            campaign_ready_for_play: false,
+          },
+          ...(setting.barrier !== "NONE" ? { recovery: SETUP_RECOVERY[setting.barrier] } : {}),
+          notice: SETUP_NOTICE,
+        });
+      },
+    },
+    {
+      name: "resume_original_setting",
+      title: "Finish the player's interrupted original setting",
+      description: `Finish the ONE original setting the player already confirmed and that was interrupted before it was whole. It takes no arguments: it uses only the setting the engine retained, and the player reads it and confirms it again. It cannot replace or change the setting, and it is refused unless the engine's records show exactly that situation. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: NONE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        const launched = await runs.resumeSetup();
+        if (!launched.ok) return text(launched.reason, true);
+        await launched.run.terminal.changed(0, settleMs);
+        return describe(config, launched.run, 0, runs);
+      },
+    },
+    {
       name: "await_action",
       title: "Follow the action in progress",
       description:
@@ -563,6 +923,52 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return called.result as ToolResult;
   }
 
+  /**
+   * Puts the confirmation to the human and returns what they typed ("" for any non-confirmation), or null when they did not answer in
+   * time. An ordinary proposal is shown as before. An original setting is shown WHOLE, in order, in as many parts as the channel needs:
+   * each earlier part only asks the human to read on (accepting it confirms nothing, anything else withdraws), and the last part carries
+   * the prompt. If this transcript no longer holds the whole of it, it is declined here, before any confirmation can be given.
+   */
+  async function askHuman(ctx: ToolContext, run: Run, prompt: string): Promise<string | null> {
+    const parts =
+      run.label === SETUP_COMMAND ? completeSetupConfirmation(run) : [confirmationText(run)];
+    if (parts === null) {
+      undelivered.add(run);
+      return "";
+    }
+    for (let i = 0; i < parts.length; i++) {
+      const last = i === parts.length - 1;
+      const heading = parts.length > 1 ? `[Part ${i + 1} of ${parts.length}]\n` : "";
+      const asked = await ctx.elicit(
+        last
+          ? `${heading}${parts[i]}\n\n${prompt}`
+          : `${heading}${parts[i]}\n\nThis part confirms nothing. Accept to read on; decline to withdraw the proposal.`,
+        last
+          ? {
+              type: "object",
+              properties: {
+                reply: {
+                  type: "string",
+                  title: "Type the confirmation phrase exactly as shown, or leave empty to decline",
+                  maxLength: 200,
+                },
+              },
+            }
+          : { type: "object", properties: {} },
+        elicitMs,
+      );
+      if (asked === null) return null;
+      if (!last) {
+        if (asked.action !== "accept") return "";
+        continue;
+      }
+      return asked.action === "accept" && typeof asked.content?.["reply"] === "string"
+        ? asked.content["reply"]
+        : "";
+    }
+    return "";
+  }
+
   async function follow(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     if (!onlyKeys(args, ["run_id", "after", "wait_seconds"]))
       return text("invalid arguments", true);
@@ -593,26 +999,9 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       if (snap.pending && ctx.canElicit) {
         // the HUMAN is asked through the client's own surface; their reply goes straight into the trusted terminal
         const pendingId = snap.pending.id;
-        const asked = await ctx.elicit(
-          `${confirmationText(run)}\n\n${snap.pending.prompt}`,
-          {
-            type: "object",
-            properties: {
-              reply: {
-                type: "string",
-                title: "Type the confirmation phrase exactly as shown, or leave empty to decline",
-                maxLength: 200,
-              },
-            },
-          },
-          elicitMs,
-        );
+        const typed = await askHuman(ctx, run, snap.pending.prompt);
         // silence (no answer in time) leaves the proposal pending and confirms nothing
-        if (asked === null) break;
-        const typed =
-          asked.action === "accept" && typeof asked.content?.["reply"] === "string"
-            ? asked.content["reply"]
-            : "";
+        if (typed === null) break;
         // a decline, a dismissal and a wrong phrase are all the same non-confirmation
         run.terminal.reply(pendingId, typed);
         news = run.terminal.snapshot(0).seq;
@@ -643,4 +1032,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver.";
+  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game.";

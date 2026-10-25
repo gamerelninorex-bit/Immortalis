@@ -31,7 +31,13 @@ import {
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
 import type { PhoneConfig } from "./config.ts";
-import { validSetupIdentity, type SetupIdentity, type setupEvidence } from "./setup-recovery.ts";
+import {
+  validSetupIdentity,
+  type SetupIdentity,
+  type campaignSetting,
+  type localityEvidence,
+  type setupEvidence,
+} from "./setup-recovery.ts";
 import {
   captureCollection,
   runCollectionOperation,
@@ -84,7 +90,7 @@ export interface PendingOperation {
   readonly identity: ObservationIdentity | null;
   /** The original collection/ledger identities. Absent in older records, which remain blocked rather than being guessed. */
   readonly collection?: CollectionIdentity | null;
-  /** Exact pinned input for the two document-only setup publication classes; absent legacy records stay blocked. */
+  /** Exact pinned input for the document-derived setup classes and the ORIGINAL locality setup; absent legacy records stay blocked. */
   readonly setup?: SetupIdentity | null;
 }
 
@@ -201,6 +207,8 @@ export type ObservationEvidence =
 /** the seams a test may replace; the defaults read the real campaign through the engine's own owner-verified open */
 export interface RecoveryDeps {
   readonly setupEvidence?: typeof setupEvidence;
+  readonly localityEvidence?: typeof localityEvidence;
+  readonly campaignSetting?: typeof campaignSetting;
   readonly captureObservation?: (
     config: PhoneConfig,
     pcId: string,
