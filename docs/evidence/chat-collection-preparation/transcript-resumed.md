@@ -4,7 +4,7 @@ Scripted authenticated host, scripted test-human and scripted referee; real serv
 
 Base: e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587
 
-Executed commit: 86a389cea2d4d79a7d6450596a527ace8b714aa9
+Executed commit: c2218ff18d3be5c4305e0665ec3275613d106ddb
 
 ```text
 MECHANISM ONLY: scripted test-human and referee; real authenticated service shutdown/restart.
