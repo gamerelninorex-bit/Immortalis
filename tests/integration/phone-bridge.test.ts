@@ -1254,6 +1254,8 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
   const files = readdirSync(dir).filter((f) => f.endsWith(".ts"));
   it("has no process execution, dynamic code, wall-clock identity or provider reference, and reads the environment in main.ts alone", () => {
     expect(files.sort()).toEqual([
+      "character-evidence.ts",
+      "character-recovery.ts",
       "chat-tools.ts",
       "collection-recovery.ts",
       "commands.ts",

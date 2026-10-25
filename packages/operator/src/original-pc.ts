@@ -707,6 +707,25 @@ function boundReport(
 // The commands.
 // ---------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * The narrow seam an ordinary-chat front end uses to carry the player's OWN authored words through the same review, keep, release and
+ * placement as the console. It changes who types the questions, nothing else: the same compiled contract, the same Mirror and findings,
+ * the same unpredictable challenge typed back by the human, the same owner operations and the same verification.
+ *
+ *   KEEP    the player's draft is used instead of the console questions; the WHOLE Mirror and the referee's findings on exactly that
+ *           candidate are shown once, and only the exact phrase typed back keeps it. There is no console edit grammar: a revision is a
+ *           new draft and a new run. A character already kept (or released) is finished from what was retained, never asked again.
+ *           The run ends at the release: placement is a separate choice and a separate run.
+ *   PLACE   the player's own native-presence statement is used instead of the presence prompt; it needs a released character.
+ */
+export interface ChatAuthoring {
+  readonly stage: "KEEP" | "PLACE";
+  /** KEEP only: absent when the run finishes what an earlier keep retained */
+  readonly draft?: CharacterDraft;
+  /** PLACE only: the player's own words */
+  readonly presence?: string;
+}
+
 export interface AuthorCharacterParams {
   readonly campaignDir: string;
   /** the campaign identity the package must hold */
@@ -724,6 +743,8 @@ export interface AuthorCharacterParams {
   /** how many times each referee answer is looked for (default 1200) and the pause between looks (default 500 ms) */
   readonly refereePolls?: number;
   readonly refereePollMs?: number;
+  /** a chat front end's staged run (see `ChatAuthoring`); absent for the console */
+  readonly chat?: ChatAuthoring;
 }
 
 export const BUILD_ID = "immortalis-operator";
@@ -879,7 +900,7 @@ type Reviewed =
       readonly draft: CharacterDraft;
       readonly referee: RefereeKeepEvidence;
     }
-  | { readonly kind: "LEFT" }
+  | { readonly kind: "LEFT"; readonly why?: string }
   | { readonly kind: "REFEREE"; readonly result: CharacterResult };
 
 const refereeResult = (
@@ -936,6 +957,8 @@ async function review(
     pcId: string;
     adapter: RefereeAdjudicationAdapter;
     rt: RefereeRuntime;
+    /** a chat front end: one display of the whole candidate; any revision is a new draft and a new run, never the console edit grammar */
+    chat?: boolean;
   },
   start: CharacterDraft,
 ): Promise<Reviewed> {
@@ -951,6 +974,8 @@ async function review(
         `This character cannot be kept yet. Still needed: ${missing.join("; ")}.`,
       ]))
         terminal.say(l);
+      if (env.chat)
+        return { kind: "LEFT", why: `the character still lacks: ${missing.join("; ")}` };
       terminal.say('Type "change" to continue revising. Anything else leaves without a character.');
       line = await terminal.ask(">");
     } else {
@@ -970,6 +995,11 @@ async function review(
           "This character cannot be kept yet: the referee did not accept everything above as your own character.",
         ])
           terminal.say(l);
+        if (env.chat)
+          return {
+            kind: "LEFT",
+            why: "the AI referee host did not accept everything shown as the player's own character; it can be revised and offered again",
+          };
         terminal.say('Type "change" to revise. Anything else leaves without a character.');
         line = await terminal.ask(">");
       } else {
@@ -988,9 +1018,13 @@ async function review(
             ...mirrorPanel(pcId, items, `display ${revision}`, []),
             ...findings,
             "This is how IMMORTALIS understands your character.",
-            "Keep this character, or change something before we continue?",
+            env.chat
+              ? "Keep this character exactly as shown?"
+              : "Keep this character, or change something before we continue?",
           ],
-          'To revise instead, type "change". Anything else leaves without a character.',
+          env.chat
+            ? "Anything else declines; to change something, tell your assistant what to change."
+            : 'To revise instead, type "change". Anything else leaves without a character.',
         );
         if (decision.kind === "END_OF_INPUT") return { kind: "LEFT" };
         if (decision.kind === "CONFIRMED") {
@@ -1009,10 +1043,15 @@ async function review(
             },
           };
         }
+        if (env.chat)
+          return {
+            kind: "LEFT",
+            why: "the character shown was not kept (declined or not confirmed)",
+          };
         line = decision.line;
       }
     }
-    if (line === null || line.trim() !== "change") return { kind: "LEFT" };
+    if (env.chat || line === null || line.trim() !== "change") return { kind: "LEFT" };
     for (const l of REVISION_HELP) terminal.say(l);
     const edits: Edit[] = [];
     let refused: string | null = null;
@@ -1150,6 +1189,14 @@ async function run(
     ]);
   const pcFact = campaign.store.getFact(key);
   const bindingFact = campaign.binding();
+  const chat = p.chat;
+  if (
+    chat !== undefined &&
+    (chat.stage === "KEEP"
+      ? chat.presence !== undefined
+      : chat.draft !== undefined || chat.presence === undefined)
+  )
+    return result("INVALID_REQUEST", ["the staged request does not match its stage"]);
 
   if (pcFact) {
     const problems = releaseProblems(campaignId, pcFact, keep, campaign.store);
@@ -1161,20 +1208,43 @@ async function run(
         ? boundReport(campaign, pcId, campaignId)
         : result("BINDING_CONFLICT", why);
     }
+    // a draft offered after the keep must be the very character that was kept: a kept character is never replaced
+    if (
+      chat?.draft !== undefined &&
+      !canonicalEqual(compileContract(pcId, chat.draft), keep.contract)
+    )
+      return result("CHARACTER_CONFLICT", [
+        "the character shown is not the one that was kept; a kept character is never replaced",
+      ]);
     terminal.say(
       `RESUMING: this command already released the character ${pcId}; it was kept earlier and needs no further keep.`,
     );
     for (const l of mirrorPanel(pcId, mirrorItems(pc.value), "as kept earlier", []))
       terminal.say(l);
-    return place(p, session, adapter, rt, pc.fact, false, keep);
+    if (chat?.stage === "KEEP") return releasedUnbound(pc.fact, false, KEEP_STAGE_END);
+    return place(p, session, adapter, rt, pc.fact, false, keep, chat?.presence);
   }
   if (bindingFact)
     return result("BINDING_CONFLICT", [
       "an operative binding is held without a character of this command",
     ]);
+  if (chat?.stage === "PLACE")
+    return result("CHARACTER_NONE", [
+      `campaign: ${campaignId}`,
+      keep === null
+        ? "no character has been kept and released yet: keep a character first; placement is a separate, later choice"
+        : "a character was kept but is not released yet: finish that first; placement is a separate, later choice",
+    ]);
 
   let retained: KeepRecord;
   if (keep !== null) {
+    if (
+      chat?.draft !== undefined &&
+      !canonicalEqual(compileContract(pcId, chat.draft), keep.contract)
+    )
+      return result("CHARACTER_CONFLICT", [
+        "the character shown is not the one that was kept; a kept character is never replaced",
+      ]);
     // kept at this console and retained, but not yet released (an interruption between the two): release exactly what was kept
     terminal.say(
       `RESUMING: the character ${pcId} was kept at this console and is not yet released; releasing exactly what was kept.`,
@@ -1185,11 +1255,18 @@ async function run(
   } else {
     const configured = await refereeConfigured(campaignId, rt);
     if (!configured.ok) return result("REFEREE_UNAVAILABLE", [configured.message], configured.code);
-    const drafted = await elicit(terminal);
-    if (drafted === null) return result("DECLINED", ["the character was not completed or kept"]);
-    const reviewed = await review({ terminal, campaignId, pcId, adapter, rt }, drafted);
+    const drafted = chat ? (chat.draft ?? null) : await elicit(terminal);
+    if (drafted === null)
+      return chat
+        ? result("INVALID_REQUEST", ["no character was offered and none was kept earlier"])
+        : result("DECLINED", ["the character was not completed or kept"]);
+    const reviewed = await review(
+      { terminal, campaignId, pcId, adapter, rt, ...(chat ? { chat: true } : {}) },
+      drafted,
+    );
     if (reviewed.kind === "REFEREE") return reviewed.result;
-    if (reviewed.kind === "LEFT") return result("DECLINED", ["the character was not kept"]);
+    if (reviewed.kind === "LEFT")
+      return result("DECLINED", [reviewed.why ?? "the character was not kept"]);
     // the proof of the keep is retained BEFORE anything is released, so the release can be recognised as having come from it
     const record = {
       pc_id: pcId,
@@ -1259,7 +1336,30 @@ async function run(
   terminal.say(`PROGRESS character RELEASED ${key}`);
   const fact = campaign.store.getFact(key);
   if (!fact) return result("CHARACTER_OUTCOME_UNKNOWN", ["the released character is not held"]);
+  if (chat?.stage === "KEEP") return releasedUnbound(fact, true, KEEP_STAGE_END);
   return place(p, session, adapter, rt, fact, true, retained);
+}
+
+const KEEP_STAGE_END =
+  "placement is a separate choice the player has not made, and nothing has placed the character";
+
+/** The character is released and NOT bound: reported as exactly that (no cross-owner rollback exists). */
+function releasedUnbound(
+  pcFact: OwnerFact,
+  releasedNow: boolean,
+  why: string,
+  extra: readonly string[] = [],
+  code?: string,
+): CharacterResult {
+  return result(
+    "CHARACTER_RELEASED_UNBOUND",
+    [
+      `character: ${pcFact.key} (released${releasedNow ? " just now" : " earlier"}, not bound)`,
+      why,
+      ...extra,
+    ],
+    code,
+  );
 }
 
 /**
@@ -1275,6 +1375,7 @@ async function place(
   pcFact: OwnerFact,
   releasedNow: boolean,
   keep: KeepRecord,
+  presence?: string,
 ): Promise<CharacterResult> {
   const { terminal, pcId, worldId, locusId, campaignId } = p;
   const campaign = session.campaign;
@@ -1282,7 +1383,7 @@ async function place(
   const locus = campaign.locus(worldId, locusId)!;
   const state = `character: ${pcFact.key} (released${releasedNow ? " just now" : " earlier"}, not bound)`;
   const unbound = (why: string, extra: readonly string[] = [], code?: string) =>
-    result("CHARACTER_RELEASED_UNBOUND", [state, why, ...extra], code);
+    releasedUnbound(pcFact, releasedNow, why, extra, code);
 
   const w = world.value;
   const lines = (title: string, entries: readonly string[]) =>
@@ -1307,10 +1408,17 @@ async function place(
       "constraints",
       locus.value.constraints.map((c) => `${c.aspect}: ${quoted(c.statement)}`),
     ),
-    "If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced.",
+    presence === undefined
+      ? "If your character is originally present at this place, say so in your own words. An AI referee host will read your statement and the facts above; an empty line leaves your character released but unplaced."
+      : "Your statement of where your character is originally present is below. An AI referee host will read it and the facts above.",
   ])
     terminal.say(l);
-  const statement = await askStatement(terminal, "presence>", true);
+  let statement: string | null;
+  if (presence === undefined) statement = await askStatement(terminal, "presence>", true);
+  else {
+    const judged = judgeStatement(presence);
+    statement = judged.ok ? judged.text : null;
+  }
   if (statement === null || statement === "")
     return unbound("native presence was not stated or confirmed");
 

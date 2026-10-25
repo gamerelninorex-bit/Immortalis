@@ -1,10 +1,16 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
+  applyEdits,
+  compileContract,
+  judgeStatement,
+  missingOf,
   runCli,
   runRefereeConsole,
   secretPath,
+  type CharacterDraft,
   type CliEnvironment,
+  type Edit,
   type OperatorTerminal,
 } from "@immortalis/operator";
 import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
@@ -12,10 +18,46 @@ import type { PhoneConfig } from "./config.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
 import { createWebTerminal } from "./web-terminal.ts";
 import { callRefereeTool } from "./referee-tools.ts";
-import { TOOL_INSTRUCTIONS, buildChatTools, type ChatToolDeps } from "./chat-tools.ts";
+import {
+  TOOL_INSTRUCTIONS,
+  buildChatTools,
+  fitsCharacterConfirmation,
+  type ChatToolDeps,
+} from "./chat-tools.ts";
+import {
+  CHARACTER_COMMAND,
+  characterOutcome,
+  contractSha,
+  readCharacter,
+  readbackOf,
+  type CharacterIdentity,
+  type CharacterOutcome,
+  type CharacterState,
+} from "./character-evidence.ts";
+import {
+  MAX_REVISIONS,
+  chosenCharacterId,
+  clearCharacterRecord,
+  contractOfDraft,
+  draftSha,
+  readCharacterRecord,
+  refereeReadiness,
+  runCharacterOperation,
+  writeCharacterRecord,
+  type CharacterRecord,
+  type CharacterRunOptions,
+} from "./character-recovery.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
-import type { Launch, PlayerRuns, Run, SettingStatus } from "./runs.ts";
+import type {
+  CharacterExpectation,
+  CharacterLaunch,
+  CharacterStatusReport,
+  Launch,
+  PlayerRuns,
+  Run,
+  SettingStatus,
+} from "./runs.ts";
 import {
   LOCALITY_COMMAND,
   SETUP_DOCUMENT_COMMANDS,
@@ -72,6 +114,8 @@ export interface PhoneDeps {
   readonly chat?: Pick<ChatToolDeps, "settleMs" | "elicitMs" | "callReferee" | "glance" | "note">;
   /** the operator's initialize-negotiation sink: one bounded line per accepted initialize, controlled values only (see `negotiationLine`) */
   readonly negotiation?: (line: string) => void;
+  /** the shipped character authoring and its referee waits (tests wrap the command to inject faults and shorten the waits) */
+  readonly character?: CharacterRunOptions;
 }
 
 type Role = "player" | "referee";
@@ -123,6 +167,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let structuralBlock = false;
   /** true while the unresolved operation is the ORIGINAL locality setup, confirmed and partly committed: only its own resumption finishes it */
   let resumableBlock = false;
+  /** which retained operation a resumable barrier belongs to */
+  let resumeWhat: "SETTING" | "CHARACTER" = "SETTING";
   {
     const restored = readPending(config);
     if (restored.kind === "PENDING") {
@@ -146,6 +192,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     completeObservation: deps.recovery?.completeObservation ?? completeObservation,
     captureCollection: deps.recovery?.captureCollection ?? captureCollection,
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
+    characterOutcome: deps.recovery?.characterOutcome ?? characterOutcome,
+    readCharacter: deps.recovery?.readCharacter ?? readCharacter,
   };
   let launching = false;
   /** while the setting is being read from the campaign, a command that would open the same package waits (it would meet the writer lock) */
@@ -396,9 +444,13 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       structuralBlock
         ? "Engineering must inspect it; do not retry the action."
         : resumableBlock
-          ? lane === "chat"
-            ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
-            : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
+          ? resumeWhat === "CHARACTER"
+            ? lane === "chat"
+              ? "Only resume_original_character (the player's retained keep, finished without asking it again) can finish it; do not offer another character or retry."
+              : "Only the same retained keep, finished by the operator's author-character command, can finish it. Do not retry the action."
+            : lane === "chat"
+              ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
+              : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
           : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
     }`;
   const statusLines = (run: Run): string[] =>
@@ -415,11 +467,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     },
     close: () => t.close(),
   });
-  const block = (why: string, structural = false, resumable = false): void => {
+  const block = (
+    why: string,
+    structural = false,
+    resumable = false,
+    what: "SETTING" | "CHARACTER" = "SETTING",
+  ): void => {
     unresolvedOutcome = true;
     blocker = why;
     structuralBlock = structural;
     resumableBlock = resumable && !structural;
+    resumeWhat = what;
     if (pending) {
       pending = { ...pending, state: "UNCERTAIN", blocker: why };
       writePending(config, pending); // a record that cannot be rewritten stays as it was: still blocking
@@ -435,6 +493,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     blocker = null;
     structuralBlock = false;
     resumableBlock = false;
+    resumeWhat = "SETTING";
     return true;
   };
   /** a recovery that needs no command: its account is the run */
@@ -550,6 +609,46 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     applyLocalityEvidence(ev, run);
   };
 
+  const CHARACTER_RESUME_BLOCKER =
+    "the player's keep of the character is retained but the release is not complete; only that same keep, finished without a new question, can complete it";
+  /**
+   * Applies owner-side evidence about ONE dispatched character operation to the barrier: a proven absence of effect, a verified release
+   * (with the placement still the player's separate choice) or a verified binding settles it; a durable keep whose release is not
+   * committed keeps it (resumable by that keep alone); anything the evidence cannot reconcile keeps it, and a read that failed keeps it.
+   * Returns true only when the barrier was cleared.
+   */
+  const applyCharacterEvidence = (ev: CharacterOutcome, run?: Run): boolean => {
+    if (ev.kind === "NO_EFFECT" || ev.kind === "RELEASED_UNBOUND" || ev.kind === "BOUND") {
+      const settled = resolve();
+      // the owners' evidence has answered what the run itself could not: it is no longer an uncertain run
+      if (run && settled) run.uncertain = false;
+      // the words live in canon once bound; a leftover noncanonical record is harmless and never consulted for a bound character
+      if (settled && ev.kind === "BOUND") clearCharacterRecord(config);
+      return settled;
+    }
+    if (run) run.uncertain = true;
+    if (ev.kind === "KEPT_UNRELEASED") block(CHARACTER_RESUME_BLOCKER, false, true, "CHARACTER");
+    else if (ev.kind === "BLOCKED") block(ev.detail, true);
+    else block("the character's owner records could not be verified");
+    return false;
+  };
+  /** the end of a character run (first dispatch or resumption): settled by owner evidence about THAT operation, never by a status line */
+  const settleCharacter = async (run: Run): Promise<void> => {
+    const cur = pending;
+    if (!cur?.character || cur.command !== CHARACTER_COMMAND || cur.run_id !== run.id) {
+      run.uncertain = true;
+      block(
+        "the character operation's identity was not recorded; engineering must inspect it",
+        true,
+      );
+      return;
+    }
+    const ev = await rec.characterOutcome(config, cur.character);
+    // a shutdown leaves the record as it is: the restart reads the same evidence
+    if (closing) return;
+    applyCharacterEvidence(ev, run);
+  };
+
   /** Recovery reads and completes only the captured operation through its existing owners. Status text from an unrelated CLI command
    * cannot settle it; no recovery asks the human or referee again. Missing old identities stay blocked for engineering inspection. */
   async function recoverPending(): Promise<Launch> {
@@ -619,6 +718,43 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             ev.kind === "COMPLETE"
               ? "owner readback: the original setup's retained identity, all three publications and a fresh owner-verified open agree with its document"
               : "owner readback: that original setup was never confirmed; no publication of it exists",
+          ],
+          0,
+        ),
+      };
+    }
+    if (cur.command === CHARACTER_COMMAND && cur.character) {
+      const ev = await rec.characterOutcome(config, cur.character);
+      if (closing) return refuse(503, "the server is closing; the operation remains pending");
+      if (ev.kind === "KEPT_UNRELEASED") {
+        block(CHARACTER_RESUME_BLOCKER, false, true, "CHARACTER");
+        return {
+          ok: true,
+          run: finishedRun(
+            label,
+            [
+              "owner readback: the player's keep is retained and the release is not committed",
+              `RECOVERY BLOCKED: ${CHARACTER_RESUME_BLOCKER}`,
+            ],
+            4,
+          ),
+        };
+      }
+      if (ev.kind === "BLOCKED") return blocked(ev.detail, [], true);
+      if (ev.kind === "UNAVAILABLE")
+        return blocked("the character's owner records could not be verified");
+      if (!resolve()) return blocked(blocker ?? "the record could not be cleared", [], true);
+      if (ev.kind === "BOUND") clearCharacterRecord(config);
+      return {
+        ok: true,
+        run: finishedRun(
+          label,
+          [
+            ev.kind === "BOUND"
+              ? "owner readback: the character's release, its separately confirmed native placement and the referee evidence are all committed and verified"
+              : ev.kind === "RELEASED_UNBOUND"
+                ? "owner readback: the character is released and verified; it is NOT placed (the placement is a separate choice the player has not completed)"
+                : "owner readback: no keep was retained and no character was released; the player's words are still held for another offer",
           ],
           0,
         ),
@@ -1037,7 +1173,461 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       return { state: "BLOCKED", barrier: "ENGINEERING", detail: slot.detail };
     return { state: "UNAVAILABLE", barrier: "NONE", detail: slot.detail };
   }
+  // -- the player's ORIGINAL character: staged runs of the shipped `author-character` -----------------------------------------------
+  type CharacterRequest =
+    | { readonly kind: "PROPOSE"; readonly draft: CharacterDraft }
+    | { readonly kind: "REVISE"; readonly edits: readonly Edit[] }
+    | { readonly kind: "PLACE"; readonly statement: string }
+    | { readonly kind: "RESUME" };
+  const CHARACTER_WORDS_BLOCKER =
+    "the retained character words are unreadable or not this campaign's; engineering must inspect them";
+  const STATE_WORDS: Readonly<Record<string, string>> = {
+    KEPT_UNRELEASED:
+      "a character has already been kept for this campaign and its release is not complete: a kept character is never replaced or asked again; call resume_original_character to finish that release",
+    RELEASED_UNBOUND:
+      "a character has already been kept and released for this campaign: a kept character is never replaced here. Its placement is a separate choice (place_original_character)",
+    BOUND:
+      "a character has already been kept, released and placed for this campaign: a kept character is never replaced here",
+  };
+  /** the retained words that belong to THIS verified setting, or null */
+  const wordsFor = (
+    held: CharacterRecord | null,
+    st: { readonly world_id: string; readonly locus_id: string },
+  ): CharacterRecord | null =>
+    held && held.world_id === st.world_id && held.locus_id === st.locus_id ? held : null;
+
+  async function launchCharacterWork(req: CharacterRequest): Promise<CharacterLaunch> {
+    if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+    if (launching || (player && !player.done))
+      return refuse(409, "a command is already running: answer it or stop it first");
+    if (readingSetting > 0)
+      return refuse(
+        409,
+        "the setting is being read; try again in a moment. Nothing was dispatched",
+      );
+    launching = true;
+    try {
+      // the trusted operator may have inspected, replaced or removed the durable record: it is read afresh, never taken from memory
+      const again = readPending(config);
+      pending = again.kind === "PENDING" ? again.pending : null;
+      if (again.kind === "UNREADABLE") {
+        block(UNREADABLE_BLOCKER, true);
+        return refuse(409, UNREADABLE_BLOCKER);
+      }
+      if (again.kind === "PENDING" && !unresolvedOutcome) {
+        unresolvedOutcome = true;
+        blocker ??= "an earlier action's outcome is not established";
+      }
+      let resuming = false;
+      if (unresolvedOutcome) {
+        const cur = pending;
+        if (req.kind !== "RESUME" || !cur || cur.command !== CHARACTER_COMMAND || !cur.character)
+          return refuse(409, uncertainReason("chat"));
+        const ev = await rec.characterOutcome(config, cur.character);
+        if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+        if (ev.kind !== "KEPT_UNRELEASED") {
+          if (ev.kind === "BLOCKED") block(ev.detail, true);
+          return refuse(
+            409,
+            ev.kind === "BLOCKED"
+              ? `the character cannot be resumed: ${ev.detail}; engineering must inspect it`
+              : ev.kind === "UNAVAILABLE"
+                ? "the character's owner records could not be verified now; nothing was dispatched"
+                : "the owners' evidence already settles the character operation: run reconcile_last_action",
+          );
+        }
+        resuming = true;
+      }
+      const read = readCharacterRecord(config);
+      if (read.kind === "UNREADABLE") return refuse(409, CHARACTER_WORDS_BLOCKER);
+      const st: CharacterState = await rec.readCharacter(config);
+      if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+      if (st.kind === "NO_SETTING")
+        return refuse(
+          409,
+          "the player's original setting is not established yet; establish it first. Nothing was dispatched",
+        );
+      if (st.kind === "BLOCKED")
+        return refuse(
+          409,
+          `the character cannot be continued: ${st.detail}; engineering must inspect it. Nothing was dispatched`,
+        );
+      if (st.kind === "UNAVAILABLE")
+        return refuse(
+          409,
+          "the character's owner records could not be verified now; nothing was dispatched",
+        );
+      const pcId = st.kind === "NONE" ? chosenCharacterId(config) : st.pc_id;
+      const place = { world_id: st.world_id, locus_id: st.locus_id };
+      const held = wordsFor(read.kind === "RECORD" ? read.record : null, st);
+      const notReady = async (needs: Parameters<typeof refereeReadiness>[1]) => {
+        const ready = await refereeReadiness(config, needs);
+        return ready.ok ? null : refuse(409, `${ready.reason}; nothing was dispatched`);
+      };
+
+      let identity: CharacterIdentity;
+      let words: { draft?: CharacterDraft; presence?: string } = {};
+      let retain: CharacterRecord | null = null;
+      const offer = async (draft: CharacterDraft, revision: number): Promise<Launch | null> => {
+        const contract = contractOfDraft(pcId, draft);
+        if (!contract)
+          return refuse(
+            400,
+            `the character still lacks: ${missingOf(draft).join("; ")}; nothing was dispatched`,
+          );
+        // the whole mandatory review must be deliverable, or nothing is asked
+        if (!fitsCharacterConfirmation(pcId, draft))
+          return refuse(
+            400,
+            "this character is too large to be shown whole to the player for review; nothing was dispatched. Offer fewer or shorter statements",
+          );
+        const blockedBy = await notReady(["I002_CLASSIFY", "IR_NATIVE_COMPATIBILITY"]);
+        if (blockedBy) return blockedBy;
+        retain = {
+          format: "immortalis-chat-character-words",
+          format_version: 1,
+          campaign_id: config.campaignId,
+          pc_id: pcId,
+          ...place,
+          draft,
+          revision,
+          draft_sha256: draftSha(draft),
+          placement: null,
+        };
+        identity = {
+          stage: "KEEP",
+          pc_id: pcId,
+          ...place,
+          draft,
+          contract_sha256: contractSha(contract),
+          statement: null,
+        };
+        words = { draft };
+        return null;
+      };
+
+      if (req.kind === "PROPOSE" || req.kind === "REVISE") {
+        if (st.kind !== "NONE") return refuse(409, STATE_WORDS[st.kind] ?? "a character is held");
+        let draft: CharacterDraft;
+        let revision: number;
+        if (req.kind === "PROPOSE") {
+          draft = req.draft;
+          revision = held?.draft
+            ? held.draft_sha256 === draftSha(draft)
+              ? held.revision
+              : held.revision + 1
+            : 1;
+        } else {
+          if (!held?.draft)
+            return refuse(
+              409,
+              "no draft is retained to revise; offer the character with propose_original_character",
+            );
+          const applied = applyEdits(held.draft, req.edits);
+          if (!applied.ok)
+            return refuse(
+              400,
+              `CHANGE REFUSED, the character is unchanged: ${applied.reason}; nothing was dispatched`,
+            );
+          draft = applied.draft;
+          revision = held.revision + 1;
+        }
+        if (revision > MAX_REVISIONS)
+          return refuse(409, `a character may be revised at most ${MAX_REVISIONS} times`);
+        if (missingOf(draft).length > 0) {
+          // an incomplete revision is RETAINED (the console keeps it too) and nothing is asked
+          const kept: CharacterRecord = {
+            format: "immortalis-chat-character-words",
+            format_version: 1,
+            campaign_id: config.campaignId,
+            pc_id: pcId,
+            ...place,
+            draft,
+            revision,
+            draft_sha256: draftSha(draft),
+            placement: null,
+          };
+          if (!writeCharacterRecord(config, kept))
+            return refuse(503, "the character words could not be retained; nothing was dispatched");
+          return {
+            ok: true,
+            run: null,
+            retained: {
+              state: "DRAFT_RETAINED",
+              barrier: "NONE",
+              draft,
+              missing: missingOf(draft),
+              revision,
+            },
+          };
+        }
+        const refused = await offer(draft, revision);
+        if (refused) return refused;
+      } else if (req.kind === "PLACE") {
+        if (st.kind !== "RELEASED_UNBOUND")
+          return refuse(
+            409,
+            st.kind === "BOUND"
+              ? "the character is already placed; nothing was dispatched"
+              : st.kind === "KEPT_UNRELEASED"
+                ? "the character is kept but its release is not complete: call resume_original_character first. Placement is a separate, later choice"
+                : "no character has been kept and released yet: placement is a separate, later choice and needs a released character",
+          );
+        const judged = judgeStatement(req.statement);
+        if (!judged.ok) return refuse(400, `${judged.reason}; nothing was dispatched`);
+        const blockedBy = await notReady(["IR_NATIVE_COMPATIBILITY"]);
+        if (blockedBy) return blockedBy;
+        retain = held
+          ? { ...held, placement: { statement: judged.text } }
+          : {
+              format: "immortalis-chat-character-words",
+              format_version: 1,
+              campaign_id: config.campaignId,
+              pc_id: pcId,
+              ...place,
+              draft: null,
+              revision: 1,
+              draft_sha256: null,
+              placement: { statement: judged.text },
+            };
+        identity = {
+          stage: "PLACE",
+          pc_id: pcId,
+          ...place,
+          draft: null,
+          contract_sha256: null,
+          statement: judged.text,
+        };
+        words = { presence: judged.text };
+      } else {
+        // a resumption finishes only what the owners and the retained words show was begun; a fresh question is asked only where a fresh
+        // confirmation is still required
+        if (st.kind === "BOUND")
+          return refuse(409, "the character is already placed; there is nothing to resume");
+        if (st.kind === "KEPT_UNRELEASED") {
+          identity = {
+            stage: "KEEP",
+            pc_id: pcId,
+            ...place,
+            draft: null,
+            contract_sha256: null,
+            statement: null,
+          };
+          // the release is finished from exactly what was kept: it needs the referee's classification evidence the player already saw
+        } else if (st.kind === "RELEASED_UNBOUND") {
+          const statement = held?.placement?.statement;
+          if (statement === undefined)
+            return refuse(
+              409,
+              "no placement statement is retained: the player says where the character is originally present (place_original_character)",
+            );
+          const blockedBy = await notReady(["IR_NATIVE_COMPATIBILITY"]);
+          if (blockedBy) return blockedBy;
+          identity = {
+            stage: "PLACE",
+            pc_id: pcId,
+            ...place,
+            draft: null,
+            contract_sha256: null,
+            statement,
+          };
+          words = { presence: statement };
+        } else {
+          if (!held?.draft)
+            return refuse(
+              409,
+              "no complete draft is retained to review again; offer the character with propose_original_character",
+            );
+          const refused = await offer(held.draft, held.revision);
+          if (refused) return refused;
+        }
+      }
+
+      if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+      if (retain && !writeCharacterRecord(config, retain))
+        return refuse(503, "the character words could not be retained; nothing was dispatched");
+      const id = newRunId();
+      const operation: PendingOperation = {
+        format: PENDING_FORMAT,
+        format_version: 1,
+        campaign_id: config.campaignId,
+        run_id: id,
+        command: CHARACTER_COMMAND,
+        options: {},
+        dispatched_at: now(),
+        state: "DISPATCHED",
+        blocker: null,
+        identity: null,
+        collection: null,
+        setup: null,
+        character: identity!,
+      };
+      if (!writePending(config, operation))
+        return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
+      pending = operation;
+      if (resuming) {
+        // the earlier record is replaced by this run's: the barrier stays until the owners' evidence about THIS run settles it
+        unresolvedOutcome = true;
+      }
+      const dispatched = identity!;
+      const run = startRun(
+        id,
+        CHARACTER_COMMAND,
+        [],
+        () => undefined,
+        { quiet: false },
+        settleCharacter,
+        (env) => runCharacterOperation(config, dispatched, words, env, deps.character),
+      );
+      run.stage = dispatched.stage;
+      return { ok: true, run };
+    } finally {
+      launching = false;
+    }
+  }
+
+  const draftReport = (
+    held: CharacterRecord | null,
+    base: Pick<CharacterStatusReport, "barrier"> & { detail?: string },
+  ): CharacterStatusReport =>
+    held?.draft
+      ? {
+          state: "DRAFT_RETAINED",
+          ...base,
+          draft: held.draft,
+          missing: missingOf(held.draft),
+          revision: held.revision,
+        }
+      : { state: "NOT_STARTED", ...base };
+
+  /** the owner-backed account of the character: read-only, it settles nothing, starts nothing and reads no campaign while a command holds it */
+  async function characterStatusWork(): Promise<CharacterStatusReport> {
+    if (launching)
+      return { state: "UNAVAILABLE", barrier: "NONE", detail: "another command is starting now" };
+    readingSetting++;
+    try {
+      return await readCharacterStatus();
+    } finally {
+      readingSetting--;
+    }
+  }
+  async function readCharacterStatus(): Promise<CharacterStatusReport> {
+    const running = player && !player.done && player.label === CHARACTER_COMMAND ? player : null;
+    const held = readPending(config);
+    const mine =
+      held.kind === "PENDING" && held.pending.command === CHARACTER_COMMAND ? held.pending : null;
+    if (running) {
+      const id = mine?.character ?? null;
+      return {
+        state: running.terminal.snapshot(0).pending ? "AWAITING_CONFIRMATION" : "IN_PROGRESS",
+        barrier: "NONE",
+        ...(id
+          ? {
+              stage: id.stage,
+              ...(id.draft ? { draft: id.draft } : {}),
+              ...(id.statement !== null ? { placement: id.statement } : {}),
+            }
+          : {}),
+      };
+    }
+    if (held.kind === "UNREADABLE")
+      return { state: "BLOCKED", barrier: "ENGINEERING", detail: UNREADABLE_BLOCKER };
+    if (player && !player.done)
+      return { state: "UNAVAILABLE", barrier: "NONE", detail: "another command is running now" };
+    const words = readCharacterRecord(config);
+    if (words.kind === "UNREADABLE")
+      return { state: "BLOCKED", barrier: "ENGINEERING", detail: CHARACTER_WORDS_BLOCKER };
+    // another action's unresolved outcome is reported as such: a character that exists does not clear a mutation barrier
+    const other: Pick<CharacterStatusReport, "barrier"> & { detail?: string } =
+      held.kind === "PENDING" && !mine
+        ? {
+            barrier: structuralBlock ? "ENGINEERING" : "RECONCILE",
+            detail: "another action's outcome is not established yet",
+          }
+        : { barrier: "NONE" };
+    const wordsOf = (st: { world_id: string; locus_id: string }) =>
+      wordsFor(words.kind === "RECORD" ? words.record : null, st);
+    const fromState = (
+      st: CharacterState,
+      base: Pick<CharacterStatusReport, "barrier"> & { detail?: string },
+    ): CharacterStatusReport => {
+      if (st.kind === "NO_SETTING")
+        return { state: "SETTING_NOT_ESTABLISHED", barrier: base.barrier, detail: st.detail };
+      if (st.kind === "BLOCKED")
+        return { state: "BLOCKED", barrier: "ENGINEERING", detail: st.detail };
+      if (st.kind === "UNAVAILABLE")
+        return {
+          state: "UNAVAILABLE",
+          barrier: base.barrier === "NONE" ? "NONE" : base.barrier,
+          detail: st.detail,
+        };
+      if (st.kind === "NONE") return draftReport(wordsOf(st), base);
+      const readback = readbackOf(st);
+      // only the retained keep, finished without a new question, completes a release: it is named whenever nothing else is in the way
+      if (st.kind === "KEPT_UNRELEASED")
+        return {
+          state: "KEPT_AWAITING_RELEASE",
+          barrier: base.barrier === "NONE" ? "RESUME" : base.barrier,
+          readback,
+        };
+      if (st.kind === "RELEASED_UNBOUND") {
+        const statement = wordsOf(st)?.placement?.statement;
+        return {
+          state: "RELEASED_UNBOUND",
+          ...base,
+          readback,
+          ...(statement !== undefined ? { placement: statement } : {}),
+        };
+      }
+      return { state: "BOUND", ...base, readback };
+    };
+    if (mine) {
+      if (!mine.character)
+        return {
+          state: "BLOCKED",
+          barrier: "ENGINEERING",
+          detail: "the character operation's identity was not recorded",
+        };
+      const ev = await rec.characterOutcome(config, mine.character);
+      if (ev.kind === "KEPT_UNRELEASED") {
+        const st = await rec.readCharacter(config);
+        return fromState(st, { barrier: "RESUME" });
+      }
+      if (ev.kind === "BLOCKED")
+        return { state: "BLOCKED", barrier: "ENGINEERING", detail: ev.detail };
+      if (ev.kind === "UNAVAILABLE")
+        return { state: "UNAVAILABLE", barrier: "RECONCILE", detail: ev.detail };
+      const st = await rec.readCharacter(config);
+      return fromState(st, { barrier: "RECONCILE" });
+    }
+    return fromState(await rec.readCharacter(config), other);
+  }
+  const expectationOf = (run: Run): CharacterExpectation | null => {
+    const cur = pending;
+    if (run.label !== CHARACTER_COMMAND || !cur?.character || cur.run_id !== run.id) return null;
+    const id = cur.character;
+    if (id.stage === "PLACE")
+      return id.statement === null ? null : { stage: "PLACE", statement: id.statement };
+    if (id.draft === null) return null;
+    const contract = compileContract(id.pc_id, id.draft);
+    return contract ? { stage: "KEEP", contract } : null;
+  };
+
   const playerRuns: PlayerRuns = {
+    resumeKind: () => (resumableBlock ? resumeWhat : null),
+    proposeCharacter: (draft) => track(launchCharacterWork({ kind: "PROPOSE", draft })),
+    reviseCharacter: (edits) => track(launchCharacterWork({ kind: "REVISE", edits })),
+    placeCharacter: (statement) => track(launchCharacterWork({ kind: "PLACE", statement })),
+    resumeCharacter: () => track(launchCharacterWork({ kind: "RESUME" })),
+    characterStatus: () =>
+      closing
+        ? Promise.resolve({
+            state: "UNAVAILABLE",
+            barrier: "NONE",
+            detail: "the server is closing",
+          } as CharacterStatusReport)
+        : track(characterStatusWork()),
+    characterExpectation: expectationOf,
     proposeSetup: (document) =>
       launchPlayer({ command: LOCALITY_COMMAND, setup: document }, "chat"),
     resumeSetup: () => track(resumeSetupWork()),
