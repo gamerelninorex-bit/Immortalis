@@ -224,7 +224,7 @@ const prepared = (r: PlanFacts) =>
   r.preparation.reserve !== null &&
   r.preparation.basis !== null;
 
-/** Decides one concrete request against the facts read for it. The referee coverage is the listed, bound hosts' operations (null = unknown, assumed present). */
+/** Decides one concrete request against the facts read for it. Unverifiable referee coverage never authorizes dispatch. */
 export function planStage(
   config: PhoneConfig,
   r: PlanFacts,
@@ -232,7 +232,10 @@ export function planStage(
   coverage: ReadonlySet<string> | null,
   install: InstallState | null,
 ): Plan {
-  const covers = (op: string): boolean => coverage === null || coverage.has(op);
+  const covers = (op: string): boolean => coverage !== null && coverage.has(op);
+  if (!r.original_only) return refuse("the route requires an entirely ORIGINAL setting");
+  if (coverage === null && ["LOCUS", "CLARIFY", "FINISH"].includes(req.kind))
+    return refuse("the configured referee grants cannot be verified now", 503);
   const landed = (intent: string): boolean => r.landed?.get(intent) === true;
   if (req.kind === "PREPARE") {
     if (r.character.kind !== "BOUND")

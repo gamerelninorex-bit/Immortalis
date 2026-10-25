@@ -14,7 +14,7 @@ import { runPlayerViewBindCli } from "../../../packages/operator/src/player-view
 import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
 import type { PhoneConfig } from "./config.ts";
 import { preflightB } from "./preflight.ts";
-import { checkScenarioFile } from "./scenario.ts";
+import { checkScenarioFile, sameScenario } from "./scenario.ts";
 
 /** Why a preparation did not complete, in a closed vocabulary (the messages are for the operator; a code is what a front end may relay). */
 export type PrepareCode =
@@ -68,7 +68,7 @@ export async function prepareChat(config: PhoneConfig, input: string): Promise<P
   const document = `${JSON.stringify(checked.scenario, null, 2)}\n`;
   const existing = checkScenarioFile(config.scenarioFile, { strict: true });
   if (existing.ok) {
-    if (JSON.stringify(existing.scenario) !== JSON.stringify(checked.scenario))
+    if (!sameScenario(existing.scenario, checked.scenario))
       return no(
         "SCENARIO_CONFLICT",
         "a different scenario already exists; the operator must inspect it before replacement",

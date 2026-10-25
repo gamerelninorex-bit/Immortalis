@@ -144,9 +144,15 @@ export function routeStatus(input: StatusInput): RouteStatus {
     return empty("UNAVAILABLE", input, read.detail, [{ stage: "setting", state: "UNAVAILABLE" }]);
 
   const r = read.route;
+  if (!r.original_only)
+    return empty("BLOCKED", input, "the route requires an entirely ORIGINAL setting", []);
+  if (input.coverage === null)
+    return {
+      ...empty("UNAVAILABLE", input, "the configured referee grants cannot be verified now", []),
+      blockers: ["REFEREE_GRANTS_UNAVAILABLE"],
+    };
   const rec = input.record.kind === "RECORD" ? input.record.record : null;
-  const covered = (op: string | undefined): boolean =>
-    op === undefined || input.coverage === null || input.coverage.has(op);
+  const covered = (op: string | undefined): boolean => op === undefined || input.coverage!.has(op);
   const missing: string[] = [];
   const stages: StageLine[] = [];
   const running = input.running?.step ?? null;
@@ -311,9 +317,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
   }
   stages.push(finishLine("connection", installOk, installBlock));
 
-  const playCovered = PLAY_OPERATIONS.every(
-    (op) => input.coverage === null || input.coverage.has(op),
-  );
+  const playCovered = PLAY_OPERATIONS.every((op) => input.coverage!.has(op));
   if (earlier && installOk && !playCovered)
     missing.push(
       ...PLAY_OPERATIONS.filter((op) => input.coverage !== null && !input.coverage.has(op)).map(

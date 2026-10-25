@@ -19,7 +19,7 @@ import {
   type StageOutcome,
 } from "./route-evidence.ts";
 import type { FinishStage, StageIdentity } from "./route-stages.ts";
-import { checkScenarioFile, isScenario, type Scenario } from "./scenario.ts";
+import { checkScenarioFile, isScenario, sameScenario, type Scenario } from "./scenario.ts";
 
 /**
  * The last stage: the referee's cycle attestation and the service's own installation of the private scenario and the earned-Glance view.
@@ -96,7 +96,7 @@ export async function installState(config: PhoneConfig, scenario: Scenario): Pro
   const existing = checkScenarioFile(config.scenarioFile, { strict: true });
   let file: "SAME" | "ABSENT";
   if (existing.ok) {
-    if (JSON.stringify(existing.scenario) !== JSON.stringify(scenario))
+    if (!sameScenario(existing.scenario, scenario))
       return {
         kind: "BLOCKED",
         code: "SCENARIO_CONFLICT",

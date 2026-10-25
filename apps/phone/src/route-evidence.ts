@@ -1,6 +1,9 @@
 import {
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
+  ExtractionBasisSchema,
+  ProductionReserveSchema,
+  pcExistenceContractKey,
   popWorkforceScopeKey,
   productionExtractionBasisKey,
   productionReserveKey,
@@ -207,6 +210,42 @@ export async function readRoute(
       const mech = adapter.mechanism(pcId, ids.mechanism_id);
       const reserve = campaign.store.getFact(productionReserveKey(ids.reserve_id));
       const basis = campaign.store.getFact(productionExtractionBasisKey(ids.basis_id));
+      // Presence under a service-derived key is insufficient: an operator may already have
+      // installed a different, otherwise valid preparation. Check the same subject/source/unit
+      // relationships the shipped preparation and preflight require, without another open.
+      const rv = reserve ? ProductionReserveSchema.safeParse(reserve.value) : null;
+      const bv = basis ? ExtractionBasisSchema.safeParse(basis.value) : null;
+      const atSource = (locality: { world: { entity_id: string }; locus: { entity_id: string } }) =>
+        locality.world.entity_id === worldId &&
+        locality.locus.entity_id === setting.readback.locus_id;
+      const unit = source.value.establishment.quantity.unit;
+      const pc = campaign.store.getFact(pcExistenceContractKey(pcId));
+      if (
+        (mech &&
+          (mech.value.pc_id !== pcId ||
+            mech.value.authored_from.contract.fact_key !== pc?.key ||
+            mech.value.authored_from.contract.version !== pc?.version ||
+            (state?.success &&
+              mech.value.cycle.duration.unit !== state.data.canonical_time.unit))) ||
+        (reserve &&
+          (!rv?.success ||
+            !atSource(rv.data.locality) ||
+            rv.data.quantity.unit !== unit ||
+            rv.data.established.amount !== 0 ||
+            rv.data.material_class !== source.value.material_class)) ||
+        (basis &&
+          (!bv?.success ||
+            !atSource(bv.data.locality) ||
+            bv.data.source.fact_key !== source.fact.key ||
+            bv.data.source.source_key !== source.value.source_key ||
+            bv.data.unit !== unit ||
+            bv.data.material_class !== source.value.material_class))
+      )
+        return {
+          kind: "BLOCKED",
+          code: "PREPARATION_ALIGNMENT",
+          detail: "the held preparation does not match this character, source, locality and unit",
+        };
       preparation = {
         mechanism: mech ? { version: mech.fact.version, intent: intentOf(mech.fact) } : null,
         reserve: reserve ? { intent: intentOf(reserve) } : null,

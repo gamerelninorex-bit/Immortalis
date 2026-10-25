@@ -26,6 +26,10 @@ export const SCENARIO_KEYS = [
   "basis",
 ] as const;
 
+/** JSON member order is not part of scenario identity. */
+export const sameScenario = (a: Scenario, b: Scenario): boolean =>
+  SCENARIO_KEYS.every((k) => a[k] === b[k]);
+
 // an identity begins with a letter or digit (the engine's EntityId rule): a value the commands would refuse is refused here, early and by name
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const UNIT = /^[A-Za-z0-9._ :-]{1,64}$/;
