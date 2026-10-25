@@ -93,6 +93,8 @@ The evidence test emits sanitized `A2_EVIDENCE` records for both conversation br
 
 These are scripted transport/authority/integration witnesses. Genuine AI interpretation, an actual named-client human confirmation surface, Android experience, sustained play and live reconnect remain separate evidence on BLUE's existing OB-030/Master Roadmap route. No deployment, paid API, original campaign mutation, source-lock/gate promotion or live/First Playable acceptance follows from this mechanism.
 
+The A2 measurements also exposed a transport completion delay: after owner readback, closing a terminal with no pending prompt did not wake waiting callers. Closure now notifies them immediately, with a focused fake-timer regression. This removes an avoidable long-poll timeout without changing consent, canonical work or the inherited H-07 persistence path. Readable exercised transcripts and counters accompany the [PR evidence](evidence/chat-collection-preparation/README.md).
+
 ## Authentication (OAuth 2.1)
 
 ChatGPT documents OAuth 2.1 (authorization code + PKCE `S256`) as its only supported authenticated mode (no API keys, no machine-to-machine); the adapter implements exactly that and nothing wider.

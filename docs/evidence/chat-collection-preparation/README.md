@@ -24,4 +24,8 @@ node --experimental-strip-types tools/extract-a2-evidence.ts downloaded-job.log 
 
 The extractor validates all five complete record sets before writing files and redacts human-only one-time test challenges. CI emits fresh exact-HEAD records on every run. Committed artifacts identify their executed snapshot explicitly; the PR records final exact-HEAD CI and any artifact-only delta. No earlier run or artifact self-clears BLUE review.
 
+The records accompanying this delivery were executed at `86a389cea2d4d79a7d6450596a527ace8b714aa9` in [the A2 evidence stage](https://github.com/gamerelninorex-bit/Immortalis/actions/runs/40223534235). Later commits add documentation and these records; final exact-HEAD CI is recorded separately in the PR. An intermediate workflow superseded by an evidence commit is not a full-suite pass.
+
+The measurements found and prompted a bounded transport repair: closing a terminal with no pending prompt now wakes existing long-poll callers after owner readback. Previously an R-5 call could wait out its ten-second poll even though work had finished. A fake-timer unit regression verifies completion notification without a new line, prompt or elapsed wait. The PR compares the observed earlier run with the new measurements; H-07 persistence is unchanged.
+
 Actual named-client/human setup, separately chosen collection and interruption/resumption remain BLUE's next authorized milestone on existing OB-030 and the Master Roadmap, including Android ChatGPT where available. Release stays BLOCKED; OB-058 stays CLOSED. No deployment, paid API, live campaign mutation or H-07 persistence repair is included.
