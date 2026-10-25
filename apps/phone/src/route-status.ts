@@ -128,13 +128,22 @@ export function routeStatus(input: StatusInput): RouteStatus {
   if (read.kind === "NO_SETTING")
     return {
       ...empty("NO_SETTING", input, read.detail, [{ stage: "setting", state: "NEXT" }]),
-      next: {
-        tool: TOOL["setting"]!,
-        ask_the_player: [
-          "the place they want to author (one world, one locality and one exact finite source), in their own words",
-        ],
-        note: "The place comes first. The player reads and confirms all of it themselves.",
-      },
+      next:
+        input.barrier === "ENGINEERING"
+          ? null
+          : input.barrier !== "NONE"
+            ? {
+                tool: "original_setting_status",
+                ask_the_player: [],
+                note: "The existing setting operation must be recovered through its own status and retained input before another setting can be proposed.",
+              }
+            : {
+                tool: TOOL["setting"]!,
+                ask_the_player: [
+                  "the place they want to author (one world, one locality and one exact finite source), in their own words",
+                ],
+                note: "The place comes first. The player reads and confirms all of it themselves.",
+              },
     };
   if (read.kind === "BLOCKED")
     return empty("BLOCKED", { ...input, barrier: "ENGINEERING" }, read.detail, [

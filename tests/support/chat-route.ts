@@ -188,6 +188,7 @@ export async function resumed(
 }
 
 export interface RouteOptions {
+  readonly characterWords?: { readonly embodiment?: string; readonly presence?: string };
   /** the character words (default: the accepted-cycle branch) */
   readonly cycle?: boolean;
   readonly deps?: PhoneDeps;
@@ -228,11 +229,14 @@ export async function started(o: RouteOptions = {}): Promise<RouteRun> {
   if (est.finished.data?.result?.status !== "LOCALITY_READY")
     throw new Error("the original setting was not established");
   if (o.upTo === "SETTING") return finish();
-  const kept = await offer(r.chat, draft({ embodiment: embodiment(o.cycle ?? true) }));
+  const kept = await offer(
+    r.chat,
+    draft({ embodiment: o.characterWords?.embodiment ?? embodiment(o.cycle ?? true) }),
+  );
   if (kept.finished.data?.result?.status !== "CHARACTER_RELEASED_UNBOUND")
     throw new Error(`the character was not kept: ${JSON.stringify(kept.finished.data?.result)}`);
   if (o.upTo === "KEPT") return finish();
-  const placed = await place(r.chat);
+  const placed = await place(r.chat, o.characterWords?.presence);
   if (placed.finished.data?.result?.status !== "CHARACTER_BOUND")
     throw new Error("the character was not placed");
   return finish();

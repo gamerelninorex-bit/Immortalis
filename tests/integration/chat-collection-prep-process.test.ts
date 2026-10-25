@@ -188,12 +188,24 @@ for (const b of boundaries) {
       await crash(s, b, when, "EIO");
       const r = await resumed(s);
       try {
-        await converge(r, {
-          cycle: !b.r5,
-          until: (route: any) =>
-            route.barrier === "NONE" &&
-            route.stages.some((l: any) => l.stage === b.line && l.state === "DONE"),
-        });
+        if (b.target === "PcCollectionAdapter.attestCycle" && when === "after") {
+          // The inherited view owner's CAMPAIGN_NOT_RECONCILED guard refuses the
+          // superseded checkpoint left by an EIO after the manifest commit. We do
+          // not weaken that guard or add a persistence cleanup to this adapter.
+          const route = (await status(r.chat)).route;
+          expect(route.readiness.prepared_to_request_collection).toBe(false);
+          expect(route.blockers).toContain("CAMPAIGN_NOT_RECONCILED");
+          expect(route.next).toBeNull();
+          const refused = await r.chat.call("finish_collection_setup");
+          expect(refused.isError).toBe(true);
+          expect(refused.elicited).toEqual([]);
+        } else
+          await converge(r, {
+            cycle: !b.r5,
+            until: (route: any) =>
+              route.barrier === "NONE" &&
+              route.stages.some((l: any) => l.stage === b.line && l.state === "DONE"),
+          });
       } finally {
         await r.stop();
       }

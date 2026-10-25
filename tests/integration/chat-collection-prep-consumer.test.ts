@@ -23,7 +23,96 @@ import {
   status,
   type Position,
   type Slot,
+  started,
+  walk,
+  ACTUATOR,
+  TRAVERSAL,
+  CYCLE,
+  DECLARATION,
+  preparation,
 } from "../support/chat-route.ts";
+import { PC_WORDS, SCENE, redScene } from "../support/observation.ts";
+import { outcomeAnswer } from "../support/pc-collection-original.ts";
+import { hostAnswer } from "../support/pc-collection.ts";
+
+it("the authored chat route feeds a separately chosen collection and earned observation/Glance, stable after reopening", async () => {
+  const basePolicy = routePolicy();
+  const policy = (doc: any) =>
+    doc.operation === "F014D_DIRECT_PERCEPTION"
+      ? outcomeAnswer(doc, { of: "scene" })
+      : basePolicy(doc);
+  const r = await started({
+    mutateSetting: redScene(),
+    policy,
+    characterWords: {
+      embodiment: `${PC_WORDS.embodiment}; ${ACTUATOR}; ${CYCLE}; ${TRAVERSAL}`,
+      presence: PC_WORDS.presence,
+    },
+  });
+  let seen: any;
+  try {
+    await stage(r.chat, "establish_character_location");
+    await stage(r.chat, "state_starting_moment", MOMENT);
+    await stage(r.chat, "propose_collection_preparation", preparation(CYCLE));
+    await stage(r.chat, "declare_closed_setting", {
+      ...DECLARATION,
+      domain_designation: "The stone alcove",
+      domain_topology: SCENE.geometry,
+    });
+    expect((await stage(r.chat, "finish_collection_setup")).finished.data.exit_code).toBe(0);
+    expect((await stage(r.chat, "collect", { amount: 2 })).finished.elicited).toHaveLength(1);
+    expect((await stage(r.chat, "continue_collection")).finished.data.exit_code).toBe(0);
+    expect((await stage(r.chat, "finish_collection")).finished.elicited).toHaveLength(1);
+    expect((await stage(r.chat, "observe_surroundings")).finished.data.exit_code).toBe(0);
+    const glance = await r.chat.call("read_current_observation_glance");
+    expect(glance.isError, glance.text).toBe(false);
+    expect(JSON.stringify(glance.data)).toContain("a broad patch of bright red on pale plaster");
+    expect(JSON.stringify(glance.data)).not.toMatch(
+      /source-delivery|collection-mechanism|recoverable|reserve-chat/,
+    );
+    seen = glance.data;
+  } finally {
+    await r.stop();
+  }
+  expect(await world(r.s)).toMatchObject({
+    source: 10,
+    reserve: [2],
+    clock: MOMENT.value + 2 * TAU,
+  });
+  const fresh = await resumed(r.s, { policy });
+  try {
+    expect((await fresh.chat.call("read_current_observation_glance")).data).toEqual(seen);
+  } finally {
+    await fresh.stop();
+  }
+}, 240_000);
+
+it("a separately requested collection meets the source's authored closed path and gains no output or time", async () => {
+  const basePolicy = routePolicy();
+  const r = await started({
+    mutateSetting: (doc) => {
+      doc.source.access_facts = [
+        {
+          aspect: "reach",
+          statement: "All stones lie behind a sealed solid barrier with no opening",
+        },
+      ];
+    },
+    policy: (doc) =>
+      doc.operation === "PC_COLLECTION_REACH"
+        ? hostAnswer(doc.context, "CLOSED", "UNABLE_TO_PASS")
+        : basePolicy(doc),
+  });
+  try {
+    await walk(r);
+    expect((await status(r.chat)).route.readiness.prepared_to_request_collection).toBe(true);
+    await stage(r.chat, "collect", { amount: 1 });
+    await stage(r.chat, "continue_collection");
+  } finally {
+    await r.stop();
+  }
+  expect(await world(r.s)).toMatchObject({ source: 12, reserve: [0], clock: MOMENT.value });
+}, 240_000);
 
 let steps: Partial<Record<Position, Slot>>;
 beforeAll(async () => {

@@ -84,6 +84,8 @@ export interface RouteProbe {
 }
 
 export interface RouteFacts {
+  /** Existing player-view proof refuses package residue; this adapter never deletes it. */
+  readonly package_residue: boolean;
   readonly character: Exclude<CharacterState, { kind: "NO_SETTING" | "BLOCKED" | "UNAVAILABLE" }>;
   readonly setting: LocalityReadback;
   /** the single exact finite source, with the access facts its owner states */
@@ -165,6 +167,24 @@ export async function readRoute(
     const adapter = new PcCollectionAdapter(campaign.store);
     const ids = technicalIds(config);
     const facts = campaign.store.listFacts();
+    const localSources = facts.filter(
+      (f) =>
+        f.facet === "world_source_condition" &&
+        (
+          f.value as {
+            locality?: { world?: { entity_id?: string }; locus?: { entity_id?: string } };
+          }
+        ).locality?.world?.entity_id === worldId &&
+        (f.value as { locality?: { locus?: { entity_id?: string } } }).locality?.locus
+          ?.entity_id === setting.readback.locus_id,
+    );
+    if (localSources.length !== 1)
+      return {
+        kind: "BLOCKED",
+        code: "SOURCE_SCOPE_UNSUPPORTED",
+        detail:
+          "the locality's source set changed; this bounded one-source route cannot replay the earlier declaration",
+      };
     const original_only = (() => {
       const worlds = facts.filter((f) => /^world\/[^/]+\/profile$/.test(f.key));
       return (
@@ -257,6 +277,9 @@ export async function readRoute(
     const closure = adapter.sceneClosure(worldId, setting.readback.locus_id);
     const scope = adapter.workforceScope(worldId, setting.readback.locus_id);
     const read: RouteFactsRead = {
+      package_residue:
+        campaign.store.residue.journal_tail_bytes > 0 ||
+        campaign.store.residue.other_files.length > 0,
       character,
       setting: setting.readback,
       source: {

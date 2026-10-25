@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { closeSync, fsyncSync, lstatSync, openSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import type { CliEnvironment } from "@immortalis/operator";
-import { readConfig } from "../../../packages/operator/src/referee-exchange.ts";
+import { readConfig, secretPath } from "../../../packages/operator/src/referee-exchange.ts";
 import {
   playerViewSecretPath,
   readPlayerViewConfig,
@@ -50,6 +50,15 @@ export async function refereeCoverage(config: PhoneConfig): Promise<ReadonlySet<
   );
   if (!read.ok) return read.error.code === "NOT_CONFIGURED" ? new Set() : null;
   const listed = new Set(config.refereeHostIds);
+  // A binding without the private credential the configured transport actually reads
+  // cannot serve a referee operation. Reuse the existing owner-only secret-file reader.
+  for (const host of read.value.hosts.filter((h) => listed.has(h.host_id)))
+    if (
+      readPlayerViewSecretFile(
+        secretPath({ stateDir: config.operatorDir, campaignId: config.campaignId }, host.host_id),
+      ) !== host.secret
+    )
+      return null;
   return new Set(
     read.value.hosts.filter((h) => listed.has(h.host_id)).flatMap((h) => h.operations.map(String)),
   );
@@ -92,7 +101,18 @@ export type InstallState =
  * configured player-view host binding (absent, bound to this character with a private matching secret, or otherwise). Nothing is written,
  * repaired or rebound. A scenario that merely exists is never evidence that a stage completed: it is judged against the derived one.
  */
-export async function installState(config: PhoneConfig, scenario: Scenario): Promise<InstallState> {
+export async function installState(
+  config: PhoneConfig,
+  scenario: Scenario,
+  packageResidue: boolean,
+): Promise<InstallState> {
+  if (packageResidue)
+    return {
+      kind: "BLOCKED",
+      code: "CAMPAIGN_NOT_RECONCILED",
+      detail:
+        "the existing player-view owner refuses package residue; the operator must inspect it before installation or play",
+    };
   const existing = checkScenarioFile(config.scenarioFile, { strict: true });
   let file: "SAME" | "ABSENT";
   if (existing.ok) {
@@ -291,7 +311,7 @@ export async function stageEvidence(config: PhoneConfig, id: StageIdentity): Pro
     return stageOutcome(read, id, config.campaignId);
   return finishOutcome(
     read.route.attestation?.current === true,
-    await installState(config, id.scenario),
+    await installState(config, id.scenario, read.route.package_residue),
     id,
   );
 }

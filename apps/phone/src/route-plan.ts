@@ -375,6 +375,8 @@ export function planStage(
               ? "declare_closed_setting"
               : null;
       if (unmet !== null) return refuse(`an earlier stage is not complete: ${unmet} comes first`);
+      if (install?.kind === "BLOCKED" || install?.kind === "UNAVAILABLE")
+        return refuse(install.detail, install.kind === "UNAVAILABLE" ? 503 : 409);
       if (id.attest && !covers("PC_COLLECTION_CYCLE"))
         return refuse(
           "no AI referee host that this service lists is bound to read the character's cycle wording; nothing was started. Binding one is an engineering step",

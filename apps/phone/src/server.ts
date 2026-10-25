@@ -1795,7 +1795,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   const installOf = async (r: RouteFacts) => {
     if (!earlierStagesDone(r)) return null;
     const derived = deriveScenario(r);
-    return derived.ok ? installState(config, derived.scenario) : null;
+    return derived.ok ? installState(config, derived.scenario, r.package_residue) : null;
   };
 
   async function launchStageWork(req: StageRequest): Promise<StageLaunch> {

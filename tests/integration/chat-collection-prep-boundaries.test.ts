@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- scripted MCP and operator documents */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, expect, it } from "vitest";
-import { refereeDir } from "../../packages/operator/src/referee-exchange.ts";
+import { beforeAll, expect, it, vi } from "vitest";
+import { PcCollectionAdapter } from "@immortalis/engine";
+import { refereeDir, secretPath } from "../../packages/operator/src/referee-exchange.ts";
 import {
   DECLARATION,
   chain,
@@ -10,9 +10,87 @@ import {
   resumed,
   stage,
   status,
+  openOrdinary,
+  courtyard,
   type Position,
   type Slot,
 } from "../support/chat-route.ts";
+
+it("a current workforce half survives an interrupted replacement of only the closure; recovery confirms the exact retained declaration afresh", async () => {
+  const s = await cloneSlot(steps.READY!);
+  const r = await resumed(s);
+  const changed = {
+    ...DECLARATION,
+    closure_statement: "Only the facts held by the owners act within this closed courtyard",
+  };
+  const spy = vi
+    .spyOn(PcCollectionAdapter.prototype, "establishSceneClosure")
+    .mockResolvedValue({ ok: false, error: { code: "UNKNOWN_OUTCOME", message: "not published" } });
+  try {
+    const first = await stage(r.chat, "declare_closed_setting", changed);
+    expect(first.finished.data.outcome).toBe("UNCERTAIN");
+    expect((await status(r.chat)).route.barrier).toBe("RESUME");
+    spy.mockRestore();
+    const next = await stage(r.chat, "resume_collection_setup");
+    expect(next.finished.elicited).toHaveLength(1);
+    expect(next.finished.elicited[0]).toContain(changed.closure_statement);
+    expect(next.finished.data.result.status).toBe("SETTING_DECLARED");
+    const c = await openOrdinary(s.campaignDir);
+    try {
+      const owner = new PcCollectionAdapter(c.store);
+      expect(owner.sceneClosure("world-courtyard", "locus-courtyard")!.fact.version).toBe(2);
+      expect(owner.workforceScope("world-courtyard", "locus-courtyard")!.fact.version).toBe(1);
+    } finally {
+      await c.close();
+    }
+  } finally {
+    spy.mockRestore();
+    await r.stop();
+  }
+}, 180_000);
+
+it("a changed local source set blocks a retained partial declaration before another consent or publication", async () => {
+  const s = await cloneSlot(steps.PREPARED!);
+  const r = await resumed(s);
+  const spy = vi
+    .spyOn(PcCollectionAdapter.prototype, "establishWorkforceScope")
+    .mockResolvedValue({ ok: false, error: { code: "UNKNOWN_OUTCOME", message: "not published" } });
+  try {
+    expect((await stage(r.chat, "declare_closed_setting", DECLARATION)).finished.data.outcome).toBe(
+      "UNCERTAIN",
+    );
+    spy.mockRestore();
+    const c = await openOrdinary(s.campaignDir);
+    try {
+      const added = await c.establishSourceCondition({
+        group_id: "source-change:group",
+        intent_id: "source-change:intent",
+        cause: "source-change:cause",
+        basis: "new authored source after interruption",
+        secrecy: "local-operator-session",
+        source: {
+          ...courtyard().source,
+          source_key: "src-other",
+          dimension: "another-pile",
+          statement: "A separate pile contains one loose stone",
+          quantity: { amount: 1, unit: "stone" },
+        },
+      });
+      expect(added.ok, JSON.stringify(added)).toBe(true);
+    } finally {
+      await c.close();
+    }
+    const read = (await status(r.chat)).route;
+    expect(read.readiness.prepared_to_request_collection).toBe(false);
+    expect(read.state).toBe("BLOCKED");
+    const attempt = await r.chat.call("resume_collection_setup");
+    expect(attempt.isError).toBe(true);
+    expect(attempt.elicited).toEqual([]);
+  } finally {
+    spy.mockRestore();
+    await r.stop();
+  }
+}, 180_000);
 
 let steps: Partial<Record<Position, Slot>>;
 beforeAll(async () => {
@@ -58,6 +136,28 @@ it("the same installed scenario in a different JSON member order converges witho
     expect(out.elicited).toEqual([]);
     expect(out.data.run_id).toBeUndefined();
     expect(readFileSync(s.config.scenarioFile, "utf8")).toBe(reordered);
+  } finally {
+    await r.stop();
+  }
+}, 120_000);
+
+it("a mismatched private referee credential withholds readiness without exposing it or recreating consent", async () => {
+  const s = await cloneSlot(steps.READY!);
+  const file = secretPath(
+    { stateDir: s.operatorDir, campaignId: s.config.campaignId },
+    "gm-collection",
+  );
+  const original = readFileSync(file, "utf8");
+  const r = await resumed(s);
+  try {
+    writeFileSync(file, "a".repeat(64));
+    const out = await status(r.chat);
+    expect(out.route.state).toBe("UNAVAILABLE");
+    expect(out.route.readiness.prepared_to_request_collection).toBe(false);
+    expect(JSON.stringify(out)).not.toContain(original.trim());
+    expect(JSON.stringify(out)).not.toContain(file);
+    writeFileSync(file, original);
+    expect((await status(r.chat)).route.readiness.prepared_to_request_collection).toBe(true);
   } finally {
     await r.stop();
   }
