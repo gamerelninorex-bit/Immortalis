@@ -11,7 +11,9 @@ The governing [A2-amended Revision 2 brief](https://app.notion.com/p/40420af901e
 
 The causal fixture is a human-authored ORIGINAL courtyard with one finite source of twelve stones, an ordinary one-body character with accepted handling/traversal content, an authored initial coordinate of seven seconds and an empty Reserve. Unrelated variation adds twenty current loci or forty dormant closure-history versions at a separate unused locality through ordinary owners, outside measured setup. The unsupported changed-source-set case and long Unicode reviews have separate regressions; this bounded route does not claim arbitrary source cardinality.
 
-Inherited H-07 canonical reopen/replay, copying, hashing and persistence costs are measured through the common immutable-base/current probe and `open_ms`. Added route checks and orchestration are reported separately. Global filesystem/hash/serialization and transport totals include scripted referee polling. Host-visible allowlisted text is distinct from internal serialized result size. These measurements establish no model latency, token cost or client UX; they are not machine-specific timing thresholds.
+Inherited H-07 canonical reopen/replay, copying, hashing and persistence costs are measured through the common immutable-base/current probe and `open_ms`. Added route checks and orchestration are reported separately. Global filesystem/hash/serialization totals include scripted referee polling. Transport totals count OAuth/MCP and elicitation HTTP traffic. Host-visible allowlisted text is distinct from internal serialized result size. These measurements establish no model latency, token cost or client UX; they are not machine-specific timing thresholds.
+
+The transcript's automatic-finish annotation describes service/referee work with no additional human decision. The `requests` count includes that scripted initiation; canonical human confirmations and OAuth linking are counted separately.
 
 Use Node `22.22.2`, pnpm `10.33.0`, full Git history including base `e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587`, and a disposable environment permitting loopback:
 
