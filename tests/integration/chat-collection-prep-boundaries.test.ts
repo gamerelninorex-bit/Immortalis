@@ -1,8 +1,9 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, expect, it, vi } from "vitest";
 import { PcCollectionAdapter } from "@immortalis/engine";
 import { refereeDir, secretPath } from "../../packages/operator/src/referee-exchange.ts";
+import { characterRecordPath } from "../../apps/phone/src/character-recovery.ts";
 import {
   DECLARATION,
   chain,
@@ -96,6 +97,52 @@ let steps: Partial<Record<Position, Slot>>;
 beforeAll(async () => {
   steps = await chain();
 }, 400_000);
+
+it("collection setup preserves H1 character-word identity and unreadable-record refusals without replacing retained words", async () => {
+  const s = await cloneSlot(steps.READY!);
+  const file = characterRecordPath(s.config);
+  const original = existsSync(file) ? readFileSync(file, "utf8") : null;
+  const scenario = JSON.parse(readFileSync(s.config.scenarioFile, "utf8"));
+  // Deliberately conflicting NONCANONICAL recovery metadata, never owner facts.
+  const words = {
+    format: "immortalis-chat-character-words",
+    format_version: 1,
+    campaign_id: s.config.campaignId,
+    world_id: scenario.world,
+    locus_id: "locus-courtyard",
+    pc_id: scenario.player_character,
+    draft: null,
+    draft_sha256: null,
+    revision: 1,
+    placement: null,
+  };
+  const restore = () =>
+    original === null ? rmSync(file, { force: true }) : writeFileSync(file, original);
+  const r = await resumed(s);
+  try {
+    for (const changed of [
+      "{",
+      ...["world_id", "locus_id", "pc_id"].map((key) =>
+        JSON.stringify({ ...words, [key]: "another-identity" }),
+      ),
+    ]) {
+      writeFileSync(file, changed);
+      const read = (await status(r.chat)).route;
+      expect(read.state).toBe("BLOCKED");
+      expect(read.barrier).toBe("ENGINEERING");
+      expect(read.readiness.prepared_to_request_collection).toBe(false);
+      const attempt = await r.chat.call("finish_collection_setup");
+      expect(attempt.isError).toBe(true);
+      expect(attempt.elicited).toEqual([]);
+      expect(readFileSync(file, "utf8")).toBe(changed);
+    }
+    restore();
+    expect((await status(r.chat)).route.readiness.prepared_to_request_collection).toBe(true);
+  } finally {
+    restore();
+    await r.stop();
+  }
+}, 120_000);
 
 it("unreadable referee grants withhold readiness and dispatch, then recover without new player consent", async () => {
   const s = await cloneSlot(steps.READY!);

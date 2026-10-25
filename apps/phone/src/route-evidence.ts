@@ -23,6 +23,7 @@ import {
   type CharacterState,
 } from "./character-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
+import { chosenCharacterId, readCharacterRecord } from "./character-recovery.ts";
 import {
   acceptedClaims,
   statesNumberAndUnit,
@@ -148,6 +149,27 @@ export async function readRoute(
     if (character.kind === "NO_SETTING") return { kind: "NO_SETTING", detail: character.detail };
     if (character.kind === "BLOCKED" || character.kind === "UNAVAILABLE")
       return { kind: character.kind, code: character.code, detail: character.detail };
+    // Preserve the character lane's H1 refusal: retained words are never silently
+    // adopted, ignored or overwritten when their identity disagrees with canon.
+    const words = readCharacterRecord(config);
+    if (words.kind === "UNREADABLE")
+      return {
+        kind: "BLOCKED",
+        code: "CHARACTER_WORDS_UNREADABLE",
+        detail: "the retained character words are unreadable; engineering must inspect them",
+      };
+    if (
+      words.kind === "RECORD" &&
+      (words.record.world_id !== character.world_id ||
+        words.record.locus_id !== character.locus_id ||
+        words.record.pc_id !== (character.pc_id ?? chosenCharacterId(config)))
+    )
+      return {
+        kind: "BLOCKED",
+        code: "CHARACTER_WORDS_CONFLICT",
+        detail:
+          "the retained character words belong to another world, place or character than the verified ones; engineering must inspect them",
+      };
     const setting = readLocality(campaign, config.campaignId, open.pin);
     if (setting.kind !== "READY")
       return {

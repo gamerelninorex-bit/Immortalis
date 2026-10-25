@@ -149,7 +149,7 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
           text
             .replaceAll(s.root, "<private-root>")
             .replace(
-              /(?:keep-character|place-character|establish-character-locus|initialize-time|accept-clarification|prepare-collection|declare-closed-setting) [0-9a-f]{12}/g,
+              /(?:establish-locality|keep-character|place-character|establish-character-locus|initialize-time|accept-clarification|prepare-collection|declare-closed-setting) [0-9a-f]{12}/g,
               "<human-only challenge>",
             )
             .replace(/[0-9a-f]{64}/g, "<digest>");
@@ -183,7 +183,10 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
             work: subtractWork(meter.snapshot(), before),
           });
           expect(out.finished.isError, out.finished.text).toBe(false);
-          expect(out.finished.data.exit_code).toBe(0);
+          expect(
+            out.finished.data.exit_code,
+            `${label}: ${sanitize(out.finished.text ?? "")}`,
+          ).toBe(0);
           transcript.push(
             `SERVICE OUTCOME: ${out.finished.data.result?.status ?? out.finished.data.state}`,
           );

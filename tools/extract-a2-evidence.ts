@@ -36,7 +36,14 @@ const records = names.map((name) => {
   if (!g || g.parts.size !== g.total) throw new Error(`incomplete evidence: ${name}`);
   const encoded = Array.from({ length: g.total }, (_, i) => g.parts.get(i + 1)!).join("");
   const decoded = Buffer.from(encoded, "base64").toString("utf8");
-  const value = JSON.parse(decoded) as Record<string, unknown>;
+  // Also sanitize older exercised frames: no one-time test challenge belongs in
+  // the committed evidence, even when its operation has already finished.
+  const value = JSON.parse(
+    decoded.replace(
+      /(?:establish-locality|keep-character|place-character|establish-character-locus|initialize-time|accept-clarification|prepare-collection|declare-closed-setting) [0-9a-f]{12}/g,
+      "<human-only challenge>",
+    ),
+  ) as Record<string, unknown>;
   if (
     !/^[0-9a-f]{40}$/.test(String(value["base"])) ||
     !/^[0-9a-f]{40}$/.test(String(value["head"]))
