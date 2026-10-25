@@ -101,6 +101,13 @@ function extractBase() {
   ]);
   execFileSync("tar", ["-xf", archive, "-C", dir]);
   symlinkSync(join(root, "node_modules"), join(dir, "node_modules"), "dir");
+  // pnpm isolates package dependencies (for example zod) below each package;
+  // the repository-root link alone does not reproduce that installed graph.
+  symlinkSync(
+    join(root, "packages/operator/node_modules"),
+    join(dir, "packages/operator/node_modules"),
+    "dir",
+  );
   return dir;
 }
 
