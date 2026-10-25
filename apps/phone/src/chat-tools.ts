@@ -6,7 +6,21 @@ import {
   runPlayerViewMcpCli,
 } from "../../../packages/operator/src/player-view-mcp.ts";
 import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
-import { LocalitySetupSchema, type LocalitySetup } from "@immortalis/operator";
+import { refereeCandidateItems } from "@immortalis/engine";
+import {
+  LocalitySetupSchema,
+  MAX_LIST_ITEMS,
+  MAX_STATEMENT_CHARS,
+  compileContract,
+  judgeStatement,
+  mirrorItems,
+  type CharacterDraft,
+  type CharacterStatus,
+  type Edit,
+  type LocalitySetup,
+} from "@immortalis/operator";
+import { quoted } from "../../../packages/operator/src/original-pc.ts";
+import { CHARACTER_COMMAND } from "./character-evidence.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
   LOCALITY_CONFIRMATION_LAST,
@@ -15,7 +29,7 @@ import {
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
 import type { PhoneConfig } from "./config.ts";
 import { checkScenarioFile, type Scenario } from "./scenario.ts";
-import type { PlayerRuns, Run } from "./runs.ts";
+import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
 import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
 
@@ -28,6 +42,10 @@ import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
  *                  propose_original_setting, original_setting_status, resume_original_setting
  *                                                     the player's OWN authored ORIGINAL setting (one world, one locality, one finite source),
  *                                                     offered to the shipped `establish-locality`; status and same-setup resumption
+ *                  propose_original_character, revise_original_character, place_original_character, resume_original_character,
+ *                  original_character_status
+ *                                                     the player's OWN authored ORIGINAL character, through the shipped review, keep and release
+ *                                                     and - as a SEPARATE choice - the shipped native placement; status and same-keep resumption
  *                  await_action, cancel_action        progress of the one command that is running; the human's confirmation happens here
  *   referee scope  referee_list_tasks / referee_get_task / referee_submit_decision   the existing bounded referee exchange, unchanged
  *
@@ -148,6 +166,113 @@ export function completeSetupConfirmation(run: Run): string[] | null {
     : whole.indexOf(`\n${LOCALITY_CONFIRMATION_FIRST}\n`);
   if (head < 0 || !whole.slice(head).includes(`\n${LOCALITY_CONFIRMATION_LAST}\n`)) return null;
   return splitConfirmation(whole);
+}
+
+/** The lines of the engine's current confirmation, in order and untruncated; null when this transcript no longer holds them from the start of the run. */
+function wholeConfirmationBody(run: Run): string | null {
+  const snap = run.terminal.snapshot(0);
+  // the transcript drops its earliest lines beyond its capacity: a confirmation of a run whose line 1 is gone may have lost its beginning
+  if (snap.lines.length === 0 || snap.lines[0]!.seq !== 1) return null;
+  let from = 0;
+  snap.lines.forEach((l, i) => {
+    if (l.kind === "reply") from = i + 1;
+  });
+  let body = "";
+  for (const l of snap.lines.slice(from)) {
+    if (l.kind === "ask" || l.kind === "reply") continue;
+    body += l.more ? l.text : `${l.text}\n`;
+  }
+  return body.trim();
+}
+
+/** finds each needle in order after `from`; the index after the last, or -1 when one is missing */
+function inOrder(whole: string, from: number, needles: readonly string[]): number {
+  let at = from;
+  for (const n of needles) {
+    const found = whole.indexOf(n, at);
+    if (found < 0) return -1;
+    at = found + n.length;
+  }
+  return at;
+}
+
+const KEEP_FIRST = "+--- CHARACTER MIRROR (";
+const FINDINGS_FIRST = "+--- AI REFEREE FINDINGS (";
+const PLACE_FIRST = "PLACEMENT - a separate choice from keeping your character.";
+const PLACE_CONFIRM = "CONFIRMATION - NATIVE PRESENCE (the second, separate choice)";
+
+/**
+ * The WHOLE of the confirmation of a character (BLUE v5.2-A1: no mandatory Mirror content may be dropped). The text the human is asked
+ * to confirm is the engine's own lines since the last reply, in order and untruncated, delivered in as many consecutive parts as the
+ * channel needs (a part confirms nothing). It is judged against what the retained operation says it must contain - every Mirror item of
+ * the exact kept candidate, every finding of the referee on it, the closing question and the challenge line; or, for a placement, the
+ * placement facts, the exact statement, the findings and the separate confirmation - and refused (null) when this transcript no longer
+ * holds it whole. A confirmation that cannot be shown whole is declined, never given.
+ */
+export function completeCharacterConfirmation(
+  run: Run,
+  expect: CharacterExpectation,
+): string[] | null {
+  const whole = wholeConfirmationBody(run);
+  if (whole === null) return null;
+  const lines = whole.split("\n");
+  const last = lines[lines.length - 1] ?? "";
+  const lineStart = (marker: string): number => {
+    if (whole.startsWith(marker)) return 0;
+    const at = whole.indexOf(`\n${marker}`);
+    return at < 0 ? -1 : at + 1;
+  };
+  if (expect.stage === "KEEP") {
+    if (!last.startsWith('To confirm, type exactly "keep-character ')) return null;
+    const items = mirrorItems(expect.contract);
+    const candidate = refereeCandidateItems(expect.contract);
+    const head = lineStart(KEEP_FIRST);
+    if (head < 0) return null;
+    const afterMirror = inOrder(
+      whole,
+      head,
+      items.map((i) => `: ${quoted(i.text)}`),
+    );
+    if (afterMirror < 0) return null;
+    const findings = whole.indexOf(`\n${FINDINGS_FIRST}`, afterMirror);
+    if (findings < 0) return null;
+    // every candidate statement is read and accepted, in order, in the findings the player sees beside it
+    const afterFindings = inOrder(
+      whole,
+      findings,
+      candidate.map((i) => quoted(i.text)),
+    );
+    if (afterFindings < 0) return null;
+    const accepted = whole.slice(findings).split("[accepted as yours: ").length - 1;
+    if (accepted !== candidate.length || whole.slice(findings).includes("[NOT accepted"))
+      return null;
+    if (!whole.includes("Keep this character exactly as shown?", afterFindings)) return null;
+    return splitConfirmation(whole);
+  }
+  if (!last.startsWith('To confirm, type exactly "place-character ')) return null;
+  if (lineStart(PLACE_FIRST) < 0 || lineStart(PLACE_CONFIRM) < 0 || lineStart(FINDINGS_FIRST) < 0)
+    return null;
+  const confirmAt = whole.indexOf(`\n${PLACE_CONFIRM}`);
+  if (inOrder(whole, confirmAt, [`your statement, kept verbatim: ${quoted(expect.statement)}`]) < 0)
+    return null;
+  // the reading of the exact statement precedes the confirmation
+  const findingsAt = whole.indexOf(`\n${FINDINGS_FIRST}`);
+  if (findingsAt < 0 || findingsAt > confirmAt) return null;
+  return splitConfirmation(whole);
+}
+
+/**
+ * True when the whole mandatory review of this exact candidate is sure to fit the transcript the human is shown (it keeps a bounded
+ * number of lines, and an overlong one is split across several). An upper bound from the candidate alone: the Mirror and the findings
+ * each carry every item on a line of its own with its label beside the authored text.
+ */
+export function fitsCharacterConfirmation(pcId: string, draft: CharacterDraft): boolean {
+  const contract = compileContract(pcId, draft);
+  if (!contract) return false;
+  const items = mirrorItems(contract);
+  const says = 40 + 2 * items.length;
+  const chars = items.reduce((n, i) => n + 2 * (quoted(i.text).length + 160), 4_000);
+  return says + Math.ceil(chars / (TERMINAL_MAX_LINE - 2)) <= TERMINAL_MAX_LINES - 100;
 }
 
 type RunState = "RUNNING" | "AWAITING_CONFIRMATION" | "FINISHED";
@@ -273,6 +398,175 @@ async function describeSetup(
   });
 }
 
+const CHARACTER_NOTICE =
+  "This is the out-of-character account of authoring the player's own character. It is not what any character perceives or knows. Keeping a character does not place it anywhere; binding it as originally present at the established place is only a recorded fact. It gives the character no physical position or custody, perception, knowledge, action, capability, time or scene, and no game has started because of it.";
+
+const CHARACTER_RECOVERY: Record<string, string> = {
+  RECONCILE:
+    "Whether the character action changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not offer another character or placement before that.",
+  RESUME:
+    "The player's keep of the character is retained but its release is not complete. Tell the player so. If they want it finished, call resume_original_character: it finishes ONLY that same kept character and does not ask them to keep it again. You cannot supply or replace the character.",
+  ENGINEERING:
+    "Whether and how far the character was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the character does or does not exist.",
+};
+
+const CHARACTER_STATUSES = [
+  "CHARACTER_BOUND",
+  "CHARACTER_RELEASED_UNBOUND",
+  "CHARACTER_NONE",
+  "CHARACTER_OUTCOME_UNKNOWN",
+  "CHARACTER_REFUSED",
+  "CHARACTER_VERIFICATION_FAILED",
+  "CHARACTER_CONFLICT",
+  "BINDING_CONFLICT",
+  "REFEREE_PENDING",
+  "REFEREE_UNAVAILABLE",
+  "REFEREE_ANSWER_REFUSED",
+  "INVALID_REQUEST",
+  "WORLD_NOT_ESTABLISHED",
+  "LOCUS_NOT_ESTABLISHED",
+  "SESSION_UNAVAILABLE",
+  "DECLINED",
+] as const satisfies readonly CharacterStatus[];
+
+/** what the model may be told next, by the command's own final status (the player's choices stay the player's) */
+const CHARACTER_NEXT: Partial<Record<string, string>> = {
+  CHARACTER_RELEASED_UNBOUND:
+    "If this was the keep: the character is kept and released but NOT placed anywhere. Placement is a separate choice: ask the player, in their own words, whether and where their character is originally present at the established place, then call place_original_character with exactly what they said. Never infer or suggest it for them, and never place it because of the keep. If this was a placement: the referee did not support it or the player did not confirm it; nothing is bound, and the player may say it differently.",
+  CHARACTER_BOUND:
+    "Tell the player their character is kept and bound as originally present where they said, exactly as the readback shows. It gives the character no position, perception, knowledge or action, and no game has started.",
+  DECLINED:
+    "Nothing was kept or placed. Tell the player what was not accepted (the findings) or that they did not keep it, and ask what they want to change. To change it, use revise_original_character (typed changes) or propose_original_character (the whole character again); each change is a new review and a new confirmation. Never retry the same unchanged character as if it were new.",
+  REFEREE_PENDING:
+    "The AI referee host has not answered yet; nothing was changed. The referee scope answers the engine's task (referee_list_tasks, referee_get_task, referee_submit_decision); then call resume_original_character or await_action again.",
+  REFEREE_UNAVAILABLE:
+    "No AI referee host can be asked now; nothing was changed. There is no substitute for the referee. Tell the player the operator must connect one.",
+  CHARACTER_OUTCOME_UNKNOWN:
+    "Whether a write landed is not known; nothing is reported as done. Follow the recovery instruction in this result and do not retry.",
+};
+
+/** the referee's reading, in the bounded lines the engine shows the player (the player's own statements and the referee's grounds; no task context) */
+function findingsOf(run: Run): string[] {
+  const lines = run.terminal
+    .snapshot(0)
+    .lines.filter((l) => l.kind === "say" && !l.more)
+    .map((l) => l.text);
+  const out: string[] = [];
+  let inside = false;
+  for (const t of lines) {
+    if (t.startsWith("+--- AI REFEREE FINDINGS (")) inside = true;
+    if (inside) out.push(t.slice(0, 1200));
+    if (inside && t === "+---") inside = false;
+    if (out.length >= 160) break;
+  }
+  return out;
+}
+
+/** the engine's own final status of a character run, only if it is one of the fixed statuses the shipped command can report */
+function characterResult(run: Run): { status: string; message: string; details?: string[] } | null {
+  const lines = run.terminal
+    .snapshot(0)
+    .lines.filter((l) => l.kind === "say" && !l.more)
+    .map((l) => l.text);
+  let at = -1;
+  lines.forEach((t, i) => {
+    if (/^STATUS [A-Z_]+/.test(t)) at = i;
+  });
+  if (at < 0) return null;
+  const status = /^STATUS ([A-Z_]+)/.exec(lines[at]!)?.[1] ?? "";
+  if (!(CHARACTER_STATUSES as readonly string[]).includes(status)) return null;
+  // the console's sentence tells a person at a command line to "run the same command again"; in the chat the placement is the next tool
+  const message = (lines[at + 1] ?? "")
+    .replace(
+      "run the same command again to state and confirm where it is originally present",
+      "placing it is a separate choice the player has not made",
+    )
+    .slice(0, 900);
+  // a kept or bound character is read back from the owners in allowlisted terms; the command's own detail lines carry publication identities
+  const details =
+    status === "CHARACTER_BOUND" || status === "CHARACTER_RELEASED_UNBOUND"
+      ? []
+      : lines
+          .slice(at + 2)
+          .filter(
+            (t) =>
+              !t.startsWith("— command finished") &&
+              !t.startsWith("PROGRESS ") &&
+              !/\bgroup \S+ cause\b/.test(t) &&
+              !t.startsWith("+---") &&
+              !t.startsWith("|"),
+          )
+          .slice(0, 12)
+          .map((t) => t.slice(0, 400));
+  return { status, message, ...(details.length > 0 ? { details } : {}) };
+}
+
+async function describeCharacter(
+  config: PhoneConfig,
+  run: Run,
+  after: number,
+  runs: PlayerRuns,
+): Promise<ToolResult> {
+  const state = stateOf(run);
+  const { next } = reportOf(run, after);
+  const finished = state === "FINISHED";
+  const own = finished ? characterResult(run) : null;
+  const character = finished ? await runs.characterStatus() : null;
+  const findings = findingsOf(run);
+  return asJson({
+    run_id: run.id,
+    action: "original_character",
+    ...(run.stage ? { stage: run.stage } : {}),
+    state,
+    exit_code: finished ? exitCodeOf(run) : null,
+    ...(own ? { result: own } : {}),
+    ...(findings.length > 0
+      ? {
+          referee_findings: findings,
+          findings_note:
+            "These are the referee's readings of the player's OWN words, exactly as the player sees them. Relay them plainly; they are out-of-character.",
+        }
+      : {}),
+    ...(character ? { character } : {}),
+    ...(finished && (run.uncertain || runs.unresolved())
+      ? {
+          outcome: "UNCERTAIN",
+          ...(runs.blocker() ? { blocker: runs.blocker() } : {}),
+          recovery:
+            CHARACTER_RECOVERY[
+              character && character.barrier !== "NONE"
+                ? character.barrier
+                : runs.structural()
+                  ? "ENGINEERING"
+                  : "RECONCILE"
+            ],
+        }
+      : {}),
+    ...(undelivered.has(run)
+      ? {
+          confirmation_delivery:
+            "The whole of what the player was asked to confirm could not be shown to them, so it was declined and nothing was confirmed or changed. Do not offer it again unchanged.",
+        }
+      : {}),
+    next_after: next,
+    notice: CHARACTER_NOTICE,
+    ...(finished && own && CHARACTER_NEXT[own.status] ? { next: CHARACTER_NEXT[own.status] } : {}),
+    ...(state === "AWAITING_CONFIRMATION"
+      ? {
+          confirmation:
+            "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
+          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
+        }
+      : {}),
+    ...(state === "RUNNING"
+      ? {
+          waiting:
+            "The engine is waiting for the AI referee host's reading of the player's words, or checking them. If this stays RUNNING, the referee scope answers with referee_list_tasks, referee_get_task and referee_submit_decision; then call await_action again.",
+        }
+      : {}),
+  });
+}
+
 async function describe(
   config: PhoneConfig,
   run: Run,
@@ -280,6 +574,7 @@ async function describe(
   runs: PlayerRuns,
 ): Promise<ToolResult> {
   if (run.label === SETUP_COMMAND) return describeSetup(config, run, after, runs);
+  if (run.label === CHARACTER_COMMAND) return describeCharacter(config, run, after, runs);
   const unresolved = runs.unresolved();
   const blocked = runs.blocker();
   const { lines, next } = reportOf(run, after);
@@ -296,7 +591,9 @@ async function describe(
           recovery: runs.structural()
             ? "Whether the earlier action changed anything is not established, and nothing this chat offers can establish it: the operator must inspect it. Do NOT retry the action, do not call reconcile_last_action again, and do not tell the player it did or did not happen; tell them it needs the operator."
             : runs.resumable()
-              ? SETUP_RECOVERY["RESUME"]
+              ? runs.resumeKind() === "CHARACTER"
+                ? CHARACTER_RECOVERY["RESUME"]
+                : SETUP_RECOVERY["RESUME"]
               : "Whether the earlier action changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. If it ends UNCERTAIN again with the same blocker, stop and tell the player the outcome could not be established and needs the operator. Do NOT retry the action, and do not tell the player it did or did not happen until then.",
         }
       : {}),
@@ -532,6 +829,227 @@ export function fitsConfirmation(setup: LocalitySetup): boolean {
   return says + Math.ceil(chars / (TERMINAL_MAX_LINE - 2)) <= TERMINAL_MAX_LINES - 100;
 }
 
+// -- the player's ORIGINAL character: typed offers (the engine's own bounds are the authority; these tell the model the shape) ------
+const STATEMENT = { type: "string", minLength: 1, maxLength: MAX_STATEMENT_CHARS } as const;
+const STATEMENTS = { type: "array", items: STATEMENT, maxItems: MAX_LIST_ITEMS } as const;
+const CHARACTER_SCHEMA = {
+  type: "object",
+  properties: {
+    identity: {
+      ...STATEMENT,
+      description: "who or what the character is, in the player's own words",
+    },
+    contact: {
+      description:
+        "how the world can register the character: one or more contact surfaces, or an explicit no-contact with the player's reason",
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            kind: { const: "CONTACT_ANCHOR" },
+            surfaces: { type: "array", items: STATEMENT, minItems: 1, maxItems: MAX_LIST_ITEMS },
+          },
+          required: ["kind", "surfaces"],
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: { kind: { const: "NO_CONTACT" }, statement: STATEMENT },
+          required: ["kind", "statement"],
+          additionalProperties: false,
+        },
+      ],
+    },
+    embodiment: { ...STATEMENT, description: "what form constitutes the character" },
+    continuity: { ...STATEMENT, description: "what keeps the character the same continuing self" },
+    exceptions: {
+      ...STATEMENTS,
+      description: "anything important that differs from what would normally be expected",
+    },
+    open: { ...STATEMENTS, description: "anything the player chose to leave open" },
+    possessions: {
+      ...STATEMENTS,
+      description: "anything specific the character begins with that would not normally be assumed",
+    },
+  },
+  required: ["identity", "contact", "embodiment", "continuity"],
+  additionalProperties: false,
+} as const;
+
+const EDIT_LISTS = ["contact", "exception", "open", "possession"] as const;
+const EDIT_SCHEMA = {
+  type: "object",
+  properties: {
+    edits: {
+      type: "array",
+      minItems: 1,
+      maxItems: 4 * MAX_LIST_ITEMS,
+      items: {
+        oneOf: [
+          {
+            type: "object",
+            properties: {
+              op: { const: "set" },
+              field: { enum: ["identity", "embodiment", "continuity"] },
+              text: STATEMENT,
+            },
+            required: ["op", "field", "text"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: { op: { enum: ["set-contact", "set-no-contact"] }, text: STATEMENT },
+            required: ["op", "text"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: { op: { const: "add" }, list: { enum: EDIT_LISTS }, text: STATEMENT },
+            required: ["op", "list", "text"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: {
+              op: { const: "remove" },
+              list: { enum: EDIT_LISTS },
+              n: { type: "integer", minimum: 1, maximum: 999 },
+            },
+            required: ["op", "list", "n"],
+            additionalProperties: false,
+          },
+        ],
+      },
+    },
+  },
+  required: ["edits"],
+  additionalProperties: false,
+} as const;
+
+type Parsed<T> =
+  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly issues: string[] };
+
+/** One authored statement under the shipped bounds (trimmed, non-empty, control-free, at most 500 characters). */
+function statementOf(path: string, v: unknown, issues: string[]): string | null {
+  if (typeof v !== "string") {
+    issues.push(`${path}: must be text`);
+    return null;
+  }
+  const j = judgeStatement(v);
+  if (!j.ok) {
+    issues.push(`${path}: ${j.reason}`);
+    return null;
+  }
+  return j.text;
+}
+function listOf(path: string, v: unknown, issues: string[], min = 0): string[] {
+  if (v === undefined && min === 0) return [];
+  if (!Array.isArray(v) || v.length < min || v.length > MAX_LIST_ITEMS) {
+    issues.push(
+      `${path}: must be a list of ${min === 0 ? "at most" : `${min} to`} ${MAX_LIST_ITEMS} statements`,
+    );
+    return [];
+  }
+  const out: string[] = [];
+  v.forEach((x, i) => {
+    const t = statementOf(`${path}[${i}]`, x, issues);
+    if (t !== null) out.push(t);
+  });
+  return out;
+}
+
+/** The player's offered character as the shipped authoring would take it. The model supplies untrusted CANDIDATE words; nothing is completed for the player. */
+export function parseOffer(args: Record<string, unknown>): Parsed<CharacterDraft> {
+  const issues: string[] = [];
+  const known = [
+    "identity",
+    "contact",
+    "embodiment",
+    "continuity",
+    "exceptions",
+    "open",
+    "possessions",
+  ];
+  for (const k of Object.keys(args)) if (!known.includes(k)) issues.push(`${k}: is not offered`);
+  const identity = statementOf("identity", args["identity"], issues);
+  const embodiment = statementOf("embodiment", args["embodiment"], issues);
+  const continuity = statementOf("continuity", args["continuity"], issues);
+  let contact: CharacterDraft["contact"] = null;
+  const c = args["contact"];
+  if (!record(c)) issues.push("contact: must be a contact anchor or an explicit no-contact");
+  else if (c["kind"] === "CONTACT_ANCHOR" && onlyKeys(c, ["kind", "surfaces"])) {
+    const surfaces = listOf("contact.surfaces", c["surfaces"], issues, 1);
+    if (surfaces.length > 0) contact = { kind: "CONTACT_ANCHOR", surfaces };
+  } else if (c["kind"] === "NO_CONTACT" && onlyKeys(c, ["kind", "statement"])) {
+    const statement = statementOf("contact.statement", c["statement"], issues);
+    if (statement !== null) contact = { kind: "NO_CONTACT", statement };
+  } else
+    issues.push("contact: must be CONTACT_ANCHOR with surfaces, or NO_CONTACT with a statement");
+  const exceptions = listOf("exceptions", args["exceptions"], issues);
+  const open = listOf("open", args["open"], issues);
+  const possessions = listOf("possessions", args["possessions"], issues);
+  if (
+    issues.length > 0 ||
+    identity === null ||
+    embodiment === null ||
+    continuity === null ||
+    contact === null
+  )
+    return { ok: false, issues: issues.slice(0, 8) };
+  return {
+    ok: true,
+    value: { identity, contact, embodiment, continuity, exceptions, open, possessions },
+  };
+}
+
+/** The player's typed revision as the shipped edits (one revision cycle, applied to the whole, all or none). */
+export function parseEdits(args: Record<string, unknown>): Parsed<Edit[]> {
+  const issues: string[] = [];
+  const list = args["edits"];
+  if (
+    !onlyKeys(args, ["edits"]) ||
+    !Array.isArray(list) ||
+    list.length === 0 ||
+    list.length > 4 * MAX_LIST_ITEMS
+  )
+    return { ok: false, issues: [`edits: must be 1 to ${4 * MAX_LIST_ITEMS} changes`] };
+  const edits: Edit[] = [];
+  list.forEach((e: unknown, i) => {
+    const at = `edits[${i}]`;
+    if (!record(e)) return void issues.push(`${at}: must be a change`);
+    const lists: readonly unknown[] = EDIT_LISTS;
+    if (e["op"] === "set" && onlyKeys(e, ["op", "field", "text"])) {
+      const t = statementOf(`${at}.text`, e["text"], issues);
+      if (e["field"] !== "identity" && e["field"] !== "embodiment" && e["field"] !== "continuity")
+        issues.push(`${at}.field: is not offered`);
+      else if (t !== null) edits.push({ op: "set", field: e["field"], text: t });
+    } else if (
+      (e["op"] === "set-contact" || e["op"] === "set-no-contact") &&
+      onlyKeys(e, ["op", "text"])
+    ) {
+      const t = statementOf(`${at}.text`, e["text"], issues);
+      if (t !== null) edits.push({ op: e["op"], text: t });
+    } else if (e["op"] === "add" && onlyKeys(e, ["op", "list", "text"])) {
+      const t = statementOf(`${at}.text`, e["text"], issues);
+      if (!lists.includes(e["list"])) issues.push(`${at}.list: is not offered`);
+      else if (t !== null)
+        edits.push({ op: "add", list: e["list"] as (typeof EDIT_LISTS)[number], text: t });
+    } else if (e["op"] === "remove" && onlyKeys(e, ["op", "list", "n"])) {
+      const n = e["n"];
+      if (
+        !lists.includes(e["list"]) ||
+        typeof n !== "number" ||
+        !Number.isSafeInteger(n) ||
+        n < 1 ||
+        n > 999
+      )
+        issues.push(`${at}: is not a removal`);
+      else edits.push({ op: "remove", list: e["list"] as (typeof EDIT_LISTS)[number], n });
+    } else issues.push(`${at}: is not a change this front end offers`);
+  });
+  return issues.length > 0 ? { ok: false, issues: issues.slice(0, 8) } : { ok: true, value: edits };
+}
+
 export interface ChatToolDeps {
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
@@ -601,6 +1119,33 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       return sc.ok ? start(command, { "player-character": sc.s.player_character }) : sc.r;
     },
   });
+
+  /** the result of a character start: the run's account, or the revision that was retained but not yet offered */
+  const startCharacter = async (launching_: Promise<CharacterLaunch>): Promise<ToolResult> => {
+    const launched = await launching_;
+    if (!launched.ok) return text(launched.reason, true);
+    if (launched.run === null)
+      return asJson({
+        retained: launched.retained,
+        notice: CHARACTER_NOTICE,
+        next: "The change was kept but the character still lacks something only the player can state. Ask them for it; nothing was asked of the referee and nothing was kept.",
+      });
+    await launched.run.terminal.changed(0, settleMs);
+    return describe(config, launched.run, 0, runs);
+  };
+  /**
+   * A new offer is a new question: when the player is still being asked about an EARLIER offer, that confirmation is withdrawn
+   * (declined) first, so nothing answered to the old prompt can confirm the new whole. A character run that is merely waiting for the
+   * referee is not interrupted; the offer is then refused while it runs.
+   */
+  const supersede = async (): Promise<void> => {
+    const run = runs.current();
+    if (!run || run.done || run.label !== CHARACTER_COMMAND) return;
+    if (!run.terminal.snapshot(0).pending) return;
+    runs.decline();
+    const deadline = Date.now() + 5_000;
+    while (!run.done && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+  };
 
   const tools: McpTool[] = [
     {
@@ -776,6 +1321,142 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       },
     },
     {
+      name: "propose_original_character",
+      title: "Offer the player's own original character",
+      description: `Offer the character the PLAYER has authored in their own words as their ORIGINAL character: who or what they are, how the world can register them (or an explicit no-contact), their form, what keeps them the same continuing self, and optionally anything that differs from the ordinary, anything left open, and anything they begin with. Every field is the player's words, exactly as they said them: nothing is inferred from memory or a profile, completed, defaulted or improved for them, and nothing is delegated to you. An AI referee host reads each statement and says what it accepts as the character's own; the player is then shown ALL of it with those findings and keeps it (or not) themselves. Keeping does NOT place the character anywhere: placement is a separate, later choice. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: CHARACTER_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const offer = parseOffer(args);
+        if (!offer.ok)
+          return asJson(
+            {
+              refused: "that is not a complete, valid character; nothing was started",
+              issues: offer.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startCharacter(runs.proposeCharacter(offer.value));
+      },
+    },
+    {
+      name: "revise_original_character",
+      title: "Change the player's original character before it is kept",
+      description: `Apply the changes the PLAYER asked for to their retained, not-yet-kept character, all together or not at all (the shipped revision cycle: set identity/embodiment/continuity, set a contact or an explicit no-contact, add or remove a contact surface, exception, open item or possession by its number). Each change is the player's words. A revision is a new review: the earlier question and any earlier confirmation no longer stand, the referee reads the new whole again, and the player keeps the new whole afresh. A kept character is never changed here. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: EDIT_SCHEMA,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const parsed = parseEdits(args);
+        if (!parsed.ok)
+          return asJson(
+            { refused: "those are not valid changes; nothing was changed", issues: parsed.issues },
+            true,
+          );
+        await supersede();
+        return startCharacter(runs.reviseCharacter(parsed.value));
+      },
+    },
+    {
+      name: "place_original_character",
+      title: "State where the player's kept character is originally present",
+      description: `After the player's character is kept and released, offer the SEPARATE statement the PLAYER makes, in their own words, that their character is originally present at the place already established (the original setting). The referee reads that exact statement against the established world and place; the player is shown the established facts, the exact statement and the findings and confirms the placement on its own. You never infer it, never offer it because of the keep, and never reuse words they used for something else. It gives the character no position, perception, knowledge or action. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          statement: {
+            ...STATEMENT,
+            description: "the player's own words about where their character is originally present",
+          },
+        },
+        required: ["statement"],
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        const issues: string[] = [];
+        const statement = onlyKeys(args, ["statement"])
+          ? statementOf("statement", args["statement"], issues)
+          : null;
+        if (statement === null || issues.length > 0)
+          return asJson(
+            {
+              refused: "that is not a valid statement; nothing was started",
+              issues: issues.length > 0 ? issues : ["statement: is required"],
+            },
+            true,
+          );
+        await supersede();
+        return startCharacter(runs.placeCharacter(statement));
+      },
+    },
+    {
+      name: "original_character_status",
+      title: "Where the player's original character stands",
+      description:
+        "Read where the player's ORIGINAL character stands, from the engine's own records (read-only: it starts and settles nothing). It reports whether the setting is established, whether a draft is retained, whether the character is awaiting the player's keep, kept but not yet released, released but NOT placed, or placed (with what the owners read back), and what to do next. A character that is placed is not a started game.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        const character = await runs.characterStatus();
+        return asJson({
+          character,
+          readiness: {
+            character_kept:
+              character.state === "KEPT_AWAITING_RELEASE" ||
+              character.state === "RELEASED_UNBOUND" ||
+              character.state === "BOUND",
+            character_released:
+              character.state === "RELEASED_UNBOUND" || character.state === "BOUND",
+            character_placed: character.state === "BOUND",
+            campaign_ready_for_play: false,
+          },
+          ...(character.barrier !== "NONE"
+            ? { recovery: CHARACTER_RECOVERY[character.barrier] }
+            : {}),
+          notice: CHARACTER_NOTICE,
+        });
+      },
+    },
+    {
+      name: "resume_original_character",
+      title: "Finish what the player's original character began",
+      description: `Finish only what the engine's records show was begun for the player's ONE character: a kept character whose release was interrupted is released from exactly what was kept, WITHOUT asking the player to keep it again; a retained unkept draft is reviewed again and the player keeps it afresh; a retained placement statement is read again and the player confirms the placement afresh. It takes no arguments, cannot supply or change anything, and is refused unless the records show exactly such a situation. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: NONE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args) => {
+        if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
+        await supersede();
+        return startCharacter(runs.resumeCharacter());
+      },
+    },
+    {
       name: "await_action",
       title: "Follow the action in progress",
       description:
@@ -930,8 +1611,15 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
    * the prompt. If this transcript no longer holds the whole of it, it is declined here, before any confirmation can be given.
    */
   async function askHuman(ctx: ToolContext, run: Run, prompt: string): Promise<string | null> {
+    const expected = run.label === CHARACTER_COMMAND ? runs.characterExpectation(run) : null;
     const parts =
-      run.label === SETUP_COMMAND ? completeSetupConfirmation(run) : [confirmationText(run)];
+      run.label === SETUP_COMMAND
+        ? completeSetupConfirmation(run)
+        : run.label === CHARACTER_COMMAND
+          ? expected
+            ? completeCharacterConfirmation(run, expected)
+            : null
+          : [confirmationText(run)];
     if (parts === null) {
       undelivered.add(run);
       return "";
@@ -1032,4 +1720,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game.";
+  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game.";

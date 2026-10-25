@@ -44,6 +44,13 @@ import {
   validCollectionIdentity,
   type CollectionIdentity,
 } from "./collection-recovery.ts";
+import {
+  CHARACTER_COMMAND,
+  validCharacterIdentity,
+  type CharacterIdentity,
+  type characterOutcome,
+  type readCharacter,
+} from "./character-evidence.ts";
 
 /**
  * The chat adapter's trusted pending-operation record (BLUE R3). A player action that may change canon is written here, atomically and
@@ -92,6 +99,8 @@ export interface PendingOperation {
   readonly collection?: CollectionIdentity | null;
   /** Exact pinned input for the document-derived setup classes and the ORIGINAL locality setup; absent legacy records stay blocked. */
   readonly setup?: SetupIdentity | null;
+  /** The exact staged operation of the player's ORIGINAL character (keep and release, or placement); a console-run record carries none. */
+  readonly character?: CharacterIdentity | null;
 }
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
@@ -151,6 +160,11 @@ export function readPending(config: PhoneConfig): PendingRead {
         v["setup"] === undefined ||
         v["setup"] === null ||
         validSetupIdentity(config, v["command"], v["setup"])
+      ) ||
+      !(
+        v["character"] === undefined ||
+        v["character"] === null ||
+        (v["command"] === CHARACTER_COMMAND && validCharacterIdentity(v["character"]))
       )
     )
       return { kind: "UNREADABLE" };
@@ -220,6 +234,8 @@ export interface RecoveryDeps {
   readonly completeObservation?: typeof completeObservation;
   readonly captureCollection?: typeof captureCollection;
   readonly runCollection?: typeof runCollectionOperation;
+  readonly characterOutcome?: typeof characterOutcome;
+  readonly readCharacter?: typeof readCharacter;
 }
 
 const BUILD = "immortalis-chat-recovery";

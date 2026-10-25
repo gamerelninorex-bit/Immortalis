@@ -154,7 +154,7 @@ describe("nothing outside the physical-source slice was built", () => {
 
   it("no operator command, host operation, endpoint or protocol surface names the chain: the composed baseline remains pinned", () => {
     expect(treeSha("packages/operator/src")).toBe(
-      "469ec6dbb564716e727a29af113351051ae1bf6e4fcb5164e59151cd38fc61fa",
+      "00f003119718ad17c04b8e101fa65762d3c113ba2310318512ffa27eef13f5bf",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

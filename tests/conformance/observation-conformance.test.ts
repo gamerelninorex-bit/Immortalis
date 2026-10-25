@@ -67,7 +67,7 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/index.ts":
     "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
   "packages/operator/src/original-pc.ts":
-    "e5806d078f5e60e189e4fc78c409b980cc9b602f8d78b114f740f7bdd93c4401",
+    "1d29c3d6f2d8d8c5053e222a57ad89664f79718f65a1655c425eca8878bac58c",
   "packages/operator/src/referee-exchange.ts":
     "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-mcp.ts":
