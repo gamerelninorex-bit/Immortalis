@@ -183,10 +183,20 @@ it("A2: exercised whole-path conversations and before/after work measurements wi
             work: subtractWork(meter.snapshot(), before),
           });
           expect(out.finished.isError, out.finished.text).toBe(false);
+          // The shipped KEEP operation deliberately ends at RELEASED_UNBOUND
+          // (exit 3): native placement is a separate human choice, not a failure
+          // to be retried or silently combined with KEEP.
+          if (label === "KEEP") {
+            expect(out.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
+            expect(out.finished.data.character).toMatchObject({
+              state: "RELEASED_UNBOUND",
+              barrier: "NONE",
+            });
+          }
           expect(
             out.finished.data.exit_code,
             `${label}: ${sanitize(out.finished.text ?? "")}`,
-          ).toBe(0);
+          ).toBe(label === "KEEP" ? 3 : 0);
           transcript.push(
             `SERVICE OUTCOME: ${out.finished.data.result?.status ?? out.finished.data.state}`,
           );
