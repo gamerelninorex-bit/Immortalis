@@ -5,11 +5,11 @@
 // whether an AI understood a sentence), and the shipped operator commands and the real owners do all the work. The setting and the
 // character are admitted by the merged chat tools of the previous slices; nothing here writes an owner fact, a keep, a binding, a
 // chronology, a preparation, a declaration, an attestation or a scenario, and nothing supplies a confirmation.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { statesExactDuration } from "@immortalis/engine";
 import type { PhoneDeps } from "../../apps/phone/src/server.ts";
-import { Chat, humanDeclines, type Human } from "./chat-client.ts";
+import { Chat, chatConfig, humanDeclines, type Human } from "./chat-client.ts";
 import {
   FOUR_OPS,
   SHORT,
@@ -20,7 +20,6 @@ import {
   place,
   plainPolicy,
   readWords,
-  referee,
   run,
   scriptedPolicy,
   slot,
@@ -32,6 +31,8 @@ import { courtyard, establishViaChat, reader, readsAndDeclines } from "./chat-se
 import { openOrdinary } from "./locality.ts";
 import type { Policy, ScriptedHost } from "./original-pc.ts";
 import { startScriptedHost } from "./original-pc.ts";
+import { hostAnswer } from "./pc-collection.ts";
+import { tempDir } from "./tmp.ts";
 
 export {
   FOUR_OPS,
@@ -93,7 +94,38 @@ export function routePolicy(
   return (doc) =>
     doc["operation"] === "PC_COLLECTION_CYCLE"
       ? cycleReading(doc["context"], cycle.negative === true)
-      : base(doc);
+      : doc["operation"] === "PC_COLLECTION_REACH"
+        ? hostAnswer(doc["context"], "OPEN", "NOT_AT_ISSUE")
+        : base(doc);
+}
+
+/**
+ * A byte-for-byte private copy of a quiescent slot (the service and the scripted hosts stopped, no lock held), on its own port: how a
+ * recovery case reaches the stage it tests without repeating the stages before it. Same campaign identity, hosts and configuration.
+ */
+export async function cloneSlot(base: Slot): Promise<Slot> {
+  const root = tempDir("immortalis-chat-route-clone-");
+  chmodSync(root, 0o700);
+  cpSync(base.root, root, { recursive: true });
+  // a copied directory is not created with the source's private mode: the operator's trust checks demand it
+  const privateDirs = (dir: string): void => {
+    chmodSync(dir, 0o700);
+    for (const e of readdirSync(dir, { withFileTypes: true }))
+      if (e.isDirectory()) privateDirs(join(dir, e.name));
+  };
+  privateDirs(root);
+  const operatorDir = join(root, "operator");
+  const campaignDir = join(root, "campaign");
+  const config = await chatConfig({
+    campaignDir,
+    campaignId: base.config.campaignId,
+    operatorDir,
+    setupDir: join(operatorDir, "phone-setup"),
+    scenarioFile: join(root, "no-scenario.json"),
+    refereeHostIds: base.config.refereeHostIds,
+    playerViewHostId: base.config.playerViewHostId,
+  });
+  return { config, root, campaignDir, operatorDir, base: `http://127.0.0.1:${config.port}` };
 }
 
 export interface RouteRun extends Running {
@@ -108,10 +140,11 @@ export async function hosts(
   s: Slot,
   policy: Policy = routePolicy(),
   which: readonly ("setup" | "collection")[] = ["setup", "collection"],
+  setupOps: readonly string[] = FOUR_OPS,
 ): Promise<ScriptedHost[]> {
   const out: ScriptedHost[] = [];
   if (which.includes("setup")) {
-    await bind(s, FOUR_OPS, SETUP_HOST);
+    await bind(s, setupOps, SETUP_HOST);
     out.push(startScriptedHost({ operatorDir: s.operatorDir } as any, policy, SETUP_HOST));
   }
   if (which.includes("collection")) {
@@ -119,6 +152,39 @@ export async function hosts(
     out.push(startScriptedHost({ operatorDir: s.operatorDir } as any, policy, COLLECTION_HOST));
   }
   return out;
+}
+
+/** Starts a scripted host for each already-bound referee host of a slot (the operator's binding step is not repeated). */
+export function startHosts(
+  s: Slot,
+  policy: Policy = routePolicy(),
+  which: readonly ("setup" | "collection")[] = ["setup", "collection"],
+): ScriptedHost[] {
+  return which.map((w) =>
+    startScriptedHost(
+      { operatorDir: s.operatorDir } as any,
+      policy,
+      w === "setup" ? SETUP_HOST : COLLECTION_HOST,
+    ),
+  );
+}
+
+/** A service over an existing (possibly cloned) slot, with scripted referee hosts, linked to one player client. */
+export async function resumed(
+  s: Slot,
+  o: { deps?: PhoneDeps; policy?: Policy; which?: readonly ("setup" | "collection")[] } = {},
+): Promise<RouteRun> {
+  const list = startHosts(s, o.policy ?? routePolicy(), o.which);
+  const r = await run(s, o.deps ?? {});
+  return {
+    ...r,
+    s,
+    hosts: list,
+    stop: async () => {
+      for (const h of list) await h.stop();
+      await r.app.close().catch(() => undefined);
+    },
+  };
 }
 
 export interface RouteOptions {
@@ -130,6 +196,10 @@ export interface RouteOptions {
   /** the player-view host the service is configured with (null = unset) */
   readonly view?: string | null;
   readonly mutateSetting?: (doc: any) => void;
+  /** the operations the setup host is bound for (default: the four setup operations) */
+  readonly setupOps?: readonly string[];
+  /** stop the setup early: after the setting only, or after the kept character (default: after its placement) */
+  readonly upTo?: "SETTING" | "KEPT" | "PLACED";
 }
 
 /**
@@ -141,20 +211,9 @@ export async function started(o: RouteOptions = {}): Promise<RouteRun> {
     refereeHostIds: [SETUP_HOST, COLLECTION_HOST],
     playerViewHostId: o.view === undefined ? "view-host" : o.view,
   });
-  const list = await hosts(s, o.policy ?? routePolicy(), o.which);
+  const list = await hosts(s, o.policy ?? routePolicy(), o.which, o.setupOps);
   const r = await run(s, o.deps ?? {});
-  const doc = courtyard();
-  o.mutateSetting?.(doc);
-  const est = await establishViaChat(r.chat, doc);
-  if (est.finished.data?.result?.status !== "LOCALITY_READY")
-    throw new Error("the original setting was not established");
-  const kept = await offer(r.chat, draft({ embodiment: embodiment(o.cycle ?? true) }));
-  if (kept.finished.data?.result?.status !== "CHARACTER_RELEASED_UNBOUND")
-    throw new Error(`the character was not kept: ${JSON.stringify(kept.finished.data?.result)}`);
-  const placed = await place(r.chat);
-  if (placed.finished.data?.result?.status !== "CHARACTER_BOUND")
-    throw new Error("the character was not placed");
-  return {
+  const finish = (): RouteRun => ({
     ...r,
     s,
     hosts: list,
@@ -162,7 +221,21 @@ export async function started(o: RouteOptions = {}): Promise<RouteRun> {
       for (const h of list) await h.stop();
       await r.app.close().catch(() => undefined);
     },
-  };
+  });
+  const doc = courtyard();
+  o.mutateSetting?.(doc);
+  const est = await establishViaChat(r.chat, doc);
+  if (est.finished.data?.result?.status !== "LOCALITY_READY")
+    throw new Error("the original setting was not established");
+  if (o.upTo === "SETTING") return finish();
+  const kept = await offer(r.chat, draft({ embodiment: embodiment(o.cycle ?? true) }));
+  if (kept.finished.data?.result?.status !== "CHARACTER_RELEASED_UNBOUND")
+    throw new Error(`the character was not kept: ${JSON.stringify(kept.finished.data?.result)}`);
+  if (o.upTo === "KEPT") return finish();
+  const placed = await place(r.chat);
+  if (placed.finished.data?.result?.status !== "CHARACTER_BOUND")
+    throw new Error("the character was not placed");
+  return finish();
 }
 
 /** The tool call and the human's confirmation, followed to the end of the action (answering only where the human script does). */
@@ -219,6 +292,92 @@ export async function walk(r: RouteRun, o: { cycle?: boolean } = {}) {
   );
   out["declaration"] = await stage(r.chat, "declare_closed_setting", DECLARATION);
   out["finish"] = await stage(r.chat, "finish_collection_setup", {}, reader);
+  return out;
+}
+
+/** how far along the route a template stands */
+export type Position =
+  "CHARACTER" | "LOCUS" | "MOMENT" | "HANDLING" | "PREPARED" | "DECLARED" | "READY";
+
+/**
+ * A QUIESCENT slot (service and scripted hosts stopped) after the stages up to `position`, each walked by the chat tools. Cases that test
+ * what happens NEXT clone it, so a recovery or refusal case does not repeat the stages before it.
+ */
+export async function template(position: Position, o: RouteOptions = {}): Promise<Slot> {
+  const r = await started(o);
+  try {
+    const cycle = o.cycle ?? true;
+    const steps: [Position, () => Promise<any>][] = [
+      ["LOCUS", () => stage(r.chat, "establish_character_location")],
+      ["MOMENT", () => stage(r.chat, "state_starting_moment", MOMENT)],
+      ...(cycle
+        ? []
+        : ([["HANDLING", () => stage(r.chat, "state_handling_duration", { words: HANDLING })]] as [
+            Position,
+            () => Promise<any>,
+          ][])),
+      [
+        "PREPARED",
+        () =>
+          stage(r.chat, "propose_collection_preparation", preparation(cycle ? CYCLE : HANDLING)),
+      ],
+      ["DECLARED", () => stage(r.chat, "declare_closed_setting", DECLARATION)],
+      ["READY", () => stage(r.chat, "finish_collection_setup", {}, reader)],
+    ];
+    for (const [at, step] of steps) {
+      if (position === "CHARACTER") break;
+      const done = await step();
+      if (done.finished.isError || done.finished.data?.exit_code !== 0)
+        throw new Error(
+          `${at} did not complete: ${JSON.stringify(done.finished.data ?? done.finished.text)}`,
+        );
+      if (at === position) break;
+    }
+  } finally {
+    await r.stop();
+  }
+  return r.s;
+}
+
+/**
+ * The templates of EVERY position of one journey, each a quiescent slot built by cloning the previous one and walking ONE more stage
+ * through the chat tools: the whole journey is walked once, and a case that tests what happens next clones the position it needs.
+ */
+export async function chain(o: RouteOptions = {}): Promise<Partial<Record<Position, Slot>>> {
+  const cycle = o.cycle ?? true;
+  const first = await started(o);
+  await first.stop();
+  const out: Partial<Record<Position, Slot>> = { CHARACTER: first.s };
+  const steps: [Position, string, any][] = [
+    ["LOCUS", "establish_character_location", {}],
+    ["MOMENT", "state_starting_moment", MOMENT],
+    ...(cycle
+      ? []
+      : ([["HANDLING", "state_handling_duration", { words: HANDLING }]] as [
+          Position,
+          string,
+          any,
+        ][])),
+    ["PREPARED", "propose_collection_preparation", preparation(cycle ? CYCLE : HANDLING)],
+    ["DECLARED", "declare_closed_setting", DECLARATION],
+    ["READY", "finish_collection_setup", {}],
+  ];
+  let previous = first.s;
+  for (const [position, tool, args] of steps) {
+    const s = await cloneSlot(previous);
+    const r = await resumed(s, o.policy ? { policy: o.policy } : {});
+    try {
+      const done = await stage(r.chat, tool, args);
+      if (done.finished.isError || done.finished.data?.exit_code !== 0)
+        throw new Error(
+          `${position} did not complete: ${JSON.stringify(done.finished.data ?? done.finished.text)}`,
+        );
+    } finally {
+      await r.stop();
+    }
+    out[position] = s;
+    previous = s;
+  }
   return out;
 }
 

@@ -73,7 +73,7 @@ import {
   type StageOutcome,
 } from "./route-evidence.ts";
 import { refereeWaitSeconds, runClarify } from "./route-run.ts";
-import { routeStatus, type Barrier, type RouteStatus } from "./route-status.ts";
+import { earlierStagesDone, routeStatus, type Barrier, type RouteStatus } from "./route-status.ts";
 import { STAGE_COMMAND, type StageIdentity, type StageKind } from "./route-stages.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import type {
@@ -1793,6 +1793,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
 
   /** the installation as the owners' files stand now, for a route whose scenario can be derived (null otherwise) */
   const installOf = async (r: RouteFacts) => {
+    if (!earlierStagesDone(r)) return null;
     const derived = deriveScenario(r);
     return derived.ok ? installState(config, derived.scenario) : null;
   };
@@ -2000,6 +2001,21 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       };
     const held = readPending(config);
     const mine = held.kind === "PENDING" && held.pending.stage ? held.pending.stage : null;
+    if (running) {
+      // the running command holds the campaign: nothing is read while it does (the status says only what the run is doing)
+      return {
+        state: "OPEN",
+        stages: [
+          {
+            stage: running.step ?? "stage",
+            state: running.terminal.snapshot(0).pending ? "AWAITING_CONFIRMATION" : "IN_PROGRESS",
+          },
+        ],
+        next: null,
+        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        barrier: "NONE",
+      };
+    }
     const record = readRouteRecord(config);
     // ONE owner-verified open serves the whole status, and the barrier's evidence when a stage is unresolved
     const read = await readRoute(config, mine ? probeOf(mine) : {});
@@ -2011,7 +2027,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     } else if (record.kind === "UNREADABLE") {
       barrier = "ENGINEERING";
       barrierDetail = ROUTE_WORDS_BLOCKER;
-    } else if (held.kind === "PENDING" && !running) {
+    } else if (held.kind === "PENDING") {
       if (mine) {
         const ev =
           read.kind === "OPEN" && mine.kind === "FINISH"
@@ -2036,9 +2052,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       playerViewHost: config.playerViewHostId !== null,
       coverage,
       install: read.kind === "OPEN" ? await installOf(read.route) : null,
-      running: running
-        ? { step: running.step ?? null, awaiting: running.terminal.snapshot(0).pending !== null }
-        : null,
+      running: null,
       barrier,
       ...(barrierDetail !== undefined ? { barrierDetail } : {}),
     });

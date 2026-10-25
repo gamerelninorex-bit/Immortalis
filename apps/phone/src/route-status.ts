@@ -78,6 +78,20 @@ export interface StatusInput {
   readonly barrierStage?: StageKind | null;
 }
 
+/** true when everything before the finishing stage stands: physical location, starting moment, preparation and a current declaration */
+export function earlierStagesDone(r: RouteFacts): boolean {
+  return (
+    r.custody !== null &&
+    r.custody.problems.length === 0 &&
+    r.time !== null &&
+    r.preparation.mechanism !== null &&
+    r.preparation.reserve !== null &&
+    r.preparation.basis !== null &&
+    r.declaration.closure?.current === true &&
+    r.declaration.scope?.current === true
+  );
+}
+
 const TOOL: Record<string, string> = {
   setting: "propose_original_setting",
   character: "propose_original_character",
@@ -311,10 +325,24 @@ export function routeStatus(input: StatusInput): RouteStatus {
 
   // the single next step: the first stage that is not done, with exactly what only the player can still supply
   const next = nextStep(r, stages, rec, input);
+  const held: NextStep | null =
+    input.barrier === "RESUME"
+      ? {
+          tool: "resume_collection_setup",
+          ask_the_player: [],
+          note: "A stage the player confirmed is only partly committed: this finishes exactly that retained input, and the player confirms it again.",
+        }
+      : input.barrier === "RECONCILE"
+        ? {
+            tool: "reconcile_last_action",
+            ask_the_player: [],
+            note: "An earlier action's outcome is not established: the owners' own records settle it. It asks the player nothing.",
+          }
+        : null;
   return {
     state: "OPEN",
     stages,
-    next: prepared ? null : next,
+    next: prepared ? null : (held ?? next),
     readiness: { prepared_to_request_collection: prepared, campaign_started: false },
     barrier: input.barrier,
     ...(missing.length > 0 ? { blockers: [...new Set(missing)] } : {}),

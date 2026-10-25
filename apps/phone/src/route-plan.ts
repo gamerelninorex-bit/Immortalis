@@ -234,6 +234,20 @@ export function planStage(
 ): Plan {
   const covers = (op: string): boolean => coverage === null || coverage.has(op);
   const landed = (intent: string): boolean => r.landed?.get(intent) === true;
+  if (req.kind === "PREPARE") {
+    if (r.character.kind !== "BOUND")
+      return refuse(`the character is not kept and placed yet: ${FIRST}`);
+    // the open question comes first: quotations cannot be checked against a duration the character has not yet given
+    const need = clarificationNeed(r);
+    if (need === "NEEDED" || need === "WAITING" || need === "CLOSED")
+      return refuse(
+        need === "NEEDED"
+          ? "none of the character's accepted words states how long one handling cycle takes: the player's own account comes first (state_handling_duration)"
+          : need === "WAITING"
+            ? "the starting moment is not established yet: state it first (state_starting_moment)"
+            : "a collection commitment of this character already exists, so no cycle can still be clarified",
+      );
+  }
   const c = candidateOf(config, r, req);
   if (!c.ok) return c.plan;
   const run = c.run;
@@ -310,13 +324,6 @@ export function planStage(
       return { kind: "RUN", run };
     }
     case "PREPARE": {
-      const need = clarificationNeed(r);
-      if (need === "NEEDED" || need === "WAITING" || need === "CLOSED")
-        return refuse(
-          need === "NEEDED"
-            ? "none of the character's accepted words states how long one handling cycle takes: the player's own account comes first (state_handling_duration)"
-            : "the starting moment is not established yet: state it first (state_starting_moment)",
-        );
       const digest = id.setup.publication_digest;
       const held = (["mechanism", "reserve", "basis"] as const).filter((s) =>
         landed(preparationIntent(digest, s)),
@@ -378,7 +385,7 @@ export function planStage(
           kind: "DONE",
           step: "FINISH",
           message:
-            "the cycle is attested and the connection is installed; the campaign is prepared to request the supported collection",
+            "the cycle is attested and the connection is installed; the campaign is prepared to request the supported collection; nobody was asked",
         };
       return { kind: "RUN", run };
     }
