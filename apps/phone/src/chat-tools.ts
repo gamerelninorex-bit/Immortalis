@@ -611,6 +611,13 @@ async function describeStage(
   const own = finished ? stageResult(run) : null;
   const route = finished ? await runs.routeStatus() : null;
   const findings = findingsOf(run);
+  // the command's own reply may be lost or unclear while the owners' records, read back afterwards, settle exactly what became of it
+  const settledByReadback =
+    finished &&
+    own !== null &&
+    /OUTCOME_UNKNOWN/.test(own.status) &&
+    !run.uncertain &&
+    !runs.unresolved();
   return asJson({
     run_id: run.id,
     action: "collection_setup",
@@ -623,6 +630,12 @@ async function describeStage(
           referee_findings: findings,
           findings_note:
             "These are the referee's readings of the player's OWN words and of the committed facts, exactly as the player sees them. Relay them plainly; they are out-of-character.",
+        }
+      : {}),
+    ...(settledByReadback
+      ? {
+          settled_by:
+            "The command's own reply was lost or unclear, but the owners' records were read back afterwards and settle what became of it: route shows what stands.",
         }
       : {}),
     ...(route ? { route } : {}),

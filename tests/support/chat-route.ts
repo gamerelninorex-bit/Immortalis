@@ -381,6 +381,54 @@ export async function chain(o: RouteOptions = {}): Promise<Partial<Record<Positi
   return out;
 }
 
+/** the tool and arguments an ordinary conversation uses for the stage the status names next */
+const argsFor = (tool: string, cycle: boolean): any =>
+  tool === "state_starting_moment"
+    ? MOMENT
+    : tool === "state_handling_duration"
+      ? { words: HANDLING }
+      : tool === "propose_collection_preparation"
+        ? preparation(cycle ? CYCLE : HANDLING)
+        : tool === "declare_closed_setting"
+          ? DECLARATION
+          : {};
+
+/**
+ * The player's ordinary conversation after ANY interruption: do what the status says, until the campaign is prepared. A barrier names its
+ * own remedy (reconcile, or resume); a stage whose words are retained is resumed without being asked for them again; otherwise the stage
+ * the status names is offered. Returns the trail of what the status said at each step (so a case can assert the path it took).
+ */
+export async function converge(
+  r: Running,
+  o: {
+    cycle?: boolean;
+    human?: Human;
+    limit?: number;
+    /** stop as soon as this holds of the status (default: the campaign is prepared) */
+    until?: (route: any) => boolean;
+  } = {},
+): Promise<string[]> {
+  const trail: string[] = [];
+  for (let i = 0; i < (o.limit ?? 12); i++) {
+    const route = (await r.chat.call("collection_setup_status")).data.route;
+    trail.push(
+      `${route.barrier}/${route.next?.tool ?? "-"}${route.next?.retained ? "+retained" : ""}`,
+    );
+    if (o.until ? o.until(route) : route.readiness.prepared_to_request_collection) return trail;
+    if (route.barrier === "RECONCILE") {
+      await r.chat.call("reconcile_last_action");
+      await follow(r.chat, null);
+    } else if (route.barrier === "RESUME" || route.next?.retained) {
+      await r.chat.call("resume_collection_setup");
+      await follow(r.chat, o.human ?? reader);
+    } else if (route.next) {
+      const out = await r.chat.call(route.next.tool, argsFor(route.next.tool, o.cycle ?? true));
+      if (!out.isError && out.data?.run_id) await follow(r.chat, o.human ?? reader);
+    } else throw new Error(`cannot converge from ${trail.join(" -> ")}: ${JSON.stringify(route)}`);
+  }
+  throw new Error(`did not converge: ${trail.join(" -> ")}`);
+}
+
 /** the route status the host reads */
 export const status = async (chat: Chat) => (await chat.call("collection_setup_status")).data;
 
