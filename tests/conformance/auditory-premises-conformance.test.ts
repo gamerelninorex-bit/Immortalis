@@ -154,7 +154,9 @@ describe("nothing outside the physical-source slice was built", () => {
 
   it("no operator command, host operation, endpoint or protocol surface names the chain: the composed baseline remains pinned", () => {
     expect(treeSha("packages/operator/src")).toBe(
-      "00f003119718ad17c04b8e101fa65762d3c113ba2310318512ffa27eef13f5bf",
+      // A2 preparation composition: only the equivalent typed R-5 input seam changed.
+      // The absence-of-auditory-ingress assertion below remains operative.
+      "a3f0ab98e18dcf2db3adf885462ad4a95ce736d1f3be7840d358dff7b47a60bd",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

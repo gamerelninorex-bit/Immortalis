@@ -20,6 +20,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A2 compares the common shipped read path at the immutable handoff base.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -35,6 +39,8 @@ jobs:
         run: pnpm run typecheck
       - name: Spec-lock / acceptance register / open-gates consistency
         run: pnpm run check:spec
+      - name: A2 whole-path evidence and BLUE H1 regressions
+        run: pnpm exec vitest run tests/integration/chat-collection-prep-evidence.test.ts tests/integration/chat-collection-prep-boundaries.test.ts tests/integration/chat-collection-prep.test.ts
       - name: Unit
         run: pnpm run test:unit
       - name: Contract
@@ -42,6 +48,7 @@ jobs:
       - name: Conformance (register integrity; no engine conformance tests exist yet)
         run: pnpm run test:conformance
       - name: Integration smoke
-        run: pnpm run test:integration
+        # The focused A2/H1 files ran above; every integration file runs once.
+        run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
       - name: Security static/config checks
         run: pnpm run test:security

@@ -29,7 +29,12 @@ export interface SetupIdentity {
 }
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 
-function identify(campaignId: string, command: string, document: string): SetupIdentity | null {
+/** The retained identity of one exact setup document (its SHA-256 and the publication digest the shipped command derives from it). */
+export function identify(
+  campaignId: string,
+  command: string,
+  document: string,
+): SetupIdentity | null {
   if (Buffer.byteLength(document, "utf8") > 65_536) return null;
   try {
     const value: unknown = JSON.parse(document);
