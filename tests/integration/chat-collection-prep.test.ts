@@ -93,9 +93,19 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
       expect(asked("moment")[0]).toContain(`"value": ${MOMENT.value}`);
       expect(asked("moment")[0]).toContain(`"unit": "${UNIT}"`);
       expect(out["moment"].finished.data.result.status).toBe("TIME_ESTABLISHED");
-      // the accepted words already state a duration: the R-5 branch is simply not part of this journey
+      // The fixture already authors the actual cycle: use it in preparation,
+      // with no R-5 human question. Status offers a conditional alternative,
+      // not an authoritative semantic verdict based on arbitrary numeric text.
       expect(out["handling"]).toBeUndefined();
       expect(out["moment"].finished.data.route.stages).toContainEqual({
+        stage: "handling_duration",
+        state: "NEXT",
+      });
+      expect(out["moment"].finished.data.route.next).toMatchObject({
+        tool: "propose_collection_preparation",
+        if_handling_duration_unresolved: { tool: "state_handling_duration" },
+      });
+      expect(out["preparation"].finished.data.route.stages).toContainEqual({
         stage: "handling_duration",
         state: "NOT_NEEDED",
       });
@@ -219,8 +229,8 @@ describe("MECHANISM: the R-5 branch - an unresolved duration is the player's own
         state: "NEXT",
       });
       expect(out["moment"].finished.data.route.next).toMatchObject({
-        tool: "state_handling_duration",
         canonical_unit: UNIT,
+        if_handling_duration_unresolved: { tool: "state_handling_duration" },
       });
       // the player's account: shown whole with the referee's branch and scope readings, accepted in a SEPARATE confirmation
       const handled = out["handling"].finished.elicited as string[];

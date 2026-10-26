@@ -26,7 +26,7 @@ import { identify, type SetupIdentity } from "./setup-recovery.ts";
  *
  *   LOCUS       the character's stationary physical custody (`establish-character-locus`)
  *   CHRONOLOGY  the origin of canonical time, as its author states it (`initialize-time`)
- *   CLARIFY     the player's own duration of ONE handling cycle, only where no accepted words state one (`clarify-collection-cycle`, R-5)
+ *   CLARIFY     the player's own materially unresolved duration of ONE handling cycle (`clarify-collection-cycle`, R-5)
  *   PREPARE     the PC mechanism, an EMPTY Reserve and the extraction basis (`prepare-collection`)
  *   DECLARE     the author's closed domain and workforce scope (`declare-closed-setting`)
  *   FINISH      the referee's cycle attestation and the service's scenario/view installation (no human choice)
@@ -371,7 +371,7 @@ export function buildPreparation(f: PrepareFacts, i: PrepareInput): PreparationB
   }
   if (released.length === 0 && clarified.length === 0)
     return no(
-      "cycle_quote is not a verbatim part of any accepted statement of the character or of the player's accepted clarification",
+      "cycle_quote is not a verbatim part of any accepted statement of the character or of the player's accepted clarification. If that handling duration is materially unresolved, use state_handling_duration; otherwise quote the accepted handling-cycle words",
     );
   const cited = new Map<string, PcClaimLocator>();
   for (const c of [...actuator, ...traversal, ...released])

@@ -41,6 +41,12 @@ export interface NextStep {
   readonly accepted_statements?: readonly { readonly section: string; readonly text: string }[];
   /** the unit the campaign counts time in, once it is established (the cycle's number must be stated in it) */
   readonly canonical_unit?: string;
+  /** Conditional existing R-5 path, never a numeric-text verdict or a mandatory extra question. */
+  readonly if_handling_duration_unresolved?: {
+    readonly tool: "state_handling_duration";
+    readonly ask_the_player: readonly string[];
+    readonly note: string;
+  };
   readonly note: string;
 }
 
@@ -242,7 +248,10 @@ export function routeStatus(input: StatusInput): RouteStatus {
                 }
               : need === "WAITING"
                 ? { stage: "handling_duration", state: "WAITING", detail: "starting_moment" }
-                : needsReferee("handling_duration", { stage: "handling_duration", state: "NEXT" }),
+                : needsReferee("handling_duration", {
+                    stage: "handling_duration",
+                    state: "NEXT",
+                  }),
     ),
   );
 
@@ -250,7 +259,6 @@ export function routeStatus(input: StatusInput): RouteStatus {
   const p = r.preparation;
   const heldAll = p.mechanism !== null && p.reserve !== null && p.basis !== null;
   const heldAny = p.mechanism !== null || p.reserve !== null || p.basis !== null;
-  const clarified = need === "DONE" || need === "NOT_NEEDED";
   stages.push(
     live(
       "PREPARE",
@@ -262,9 +270,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
             ? { stage: "collection_preparation", state: "WAITING", detail: "character" }
             : !timeDone
               ? { stage: "collection_preparation", state: "WAITING", detail: "starting_moment" }
-              : !clarified
-                ? { stage: "collection_preparation", state: "WAITING", detail: "handling_duration" }
-                : { stage: "collection_preparation", state: "NEXT" },
+              : { stage: "collection_preparation", state: "NEXT" },
     ),
   );
 
@@ -373,6 +379,38 @@ const ACCEPTED_SECTIONS = new Set<string>([
   "entry_envelope",
 ]);
 
+/** One conditional choice, not a semantic verdict inferred from accepted prose. */
+function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
+  return {
+    tool: TOOL["collection_preparation"]!,
+    ask_the_player: rec?.preparation
+      ? []
+      : [
+          "the condition the (empty) local Reserve will keep material in, in their own word",
+          ...(r.source.access_facts.length > 1
+            ? ["which of the source's stated access facts the gathering relies on"]
+            : []),
+        ],
+    ...(rec?.preparation ? { retained: true } : {}),
+    accepted_statements: r.claims
+      .filter((c) => ACCEPTED_SECTIONS.has(c.locator.section))
+      .map((c) => ({ section: c.locator.section, text: c.statement })),
+    canonical_unit: r.time!.canonical_time.unit,
+    ...(clarificationNeed(r) === "OPEN"
+      ? {
+          if_handling_duration_unresolved: {
+            tool: "state_handling_duration" as const,
+            ask_the_player: [
+              "only the materially unresolved duration of ONE handling cycle of the existing hands, in the player's own words, with the number in digits and the campaign's unit",
+            ],
+            note: "Use this existing clarification path only if that particular handling-cycle detail is unresolved. An unrelated duration settles nothing. The existing referee judges the branch and scope before the player's separate acceptance; never suggest or choose a rate.",
+          },
+        }
+      : {}),
+    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; the player reviews and confirms the whole preparation.",
+  };
+}
+
 function nextStep(
   r: RouteFacts,
   stages: readonly StageLine[],
@@ -418,6 +456,7 @@ function nextStep(
         note: "The setting author states this once; nothing is defaulted, converted or guessed, and no time passes by stating it.",
       };
     case "handling_duration":
+      if (!rec?.handling) return preparationStep(r, rec);
       return {
         tool: TOOL["handling_duration"]!,
         ask_the_player: rec?.handling
@@ -427,26 +466,10 @@ function nextStep(
             ],
         ...retained(rec?.handling != null),
         canonical_unit: r.time!.canonical_time.unit,
-        note: "Needed only because none of the character's accepted words states a duration. Do not suggest a rate: it is the player's own account, read by the referee and accepted by the player.",
+        note: "Reuse the player's retained words for this open handling-cycle question. The existing referee judges whether the detail is unresolved and whether the words only clarify that detail; the player separately accepts them. No rate is suggested or chosen.",
       };
     case "collection_preparation":
-      return {
-        tool: TOOL["collection_preparation"]!,
-        ask_the_player: rec?.preparation
-          ? []
-          : [
-              "the condition the (empty) local Reserve will keep material in, in their own word",
-              ...(r.source.access_facts.length > 1
-                ? ["which of the source's stated access facts the gathering relies on"]
-                : []),
-            ],
-        ...retained(rec?.preparation != null),
-        accepted_statements: r.claims
-          .filter((c) => ACCEPTED_SECTIONS.has(c.locator.section))
-          .map((c) => ({ section: c.locator.section, text: c.statement })),
-        canonical_unit: r.time!.canonical_time.unit,
-        note: "Quote the character's own accepted words exactly for what the hands do, what they cannot pass and the one-unit cycle (its number and unit), from accepted_statements; the player reviews and confirms the whole preparation.",
-      };
+      return preparationStep(r, rec);
     case "closed_setting":
       return {
         tool: TOOL["closed_setting"]!,

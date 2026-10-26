@@ -39,8 +39,8 @@ jobs:
         run: pnpm run typecheck
       - name: Spec-lock / acceptance register / open-gates consistency
         run: pnpm run check:spec
-      - name: A2 whole-path conversation and measurement evidence
-        run: pnpm exec vitest run tests/integration/chat-collection-prep-evidence.test.ts
+      - name: A2 whole-path evidence and BLUE H1 regressions
+        run: pnpm exec vitest run tests/integration/chat-collection-prep-evidence.test.ts tests/integration/chat-collection-prep-boundaries.test.ts tests/integration/chat-collection-prep.test.ts
       - name: Unit
         run: pnpm run test:unit
       - name: Contract
@@ -48,7 +48,7 @@ jobs:
       - name: Conformance (register integrity; no engine conformance tests exist yet)
         run: pnpm run test:conformance
       - name: Integration smoke
-        # The A2 evidence file ran above; every integration file runs once.
-        run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts
+        # The focused A2/H1 files ran above; every integration file runs once.
+        run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
       - name: Security static/config checks
         run: pnpm run test:security

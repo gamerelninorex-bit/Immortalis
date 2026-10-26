@@ -6,6 +6,8 @@ import { refereeDir, secretPath } from "../../packages/operator/src/referee-exch
 import { characterRecordPath } from "../../apps/phone/src/character-recovery.ts";
 import {
   DECLARATION,
+  HANDLING,
+  MOMENT,
   chain,
   cloneSlot,
   resumed,
@@ -13,9 +15,81 @@ import {
   status,
   openOrdinary,
   courtyard,
+  embodiment,
+  started,
+  routePolicy,
   type Position,
   type Slot,
 } from "../support/chat-route.ts";
+
+it("BLUE PR88 H1: an unrelated accepted breath-holding duration leaves the actual handling-cycle branch open to the existing classifier and owner", async () => {
+  const r = await started({
+    cycle: false,
+    characterWords: {
+      embodiment: `${embodiment(false)}; this body can hold its breath for 30 second`,
+    },
+  });
+  try {
+    await stage(r.chat, "establish_character_location");
+    await stage(r.chat, "state_starting_moment", MOMENT);
+    const read = (await status(r.chat)).route;
+    expect(
+      read.stages.find((s: { stage: string }) => s.stage === "handling_duration"),
+    ).toMatchObject({
+      state: "NEXT",
+    });
+    expect(read.next).toMatchObject({
+      tool: "propose_collection_preparation",
+      if_handling_duration_unresolved: { tool: "state_handling_duration" },
+    });
+    const out = await stage(r.chat, "state_handling_duration", { words: HANDLING });
+    expect(out.started.isError).toBe(false);
+    expect(out.finished.data.result.status).toBe("CLARIFICATION_ACCEPTED");
+    expect(out.finished.elicited).toHaveLength(1);
+    expect(out.finished.elicited[0]).toContain(HANDLING);
+    expect(out.finished.elicited[0]).toContain("branch reading: UNRESOLVED_BEFORE");
+    expect((await status(r.chat)).route.stages).toContainEqual({
+      stage: "handling_duration",
+      state: "DONE",
+    });
+    const c = await openOrdinary(r.s.campaignDir);
+    try {
+      const owner = new PcCollectionAdapter(c.store);
+      const pc = c.binding()!.value.active_pc.entity_id;
+      expect(owner.clarificationScope(pc)!.prior_closures[0]!.statements).toEqual([HANDLING]);
+      expect(JSON.stringify(c.playerCharacter(pc)!.value)).toContain(
+        "hold its breath for 30 second",
+      );
+    } finally {
+      await c.close();
+    }
+  } finally {
+    await r.stop();
+  }
+}, 120_000);
+
+it("the existing classifier can find the cycle already stated and refuse a redundant clarification before any new human acceptance", async () => {
+  const r = await started({
+    policy: routePolicy({ clarify: { branch: "ALREADY_STATED_IN_BASELINE" } }),
+  });
+  try {
+    await stage(r.chat, "establish_character_location");
+    await stage(r.chat, "state_starting_moment", MOMENT);
+    const out = await stage(r.chat, "state_handling_duration", { words: HANDLING });
+    expect(out.started.isError).toBe(false);
+    expect(out.finished.data.result.status).toBe("CLARIFICATION_NOT_ACCEPTED");
+    expect(out.finished.elicited).toEqual([]);
+    const c = await openOrdinary(r.s.campaignDir);
+    try {
+      const pc = c.binding()!.value.active_pc.entity_id;
+      expect(new PcCollectionAdapter(c.store).clarificationScope(pc)!.prior_closures).toEqual([]);
+    } finally {
+      await c.close();
+    }
+  } finally {
+    await r.stop();
+  }
+}, 120_000);
 
 it("a current workforce half survives an interrupted replacement of only the closure; recovery confirms the exact retained declaration afresh", async () => {
   const s = await cloneSlot(steps.READY!);

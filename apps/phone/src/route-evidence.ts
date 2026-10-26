@@ -26,7 +26,6 @@ import type { PhoneConfig } from "./config.ts";
 import { chosenCharacterId, readCharacterRecord } from "./character-recovery.ts";
 import {
   acceptedClaims,
-  statesNumberAndUnit,
   technicalIds,
   type AcceptedClaim,
   type SettingFacts,
@@ -559,14 +558,18 @@ export function stageOutcome(read: RouteRead, id: StageIdentity, campaignId: str
   }
 }
 
-/** the owner-verified account of whether the character's cycle can still be clarified, and whether it needs to be */
+/**
+ * Owner evidence closes this branch; numeric text does not. Before preparation,
+ * OPEN means clarification is available if the particular handling duration is
+ * materially unresolved. Existing accepted cycle words can go straight to
+ * preparation, whose actual meaning still requires the existing attestation.
+ */
 export function clarificationNeed(
   r: RouteFactsRead,
-): "DONE" | "NOT_NEEDED" | "NEEDED" | "CLOSED" | "WAITING" {
+): "DONE" | "NOT_NEEDED" | "OPEN" | "CLOSED" | "WAITING" {
   if (r.clarification !== null) return "DONE";
   if (r.preparation.mechanism !== null) return "NOT_NEEDED";
   if (r.collection_commitment) return "CLOSED";
   if (r.time === null) return "WAITING";
-  const unit = r.time.canonical_time.unit;
-  return r.claims.some((c) => statesNumberAndUnit(c.statement, unit)) ? "NOT_NEEDED" : "NEEDED";
+  return "OPEN";
 }

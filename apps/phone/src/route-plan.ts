@@ -240,15 +240,15 @@ export function planStage(
   if (req.kind === "PREPARE") {
     if (r.character.kind !== "BOUND")
       return refuse(`the character is not kept and placed yet: ${FIRST}`);
-    // the open question comes first: quotations cannot be checked against a duration the character has not yet given
+    // Semantic resolution is not inferred from arbitrary prose. A candidate
+    // preparation must quote accepted content; the existing referee later judges
+    // actual cycle meaning. Missing/invalid quotations refuse before any consent.
     const need = clarificationNeed(r);
-    if (need === "NEEDED" || need === "WAITING" || need === "CLOSED")
+    if (need === "WAITING" || need === "CLOSED")
       return refuse(
-        need === "NEEDED"
-          ? "none of the character's accepted words states how long one handling cycle takes: the player's own account comes first (state_handling_duration)"
-          : need === "WAITING"
-            ? "the starting moment is not established yet: state it first (state_starting_moment)"
-            : "a collection commitment of this character already exists, so no cycle can still be clarified",
+        need === "WAITING"
+          ? "the starting moment is not established yet: state it first (state_starting_moment)"
+          : "a collection commitment of this character already exists, so no cycle can still be clarified",
       );
   }
   const c = candidateOf(config, r, req);
@@ -306,9 +306,7 @@ export function planStage(
             );
       if (need === "NOT_NEEDED")
         return refuse(
-          r.preparation.mechanism !== null
-            ? "the collection mechanism is already prepared from the character's accepted words: no clarification applies"
-            : "the character's accepted words already state a number and the campaign's unit, so no duration is open: quote them in the preparation instead",
+          "the collection mechanism is already prepared from the character's accepted words: no clarification applies",
         );
       if (need === "CLOSED")
         return refuse(

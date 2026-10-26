@@ -415,18 +415,22 @@ export async function converge(
   const trail: string[] = [];
   for (let i = 0; i < (o.limit ?? 12); i++) {
     const route = (await r.chat.call("collection_setup_status")).data.route;
-    trail.push(
-      `${route.barrier}/${route.next?.tool ?? "-"}${route.next?.retained ? "+retained" : ""}`,
-    );
+    // This script knows which authored fixture it is exercising. Production
+    // status does not decide cycle meaning from a number/unit in arbitrary prose.
+    const next =
+      o.cycle === false && route.next?.if_handling_duration_unresolved
+        ? route.next.if_handling_duration_unresolved
+        : route.next;
+    trail.push(`${route.barrier}/${next?.tool ?? "-"}${next?.retained ? "+retained" : ""}`);
     if (o.until ? o.until(route) : route.readiness.prepared_to_request_collection) return trail;
     if (route.barrier === "RECONCILE") {
       await r.chat.call("reconcile_last_action");
       await follow(r.chat, null);
-    } else if (route.barrier === "RESUME" || route.next?.retained) {
+    } else if (route.barrier === "RESUME" || next?.retained) {
       await r.chat.call("resume_collection_setup");
       await follow(r.chat, o.human ?? reader);
-    } else if (route.next) {
-      const out = await r.chat.call(route.next.tool, argsFor(route.next.tool, o.cycle ?? true));
+    } else if (next) {
+      const out = await r.chat.call(next.tool, argsFor(next.tool, o.cycle ?? true));
       if (!out.isError && out.data?.run_id) await follow(r.chat, o.human ?? reader);
     } else throw new Error(`cannot converge from ${trail.join(" -> ")}: ${JSON.stringify(route)}`);
   }
