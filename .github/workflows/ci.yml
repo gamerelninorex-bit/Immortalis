@@ -47,11 +47,11 @@ jobs:
         run: pnpm run test:contract
       - name: Conformance (register integrity; no engine conformance tests exist yet)
         run: pnpm run test:conformance
+      - name: Security static/config checks
+        run: pnpm run test:security
       - name: Integration smoke
         # The focused A2/H1 files ran above; every integration file runs once.
         run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
-      - name: Security static/config checks
-        run: pnpm run test:security
 
   h07-evidence:
     name: H-07 matched persistence evidence
