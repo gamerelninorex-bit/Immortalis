@@ -156,7 +156,8 @@ describe("nothing outside the physical-source slice was built", () => {
     expect(treeSha("packages/operator/src")).toBe(
       // A2 preparation composition: only the equivalent typed R-5 input seam changed.
       // The absence-of-auditory-ingress assertion below remains operative.
-      "a3f0ab98e18dcf2db3adf885462ad4a95ce736d1f3be7840d358dff7b47a60bd",
+      // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
+      "1b0ff1b1303ecfd1f92e48c799aa3c097e5fb51f93dd3829003bd5ca87489a16",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",
