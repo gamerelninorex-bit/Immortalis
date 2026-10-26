@@ -183,6 +183,28 @@ export function routeMeter() {
   undo.push(() => {
     nodeFs.readFile = read;
   });
+  const range = nodeFs.readRange;
+  nodeFs.readRange = async (...args) => {
+    const bytes = await range(...args);
+    if (active) {
+      counts.fs_reads++;
+      counts.fs_read_bytes += bytes.byteLength;
+    }
+    return bytes;
+  };
+  const rangeSync = nodeFs.readRangeSync;
+  nodeFs.readRangeSync = (...args) => {
+    const bytes = rangeSync(...args);
+    if (active) {
+      counts.fs_reads++;
+      counts.fs_read_bytes += bytes.byteLength;
+    }
+    return bytes;
+  };
+  undo.push(() => {
+    nodeFs.readRange = range;
+    nodeFs.readRangeSync = rangeSync;
+  });
   for (const key of ["writeFileDurable", "appendDurable", "createExclusive"] as const) {
     const method = nodeFs[key];
     nodeFs[key] = async (path, data) => {
