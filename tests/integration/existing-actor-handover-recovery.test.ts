@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Existing-Actor → PC Role Registry Handover — save → close → load → continue preserves the one handover and its ownership
 // result at every durable cut with convergence on the uninterrupted run, a lost reply converges by identity, and a loaded
@@ -329,7 +330,7 @@ describe("load fails closed on a corrupted saved handover", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === PLAYER_CHARACTER_BINDING_KEY));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -354,7 +355,7 @@ describe("load fails closed on a corrupted saved handover", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j);
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -364,7 +365,7 @@ describe("load fails closed on a corrupted saved handover", () => {
   it("removing the saved binding while keeping the journal fails: a handover cannot be silently un-done to reopen the actor owner", async () => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts = j.facts.filter((f: any) => f.key !== PLAYER_CHARACTER_BINDING_KEY);
     writeFileSync(p, JSON.stringify(j));
     expect(await openOutcome(dir)).not.toBe("OK");

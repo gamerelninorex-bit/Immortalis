@@ -459,6 +459,10 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  * Pure: a function of (group, state) only.
  */
 export const canonicalAdmission: WriteAdmission = {
+  // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
+  // change to R1 or S1-P1 historical verification must change this identity (and force strict replay).
+  historyVerificationId:
+    "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
   verifyHistorical(group, state) {
     return (
       worldActorPresenceHistoricalCheck(group, state) ??

@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact values */
 // S1-P1 — persistence, replay and recovery. The positive result survives save, reopen and full replay (re-verified by the historical
 // verifier on the real incremental pre-state, not read back from a snapshot); a forged, reordered or unverified history fails the
@@ -728,7 +729,7 @@ describe("on-disk tampering with a committed P1 fact is detected, never repaired
     for (const [key, edit] of edits) {
       const dir = await built();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key).value);
       writeFileSync(p, JSON.stringify(j, null, 2));
       expect(await opens(dir), key).toBe("INTEGRITY_STATE");
@@ -738,7 +739,7 @@ describe("on-disk tampering with a committed P1 fact is detected, never repaired
   it("the state file: a smuggled field in a P1 fact is refused", async () => {
     const dir = await built();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts.find((f: any) => f.key === RAW_KEY).value.health = "AVAILABLE";
     writeFileSync(p, JSON.stringify(j, null, 2));
     expect(await opens(dir)).not.toBe("OK");

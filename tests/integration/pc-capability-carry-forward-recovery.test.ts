@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Existing-Actor Capability → PC Capability Carry-Forward — save → close → load → continue preserves the same result and the same
 // ownership story at every durable cut (the handed-over actor, the received carry-forward basis, the published PC capability),
@@ -301,7 +302,7 @@ describe("load fails closed on a corrupted saved carry-forward", () => {
   const edit = async (upTo: UpTo, change: (j: any) => void) => {
     const dir = await saved(upTo);
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     change(j);
     writeFileSync(p, JSON.stringify(j));
     return dir;

@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // CPAA-C1 (v0.3 design ratified; implementation acceptance pending) — save → close → load → continue is exact at every durable cut of one collection, converges on the
 // uninterrupted run (one source drawdown, one Reserve credit, no duplicate), and a loaded campaign whose collection facts (or what
@@ -242,7 +243,7 @@ describe("a loaded campaign whose collection facts were edited or built outside 
   const tamper = async (edit: (j: any) => void, upTo: Parameters<typeof saved>[0] = "complete") => {
     const dir = await saved(upTo);
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     edit(j);
     writeFileSync(p, JSON.stringify(j));
     return openOutcome(dir);

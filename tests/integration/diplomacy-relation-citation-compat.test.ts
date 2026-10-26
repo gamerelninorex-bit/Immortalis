@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // Diplomacy Relation Edge Governing-Citation Source-Fidelity Repair (twenty-third slice) — behavior of the compatibility path:
 // a new write is stamped with, and admission accepts, ONLY the corrected current citation; a persisted Relation Edge carrying the
@@ -250,7 +251,7 @@ describe("tamper and drift rejection: only the exact whole historical citation o
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved(HISTORICAL);
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key()));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // GIP Stable Institution Identity — save → close → load → continue across every durable cut of the establishment, a failure
 // at EVERY durable step of the one authored publication, and load-time failure on a corrupted or inconsistent save. The GIP
@@ -271,7 +272,7 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 10)"
     for (const [name, edit] of Object.entries(savedEdits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === courtKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -282,7 +283,7 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 10)"
     for (const name of ["swapped labels", "moved key"]) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       const a = j.facts.find((f: any) => f.key === courtKey);
       const b = j.facts.find((f: any) => f.key === guildKey);
       if (name === "swapped labels") [a.value.identity_label, b.value.identity_label] = ["x", "y"];

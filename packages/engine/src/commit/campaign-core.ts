@@ -33,6 +33,8 @@ export type OwnerRegistry = ReadonlyMap<string, ReadonlySet<string>>;
  * prerequisites to the owner that the governing source assigns (IA-03).
  */
 export interface WriteAdmission {
+  /** Stable identity of the historical verifier. Absent => checkpoint history cannot be trusted. */
+  readonly historyVerificationId?: string;
   check(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
   /**
    * OPTIONAL pure historical verification (R1 Stage-One v1.1). Replay runs it on each journal group against the ACTUAL
@@ -142,6 +144,13 @@ export type Prepared =
     };
 
 export interface CoreParams {
+  /** Verified checkpoint evidence, lazily addressed; never a second state owner. */
+  readonly history?: {
+    byIntent(id: string): { group: CommitGroup; receipt: CommitReceipt } | null;
+    byGroup(id: string): { group: CommitGroup; receipt: CommitReceipt } | null;
+    ruleChecked(id: string): boolean;
+    checkedIds(): Iterable<string>;
+  };
   readonly campaignId: string;
   /** sha256 of the spec-lock in force for new commits (IA-01); recorded in each new receipt. */
   readonly specLockSha256: string;
@@ -160,8 +169,8 @@ export class CampaignCore {
   readonly #byIntent = new Map<string, LedgerRecord>();
   readonly #byGroup = new Map<string, string>(); // group_id -> intent_id
   /**
-   * The groups whose admission rules demonstrably ran in THIS process: a live commit that passed `admission.check`, or a replayed
-   * entry that `admission.verifyHistorical` judged. It is evidence, not configuration: a group that is not here was adopted
+   * The groups whose admission rules demonstrably ran: a live commit that passed `admission.check`, or a replayed
+   * entry that `admission.verifyHistorical` judged. Verified checkpoint evidence is addressed through CoreParams.history. It is evidence, not configuration: a group that is not here was adopted
    * without the owner's rule being applied to it.
    */
   readonly #ruleChecked = new Set<string>();
@@ -181,18 +190,26 @@ export class CampaignCore {
   }
 
   lookupReceipt(intentId: string): CommitReceipt | null {
-    return this.#byIntent.get(intentId)?.receipt ?? null;
+    return (
+      this.#byIntent.get(intentId)?.receipt ??
+      this.#params.history?.byIntent(intentId)?.receipt ??
+      null
+    );
   }
 
   /** The exact group committed under `intentId` (hash-chained journal evidence), or null. */
   lookupGroup(intentId: string): CommitGroup | null {
-    return this.#byIntent.get(intentId)?.group ?? null;
+    return (
+      this.#byIntent.get(intentId)?.group ?? this.#params.history?.byIntent(intentId)?.group ?? null
+    );
   }
 
   /** The exact group committed under `group_id` (hash-chained journal evidence), or null. An exact-key lookup, never a scan. */
   lookupGroupById(groupId: string): CommitGroup | null {
     const intent = this.#byGroup.get(groupId);
-    return intent === undefined ? null : this.lookupGroup(intent);
+    return intent === undefined
+      ? (this.#params.history?.byGroup(groupId)?.group ?? null)
+      : this.lookupGroup(intent);
   }
 
   /** Re-registers an already-committed entry (used when replaying a journal on load). */
@@ -208,9 +225,34 @@ export class CampaignCore {
     if (this.#params.admission !== undefined) this.#ruleChecked.add(prepared.entry.group.group_id);
   }
 
-  /** The ids of the groups whose owner rules demonstrably ran in this process (see `#ruleChecked`). */
+  /** The ids of groups with live, replayed or verified checkpoint owner-rule evidence (see `#ruleChecked`). */
   ruleCheckedGroupIds(): ReadonlySet<string> {
-    return this.#ruleChecked;
+    const local = this.#ruleChecked;
+    const history = this.#params.history;
+    if (!history) return local;
+    // has() is addressed. Explicit enumeration/size are diagnostic operations and may visit history.
+    function* values(): Generator<string, undefined> {
+      yield* local;
+      for (const id of history!.checkedIds()) if (!local.has(id)) yield id;
+      return undefined;
+    }
+    const view: ReadonlySet<string> = {
+      has: (id) => local.has(id) || history.ruleChecked(id),
+      get size() {
+        return [...values()].length;
+      },
+      values,
+      keys: values,
+      *entries(): Generator<[string, string], undefined> {
+        for (const id of values()) yield [id, id] as [string, string];
+        return undefined;
+      },
+      [Symbol.iterator]: values,
+      forEach(fn, thisArg) {
+        for (const id of values()) fn.call(thisArg, id, id, view);
+      },
+    };
+    return view;
   }
 
   #register(group: CommitGroup, receipt: CommitReceipt): void {
@@ -235,7 +277,10 @@ export class CampaignCore {
     const digest = groupSha256(group);
 
     // Idempotence / identity (RC-16, CAL-07): same identity + same intent replays; anything else is rejected.
-    const prior = this.#byIntent.get(group.intent_id);
+    const cold = this.#params.history?.byIntent(group.intent_id);
+    const prior =
+      this.#byIntent.get(group.intent_id) ??
+      (cold ? { ...cold, group_sha256: cold.receipt.group_sha256 } : undefined);
     if (prior) {
       if (prior.group_sha256 === digest) return ok({ kind: "replay", receipt: prior.receipt });
       return fail("INTENT_CONFLICT", "intent_id was already committed with different content", {
@@ -243,7 +288,7 @@ export class CampaignCore {
       });
     }
     const priorIntent = this.#byGroup.get(group.group_id);
-    if (priorIntent !== undefined) {
+    if (priorIntent !== undefined || this.#params.history?.byGroup(group.group_id)) {
       return fail("GROUP_ID_CONFLICT", "group_id already belongs to a different intent", {
         group_id: group.group_id,
       });
@@ -267,7 +312,7 @@ export class CampaignCore {
     const { entry_sha256: recorded, ...rest } = entry;
     if (entryHash(rest) !== recorded) return mismatch("entry hash does not match content");
     const digest = groupSha256(entry.group);
-    if (this.#byIntent.has(entry.group.intent_id) || this.#byGroup.has(entry.group.group_id)) {
+    if (this.lookupReceipt(entry.group.intent_id) || this.lookupGroupById(entry.group.group_id)) {
       return mismatch("duplicate intent or group identity");
     }
     const rejection = this.#validate(this.#state, entry.group, false);
@@ -406,7 +451,7 @@ export class CampaignCore {
       }
     }
     for (const dep of group.depends_on) {
-      if (!this.#byGroup.has(dep))
+      if (!this.lookupGroupById(dep))
         return bad("MISSING_DEPENDENCY", "dependency group not committed", { group_id: dep });
     }
     if (checkRegistry) return this.#params.admission?.check(group, state) ?? null;

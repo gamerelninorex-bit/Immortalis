@@ -45,7 +45,8 @@ const INCOMPATIBLE: SpecIdentity = {
     [RUNTIME_CONTRACT_SNAPSHOT]: "5".repeat(64),
   },
 };
-const OPTS = { owners: TEST_OWNERS };
+// Keep the original v1 wire/corruption fixtures as independent legacy regression coverage.
+const OPTS = { owners: TEST_OWNERS, legacyFormat: true };
 
 async function must<T>(
   p: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,

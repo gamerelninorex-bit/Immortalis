@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, openSync, readSync, closeSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { join } from "node:path";
 
@@ -10,6 +10,9 @@ import { join } from "node:path";
 export interface FsOps {
   mkdirp(dir: string): Promise<void>;
   readFile(path: string): Promise<Buffer>;
+  /** Exact bounded reads; synchronous variant preserves the existing synchronous cold-lookup API. */
+  readRange(path: string, offset: number, length: number): Promise<Buffer>;
+  readRangeSync(path: string, offset: number, length: number): Buffer;
   /** null when the file does not exist */
   fileSize(path: string): Promise<number | null>;
   list(dir: string): Promise<string[]>;
@@ -44,6 +47,36 @@ export const nodeFs: FsOps = {
     await fsp.mkdir(dir, { recursive: true });
   },
   readFile: (path) => fsp.readFile(path),
+  readRange: async (path, offset, length) => {
+    const h = await fsp.open(path, "r");
+    try {
+      const bytes = Buffer.alloc(length);
+      let n = 0;
+      while (n < length) {
+        const r = await h.read(bytes, n, length - n, offset + n);
+        if (r.bytesRead === 0) throw new Error("truncated bounded read");
+        n += r.bytesRead;
+      }
+      return bytes;
+    } finally {
+      await h.close();
+    }
+  },
+  readRangeSync: (path, offset, length) => {
+    const h = openSync(path, "r");
+    try {
+      const bytes = Buffer.alloc(length);
+      let n = 0;
+      while (n < length) {
+        const count = readSync(h, bytes, n, length - n, offset + n);
+        if (count === 0) throw new Error("truncated bounded read");
+        n += count;
+      }
+      return bytes;
+    } finally {
+      closeSync(h);
+    }
+  },
   fileSize: async (path) => {
     try {
       return (await fsp.stat(path)).size;

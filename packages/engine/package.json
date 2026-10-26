@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@immortalis/contracts": "workspace:*"
+    "@immortalis/contracts": "workspace:*",
+    "zod": "4.6.5"
   }
 }

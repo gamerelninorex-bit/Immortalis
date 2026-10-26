@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests swap owner operations to simulate lost acknowledgements and poke saved packages */
 // BLUE v5.2-A1 — SOURCE-QUALIFIED original-PC observation: crash, retry, reload, tamper and a REAL later change of the source. The
 // observation spans several owners' separate, identity-derived commits (the referee's retained reading, the Epistemic owner's event that
@@ -486,7 +487,7 @@ describe(
       ]) {
         const dir = await saved();
         const p = join(dir, stateFile(dir));
-        const j = JSON.parse(readFileSync(p, "utf8"));
+        const j = legacyStateFixture(p);
         edit(j);
         writeFileSync(p, JSON.stringify(j));
         const r = await CanonicalCampaign.open(dir, { buildId: "tamper-test" });

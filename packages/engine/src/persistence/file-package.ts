@@ -1,3 +1,4 @@
+import { loadCheckpoint, migrateLegacy } from "./checkpoint-package.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { join } from "node:path";
@@ -84,6 +85,10 @@ export type OpenErrorCode =
   | "REPLAY_MISMATCH";
 
 export interface FileCampaignOptions {
+  /** Explicit full-history audit; ordinary v2 reopen validates checkpoint and bounded tail. */
+  readonly audit?: boolean;
+  /** Compatibility/test writer for original v1 bytes; never used by ordinary canonical play. */
+  readonly legacyFormat?: boolean;
   /** Lawful owner/facet pairs for this build. Empty by default: every write fails closed. */
   readonly owners?: OwnerRegistry;
   /** Optional IM-03 admission consulted for new commits (never on replay). See WriteAdmission. */
@@ -210,20 +215,22 @@ export async function createFileCampaign(
       state,
       headSha256: gHash,
     });
-    return ok(
-      new FilePackageStore(
-        dir,
-        fs,
-        lock,
-        core,
-        manifest,
-        params.buildId ?? null,
-        0,
-        { journal_tail_bytes: 0, other_files: [] },
-        spec,
-        false,
-      ),
+    const legacy = new FilePackageStore(
+      dir,
+      fs,
+      lock,
+      core,
+      manifest,
+      params.buildId ?? null,
+      0,
+      { journal_tail_bytes: 0, other_files: [] },
+      spec,
+      false,
     );
+    if (params.legacyFormat) return ok(legacy);
+    const upgraded = await migrateLegacy(dir, fs, lock, legacy, params);
+    if (!upgraded.ok) throw new Error(JSON.stringify(upgraded.error));
+    return upgraded;
   } catch (e) {
     await lock.release().catch(() => undefined);
     return fail(
@@ -538,6 +545,7 @@ async function load(
   if (typeof rm !== "object" || rm === null || rm.format !== PACKAGE_FORMAT) {
     return fail("UNSUPPORTED_FORMAT", "manifest is not an IMMORTALIS campaign package");
   }
+  if (rm.format_version === 2) return loadCheckpoint(dir, fs, lock, options, rawManifest.value);
   if (rm.format_version !== PACKAGE_FORMAT_VERSION) {
     return fail(
       "UNSUPPORTED_FORMAT_VERSION",
@@ -679,20 +687,19 @@ async function load(
   };
 
   const build = options.buildId ?? null;
-  return ok(
-    new FilePackageStore(
-      dir,
-      fs,
-      lock,
-      core,
-      manifest,
-      build,
-      journalBuf.length,
-      residue,
-      expectedSpec,
-      sha256Canonical(manifest.last_saved_spec_identity) !== sha256Canonical(expectedSpec),
-    ),
+  const legacy = new FilePackageStore(
+    dir,
+    fs,
+    lock,
+    core,
+    manifest,
+    build,
+    journalBuf.length,
+    residue,
+    expectedSpec,
+    sha256Canonical(manifest.last_saved_spec_identity) !== sha256Canonical(expectedSpec),
   );
+  return options.legacyFormat ? ok(legacy) : migrateLegacy(dir, fs, lock, legacy, options);
 }
 
 class FilePackageStore implements FileCampaignStore {

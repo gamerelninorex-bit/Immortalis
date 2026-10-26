@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests swap owner operations to simulate lost acknowledgements and poke saved packages */
 // BLUE v5.2 — active-PC direct physical observation: crash, retry, reload and tamper. The observation spans several owners' separate,
 // identity-derived commits (the referee's retained reading, the Epistemic owner's event, the Temporal engagement and its one transaction
@@ -284,7 +285,7 @@ describe("load fails closed on a corrupted saved observation", { timeout: 600_00
     ]) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => /^access\/[^/]+\/event$/.test(f.key)));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir)).not.toBe("OK");

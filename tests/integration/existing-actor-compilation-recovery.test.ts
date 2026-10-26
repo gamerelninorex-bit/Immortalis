@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Existing-Actor I-002 Pre-Binding Compilation — save → close → load → continue preserves the same ownership result at every
 // durable cut (the prior non-PC owner stays writable; ordinary activation and the ACCEPTED_GENERATION_HISTORY receipt still
@@ -345,7 +346,7 @@ describe("load fails closed on a corrupted saved compilation", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === contractKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -364,7 +365,7 @@ describe("load fails closed on a corrupted saved compilation", () => {
     );
     await s.campaign.close();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts.find((f: any) => f.key === contractKey).value.existing_actor_compilation = {
       classification: "EXISTING_ACTOR_COMPILATION",
       source_state: [actorBasisPin(A, C)],
@@ -373,7 +374,7 @@ describe("load fails closed on a corrupted saved compilation", () => {
     expect(await openOutcome(dir)).not.toBe("OK");
     const edited = await saved();
     const q = join(edited, stateFile(edited));
-    const k = JSON.parse(readFileSync(q, "utf8"));
+    const k = legacyStateFixture(q);
     k.facts.find((f: any) => f.key === actorCapabilityBasisKey(A, C)).value.marker = "S";
     writeFileSync(q, JSON.stringify(k));
     expect(await openOutcome(edited)).not.toBe("OK");

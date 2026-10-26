@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // GIP Governance Instrument Predecessor Reference Foundation (twenty-first bounded slice) — an authored initial Governance Instrument
 // may optionally carry the exact WS-007 §4.3 `predecessor_instrument_ref`: one optional, singular, opaque reference, carried exactly
@@ -1071,7 +1072,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === instrumentKey()));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -1081,7 +1082,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
   it("adding a reference to a saved CORE-ONLY Instrument — or re-citing it historically with the reference — is not silently accepted: no migration or rewrite is a lawful path", async () => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts.find(
       (f: any) => f.key === instrumentKey(INSTRUMENT_B),
     ).value.predecessor_instrument_ref = PREDECESSOR_INSTRUMENT_REF_A;
@@ -1090,7 +1091,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
 
     const dir2 = await saved();
     const p2 = join(dir2, stateFile(dir2));
-    const j2 = JSON.parse(readFileSync(p2, "utf8"));
+    const j2 = legacyStateFixture(p2);
     j2.facts.find((f: any) => f.key === instrumentKey()).provenance.rule = structuredClone(
       GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
     );

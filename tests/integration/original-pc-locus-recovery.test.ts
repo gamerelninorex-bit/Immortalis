@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests swap owner operations to simulate lost acknowledgements and poke saved packages */
 // Crash / retry / reopen for the original active-PC qualified physical-locus custody (BLUE v5.1). The physical-placement decision (the
 // referee's create-only provenance) and the custody (World-State's create-only fact) are two owners' separate publications, so an
@@ -254,7 +255,7 @@ describe("load fails closed on a corrupted saved custody", { timeout: 300_000 },
   const tamper = async (edit: (j: any) => void) => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     edit(j);
     writeFileSync(p, JSON.stringify(j));
     return openOutcome(dir);

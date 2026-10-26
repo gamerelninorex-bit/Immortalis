@@ -59,6 +59,9 @@ importers:
       '@immortalis/contracts':
         specifier: workspace:*
         version: link:../contracts
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/operator:
     dependencies:
