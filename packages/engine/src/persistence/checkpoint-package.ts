@@ -124,6 +124,97 @@ function parseLines(bytes: Buffer, expected: number): { entry: JournalEntry; len
   }));
 }
 
+/** R-01: exceptional recovery only. A filename alone never earns clearance for a player read.
+ * Re-derive each extra snapshot from the original journal and compare the full canonical digest.
+ * An aborted next checkpoint may be proved by one uncommitted entry, but is NEVER adopted: the
+ * live core/manifest and journal tail remain untouched until the caller retries its original intent.
+ */
+async function reconcileCheckpointStates(
+  dir: string,
+  fs: FsOps,
+  lock: Lock,
+  options: FileCampaignOptions,
+  m: V2Manifest,
+  store: FileCampaignStore,
+  size: number,
+  residue: string[],
+): Promise<Result<string[], OpenErrorCode>> {
+  const candidates = residue.filter((name) => /^state\.[0-9]{10}\.json$/.test(name));
+  if (!candidates.length) return ok(residue);
+  const authoritative = async () =>
+    canonicalJson(JSON.parse((await fs.readFile(join(dir, "manifest.json"))).toString("utf8"))) ===
+    canonicalJson(m);
+  if (!(await authoritative()))
+    return fail("INTEGRITY_MANIFEST", "checkpoint recovery manifest is no longer authoritative");
+  if ((await lock.check()) !== "owned")
+    return fail("LOCKED", "checkpoint recovery lost writer authority");
+  const snapshots = new Map<number, { name: string; bytes: Buffer; digest: string }>();
+  for (const name of candidates) {
+    try {
+      const bytes = await fs.readFile(join(dir, name));
+      const file = StateFileSchema.parse(JSON.parse(bytes.toString("utf8")));
+      const parsed = stateFromFile(file);
+      if (
+        !parsed.ok ||
+        file.campaign_id !== m.campaign_id ||
+        name !== stateName(file.revision) ||
+        (file.revision > m.head.revision &&
+          (file.revision !== m.head.revision + 1 ||
+            file.revision - m.head.checkpoint.revision !== CHECKPOINT_INTERVAL))
+      )
+        return ok(residue);
+      snapshots.set(file.revision, { name, bytes, digest: stateSha256(parsed.value) });
+    } catch {
+      // Unknown/corrupt extras keep their refusal-producing residue status, byte-for-byte.
+      return ok(residue);
+    }
+  }
+  const proof = coreOf(m, options);
+  if (snapshots.has(0) && snapshots.get(0)!.digest !== stateSha256(proof.state)) return ok(residue);
+  const journal = await fs.readRange(join(dir, "journal.jsonl"), 0, m.head.journal_bytes);
+  for (const { entry } of parseLines(journal, m.head.journal_entries)) {
+    const replayed = proof.replay(entry);
+    if (!replayed.ok) return replayed;
+    if (
+      snapshots.has(entry.revision) &&
+      snapshots.get(entry.revision)!.digest !== stateSha256(proof.state)
+    )
+      return ok(residue);
+  }
+  if (
+    proof.headSha256 !== m.head.journal_head_sha256 ||
+    proof.state.revision !== m.head.revision ||
+    stateSha256(proof.state) !== m.head.state_sha256
+  )
+    return fail("INTEGRITY_STATE", "checkpoint recovery disagrees with authoritative head");
+  const owners = options.beforeMigrationCheck?.(store);
+  if (owners && !owners.ok) return owners;
+  if (snapshots.has(m.head.revision + 1)) {
+    try {
+      const bytes = await fs.readRange(
+        join(dir, "journal.jsonl"),
+        m.head.journal_bytes,
+        size - m.head.journal_bytes,
+      );
+      const entry = parseLines(bytes, 1)[0]!.entry;
+      // Only this isolated proof sees the uncommitted transition. No accept/publication occurs.
+      const replayed = proof.replay(entry);
+      if (!replayed.ok || stateSha256(proof.state) !== snapshots.get(entry.revision)?.digest)
+        return ok(residue);
+    } catch {
+      return ok(residue);
+    }
+  }
+  for (const { name, bytes } of snapshots.values()) {
+    if ((await lock.check()) !== "owned")
+      return fail("LOCKED", "checkpoint recovery lost writer authority");
+    if (!(await authoritative()) || !(await fs.readFile(join(dir, name))).equals(bytes))
+      return fail("INTEGRITY_STATE", "checkpoint recovery evidence changed before cleanup");
+    await fs.remove(join(dir, name));
+  }
+  return ok(residue.filter((name) => !candidates.includes(name)));
+}
+
 /** Called only after the original strict v1 loader verified the complete legacy save. */
 export async function migrateLegacy(
   dir: string,
@@ -208,6 +299,7 @@ export async function migrateLegacy(
         compatibleRuntimeContracts: [m.compatibility.runtime_contract_sha256],
       },
       next,
+      true,
     );
     if (!verified.ok) return verified;
     if (
@@ -218,7 +310,9 @@ export async function migrateLegacy(
     if ((await lock.check()) !== "owned")
       return fail("LOCKED", "writer authority lost during migration");
     await fs.writeFileDurable(join(dir, "manifest.json"), `${canonicalJson(next)}\n`);
-    return verified;
+    return verified.value.residue.other_files.some((name) => /^state\.[0-9]{10}\.json$/.test(name))
+      ? loadCheckpoint(dir, fs, lock, options, next)
+      : verified;
   } catch (e) {
     return fail("REPLAY_MISMATCH", "legacy conversion did not complete; reconcile by reopening", {
       cause: String(e),
@@ -232,6 +326,7 @@ export async function loadCheckpoint(
   lock: Lock,
   options: FileCampaignOptions,
   input: unknown,
+  preparing = false,
 ): Promise<Result<FileCampaignStore, OpenErrorCode>> {
   const parsed = CheckpointManifestSchema.safeParse(input);
   if (!parsed.success)
@@ -458,10 +553,17 @@ export async function loadCheckpoint(
       });
       if ((await lock.check()) !== "owned")
         throw new Error("writer authority lost during checkpoint verification");
-      const successor = await loadCheckpoint(dir, fs, lock, { ...options, audit: true }, fresh);
+      const successor = await loadCheckpoint(
+        dir,
+        fs,
+        lock,
+        { ...options, audit: true },
+        fresh,
+        true,
+      );
       if (!successor.ok) return successor;
       await fs.writeFileDurable(join(dir, "manifest.json"), `${canonicalJson(fresh)}\n`);
-      return successor;
+      return loadCheckpoint(dir, fs, lock, options, fresh);
     }
     const known = new Set([
       "manifest.json",
@@ -475,7 +577,18 @@ export async function loadCheckpoint(
     const residue = (await fs.list(dir))
       .filter((name) => !known.has(name) && name !== "LOCK" && !name.startsWith("LOCK."))
       .sort();
-    return ok(new CheckpointStore(dir, fs, lock, core, m, options, size, tail, residue));
+    const store = new CheckpointStore(dir, fs, lock, core, m, options, size, tail, residue);
+    // Independently verify hypothetical migration/policy successors without touching old files.
+    // Only the published manifest can authorize automatic residue reconciliation.
+    const reconciled = preparing
+      ? ok(residue)
+      : await reconcileCheckpointStates(dir, fs, lock, options, m, store, size, residue);
+    if (!reconciled.ok) return reconciled;
+    return ok(
+      reconciled.value === residue
+        ? store
+        : new CheckpointStore(dir, fs, lock, core, m, options, size, tail, reconciled.value),
+    );
   } catch (e) {
     return fail("INTEGRITY_JOURNAL", "checkpoint/index/tail verification failed", {
       cause: String(e),

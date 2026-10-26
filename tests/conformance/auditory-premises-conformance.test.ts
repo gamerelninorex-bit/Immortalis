@@ -182,7 +182,8 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
-        "561fc29d65a13754c41f21cdfb2d6a02815355ef62dd84af7818f817ba5e62a4",
+        // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
+        "e1436cd128b3989b25a6cfdeb029db55ecdaa4ec5c146c993ee37a8365f3591b",
       "packages/engine/src/commit":
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };

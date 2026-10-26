@@ -256,6 +256,7 @@ describe("H-07 interruption, migration and corruption", () => {
           }
           await s.close();
           const restored = await must(openFileCampaign(dir, opts));
+          expect(restored.residue.other_files).toEqual([]);
           const prior = restored.lookupReceipt(`intent-${count + 1}`);
           const again = await must(restored.commit(change(count + 1)));
           expect(again.replayed).toBe(prior !== null);
