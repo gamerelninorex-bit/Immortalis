@@ -27,11 +27,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "package.json": "b2acccd475eb15d803c5bdb96d77d5566fe1280cdde3ed22c59ad2383c0b0268",
-  "pnpm-lock.yaml": "60ccaabdaabfff2dd66003b0400303663bd072ca78551d112ca1859f3fb3bb28",
+  "pnpm-lock.yaml": "cdc03a8da34594c1b8d9ced92a35975dcbb27a274456183014dc5a7ab8aec08a",
   "packages/contracts/package.json":
     "97fc8d2c066caa2d176bf2d39d4a86d4a4a84fa83308e40168646515e8707cee",
   "packages/engine/package.json":
-    "9046279f28c13e77bed15960f6a5774b225b00f61df2f957175fc510a8b63d70",
+    "36dd3befb2a4ee36ffa14b42dc8a00e3ac51497bf9baed2d9331e66a1add1f02",
   "packages/operator/package.json":
     "80925fae3972571622e7871ce4925baabdc58aad1071cee951cf402b4167bdd0",
   "packages/protocol/package.json":
@@ -79,7 +79,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
+    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":

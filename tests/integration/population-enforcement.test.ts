@@ -517,7 +517,7 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     const afterAdvance = probe.count();
     await p.close();
     // Population stage + consumer stage + kernel group: three commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(12);
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(6);
 
     const seen = { rolledBack: 0, partial: 0, committed: 0 };
     const finals = new Set<string>();

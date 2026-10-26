@@ -82,11 +82,15 @@ const openOutcome = async (dir: string) => {
     : r.error.code;
 };
 
-/** A campaign built by a store with NO admission: a consistent, replayable history standing in for a save of an earlier build. */
+/** Independent v1 writer with NO admission: a consistent historical save of an earlier build. */
 async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
   const dir = tempDir();
   const s = await must(
-    createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+    createFileCampaign(dir, {
+      campaignId: FIXTURE_CAMPAIGN,
+      owners: CANONICAL_OWNER_REGISTRY,
+      legacyFormat: true,
+    }),
   );
   await build(s);
   await s.close();
@@ -158,11 +162,14 @@ const bothHistorical = () =>
   });
 
 describe("both genuine historical Instrument classes load, verify and reload unchanged", () => {
-  it("a sixteenth-slice core-only record and a twenty-first-slice core-plus-predecessor record keep their citations, values and versions; opening migrates or rewrites nothing", async () => {
+  it("v1 sixteenth-slice core-only and twenty-first-slice core-plus-predecessor records keep their state bytes, citations, values and versions", async () => {
     const dir = await bothHistorical();
     const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(JSON.parse(before).facts.length).toBeGreaterThan(0);
+    const journalBefore = readFileSync(join(dir, "journal.jsonl"));
     expect(await openOutcome(dir)).toBe("OK");
     expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
+    expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journalBefore);
 
     const c = await must(CanonicalCampaign.open(dir));
     expect(c.verify()).toEqual([]);

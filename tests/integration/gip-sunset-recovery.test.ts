@@ -309,7 +309,7 @@ describe("a failure at EVERY durable step of the sunset-bearing establishment co
     const afterCommit = probe.count();
     const reference = pc.store.head().state_sha256;
     await pc.close();
-    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(8); // two commits
+    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(4); // two commits
 
     const finals = new Set<string>();
     const seen = { none: 0, instrumentOnly: 0, both: 0 };
@@ -382,7 +382,7 @@ describe("the earned-boundary close survives a failure at every durable step and
     const afterCommit = probe.count();
     const reference = pc.store.head().state_sha256;
     await pc.close();
-    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(12); // authority, stage, kernel group
+    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(6); // authority, stage, kernel group
 
     const finals = new Set<string>();
     const seen = { instrumentActive: 0, instrumentExpired: 0 };

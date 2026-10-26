@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Active-PC Post-Handover Physical Locus Custody — save → close → load → continue preserves the one stationary physical owner and
 // its provenance at every durable cut with convergence on the uninterrupted run, a lost reply converges by identity, and a loaded
@@ -214,7 +215,7 @@ describe("load fails closed on a corrupted saved custody record", () => {
   const tamper = async (edit: (j: any) => void) => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     edit(j);
     writeFileSync(p, JSON.stringify(j));
     return openOutcome(dir);

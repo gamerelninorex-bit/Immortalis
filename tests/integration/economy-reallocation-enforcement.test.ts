@@ -1,3 +1,4 @@
+import { legacyStateText } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and group content */
 // Conserved OOC reallocation between two Economic Holding / Account positions — enforcement and refusal: Economy alone
 // re-derives eligibility and both resulting positions, so an unavailable, encumbered, incompatible, duplicate, stale,
@@ -967,7 +968,7 @@ describe("tampering with the persisted journal or state fails the open under the
       .filter((f) => /^state\./.test(f))
       .sort()
       .pop()!;
-    const state = readFileSync(join(dir2, stateFile), "utf8");
+    const state = legacyStateText(join(dir2, stateFile));
     expect(state).toMatch(/"available":\s*5/);
     writeFileSync(join(dir2, stateFile), state.replace(/"available":(\s*)5/, '"available":$16'));
     expect((await CanonicalCampaign.open(dir2)).ok).toBe(false);

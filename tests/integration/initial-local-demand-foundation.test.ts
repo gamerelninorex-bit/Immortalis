@@ -16,7 +16,7 @@ import {
   productionReserveKey,
   worldFallbackEntityKey,
 } from "@immortalis/contracts";
-import { at } from "@immortalis/testkit";
+import { at, fixtureWorld, publication } from "@immortalis/testkit";
 import {
   COHORT_ID,
   DEMAND_ID,
@@ -55,6 +55,25 @@ import {
 const entityKey = worldFallbackEntityKey(WORLD_ID, `durable:${OPERATION_ID}`);
 
 describe("the OOC opening commits both acts, advances no time and creates no output", () => {
+  it("the isolated owner precheck can copy and verify a checkpoint with indexed history", async () => {
+    const dirs = await scenarioCampaign();
+    const campaign = await openOrdinary(dirs.campaignDir);
+    for (let i = 0; i < 130; i++) {
+      const established = await campaign.establishWorld({
+        ...publication(20000 + i),
+        world: fixtureWorld({ world_id: `h07-dry-run-world-${i}` }),
+      });
+      expect(established.ok, JSON.stringify(established)).toBe(true);
+    }
+    const before = campaign.store.head();
+    expect(before.revision).toBeGreaterThan(128);
+    await campaign.close();
+    const { result, terminal } = await addDemand(dirs, writeDemand(demandDoc()));
+    expect(result.status, JSON.stringify(result)).toBe("LOCAL_DEMAND_READY");
+    expect(terminal.asked()).toBe(1);
+    expect((await headOf(dirs.campaignDir)).revision).toBe(before.revision + 2);
+  });
+
   it("commits ONE demand + request (Economy) and, separately, ONE operation + claim + Reserve claim (Production), and nothing else", async () => {
     const dirs = await scenarioCampaign();
     const c0 = await openOrdinary(dirs.campaignDir);

@@ -128,9 +128,13 @@ describe("the shipped command: a confirmed ORIGINAL setup creates the standard c
       .split("\n");
     expect(journal).toHaveLength(3);
     expect(readdirSync(dirs.campaignDir).sort()).toEqual([
+      "history",
       "journal.jsonl",
+      "legacy-journal.v1.backup",
+      "legacy-manifest.v1.backup",
+      "legacy-state.v1.backup",
       "manifest.json",
-      "state.0000000003.json",
+      "state.0000000000.json",
     ]);
 
     // the next ordinary process also opens it through the existing operator session

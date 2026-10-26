@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Named-Actor capability — save → close → load → continue across every meaningful durable cut of the capability
 // lifecycle, a failure at every durable step of the one new multi-step boundary this slice introduces (the authored
@@ -401,7 +402,7 @@ describe("load fails closed on a corrupted or inconsistent capability (acceptanc
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === capKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -418,7 +419,7 @@ describe("load fails closed on a corrupted or inconsistent capability (acceptanc
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === basisKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

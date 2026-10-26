@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // KTI Managed Transfer Package — save → close → load → continue across every meaningful durable cut of the transfer
 // lifecycle, a failure at every durable step of the multi-step boundaries this slice introduces (the authored object and
@@ -523,7 +524,7 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 10, 
       if (!pick(key)) continue;
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -552,7 +553,7 @@ describe("load fails closed on a corrupted or inconsistent save (acceptance 10, 
     for (const [name, [key, edit]] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

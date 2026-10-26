@@ -161,7 +161,7 @@ describe("IA-03 owner exclusivity: Economy owns the demand, its request and real
     );
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
-    ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
+    ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
   });
 
   it("production code never imports the testkit or names a synthetic owner, and Economy needs none", () => {
@@ -207,8 +207,10 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     }
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
+      "checkpoint-package.ts",
       "file-package.ts",
       "fs-ops.ts",
+      "history-index.ts",
       "store.ts",
     ]);
   });

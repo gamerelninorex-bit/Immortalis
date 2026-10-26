@@ -1,3 +1,4 @@
+import { legacyStateText } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and group content */
 // Economic Holding / Account position — enforcement: IM-11 admission re-derives every holding write, so a raw
 // `store.commit`, a tampered group and a tampered persisted state are each refused by the intended rule, and the
@@ -1075,7 +1076,7 @@ describe("tampering with the persisted journal or state fails the open under the
       .filter((f) => /^state\./.test(f))
       .sort()
       .pop()!;
-    const state = readFileSync(join(dir2, stateFile), "utf8");
+    const state = legacyStateText(join(dir2, stateFile));
     expect(state).toMatch(/"encumbered":\s*3/);
     writeFileSync(join(dir2, stateFile), state.replace(/"encumbered":(\s*)3/, '"encumbered":$10'));
     expect((await CanonicalCampaign.open(dir2)).ok).toBe(false);

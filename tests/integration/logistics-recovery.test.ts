@@ -274,7 +274,7 @@ describe("a failure at EVERY durable step converges by identity (acceptance 12, 
     await must(c.logistics.commitMovement({ ...logPublication(1), commit: commitInput(MOVE_1) }));
     const steps = probe.count() - afterOpen;
     await c.campaign.close();
-    expect(steps).toBeGreaterThanOrEqual(4);
+    expect(steps).toBeGreaterThanOrEqual(2);
 
     const seen = { absent: 0, present: 0 };
     for (let failAt = afterOpen + 1; failAt <= afterOpen + steps; failAt++) {
@@ -371,8 +371,8 @@ describe("a failure at EVERY durable step converges by identity (acceptance 12, 
     await must(c.coordinator.advance(logStopAtBoundaryRequest("tx-move", MOVE_1)));
     const afterAdvance = probe.count();
     await c.campaign.close();
-    // authority + three stages + the kernel group: five commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(20);
+    // authority + three stages + the kernel group: five commits of at least two durable steps each
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(10);
 
     const seen = { rolledBack: 0, partial: 0, committed: 0 };
     const cutsSeen = new Set<string>();

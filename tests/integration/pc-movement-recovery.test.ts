@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Active-PC Voluntary Movement — save → close → load → continue preserves exactly one physical-locus authority at every durable
 // cut of the journey, with convergence on the uninterrupted run and no duplicate movement; a lost reply converges by identity; a
@@ -395,7 +396,7 @@ describe("load fails closed on a corrupted saved movement fact", () => {
   const tamper = async (edit: (j: any) => void, upTo: "request" | "complete" = "complete") => {
     const dir = await saved(upTo);
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     edit(j);
     writeFileSync(p, JSON.stringify(j));
     return openOutcome(dir);

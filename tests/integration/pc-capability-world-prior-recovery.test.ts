@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Existing-Actor Unresolved Capability → PC World-Prior Resolution — recovery, replay and load-time integrity. After any crash,
 // lost reply, restart or concurrent caller the PC slot has exactly one draw (the COMMITTED seed is never replaced), one
@@ -457,7 +458,7 @@ describe("load fails closed on a world-prior establishment that no longer tells 
     for (const [name, edit] of Object.entries(edits)) {
       const dir = copyDir(control);
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j);
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -481,7 +482,7 @@ describe("load fails closed on a world-prior establishment that no longer tells 
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j);
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -491,7 +492,7 @@ describe("load fails closed on a world-prior establishment that no longer tells 
   it("removing the saved basis while keeping the published capability fails: a capability never exists without its basis", async () => {
     const dir = await saved(false);
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts = j.facts.filter((f: any) => f.key !== basisKey);
     writeFileSync(p, JSON.stringify(j));
     expect(await openOutcome(dir)).not.toBe("OK");

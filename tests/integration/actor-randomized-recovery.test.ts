@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // WS-016 Named-Actor "BOUNDED_PRIOR_RANDOMIZED" — recovery, replay and load-time integrity. After any crash, lost reply,
 // restart or concurrent caller the slot has exactly one draw (the COMMITTED seed is never replaced), one establishment and
@@ -372,7 +373,7 @@ describe("load fails closed on a randomized establishment that no longer tells o
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts);
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

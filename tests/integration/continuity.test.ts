@@ -45,7 +45,8 @@ const INCOMPATIBLE: SpecIdentity = {
     [RUNTIME_CONTRACT_SNAPSHOT]: "5".repeat(64),
   },
 };
-const OPTS = { owners: TEST_OWNERS };
+// Keep the original v1 wire/corruption fixtures as independent legacy regression coverage.
+const OPTS = { owners: TEST_OWNERS, legacyFormat: true };
 
 async function must<T>(
   p: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,
@@ -297,7 +298,7 @@ describe("invalid, incompatible or tampered packages fail explicitly (never repa
     [
       "future format version",
       "UNSUPPORTED_FORMAT_VERSION",
-      (d) => writeManifest(d, { ...readManifest(d), format_version: 2 }),
+      (d) => writeManifest(d, { ...readManifest(d), format_version: 3 }),
     ],
     [
       "manifest campaign_id edited",

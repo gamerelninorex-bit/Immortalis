@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // GIP Governance Instrument Predecessor Reference Foundation (twenty-first bounded slice) — an authored initial Governance Instrument
 // may optionally carry the exact WS-007 §4.3 `predecessor_instrument_ref`: one optional, singular, opaque reference, carried exactly
@@ -774,7 +775,12 @@ describe("historical sixteenth-slice Instruments keep loading unchanged under th
   async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
     const dir = tempDir();
     const s = await must(
-      createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+      // A historical-save fixture must contain the actual v1 state, not an empty v2 genesis checkpoint.
+      createFileCampaign(dir, {
+        campaignId: FIXTURE_CAMPAIGN,
+        owners: CANONICAL_OWNER_REGISTRY,
+        legacyFormat: true,
+      }),
     );
     await build(s);
     await s.close();
@@ -831,12 +837,15 @@ describe("historical sixteenth-slice Instruments keep loading unchanged under th
       );
     });
 
-  it("a sixteenth-slice core-only Instrument under the historical citation loads, verifies, saves and reloads unchanged with no migration or rewrite", async () => {
+  it("a sixteenth-slice core-only Instrument in v1 loads, verifies, saves and reloads without fact migration or state-byte rewrite", async () => {
     const dir = await historical();
     const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(JSON.parse(before).facts.length).toBeGreaterThan(0);
+    const journalBefore = readFileSync(join(dir, "journal.jsonl"));
     expect(await openOutcome(dir)).toBe("OK");
-    // opening migrated or rewrote nothing
+    // Local format conversion is authorized; historical facts, state bytes and journal are untouched.
     expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
+    expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journalBefore);
 
     const c = await must(CanonicalCampaign.open(dir));
     expect(c.verify()).toEqual([]);
@@ -1071,7 +1080,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === instrumentKey()));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -1081,7 +1090,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
   it("adding a reference to a saved CORE-ONLY Instrument — or re-citing it historically with the reference — is not silently accepted: no migration or rewrite is a lawful path", async () => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts.find(
       (f: any) => f.key === instrumentKey(INSTRUMENT_B),
     ).value.predecessor_instrument_ref = PREDECESSOR_INSTRUMENT_REF_A;
@@ -1090,7 +1099,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
 
     const dir2 = await saved();
     const p2 = join(dir2, stateFile(dir2));
-    const j2 = JSON.parse(readFileSync(p2, "utf8"));
+    const j2 = legacyStateFixture(p2);
     j2.facts.find((f: any) => f.key === instrumentKey()).provenance.rule = structuredClone(
       GIP_INSTRUMENT_RULE_SIXTEENTH_SLICE,
     );

@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests swap owner operations to simulate lost acknowledgements and poke saved packages */
 // BLUE v5.2-A1 — SOURCE-QUALIFIED original-PC observation: crash, retry, reload, tamper and a REAL later change of the source. The
 // observation spans several owners' separate, identity-derived commits (the referee's retained reading, the Epistemic owner's event that
@@ -7,7 +8,7 @@
 // the owners later changed (a real Production-caused delivery, never a hand edit) neither invalidates nor rewrites what was observed of
 // it. The scripted host is a policy the test wrote (plumbing only: no claim about any AI's reading).
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -486,7 +487,7 @@ describe(
       ]) {
         const dir = await saved();
         const p = join(dir, stateFile(dir));
-        const j = JSON.parse(readFileSync(p, "utf8"));
+        const j = legacyStateFixture(p);
         edit(j);
         writeFileSync(p, JSON.stringify(j));
         const r = await CanonicalCampaign.open(dir, { buildId: "tamper-test" });

@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // Existing-Actor World-State Coupling Anchor Foundation — save → close → load → continue preserves the one coupling and its
 // ownership result at every durable cut, a lost reply converges by identity, and a loaded campaign whose coupling has been
@@ -317,7 +318,7 @@ describe("load fails closed on a corrupted saved coupling", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -327,13 +328,13 @@ describe("load fails closed on a corrupted saved coupling", () => {
   it("an edit of a saved SOURCE (the actor's state) or of the coupling's key is not accepted", async () => {
     const edited = await saved();
     const q = join(edited, stateFile(edited));
-    const k = JSON.parse(readFileSync(q, "utf8"));
+    const k = legacyStateFixture(q);
     k.facts.find((f: any) => f.key === actorCapabilityBasisKey(A, C)).value.marker = "S";
     writeFileSync(q, JSON.stringify(k));
     expect(await openOutcome(edited)).not.toBe("OK");
     const moved = await saved();
     const m = join(moved, stateFile(moved));
-    const j = JSON.parse(readFileSync(m, "utf8"));
+    const j = legacyStateFixture(m);
     j.facts.find((f: any) => f.key === key).key = `world-state/actor/actor-other/coupling`;
     writeFileSync(m, JSON.stringify(j));
     expect(await openOutcome(moved)).not.toBe("OK");

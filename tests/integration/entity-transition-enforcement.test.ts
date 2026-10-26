@@ -1004,8 +1004,8 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     await must(entCoordinator(p.store).advance(prodAdvanceRequest("tx-transition", PROD_T1)));
     const afterAdvance = probe.count();
     await p.close();
-    // two stages + the kernel group: three commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(12);
+    // two stages + the kernel group: three commits of at least two durable steps each
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(6);
 
     const { ENTITY_FIXTURE_EXTENSION } = await import("@immortalis/testkit");
     const consumerStageId = stageIntentId({

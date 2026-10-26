@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact, group and journal values */
 // GIP Decision-Body Office Reference Branch Foundation (fourteenth slice) — an office beneath one already-committed Institution
 // Identity may be established with `decision_body_ref` INSTEAD OF `holder_ref` (WS-007 §3.2 "holder_ref OR decision_body_ref")
@@ -689,7 +690,7 @@ describe("load fails closed on a tampered branch or reference", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === magistrateKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -701,7 +702,7 @@ describe("load fails closed on a tampered branch or reference", () => {
     for (const name of ["swapped bodies", "branch swapped", "moved key", "institution removed"]) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       const a = j.facts.find((f: any) => f.key === magistrateKey);
       const b = j.facts.find((f: any) => f.key === treasurerKey);
       if (name === "swapped bodies")
@@ -855,11 +856,15 @@ describe("governing-rule provenance: new offices carry the truthful current cita
       ? (r.error.details?.["violations"] as { code: string }[]).map((v) => v.code).join(",")
       : r.error.code;
   };
-  /** A history built by a store with NO admission: replayable, so only canonical load integrity can judge it. */
+  /** A v1 history with NO admission: only canonical load integrity can judge its historical citation. */
   async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
     const dir = tempDir();
     const s = await must(
-      createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+      createFileCampaign(dir, {
+        campaignId: FIXTURE_CAMPAIGN,
+        owners: CANONICAL_OWNER_REGISTRY,
+        legacyFormat: true,
+      }),
     );
     await build(s);
     await s.close();
@@ -957,12 +962,15 @@ describe("governing-rule provenance: new offices carry the truthful current cita
     );
   });
 
-  it("existing thirteenth-slice holder-office facts carrying the historical citation load unchanged, with no migration, and the campaign continues with new current-citation offices", async () => {
+  it("v1 thirteenth-slice holder-office facts keep their bytes and citation, and the campaign continues with new current-citation offices", async () => {
     const dir = await withOffice(officeAuthorityLocus(), GIP_OFFICE_RULE_THIRTEENTH_SLICE);
     const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(JSON.parse(before).facts.length).toBeGreaterThan(0);
+    const journalBefore = readFileSync(join(dir, "journal.jsonl"));
     expect(await openOutcome(dir)).toBe("OK");
-    // opening migrated or rewrote nothing
+    // The local format may convert; the historical state and journal bytes cannot change.
     expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
+    expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journalBefore);
 
     const c = await must(CanonicalCampaign.open(dir));
     expect(c.verify()).toEqual([]);
@@ -1083,7 +1091,7 @@ describe("governing-rule provenance: new offices carry the truthful current cita
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await withOffice(officeAuthorityLocus(), GIP_OFFICE_RULE_THIRTEENTH_SLICE);
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === magistrateKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

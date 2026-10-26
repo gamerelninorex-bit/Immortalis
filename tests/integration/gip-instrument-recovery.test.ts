@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // GIP Governance Instrument Core — save → close → load → continue across every durable cut of the establishment, a failure at
 // EVERY durable step of the one authored Instrument publication, and load-time failure on a corrupted or inconsistent save. The
@@ -334,7 +335,7 @@ describe("a failure at EVERY durable step converges by identity", () => {
     );
     const afterCommit = probe.count();
     await pc.close();
-    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(4);
+    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(2);
 
     const finals = new Set<string>();
     const seen = { rolledBack: 0, committed: 0 };
@@ -475,7 +476,7 @@ describe("load fails closed on a corrupted or tampered Instrument save", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === instrumentKey()));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -495,7 +496,7 @@ describe("load fails closed on a corrupted or tampered Instrument save", () => {
     ]) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       const a = j.facts.find((f: any) => f.key === instrumentKey());
       const b = j.facts.find((f: any) => f.key === instrumentKey(INSTRUMENT_B));
       if (name === "swapped source authorities")

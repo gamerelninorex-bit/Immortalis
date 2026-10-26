@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // GIP Institution Identity Constitutive Source Reference Foundation (twentieth bounded slice) — an authored initial Institution
 // Identity may optionally carry the exact WS-007 §3.1 `constitutive_source_ref`: one optional, singular, opaque reference,
@@ -485,7 +486,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === courtKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -495,7 +496,7 @@ describe("load-time integrity accepts the optional field when valid and fails cl
   it("adding a reference to a saved LEGACY identity is not silently accepted either: no migration or rewrite is a lawful path", async () => {
     const dir = await saved();
     const p = join(dir, stateFile(dir));
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = legacyStateFixture(p);
     j.facts.find((f: any) => f.key === guildKey).value.constitutive_source_ref =
       CONSTITUTIVE_SOURCE_A;
     writeFileSync(p, JSON.stringify(j));

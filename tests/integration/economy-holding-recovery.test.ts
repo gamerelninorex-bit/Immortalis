@@ -53,7 +53,7 @@ async function convergesAtEveryStep(
   await must(step({ campaign: p, economy: (await reopenLike(p)).economy }) as never);
   const afterStep = probe.count();
   await p.close();
-  expect(afterStep - afterOpen).toBeGreaterThanOrEqual(3);
+  expect(afterStep - afterOpen).toBeGreaterThanOrEqual(2);
 
   const finals = new Set<string>();
   const seen = { absent: 0, present: 0 };

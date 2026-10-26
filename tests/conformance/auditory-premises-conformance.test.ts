@@ -156,7 +156,8 @@ describe("nothing outside the physical-source slice was built", () => {
     expect(treeSha("packages/operator/src")).toBe(
       // A2 preparation composition: only the equivalent typed R-5 input seam changed.
       // The absence-of-auditory-ingress assertion below remains operative.
-      "a3f0ab98e18dcf2db3adf885462ad4a95ce736d1f3be7840d358dff7b47a60bd",
+      // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
+      "1b0ff1b1303ecfd1f92e48c799aa3c097e5fb51f93dd3829003bd5ca87489a16",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",
@@ -181,9 +182,10 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
-        "fde8445cb23d423826e672c5634fffab3baaf0fe113355580a33164595268eea",
+        // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
+        "e1436cd128b3989b25a6cfdeb029db55ecdaa4ec5c146c993ee37a8365f3591b",
       "packages/engine/src/commit":
-        "a39ec1fb03d4cf70364e689c76084b3437c9ba9442da030ad7c6d00a6ef986e5",
+        "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
   });

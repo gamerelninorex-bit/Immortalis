@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and package values */
 // F-014D BROADCAST_EXPOSURE event — save → close → load → continue, a crash and a lost reply at the one durable step of
 // the event publication, and load-time failure on a corrupted or inconsistent save. The event reuses the existing
@@ -289,7 +290,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === bKey));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");
@@ -318,7 +319,7 @@ describe("load fails closed on a corrupted or inconsistent save", () => {
     for (const [name, edit] of Object.entries(additions)) {
       const dir = await saved();
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j);
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

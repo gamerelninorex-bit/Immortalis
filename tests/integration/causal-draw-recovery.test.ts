@@ -166,7 +166,7 @@ describe("a failure injected before or after every durable step of the file pack
     await must(adapter.draw(request(spec)));
     const afterDraw = probe.count();
     await pc.close();
-    expect(afterDraw - afterOpen).toBeGreaterThanOrEqual(8); // two commits, each several durable steps
+    expect(afterDraw - afterOpen).toBeGreaterThanOrEqual(4); // two commits, each append + manifest
 
     const seen = { precommitDurable: 0, precommitLost: 0, resultDurable: 0 };
     for (let failAt = afterOpen + 1; failAt <= afterDraw; failAt++) {

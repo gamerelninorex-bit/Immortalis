@@ -1,3 +1,4 @@
+import { legacyStateFixture } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact and journal values */
 // Diplomacy Relation Edge Governing-Citation Source-Fidelity Repair (twenty-third slice) — behavior of the compatibility path:
 // a new write is stamped with, and admission accepts, ONLY the corrected current citation; a persisted Relation Edge carrying the
@@ -49,11 +50,15 @@ const openOutcome = async (dir: string) => {
     : r.error.code;
 };
 
-/** A history built by a store with NO admission: how a nineteenth-slice save carrying the historical citation exists on disk. */
+/** Independent v1 writer with NO admission: a nineteenth-slice save carrying its historical citation. */
 async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
   const dir = tempDir();
   const s = await must(
-    createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+    createFileCampaign(dir, {
+      campaignId: FIXTURE_CAMPAIGN,
+      owners: CANONICAL_OWNER_REGISTRY,
+      legacyFormat: true,
+    }),
   );
   await build(s);
   await s.close();
@@ -141,9 +146,10 @@ describe("new-write discipline: only the corrected current citation is stamped a
 });
 
 describe("old-save compatibility: a historical-citation Relation Edge loads unchanged and the campaign continues", () => {
-  it("loads, verifies and is not migrated, rewritten or re-cited by loading", async () => {
+  it("loads and verifies a v1 save without migrating facts, rewriting state bytes or re-citing", async () => {
     const dir = await withEdge(fullRelationEdge(), HISTORICAL);
     const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(JSON.parse(before).facts.length).toBeGreaterThan(0);
     const journalBefore = readFileSync(join(dir, "journal.jsonl"), "utf8");
     expect(await openOutcome(dir)).toBe("OK");
     expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
@@ -250,7 +256,7 @@ describe("tamper and drift rejection: only the exact whole historical citation o
     for (const [name, edit] of Object.entries(edits)) {
       const dir = await saved(HISTORICAL);
       const p = join(dir, stateFile(dir));
-      const j = JSON.parse(readFileSync(p, "utf8"));
+      const j = legacyStateFixture(p);
       edit(j.facts.find((f: any) => f.key === key()));
       writeFileSync(p, JSON.stringify(j));
       expect(await openOutcome(dir), name).not.toBe("OK");

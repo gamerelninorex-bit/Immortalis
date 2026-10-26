@@ -43,6 +43,9 @@ export function storeBindings(
   }
   const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...extension.owners]);
   const admission: WriteAdmission = {
+    ...(canonicalAdmission.historyVerificationId
+      ? { historyVerificationId: canonicalAdmission.historyVerificationId }
+      : {}),
     check(group, state) {
       if (!extension.owners.has(group.owner)) return canonicalAdmission.check(group, state);
       for (const w of group.writes) {

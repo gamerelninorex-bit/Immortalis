@@ -407,12 +407,12 @@ describe("H-01: ownership — a former handle can never release or write as the 
     const successor = `${JSON.stringify({ pid: process.pid, campaign_id: C, nonce: "11111111-1111-4111-8111-111111111111", host: (await import("node:os")).hostname() })}\n`;
     const fs: FsOps = {
       ...nodeFs,
-      readFile: async (p) => {
+      fileSize: async (p) => {
         if (p.endsWith("/journal.jsonl")) {
           rmSync(LOCK(dir)); // between this open's lock and its failure cleanup, a successor takes over
           writeFileSync(LOCK(dir), successor);
         }
-        return nodeFs.readFile(p);
+        return nodeFs.fileSize(p);
       },
     };
     const failed = await openFileCampaign(dir, { ...OPTS, fs });
@@ -639,7 +639,7 @@ describe("H-01: a thrown I/O failure on ANY open path releases only this attempt
   for (const [name, hit] of [
     [
       "reading the journal",
-      (op: string, p: string) => op === "readFile" && p.endsWith("/journal.jsonl"),
+      (op: string, p: string) => op === "readRange" && p.endsWith("/journal.jsonl"),
     ],
     [
       "reading the manifest",
@@ -659,6 +659,13 @@ describe("H-01: a thrown I/O failure on ANY open path releases only this attempt
           }
           return nodeFs.readFile(p);
         },
+        readRange: async (p, offset, length) => {
+          if (armed && hit("readRange", p)) {
+            armed = false;
+            throw Object.assign(new Error("EIO: transient"), { code: "EIO" });
+          }
+          return nodeFs.readRange(p, offset, length);
+        },
         list: async (d) => {
           if (armed && hit("list", d)) {
             armed = false;
@@ -673,7 +680,7 @@ describe("H-01: a thrown I/O failure on ANY open path releases only this attempt
         (r) => (r.ok ? "OPENED" : r.error.code),
         (e: Error) => (/EIO/.test(e.message) ? "REJECTED" : "OTHER"),
       );
-      expect(["REJECTED", "MALFORMED"], first).toContain(first);
+      expect(["REJECTED", "MALFORMED", "INTEGRITY_JOURNAL"], first).toContain(first);
       expect(armed, "the injected failure must actually have been hit").toBe(false);
       expect(lockFamily(dir)).toEqual([]); // no LOCK naming this live pid is left behind
       const again = await must(openFileCampaign(dir, OPTS)); // ordinary open, no reclaim
@@ -688,16 +695,19 @@ describe("H-01: a thrown I/O failure on ANY open path releases only this attempt
     const successor = `${JSON.stringify({ pid: process.pid, campaign_id: C, nonce: "22222222-2222-4222-8222-222222222222", host: hostname() })}\n`;
     const fs: FsOps = {
       ...nodeFs,
-      readFile: async (p) => {
+      readRange: async (p, offset, length) => {
         if (p.endsWith("/journal.jsonl")) {
           rmSync(LOCK(dir));
           writeFileSync(LOCK(dir), successor);
           throw Object.assign(new Error("EIO: transient"), { code: "EIO" });
         }
-        return nodeFs.readFile(p);
+        return nodeFs.readRange(p, offset, length);
       },
     };
-    await expect(openFileCampaign(dir, { ...OPTS, fs })).rejects.toThrow(/EIO/);
+    expect(await openFileCampaign(dir, { ...OPTS, fs })).toMatchObject({
+      ok: false,
+      error: { code: "INTEGRITY_JOURNAL" },
+    });
     expect(readFileSync(LOCK(dir), "utf8")).toBe(successor);
   });
 });
