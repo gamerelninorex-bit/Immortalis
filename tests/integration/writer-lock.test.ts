@@ -16,7 +16,7 @@ import { TEST_OWNERS, group, instrumentFs, write } from "@immortalis/testkit";
 import { copyDir, snapshotDir, tempDir } from "../support/tmp.ts";
 
 const C = "campaign-writer-lock-1";
-const OPTS = { owners: TEST_OWNERS, legacyFormat: true };
+const OPTS = { owners: TEST_OWNERS };
 const FIXTURE = join(import.meta.dirname, "fixtures", "writer-lock-process.ts");
 
 afterEach(() => vi.restoreAllMocks());
