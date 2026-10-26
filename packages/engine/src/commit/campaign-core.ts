@@ -232,8 +232,17 @@ export class CampaignCore {
     if (!history) return local;
     // has() is addressed. Explicit enumeration/size are diagnostic operations and may visit history.
     function* values(): Generator<string, undefined> {
-      yield* local;
-      for (const id of history!.checkedIds()) if (!local.has(id)) yield id;
+      const seen = new Set<string>();
+      for (const id of history!.checkedIds())
+        if (!seen.has(id)) {
+          seen.add(id);
+          yield id;
+        }
+      for (const id of local)
+        if (!seen.has(id)) {
+          seen.add(id);
+          yield id;
+        }
       return undefined;
     }
     const view: ReadonlySet<string> = {

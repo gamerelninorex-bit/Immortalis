@@ -5,7 +5,7 @@ import { legacyStateFixture } from "../support/tmp.ts";
 // verification of malformed or non-rederivable Causal Draw evidence.
 // Register lineage: IA-02, IA-03, IA-06, IA-30 (partial); RC-02, RC-09, RC-16; IM-03, IM-11, IM-12; F-027-CD1 CDP-01, CDO-01.
 // Spec lock f027 + addendum F-027-CD1.
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {

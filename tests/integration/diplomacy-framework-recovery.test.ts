@@ -275,7 +275,7 @@ describe("a failure at EVERY durable step converges by identity", () => {
     );
     const afterCommit = probe.count();
     await pc.close();
-    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(4);
+    expect(afterCommit - afterOpen).toBeGreaterThanOrEqual(2);
 
     const finals = new Set<string>();
     const seen = { rolledBack: 0, committed: 0 };

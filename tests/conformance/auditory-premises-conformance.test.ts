@@ -181,9 +181,9 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
-        "fde8445cb23d423826e672c5634fffab3baaf0fe113355580a33164595268eea",
+        "561fc29d65a13754c41f21cdfb2d6a02815355ef62dd84af7818f817ba5e62a4",
       "packages/engine/src/commit":
-        "a39ec1fb03d4cf70364e689c76084b3437c9ba9442da030ad7c6d00a6ef986e5",
+        "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
   });

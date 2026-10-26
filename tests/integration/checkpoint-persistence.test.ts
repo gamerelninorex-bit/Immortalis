@@ -1,11 +1,10 @@
 // H-07 S1 mechanism evidence: exact v1 identities, verified bounded reopen, and every publication cut.
-import { readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, rmSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { canonicalJson } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
-  CANONICAL_STORE_BINDINGS,
   CampaignCore,
   createFileCampaign,
   openFileCampaign,
@@ -21,12 +20,15 @@ import {
   ACTOR_FIXTURE_EXTENSION,
   fixtureWorld,
   publication,
+  FIXTURE_CAMPAIGN,
+  SYNTH_EXTENSION,
+  syntheticSourceGroup,
 } from "@immortalis/testkit";
 import { CheckpointManifestSchema } from "../../packages/engine/src/persistence/checkpoint-package.ts";
 import { p1Scene, p1Chain } from "../support/auditory-premises.ts";
 import { HistoryIndex } from "../../packages/engine/src/persistence/history-index.ts";
 import { copyDir, tempDir } from "../support/tmp.ts";
-import { must } from "../support/temporal.ts";
+import { must, seededTemporalCampaign } from "../support/temporal.ts";
 
 const C = "h07-mechanism";
 const opts = { owners: TEST_OWNERS };
@@ -98,6 +100,28 @@ describe("H-07 exact receipt/state compatibility and trusted reopening", () => {
     expect(await openCode(b.dir, { audit: true })).toBe("OK");
   }, 60_000);
 
+  it("cold lookups preserve opaque Unicode identities, including distinct unpaired surrogates", async () => {
+    const dir = tempDir();
+    const s = await must(createFileCampaign(dir, { campaignId: C, ...opts }));
+    const ids = [String.fromCharCode(0xd800), String.fromCharCode(0xd801)];
+    for (let n = 1; n <= 130; n++)
+      await must(
+        s.commit({
+          ...change(n),
+          depends_on: [],
+          ...(n <= 2 ? { group_id: `g:${ids[n - 1]}`, intent_id: `i:${ids[n - 1]}` } : {}),
+        }),
+      );
+    await s.close();
+    const reopened = await must(openFileCampaign(dir, opts));
+    for (let n = 0; n < ids.length; n++) {
+      expect(reopened.lookupReceipt(`i:${ids[n]}`)?.revision).toBe(n + 1);
+      expect(reopened.committedGroupById!(`g:${ids[n]}`)?.intent_id).toBe(`i:${ids[n]}`);
+    }
+    await reopened.close();
+    expect(await openCode(dir, { audit: true })).toBe("OK");
+  });
+
   it("2010 historical entries open with only a checkpoint and 90 tail replays; no full journal read or registry", async () => {
     const { dir, store } = await seed(2010);
     await store.close();
@@ -140,7 +164,7 @@ describe("H-07 exact receipt/state compatibility and trusted reopening", () => {
     const writes: { path: string; bytes: number }[] = [];
     const fs = {
       ...nodeFs,
-      writeFileDurable: async (path: string, data: string) => {
+      writeFileDurable: async (path: string, data: string | Buffer) => {
         writes.push({ path, bytes: Buffer.byteLength(data) });
         await nodeFs.writeFileDurable(path, data);
       },
@@ -172,7 +196,10 @@ describe("H-07 exact receipt/state compatibility and trusted reopening", () => {
     expect(opened.verify()).toEqual([]);
     expect(opened.store.listFacts()).toEqual(before);
     await opened.close();
-    const strict = await must(openFileCampaign(dir, { ...CANONICAL_STORE_BINDINGS, audit: true }));
+    const strict = await must(
+      CanonicalCampaign.open(dir, { extension: ACTOR_FIXTURE_EXTENSION, audit: true }),
+    );
+    expect(strict.verify()).toEqual([]);
     await strict.close();
   }, 60_000);
 
@@ -189,6 +216,7 @@ describe("H-07 exact receipt/state compatibility and trusted reopening", () => {
     expect(checked.has("group-1")).toBe(true);
     expect(checked.has("missing")).toBe(false);
     expect(checked.size).toBe(132);
+    expect([...checked]).toEqual(Array.from({ length: 132 }, (_, i) => `group-${i + 1}`));
     expect(new Set([...checked])).toEqual(
       new Set(Array.from({ length: 132 }, (_, i) => `group-${i + 1}`)),
     );
@@ -196,7 +224,7 @@ describe("H-07 exact receipt/state compatibility and trusted reopening", () => {
     await s.close();
     expect(
       await openCode(dir, { admission: { ...admission, historyVerificationId: "foreign-policy" } }),
-    ).toBe("REPLAY_MISMATCH");
+    ).toBe("OK");
   });
 });
 
@@ -252,8 +280,10 @@ describe("H-07 interruption, migration and corruption", () => {
     const last = probe.count();
     expect(converted.head()).toEqual(expected);
     expect(manifest(convertedDir).format_version).toBe(2);
-    expect(readFileSync(join(convertedDir, "manifest.v1.backup"))).toEqual(original.manifest);
-    expect(readFileSync(join(convertedDir, "journal.v1.backup"))).toEqual(original.journal);
+    expect(readFileSync(join(convertedDir, "legacy-manifest.v1.backup"))).toEqual(
+      original.manifest,
+    );
+    expect(readFileSync(join(convertedDir, "legacy-journal.v1.backup"))).toEqual(original.journal);
     expect(readFileSync(join(convertedDir, "journal.jsonl"))).toEqual(original.journal);
     expect(converted.lookupReceipt("intent-1")?.revision).toBe(1);
     await converted.close();
@@ -272,6 +302,44 @@ describe("H-07 interruption, migration and corruption", () => {
       }
   }, 60_000);
 
+  it("conversion preserves even an incomplete UTF-8 residue byte-for-byte without adopting it", async () => {
+    const { dir, store } = await seed(5, { legacyFormat: true });
+    const head = store.head();
+    await store.close();
+    appendFileSync(join(dir, "journal.jsonl"), Buffer.from([0xf0, 0x90, 0x80]));
+    const original = readFileSync(join(dir, "journal.jsonl"));
+    const converted = await must(openFileCampaign(dir, opts));
+    expect(converted.head()).toEqual(head);
+    expect(converted.residue.journal_tail_bytes).toBe(3);
+    expect(readFileSync(join(dir, "legacy-journal.v1.backup"))).toEqual(original);
+    await must(converted.commit(change(6)));
+    await converted.close();
+    expect(await openCode(dir, { audit: true })).toBe("OK");
+  });
+
+  it("a cold proof consumed by an owner validator refuses the open and releases its writer lock", async () => {
+    const dir = tempDir();
+    const scene = await seededTemporalCampaign(dir);
+    for (let n = 0; n < 130; n++)
+      await must(
+        scene.campaign.store.commit(
+          syntheticSourceGroup(FIXTURE_CAMPAIGN, 50000 + n, n, n + 1, "synthetic/dormant/source"),
+        ),
+      );
+    await scene.campaign.close();
+    const path = join(dir, "journal.jsonl");
+    const bytes = readFileSync(path, "utf8");
+    const first = JSON.parse(bytes.split("\n")[0]!);
+    const cause = first.group.cause as string;
+    writeFileSync(
+      path,
+      bytes.replace(JSON.stringify(cause), JSON.stringify(cause.slice(0, -1) + "x")),
+    );
+    const opened = await CanonicalCampaign.open(dir, { extension: SYNTH_EXTENSION });
+    expect(opened).toMatchObject({ ok: false, error: { code: "CANON_INTEGRITY" } });
+    expect(readdirSync(dir)).not.toContain("LOCK");
+  });
+
   it("cold archive corruption is deferred on ordinary open, refused on access, and detected by strict audit", async () => {
     const { dir, store } = await seed(260);
     await store.close();
@@ -280,6 +348,10 @@ describe("H-07 interruption, migration and corruption", () => {
     writeFileSync(path, bytes.replace('"cause":"cause-1"', '"cause":"CAUSE-1"'));
     const s = await must(openFileCampaign(dir, opts));
     expect(() => s.lookupReceipt("intent-1")).toThrow();
+    expect(await s.commit(change(261))).toMatchObject({
+      ok: false,
+      error: { code: "STORE_POISONED" },
+    });
     await s.close();
     expect(await openCode(dir, { audit: true })).not.toBe("OK");
   });

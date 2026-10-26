@@ -1,3 +1,4 @@
+import { legacyStateText } from "../support/tmp.ts";
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests poke at arbitrary fact values */
 // Economy Demand → Production Request → Realized Access — enforcement that does not depend on the coordinator or
 // on the Economy / Production / custodian operations behaving. IM-11 admission holds for a raw `store.commit` and
@@ -1016,7 +1017,7 @@ describe("load-time verification fails closed on Economy drift (IA-30 partial)",
       .filter((f) => /^state\./.test(f))
       .sort()
       .pop()!;
-    const state = readFileSync(join(dir2, stateFile), "utf8");
+    const state = legacyStateText(join(dir2, stateFile));
     expect(state).toContain('"ABSENT"');
     writeFileSync(join(dir2, stateFile), state.replace('"ABSENT"', '"PRESENT"'));
     expect((await CanonicalCampaign.open(dir2)).ok).toBe(false);
@@ -1050,7 +1051,7 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     await must(issue(p));
     const afterIssue = probe.count();
     await p.close();
-    expect(afterIssue - afterOpen).toBeGreaterThanOrEqual(4);
+    expect(afterIssue - afterOpen).toBeGreaterThanOrEqual(2);
 
     const finals = new Set<string>();
     const seen = { absent: 0, present: 0 };

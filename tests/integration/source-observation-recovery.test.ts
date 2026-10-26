@@ -8,7 +8,7 @@ import { legacyStateFixture } from "../support/tmp.ts";
 // the owners later changed (a real Production-caused delivery, never a hand edit) neither invalidates nor rewrites what was observed of
 // it. The scripted host is a policy the test wrote (plumbing only: no claim about any AI's reading).
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {

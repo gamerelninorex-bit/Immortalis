@@ -186,7 +186,7 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     );
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
-    ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
+    ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
     for (const f of PRODUCTION_SOURCES) {
       const text = code(f);
       expect(text, f).not.toMatch(
@@ -400,8 +400,10 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
   it("there is no Production save, journal, sidecar or second persistence canon: the package format is unchanged", () => {
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
+      "checkpoint-package.ts",
       "file-package.ts",
       "fs-ops.ts",
+      "history-index.ts",
       "store.ts",
     ]);
   });

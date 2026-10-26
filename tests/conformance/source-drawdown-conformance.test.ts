@@ -239,8 +239,10 @@ describe("reuse, not fork: one canon, one journal, one coordinator", () => {
   it("the package format is unchanged, no persistence module was added and the coordinator and graph never name the drawdown", () => {
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
+      "checkpoint-package.ts",
       "file-package.ts",
       "fs-ops.ts",
+      "history-index.ts",
       "store.ts",
     ]);
     for (const f of [

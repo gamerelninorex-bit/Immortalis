@@ -50,7 +50,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/world/canonical-campaign.ts":
-    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
     "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/derive.ts":

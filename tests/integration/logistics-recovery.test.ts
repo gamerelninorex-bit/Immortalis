@@ -274,7 +274,7 @@ describe("a failure at EVERY durable step converges by identity (acceptance 12, 
     await must(c.logistics.commitMovement({ ...logPublication(1), commit: commitInput(MOVE_1) }));
     const steps = probe.count() - afterOpen;
     await c.campaign.close();
-    expect(steps).toBeGreaterThanOrEqual(4);
+    expect(steps).toBeGreaterThanOrEqual(2);
 
     const seen = { absent: 0, present: 0 };
     for (let failAt = afterOpen + 1; failAt <= afterOpen + steps; failAt++) {

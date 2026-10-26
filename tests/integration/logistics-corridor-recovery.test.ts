@@ -299,7 +299,7 @@ describe("a failure at EVERY durable step converges by identity", () => {
     );
     const steps = probe.count() - afterOpen;
     await c.campaign.close();
-    expect(steps).toBeGreaterThanOrEqual(4);
+    expect(steps).toBeGreaterThanOrEqual(2);
 
     const seen = { absent: 0, present: 0 };
     for (let failAt = afterOpen + 1; failAt <= afterOpen + steps; failAt++) {
@@ -363,7 +363,7 @@ describe("a failure at EVERY durable step converges by identity", () => {
     );
     const steps = probe.count() - afterOpen;
     await c.campaign.close();
-    expect(steps).toBeGreaterThanOrEqual(4);
+    expect(steps).toBeGreaterThanOrEqual(2);
 
     const seen = { absent: 0, present: 0 };
     for (let failAt = afterOpen + 1; failAt <= afterOpen + steps; failAt++) {

@@ -37,7 +37,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/world/canonical-campaign.ts":
-    "db4f8d81a1d4577521f04879114ac763d7080e6c764cd47fcd374d71324aa643",
+    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   "packages/operator/src/locality.ts":
     "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
   "packages/operator/src/commands.ts":

@@ -17,7 +17,7 @@ export interface FsOps {
   fileSize(path: string): Promise<number | null>;
   list(dir: string): Promise<string[]>;
   /** write to a temp name, fsync, rename over `path`, fsync the directory */
-  writeFileDurable(path: string, data: string): Promise<void>;
+  writeFileDurable(path: string, data: string | Buffer): Promise<void>;
   /** append and fsync */
   appendDurable(path: string, data: string): Promise<void>;
   truncate(path: string, size: number): Promise<void>;
@@ -45,6 +45,9 @@ async function fsyncDir(dir: string): Promise<void> {
 export const nodeFs: FsOps = {
   mkdirp: async (dir) => {
     await fsp.mkdir(dir, { recursive: true });
+    // Persist the derived-history directory and its parent link before a manifest can name it.
+    await fsyncDir(dir);
+    await fsyncDir(join(dir, ".."));
   },
   readFile: (path) => fsp.readFile(path),
   readRange: async (path, offset, length) => {

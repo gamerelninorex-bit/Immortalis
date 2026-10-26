@@ -154,7 +154,7 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     );
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
-    ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
+    ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
     for (const f of walk("packages/engine/src/population")) {
       const text = code(f);
       expect(text, f).not.toMatch(

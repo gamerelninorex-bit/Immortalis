@@ -298,7 +298,7 @@ describe("invalid, incompatible or tampered packages fail explicitly (never repa
     [
       "future format version",
       "UNSUPPORTED_FORMAT_VERSION",
-      (d) => writeManifest(d, { ...readManifest(d), format_version: 2 }),
+      (d) => writeManifest(d, { ...readManifest(d), format_version: 3 }),
     ],
     [
       "manifest campaign_id edited",

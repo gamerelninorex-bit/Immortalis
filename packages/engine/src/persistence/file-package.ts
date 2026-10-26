@@ -82,9 +82,12 @@ export type OpenErrorCode =
   | "MISSING_JOURNAL"
   | "JOURNAL_TRUNCATED"
   | "INTEGRITY_JOURNAL"
-  | "REPLAY_MISMATCH";
+  | "REPLAY_MISMATCH"
+  | "CANON_INTEGRITY";
 
 export interface FileCampaignOptions {
+  /** Owner verification before exceptional format/policy activation; the canonical caller supplies its existing validators. */
+  readonly beforeMigrationCheck?: (store: FileCampaignStore) => Result<void, "CANON_INTEGRITY">;
   /** Explicit full-history audit; ordinary v2 reopen validates checkpoint and bounded tail. */
   readonly audit?: boolean;
   /** Compatibility/test writer for original v1 bytes; never used by ordinary canonical play. */

@@ -6,7 +6,7 @@ import { legacyStateFixture } from "../support/tmp.ts";
 // re-asks nothing it already holds, forms nothing twice, and lands on exactly the campaign an uninterrupted run produces. And a saved
 // campaign whose observation records were edited does not open silently. The scripted host is a policy the test wrote (plumbing only).
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {

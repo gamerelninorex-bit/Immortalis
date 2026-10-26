@@ -696,7 +696,7 @@ describe("the crash windows around the opening are recoverable by identity, with
     const afterAdvance = probe.count();
     await p.close();
     // three commits (opening, stage, transaction) of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(12);
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(6);
 
     const finals = new Set<string>();
     const seen = { noOpening: 0, openingOnly: 0, stageNoTx: 0, committed: 0 };

@@ -28,6 +28,7 @@ import { must, seededTemporalCampaign, spyStore } from "../tests/support/tempora
 
 function meter() {
   let active = false;
+  let storageVersion = 1;
   const zero = () => ({
     read_bytes: 0,
     read_calls: 0,
@@ -35,6 +36,11 @@ function meter() {
     durable_writes: 0,
     fsyncs: 0,
     state_file_bytes: 0,
+    routine_state_file_bytes: 0,
+    checkpoint_state_bytes: 0,
+    checkpoint_commit_ms: 0,
+    checkpoint_commits: 0,
+    initial_create_ms: 0,
     state_file_writes: 0,
     index_bytes: 0,
     index_reads: 0,
@@ -42,6 +48,7 @@ function meter() {
     journal_parsed: 0,
     journal_replayed: 0,
     facts_copied: 0,
+    facts_visited: 0,
     facts_sorted: 0,
     full_hashes: 0,
     full_hash_bytes: 0,
@@ -50,12 +57,26 @@ function meter() {
     checkpoint_io_ms: 0,
   });
   let counts = zero();
+  const mkdirp = nodeFs.mkdirp;
+  const durableMkdir = mkdirp.toString().includes("fsyncDir");
+  nodeFs.mkdirp = async (dir) => {
+    await mkdirp(dir);
+    if (active && durableMkdir) counts.fsyncs += 2;
+  };
   for (const method of ["readFile", "readRange", "readRangeSync"] as const) {
     const original = (nodeFs as any)[method];
     const record = (path: string, b: Buffer) => {
+      if (path.endsWith("/manifest.json")) {
+        try {
+          storageVersion = JSON.parse(b.toString("utf8")).format_version;
+        } catch {
+          /* loader records failure */
+        }
+      }
       if (active) {
         counts.read_calls++;
         counts.read_bytes += b.length;
+        if (method === "readRangeSync" && path.endsWith("/journal.jsonl")) counts.journal_parsed++;
         if (/history\/index\./.test(path)) {
           counts.index_reads++;
           counts.index_read_bytes += b.length;
@@ -72,6 +93,13 @@ function meter() {
     const original = nodeFs[method];
     nodeFs[method] = async (path, data) => {
       const start = performance.now();
+      if (path.endsWith("/manifest.json")) {
+        try {
+          storageVersion = JSON.parse(data.toString()).format_version;
+        } catch {
+          /* writer records failure */
+        }
+      }
       if (active) {
         const bytes = Buffer.byteLength(data);
         counts.write_bytes += bytes;
@@ -79,11 +107,13 @@ function meter() {
         counts.fsyncs += method === "writeFileDurable" ? 2 : 1;
         if (/state\.\d+\.json$/.test(path)) {
           counts.state_file_bytes += bytes;
+          if (storageVersion === 2) counts.checkpoint_state_bytes += bytes;
+          else counts.routine_state_file_bytes += bytes;
           counts.state_file_writes++;
         }
         if (/history\/index\./.test(path)) counts.index_bytes += bytes;
       }
-      await original(path, data);
+      await Reflect.apply(original, nodeFs, [path, data]);
       if (active && (/state\.\d+\.json$/.test(path) || /history\/index\./.test(path)))
         counts.checkpoint_io_ms += performance.now() - start;
     };
@@ -96,6 +126,31 @@ function meter() {
     }
     return replay.apply(this, args);
   };
+  const seen = new WeakSet<object>();
+  for (const method of ["create", "open"] as const) {
+    const original = CanonicalCampaign[method];
+    (CanonicalCampaign as any)[method] = async (...args: any[]) => {
+      const start = performance.now();
+      const result = await Reflect.apply(original, CanonicalCampaign, args);
+      if (active && method === "create") counts.initial_create_ms += performance.now() - start;
+      if (result.ok && !seen.has(result.value.store)) {
+        const store = result.value.store;
+        seen.add(store);
+        const commit = store.commit.bind(store);
+        store.commit = async (group: unknown) => {
+          const before = counts.state_file_writes;
+          const at = performance.now();
+          const done = await commit(group);
+          if (active && storageVersion === 2 && counts.state_file_writes > before) {
+            counts.checkpoint_commits++;
+            counts.checkpoint_commit_ms += performance.now() - at;
+          }
+          return done;
+        };
+      }
+      return result;
+    };
+  }
   const originalHash = crypto.createHash;
   crypto.createHash = ((...args: any[]) => {
     const h = Reflect.apply(originalHash, crypto, args);
@@ -125,10 +180,28 @@ function meter() {
     return s;
   }) as typeof JSON.stringify;
   const NativeMap = Map;
+  const nativeValues = NativeMap.prototype.values;
+  const nativeGet = NativeMap.prototype.get;
+  const isFact = (v: any) => v && typeof v === "object" && "key" in v && "provenance" in v;
+  NativeMap.prototype.get = function (key: any) {
+    const value = nativeGet.call(this, key);
+    if (active && isFact(value)) counts.facts_visited++;
+    return value;
+  };
+  for (const method of ["values", "entries", Symbol.iterator] as const) {
+    const original = (NativeMap.prototype as any)[method];
+    (NativeMap.prototype as any)[method] = function* () {
+      for (const value of Reflect.apply(original, this, []) as Iterable<any>) {
+        const fact = method === "values" ? value : value[1];
+        if (active && isFact(fact)) counts.facts_visited++;
+        yield value;
+      }
+    };
+  }
   (globalThis as any).Map = new Proxy(NativeMap, {
     construct(target, args) {
       if (active && args[0] instanceof NativeMap) {
-        const first = args[0].values().next().value;
+        const first = nativeValues.call(args[0]).next().value;
         if (first && typeof first === "object" && "key" in first && "provenance" in first)
           counts.facts_copied += args[0].size;
       }
@@ -166,7 +239,7 @@ const env = {
   arch: arch(),
   kernel: release(),
   cpu: cpus()[0]?.model,
-  filesystem_type: statfsSync(".").type,
+  filesystem_type: statfsSync(tmpdir()).type,
   cache: "warm OS cache; fresh process per sample",
   package_manager: "pnpm@10.33.0 lock; direct Node execution",
   spec: BUILD_SPEC_IDENTITY,
@@ -213,7 +286,14 @@ if (mode === "seed") {
   assert.equal(campaign.store.head().journal_entries, 10 + (kind === "history" ? count : 0));
   await campaign.close();
   const seed = work.finish(start);
-  writeFileSync(`${path}.seed.json`, JSON.stringify({ kind, count, seed, env }, null, 2));
+  writeFileSync(
+    `${path}.seed.json`,
+    JSON.stringify(
+      { kind, count, seed, env, sha: process.env.H07_EXACT_SHA ?? "UNCOMMITTED" },
+      null,
+      2,
+    ),
+  );
 } else if (mode === "sample") {
   const made: string[] = [];
   const clone = () => {
@@ -259,7 +339,9 @@ if (mode === "seed") {
     const spy = spyStore(campaign.store);
     const coordinator = new TemporalCoordinator(spy.store, syntheticProviders());
     start = work.start();
+    assert.ok(coordinator.state());
     const result = await must(coordinator.advance(stopAtBoundaryRequest("h07-fixed")));
+    assert.ok(coordinator.state());
     results.phases.fixed_action = work.finish(start);
     assert.equal(spy.getFacts.length, 27);
     assert.equal(new Set(spy.getFacts).size, 10);
@@ -268,9 +350,11 @@ if (mode === "seed") {
     assert.ok(spy.getFacts.every((key) => !key.startsWith("synthetic/h07/cold/")));
     assert.equal(result.transaction.outcome.actual_stop.value, 140);
     results.action_digest = sha256Canonical({
-      transaction: result.transaction,
-      producer: campaign.store.getFact(SYNTH_PRODUCER_RESULT_KEY),
-      consumer: campaign.store.getFact(SYNTH_CONSUMER_RESULT_KEY),
+      outcome: result.transaction.outcome,
+      engaged: result.transaction.engaged,
+      boundaries_crossed: result.transaction.boundaries_crossed,
+      producer: campaign.store.getFact(SYNTH_PRODUCER_RESULT_KEY)?.value,
+      consumer: campaign.store.getFact(SYNTH_CONSUMER_RESULT_KEY)?.value,
     });
     results.coordinator = {
       keyed_reads: spy.getFacts.length,
@@ -297,5 +381,71 @@ if (mode === "seed") {
     else process.stdout.write(`${JSON.stringify(results)}\n`);
   } finally {
     for (const dir of made) rmSync(dir, { recursive: true, force: true });
+  }
+} else if (mode === "checkpoint" || mode === "convert") {
+  const dir = mkdtempSync(join(tmpdir(), "h07-exceptional-"));
+  cpSync(path, dir, { recursive: true });
+  try {
+    if (mode === "convert") {
+      const start = work.start();
+      const campaign = await open(dir);
+      await campaign.close();
+      const measured = work.finish(start);
+      if (output)
+        writeFileSync(
+          output,
+          JSON.stringify(
+            { kind, count, env, sha: process.env.H07_EXACT_SHA, legacy_conversion: measured },
+            null,
+            2,
+          ),
+        );
+    } else {
+      const campaign = await open(dir);
+      const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
+      assert.equal(manifest.format_version, 2);
+      const commits = 128 - (manifest.head.revision - manifest.head.checkpoint.revision);
+      const start = work.start();
+      let lastMs = 0;
+      for (let i = 0; i < commits; i++) {
+        const fact = campaign.store.getFact("synthetic/dormant/source")!;
+        const at = performance.now();
+        await must(
+          campaign.store.commit(
+            syntheticSourceGroup(
+              FIXTURE_CAMPAIGN,
+              40000 + i,
+              `checkpoint-${i}`,
+              fact.version,
+              "synthetic/dormant/source",
+            ),
+          ),
+        );
+        lastMs = performance.now() - at;
+      }
+      const cycle = work.finish(start);
+      await campaign.close();
+      assert.equal(cycle.checkpoint_commits, 1);
+      if (output)
+        writeFileSync(
+          output,
+          JSON.stringify(
+            {
+              kind,
+              count,
+              env,
+              sha: process.env.H07_EXACT_SHA,
+              fill_commits: commits,
+              checkpoint_commit_ms: lastMs,
+              cycle,
+              amortized_checkpoint_payload_bytes: cycle.checkpoint_state_bytes / 128,
+            },
+            null,
+            2,
+          ),
+        );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 } else throw new Error("unknown benchmark mode");

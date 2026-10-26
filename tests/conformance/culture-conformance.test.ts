@@ -292,7 +292,7 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     );
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
-    ).toEqual(["FilePackageStore", "TemporalCoordinator"]);
+    ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
     expect(classes.filter((c) => /Culture|Society|Social/.test(c!)).sort()).toEqual([
       "CultureAdapter",
       "CultureAdjudicationAdapter",
@@ -300,8 +300,10 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     ]);
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
+      "checkpoint-package.ts",
       "file-package.ts",
       "fs-ops.ts",
+      "history-index.ts",
       "store.ts",
     ]);
   });

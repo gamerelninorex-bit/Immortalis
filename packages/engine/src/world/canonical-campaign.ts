@@ -259,16 +259,35 @@ export class CanonicalCampaign {
    */
   static async open(
     dir: string,
-    options: Pick<FileCampaignOptions, "buildId" | "fs" | "reclaimStaleLock"> & {
+    options: Pick<FileCampaignOptions, "buildId" | "fs" | "reclaimStaleLock" | "audit"> & {
       extension?: StageOwnerExtension;
     } = {},
   ): Promise<Result<CanonicalCampaign, CanonicalOpenCode>> {
     const { extension, ...rest } = options;
     const bindings = storeBindings(extension);
     if (!bindings.ok) return bindings;
-    const opened = await openFileCampaign(dir, { ...rest, ...bindings.value });
+    const opened = await openFileCampaign(dir, {
+      ...rest,
+      ...bindings.value,
+      beforeMigrationCheck(store) {
+        const violations = verifyAll(store, extension);
+        return violations.length
+          ? fail("CANON_INTEGRITY", "the campaign does not match this build's canonical owners", {
+              violations: violations.slice(0, 10),
+            })
+          : ok(undefined);
+      },
+    });
     if (!opened.ok) return opened;
-    const violations = verifyAll(opened.value, extension);
+    let violations: readonly IntegrityViolation[];
+    try {
+      violations = verifyAll(opened.value, extension);
+    } catch (e) {
+      await opened.value.close().catch(() => undefined);
+      return fail("CANON_INTEGRITY", "historical owner evidence could not be verified", {
+        cause: String(e),
+      });
+    }
     if (violations.length > 0) {
       await opened.value.close();
       return fail("CANON_INTEGRITY", "the campaign does not match this build's canonical owners", {

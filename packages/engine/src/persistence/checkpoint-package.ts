@@ -133,6 +133,8 @@ export async function migrateLegacy(
   options: FileCampaignOptions,
 ): Promise<Result<FileCampaignStore, OpenErrorCode>> {
   try {
+    const ownersVerified = options.beforeMigrationCheck?.(legacy);
+    if (ownersVerified && !ownersVerified.ok) return ownersVerified;
     const manifestBytes = await fs.readFile(join(dir, "manifest.json"));
     const m = ManifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")));
     const journal = await fs.readFile(join(dir, "journal.jsonl"));
@@ -143,7 +145,7 @@ export async function migrateLegacy(
       ["state", stateBytes],
       ["journal", journal],
     ] as const)
-      await fs.writeFileDurable(join(dir, `${name}.v1.backup`), bytes.toString("utf8"));
+      await fs.writeFileDurable(join(dir, `legacy-${name}.v1.backup`), bytes);
     await fs.mkdirp(join(dir, "history"));
     const index = new HistoryIndex(dir, fs, sha256Canonical(policy(options)));
     let root: IndexRef | null = null;
@@ -173,12 +175,16 @@ export async function migrateLegacy(
     const { self_sha256: oldSeal, format_version: oldVersion, ...base } = m;
     void oldSeal;
     void oldVersion;
+    const successorStateFile = stateName(m.head.revision);
+    if (successorStateFile !== m.head.state_file)
+      await fs.writeFileDurable(join(dir, successorStateFile), stateBytes);
     const next = seal({
       ...base,
       format_version: 2 as const,
       genesis_format_version: 1 as const,
       head: {
         ...m.head,
+        state_file: successorStateFile,
         checkpoint: {
           revision: m.head.revision,
           state_sha256: m.head.state_sha256,
@@ -328,11 +334,13 @@ export async function loadCheckpoint(
     },
     ruleChecked: (id: string) => lookup("g", id)?.loc.checked ?? false,
     *checkedIds() {
-      for (const [key, loc] of index.entries(cp.index))
-        if (key.startsWith("g:") && loc.checked) {
-          lookup("g", key.slice(2));
-          yield key.slice(2);
-        }
+      const records = [...index.entries(cp.index)]
+        .filter(([key, loc]) => key.startsWith("g:") && loc.checked)
+        .sort((a, b) => a[1].revision - b[1].revision);
+      for (const [key] of records) {
+        lookup("g", key.slice(2));
+        yield key.slice(2);
+      }
     },
   };
   try {
@@ -409,6 +417,10 @@ export async function loadCheckpoint(
     if (core.state.revision !== h.revision || stateSha256(core.state) !== h.state_sha256)
       return fail("INTEGRITY_STATE", "tail state mismatch");
     if (policy(options) !== null && cp.verification_policy !== policy(options)) {
+      const before = options.beforeMigrationCheck?.(
+        new CheckpointStore(dir, fs, lock, core, m, options, size, tail, []),
+      );
+      if (before && !before.ok) return before;
       // A changed/untrusted verifier cannot inherit checked flags. Strict replay above earned each
       // proof anew. Build a separate generation, compare it, then publish one verified anchor.
       let root: IndexRef | null = null;
@@ -446,17 +458,19 @@ export async function loadCheckpoint(
       });
       if ((await lock.check()) !== "owned")
         throw new Error("writer authority lost during checkpoint verification");
+      const successor = await loadCheckpoint(dir, fs, lock, { ...options, audit: true }, fresh);
+      if (!successor.ok) return successor;
       await fs.writeFileDurable(join(dir, "manifest.json"), `${canonicalJson(fresh)}\n`);
-      return loadCheckpoint(dir, fs, lock, { ...options, audit: false }, fresh);
+      return successor;
     }
     const known = new Set([
       "manifest.json",
       "journal.jsonl",
       h.state_file,
       "history",
-      "manifest.v1.backup",
-      "journal.v1.backup",
-      "state.v1.backup",
+      "legacy-manifest.v1.backup",
+      "legacy-journal.v1.backup",
+      "legacy-state.v1.backup",
     ]);
     const residue = (await fs.list(dir))
       .filter((name) => !known.has(name) && name !== "LOCK" && !name.startsWith("LOCK."))
@@ -477,14 +491,14 @@ class CheckpointStore implements FileCampaignStore {
   #poisoned = false;
   #lost = false;
   #queue: Promise<unknown> = Promise.resolve();
-  readonly dir: string;
-  readonly fs: FsOps;
-  readonly lock: Lock;
-  readonly core: CampaignCore;
-  private manifest: V2Manifest;
-  readonly options: FileCampaignOptions;
-  private journalSize: number;
-  private tail: { entry: JournalEntry; location: Location }[];
+  readonly #dir: string;
+  readonly #fs: FsOps;
+  readonly #lock: Lock;
+  readonly #core: CampaignCore;
+  #manifest: V2Manifest;
+  readonly #options: FileCampaignOptions;
+  #journalSize: number;
+  #tail: { entry: JournalEntry; location: Location }[];
   constructor(
     dir: string,
     fs: FsOps,
@@ -496,14 +510,14 @@ class CheckpointStore implements FileCampaignStore {
     tail: { entry: JournalEntry; location: Location }[],
     residue: string[],
   ) {
-    this.dir = dir;
-    this.fs = fs;
-    this.lock = lock;
-    this.core = core;
-    this.manifest = manifest;
-    this.options = options;
-    this.journalSize = journalSize;
-    this.tail = tail;
+    this.#dir = dir;
+    this.#fs = fs;
+    this.#lock = lock;
+    this.#core = core;
+    this.#manifest = manifest;
+    this.#options = options;
+    this.#journalSize = journalSize;
+    this.#tail = tail;
     this.residue = {
       journal_tail_bytes: journalSize - manifest.head.journal_bytes,
       other_files: residue,
@@ -513,7 +527,7 @@ class CheckpointStore implements FileCampaignStore {
       sha256Canonical(options.specIdentity ?? BUILD_SPEC_IDENTITY);
   }
   head(): CampaignHead {
-    const m = this.manifest;
+    const m = this.#manifest;
     return {
       campaign_id: m.campaign_id,
       revision: m.head.revision,
@@ -527,33 +541,71 @@ class CheckpointStore implements FileCampaignStore {
     };
   }
   getFact(key: string) {
-    return this.core.state.facts.get(key);
+    return this.#core.state.facts.get(key);
   }
   listFacts() {
-    return stateToFile(this.core.state).facts;
+    return stateToFile(this.#core.state).facts;
   }
   lookupReceipt(id: string): CommitReceipt | null {
-    return this.core.lookupReceipt(id);
+    return this.#checked(() => this.#core.lookupReceipt(id));
   }
   committedGroup(id: string): CommitGroup | null {
-    return this.core.lookupGroup(id);
+    return this.#checked(() => this.#core.lookupGroup(id));
   }
   committedGroupById(id: string): CommitGroup | null {
-    return this.core.lookupGroupById(id);
+    return this.#checked(() => this.#core.lookupGroupById(id));
+  }
+  #checked<T>(read: () => T): T {
+    try {
+      return read();
+    } catch (e) {
+      this.#poisoned = true;
+      throw e;
+    }
   }
   ruleCheckedGroupIds(): ReadonlySet<string> {
-    return this.core.ruleCheckedGroupIds();
+    const base = this.#core.ruleCheckedGroupIds();
+    const guarded = <T>(read: () => T) => this.#checked(read);
+    const poison = () => {
+      this.#poisoned = true;
+    };
+    function* values(): Generator<string, undefined> {
+      try {
+        yield* base;
+      } catch (e) {
+        poison();
+        throw e;
+      }
+      return undefined;
+    }
+    const view: ReadonlySet<string> = {
+      has: (id) => guarded(() => base.has(id)),
+      get size() {
+        return guarded(() => base.size);
+      },
+      values,
+      keys: values,
+      [Symbol.iterator]: values,
+      *entries(): Generator<[string, string], undefined> {
+        for (const id of values()) yield [id, id];
+        return undefined;
+      },
+      forEach(fn, arg) {
+        for (const id of values()) fn.call(arg, id, id, view);
+      },
+    };
+    return view;
   }
   commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
-    const run = this.#queue.then(() => this.apply(group));
+    const run = this.#queue.then(() => this.#apply(group));
     this.#queue = run.catch(() => undefined);
     return run;
   }
-  private async apply(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
+  async #apply(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>> {
     if (this.#closed || this.#lost)
       return fail("STORE_CLOSED", "campaign is closed or writer lock lost");
     if (this.#poisoned) return fail("STORE_POISONED", "reopen and reconcile original intent");
-    const owned = await this.lock.check();
+    const owned = await this.#lock.check();
     if (owned !== "owned") {
       this.#lost = owned === "lost";
       return fail("STORE_CLOSED", "writer authority unavailable", {
@@ -562,7 +614,7 @@ class CheckpointStore implements FileCampaignStore {
     }
     let prepared;
     try {
-      prepared = this.core.prepare(group);
+      prepared = this.#core.prepare(group);
     } catch (e) {
       this.#poisoned = true;
       return fail("STORE_POISONED", "historical evidence unavailable", { cause: String(e) });
@@ -572,30 +624,30 @@ class CheckpointStore implements FileCampaignStore {
       return ok({ receipt: prepared.value.receipt, replayed: true });
     const { entry, nextState } = prepared.value;
     const line = `${canonicalJson(entry)}\n`,
-      previous = this.manifest;
+      previous = this.#manifest;
     const loc = locationOf(
       entry,
       previous.head.journal_bytes,
       Buffer.byteLength(line),
-      this.options.admission !== undefined,
+      this.#options.admission !== undefined,
     );
-    const tail = [...this.tail, { entry, location: loc }];
+    const tail = [...this.#tail, { entry, location: loc }];
     let checkpoint = previous.head.checkpoint;
     let stateFile = previous.head.state_file;
     try {
-      if (this.journalSize > previous.head.journal_bytes)
-        await this.fs.truncate(join(this.dir, "journal.jsonl"), previous.head.journal_bytes);
-      await this.fs.appendDurable(join(this.dir, "journal.jsonl"), line);
+      if (this.#journalSize > previous.head.journal_bytes)
+        await this.#fs.truncate(join(this.#dir, "journal.jsonl"), previous.head.journal_bytes);
+      await this.#fs.appendDurable(join(this.#dir, "journal.jsonl"), line);
       const journalBytes = loc.offset + loc.length;
       if (tail.length >= CHECKPOINT_INTERVAL) {
         const index = await new HistoryIndex(
-          this.dir,
-          this.fs,
-          sha256Canonical(policy(this.options)),
+          this.#dir,
+          this.#fs,
+          sha256Canonical(policy(this.#options)),
         ).extend(checkpoint.index, additionsOf(tail), entry.revision);
         stateFile = stateName(entry.revision);
-        await this.fs.writeFileDurable(
-          join(this.dir, stateFile),
+        await this.#fs.writeFileDurable(
+          join(this.#dir, stateFile),
           `${canonicalJson(stateToFile(nextState))}\n`,
         );
         checkpoint = {
@@ -606,7 +658,7 @@ class CheckpointStore implements FileCampaignStore {
           journal_head_sha256: entry.entry_sha256,
           index,
           last_entry: loc,
-          verification_policy: policy(this.options),
+          verification_policy: policy(this.#options),
         };
       }
       const { self_sha256: oldSeal, ...base } = previous;
@@ -616,9 +668,9 @@ class CheckpointStore implements FileCampaignStore {
         last_saved_with: {
           package: ENGINE_PACKAGE,
           version: ENGINE_VERSION,
-          build_id: this.options.buildId ?? null,
+          build_id: this.#options.buildId ?? null,
         },
-        last_saved_spec_identity: this.options.specIdentity ?? BUILD_SPEC_IDENTITY,
+        last_saved_spec_identity: this.#options.specIdentity ?? BUILD_SPEC_IDENTITY,
         head: {
           revision: entry.revision,
           state_file: stateFile,
@@ -629,12 +681,12 @@ class CheckpointStore implements FileCampaignStore {
           checkpoint,
         },
       });
-      if ((await this.lock.check()) !== "owned")
+      if ((await this.#lock.check()) !== "owned")
         throw new Error("writer authority lost before head publication");
-      await this.fs.writeFileDurable(join(this.dir, "manifest.json"), `${canonicalJson(next)}\n`);
-      this.manifest = next;
-      this.journalSize = journalBytes;
-      this.tail = checkpoint.revision === entry.revision ? [] : tail;
+      await this.#fs.writeFileDurable(join(this.#dir, "manifest.json"), `${canonicalJson(next)}\n`);
+      this.#manifest = next;
+      this.#journalSize = journalBytes;
+      this.#tail = checkpoint.revision === entry.revision ? [] : tail;
     } catch (e) {
       this.#poisoned = true;
       return fail(
@@ -643,15 +695,15 @@ class CheckpointStore implements FileCampaignStore {
         { intent_id: entry.group.intent_id, cause: String(e) },
       );
     }
-    this.core.accept(prepared.value);
-    if (previous.head.state_file !== this.manifest.head.state_file)
-      await this.fs.remove(join(this.dir, previous.head.state_file)).catch(() => undefined);
+    this.#core.accept(prepared.value);
+    if (previous.head.state_file !== this.#manifest.head.state_file)
+      await this.#fs.remove(join(this.#dir, previous.head.state_file)).catch(() => undefined);
     return ok({ receipt: entry.receipt, replayed: false });
   }
   async close() {
     await this.#queue.catch(() => undefined);
     if (this.#closed) return;
     this.#closed = true;
-    await this.lock.release();
+    await this.#lock.release();
   }
 }

@@ -5,7 +5,7 @@ import { legacyStateFixture } from "../support/tmp.ts";
 // they consumed) were edited, or were built outside admission, fails closed. The slice adds no persistence path: every fact is an
 // ordinary OwnerFact, so the existing journal, receipts, replay and package integrity are the ones in force.
 // Local success is NOT provider/recovery acceptance (IA-07 BLOCKED).
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {

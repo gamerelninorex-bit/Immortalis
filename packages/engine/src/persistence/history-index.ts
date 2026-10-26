@@ -36,7 +36,7 @@ const NodeSchema = z.discriminatedUnion("kind", [
     right: RefSchema,
   }),
 ]);
-const digest = (key: string) => createHash("sha256").update(key).digest();
+const digest = (key: string) => createHash("sha256").update(canonicalJson(key)).digest();
 const bitAt = (bytes: Buffer, bit: number) => (bytes[bit >> 3]! >> (7 - (bit & 7))) & 1;
 
 export class HistoryIndex {

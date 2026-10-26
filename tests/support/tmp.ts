@@ -6,7 +6,15 @@ import {
   sha256Canonical,
 } from "@immortalis/engine";
 import { BUILD_SPEC_IDENTITY, JournalEntrySchema } from "@immortalis/contracts";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterAll } from "vitest";
@@ -30,13 +38,19 @@ export function copyDir(from: string): string {
   return to;
 }
 
-/** name -> content for every file in a package directory (flat layout). */
+/** name -> content for every file in a package directory, including derived index packs. */
 export function snapshotDir(dir: string): Record<string, string> {
-  return Object.fromEntries(
-    readdirSync(dir)
-      .sort()
-      .map((f) => [f, readFileSync(join(dir, f), "utf8")]),
-  );
+  const entries: [string, string][] = [];
+  const walk = (base: string, prefix: string) => {
+    for (const name of readdirSync(base).sort()) {
+      const full = join(base, name),
+        relative = prefix + name;
+      if (statSync(full).isDirectory()) walk(full, relative + "/");
+      else entries.push([relative, readFileSync(full, "utf8")]);
+    }
+  };
+  walk(dir, "");
+  return Object.fromEntries(entries);
 }
 
 /**
@@ -66,7 +80,7 @@ export function legacyStateFixture(path: string) {
     }
     if (stateSha256(core.state) !== manifest.head.state_sha256)
       throw new Error("invalid test snapshot");
-    writeFileSync(path, JSON.stringify(stateToFile(core.state)));
+    writeFileSync(path, JSON.stringify(stateToFile(core.state), null, 2));
     manifest.format_version = 1;
     delete manifest.genesis_format_version;
     delete manifest.head.checkpoint;
@@ -78,4 +92,10 @@ export function legacyStateFixture(path: string) {
     );
   }
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+/** Text form of the independent v1 corruption fixture. */
+export function legacyStateText(path: string): string {
+  if (/^state\.[0-9]+\.json$/.test(basename(path))) legacyStateFixture(path);
+  return readFileSync(path, "utf8");
 }

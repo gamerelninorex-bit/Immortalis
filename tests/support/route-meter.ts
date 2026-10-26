@@ -190,7 +190,7 @@ export function routeMeter() {
         counts.fs_writes++;
         counts.fs_write_bytes += Buffer.byteLength(data);
       }
-      return method(path, data);
+      return Reflect.apply(method, nodeFs, [path, data]);
     };
     undo.push(() => {
       nodeFs[key] = method;

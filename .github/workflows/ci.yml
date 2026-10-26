@@ -52,3 +52,35 @@ jobs:
         run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
       - name: Security static/config checks
         run: pnpm run test:security
+
+  h07-evidence:
+    name: H-07 matched persistence evidence
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'codex/h07-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Matched before/after matrix and exceptional-cost accounting
+        env:
+          H07_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash tools/h07-benchmark.sh
+      - name: Retain reproducible raw H-07 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h07-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          path: |
+            /tmp/immortalis-h07-evidence/raw/*.json
+            /tmp/immortalis-h07-evidence/fixtures/*.seed.json
+            /tmp/immortalis-h07-evidence/summary.json
+            /tmp/immortalis-h07-evidence/report.md
