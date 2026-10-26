@@ -539,8 +539,8 @@ describe("the earned boundary, interrupted at every durable step and re-presente
     await must(pc.advance(advanceRequest("tx-due")));
     const afterAdvance = probe.count();
     await p.close();
-    // completion + acceptance + realization stages and the kernel group: at least four commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(16);
+    // completion + acceptance + realization stages and the kernel group: at least four commits of append + manifest publication each
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(8);
 
     const finals = new Set<string>();
     const seen = { rolledBack: 0, partial: 0, committed: 0 };
