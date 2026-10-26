@@ -775,7 +775,12 @@ describe("historical sixteenth-slice Instruments keep loading unchanged under th
   async function rogue(build: (s: CampaignStore) => Promise<void>): Promise<string> {
     const dir = tempDir();
     const s = await must(
-      createFileCampaign(dir, { campaignId: FIXTURE_CAMPAIGN, owners: CANONICAL_OWNER_REGISTRY }),
+      // A historical-save fixture must contain the actual v1 state, not an empty v2 genesis checkpoint.
+      createFileCampaign(dir, {
+        campaignId: FIXTURE_CAMPAIGN,
+        owners: CANONICAL_OWNER_REGISTRY,
+        legacyFormat: true,
+      }),
     );
     await build(s);
     await s.close();
@@ -832,12 +837,15 @@ describe("historical sixteenth-slice Instruments keep loading unchanged under th
       );
     });
 
-  it("a sixteenth-slice core-only Instrument under the historical citation loads, verifies, saves and reloads unchanged with no migration or rewrite", async () => {
+  it("a sixteenth-slice core-only Instrument in v1 loads, verifies, saves and reloads without fact migration or state-byte rewrite", async () => {
     const dir = await historical();
     const before = readFileSync(join(dir, stateFile(dir)), "utf8");
+    expect(JSON.parse(before).facts.length).toBeGreaterThan(0);
+    const journalBefore = readFileSync(join(dir, "journal.jsonl"));
     expect(await openOutcome(dir)).toBe("OK");
-    // opening migrated or rewrote nothing
+    // Local format conversion is authorized; historical facts, state bytes and journal are untouched.
     expect(readFileSync(join(dir, stateFile(dir)), "utf8")).toBe(before);
+    expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journalBefore);
 
     const c = await must(CanonicalCampaign.open(dir));
     expect(c.verify()).toEqual([]);

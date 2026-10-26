@@ -480,6 +480,7 @@ describe("save → close → load → continue (single canon; no duplicate consu
     await l.campaign.close();
   });
 
+  // Three fresh Node processes load the full engine; allow cold startup under parallel CI load.
   it("across real OS-process boundaries: create → load → continue", () => {
     const dir = tempDir();
     const script = join(import.meta.dirname, "fixtures", "population-process.ts");
@@ -517,7 +518,7 @@ describe("save → close → load → continue (single canon; no duplicate consu
     expect(cont.after.population).toEqual(created.summary.population);
     // canonical world / PC / binding identity unchanged
     expect(cont.after.canonical).toEqual(created.summary.canonical);
-  });
+  }, 30_000);
 });
 
 describe("the frozen Temporal-Read cut for Population (WS-015 §VIII; WS-001 §32)", () => {
