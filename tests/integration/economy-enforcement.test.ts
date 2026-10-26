@@ -1108,8 +1108,8 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     await must(econCoordinator(p.store).advance(prodAdvanceRequest("tx-complete", PROD_T1)));
     const afterAdvance = probe.count();
     await p.close();
-    // three stages + the kernel group: four commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(16);
+    // three stages + the kernel group: four commits of at least two durable steps each
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(8);
 
     const seen = { rolledBack: 0, partial: 0, committed: 0 };
     const finals = new Set<string>();

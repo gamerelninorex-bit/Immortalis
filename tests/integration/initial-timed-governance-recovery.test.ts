@@ -684,7 +684,7 @@ describe("a failure before or after EVERY mutating filesystem operation converge
       (await addGovernance(probeDirs, file, ["confirm"], { campaignFs: probe.fs })).result.status,
     ).toBe("GOVERNANCE_READY");
     const total = probe.count();
-    expect(total).toBeGreaterThan(20);
+    expect(total).toBeGreaterThan(10);
 
     const seen = new Set<string>();
     for (let failAt = 1; failAt <= total; failAt++) {

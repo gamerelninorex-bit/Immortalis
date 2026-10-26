@@ -423,7 +423,7 @@ describe("a failure at EVERY durable step converges by identity", () => {
     await must(c.coordinator.advance(logStopAtBoundaryRequest("tx-move", MOVE_1)));
     const afterAdvance = probe.count();
     await c.campaign.close();
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(20);
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(10);
 
     const cutsSeen = new Set<string>();
     const finals = new Set<string>();

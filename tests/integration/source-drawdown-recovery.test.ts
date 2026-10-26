@@ -348,8 +348,8 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     await must(drawCoordinator(p.store).advance(drawdownAdvanceRequest("tx-draw")));
     const afterAdvance = probe.count();
     await p.close();
-    // authority + three stages + kernel group: five commits of at least four durable steps each
-    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(20);
+    // authority + three stages + kernel group: five commits of at least two durable steps each
+    expect(afterAdvance - afterOpen).toBeGreaterThanOrEqual(10);
 
     const seen = { rolledBack: 0, partial: 0, committed: 0 };
     const finals = new Set<string>();

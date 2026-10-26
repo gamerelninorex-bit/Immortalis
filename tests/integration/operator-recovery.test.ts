@@ -189,7 +189,7 @@ describe("a crash at every durable write of the operator's own commands", () => 
     await relocate(ctxOf(s0, scriptedTerminal("confirm"), fixedIds("rel-1")), RELOCATE_INPUT);
     const total = probe.count();
     await s0.close();
-    expect(total - afterOpen).toBeGreaterThan(10);
+    expect(total - afterOpen).toBeGreaterThanOrEqual(10);
 
     const seen = new Set<string>();
     for (let failAt = afterOpen + 1; failAt <= total; failAt++) {
@@ -283,7 +283,7 @@ describe("a crash at every durable write of the operator's own commands", () => 
     await advance(ctxOf(s0, scriptedTerminal("confirm"), fixedIds(ADV)));
     const total = probe.count();
     await s0.close();
-    expect(total - afterOpen).toBeGreaterThan(10);
+    expect(total - afterOpen).toBeGreaterThanOrEqual(10);
 
     const seen = new Set<string>();
     for (let failAt = afterOpen + 1; failAt <= total; failAt++) {

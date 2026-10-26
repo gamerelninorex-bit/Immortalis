@@ -3,6 +3,7 @@ import {
   closeSync,
   constants,
   copyFileSync,
+  cpSync,
   fstatSync,
   mkdirSync,
   mkdtempSync,
@@ -709,13 +710,24 @@ async function dryRun(
     scratch = mkdtempSync(join(tmpdir(), "immortalis-initial-local-demand-dry-run-"));
     const copy = join(scratch, "package");
     mkdirSync(copy, { mode: 0o700 });
-    const revision = store.head().revision;
-    for (const name of [
-      "manifest.json",
-      "journal.jsonl",
-      `state.${String(revision).padStart(10, "0")}.json`,
-    ])
+    // The materialized state may be an older verified checkpoint. Copy the package selected by
+    // its manifest, including derived history evidence, then let the ordinary opener verify it.
+    const manifest = JSON.parse(readFileSync(join(params.campaignDir, "manifest.json"), "utf8"));
+    const head = store.head();
+    if (
+      manifest.campaign_id !== head.campaign_id ||
+      manifest.head?.revision !== head.revision ||
+      manifest.head?.state_sha256 !== head.state_sha256 ||
+      manifest.head?.journal_head_sha256 !== head.journal_head_sha256
+    )
+      throw new Error("scratch source does not match the verified campaign");
+    const stateFile: unknown = manifest.head?.state_file;
+    if (typeof stateFile !== "string" || !/^state\.[0-9]+\.json$/.test(stateFile))
+      throw new Error("invalid scratch state filename");
+    for (const name of ["manifest.json", "journal.jsonl", stateFile])
       copyFileSync(join(params.campaignDir, name), join(copy, name));
+    if (manifest.format_version === 2)
+      cpSync(join(params.campaignDir, "history"), join(copy, "history"), { recursive: true });
     const opened = await CanonicalCampaign.open(copy, { buildId });
     if (!opened.ok)
       return fail("INVALID_PROCESS", "the demand and start could not be checked", {

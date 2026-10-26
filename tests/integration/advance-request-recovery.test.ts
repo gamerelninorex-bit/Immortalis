@@ -208,8 +208,10 @@ describe("a lost reply or crash at each durable cut while the operator answers a
           await converge(dirs, h, label);
         }
       }
-      // the cuts exercised a committed outcome, and (in the package) an unknown one
-      expect(seen.has("PC_TARGET_ADVANCE_COMMITTED"), [...seen].join()).toBe(true);
+      // The no-fault probe above proves the committed response. Every ordinary v2 campaign write
+      // is essential publication work, so every injected cut can legitimately return UNKNOWN.
+      if (seam === "ledgerFs")
+        expect(seen.has("PC_TARGET_ADVANCE_COMMITTED"), [...seen].join()).toBe(true);
       if (seam === "campaignFs")
         expect(seen.has("PC_TARGET_ADVANCE_OUTCOME_UNKNOWN"), [...seen].join()).toBe(true);
     }, 1_800_000);

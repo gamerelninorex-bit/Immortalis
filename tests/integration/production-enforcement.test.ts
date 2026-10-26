@@ -69,7 +69,7 @@ import {
   startAndRegister,
 } from "../support/production.ts";
 import { codeOf, must } from "../support/temporal.ts";
-import { tempDir } from "../support/tmp.ts";
+import { tempDir, legacyStateText } from "../support/tmp.ts";
 import { expectedAdapterMethods } from "../support/expected-surface.ts";
 import { adapterMethods } from "../support/surface-checks.ts";
 
@@ -902,7 +902,7 @@ describe("load-time verification fails closed on Production drift (IA-30 partial
       .filter((f) => /^state\./.test(f))
       .sort()
       .pop()!;
-    const text = readFileSync(join(dir, stateFile), "utf8");
+    const text = legacyStateText(join(dir, stateFile));
     expect(text).toMatch(/"amount": 10/);
     writeFileSync(join(dir, stateFile), text.replace(/"amount": 10/g, '"amount": 11'));
     expect(
