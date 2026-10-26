@@ -4,7 +4,7 @@ Scripted authenticated host, scripted test-human and scripted referee; real serv
 
 Base: e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587
 
-Executed commit: c2218ff18d3be5c4305e0665ec3275613d106ddb
+Executed commit: 26ea9aba9d18a7e00eb3933d0dc0d9209288cfbb
 
 ```text
 MECHANISM ONLY: scripted authenticated MCP host, scripted test-human input/consent, scripted referee policy, real canonical owners. This is not an actual human/client or AI-language-understanding witness.
@@ -254,7 +254,7 @@ SERVICE OUTCOME: TIME_ESTABLISHED
 ```
 
 ```text
-READ-ONLY NEXT STEP: {"tool":"state_handling_duration","ask_the_player":["how long ONE handling cycle of the character's own hands takes, in their own words, with the number in digits and the campaign's unit"],"canonical_unit":"second","note":"Needed only because none of the character's accepted words states a duration. Do not suggest a rate: it is the player's own account, read by the referee and accepted by the player."}
+READ-ONLY NEXT STEP: {"tool":"propose_collection_preparation","ask_the_player":["the condition the (empty) local Reserve will keep material in, in their own word"],"accepted_statements":[{"section":"identity_agency","text":"Maren Voss, an ordinary human salt-raker of about forty winters"},{"section":"contact","text":"A weathered woman in a salt-stained coat who speaks the local tongue"},{"section":"embodiment_topology","text":"One ordinary human body; the hands of this body gather loose material by hand; these hands cannot pass a sealed barrier"},{"section":"continuity_rule","text":"I remain myself for as long as I live; when my body dies I am dead."},{"section":"entry_envelope","text":"A salt-raker's knife and a coil of rope"}],"canonical_unit":"second","if_handling_duration_unresolved":{"tool":"state_handling_duration","ask_the_player":["only the materially unresolved duration of ONE handling cycle of the existing hands, in the player's own words, with the number in digits and the campaign's unit"],"note":"Use this existing clarification path only if that particular handling-cycle detail is unresolved. An unrelated duration settles nothing. The existing referee judges the branch and scope before the player's separate acceptance; never suggest or choose a rate."},"note":"If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; the player reviews and confirms the whole preparation."}
 ```
 
 ```text
@@ -294,7 +294,7 @@ SERVICE OUTCOME: CLARIFICATION_ACCEPTED
 ```
 
 ```text
-READ-ONLY NEXT STEP: {"tool":"propose_collection_preparation","ask_the_player":["the condition the (empty) local Reserve will keep material in, in their own word"],"accepted_statements":[{"section":"identity_agency","text":"Maren Voss, an ordinary human salt-raker of about forty winters"},{"section":"contact","text":"A weathered woman in a salt-stained coat who speaks the local tongue"},{"section":"embodiment_topology","text":"One ordinary human body; the hands of this body gather loose material by hand; these hands cannot pass a sealed barrier"},{"section":"continuity_rule","text":"I remain myself for as long as I live; when my body dies I am dead."},{"section":"entry_envelope","text":"A salt-raker's knife and a coil of rope"}],"canonical_unit":"second","note":"Quote the character's own accepted words exactly for what the hands do, what they cannot pass and the one-unit cycle (its number and unit), from accepted_statements; the player reviews and confirms the whole preparation."}
+READ-ONLY NEXT STEP: {"tool":"propose_collection_preparation","ask_the_player":["the condition the (empty) local Reserve will keep material in, in their own word"],"accepted_statements":[{"section":"identity_agency","text":"Maren Voss, an ordinary human salt-raker of about forty winters"},{"section":"contact","text":"A weathered woman in a salt-stained coat who speaks the local tongue"},{"section":"embodiment_topology","text":"One ordinary human body; the hands of this body gather loose material by hand; these hands cannot pass a sealed barrier"},{"section":"continuity_rule","text":"I remain myself for as long as I live; when my body dies I am dead."},{"section":"entry_envelope","text":"A salt-raker's knife and a coil of rope"}],"canonical_unit":"second","note":"If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; the player reviews and confirms the whole preparation."}
 ```
 
 ```text

@@ -1,12 +1,12 @@
 {
   "base": "e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587",
-  "head": "c2218ff18d3be5c4305e0665ec3275613d106ddb",
+  "head": "26ea9aba9d18a7e00eb3933d0dc0d9209288cfbb",
   "environment": {
     "node": "v22.22.2",
     "pnpm": "10.33.0",
     "platform": "linux",
     "arch": "x64",
-    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
     "repetitions": 3
   },
   "transcript": [
@@ -23,14 +23,14 @@
     "history": 0
   },
   "repetition": 0,
-  "ms": 520.6960959999997,
+  "ms": 351.71701799999573,
   "work": {
     "opens": 10,
-    "open_ms": 239.36474600000656,
+    "open_ms": 134.6662169999763,
     "verifies": 27,
     "replay_groups": 156,
     "prepare_groups": 2,
-    "prepare_ms": 2.610790000006091,
+    "prepare_ms": 1.2912189999915427,
     "fact_reads": 451,
     "fact_listings": 697,
     "copied_fact_rows": 10930,
@@ -46,12 +46,12 @@
     "sync_renames": 2,
     "sync_links": 0,
     "sync_removes": 4,
-    "hashes": 2543,
-    "hash_input_bytes": 8501176,
+    "hashes": 2551,
+    "hash_input_bytes": 8501304,
     "serializations": 339300,
     "serialized_bytes": 14303532
   },
-  "restart_and_link_ms": 7.932860999979312,
+  "restart_and_link_ms": 6.284777999986545,
   "restart_and_link_work": {
     "opens": 0,
     "open_ms": 0,
@@ -77,16 +77,16 @@
     "hashes": 17,
     "hash_input_bytes": 1711,
     "serializations": 40,
-    "serialized_bytes": 7780
+    "serialized_bytes": 7975
   },
-  "complete_recovery_ms": 528.641889999999,
+  "complete_recovery_ms": 358.01162099999783,
   "complete_work": {
     "opens": 10,
-    "open_ms": 239.36474600000656,
+    "open_ms": 134.6662169999763,
     "verifies": 27,
     "replay_groups": 156,
     "prepare_groups": 2,
-    "prepare_ms": 2.610790000006091,
+    "prepare_ms": 1.2912189999915427,
     "fact_reads": 451,
     "fact_listings": 697,
     "copied_fact_rows": 10930,
@@ -102,10 +102,10 @@
     "sync_renames": 2,
     "sync_links": 0,
     "sync_removes": 4,
-    "hashes": 2560,
-    "hash_input_bytes": 8502887,
+    "hashes": 2568,
+    "hash_input_bytes": 8503015,
     "serializations": 339340,
-    "serialized_bytes": 14311312
+    "serialized_bytes": 14311507
   },
   "transport": {
     "requests": 16,
