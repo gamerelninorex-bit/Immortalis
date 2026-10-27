@@ -11,7 +11,10 @@ export const UI_CAPS = {
 };
 export const openingSetting = () => {
   const doc = courtyard();
-  doc.locus.constraints.push("It is daylight, with a clear view across the yard.");
+  doc.locus.constraints.push({
+    aspect: "lighting",
+    statement: "It is daylight, with a clear view across the yard.",
+  });
   doc.source.quantity.amount = 5;
   doc.source.statement = "Five chopped logs lie on the yard floor.";
   doc.source.material_class = "chopped-wood";
@@ -54,7 +57,10 @@ export async function call(chat: Chat, j: Journey, name: string, args: any = {})
 /** Simulated component control event: private _meta bypasses the scripted model. Real component bridge separately exercised in unit harness. */
 export async function accept(chat: Chat, j: Journey, r: any, decision = "accept") {
   const v = r.result?._meta?.review;
-  expect(v, "complete component-private review").toBeDefined();
+  expect(
+    v,
+    `complete component-private review: ${JSON.stringify(r.result?.content)}`,
+  ).toBeDefined();
   expect(JSON.stringify(r.result.content)).not.toContain(v.capability);
   expect(JSON.stringify(r.result.structuredContent)).not.toContain(v.capability);
   j.reviews.push({ category: v.category, material: v.material, proposal: v.proposal_id });

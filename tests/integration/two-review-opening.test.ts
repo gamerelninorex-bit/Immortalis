@@ -43,7 +43,7 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
   try {
     const list = await r.chat.rpc("tools/list");
     const tools = list.json.result.tools;
-    expect(tools.filter((t: any) => t._meta?.ui?.visibility?.[0] !== "app")).toHaveLength(29);
+    expect(tools.filter((t: any) => t._meta?.ui?.visibility?.[0] !== "app")).toHaveLength(26);
     expect(tools.find((t: any) => t.name === REVIEW_CALLBACK)._meta.ui.visibility).toEqual(["app"]);
     const resource = await r.chat.rpc("resources/read", { uri: REVIEW_URI });
     expect(resource.json.result.contents[0].mimeType).toBe(REVIEW_MIME);

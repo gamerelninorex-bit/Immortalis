@@ -11,7 +11,7 @@ import {
   renameSync,
   writeSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { canonicalJson } from "@immortalis/contracts";
 import {
   issueReviewEvidence,
@@ -176,6 +176,15 @@ export class HumanReviews {
     }
     chmodSync(temp, 0o600);
     renameSync(temp, this.#file);
+    const dir = openSync(
+      dirname(this.#file),
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    );
+    try {
+      fsyncSync(dir);
+    } finally {
+      closeSync(dir);
+    }
   }
   sources(authority: ReviewAuthority): OpeningSources {
     const result: {
