@@ -1,0 +1,433 @@
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  constants,
+  fstatSync,
+  chmodSync,
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeSync,
+} from "node:fs";
+import { join } from "node:path";
+import { canonicalJson } from "@immortalis/contracts";
+import {
+  issueReviewEvidence,
+  type ReviewRequest,
+} from "../../../packages/operator/src/review-evidence.ts";
+import type { OperatorTerminal } from "@immortalis/operator";
+import type { PhoneConfig } from "./config.ts";
+import type { ToolContext, ToolResult } from "./mcp-http.ts";
+import { REVIEW_CALLBACK, REVIEW_URI } from "./review-card.ts";
+
+export type ReviewCategory = "setting" | "generation";
+export type ReviewAuthority = Pick<
+  ToolContext,
+  "client" | "grant" | "scopes" | "canReview" | "supportsElicitation"
+>;
+export interface OpeningSources {
+  readonly campaign?: string;
+  readonly setting?: {
+    readonly chronology?: unknown;
+    readonly declaration?: unknown;
+    readonly reserve_condition?: string;
+  };
+  readonly generation?: {
+    readonly presence?: string;
+    readonly preparation?: unknown;
+    readonly pc?: string;
+    readonly world?: string;
+    readonly locus?: string;
+  };
+}
+export interface ReviewContext {
+  readonly internal?: boolean;
+  readonly authority: ReviewAuthority;
+  readonly runId: string;
+  readonly actor: string | null;
+  readonly sources?: OpeningSources;
+  /** Created by the trusted planner from accepted-source receipts and owner-verified current input, never from a tool boolean. */
+  readonly derived?: (request: ReviewRequest) => boolean;
+  readonly active: () => boolean;
+}
+interface Receipt {
+  readonly campaign: string;
+  readonly actor: string | null;
+  readonly client: string;
+  readonly grant: string;
+  readonly category: ReviewCategory;
+  readonly subject: string;
+  readonly material: string;
+  readonly digest: string;
+  readonly source: OpeningSources;
+  readonly run: string;
+  readonly acceptedAt: number;
+}
+interface Pending {
+  readonly context: ReviewContext;
+  readonly receipt: Receipt;
+  readonly secret: string;
+  readonly expires: number;
+  readonly finish: (accepted: boolean) => void;
+}
+function ownedRead(path: string): string {
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o077) !== 0)
+      throw new Error("review evidence unavailable");
+    return readFileSync(fd, "utf8");
+  } finally {
+    closeSync(fd);
+  }
+}
+const record = (x: unknown): x is Record<string, unknown> =>
+  !!x && typeof x === "object" && !Array.isArray(x);
+const hash = (x: unknown) => createHash("sha256").update(canonicalJson(x)).digest("hex");
+const equal = (a: string, b: string) => timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
+const categoryOf = (r: ReviewRequest): ReviewCategory =>
+  [
+    "keep-character",
+    "place-character",
+    "establish-character-locus",
+    "accept-clarification",
+  ].includes(r.verb)
+    ? "generation"
+    : "setting";
+const json = (v: unknown, error = false): ToolResult => ({
+  content: [{ type: "text", text: JSON.stringify(v) }],
+  ...(error ? { isError: true } : {}),
+});
+
+/** Authenticated interface receipts, never canonical facts. One owner-only signed record; never persist a live acceptance secret. */
+export class HumanReviews {
+  readonly #file: string;
+  readonly #keyFile: string;
+  readonly #campaign: string;
+  readonly #now: () => number;
+  #pending: Pending | null = null;
+  opening: { state: string; detail: string } | null = null;
+  constructor(config: PhoneConfig, now: () => number = Date.now) {
+    this.#file = join(config.operatorDir, `chat-reviewed.${config.campaignId}.json`);
+    this.#keyFile = join(config.operatorDir, `chat-review-key.${config.campaignId}`);
+    this.#campaign = config.campaignId;
+    this.#now = now;
+  }
+  #key(create = false): Buffer {
+    try {
+      const key = Buffer.from(ownedRead(this.#keyFile), "hex");
+      if (key.length !== 32) throw new Error("review evidence unavailable");
+      return key;
+    } catch (e) {
+      if (!create || (e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      const key = randomBytes(32);
+      const fd = openSync(this.#keyFile, "wx", 0o600);
+      try {
+        writeSync(fd, key.toString("hex"));
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      return key;
+    }
+  }
+  #read(): Receipt[] {
+    let raw: string;
+    try {
+      raw = ownedRead(this.#file);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+    const parsed = JSON.parse(raw);
+    if (!record(parsed) || !Array.isArray(parsed.receipts) || typeof parsed.mac !== "string")
+      throw new Error("review evidence unavailable");
+    const mac = createHmac("sha256", this.#key())
+      .update(canonicalJson(parsed.receipts))
+      .digest("hex");
+    if (!equal(mac, parsed.mac)) throw new Error("review evidence unavailable");
+    const receipts = parsed.receipts as Receipt[];
+    if (
+      receipts.some(
+        (r) =>
+          r.campaign !== this.#campaign ||
+          r.digest !==
+            hash({ subject: r.subject, material: r.material, source: r.source, actor: r.actor }),
+      )
+    )
+      throw new Error("review evidence unavailable");
+    return receipts;
+  }
+  #write(receipt: Receipt): void {
+    const receipts = this.#read();
+    if (receipts.length >= 100) throw new Error("review history full");
+    receipts.push(receipt);
+    mkdirSync(join(this.#file, ".."), { recursive: true, mode: 0o700 });
+    const mac = createHmac("sha256", this.#key(true)).update(canonicalJson(receipts)).digest("hex");
+    const temp = `${this.#file}.${randomBytes(8).toString("hex")}.tmp`;
+    const fd = openSync(temp, "wx", 0o600);
+    try {
+      writeSync(fd, JSON.stringify({ receipts, mac }));
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    chmodSync(temp, 0o600);
+    renameSync(temp, this.#file);
+  }
+  sources(authority: ReviewAuthority): OpeningSources {
+    const result: {
+      setting?: OpeningSources["setting"];
+      generation?: OpeningSources["generation"];
+    } = {};
+    for (const r of this.#read())
+      if (r.client === authority.client && r.grant === authority.grant) {
+        if (r.source.setting) result.setting = r.source.setting;
+        if (r.source.generation) result.generation = r.source.generation;
+      }
+    return {
+      campaign: this.#campaign,
+      ...(result.setting ? { setting: result.setting } : {}),
+      ...(result.generation ? { generation: result.generation } : {}),
+    };
+  }
+  terminal(base: OperatorTerminal, context: ReviewContext): OperatorTerminal {
+    return {
+      say: (t) => base.say(t),
+      ask: async () => null,
+      close: () => base.close(),
+      review: async (request) => {
+        if (!context.active() || !context.authority.scopes.includes("player")) return null;
+        // Only exact, already accepted material may authorize technical realisation. The planner supplies this predicate.
+        if (context.derived?.(request)) return issueReviewEvidence(request.verb, request.subject);
+        if (context.internal) {
+          base.say(
+            "REVIEW_BLOCKED: the current material meaning is not covered by the accepted source review.",
+          );
+          return null;
+        }
+        if (!context.authority.canReview && !context.authority.supportsElicitation) {
+          base.say("REVIEW_UNAVAILABLE: this client has no supported in-chat review surface.");
+          return null;
+        }
+        if (request.verb === "establish-locality") {
+          try {
+            const current = JSON.parse(request.subject);
+            const original = this.#read().find(
+              (r) =>
+                r.category === "setting" &&
+                r.client === context.authority.client &&
+                r.grant === context.authority.grant &&
+                (() => {
+                  const s = JSON.parse(r.subject);
+                  return s.campaign_id === current.campaign_id && s.setup_id === current.setup_id;
+                })(),
+            );
+            if (original) return issueReviewEvidence(request.verb, request.subject);
+          } catch {
+            base.say("REVIEW_BLOCKED: original setting acceptance cannot be verified.");
+            return null;
+          }
+        }
+        const category = categoryOf(request);
+        const supplied = context.sources ?? {};
+        const source: OpeningSources = {
+          campaign: this.#campaign,
+          ...(category === "setting" && supplied.setting ? { setting: supplied.setting } : {}),
+          ...(category === "generation" && supplied.generation
+            ? { generation: supplied.generation }
+            : {}),
+        };
+        const extra = source.generation?.presence
+          ? `\nStarting presence (your authored Entry Envelope): ${source.generation.presence}\nNative binding and stationary physical custody will be recorded only if the owners establish exactly this presence; no perception, action or elapsed time is granted.`
+          : "";
+        const material =
+          request.shown
+            .filter((line) => !/^\s*(campaign:|operator:|setup identity:|to commit,)/.test(line))
+            .join("\n") +
+          (request.interpretation
+            ? `\nCurrent referee interpretation:\n${JSON.stringify(request.interpretation, null, 2)}`
+            : "") +
+          extra +
+          (source.generation?.preparation
+            ? `\nProjection of your accepted handling claims (no new faculty or material):\n${JSON.stringify(source.generation.preparation, null, 2)}`
+            : "") +
+          (source.setting
+            ? `\nOther authored opening premises:\n${JSON.stringify(source.setting, null, 2)}`
+            : "");
+        const subject = request.subject;
+        const digest = hash({ subject, material, source, actor: context.actor });
+        let accepted: boolean;
+        try {
+          const prior = this.#read().find(
+            (r) =>
+              r.digest === digest &&
+              r.client === context.authority.client &&
+              r.grant === context.authority.grant &&
+              r.actor === context.actor,
+          );
+          if (prior) return issueReviewEvidence(request.verb, subject);
+          accepted = await new Promise<boolean>((resolve) => {
+            this.decline();
+            const receipt: Receipt = {
+              campaign: this.#campaign,
+              actor: context.actor,
+              client: context.authority.client,
+              grant: context.authority.grant,
+              category,
+              subject,
+              material,
+              digest,
+              source,
+              run: context.runId,
+              acceptedAt: this.#now(),
+            };
+            const timer = setTimeout(() => {
+              if (this.#pending?.receipt.digest === digest) this.decline();
+            }, 5 * 60_000);
+            this.#pending = {
+              context,
+              receipt,
+              secret: randomBytes(32).toString("hex"),
+              expires: this.#now() + 5 * 60_000,
+              finish: (ok) => {
+                clearTimeout(timer);
+                resolve(ok);
+              },
+            };
+            base.say(
+              `REVIEW_WAITING ${category}: the complete review is available in this conversation.`,
+            );
+          });
+        } catch {
+          base.say("REVIEW_BLOCKED: accepted-source evidence cannot be verified.");
+          return null;
+        }
+        return accepted && context.active() ? issueReviewEvidence(request.verb, subject) : null;
+      },
+    };
+  }
+  pending(): boolean {
+    return this.#pending !== null;
+  }
+  decline(): void {
+    const p = this.#pending;
+    this.#pending = null;
+    p?.finish(false);
+  }
+  async decorate(result: ToolResult, authority: ToolContext): Promise<ToolResult> {
+    const p = this.#pending;
+    if (!p && this.opening) return { ...result, structuredContent: { opening: this.opening } };
+    if (
+      !p ||
+      !p.context.active() ||
+      p.context.authority.client !== authority.client ||
+      p.context.authority.grant !== authority.grant
+    )
+      return result;
+    if (!authority.canReview) {
+      if (!authority.canElicit)
+        return json({
+          state: "AWAITING_REVIEW",
+          category: p.receipt.category,
+          next: "Call await_action for the in-chat human review.",
+        });
+      const answer = await authority.elicit(
+        p.receipt.material,
+        {
+          type: "object",
+          properties: { accept: { type: "boolean", title: "Accept the complete proposal" } },
+          required: ["accept"],
+        },
+        5 * 60_000,
+      );
+      if (this.#pending !== p) return json({ state: "REVIEW_REFUSED" }, true);
+      return this.submit(
+        {
+          proposal_id: p.context.runId,
+          digest: p.receipt.digest,
+          capability: p.secret,
+          decision:
+            answer?.action === "accept" && answer.content?.accept === true ? "accept" : "decline",
+        },
+        authority,
+        true,
+      );
+    }
+    return {
+      ...result,
+      structuredContent: {
+        state: "AWAITING_REVIEW",
+        category: p.receipt.category,
+        proposal_id: p.context.runId,
+      },
+      _meta: {
+        ui: { resourceUri: REVIEW_URI },
+        review: {
+          proposal_id: p.context.runId,
+          digest: p.receipt.digest,
+          category: p.receipt.category,
+          material: p.receipt.material,
+          capability: p.secret,
+        },
+      },
+    };
+  }
+  submit(args: Record<string, unknown>, authority: ReviewAuthority, native = false): ToolResult {
+    const p = this.#pending;
+    const allowed = ["proposal_id", "digest", "capability", "decision"];
+    if (
+      !p ||
+      Object.keys(args).length !== allowed.length ||
+      Object.keys(args).some((k) => !allowed.includes(k)) ||
+      !authority.scopes.includes("player") ||
+      (!authority.canReview && !native) ||
+      p.context.authority.client !== authority.client ||
+      p.context.authority.grant !== authority.grant ||
+      !p.context.active() ||
+      this.#now() >= p.expires ||
+      args.proposal_id !== p.context.runId ||
+      args.digest !== p.receipt.digest ||
+      typeof args.capability !== "string" ||
+      !equal(args.capability, p.secret) ||
+      !["accept", "revise", "decline"].includes(String(args.decision))
+    )
+      return json({ state: "REVIEW_REFUSED" }, true);
+    this.#pending = null;
+    try {
+      if (args.decision === "accept") this.#write(p.receipt);
+    } catch {
+      p.finish(false);
+      return json({ state: "REVIEW_BLOCKED" }, true);
+    }
+    p.finish(args.decision === "accept");
+    return json({
+      state: args.decision === "accept" ? "REVIEW_ACCEPTED" : "REVIEW_DECLINED",
+      category: p.receipt.category,
+    });
+  }
+  callback() {
+    return {
+      name: REVIEW_CALLBACK,
+      title: "Respond to the displayed review",
+      description: "UI-only authenticated response to one exact human review.",
+      scope: "player" as const,
+      inputSchema: {
+        type: "object",
+        properties: {
+          proposal_id: { type: "string" },
+          digest: { type: "string" },
+          capability: { type: "string" },
+          decision: { enum: ["accept", "revise", "decline"] },
+        },
+        required: ["proposal_id", "digest", "capability", "decision"],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+      _meta: { ui: { visibility: ["app"] } },
+      handler: async (args: Record<string, unknown>, ctx: ToolContext) => this.submit(args, ctx),
+    };
+  }
+}

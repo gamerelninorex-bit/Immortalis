@@ -39,6 +39,8 @@ jobs:
         run: pnpm run typecheck
       - name: Spec-lock / acceptance register / open-gates consistency
         run: pnpm run check:spec
+      - name: Two-review inline opening (mechanism only; live client UNRUN)
+        run: pnpm exec vitest run tests/integration/two-review-opening.test.ts
       - name: A2 whole-path evidence and BLUE H1 regressions
         run: pnpm exec vitest run tests/integration/chat-collection-prep-evidence.test.ts tests/integration/chat-collection-prep-boundaries.test.ts tests/integration/chat-collection-prep.test.ts
       - name: Unit
@@ -51,7 +53,7 @@ jobs:
         run: pnpm run test:security
       - name: Integration smoke
         # The focused A2/H1 files ran above; every integration file runs once.
-        run: pnpm run test:integration --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
+        run: pnpm run test:integration --exclude tests/integration/two-review-opening.test.ts --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
 
   h07-evidence:
     name: H-07 matched persistence evidence

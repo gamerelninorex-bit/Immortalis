@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { canonicalJson } from "@immortalis/contracts";
+import { consumeReviewEvidence } from "./review-evidence.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 import {
   consumeOrdinaryAction,
@@ -92,6 +93,13 @@ export async function requestOperatorConfirmation(
   subject: string,
   shown: readonly string[],
 ): Promise<OperatorConfirmation | null> {
+  if (terminal.review) {
+    const evidence = await terminal.review({ verb, subject, shown });
+    if (!evidence || !consumeReviewEvidence(evidence, verb, subject)) return null;
+    const token = Object.freeze({ verb, subject });
+    live.add(token);
+    return token;
+  }
   const challenge = randomBytes(6).toString("hex");
   const phrase = `${verb} ${challenge}`;
   for (const line of shown) terminal.say(line);
@@ -132,7 +140,21 @@ export async function requestOperatorDecision(
   subject: string,
   shown: readonly string[],
   otherwise: string,
+  interpretation?: unknown,
 ): Promise<OperatorDecision> {
+  if (terminal.review) {
+    const evidence = await terminal.review({
+      verb,
+      subject,
+      shown,
+      ...(interpretation ? { interpretation } : {}),
+    });
+    if (!evidence || !consumeReviewEvidence(evidence, verb, subject))
+      return { kind: "END_OF_INPUT" };
+    const token = Object.freeze({ verb, subject });
+    live.add(token);
+    return { kind: "CONFIRMED", confirmation: token };
+  }
   const challenge = randomBytes(6).toString("hex");
   const phrase = `${verb} ${challenge}`;
   for (const line of shown) terminal.say(line);

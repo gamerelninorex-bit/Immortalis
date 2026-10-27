@@ -1483,6 +1483,7 @@ async function place(
       "  It invents no arrival or bridge and gives the character no physical position, custody, perception, knowledge or action.",
     ],
     "Anything else leaves your character released but unbound.",
+    asked.decision,
   );
   if (
     decision.kind !== "CONFIRMED" ||

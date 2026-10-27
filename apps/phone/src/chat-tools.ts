@@ -1,3 +1,5 @@
+import { REVIEW_URI } from "./review-card.ts";
+import type { HumanReviews, OpeningSources } from "./reviews.ts";
 import { existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
 // the player-view transport is reached by its own modules, unchanged: the operator package's public surface is not enlarged for the front end
@@ -350,7 +352,6 @@ async function describeSetup(
       ? {
           confirmation:
             "The player must confirm this setting themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
-          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
         }
       : {}),
     ...(state === "RUNNING"
@@ -516,7 +517,6 @@ async function describeCharacter(
       ? {
           confirmation:
             "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
-          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
         }
       : {}),
     ...(state === "RUNNING"
@@ -666,7 +666,6 @@ async function describeStage(
       ? {
           confirmation:
             "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
-          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
         }
       : {}),
     ...(state === "RUNNING"
@@ -718,7 +717,6 @@ async function describe(
       ? {
           confirmation:
             "The player must confirm this action themselves. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confirmation phrase or type it to you.",
-          ...(config.publicUrl !== null ? { confirm_page: `${config.publicUrl}/confirm` } : {}),
         }
       : {}),
     ...(state === "RUNNING"
@@ -1267,6 +1265,8 @@ const DECLARATION_SCHEMA = {
 } as const;
 
 export interface ChatToolDeps {
+  readonly reviews?: HumanReviews;
+  readonly advanceOpening?: (context: ToolContext) => void;
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
   /** how long a start call waits for the first sign of the new run */
@@ -1276,6 +1276,51 @@ export interface ChatToolDeps {
   readonly glance?: (config: PhoneConfig) => Promise<ToolResult>;
   /** a cause for the OPERATOR's log (the preflight names the same causes); never shown to the player or the assistant */
   readonly note?: (message: string) => void;
+}
+
+function parseSettingOpening(v: unknown): OpeningSources["setting"] | null {
+  if (v === undefined) return null;
+  if (!record(v) || !onlyKeys(v, ["chronology", "declaration", "reserve_condition"])) return null;
+  const c =
+    v["chronology"] === undefined
+      ? null
+      : record(v["chronology"])
+        ? parseChronology(v["chronology"])
+        : null;
+  const d =
+    v["declaration"] === undefined
+      ? null
+      : record(v["declaration"])
+        ? parseDeclare(v["declaration"])
+        : null;
+  if ((v["chronology"] !== undefined && !c?.ok) || (v["declaration"] !== undefined && !d?.ok))
+    return null;
+  const condition = v["reserve_condition"];
+  if (condition !== undefined && (typeof condition !== "string" || !judgeStatement(condition).ok))
+    return null;
+  return {
+    ...(c?.ok ? { chronology: c.value } : {}),
+    ...(d?.ok ? { declaration: d.value } : {}),
+    ...(typeof condition === "string" ? { reserve_condition: condition } : {}),
+  };
+}
+function parseGenerationOpening(v: unknown): OpeningSources["generation"] | null {
+  if (v === undefined) return null;
+  if (!record(v) || !onlyKeys(v, ["presence", "preparation"])) return null;
+  const presence = v["presence"];
+  if (presence !== undefined && (typeof presence !== "string" || !judgeStatement(presence).ok))
+    return null;
+  const p =
+    v["preparation"] === undefined
+      ? null
+      : record(v["preparation"])
+        ? parsePrepare(v["preparation"])
+        : null;
+  if (v["preparation"] !== undefined && !p?.ok) return null;
+  return {
+    ...(typeof presence === "string" ? { presence } : {}),
+    ...(p?.ok ? { preparation: p.value } : {}),
+  };
 }
 
 export function buildChatTools(d: ChatToolDeps): McpTool[] {
@@ -1352,8 +1397,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, launched.run, 0, runs);
   };
   /** the result of a stage start: the run's account, or "nothing to do" when the owners already hold the stage (nobody is asked) */
-  const startStage = async (request: StageRequest): Promise<ToolResult> => {
-    const launched = await runs.stage(request);
+  const startStage = async (request: StageRequest, ctx: ToolContext): Promise<ToolResult> => {
+    const launched = await runs.stage(request, { authority: ctx });
     if (!launched.ok) return text(launched.reason, true);
     if (launched.run === null)
       return asJson({
@@ -1371,8 +1416,13 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
    */
   const supersede = async (): Promise<void> => {
     const run = runs.current();
-    if (!run || run.done || (run.label !== CHARACTER_COMMAND && !run.step)) return;
-    if (!run.terminal.snapshot(0).pending) return;
+    if (
+      !run ||
+      run.done ||
+      (run.label !== CHARACTER_COMMAND && run.label !== SETUP_COMMAND && !run.step)
+    )
+      return;
+    if (!run.terminal.snapshot(0).pending && !d.reviews?.pending()) return;
     runs.decline();
     const deadline = Date.now() + 5_000;
     while (!run.done && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
@@ -1482,7 +1532,21 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       name: "propose_original_setting",
       title: "Offer the player's own original setting",
       description: `Offer the setting the PLAYER has chosen to author themselves as an ORIGINAL invented place: one world, one locality of it and ONE exact finite physical source, exactly as the player said it. This is an explicitly limited substrate mode: use it only when the player actually chose to write their own place; it is not world generation and you do not invent canon for them. Every field is the player's authored content; nothing is defaulted, estimated or completed for them. The engine checks it and the player reads ALL of it and confirms it themselves; only then is it committed as the physical setting. It establishes no character, perception, knowledge, right to take anything, or time. Then follow it with await_action. ${PLAYER_RULES}`,
-      inputSchema: SETTING_SCHEMA,
+      inputSchema: {
+        ...SETTING_SCHEMA,
+        properties: {
+          ...SETTING_SCHEMA.properties,
+          opening: {
+            type: "object",
+            properties: {
+              chronology: MOMENT_SCHEMA,
+              declaration: DECLARATION_SCHEMA,
+              reserve_condition: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1490,8 +1554,13 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
-        const parsed = LocalitySetupSchema.safeParse(args);
+      handler: async (args, ctx) => {
+        void ctx;
+        const { opening: openingRaw, ...settingArgs } = args;
+        const opening = parseSettingOpening(openingRaw);
+        if (openingRaw !== undefined && !opening)
+          return text("invalid authored opening premises", true);
+        const parsed = LocalitySetupSchema.safeParse(settingArgs);
         if (!parsed.success)
           return asJson(
             {
@@ -1508,7 +1577,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             "this setting has too many separate entries to be shown whole to the player for confirmation; nothing was started. Offer fewer separate entries.",
             true,
           );
-        const launched = await runs.proposeSetup(JSON.stringify(parsed.data));
+        await supersede();
+        const launched = await runs.proposeSetup(JSON.stringify(parsed.data), {
+          authority: ctx,
+          ...(opening ? { sources: { setting: opening } } : {}),
+        });
         if (!launched.ok) return text(launched.reason, true);
         await launched.run.terminal.changed(0, settleMs);
         return describe(config, launched.run, 0, runs);
@@ -1522,7 +1595,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       inputSchema: NONE,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         const setting = await runs.settingStatus();
         return asJson({
@@ -1548,9 +1622,10 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
-        const launched = await runs.resumeSetup();
+        const launched = await runs.resumeSetup({ authority: ctx });
         if (!launched.ok) return text(launched.reason, true);
         await launched.run.terminal.changed(0, settleMs);
         return describe(config, launched.run, 0, runs);
@@ -1559,8 +1634,28 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     {
       name: "propose_original_character",
       title: "Offer the player's own original character",
-      description: `Offer the character the PLAYER has authored in their own words as their ORIGINAL character: who or what they are, how the world can register them (or an explicit no-contact), their form, what keeps them the same continuing self, and optionally anything that differs from the ordinary, anything left open, and anything they begin with. Every field is the player's words, exactly as they said them: nothing is inferred from memory or a profile, completed, defaulted or improved for them, and nothing is delegated to you. An AI referee host reads each statement and says what it accepts as the character's own; the player is then shown ALL of it with those findings and keeps it (or not) themselves. Keeping does NOT place the character anywhere: placement is a separate, later choice. Then follow it with await_action. ${PLAYER_RULES}`,
-      inputSchema: CHARACTER_SCHEMA,
+      description: `Offer the character the PLAYER has authored in their own words as their ORIGINAL character: who or what they are, how the world can register them (or an explicit no-contact), their form, what keeps them the same continuing self, and optionally anything that differs from the ordinary, anything left open, and anything they begin with. Every field is the player's words, exactly as they said them: nothing is inferred from memory or a profile, completed, defaulted or improved for them, and nothing is delegated to you. An AI referee host reads each statement and says what it accepts as the character's own; the player is then shown ALL of it with those findings and keeps it (or not) themselves. Include an already authored starting presence in opening.presence so it is mirrored in the generation review. Its eligible native binding and physical custody are then realized internally, in owner order, without another approval. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: {
+        ...CHARACTER_SCHEMA,
+        required: ["identity"],
+        anyOf: [
+          { required: ["baseline_human"] },
+          { required: ["identity", "contact", "embodiment", "continuity"] },
+        ],
+        properties: {
+          ...CHARACTER_SCHEMA.properties,
+          baseline_human: {
+            type: "string",
+            description:
+              "The player’s explicit baseline-human shorthand, verbatim. Do not add exceptional faculties, durations or limits.",
+          },
+          opening: {
+            type: "object",
+            properties: { presence: { type: "string" }, preparation: PREPARATION_SCHEMA },
+            additionalProperties: false,
+          },
+        },
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1568,8 +1663,34 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
-        const offer = parseOffer(args);
+      handler: async (args, ctx) => {
+        void ctx;
+        const { opening: openingRaw, baseline_human: baseline, ...characterArgs } = args;
+        if (baseline !== undefined) {
+          if (
+            typeof baseline !== "string" ||
+            !judgeStatement(baseline).ok ||
+            !onlyKeys(characterArgs, [
+              "identity",
+              "exceptions",
+              "open_items",
+              "initial_possessions",
+            ])
+          )
+            return text(
+              "baseline human shorthand must be the player’s own wording, with exceptions separate",
+              true,
+            );
+          Object.assign(characterArgs, {
+            contact: { kind: "CONTACT_ANCHOR", surfaces: [baseline] },
+            embodiment: baseline,
+            continuity: baseline,
+          });
+        }
+        const opening = parseGenerationOpening(openingRaw);
+        if (openingRaw !== undefined && !opening)
+          return text("invalid starting presence or accepted-claim projection", true);
+        const offer = parseOffer(characterArgs);
         if (!offer.ok)
           return asJson(
             {
@@ -1579,7 +1700,12 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startCharacter(runs.proposeCharacter(offer.value));
+        return startCharacter(
+          runs.proposeCharacter(offer.value, {
+            authority: ctx,
+            ...(opening ? { sources: { generation: opening } } : {}),
+          }),
+        );
       },
     },
     {
@@ -1594,7 +1720,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const parsed = parseEdits(args);
         if (!parsed.ok)
           return asJson(
@@ -1602,7 +1729,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startCharacter(runs.reviseCharacter(parsed.value));
+        return startCharacter(runs.reviseCharacter(parsed.value, { authority: ctx }));
       },
     },
     {
@@ -1627,7 +1754,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const issues: string[] = [];
         const statement = onlyKeys(args, ["statement"])
           ? statementOf("statement", args["statement"], issues)
@@ -1641,7 +1769,12 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startCharacter(runs.placeCharacter(statement));
+        return startCharacter(
+          runs.placeCharacter(statement, {
+            authority: ctx,
+            sources: { generation: { presence: statement } },
+          }),
+        );
       },
     },
     {
@@ -1652,7 +1785,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       inputSchema: NONE,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         const character = await runs.characterStatus();
         return asJson({
@@ -1677,7 +1811,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     {
       name: "resume_original_character",
       title: "Finish what the player's original character began",
-      description: `Finish only what the engine's records show was begun for the player's ONE character: a kept character whose release was interrupted is released from exactly what was kept, WITHOUT asking the player to keep it again; a retained unkept draft is reviewed again and the player keeps it afresh; a retained placement statement is read again and the player confirms the placement afresh. It takes no arguments, cannot supply or change anything, and is refused unless the records show exactly such a situation. Then follow it with await_action. ${PLAYER_RULES}`,
+      description: `Finish only what the engine's records show was begun for the player's ONE character: a kept character whose release was interrupted is released from exactly what was kept, WITHOUT asking the player to keep it again; a retained unkept draft reuses an exact authenticated receipt or presents the complete generation review if none exists; a retained placement statement is read again and the exact prior authenticated acceptance is reused where unchanged. It takes no arguments, cannot supply or change anything, and is refused unless the records show exactly such a situation. Then follow it with await_action. ${PLAYER_RULES}`,
       inputSchema: NONE,
       annotations: {
         readOnlyHint: false,
@@ -1686,10 +1820,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         await supersede();
-        return startCharacter(runs.resumeCharacter());
+        return startCharacter(runs.resumeCharacter({ authority: ctx }));
       },
     },
     {
@@ -1700,7 +1835,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       inputSchema: NONE,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         const route = await runs.routeStatus();
         return asJson({
@@ -1722,10 +1858,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         await supersede();
-        return startStage({ kind: "LOCUS" });
+        return startStage({ kind: "LOCUS" }, ctx);
       },
     },
     {
@@ -1740,7 +1877,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const parsed = parseChronology(args);
         if (!parsed.ok)
           return asJson(
@@ -1751,13 +1889,13 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startStage({ kind: "CHRONOLOGY", input: parsed.value });
+        return startStage({ kind: "CHRONOLOGY", input: parsed.value }, ctx);
       },
     },
     {
       name: "state_handling_duration",
       title: "State how long one handling cycle of the character's hands takes",
-      description: `Use only for the particular materially unresolved handling-cycle duration while collection_setup_status offers that open branch (directly or through if_handling_duration_unresolved). An unrelated number and time unit do not resolve it. If the character already has accepted words for the actual handling cycle, use those in preparation without a new duration or R-5 confirmation. Offer the PLAYER's own account, in their own words, of how long ONE handling cycle of the hands the character already has takes: the number in digits and the campaign's unit. Never suggest, estimate or choose a duration for them, and never include a new limb, power or reach. The AI referee host reads exactly those words, and the player then accepts them as a claim of their character in a separate confirmation. Then follow it with await_action. ${PLAYER_RULES}`,
+      description: `Use only for the particular materially unresolved handling-cycle duration while collection_setup_status offers that open branch (directly or through if_handling_duration_unresolved). An unrelated number and time unit do not resolve it. If the character already has accepted words for the actual handling cycle, use those in preparation without a new duration or R-5 confirmation. Offer the PLAYER's own account, in their own words, of how long ONE handling cycle of the hands the character already has takes: the number in digits and the campaign's unit. Never suggest, estimate or choose a duration for them, and never include a new limb, power or reach. The AI referee host reads exactly those words, and the player then accepts them as a claim of their character within the generation authorship review. Then follow it with await_action. ${PLAYER_RULES}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -1779,7 +1917,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const parsed = parseHandling(args);
         if (!parsed.ok)
           return asJson(
@@ -1787,7 +1926,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startStage({ kind: "CLARIFY", words: parsed.value });
+        return startStage({ kind: "CLARIFY", words: parsed.value }, ctx);
       },
     },
     {
@@ -1802,7 +1941,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const parsed = parsePrepare(args);
         if (!parsed.ok)
           return asJson(
@@ -1813,7 +1953,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startStage({ kind: "PREPARE", input: parsed.value });
+        return startStage({ kind: "PREPARE", input: parsed.value }, ctx);
       },
     },
     {
@@ -1828,7 +1968,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         const parsed = parseDeclare(args);
         if (!parsed.ok)
           return asJson(
@@ -1839,7 +1980,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             true,
           );
         await supersede();
-        return startStage({ kind: "DECLARE", input: parsed.value });
+        return startStage({ kind: "DECLARE", input: parsed.value }, ctx);
       },
     },
     {
@@ -1854,9 +1995,10 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
-        return startStage({ kind: "FINISH" });
+        return startStage({ kind: "FINISH" }, ctx);
       },
     },
     {
@@ -1871,10 +2013,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        void ctx;
         if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
         await supersede();
-        return startStage({ kind: "RESUME" });
+        return startStage({ kind: "RESUME" }, ctx);
       },
     },
     {
@@ -1923,7 +2066,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         if (!run || run.done) return text("there is no action in progress", true);
         // a withdrawal is a decline of a PENDING confirmation: the command then ends by its own account. With no confirmation waiting
         // there is nothing to withdraw, and nothing here knows whether the player has already confirmed, so nothing is claimed either way.
-        if (!run.terminal.snapshot(0).pending)
+        if (!run.terminal.snapshot(0).pending && !d.reviews?.pending())
           return text(
             "no confirmation is waiting, so there is nothing to withdraw; the action is still running and its outcome is not known yet. Call await_action to follow it, and do not tell the player it was cancelled.",
             true,
@@ -2142,8 +2285,46 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, run, after, runs);
   }
 
-  return tools;
+  const reviewNames = new Set([
+    "propose_original_setting",
+    "resume_original_setting",
+    "propose_original_character",
+    "revise_original_character",
+    "place_original_character",
+    "resume_original_character",
+    "establish_character_location",
+    "state_starting_moment",
+    "state_handling_duration",
+    "propose_collection_preparation",
+    "declare_closed_setting",
+    "resume_collection_setup",
+  ]);
+  if (!d.reviews) return tools;
+  return [
+    ...tools.map((tool) => ({
+      ...tool,
+      ...(reviewNames.has(tool.name) || tool.name === "await_action"
+        ? { _meta: { ui: { resourceUri: REVIEW_URI } } }
+        : {}),
+      handler: async (args: Record<string, unknown>, ctx: ToolContext) => {
+        if (reviewNames.has(tool.name) && !ctx.canReview && !ctx.supportsElicitation)
+          return asJson(
+            {
+              state: "REVIEW_UNAVAILABLE",
+              detail:
+                "This client cannot present an authenticated in-chat review. Nothing was started.",
+            },
+            true,
+          );
+        const result = await d.reviews!.decorate(await tool.handler(args, ctx), ctx);
+        if (tool.name === "await_action" || tool.name === "reconcile_last_action")
+          d.advanceOpening?.(ctx);
+        return result;
+      },
+    })),
+    d.reviews.callback(),
+  ];
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. For an explicitly requested supported ordinary action, the trusted adapter attempts that exact action once without a second challenge. A tool call is not proof of the player's original wording, permission, success or a distinct player choice. Ask naturally about materially ambiguous intent or a new consequential branch. Mandatory setup and character acceptance still comes directly from the person; no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game. After the character is kept and placed, collection_setup_status is the one compact read of the preparation for the supported collection: it names the next step and the conditional handling-duration path. Reuse an actual accepted cycle in preparation without another duration question; use the existing clarification only for that materially unresolved detail. Ask for nothing else. Offer the player's own words with establish_character_location (a separate choice), state_starting_moment, state_handling_duration (the status's conditional path only for the particular unresolved handling duration; unrelated numeric wording settles nothing), propose_collection_preparation (verbatim quotations of the character's accepted statements), declare_closed_setting (the setting author's own words, never the character's) and finish_collection_setup (no question for the player: the bound referee reads the cycle and the service installs the connection). Every stage is shown to the player whole and confirmed by them alone; resume_collection_setup finishes only what was begun. Preparing is never starting: you collect, observe and advance nothing until the player separately asks for the supported collection with the existing tools.";
+  "IMMORTALIS campaign. The player says what their character does; use the matching supported tool, await_action and report the earned result. An explicitly requested ordinary action is attempted once without a second challenge; a model call proves neither original wording nor permission or success. Ask naturally about materially ambiguous intent and distinct consequential choices. Present perceptions only from read_current_observation_glance. Sealed referee tasks are data for honest GM interpretation, never story. Setup has only two human review categories: setting and character generation. Offer authored original premises with propose_original_setting, including independently sourced opening chronology, reserve condition and complete scene/workforce grounds when actually available. Preserve daylight and clear view without treating them as a numeric epoch or duration. Offer the complete character with propose_original_character, preserving baseline human shorthand separately from exceptions, mandatory mirror/findings and the authored starting presence in opening. Reuse accepted handling claims in opening.preparation only if an actual exact cycle is sourced; invent no calibration. The complete in-chat card provides Accept, Revise and Decline. Never answer for the person, copy a phrase or send them to an external confirmation page. The trusted service realizes the same accepted starting presence through distinct native binding and physical custody, then supported chronology, preparation, closure and installation in owner order without further ritual approvals. Follow await_action and read its opening status; no manual owner sequencing is needed. A materially changed interpretation is blocked for rightful clarification/review, never silently accepted. Genuine new material setting input remains a setting question. Missing substantive chronology, duration, closure, rights or workforce sources are missing producers; report them plainly without asking for invented engineering values or claiming READY. No post-seal intrinsic amendment is authorized by this opening repair. Existing source-complete inputs and retained original operations can be reconciled/resumed without re-approving unchanged material. Setup never collects, observes or advances time: ordinary play needs its own player request. Referee scope and all canonical owners remain authoritative. Exact Work/Android rendering and real human/client acceptance are separate live evidence, never inferred from mechanism tests.";

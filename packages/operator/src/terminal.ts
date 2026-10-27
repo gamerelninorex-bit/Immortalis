@@ -1,3 +1,4 @@
+import type { ReviewEvidence, ReviewRequest } from "./review-evidence.ts";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 
@@ -6,6 +7,8 @@ import type { Readable, Writable } from "node:stream";
  * typed, or null at the end of input (which is a decline, never a confirmation).
  */
 export interface OperatorTerminal {
+  /** Trusted in-process human review; never parsed from CLI arguments or host assertions. */
+  review?(request: ReviewRequest): Promise<ReviewEvidence | null>;
   say(text: string): void;
   ask(prompt: string): Promise<string | null>;
   close(): void;

@@ -325,6 +325,7 @@ async function run(
       ),
     ],
     "Anything else leaves your character bound but without a physical position.",
+    asked.decision,
   );
   if (
     decision.kind !== "CONFIRMED" ||

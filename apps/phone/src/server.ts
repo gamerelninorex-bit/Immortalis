@@ -1,3 +1,7 @@
+import { entryEvidence, stageEvidence as acceptedStageEvidence } from "./review-sources.ts";
+import { parseChronology, parseDeclare, parsePrepare } from "./route-stages.ts";
+import { HumanReviews } from "./reviews.ts";
+import type { ReviewLaunch } from "./runs.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
@@ -186,6 +190,8 @@ export interface PhoneServer {
 }
 
 export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): PhoneServer {
+  const reviews = new HumanReviews(config, deps.now ?? Date.now);
+  let pumpOpening: ((review: ReviewLaunch) => void) | undefined;
   const now = deps.now ?? (() => Date.now());
   const cli = deps.runCli ?? runCli;
   const console_ = deps.runRefereeConsole ?? runRefereeConsole;
@@ -560,7 +566,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     label: string,
     argv: readonly string[],
     cleanup: () => void,
-    opts: { quiet: boolean },
+    opts: { quiet: boolean; review?: ReviewLaunch; actor?: string },
     after: (run: Run, code: number | null) => Promise<void> | void,
     execute: (env: CliEnvironment) => Promise<number> = (env) => cli(argv, env),
   ): Run {
@@ -570,9 +576,21 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const run: Run = { id, label, terminal, done: false, uncertain: false };
     player = run;
     wakeLane("player");
-    const env = opts.quiet
-      ? { terminal: noAsking(terminal), out: (line: string) => terminal.say(line) }
-      : { terminal, out: (line: string) => terminal.say(line) };
+    const baseTerminal = opts.quiet ? noAsking(terminal) : terminal;
+    const reviewed = opts.review
+      ? reviews.terminal(baseTerminal, {
+          authority: opts.review.authority,
+          ...(opts.review.internal ? { internal: true } : {}),
+          runId: id,
+          actor: opts.actor ?? null,
+          ...(opts.review.sources
+            ? { sources: { ...opts.review.sources, campaign: config.campaignId } }
+            : {}),
+          ...(opts.review.derived ? { derived: opts.review.derived } : {}),
+          active: () => !closing && !run.done && player?.id === id && pending?.run_id === id,
+        })
+      : baseTerminal;
+    const env = { terminal: reviewed, out: (line: string) => terminal.say(line) };
     const chain = execute(env)
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
@@ -594,6 +612,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         cleanup();
         run.done = true;
         terminal.close();
+        if (opts.review) pumpOpening?.(opts.review);
       })
       .catch(() => undefined);
     // a shutdown waits for it: the command releases the campaign's writer lock only when it has wound down
@@ -1010,13 +1029,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
     authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
+    review?: ReviewLaunch,
   ): Promise<Launch> {
-    return track(launchPlayerWork(request, lane, authority));
+    return track(launchPlayerWork(request, lane, authority, review));
   }
   async function launchPlayerWork(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
     authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
+    review?: ReviewLaunch,
   ): Promise<Launch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
@@ -1201,7 +1222,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             if (accepted) revokeOrdinaryAction(accepted);
             built.value.cleanup();
           },
-          { quiet: false },
+          { quiet: false, ...(review ? { review } : {}) },
           command === LOCALITY_COMMAND ? settleLocality : settleNormal,
           (env) => {
             const execution = accepted ? { ...env, ordinaryAction: accepted } : env;
@@ -1229,7 +1250,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
    * for a fresh confirmation exactly as it would for a first run. It is offered only when the owners' evidence says this setup is
    * confirmed and not yet whole; every other state is refused with its own reason and nothing is dispatched.
    */
-  async function resumeSetupWork(): Promise<Launch> {
+  async function resumeSetupWork(review?: ReviewLaunch): Promise<Launch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
@@ -1287,7 +1308,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           LOCALITY_COMMAND,
           built.value.argv,
           built.value.cleanup,
-          { quiet: false },
+          { quiet: false, ...(review ? { review } : {}) },
           settleLocality,
         ),
       };
@@ -1421,7 +1442,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       ? { ok: true, words: held }
       : { ok: false };
 
-  async function launchCharacterWork(req: CharacterRequest): Promise<CharacterLaunch> {
+  async function launchCharacterWork(
+    req: CharacterRequest,
+    review?: ReviewLaunch,
+  ): Promise<CharacterLaunch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
@@ -1697,12 +1721,33 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         unresolvedOutcome = true;
       }
       const dispatched = identity!;
+      const inherited =
+        review && req.kind === "RESUME" ? reviews.sources(review.authority) : undefined;
+      const reviewed = review
+        ? {
+            ...review,
+            sources: {
+              ...inherited,
+              ...review.sources,
+              generation: {
+                ...inherited?.generation,
+                ...review.sources?.generation,
+                pc: dispatched.pc_id,
+                world: dispatched.world_id,
+                locus: dispatched.locus_id,
+              },
+            },
+            derived: (
+              request: import("../../../packages/operator/src/review-evidence.ts").ReviewRequest,
+            ) => entryEvidence(reviews.sources(review.authority), request),
+          }
+        : undefined;
       const run = startRun(
         id,
         CHARACTER_COMMAND,
         [],
         () => undefined,
-        { quiet: false },
+        { quiet: false, ...(reviewed ? { review: reviewed, actor: dispatched.pc_id } : {}) },
         settleCharacter,
         (env) => runCharacterOperation(config, dispatched, words, env, deps.character),
       );
@@ -1879,7 +1924,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     return derived.ok ? installState(config, derived.scenario, r.package_residue) : null;
   };
 
-  async function launchStageWork(req: StageRequest): Promise<StageLaunch> {
+  async function launchStageWork(req: StageRequest, review?: ReviewLaunch): Promise<StageLaunch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
@@ -1907,6 +1952,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const wait = refereeWaitSeconds(deps.character);
 
       let planned: PlannedRun;
+      let boundEntry: import("./reviews.ts").OpeningSources | undefined;
       let resuming = false;
       if (unresolvedOutcome) {
         // only the partly committed stage's own retained input, confirmed afresh, can continue: nothing else starts
@@ -1944,7 +1990,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             command: STAGE_COMMAND[id.kind],
             setup: id.kind === "PREPARE" ? id.setup.document : id.document,
             options: {},
-            retain: {},
+            retain:
+              id.kind === "PREPARE" && record.preparation
+                ? { preparation: record.preparation }
+                : id.kind === "DECLARE" && record.declaration
+                  ? { declaration: record.declaration }
+                  : {},
           };
           resuming = true;
         } else
@@ -1967,6 +2018,18 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         const read = await readRoute(config, (facts) => probeFor(config, facts, request));
         if (closing) return refuse(503, "the server is closing; nothing was dispatched");
         if (read.kind !== "OPEN") return refuse(409, unreadable(read));
+        if (read.route.character.kind === "BOUND") {
+          const c = read.route.character;
+          boundEntry = {
+            campaign: config.campaignId,
+            generation: {
+              pc: c.pc_id,
+              world: c.world_id,
+              locus: c.locus_id,
+              presence: c.statement,
+            },
+          };
+        }
         const plan = planStage(
           config,
           read.route,
@@ -2031,12 +2094,29 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       // the earlier record is replaced by this run's: the barrier stays until the owners' evidence about THIS run settles it
       if (resuming) unresolvedOutcome = true;
       const identity = planned.identity;
+      const reviewed = review
+        ? {
+            ...review,
+            derived: (
+              request: import("../../../packages/operator/src/review-evidence.ts").ReviewRequest,
+            ) =>
+              acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||
+              (planned.identity.kind === "LOCUS" &&
+                !!boundEntry &&
+                entryEvidence(boundEntry, request)),
+          }
+        : undefined;
       const run = startRun(
         id,
         planned.command,
         built ? built.value.argv : [],
         built ? built.value.cleanup : () => undefined,
-        { quiet: false },
+        {
+          quiet: false,
+          ...(reviewed
+            ? { review: reviewed, ...("pc_id" in identity ? { actor: identity.pc_id } : {}) }
+            : {}),
+        },
         settleStage,
         identity.kind === "CLARIFY"
           ? (env) => runClarify(config, identity, env, deps.character)
@@ -2155,10 +2235,13 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
 
   const playerRuns: PlayerRuns = {
     resumeKind: () => (resumableBlock ? resumeWhat : null),
-    proposeCharacter: (draft) => track(launchCharacterWork({ kind: "PROPOSE", draft })),
-    reviseCharacter: (edits) => track(launchCharacterWork({ kind: "REVISE", edits })),
-    placeCharacter: (statement) => track(launchCharacterWork({ kind: "PLACE", statement })),
-    resumeCharacter: () => track(launchCharacterWork({ kind: "RESUME" })),
+    proposeCharacter: (draft, review) =>
+      track(launchCharacterWork({ kind: "PROPOSE", draft }, review)),
+    reviseCharacter: (edits, review) =>
+      track(launchCharacterWork({ kind: "REVISE", edits }, review)),
+    placeCharacter: (statement, review) =>
+      track(launchCharacterWork({ kind: "PLACE", statement }, review)),
+    resumeCharacter: (review) => track(launchCharacterWork({ kind: "RESUME" }, review)),
     characterStatus: () =>
       closing
         ? Promise.resolve({
@@ -2168,7 +2251,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           } as CharacterStatusReport)
         : track(characterStatusWork()),
     characterExpectation: expectationOf,
-    stage: (request) => track(launchStageWork(request)),
+    stage: (request, review) => track(launchStageWork(request, review)),
     routeStatus: () =>
       closing
         ? Promise.resolve({
@@ -2181,9 +2264,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           } as RouteStatus)
         : track(routeStatusWork()),
     stageExpectation: stageExpectationOf,
-    proposeSetup: (document) =>
-      launchPlayer({ command: LOCALITY_COMMAND, setup: document }, "chat"),
-    resumeSetup: () => track(resumeSetupWork()),
+    proposeSetup: (document, review) =>
+      launchPlayer({ command: LOCALITY_COMMAND, setup: document }, "chat", undefined, review),
+    resumeSetup: (review) => track(resumeSetupWork(review)),
     settingStatus: () =>
       closing
         ? Promise.resolve({
@@ -2202,12 +2285,181 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         return { ok: false, status: 400, reason: "that action is not offered here" };
       return launchPlayer({ command, options }, "chat", authority);
     },
-    abort: () => player?.terminal.abort(),
+    abort: () => {
+      reviews.decline();
+      player?.terminal.abort();
+    },
     decline: () => {
+      reviews.decline();
       const waiting = player?.terminal.snapshot(0).pending;
       if (player && waiting) player.terminal.reply(waiting.id, "");
     },
   };
+
+  let openingActive = false;
+  pumpOpening = (review) => {
+    if (openingActive || closing || (player && !player.done)) return;
+    if (unresolvedOutcome && !pending?.stage && !pending?.character) return;
+    let source: import("./reviews.ts").OpeningSources;
+    try {
+      source = reviews.sources(review.authority);
+    } catch {
+      reviews.opening = {
+        state: "BLOCKED",
+        detail: "Accepted-source receipts cannot be verified.",
+      };
+      return;
+    }
+    if (!source.generation?.presence) return;
+    openingActive = true;
+    const internal: ReviewLaunch = { authority: review.authority, internal: true };
+    const waitRun = async (
+      launched:
+        | import("./runs.ts").Launch
+        | import("./runs.ts").StageLaunch
+        | import("./runs.ts").CharacterLaunch,
+    ) => {
+      if (!launched.ok) {
+        reviews.opening = { state: "BLOCKED", detail: launched.reason };
+        return false;
+      }
+      if (launched.run) {
+        while (!launched.run.done && !closing)
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        if (launched.run.uncertain || unresolvedOutcome) {
+          reviews.opening = {
+            state: "RECONCILE",
+            detail: "Reconcile the same original owner operation before continuing.",
+          };
+          return false;
+        }
+        if (exitCodeOfRun(launched.run) !== 0) {
+          reviews.opening = {
+            state: "BLOCKED",
+            detail:
+              "The owners refused or did not establish the next supported step; no new approval was inferred.",
+          };
+          return false;
+        }
+      }
+      return !closing;
+    };
+    const chain = async () => {
+      reviews.opening = {
+        state: "REALIZING",
+        detail: "Realizing the accepted opening through its existing owners.",
+      };
+      if (unresolvedOutcome && pending?.stage) {
+        if (!(await waitRun(await launchStageWork({ kind: "RESUME" }, internal)))) return;
+      }
+      const st = await rec.readCharacter(config);
+      if (st.kind === "KEPT_UNRELEASED" || st.kind === "NONE") {
+        if (!(await waitRun(await launchCharacterWork({ kind: "RESUME" }, internal)))) return;
+      }
+      const current = await rec.readCharacter(config);
+      if (current.kind === "RELEASED_UNBOUND") {
+        if (
+          !(await waitRun(
+            await launchCharacterWork(
+              { kind: "PLACE", statement: source.generation!.presence! },
+              internal,
+            ),
+          ))
+        )
+          return;
+      } else if (current.kind !== "BOUND") {
+        reviews.opening = {
+          state: "BLOCKED",
+          detail: "No accepted released character is available to place.",
+        };
+        return;
+      }
+      if (!(await waitRun(await launchStageWork({ kind: "LOCUS" }, internal)))) return;
+      const r = await readRoute(config);
+      if (r.kind !== "OPEN") {
+        reviews.opening = { state: "BLOCKED", detail: "The current owner records cannot be read." };
+        return;
+      }
+      if (!r.route.time) {
+        const c = source.setting?.chronology;
+        const parsed =
+          c && typeof c === "object" ? parseChronology(c as Record<string, unknown>) : null;
+        if (!parsed?.ok) {
+          reviews.opening = {
+            state: "MISSING_SOURCE",
+            detail:
+              "Exact starting chronology has no source. Daylight is preserved as lighting, not invented as an epoch or unit.",
+          };
+          return;
+        }
+        if (
+          !(await waitRun(
+            await launchStageWork({ kind: "CHRONOLOGY", input: parsed.value }, internal),
+          ))
+        )
+          return;
+      }
+      const p = source.generation?.preparation;
+      const prepared =
+        p && typeof p === "object" ? parsePrepare(p as Record<string, unknown>) : null;
+      if (!prepared?.ok) {
+        reviews.opening = {
+          state: "MISSING_SOURCE",
+          detail:
+            "No complete projection of an actually accepted numeric handling cycle is available. No duration or capability was invented.",
+        };
+        return;
+      }
+      if (
+        !(await waitRun(
+          await launchStageWork({ kind: "PREPARE", input: prepared.value }, internal),
+        ))
+      )
+        return;
+      const d = source.setting?.declaration;
+      const declared =
+        d && typeof d === "object" ? parseDeclare(d as Record<string, unknown>) : null;
+      if (!declared?.ok) {
+        reviews.opening = {
+          state: "MISSING_SOURCE",
+          detail:
+            "Closure, source grounds or workforce completeness lacks an independent authored source; the yard description and silence supply none.",
+        };
+        return;
+      }
+      if (
+        !(await waitRun(
+          await launchStageWork({ kind: "DECLARE", input: declared.value }, internal),
+        ))
+      )
+        return;
+      if (!(await waitRun(await launchStageWork({ kind: "FINISH" }, internal)))) return;
+      reviews.opening = {
+        state: "PREPARED",
+        detail:
+          "The source-complete opening is prepared. Setup collected nothing, earned no observation and advanced no time. Ordinary play still needs the player's separate request.",
+      };
+    };
+    track(
+      chain()
+        .catch(() => {
+          reviews.opening = {
+            state: "BLOCKED",
+            detail: "Opening realization was interrupted; reconcile the original operation.",
+          };
+        })
+        .finally(() => {
+          openingActive = false;
+        }),
+    );
+  };
+  function exitCodeOfRun(run: Run): number | null {
+    for (const line of run.terminal.snapshot(0).lines.slice().reverse()) {
+      const m = /exit code (\d+)/.exec(line.text);
+      if (m) return Number(m[1]);
+    }
+    return null;
+  }
 
   function startReferee(res: ServerResponse, body: Record<string, unknown>) {
     if (closing) return deny(res, 503, "the server is closing");
@@ -2260,6 +2512,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       ...(deps.negotiation ? { negotiation: deps.negotiation } : {}),
       instructions: TOOL_INSTRUCTIONS,
       tools: buildChatTools({
+        reviews,
+        advanceOpening: (ctx) => {
+          if (!reviews.opening || reviews.opening.state === "RECONCILE")
+            pumpOpening?.({ authority: ctx, internal: true });
+        },
         config,
         runs: playerRuns,
         ...(deps.chat ?? {}),
@@ -2509,6 +2766,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     close: () => {
       if (closePromise) return closePromise;
       closing = true;
+      reviews.decline();
       closePromise = (async () => {
         player?.terminal.abort();
         referee?.terminal.abort();

@@ -278,7 +278,9 @@ export const phraseOf = (message: string): string => {
 };
 export const humanConfirms: Human = (e) => ({
   action: "accept",
-  content: { reply: phraseOf(e.message) },
+  content: e.requestedSchema?.properties?.accept
+    ? { accept: true }
+    : { reply: phraseOf(e.message) },
 });
 export const humanDeclines: Human = () => ({ action: "decline" });
 
