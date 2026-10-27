@@ -1,3 +1,4 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2 conformance — active-PC direct physical observation. The slice adds code, tests and documents; it moves no spec-lock pin, acceptance
 // register row, status or open gate (OB-030 / F-028 stay Blocked; PF-6 stays unactivated). Every EXISTING source file it modified is pinned at the
@@ -64,11 +65,11 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/cli.ts":
     "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/confirmation.ts":
-    "ade75472e41eb80d4316034f894e5c9274c3f5e83f739b0d34d11dbd3206d208",
+    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/original-pc.ts":
-    "34f35ac70d1cd04c2982a3b999004fc1bea1daafa65ffdcf8405589ea0932f4c",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/referee-exchange.ts":
     "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
   "packages/operator/src/referee-mcp.ts":

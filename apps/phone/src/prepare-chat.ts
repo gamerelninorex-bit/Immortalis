@@ -11,7 +11,10 @@ import {
 import { randomBytes } from "node:crypto";
 import { dirname } from "node:path";
 import { runPlayerViewBindCli } from "../../../packages/operator/src/player-view-mcp.ts";
-import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
+import {
+  playerViewSecretPath,
+  readPlayerViewConfig,
+} from "../../../packages/operator/src/player-view-exchange.ts";
 import type { PhoneConfig } from "./config.ts";
 import { preflightB } from "./preflight.ts";
 import { checkScenarioFile, sameScenario } from "./scenario.ts";
@@ -90,11 +93,27 @@ export async function prepareChat(config: PhoneConfig, input: string): Promise<P
     { stateDir: config.operatorDir, campaignId: config.campaignId },
     config.playerViewHostId,
   );
+  let secretPresent = true;
   try {
     readFileSync(secret);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT")
       return no("VIEW_BINDING", "the configured view credential cannot be read");
+    secretPresent = false;
+  }
+  const uid = process.getuid?.();
+  if (uid === undefined) return no("VIEW_BINDING", "the operator cannot be verified");
+  const view = await readPlayerViewConfig(
+    { stateDir: config.operatorDir, campaignId: config.campaignId },
+    uid,
+  );
+  if (!view.ok && view.error.code !== "NOT_CONFIGURED")
+    return no("VIEW_BINDING", "the configured view binding cannot be verified");
+  if (
+    !secretPresent ||
+    !view.ok ||
+    !view.value.hosts.some((h) => h.host_id === config.playerViewHostId)
+  ) {
     const code = await runPlayerViewBindCli(
       [
         "--campaign",

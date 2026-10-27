@@ -1025,6 +1025,7 @@ async function review(
           env.chat
             ? "Anything else declines; to change something, tell your assistant what to change."
             : 'To revise instead, type "change". Anything else leaves without a character.',
+          asked.decision,
         );
         if (decision.kind === "END_OF_INPUT") return { kind: "LEFT" };
         if (decision.kind === "CONFIRMED") {

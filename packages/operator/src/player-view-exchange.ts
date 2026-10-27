@@ -115,6 +115,33 @@ export async function readPlayerViewConfig(
   return ok(parsed.data);
 }
 
+const BindingIntentSchema = z.strictObject({
+  format: z.literal("immortalis-player-view-binding-intent"),
+  campaign_id: z.string().min(1),
+  operator_uid: z.number().int().nonnegative(),
+  host_id: HostId,
+  pc_id: EntityId,
+  secret: SecretText,
+});
+/** Interface publication intent, never canon or a permission. It binds recovery of the two private files to this exact original actor. */
+function readBindingIntent(path: string, uid: number): z.infer<typeof BindingIntentSchema> | null {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.uid !== uid || (st.mode & 0o077) !== 0 || st.size > 4096)
+      throw new Error("untrusted binding intent");
+    return BindingIntentSchema.parse(JSON.parse(readFileSync(fd, "utf8")));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Binds one concrete host identity to the character `pcId`. The caller (the trusted bind action) has ALREADY proved that character against
  * canon; nothing a player, a model or a host says can reach this. The host's secret is written to an owner-only file whose PATH (never
@@ -146,16 +173,47 @@ export async function bindPlayerViewHost(
   // refused before any secret is drawn or anything is written: a ninth host would make the whole binding unreadable
   if (config.hosts.length >= MAX_HOSTS)
     return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
-  const secret = randomBytes(32).toString("hex");
-  const next: PlayerViewConfig = {
-    ...config,
-    hosts: [...config.hosts, { host_id: p.hostId, secret_sha256: digestOf(secret), pc_id: p.pcId }],
-  };
   try {
     await fs.mkdirp(playerViewDir(p));
     await chmod(playerViewDir(p), 0o700);
-    await fs.createExclusive(playerViewSecretPath(p, p.hostId), `${secret}\n`);
-    await chmod(playerViewSecretPath(p, p.hostId), 0o600);
+    const path = join(playerViewDir(p), `${p.hostId}.bind-intent.json`);
+    let intent = readBindingIntent(path, p.operatorUid);
+    if (intent === null) {
+      intent = {
+        format: "immortalis-player-view-binding-intent",
+        campaign_id: p.campaignId,
+        operator_uid: p.operatorUid,
+        host_id: p.hostId,
+        pc_id: p.pcId,
+        secret: randomBytes(32).toString("hex"),
+      };
+      await fs.createExclusive(path, `${JSON.stringify(intent)}\n`);
+      await chmod(path, 0o600);
+    }
+    if (
+      intent.campaign_id !== p.campaignId ||
+      intent.operator_uid !== p.operatorUid ||
+      intent.host_id !== p.hostId ||
+      intent.pc_id !== p.pcId
+    )
+      return fail("CONFIG_INVALID", "the original binding intent names another host or character");
+    const secret = intent.secret;
+    const secretFile = playerViewSecretPath(p, p.hostId);
+    if ((await fs.fileSize(secretFile)) === null) {
+      await fs.createExclusive(secretFile, `${secret}\n`);
+      await chmod(secretFile, 0o600);
+    } else {
+      const existing = readPlayerViewSecretFile(secretFile);
+      if (existing === null || !equalHex(digestOf(existing), digestOf(secret)))
+        return fail("SECRET_INVALID", "the credential does not match the original binding intent");
+    }
+    const next: PlayerViewConfig = {
+      ...config,
+      hosts: [
+        ...config.hosts,
+        { host_id: p.hostId, secret_sha256: digestOf(secret), pc_id: p.pcId },
+      ],
+    };
     await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
     await chmod(configPath(p), 0o600);
   } catch {

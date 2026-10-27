@@ -26,4 +26,5 @@ export interface ReviewRequest {
   readonly subject: string;
   readonly shown: readonly string[];
   readonly interpretation?: unknown;
+  readonly proposal?: unknown;
 }

@@ -21,6 +21,7 @@ import type { OperatorTerminal } from "@immortalis/operator";
 import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { REVIEW_CALLBACK, REVIEW_URI } from "./review-card.ts";
+import { projectReview } from "./review-projection.ts";
 
 export type ReviewCategory = "setting" | "generation";
 export type ReviewAuthority = Pick<
@@ -62,6 +63,7 @@ interface Receipt {
   readonly subject: string;
   readonly material: string;
   readonly digest: string;
+  readonly meaning?: string;
   readonly source: OpeningSources;
   readonly run: string;
   readonly acceptedAt: number;
@@ -73,11 +75,18 @@ interface Pending {
   readonly expires: number;
   readonly finish: (accepted: boolean) => void;
 }
-function ownedRead(path: string): string {
+export const REVIEW_RECEIPT_LIMIT = 100;
+export const REVIEW_RECEIPT_BYTES = 32 * 1024 * 1024;
+function ownedRead(path: string, maxBytes = REVIEW_RECEIPT_BYTES): string {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const st = fstatSync(fd);
-    if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o077) !== 0)
+    if (
+      st.size > maxBytes ||
+      !st.isFile() ||
+      st.uid !== process.getuid?.() ||
+      (st.mode & 0o077) !== 0
+    )
       throw new Error("review evidence unavailable");
     return readFileSync(fd, "utf8");
   } finally {
@@ -102,6 +111,32 @@ const json = (v: unknown, error = false): ToolResult => ({
   ...(error ? { isError: true } : {}),
 });
 
+/** Verify a signed receipt written by the reviewed e23 adapter without making a presentation change a new choice. */
+function legacyReceiptMatches(r: Receipt, request: ReviewRequest, source: OpeningSources): boolean {
+  if (request.verb === "establish-locality") return true; // same owner-derived setup hash, campaign, source and actor checked by caller
+  const supplied = request.shown
+    .filter((line) => !/^\s*(campaign:|operator:|setup identity:|to commit,)/.test(line))
+    .join("\n");
+  const extra = source.generation?.presence
+    ? `\nStarting presence (your authored Entry Envelope): ${source.generation.presence}\nNative binding and stationary physical custody will be recorded only if the owners establish exactly this presence; no perception, action or elapsed time is granted.`
+    : "";
+  const suffix =
+    extra +
+    (source.generation?.preparation
+      ? `\nProjection of your accepted handling claims (no new faculty or material):\n${JSON.stringify(source.generation.preparation, null, 2)}`
+      : "") +
+    (source.setting
+      ? `\nOther authored opening premises:\n${JSON.stringify(source.setting, null, 2)}`
+      : "");
+  const reading = request.interpretation
+    ? `\nCurrent referee interpretation:\n${JSON.stringify(request.interpretation, null, 2)}`
+    : "";
+  return (
+    r.material === supplied + reading + suffix ||
+    (request.verb === "keep-character" && r.material === supplied + suffix)
+  );
+}
+
 /** Authenticated interface receipts, never canonical facts. One owner-only signed record; never persist a live acceptance secret. */
 export class HumanReviews {
   readonly #file: string;
@@ -118,7 +153,7 @@ export class HumanReviews {
   }
   #key(create = false): Buffer {
     try {
-      const key = Buffer.from(ownedRead(this.#keyFile), "hex");
+      const key = Buffer.from(ownedRead(this.#keyFile, 64), "hex");
       if (key.length !== 32) throw new Error("review evidence unavailable");
       return key;
     } catch (e) {
@@ -163,14 +198,16 @@ export class HumanReviews {
   }
   #write(receipt: Receipt): void {
     const receipts = this.#read();
-    if (receipts.length >= 100) throw new Error("review history full");
+    if (receipts.length >= REVIEW_RECEIPT_LIMIT) throw new Error("review history full");
     receipts.push(receipt);
     mkdirSync(join(this.#file, ".."), { recursive: true, mode: 0o700 });
     const mac = createHmac("sha256", this.#key(true)).update(canonicalJson(receipts)).digest("hex");
     const temp = `${this.#file}.${randomBytes(8).toString("hex")}.tmp`;
     const fd = openSync(temp, "wx", 0o600);
     try {
-      writeSync(fd, JSON.stringify({ receipts, mac }));
+      const body = JSON.stringify({ receipts, mac });
+      if (Buffer.byteLength(body) > REVIEW_RECEIPT_BYTES) throw new Error("review history full");
+      writeSync(fd, body);
       fsyncSync(fd);
     } finally {
       closeSync(fd);
@@ -212,35 +249,6 @@ export class HumanReviews {
         if (!context.active() || !context.authority.scopes.includes("player")) return null;
         // Only exact, already accepted material may authorize technical realisation. The planner supplies this predicate.
         if (context.derived?.(request)) return issueReviewEvidence(request.verb, request.subject);
-        if (context.internal) {
-          base.say(
-            "REVIEW_BLOCKED: the current material meaning is not covered by the accepted source review.",
-          );
-          return null;
-        }
-        if (!context.authority.canReview && !context.authority.supportsElicitation) {
-          base.say("REVIEW_UNAVAILABLE: this client has no supported in-chat review surface.");
-          return null;
-        }
-        if (request.verb === "establish-locality") {
-          try {
-            const current = JSON.parse(request.subject);
-            const original = this.#read().find(
-              (r) =>
-                r.category === "setting" &&
-                r.client === context.authority.client &&
-                r.grant === context.authority.grant &&
-                (() => {
-                  const s = JSON.parse(r.subject);
-                  return s.campaign_id === current.campaign_id && s.setup_id === current.setup_id;
-                })(),
-            );
-            if (original) return issueReviewEvidence(request.verb, request.subject);
-          } catch {
-            base.say("REVIEW_BLOCKED: original setting acceptance cannot be verified.");
-            return null;
-          }
-        }
         const category = categoryOf(request);
         const supplied = context.sources ?? {};
         const source: OpeningSources = {
@@ -250,35 +258,53 @@ export class HumanReviews {
             ? { generation: supplied.generation }
             : {}),
         };
-        const extra = source.generation?.presence
-          ? `\nStarting presence (your authored Entry Envelope): ${source.generation.presence}\nNative binding and stationary physical custody will be recorded only if the owners establish exactly this presence; no perception, action or elapsed time is granted.`
-          : "";
-        const material =
-          request.shown
-            .filter((line) => !/^\s*(campaign:|operator:|setup identity:|to commit,)/.test(line))
-            .join("\n") +
-          (request.interpretation
-            ? `\nCurrent referee interpretation:\n${JSON.stringify(request.interpretation, null, 2)}`
-            : "") +
-          extra +
-          (source.generation?.preparation
-            ? `\nProjection of your accepted handling claims (no new faculty or material):\n${JSON.stringify(source.generation.preparation, null, 2)}`
-            : "") +
-          (source.setting
-            ? `\nOther authored opening premises:\n${JSON.stringify(source.setting, null, 2)}`
-            : "");
+        let material: string;
+        try {
+          material = projectReview(request, source);
+        } catch {
+          base.say("REVIEW_BLOCKED: the complete human review cannot be projected.");
+          return null;
+        }
         const subject = request.subject;
+        const semanticSubject = (text: string): unknown => {
+          const parsed = JSON.parse(text);
+          return request.verb === "establish-locality"
+            ? { verb: parsed.verb, campaign_id: parsed.campaign_id, setup_id: parsed.setup_id }
+            : parsed;
+        };
+        const meaning = hash({
+          subject: semanticSubject(subject),
+          source,
+          actor: context.actor,
+          ...(request.verb === "establish-locality"
+            ? { proposal: request.proposal }
+            : { shown: request.shown, interpretation: request.interpretation ?? null }),
+        });
         const digest = hash({ subject, material, source, actor: context.actor });
         let accepted: boolean;
         try {
           const prior = this.#read().find(
             (r) =>
-              r.digest === digest &&
               r.client === context.authority.client &&
               r.grant === context.authority.grant &&
-              r.actor === context.actor,
+              r.actor === context.actor &&
+              canonicalJson(r.source) === canonicalJson(source) &&
+              canonicalJson(semanticSubject(r.subject)) ===
+                canonicalJson(semanticSubject(subject)) &&
+              (r.meaning ? r.meaning === meaning : legacyReceiptMatches(r, request, source)),
           );
           if (prior) return issueReviewEvidence(request.verb, subject);
+          if (context.internal) {
+            base.say(
+              "REVIEW_BLOCKED: the current material meaning is not covered by the accepted source review.",
+            );
+            return null;
+          }
+          if (!context.authority.canReview && !context.authority.supportsElicitation) {
+            base.say("REVIEW_UNAVAILABLE: this client has no supported in-chat review surface.");
+            return null;
+          }
+
           accepted = await new Promise<boolean>((resolve) => {
             this.decline();
             const receipt: Receipt = {
@@ -290,6 +316,7 @@ export class HumanReviews {
               subject,
               material,
               digest,
+              meaning,
               source,
               run: context.runId,
               acceptedAt: this.#now(),
@@ -441,6 +468,7 @@ export class HumanReviews {
   callback() {
     return {
       name: REVIEW_CALLBACK,
+      replayable: true,
       title: "Respond to the displayed review",
       description: "UI-only authenticated response to one exact human review.",
       scope: "player" as const,

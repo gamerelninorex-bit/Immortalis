@@ -42,7 +42,8 @@ export function entryEvidence(source: OpeningSources, request: ReviewRequest): b
       record(reading.presence) &&
       reading.presence.mode === "NATIVE_AT_THIS_LOCUS" &&
       Array.isArray(reading.external_claims) &&
-      reading.external_claims.length === 0
+      reading.external_claims.length === 0 &&
+      reading.clarification === null
     );
   return false;
 }
@@ -71,6 +72,7 @@ export function stageEvidence(
   if (
     id.kind === "PREPARE" &&
     request.verb === "prepare-collection" &&
+    id.pc_id === source.generation?.pc &&
     same(source.generation?.preparation, plan.retain.preparation)
   ) {
     const input = plan.retain.preparation;

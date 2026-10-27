@@ -56,6 +56,8 @@ export interface McpTool {
   readonly mayElicit?: boolean;
   /** Internal transport receipt for a single ordinary action request; never a model argument or permission. */
   readonly ordinaryAction?: boolean;
+  /** Transport-only duplicate suppression, after the handler enforces its own authority (for the app callback). */
+  readonly replayable?: boolean;
   readonly handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
 }
 
@@ -213,7 +215,7 @@ export function createMcpHttp(o: {
 
     const receiptId = JSON.stringify(id);
     const input = JSON.stringify([name, args]);
-    if (tool.ordinaryAction) {
+    if (tool.ordinaryAction || tool.replayable) {
       const old = session.actions.get(receiptId);
       if (old) {
         if (old.input !== input)
@@ -300,7 +302,8 @@ export function createMcpHttp(o: {
         content: [{ type: "text", text: "the tool could not complete" }],
         isError: true,
       }));
-    if (tool.ordinaryAction) session.actions.set(receiptId, { input, result: execution });
+    if (tool.ordinaryAction || tool.replayable)
+      session.actions.set(receiptId, { input, result: execution });
     const result = await execution;
     const message = { jsonrpc: "2.0", id, result };
     if (stream) {

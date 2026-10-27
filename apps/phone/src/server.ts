@@ -1301,14 +1301,30 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         built.value.cleanup();
         return refuse(503, "the server is closing; nothing was dispatched");
       }
+      const id = newRunId();
+      const resumed = {
+        ...cur,
+        run_id: id,
+        dispatched_at: now(),
+        state: "DISPATCHED" as const,
+        blocker: null,
+      };
+      if (!writePending(config, resumed)) {
+        built.value.cleanup();
+        return refuse(503, "the original recovery record could not be maintained");
+      }
+      pending = resumed;
+      const reviewed = review
+        ? { ...review, sources: reviews.sources(review.authority) }
+        : undefined;
       return {
         ok: true,
         run: startRun(
-          newRunId(),
+          id,
           LOCALITY_COMMAND,
           built.value.argv,
           built.value.cleanup,
-          { quiet: false, ...(review ? { review } : {}) },
+          { quiet: false, ...(reviewed ? { review: reviewed } : {}) },
           settleLocality,
         ),
       };
@@ -2340,6 +2356,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           return false;
         }
         if (exitCodeOfRun(launched.run) !== 0) {
+          // KEEP intentionally reports released-unbound as exit 3. Owner readback, not that CLI status, proves release completion.
+          if (launched.run.label === CHARACTER_COMMAND && launched.run.stage === "KEEP") {
+            const state = await rec.readCharacter(config);
+            if (state.kind === "RELEASED_UNBOUND" || state.kind === "BOUND") return !closing;
+          }
           reviews.opening = {
             state: "BLOCKED",
             detail:
@@ -2384,6 +2405,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const r = await readRoute(config);
       if (r.kind !== "OPEN") {
         reviews.opening = { state: "BLOCKED", detail: "The current owner records cannot be read." };
+        return;
+      }
+      if (r.route.collection_commitment) {
+        reviews.opening = {
+          state: "EXISTING_PLAY",
+          detail:
+            "This campaign already has ordinary play history. Reconnecting does not rerun setup or refresh declarations; the current owners decide what actions remain available.",
+        };
         return;
       }
       if (!r.route.time) {

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted authenticated MCP/component client */
 // Mechanism evidence only: scripted author/referee and real service/operators/owners. No Work client acceptance.
 import { expect } from "vitest";
+import type { PhoneDeps } from "../../apps/phone/src/server.ts";
 import { REVIEW_CALLBACK, REVIEW_MIME } from "../../apps/phone/src/review-card.ts";
 import type { Chat } from "./chat-client.ts";
 import { courtyard } from "./chat-setting.ts";
@@ -15,6 +16,12 @@ export const openingSetting = () => {
     aspect: "lighting",
     statement: "It is daylight, with a clear view across the yard.",
   });
+  doc.world.premise =
+    "A small invented walled courtyard used as a wood yard, with five chopped logs on its floor.";
+  doc.world.reference_causal_basis.established_canon =
+    "This is an invented courtyard and wood yard; its logs are as authored here.";
+  doc.source.access_facts[0].statement =
+    "Every log can be reached by walking across the flagged floor.";
   doc.source.quantity.amount = 5;
   doc.source.statement = "Five chopped logs lie on the yard floor.";
   doc.source.material_class = "chopped-wood";
@@ -32,11 +39,23 @@ export const openingSetting = () => {
   };
 };
 export const openingCharacter = () => ({
-  ...draft({ embodiment: embodiment(true) }),
-  opening: { presence: WORDS.presence, preparation: preparation() },
+  ...draft({ embodiment: embodiment(true).replace("one handful every", "one chopped log every") }),
+  opening: {
+    presence: WORDS.presence,
+    preparation: {
+      ...preparation(),
+      cycle_quote: preparation().cycle_quote.replace("one handful every", "one chopped log every"),
+    },
+  },
 });
 export interface Journey {
-  reviews: { category: string; material: string; proposal: string }[];
+  reviews: {
+    category: string;
+    material: string;
+    proposal: string;
+    decision: string;
+    channel: "ui" | "elicitation";
+  }[];
   tools: number;
   model: string[];
   privateCapabilities: string[];
@@ -70,7 +89,13 @@ export async function accept(chat: Chat, j: Journey, r: any, decision = "accept"
   expect(JSON.stringify(r.result.content)).not.toContain(v.capability);
   expect(JSON.stringify(r.result.structuredContent)).not.toContain(v.capability);
   j.privateCapabilities.push(v.capability);
-  j.reviews.push({ category: v.category, material: v.material, proposal: v.proposal_id });
+  j.reviews.push({
+    category: v.category,
+    material: v.material,
+    proposal: v.proposal_id,
+    decision,
+    channel: "ui",
+  });
   const a = await call(chat, j, REVIEW_CALLBACK, {
     proposal_id: v.proposal_id,
     digest: v.digest,
@@ -93,7 +118,8 @@ export async function reviewProposal(
   await accept(chat, j, r, decision);
   for (let i = 0; i < 30; i++) {
     r = await call(chat, j, "await_action", { after: 0, wait_seconds: 1 });
-    if (r.data?.state === "FINISHED") return r;
+    if (r.data?.state === "FINISHED" || r.result?.structuredContent?.opening?.state === "REALIZING")
+      return r;
   }
   throw new Error("reviewed root operation did not settle");
 }
@@ -106,4 +132,35 @@ export async function openingSettled(chat: Chat, j: Journey) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error("opening did not settle");
+}
+
+/** A fresh, empty, original-author slot with actual operators/owners and scripted referee plumbing. */
+export async function supportedOpening(deps: PhoneDeps = {}) {
+  const { slot, run } = await import("./chat-setting.ts");
+  const { hosts } = await import("./chat-route.ts");
+  const s = await slot({ playerViewHostId: "view-host" });
+  const referees = await hosts(s);
+  const r = await run(s, deps, undefined, UI_CAPS);
+  const j = journey();
+  return {
+    ...r,
+    s,
+    j,
+    hosts: referees,
+    stop: async () => {
+      for (const h of referees) await h.stop();
+      await r.app.close();
+    },
+  };
+}
+export async function completeOpening(
+  r: Awaited<ReturnType<typeof supportedOpening>>,
+  setting = openingSetting(),
+  character = openingCharacter(),
+) {
+  await reviewProposal(r.chat, r.j, "propose_original_setting", setting);
+  await reviewProposal(r.chat, r.j, "propose_original_character", character);
+  const opening = await openingSettled(r.chat, r.j);
+  expect(opening).toMatchObject({ state: "PREPARED" });
+  return opening;
 }

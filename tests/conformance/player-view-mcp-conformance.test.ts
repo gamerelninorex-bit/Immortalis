@@ -1,3 +1,4 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2 conformance — the local player-view MCP transport of the existing current Active-PC Glance read (bounded brief 2026-10-15, native pin
 // 2026-10-15T09:56:12.551Z; exact base 76b3209739f47e047e7e4ea22e079410ec1a87cf). The slice adds operator-side modules, tests and documents. It moves
@@ -54,7 +55,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/original-pc.ts":
-    "34f35ac70d1cd04c2982a3b999004fc1bea1daafa65ffdcf8405589ea0932f4c",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/local-operator.ts":
@@ -73,7 +74,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/confirmation.ts":
-    "ade75472e41eb80d4316034f894e5c9274c3f5e83f739b0d34d11dbd3206d208",
+    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
 };
 
 const NEW_MODULES = [

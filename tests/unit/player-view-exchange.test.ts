@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { nodeFs } from "@immortalis/engine";
 import { describe, expect, it } from "vitest";
 import {
   PLAYER_VIEW_CONFIG_FORMAT,
@@ -184,4 +185,43 @@ describe("the secret file", () => {
     mkdirSync(join(dir, "adir"));
     expect(readPlayerViewSecretFile(join(dir, "adir"))).toBeNull();
   });
+});
+
+// PR91: configuration recovery retains the original private binding intent, never adopts an orphan key for another actor.
+it("recovers a partial credential/config publication only for the exact original actor", async () => {
+  const dir = stateDir();
+  const p = { ...params(dir), operatorUid: UID, hostId: "host-partial", pcId: "pc-original" };
+  const interrupted = await bindPlayerViewHost({
+    ...p,
+    fs: {
+      ...nodeFs,
+      writeFileDurable: async () => {
+        throw new Error("reply lost before config");
+      },
+    },
+  });
+  expect(interrupted.ok).toBe(false);
+  expect(readPlayerViewSecretFile(playerViewSecretPath(p, p.hostId))).not.toBeNull();
+  const other = await bindPlayerViewHost({ ...p, pcId: "pc-other" });
+  expect(!other.ok && other.error.code).toBe("CONFIG_INVALID");
+  const recovered = await bindPlayerViewHost(p);
+  expect(recovered.ok).toBe(true);
+  const config = await readPlayerViewConfig(p, UID);
+  expect(config.ok && config.value.hosts.map((h) => [h.host_id, h.pc_id])).toEqual([
+    ["host-partial", "pc-original"],
+  ]);
+});
+it("does not adopt a credential without its original intent or read a symlinked intent", async () => {
+  const dir = stateDir();
+  const p = { ...params(dir), operatorUid: UID, hostId: "host-orphan", pcId: "pc-original" };
+  mkdirSync(playerViewDir(p), { mode: 0o700 });
+  const orphan = playerViewSecretPath(p, p.hostId);
+  writeFileSync(orphan, "ab".repeat(32) + "\n", { mode: 0o600 });
+  expect((await bindPlayerViewHost(p)).ok).toBe(false);
+  expect((await readPlayerViewConfig(p, UID)).ok).toBe(false);
+  const other = { ...p, hostId: "host-link" };
+  const target = join(dir, "untrusted-intent.json");
+  writeFileSync(target, "{}", { mode: 0o600 });
+  symlinkSync(target, join(playerViewDir(other), `${other.hostId}.bind-intent.json`));
+  expect((await bindPlayerViewHost(other)).ok).toBe(false);
 });

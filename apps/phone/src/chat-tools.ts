@@ -1712,7 +1712,17 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       name: "revise_original_character",
       title: "Change the player's original character before it is kept",
       description: `Apply the changes the PLAYER asked for to their retained, not-yet-kept character, all together or not at all (the shipped revision cycle: set identity/embodiment/continuity, set a contact or an explicit no-contact, add or remove a contact surface, exception, open item or possession by its number). Each change is the player's words. A revision is a new review: the earlier question and any earlier confirmation no longer stand, the referee reads the new whole again, and the player keeps the new whole afresh. A kept character is never changed here. Then follow it with await_action. ${PLAYER_RULES}`,
-      inputSchema: EDIT_SCHEMA,
+      inputSchema: {
+        ...EDIT_SCHEMA,
+        properties: {
+          ...EDIT_SCHEMA.properties,
+          opening: {
+            type: "object",
+            properties: { presence: { type: "string" }, preparation: PREPARATION_SCHEMA },
+            additionalProperties: false,
+          },
+        },
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1722,14 +1732,23 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       scope: "player",
       handler: async (args, ctx) => {
         void ctx;
-        const parsed = parseEdits(args);
+        const { opening: openingRaw, ...editArgs } = args;
+        const opening = parseGenerationOpening(openingRaw);
+        if (openingRaw !== undefined && !opening)
+          return text("invalid authored opening clarification", true);
+        const parsed = parseEdits(editArgs);
         if (!parsed.ok)
           return asJson(
             { refused: "those are not valid changes; nothing was changed", issues: parsed.issues },
             true,
           );
         await supersede();
-        return startCharacter(runs.reviseCharacter(parsed.value, { authority: ctx }));
+        return startCharacter(
+          runs.reviseCharacter(parsed.value, {
+            authority: ctx,
+            ...(opening ? { sources: { generation: opening } } : {}),
+          }),
+        );
       },
     },
     {

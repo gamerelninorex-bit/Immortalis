@@ -92,9 +92,15 @@ export async function requestOperatorConfirmation(
   verb: ConfirmationVerb,
   subject: string,
   shown: readonly string[],
+  proposal?: unknown,
 ): Promise<OperatorConfirmation | null> {
   if (terminal.review) {
-    const evidence = await terminal.review({ verb, subject, shown });
+    const evidence = await terminal.review({
+      verb,
+      subject,
+      shown,
+      ...(proposal ? { proposal } : {}),
+    });
     if (!evidence || !consumeReviewEvidence(evidence, verb, subject)) return null;
     const token = Object.freeze({ verb, subject });
     live.add(token);

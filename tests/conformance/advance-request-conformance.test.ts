@@ -1,3 +1,4 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2-A1 conformance — the host-requested, independently operator-confirmed active-PC target-only OOC time advance (bounded brief
 // "Host-Requested Active-PC Target-Only OOC Time", native pin 2026-10-15T15:46:04.940Z; exact base e799fb861c7495998c3a26413c017cc33d6a83d8).
@@ -47,7 +48,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/confirmation.ts":
-    "ade75472e41eb80d4316034f894e5c9274c3f5e83f739b0d34d11dbd3206d208",
+    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
   "packages/operator/src/cli.ts":
     "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/session.ts":
@@ -65,7 +66,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/original-pc.ts":
-    "34f35ac70d1cd04c2982a3b999004fc1bea1daafa65ffdcf8405589ea0932f4c",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -73,7 +74,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
-    "0e14d3bca44157903579692a65e2c5762856653e7fbdaba3f2fd3f25352c991d",
+    "2db5e80ad5a5cf12bddb49a7f711c95f3baf7ce76ea666eb2796b4971693b9d0",
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/player-view-bin.ts":
