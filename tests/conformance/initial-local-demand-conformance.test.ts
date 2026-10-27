@@ -89,7 +89,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/initial-timed-governance.ts":
     "d73ad973c9ce40c1a2be91d95d1ee94cc52607310e510d4b511a592417df5334",
   "packages/operator/src/commands.ts":
-    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
+    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":

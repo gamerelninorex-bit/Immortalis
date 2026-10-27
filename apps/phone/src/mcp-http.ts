@@ -14,6 +14,7 @@ const SUPPORTED = [MCP_LATEST, "2025-03-26", "2024-11-05"];
 const MAX_BODY = 256 * 1024;
 const SESSION_IDLE_MS = 60 * 60_000;
 const MAX_SESSIONS = 16;
+const MAX_ACTION_RECEIPTS = 256;
 const KEEPALIVE_MS = 15_000;
 
 export interface ToolResult {
@@ -27,6 +28,8 @@ export interface Elicited {
 export interface ToolContext {
   readonly scopes: readonly OAuthScope[];
   readonly client: string;
+  /** Authenticated grant identity; never accepted from tool arguments. */
+  readonly grant: string;
   /** true only when this client declared elicitation AND this call is being carried on an event stream */
   readonly canElicit: boolean;
   /** asks the HUMAN (through the client's own surface) for a reply; null when it was not answered in time or not possible */
@@ -45,6 +48,8 @@ export interface McpTool {
   readonly scope: OAuthScope;
   /** the call may ask the human for a reply, so it is answered on an event stream when the client supports that */
   readonly mayElicit?: boolean;
+  /** Internal transport receipt for a single ordinary action request; never a model argument or permission. */
+  readonly ordinaryAction?: boolean;
   readonly handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
 }
 
@@ -64,6 +69,7 @@ interface Session {
   initialized: boolean;
   seen: number;
   readonly waiting: Map<string, Pending>;
+  readonly actions: Map<string, { readonly input: string; readonly result: Promise<ToolResult> }>;
 }
 
 const record = (v: unknown): v is Record<string, unknown> =>
@@ -198,6 +204,32 @@ export function createMcpHttp(o: {
     const args = params["arguments"] === undefined ? {} : params["arguments"];
     if (!record(args)) return json(res, 200, rpcError(id, -32602, "arguments must be an object"));
 
+    const receiptId = JSON.stringify(id);
+    const input = JSON.stringify([name, args]);
+    if (tool.ordinaryAction) {
+      const old = session.actions.get(receiptId);
+      if (old) {
+        if (old.input !== input)
+          return json(
+            res,
+            200,
+            rpcError(id, -32602, "that action request identity already names different input"),
+          );
+        return json(res, 200, { jsonrpc: "2.0", id, result: await old.result });
+      }
+      // Never evict a receipt and silently make an old action repeatable. Reconnect/reconcile instead.
+      if (session.actions.size >= MAX_ACTION_RECEIPTS)
+        return json(
+          res,
+          200,
+          rpcError(
+            id,
+            -32000,
+            "this session's action receipts are full; reconnect and reconcile before another action",
+          ),
+        );
+    }
+
     const stream =
       Boolean(tool.mayElicit) && session.elicitation && session.protocol === MCP_LATEST;
     const asked = new Set<string>();
@@ -223,6 +255,7 @@ export function createMcpHttp(o: {
     const ctx: ToolContext = {
       scopes: claims.scopes,
       client: claims.client,
+      grant: claims.grant,
       canElicit: stream,
       elicit: (message, schema, timeoutMs) =>
         new Promise((resolve) => {
@@ -251,12 +284,15 @@ export function createMcpHttp(o: {
           });
         }),
     };
-    let result: ToolResult;
-    try {
-      result = await tool.handler(args, ctx);
-    } catch {
-      result = { content: [{ type: "text", text: "the tool could not complete" }], isError: true };
-    }
+    // Install the in-flight promise BEFORE dispatch, so concurrent retransmission cannot enter the handler twice.
+    const execution = Promise.resolve()
+      .then(() => tool.handler(args, ctx))
+      .catch((): ToolResult => ({
+        content: [{ type: "text", text: "the tool could not complete" }],
+        isError: true,
+      }));
+    if (tool.ordinaryAction) session.actions.set(receiptId, { input, result: execution });
+    const result = await execution;
     const message = { jsonrpc: "2.0", id, result };
     if (stream) {
       clearInterval(timer);
@@ -362,6 +398,7 @@ export function createMcpHttp(o: {
         initialized: false,
         seen: o.now(),
         waiting: new Map(),
+        actions: new Map(),
       };
       sessions.set(s.id, s);
       try {

@@ -261,7 +261,11 @@ attest-cycle: asks the bound referee to interpret an ALREADY accepted PC claim a
   eligibility no longer supported, only when canon derives it, and never resumes time (a later, separately confirmed pc-target-resume does).
 ${OOC_DEBUG_NOTE}`;
 
+import type { OrdinaryAction } from "./ordinary-action.ts";
+
 export interface CliEnvironment {
+  /** In-process capability, never parsed from argv. */
+  readonly ordinaryAction?: OrdinaryAction;
   readonly terminal?: OperatorTerminal;
   /** owner registrations the saved campaign was written with (an embedding supplies them; the shipped binary has none) */
   readonly extension?: StageOwnerExtension;
@@ -705,6 +709,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         pcId: str("player-character") ?? "",
         ...(str("source") !== undefined ? { sourceKey: str("source")! } : {}),
         terminal: terminal!,
+        ...(env.ordinaryAction ? { ordinaryAction: env.ordinaryAction } : {}),
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),

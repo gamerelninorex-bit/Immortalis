@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- the scripted chat client reads untyped JSON */
 // The CONSUMER witness of the chat-requested collection-preparation route (BLUE Revision 2): preparing is not collecting. After setup, a NEW,
-// separately confirmed `collect` through the EXISTING chat action path reaches the actual independent owner checks, and the existing
+// separately requested `collect` through the EXISTING chat action path reaches the actual independent owner checks, and the existing
 // continue/finish steps run to a conserved result with no new gameplay mechanic. Grounded negatives withhold or refuse without fabricating
 // a permission, an output, a receipt or elapsed time. This is integration regression evidence, not a demand to implement general play.
 //
@@ -60,9 +60,9 @@ it("the authored chat route feeds a separately chosen collection and earned obse
       domain_topology: SCENE.geometry,
     });
     expect((await stage(r.chat, "finish_collection_setup")).finished.data.exit_code).toBe(0);
-    expect((await stage(r.chat, "collect", { amount: 2 })).finished.elicited).toHaveLength(1);
+    expect((await stage(r.chat, "collect", { amount: 2 })).finished.elicited).toHaveLength(0);
     expect((await stage(r.chat, "continue_collection")).finished.data.exit_code).toBe(0);
-    expect((await stage(r.chat, "finish_collection")).finished.elicited).toHaveLength(1);
+    expect((await stage(r.chat, "finish_collection")).finished.elicited).toHaveLength(0);
     expect((await stage(r.chat, "observe_surroundings")).finished.data.exit_code).toBe(0);
     const glance = await r.chat.call("read_current_observation_glance");
     expect(glance.isError, glance.text).toBe(false);
@@ -142,8 +142,8 @@ const world = async (s: Slot) => {
   }
 };
 
-describe("MECHANISM: after setup, the existing collection path is reached by a new, separately confirmed request - and only by it", () => {
-  it("collect 2 → its own confirmation → the reach reading → finish (its own confirmation): the source falls by 2, the Reserve rises by 2, time runs 2 cycles - and setup itself did none of it", async () => {
+describe("MECHANISM: after setup, the existing collection path is reached by a new, separately requested request - and only by it", () => {
+  it("collect 2 → no second challenge → the reach reading → finish (no second challenge): the source falls by 2, the Reserve rises by 2, time runs 2 cycles - and setup itself did none of it", async () => {
     const s = await cloneSlot(steps["READY"]!);
     const before = await world(s);
     // setup left everything untouched: whole source, EMPTY Reserve, the clock at its author's origin, no commitment
@@ -159,9 +159,7 @@ describe("MECHANISM: after setup, the existing collection path is reached by a n
       expect((await status(r.chat)).route.readiness.prepared_to_request_collection).toBe(true);
       // no setup call acts: the collection is a SEPARATE request of the player's
       const requested = await stage(r.chat, "collect", { amount: 2 });
-      expect(requested.finished.elicited).toHaveLength(1);
-      expect(requested.finished.elicited[0]).toContain("THE CHARACTER'S COLLECTION ATTEMPT");
-      expect(requested.finished.elicited[0]).toMatch(/type exactly "collect [0-9a-f]{12}"/);
+      expect(requested.finished.elicited).toHaveLength(0);
       expect(requested.finished.data.exit_code).toBe(0);
       // the owners decide reach, duration and result: the existing continue step asks the bound referee and the owners
       const continued = await stage(r.chat, "continue_collection");
@@ -173,11 +171,8 @@ describe("MECHANISM: after setup, the existing collection path is reached by a n
       expect(mid.source).toBe(12);
       expect(mid.reserve).toEqual([0]);
       const finished = await stage(r.chat, "finish_collection");
-      expect(finished.finished.elicited).toHaveLength(1);
+      expect(finished.finished.elicited).toHaveLength(0);
       expect(finished.finished.data.exit_code).toBe(0);
-      expect(finished.finished.elicited[0]).toContain(
-        `canonical time to exactly ${MOMENT.value + 2 * TAU} ${UNIT}`,
-      );
     } finally {
       await r.stop();
     }
@@ -197,13 +192,13 @@ describe("MECHANISM: after setup, the existing collection path is reached by a n
     }
   }, 240_000);
 
-  it("a declined collection leaves the prepared campaign exactly as it was", async () => {
+  it("a model-supplied confirmation flag cannot authorize a collection", async () => {
     const s = await cloneSlot(steps["READY"]!);
     const before = await world(s);
     const r = await resumed(s);
     try {
-      const out = await stage(r.chat, "collect", { amount: 2 }, () => ({ action: "decline" }));
-      expect(out.finished.data.engine_report.join("\n")).toContain("DECLINED");
+      const out = await r.chat.call("collect", { amount: 2, confirmed: true });
+      expect(out.isError).toBe(true);
     } finally {
       await r.stop();
     }

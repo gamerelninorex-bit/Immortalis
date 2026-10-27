@@ -73,7 +73,12 @@ import {
   startConfirmedPcCollection,
   submitPcCollectionReach,
 } from "@immortalis/protocol";
-import { consumeConfirmation, requestOperatorConfirmation, subjectOf } from "./confirmation.ts";
+import {
+  consumeConfirmation,
+  requestOperatorConfirmation,
+  requestOrdinaryConfirmation,
+  subjectOf,
+} from "./confirmation.ts";
 import type {
   AdvanceIntent,
   CollectionCessationIntent,
@@ -182,7 +187,11 @@ const result = (status: CommandStatus): CommandResult => ({ status, message: MES
 export const OPERATOR_PUBLICATION_BASIS = "local-operator-confirmed-choice";
 export const OPERATOR_PUBLICATION_SECRECY = "local-operator-session";
 
+import type { OrdinaryAction } from "./ordinary-action.ts";
+
 export interface CommandContext {
+  /** Trusted adapter capability for this one ordinary request; never CLI/model input. */
+  readonly ordinaryAction?: OrdinaryAction;
   readonly session: LocalOperatorSession;
   readonly terminal: OperatorTerminal;
   /** the source of newly minted, immutable intent identities (default: random UUIDs) */
@@ -1224,23 +1233,29 @@ export async function collect(ctx: CommandContext, input: unknown): Promise<Comm
     basis_id: basisId,
     ordinal,
   });
-  const confirmation = await requestOperatorConfirmation(terminal, "collect", subject, [
-    `CONFIRMATION — THE CHARACTER'S COLLECTION ATTEMPT (attempt #${ordinal})`,
-    OOC_BANNER,
-    `  campaign:  ${session.campaignId}`,
-    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
-    ``,
-    `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
-    `  character: ${pcId}`,
-    `  attempt to collect ${draft.quantity.amount} ${draft.quantity.unit} of ${source?.material_class ?? "the material"}`,
-    `  from the source ${draft.source.world_id} / ${draft.source.source_key}, into the Reserve ${draft.reserve_id}.`,
-    `  (operator/debug: the source lies at ${source?.locality?.locus?.entity_id ?? "an established locus"})`,
-    ``,
-    `This is willingness to ATTEMPT only. It does not say the material can be reached, that the character is able, how long it takes,`,
-    `or that anything is collected: the world's owners decide each of those. Confirming records the attempt; the physical-reach reading`,
-    `and Production's admission follow, and nothing moves until you separately choose to let time pass.`,
-    OOC_DEBUG_NOTE,
-  ]);
+  const confirmation = await requestOrdinaryConfirmation(
+    terminal,
+    "collect",
+    subject,
+    [
+      `CONFIRMATION — THE CHARACTER'S COLLECTION ATTEMPT (attempt #${ordinal})`,
+      OOC_BANNER,
+      `  campaign:  ${session.campaignId}`,
+      `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+      ``,
+      `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
+      `  character: ${pcId}`,
+      `  attempt to collect ${draft.quantity.amount} ${draft.quantity.unit} of ${source?.material_class ?? "the material"}`,
+      `  from the source ${draft.source.world_id} / ${draft.source.source_key}, into the Reserve ${draft.reserve_id}.`,
+      `  (operator/debug: the source lies at ${source?.locality?.locus?.entity_id ?? "an established locus"})`,
+      ``,
+      `This is willingness to ATTEMPT only. It does not say the material can be reached, that the character is able, how long it takes,`,
+      `or that anything is collected: the world's owners decide each of those. Confirming records the attempt; the physical-reach reading`,
+      `and Production's admission follow, and nothing moves until you separately choose to let time pass.`,
+      OOC_DEBUG_NOTE,
+    ],
+    ctx.ordinaryAction ? { token: ctx.ordinaryAction, session, action: parsed.data } : undefined,
+  );
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "collect", subject)) return result("UNAVAILABLE");
 
@@ -1443,23 +1458,31 @@ export async function collectFinish(ctx: CommandContext): Promise<CommandResult>
     target,
     ordinal,
   });
-  const confirmation = await requestOperatorConfirmation(terminal, "collect-finish", subject, [
-    `CONFIRMATION — FINISH THE COLLECTION, ACTIVE CHARACTER (choice #${ordinal})`,
-    OOC_BANNER,
-    `  campaign:  ${session.campaignId}`,
-    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
-    `  character: ${pcId}`,
-    `  act:       ${hold.act_id}`,
-    `  (operator/debug: canon places the character, stationary, at ${where})`,
-    ``,
-    `YOUR CHOICE (the one thing you are confirming):`,
-    `  let your collection act run to its earned completion — canonical time to exactly ${target.value} ${target.unit}, and no further.`,
-    ``,
-    `You state no time here: that moment is derived from the work the owners admitted for this very act. The world resolves whatever`,
-    `falls due by then, each by its own owner. The result reports a transaction status only; it does not say that anything was`,
-    `collected, that anything occurred, or what the character or anyone perceives or knows.`,
-    OOC_DEBUG_NOTE,
-  ]);
+  const confirmation = await requestOrdinaryConfirmation(
+    terminal,
+    "collect-finish",
+    subject,
+    [
+      `CONFIRMATION — FINISH THE COLLECTION, ACTIVE CHARACTER (choice #${ordinal})`,
+      OOC_BANNER,
+      `  campaign:  ${session.campaignId}`,
+      `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+      `  character: ${pcId}`,
+      `  act:       ${hold.act_id}`,
+      `  (operator/debug: canon places the character, stationary, at ${where})`,
+      ``,
+      `YOUR CHOICE (the one thing you are confirming):`,
+      `  let your collection act run to its earned completion — canonical time to exactly ${target.value} ${target.unit}, and no further.`,
+      ``,
+      `You state no time here: that moment is derived from the work the owners admitted for this very act. The world resolves whatever`,
+      `falls due by then, each by its own owner. The result reports a transaction status only; it does not say that anything was`,
+      `collected, that anything occurred, or what the character or anyone perceives or knows.`,
+      OOC_DEBUG_NOTE,
+    ],
+    ctx.ordinaryAction
+      ? { token: ctx.ordinaryAction, session, action: { act_id: hold.act_id, target } }
+      : undefined,
+  );
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "collect-finish", subject)) return result("UNAVAILABLE");
 
@@ -1524,22 +1547,30 @@ export async function cease(ctx: CommandContext): Promise<CommandResult> {
     ordinal,
   });
   const quantity = adapter.commitment(pcId, actId)?.value.intent.quantity;
-  const confirmation = await requestOperatorConfirmation(terminal, "cease", subject, [
-    `CONFIRMATION — THE CHARACTER STOPS THE COLLECTION (stop #${ordinal})`,
-    OOC_BANNER,
-    `  campaign:  ${session.campaignId}`,
-    `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
-    ``,
-    `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
-    `  character: ${pcId}`,
-    `  stop the collection of ${quantity?.amount ?? "the"} ${quantity?.unit ?? "units"} that is under way (act ${actId}).`,
-    ``,
-    `This is a NEW choice to stop, separate from the choice to begin. It does not say the work never happened and it awards nothing:`,
-    `under the present rules nothing is gathered before the work's own completion, so the source and the Reserve stay as they are. The`,
-    `world's owners decide the outcome; the character is free again only once they have all recorded it. It is refused, and nothing is`,
-    `written, if an earlier event is still unresolved. (PROVISIONAL: this stop is a candidate rule that has not been adopted.)`,
-    OOC_DEBUG_NOTE,
-  ]);
+  const confirmation = await requestOrdinaryConfirmation(
+    terminal,
+    "cease",
+    subject,
+    [
+      `CONFIRMATION — THE CHARACTER STOPS THE COLLECTION (stop #${ordinal})`,
+      OOC_BANNER,
+      `  campaign:  ${session.campaignId}`,
+      `  operator:  ${session.operator.username} (uid ${session.operator.uid})`,
+      ``,
+      `THE CHARACTER'S CHOICE (the one thing you are confirming):`,
+      `  character: ${pcId}`,
+      `  stop the collection of ${quantity?.amount ?? "the"} ${quantity?.unit ?? "units"} that is under way (act ${actId}).`,
+      ``,
+      `This is a NEW choice to stop, separate from the choice to begin. It does not say the work never happened and it awards nothing:`,
+      `under the present rules nothing is gathered before the work's own completion, so the source and the Reserve stay as they are. The`,
+      `world's owners decide the outcome; the character is free again only once they have all recorded it. It is refused, and nothing is`,
+      `written, if an earlier event is still unresolved. (PROVISIONAL: this stop is a candidate rule that has not been adopted.)`,
+      OOC_DEBUG_NOTE,
+    ],
+    ctx.ordinaryAction
+      ? { token: ctx.ordinaryAction, session, action: { act_id: actId } }
+      : undefined,
+  );
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "cease", subject)) return result("UNAVAILABLE");
 

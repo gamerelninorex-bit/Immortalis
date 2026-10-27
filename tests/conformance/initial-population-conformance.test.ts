@@ -69,7 +69,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/production-reserve.ts":
     "1450ef0711436d94c8f0738cdc5ce71e3d9a5e63c911bbc576ceda2c85a73efe",
   "packages/operator/src/commands.ts":
-    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
+    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":

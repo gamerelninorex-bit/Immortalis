@@ -22,7 +22,7 @@ import {
   bindTrustedCausalEventSignalContext,
   deliverCausalEventSignalPresentation,
 } from "@immortalis/protocol";
-import { consumeConfirmation, requestOperatorDecision, subjectOf } from "./confirmation.ts";
+import { consumeConfirmation, requestOrdinaryConfirmation, subjectOf } from "./confirmation.ts";
 import { OOC_BANNER } from "./ooc.ts";
 import { readKeep } from "./original-pc-keep.ts";
 import { custodyProblems } from "./original-pc-locus.ts";
@@ -69,7 +69,10 @@ import type { OperatorTerminal } from "./terminal.ts";
  * a new observation is a new basis and a new, separate choice.
  */
 
+import type { OrdinaryAction } from "./ordinary-action.ts";
+
 export interface ObserveSurroundingsParams {
+  readonly ordinaryAction?: OrdinaryAction;
   readonly campaignDir: string;
   readonly campaignId: string;
   readonly pcId: string;
@@ -248,7 +251,7 @@ async function run(
         observed_at: at,
         ...(p.sourceKey !== undefined ? { source_key: p.sourceKey } : {}),
       });
-      const decision = await requestOperatorDecision(
+      const confirmation = await requestOrdinaryConfirmation(
         terminal,
         "observe-surroundings",
         subject,
@@ -265,12 +268,11 @@ async function run(
           "Confirming is your choice that your character looks at its surroundings NOW, at this basis. The AI referee host is asked what its sight directly receives from the committed physical setting; you will be shown only the raw appearance it receives, if any - never the setting, the host's reasoning or why nothing was received.",
           "It advances no time and gives the character no recognition, comprehension, belief, memory or action.",
         ],
-        "Anything else leaves nothing observed.",
+        p.ordinaryAction
+          ? { token: p.ordinaryAction, session, action: { task_id: first.value.task_id } }
+          : undefined,
       );
-      if (
-        decision.kind !== "CONFIRMED" ||
-        !consumeConfirmation(decision.confirmation, "observe-surroundings", subject)
-      )
+      if (!confirmation || !consumeConfirmation(confirmation, "observe-surroundings", subject))
         return result("DECLINED", ["nothing was observed; nothing was changed"]);
 
       const asked = await askObservation(adapter, rt, {

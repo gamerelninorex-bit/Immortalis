@@ -41,9 +41,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the confirmation module (the only place a confirmation is made), re-used without edit
   "packages/operator/src/observation.ts":
-    "f7f35fd9e4e3c5a4d45683be5f99b43567694a6772f2f26d1ff4f8e7e19147a2",
+    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/confirmation.ts":
-    "cd9c6c2a6c712a09fa3a73ea3b21cf4bc69da70d5998ec831ca3a9cd974d558f",
+    "9689798be9990e526210639558db46305944756d8ef7f590ef032e9a1105d972",
   "packages/operator/src/original-pc.ts":
     "1d29c3d6f2d8d8c5053e222a57ad89664f79718f65a1655c425eca8878bac58c",
   "packages/operator/src/original-pc-keep.ts":
@@ -77,9 +77,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-session.ts":
     "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/operator/src/cli.ts":
-    "636385fcac09f49a5f9708e21289b9111d773bafd54eaab31e5d8b3e37f4fc41",
+    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/index.ts":
-    "6230c11cf9433cf8e0c2f15b7fd4352cb504ae0a0ec364ed008c3d72f9cb8137",
+    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
 };
 
 const NEW_MODULES = [
@@ -148,6 +148,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "locality.ts",
         "observation.ts",
         "ooc.ts",
+        "ordinary-action.ts",
         "original-pc-keep.ts",
         "original-pc-locus.ts",
         "original-pc.ts",

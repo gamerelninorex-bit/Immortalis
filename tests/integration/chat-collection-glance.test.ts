@@ -23,7 +23,7 @@ import {
 import { tempDir } from "../support/tmp.ts";
 
 describe("earned collection-context observation through native chat and reconnect", () => {
-  it("delivers independently grounded appearance unchanged after reconnect, then offers a distinct choice requiring its own confirmation", async () => {
+  it("delivers independently grounded appearance unchanged after reconnect, then offers a distinct choice using its own request without a second confirmation", async () => {
     const { dirs } = await originalCollectionCampaign();
     const campaign = await openOrdinary(dirs.campaignDir);
     await collectAndComplete(campaign, "native-glance", 3, "tx-native-glance", {
@@ -81,12 +81,11 @@ describe("earned collection-context observation through native chat and reconnec
       await before.close();
       const next = await chat.call("collect", { amount: 1 });
       expect(next.isError, JSON.stringify(next)).toBe(false);
-      expect(next.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(next.elicited).toEqual([]); // no native input capability was declared and no one confirmed for the human
-      await chat.call("cancel_action");
+      expect(next.data.state).not.toBe("AWAITING_CONFIRMATION");
+      expect(next.elicited).toEqual([]); // explicitly requested ordinary action; no elicitation is needed
       await chat.call("await_action", { wait_seconds: 1 });
       const after = await openOrdinary(dirs.campaignDir);
-      expect(after.store.head().state_sha256).toBe(head);
+      expect(after.store.head().state_sha256).not.toBe(head);
       await after.close();
     } finally {
       await app.close();

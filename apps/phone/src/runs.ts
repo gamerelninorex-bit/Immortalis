@@ -1,3 +1,4 @@
+import type { ToolContext } from "./mcp-http.ts";
 import type { ExistenceContract } from "@immortalis/contracts";
 import type { CharacterDraft, Edit } from "@immortalis/operator";
 import type { CharacterReadback } from "./character-evidence.ts";
@@ -111,7 +112,11 @@ export type StageLaunch =
 export interface PlayerRuns {
   readonly current: () => Run | null;
   /** starts one of the closed player commands with options the CLOSED builder validates; refused while another is running */
-  readonly launch: (command: string, options: Readonly<Record<string, string>>) => Promise<Launch>;
+  readonly launch: (
+    command: string,
+    options: Readonly<Record<string, string>>,
+    authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
+  ) => Promise<Launch>;
   /** true while an earlier action's outcome is uncertain and no reconcile has completed since: only a reconcile may be started */
   readonly unresolved: () => boolean;
   /** why the pending operation is still blocked (null when nothing is blocked or no recovery attempt failed yet) */
