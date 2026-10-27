@@ -30,6 +30,7 @@ const world = async (s: Awaited<ReturnType<typeof slot>>) => {
         .map((f) => (f.value as any).quantity.amount),
       time: (c.store.getFact("temporal/state")?.value as any)?.canonical_time.value,
       keys: fs.map((f) => f.key),
+      custody: !!c.binding() && !!c.pcPhysicalLocusCustody(c.binding()!.value.active_pc.entity_id),
     };
   } finally {
     await c.close();
@@ -51,7 +52,7 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
     const st = await reviewProposal(r.chat, j, "propose_original_setting", openingSetting());
     expect(st.data.exit_code).toBe(0);
     const ch = await reviewProposal(r.chat, j, "propose_original_character", openingCharacter());
-    expect(ch.data.exit_code).toBe(0);
+    expect(ch.isError, JSON.stringify(ch.data)).toBe(false);
     expect(await openingSettled(r.chat, j)).toMatchObject({ state: "PREPARED" });
     expect(j.reviews.map((x) => x.category)).toEqual(["setting", "generation"]);
     expect(j.reviews[0]!.material).toContain("daylight");
@@ -60,7 +61,7 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
     expect(j.reviews[1]!.material).toContain("12 second");
     const before = await world(s);
     expect(before).toMatchObject({ source: 5, reserves: [0], time: MOMENT.value });
-    expect(before.keys.some((k) => /physical-locus/.test(k))).toBe(true);
+    expect(before.custody).toBe(true);
     const noHuman = () => {
       throw new Error("ordinary requests need no redundant human review");
     };
@@ -77,10 +78,10 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
     expect((await stage(r.chat, "finish_collection", {}, noHuman)).finished.data.exit_code).toBe(3);
     expect(await world(s)).toEqual(after);
     await r.chat.init(UI_CAPS);
-    await r.chat.call("reconcile_last_action");
+    await stage(r.chat, "reconcile_last_action", {}, noHuman);
     expect(await world(s)).toEqual(after);
     // Static resource, visible content, retained evidence never contain a live acceptance capability.
-    expect(j.model.join("\n")).not.toMatch(/capability/);
+    for (const secret of j.privateCapabilities) expect(j.model.join("\n")).not.toContain(secret);
     const receipt = readdirSync(s.operatorDir).find((f) => f.startsWith("chat-reviewed."))!;
     expect(readFileSync(join(s.operatorDir, receipt), "utf8")).not.toContain('"capability"');
     console.log(
@@ -113,7 +114,7 @@ it("Bob, baseline human, daylight and clear view preserve meaning but invent no 
       opening: { presence: WORDS.presence },
     });
     const o = await openingSettled(r.chat, j);
-    expect(o.state).toBe("MISSING_SOURCE");
+    expect(o.state, JSON.stringify(o)).toBe("MISSING_SOURCE");
     expect(o.detail).toMatch(/chronology/);
     expect(j.reviews.map((x) => x.category)).toEqual(["setting", "generation"]);
     expect(j.reviews[1]!.material).toContain("normal faculties");

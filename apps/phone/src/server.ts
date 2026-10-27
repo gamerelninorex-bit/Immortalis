@@ -240,6 +240,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     stageOutcome: deps.recovery?.stageOutcome ?? stageEvidence,
   };
   let launching = false;
+  let openingActive = false;
   /** while the setting is being read from the campaign, a command that would open the same package waits (it would meet the writer lock) */
   let readingSetting = 0;
   let closing = false;
@@ -2242,7 +2243,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       track(launchCharacterWork({ kind: "PLACE", statement }, review)),
     resumeCharacter: (review) => track(launchCharacterWork({ kind: "RESUME" }, review)),
     characterStatus: () =>
-      closing
+      closing || openingActive
         ? Promise.resolve({
             state: "UNAVAILABLE",
             barrier: "NONE",
@@ -2252,7 +2253,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     characterExpectation: expectationOf,
     stage: (request, review) => track(launchStageWork(request, review)),
     routeStatus: () =>
-      closing
+      closing || openingActive
         ? Promise.resolve({
             state: "UNAVAILABLE",
             stages: [],
@@ -2295,9 +2296,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     },
   };
 
-  let openingActive = false;
   function pumpOpening(review: ReviewLaunch) {
-    if (openingActive || closing || (player && !player.done)) return;
+    if (
+      openingActive ||
+      closing ||
+      readingSetting > 0 ||
+      (player && !player.done) ||
+      reviews.opening?.state === "PREPARED"
+    )
+      return;
     if (unresolvedOutcome && !pending?.stage && !pending?.character) return;
     let source: import("./reviews.ts").OpeningSources;
     try {
@@ -2309,7 +2316,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       };
       return;
     }
-    if (!source.generation?.presence) return;
+    if (!source.generation?.grouped || !source.generation.presence) return;
     openingActive = true;
     const internal: ReviewLaunch = { authority: review.authority, internal: true };
     const waitRun = async (
@@ -2512,10 +2519,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       instructions: TOOL_INSTRUCTIONS,
       tools: buildChatTools({
         reviews,
-        advanceOpening: (ctx) => {
-          if (!reviews.opening || reviews.opening.state === "RECONCILE")
-            pumpOpening?.({ authority: ctx, internal: true });
-        },
+        advanceOpening: (ctx) => pumpOpening({ authority: ctx, internal: true }),
         config,
         runs: playerRuns,
         ...(deps.chat ?? {}),

@@ -1318,7 +1318,7 @@ function parseGenerationOpening(v: unknown): OpeningSources["generation"] | null
         : null;
   if (v["preparation"] !== undefined && !p?.ok) return null;
   return {
-    ...(typeof presence === "string" ? { presence } : {}),
+    ...(typeof presence === "string" ? { presence, grouped: true as const } : {}),
     ...(p?.ok ? { preparation: p.value } : {}),
   };
 }
@@ -2316,8 +2316,30 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             },
             true,
           );
+        if (
+          d.reviews!.opening?.state === "REALIZING" &&
+          [
+            "await_action",
+            "original_character_status",
+            "collection_setup_status",
+            "original_setting_status",
+          ].includes(tool.name)
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return d.reviews!.decorate(
+            asJson({
+              state: "RUNNING",
+              next: "The accepted opening is continuing; follow await_action.",
+            }),
+            ctx,
+          );
+        }
         const result = await d.reviews!.decorate(await tool.handler(args, ctx), ctx);
-        if (tool.name === "await_action" || tool.name === "reconcile_last_action")
+        if (
+          tool.name === "reconcile_last_action" ||
+          (tool.name === "await_action" &&
+            (!d.reviews!.opening || d.reviews!.opening.state === "RECONCILE"))
+        )
           d.advanceOpening?.(ctx);
         return result;
       },

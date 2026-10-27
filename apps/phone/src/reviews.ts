@@ -35,6 +35,7 @@ export interface OpeningSources {
     readonly reserve_condition?: string;
   };
   readonly generation?: {
+    readonly grouped?: true;
     readonly presence?: string;
     readonly preparation?: unknown;
     readonly pc?: string;
@@ -328,7 +329,27 @@ export class HumanReviews {
   }
   async decorate(result: ToolResult, authority: ToolContext): Promise<ToolResult> {
     const p = this.#pending;
-    if (!p && this.opening) return { ...result, structuredContent: { opening: this.opening } };
+    if (!p && this.opening) {
+      let body: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(result.content[0]?.text ?? "null");
+        if (record(parsed)) body = parsed;
+      } catch {
+        /* preserve non-JSON refusals */
+      }
+      const opening = this.opening;
+      const next =
+        opening.state === "REALIZING"
+          ? "The accepted opening is continuing through its owners. Follow await_action; do not ask for another approval of the same starting presence or technical realization."
+          : opening.detail;
+      return {
+        ...result,
+        content: result.content[0]?.text?.startsWith("{")
+          ? [{ type: "text", text: JSON.stringify({ ...body, opening, next }) }]
+          : result.content,
+        structuredContent: { ...result.structuredContent, opening },
+      };
+    }
     if (
       !p ||
       !p.context.active() ||

@@ -39,8 +39,14 @@ export interface Journey {
   reviews: { category: string; material: string; proposal: string }[];
   tools: number;
   model: string[];
+  privateCapabilities: string[];
 }
-export const journey = (): Journey => ({ reviews: [], tools: 0, model: [] });
+export const journey = (): Journey => ({
+  reviews: [],
+  tools: 0,
+  model: [],
+  privateCapabilities: [],
+});
 export async function call(chat: Chat, j: Journey, name: string, args: any = {}) {
   j.tools++;
   const r = await chat.call(name, args, () => {
@@ -63,6 +69,7 @@ export async function accept(chat: Chat, j: Journey, r: any, decision = "accept"
   ).toBeDefined();
   expect(JSON.stringify(r.result.content)).not.toContain(v.capability);
   expect(JSON.stringify(r.result.structuredContent)).not.toContain(v.capability);
+  j.privateCapabilities.push(v.capability);
   j.reviews.push({ category: v.category, material: v.material, proposal: v.proposal_id });
   const a = await call(chat, j, REVIEW_CALLBACK, {
     proposal_id: v.proposal_id,
