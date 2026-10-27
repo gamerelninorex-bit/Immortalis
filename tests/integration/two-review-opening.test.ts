@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { REVIEW_CALLBACK, REVIEW_URI, REVIEW_MIME } from "../../apps/phone/src/review-card.ts";
 import { Chat, PLAYER, REFEREE } from "../support/chat-client.ts";
 import { slot, run, openOrdinary } from "../support/chat-setting.ts";
-import { hosts, MOMENT, TAU, stage, routePolicy, WORDS, resumed } from "../support/chat-route.ts";
+import { hosts, MOMENT, TAU, stage, routePolicy, WORDS } from "../support/chat-route.ts";
 import {
   UI_CAPS,
   openingSetting,

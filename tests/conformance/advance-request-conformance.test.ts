@@ -1,3 +1,4 @@
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2-A1 conformance — the host-requested, independently operator-confirmed active-PC target-only OOC time advance (bounded brief
 // "Host-Requested Active-PC Target-Only OOC Time", native pin 2026-10-15T15:46:04.940Z; exact base e799fb861c7495998c3a26413c017cc33d6a83d8).
 // The slice adds operator-side modules, tests and documents. It moves no spec-lock pin, runtime-contract snapshot, acceptance-register row, status
@@ -46,7 +47,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/confirmation.ts":
-    "9689798be9990e526210639558db46305944756d8ef7f590ef032e9a1105d972",
+    "ade75472e41eb80d4316034f894e5c9274c3f5e83f739b0d34d11dbd3206d208",
   "packages/operator/src/cli.ts":
     "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/session.ts":
@@ -58,17 +59,17 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
-    "05c70dbf9b74a9518f1d249980f1372803c3dcfe2b802eb245d93a1ec14ecd0d",
+    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
     "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/original-pc.ts":
-    "1d29c3d6f2d8d8c5053e222a57ad89664f79718f65a1655c425eca8878bac58c",
+    "34f35ac70d1cd04c2982a3b999004fc1bea1daafa65ffdcf8405589ea0932f4c",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
-    "28d6c27351747faec4f2632f024ef69413629f2cef0cf0f994cb5e2ae9f92397",
+    "834f0bbbdfe52e1dc68fdec0567c91905bda23b98eddac9fb4eff66c37449c8c",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":

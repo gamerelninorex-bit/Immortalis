@@ -191,7 +191,6 @@ export interface PhoneServer {
 
 export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): PhoneServer {
   const reviews = new HumanReviews(config, deps.now ?? Date.now);
-  let pumpOpening: ((review: ReviewLaunch) => void) | undefined;
   const now = deps.now ?? (() => Date.now());
   const cli = deps.runCli ?? runCli;
   const console_ = deps.runRefereeConsole ?? runRefereeConsole;
@@ -2297,7 +2296,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   let openingActive = false;
-  pumpOpening = (review) => {
+  function pumpOpening(review: ReviewLaunch) {
     if (openingActive || closing || (player && !player.done)) return;
     if (unresolvedOutcome && !pending?.stage && !pending?.character) return;
     let source: import("./reviews.ts").OpeningSources;
@@ -2452,7 +2451,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           openingActive = false;
         }),
     );
-  };
+  }
   function exitCodeOfRun(run: Run): number | null {
     for (const line of run.terminal.snapshot(0).lines.slice().reverse()) {
       const m = /exit code (\d+)/.exec(line.text);

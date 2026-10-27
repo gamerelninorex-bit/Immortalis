@@ -1,3 +1,4 @@
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // Conformance evidence for the Initial Local Population & Residency Cohort slice (@immortalis/operator `establish-population`).
 // Authority: BLUE v5.2-A1 bounded implementation brief (native pin 2026-10-22T07:02:36.427Z) on main
 // 40527749b68781f008c6b59e97f5cf90db24618b. Governing lock: spec/f027/spec-lock.json (F-027 v1.0), unchanged. This slice adds operator
@@ -77,7 +78,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/terminal.ts":
-    "05c70dbf9b74a9518f1d249980f1372803c3dcfe2b802eb245d93a1ec14ecd0d",
+    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
 };
 
 describe("nothing outside the operator is touched", () => {
