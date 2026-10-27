@@ -176,7 +176,8 @@ it("A2: the same source-qualified ordinary operation at immutable base needs two
         const original = c.locus("world-courtyard", "locus-courtyard")!.value;
         for (let i = 0; i < extra; i++) {
           const written = await c.establishLocus({
-            operation: { role: "role.archivist", permission: "perm.canonicalize" },
+            group_id: `unrelated-${i}:group`,
+            intent_id: `unrelated-${i}:intent`,
             cause: `unrelated-${i}`,
             basis: "unrelated measurement fixture",
             secrecy: "local-operator-session",

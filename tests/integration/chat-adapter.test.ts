@@ -3109,7 +3109,7 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
 
   it("a shutdown during a command that holds the campaign's writer lock waits for it, so the lock is released and the restart can read the campaign back", async () => {
     const s = await observationServer({
-      runCli: (argv, env) => {
+      runCli: (argv: readonly string[], env: NonNullable<Parameters<typeof runCli>[1]>) => {
         const { ordinaryAction: _ordinary, ...consoleEnv } = env;
         void _ordinary;
         return runCli(argv, consoleEnv);
