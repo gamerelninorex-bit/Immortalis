@@ -204,6 +204,9 @@ it("recovers a partial credential/config publication only for the exact original
   expect(readPlayerViewSecretFile(playerViewSecretPath(p, p.hostId))).not.toBeNull();
   const other = await bindPlayerViewHost({ ...p, pcId: "pc-other" });
   expect(!other.ok && other.error.code).toBe("CONFIG_INVALID");
+  const intentPath = join(playerViewDir(p), `${p.hostId}.bind-intent.json`);
+  const key = readPlayerViewSecretFile(playerViewSecretPath(p, p.hostId))!;
+  expect(readFileSync(intentPath, "utf8").includes(key)).toBe(false);
   const recovered = await bindPlayerViewHost(p);
   expect(recovered.ok).toBe(true);
   const config = await readPlayerViewConfig(p, UID);

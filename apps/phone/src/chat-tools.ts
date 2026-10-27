@@ -2326,7 +2326,12 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         ? { _meta: { ui: { resourceUri: REVIEW_URI } } }
         : {}),
       handler: async (args: Record<string, unknown>, ctx: ToolContext) => {
-        if (reviewNames.has(tool.name) && !ctx.canReview && !ctx.supportsElicitation)
+        if (
+          reviewNames.has(tool.name) &&
+          !tool.name.startsWith("resume_") &&
+          !ctx.canReview &&
+          !ctx.supportsElicitation
+        )
           return asJson(
             {
               state: "REVIEW_UNAVAILABLE",

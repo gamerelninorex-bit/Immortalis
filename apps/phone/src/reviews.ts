@@ -111,6 +111,15 @@ const json = (v: unknown, error = false): ToolResult => ({
   ...(error ? { isError: true } : {}),
 });
 
+function parseResult(result: ToolResult): Record<string, unknown> {
+  try {
+    const body = JSON.parse(result.content[0]?.text ?? "null");
+    return record(body) ? body : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Verify a signed receipt written by the reviewed e23 adapter without making a presentation change a new choice. */
 function legacyReceiptMatches(r: Receipt, request: ReviewRequest, source: OpeningSources): boolean {
   if (request.verb === "establish-locality") return true; // same owner-derived setup hash, campaign, source and actor checked by caller
@@ -143,13 +152,15 @@ export class HumanReviews {
   readonly #keyFile: string;
   readonly #campaign: string;
   readonly #now: () => number;
+  readonly #elicitMs: number;
   #pending: Pending | null = null;
   opening: { state: string; detail: string } | null = null;
-  constructor(config: PhoneConfig, now: () => number = Date.now) {
+  constructor(config: PhoneConfig, now: () => number = Date.now, elicitMs = 5 * 60_000) {
     this.#file = join(config.operatorDir, `chat-reviewed.${config.campaignId}.json`);
     this.#keyFile = join(config.operatorDir, `chat-review-key.${config.campaignId}`);
     this.#campaign = config.campaignId;
     this.#now = now;
+    this.#elicitMs = elicitMs;
   }
   #key(create = false): Buffer {
     try {
@@ -223,6 +234,17 @@ export class HumanReviews {
     } finally {
       closeSync(dir);
     }
+  }
+  /** Trusted recovery adapter only: exact signed acceptance, never a tool argument or new authority. */
+  accepted(authority: ReviewAuthority, actor: string | null, subject: string): boolean {
+    if (!authority.scopes.includes("player")) return false;
+    return this.#read().some(
+      (r) =>
+        r.client === authority.client &&
+        r.grant === authority.grant &&
+        r.actor === actor &&
+        r.subject === subject,
+    );
   }
   sources(authority: ReviewAuthority): OpeningSources {
     const result: {
@@ -397,17 +419,37 @@ export class HumanReviews {
           type: "object",
           properties: { accept: { type: "boolean", title: "Accept the complete proposal" } },
           required: ["accept"],
+          additionalProperties: false,
         },
-        5 * 60_000,
+        this.#elicitMs,
       );
       if (this.#pending !== p) return json({ state: "REVIEW_REFUSED" }, true);
+      if (answer === null)
+        return {
+          ...result,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                ...parseResult(result),
+                state: "AWAITING_CONFIRMATION",
+                next: "The complete review still needs your response in this conversation. Call await_action to resume it.",
+              }),
+            },
+          ],
+          structuredContent: { state: "AWAITING_REVIEW", category: p.receipt.category },
+        };
       return this.submit(
         {
           proposal_id: p.context.runId,
           digest: p.receipt.digest,
           capability: p.secret,
           decision:
-            answer?.action === "accept" && answer.content?.accept === true ? "accept" : "decline",
+            answer?.action === "accept" &&
+            answer.content?.accept === true &&
+            Object.keys(answer.content).length === 1
+              ? "accept"
+              : "decline",
         },
         authority,
         true,
@@ -415,6 +457,16 @@ export class HumanReviews {
     }
     return {
       ...result,
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            ...parseResult(result),
+            state: "AWAITING_CONFIRMATION",
+            next: "The complete review is displayed in this conversation. Only the person can accept, revise or decline it.",
+          }),
+        },
+      ],
       structuredContent: {
         state: "AWAITING_REVIEW",
         category: p.receipt.category,

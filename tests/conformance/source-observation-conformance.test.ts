@@ -107,7 +107,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
-    "2db5e80ad5a5cf12bddb49a7f711c95f3baf7ce76ea666eb2796b4971693b9d0",
+    "7b0ff87e6195c114f6d5e22b08ad2b7a94b37cdb2bcbc4175231c37d503c5042",
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/referee-mcp.ts":

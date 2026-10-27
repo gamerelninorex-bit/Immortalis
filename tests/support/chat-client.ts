@@ -45,6 +45,8 @@ export const pkce = () => {
 };
 
 export interface Elicit {
+  /** Test-only observation of the actual server request identity; never model arguments. */
+  readonly id?: string;
   readonly message: string;
   readonly requestedSchema: any;
 }
@@ -227,7 +229,7 @@ export class Chat {
         const msg = JSON.parse(data);
         if (msg.method === "elicitation/create") {
           elicited.push(msg.params);
-          const answer = (await human?.(msg.params)) ?? null;
+          const answer = (await human?.({ ...msg.params, id: msg.id })) ?? null;
           if (answer)
             await fetch(`${this.base}/mcp`, {
               method: "POST",

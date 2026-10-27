@@ -172,11 +172,13 @@ for (const b of boundaries)
           cycle: !b.r5,
           until: done,
           human: (e) => {
-            if (/type exactly "/.test(e.message)) asks++;
+            if (e.requestedSchema?.properties?.accept || e.requestedSchema?.properties?.reply)
+              asks++;
             return reader(e);
           },
         });
-        if (completeBeforeRecovery || b.after === "READY") expect(asks).toBe(0);
+        if (completeBeforeRecovery || b.after === "READY" || b.line === "physical_location")
+          expect(asks).toBe(0);
         else expect(asks).toBe(1);
         expect(done((await status(r.chat)).route)).toBe(true);
       } finally {

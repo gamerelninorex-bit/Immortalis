@@ -14,6 +14,10 @@ import { join } from "node:path";
 import fs, { readFileSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { nodeFs } from "@immortalis/engine";
+import {
+  playerViewSecretPath,
+  readPlayerViewSecretFile,
+} from "../../packages/operator/src/player-view-exchange.ts";
 import { shape } from "../support/chat-character.ts";
 import { supportedOpening, completeOpening } from "../support/two-review-opening.ts";
 import { stage } from "../support/chat-route.ts";
@@ -268,6 +272,7 @@ for (const op of ["establishWorld", "establishLocus", "establishSourceCondition"
         expect(fired).toBe(true);
         await app.close();
         const prefix = await receiptPrefix(r.s);
+        await freshProcess(r.s, r.chat, "SETTING");
         app = createPhoneServer(r.s.config, { pollMs: 20 });
         await app.listen();
         await r.chat.init(UI_CAPS);
@@ -288,6 +293,7 @@ for (const op of ["establishWorld", "establishLocus", "establishSourceCondition"
 for (const publication of [
   "binding intent",
   "view credential",
+  "credential digest",
   "view binding",
   "scenario installation",
 ] as const)
@@ -310,7 +316,10 @@ for (const publication of [
         restore = () => fault.mockRestore();
         syncBuiltinESMExports();
       } else {
-        const method = publication === "view binding" ? "writeFileDurable" : "createExclusive";
+        const method =
+          publication === "view binding" || publication === "credential digest"
+            ? "writeFileDurable"
+            : "createExclusive";
         const original = nodeFs[method];
         const fault = vi
           .spyOn(nodeFs, method)
@@ -318,7 +327,7 @@ for (const publication of [
             const target =
               publication === "view binding"
                 ? /player-view-[^/]+\/config\.json$/
-                : publication === "binding intent"
+                : publication === "binding intent" || publication === "credential digest"
                   ? /view-host\.bind-intent\.json$/
                   : /view-host\.secret$/;
             if (target.test(path) && !fired) {
@@ -339,12 +348,27 @@ for (const publication of [
         expect(fired).toBe(true);
         await app.close();
         const prefix = await receiptPrefix(r.s);
+        const credential = readPlayerViewSecretFile(
+          playerViewSecretPath(
+            { stateDir: r.s.operatorDir, campaignId: r.s.config.campaignId },
+            "view-host",
+          ),
+        );
         await freshProcess(r.s, r.chat, "OPENING");
         app = createPhoneServer(r.s.config, { pollMs: 20 });
         await app.listen();
         await r.chat.init(UI_CAPS);
         await recoverOpening(r.chat, r.j);
         expect(r.j.reviews).toHaveLength(2);
+        if (credential !== null)
+          expect(
+            readPlayerViewSecretFile(
+              playerViewSecretPath(
+                { stateDir: r.s.operatorDir, campaignId: r.s.config.campaignId },
+                "view-host",
+              ),
+            ),
+          ).toBe(credential);
         await preservesPrefix(r.s, prefix);
         expect(await shape(r.s)).toEqual(reference);
         const scenario = JSON.parse(readFileSync(r.s.config.scenarioFile, "utf8"));

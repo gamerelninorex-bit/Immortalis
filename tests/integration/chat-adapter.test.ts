@@ -651,13 +651,14 @@ describe("MECHANISM: a model-side caller can never confirm; the confirmation is 
     }
   });
 
-  it("the model never sees the challenge phrase, the human's typed reply or audit progress; a client without elicitation is pointed at the confirm page and nothing is confirmed", async () => {
+  it("a legacy console-only stub exposes no challenge, reply, audit progress or external fallback to an unsupported chat client", async () => {
     const [cli, stub] = stubCli();
     const s = await withChat({ runCli: cli }, undefined, {}); // a client that declared no elicitation
     try {
       const started = await s.chat.call("collect", { amount: 2 });
       expect(started.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(started.data.confirm_page).toBe(`${s.config.publicUrl}/confirm`);
+      expect(started.data).not.toHaveProperty("confirm_page");
+      expect(JSON.stringify(started.result)).not.toContain("/confirm");
       const seen =
         JSON.stringify(started.result) +
         JSON.stringify((await s.chat.call("await_action", { wait_seconds: 1 })).result);

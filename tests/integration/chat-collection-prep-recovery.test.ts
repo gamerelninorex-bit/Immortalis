@@ -57,7 +57,7 @@ function counting(): { human: Human; asked: () => number } {
   return {
     asked: () => n,
     human: (e) => {
-      if (/type exactly "/.test(e.message)) n++;
+      if (e.requestedSchema?.properties?.accept || e.requestedSchema?.properties?.reply) n++;
       return reader(e);
     },
   };
@@ -427,7 +427,10 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of each stage c
           until: done,
         });
         expect(trail.at(-1)).toMatch(/^NONE\//);
-        expect(counted.asked()).toBe(c.asks);
+        // One real author review per new stage; unchanged accepted receipts need zero repeat approval. Native presence already covers physical custody.
+        expect(counted.asked()).toBe(
+          c.line === "physical_location" ? 0 : c.tool === "finish_collection_setup" ? 0 : 1,
+        );
         // ... and then the rest of the journey, which is the uninterrupted one
         await converge(r, { cycle: c.branch === "accepted" });
         // the campaign an uninterrupted journey makes: no duplicate fact, no second identity, no skipped or repeated authorization

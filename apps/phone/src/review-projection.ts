@@ -151,7 +151,7 @@ export function projectReview(request: ReviewRequest, source: OpeningSources): s
                 .replace(/^\|\s*\[NOT accepted: [^\]]+\]\s*/, "Not accepted as your own: "),
             ),
         );
-    } else lines = [...request.shown]; // simple trusted test/adapter subjects; no raw schema structure is projected
+    } else throw new Error("complete character projection unavailable");
     if (source.generation?.presence)
       lines.push(
         "Where you begin",

@@ -1,3 +1,4 @@
+import { canonicalJson } from "@immortalis/contracts";
 import { entryEvidence, stageEvidence as acceptedStageEvidence } from "./review-sources.ts";
 import { parseChronology, parseDeclare, parsePrepare } from "./route-stages.ts";
 import { HumanReviews } from "./reviews.ts";
@@ -190,7 +191,7 @@ export interface PhoneServer {
 }
 
 export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): PhoneServer {
-  const reviews = new HumanReviews(config, deps.now ?? Date.now);
+  const reviews = new HumanReviews(config, deps.now ?? Date.now, deps.chat?.elicitMs);
   const now = deps.now ?? (() => Date.now());
   const cli = deps.runCli ?? runCli;
   const console_ = deps.runRefereeConsole ?? runRefereeConsole;
@@ -1968,6 +1969,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const wait = refereeWaitSeconds(deps.character);
 
       let planned: PlannedRun;
+      let originalDeclaration: Extract<StageIdentity, { kind: "DECLARE" }> | undefined;
       let boundEntry: import("./reviews.ts").OpeningSources | undefined;
       let resuming = false;
       if (unresolvedOutcome) {
@@ -1992,6 +1994,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           // the very document the human confirmed, run again with a fresh confirmation; a declaration is bound to the owners' CURRENT versions
           let identity: StageIdentity = id;
           if (id.kind === "DECLARE") {
+            originalDeclaration = id;
             const read = await readRoute(config);
             if (closing) return refuse(503, "the server is closing; nothing was dispatched");
             if (read.kind !== "OPEN") return refuse(409, unreadable(read));
@@ -2115,11 +2118,38 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             ...review,
             derived: (
               request: import("../../../packages/operator/src/review-evidence.ts").ReviewRequest,
-            ) =>
-              acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||
-              (planned.identity.kind === "LOCUS" &&
-                !!boundEntry &&
-                entryEvidence(boundEntry, request)),
+            ) => {
+              if (
+                acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||
+                (planned.identity.kind === "LOCUS" &&
+                  !!boundEntry &&
+                  entryEvidence(boundEntry, request))
+              )
+                return true;
+              // The owners proved a partial ORIGINAL declaration. Only its own refreshed technical versions may reuse its exact signed human receipt.
+              if (
+                originalDeclaration &&
+                planned.identity.kind === "DECLARE" &&
+                request.verb === "declare-closed-setting"
+              ) {
+                const current = JSON.parse(request.subject);
+                const originalSubject = canonicalJson({
+                  campaign_id: config.campaignId,
+                  declaration: JSON.parse(originalDeclaration.document),
+                  closure_version: originalDeclaration.closure_version,
+                  scope_version: originalDeclaration.scope_version,
+                });
+                return (
+                  current.campaign_id === config.campaignId &&
+                  canonicalJson(current.declaration) ===
+                    canonicalJson(JSON.parse(originalDeclaration.document)) &&
+                  current.closure_version === planned.identity.closure_version &&
+                  current.scope_version === planned.identity.scope_version &&
+                  reviews.accepted(review.authority, null, originalSubject)
+                );
+              }
+              return false;
+            },
           }
         : undefined;
       const run = startRun(

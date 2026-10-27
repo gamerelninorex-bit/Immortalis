@@ -189,3 +189,34 @@ it("a later materially different physical GM reading blocks reuse without invent
     await r.app.close();
   }
 }, 180_000);
+
+it("a fresh service after real ordinary play does not rerun setup, refresh declarations, collect again or advance time", async () => {
+  const { supportedOpening, completeOpening } = await import("../support/two-review-opening.ts");
+  const { createPhoneServer } = await import("../../apps/phone/src/server.ts");
+  const r = await supportedOpening();
+  let app = r.app;
+  try {
+    await completeOpening(r);
+    const noHuman = () => {
+      throw new Error("ordinary play or recovery must not ask for another approval");
+    };
+    for (const [tool, args] of [
+      ["collect", { amount: 5 }],
+      ["continue_collection", {}],
+      ["finish_collection", {}],
+    ] as const)
+      expect((await stage(r.chat, tool, args, noHuman)).finished.data.exit_code).toBe(0);
+    const prior = await world(r.s);
+    await app.close();
+    app = createPhoneServer(r.s.config, { pollMs: 20 });
+    await app.listen();
+    await r.chat.init(UI_CAPS);
+    await stage(r.chat, "reconcile_last_action", {}, noHuman);
+    expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "EXISTING_PLAY" });
+    expect(await world(r.s)).toEqual(prior);
+    expect(r.j.reviews).toHaveLength(2);
+  } finally {
+    for (const h of r.hosts) await h.stop();
+    await app.close();
+  }
+}, 180_000);

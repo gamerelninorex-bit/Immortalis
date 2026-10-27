@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- exercised scripted conversation and counters */
 // A2 mechanism evidence only. Actual Work/Android rendering, human acceptance and genuine referee interpretation remain UNRUN.
 import { execFileSync, spawn } from "node:child_process";
-import { symlinkSync, writeFileSync, readFileSync } from "node:fs";
+import { symlinkSync, writeFileSync, readFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { cpus, arch, platform } from "node:os";
 import { expect, it, vi } from "vitest";
@@ -39,9 +39,23 @@ function extract() {
     BASE,
     "apps/phone/src",
     "packages/operator/src",
+    "packages/operator/package.json",
   ]);
   execFileSync("tar", ["-xf", archive, "-C", dir]);
-  symlinkSync(join(root, "node_modules"), join(dir, "node_modules"), "dir");
+  // Each side must execute its own pinned operator, including the private ordinary-action capability module.
+  // Sharing the current operator would reject the base adapter's otherwise lawful one-shot capability.
+  mkdirSync(join(dir, "node_modules/@immortalis"), { recursive: true });
+  for (const name of readdirSync(join(root, "node_modules")))
+    if (name !== "@immortalis")
+      symlinkSync(join(root, "node_modules", name), join(dir, "node_modules", name));
+  for (const name of readdirSync(join(root, "node_modules/@immortalis")))
+    symlinkSync(
+      name === "operator"
+        ? join(dir, "packages/operator")
+        : join(root, "node_modules/@immortalis", name),
+      join(dir, "node_modules/@immortalis", name),
+      "dir",
+    );
   symlinkSync(
     join(root, "packages/operator/node_modules"),
     join(dir, "packages/operator/node_modules"),

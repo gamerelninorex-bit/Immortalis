@@ -16,7 +16,7 @@ import { CanonicalCampaign, RefereeAdjudicationAdapter, nodeFs } from "@immortal
 import { instrumentFs } from "@immortalis/testkit";
 import { PLAYER_CHOICE_AUTHORITY } from "@immortalis/contracts";
 import { compileContract, refereeDir, runCli } from "@immortalis/operator";
-import { Chat, PLAYER, REFEREE, phraseOf, type Human } from "../support/chat-client.ts";
+import { Chat, PLAYER, REFEREE, type Human } from "../support/chat-client.ts";
 import { Browser } from "../support/phone-browser.ts";
 import {
   courtyard,
@@ -70,11 +70,11 @@ describe("MECHANISM: the player's own words are offered, reviewed whole, kept, r
         WORDS.continuity,
         WORDS.possession,
       ])
-        expect(shown).toContain(JSON.stringify(w));
-      expect(shown).toContain("CHARACTER MIRROR");
-      expect(shown).toContain("AI REFEREE FINDINGS");
-      expect(shown).toContain("Keep this character exactly as shown?");
-      expect(shown).toMatch(/type exactly "keep-character [0-9a-f]{12}"/);
+        expect(shown).toContain(w);
+      expect(shown).toContain("Review your character");
+      expect(shown).toContain("The referee’s findings");
+      expect(shown).toContain("consequential choices");
+      expect(shown).not.toMatch(/type exactly|"format_version"|"item_id"/);
       expect(kept.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
       expect(kept.finished.data.character).toMatchObject({
         state: "RELEASED_UNBOUND",
@@ -99,9 +99,9 @@ describe("MECHANISM: the player's own words are offered, reviewed whole, kept, r
       const placed = await place(r.chat);
       expect(placed.finished.elicited).toHaveLength(1);
       const asked = placed.finished.elicited[0] as string;
-      expect(asked).toContain(JSON.stringify(WORDS.presence));
-      expect(asked).toContain("NATIVE PRESENCE");
-      expect(asked).toMatch(/type exactly "place-character [0-9a-f]{12}"/);
+      expect(asked).toContain(WORDS.presence);
+      expect(asked).toContain("Review your starting presence");
+      expect(asked).not.toMatch(/type exactly|"reading"|"mode"/);
       expect(placed.finished.data.result.status).toBe("CHARACTER_BOUND");
       expect(placed.finished.data.character).toMatchObject({
         state: "BOUND",
@@ -204,20 +204,34 @@ describe("MECHANISM: nothing is kept, released or placed unless the human keeps 
       }
     }, 90_000);
 
-  it("a phrase from an EARLIER question cannot keep a later one", async () => {
-    const r = await ready();
+  it("a stale native response cannot keep a later candidate", async () => {
+    const r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
     const host = referee(r.s);
     try {
-      const stale: string[] = [];
-      const first = await offer(r.chat, draft(), async (e) => {
-        if (/type exactly "/.test(e.message)) stale.push(phraseOf(e.message));
+      let stale = "";
+      const first = await offer(r.chat, draft(), (e) => {
+        stale = e.id!;
         return { action: "decline" };
       });
       expect(first.finished.data.result.status).toBe("DECLINED");
-      const second = await offer(r.chat, draft(), readsAndTypes(stale[0]!));
-      expect(second.finished.data.result.status).toBe("DECLINED");
+      await r.chat.call("propose_original_character", draft());
+      let observed = false;
+      for (let i = 0; i < 10 && !observed; i++) {
+        await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
+          observed = true;
+          expect(e.id).not.toBe(stale);
+          await r.chat.raw(
+            "POST",
+            "/mcp",
+            { jsonrpc: "2.0", id: stale, result: { action: "accept", content: { accept: true } } },
+            r.chat.headers(),
+          );
+          return null;
+        });
+      }
+      expect(observed).toBe(true);
       expect(keepFiles(r.s)).toEqual([]);
-      expect((await held(r.s)).characters).toHaveLength(0);
+      expect((await follow(r.chat)).data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
     } finally {
       await host.stop();
       await r.app.close();
@@ -281,46 +295,44 @@ describe("MECHANISM: the referee's findings decide what can be kept, never the h
 });
 
 describe("MECHANISM: a revision is a new review; the earlier question and confirmation no longer stand", () => {
-  it("a revision while the player is being asked withdraws that question; the old phrase and an old elicitation answer confirm nothing; the new whole is kept afresh", async () => {
+  it("a revision withdraws the old native request; only a fresh response to the corrected whole can keep it", async () => {
     const r = await ready();
     const host = referee(r.s);
     try {
-      const wrong = draft({
-        identity: "Maren Voss, an ordinary human salt-raker of about thirty winters",
-      });
-      expect((await r.chat.call("propose_original_character", wrong)).isError).toBe(false);
-      let oldPhrase = "";
-      let newPhrase = "";
-      let revised: any;
-      let calls = 0;
-      const answered = await r.chat.call("await_action", { wait_seconds: 10 }, async (e) => {
-        if (!/type exactly "/.test(e.message)) return { action: "accept", content: {} };
-        calls++;
-        if (calls === 1) {
-          oldPhrase = phraseOf(e.message);
+      await r.chat.call(
+        "propose_original_character",
+        draft({ identity: "Maren Voss, an ordinary human salt-raker of about thirty winters" }),
+      );
+      let oldId = "",
+        revised: any;
+      for (let i = 0; i < 10 && !oldId; i++) {
+        await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
+          oldId = e.id!;
           expect(e.message).toContain("thirty winters");
-          // while the human is reading the first whole, the assistant is told of a correction: a NEW offer
           revised = await r.chat.call("revise_original_character", {
             edits: [{ op: "set", field: "identity", text: WORDS.identity }],
           });
-          // the human's answer to the OLD question arrives late, with the phrase that was right for it
-          return { action: "accept", content: { reply: oldPhrase } };
-        }
-        // the client now asks about the NEW whole: it shows the correction, and the old phrase is not this question's
-        newPhrase = phraseOf(e.message);
+          // This answer addresses the withdrawn proposal, never the corrected one.
+          return { action: "accept", content: { accept: true } };
+        });
+      }
+      expect(revised.isError).toBe(false);
+      expect(keepFiles(r.s)).toEqual([]);
+      const corrected = await follow(r.chat, async (e) => {
+        expect(e.id).not.toBe(oldId);
         expect(e.message).toContain("forty winters");
         expect(e.message).not.toContain("thirty winters");
-        expect(newPhrase).not.toBe(oldPhrase);
-        return { action: "accept", content: { reply: oldPhrase } };
+        await r.chat.raw(
+          "POST",
+          "/mcp",
+          { jsonrpc: "2.0", id: oldId, result: { action: "accept", content: { accept: true } } },
+          r.chat.headers(),
+        );
+        return { action: "decline" };
       });
-      expect(revised.isError).toBe(false);
-      expect(calls).toBe(2);
-      expect(answered.data.result.status).toBe("DECLINED");
-      // the old answer confirmed nothing
+      expect(corrected.data.result.status).toBe("DECLINED");
       expect(keepFiles(r.s)).toEqual([]);
       expect((await held(r.s)).characters).toHaveLength(0);
-      expect(keepFiles(r.s)).toEqual([]);
-      // the same revised whole, offered again, is kept by its own fresh phrase
       const third = await offer(r.chat, draft({ identity: WORDS.identity }));
       expect(third.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
       const c = (await held(r.s)).characters[0]!.value as any;
@@ -500,21 +512,15 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
       ],
     });
 
-  it("a Mirror of more than 6,000 characters (Unicode included) carries its first and its last field, in order, in several parts; reading a part confirms nothing and only the last carries the phrase", async () => {
+  it("a complete readable Mirror over 6,000 characters includes every Unicode field and finding with one native control", async () => {
     const r = await ready();
     const host = referee(r.s);
     try {
       const input = big();
       const kept = await offer(r.chat, input);
-      const parts = kept.finished.elicited as string[];
-      expect(parts.length).toBeGreaterThan(1);
-      expect(parts.length).toBeLessThan(12);
-      parts.forEach((p, i) => {
-        expect(p).toContain(`[Part ${i + 1} of ${parts.length}]`);
-        expect(/type exactly "/.test(p)).toBe(i === parts.length - 1);
-        if (i < parts.length - 1) expect(p).toContain("This part confirms nothing");
-      });
-      const all = parts.join("\n");
+      expect(kept.finished.elicited).toHaveLength(1);
+      const all = kept.finished.elicited[0]!;
+      expect(all).not.toMatch(/type exactly|"item_id"|"format_version"/);
       expect(all.length).toBeGreaterThan(6000);
       // every authored statement is there whole (the Mirror), and again in the referee's findings
       const statements: string[] = [
@@ -527,7 +533,7 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
         ...input.open,
       ];
       for (const t of statements) {
-        const q = JSON.stringify(t);
+        const q = t;
         expect(all.split(q).length - 1, t.slice(0, 20)).toBeGreaterThanOrEqual(2);
       }
       expect(all).toContain("Early-field marker");
@@ -546,16 +552,15 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
     }
   }, 120_000);
 
-  it("withdrawing at an earlier part, or accepting every part and then giving a wrong phrase, confirms nothing", async () => {
+  it("declining a complete long Mirror or sending a legacy reply confirms nothing", async () => {
     const r = await ready();
     const host = referee(r.s);
     try {
       let n = 0;
-      const withdraws: Human = () =>
-        ++n === 2 ? { action: "decline" } : { action: "accept", content: {} };
+      const withdraws: Human = () => (++n, { action: "decline" });
       const first = await offer(r.chat, big(), withdraws);
       expect(first.finished.data.result.status).toBe("DECLINED");
-      expect(n).toBe(2);
+      expect(n).toBe(1);
       const second = await offer(r.chat, big(), readsAndTypes("keep-character 000000000000"));
       expect(second.finished.data.result.status).toBe("DECLINED");
       expect(keepFiles(r.s)).toEqual([]);
@@ -566,7 +571,7 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
     }
   }, 120_000);
 
-  it("a transcript that no longer holds the review from its start is declined before any confirmation can be given: nothing is asked, nothing is kept", async () => {
+  it("a bounded transcript cannot truncate the complete owner-generated Mirror supplied through the review seam", async () => {
     const { authorCharacter } = await import("@immortalis/operator");
     const r = await ready({
       ...SHORT,
@@ -581,19 +586,29 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
     });
     const host = referee(r.s);
     try {
-      const out = await offer(r.chat, draft());
-      expect(out.finished.elicited).toEqual([]);
-      expect(out.finished.data.result.status).toBe("DECLINED");
-      expect(out.finished.data.confirmation_delivery).toContain("could not be shown to them");
-      expect(keepFiles(r.s)).toEqual([]);
-      expect((await held(r.s)).characters).toHaveLength(0);
+      const out = await offer(r.chat, draft(), (e) => {
+        expect(keepFiles(r.s)).toEqual([]);
+        for (const t of [
+          WORDS.identity,
+          WORDS.contact,
+          WORDS.embodiment,
+          WORDS.continuity,
+          WORDS.possession,
+        ])
+          expect(e.message).toContain(t);
+        expect(e.message).not.toMatch(/type exactly|"item_id"/);
+        return { action: "accept", content: { accept: true } };
+      });
+      expect(out.finished.elicited).toHaveLength(1);
+      expect(out.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
+      expect((await held(r.s)).characters).toHaveLength(1);
     } finally {
       await host.stop();
       await r.app.close();
     }
   }, 120_000);
 
-  it("a review the engine's own lines do not carry whole (a dropped Mirror item) is declined by the same judgement", async () => {
+  it("a damaged structured review source missing a mandatory Mirror field fails closed before asking or keeping", async () => {
     const { authorCharacter } = await import("@immortalis/operator");
     const r = await ready({
       ...SHORT,
@@ -604,9 +619,10 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
             ...p,
             terminal: {
               ...p.terminal,
-              // a lossy channel: a Mirror line of the possession never reaches the transcript
-              say: (t: string) => {
-                if (!/you begin with/.test(t)) p.terminal.say(t);
+              review: async (request) => {
+                const subject = JSON.parse(request.subject);
+                delete subject.contract.contact;
+                return p.terminal.review!({ ...request, subject: JSON.stringify(subject) });
               },
             },
           }),
@@ -657,7 +673,7 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
     }
   }, 60_000);
 
-  it("a referee-only grant of the same registered client, answering with the correct keep phrase, is refused and nothing is kept; the player still can", async () => {
+  it("a referee-only grant of the same registered client, answering the actual native request, is refused and nothing is kept; the player still can", async () => {
     const r = await ready({ ...SHORT, chat: { elicitMs: 1500 } });
     const host = referee(r.s);
     try {
@@ -669,7 +685,7 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
       let silent: any;
       for (let i = 0; i < 4; i++) {
         silent = await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          if (!/type exactly "/.test(e.message)) return { action: "accept", content: {} };
+          expect(e.requestedSchema.properties.accept).toBeDefined();
           const res = await fetch(`${r.s.base}/mcp`, {
             method: "POST",
             headers: {
@@ -678,8 +694,8 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
             },
             body: JSON.stringify({
               jsonrpc: "2.0",
-              id: "elicit-0",
-              result: { action: "accept", content: { reply: phraseOf(e.message) } },
+              id: e.id,
+              result: { action: "accept", content: { accept: true } },
             }),
           });
           forged.push(res.status);
@@ -711,7 +727,7 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
       const forged: number[] = [];
       for (let i = 0; i < 4 && forged.length === 0; i++)
         await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          if (!/type exactly "/.test(e.message)) return { action: "accept", content: {} };
+          expect(e.requestedSchema.properties.accept).toBeDefined();
           const res = await fetch(`${r.s.base}/mcp`, {
             method: "POST",
             headers: {
@@ -720,8 +736,8 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
             },
             body: JSON.stringify({
               jsonrpc: "2.0",
-              id: "elicit-0",
-              result: { action: "accept", content: { reply: phraseOf(e.message) } },
+              id: e.id,
+              result: { action: "accept", content: { accept: true } },
             }),
           });
           forged.push(res.status);
@@ -736,84 +752,51 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
     }
   }, 90_000);
 
-  it("the disclosed fallback page shows the whole review and is the player's own channel: the assistant's token cannot reach it, and the keep made there is the keep", async () => {
-    const s = await slot();
-    await bind(s);
-    const r = await run(s, SHORT, { scope: "player", player: PLAYER }, {});
-    const host = referee(s);
+  it("a long character offer fails closed when neither human surface is available, and bearer tokens cannot answer the page", async () => {
+    const r = await ready();
+    const host = referee(r.s);
     try {
-      expect((await r.chat.call("propose_original_setting", courtyard())).isError).toBe(false);
-      const page = new Browser(s.base);
-      expect((await page.login("player", PLAYER)).status).toBe(200);
-      const settle = await page.untilPrompt("play");
-      const setupPhrase = /type exactly "([^"]+)"/.exec(
-        settle.seen.map((l: any) => l.text).join("\n"),
-      )![1]!;
+      await r.chat.init({});
+      const head = await shape(r.s);
+      const denied = await r.chat.call(
+        "propose_original_character",
+        draft({ exceptions: Array.from({ length: 12 }, (_, i) => long("exception", i)) }),
+      );
+      expect(denied.isError).toBe(true);
+      expect(denied.text).toMatch(/REVIEW_UNAVAILABLE/);
+      expect(denied.text).not.toMatch(/\/confirm|type exactly/);
+      expect(keepFiles(r.s)).toEqual([]);
+      expect(await shape(r.s)).toEqual(head);
       expect(
         (
-          await page.req("POST", "/api/play/reply", {
-            prompt_id: settle.snap.pending.id,
-            text: setupPhrase,
-          })
-        ).status,
-      ).toBe(200);
-      expect((await follow(r.chat, null)).data.result.status).toBe("LOCALITY_READY");
-
-      const big = draft({ exceptions: Array.from({ length: 12 }, (_, i) => long("exception", i)) });
-      expect((await r.chat.call("propose_original_character", big)).isError).toBe(false);
-      const waiting = await r.chat.call("await_action", { wait_seconds: 5 });
-      expect(waiting.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(waiting.data.confirm_page).toBe(`${s.config.publicUrl}/confirm`);
-      expect(keepFiles(s)).toEqual([]);
-      // the assistant's token cannot reach the page's reply path
-      expect(
-        (
-          await fetch(`${s.base}/api/play/reply`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
+          await r.chat.raw(
+            "POST",
+            "/api/play/reply",
+            { prompt_id: "x", text: "y" },
+            {
               authorization: `Bearer ${r.chat.access}`,
             },
-            body: JSON.stringify({ prompt_id: "x", text: "y" }),
-          })
+          )
         ).status,
       ).toBe(401);
-      const step = await page.untilPrompt("play");
-      const shown = step.seen.map((l: any) => l.text).join("\n");
-      for (const t of [WORDS.identity, ...big.exceptions])
-        expect(shown).toContain(JSON.stringify(t));
-      const phrase = /type exactly "([^"]+)"/.exec(shown)![1]!;
-      expect(JSON.stringify(waiting.data)).not.toContain(phrase);
-      expect(
-        (
-          await page.req("POST", "/api/play/reply", {
-            prompt_id: step.snap.pending.id,
-            text: phrase,
-          })
-        ).status,
-      ).toBe(200);
-      const done = await follow(r.chat, null);
-      expect(done.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
     } finally {
       await host.stop();
       await r.app.close();
     }
   }, 120_000);
 
-  it("a client without elicitation is never asked on the assistant's side: it is pointed at the disclosed page and nothing is kept", async () => {
+  it("an unsupported client cannot begin a setting or manufacture consent on the assistant side", async () => {
     const s = await slot();
     await bind(s);
     const r = await run(s, SHORT, { scope: "player", player: PLAYER }, {});
     const host = referee(s);
     try {
-      const est = await r.chat.call("propose_original_setting", courtyard());
-      expect(est.isError).toBe(false);
-      // an ordinary client that cannot ask the human gets no way to answer for them
-      const asked = await r.chat.call("await_action", { wait_seconds: 5 });
-      expect(asked.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(asked.data.confirm_page).toBe(`${s.base}/confirm`);
-      expect(JSON.stringify(asked.data)).not.toMatch(CHALLENGE);
+      const refused = await r.chat.call("propose_original_setting", courtyard());
+      expect(refused.isError).toBe(true);
+      expect(refused.text).toMatch(/REVIEW_UNAVAILABLE/);
+      expect(refused.text).not.toMatch(/\/confirm|type exactly/);
       expect(existsSync(s.campaignDir)).toBe(false);
+      expect(existsSync(pendingPath(s.config))).toBe(false);
     } finally {
       await host.stop();
       await r.app.close();
@@ -844,7 +827,16 @@ describe("static: the evidence module only reads, and the tools carry no confirm
         "revise_original_character",
       ]);
       for (const t of mine) {
-        const text = JSON.stringify(t.inputSchema);
+        const keys = (v: any): string[] =>
+          !v || typeof v !== "object"
+            ? []
+            : [
+                ...Object.keys(v.properties ?? {}),
+                ...Object.values(v.properties ?? {}).flatMap(keys),
+                ...[...(v.oneOf ?? []), ...(v.anyOf ?? [])].flatMap(keys),
+                ...keys(v.items),
+              ];
+        const text = keys(t.inputSchema).join(" ");
         expect(text, t.name).not.toMatch(
           /reply|answer|challenge|phrase|campaign|path|role|permission|secret|token|confirm|pc_id|world_id|locus_id|release|accepted|binding|provenance|host/i,
         );
@@ -1732,7 +1724,7 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of the PLACEMEN
             (await r.chat.call("place_original_character", { statement: WORDS.presence })).isError,
           ).toBe(true);
         } else {
-          // proven unbound: the placement is still the player's own, and a restart or a resume asks for a FRESH confirmation
+          // Proven unbound: finish only the exact placement already accepted by this grant.
           expect(status).toMatchObject({
             state: "RELEASED_UNBOUND",
             barrier: "NONE",
@@ -1742,8 +1734,7 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of the PLACEMEN
           const resumed = await r.chat.call("resume_original_character");
           expect(resumed.isError).toBe(false);
           const second = await follow(r.chat);
-          expect(second.elicited).toHaveLength(1);
-          expect(second.elicited[0]).toMatch(/type exactly "place-character [0-9a-f]{12}"/);
+          expect(second.elicited).toEqual([]);
           expect(second.data.result.status).toBe("CHARACTER_BOUND");
         }
         await r.app.close();
@@ -1859,7 +1850,11 @@ describe("MECHANISM: a restart finds the retained operation and resumes only tha
       const resumed = await r.chat.call("resume_original_character");
       expect(resumed.isError).toBe(false);
       // nothing confirms it until the human does: silence leaves it unplaced
-      const silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
+      let silent: any;
+      for (let n = 0; n < 10; n++) {
+        silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
+        if (silent.data.state === "AWAITING_CONFIRMATION") break;
+      }
       expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
       expect((await r.chat.call("cancel_action")).isError).toBe(false);
       await follow(r.chat, null);

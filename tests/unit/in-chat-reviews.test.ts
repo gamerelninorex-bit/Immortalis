@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { HumanReviews, type ReviewAuthority } from "../../apps/phone/src/reviews.ts";
 import { REVIEW_HTML } from "../../apps/phone/src/review-card.ts";
+import { compileContract } from "../../packages/operator/src/original-pc.ts";
 import { consumeReviewEvidence } from "../../packages/operator/src/review-evidence.ts";
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
 import type { ToolContext } from "../../apps/phone/src/mcp-http.ts";
@@ -24,7 +25,15 @@ const request = {
   subject: JSON.stringify({
     campaign_id: "review-test",
     pc_id: "pc",
-    contract: { identity: "Bob" },
+    contract: compileContract("pc", {
+      identity: "Bob",
+      contact: { kind: "CONTACT_ANCHOR", surfaces: ["A visible human body"] },
+      embodiment: "One human body",
+      continuity: "The same person through life",
+      exceptions: [],
+      open: [],
+      possessions: [],
+    }),
   }),
   shown: [
     "IDENTITY Bob",

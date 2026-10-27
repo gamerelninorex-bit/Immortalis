@@ -165,8 +165,11 @@ try {
       ["collect", { amount: 5 }],
       ["continue_collection", {}],
       ["finish_collection", {}],
-    ] as const)
-      await drive(name, args);
+    ] as const) {
+      const completed = await drive(name, args);
+      if (completed.data?.exit_code !== 0)
+        throw new Error(`${mode} ordinary ${name} failed (${completed.data?.exit_code})`);
+    }
   const work = meter.snapshot();
   const ms = performance.now() - begin - fixtureMs;
   meter.active(false);

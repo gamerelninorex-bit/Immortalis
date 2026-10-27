@@ -121,7 +121,7 @@ const BindingIntentSchema = z.strictObject({
   operator_uid: z.number().int().nonnegative(),
   host_id: HostId,
   pc_id: EntityId,
-  secret: SecretText,
+  secret_sha256: Digest.optional(),
 });
 /** Interface publication intent, never canon or a permission. It binds recovery of the two private files to this exact original actor. */
 function readBindingIntent(path: string, uid: number): z.infer<typeof BindingIntentSchema> | null {
@@ -177,15 +177,21 @@ export async function bindPlayerViewHost(
     await fs.mkdirp(playerViewDir(p));
     await chmod(playerViewDir(p), 0o700);
     const path = join(playerViewDir(p), `${p.hostId}.bind-intent.json`);
+    const secretFile = playerViewSecretPath(p, p.hostId);
     let intent = readBindingIntent(path, p.operatorUid);
     if (intent === null) {
+      // An unbound credential without a prior subject-bound intent has no recoverable actor. Never adopt it.
+      if ((await fs.fileSize(secretFile)) !== null)
+        return fail(
+          "SECRET_INVALID",
+          "a credential without its original binding intent cannot be adopted",
+        );
       intent = {
         format: "immortalis-player-view-binding-intent",
         campaign_id: p.campaignId,
         operator_uid: p.operatorUid,
         host_id: p.hostId,
         pc_id: p.pcId,
-        secret: randomBytes(32).toString("hex"),
       };
       await fs.createExclusive(path, `${JSON.stringify(intent)}\n`);
       await chmod(path, 0o600);
@@ -197,15 +203,22 @@ export async function bindPlayerViewHost(
       intent.pc_id !== p.pcId
     )
       return fail("CONFIG_INVALID", "the original binding intent names another host or character");
-    const secret = intent.secret;
-    const secretFile = playerViewSecretPath(p, p.hostId);
     if ((await fs.fileSize(secretFile)) === null) {
-      await fs.createExclusive(secretFile, `${secret}\n`);
+      if (intent.secret_sha256) return fail("SECRET_INVALID", "the original credential is missing");
+      // Only an unpublished credential may be drawn here. Its sole plaintext home remains the existing secret file.
+      await fs.createExclusive(secretFile, `${randomBytes(32).toString("hex")}\n`);
       await chmod(secretFile, 0o600);
-    } else {
-      const existing = readPlayerViewSecretFile(secretFile);
-      if (existing === null || !equalHex(digestOf(existing), digestOf(secret)))
-        return fail("SECRET_INVALID", "the credential does not match the original binding intent");
+    }
+    const secret = readPlayerViewSecretFile(secretFile);
+    if (
+      secret === null ||
+      (intent.secret_sha256 && !equalHex(digestOf(secret), intent.secret_sha256))
+    )
+      return fail("SECRET_INVALID", "the credential does not match the original binding intent");
+    if (!intent.secret_sha256) {
+      intent = { ...intent, secret_sha256: digestOf(secret) };
+      await fs.writeFileDurable(path, `${JSON.stringify(intent)}\n`);
+      await chmod(path, 0o600);
     }
     const next: PlayerViewConfig = {
       ...config,
