@@ -8,6 +8,7 @@ import {
   template,
   resumed,
   stage,
+  follow,
   MOMENT,
   TAU,
   openOrdinary,
@@ -45,7 +46,18 @@ it("single ordinary requests work with elicitation ABSENT; no challenge/page, no
   };
   try {
     await r.chat.init({}); // exact relevant transport condition, not proof of actual Work support
-    const attempted = await stage(r.chat, "collect", { amount: 2 }, noHuman);
+    const request = {
+      jsonrpc: "2.0",
+      id: "ordinary-attempt-once",
+      method: "tools/call",
+      params: { name: "collect", arguments: { amount: 2 } },
+    };
+    const [first, concurrent] = await Promise.all([
+      r.chat.raw("POST", "/mcp", request, r.chat.headers()),
+      r.chat.raw("POST", "/mcp", request, r.chat.headers()),
+    ]);
+    expect(first.json).toEqual(concurrent.json);
+    const attempted = { finished: await follow(r.chat, noHuman, 20) };
     expect(attempted.finished.data.state).toBe("FINISHED");
     expect(attempted.finished.data.exit_code).toBe(0);
     expect(attempted.finished.elicited).toEqual([]);
@@ -56,6 +68,17 @@ it("single ordinary requests work with elicitation ABSENT; no challenge/page, no
       time: MOMENT.value,
       commitments: 1,
     });
+    const once = await read(s);
+    const replay = await r.chat.raw("POST", "/mcp", request, r.chat.headers());
+    expect(replay.json).toEqual(first.json);
+    const changed = await r.chat.raw(
+      "POST",
+      "/mcp",
+      { ...request, params: { name: "collect", arguments: { amount: 3 } } },
+      r.chat.headers(),
+    );
+    expect(changed.json.error).toBeDefined();
+    expect(await read(s)).toEqual(once);
     expect((await stage(r.chat, "continue_collection", {}, noHuman)).finished.data.exit_code).toBe(
       0,
     );

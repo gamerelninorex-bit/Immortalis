@@ -2862,7 +2862,7 @@ describe("MECHANISM (BLUE R3 delta): a shutdown waits for the running command to
 // -- BLUE R3 delta: real-engine restart/recovery scenarios behind the chat adapter -----------------------------------------------------
 
 /** a real original character with canonical time, the phone server over it with the SHIPPED CLI, and a chat that is both player and referee */
-async function observationServer(caps: any = { elicitation: {} }) {
+async function observationServer(caps: any = { elicitation: {} }, consoleOnly = false) {
   const dirs = (await observationCampaign()).dirs;
   const dir = tempDir("immortalis-chat-r3-real-");
   const scenarioFile = join(dir, "chat-scenario.json");
@@ -2881,6 +2881,11 @@ async function observationServer(caps: any = { elicitation: {} }) {
     pollMs: 300,
     runCli: async (argv, env) => {
       ran.push(argv[0]!);
+      if (consoleOnly) {
+        const { ordinaryAction: _ordinary, ...consoleEnv } = env;
+        void _ordinary;
+        return runCli(argv, consoleEnv);
+      }
       return runCli(argv, env);
     },
   };
@@ -3108,13 +3113,8 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
   }, 300_000);
 
   it("a shutdown during a command that holds the campaign's writer lock waits for it, so the lock is released and the restart can read the campaign back", async () => {
-    const s = await observationServer({
-      runCli: (argv: readonly string[], env: NonNullable<Parameters<typeof runCli>[1]>) => {
-        const { ordinaryAction: _ordinary, ...consoleEnv } = env;
-        void _ordinary;
-        return runCli(argv, consoleEnv);
-      },
-    });
+    // Deliberately exercise the retained console path; ordinary chat itself no longer pauses at this challenge.
+    const s = await observationServer({}, true);
     try {
       expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
       let waiting = await s.chat.call("await_action", { wait_seconds: 3 });

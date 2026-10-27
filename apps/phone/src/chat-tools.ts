@@ -1329,6 +1329,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       openWorldHint: false,
     },
     scope: "player",
+    ordinaryAction: command !== "reconcile",
     handler: async (args, ctx) => {
       if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
       if (!useScenarioCharacter) return start(command, {}, ctx);
@@ -1419,6 +1420,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
+      ordinaryAction: true,
       handler: async (args, ctx) => {
         const amount = args["amount"];
         if (
