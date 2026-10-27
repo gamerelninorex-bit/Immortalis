@@ -27,6 +27,8 @@ export interface Elicited {
 export interface ToolContext {
   readonly scopes: readonly OAuthScope[];
   readonly client: string;
+  /** Authenticated grant identity; never accepted from tool arguments. */
+  readonly grant: string;
   /** true only when this client declared elicitation AND this call is being carried on an event stream */
   readonly canElicit: boolean;
   /** asks the HUMAN (through the client's own surface) for a reply; null when it was not answered in time or not possible */
@@ -223,6 +225,7 @@ export function createMcpHttp(o: {
     const ctx: ToolContext = {
       scopes: claims.scopes,
       client: claims.client,
+      grant: claims.grant,
       canElicit: stream,
       elicit: (message, schema, timeoutMs) =>
         new Promise((resolve) => {

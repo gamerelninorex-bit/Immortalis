@@ -39,7 +39,7 @@ export const COLLECTION_COMMANDS = new Set([
 ]);
 
 /** Trusted adapter bookkeeping, never host input. The UID is reserved before dispatch; the unchanged operator still creates its
- * intent only AFTER the human confirms. Existing choices, derived work and referee tasks are pinned before they can be selected. */
+ * intent only AFTER console confirmation or the exact ordinary-request capability is consumed. Existing choices, derived work and referee tasks are pinned before they can be selected. */
 export interface CollectionIdentity {
   readonly uid: string;
   readonly pc_id: string | null;
@@ -362,6 +362,11 @@ export async function runCollectionOperation(
     return 4;
   };
   if (!p.collection) return blocked("the original collection identity was not recorded");
+  if (
+    env.ordinaryAction &&
+    (recovering || env.ordinaryAction.operationId !== p.run_id || p.collection.uid !== p.run_id)
+  )
+    return blocked("the ordinary-action capability does not belong to this dispatch");
   const opened = await open(config, options);
   if (!opened.ok)
     return blocked(`the original campaign/ledger is unavailable (${opened.error.code})`);
@@ -373,6 +378,7 @@ export async function runCollectionOperation(
       return blocked("the operation's captured context changed before dispatch");
     const ctx = {
       session,
+      ...(!recovering && env.ordinaryAction ? { ordinaryAction: env.ordinaryAction } : {}),
       terminal: env.terminal!,
       newId: () => p.collection!.uid,
       ...(recovering

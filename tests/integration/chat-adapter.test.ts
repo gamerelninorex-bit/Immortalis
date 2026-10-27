@@ -942,7 +942,7 @@ describe("MECHANISM: orchestration without deadlock, and no blind retry", () => 
 });
 
 describe("MECHANISM: the SHIPPED observe-surroundings, the real referee exchange and the earned Glance behind the ordinary-chat endpoint", () => {
-  it("the assistant proposes a look; serves the engine's real task through the referee tools between its own calls; the human confirms through the client's elicitation; the earned presentation is read back; nothing was supplied by the model side", async () => {
+  it("the assistant proposes a look; serves the engine's real task through the referee tools between its own calls; the ordinary request needs no second challenge; the earned presentation is read back; nothing was supplied by the model side", async () => {
     const dirs = (await observationCampaign()).dirs;
     const dir = tempDir("immortalis-chat-real-");
     const scenarioFile = join(dir, "chat-scenario.json");
@@ -972,12 +972,9 @@ describe("MECHANISM: the SHIPPED observe-surroundings, the real referee exchange
       const started = await chat.call("observe_surroundings");
       expect(started.isError, started.text).toBe(false);
 
-      // the shipped command asks for the human's confirmation FIRST: the client asks the human; the real challenge phrase is shown to them only
-      const confirmed = await chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
-      expect(confirmed.elicited).toHaveLength(1);
-      const phrase = phraseOf(confirmed.elicited[0]!.message);
-      expect(phrase).toMatch(/^observe-surroundings /);
-      expect(JSON.stringify(confirmed.result)).not.toContain(phrase);
+      // The explicitly requested ordinary look reaches its referee without a second human challenge.
+      const confirmed = await chat.call("await_action", { wait_seconds: 20 });
+      expect(confirmed.elicited).toHaveLength(0);
       expect(confirmed.data.state).toBe("RUNNING"); // the engine now waits for a referee reading, and the call returned
 
       // the SAME assistant now serves the referee side: it reads the engine's real task and gives its own reading (a scripted policy here)
@@ -1009,7 +1006,7 @@ describe("MECHANISM: the SHIPPED observe-surroundings, the real referee exchange
       expect(done?.data.state, done?.text).toBe("FINISHED");
       expect(done?.data.exit_code).toBe(0);
       expect(JSON.stringify(done?.data.engine_report)).toContain("STATUS ");
-      expect(JSON.stringify(done?.result)).not.toContain(phrase);
+      expect(JSON.stringify(done?.result)).not.toMatch(/type exactly/);
 
       // the engine's own earned presentation, through the existing player-view transport
       const glance = await chat.call("read_current_observation_glance");
@@ -1319,8 +1316,8 @@ describe("MECHANISM (BLUE R3): a failure after the human's confirmation and the 
       );
       await chat.init({ elicitation: {} });
       expect((await chat.call("observe_surroundings")).isError).toBe(false);
-      const confirmed = await chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
-      expect(confirmed.elicited).toHaveLength(1);
+      const confirmed = await chat.call("await_action", { wait_seconds: 20 });
+      expect(confirmed.elicited).toHaveLength(0);
 
       // the same assistant serves the engine's real referee task until the command ends
       const policy = observationPolicy();
@@ -1759,8 +1756,8 @@ describe("MECHANISM (BLUE R3): a REAL partial observation is completed by identi
       });
 
       expect((await chat.call("observe_surroundings")).isError).toBe(false);
-      const confirmed = await chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
-      expect(confirmed.elicited).toHaveLength(1);
+      const confirmed = await chat.call("await_action", { wait_seconds: 20 });
+      expect(confirmed.elicited).toHaveLength(0);
       const policy = observationPolicy();
       let submitted = 0;
       let last: Awaited<ReturnType<typeof chat.call>> | undefined;
@@ -2964,8 +2961,8 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
     });
     try {
       expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
-      const confirmed = await s.chat.call("await_action", { wait_seconds: 20 }, humanConfirms);
-      expect(confirmed.elicited).toHaveLength(1);
+      const confirmed = await s.chat.call("await_action", { wait_seconds: 20 });
+      expect(confirmed.elicited).toHaveLength(0);
       const first = await serveReferee(s.chat);
       expect(first.last.data.state).toBe("FINISHED");
       expect(first.last.data.exit_code).toBe(4);
@@ -3111,7 +3108,13 @@ describe("MECHANISM (BLUE R3 delta): REAL observation recovery at the boundaries
   }, 300_000);
 
   it("a shutdown during a command that holds the campaign's writer lock waits for it, so the lock is released and the restart can read the campaign back", async () => {
-    const s = await observationServer({});
+    const s = await observationServer({
+      runCli: (argv, env) => {
+        const { ordinaryAction: _ordinary, ...consoleEnv } = env;
+        void _ordinary;
+        return runCli(argv, consoleEnv);
+      },
+    });
     try {
       expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
       let waiting = await s.chat.call("await_action", { wait_seconds: 3 });

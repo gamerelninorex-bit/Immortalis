@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { canonicalJson } from "@immortalis/contracts";
 import type { OperatorTerminal } from "./terminal.ts";
+import {
+  consumeOrdinaryAction,
+  type OrdinaryAction,
+  type OrdinaryVerb,
+} from "./ordinary-action.ts";
+import type { LocalOperatorSession } from "./session.ts";
 
 /**
  * The explicit, bounded confirmation of ONE exact choice, obtained from the operator's console.
@@ -51,6 +57,31 @@ export interface OperatorConfirmation {
 }
 
 const live = new WeakSet<object>();
+
+/**
+ * The ordinary chat request is already the attempt. Only a private, exact-action capability at the trusted adapter can replace
+ * its redundant console challenge. An invalid capability declines; it never falls back to a different choice or a hidden typed reply.
+ * Without one, the existing console flow is unchanged. Mandatory generating-owner acceptances do not call this helper.
+ */
+export async function requestOrdinaryConfirmation(
+  terminal: OperatorTerminal,
+  verb: OrdinaryVerb,
+  subject: string,
+  shown: readonly string[],
+  use:
+    | {
+        readonly token: OrdinaryAction;
+        readonly session: LocalOperatorSession;
+        readonly action: unknown;
+      }
+    | undefined,
+): Promise<OperatorConfirmation | null> {
+  if (!use) return requestOperatorConfirmation(terminal, verb, subject, shown);
+  if (!consumeOrdinaryAction(use.token, use.session, verb, use.action)) return null;
+  const token: OperatorConfirmation = Object.freeze({ verb, subject });
+  live.add(token);
+  return token;
+}
 
 /** The canonical text of what a confirmation is bound to. */
 export const subjectOf = (content: unknown): string => canonicalJson(content);

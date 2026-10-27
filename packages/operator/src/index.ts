@@ -91,7 +91,13 @@ export * from "./closed-setting.ts";
 export * from "./collection-referee.ts";
 export * from "./collection-preparation.ts";
 export * from "./collection-clarification.ts";
-export * from "./confirmation.ts";
+export {
+  consumeConfirmation,
+  requestOperatorConfirmation,
+  requestOperatorDecision,
+  subjectOf,
+} from "./confirmation.ts";
+export type { ConfirmationVerb, OperatorConfirmation, OperatorDecision } from "./confirmation.ts";
 export * from "./ledger.ts";
 export * from "./locality.ts";
 export * from "./local-operator.ts";

@@ -61,8 +61,8 @@ import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
  *
  * What a model supplies is UNTRUSTED PROPOSED INTENT (a number of units; which pending task to read; its own reading). It never supplies
  * a campaign, path, role, permission, identity, owner key, time, "confirmed" flag or confirmation text: the scenario identities come from
- * an operator-written file, the campaign from configuration, and every confirmation is typed by the HUMAN (through the client's own
- * elicitation surface or the authenticated confirm page) into the unchanged trusted terminal. There is no tool that can reply to a prompt.
+ * an operator-written file, the campaign from configuration, and ordinary explicitly requested actions use a private one-shot capability at the trusted adapter. Mandatory setup/character
+ * acceptances still come from the HUMAN through elicitation or the authenticated confirm page. There is no tool that can reply to a prompt.
  */
 
 export { readScenario, type Scenario } from "./scenario.ts";
@@ -844,7 +844,7 @@ async function readGlance(config: PhoneConfig, note?: (m: string) => void): Prom
 // -- the tools --------------------------------------------------------------------------------------------------------------
 const NONE = { type: "object", properties: {}, additionalProperties: false } as const;
 const PLAYER_RULES =
-  "The player makes the choice in their own words; you only propose it. The player's confirmation is collected by their client directly: never ask them to type, read out or relay a confirmation phrase to you, and never claim a choice was made until the result says so.";
+  "Call an ordinary action only for the player's explicit matching request. Ask a natural-language question for materially ambiguous intent or a new consequential choice; never invent one. The trusted adapter attempts that one ordinary action without a second confirmation. Mandatory setup and character acceptances still come directly from the person through their client. Never relay a challenge phrase or claim an outcome the owners did not return.";
 
 const TEXTUAL = { type: "string", minLength: 1 } as const;
 const CONSTRAINT = {
@@ -1289,8 +1289,9 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
   const start = async (
     command: string,
     options: Readonly<Record<string, string>>,
+    authority: ToolContext,
   ): Promise<ToolResult> => {
-    const launched = await runs.launch(command, options);
+    const launched = await runs.launch(command, options, authority);
     if (!launched.ok) return text(launched.reason, true);
     const run = launched.run;
     // a start returns quickly: the engine continues on its own, and await_action follows it
@@ -1328,11 +1329,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       openWorldHint: false,
     },
     scope: "player",
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       if (!onlyKeys(args, [])) return text("this tool takes no arguments", true);
-      if (!useScenarioCharacter) return start(command, {});
+      if (!useScenarioCharacter) return start(command, {}, ctx);
       const sc = scenarioOr();
-      return sc.ok ? start(command, { "player-character": sc.s.player_character }) : sc.r;
+      return sc.ok ? start(command, { "player-character": sc.s.player_character }, ctx) : sc.r;
     },
   });
 
@@ -1418,7 +1419,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         openWorldHint: false,
       },
       scope: "player",
-      handler: async (args) => {
+      handler: async (args, ctx) => {
         const amount = args["amount"];
         if (
           !onlyKeys(args, ["amount"]) ||
@@ -1430,15 +1431,19 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           return text("amount must be a whole number of units, at least 1", true);
         const sc = scenarioOr();
         if (!sc.ok) return sc.r;
-        return start("collect", {
-          world: sc.s.world,
-          source: sc.s.source,
-          reserve: sc.s.reserve,
-          amount: String(amount),
-          "quantity-unit": sc.s.quantity_unit,
-          mechanism: sc.s.mechanism,
-          basis: sc.s.basis,
-        });
+        return start(
+          "collect",
+          {
+            world: sc.s.world,
+            source: sc.s.source,
+            reserve: sc.s.reserve,
+            amount: String(amount),
+            "quantity-unit": sc.s.quantity_unit,
+            mechanism: sc.s.mechanism,
+            basis: sc.s.basis,
+          },
+          ctx,
+        );
       },
     },
     simple(
@@ -2139,4 +2144,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. You never confirm anything for the player: their client asks them directly, and no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game. After the character is kept and placed, collection_setup_status is the one compact read of the preparation for the supported collection: it names the next step and the conditional handling-duration path. Reuse an actual accepted cycle in preparation without another duration question; use the existing clarification only for that materially unresolved detail. Ask for nothing else. Offer the player's own words with establish_character_location (a separate choice), state_starting_moment, state_handling_duration (the status's conditional path only for the particular unresolved handling duration; unrelated numeric wording settles nothing), propose_collection_preparation (verbatim quotations of the character's accepted statements), declare_closed_setting (the setting author's own words, never the character's) and finish_collection_setup (no question for the player: the bound referee reads the cycle and the service installs the connection). Every stage is shown to the player whole and confirmed by them alone; resume_collection_setup finishes only what was begun. Preparing is never starting: you collect, observe and advance nothing until the player separately asks for the supported collection with the existing tools.";
+  "IMMORTALIS campaign. You are the narrator of an ordinary conversation: the player says what their character does; you propose it with the matching tool, follow it with await_action, and tell the player the outcome. For an explicitly requested supported ordinary action, the trusted adapter attempts that exact action once without a second challenge. A tool call is not proof of the player's original wording, permission, success or a distinct player choice. Ask naturally about materially ambiguous intent or a new consequential branch. Mandatory setup and character acceptance still comes directly from the person; no tool lets you reply for them. Present the character's perceptions only from read_current_observation_glance. Referee tools (when you hold that scope) are for giving your own honest reading of the engine's tasks; what you read there is sealed referee material and is never story. Invent no rate, right, scene or result the engine did not deliver. Only when the player has chosen to write their own original place (one world, one locality, one exact finite source), you may offer exactly what they wrote with propose_original_setting; it is not world generation, you invent nothing for them, the player reads and confirms all of it themselves, and original_setting_status and resume_original_setting follow it. An established setting is only the physical place, not a started game. Only when the player has chosen to write their own original character in their own words, you may offer exactly what they said with propose_original_character (and their typed changes with revise_original_character); the AI referee host reads each statement, the player sees all of it with its findings and keeps it themselves, and original_character_status and resume_original_character follow it. Keeping the character does not place it anywhere: only after that, and only if the player says in their own words that their character is originally present at the established place, offer exactly their words with place_original_character; the player confirms that separately. You infer, complete and improve nothing for them, a kept character is never replaced here, and a kept and placed character has no position, perception, knowledge or action and starts no game. After the character is kept and placed, collection_setup_status is the one compact read of the preparation for the supported collection: it names the next step and the conditional handling-duration path. Reuse an actual accepted cycle in preparation without another duration question; use the existing clarification only for that materially unresolved detail. Ask for nothing else. Offer the player's own words with establish_character_location (a separate choice), state_starting_moment, state_handling_duration (the status's conditional path only for the particular unresolved handling duration; unrelated numeric wording settles nothing), propose_collection_preparation (verbatim quotations of the character's accepted statements), declare_closed_setting (the setting author's own words, never the character's) and finish_collection_setup (no question for the player: the bound referee reads the cycle and the service installs the connection). Every stage is shown to the player whole and confirmed by them alone; resume_collection_setup finishes only what was begun. Preparing is never starting: you collect, observe and advance nothing until the player separately asks for the supported collection with the existing tools.";

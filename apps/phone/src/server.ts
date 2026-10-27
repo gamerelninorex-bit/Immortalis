@@ -13,6 +13,14 @@ import {
   type Edit,
   type OperatorTerminal,
 } from "@immortalis/operator";
+import {
+  bindOrdinaryAction,
+  revokeOrdinaryAction,
+  type OrdinaryAction,
+  type OrdinaryVerb,
+} from "../../../packages/operator/src/ordinary-action.ts";
+import { checkScenarioFile } from "./scenario.ts";
+import type { ToolContext } from "./mcp-http.ts";
 import { PLAYER_COMMANDS } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
@@ -118,7 +126,7 @@ import {
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
- * end, nothing more. Player confirmations are typed by the authenticated player. The private referee lane also exposes the existing
+ * end, nothing more. Mandatory acceptances are typed by the authenticated player; explicitly requested ordinary chat actions use a private one-shot capability. The private referee lane also exposes the existing
  * three MCP operations to a compatible active AI browser host; no answer is defaulted or scripted. It adds no gameplay, no model and
  * no engine rule, and the existing guards (the operator's
  * owner-only files, the referee exchange's host proofs, the owners' admission) still decide everything that matters.
@@ -1001,12 +1009,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   function launchPlayer(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
+    authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
   ): Promise<Launch> {
-    return track(launchPlayerWork(request, lane));
+    return track(launchPlayerWork(request, lane, authority));
   }
   async function launchPlayerWork(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
+    authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
   ): Promise<Launch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
     if (launching || (player && !player.done))
@@ -1021,6 +1031,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const built = buildPlayerCommand(config, request);
       if (!built.ok) return refuse(400, built.reason);
       const command = String(request.command);
+      const ordinary = lane === "chat" && CHAT_COMMANDS.has(command) && command !== "reconcile";
+      if (
+        ordinary &&
+        (!authority?.scopes.includes("player") || !authority.client || !authority.grant)
+      ) {
+        built.value.cleanup();
+        return refuse(403, "an authenticated player request is required; nothing was dispatched");
+      }
       if (command === "reconcile" && unresolvedOutcome) {
         built.value.cleanup();
         return await recoverPending();
@@ -1094,7 +1112,62 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           "the operation identity could not be established; nothing was dispatched",
         );
       }
+      // Re-read the operator-owned scenario after capture. No model-provided actor/owner identity may select this capability.
+      let accepted: OrdinaryAction | undefined;
+      if (ordinary) {
+        const sc = checkScenarioFile(config.scenarioFile, { strict: true });
+        const actor = identity?.pc_id ?? collection?.pc_id;
+        const matches =
+          sc.ok &&
+          actor === sc.scenario.player_character &&
+          (command !== "collect" ||
+            (options["world"] === sc.scenario.world &&
+              options["source"] === sc.scenario.source &&
+              options["reserve"] === sc.scenario.reserve &&
+              options["mechanism"] === sc.scenario.mechanism &&
+              options["basis"] === sc.scenario.basis &&
+              options["quantity-unit"] === sc.scenario.quantity_unit));
+        if (!matches || !actor) {
+          built.value.cleanup();
+          return refuse(
+            409,
+            "the stored scenario and operation's character do not agree; nothing was dispatched",
+          );
+        }
+        const verb =
+          command === "collect" ||
+          command === "collect-finish" ||
+          command === "cease" ||
+          command === "observe-surroundings"
+            ? (command as OrdinaryVerb)
+            : null;
+        if (verb)
+          accepted = bindOrdinaryAction({
+            campaignId: config.campaignId,
+            pcId: actor,
+            operationId: id,
+            client: authority!.client,
+            grant: authority!.grant,
+            verb,
+            ...(collection ? { revision: collection.revision } : {}),
+            action:
+              command === "collect"
+                ? {
+                    source: { world_id: options["world"], source_key: options["source"] },
+                    reserve_id: options["reserve"],
+                    quantity: { amount: Number(options["amount"]), unit: options["quantity-unit"] },
+                    mechanism_id: options["mechanism"],
+                    basis_id: options["basis"],
+                  }
+                : command === "collect-finish"
+                  ? { act_id: collection?.act_id, target: collection?.target }
+                  : command === "cease"
+                    ? { act_id: collection?.act_id }
+                    : { task_id: identity?.task_id },
+          });
+      }
       if (closing) {
+        if (accepted) revokeOrdinaryAction(accepted);
         built.value.cleanup();
         return refuse(503, "the server is closing; nothing was dispatched");
       }
@@ -1113,6 +1186,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         setup,
       };
       if (!writePending(config, record)) {
+        if (accepted) revokeOrdinaryAction(accepted);
         built.value.cleanup();
         return refuse(503, "the recovery record could not be maintained; nothing was dispatched");
       }
@@ -1123,12 +1197,18 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           id,
           command,
           built.value.argv,
-          built.value.cleanup,
+          () => {
+            if (accepted) revokeOrdinaryAction(accepted);
+            built.value.cleanup();
+          },
           { quiet: false },
           command === LOCALITY_COMMAND ? settleLocality : settleNormal,
-          COLLECTION_COMMANDS.has(command)
-            ? (env) => rec.runCollection(config, record, env)
-            : undefined,
+          (env) => {
+            const execution = accepted ? { ...env, ordinaryAction: accepted } : env;
+            return COLLECTION_COMMANDS.has(command)
+              ? rec.runCollection(config, record, execution)
+              : cli(built.value.argv, execution);
+          },
         ),
       };
     } finally {
@@ -2117,10 +2197,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     blocker: () => blocker,
     structural: () => structuralBlock,
     resumable: () => resumableBlock,
-    launch: async (command, options) => {
+    launch: async (command, options, authority) => {
       if (!CHAT_COMMANDS.has(command))
         return { ok: false, status: 400, reason: "that action is not offered here" };
-      return launchPlayer({ command, options }, "chat");
+      return launchPlayer({ command, options }, "chat", authority);
     },
     abort: () => player?.terminal.abort(),
     decline: () => {

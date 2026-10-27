@@ -76,7 +76,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/initial-population.ts":
     "ad1824ac0d0c70d6d48ea5df315c6136c14a5cd9198613a15e40dfaf5cc04968",
   "packages/operator/src/commands.ts":
-    "c2edeaa018e9ebf8e6787d3b6db15d06a24a01392812b1f6bed9ecad0dc55b16",
+    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
