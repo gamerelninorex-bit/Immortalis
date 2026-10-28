@@ -417,12 +417,6 @@ export class RequestCommitments {
       character: latest("keep-character"),
       operation: receipts.findLast((r) => r.meaning)?.material,
     };
-    const guidance = (state: unknown) =>
-      state === "RUNNING"
-        ? "Follow await_action for the original requested operation."
-        : state === "FINISHED"
-          ? "Report the actual owner result and complete readback. Ask only for genuinely missing information or a distinct consequential choice."
-          : "Use the original retained input to reconcile or resume the interrupted operation. Request no additional approval.";
     let body: Record<string, unknown> | undefined;
     try {
       const v: unknown = JSON.parse(result.content[0]?.text ?? "null");
@@ -444,7 +438,6 @@ export class RequestCommitments {
                 text: JSON.stringify({
                   ...body,
                   request_readback: readback,
-                  ...(typeof body.next === "string" ? { next: guidance(body.state) } : {}),
                   ...(this.opening
                     ? {
                         opening: this.opening,

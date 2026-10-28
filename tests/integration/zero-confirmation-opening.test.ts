@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted MCP and owner facts */
 // MECHANISM ONLY: elicitation absent, simulated inline component decision; real operators/referee protocol/canonical owners.
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { REVIEW_CALLBACK } from "../../apps/phone/src/review-card.ts";
@@ -96,7 +96,7 @@ it("UI and elicitation ABSENT: exact requests realize ordered setup, then a sepa
     await r.app.close();
   }
 }, 240_000);
-it("Bob, baseline human, daylight and clear view preserve meaning but invent no epoch, duration or scene/workforce producer", async () => {
+it("bare Bob premises stop truthfully at the missing physical source producer without inventing placement, time, rights or workforce", async () => {
   const s = await slot();
   const hs = await hosts(s);
   const r = await run(s, {}, undefined, {});
@@ -104,27 +104,32 @@ it("Bob, baseline human, daylight and clear view preserve meaning but invent no 
   try {
     const setting = openingSetting();
     delete setting.opening;
-    await reviewProposal(r.chat, j, "propose_original_setting", setting);
-    await reviewProposal(r.chat, j, "propose_original_character", {
+    const premises = "Lumber yard; daylight; clear view; five stacked chopped logs.";
+    setting.world.premise = premises;
+    setting.world.reference_causal_basis.established_canon = premises;
+    setting.locus.designation = "Lumber yard";
+    setting.locus.constraints = [{ aspect: "visibility", statement: "Daylight; clear view." }];
+    setting.source.statement = "Five stacked chopped logs.";
+    setting.source.access_facts = [
+      { aspect: "visibility", statement: "Daylight; clear view of the five stacked chopped logs." },
+    ];
+    // The real transcript supplies no source-owned physical dimension. Do not copy the complete fixture's ground-surface claim into it.
+    delete setting.source.dimension;
+    const proposed = await reviewProposal(r.chat, j, "propose_original_setting", setting);
+    expect(proposed.isError).toBe(true);
+    expect(proposed.text).toContain("source.dimension");
+    expect(proposed.result?._meta?.review).toBeUndefined();
+    expect(proposed.elicited).toEqual([]);
+    const bob = await reviewProposal(r.chat, j, "propose_original_character", {
       identity: "Bob",
-      baseline_human: "An ordinary baseline human with normal faculties.",
-      opening: { presence: WORDS.presence },
+      baseline_human: "An ordinary human with nothing special.",
     });
-    const o = await openingSettled(r.chat, j);
-    expect(o.state, JSON.stringify(o)).toBe("MISSING_SOURCE");
-    expect(o.detail).toMatch(/chronology/);
-    expect(j.reviews).toEqual([]);
-    expect(
-      (await r.chat.call("original_character_status")).result.structuredContent.request_readback
-        .character,
-    ).toContain("normal faculties");
-    const facts = await world(s);
-    expect(facts).toMatchObject({ source: 5, reserves: [] });
-    expect(facts.time).toBeUndefined();
-    expect(
-      facts.keys.some((k) => k.startsWith("world/closure/") || k.startsWith("workforce/")),
-    ).toBe(false);
+    expect(bob.isError).toBe(true);
+    expect(bob.text).toMatch(/setting.*not established/);
     expect((await r.chat.call("collect", { amount: 5 })).isError).toBe(true);
+    expect(existsSync(s.campaignDir)).toBe(false);
+    expect(j.reviews).toEqual([]);
+    // Source-complete physical fixtures with genuinely missing chronology/cycle producers are separately compared in the A2 matrix.
   } finally {
     for (const h of hs) await h.stop();
     await r.app.close();

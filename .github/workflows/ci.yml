@@ -38,8 +38,10 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
       - name: Spec-lock / acceptance register / open-gates consistency
+        if: ${{ !cancelled() }}
         run: pnpm run check:spec
       - name: Zero-confirmation opening (mechanism only; live client UNRUN)
+        if: ${{ !cancelled() }}
         run: pnpm exec vitest run tests/integration/zero-confirmation-opening.test.ts
       - name: A2 whole-path evidence and BLUE H1 regressions
         if: ${{ !cancelled() }}

@@ -384,3 +384,43 @@ for (const publication of [
         await app.close();
       }
     }, 120_000);
+
+it("an authenticated different grant cannot resume the captured character request; the original grant recovers without approval", async () => {
+  const r = await supportedOpening();
+  const original = CanonicalCampaign.prototype.releasePlayerCharacter;
+  let fired = false;
+  const fault = vi
+    .spyOn(CanonicalCampaign.prototype, "releasePlayerCharacter")
+    .mockImplementation(async function (
+      this: CanonicalCampaign,
+      ...args: Parameters<typeof original>
+    ) {
+      if (!fired) {
+        fired = true;
+        return UNKNOWN;
+      }
+      return original.apply(this, args);
+    });
+  try {
+    await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
+    await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
+    await openingSettled(r.chat, r.j);
+    expect(fired).toBe(true);
+    fault.mockRestore();
+    const prefix = await receiptPrefix(r.s);
+    const { Chat, PLAYER } = await import("../support/chat-client.ts");
+    const foreign = new Chat(r.s.base);
+    expect((await foreign.link("player", { player: PLAYER })).ok).toBe(true);
+    await foreign.init({});
+    const refused = await foreign.call("resume_original_character");
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toMatch(/another authority|original.*request/);
+    await preservesPrefix(r.s, prefix);
+    await recoverOpening(r.chat, r.j);
+    expect(await shape(r.s)).toEqual(reference);
+    expect(r.j.reviews).toEqual([]);
+  } finally {
+    fault.mockRestore();
+    await r.stop();
+  }
+}, 120_000);

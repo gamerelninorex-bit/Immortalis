@@ -499,14 +499,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         : resumableBlock
           ? resumeWhat === "STAGE"
             ? lane === "chat"
-              ? "Only resume_collection_setup (the same retained input, confirmed again by the player) can finish it; do not offer anything else or retry."
+              ? "Only resume_collection_setup (the same retained input and original request authorization) can finish it; do not offer anything else or retry."
               : "Only the same retained input, confirmed again by the player, can finish it; the operator can repeat the identical shipped command. Do not retry the action."
             : resumeWhat === "CHARACTER"
               ? lane === "chat"
                 ? "Only resume_original_character (the player's retained keep, finished without asking it again) can finish it; do not offer another character or retry."
                 : "Only the same retained keep, finished by the operator's author-character command, can finish it. Do not retry the action."
               : lane === "chat"
-                ? "Only resume_original_setting (the same retained setup, confirmed again by the player) can finish it; do not propose another setting or retry."
+                ? "Only resume_original_setting (the same retained setup and original request authorization) can finish it; do not propose another setting or retry."
                 : "Only the same retained setup, confirmed again, can finish it; the operator can resume it with the identical document. Do not retry the action."
           : `Run ${lane === "chat" ? "reconcile_last_action" : "reconcile"} first; do not retry the action.`
     }`;
@@ -645,7 +645,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   const RESUME_BLOCKER =
-    "the original setup is confirmed but not complete; only that same retained document, confirmed again by the player, can finish it";
+    "the original setup is incomplete; only that same retained document under its original authorization and owner evidence can finish it";
   /**
    * Applies owner-side evidence about the ORIGINAL locality setup to the barrier: a verified completion or a proven absence of effect
    * settles it; a confirmed, partly committed setup keeps it (resumable by the same document only); anything the evidence cannot
@@ -722,7 +722,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   const STAGE_RESUME_BLOCKER =
-    "a stage of the collection preparation is confirmed but not complete; only that same retained input, confirmed again by the player, can finish it";
+    "a stage of the collection preparation is incomplete; only that same retained input under its original authorization and owner evidence can finish it";
   const ROUTE_WORDS_BLOCKER =
     "the retained route inputs are unreadable; engineering must inspect them";
   /** what a finished stage no longer needs the adapter to retain of the player's words */

@@ -40,7 +40,7 @@ import {
   wordsFile,
 } from "../support/chat-character.ts";
 import { Chat, PLAYER, REFEREE } from "../support/chat-client.ts";
-import { establishViaChat, pendingPath, readsAndDeclines } from "../support/chat-setting.ts";
+import { establishViaChat, pendingPath } from "../support/chat-setting.ts";
 import { Browser } from "../support/phone-browser.ts";
 
 afterEach(() => vi.restoreAllMocks());

@@ -1,8 +1,7 @@
 import { existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import type { RequestCommitments } from "./request-commitments.ts";
-import { REVIEW_URI } from "./review-card.ts";
-import { HumanReviews, type OpeningSources } from "./reviews.ts";
+import type { OpeningSources } from "./reviews.ts";
 // the player-view transport is reached by its own modules, unchanged: the operator package's public surface is not enlarged for the front end
 import { refereeCandidateItems } from "@immortalis/engine";
 import {
@@ -285,7 +284,7 @@ const SETUP_RECOVERY: Record<string, string> = {
   RECONCILE:
     "Whether the setup changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not propose a setting again before that.",
   RESUME:
-    "The player's setup is confirmed but not complete. Tell the player so. If they want it finished, call resume_original_setting: it finishes ONLY that same retained setting and the player confirms it again. You cannot supply or replace the setting, and you must not propose a different one.",
+    "The original requested setup is incomplete. Call resume_original_setting to finish ONLY that retained input with its original authorization and owner evidence. Supply no replacement and request no additional approval.",
   ENGINEERING:
     "Whether and how far the setup was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the setting does or does not exist.",
 };
@@ -395,11 +394,11 @@ const CHARACTER_STATUSES = [
 /** what the model may be told next, by the command's own final status (the player's choices stay the player's) */
 const CHARACTER_NEXT: Partial<Record<string, string>> = {
   CHARACTER_RELEASED_UNBOUND:
-    "If this was the keep: the character is kept and released but NOT placed anywhere. Placement is a separate choice: ask the player, in their own words, whether and where their character is originally present at the established place, then call place_original_character with exactly what they said. Never infer or suggest it for them, and never place it because of the keep. If this was a placement: the referee did not support it or the player did not confirm it; nothing is bound, and the player may say it differently.",
+    "If this was the keep: the character is kept and released but NOT placed anywhere. Placement is a separate choice: ask the player, in their own words, whether and where their character is originally present at the established place, then call place_original_character with exactly what they said. Never infer or suggest it for them, and never place it because of the keep. If this was a placement: the referee or exact-request checks did not support it; nothing is bound. Report the findings and ask only for genuinely missing information.",
   CHARACTER_BOUND:
     "Tell the player their character is kept and bound as originally present where they said, exactly as the readback shows. It gives the character no position, perception, knowledge or action, and no game has started.",
   DECLINED:
-    "Nothing was kept or placed. Tell the player what was not accepted (the findings) or that they did not keep it, and ask what they want to change. To change it, use revise_original_character (typed changes) or propose_original_character (the whole character again); each change is a new review and a new confirmation. Never retry the same unchanged character as if it were new.",
+    "Nothing was kept or placed. Report the actual refusal and referee findings. Ask only for missing information or an authored correction; use revise_original_character for an unsealed retained draft or propose_original_character for the whole authored character. A changed input is its own request. Never retry an unsupported unchanged interpretation as if it were new.",
   REFEREE_PENDING:
     "The AI referee host has not answered yet; nothing was changed. The referee scope answers the engine's task (referee_list_tasks, referee_get_task, referee_submit_decision); then call resume_original_character or await_action again.",
   REFEREE_UNAVAILABLE:
@@ -538,7 +537,7 @@ const STAGE_RECOVERY: Record<string, string> = {
   RECONCILE:
     "Whether the stage changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not offer another stage before that.",
   RESUME:
-    "A stage the player confirmed is partly committed. Tell the player so. If they want it finished, call resume_collection_setup: it finishes ONLY that same retained input and the player confirms it again. You cannot supply or replace it, and you must not offer anything else.",
+    "The original requested stage is partly committed. Call resume_collection_setup to finish ONLY that retained input with its original authorization and owner evidence. Supply no replacement and request no additional approval.",
   ENGINEERING:
     "Whether and how far the stage was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the stage does or does not exist.",
 };
@@ -546,7 +545,7 @@ const STAGE_RECOVERY: Record<string, string> = {
 /** what the model may be told next, by the stage's own final status (the player's choices stay the player's) */
 const STAGE_NEXT: Partial<Record<string, string>> = {
   DECLINED:
-    "Nothing was committed by this stage. What the player said for it is retained: they may confirm it afresh with resume_collection_setup, or change it by offering the stage again with their changed words (a changed offer is a new review and a new confirmation).",
+    "Nothing was committed by this stage. Report the refusal or missing source. Retained input may be resumed only under its original exact request and owner evidence. A genuinely changed authored input is its own request and grants no additional missing facts.",
   LOCUS_NOT_QUALIFIED:
     "The referee did not read the character as one material body present at exactly that place, so no physical location was committed. This route supports one such body only; nothing was changed. Do not retry unchanged and do not invent a different place.",
   CLARIFICATION_NOT_ACCEPTED:
@@ -843,7 +842,7 @@ async function readGlance(config: PhoneConfig, note?: (m: string) => void): Prom
 // -- the tools --------------------------------------------------------------------------------------------------------------
 const NONE = { type: "object", properties: {}, additionalProperties: false } as const;
 const PLAYER_RULES =
-  "Call an ordinary action only for the player's explicit matching request. Ask a natural-language question for materially ambiguous intent or a new consequential choice; never invent one. The trusted adapter attempts that one ordinary action without a second confirmation. Mandatory setup and character acceptances still come directly from the person through their client. Never relay a challenge phrase or claim an outcome the owners did not return.";
+  "Call an ordinary action only for the player's explicit matching request. Ask a natural-language question for materially ambiguous intent or a new consequential choice; never invent one. The trusted adapter attempts that one ordinary action without a second confirmation. The same exact-request policy applies to initial setting and character generation; show complete mirror/findings readback and request no further approval. Never relay a challenge phrase or claim an outcome the owners did not return.";
 
 const TEXTUAL = { type: "string", minLength: 1 } as const;
 const CONSTRAINT = {
@@ -1266,7 +1265,7 @@ const DECLARATION_SCHEMA = {
 } as const;
 
 export interface ChatToolDeps {
-  readonly reviews?: HumanReviews | RequestCommitments;
+  readonly reviews?: RequestCommitments;
   readonly advanceOpening?: (context: ToolContext) => void;
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
@@ -2305,22 +2304,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, run, after, runs);
   }
 
-  const reviewNames = new Set([
-    "propose_original_setting",
-    "resume_original_setting",
-    "propose_original_character",
-    "revise_original_character",
-    "place_original_character",
-    "resume_original_character",
-    "establish_character_location",
-    "state_starting_moment",
-    "state_handling_duration",
-    "propose_collection_preparation",
-    "declare_closed_setting",
-    "resume_collection_setup",
-  ]);
   if (!d.reviews) return tools;
-  const humanReviews = d.reviews instanceof HumanReviews;
   const requestDescriptions: Record<string, string> = {
     propose_original_setting:
       "Use the player's explicitly authored ORIGINAL setting premises exactly as supplied. The exact authenticated request proceeds through the existing owners without another approval. Supply independently sourced opening premises only when present; invent no chronology, rights, closure or workforce facts.",
@@ -2351,29 +2335,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
   return [
     ...tools.map((tool) => ({
       ...tool,
-      ...(!humanReviews && requestDescriptions[tool.name]
+      ...(requestDescriptions[tool.name]
         ? { description: `${requestDescriptions[tool.name]} ${PLAYER_RULES}` }
         : {}),
-      ...(!humanReviews ? { replayable: tool.annotations.readOnlyHint !== true } : {}),
-      ...(humanReviews && (reviewNames.has(tool.name) || tool.name === "await_action")
-        ? { _meta: { ui: { resourceUri: REVIEW_URI } } }
-        : {}),
+      replayable: tool.annotations.readOnlyHint !== true,
       handler: async (args: Record<string, unknown>, ctx: ToolContext) => {
-        if (
-          humanReviews &&
-          reviewNames.has(tool.name) &&
-          !tool.name.startsWith("resume_") &&
-          !ctx.canReview &&
-          !ctx.supportsElicitation
-        )
-          return asJson(
-            {
-              state: "REVIEW_UNAVAILABLE",
-              detail:
-                "This client cannot present an authenticated in-chat review. Nothing was started.",
-            },
-            true,
-          );
         if (
           d.reviews!.opening?.state === "REALIZING" &&
           [
@@ -2387,7 +2353,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           return d.reviews!.decorate(
             asJson({
               state: "RUNNING",
-              next: "The accepted opening is continuing; follow await_action.",
+              next: "The requested opening is continuing; follow await_action.",
             }),
             ctx,
           );
@@ -2402,7 +2368,6 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         return result;
       },
     })),
-    ...(d.reviews instanceof HumanReviews ? [d.reviews.callback()] : []),
   ];
 }
 
