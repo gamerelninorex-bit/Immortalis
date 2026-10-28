@@ -1,3 +1,5 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // Conformance evidence for the Initial Local Population & Residency Cohort slice (@immortalis/operator `establish-population`).
 // Authority: BLUE v5.2-A1 bounded implementation brief (native pin 2026-10-22T07:02:36.427Z) on main
 // 40527749b68781f008c6b59e97f5cf90db24618b. Governing lock: spec/f027/spec-lock.json (F-027 v1.0), unchanged. This slice adds operator
@@ -61,7 +63,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/operator/src/locality.ts":
-    "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
+    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/additional-source.ts":
     "56428eac482b003420120cca2e617fc019c1b1e59c09a37f0d2dca4ceb63111e",
   "packages/operator/src/additional-locality.ts":
@@ -77,7 +79,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/terminal.ts":
-    "05c70dbf9b74a9518f1d249980f1372803c3dcfe2b802eb245d93a1ec14ecd0d",
+    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
 };
 
 describe("nothing outside the operator is touched", () => {

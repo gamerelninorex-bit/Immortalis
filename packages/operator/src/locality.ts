@@ -699,6 +699,7 @@ export async function establishLocality(params: EstablishLocalityParams): Promis
       how,
       pending.map((s) => s.name),
     ),
+    setup,
   );
   if (!confirmation || !consumeConfirmation(confirmation, "establish-locality", subject)) {
     await closeQuietly(existing);

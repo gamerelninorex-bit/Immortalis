@@ -1,37 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- exercised scripted conversation evidence */
-// A2 mechanism evidence. No genuine AI interpretation, real-client UX, latency or token-cost claim.
-import { execFileSync } from "node:child_process";
-import { symlinkSync, writeFileSync } from "node:fs";
+/* eslint-disable @typescript-eslint/no-explicit-any -- exercised scripted conversation and counters */
+// A2 mechanism evidence only. Actual Work/Android rendering, human acceptance and genuine referee interpretation remain UNRUN.
+import { execFileSync, spawn } from "node:child_process";
+import { symlinkSync, writeFileSync, readFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { performance } from "node:perf_hooks";
-import { cpus, platform, arch } from "node:os";
-import { expect, it } from "vitest";
+import { cpus, arch, platform } from "node:os";
+import { expect, it, vi } from "vitest";
 import { PcCollectionAdapter } from "@immortalis/engine";
-import { routeMeter, subtractWork } from "../support/route-meter.ts";
+import { createPhoneServer } from "../../apps/phone/src/server.ts";
+import { routeMeter } from "../support/route-meter.ts";
 import { tempDir } from "../support/tmp.ts";
-import { Chat, type Human } from "../support/chat-client.ts";
+import { hosts, slot, MOMENT, TAU, openOrdinary, stage } from "../support/chat-route.ts";
 import {
-  embodiment,
-  hosts,
-  resumed,
-  slot,
-  stage,
-  reader,
-  status,
-  CYCLE,
-  DECLARATION,
-  HANDLING,
-  MOMENT,
-  preparation,
-  openOrdinary,
-  template,
-  cloneSlot,
-  converge,
-} from "../support/chat-route.ts";
-import { courtyard, run } from "../support/chat-setting.ts";
-import { draft, WORDS } from "../support/chat-character.ts";
-
-const BASE = "e8fd50b3de6f4f0f1e7be71fa97ff3b5434ea587";
+  supportedOpening,
+  completeOpening,
+  UI_CAPS,
+  openingCharacter,
+  openingSetting,
+  openingSettled,
+  call,
+} from "../support/two-review-opening.ts";
+const BASE = "bb40fb2d2daf3661eb3407c1d3864797ef33162a";
 const HEAD = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const root = process.cwd();
 const environment = {
@@ -42,67 +30,32 @@ const environment = {
   cpu: cpus()[0]?.model,
   repetitions: 3,
 };
-function emit(name: string, value: unknown) {
-  const bytes = Buffer.from(JSON.stringify(value)).toString("base64");
-  const parts = Math.ceil(bytes.length / 6000);
-  for (let i = 0; i < parts; i++)
-    console.log(`A2_EVIDENCE ${name} ${i + 1}/${parts} ${bytes.slice(i * 6000, (i + 1) * 6000)}`);
-}
-
-/** Unrelated authored loci and dormant closure history, through the ordinary owners.
- * No fact supplies any premise/result of the courtyard route being proved. */
-async function unrelated(s: any, extra: number, history: number) {
-  const c = await openOrdinary(s.campaignDir);
-  try {
-    const publication = (n: number) => ({
-      group_id: `unrelated:${n}:group`,
-      intent_id: `unrelated:${n}:intent`,
-      cause: `unrelated:${n}:cause`,
-      basis: "authored unrelated measurement fixture",
-      secrecy: "local-operator-session",
-    });
-    const original = c.locus("world-courtyard", "locus-courtyard")!.value;
-    for (let i = 0; i <= extra; i++) {
-      const result = await c.establishLocus({
-        ...publication(i),
-        locus: {
-          ...original,
-          locus_id: `unused-${i}`,
-          designation: `An unused, separate locality ${i}`,
-        },
-      });
-      expect(result.ok, JSON.stringify(result)).toBe(true);
-    }
-    for (let i = 0; i <= history; i++) {
-      const result = await new PcCollectionAdapter(c.store).establishSceneClosure({
-        ...publication(1000 + i),
-        world_id: "world-courtyard",
-        locus_id: "unused-0",
-        domain: { designation: "The unused remote locality", topology: "A separate empty place" },
-        closure: { statement: "The remote domain has only its owner's stated facts" },
-        source_rights: [],
-      });
-      expect(result.ok, JSON.stringify(result)).toBe(true);
-    }
-  } finally {
-    await c.close();
-  }
-}
-
-function extractBase() {
-  const dir = tempDir("immortalis-a2-base-");
-  const archive = join(dir, "baseline.tar");
+function extract() {
+  const dir = tempDir("pr91-whole-base-");
+  const archive = join(dir, "source.tar");
   execFileSync("git", [
     "archive",
     `--output=${archive}`,
     BASE,
     "apps/phone/src",
     "packages/operator/src",
+    "packages/operator/package.json",
   ]);
   execFileSync("tar", ["-xf", archive, "-C", dir]);
-  symlinkSync(join(root, "node_modules"), join(dir, "node_modules"), "dir");
-  // pnpm isolates package dependencies (for example zod) below each package;
-  // the repository-root link alone does not reproduce that installed graph.
+  // Each side must execute its own pinned operator, including the private ordinary-action capability module.
+  // Sharing the current operator would reject the base adapter's otherwise lawful one-shot capability.
+  mkdirSync(join(dir, "node_modules/@immortalis"), { recursive: true });
+  for (const name of readdirSync(join(root, "node_modules")))
+    if (name !== "@immortalis")
+      symlinkSync(join(root, "node_modules", name), join(dir, "node_modules", name));
+  for (const name of readdirSync(join(root, "node_modules/@immortalis")))
+    symlinkSync(
+      name === "operator"
+        ? join(dir, "packages/operator")
+        : join(root, "node_modules/@immortalis", name),
+      join(dir, "node_modules/@immortalis", name),
+      "dir",
+    );
   symlinkSync(
     join(root, "packages/operator/node_modules"),
     join(dir, "packages/operator/node_modules"),
@@ -110,410 +63,209 @@ function extractBase() {
   );
   return dir;
 }
-
-it("A2: exercised whole-path conversations and before/after work measurements with fixed causal input and unrelated state/history", async () => {
-  const base = extractBase();
-  const results: any[] = [];
-  const originalCall = Chat.prototype.call;
-  for (const cycle of [true, false])
+async function probe(source: string, s: any, input: any) {
+  const file = join(s.root, "probe.json");
+  writeFileSync(file, JSON.stringify({ ...input, config: s.config }));
+  return new Promise<any>((resolve, reject) => {
+    const p = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        join(root, "tests/integration/fixtures/two-review-journey-probe.ts"),
+        source,
+        file,
+      ],
+      { cwd: root },
+    );
+    let out = "",
+      err = "";
+    p.stdout.on("data", (d) => (out += String(d)));
+    p.stderr.on("data", (d) => (err += String(d)));
+    p.on("error", reject);
+    p.on("close", (code) => {
+      if (code !== 0) return reject(new Error(err || out));
+      try {
+        resolve(JSON.parse(out));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+}
+it("A2: fixed-input whole journeys compare real review controls and I/O across base/current, dormant state/history and genuine missing prerequisites", async () => {
+  const base = extract();
+  const evidence: any[] = [];
+  for (const missing of [false, true])
     for (const variation of [
       { facts: 0, history: 0 },
-      { facts: 20, history: 0 },
-      { facts: 0, history: 40 },
+      { facts: 12, history: 0 },
+      { facts: 0, history: 20 },
     ])
-      for (let repetition = 0; repetition < 3; repetition++) {
-        const transcript: string[] = [
-          "MECHANISM ONLY: scripted authenticated MCP host, scripted test-human input/consent, scripted referee policy, real canonical owners. This is not an actual human/client or AI-language-understanding witness.",
-        ];
-        const s = await slot({
-          refereeHostIds: ["gm-setup", "gm-collection"],
-          playerViewHostId: "view-host",
-        });
-        const referees = await hosts(s);
-        const meter = routeMeter();
-        const toolCounts: Record<string, number> = {};
-        const transport = { requests: 0, request_body_bytes: 0 };
-        const nativeFetch = globalThis.fetch;
-        globalThis.fetch = async (input, init) => {
-          transport.requests++;
-          if (typeof init?.body === "string" || init?.body instanceof URLSearchParams)
-            transport.request_body_bytes += Buffer.byteLength(String(init.body));
-          return nativeFetch(input, init);
-        };
-        let hostBytes = 0,
-          humanReviews = 0,
-          humanParts = 0,
-          requests = 0;
-        let excludedFixtureMs = 0;
-        const phases: any[] = [];
-        Chat.prototype.call = async function (...args: Parameters<typeof originalCall>) {
-          const out = await originalCall.apply(this, args);
-          toolCounts[args[0]] = (toolCounts[args[0]] ?? 0) + 1;
-          hostBytes += Buffer.byteLength(out.text ?? "");
-          return out;
-        };
-        const sanitize = (text: string) =>
-          text
-            .replaceAll(s.root, "<private-root>")
-            .replace(
-              /(?:establish-locality|keep-character|place-character|establish-character-locus|initialize-time|accept-clarification|prepare-collection|declare-closed-setting) [0-9a-f]{12}/g,
-              "<human-only challenge>",
-            )
-            .replace(/[0-9a-f]{64}/g, "<digest>");
-        const human: Human = (e) => {
-          humanParts++;
-          transcript.push(
-            `HUMAN REVIEW (complete delivered part ${humanParts}):\n${sanitize(e.message)}`,
+      for (let repetition = 0; repetition < environment.repetitions; repetition++) {
+        const pair: any = { missing, variation, repetition };
+        const setting = openingSetting();
+        const character = openingCharacter();
+        if (missing) {
+          delete setting.opening;
+          delete character.opening.preparation;
+          character.embodiment = character.embodiment.replace(
+            "one chopped log every 12 second; ",
+            "",
           );
-          if (/type exactly "/.test(e.message)) {
-            humanReviews++;
-            transcript.push(
-              "TEST HUMAN: confirms this displayed operation only. [Challenge/reply redacted; never visible to the host.]",
-            );
-          } else
-            transcript.push(
-              "TEST HUMAN: acknowledges receipt of this review part; grants no consent yet.",
-            );
-          return reader(e);
-        };
-        const phase = async (label: string, words: string, tool: string, args: any = {}) => {
-          requests++;
-          transcript.push(
-            `TEST HUMAN REQUEST: ${words}\nSCRIPTED HOST TOOL: ${tool} (typed mapping of authored input; no genuine model interpretation claimed)`,
-          );
-          const before = meter.snapshot();
-          const start = performance.now();
-          const out = await stage(chat, tool, args, human);
-          phases.push({
-            label,
-            ms: performance.now() - start,
-            work: subtractWork(meter.snapshot(), before),
-          });
-          expect(out.finished.isError, out.finished.text).toBe(false);
-          // The shipped KEEP operation deliberately ends at RELEASED_UNBOUND
-          // (exit 3): native placement is a separate human choice, not a failure
-          // to be retried or silently combined with KEEP.
-          if (label === "KEEP") {
-            expect(out.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-            expect(out.finished.data.character).toMatchObject({
-              state: "RELEASED_UNBOUND",
-              barrier: "NONE",
-            });
-          }
-          expect(
-            out.finished.data.exit_code,
-            `${label}: ${sanitize(out.finished.text ?? "")}`,
-          ).toBe(label === "KEEP" ? 3 : 0);
-          transcript.push(
-            `SERVICE OUTCOME: ${out.finished.data.result?.status ?? out.finished.data.state}`,
-          );
-          const route = (await status(chat)).route;
-          transcript.push(`READ-ONLY NEXT STEP: ${sanitize(JSON.stringify(route.next))}`);
-        };
-        const begin = performance.now();
-        const r = await run(s, { pollMs: 20, chat: { settleMs: 30 } });
-        const chat = r.chat;
-        try {
-          await phase(
-            "setting",
-            "Create my invented walled courtyard with twelve loose stones on the floor, reachable by walking across its flags.",
-            "propose_original_setting",
-            courtyard(),
-          );
-          await phase(
-            "KEEP",
-            `My character is ${WORDS.identity}. ${WORDS.contact}. ${embodiment(cycle)}. ${WORDS.continuity} I carry ${WORDS.possession}.`,
-            "propose_original_character",
-            draft({ embodiment: embodiment(cycle) }),
-          );
-          await phase("native", WORDS.presence, "place_original_character", {
-            statement: WORDS.presence,
-          });
-          await phase(
-            "physical",
-            "Establish my character's physical location here.",
-            "establish_character_location",
-          );
-          await phase(
-            "chronology",
-            `Begin at ${MOMENT.statement}, at exactly ${MOMENT.value} ${MOMENT.unit}.`,
-            "state_starting_moment",
-            MOMENT,
-          );
-          meter.active(false);
-          const fixtureStart = performance.now();
-          await unrelated(s, variation.facts, variation.history);
-          excludedFixtureMs += performance.now() - fixtureStart;
-          meter.active(true);
-          if (!cycle) await phase("R5", HANDLING, "state_handling_duration", { words: HANDLING });
-          await phase(
-            "preparation",
-            "Prepare gathering by my already accepted handling words; keep the empty Reserve dry.",
-            "propose_collection_preparation",
-            preparation(cycle ? CYCLE : HANDLING),
-          );
-          await phase(
-            "declaration",
-            Object.values(DECLARATION).join(". "),
-            "declare_closed_setting",
-            DECLARATION,
-          );
-          await phase(
-            "trusted finish",
-            "[Automatic service/referee work after the confirmed preparation; no player approval.]",
-            "finish_collection_setup",
-          );
-          expect(humanReviews).toBe(cycle ? 7 : 8);
-          const setupWork = meter.snapshot();
-          const setupMs = performance.now() - begin - excludedFixtureMs;
-          const setupHostBytes = hostBytes;
-          const stable = (await status(chat)).route;
-          const reads = [];
-          for (let n = 0; n < 3; n++) {
-            const before = meter.snapshot(),
-              start = performance.now();
-            expect((await status(chat)).route).toEqual(stable);
-            reads.push({
-              ms: performance.now() - start,
-              work: subtractWork(meter.snapshot(), before),
-            });
-          }
-          expect(stable.readiness.prepared_to_request_collection).toBe(true);
-          expect(reads.every((m) => m.work.prepare_groups === 0)).toBe(true);
-          // LOCK bookkeeping is included in fs_writes; no canonical group is prepared by status.
-          meter.active(false);
-          const c = await openOrdinary(s.campaignDir);
-          const head = c.store.head();
-          const facts = c.store.listFacts();
-          const causal = {
-            source: c.sourceCondition("world-courtyard", "src-loose-stones")!.value.recoverable,
-            time: (c.store.getFact("temporal/state")!.value as any).canonical_time,
-            reserves: facts
-              .filter((f) => f.key.startsWith("production/reserve/"))
-              .map((f) => (f.value as any).quantity),
-            commitments: facts.filter((f) => f.key.includes("/collection/")).length,
-          };
-          await c.close();
-          expect(causal).toEqual({
-            source: { amount: 12, unit: "stone" },
-            time: { value: MOMENT.value, unit: MOMENT.unit },
-            reserves: [{ amount: 0, unit: "stone" }],
-            commitments: 0,
-          });
-          await r.app.close();
-          const file = join(s.root, "probe.json");
-          writeFileSync(file, JSON.stringify(s.config), { mode: 0o600 });
-          const probe = (source: string, operation = "character") =>
-            JSON.parse(
-              execFileSync(
-                process.execPath,
-                [
-                  "--experimental-strip-types",
-                  "--no-warnings",
-                  join(root, "tests/integration/fixtures/chat-route-probe.ts"),
-                  source,
-                  file,
-                  operation,
-                ],
-                { encoding: "utf8", timeout: 120_000 },
-              ),
-            );
-          const commonBefore = probe(base),
-            commonAfter = probe(root),
-            addedRouteRead = probe(root, "route");
-          expect(commonBefore.map((v: any) => v.outcome)).toEqual(["BOUND", "BOUND", "BOUND"]);
-          expect(commonAfter.map((v: any) => v.outcome)).toEqual(["BOUND", "BOUND", "BOUND"]);
-          expect(commonAfter.map((v: any) => v.continuity_sha)).toEqual(
-            commonBefore.map((v: any) => v.continuity_sha),
-          );
-          results.push({
-            cycle: cycle ? "accepted" : "R5",
-            variation,
-            repetition,
-            phases,
-            setup_ms: setupMs,
-            elapsed_ms_including_fixture_and_probe_work: performance.now() - begin,
-            setup_work: setupWork,
-            status: reads,
-            tool_counts: toolCounts,
-            transport,
-            oauth_link_decisions: 1,
-            emitted_allowlisted_bytes: hostBytes,
-            setup_allowlisted_bytes: setupHostBytes,
-            human_confirmations: humanReviews,
-            human_display_parts: humanParts,
-            scripted_requests_including_service_finish: requests,
-            canonical_revision: head.revision,
-            current_facts: facts.length,
-            causal,
-            common_before: commonBefore,
-            common_after: commonAfter,
-            added_route_read: addedRouteRead,
-          });
-          if (repetition === 0 && variation.facts === 0 && variation.history === 0)
-            emit(`transcript-${cycle ? "accepted" : "r5"}`, {
-              base: BASE,
-              head: HEAD,
-              environment,
-              transcript,
-              confirmations: humanReviews,
-              requests,
-              toolCounts,
-            });
-        } finally {
-          meter.stop();
-          Chat.prototype.call = originalCall;
-          globalThis.fetch = nativeFetch;
-          await r.app.close().catch(() => undefined);
-          for (const h of referees) await h.stop();
         }
+        for (const [mode, source] of [
+          ["base", base],
+          ["current", root],
+        ] as const) {
+          const s = await slot({ playerViewHostId: "view-host" });
+          const hs = await hosts(s);
+          try {
+            pair[mode] = await probe(source, s, { setting, character, missing, variation, mode });
+          } finally {
+            for (const h of hs) await h.stop();
+          }
+        }
+        const current = pair.current,
+          prior = pair.base;
+        expect(prior.inlineResource).toBe(false);
+        expect(current.inlineResource).toBe(true); // falsifiable against the immutable base
+        expect(prior.reviews).toHaveLength(missing ? 4 : 7);
+        expect(prior.typedChallenges).toBe(prior.reviews.length);
+        expect(current.reviews).toEqual([
+          { channel: "ui", category: "setting" },
+          { channel: "ui", category: "generation" },
+        ]);
+        expect(current.typedChallenges).toBe(0);
+        expect(current.pageSwitches).toBe(0);
+        expect(current.state).toEqual(prior.state);
+        expect(current.state).toMatchObject(
+          missing
+            ? { source: 5, reserves: [], time: null, commitments: 0, custody: true }
+            : {
+                source: 0,
+                reserves: [5],
+                time: MOMENT.value + 5 * TAU,
+                commitments: 1,
+                custody: true,
+              },
+        );
+        expect(current.work.prepare_groups).toBe(prior.work.prepare_groups); // same canonical operations, no alternate owner machinery
+        for (const key of [
+          "opens",
+          "verifies",
+          "fs_reads",
+          "fs_writes",
+          "sync_reads",
+          "sync_writes",
+        ])
+          expect(Number.isFinite(current.work[key])).toBe(true);
+        evidence.push(pair);
       }
-  for (const cycle of ["accepted", "R5"]) {
-    const rows = results.filter((r) => r.cycle === cycle);
-    expect(new Set(rows.map((r) => r.setup_work.prepare_groups)).size).toBe(1);
-    for (const row of rows) {
-      expect(row.status.every((r: any) => r.work.opens === 1 && r.work.prepare_groups === 0)).toBe(
-        true,
-      );
-      for (const key of ["common_before", "common_after", "added_route_read"])
-        expect(row[key].every((r: any) => r.work.opens === 1)).toBe(true);
-      expect(row.common_after.map((r: any) => r.work.replay_groups)).toEqual(
-        row.common_before.map((r: any) => r.work.replay_groups),
-      );
+  console.log(
+    "PR91_WHOLE_JOURNEY",
+    JSON.stringify({
+      base: BASE,
+      head: HEAD,
+      environment,
+      fixture:
+        "independently authored five logs, claims, chronology, scene/workforce; missing branch omits chronology/cycle",
+      fixtureCreation: "excluded symmetrically; full link/review/setup/action/reopen I/O included",
+      historyFixture:
+        "20 independent dormant remote-locus journal publications; rows also grow, so this does not isolate journal depth from state cardinality",
+      limits: {
+        receipts: 100,
+        receiptBytes: 33554432,
+        liveClient: "UNRUN",
+        timings: "descriptive; no SLA",
+      },
+      evidence,
+    }),
+  );
+}, 720_000);
+it("A2: a grouped opening partial declaration reopens under the same grant/receipt, preserves the original owner intent and requires zero repeat review", async () => {
+  const evidence: any[] = [];
+  for (const variation of [0, 12]) {
+    const r = await supportedOpening();
+    let app = r.app;
+    const meter = routeMeter();
+    const proto = PcCollectionAdapter.prototype;
+    const original = proto.establishWorkforceScope;
+    let fail = true;
+    const spy = vi.spyOn(proto, "establishWorkforceScope").mockImplementation(async function (
+      this: PcCollectionAdapter,
+      ...args
+    ) {
+      if (fail) {
+        fail = false;
+        return {
+          ok: false,
+          error: { code: "UNKNOWN_OUTCOME", message: "test reply lost before publication" },
+        };
+      }
+      return original.apply(this, args);
+    });
+    try {
+      await completeOpening(r).catch(() => undefined);
+      spy.mockRestore();
+      const before = await openOrdinary(r.s.campaignDir);
+      let closureIntent: string;
+      try {
+        const owner = new PcCollectionAdapter(before.store);
+        closureIntent = owner.sceneClosure("world-courtyard", "locus-courtyard")!.fact.provenance
+          .intent_id;
+        for (let n = 0; n < variation; n++) {
+          const w = await before.establishLocus({
+            group_id: `recovery-extra-${n}:g`,
+            intent_id: `recovery-extra-${n}:i`,
+            cause: `recovery-extra-${n}`,
+            basis: "independent dormant fixture",
+            secrecy: "local-operator-session",
+            locus: {
+              world: { fact_key: "world/world-courtyard/profile", entity_id: "world-courtyard" },
+              locus_id: `recovery-unused-${n}`,
+              designation: "Unused separate ground",
+              constraints: [],
+            },
+          });
+          expect(w.ok).toBe(true);
+        }
+      } finally {
+        await before.close();
+      }
+      const accepted = r.j.reviews.length;
+      expect(accepted).toBe(2);
+      await app.close();
+      app = createPhoneServer(r.s.config, { pollMs: 20 });
+      await app.listen();
+      await r.chat.init(UI_CAPS);
+      await stage(r.chat, "reconcile_last_action", {}, () => {
+        throw new Error("recovery cannot ask again");
+      });
+      expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
+      expect(r.j.reviews).toHaveLength(accepted);
+      const c = await openOrdinary(r.s.campaignDir);
+      try {
+        const owner = new PcCollectionAdapter(c.store);
+        expect(
+          owner.sceneClosure("world-courtyard", "locus-courtyard")!.fact.provenance.intent_id,
+        ).toBe(closureIntent!);
+        expect(owner.sceneClosure("world-courtyard", "locus-courtyard")!.fact.version).toBe(1);
+        expect(owner.workforceScope("world-courtyard", "locus-courtyard")!.fact.version).toBe(1);
+        expect((c.store.getFact("temporal/state")!.value as any).canonical_time.value).toBe(
+          MOMENT.value,
+        );
+      } finally {
+        await c.close();
+      }
+      evidence.push({ variation, reviews: accepted, repeatedReviews: 0, work: meter.snapshot() });
+    } finally {
+      spy.mockRestore();
+      meter.stop();
+      for (const h of r.hosts) await h.stop();
+      await app.close();
     }
   }
-  emit("measurements", {
-    base: BASE,
-    head: HEAD,
-    environment,
-    baseline_end_to_end_chat: "UNAVAILABLE: ingress did not exist",
-    measured: results,
-    limits:
-      "Mechanism wall times only. Global filesystem/hash/serialization totals include scripted referee polling; canonical opens/replays and human confirmations are deterministic work counters. H-07 full history replay and state copies/hashes are inherited and measured by the common read probe; adapter overhead is the additional route work. No persistence repair, model latency, token cost or client UX claim.",
-  });
-}, 1_200_000);
-
-it("A2: interruption recovery with fixed input across unrelated state and history", async () => {
-  const prepared = await template("PREPARED");
-  const measured: any[] = [];
-  for (const variation of [
-    { facts: 0, history: 0 },
-    { facts: 20, history: 0 },
-    { facts: 0, history: 40 },
-  ])
-    for (let repetition = 0; repetition < 3; repetition++) {
-      const s = await cloneSlot(prepared);
-      await unrelated(s, variation.facts, variation.history);
-      const r = await resumed(s);
-      const transcript = [
-        "MECHANISM ONLY: scripted test-human and referee; real authenticated service shutdown/restart.",
-      ];
-      try {
-        transcript.push(`TEST HUMAN: ${Object.values(DECLARATION).join(". ")}`);
-        await stage(r.chat, "declare_closed_setting", DECLARATION, null);
-        transcript.push(
-          "INTERRUPTION: service stopped before the human answered the mandatory declaration review. No consent was submitted.",
-        );
-      } finally {
-        await r.stop();
-      }
-      const meter = routeMeter();
-      const transport = { requests: 0, request_body_bytes: 0 };
-      const nativeFetch = globalThis.fetch;
-      globalThis.fetch = async (input, init) => {
-        transport.requests++;
-        if (typeof init?.body === "string" || init?.body instanceof URLSearchParams)
-          transport.request_body_bytes += Buffer.byteLength(String(init.body));
-        return nativeFetch(input, init);
-      };
-      const completeBegin = performance.now();
-      const fresh = await resumed(s).catch((error: unknown) => {
-        meter.stop();
-        globalThis.fetch = nativeFetch;
-        throw error;
-      });
-      const restartAndLinkMs = performance.now() - completeBegin;
-      const restartAndLinkWork = meter.snapshot();
-      const call = fresh.chat.call.bind(fresh.chat);
-      const toolCounts: Record<string, number> = {};
-      let emittedBytes = 0;
-      fresh.chat.call = async (...args: Parameters<typeof call>) => {
-        const result = await call(...args);
-        toolCounts[args[0]] = (toolCounts[args[0]] ?? 0) + 1;
-        emittedBytes += Buffer.byteLength(result.text ?? "");
-        return result;
-      };
-      const begin = performance.now();
-      let confirms = 0;
-      try {
-        const one = (await status(fresh.chat)).route;
-        expect((await status(fresh.chat)).route).toEqual(one);
-        expect(one.readiness.prepared_to_request_collection).toBe(false);
-        transcript.push(
-          `READ-ONLY STATUS x2: ${JSON.stringify(one.next)}. No question or confirmation was recreated.`,
-        );
-        const trail = await converge(fresh, {
-          until: (route) =>
-            route.barrier === "NONE" &&
-            route.stages.some((l: any) => l.stage === "closed_setting" && l.state === "DONE"),
-          human: (e) => {
-            transcript.push(
-              `COMPLETE RESUMED HUMAN REVIEW:\n${e.message.replace(/declare-closed-setting [0-9a-f]{12}/g, "<human-only challenge>").replace(/[0-9a-f]{64}/g, "<digest>")}`,
-            );
-            if (/type exactly "/.test(e.message)) {
-              confirms++;
-              transcript.push(
-                "TEST HUMAN: confirms this retained, still-incomplete declaration afresh. [Challenge and reply redacted.]",
-              );
-            }
-            return reader(e);
-          },
-        });
-        expect(confirms).toBe(1);
-        expect(
-          trail.some(
-            (t) => t.includes("+retained") || t.startsWith("RESUME/resume_collection_setup"),
-          ),
-        ).toBe(true);
-        const ms = performance.now() - begin;
-        const completeMs = performance.now() - completeBegin;
-        const completeWork = meter.snapshot();
-        expect(completeMs).toBeGreaterThanOrEqual(ms);
-        expect(restartAndLinkWork.prepare_groups).toBe(0);
-        meter.stop();
-        transcript.push(
-          `SERVICE RECOVERY: ${trail.join(" -> ")}; only the original retained declaration was completed.`,
-        );
-        measured.push({
-          variation,
-          repetition,
-          ms,
-          work: subtractWork(completeWork, restartAndLinkWork),
-          restart_and_link_ms: restartAndLinkMs,
-          restart_and_link_work: restartAndLinkWork,
-          complete_recovery_ms: completeMs,
-          complete_work: completeWork,
-          transport,
-          oauth_link_decisions: 1,
-          trail,
-          fresh_confirmations: confirms,
-          reasked_authored_inputs: 0,
-          tool_counts: toolCounts,
-          emitted_allowlisted_bytes: emittedBytes,
-        });
-        if (variation.facts === 0 && variation.history === 0 && repetition === 0)
-          emit("transcript-resumed", {
-            base: BASE,
-            head: HEAD,
-            environment,
-            transcript,
-            ...measured.at(-1),
-          });
-      } finally {
-        meter.stop();
-        globalThis.fetch = nativeFetch;
-        await fresh.stop();
-      }
-    }
-  emit("recovery-measurements", { base: BASE, head: HEAD, environment, measured });
-}, 900_000);
+  console.log("PR91_RECOVERY_A2", JSON.stringify({ head: HEAD, environment, evidence }));
+}, 240_000);
+void readFileSync;
+void call;

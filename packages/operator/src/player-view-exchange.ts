@@ -1,9 +1,18 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fstatSync,
+  fsyncSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+} from "node:fs";
 import { chmod } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
-import { EntityId, fail, ok, type Result } from "@immortalis/contracts";
+import { EntityId, canonicalJson, fail, ok, type Result } from "@immortalis/contracts";
 import { nodeFs, type FsOps } from "@immortalis/engine";
 
 /**
@@ -115,6 +124,61 @@ export async function readPlayerViewConfig(
   return ok(parsed.data);
 }
 
+const BindingIntentSchema = z.strictObject({
+  format: z.literal("immortalis-player-view-binding-intent"),
+  campaign_id: z.string().min(1),
+  operator_uid: z.number().int().nonnegative(),
+  host_id: HostId,
+  pc_id: EntityId,
+  secret_sha256: Digest.optional(),
+});
+/** A lost acknowledgement can precede chmod in the existing durable writer. Repair only an owned,
+ * non-writable-by-others file inside the sealed private directory, after its original subject/content is proved.
+ * The general credential reader remains strict; neither a foreign actor nor an orphan key reaches this path. */
+function privateBindingParent(path: string, uid: number): void {
+  const st = lstatSync(dirname(path));
+  if (!st.isDirectory() || st.uid !== uid || (st.mode & 0o077) !== 0)
+    throw new Error("untrusted binding directory");
+}
+function recoverPrivateMode(path: string, uid: number, matches: (text: string) => boolean): void {
+  privateBindingParent(path, uid);
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const st = fstatSync(fd);
+    if (
+      !st.isFile() ||
+      st.uid !== uid ||
+      (st.mode & 0o133) !== 0 ||
+      st.size > 4096 ||
+      !matches(readFileSync(fd, "utf8"))
+    )
+      throw new Error("untrusted binding publication");
+    fchmodSync(fd, 0o600);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+/** Interface publication intent, never canon or a permission. It binds recovery of the two private files to this exact original actor. */
+function readBindingIntent(path: string, uid: number): z.infer<typeof BindingIntentSchema> | null {
+  privateBindingParent(path, uid);
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.uid !== uid || (st.mode & 0o133) !== 0 || st.size > 4096)
+      throw new Error("untrusted binding intent");
+    return BindingIntentSchema.parse(JSON.parse(readFileSync(fd, "utf8")));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Binds one concrete host identity to the character `pcId`. The caller (the trusted bind action) has ALREADY proved that character against
  * canon; nothing a player, a model or a host says can reach this. The host's secret is written to an owner-only file whose PATH (never
@@ -146,16 +210,74 @@ export async function bindPlayerViewHost(
   // refused before any secret is drawn or anything is written: a ninth host would make the whole binding unreadable
   if (config.hosts.length >= MAX_HOSTS)
     return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
-  const secret = randomBytes(32).toString("hex");
-  const next: PlayerViewConfig = {
-    ...config,
-    hosts: [...config.hosts, { host_id: p.hostId, secret_sha256: digestOf(secret), pc_id: p.pcId }],
-  };
   try {
     await fs.mkdirp(playerViewDir(p));
     await chmod(playerViewDir(p), 0o700);
-    await fs.createExclusive(playerViewSecretPath(p, p.hostId), `${secret}\n`);
-    await chmod(playerViewSecretPath(p, p.hostId), 0o600);
+    const path = join(playerViewDir(p), `${p.hostId}.bind-intent.json`);
+    const secretFile = playerViewSecretPath(p, p.hostId);
+    let intent = readBindingIntent(path, p.operatorUid);
+    if (intent === null) {
+      // An unbound credential without a prior subject-bound intent has no recoverable actor. Never adopt it.
+      if ((await fs.fileSize(secretFile)) !== null)
+        return fail(
+          "SECRET_INVALID",
+          "a credential without its original binding intent cannot be adopted",
+        );
+      intent = {
+        format: "immortalis-player-view-binding-intent",
+        campaign_id: p.campaignId,
+        operator_uid: p.operatorUid,
+        host_id: p.hostId,
+        pc_id: p.pcId,
+      };
+      await fs.createExclusive(path, `${JSON.stringify(intent)}\n`);
+      await chmod(path, 0o600);
+    }
+    if (
+      intent.campaign_id !== p.campaignId ||
+      intent.operator_uid !== p.operatorUid ||
+      intent.host_id !== p.hostId ||
+      intent.pc_id !== p.pcId
+    )
+      return fail("CONFIG_INVALID", "the original binding intent names another host or character");
+    recoverPrivateMode(
+      path,
+      p.operatorUid,
+      (text) =>
+        canonicalJson(BindingIntentSchema.parse(JSON.parse(text))) === canonicalJson(intent),
+    );
+    if ((await fs.fileSize(secretFile)) === null) {
+      if (intent.secret_sha256) return fail("SECRET_INVALID", "the original credential is missing");
+      // Only an unpublished credential may be drawn here. Its sole plaintext home remains the existing secret file.
+      await fs.createExclusive(secretFile, `${randomBytes(32).toString("hex")}\n`);
+      await chmod(secretFile, 0o600);
+    }
+    const originalIntent = intent;
+    recoverPrivateMode(secretFile, p.operatorUid, (text) => {
+      const raw = text.trim();
+      return (
+        SecretText.safeParse(raw).success &&
+        (!originalIntent.secret_sha256 || equalHex(digestOf(raw), originalIntent.secret_sha256))
+      );
+    });
+    const secret = readPlayerViewSecretFile(secretFile);
+    if (
+      secret === null ||
+      (intent.secret_sha256 && !equalHex(digestOf(secret), intent.secret_sha256))
+    )
+      return fail("SECRET_INVALID", "the credential does not match the original binding intent");
+    if (!intent.secret_sha256) {
+      intent = { ...intent, secret_sha256: digestOf(secret) };
+      await fs.writeFileDurable(path, `${JSON.stringify(intent)}\n`);
+      await chmod(path, 0o600);
+    }
+    const next: PlayerViewConfig = {
+      ...config,
+      hosts: [
+        ...config.hosts,
+        { host_id: p.hostId, secret_sha256: digestOf(secret), pc_id: p.pcId },
+      ],
+    };
     await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
     await chmod(configPath(p), 0o600);
   } catch {

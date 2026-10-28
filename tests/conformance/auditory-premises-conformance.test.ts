@@ -157,8 +157,8 @@ describe("nothing outside the physical-source slice was built", () => {
       // A2 preparation composition: only the equivalent typed R-5 input seam changed.
       // The absence-of-auditory-ingress assertion below remains operative.
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
-      // Ordinary-action repair adds only the private capability; no sensory/world producer.
-      "ffcf32b877fe84d7c748cbe365649f2ad7043ffdd194d796bc8f590a357b9baf",
+      // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
+      "3f3cbdf9f896d0fdfed81bfafba6511c45cbcc53f02417cb9005396188eabb7f",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

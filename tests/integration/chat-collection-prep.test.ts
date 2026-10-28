@@ -9,28 +9,30 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { playerViewSecretPath } from "../../packages/operator/src/player-view-exchange.ts";
-import { secretsOf, watch } from "../support/chat-character.ts";
+import { secretsOf } from "../support/chat-character.ts";
 import {
   ACTUATOR,
-  CYCLE,
-  DECLARATION,
   HANDLING,
   MOMENT,
-  TAU,
   TRAVERSAL,
   UNIT,
-  keys,
   openOrdinary,
   pendingFiles,
   routeRecord,
   run,
-  stage,
-  started,
   status,
-  walk,
   type RouteRun,
 } from "../support/chat-route.ts";
-import { reader } from "../support/chat-route.ts";
+import { mirrorItems } from "../../packages/operator/src/original-pc.ts";
+import {
+  supportedOpening,
+  completeOpening,
+  openingSetting,
+  openingCharacter,
+  openingSettled,
+  reviewProposal,
+  call,
+} from "../support/two-review-opening.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -66,89 +68,54 @@ async function owners(r: RouteRun) {
 
 describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to prepared-to-request, in ordinary tool calls", () => {
   it("each human choice is shown whole and confirmed by the human alone; the referee reads, the owners write; nothing is collected, observed or advanced", async () => {
-    const r = await started({ cycle: true });
-    const seen = watch(r.chat);
+    const r = await supportedOpening();
     try {
-      const first = await status(r.chat);
-      expect(first.route.next).toMatchObject({ tool: "establish_character_location" });
-      expect(first.route.readiness).toEqual({
-        prepared_to_request_collection: false,
-        campaign_started: false,
-      });
-
-      const out = await walk(r, { cycle: true });
-      const asked = (k: string) => out[k].finished.elicited as string[];
-
-      // LOCUS: the whole physical review - the facts, the exact presence statement, the findings, the confirmation - then the phrase
-      expect(asked("locus")).toHaveLength(1);
-      expect(asked("locus")[0]).toContain("PHYSICAL LOCUS - a third, separate choice");
-      expect(asked("locus")[0]).toContain("AI REFEREE FINDINGS: PHYSICAL PLACEMENT");
-      expect(asked("locus")[0]).toContain("CONFIRMATION - PHYSICAL LOCUS");
-      expect(asked("locus")[0]).toMatch(/type exactly "establish-character-locus [0-9a-f]{12}"/);
-      expect(out["locus"].finished.data.result.status).toBe("LOCUS_ESTABLISHED");
-
-      // CHRONOLOGY: exactly the author's words, coordinate and unit
-      expect(asked("moment")).toHaveLength(1);
-      expect(asked("moment")[0]).toContain(JSON.stringify(MOMENT.statement));
-      expect(asked("moment")[0]).toContain(`"value": ${MOMENT.value}`);
-      expect(asked("moment")[0]).toContain(`"unit": "${UNIT}"`);
-      expect(out["moment"].finished.data.result.status).toBe("TIME_ESTABLISHED");
-      // The fixture already authors the actual cycle: use it in preparation,
-      // with no R-5 human question. Status offers a conditional alternative,
-      // not an authoritative semantic verdict based on arbitrary numeric text.
-      expect(out["handling"]).toBeUndefined();
-      expect(out["moment"].finished.data.route.stages).toContainEqual({
-        stage: "handling_duration",
-        state: "NEXT",
-      });
-      expect(out["moment"].finished.data.route.next).toMatchObject({
-        tool: "propose_collection_preparation",
-        if_handling_duration_unresolved: { tool: "state_handling_duration" },
-      });
-      expect(out["preparation"].finished.data.route.stages).toContainEqual({
-        stage: "handling_duration",
-        state: "NOT_NEEDED",
-      });
-
-      // PREPARATION: every quotation, the Reserve (EMPTY), the basis - resolved from committed facts, none typed by the host
-      expect(asked("preparation")).toHaveLength(1);
-      const prep = asked("preparation")[0]!;
-      for (const must of [
-        `"statement": "${ACTUATOR}"`,
-        `"statement": "${TRAVERSAL}"`,
-        `"cycle_quote": "${CYCLE}"`,
-        `"amount": 0`,
-        `"condition": "dry"`,
-        '"source_key": "src-loose-stones"',
-        '"material_class": "loose-stone"',
-      ])
-        expect(prep).toContain(must);
-      expect(out["preparation"].finished.data.result.status).toBe("COLLECTION_COMMITTED");
-
-      // DECLARATION: the author's own words, whole, with the limits stated
-      expect(asked("declaration")).toHaveLength(1);
-      for (const w of Object.values(DECLARATION)) expect(asked("declaration")[0]).toContain(w);
-      expect(asked("declaration")[0]).toContain("You do NOT state who or what is present");
-      expect(out["declaration"].finished.data.result.status).toBe("SETTING_DECLARED");
-
-      // FINISH asks the player NOTHING: the referee's reading and the service's installation are not player choices
-      expect(asked("finish")).toEqual([]);
-      expect(out["finish"].finished.data.result.status).toBe("FINISH_READY");
-      expect(out["finish"].finished.data.route.readiness).toEqual({
+      expect(existsSync(r.s.campaignDir)).toBe(false);
+      await completeOpening(r);
+      expect(
+        r.j.reviews.filter((x) => x.decision === "accept").map((x) => [x.category, x.channel]),
+      ).toEqual([
+        ["setting", "ui"],
+        ["generation", "ui"],
+      ]);
+      expect(r.j.reviews.every((x) => x.decision === "accept")).toBe(true);
+      const setting = r.j.reviews[0]!.material;
+      const generation = r.j.reviews[1]!.material;
+      for (const value of Object.values(openingSetting().opening.declaration))
+        expect(setting).toContain(value);
+      expect(setting).toContain(MOMENT.statement);
+      expect(setting).toContain("daylight");
+      expect(generation).toContain(openingCharacter().opening.presence);
+      expect(generation).toContain("stationary physical location");
+      expect(generation).toContain(ACTUATOR);
+      expect(generation).toContain(TRAVERSAL);
+      expect(generation).toContain(openingCharacter().opening.preparation.cycle_quote);
+      expect(setting + generation).not.toMatch(
+        /"(?:format|world_id|fact_key|chronology|cycle_value)"\s*:|type exactly|\/confirm/,
+      );
+      const c = await openOrdinary(r.s.campaignDir);
+      try {
+        const pc = c.binding()!.value.active_pc.entity_id;
+        for (const item of mirrorItems(c.playerCharacter(pc)!.value))
+          expect(generation).toContain(item.text);
+        const custody = c.pcPhysicalLocusCustody(pc)!;
+        expect(custody.value.basis.established_from).toBe("ACTIVATION");
+        const revision = (f: any) => c.store.lookupReceipt(f.provenance.intent_id)!.revision;
+        expect(revision(c.playerCharacter(pc)!.fact)).toBeLessThan(revision(c.binding()!.fact));
+        expect(revision(c.binding()!.fact)).toBeLessThan(revision(custody.fact));
+        expect(revision(custody.fact)).toBeLessThan(revision(c.store.getFact("temporal/state")));
+      } finally {
+        await c.close();
+      }
+      const complete = (await status(r.chat)).route;
+      expect(complete.readiness).toEqual({
         prepared_to_request_collection: true,
         campaign_started: false,
       });
-      expect(out["finish"].finished.data.route.next).toBeNull();
-
-      // four human confirmations in all, one per human-authored stage; none for the referee's reading or the service's own work
-      const humanAsks = Object.values(out).reduce(
-        (n: number, o: any) => n + (o.finished.elicited as string[]).length,
-        0,
-      );
-      expect(humanAsks).toBe(4);
+      expect(complete.next).toBeNull();
 
       // what the model could see carries no challenge, human reply, secret or private path
-      const model = seen.join("\n");
+      const model = r.j.model.join("\n");
       expect(model).not.toMatch(ANY_CHALLENGE);
       for (const secret of [...secretsOf(r.s), r.s.root, r.s.operatorDir, r.s.campaignDir])
         expect(model).not.toContain(secret);
@@ -158,8 +125,8 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
 
     // the owners: setup left the source whole, the Reserve EMPTY, no commitment, no access packet, and the clock where its author put it
     const o = await owners(r);
-    expect(o.source).toMatchObject({ amount: 12, unit: "stone" });
-    expect(o.reserves).toEqual([{ amount: 0, unit: "stone" }]);
+    expect(o.source).toMatchObject({ amount: 5, unit: "Pcs" });
+    expect(o.reserves).toEqual([{ amount: 0, unit: "Pcs" }]);
     expect(o.time.canonical_time).toEqual({ unit: UNIT, value: MOMENT.value });
     expect(o.time.last_transaction).toBeNull();
     expect(o.custody).toHaveLength(1);
@@ -187,7 +154,7 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
     expect(scenario).toMatchObject({
       world: "world-courtyard",
       source: "src-loose-stones",
-      quantity_unit: "stone",
+      quantity_unit: "Pcs",
     });
     expect(statSync(r.s.config.scenarioFile).mode & 0o077).toBe(0);
     expect(
@@ -219,52 +186,130 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
   }, 240_000);
 });
 
-describe("MECHANISM: the R-5 branch - an unresolved duration is the player's own words, read by the referee and accepted by the player", () => {
-  it("the character states an actuator and NO duration: the branch is offered, the player's words become an accepted claim, and the preparation quotes it", async () => {
-    const r = await started({ cycle: false });
+describe("MECHANISM: unresolved duration stays in the generation/clarification authorship frame", () => {
+  it("revise and decline publish no character; the player's own missing duration is accepted in the whole generation before sealing", async () => {
+    const r = await supportedOpening();
     try {
-      const out = await walk(r, { cycle: false });
-      expect(out["moment"].finished.data.route.stages).toContainEqual({
-        stage: "handling_duration",
-        state: "NEXT",
-      });
-      expect(out["moment"].finished.data.route.next).toMatchObject({
-        canonical_unit: UNIT,
-        if_handling_duration_unresolved: { tool: "state_handling_duration" },
-      });
-      // the player's account: shown whole with the referee's branch and scope readings, accepted in a SEPARATE confirmation
-      const handled = out["handling"].finished.elicited as string[];
-      expect(handled).toHaveLength(1);
-      expect(handled[0]).toContain("ACCEPT A CLARIFICATION OF YOUR CHARACTER");
-      expect(handled[0]).toContain(JSON.stringify(HANDLING));
-      expect(handled[0]).toContain("branch reading:");
-      expect(handled[0]).toContain("scope reading:");
-      expect(handled[0]).toMatch(/type exactly "accept-clarification [0-9a-f]{12}"/);
-      expect(out["handling"].finished.data.result.status).toBe("CLARIFICATION_ACCEPTED");
-      expect(out["preparation"].finished.data.result.status).toBe("COLLECTION_COMMITTED");
-      expect(out["preparation"].finished.elicited[0]).toContain(JSON.stringify(HANDLING));
-      expect(out["preparation"].finished.elicited[0]).toContain('"clarified"');
-      expect(out["finish"].finished.data.result.status).toBe("FINISH_READY");
-      // five human confirmations: the four of the other branch and the player's own clarification
-      const humanAsks = Object.values(out).reduce(
-        (n: number, o: any) => n + (o.finished.elicited as string[]).length,
-        0,
+      await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
+      const initial = openingCharacter();
+      initial.embodiment = initial.embodiment.replace("one chopped log every 12 second; ", "");
+      delete initial.opening.preparation;
+      await reviewProposal(r.chat, r.j, "propose_original_character", initial, "revise");
+      const before = await openOrdinary(r.s.campaignDir);
+      try {
+        expect(before.binding()).toBeUndefined();
+        expect(before.store.listFacts().filter((f) => f.owner === "pc_existence")).toEqual([]);
+      } finally {
+        await before.close();
+      }
+      const clarified = {
+        ...initial,
+        embodiment: `${initial.embodiment}; ${HANDLING}`,
+        opening: {
+          ...initial.opening,
+          preparation: { ...openingCharacter().opening.preparation, cycle_quote: HANDLING },
+        },
+      };
+      await reviewProposal(
+        r.chat,
+        r.j,
+        "revise_original_character",
+        {
+          edits: [{ op: "set", field: "embodiment", text: clarified.embodiment }],
+          opening: clarified.opening,
+        },
+        "decline",
       );
-      expect(humanAsks).toBe(5);
+      const declined = await openOrdinary(r.s.campaignDir);
+      try {
+        expect(declined.binding()).toBeUndefined();
+        expect(declined.store.listFacts().filter((f) => f.owner === "pc_existence")).toEqual([]);
+      } finally {
+        await declined.close();
+      }
+      await reviewProposal(r.chat, r.j, "propose_original_character", clarified);
+      expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
+      expect(r.j.reviews.map((v) => [v.category, v.decision])).toEqual([
+        ["setting", "accept"],
+        ["generation", "revise"],
+        ["generation", "decline"],
+        ["generation", "accept"],
+      ]);
+      const accepted = r.j.reviews.at(-1)!.material;
+      expect(accepted).toContain(HANDLING);
+      expect(accepted).toContain("referee");
+      const c = await openOrdinary(r.s.campaignDir);
+      try {
+        const pc = c.binding()!.value.active_pc.entity_id;
+        expect(JSON.stringify(c.playerCharacter(pc)!.value)).toContain(HANDLING);
+        expect(
+          c.store.listFacts().filter((f) => f.key.includes("intrinsic-clarification")),
+        ).toEqual([]);
+        expect((c.store.getFact("temporal/state")!.value as any).canonical_time.value).toBe(
+          MOMENT.value,
+        );
+        // This repair supplies no new post-seal calibration or intrinsic amendment. A kept character cannot be changed through generation.
+        const sealed = c.store.head().state_sha256;
+        await c.close();
+        expect(
+          (
+            await call(r.chat, r.j, "revise_original_character", {
+              edits: [{ op: "set", field: "embodiment", text: "I now handle ten logs per second" }],
+            })
+          ).isError,
+        ).toBe(true);
+        const fresh = await openOrdinary(r.s.campaignDir);
+        try {
+          expect(fresh.store.head().state_sha256).toBe(sealed);
+        } finally {
+          await fresh.close();
+        }
+      } finally {
+        await c.close();
+      }
     } finally {
       await r.stop();
     }
-    const o = await owners(r);
-    expect(o.clarifications).toHaveLength(1);
-    expect(o.mechanisms).toHaveLength(1);
-    expect(o.attestations).toHaveLength(1);
-    expect(o.reserves).toEqual([{ amount: 0, unit: "stone" }]);
-    expect(o.commitments).toEqual([]);
-    expect((o.clarifications[0]!.value as any).claims[0].statement).toBe(HANDLING);
-  }, 240_000);
+  }, 180_000);
+  it("a genuine missing-cycle source and a negative referee reading remain blockers rather than invented durations", async () => {
+    const { routePolicy } = await import("../support/chat-route.ts");
+    const { startHosts } = await import("../support/chat-route.ts");
+    const missing = await supportedOpening();
+    try {
+      await reviewProposal(missing.chat, missing.j, "propose_original_setting", openingSetting());
+      const d = openingCharacter();
+      d.embodiment = d.embodiment.replace("one chopped log every 12 second; ", "");
+      delete d.opening.preparation;
+      await reviewProposal(missing.chat, missing.j, "propose_original_character", d);
+      expect(await openingSettled(missing.chat, missing.j)).toMatchObject({
+        state: "MISSING_SOURCE",
+      });
+      const c = await openOrdinary(missing.s.campaignDir);
+      try {
+        expect(c.store.listFacts().some((f) => f.key.includes("collection-mechanism"))).toBe(false);
+        expect(c.store.listFacts().some((f) => f.key.includes("intrinsic-clarification"))).toBe(
+          false,
+        );
+      } finally {
+        await c.close();
+      }
+    } finally {
+      await missing.stop();
+    }
+    const negative = await supportedOpening();
+    for (const h of negative.hosts) await h.stop();
+    const hs = startHosts(negative.s, routePolicy({}, { negative: true }));
+    try {
+      await completeOpening(negative).then(
+        () => {
+          throw new Error("negative referee must block readiness");
+        },
+        () => undefined,
+      );
+      expect((await openingSettled(negative.chat, negative.j)).state).toBe("BLOCKED");
+    } finally {
+      for (const h of hs) await h.stop();
+      await negative.stop();
+    }
+  }, 180_000);
 });
-
-void keys;
-void stage;
-void reader;
-void TAU;

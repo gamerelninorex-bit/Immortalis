@@ -1,3 +1,11 @@
+import type { ReviewAuthority, OpeningSources } from "./reviews.ts";
+import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
+export interface ReviewLaunch {
+  readonly internal?: boolean;
+  readonly authority: ReviewAuthority;
+  readonly sources?: OpeningSources;
+  readonly derived?: (request: ReviewRequest) => boolean;
+}
 import type { ToolContext } from "./mcp-http.ts";
 import type { ExistenceContract } from "@immortalis/contracts";
 import type { CharacterDraft, Edit } from "@immortalis/operator";
@@ -126,27 +134,33 @@ export interface PlayerRuns {
   /** true when running a reconcile cannot help (the record is unreadable, the operation unsupported or the record unclearable) */
   readonly structural: () => boolean;
   /** starts the ORIGINAL locality setup for one strictly validated document the caller serialized; the shipped `establish-locality` path and its human confirmation decide everything */
-  readonly proposeSetup: (document: string) => Promise<Launch>;
+  readonly proposeSetup: (document: string, review?: ReviewLaunch) => Promise<Launch>;
   /** finishes the ONE retained, confirmed, interrupted setup with its own document and a fresh human confirmation (never a replacement) */
-  readonly resumeSetup: () => Promise<Launch>;
+  readonly resumeSetup: (review?: ReviewLaunch) => Promise<Launch>;
   /** the owner-backed status of the setting (read-only: it settles nothing and starts nothing) */
   readonly settingStatus: () => Promise<SettingStatus>;
   /** which retained operation a resumable barrier belongs to (null when nothing is resumable) */
   readonly resumeKind: () => "SETTING" | "CHARACTER" | "STAGE" | null;
   /** offers the player's own authored draft for the review, keep and release (the shipped `author-character`, staged); the human's keep is typed at the trusted terminal */
-  readonly proposeCharacter: (draft: CharacterDraft) => Promise<CharacterLaunch>;
+  readonly proposeCharacter: (
+    draft: CharacterDraft,
+    review?: ReviewLaunch,
+  ) => Promise<CharacterLaunch>;
   /** applies the player's typed revision to the retained unkept draft, all or none, and offers the result; a revision invalidates the earlier question and confirmation */
-  readonly reviseCharacter: (edits: readonly Edit[]) => Promise<CharacterLaunch>;
+  readonly reviseCharacter: (
+    edits: readonly Edit[],
+    review?: ReviewLaunch,
+  ) => Promise<CharacterLaunch>;
   /** the separate second choice: the player's own native-presence statement, read by the referee and confirmed by the human on its own */
-  readonly placeCharacter: (statement: string) => Promise<CharacterLaunch>;
+  readonly placeCharacter: (statement: string, review?: ReviewLaunch) => Promise<CharacterLaunch>;
   /** finishes ONLY what the owners and the retained keep show was begun (a release, a review of the retained draft, a retained placement), asking again only what must be confirmed afresh */
-  readonly resumeCharacter: () => Promise<CharacterLaunch>;
+  readonly resumeCharacter: (review?: ReviewLaunch) => Promise<CharacterLaunch>;
   /** the owner-backed status of the character (read-only) */
   readonly characterStatus: () => Promise<CharacterStatusReport>;
   /** what the confirmation now pending on the player's run must show whole (null when the run is not a character run) */
   readonly characterExpectation: (run: Run) => CharacterExpectation | null;
   /** one stage of the collection-preparation route (or the resumption of the one retained, partly committed stage); the human's confirmation is typed at the trusted terminal */
-  readonly stage: (request: StageRequest) => Promise<StageLaunch>;
+  readonly stage: (request: StageRequest, review?: ReviewLaunch) => Promise<StageLaunch>;
   /** the compact, owner-backed, READ-ONLY status of the whole route from one open of the campaign: it settles nothing and starts nothing */
   readonly routeStatus: () => Promise<RouteStatus>;
   /** what the confirmation now pending on the player's run must show whole (null when the run is not a stage run) */

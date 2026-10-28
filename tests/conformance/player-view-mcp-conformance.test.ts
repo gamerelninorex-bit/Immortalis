@@ -1,3 +1,5 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2 conformance — the local player-view MCP transport of the existing current Active-PC Glance read (bounded brief 2026-10-15, native pin
 // 2026-10-15T09:56:12.551Z; exact base 76b3209739f47e047e7e4ea22e079410ec1a87cf). The slice adds operator-side modules, tests and documents. It moves
 // no spec-lock pin, runtime-contract snapshot, acceptance-register row, status or open gate (OB-030 / F-028 stay Blocked; PF-6 stays unactivated),
@@ -53,7 +55,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/original-pc.ts":
-    "1d29c3d6f2d8d8c5053e222a57ad89664f79718f65a1655c425eca8878bac58c",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/local-operator.ts":
@@ -72,7 +74,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/confirmation.ts":
-    "9689798be9990e526210639558db46305944756d8ef7f590ef032e9a1105d972",
+    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
 };
 
 const NEW_MODULES = [
@@ -155,6 +157,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "referee-mcp.ts",
         "referee-session.ts",
         "session.ts",
+        "review-evidence.ts",
         "terminal.ts",
         "time-initialization.ts",
         ...NEW_MODULES,

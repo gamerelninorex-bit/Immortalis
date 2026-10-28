@@ -1,3 +1,4 @@
+import { REVIEW_URI, REVIEW_MIME, REVIEW_HTML } from "./review-card.ts";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AccessClaims, OAuthScope, OAuthServer } from "./oauth.ts";
@@ -18,6 +19,8 @@ const MAX_ACTION_RECEIPTS = 256;
 const KEEPALIVE_MS = 15_000;
 
 export interface ToolResult {
+  readonly structuredContent?: Record<string, unknown>;
+  readonly _meta?: Record<string, unknown>;
   readonly content: readonly { readonly type: "text"; readonly text: string }[];
   readonly isError?: boolean;
 }
@@ -26,6 +29,8 @@ export interface Elicited {
   readonly content?: Record<string, unknown>;
 }
 export interface ToolContext {
+  readonly canReview: boolean;
+  readonly supportsElicitation: boolean;
   readonly scopes: readonly OAuthScope[];
   readonly client: string;
   /** Authenticated grant identity; never accepted from tool arguments. */
@@ -47,9 +52,12 @@ export interface McpTool {
   readonly annotations: Record<string, unknown>;
   readonly scope: OAuthScope;
   /** the call may ask the human for a reply, so it is answered on an event stream when the client supports that */
+  readonly _meta?: Record<string, unknown>;
   readonly mayElicit?: boolean;
   /** Internal transport receipt for a single ordinary action request; never a model argument or permission. */
   readonly ordinaryAction?: boolean;
+  /** Transport-only duplicate suppression, after the handler enforces its own authority (for the app callback). */
+  readonly replayable?: boolean;
   readonly handler: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
 }
 
@@ -66,6 +74,7 @@ interface Session {
   readonly grant: string;
   readonly protocol: string;
   readonly elicitation: boolean;
+  readonly ui: boolean;
   initialized: boolean;
   seen: number;
   readonly waiting: Map<string, Pending>;
@@ -206,7 +215,7 @@ export function createMcpHttp(o: {
 
     const receiptId = JSON.stringify(id);
     const input = JSON.stringify([name, args]);
-    if (tool.ordinaryAction) {
+    if (tool.ordinaryAction || tool.replayable) {
       const old = session.actions.get(receiptId);
       if (old) {
         if (old.input !== input)
@@ -253,6 +262,8 @@ export function createMcpHttp(o: {
       });
     }
     const ctx: ToolContext = {
+      canReview: session.ui,
+      supportsElicitation: session.elicitation,
       scopes: claims.scopes,
       client: claims.client,
       grant: claims.grant,
@@ -291,7 +302,8 @@ export function createMcpHttp(o: {
         content: [{ type: "text", text: "the tool could not complete" }],
         isError: true,
       }));
-    if (tool.ordinaryAction) session.actions.set(receiptId, { input, result: execution });
+    if (tool.ordinaryAction || tool.replayable)
+      session.actions.set(receiptId, { input, result: execution });
     const result = await execution;
     const message = { jsonrpc: "2.0", id, result };
     if (stream) {
@@ -395,6 +407,14 @@ export function createMcpHttp(o: {
         grant: claims.grant,
         protocol,
         elicitation: record(params["capabilities"]["elicitation"]),
+        ui: (() => {
+          const ex = params["capabilities"]["extensions"];
+          if (!record(ex)) return false;
+          const ui = ex["io.modelcontextprotocol/ui"];
+          return (
+            record(ui) && Array.isArray(ui["mimeTypes"]) && ui["mimeTypes"].includes(REVIEW_MIME)
+          );
+        })(),
         initialized: false,
         seen: o.now(),
         waiting: new Map(),
@@ -417,7 +437,11 @@ export function createMcpHttp(o: {
           id,
           result: {
             protocolVersion: protocol,
-            capabilities: { tools: { listChanged: false } },
+            capabilities: {
+              tools: { listChanged: false },
+              resources: { listChanged: false },
+              extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [REVIEW_MIME] } },
+            },
             serverInfo: o.serverInfo,
             instructions: o.instructions,
           },
@@ -445,6 +469,35 @@ export function createMcpHttp(o: {
     if (method === "ping") return json(res, 200, { jsonrpc: "2.0", id, result: {} });
     if (!session.initialized)
       return json(res, 200, rpcError(id, -32002, "the session has not been initialized"));
+    if (method === "resources/list")
+      return json(res, 200, {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          resources:
+            claims.scopes.includes("player") && session.ui
+              ? [{ uri: REVIEW_URI, name: "IMMORTALIS human review", mimeType: REVIEW_MIME }]
+              : [],
+        },
+      });
+    if (method === "resources/read") {
+      if (!claims.scopes.includes("player") || !session.ui || params["uri"] !== REVIEW_URI)
+        return json(res, 200, rpcError(id, -32602, "unknown resource"));
+      return json(res, 200, {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          contents: [
+            {
+              uri: REVIEW_URI,
+              mimeType: REVIEW_MIME,
+              text: REVIEW_HTML,
+              _meta: { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } },
+            },
+          ],
+        },
+      });
+    }
     if (method === "tools/list")
       return json(res, 200, {
         jsonrpc: "2.0",
@@ -458,6 +511,7 @@ export function createMcpHttp(o: {
               description: t.description,
               inputSchema: t.inputSchema,
               annotations: t.annotations,
+              ...(t._meta ? { _meta: t._meta } : {}),
             })),
         },
       });

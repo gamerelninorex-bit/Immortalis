@@ -1,3 +1,4 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Conformance evidence for the Initial Production Reserve Admission slice (@immortalis/operator `establish-reserve`).
 // Authority: BLUE v5.2-A1 bounded implementation brief (native pin 2026-10-22T04:15:36.156Z) on main
 // 6021693c1cf79e4a9c5d9216b7211fb65726c193. Governing lock: spec/f027/spec-lock.json (F-027 v1.0), unchanged. This slice adds operator
@@ -41,7 +42,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/canonical-campaign.ts":
     "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   "packages/operator/src/locality.ts":
-    "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
+    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/additional-source.ts":
     "56428eac482b003420120cca2e617fc019c1b1e59c09a37f0d2dca4ceb63111e",
   "packages/operator/src/additional-locality.ts":

@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { nodeFs } from "@immortalis/engine";
 import { describe, expect, it } from "vitest";
 import {
   PLAYER_VIEW_CONFIG_FORMAT,
@@ -184,4 +185,106 @@ describe("the secret file", () => {
     mkdirSync(join(dir, "adir"));
     expect(readPlayerViewSecretFile(join(dir, "adir"))).toBeNull();
   });
+});
+
+// PR91: configuration recovery retains the original private binding intent, never adopts an orphan key for another actor.
+it("recovers a partial credential/config publication only for the exact original actor", async () => {
+  const dir = stateDir();
+  const p = { ...params(dir), operatorUid: UID, hostId: "host-partial", pcId: "pc-original" };
+  const interrupted = await bindPlayerViewHost({
+    ...p,
+    fs: {
+      ...nodeFs,
+      writeFileDurable: async () => {
+        throw new Error("reply lost before config");
+      },
+    },
+  });
+  expect(interrupted.ok).toBe(false);
+  expect(readPlayerViewSecretFile(playerViewSecretPath(p, p.hostId))).not.toBeNull();
+  const other = await bindPlayerViewHost({ ...p, pcId: "pc-other" });
+  expect(!other.ok && other.error.code).toBe("CONFIG_INVALID");
+  const intentPath = join(playerViewDir(p), `${p.hostId}.bind-intent.json`);
+  const key = readPlayerViewSecretFile(playerViewSecretPath(p, p.hostId))!;
+  expect(readFileSync(intentPath, "utf8").includes(key)).toBe(false);
+  const recovered = await bindPlayerViewHost(p);
+  expect(recovered.ok).toBe(true);
+  const config = await readPlayerViewConfig(p, UID);
+  expect(config.ok && config.value.hosts.map((h) => [h.host_id, h.pc_id])).toEqual([
+    ["host-partial", "pc-original"],
+  ]);
+});
+it("does not adopt a credential without its original intent or read a symlinked intent", async () => {
+  const dir = stateDir();
+  const p = { ...params(dir), operatorUid: UID, hostId: "host-orphan", pcId: "pc-original" };
+  mkdirSync(playerViewDir(p), { mode: 0o700 });
+  const orphan = playerViewSecretPath(p, p.hostId);
+  writeFileSync(orphan, "ab".repeat(32) + "\n", { mode: 0o600 });
+  expect((await bindPlayerViewHost(p)).ok).toBe(false);
+  expect((await readPlayerViewConfig(p, UID)).ok).toBe(false);
+  const other = { ...p, hostId: "host-link" };
+  const target = join(dir, "untrusted-intent.json");
+  writeFileSync(target, "{}", { mode: 0o600 });
+  symlinkSync(target, join(playerViewDir(other), `${other.hostId}.bind-intent.json`));
+  expect((await bindPlayerViewHost(other)).ok).toBe(false);
+});
+
+for (const publication of ["intent", "secret", "digest"] as const)
+  it(`recovers a lost ${publication} publication acknowledgement before private chmod without relaxing credential reads`, async () => {
+    const dir = stateDir();
+    const p = { ...params(dir), operatorUid: UID, hostId: "host-interrupted", pcId: "pc-original" };
+    let fired = false;
+    const matches = (path: string) =>
+      publication === "secret" ? path.endsWith(".secret") : path.endsWith(".bind-intent.json");
+    const method = publication === "digest" ? "writeFileDurable" : "createExclusive";
+    const original = nodeFs[method];
+    const broken = {
+      ...nodeFs,
+      [method]: async (path: string, data: string | Buffer) => {
+        await original(path, data as string);
+        if (!fired && matches(path)) {
+          fired = true;
+          throw new Error("acknowledgement lost before chmod");
+        }
+      },
+    };
+    expect((await bindPlayerViewHost({ ...p, fs: broken })).ok).toBe(false);
+    expect(fired).toBe(true);
+    const secretFile = playerViewSecretPath(p, p.hostId);
+    const key = existsSync(secretFile) ? readFileSync(secretFile, "utf8").trim() : null;
+    // Exercise the runner's 022 publication window explicitly, independent of the local process umask.
+    chmodSync(
+      publication === "secret"
+        ? secretFile
+        : join(playerViewDir(p), `${p.hostId}.bind-intent.json`),
+      0o644,
+    );
+    expect((await bindPlayerViewHost({ ...p, pcId: "pc-other" })).ok).toBe(false);
+    if (publication === "secret") expect(readPlayerViewSecretFile(secretFile)).toBeNull();
+    expect((await bindPlayerViewHost(p)).ok).toBe(true);
+    if (key) expect(readPlayerViewSecretFile(secretFile)).toBe(key);
+    for (const path of [secretFile, join(playerViewDir(p), `${p.hostId}.bind-intent.json`)])
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+  });
+it("never repairs a group-writable binding intent or credential", async () => {
+  for (const kind of ["intent", "secret"]) {
+    const dir = stateDir();
+    const p = { ...params(dir), operatorUid: UID, hostId: "host-unsafe", pcId: "pc-original" };
+    await bindPlayerViewHost({
+      ...p,
+      fs: {
+        ...nodeFs,
+        writeFileDurable: async () => {
+          throw new Error("unpublished configuration");
+        },
+      },
+    });
+    const file =
+      kind === "intent"
+        ? join(playerViewDir(p), `${p.hostId}.bind-intent.json`)
+        : playerViewSecretPath(p, p.hostId);
+    chmodSync(file, 0o660);
+    expect((await bindPlayerViewHost(p)).ok).toBe(false);
+    expect(statSync(file).mode & 0o777).toBe(0o660);
+  }
 });

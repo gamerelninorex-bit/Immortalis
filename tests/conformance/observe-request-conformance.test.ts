@@ -1,3 +1,5 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2-A1 conformance — the host-requested, independently operator-confirmed active-PC observation (bounded brief 2026-10-15, native pin
 // 2026-10-15T12:57:55.189Z; exact base d5d6ce52b86d98aff25e4b6e4768ea366452772b). The slice adds operator-side modules, tests and documents. It
 // moves no spec-lock pin, runtime-contract snapshot, acceptance-register row, status or open gate (OB-030 / F-028 stay Blocked; PF-6 stays
@@ -43,26 +45,26 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/confirmation.ts":
-    "9689798be9990e526210639558db46305944756d8ef7f590ef032e9a1105d972",
+    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
   "packages/operator/src/original-pc.ts":
-    "1d29c3d6f2d8d8c5053e222a57ad89664f79718f65a1655c425eca8878bac58c",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
-    "28d6c27351747faec4f2632f024ef69413629f2cef0cf0f994cb5e2ae9f92397",
+    "834f0bbbdfe52e1dc68fdec0567c91905bda23b98eddac9fb4eff66c37449c8c",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/terminal.ts":
-    "05c70dbf9b74a9518f1d249980f1372803c3dcfe2b802eb245d93a1ec14ecd0d",
+    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   // the PR #69 read-only player-view transport: strict one-tool read, never converted into a command and never given a request authority
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
-    "0e14d3bca44157903579692a65e2c5762856653e7fbdaba3f2fd3f25352c991d",
+    "b185396a7858b9ab3133bf6e173ae76c7084ffcda335e8dc6cd3e0f22972a04e",
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/player-view-bin.ts":
@@ -165,6 +167,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "referee-mcp.ts",
         "referee-session.ts",
         "session.ts",
+        "review-evidence.ts",
         "terminal.ts",
         "time-initialization.ts",
         ...NEW_MODULES,

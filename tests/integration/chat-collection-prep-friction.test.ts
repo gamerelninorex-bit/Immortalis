@@ -33,9 +33,6 @@ import {
   type Slot,
 } from "../support/chat-route.ts";
 
-const ANY = /[0-9a-f]{12}/g;
-const mask = (t: string): string => t.replace(ANY, "<phrase>");
-
 /** the campaign head and the operator directory's file names: what a read must leave exactly as it found them */
 async function fingerprint(s: Slot) {
   const c = await openOrdinary(s.campaignDir);
@@ -243,22 +240,36 @@ describe("MECHANISM: declined consent is a decline - nothing is written, the pla
       let r = await resumed(s);
       try {
         const before = await fingerprint(s);
+        if (c.kept === null) {
+          const noReview = vi.fn(() => {
+            throw new Error("the already accepted native presence needs no second consent");
+          });
+          const realized = await stage(r.chat, c.tool, c.args(), noReview);
+          expect(realized.finished.data.result.status).toBe("LOCUS_ESTABLISHED");
+          expect(realized.finished.elicited).toEqual([]);
+          expect(noReview).not.toHaveBeenCalled();
+          const world = await openOrdinary(s.campaignDir);
+          try {
+            expect(
+              world.pcPhysicalLocusCustody(world.binding()!.value.active_pc.entity_id),
+            ).toBeDefined();
+          } finally {
+            await world.close();
+          }
+          return;
+        }
         const declined = await stage(r.chat, c.tool, c.args(), readsAndDeclines);
         const shown = declined.finished.elicited as string[];
         expect(shown).toHaveLength(1);
-        expect(shown[0]).toContain(`type exactly "${c.verb} `);
+        for (const value of Object.values(c.args()).filter((x) => typeof x === "string"))
+          expect(shown[0]).toContain(value);
+        expect(shown[0]).not.toMatch(/type exactly|\/confirm|"fact_key"|"format_version"/);
         expect(declined.finished.data.result.status).toBe("DECLINED");
         // nothing was written, nothing is pending, and the barrier is not held
         expect(declined.finished.data.outcome).toBeUndefined();
         expect(await fingerprint(s)).toEqual({ ...before, files: expect.any(Array) });
         expect(pendingFiles(s)).toEqual([]);
         expect(declined.finished.data.route.barrier).toBe("NONE");
-        if (c.kept === null) {
-          // the physical location kept no words: the player simply asks for it again
-          const again = await stage(r.chat, c.tool, c.args());
-          expect(again.finished.data.exit_code).toBe(0);
-          return;
-        }
         // the player's own words are retained (never as consent) so the stage is offered again without asking for them
         expect(routeRecord(s)[c.kept]).not.toBeNull();
         expect(declined.finished.data.route.next).toMatchObject({
@@ -273,9 +284,8 @@ describe("MECHANISM: declined consent is a decline - nothing is written, the pla
         const redone = await stage(r.chat, "resume_collection_setup");
         const second = redone.finished.elicited as string[];
         expect(second).toHaveLength(1);
-        // the very same review, with a FRESH challenge: the earlier one stands for nothing
-        expect(mask(second[0]!)).toBe(mask(shown[0]!));
-        expect(second[0]).not.toBe(shown[0]);
+        // Same complete material, but a fresh human answer is required: the earlier decline authorizes nothing.
+        expect(second[0]).toBe(shown[0]);
         expect(redone.finished.data.exit_code).toBe(0);
         expect(redone.finished.data.result.status).not.toBe("DECLINED");
         // once the stage stands in canon, what the player said for it is no longer retained
@@ -285,7 +295,7 @@ describe("MECHANISM: declined consent is a decline - nothing is written, the pla
       }
     }, 180_000);
 
-  it("a wrong, guessed or earlier phrase and silence confirm nothing at any human stage", async () => {
+  it("guessed legacy replies and missing native acceptance confirm nothing at any human stage", async () => {
     const s = await cloneSlot(accepted["MOMENT"]!);
     const r = await resumed(s);
     try {
@@ -300,11 +310,11 @@ describe("MECHANISM: declined consent is a decline - nothing is written, the pla
           r.chat,
           "propose_collection_preparation",
           preparation(CYCLE),
-          (e) =>
-            /type exactly "/.test(e.message)
-              ? (earlier.push(/type exactly "([^"]+)"/.exec(e.message)![1]!),
-                { action: "accept", content: { reply: typed } })
-              : { action: "accept", content: {} },
+          (e) => (
+            expect(e.requestedSchema.properties.accept).toBeDefined(),
+            earlier.push(typed),
+            { action: "accept", content: { reply: typed } }
+          ),
         );
         expect(out.finished.data.result.status).toBe("DECLINED");
       }
@@ -313,10 +323,10 @@ describe("MECHANISM: declined consent is a decline - nothing is written, the pla
         r.chat,
         "propose_collection_preparation",
         preparation(CYCLE),
-        (e) =>
-          /type exactly "/.test(e.message)
-            ? { action: "accept", content: { reply: earlier[0]! } }
-            : { action: "accept", content: {} },
+        (e) => (
+          expect(e.requestedSchema.properties.accept).toBeDefined(),
+          { action: "accept", content: { reply: earlier[0]! } }
+        ),
       );
       expect(stale.finished.data.result.status).toBe("DECLINED");
       expect((await fingerprint(s)).state).toBe(before.state);

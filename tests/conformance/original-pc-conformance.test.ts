@@ -1,3 +1,5 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
+// Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // Conformance evidence for the Original Player-Character Authorship & Native First Activation slice (@immortalis/operator
 // `author-character`, `character-status`) and, within the same PR #61, its provider-neutral host-callable AI referee (BLUE B61-A3).
 // Governing lock: spec/f027/spec-lock.json (F-027 v1.0 composed with F-027-CD1 v1.0), unchanged.
@@ -57,11 +59,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/locality.ts":
-    "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
+    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/locality-pin.ts":
     "df06db12a7ec3cb7ffe185701aa4ea4728adf9d28fac85d8c1dc54e0f52d6bd6",
   "packages/operator/src/terminal.ts":
-    "05c70dbf9b74a9518f1d249980f1372803c3dcfe2b802eb245d93a1ec14ecd0d",
+    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
 };

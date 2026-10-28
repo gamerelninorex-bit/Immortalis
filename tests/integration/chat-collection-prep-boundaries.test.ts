@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { beforeAll, expect, it, vi } from "vitest";
 import { PcCollectionAdapter } from "@immortalis/engine";
 import { refereeDir, secretPath } from "../../packages/operator/src/referee-exchange.ts";
+import { UI_CAPS, journey, call, accept } from "../support/two-review-opening.ts";
+import { follow } from "../support/chat-route.ts";
 import { characterRecordPath } from "../../apps/phone/src/character-recovery.ts";
 import {
   DECLARATION,
@@ -91,7 +93,7 @@ it("the existing classifier can find the cycle already stated and refuse a redun
   }
 }, 120_000);
 
-it("a current workforce half survives an interrupted replacement of only the closure; recovery confirms the exact retained declaration afresh", async () => {
+it("a current workforce half survives an interrupted replacement of only the closure; recovery reuses the exact retained declaration receipt without reapproval", async () => {
   const s = await cloneSlot(steps.READY!);
   const r = await resumed(s);
   const changed = {
@@ -107,8 +109,9 @@ it("a current workforce half survives an interrupted replacement of only the clo
     expect((await status(r.chat)).route.barrier).toBe("RESUME");
     spy.mockRestore();
     const next = await stage(r.chat, "resume_collection_setup");
-    expect(next.finished.elicited).toHaveLength(1);
-    expect(next.finished.elicited[0]).toContain(changed.closure_statement);
+    expect(first.finished.elicited).toHaveLength(1);
+    expect(first.finished.elicited[0]).toContain(changed.closure_statement);
+    expect(next.finished.elicited).toEqual([]);
     expect(next.finished.data.result.status).toBe("SETTING_DECLARED");
     const c = await openOrdinary(s.campaignDir);
     try {
@@ -298,22 +301,38 @@ it("a mismatched private referee credential withholds readiness without exposing
   }
 }, 120_000);
 
-it("a long Unicode declaration delivers every early and late field in consecutive review parts before consent", async () => {
+it("a long Unicode declaration delivers one complete inline card with every early/late field and no publication before the human control", async () => {
   const s = await cloneSlot(steps.PREPARED!);
   const r = await resumed(s);
+  await r.chat.init(UI_CAPS);
+  const j = journey();
   const authored = Object.fromEntries(
     Object.keys(DECLARATION).map((k, i) => [k, `begin-${i} ${"庭🌒é".repeat(850)} end-${i}`]),
   );
+  const publish = vi.spyOn(PcCollectionAdapter.prototype, "establishSceneClosure");
   try {
-    const out = await stage(r.chat, "declare_closed_setting", authored);
-    expect(out.finished.data.exit_code).toBe(0);
-    expect(out.finished.elicited.length).toBeGreaterThan(1);
-    const reviews = out.finished.elicited.join("\n");
-    for (const text of Object.values(authored)) expect(reviews).toContain(text);
-    expect(out.finished.elicited.filter((s: string) => /type exactly "/.test(s))).toHaveLength(1);
-    expect(out.finished.elicited.at(-1)).toContain("type exactly");
-    expect(reviews).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/u);
+    let proposed = await call(r.chat, j, "declare_closed_setting", authored);
+    for (let n = 0; n < 30 && !proposed.result?._meta?.review; n++)
+      proposed = await call(r.chat, j, "await_action", { wait_seconds: 1 });
+    const material = proposed.result._meta.review.material;
+    for (const text of Object.values(authored)) expect(material).toContain(text);
+    expect(material).not.toMatch(
+      /type exactly|"format_version"|"world_id"|"source_rights"|\/confirm/,
+    );
+    expect(material).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/u);
+    expect(publish).not.toHaveBeenCalled();
+    expect(j.reviews).toEqual([]);
+    await accept(r.chat, j, proposed);
+    const completed = await follow(r.chat, () => {
+      throw new Error("the complete card requires no second approval");
+    });
+    expect(completed.data.exit_code).toBe(0);
+    expect(j.reviews.map((v) => [v.category, v.channel, v.decision])).toEqual([
+      ["setting", "ui", "accept"],
+    ]);
+    expect(publish).toHaveBeenCalledTimes(1);
   } finally {
+    publish.mockRestore();
     await r.stop();
   }
 }, 180_000);

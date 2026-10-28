@@ -112,20 +112,29 @@ export async function run(
 
 /** The human, as a script: reads every part, and types the exact phrase where (and only where) the engine's phrase is shown. */
 export const reader: Human = (e) =>
-  /type exactly "/.test(e.message)
-    ? { action: "accept", content: { reply: phraseOf(e.message) } }
+  e.requestedSchema?.properties?.accept || /type exactly "/.test(e.message)
+    ? {
+        action: "accept",
+        content: e.requestedSchema?.properties?.accept
+          ? { accept: true }
+          : { reply: phraseOf(e.message) },
+      }
     : { action: "accept", content: {} };
 
 export const readsAndDeclines: Human = (e) =>
-  /type exactly "/.test(e.message) ? { action: "decline" } : { action: "accept", content: {} };
+  e.requestedSchema?.properties?.accept || /type exactly "/.test(e.message)
+    ? { action: "decline" }
+    : { action: "accept", content: {} };
 
 export const readsAndTypes =
   (typed: string | ((message: string) => string)): Human =>
   (e) =>
-    /type exactly "/.test(e.message)
+    e.requestedSchema?.properties?.accept || /type exactly "/.test(e.message)
       ? {
           action: "accept",
-          content: { reply: typeof typed === "function" ? typed(e.message) : typed },
+          content: e.requestedSchema?.properties?.accept
+            ? { accept: false }
+            : { reply: typeof typed === "function" ? typed(e.message) : typed },
         }
       : { action: "accept", content: {} };
 

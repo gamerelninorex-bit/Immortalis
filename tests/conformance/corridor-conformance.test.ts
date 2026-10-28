@@ -1,3 +1,4 @@
+// PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Conformance evidence for the Source-Qualified Local Corridor and Logistics Read slice (World-State `world_corridor`,
 // `LogisticsAdapter.commitCorridorMovement`, @immortalis/operator `establish-corridor`).
 // Authority: BLUE v5.2-A1 bounded implementation brief (native pin 2026-10-22T13:47:37.910Z) on main
@@ -65,7 +66,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/entity-transition.ts":
     "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/operator/src/locality.ts":
-    "9d91fb48ff3c04289a41e4ecb5064f477994a7ec1a4fee69a89d34fdbb95f0af",
+    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/session.ts":
