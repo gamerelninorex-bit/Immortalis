@@ -125,7 +125,14 @@ export async function cloneSlot(base: Slot): Promise<Slot> {
     refereeHostIds: base.config.refereeHostIds,
     playerViewHostId: base.config.playerViewHostId,
   });
-  return { config, root, campaignDir, operatorDir, base: `http://127.0.0.1:${config.port}` };
+  return {
+    config,
+    root,
+    campaignDir,
+    operatorDir,
+    base: `http://127.0.0.1:${config.port}`,
+    ...(base.client ? { client: { ...base.client } } : {}),
+  };
 }
 
 export interface RouteRun extends Running {

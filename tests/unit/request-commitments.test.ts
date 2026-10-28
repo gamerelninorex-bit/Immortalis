@@ -1,3 +1,9 @@
+import { HumanReviews } from "../../apps/phone/src/reviews.ts";
+import {
+  requestOperatorConfirmation,
+  consumeConfirmation,
+} from "../../packages/operator/src/confirmation.ts";
+import { existsSync } from "node:fs";
 /* eslint-disable @typescript-eslint/no-explicit-any -- trust-boundary malformed fixtures */
 import { expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -148,6 +154,91 @@ it("readback preserves authored Review wording and long Unicode material verbati
   proposal.world.premise =
     "Review my courtyard exactly as authored. " + "庭🌒é".repeat(9000) + " final field";
   const req = { ...request, proposal };
-  expect(await f.adapter.terminal(f.base, context).authorize!(req)).not.toBeNull();
+  const exact = {
+    ...context,
+    authority: {
+      ...authority,
+      request: { ...authority.request, input: JSON.stringify([authority.request.tool, proposal]) },
+    },
+  };
+  expect(await f.adapter.terminal(f.base, exact).authorize!(req)).not.toBeNull();
   expect(f.lines.join("\n")).toContain(proposal.world.premise);
+});
+
+it("after owner-proven no effect clears the pending run, exact captured dispatch resumes without a new commitment", async () => {
+  const f = fixture();
+  const dispatch = { setup_id: "original-dispatch", document: "exact original document" };
+  const original = { ...context, dispatch };
+  f.adapter.terminal(f.base, original);
+  const fresh = new RequestCommitments(f.config);
+  const recovery = { ...original, runId: "new-recovery-run", recover: true };
+  expect(
+    await fresh.terminal(f.base, {
+      ...recovery,
+      dispatch: { ...dispatch, document: "changed input" },
+    }).authorize!(request),
+  ).toBeNull();
+  expect(await fresh.terminal(f.base, recovery).authorize!(request)).not.toBeNull();
+  const receipts = JSON.parse(readFileSync(f.file, "utf8")).receipts;
+  expect(receipts).toHaveLength(1);
+  expect(receipts[0].run).toBe(context.runId);
+  expect(receipts[0].dispatch).toEqual(dispatch);
+});
+
+it("a scripted PR91-compatible accepted-review receipt retains its provenance without a new review or request commitment", async () => {
+  const f = fixture();
+  const old = new HumanReviews(f.config);
+  const humanAuthority = { ...authority, canReview: true };
+  const oldDecision = old.terminal(f.base, { ...context, authority: humanAuthority }).review!(
+    request,
+  );
+  const card = (await old.decorate({ content: [] }, humanAuthority as any))._meta!.review as any;
+  expect(
+    old.submit(
+      {
+        proposal_id: card.proposal_id,
+        digest: card.digest,
+        capability: card.capability,
+        decision: "accept",
+      },
+      humanAuthority,
+    ).isError,
+  ).not.toBe(true);
+  expect(await oldDecision).not.toBeNull();
+  const path = join(f.config.operatorDir, "chat-reviewed.request-fixture.json");
+  const before = readFileSync(path, "utf8");
+  const current = new RequestCommitments(f.config);
+  const terminal = current.terminal(f.base, {
+    ...context,
+    recover: true,
+    originalRun: context.runId,
+    runId: "recovery-run",
+  });
+  const token = await requestOperatorConfirmation(
+    terminal,
+    request.verb,
+    request.subject,
+    request.shown,
+    request.proposal,
+  );
+  expect(token).not.toBeNull();
+  expect(consumeConfirmation(token!, request.verb, request.subject)).toBe(true);
+  expect(old.pending()).toBe(false);
+  expect(current.pending()).toBe(false);
+  expect(existsSync(f.file)).toBe(false);
+  expect(readFileSync(path, "utf8")).toBe(before);
+  const changed = {
+    ...request.proposal,
+    world: { ...request.proposal.world, premise: "A different authored setting" },
+  };
+  expect(
+    await requestOperatorConfirmation(
+      terminal,
+      request.verb,
+      request.subject,
+      request.shown,
+      changed,
+    ),
+  ).toBeNull();
+  expect(readFileSync(path, "utf8")).toBe(before);
 });

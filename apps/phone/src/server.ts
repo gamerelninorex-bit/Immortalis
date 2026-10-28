@@ -592,6 +592,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           ...(opts.review.originalRun ? { originalRun: opts.review.originalRun } : {}),
           ...(opts.review.internal ? { internal: true } : {}),
           runId: id,
+          dispatch: pending?.character ?? pending?.stage ?? pending?.setup,
           actor: opts.actor ?? null,
           ...(opts.review.sources
             ? { sources: { ...opts.review.sources, campaign: config.campaignId } }
@@ -1785,8 +1786,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
                 locus: dispatched.locus_id,
               },
             },
-            derived: (request: ReviewRequest) =>
-              entryEvidence(reviews.sources(review.authority), request),
+            derived: (request: ReviewRequest, source = reviews.sources(review.authority)) =>
+              entryEvidence(source, request),
           }
         : undefined;
       const run = startRun(
@@ -2160,9 +2161,9 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
                   ...(originalRequestRun ? { originalRun: originalRequestRun } : {}),
                 }
               : {}),
-            derived: (request: ReviewRequest) => {
+            derived: (request: ReviewRequest, source = reviews.sources(review.authority)) => {
               if (
-                acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||
+                acceptedStageEvidence(source, planned, request) ||
                 (planned.identity.kind === "LOCUS" &&
                   !!boundEntry &&
                   entryEvidence(boundEntry, request))

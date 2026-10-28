@@ -88,7 +88,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/source-drawdown/admission.ts":
     "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
   "packages/operator/src/confirmation.ts":
-    "8e18fe41338b18d564cc9afc309c7fcc4f925865dfd82d476bc10fcb531e297f",
+    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/original-pc.ts":
     "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":

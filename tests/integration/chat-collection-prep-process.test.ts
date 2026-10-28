@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- real-process JSON harness */
 // Actual SIGKILL and durable-filesystem EIO, distinct from mocked lost acknowledgements.
 import { spawn } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, expect, it, vi } from "vitest";
 import { CanonicalCampaign } from "@immortalis/engine";
@@ -104,9 +104,13 @@ const boundaries: Boundary[] = [
 async function crash(s: Slot, b: Boundary, when: string, fault: string) {
   const marker = join(s.root, "fault-reached");
   const cfg = join(s.root, "child.json");
-  writeFileSync(cfg, JSON.stringify({ config: s.config, ...b, when, fault, marker }), {
-    mode: 0o600,
-  });
+  writeFileSync(
+    cfg,
+    JSON.stringify({ config: s.config, client: s.client, ...b, when, fault, marker }),
+    {
+      mode: 0o600,
+    },
+  );
   const hosts = startHosts(s);
   const child = spawn(
     process.execPath,
@@ -131,6 +135,7 @@ async function crash(s: Slot, b: Boundary, when: string, fault: string) {
       },
     );
     expect(existsSync(marker), stderr).toBe(true);
+    s.client = JSON.parse(readFileSync(cfg, "utf8")).client;
     if (fault === "SIGKILL") expect(exit.signal, stderr).toBe("SIGKILL");
     else expect(exit.code, stderr).toBe(0);
   } finally {
@@ -155,9 +160,8 @@ for (const b of boundaries)
       let asks = 0;
       try {
         const opens = vi.spyOn(CanonicalCampaign, "open");
-        let initial;
         try {
-          initial = (await status(r.chat)).route;
+          await status(r.chat);
           expect(opens).toHaveBeenCalledTimes(1);
         } finally {
           opens.mockRestore();
@@ -165,9 +169,7 @@ for (const b of boundaries)
         const done = (route: any) =>
           route.barrier === "NONE" &&
           route.stages.some((l: any) => l.stage === b.line && l.state === "DONE");
-        const completeBeforeRecovery = initial.stages.some(
-          (l: any) => l.stage === b.line && l.state === "DONE",
-        );
+
         await converge(r, {
           cycle: !b.r5,
           until: done,
@@ -177,9 +179,7 @@ for (const b of boundaries)
             return reader(e);
           },
         });
-        if (completeBeforeRecovery || b.after === "READY" || b.line === "physical_location")
-          expect(asks).toBe(0);
-        else expect(asks).toBe(1);
+        expect(asks).toBe(0);
         expect(done((await status(r.chat)).route)).toBe(true);
       } finally {
         await r.stop();

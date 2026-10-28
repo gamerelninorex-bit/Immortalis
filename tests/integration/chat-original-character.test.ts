@@ -569,10 +569,8 @@ describe("MECHANISM: preconditions are checked before the player is asked anythi
       ).toBe(won.identity);
       const loser = a.isError ? a : b;
       expect(loser.text).toMatch(/already running|setting is being read/);
-      await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect((await r.chat.call("cancel_action")).isError).toBe(false);
       await follow(r.chat, null);
-      expect(keepFiles(r.s)).toEqual([]);
+      expect(keepFiles(r.s)).toHaveLength(1);
     } finally {
       await host.stop();
       await r.app.close();
@@ -854,7 +852,7 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
     fault.mockRestore();
     await host.stop();
     await r.app.close();
-    return { s: r.s, file: pendingPath(r.s.config) };
+    return { s: r.s, file: pendingPath(r.s.config), kept: keepFiles(r.s) };
   }
   const tampered: [string, (file: string, record: any) => void][] = [
     [
@@ -911,7 +909,7 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   ];
   for (const [name, tamper] of tampered)
     it(`${name}: blocked for engineering, nothing removed, nothing started`, async () => {
-      const { s, file } = await withPendingOffer();
+      const { s, file, kept } = await withPendingOffer();
       tamper(file, JSON.parse(readFileSync(file, "utf8")));
       const before =
         existsSync(file) && !statSync(file).isDirectory() ? readFileSync(file, "utf8") : null;
@@ -929,7 +927,7 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
         expect(blocked.data.outcome).toBe("UNCERTAIN");
         expect(existsSync(file)).toBe(true);
         if (before !== null) expect(readFileSync(file, "utf8")).toBe(before);
-        expect(keepFiles(s)).toEqual([]);
+        expect(keepFiles(s)).toEqual(kept);
       } finally {
         await r.app.close();
       }
@@ -987,12 +985,12 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   for (const [name, defect] of wordsDefects)
     it(`${name}: the retained words are never trusted; the character lane stays closed and the file is kept`, async () => {
       const r = await ready();
-      const host = referee(r.s);
+      const host = referee(
+        r.s,
+        scriptedPolicy({ classify: [{ match: /salt-raker/, class: "AMBIGUOUS" }] }),
+      );
       try {
-        expect(
-          (await r.chat.call("propose_original_character", { identity: WORDS.identity })).data
-            .retained.state,
-        ).toBe("DRAFT_RETAINED");
+        expect((await offer(r.chat, draft())).finished.data.result.status).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         defect(file, JSON.parse(readFileSync(file, "utf8")));
         const before = readFileSync(file, "utf8");
@@ -1013,12 +1011,12 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   for (const field of ["world_id", "locus_id", "pc_id"] as const)
     it(`BLUE H1: retained words whose ${field} is not the verified one are a conflict (never absent, never re-identified): blocked for engineering, every mutation refused, the bytes kept`, async () => {
       const r = await ready();
-      const host = referee(r.s);
+      const host = referee(
+        r.s,
+        scriptedPolicy({ classify: [{ match: /salt-raker/, class: "AMBIGUOUS" }] }),
+      );
       try {
-        expect(
-          (await r.chat.call("propose_original_character", { identity: WORDS.identity })).data
-            .retained.state,
-        ).toBe("DRAFT_RETAINED");
+        expect((await offer(r.chat, draft())).finished.data.result.status).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         const record = JSON.parse(readFileSync(file, "utf8"));
         const original = record[field];

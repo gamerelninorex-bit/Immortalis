@@ -60,6 +60,7 @@ export const courtyard = (): any => ({
 });
 
 export interface Slot {
+  client?: { clientId: string; access: string; refresh: string };
   readonly config: PhoneConfig;
   readonly root: string;
   readonly campaignDir: string;
@@ -96,16 +97,30 @@ export async function run(
   s: Slot,
   deps: PhoneDeps = {},
   link: { scope: string; player?: string; referee?: string } = { scope: "player", player: PLAYER },
-  caps: any = { elicitation: {} },
+  caps: any = {},
 ): Promise<Running> {
   const app = createPhoneServer(s.config, { pollMs: 300, ...deps });
   await app.listen();
   const chat = new Chat(s.base);
-  const linked = await chat.link(link.scope, {
-    ...(link.player !== undefined ? { player: link.player } : {}),
-    ...(link.referee !== undefined ? { referee: link.referee } : {}),
-  });
-  if (!linked.ok) throw new Error("could not link the scripted client");
+  if (s.client && link.scope === "player" && link.player === PLAYER) {
+    Object.assign(chat, s.client);
+    const renewed = await chat.token({
+      grant_type: "refresh_token",
+      client_id: chat.clientId,
+      refresh_token: chat.refresh,
+    });
+    if (renewed.status !== 200) throw new Error("could not refresh the original fixture grant");
+    chat.access = renewed.json.access_token;
+    chat.refresh = renewed.json.refresh_token;
+  } else {
+    const linked = await chat.link(link.scope, {
+      ...(link.player !== undefined ? { player: link.player } : {}),
+      ...(link.referee !== undefined ? { referee: link.referee } : {}),
+    });
+    if (!linked.ok) throw new Error("could not link the scripted client");
+  }
+  if (link.scope === "player" && link.player === PLAYER)
+    s.client = { clientId: chat.clientId, access: chat.access, refresh: chat.refresh };
   await chat.init(caps);
   return { app, chat };
 }

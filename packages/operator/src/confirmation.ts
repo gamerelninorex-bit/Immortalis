@@ -102,10 +102,13 @@ export async function requestOperatorConfirmation(
       shown,
       ...(proposal ? { proposal } : {}),
     });
-    if (!evidence || !consumeRequestEvidence(evidence, verb, subject)) return null;
-    const token = Object.freeze({ verb, subject });
-    live.add(token);
-    return token;
+    if (evidence) {
+      if (!consumeRequestEvidence(evidence, verb, subject)) return null;
+      const token = Object.freeze({ verb, subject });
+      live.add(token);
+      return token;
+    }
+    if (!terminal.review) return null;
   }
   if (terminal.review) {
     const evidence = await terminal.review({
@@ -168,11 +171,13 @@ export async function requestOperatorDecision(
       shown,
       ...(interpretation ? { interpretation } : {}),
     });
-    if (!evidence || !consumeRequestEvidence(evidence, verb, subject))
-      return { kind: "END_OF_INPUT" };
-    const token = Object.freeze({ verb, subject });
-    live.add(token);
-    return { kind: "CONFIRMED", confirmation: token };
+    if (evidence) {
+      if (!consumeRequestEvidence(evidence, verb, subject)) return { kind: "END_OF_INPUT" };
+      const token = Object.freeze({ verb, subject });
+      live.add(token);
+      return { kind: "CONFIRMED", confirmation: token };
+    }
+    if (!terminal.review) return { kind: "END_OF_INPUT" };
   }
   if (terminal.review) {
     const evidence = await terminal.review({

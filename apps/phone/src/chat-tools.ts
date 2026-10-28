@@ -2358,7 +2358,17 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             ctx,
           );
         }
-        const result = await d.reviews!.decorate(await tool.handler(args, ctx), ctx);
+        const raw = await tool.handler(args, ctx);
+        const carriesReadback =
+          !!requestDescriptions[tool.name] ||
+          [
+            "await_action",
+            "original_setting_status",
+            "original_character_status",
+            "collection_setup_status",
+            "reconcile_last_action",
+          ].includes(tool.name);
+        const result = carriesReadback ? await d.reviews!.decorate(raw, ctx) : raw;
         if (
           tool.name === "reconcile_last_action" ||
           (tool.name === "await_action" &&

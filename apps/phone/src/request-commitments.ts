@@ -1,3 +1,4 @@
+import { entryEvidence } from "./review-sources.ts";
 import { canonicalJson } from "@immortalis/contracts";
 import type { OperatorTerminal } from "@immortalis/operator";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -17,6 +18,7 @@ import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { projectReview } from "./review-projection.ts";
 import {
+  HumanReviews,
   ownedRead,
   REVIEW_RECEIPT_BYTES,
   REVIEW_RECEIPT_LIMIT,
@@ -40,6 +42,7 @@ const tools: Readonly<Record<string, readonly string[]>> = {
 interface Receipt {
   readonly origin: "AUTHENTICATED_REQUEST";
   readonly parentRun?: string;
+  readonly dispatch?: unknown;
   readonly campaign: string;
   readonly client: string;
   readonly grant: string;
@@ -57,9 +60,11 @@ export class RequestCommitments {
   readonly #file: string;
   readonly #keyFile: string;
   readonly #campaign: string;
+  readonly #legacy: HumanReviews;
   opening: { state: string; detail: string } | null = null;
   constructor(config: PhoneConfig) {
     this.#campaign = config.campaignId;
+    this.#legacy = new HumanReviews(config);
     this.#file = join(config.operatorDir, `chat-requests.${config.campaignId}.json`);
     this.#keyFile = join(config.operatorDir, `chat-request-key.${config.campaignId}`);
   }
@@ -146,11 +151,15 @@ export class RequestCommitments {
     return this.#read().filter((r) => r.client === authority.client && r.grant === authority.grant);
   }
   accepted(authority: ReviewAuthority, actor: string | null, subject: string): boolean {
-    return this.#scoped(authority).some((r) => r.actor === actor && r.subject === subject);
+    return (
+      this.#scoped(authority).some((r) => r.actor === actor && r.subject === subject) ||
+      this.#legacy.accepted(authority, actor, subject)
+    );
   }
   sources(authority: ReviewAuthority): OpeningSources {
-    let setting: OpeningSources["setting"];
-    let generation: OpeningSources["generation"];
+    const legacy = this.#legacy.sources(authority);
+    let setting: OpeningSources["setting"] = legacy.setting;
+    let generation: OpeningSources["generation"] = legacy.generation;
     for (const r of this.#scoped(authority)) {
       if (r.meaning && r.verb === "establish-locality" && r.source.setting)
         setting = r.source.setting;
@@ -174,10 +183,13 @@ export class RequestCommitments {
     };
   }
   ownsRun(authority: ReviewAuthority, run: string): boolean {
-    return this.#scoped(authority).some((r) => r.run === run);
+    return this.#scoped(authority).some((r) => r.run === run) || this.#legacy.verified(authority);
   }
   ownsActor(authority: ReviewAuthority, actor: string): boolean {
-    return this.#scoped(authority).some((r) => r.actor === actor && r.verb === "keep-character");
+    return (
+      this.#scoped(authority).some((r) => r.actor === actor && r.verb === "keep-character") ||
+      this.#legacy.ownsActor(authority, actor)
+    );
   }
   /** Durable original tool/input capture before referee work or canonical publication. */
   capture(context: ReviewContext): boolean {
@@ -213,6 +225,7 @@ export class RequestCommitments {
           grant: context.authority.grant,
           actor: context.actor,
           run: context.runId,
+          ...(context.dispatch !== undefined ? { dispatch: context.dispatch } : {}),
           request: captured,
           verb,
           subject: "",
@@ -229,7 +242,35 @@ export class RequestCommitments {
   }
   terminal(base: OperatorTerminal, context: ReviewContext): OperatorTerminal {
     const captured = this.capture(context);
+    let legacyReview: OperatorTerminal["review"];
+    try {
+      this.#scoped(context.authority); // Corrupt request evidence cannot be bypassed through legacy recovery.
+      if ((context.internal || context.recover) && this.#legacy.verified(context.authority)) {
+        const legacySource = this.#legacy.sources(context.authority);
+        const old = this.#legacy.terminal(base, {
+          ...context,
+          internal: true,
+          derived: (request) =>
+            ["place-character", "establish-character-locus"].includes(request.verb)
+              ? entryEvidence(legacySource, request)
+              : (context.derived?.(request, legacySource) ?? false),
+        });
+        legacyReview = async (request) => {
+          // A captured request for this operation retains its own origin and cannot fall back to a different old decision.
+          if (
+            this.#scoped(context.authority).some(
+              (r) => r.verb === request.verb && r.actor === context.actor,
+            )
+          )
+            return null;
+          return old.review!(request);
+        };
+      }
+    } catch {
+      /* Both origins fail closed on unreadable evidence. */
+    }
     return {
+      ...(legacyReview ? { review: legacyReview } : {}),
       say: (text) => base.say(text),
       // Missing information is returned by the existing operator/referee projection. Never synthesize console replies.
       ask: async () => null,
@@ -335,8 +376,25 @@ export class RequestCommitments {
                     r.actor === context.actor &&
                     r.verb === request.verb,
                 )
-              : prior;
-            if (!original || (original.meaning && original.meaning !== meaning))
+              : (prior ??
+                receipts.findLast(
+                  (r) =>
+                    context.dispatch !== undefined &&
+                    r.dispatch !== undefined &&
+                    !r.parentRun &&
+                    r.client === context.authority.client &&
+                    r.grant === context.authority.grant &&
+                    r.actor === context.actor &&
+                    r.verb === request.verb &&
+                    same(r.dispatch, context.dispatch),
+                ));
+            if (
+              !original ||
+              (original.meaning && original.meaning !== meaning) ||
+              (!original.meaning &&
+                original.dispatch !== undefined &&
+                !same(original.dispatch, context.dispatch))
+            )
               throw new Error("original exact request evidence unavailable");
             if (!original.meaning)
               this.#write(
@@ -379,6 +437,7 @@ export class RequestCommitments {
                 grant: context.authority.grant,
                 actor: context.actor,
                 run: context.runId,
+                ...(reused?.dispatch !== undefined ? { dispatch: reused.dispatch } : {}),
                 request: captured,
                 verb: request.verb,
                 subject: request.subject,
@@ -393,9 +452,10 @@ export class RequestCommitments {
           base.say(reused?.material || projectReview(request, source, "readback"));
           return issueRequestEvidence(request.verb, request.subject);
         } catch {
-          base.say(
-            "REQUEST_BLOCKED: the original exact request, input or current interpretation cannot be verified. No new authorization was inferred.",
-          );
+          if (!legacyReview)
+            base.say(
+              "REQUEST_BLOCKED: the original exact request, input or current interpretation cannot be verified. No new authorization was inferred.",
+            );
           return null;
         }
       },

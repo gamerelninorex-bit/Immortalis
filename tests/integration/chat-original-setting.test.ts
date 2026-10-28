@@ -483,6 +483,13 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
     const s = await slot();
     const r = await run(s);
     try {
+      const scratch = new WeakSet<CanonicalCampaign>();
+      const create = CanonicalCampaign.create;
+      vi.spyOn(CanonicalCampaign, "create").mockImplementation(async (dir, params) => {
+        const result = await create.call(CanonicalCampaign, dir, params);
+        if (result.ok && dir.includes("dry-run")) scratch.add(result.value);
+        return result;
+      });
       const original = CanonicalCampaign.prototype.establishWorld;
       const jam = vi
         .spyOn(CanonicalCampaign.prototype, "establishWorld")
@@ -491,6 +498,7 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
           ...args: Parameters<typeof original>
         ) {
           const result = await original.apply(this, args);
+          if (scratch.has(this)) return result;
           rmSync(pendingPath(s.config), { force: true });
           mkdirSync(pendingPath(s.config));
           writeFileSync(join(pendingPath(s.config), "x"), "");
@@ -498,6 +506,7 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
         });
       const { finished } = await establishViaChat(r.chat, courtyard());
       jam.mockRestore();
+      vi.restoreAllMocks();
       expect(finished.data.setting.state).toBe("BLOCKED");
       expect(finished.data.outcome).toBe("UNCERTAIN");
       expect(finished.data.recovery).toMatch(/operator must inspect/);
@@ -506,10 +515,12 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
       await r.chat.call("reconcile_last_action");
       const lifted = await follow(r.chat, null);
       expect(lifted.data.exit_code).toBe(0);
-      expect((await r.chat.call("original_setting_status")).data.setting).toMatchObject({
-        state: "ESTABLISHED",
-        barrier: "NONE",
-      });
+      let readback = (await r.chat.call("original_setting_status")).data.setting;
+      for (let n = 0; n < 20 && readback.state === "UNAVAILABLE"; n++) {
+        await new Promise((r) => setTimeout(r, 20));
+        readback = (await r.chat.call("original_setting_status")).data.setting;
+      }
+      expect(readback).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
     } finally {
       await r.app.close();
     }

@@ -14,7 +14,7 @@ import {
 } from "@immortalis/engine";
 import { createPhoneServer } from "../../../apps/phone/src/server.ts";
 import { pendingPath } from "../../../apps/phone/src/recovery.ts";
-import { Chat, PLAYER, humanConfirms } from "../../support/chat-client.ts";
+import { Chat, PLAYER } from "../../support/chat-client.ts";
 
 const cfg = JSON.parse(fs.readFileSync(process.argv[2]!, "utf8"));
 const { config, target, when, tool, args, marker, fault } = cfg;
@@ -91,14 +91,22 @@ if (target.includes(".")) {
 const app = createPhoneServer(config, { pollMs: 10, chat: { settleMs: 20 } });
 await app.listen();
 const chat = new Chat(`http://127.0.0.1:${config.port}`);
-if (!(await chat.link("player", { player: PLAYER })).ok) throw new Error("link failed");
-await chat.init({ elicitation: {} });
-const human = (e: any) => {
-  if (e.requestedSchema?.properties?.accept || e.requestedSchema?.properties?.reply) {
-    fs.appendFileSync(`${marker}.consent`, "human confirmed\n");
-    return humanConfirms(e);
-  }
-  return { action: "accept" as const, content: {} };
+if (cfg.client) {
+  Object.assign(chat, cfg.client);
+  const refreshed = await chat.token({
+    grant_type: "refresh_token",
+    client_id: chat.clientId,
+    refresh_token: chat.refresh,
+  });
+  if (refreshed.status !== 200) throw new Error("original fixture grant refresh failed");
+  chat.access = refreshed.json.access_token;
+  chat.refresh = refreshed.json.refresh_token;
+} else if (!(await chat.link("player", { player: PLAYER })).ok) throw new Error("link failed");
+cfg.client = { clientId: chat.clientId, access: chat.access, refresh: chat.refresh };
+fs.writeFileSync(process.argv[2]!, JSON.stringify(cfg), { mode: 0o600 });
+await chat.init({});
+const human = () => {
+  throw new Error("production request recovery must not ask for approval");
 };
 const start = await chat.call(tool, args);
 if (start.isError) throw new Error(start.text);

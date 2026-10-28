@@ -159,7 +159,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // The absence-of-auditory-ingress assertion below remains operative.
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
-      "c5a30f34799d78e9b2269e2240b2db82a271a98028103155721eb6ee8ea12f95",
+      "b2311d0e72a563c12613f67af1a536dc9a0278e9b380610e491791a13985f9fc",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

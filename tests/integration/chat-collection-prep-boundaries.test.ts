@@ -46,9 +46,8 @@ it("BLUE PR88 H1: an unrelated accepted breath-holding duration leaves the actua
     const out = await stage(r.chat, "state_handling_duration", { words: HANDLING });
     expect(out.started.isError).toBe(false);
     expect(out.finished.data.result.status).toBe("CLARIFICATION_ACCEPTED");
-    expect(out.finished.elicited).toHaveLength(1);
-    expect(out.finished.elicited[0]).toContain(HANDLING);
-    expect(out.finished.elicited[0]).toContain("branch reading: UNRESOLVED_BEFORE");
+    expect(out.finished.elicited).toHaveLength(0);
+    expect(out.finished.result.structuredContent.request_readback.operation).toContain(HANDLING);
     expect((await status(r.chat)).route.stages).toContainEqual({
       stage: "handling_duration",
       state: "DONE",
@@ -108,8 +107,10 @@ it("a current workforce half survives an interrupted replacement of only the clo
     expect((await status(r.chat)).route.barrier).toBe("RESUME");
     spy.mockRestore();
     const next = await stage(r.chat, "resume_collection_setup");
-    expect(first.finished.elicited).toHaveLength(1);
-    expect(first.finished.elicited[0]).toContain(changed.closure_statement);
+    expect(first.finished.elicited).toHaveLength(0);
+    expect(first.finished.result.structuredContent.request_readback.operation).toContain(
+      changed.closure_statement,
+    );
     expect(next.finished.elicited).toEqual([]);
     expect(next.finished.data.result.status).toBe("SETTING_DECLARED");
     const c = await openOrdinary(s.campaignDir);

@@ -16,7 +16,7 @@ export interface ReviewLaunch {
   readonly internal?: boolean;
   readonly authority: ReviewAuthority;
   readonly sources?: OpeningSources;
-  readonly derived?: (request: ReviewRequest) => boolean;
+  readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
 }
 
 /** One command the player lane is running (or ran last). The sequence numbers of its transcript restart with every run. */

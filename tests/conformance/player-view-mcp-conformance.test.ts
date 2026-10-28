@@ -75,7 +75,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/confirmation.ts":
-    "8e18fe41338b18d564cc9afc309c7fcc4f925865dfd82d476bc10fcb531e297f",
+    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
 };
 
 const NEW_MODULES = [

@@ -48,13 +48,14 @@ export interface OpeningSources {
 export interface ReviewContext {
   readonly recover?: boolean;
   readonly originalRun?: string;
+  readonly dispatch?: unknown;
   readonly internal?: boolean;
   readonly authority: ReviewAuthority;
   readonly runId: string;
   readonly actor: string | null;
   readonly sources?: OpeningSources;
   /** Created by the trusted planner from accepted-source receipts and owner-verified current input, never from a tool boolean. */
-  readonly derived?: (request: ReviewRequest) => boolean;
+  readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
   readonly active: () => boolean;
 }
 interface Receipt {
@@ -237,6 +238,25 @@ export class HumanReviews {
     } finally {
       closeSync(dir);
     }
+  }
+  /** Read-only compatibility checks for previously accepted, signed human reviews. Never create a decision here. */
+  verified(authority: ReviewAuthority): boolean {
+    return (
+      authority.scopes.includes("player") &&
+      this.#read().some((r) => r.client === authority.client && r.grant === authority.grant)
+    );
+  }
+  ownsActor(authority: ReviewAuthority, actor: string): boolean {
+    return (
+      authority.scopes.includes("player") &&
+      this.#read().some(
+        (r) =>
+          r.client === authority.client &&
+          r.grant === authority.grant &&
+          r.actor === actor &&
+          JSON.parse(r.subject).verb === "keep-character",
+      )
+    );
   }
   /** Trusted recovery adapter only: exact signed acceptance, never a tool argument or new authority. */
   accepted(authority: ReviewAuthority, actor: string | null, subject: string): boolean {
