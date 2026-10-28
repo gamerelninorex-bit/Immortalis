@@ -74,7 +74,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
-    "7b0ff87e6195c114f6d5e22b08ad2b7a94b37cdb2bcbc4175231c37d503c5042",
+    "b185396a7858b9ab3133bf6e173ae76c7084ffcda335e8dc6cd3e0f22972a04e",
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/player-view-bin.ts":

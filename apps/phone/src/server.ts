@@ -1,7 +1,8 @@
 import { canonicalJson } from "@immortalis/contracts";
+import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
 import { entryEvidence, stageEvidence as acceptedStageEvidence } from "./review-sources.ts";
 import { parseChronology, parseDeclare, parsePrepare } from "./route-stages.ts";
-import { HumanReviews } from "./reviews.ts";
+import { HumanReviews, type OpeningSources } from "./reviews.ts";
 import type { ReviewLaunch } from "./runs.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -1754,9 +1755,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
                 locus: dispatched.locus_id,
               },
             },
-            derived: (
-              request: import("../../../packages/operator/src/review-evidence.ts").ReviewRequest,
-            ) => entryEvidence(reviews.sources(review.authority), request),
+            derived: (request: ReviewRequest) =>
+              entryEvidence(reviews.sources(review.authority), request),
           }
         : undefined;
       const run = startRun(
@@ -1970,7 +1970,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
 
       let planned: PlannedRun;
       let originalDeclaration: Extract<StageIdentity, { kind: "DECLARE" }> | undefined;
-      let boundEntry: import("./reviews.ts").OpeningSources | undefined;
+      let boundEntry: OpeningSources | undefined;
       let resuming = false;
       if (unresolvedOutcome) {
         // only the partly committed stage's own retained input, confirmed afresh, can continue: nothing else starts
@@ -2116,9 +2116,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const reviewed = review
         ? {
             ...review,
-            derived: (
-              request: import("../../../packages/operator/src/review-evidence.ts").ReviewRequest,
-            ) => {
+            derived: (request: ReviewRequest) => {
               if (
                 acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||
                 (planned.identity.kind === "LOCUS" &&
@@ -2352,7 +2350,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     )
       return;
     if (unresolvedOutcome && !pending?.stage && !pending?.character) return;
-    let source: import("./reviews.ts").OpeningSources;
+    let source: OpeningSources;
     try {
       source = reviews.sources(review.authority);
     } catch {
@@ -2365,12 +2363,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     if (!source.generation?.grouped || !source.generation.presence) return;
     openingActive = true;
     const internal: ReviewLaunch = { authority: review.authority, internal: true };
-    const waitRun = async (
-      launched:
-        | import("./runs.ts").Launch
-        | import("./runs.ts").StageLaunch
-        | import("./runs.ts").CharacterLaunch,
-    ) => {
+    const waitRun = async (launched: Launch | StageLaunch | CharacterLaunch) => {
       if (!launched.ok) {
         reviews.opening = { state: "BLOCKED", detail: launched.reason };
         return false;

@@ -14,7 +14,7 @@ import {
 } from "@immortalis/engine";
 import { createPhoneServer } from "../../../apps/phone/src/server.ts";
 import { pendingPath } from "../../../apps/phone/src/recovery.ts";
-import { Chat, PLAYER, phraseOf } from "../../support/chat-client.ts";
+import { Chat, PLAYER, humanConfirms } from "../../support/chat-client.ts";
 
 const cfg = JSON.parse(fs.readFileSync(process.argv[2]!, "utf8"));
 const { config, target, when, tool, args, marker, fault } = cfg;
@@ -94,9 +94,9 @@ const chat = new Chat(`http://127.0.0.1:${config.port}`);
 if (!(await chat.link("player", { player: PLAYER })).ok) throw new Error("link failed");
 await chat.init({ elicitation: {} });
 const human = (e: any) => {
-  if (/type exactly "/.test(e.message)) {
+  if (e.requestedSchema?.properties?.accept || e.requestedSchema?.properties?.reply) {
     fs.appendFileSync(`${marker}.consent`, "human confirmed\n");
-    return { action: "accept" as const, content: { reply: phraseOf(e.message) } };
+    return humanConfirms(e);
   }
   return { action: "accept" as const, content: {} };
 };

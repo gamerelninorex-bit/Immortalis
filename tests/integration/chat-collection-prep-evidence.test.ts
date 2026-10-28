@@ -170,6 +170,8 @@ it("A2: fixed-input whole journeys compare real review controls and I/O across b
       fixture:
         "independently authored five logs, claims, chronology, scene/workforce; missing branch omits chronology/cycle",
       fixtureCreation: "excluded symmetrically; full link/review/setup/action/reopen I/O included",
+      historyFixture:
+        "20 independent dormant remote-locus journal publications; rows also grow, so this does not isolate journal depth from state cardinality",
       limits: {
         receipts: 100,
         receiptBytes: 33554432,

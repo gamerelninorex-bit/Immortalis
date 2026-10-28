@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
-import { CanonicalCampaign, PcCollectionAdapter } from "@immortalis/engine";
+import { CanonicalCampaign } from "@immortalis/engine";
 import { Chat, PLAYER, humanConfirms } from "../../support/chat-client.ts";
 import { routeMeter } from "../../support/route-meter.ts";
 const input = JSON.parse(readFileSync(process.argv[3]!, "utf8"));
@@ -66,17 +66,6 @@ async function drive(name: string, args: any = {}) {
         decision: "accept",
       });
     }
-    const o = r.result?.structuredContent?.opening;
-    if (
-      mode === "current" &&
-      name === "propose_original_character" &&
-      o &&
-      o.state !== "REALIZING"
-    ) {
-      if (o.state !== "PREPARED" && o.state !== "MISSING_SOURCE")
-        throw new Error(JSON.stringify(o));
-      return r;
-    }
     if (r.data?.state === "FINISHED") return r;
     if (Date.now() > deadline) throw new Error(`did not settle ${name}`);
     r = await call("await_action", { after: 0, wait_seconds: 1 });
@@ -107,13 +96,15 @@ async function unrelated() {
         if (!r.ok) throw new Error(r.error.code);
       }
       for (let n = 0; n < variation.history; n++) {
-        const r = await new PcCollectionAdapter(c.value.store).establishSceneClosure({
+        // Immutable independent remote-locus publications grow dormant journal history legally before chronology/PC release.
+        // This history fixture also grows rows; it does not claim to isolate journal depth from state cardinality.
+        const r = await c.value.establishLocus({
           ...pub(n + 1000),
-          world_id: "world-courtyard",
-          locus_id: "unused-0",
-          domain: { designation: "Unused remote place", topology: "Separate empty ground" },
-          closure: { statement: "Only independently recorded causes act here" },
-          source_rights: [],
+          locus: {
+            ...original,
+            locus_id: `history-unused-${n}`,
+            designation: `Independent remote history publication ${n}`,
+          },
         });
         if (!r.ok) throw new Error(r.error.code);
       }

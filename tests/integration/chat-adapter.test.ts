@@ -528,7 +528,14 @@ describe("MECHANISM: the MCP transport", () => {
         403,
       );
       const listed = await a.rpc("tools/list");
-      const names: string[] = listed.json.result.tools.map((x: any) => x.name).sort();
+      const component = listed.json.result.tools.find(
+        (x: any) => x.name === "submit_review_decision",
+      );
+      expect(component._meta.ui.visibility).toEqual(["app"]);
+      const publicTools = listed.json.result.tools.filter(
+        (x: any) => x._meta?.ui?.visibility?.[0] !== "app",
+      );
+      const names: string[] = publicTools.map((x: any) => x.name).sort();
       expect(names).toEqual(
         [
           "cancel_action",
@@ -559,8 +566,8 @@ describe("MECHANISM: the MCP transport", () => {
           "resume_collection_setup",
         ].sort(),
       );
-      // there is no tool that can reply to a prompt or confirm: no property of any tool is a reply, answer, confirm or challenge
-      for (const tool of listed.json.result.tools)
+      // Model-visible tools provide no human-response or authority argument. The component-only callback remains separately scoped.
+      for (const tool of publicTools)
         for (const key of Object.keys(tool.inputSchema.properties ?? {}))
           expect(key).not.toMatch(
             /reply|confirm|answer|challenge|phrase|text|token|secret|path|campaign|role|permission/,

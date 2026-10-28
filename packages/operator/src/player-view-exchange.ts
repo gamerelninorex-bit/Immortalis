@@ -1,9 +1,18 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fstatSync,
+  fsyncSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+} from "node:fs";
 import { chmod } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
-import { EntityId, fail, ok, type Result } from "@immortalis/contracts";
+import { EntityId, canonicalJson, fail, ok, type Result } from "@immortalis/contracts";
 import { nodeFs, type FsOps } from "@immortalis/engine";
 
 /**
@@ -123,8 +132,36 @@ const BindingIntentSchema = z.strictObject({
   pc_id: EntityId,
   secret_sha256: Digest.optional(),
 });
+/** A lost acknowledgement can precede chmod in the existing durable writer. Repair only an owned,
+ * non-writable-by-others file inside the sealed private directory, after its original subject/content is proved.
+ * The general credential reader remains strict; neither a foreign actor nor an orphan key reaches this path. */
+function privateBindingParent(path: string, uid: number): void {
+  const st = lstatSync(dirname(path));
+  if (!st.isDirectory() || st.uid !== uid || (st.mode & 0o077) !== 0)
+    throw new Error("untrusted binding directory");
+}
+function recoverPrivateMode(path: string, uid: number, matches: (text: string) => boolean): void {
+  privateBindingParent(path, uid);
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const st = fstatSync(fd);
+    if (
+      !st.isFile() ||
+      st.uid !== uid ||
+      (st.mode & 0o133) !== 0 ||
+      st.size > 4096 ||
+      !matches(readFileSync(fd, "utf8"))
+    )
+      throw new Error("untrusted binding publication");
+    fchmodSync(fd, 0o600);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
 /** Interface publication intent, never canon or a permission. It binds recovery of the two private files to this exact original actor. */
 function readBindingIntent(path: string, uid: number): z.infer<typeof BindingIntentSchema> | null {
+  privateBindingParent(path, uid);
   let fd: number;
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -134,7 +171,7 @@ function readBindingIntent(path: string, uid: number): z.infer<typeof BindingInt
   }
   try {
     const st = fstatSync(fd);
-    if (!st.isFile() || st.uid !== uid || (st.mode & 0o077) !== 0 || st.size > 4096)
+    if (!st.isFile() || st.uid !== uid || (st.mode & 0o133) !== 0 || st.size > 4096)
       throw new Error("untrusted binding intent");
     return BindingIntentSchema.parse(JSON.parse(readFileSync(fd, "utf8")));
   } finally {
@@ -203,12 +240,26 @@ export async function bindPlayerViewHost(
       intent.pc_id !== p.pcId
     )
       return fail("CONFIG_INVALID", "the original binding intent names another host or character");
+    recoverPrivateMode(
+      path,
+      p.operatorUid,
+      (text) =>
+        canonicalJson(BindingIntentSchema.parse(JSON.parse(text))) === canonicalJson(intent),
+    );
     if ((await fs.fileSize(secretFile)) === null) {
       if (intent.secret_sha256) return fail("SECRET_INVALID", "the original credential is missing");
       // Only an unpublished credential may be drawn here. Its sole plaintext home remains the existing secret file.
       await fs.createExclusive(secretFile, `${randomBytes(32).toString("hex")}\n`);
       await chmod(secretFile, 0o600);
     }
+    const originalIntent = intent;
+    recoverPrivateMode(secretFile, p.operatorUid, (text) => {
+      const raw = text.trim();
+      return (
+        SecretText.safeParse(raw).success &&
+        (!originalIntent.secret_sha256 || equalHex(digestOf(raw), originalIntent.secret_sha256))
+      );
+    });
     const secret = readPlayerViewSecretFile(secretFile);
     if (
       secret === null ||
