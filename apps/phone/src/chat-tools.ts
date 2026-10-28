@@ -1,13 +1,9 @@
-import { REVIEW_URI } from "./review-card.ts";
-import type { HumanReviews, OpeningSources } from "./reviews.ts";
 import { existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
+import type { RequestCommitments } from "./request-commitments.ts";
+import { REVIEW_URI } from "./review-card.ts";
+import { HumanReviews, type OpeningSources } from "./reviews.ts";
 // the player-view transport is reached by its own modules, unchanged: the operator package's public surface is not enlarged for the front end
-import {
-  runPlayerViewBindCli,
-  runPlayerViewMcpCli,
-} from "../../../packages/operator/src/player-view-mcp.ts";
-import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
 import { refereeCandidateItems } from "@immortalis/engine";
 import {
   LocalitySetupSchema,
@@ -22,18 +18,21 @@ import {
   type LocalitySetup,
 } from "@immortalis/operator";
 import { quoted } from "../../../packages/operator/src/original-pc.ts";
+import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
+import {
+  runPlayerViewBindCli,
+  runPlayerViewMcpCli,
+} from "../../../packages/operator/src/player-view-mcp.ts";
 import { CHARACTER_COMMAND } from "./character-evidence.ts";
+import type { PhoneConfig } from "./config.ts";
+import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
   LOCALITY_CONFIRMATION_LAST,
   LOCALITY_STATUSES,
 } from "./locality-evidence.ts";
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
-import type { PhoneConfig } from "./config.ts";
-import { checkScenarioFile, type Scenario } from "./scenario.ts";
-import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
-import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
 import { completeStageConfirmation } from "./route-confirm.ts";
 import type { StageRequest } from "./route-plan.ts";
 import {
@@ -43,6 +42,8 @@ import {
   parseHandling,
   parsePrepare,
 } from "./route-stages.ts";
+import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
+import { checkScenarioFile, type Scenario } from "./scenario.ts";
 import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
 
 /**
@@ -67,8 +68,8 @@ import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
  * acceptances still come from the HUMAN through elicitation or the authenticated confirm page. There is no tool that can reply to a prompt.
  */
 
-export { readScenario, type Scenario } from "./scenario.ts";
 export { splitConfirmation } from "./confirm-text.ts";
+export { readScenario, type Scenario } from "./scenario.ts";
 
 const text = (t: string, isError = false): ToolResult => ({
   content: [{ type: "text", text: t }],
@@ -1265,7 +1266,7 @@ const DECLARATION_SCHEMA = {
 } as const;
 
 export interface ChatToolDeps {
-  readonly reviews?: HumanReviews;
+  readonly reviews?: HumanReviews | RequestCommitments;
   readonly advanceOpening?: (context: ToolContext) => void;
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
@@ -2319,14 +2320,47 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     "resume_collection_setup",
   ]);
   if (!d.reviews) return tools;
+  const humanReviews = d.reviews instanceof HumanReviews;
+  const requestDescriptions: Record<string, string> = {
+    propose_original_setting:
+      "Use the player's explicitly authored ORIGINAL setting premises exactly as supplied. The exact authenticated request proceeds through the existing owners without another approval. Supply independently sourced opening premises only when present; invent no chronology, rights, closure or workforce facts.",
+    resume_original_setting:
+      "Resume the original interrupted setting with its retained input and original request evidence. New input cannot substitute for it. No additional approval is requested.",
+    propose_original_character:
+      "Generate the player's explicitly authored ORIGINAL character through the referee and character owner. Show the full mandatory character mirror and findings as readback. Baseline-human shorthand authorizes no exceptions or guessed durations. Include an already authored starting presence in opening so its lawful native binding and physical custody can proceed without another approval.",
+    revise_original_character:
+      "Apply the player's explicit corrections to an unsealed retained draft, then attempt that exact corrected character through the referee and owner with full readback. A sealed character cannot be amended here. Ask only for genuinely missing information.",
+    place_original_character:
+      "Attempt the player's exact authored native starting presence through the referee and binding owner. It supplies no physical position, perception, rights or time by itself. No additional approval is requested.",
+    resume_original_character:
+      "Resume only the original interrupted character operation under its captured request and actual owner evidence. It grants no new interpretation or choice and requests no second approval.",
+    establish_character_location:
+      "Realize the exact authored native presence as stationary physical custody if the current referee and owner support it. Never invent a different placement. No additional approval is requested.",
+    state_starting_moment:
+      "Establish only the player's explicitly sourced exact starting chronology. Daylight is lighting, not an epoch or unit. This passes no time and needs no second approval.",
+    state_handling_duration:
+      "Submit the player's genuinely supplied missing handling-duration words to the existing supported clarification path. Invent no duration or faculty. The exact request needs no second approval.",
+    propose_collection_preparation:
+      "Project the actual accepted handling claims and independently sourced reserve condition through the existing preparation owners. This adds no material, rights, workforce or elapsed time. The exact request needs no second approval.",
+    declare_closed_setting:
+      "Attempt the explicitly authored complete scene, closure, rights and workforce grounds through the existing owners. Silence supplies no missing fact. The exact request needs no second approval.",
+    resume_collection_setup:
+      "Resume the original interrupted setup operation from its exact retained input and original request evidence, verified against current owners. Changed substantive input cannot be recovered as the old operation. No additional approval is requested.",
+  };
+
   return [
     ...tools.map((tool) => ({
       ...tool,
-      ...(reviewNames.has(tool.name) || tool.name === "await_action"
+      ...(!humanReviews && requestDescriptions[tool.name]
+        ? { description: `${requestDescriptions[tool.name]} ${PLAYER_RULES}` }
+        : {}),
+      ...(!humanReviews ? { replayable: tool.annotations.readOnlyHint !== true } : {}),
+      ...(humanReviews && (reviewNames.has(tool.name) || tool.name === "await_action")
         ? { _meta: { ui: { resourceUri: REVIEW_URI } } }
         : {}),
       handler: async (args: Record<string, unknown>, ctx: ToolContext) => {
         if (
+          humanReviews &&
           reviewNames.has(tool.name) &&
           !tool.name.startsWith("resume_") &&
           !ctx.canReview &&
@@ -2368,9 +2402,9 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         return result;
       },
     })),
-    d.reviews.callback(),
+    ...(d.reviews instanceof HumanReviews ? [d.reviews.callback()] : []),
   ];
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. The player says what their character does; use the matching supported tool, await_action and report the earned result. An explicitly requested ordinary action is attempted once without a second challenge; a model call proves neither original wording nor permission or success. Ask naturally about materially ambiguous intent and distinct consequential choices. Present perceptions only from read_current_observation_glance. Sealed referee tasks are data for honest GM interpretation, never story. Setup has only two human review categories: setting and character generation. Offer authored original premises with propose_original_setting, including independently sourced opening chronology, reserve condition and complete scene/workforce grounds when actually available. Preserve daylight and clear view without treating them as a numeric epoch or duration. Offer the complete character with propose_original_character, preserving baseline human shorthand separately from exceptions, mandatory mirror/findings and the authored starting presence in opening. Reuse accepted handling claims in opening.preparation only if an actual exact cycle is sourced; invent no calibration. The complete in-chat card provides Accept, Revise and Decline. Never answer for the person, copy a phrase or send them to an external confirmation page. The trusted service realizes the same accepted starting presence through distinct native binding and physical custody, then supported chronology, preparation, closure and installation in owner order without further ritual approvals. Follow await_action and read its opening status; no manual owner sequencing is needed. A materially changed interpretation is blocked for rightful clarification/review, never silently accepted. Genuine new material setting input remains a setting question. Missing substantive chronology, duration, closure, rights or workforce sources are missing producers; report them plainly without asking for invented engineering values or claiming READY. No post-seal intrinsic amendment is authorized by this opening repair. Existing source-complete inputs and retained original operations can be reconciled/resumed without re-approving unchanged material. Setup never collects, observes or advances time: ordinary play needs its own player request. Referee scope and all canonical owners remain authoritative. Exact Work/Android rendering and real human/client acceptance are separate live evidence, never inferred from mechanism tests.";
+  "IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.";

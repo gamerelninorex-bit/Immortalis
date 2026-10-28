@@ -1,7 +1,8 @@
-import { REVIEW_URI, REVIEW_MIME, REVIEW_HTML } from "./review-card.ts";
+import { canonicalJson } from "@immortalis/contracts";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AccessClaims, OAuthScope, OAuthServer } from "./oauth.ts";
+import { REVIEW_HTML, REVIEW_MIME, REVIEW_URI } from "./review-card.ts";
 
 /**
  * A small MCP server over the Streamable HTTP transport (spec 2025-06-18), for an ordinary chat host that links it through OAuth. It is
@@ -29,6 +30,13 @@ export interface Elicited {
   readonly content?: Record<string, unknown>;
 }
 export interface ToolContext {
+  /** Captured by authenticated transport, never read from arguments. Not proof of original human wording. */
+  readonly request?: {
+    readonly session: string;
+    readonly id: string;
+    readonly tool: string;
+    readonly input: string;
+  };
   readonly canReview: boolean;
   readonly supportsElicitation: boolean;
   readonly scopes: readonly OAuthScope[];
@@ -125,6 +133,9 @@ export function createMcpHttp(o: {
   readonly negotiation?: (line: string) => void;
 }): McpHttp {
   const sessions = new Map<string, Session>();
+  const hasReviewResource = o.tools.some(
+    (t) => t._meta?.ui && (t._meta.ui as Record<string, unknown>).resourceUri === REVIEW_URI,
+  );
   const open = new Set<ServerResponse>();
   const publicOrigin = new URL(o.oauth.issuer).origin;
 
@@ -214,7 +225,7 @@ export function createMcpHttp(o: {
     if (!record(args)) return json(res, 200, rpcError(id, -32602, "arguments must be an object"));
 
     const receiptId = JSON.stringify(id);
-    const input = JSON.stringify([name, args]);
+    const input = canonicalJson([name, args]);
     if (tool.ordinaryAction || tool.replayable) {
       const old = session.actions.get(receiptId);
       if (old) {
@@ -262,6 +273,7 @@ export function createMcpHttp(o: {
       });
     }
     const ctx: ToolContext = {
+      request: Object.freeze({ session: session.id, id: receiptId, tool: tool.name, input }),
       canReview: session.ui,
       supportsElicitation: session.elicitation,
       scopes: claims.scopes,
@@ -439,8 +451,12 @@ export function createMcpHttp(o: {
             protocolVersion: protocol,
             capabilities: {
               tools: { listChanged: false },
-              resources: { listChanged: false },
-              extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [REVIEW_MIME] } },
+              ...(hasReviewResource
+                ? {
+                    resources: { listChanged: false },
+                    extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [REVIEW_MIME] } },
+                  }
+                : {}),
             },
             serverInfo: o.serverInfo,
             instructions: o.instructions,
@@ -475,13 +491,18 @@ export function createMcpHttp(o: {
         id,
         result: {
           resources:
-            claims.scopes.includes("player") && session.ui
+            hasReviewResource && claims.scopes.includes("player") && session.ui
               ? [{ uri: REVIEW_URI, name: "IMMORTALIS human review", mimeType: REVIEW_MIME }]
               : [],
         },
       });
     if (method === "resources/read") {
-      if (!claims.scopes.includes("player") || !session.ui || params["uri"] !== REVIEW_URI)
+      if (
+        !hasReviewResource ||
+        !claims.scopes.includes("player") ||
+        !session.ui ||
+        params["uri"] !== REVIEW_URI
+      )
         return json(res, 200, rpcError(id, -32602, "unknown resource"));
       return json(res, 200, {
         jsonrpc: "2.0",

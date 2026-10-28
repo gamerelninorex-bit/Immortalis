@@ -1,9 +1,11 @@
+import { canonicalJson } from "@immortalis/contracts";
+import type { OperatorTerminal } from "@immortalis/operator";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
-  constants,
-  fstatSync,
   chmodSync,
   closeSync,
+  constants,
+  fstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -12,12 +14,10 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { canonicalJson } from "@immortalis/contracts";
 import {
   issueReviewEvidence,
   type ReviewRequest,
 } from "../../../packages/operator/src/review-evidence.ts";
-import type { OperatorTerminal } from "@immortalis/operator";
 import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { REVIEW_CALLBACK, REVIEW_URI } from "./review-card.ts";
@@ -27,7 +27,8 @@ export type ReviewCategory = "setting" | "generation";
 export type ReviewAuthority = Pick<
   ToolContext,
   "client" | "grant" | "scopes" | "canReview" | "supportsElicitation"
->;
+> &
+  Pick<ToolContext, "request">;
 export interface OpeningSources {
   readonly campaign?: string;
   readonly setting?: {
@@ -45,6 +46,8 @@ export interface OpeningSources {
   };
 }
 export interface ReviewContext {
+  readonly recover?: boolean;
+  readonly originalRun?: string;
   readonly internal?: boolean;
   readonly authority: ReviewAuthority;
   readonly runId: string;
@@ -77,7 +80,7 @@ interface Pending {
 }
 export const REVIEW_RECEIPT_LIMIT = 100;
 export const REVIEW_RECEIPT_BYTES = 32 * 1024 * 1024;
-function ownedRead(path: string, maxBytes = REVIEW_RECEIPT_BYTES): string {
+export function ownedRead(path: string, maxBytes = REVIEW_RECEIPT_BYTES): string {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const st = fstatSync(fd);

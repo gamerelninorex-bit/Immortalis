@@ -1,11 +1,4 @@
 import { canonicalJson } from "@immortalis/contracts";
-import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
-import { entryEvidence, stageEvidence as acceptedStageEvidence } from "./review-sources.ts";
-import { parseChronology, parseDeclare, parsePrepare } from "./route-stages.ts";
-import { HumanReviews, type OpeningSources } from "./reviews.ts";
-import type { ReviewLaunch } from "./runs.ts";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
   applyEdits,
   compileContract,
@@ -19,25 +12,15 @@ import {
   type Edit,
   type OperatorTerminal,
 } from "@immortalis/operator";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
   bindOrdinaryAction,
   revokeOrdinaryAction,
   type OrdinaryAction,
   type OrdinaryVerb,
 } from "../../../packages/operator/src/ordinary-action.ts";
-import { checkScenarioFile } from "./scenario.ts";
-import type { ToolContext } from "./mcp-http.ts";
-import { PLAYER_COMMANDS } from "./commands.ts";
-import type { PhoneConfig } from "./config.ts";
-import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
-import { createWebTerminal } from "./web-terminal.ts";
-import { callRefereeTool } from "./referee-tools.ts";
-import {
-  TOOL_INSTRUCTIONS,
-  buildChatTools,
-  fitsCharacterConfirmation,
-  type ChatToolDeps,
-} from "./chat-tools.ts";
+import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
 import {
   CHARACTER_COMMAND,
   characterOutcome,
@@ -61,18 +44,57 @@ import {
   type CharacterRecord,
   type CharacterRunOptions,
 } from "./character-recovery.ts";
-import { buildPlayerCommand } from "./commands.ts";
-import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
-import { expectationOf as stageReview, fitsReview } from "./route-confirm.ts";
 import {
-  installState,
+  TOOL_INSTRUCTIONS,
+  buildChatTools,
+  fitsCharacterConfirmation,
+  type ChatToolDeps,
+} from "./chat-tools.ts";
+import {
+  COLLECTION_COMMANDS,
+  captureCollection,
+  runCollectionOperation,
+} from "./collection-recovery.ts";
+import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
+import type { PhoneConfig } from "./config.ts";
+import type { LocalityOutcome } from "./locality-evidence.ts";
+import type { ToolContext } from "./mcp-http.ts";
+import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
+import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
+import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
+import {
+  PENDING_FORMAT,
+  captureObservation,
+  clearPending,
+  completeObservation,
+  observationEvidence,
+  readPending,
+  writePending,
+  type PendingOperation,
+  type RecoveryDeps,
+} from "./recovery.ts";
+import { callRefereeTool } from "./referee-tools.ts";
+import { RequestCommitments } from "./request-commitments.ts";
+import { stageEvidence as acceptedStageEvidence, entryEvidence } from "./review-sources.ts";
+import type { OpeningSources } from "./reviews.ts";
+import type { StageExpectation } from "./route-confirm.ts";
+import { fitsReview, expectationOf as stageReview } from "./route-confirm.ts";
+import {
+  probeOf,
+  readRoute,
+  stageOutcome,
+  type RouteFacts,
+  type StageOutcome,
+} from "./route-evidence.ts";
+import {
   deriveScenario,
+  finishOutcome,
+  installState,
   refereeCoverage,
   runFinish,
   stageEvidence,
-  finishOutcome,
 } from "./route-finish.ts";
-import { probeFor, planStage, type PlannedRun, type StageRequest } from "./route-plan.ts";
+import { planStage, probeFor, type PlannedRun, type StageRequest } from "./route-plan.ts";
 import {
   dropInputs,
   emptyRoute,
@@ -80,28 +102,28 @@ import {
   retainInput,
   type RouteRecord,
 } from "./route-record.ts";
-import {
-  readRoute,
-  probeOf,
-  stageOutcome,
-  type RouteFacts,
-  type StageOutcome,
-} from "./route-evidence.ts";
 import { refereeWaitSeconds, runClarify } from "./route-run.ts";
+import {
+  STAGE_COMMAND,
+  parseChronology,
+  parseDeclare,
+  parsePrepare,
+  type StageIdentity,
+  type StageKind,
+} from "./route-stages.ts";
 import { earlierStagesDone, routeStatus, type Barrier, type RouteStatus } from "./route-status.ts";
-import { STAGE_COMMAND, type StageIdentity, type StageKind } from "./route-stages.ts";
-import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import type {
   CharacterExpectation,
   CharacterLaunch,
   CharacterStatusReport,
   Launch,
   PlayerRuns,
+  ReviewLaunch,
   Run,
   SettingStatus,
   StageLaunch,
 } from "./runs.ts";
-import type { StageExpectation } from "./route-confirm.ts";
+import { checkScenarioFile } from "./scenario.ts";
 import {
   LOCALITY_COMMAND,
   SETUP_DOCUMENT_COMMANDS,
@@ -112,23 +134,7 @@ import {
   localityEvidence,
   setupEvidence,
 } from "./setup-recovery.ts";
-import type { LocalityOutcome } from "./locality-evidence.ts";
-import {
-  captureObservation,
-  clearPending,
-  completeObservation,
-  observationEvidence,
-  readPending,
-  writePending,
-  type PendingOperation,
-  type RecoveryDeps,
-} from "./recovery.ts";
-import { PENDING_FORMAT } from "./recovery.ts";
-import {
-  COLLECTION_COMMANDS,
-  captureCollection,
-  runCollectionOperation,
-} from "./collection-recovery.ts";
+import { createWebTerminal } from "./web-terminal.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -192,7 +198,7 @@ export interface PhoneServer {
 }
 
 export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): PhoneServer {
-  const reviews = new HumanReviews(config, deps.now ?? Date.now, deps.chat?.elicitMs);
+  const reviews = new RequestCommitments(config);
   const now = deps.now ?? (() => Date.now());
   const cli = deps.runCli ?? runCli;
   const console_ = deps.runRefereeConsole ?? runRefereeConsole;
@@ -582,6 +588,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const reviewed = opts.review
       ? reviews.terminal(baseTerminal, {
           authority: opts.review.authority,
+          ...(opts.review.recover ? { recover: true } : {}),
+          ...(opts.review.originalRun ? { originalRun: opts.review.originalRun } : {}),
           ...(opts.review.internal ? { internal: true } : {}),
           runId: id,
           actor: opts.actor ?? null,
@@ -1280,6 +1288,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         );
         return refuse(409, blocker ?? "the original setup cannot be resumed");
       }
+      if (review && !reviews.ownsRun(review.authority, cur.request_run_id ?? cur.run_id))
+        return refuse(403, "the original request belongs to another authority or is unavailable");
       const ev = await rec.localityEvidence(config, cur.setup);
       if (closing) return refuse(503, "the server is closing; nothing was dispatched");
       if (ev.kind !== "RESUMABLE") {
@@ -1306,6 +1316,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const id = newRunId();
       const resumed = {
         ...cur,
+        request_run_id: cur.request_run_id ?? cur.run_id,
         run_id: id,
         dispatched_at: now(),
         state: "DISPATCHED" as const,
@@ -1317,7 +1328,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       }
       pending = resumed;
       const reviewed = review
-        ? { ...review, sources: reviews.sources(review.authority) }
+        ? {
+            ...review,
+            recover: true,
+            originalRun: cur.request_run_id ?? cur.run_id,
+            sources: reviews.sources(review.authority),
+          }
         : undefined;
       return {
         ok: true,
@@ -1525,6 +1541,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           "the character's owner records could not be verified now; nothing was dispatched",
         );
       const pcId = st.kind === "NONE" ? chosenCharacterId(config) : st.pc_id;
+      if (review && req.kind === "RESUME" && !reviews.ownsActor(review.authority, pcId))
+        return refuse(
+          403,
+          "the original character request belongs to another authority or is unavailable",
+        );
       const place = { world_id: st.world_id, locus_id: st.locus_id };
       const reconciled = reconcileWords(read.kind === "RECORD" ? read.record : null, st);
       if (!reconciled.ok) return refuse(409, `${WORDS_CONFLICT}; nothing was dispatched`);
@@ -1715,12 +1736,15 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       if (closing) return refuse(503, "the server is closing; nothing was dispatched");
       if (retain && !writeCharacterRecord(config, retain))
         return refuse(503, "the character words could not be retained; nothing was dispatched");
+      const originalRequestRun =
+        req.kind === "RESUME" ? (pending?.request_run_id ?? pending?.run_id) : undefined;
       const id = newRunId();
       const operation: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
         campaign_id: config.campaignId,
         run_id: id,
+        ...(originalRequestRun ? { request_run_id: originalRequestRun } : {}),
         command: CHARACTER_COMMAND,
         options: {},
         dispatched_at: now(),
@@ -1744,6 +1768,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const reviewed = review
         ? {
             ...review,
+            ...(req.kind === "RESUME"
+              ? {
+                  recover: true,
+                  ...(originalRequestRun ? { originalRun: originalRequestRun } : {}),
+                }
+              : {}),
             sources: {
               ...inherited,
               ...review.sources,
@@ -1976,6 +2006,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         // only the partly committed stage's own retained input, confirmed afresh, can continue: nothing else starts
         const cur = pending;
         if (req.kind !== "RESUME" || !cur?.stage) return refuse(409, uncertainReason("chat"));
+        if (review && !reviews.ownsRun(review.authority, cur.request_run_id ?? cur.run_id))
+          return refuse(
+            403,
+            "the original setup request belongs to another authority or is unavailable",
+          );
         const ev = await rec.stageOutcome(config, cur.stage);
         if (closing) return refuse(503, "the server is closing; nothing was dispatched");
         if (ev.kind !== "PARTIAL" || cur.stage.kind === "FINISH") {
@@ -2089,11 +2124,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         return refuse(503, "the player's words could not be retained; nothing was dispatched");
       }
       const id = newRunId();
+      const originalRequestRun =
+        req.kind === "RESUME" ? (pending?.request_run_id ?? pending?.run_id) : undefined;
       const operation: PendingOperation = {
         format: PENDING_FORMAT,
         format_version: 1,
         campaign_id: config.campaignId,
         run_id: id,
+        ...(originalRequestRun ? { request_run_id: originalRequestRun } : {}),
         command: planned.command,
         options,
         dispatched_at: now(),
@@ -2116,6 +2154,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const reviewed = review
         ? {
             ...review,
+            ...(req.kind === "RESUME"
+              ? {
+                  recover: true,
+                  ...(originalRequestRun ? { originalRun: originalRequestRun } : {}),
+                }
+              : {}),
             derived: (request: ReviewRequest) => {
               if (
                 acceptedStageEvidence(reviews.sources(review.authority), planned, request) ||

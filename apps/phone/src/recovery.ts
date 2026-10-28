@@ -1,17 +1,4 @@
 import {
-  chmodSync,
-  closeSync,
-  fsyncSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeSync,
-} from "node:fs";
-import { randomBytes } from "node:crypto";
-import { join } from "node:path";
-import {
   CanonicalTimeSchema,
   REFEREE_OP_OBSERVATION,
   TEMPORAL_STATE_KEY,
@@ -30,20 +17,19 @@ import {
   observationEventId,
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
-import type { PhoneConfig } from "./config.ts";
+import { randomBytes } from "node:crypto";
 import {
-  validSetupIdentity,
-  type SetupIdentity,
-  type campaignSetting,
-  type localityEvidence,
-  type setupEvidence,
-} from "./setup-recovery.ts";
-import {
-  captureCollection,
-  runCollectionOperation,
-  validCollectionIdentity,
-  type CollectionIdentity,
-} from "./collection-recovery.ts";
+  chmodSync,
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeSync,
+} from "node:fs";
+import { join } from "node:path";
 import {
   CHARACTER_COMMAND,
   validCharacterIdentity,
@@ -51,8 +37,22 @@ import {
   type characterOutcome,
   type readCharacter,
 } from "./character-evidence.ts";
-import { validStageIdentity, type StageIdentity } from "./route-stages.ts";
+import {
+  captureCollection,
+  runCollectionOperation,
+  validCollectionIdentity,
+  type CollectionIdentity,
+} from "./collection-recovery.ts";
+import type { PhoneConfig } from "./config.ts";
 import type { StageOutcome } from "./route-evidence.ts";
+import { validStageIdentity, type StageIdentity } from "./route-stages.ts";
+import {
+  validSetupIdentity,
+  type SetupIdentity,
+  type campaignSetting,
+  type localityEvidence,
+  type setupEvidence,
+} from "./setup-recovery.ts";
 
 /**
  * The chat adapter's trusted pending-operation record (BLUE R3). A player action that may change canon is written here, atomically and
@@ -88,6 +88,8 @@ export interface PendingOperation {
   readonly format_version: 1;
   readonly campaign_id: string;
   readonly run_id: string;
+  /** Original exact request dispatch, retained across recovery run identities. */
+  readonly request_run_id?: string;
   readonly command: string;
   readonly options: Readonly<Record<string, string>>;
   readonly dispatched_at: number;
@@ -152,6 +154,7 @@ export function readPending(config: PhoneConfig): PendingRead {
       v["format_version"] !== 1 ||
       v["campaign_id"] !== config.campaignId ||
       typeof v["run_id"] !== "string" ||
+      (v["request_run_id"] !== undefined && typeof v["request_run_id"] !== "string") ||
       typeof v["command"] !== "string" ||
       !record(v["options"]) ||
       Object.values(v["options"]).some((x) => typeof x !== "string") ||

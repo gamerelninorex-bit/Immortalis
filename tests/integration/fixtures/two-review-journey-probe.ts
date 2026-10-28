@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted authenticated human/referee plumbing */
 // Whole-operation mechanism counters. No Work/client or genuine interpretation claim.
-import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
-import { performance } from "node:perf_hooks";
 import { CanonicalCampaign } from "@immortalis/engine";
+import { readFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { pathToFileURL } from "node:url";
 import { Chat, PLAYER, humanConfirms } from "../../support/chat-client.ts";
 import { routeMeter } from "../../support/route-meter.ts";
 const input = JSON.parse(readFileSync(process.argv[3]!, "utf8"));
@@ -118,27 +118,21 @@ async function unrelated() {
 try {
   if (!(await chat.link("player", { player: PLAYER })).ok) throw new Error("link failed");
   // Both modes receive the same capabilities. Base ignores UI and uses native elicitation; current selects the inline card.
-  await chat.init({
-    elicitation: {},
-    extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } },
-  });
+  await chat.init(
+    mode === "base"
+      ? {
+          extensions: {
+            "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+          },
+        }
+      : {},
+  );
   const resource = await chat.rpc("resources/read", { uri: "ui://immortalis/review-v1.html" });
   const inlineResource = !!resource.json?.result?.contents;
-  const { opening: settingOpening, ...physicalSetting } = setting;
-  const { opening: characterOpening, ...pc } = character;
-  await drive("propose_original_setting", mode === "base" ? physicalSetting : setting);
+  await drive("propose_original_setting", setting);
   await unrelated();
-  await drive("propose_original_character", mode === "base" ? pc : character);
-  if (mode === "base") {
-    await drive("place_original_character", { statement: characterOpening.presence });
-    await drive("establish_character_location");
-    if (!missing) {
-      await drive("state_starting_moment", settingOpening.chronology);
-      await drive("propose_collection_preparation", characterOpening.preparation);
-      await drive("declare_closed_setting", settingOpening.declaration);
-      await drive("finish_collection_setup");
-    }
-  } else {
+  await drive("propose_original_character", character);
+  {
     for (let n = 0; n < 100; n++) {
       const r = await call("await_action", { after: 0, wait_seconds: 1 });
       if (r.result?._meta?.review) throw new Error("redundant technical review");

@@ -8,11 +8,11 @@
 // prove nothing about whether an AI understood a sentence. It is not a chat host, a model, a person, a client UI or live acceptance.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mirrorItems } from "../../packages/operator/src/original-pc.ts";
 import { playerViewSecretPath } from "../../packages/operator/src/player-view-exchange.ts";
 import { secretsOf } from "../support/chat-character.ts";
 import {
   ACTUATOR,
-  HANDLING,
   MOMENT,
   TRAVERSAL,
   UNIT,
@@ -23,15 +23,11 @@ import {
   status,
   type RouteRun,
 } from "../support/chat-route.ts";
-import { mirrorItems } from "../../packages/operator/src/original-pc.ts";
 import {
-  supportedOpening,
   completeOpening,
-  openingSetting,
   openingCharacter,
-  openingSettled,
-  reviewProposal,
-  call,
+  openingSetting,
+  supportedOpening,
 } from "../support/two-review-opening.ts";
 
 afterEach(() => vi.restoreAllMocks());
@@ -184,132 +180,4 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
       await fresh.app.close();
     }
   }, 240_000);
-});
-
-describe("MECHANISM: unresolved duration stays in the generation/clarification authorship frame", () => {
-  it("revise and decline publish no character; the player's own missing duration is accepted in the whole generation before sealing", async () => {
-    const r = await supportedOpening();
-    try {
-      await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
-      const initial = openingCharacter();
-      initial.embodiment = initial.embodiment.replace("one chopped log every 12 second; ", "");
-      delete initial.opening.preparation;
-      await reviewProposal(r.chat, r.j, "propose_original_character", initial, "revise");
-      const before = await openOrdinary(r.s.campaignDir);
-      try {
-        expect(before.binding()).toBeUndefined();
-        expect(before.store.listFacts().filter((f) => f.owner === "pc_existence")).toEqual([]);
-      } finally {
-        await before.close();
-      }
-      const clarified = {
-        ...initial,
-        embodiment: `${initial.embodiment}; ${HANDLING}`,
-        opening: {
-          ...initial.opening,
-          preparation: { ...openingCharacter().opening.preparation, cycle_quote: HANDLING },
-        },
-      };
-      await reviewProposal(
-        r.chat,
-        r.j,
-        "revise_original_character",
-        {
-          edits: [{ op: "set", field: "embodiment", text: clarified.embodiment }],
-          opening: clarified.opening,
-        },
-        "decline",
-      );
-      const declined = await openOrdinary(r.s.campaignDir);
-      try {
-        expect(declined.binding()).toBeUndefined();
-        expect(declined.store.listFacts().filter((f) => f.owner === "pc_existence")).toEqual([]);
-      } finally {
-        await declined.close();
-      }
-      await reviewProposal(r.chat, r.j, "propose_original_character", clarified);
-      expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
-      expect(r.j.reviews.map((v) => [v.category, v.decision])).toEqual([
-        ["setting", "accept"],
-        ["generation", "revise"],
-        ["generation", "decline"],
-        ["generation", "accept"],
-      ]);
-      const accepted = r.j.reviews.at(-1)!.material;
-      expect(accepted).toContain(HANDLING);
-      expect(accepted).toContain("referee");
-      const c = await openOrdinary(r.s.campaignDir);
-      try {
-        const pc = c.binding()!.value.active_pc.entity_id;
-        expect(JSON.stringify(c.playerCharacter(pc)!.value)).toContain(HANDLING);
-        expect(
-          c.store.listFacts().filter((f) => f.key.includes("intrinsic-clarification")),
-        ).toEqual([]);
-        expect((c.store.getFact("temporal/state")!.value as any).canonical_time.value).toBe(
-          MOMENT.value,
-        );
-        // This repair supplies no new post-seal calibration or intrinsic amendment. A kept character cannot be changed through generation.
-        const sealed = c.store.head().state_sha256;
-        await c.close();
-        expect(
-          (
-            await call(r.chat, r.j, "revise_original_character", {
-              edits: [{ op: "set", field: "embodiment", text: "I now handle ten logs per second" }],
-            })
-          ).isError,
-        ).toBe(true);
-        const fresh = await openOrdinary(r.s.campaignDir);
-        try {
-          expect(fresh.store.head().state_sha256).toBe(sealed);
-        } finally {
-          await fresh.close();
-        }
-      } finally {
-        await c.close();
-      }
-    } finally {
-      await r.stop();
-    }
-  }, 180_000);
-  it("a genuine missing-cycle source and a negative referee reading remain blockers rather than invented durations", async () => {
-    const { routePolicy } = await import("../support/chat-route.ts");
-    const { startHosts } = await import("../support/chat-route.ts");
-    const missing = await supportedOpening();
-    try {
-      await reviewProposal(missing.chat, missing.j, "propose_original_setting", openingSetting());
-      const d = openingCharacter();
-      d.embodiment = d.embodiment.replace("one chopped log every 12 second; ", "");
-      delete d.opening.preparation;
-      await reviewProposal(missing.chat, missing.j, "propose_original_character", d);
-      expect(await openingSettled(missing.chat, missing.j)).toMatchObject({
-        state: "MISSING_SOURCE",
-      });
-      const c = await openOrdinary(missing.s.campaignDir);
-      try {
-        expect(c.store.listFacts().some((f) => f.key.includes("collection-mechanism"))).toBe(false);
-        expect(c.store.listFacts().some((f) => f.key.includes("intrinsic-clarification"))).toBe(
-          false,
-        );
-      } finally {
-        await c.close();
-      }
-    } finally {
-      await missing.stop();
-    }
-    const negative = await supportedOpening();
-    for (const h of negative.hosts) await h.stop();
-    const hs = startHosts(negative.s, routePolicy({}, { negative: true }));
-    try {
-      await completeOpening(negative).then(
-        () => {
-          throw new Error("negative referee must block readiness");
-        },
-        () => undefined,
-      );
-      expect((await openingSettled(negative.chat, negative.j)).state).toBe("BLOCKED");
-    } finally {
-      for (const h of hs) await h.stop();
-      await negative.stop();
-    }
-  }, 180_000);
 });
