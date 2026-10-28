@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2 conformance — active-PC direct physical observation. The slice adds code, tests and documents; it moves no spec-lock pin, acceptance
@@ -65,7 +66,7 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/cli.ts":
     "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/confirmation.ts":
-    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
+    "8e18fe41338b18d564cc9afc309c7fcc4f925865dfd82d476bc10fcb531e297f",
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/original-pc.ts":

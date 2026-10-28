@@ -107,7 +107,7 @@ describe("MECHANISM: what is already settled is reused - nobody is asked again, 
     }
   }, 120_000);
 
-  it("a CHANGED declaration is a new review with a fresh confirmation (the owners' facts are re-derived); the player's old confirmation stands for nothing else", async () => {
+  it("a CHANGED authored declaration is its own exact request (the owners' facts are re-derived); the player's old confirmation stands for nothing else", async () => {
     const s = await cloneSlot(accepted["READY"]!);
     const r = await resumed(s);
     try {
@@ -116,8 +116,10 @@ describe("MECHANISM: what is already settled is reused - nobody is asked again, 
         closure_statement: "Nothing but the owners' own facts acts here",
       };
       const out = await stage(r.chat, "declare_closed_setting", changed);
-      expect(out.finished.elicited).toHaveLength(1);
-      expect(out.finished.elicited[0]).toContain(changed.closure_statement);
+      expect(out.finished.elicited).toHaveLength(0);
+      expect(out.finished.result.structuredContent.request_readback.operation).toContain(
+        changed.closure_statement,
+      );
       expect(out.finished.data.result.status).toBe("SETTING_DECLARED");
       // the change was the author's: it is current, and the finished route still stands
       expect(out.finished.data.route.readiness.prepared_to_request_collection).toBe(true);

@@ -47,8 +47,8 @@ afterEach(() => vi.restoreAllMocks());
 
 const CHALLENGE = /(keep|place)-character [0-9a-f]{12}/;
 
-describe("MECHANISM: the player's own words are offered, reviewed whole, kept, released - and only then, separately, placed", () => {
-  it("offer → complete Mirror and findings → the human's own keep → release (unbound) → separate presence statement → the human's own confirmation → binding → fresh reopen and OOC readback; nothing secret crosses the model", async () => {
+describe("MECHANISM: the player's own words are offered, read back whole, kept, released - and only then, separately, placed", () => {
+  it("offer → complete Mirror and findings → the exact authored request → release (unbound) → separate presence statement → the authored placement request → binding → fresh reopen and OOC readback; nothing secret crosses the model", async () => {
     const r = await ready();
     const host = referee(r.s);
     const seen = watch(r.chat);
@@ -92,7 +92,7 @@ describe("MECHANISM: the player's own words are offered, reviewed whole, kept, r
       // the placement is the player's separate statement, read by the referee, confirmed on its own
       const placed = await place(r.chat);
       expect(placed.finished.elicited).toHaveLength(0);
-      const asked = placed.finished.data.lines.join("\n") as string;
+      const asked = placed.finished.result.structuredContent.request_readback.operation as string;
       expect(asked).toContain(WORDS.presence);
       expect(asked).toContain("Readback: your starting presence");
       expect(asked).not.toMatch(/type exactly|"reading"|"mode"/);
@@ -283,7 +283,7 @@ const long = (tag: string, i: number, n = 470) =>
     n,
   );
 
-describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never the last 6,000 characters of it", () => {
+describe("MECHANISM: the readback carries the WHOLE mandatory review, never the last 6,000 characters of it", () => {
   const big = () =>
     draft({
       identity: `Early-field marker. ${WORDS.identity}`,
@@ -295,14 +295,14 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
       ],
     });
 
-  it("a complete readable Mirror over 6,000 characters includes every Unicode field and finding with one native control", async () => {
+  it("a complete readable Mirror over 6,000 characters includes every Unicode field and finding with zero approval controls", async () => {
     const r = await ready();
     const host = referee(r.s);
     try {
       const input = big();
       const kept = await offer(r.chat, input);
       expect(kept.finished.elicited).toHaveLength(0);
-      const all = kept.finished.elicited[0]!;
+      const all = kept.finished.result.structuredContent.request_readback.character;
       expect(all).not.toMatch(/type exactly|"item_id"|"format_version"/);
       expect(all.length).toBeGreaterThan(6000);
       // every authored statement is there whole (the Mirror), and again in the referee's findings
@@ -842,9 +842,16 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   async function withPendingOffer() {
     const r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
     const host = referee(r.s);
+    const fault = vi
+      .spyOn(CanonicalCampaign.prototype, "releasePlayerCharacter")
+      .mockResolvedValue({
+        ok: false,
+        error: { code: "UNKNOWN_OUTCOME", message: "test interruption" },
+      } as any);
     expect((await r.chat.call("propose_original_character", draft())).isError).toBe(false);
-    const silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-    expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
+    const silent = await follow(r.chat);
+    expect(silent.data.outcome).toBe("UNCERTAIN");
+    fault.mockRestore();
     await host.stop();
     await r.app.close();
     return { s: r.s, file: pendingPath(r.s.config) };
@@ -982,9 +989,10 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
       const r = await ready();
       const host = referee(r.s);
       try {
-        expect((await offer(r.chat, draft(), readsAndDeclines)).finished.data.result.status).toBe(
-          "DECLINED",
-        );
+        expect(
+          (await r.chat.call("propose_original_character", { identity: WORDS.identity })).data
+            .retained.state,
+        ).toBe("DRAFT_RETAINED");
         const file = wordsFile(r.s)!;
         defect(file, JSON.parse(readFileSync(file, "utf8")));
         const before = readFileSync(file, "utf8");
@@ -1007,9 +1015,10 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
       const r = await ready();
       const host = referee(r.s);
       try {
-        expect((await offer(r.chat, draft(), readsAndDeclines)).finished.data.result.status).toBe(
-          "DECLINED",
-        );
+        expect(
+          (await r.chat.call("propose_original_character", { identity: WORDS.identity })).data
+            .retained.state,
+        ).toBe("DRAFT_RETAINED");
         const file = wordsFile(r.s)!;
         const record = JSON.parse(readFileSync(file, "utf8"));
         const original = record[field];
@@ -1493,7 +1502,12 @@ async function converge(r: Awaited<ReturnType<typeof ready>>, limit = 10): Promi
       await r.chat.call("resume_original_character");
       await follow(r.chat);
     } else if (c.state === "DRAFT_RETAINED") {
-      await r.chat.call("resume_original_character");
+      const resumed = await r.chat.call("resume_original_character");
+      if (
+        resumed.isError &&
+        /original.*request.*unavailable|another authority/.test(resumed.text ?? "")
+      )
+        await r.chat.call("propose_original_character", draft());
       await follow(r.chat);
     } else if (c.state === "RELEASED_UNBOUND") {
       if (c.placement !== undefined) await r.chat.call("resume_original_character");

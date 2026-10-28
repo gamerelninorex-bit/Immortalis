@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { PcCollectionAdapter } from "@immortalis/engine";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { beforeAll, expect, it, vi } from "vitest";
@@ -299,7 +300,7 @@ it("a mismatched private referee credential withholds readiness without exposing
   }
 }, 120_000);
 
-it("a long Unicode declaration delivers one complete inline card with every early/late field and no publication before the human control", async () => {
+it("a long Unicode declaration returns complete readback with every early/late field and no approval prompt", async () => {
   const s = await cloneSlot(steps.PREPARED!);
   const r = await resumed(s);
   await r.chat.init(UI_CAPS);

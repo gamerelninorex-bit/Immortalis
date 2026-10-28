@@ -230,7 +230,7 @@ it("A2: a grouped opening partial declaration reopens under the same grant/recei
         await before.close();
       }
       const accepted = r.j.reviews.length;
-      expect(accepted).toBe(2);
+      expect(accepted).toBe(0);
       await app.close();
       app = createPhoneServer(r.s.config, { pollMs: 20 });
       await app.listen();

@@ -141,3 +141,13 @@ it("refuses tampered durable input rather than inventing acceptance", async () =
   writeFileSync(f.file, raw, { mode: 0o600 });
   expect(await f.adapter.terminal(f.base, context).authorize!(request)).toBeNull();
 });
+
+it("readback preserves authored Review wording and long Unicode material verbatim", async () => {
+  const f = fixture();
+  const proposal = courtyard();
+  proposal.world.premise =
+    "Review my courtyard exactly as authored. " + "庭🌒é".repeat(9000) + " final field";
+  const req = { ...request, proposal };
+  expect(await f.adapter.terminal(f.base, context).authorize!(req)).not.toBeNull();
+  expect(f.lines.join("\n")).toContain(proposal.world.premise);
+});

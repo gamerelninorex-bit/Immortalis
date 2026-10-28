@@ -11,7 +11,7 @@ import { runCli } from "@immortalis/operator";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PLAYER, REFEREE, type Human } from "../support/chat-client.ts";
+import { PLAYER, REFEREE } from "../support/chat-client.ts";
 import {
   LOCALITY_CAMPAIGN,
   LOCUS,
@@ -42,7 +42,7 @@ import { Browser } from "../support/phone-browser.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("MECHANISM: a chat host proposes, the human confirms, the owners commit, a fresh reopen reads it back", () => {
+describe("MECHANISM: an authenticated chat host requests, the owners commit, a fresh reopen reads it back", () => {
   it("twelve loose stone units: propose → the player's own confirmation → owner publications → fresh reopen → OOC readback; no JSON, path or phrase crosses the model", async () => {
     const s = await slot();
     const r = await run(s);
@@ -263,8 +263,8 @@ const longSetting = (entries: number, width: number) => {
   return doc;
 };
 
-describe("MECHANISM: the confirmation shows the WHOLE of the authored setting, never the last 6,000 characters of it", () => {
-  it("a confirmation of more than 6,000 characters carries its first and its last field", async () => {
+describe("MECHANISM: the readback carries the WHOLE of the authored setting, never the last 6,000 characters of it", () => {
+  it("a readback of more than 6,000 characters carries its first and its last field", async () => {
     const s = await slot();
     const r = await run(s);
     try {
@@ -286,7 +286,7 @@ describe("MECHANISM: the confirmation shows the WHOLE of the authored setting, n
     }
   }, 120_000);
 
-  it("a long setting is one complete readable review with a single explicit control and all fields retained", async () => {
+  it("a long setting has complete readable information without another approval and all fields retained", async () => {
     const s = await slot();
     const r = await run(s);
     try {
@@ -483,16 +483,21 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
     const s = await slot();
     const r = await run(s);
     try {
-      const jam: Human = (e) => {
-        if (e.requestedSchema.properties.accept) {
+      const original = CanonicalCampaign.prototype.establishWorld;
+      const jam = vi
+        .spyOn(CanonicalCampaign.prototype, "establishWorld")
+        .mockImplementation(async function (
+          this: CanonicalCampaign,
+          ...args: Parameters<typeof original>
+        ) {
+          const result = await original.apply(this, args);
           rmSync(pendingPath(s.config), { force: true });
           mkdirSync(pendingPath(s.config));
           writeFileSync(join(pendingPath(s.config), "x"), "");
-          return { action: "accept", content: { accept: true } };
-        }
-        return { action: "accept", content: {} };
-      };
-      const { finished } = await establishViaChat(r.chat, courtyard(), jam);
+          return result;
+        });
+      const { finished } = await establishViaChat(r.chat, courtyard());
+      jam.mockRestore();
       expect(finished.data.setting.state).toBe("BLOCKED");
       expect(finished.data.outcome).toBe("UNCERTAIN");
       expect(finished.data.recovery).toMatch(/operator must inspect/);
@@ -518,7 +523,18 @@ async function withPendingProposal(): Promise<{
   file: string;
 }> {
   const s = await slot();
-  const r = await run(s, { chat: { elicitMs: 300 } });
+  const r = await run(s, {
+    runCli: async () => {
+      throw new Error("interrupted before execution");
+    },
+    recovery: {
+      localityEvidence: async () => ({
+        kind: "UNAVAILABLE",
+        code: "INJECTED",
+        detail: "test read unavailable",
+      }),
+    },
+  });
   const doc = courtyard();
   await r.chat.call("propose_original_setting", doc);
   await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
@@ -771,11 +787,9 @@ describe("MECHANISM: one setup at a time, and a shutdown leaves a consistent rec
       expect(JSON.parse(readFileSync(pendingPath(s.config), "utf8")).setup.document).toBe(
         record.setup.document,
       );
-      // reach the pending confirmation (nobody answers), then withdraw it
-      await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect((await r.chat.call("cancel_action")).isError).toBe(false);
+      // The winning request completes directly; there is no approval to cancel.
       await follow(r.chat, null);
-      untouched(s);
+      expect((await facts(s)).source?.establishment.quantity).toEqual(won.source.quantity);
     } finally {
       await r.app.close();
     }

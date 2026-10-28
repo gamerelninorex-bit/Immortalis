@@ -156,6 +156,16 @@ export class RequestCommitments {
         setting = r.source.setting;
       if (r.meaning && r.verb === "keep-character" && r.source.generation)
         generation = r.source.generation;
+      if (r.meaning && !r.parentRun && r.verb === "place-character") {
+        const placed = JSON.parse(r.subject);
+        generation = {
+          ...generation,
+          presence: placed.statement,
+          pc: placed.pc_id,
+          world: placed.world_id,
+          locus: placed.locus_id,
+        };
+      }
     }
     return {
       campaign: this.#campaign,
@@ -235,7 +245,7 @@ export class RequestCommitments {
           return null;
         try {
           // Internal realizations must prove the exact source-owned operation, never use the current tool call as standing consent.
-          if (context.derived?.(request)) {
+          if ((context.internal || context.recover) && context.derived?.(request)) {
             const receipts = this.#read();
             const parent = receipts.findLast(
               (r) =>
@@ -243,38 +253,36 @@ export class RequestCommitments {
                 r.grant === context.authority.grant &&
                 r.meaning &&
                 (request.verb === "place-character" || request.verb === "establish-character-locus"
-                  ? r.verb === "keep-character" && r.actor === context.actor
+                  ? (r.verb === "keep-character" || r.verb === "place-character") &&
+                    r.actor === context.actor
                   : r.verb === "establish-locality" || r.verb === "keep-character"),
             );
-            if (!parent) throw new Error("original request unavailable");
-            const material = projectReview(request, this.sources(context.authority)).replaceAll(
-              "Review ",
-              "Readback: ",
-            );
-            const prior = receipts.find((r) => r.run === context.runId && r.verb === request.verb);
-            if (prior && (prior.subject !== request.subject || prior.meaning !== hash(request)))
-              throw new Error("changed derived input");
-            if (!prior)
-              this.#write(
-                {
-                  ...parent,
-                  parentRun: parent.run,
-                  run: context.runId,
-                  actor: context.actor,
-                  verb: request.verb,
-                  subject: request.subject,
-                  meaning: hash(request),
-                  material,
-                },
-                receipts,
+            if (!parent && (context.internal || context.recover))
+              throw new Error("original request unavailable");
+            if (parent) {
+              const material = projectReview(request, this.sources(context.authority), "readback");
+              const prior = receipts.find(
+                (r) => r.run === context.runId && r.verb === request.verb,
               );
-            base.say(
-              projectReview(request, this.sources(context.authority)).replaceAll(
-                "Review ",
-                "Readback: ",
-              ),
-            );
-            return issueRequestEvidence(request.verb, request.subject);
+              if (prior && (prior.subject !== request.subject || prior.meaning !== hash(request)))
+                throw new Error("changed derived input");
+              if (!prior)
+                this.#write(
+                  {
+                    ...parent,
+                    parentRun: parent.run,
+                    run: context.runId,
+                    actor: context.actor,
+                    verb: request.verb,
+                    subject: request.subject,
+                    meaning: hash(request),
+                    material,
+                  },
+                  receipts,
+                );
+              base.say(projectReview(request, this.sources(context.authority), "readback"));
+              return issueRequestEvidence(request.verb, request.subject);
+            }
           }
           const supplied = context.sources ?? {};
           const generation = [
@@ -337,11 +345,11 @@ export class RequestCommitments {
                   subject: request.subject,
                   meaning,
                   source,
-                  material: projectReview(request, source).replaceAll("Review ", "Readback: "),
+                  material: projectReview(request, source, "readback"),
                 },
                 receipts,
               );
-            base.say(original.material || projectReview(request, source));
+            base.say(original.material || projectReview(request, source, "readback"));
             return issueRequestEvidence(request.verb, request.subject);
           }
           const captured = context.authority.request;
@@ -362,7 +370,7 @@ export class RequestCommitments {
             )
               throw new Error("changed request or interpretation");
           } else {
-            const material = projectReview(request, source).replaceAll("Review ", "Readback: ");
+            const material = projectReview(request, source, "readback");
             this.#write(
               {
                 origin: "AUTHENTICATED_REQUEST",
@@ -382,9 +390,7 @@ export class RequestCommitments {
             );
           }
           if (!context.active()) return null;
-          base.say(
-            reused?.material || projectReview(request, source).replaceAll("Review ", "Readback: "),
-          );
+          base.say(reused?.material || projectReview(request, source, "readback"));
           return issueRequestEvidence(request.verb, request.subject);
         } catch {
           base.say(
@@ -406,13 +412,27 @@ export class RequestCommitments {
     const receipts = this.#scoped(authority);
     const latest = (verb: string) =>
       receipts.findLast((r) => r.meaning && !r.parentRun && r.verb === verb)?.material;
-    const readback = { setting: latest("establish-locality"), character: latest("keep-character") };
+    const readback = {
+      setting: latest("establish-locality"),
+      character: latest("keep-character"),
+      operation: receipts.findLast((r) => r.meaning)?.material,
+    };
+    const guidance = (state: unknown) =>
+      state === "RUNNING"
+        ? "Follow await_action for the original requested operation."
+        : state === "FINISHED"
+          ? "Report the actual owner result and complete readback. Ask only for genuinely missing information or a distinct consequential choice."
+          : "Use the original retained input to reconcile or resume the interrupted operation. Request no additional approval.";
     let body: Record<string, unknown> | undefined;
     try {
       const v: unknown = JSON.parse(result.content[0]?.text ?? "null");
       if (v && typeof v === "object" && !Array.isArray(v)) body = v as Record<string, unknown>;
     } catch {
       /* Preserve a plain refusal. */
+    }
+    if (body) {
+      delete body.confirmation;
+      delete body.confirm_page;
     }
     return {
       ...result,
@@ -424,6 +444,7 @@ export class RequestCommitments {
                 text: JSON.stringify({
                   ...body,
                   request_readback: readback,
+                  ...(typeof body.next === "string" ? { next: guidance(body.state) } : {}),
                   ...(this.opening
                     ? {
                         opening: this.opening,

@@ -63,20 +63,16 @@ async function owners(r: RouteRun) {
 }
 
 describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to prepared-to-request, in ordinary tool calls", () => {
-  it("each human choice is shown whole and confirmed by the human alone; the referee reads, the owners write; nothing is collected, observed or advanced", async () => {
+  it("each authored request proceeds directly with complete readback; the referee reads, the owners write; nothing is collected, observed or advanced", async () => {
     const r = await supportedOpening();
     try {
       expect(existsSync(r.s.campaignDir)).toBe(false);
       await completeOpening(r);
-      expect(
-        r.j.reviews.filter((x) => x.decision === "accept").map((x) => [x.category, x.channel]),
-      ).toEqual([
-        ["setting", "ui"],
-        ["generation", "ui"],
-      ]);
-      expect(r.j.reviews.every((x) => x.decision === "accept")).toBe(true);
-      const setting = r.j.reviews[0]!.material;
-      const generation = r.j.reviews[1]!.material;
+      expect(r.j.reviews).toEqual([]);
+      const readback = (await r.chat.call("original_character_status")).result.structuredContent
+        .request_readback;
+      const setting = readback.setting;
+      const generation = readback.character;
       for (const value of Object.values(openingSetting().opening.declaration))
         expect(setting).toContain(value);
       expect(setting).toContain(MOMENT.statement);
