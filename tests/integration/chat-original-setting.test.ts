@@ -960,7 +960,7 @@ describe("MECHANISM: the phone page keeps its setup behaviour, now with the reta
       await page.req("POST", "/api/play/command", { command: "reconcile" });
       const ended = await finishRun(page);
       expect(ended.lines.map((l: any) => l.text).join("\n")).toMatch(
-        /owner readback: the original setup is confirmed; 1 of 3 publications are committed[\s\S]*RECOVERY BLOCKED/,
+        /owner readback: the original setup is authorized; 1 of 3 publications are committed[\s\S]*RECOVERY BLOCKED/,
       );
       expect(existsSync(pendingPath(s.config))).toBe(true);
     } finally {
