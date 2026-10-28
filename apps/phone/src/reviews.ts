@@ -240,6 +240,17 @@ export class HumanReviews {
     }
   }
   /** Read-only compatibility checks for previously accepted, signed human reviews. Never create a decision here. */
+  ownsRun(authority: ReviewAuthority, run: string): boolean {
+    const original = this.#read().find((r) => r.run === run);
+    return original
+      ? authority.scopes.includes("player") &&
+          original.client === authority.client &&
+          original.grant === authority.grant
+      : this.verified(authority);
+  }
+  hasRun(run: string): boolean {
+    return this.#read().some((r) => r.run === run);
+  }
   verified(authority: ReviewAuthority): boolean {
     return (
       authority.scopes.includes("player") &&

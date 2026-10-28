@@ -987,10 +987,13 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
       const r = await ready();
       const host = referee(
         r.s,
-        scriptedPolicy({ classify: [{ match: /salt-raker/, class: "AMBIGUOUS" }] }),
+        scriptedPolicy({ classify: [{ match: /a courier for someone/, class: "AMBIGUOUS" }] }),
       );
       try {
-        expect((await offer(r.chat, draft())).finished.data.result.status).toBe("DECLINED");
+        expect(
+          (await offer(r.chat, draft({ exceptions: ["a courier for someone"] }))).finished.data
+            .result.status,
+        ).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         defect(file, JSON.parse(readFileSync(file, "utf8")));
         const before = readFileSync(file, "utf8");
@@ -1013,10 +1016,13 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
       const r = await ready();
       const host = referee(
         r.s,
-        scriptedPolicy({ classify: [{ match: /salt-raker/, class: "AMBIGUOUS" }] }),
+        scriptedPolicy({ classify: [{ match: /a courier for someone/, class: "AMBIGUOUS" }] }),
       );
       try {
-        expect((await offer(r.chat, draft())).finished.data.result.status).toBe("DECLINED");
+        expect(
+          (await offer(r.chat, draft({ exceptions: ["a courier for someone"] }))).finished.data
+            .result.status,
+        ).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         const record = JSON.parse(readFileSync(file, "utf8"));
         const original = record[field];
@@ -1052,7 +1058,11 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
           "DRAFT_RETAINED",
         );
         const revised = await r.chat.call("revise_original_character", {
-          edits: [{ op: "add", list: "open", text: "Left open on purpose" }],
+          // The player explicitly removes the ambiguous claim; an unchanged negative is never retried into success.
+          edits: [
+            { op: "remove", list: "exception", n: 1 },
+            { op: "add", list: "open", text: "Left open on purpose" },
+          ],
         });
         expect(revised.isError).toBe(false);
         expect((await follow(r.chat)).data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");

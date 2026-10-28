@@ -424,3 +424,42 @@ it("an authenticated different grant cannot resume the captured character reques
     await r.stop();
   }
 }, 120_000);
+
+it("a captured setting request interrupted before engine work reopens with its original input/run and no new commitment", async () => {
+  const { runCli } = await import("@immortalis/operator");
+  let fired = false;
+  const r = await supportedOpening({
+    runCli: async (argv, env) => {
+      if (!fired && argv.includes("establish-locality")) {
+        fired = true;
+        throw new Error("interrupted before engine work");
+      }
+      return runCli(argv, env);
+    },
+  });
+  let app = r.app;
+  try {
+    await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
+    expect(fired).toBe(true);
+    const file = join(r.s.operatorDir, `chat-requests.${r.s.config.campaignId}.json`);
+    const captured = JSON.parse(readFileSync(file, "utf8")).receipts[0];
+    expect(captured.meaning).toBe("");
+    await app.close();
+    await freshProcess(r.s, r.chat, "SETTING");
+    const recovered = JSON.parse(readFileSync(file, "utf8")).receipts;
+    expect(recovered).toHaveLength(1);
+    expect(recovered[0].run).toBe(captured.run);
+    expect(recovered[0].request).toEqual(captured.request);
+    expect(recovered[0].meaning).not.toBe("");
+    app = createPhoneServer(r.s.config, { pollMs: 20 });
+    await app.listen();
+    await r.chat.init({});
+    await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
+    expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
+    expect(await shape(r.s)).toEqual(reference);
+    expect(r.j.reviews).toEqual([]);
+  } finally {
+    for (const h of r.hosts) await h.stop();
+    await app.close();
+  }
+}, 120_000);

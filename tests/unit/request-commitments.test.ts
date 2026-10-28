@@ -241,4 +241,22 @@ it("a scripted PR91-compatible accepted-review receipt retains its provenance wi
     ),
   ).toBeNull();
   expect(readFileSync(path, "utf8")).toBe(before);
+  const other = {
+    ...context,
+    runId: "another-grants-run",
+    authority: { ...authority, client: "other-client", grant: "other-grant" },
+  };
+  expect(await current.terminal(f.base, other).authorize!(request)).not.toBeNull();
+  expect(current.ownsRun(authority, other.runId)).toBe(false);
+  const foreign = current.terminal(f.base, { ...context, recover: true, originalRun: other.runId });
+  expect(
+    await requestOperatorConfirmation(
+      foreign,
+      request.verb,
+      request.subject,
+      request.shown,
+      request.proposal,
+    ),
+  ).toBeNull();
+  expect(readFileSync(path, "utf8")).toBe(before);
 });

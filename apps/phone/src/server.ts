@@ -652,7 +652,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
    * settles it; a confirmed, partly committed setup keeps it (resumable by the same document only); anything the evidence cannot
    * reconcile keeps it, and a read that failed keeps it. Returns true only when the barrier was cleared.
    */
-  const applyLocalityEvidence = (ev: LocalityOutcome, run?: Run): boolean => {
+  const applyLocalityEvidence = (ev: LocalityOutcome, run?: Run, code?: number | null): boolean => {
+    if (
+      ev.kind === "NO_EFFECT" &&
+      (code === null || code === 4) &&
+      pending?.setup &&
+      reviews.hasOriginalRun(pending.request_run_id ?? pending.run_id, pending.setup)
+    ) {
+      if (run) run.uncertain = true;
+      block(RESUME_BLOCKER, false, true);
+      return false;
+    }
     if (ev.kind === "COMPLETE" || ev.kind === "NO_EFFECT") {
       const settled = resolve();
       // the owners' evidence has answered what the run itself could not: it is no longer an uncertain run
@@ -666,7 +676,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     return false;
   };
   /** the end of a locality setup run (page or chat, first dispatch or resumption): settled by owner evidence about THAT document, never by a status line */
-  const settleLocality = async (run: Run): Promise<void> => {
+  const settleLocality = async (run: Run, code: number | null): Promise<void> => {
     const cur = pending;
     if (!cur?.setup || !SETUP_DOCUMENT_COMMANDS.has(cur.command)) {
       run.uncertain = true;
@@ -679,7 +689,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     const ev = await rec.localityEvidence(config, cur.setup);
     // a shutdown leaves the record as it is: the restart reads the same evidence
     if (closing) return;
-    applyLocalityEvidence(ev, run);
+    applyLocalityEvidence(ev, run, code);
   };
 
   const CHARACTER_RESUME_BLOCKER =
@@ -864,14 +874,20 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         );
       const ev = await rec.localityEvidence(config, cur.setup);
       if (closing) return refuse(503, "the server is closing; the operation remains pending");
-      if (ev.kind === "RESUMABLE") {
+      if (
+        ev.kind === "RESUMABLE" ||
+        (ev.kind === "NO_EFFECT" &&
+          reviews.hasOriginalRun(cur.request_run_id ?? cur.run_id, cur.setup))
+      ) {
         block(RESUME_BLOCKER, false, true);
         return {
           ok: true,
           run: finishedRun(
             label,
             [
-              `owner readback: the original setup is confirmed; ${ev.committed.length} of 3 publications are committed${ev.package === "ABSENT" ? " (the package does not exist yet)" : ""}`,
+              ev.kind === "RESUMABLE"
+                ? `owner readback: the original setup is authorized; ${ev.committed.length} of 3 publications are committed${ev.package === "ABSENT" ? " (the package does not exist yet)" : ""}`
+                : "owner readback: no canonical setup publication; the original authorized request and input are retained",
               `RECOVERY BLOCKED: ${RESUME_BLOCKER}`,
             ],
             4,
@@ -1293,7 +1309,14 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         return refuse(403, "the original request belongs to another authority or is unavailable");
       const ev = await rec.localityEvidence(config, cur.setup);
       if (closing) return refuse(503, "the server is closing; nothing was dispatched");
-      if (ev.kind !== "RESUMABLE") {
+      if (
+        ev.kind !== "RESUMABLE" &&
+        !(
+          review &&
+          ev.kind === "NO_EFFECT" &&
+          reviews.hasOriginalRun(cur.request_run_id ?? cur.run_id, cur.setup)
+        )
+      ) {
         if (ev.kind === "BLOCKED") block(ev.detail, true);
         return refuse(
           409,
@@ -1333,7 +1356,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             ...review,
             recover: true,
             originalRun: cur.request_run_id ?? cur.run_id,
-            sources: reviews.sources(review.authority),
+            sources: reviews.runSources(review.authority, cur.request_run_id ?? cur.run_id),
           }
         : undefined;
       return {
@@ -1399,6 +1422,18 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       const proposal = settingProposal(mine.setup);
       if (ev.kind === "COMPLETE")
         return { state: "ESTABLISHED", barrier: "RECONCILE", readback: ev.readback };
+      if (
+        ev.kind === "NO_EFFECT" &&
+        reviews.hasOriginalRun(mine.request_run_id ?? mine.run_id, mine.setup)
+      )
+        return {
+          state: "RESUMABLE",
+          barrier: "RESUME",
+          committed: [],
+          ...(proposal !== undefined ? { proposal } : {}),
+          detail:
+            "The original authorized request has not yet published its setup; resume that same retained input.",
+        };
       if (ev.kind === "NO_EFFECT")
         return {
           state: "NOT_CONFIRMED",
@@ -1542,6 +1577,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           "the character's owner records could not be verified now; nothing was dispatched",
         );
       const pcId = st.kind === "NONE" ? chosenCharacterId(config) : st.pc_id;
+      if (
+        review &&
+        req.kind === "RESUME" &&
+        pending?.character &&
+        !reviews.ownsRun(review.authority, pending.request_run_id ?? pending.run_id)
+      )
+        return refuse(
+          403,
+          "the original character request belongs to another authority or is unavailable",
+        );
       if (review && req.kind === "RESUME" && !reviews.ownsActor(review.authority, pcId))
         return refuse(
           403,

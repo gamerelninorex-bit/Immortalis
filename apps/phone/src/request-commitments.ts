@@ -182,8 +182,23 @@ export class RequestCommitments {
       ...(generation ? { generation } : {}),
     };
   }
+  hasOriginalRun(run: string, dispatch: unknown): boolean {
+    return (
+      this.#read().some(
+        (r) => r.run === run && r.dispatch !== undefined && same(r.dispatch, dispatch),
+      ) || this.#legacy.hasRun(run)
+    );
+  }
+  runSources(authority: ReviewAuthority, run: string): OpeningSources {
+    return (
+      this.#scoped(authority).find((r) => r.run === run)?.source ?? this.#legacy.sources(authority)
+    );
+  }
   ownsRun(authority: ReviewAuthority, run: string): boolean {
-    return this.#scoped(authority).some((r) => r.run === run) || this.#legacy.verified(authority);
+    const original = this.#read().find((r) => r.run === run);
+    return original
+      ? this.#scoped(authority).some((r) => r.run === run)
+      : this.#legacy.ownsRun(authority, run);
   }
   ownsActor(authority: ReviewAuthority, actor: string): boolean {
     return (
@@ -245,7 +260,11 @@ export class RequestCommitments {
     let legacyReview: OperatorTerminal["review"];
     try {
       this.#scoped(context.authority); // Corrupt request evidence cannot be bypassed through legacy recovery.
-      if ((context.internal || context.recover) && this.#legacy.verified(context.authority)) {
+      if (
+        (context.internal || context.recover) &&
+        (!context.originalRun || this.ownsRun(context.authority, context.originalRun)) &&
+        this.#legacy.verified(context.authority)
+      ) {
         const legacySource = this.#legacy.sources(context.authority);
         const old = this.#legacy.terminal(base, {
           ...context,
