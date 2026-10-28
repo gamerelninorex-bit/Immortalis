@@ -6,19 +6,12 @@
 // EVERYTHING HERE IS A MECHANISM TEST. The "assistant" is a script that calls typed tools; the "human" is a script that answers the
 // elicitation only where a test says so. It proves transport, authority and recovery over the real service and the real owners; it is not a
 // chat host, a model, a person or a client UI, and it proves nothing about the quality of any authored setting.
+import { CanonicalCampaign } from "@immortalis/engine";
+import { runCli } from "@immortalis/operator";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CanonicalCampaign } from "@immortalis/engine";
-import { runCli } from "@immortalis/operator";
-import { Chat, PLAYER, REFEREE, type Human } from "../support/chat-client.ts";
-import { Browser } from "../support/phone-browser.ts";
-import { BASIS } from "../support/observation.ts";
-import { SOURCE_KEY, WORLD_ID } from "../support/locality.ts";
-import {
-  collectAndComplete,
-  originalCollectionCampaign,
-} from "../support/pc-collection-original.ts";
+import { PLAYER, REFEREE } from "../support/chat-client.ts";
 import {
   LOCALITY_CAMPAIGN,
   LOCUS,
@@ -35,15 +28,21 @@ import {
   pendingPath,
   pinFiles,
   pinPublishFails,
-  readsAndTypes,
   reference,
   run,
   slot,
 } from "../support/chat-setting.ts";
+import { SOURCE_KEY, WORLD_ID } from "../support/locality.ts";
+import { BASIS } from "../support/observation.ts";
+import {
+  collectAndComplete,
+  originalCollectionCampaign,
+} from "../support/pc-collection-original.ts";
+import { Browser } from "../support/phone-browser.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("MECHANISM: a chat host proposes, the human confirms, the owners commit, a fresh reopen reads it back", () => {
+describe("MECHANISM: an authenticated chat host requests, the owners commit, a fresh reopen reads it back", () => {
   it("twelve loose stone units: propose → the player's own confirmation → owner publications → fresh reopen → OOC readback; no JSON, path or phrase crosses the model", async () => {
     const s = await slot();
     const r = await run(s);
@@ -70,9 +69,11 @@ describe("MECHANISM: a chat host proposes, the human confirms, the owners commit
         campaign_ready_for_play: false,
       });
       // One complete native review control carries the full readable setting, with no copied code.
-      expect(finished.elicited).toHaveLength(1);
-      expect(finished.elicited[0]).not.toMatch(/type exactly|"format_version"|"world_id"/);
-      expect(finished.elicited.join("\n")).toContain(
+      expect(finished.elicited).toHaveLength(0);
+      expect(finished.result.structuredContent.request_readback.setting).not.toMatch(
+        /type exactly|"format_version"|"world_id"/,
+      );
+      expect(finished.result.structuredContent.request_readback.setting).toContain(
         "Twelve loose stones lie on the courtyard floor.",
       );
       for (const t of [proposed.text, finished.text]) {
@@ -148,85 +149,6 @@ describe("MECHANISM: the same committed setup is returned, a different one is re
 });
 
 describe("MECHANISM: refusals leave the slot exactly as it was", () => {
-  const replies: [string, (m: string) => any][] = [
-    [
-      "a guessed reply",
-      () => ({ action: "accept", content: { reply: "establish-locality 000000000000" } }),
-    ],
-    ["the word confirm", () => ({ action: "accept", content: { reply: "confirm" } })],
-    ["an empty reply", () => ({ action: "accept", content: { reply: "" } })],
-    ["a decline", () => ({ action: "decline" })],
-    ["a dismissal", () => ({ action: "cancel" })],
-  ];
-  for (const [name, answer] of replies)
-    it(`${name} declines: nothing is created, retained or recorded`, async () => {
-      const s = await slot();
-      const r = await run(s);
-      try {
-        const { finished } = await establishViaChat(r.chat, courtyard(), (e) => answer(e.message));
-        expect(finished.data.state).toBe("FINISHED");
-        expect(finished.data.result.status).toBe("DECLINED");
-        expect(finished.data.setting).toMatchObject({ state: "NOT_STARTED", barrier: "NONE" });
-        untouched(s);
-      } finally {
-        await r.app.close();
-      }
-    });
-
-  it("a stale native response from an earlier proposal cannot confirm a later one", async () => {
-    const s = await slot();
-    const r = await run(s, { chat: { elicitMs: 300 } });
-    try {
-      let stale = "";
-      await establishViaChat(r.chat, courtyard(), (e) => {
-        stale = e.id!;
-        return { action: "decline" };
-      });
-      expect(stale).toMatch(/^elicit-/);
-      await r.chat.call("propose_original_setting", courtyard());
-      const waiting = await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-        expect(e.id).not.toBe(stale);
-        await r.chat.raw(
-          "POST",
-          "/mcp",
-          {
-            jsonrpc: "2.0",
-            id: stale,
-            result: { action: "accept", content: { accept: true } },
-          },
-          r.chat.headers(),
-        );
-        return null;
-      });
-      expect(waiting.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(existsSync(s.campaignDir)).toBe(false);
-      expect(pinFiles(s)).toEqual([]);
-      // Only the live request's genuine response can finish the retained proposal.
-      expect((await follow(r.chat)).data.result.status).toBe("LOCALITY_READY");
-    } finally {
-      await r.app.close();
-    }
-  });
-
-  it("silence leaves the proposal pending and confirms nothing; withdrawing it declines", async () => {
-    const s = await slot();
-    const r = await run(s, { chat: { elicitMs: 300 } });
-    try {
-      expect((await r.chat.call("propose_original_setting", courtyard())).isError).toBe(false);
-      const silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(existsSync(s.campaignDir)).toBe(false);
-      expect(pinFiles(s)).toEqual([]);
-      const withdrawn = await r.chat.call("cancel_action");
-      expect(withdrawn.isError).toBe(false);
-      const ended = await follow(r.chat, null);
-      expect(ended.data.result.status).toBe("DECLINED");
-      untouched(s);
-    } finally {
-      await r.app.close();
-    }
-  });
-
   const invalid: [string, (d: any) => void][] = [
     ["a model-supplied confirmation flag", (d) => (d.confirmed = true)],
     [
@@ -341,16 +263,16 @@ const longSetting = (entries: number, width: number) => {
   return doc;
 };
 
-describe("MECHANISM: the confirmation shows the WHOLE of the authored setting, never the last 6,000 characters of it", () => {
-  it("a confirmation of more than 6,000 characters carries its first and its last field", async () => {
+describe("MECHANISM: the readback carries the WHOLE of the authored setting, never the last 6,000 characters of it", () => {
+  it("a readback of more than 6,000 characters carries its first and its last field", async () => {
     const s = await slot();
     const r = await run(s);
     try {
       const doc = longSetting(25, 250);
       const { finished } = await establishViaChat(r.chat, doc);
       expect(finished.data.result.status).toBe("LOCALITY_READY");
-      expect(finished.elicited).toHaveLength(1);
-      const shown = finished.elicited[0]!;
+      expect(finished.elicited).toHaveLength(0);
+      const shown = finished.result.structuredContent.request_readback.setting;
       expect(shown.length).toBeGreaterThan(6_000);
       expect(shown).toContain(doc.world.premise); // the first field
       expect(shown).toContain(doc.world.reference_causal_basis.established_canon);
@@ -364,42 +286,20 @@ describe("MECHANISM: the confirmation shows the WHOLE of the authored setting, n
     }
   }, 120_000);
 
-  it("a long setting is one complete readable review with a single explicit control and all fields retained", async () => {
+  it("a long setting has complete readable information without another approval and all fields retained", async () => {
     const s = await slot();
     const r = await run(s);
     try {
       const doc = longSetting(150, 250);
       const { finished } = await establishViaChat(r.chat, doc);
       expect(finished.data.result.status).toBe("LOCALITY_READY");
-      expect(finished.elicited).toHaveLength(1);
-      const all = finished.elicited[0]!;
+      expect(finished.elicited).toHaveLength(0);
+      const all = finished.result.structuredContent.request_readback.setting;
       expect(all).not.toMatch(/type exactly|"format_version"|"world_id"/);
       expect(all).toContain(doc.world.premise);
       for (let i = 0; i < 150; i++) expect(all).toContain(`Constraint ${i}: `);
       expect(all).toContain(doc.source.statement);
       expect((await facts(s)).locus?.constraints).toHaveLength(150);
-    } finally {
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("declining the complete long review, or supplying a legacy copied reply, confirms nothing", async () => {
-    const s = await slot();
-    const r = await run(s);
-    try {
-      const doc = longSetting(150, 250);
-      let seen = 0;
-      const withdraws = await establishViaChat(r.chat, doc, () => (++seen, { action: "decline" }));
-      expect(seen).toBe(1);
-      expect(withdraws.finished.data.result.status).toBe("DECLINED");
-      untouched(s);
-      const wrong = await establishViaChat(
-        r.chat,
-        doc,
-        readsAndTypes("establish-locality 000000000000"),
-      );
-      expect(wrong.finished.data.result.status).toBe("DECLINED");
-      untouched(s);
     } finally {
       await r.app.close();
     }
@@ -551,43 +451,6 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
     }
   }, 120_000);
 
-  it("interrupted before the confirmation: a real restart finds the record, status says it was never confirmed, reconcile clears it, and a new proposal may follow", async () => {
-    const s = await slot();
-    let r = await run(s, { chat: { elicitMs: 300 } });
-    try {
-      const doc = courtyard();
-      expect((await r.chat.call("propose_original_setting", doc)).isError).toBe(false);
-      const silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
-      const record = JSON.parse(readFileSync(pendingPath(s.config), "utf8"));
-      expect(record).toMatchObject({ command: "establish-locality", state: "DISPATCHED" });
-      expect(JSON.parse(record.setup.document)).toEqual(doc); // the exact proposal, retained before dispatch; this is NOT consent
-      expect(JSON.stringify(record)).not.toMatch(/confirm(ed)?"?:\s*true|phrase|challenge/i);
-      expect(pinFiles(s)).toEqual([]);
-      await r.app.close();
-
-      r = await run(s);
-      const status = await r.chat.call("original_setting_status");
-      expect(status.data.setting).toMatchObject({ state: "NOT_CONFIRMED", barrier: "RECONCILE" });
-      expect(status.data.setting.proposal).toEqual(doc);
-      expect((await r.chat.call("propose_original_setting", doc)).isError).toBe(true);
-      const early = await r.chat.call("resume_original_setting");
-      expect(early.isError).toBe(true);
-      expect(early.text).toMatch(/reconcile_last_action/);
-      expect(existsSync(s.campaignDir)).toBe(false);
-      await r.chat.call("reconcile_last_action");
-      const settled = await follow(r.chat, null);
-      expect(settled.data.outcome).toBeUndefined();
-      expect(settled.data.exit_code).toBe(0);
-      expect(existsSync(pendingPath(s.config))).toBe(false);
-      expect((await r.chat.call("original_setting_status")).data.setting.state).toBe("NOT_STARTED");
-      const { finished } = await establishViaChat(r.chat, doc);
-      expect(finished.data.setting.state).toBe("ESTABLISHED");
-    } finally {
-      await r.app.close();
-    }
-  }, 120_000);
-
   it("a complete commit whose evidence could not be read: the block survives a restart and the owners' readback then settles it with no further write", async () => {
     const expected = await expectedHead();
     const s = await slot();
@@ -620,16 +483,30 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
     const s = await slot();
     const r = await run(s);
     try {
-      const jam: Human = (e) => {
-        if (e.requestedSchema.properties.accept) {
+      const scratch = new WeakSet<CanonicalCampaign>();
+      const create = CanonicalCampaign.create;
+      vi.spyOn(CanonicalCampaign, "create").mockImplementation(async (dir, params) => {
+        const result = await create.call(CanonicalCampaign, dir, params);
+        if (result.ok && dir.includes("dry-run")) scratch.add(result.value);
+        return result;
+      });
+      const original = CanonicalCampaign.prototype.establishWorld;
+      const jam = vi
+        .spyOn(CanonicalCampaign.prototype, "establishWorld")
+        .mockImplementation(async function (
+          this: CanonicalCampaign,
+          ...args: Parameters<typeof original>
+        ) {
+          const result = await original.apply(this, args);
+          if (scratch.has(this)) return result;
           rmSync(pendingPath(s.config), { force: true });
           mkdirSync(pendingPath(s.config));
           writeFileSync(join(pendingPath(s.config), "x"), "");
-          return { action: "accept", content: { accept: true } };
-        }
-        return { action: "accept", content: {} };
-      };
-      const { finished } = await establishViaChat(r.chat, courtyard(), jam);
+          return result;
+        });
+      const { finished } = await establishViaChat(r.chat, courtyard());
+      jam.mockRestore();
+      vi.restoreAllMocks();
       expect(finished.data.setting.state).toBe("BLOCKED");
       expect(finished.data.outcome).toBe("UNCERTAIN");
       expect(finished.data.recovery).toMatch(/operator must inspect/);
@@ -638,10 +515,12 @@ describe("MECHANISM: recovery of the SAME interrupted setup, by owner evidence a
       await r.chat.call("reconcile_last_action");
       const lifted = await follow(r.chat, null);
       expect(lifted.data.exit_code).toBe(0);
-      expect((await r.chat.call("original_setting_status")).data.setting).toMatchObject({
-        state: "ESTABLISHED",
-        barrier: "NONE",
-      });
+      let readback = (await r.chat.call("original_setting_status")).data.setting;
+      for (let n = 0; n < 20 && readback.state === "UNAVAILABLE"; n++) {
+        await new Promise((r) => setTimeout(r, 20));
+        readback = (await r.chat.call("original_setting_status")).data.setting;
+      }
+      expect(readback).toMatchObject({ state: "ESTABLISHED", barrier: "NONE" });
     } finally {
       await r.app.close();
     }
@@ -655,7 +534,18 @@ async function withPendingProposal(): Promise<{
   file: string;
 }> {
   const s = await slot();
-  const r = await run(s, { chat: { elicitMs: 300 } });
+  const r = await run(s, {
+    runCli: async () => {
+      throw new Error("interrupted before execution");
+    },
+    recovery: {
+      localityEvidence: async () => ({
+        kind: "UNAVAILABLE",
+        code: "INJECTED",
+        detail: "test read unavailable",
+      }),
+    },
+  });
   const doc = courtyard();
   await r.chat.call("propose_original_setting", doc);
   await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
@@ -908,11 +798,9 @@ describe("MECHANISM: one setup at a time, and a shutdown leaves a consistent rec
       expect(JSON.parse(readFileSync(pendingPath(s.config), "utf8")).setup.document).toBe(
         record.setup.document,
       );
-      // reach the pending confirmation (nobody answers), then withdraw it
-      await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect((await r.chat.call("cancel_action")).isError).toBe(false);
+      // The winning request completes directly; there is no approval to cancel.
       await follow(r.chat, null);
-      untouched(s);
+      expect((await facts(s)).source?.establishment.quantity).toEqual(won.source.quantity);
     } finally {
       await r.app.close();
     }
@@ -1005,72 +893,6 @@ describe("MECHANISM: no secret, path, challenge or internal identity crosses the
   }, 120_000);
 });
 
-describe("MECHANISM: only the authorization that asked can answer a setting's confirmation", () => {
-  it("a referee-only grant of the same registered client, answering the actual native request, is refused and nothing is confirmed; the player still can", async () => {
-    const s = await slot();
-    const r = await run(s, { chat: { elicitMs: 1500 } });
-    try {
-      const ref = new Chat(s.base);
-      ref.clientId = r.chat.clientId;
-      expect((await ref.link("referee", { referee: REFEREE })).ok).toBe(true);
-      expect((await r.chat.call("propose_original_setting", courtyard())).isError).toBe(false);
-      const forged: number[] = [];
-      const silent = await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-        const res = await fetch(`${s.base}/mcp`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...ref.headers({ "mcp-session-id": r.chat.session }),
-          },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: e.id,
-            result: { action: "accept", content: { accept: true } },
-          }),
-        });
-        forged.push(res.status);
-        return null; // the human says nothing
-      });
-      expect(forged).toEqual([404]);
-      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(existsSync(s.campaignDir)).toBe(false);
-      expect(pinFiles(s)).toEqual([]);
-      const done = await follow(r.chat);
-      expect(done.data.result.status).toBe("LOCALITY_READY");
-    } finally {
-      await r.app.close();
-    }
-  }, 60_000);
-});
-
-describe("MECHANISM: a client with neither inline UI nor elicitation fails closed without external chores", () => {
-  it("no surface means no proposal, consent, canonical write, or exported fallback page", async () => {
-    const s = await slot();
-    const r = await run(s, {}, { scope: "player", player: PLAYER }, {});
-    try {
-      const proposed = await r.chat.call("propose_original_setting", longSetting(40, 250));
-      expect(proposed.isError).toBe(true);
-      expect(proposed.text).toMatch(/REVIEW_UNAVAILABLE/);
-      expect(proposed.text).not.toMatch(/\/confirm|type exactly/);
-      untouched(s);
-      expect(
-        (
-          await r.chat.raw(
-            "POST",
-            "/api/play/reply",
-            { prompt_id: "x", text: "y" },
-            {
-              authorization: `Bearer ${r.chat.access}`,
-            },
-          )
-        ).status,
-      ).toBe(401);
-    } finally {
-      await r.app.close();
-    }
-  });
-});
-
 /** follows the page's lane to the end of its run (the cursor advances; a poll holds until something new happens) */
 async function finishRun(page: Browser) {
   let after = 0;
@@ -1138,7 +960,7 @@ describe("MECHANISM: the phone page keeps its setup behaviour, now with the reta
       await page.req("POST", "/api/play/command", { command: "reconcile" });
       const ended = await finishRun(page);
       expect(ended.lines.map((l: any) => l.text).join("\n")).toMatch(
-        /owner readback: the original setup is confirmed; 1 of 3 publications are committed[\s\S]*RECOVERY BLOCKED/,
+        /owner readback: the original setup is authorized; 1 of 3 publications are committed[\s\S]*RECOVERY BLOCKED/,
       );
       expect(existsSync(pendingPath(s.config))).toBe(true);
     } finally {

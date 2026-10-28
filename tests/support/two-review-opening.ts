@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted authenticated MCP/component client */
 // Mechanism evidence only: scripted author/referee and real service/operators/owners. No Work client acceptance.
 import { expect } from "vitest";
-import type { PhoneDeps } from "../../apps/phone/src/server.ts";
 import { REVIEW_CALLBACK, REVIEW_MIME } from "../../apps/phone/src/review-card.ts";
-import type { Chat } from "./chat-client.ts";
-import { courtyard } from "./chat-setting.ts";
+import type { PhoneDeps } from "../../apps/phone/src/server.ts";
 import { draft, WORDS } from "./chat-character.ts";
-import { MOMENT, DECLARATION, preparation, embodiment } from "./chat-route.ts";
+import type { Chat } from "./chat-client.ts";
+import { DECLARATION, embodiment, MOMENT, preparation } from "./chat-route.ts";
+import { courtyard } from "./chat-setting.ts";
 export const UI_CAPS = {
   extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [REVIEW_MIME] } },
 };
@@ -105,23 +105,18 @@ export async function accept(chat: Chat, j: Journey, r: any, decision = "accept"
   expect(a.isError).toBe(false);
   return a;
 }
-export async function reviewProposal(
-  chat: Chat,
-  j: Journey,
-  name: string,
-  args: any,
-  decision = "accept",
-) {
+/** The explicit request is the operation. No UI, elicitation or synthetic decision. */
+export async function reviewProposal(chat: Chat, j: Journey, name: string, args: any) {
   let r = await call(chat, j, name, args);
-  for (let i = 0; i < 30 && !r.result?._meta?.review && !r.isError; i++)
-    r = await call(chat, j, "await_action", { after: 0, wait_seconds: 1 });
-  await accept(chat, j, r, decision);
-  for (let i = 0; i < 30; i++) {
-    r = await call(chat, j, "await_action", { after: 0, wait_seconds: 1 });
+  for (let i = 0; i < 60 && !r.isError; i++) {
+    expect(r.result?._meta?.review).toBeUndefined();
+    expect(r.elicited).toEqual([]);
     if (r.data?.state === "FINISHED" || r.result?.structuredContent?.opening?.state === "REALIZING")
       return r;
+    r = await call(chat, j, "await_action", { after: 0, wait_seconds: 1 });
   }
-  throw new Error("reviewed root operation did not settle");
+  if (r.isError) return r;
+  throw new Error("requested root operation did not settle");
 }
 export async function openingSettled(chat: Chat, j: Journey) {
   for (let i = 0; i < 120; i++) {
@@ -140,7 +135,7 @@ export async function supportedOpening(deps: PhoneDeps = {}) {
   const { hosts } = await import("./chat-route.ts");
   const s = await slot({ playerViewHostId: "view-host" });
   const referees = await hosts(s);
-  const r = await run(s, deps, undefined, UI_CAPS);
+  const r = await run(s, deps, undefined, {});
   const j = journey();
   return {
     ...r,

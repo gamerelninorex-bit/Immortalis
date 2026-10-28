@@ -8,26 +8,18 @@
 // EVERYTHING HERE IS A MECHANISM TEST. The "assistant" is a script that calls typed tools; the "human" is a script that answers an
 // elicitation only where a test says so. It proves transport, authority and recovery over the real service and the real owners; it is not a
 // chat host, a model, a person or a client UI, and it proves nothing about the quality of any authored character.
+import { PLAYER_CHOICE_AUTHORITY } from "@immortalis/contracts";
+import { CanonicalCampaign, RefereeAdjudicationAdapter, nodeFs } from "@immortalis/engine";
+import { compileContract, refereeDir, runCli } from "@immortalis/operator";
+import { instrumentFs } from "@immortalis/testkit";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CanonicalCampaign, RefereeAdjudicationAdapter, nodeFs } from "@immortalis/engine";
-import { instrumentFs } from "@immortalis/testkit";
-import { PLAYER_CHOICE_AUTHORITY } from "@immortalis/contracts";
-import { compileContract, refereeDir, runCli } from "@immortalis/operator";
-import { Chat, PLAYER, REFEREE, type Human } from "../support/chat-client.ts";
-import { Browser } from "../support/phone-browser.ts";
-import {
-  courtyard,
-  establishViaChat,
-  pendingPath,
-  readsAndDeclines,
-  readsAndTypes,
-} from "../support/chat-setting.ts";
 import { parseOffer } from "../../apps/phone/src/chat-tools.ts";
 import {
   LOCALITY_CAMPAIGN,
+  SHORT,
   WORDS,
   bind,
   draft,
@@ -46,23 +38,25 @@ import {
   slot,
   watch,
   wordsFile,
-  SHORT,
 } from "../support/chat-character.ts";
+import { Chat, PLAYER, REFEREE } from "../support/chat-client.ts";
+import { establishViaChat, pendingPath } from "../support/chat-setting.ts";
+import { Browser } from "../support/phone-browser.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
 const CHALLENGE = /(keep|place)-character [0-9a-f]{12}/;
 
-describe("MECHANISM: the player's own words are offered, reviewed whole, kept, released - and only then, separately, placed", () => {
-  it("offer → complete Mirror and findings → the human's own keep → release (unbound) → separate presence statement → the human's own confirmation → binding → fresh reopen and OOC readback; nothing secret crosses the model", async () => {
+describe("MECHANISM: the player's own words are offered, read back whole, kept, released - and only then, separately, placed", () => {
+  it("offer → complete Mirror and findings → the exact authored request → release (unbound) → separate presence statement → the authored placement request → binding → fresh reopen and OOC readback; nothing secret crosses the model", async () => {
     const r = await ready();
     const host = referee(r.s);
     const seen = watch(r.chat);
     try {
       const kept = await offer(r.chat, draft());
       // the human was asked once, and was shown every authored word, the referee's findings on exactly that candidate and the closing question
-      expect(kept.finished.elicited).toHaveLength(1);
-      const shown = kept.finished.elicited[0] as string;
+      expect(kept.finished.elicited).toHaveLength(0);
+      const shown = kept.finished.result.structuredContent.request_readback.character as string;
       for (const w of [
         WORDS.identity,
         WORDS.contact,
@@ -71,7 +65,7 @@ describe("MECHANISM: the player's own words are offered, reviewed whole, kept, r
         WORDS.possession,
       ])
         expect(shown).toContain(w);
-      expect(shown).toContain("Review your character");
+      expect(shown).toContain("Readback: your character");
       expect(shown).toContain("The referee’s findings");
       expect(shown).toContain("consequential choices");
       expect(shown).not.toMatch(/type exactly|"format_version"|"item_id"/);
@@ -97,10 +91,10 @@ describe("MECHANISM: the player's own words are offered, reviewed whole, kept, r
 
       // the placement is the player's separate statement, read by the referee, confirmed on its own
       const placed = await place(r.chat);
-      expect(placed.finished.elicited).toHaveLength(1);
-      const asked = placed.finished.elicited[0] as string;
+      expect(placed.finished.elicited).toHaveLength(0);
+      const asked = placed.finished.result.structuredContent.request_readback.operation as string;
       expect(asked).toContain(WORDS.presence);
-      expect(asked).toContain("Review your starting presence");
+      expect(asked).toContain("Readback: your starting presence");
       expect(asked).not.toMatch(/type exactly|"reading"|"mode"/);
       expect(placed.finished.data.result.status).toBe("CHARACTER_BOUND");
       expect(placed.finished.data.character).toMatchObject({
@@ -170,75 +164,6 @@ async function untouched(s: Parameters<typeof held>[0], head: number) {
   expect(keepFiles(s)).toEqual([]);
 }
 
-describe("MECHANISM: nothing is kept, released or placed unless the human keeps the last displayed whole", () => {
-  const cases: [string, Human][] = [
-    ["a declined keep", readsAndDeclines],
-    ["a wrong phrase", readsAndTypes("keep-character 000000000000")],
-    ["a guessed phrase for the other verb", readsAndTypes("place-character 000000000000")],
-    ["silence (an empty reply)", readsAndTypes("")],
-  ];
-  for (const [name, human] of cases)
-    it(`${name} keeps nothing: no keep record, no referee evidence, no character; the words stay retained and nothing is pending`, async () => {
-      const r = await ready();
-      const host = referee(r.s);
-      try {
-        const head = (await held(r.s)).revision;
-        const out = await offer(r.chat, draft(), human);
-        expect(out.finished.data.result.status).toBe("DECLINED");
-        await r.app.close();
-        await untouched(r.s, head);
-        const again = await run(r.s, SHORT);
-        try {
-          const status = (await again.chat.call("original_character_status")).data;
-          expect(status.character).toMatchObject({ state: "DRAFT_RETAINED", barrier: "NONE" });
-          expect(status.character.draft.identity).toBe(WORDS.identity);
-          // nothing is blocked: a changed offer may follow
-          const next = await again.chat.call("propose_original_character", draft());
-          expect(next.isError).toBe(false);
-        } finally {
-          await again.app.close();
-        }
-      } finally {
-        await host.stop();
-        await r.app.close().catch(() => undefined);
-      }
-    }, 90_000);
-
-  it("a stale native response cannot keep a later candidate", async () => {
-    const r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
-    const host = referee(r.s);
-    try {
-      let stale = "";
-      const first = await offer(r.chat, draft(), (e) => {
-        stale = e.id!;
-        return { action: "decline" };
-      });
-      expect(first.finished.data.result.status).toBe("DECLINED");
-      await r.chat.call("propose_original_character", draft());
-      let observed = false;
-      for (let i = 0; i < 10 && !observed; i++) {
-        await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          observed = true;
-          expect(e.id).not.toBe(stale);
-          await r.chat.raw(
-            "POST",
-            "/mcp",
-            { jsonrpc: "2.0", id: stale, result: { action: "accept", content: { accept: true } } },
-            r.chat.headers(),
-          );
-          return null;
-        });
-      }
-      expect(observed).toBe(true);
-      expect(keepFiles(r.s)).toEqual([]);
-      expect((await follow(r.chat)).data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 90_000);
-});
-
 describe("MECHANISM: the referee's findings decide what can be kept, never the host or the player's words about it", () => {
   const cases: [string, any, RegExp][] = [
     [
@@ -292,104 +217,6 @@ describe("MECHANISM: the referee's findings decide what can be kept, never the h
       await r.app.close();
     }
   }, 90_000);
-});
-
-describe("MECHANISM: a revision is a new review; the earlier question and confirmation no longer stand", () => {
-  it("a revision withdraws the old native request; only a fresh response to the corrected whole can keep it", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      await r.chat.call(
-        "propose_original_character",
-        draft({ identity: "Maren Voss, an ordinary human salt-raker of about thirty winters" }),
-      );
-      let oldId = "",
-        revised: any;
-      for (let i = 0; i < 10 && !oldId; i++) {
-        await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          oldId = e.id!;
-          expect(e.message).toContain("thirty winters");
-          revised = await r.chat.call("revise_original_character", {
-            edits: [{ op: "set", field: "identity", text: WORDS.identity }],
-          });
-          // This answer addresses the withdrawn proposal, never the corrected one.
-          return { action: "accept", content: { accept: true } };
-        });
-      }
-      expect(revised.isError).toBe(false);
-      expect(keepFiles(r.s)).toEqual([]);
-      const corrected = await follow(r.chat, async (e) => {
-        expect(e.id).not.toBe(oldId);
-        expect(e.message).toContain("forty winters");
-        expect(e.message).not.toContain("thirty winters");
-        await r.chat.raw(
-          "POST",
-          "/mcp",
-          { jsonrpc: "2.0", id: oldId, result: { action: "accept", content: { accept: true } } },
-          r.chat.headers(),
-        );
-        return { action: "decline" };
-      });
-      expect(corrected.data.result.status).toBe("DECLINED");
-      expect(keepFiles(r.s)).toEqual([]);
-      expect((await held(r.s)).characters).toHaveLength(0);
-      const third = await offer(r.chat, draft({ identity: WORDS.identity }));
-      expect(third.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      const c = (await held(r.s)).characters[0]!.value as any;
-      expect(c.identity_agency.statement).toBe(WORDS.identity);
-      expect(JSON.stringify(c)).not.toContain("thirty winters");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("typed changes apply to the whole or not at all; an incomplete result is retained and nothing is asked", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      expect(
-        (
-          await r.chat.call("revise_original_character", {
-            edits: [{ op: "add", list: "open", text: "x" }],
-          })
-        ).isError,
-      ).toBe(true);
-      // retain a first whole (declined), then revise it
-      const first = await offer(r.chat, draft(), readsAndDeclines);
-      expect(first.finished.data.result.status).toBe("DECLINED");
-      const bad = await r.chat.call("revise_original_character", {
-        edits: [
-          { op: "add", list: "possession", text: "A lantern" },
-          { op: "remove", list: "possession", n: 9 },
-        ],
-      });
-      expect(bad.isError).toBe(true);
-      expect(bad.text).toContain("the character is unchanged");
-      expect(readWords(r.s).draft.possessions).toEqual([WORDS.possession]);
-      // removing the only contact surface leaves the character incomplete: retained, not asked
-      const gap = await r.chat.call("revise_original_character", {
-        edits: [{ op: "remove", list: "contact", n: 1 }],
-      });
-      expect(gap.isError).toBe(false);
-      expect(gap.data.retained).toMatchObject({ state: "DRAFT_RETAINED" });
-      expect(gap.data.retained.missing.join(" ")).toContain("contact");
-      expect(r.app.server.listening).toBe(true);
-      const refereeAsked = (await held(r.s)).referee;
-      expect(refereeAsked).toHaveLength(0);
-      // an explicit no-contact is a lawful answer and is shown as such
-      const fixed = await r.chat.call("revise_original_character", {
-        edits: [{ op: "set-no-contact", text: "The world has no way to register me" }],
-      });
-      expect(fixed.isError).toBe(false);
-      const done = await follow(r.chat);
-      expect(done.elicited[0]).toContain("NO-CONTACT");
-      expect(done.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
 });
 
 describe("MECHANISM: placement is a separate choice; coexistence, a keep or a role binding never place the character", () => {
@@ -448,50 +275,6 @@ describe("MECHANISM: placement is a separate choice; coexistence, a keep or a ro
         await r.app.close();
       }
     }, 90_000);
-
-  it("a declined, wrong or stale placement phrase binds nothing; the character is exactly released-unbound and a later statement is a fresh choice", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      expect((await offer(r.chat)).finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      for (const human of [
-        readsAndDeclines,
-        readsAndTypes("place-character 000000000000"),
-        readsAndTypes(""),
-      ]) {
-        const out = await place(r.chat, WORDS.presence, human);
-        expect(out.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-        expect((await held(r.s)).binding).toBeUndefined();
-      }
-      // the keep's own phrase cannot place
-      const keepPhrase = readWords(r.s).draft ? "keep-character 000000000000" : "";
-      const wrongVerb = await place(r.chat, WORDS.presence, readsAndTypes(keepPhrase));
-      expect(wrongVerb.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      const bound = await place(r.chat, WORDS.presence);
-      expect(bound.finished.data.result.status).toBe("CHARACTER_BOUND");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("a statement of the player's that the keep never contained is the placement's own: a changed statement is a fresh question", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      expect((await offer(r.chat)).finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      const first = await place(r.chat, "I was born in this courtyard.", readsAndDeclines);
-      expect(first.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      const second = await place(r.chat, WORDS.presence);
-      expect(second.finished.data.result.status).toBe("CHARACTER_BOUND");
-      expect((await held(r.s)).binding?.value.transition).toMatchObject({
-        basis: { statement: WORDS.presence },
-      });
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
 });
 
 const long = (tag: string, i: number, n = 470) =>
@@ -500,7 +283,7 @@ const long = (tag: string, i: number, n = 470) =>
     n,
   );
 
-describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never the last 6,000 characters of it", () => {
+describe("MECHANISM: the readback carries the WHOLE mandatory review, never the last 6,000 characters of it", () => {
   const big = () =>
     draft({
       identity: `Early-field marker. ${WORDS.identity}`,
@@ -512,14 +295,14 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
       ],
     });
 
-  it("a complete readable Mirror over 6,000 characters includes every Unicode field and finding with one native control", async () => {
+  it("a complete readable Mirror over 6,000 characters includes every Unicode field and finding with zero approval controls", async () => {
     const r = await ready();
     const host = referee(r.s);
     try {
       const input = big();
       const kept = await offer(r.chat, input);
-      expect(kept.finished.elicited).toHaveLength(1);
-      const all = kept.finished.elicited[0]!;
+      expect(kept.finished.elicited).toHaveLength(0);
+      const all = kept.finished.result.structuredContent.request_readback.character;
       expect(all).not.toMatch(/type exactly|"item_id"|"format_version"/);
       expect(all.length).toBeGreaterThan(6000);
       // every authored statement is there whole (the Mirror), and again in the referee's findings
@@ -546,94 +329,6 @@ describe("MECHANISM: the confirmation shows the WHOLE mandatory review, never th
       );
       expect(c.entry_envelope.items.map((x: any) => x.statement)).toEqual(input.possessions);
       expect(c.baseline_exception.unresolved).toEqual(input.open);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("declining a complete long Mirror or sending a legacy reply confirms nothing", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      let n = 0;
-      const withdraws: Human = () => (++n, { action: "decline" });
-      const first = await offer(r.chat, big(), withdraws);
-      expect(first.finished.data.result.status).toBe("DECLINED");
-      expect(n).toBe(1);
-      const second = await offer(r.chat, big(), readsAndTypes("keep-character 000000000000"));
-      expect(second.finished.data.result.status).toBe("DECLINED");
-      expect(keepFiles(r.s)).toEqual([]);
-      expect((await held(r.s)).characters).toHaveLength(0);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("a bounded transcript cannot truncate the complete owner-generated Mirror supplied through the review seam", async () => {
-    const { authorCharacter } = await import("@immortalis/operator");
-    const r = await ready({
-      ...SHORT,
-      character: {
-        ...SHORT.character,
-        // the channel loses the earliest lines of the run (the transcript keeps a bounded number)
-        author: async (p) => {
-          for (let i = 0; i < 2_100; i++) p.terminal.say(`filler ${i}`);
-          return authorCharacter(p);
-        },
-      },
-    });
-    const host = referee(r.s);
-    try {
-      const out = await offer(r.chat, draft(), (e) => {
-        expect(keepFiles(r.s)).toEqual([]);
-        for (const t of [
-          WORDS.identity,
-          WORDS.contact,
-          WORDS.embodiment,
-          WORDS.continuity,
-          WORDS.possession,
-        ])
-          expect(e.message).toContain(t);
-        expect(e.message).not.toMatch(/type exactly|"item_id"/);
-        return { action: "accept", content: { accept: true } };
-      });
-      expect(out.finished.elicited).toHaveLength(1);
-      expect(out.finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      expect((await held(r.s)).characters).toHaveLength(1);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("a damaged structured review source missing a mandatory Mirror field fails closed before asking or keeping", async () => {
-    const { authorCharacter } = await import("@immortalis/operator");
-    const r = await ready({
-      ...SHORT,
-      character: {
-        ...SHORT.character,
-        author: async (p) =>
-          authorCharacter({
-            ...p,
-            terminal: {
-              ...p.terminal,
-              review: async (request) => {
-                const subject = JSON.parse(request.subject);
-                delete subject.contract.contact;
-                return p.terminal.review!({ ...request, subject: JSON.stringify(subject) });
-              },
-            },
-          }),
-      },
-    });
-    const host = referee(r.s);
-    try {
-      const out = await offer(r.chat, draft());
-      expect(out.finished.elicited).toEqual([]);
-      expect(out.finished.data.result.status).toBe("DECLINED");
-      expect(keepFiles(r.s)).toEqual([]);
     } finally {
       await host.stop();
       await r.app.close();
@@ -669,136 +364,6 @@ describe("MECHANISM: only the authorization that asked can answer a confirmation
         expect((await r.chat.call(n, { host_id: "gm-setup" })).json.error.code, n).toBe(-32602);
       }
     } finally {
-      await r.app.close();
-    }
-  }, 60_000);
-
-  it("a referee-only grant of the same registered client, answering the actual native request, is refused and nothing is kept; the player still can", async () => {
-    const r = await ready({ ...SHORT, chat: { elicitMs: 1500 } });
-    const host = referee(r.s);
-    try {
-      const ref = new Chat(r.s.base);
-      ref.clientId = r.chat.clientId;
-      expect((await ref.link("referee", { referee: REFEREE })).ok).toBe(true);
-      expect((await r.chat.call("propose_original_character", draft())).isError).toBe(false);
-      const forged: number[] = [];
-      let silent: any;
-      for (let i = 0; i < 4; i++) {
-        silent = await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          expect(e.requestedSchema.properties.accept).toBeDefined();
-          const res = await fetch(`${r.s.base}/mcp`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              ...ref.headers({ "mcp-session-id": r.chat.session }),
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: e.id,
-              result: { action: "accept", content: { accept: true } },
-            }),
-          });
-          forged.push(res.status);
-          return null;
-        });
-        if (forged.length > 0) break;
-      }
-      expect(forged).toEqual([404]);
-      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
-      expect(keepFiles(r.s)).toEqual([]);
-      const done = await follow(r.chat);
-      expect(done.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      expect((await held(r.s)).characters).toHaveLength(1);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 90_000);
-
-  it("a second session of the same grant cannot answer the first session's question", async () => {
-    const r = await ready({ ...SHORT, chat: { elicitMs: 1500 } });
-    const host = referee(r.s);
-    try {
-      expect((await r.chat.call("propose_original_character", draft())).isError).toBe(false);
-      const other = new Chat(r.s.base);
-      other.clientId = r.chat.clientId;
-      other.access = r.chat.access;
-      await other.init({ elicitation: {} });
-      const forged: number[] = [];
-      for (let i = 0; i < 4 && forged.length === 0; i++)
-        await r.chat.call("await_action", { wait_seconds: 5 }, async (e) => {
-          expect(e.requestedSchema.properties.accept).toBeDefined();
-          const res = await fetch(`${r.s.base}/mcp`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              ...other.headers(),
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: e.id,
-              result: { action: "accept", content: { accept: true } },
-            }),
-          });
-          forged.push(res.status);
-          return null;
-        });
-      expect(forged).toHaveLength(1);
-      expect(forged[0]).not.toBe(200);
-      expect(keepFiles(r.s)).toEqual([]);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 90_000);
-
-  it("a long character offer fails closed when neither human surface is available, and bearer tokens cannot answer the page", async () => {
-    const r = await ready();
-    const host = referee(r.s);
-    try {
-      await r.chat.init({});
-      const head = await shape(r.s);
-      const denied = await r.chat.call(
-        "propose_original_character",
-        draft({ exceptions: Array.from({ length: 12 }, (_, i) => long("exception", i)) }),
-      );
-      expect(denied.isError).toBe(true);
-      expect(denied.text).toMatch(/REVIEW_UNAVAILABLE/);
-      expect(denied.text).not.toMatch(/\/confirm|type exactly/);
-      expect(keepFiles(r.s)).toEqual([]);
-      expect(await shape(r.s)).toEqual(head);
-      expect(
-        (
-          await r.chat.raw(
-            "POST",
-            "/api/play/reply",
-            { prompt_id: "x", text: "y" },
-            {
-              authorization: `Bearer ${r.chat.access}`,
-            },
-          )
-        ).status,
-      ).toBe(401);
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 120_000);
-
-  it("an unsupported client cannot begin a setting or manufacture consent on the assistant side", async () => {
-    const s = await slot();
-    await bind(s);
-    const r = await run(s, SHORT, { scope: "player", player: PLAYER }, {});
-    const host = referee(s);
-    try {
-      const refused = await r.chat.call("propose_original_setting", courtyard());
-      expect(refused.isError).toBe(true);
-      expect(refused.text).toMatch(/REVIEW_UNAVAILABLE/);
-      expect(refused.text).not.toMatch(/\/confirm|type exactly/);
-      expect(existsSync(s.campaignDir)).toBe(false);
-      expect(existsSync(pendingPath(s.config))).toBe(false);
-    } finally {
-      await host.stop();
       await r.app.close();
     }
   }, 60_000);
@@ -977,7 +542,7 @@ describe("MECHANISM: preconditions are checked before the player is asked anythi
       try {
         expect((await r.chat.call("resume_original_character")).isError).toBe(false);
         const done = await follow(r.chat);
-        expect(done.elicited).toHaveLength(1);
+        expect(done.elicited).toHaveLength(0);
         expect(done.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
       } finally {
         await host.stop();
@@ -1004,10 +569,8 @@ describe("MECHANISM: preconditions are checked before the player is asked anythi
       ).toBe(won.identity);
       const loser = a.isError ? a : b;
       expect(loser.text).toMatch(/already running|setting is being read/);
-      await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-      expect((await r.chat.call("cancel_action")).isError).toBe(false);
       await follow(r.chat, null);
-      expect(keepFiles(r.s)).toEqual([]);
+      expect(keepFiles(r.s)).toHaveLength(1);
     } finally {
       await host.stop();
       await r.app.close();
@@ -1277,12 +840,19 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   async function withPendingOffer() {
     const r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
     const host = referee(r.s);
+    const fault = vi
+      .spyOn(CanonicalCampaign.prototype, "releasePlayerCharacter")
+      .mockResolvedValue({
+        ok: false,
+        error: { code: "UNKNOWN_OUTCOME", message: "test interruption" },
+      } as any);
     expect((await r.chat.call("propose_original_character", draft())).isError).toBe(false);
-    const silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-    expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
+    const silent = await follow(r.chat);
+    expect(silent.data.outcome).toBe("UNCERTAIN");
+    fault.mockRestore();
     await host.stop();
     await r.app.close();
-    return { s: r.s, file: pendingPath(r.s.config) };
+    return { s: r.s, file: pendingPath(r.s.config), kept: keepFiles(r.s) };
   }
   const tampered: [string, (file: string, record: any) => void][] = [
     [
@@ -1339,7 +909,7 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   ];
   for (const [name, tamper] of tampered)
     it(`${name}: blocked for engineering, nothing removed, nothing started`, async () => {
-      const { s, file } = await withPendingOffer();
+      const { s, file, kept } = await withPendingOffer();
       tamper(file, JSON.parse(readFileSync(file, "utf8")));
       const before =
         existsSync(file) && !statSync(file).isDirectory() ? readFileSync(file, "utf8") : null;
@@ -1357,7 +927,7 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
         expect(blocked.data.outcome).toBe("UNCERTAIN");
         expect(existsSync(file)).toBe(true);
         if (before !== null) expect(readFileSync(file, "utf8")).toBe(before);
-        expect(keepFiles(s)).toEqual([]);
+        expect(keepFiles(s)).toEqual(kept);
       } finally {
         await r.app.close();
       }
@@ -1415,11 +985,15 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   for (const [name, defect] of wordsDefects)
     it(`${name}: the retained words are never trusted; the character lane stays closed and the file is kept`, async () => {
       const r = await ready();
-      const host = referee(r.s);
+      const host = referee(
+        r.s,
+        scriptedPolicy({ classify: [{ match: /a courier for someone/, class: "AMBIGUOUS" }] }),
+      );
       try {
-        expect((await offer(r.chat, draft(), readsAndDeclines)).finished.data.result.status).toBe(
-          "DECLINED",
-        );
+        expect(
+          (await offer(r.chat, draft({ exceptions: ["a courier for someone"] }))).finished.data
+            .result.status,
+        ).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         defect(file, JSON.parse(readFileSync(file, "utf8")));
         const before = readFileSync(file, "utf8");
@@ -1440,11 +1014,15 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
   for (const field of ["world_id", "locus_id", "pc_id"] as const)
     it(`BLUE H1: retained words whose ${field} is not the verified one are a conflict (never absent, never re-identified): blocked for engineering, every mutation refused, the bytes kept`, async () => {
       const r = await ready();
-      const host = referee(r.s);
+      const host = referee(
+        r.s,
+        scriptedPolicy({ classify: [{ match: /a courier for someone/, class: "AMBIGUOUS" }] }),
+      );
       try {
-        expect((await offer(r.chat, draft(), readsAndDeclines)).finished.data.result.status).toBe(
-          "DECLINED",
-        );
+        expect(
+          (await offer(r.chat, draft({ exceptions: ["a courier for someone"] }))).finished.data
+            .result.status,
+        ).toBe("DECLINED");
         const file = wordsFile(r.s)!;
         const record = JSON.parse(readFileSync(file, "utf8"));
         const original = record[field];
@@ -1480,7 +1058,11 @@ describe("MECHANISM: a replaced, malformed, foreign or legacy retained record is
           "DRAFT_RETAINED",
         );
         const revised = await r.chat.call("revise_original_character", {
-          edits: [{ op: "add", list: "open", text: "Left open on purpose" }],
+          // The player explicitly removes the ambiguous claim; an unchanged negative is never retried into success.
+          edits: [
+            { op: "remove", list: "exception", n: 1 },
+            { op: "add", list: "open", text: "Left open on purpose" },
+          ],
         });
         expect(revised.isError).toBe(false);
         expect((await follow(r.chat)).data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
@@ -1624,7 +1206,7 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of the KEEP sta
       try {
         loseReply(target, op, commit);
         const first = await offer(r.chat);
-        expect(first.finished.elicited).toHaveLength(1);
+        expect(first.finished.elicited).toHaveLength(0);
         expect(first.finished.data.result.status).toBe("CHARACTER_OUTCOME_UNKNOWN");
         vi.restoreAllMocks();
         expect(keepFiles(r.s)).toHaveLength(1);
@@ -1707,7 +1289,7 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of the PLACEMEN
         );
         loseReply(target, op, commit);
         const first = await place(r.chat);
-        expect(first.finished.elicited).toHaveLength(1);
+        expect(first.finished.elicited).toHaveLength(0);
         expect(first.finished.data.result.status).toBe("CHARACTER_OUTCOME_UNKNOWN");
         vi.restoreAllMocks();
         const status = (await r.chat.call("original_character_status")).data.character;
@@ -1776,100 +1358,6 @@ describe("MECHANISM: a lost acknowledgement at each owner commit of the PLACEMEN
 });
 
 describe("MECHANISM: a restart finds the retained operation and resumes only that original lawful work", () => {
-  it("restarted while the player was being asked: the words are retained, the barrier is cleared by owner evidence, the review is asked afresh", async () => {
-    let r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
-    const host = referee(r.s);
-    try {
-      expect((await r.chat.call("propose_original_character", draft())).isError).toBe(false);
-      expect((await r.chat.call("await_action", { wait_seconds: 5 }, () => null)).data.state).toBe(
-        "AWAITING_CONFIRMATION",
-      );
-      const record = JSON.parse(readFileSync(pendingPath(r.s.config), "utf8"));
-      expect(record).toMatchObject({ command: "author-character", state: "DISPATCHED" });
-      expect(record.character).toMatchObject({
-        stage: "KEEP",
-        draft: { identity: WORDS.identity },
-      });
-      // the retained candidate is NOT consent: nothing of a phrase, a reply or a keep is in it
-      expect(JSON.stringify(record)).not.toMatch(
-        /keep-character|confirm(ed)?"?:\s*true|secret|reply/i,
-      );
-      expect(keepFiles(r.s)).toEqual([]);
-      await r.app.close();
-
-      r = { ...(await run(r.s, SHORT)), s: r.s };
-      const status = (await r.chat.call("original_character_status")).data.character;
-      expect(status).toMatchObject({ state: "DRAFT_RETAINED", barrier: "RECONCILE" });
-      expect(status.draft.identity).toBe(WORDS.identity);
-      expect((await r.chat.call("propose_original_character", draft())).isError).toBe(true);
-      const early = await r.chat.call("resume_original_character");
-      expect(early.isError).toBe(true);
-      expect(early.text).toMatch(/reconcile_last_action/);
-      await r.chat.call("reconcile_last_action");
-      const settled = await follow(r.chat, null);
-      expect(settled.data.outcome).toBeUndefined();
-      expect(settled.data.exit_code).toBe(0);
-      expect(existsSync(pendingPath(r.s.config))).toBe(false);
-      expect((await r.chat.call("original_character_status")).data.character).toMatchObject({
-        state: "DRAFT_RETAINED",
-        barrier: "NONE",
-      });
-      // the retained words are reviewed again: a fresh question and a fresh keep, never the old confirmation
-      expect((await r.chat.call("resume_original_character")).isError).toBe(false);
-      const done = await follow(r.chat);
-      expect(done.elicited).toHaveLength(1);
-      expect(done.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 150_000);
-
-  it("restarted after the release: the character is released and unplaced; a retained placement statement needs its own FRESH confirmation and is never silently confirmed", async () => {
-    let r = await ready({ ...SHORT, chat: { elicitMs: 300 } });
-    const host = referee(r.s);
-    try {
-      expect((await offer(r.chat)).finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-      expect(
-        (await r.chat.call("place_original_character", { statement: WORDS.presence })).isError,
-      ).toBe(false);
-      expect((await r.chat.call("await_action", { wait_seconds: 5 }, () => null)).data.state).toBe(
-        "AWAITING_CONFIRMATION",
-      );
-      await r.app.close();
-
-      r = { ...(await run(r.s, { ...SHORT, chat: { elicitMs: 300 } })), s: r.s };
-      expect((await r.chat.call("original_character_status")).data.character).toMatchObject({
-        state: "RELEASED_UNBOUND",
-        barrier: "RECONCILE",
-        placement: WORDS.presence,
-      });
-      await r.chat.call("reconcile_last_action");
-      expect((await follow(r.chat, null)).data.exit_code).toBe(0);
-      expect((await held(r.s)).binding).toBeUndefined();
-      const resumed = await r.chat.call("resume_original_character");
-      expect(resumed.isError).toBe(false);
-      // nothing confirms it until the human does: silence leaves it unplaced
-      let silent: any;
-      for (let n = 0; n < 10; n++) {
-        silent = await r.chat.call("await_action", { wait_seconds: 5 }, () => null);
-        if (silent.data.state === "AWAITING_CONFIRMATION") break;
-      }
-      expect(silent.data.state).toBe("AWAITING_CONFIRMATION");
-      expect((await r.chat.call("cancel_action")).isError).toBe(false);
-      await follow(r.chat, null);
-      expect((await held(r.s)).binding).toBeUndefined();
-      const again = await r.chat.call("resume_original_character");
-      expect(again.isError).toBe(false);
-      const done = await follow(r.chat);
-      expect(done.elicited).toHaveLength(1);
-      expect(done.data.result.status).toBe("CHARACTER_BOUND");
-    } finally {
-      await host.stop();
-      await r.app.close();
-    }
-  }, 150_000);
-
   it("the binding landed and the adapter could not read the evidence to settle it: the block survives a restart, and the owners' readback then settles it with no further question or write", async () => {
     let r = await ready({
       ...SHORT,
@@ -2022,7 +1510,12 @@ async function converge(r: Awaited<ReturnType<typeof ready>>, limit = 10): Promi
       await r.chat.call("resume_original_character");
       await follow(r.chat);
     } else if (c.state === "DRAFT_RETAINED") {
-      await r.chat.call("resume_original_character");
+      const resumed = await r.chat.call("resume_original_character");
+      if (
+        resumed.isError &&
+        /original.*request.*unavailable|another authority/.test(resumed.text ?? "")
+      )
+        await r.chat.call("propose_original_character", draft());
       await follow(r.chat);
     } else if (c.state === "RELEASED_UNBOUND") {
       if (c.placement !== undefined) await r.chat.call("resume_original_character");

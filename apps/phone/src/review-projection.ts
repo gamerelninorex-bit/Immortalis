@@ -89,7 +89,11 @@ function findings(v: unknown, labels = new Map<string, string>()): string[] {
   return result.length ? ["The referee’s findings", ...result] : [];
 }
 /** Human semantic projection only. The exact subject, source recipe, actor and basis stay in the private receipt/digest. */
-export function projectReview(request: ReviewRequest, source: OpeningSources): string {
+export function projectReview(
+  request: ReviewRequest,
+  source: OpeningSources,
+  mode: "review" | "readback" = "review",
+): string {
   const s: unknown = JSON.parse(request.subject);
   if (!record(s)) throw new Error("review projection unavailable");
   let lines: string[];
@@ -98,7 +102,7 @@ export function projectReview(request: ReviewRequest, source: OpeningSources): s
     if (!parsed.success) throw new Error("complete setting projection unavailable");
     const { world, locus, source: material } = parsed.data;
     lines = [
-      "Review the setting",
+      mode === "readback" ? "Readback: the setting" : "Review the setting",
       world.premise,
       world.reference_causal_basis.established_canon,
       "Material world-law departures",
@@ -126,8 +130,10 @@ export function projectReview(request: ReviewRequest, source: OpeningSources): s
       const items = mirrorItems(parsed.data);
       let section = "";
       lines = [
-        "Review your character",
-        "You retain the character’s consequential choices; this review grants no standing delegation.",
+        mode === "readback" ? "Readback: your character" : "Review your character",
+        mode === "readback"
+          ? "You retain the character’s consequential choices. This exact request grants no standing delegation."
+          : "You retain the character’s consequential choices; this review grants no standing delegation.",
         ...request.shown
           .filter((line) => line.includes("IMPORTANT - take a moment"))
           .map((line) => line.replace(/^\|\s*/, "")),
@@ -167,7 +173,9 @@ export function projectReview(request: ReviewRequest, source: OpeningSources): s
     const reserve = record(setup.reserve) ? setup.reserve : {};
     const basis = record(setup.extraction_basis) ? setup.extraction_basis : {};
     lines = [
-      "Review the accepted-claim preparation",
+      mode === "readback"
+        ? "Readback: the accepted-claim preparation"
+        : "Review the accepted-claim preparation",
       statement(mechanism.actuator),
       statement(mechanism.traversal),
       words(mechanism.cycle_quote),
@@ -177,7 +185,7 @@ export function projectReview(request: ReviewRequest, source: OpeningSources): s
     ];
   } else if (request.verb === "place-character" || request.verb === "establish-character-locus")
     lines = [
-      "Review your starting presence",
+      mode === "readback" ? "Readback: your starting presence" : "Review your starting presence",
       words(s.statement),
       ...findings(request.interpretation),
       "This establishes only the supported starting presence. It grants no perception, action, capability, rights, cooperation or elapsed time.",

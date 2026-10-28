@@ -1,37 +1,36 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted client/referee and fault seams */
 // Mechanism only, no live Work/human interpretation claim. Every fault interrupts the real existing owner operation.
-import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import {
   CanonicalCampaign,
+  nodeFs,
   PcCollectionAdapter,
   ProductionAdapter,
-  SourceDrawdownAdapter,
   RefereeAdjudicationAdapter,
+  SourceDrawdownAdapter,
   TemporalCoordinator,
 } from "@immortalis/engine";
 import { spawn } from "node:child_process";
-import { join } from "node:path";
 import fs, { readFileSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import { nodeFs } from "@immortalis/engine";
+import { join } from "node:path";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { createPhoneServer } from "../../apps/phone/src/server.ts";
 import {
   playerViewSecretPath,
   readPlayerViewSecretFile,
 } from "../../packages/operator/src/player-view-exchange.ts";
 import { shape } from "../support/chat-character.ts";
-import { supportedOpening, completeOpening } from "../support/two-review-opening.ts";
-import { stage } from "../support/chat-route.ts";
-import { createPhoneServer } from "../../apps/phone/src/server.ts";
-import { slot, openOrdinary } from "../support/chat-setting.ts";
-import { hosts, MOMENT } from "../support/chat-route.ts";
+import { hosts, MOMENT, stage } from "../support/chat-route.ts";
+import { openOrdinary, slot } from "../support/chat-setting.ts";
 import {
-  UI_CAPS,
-  openingSetting,
-  openingCharacter,
-  journey,
   call,
-  reviewProposal,
+  completeOpening,
+  journey,
+  openingCharacter,
+  openingSetting,
   openingSettled,
+  reviewProposal,
+  supportedOpening,
 } from "../support/two-review-opening.ts";
 afterEach(() => {
   vi.restoreAllMocks();
@@ -77,7 +76,7 @@ for (const [owner, op] of operations)
       const { Chat, PLAYER } = await import("../support/chat-client.ts");
       const chat = new Chat(s.base);
       expect((await chat.link("player", { player: PLAYER })).ok).toBe(true);
-      await chat.init(UI_CAPS);
+      await chat.init({});
       const j = journey();
       try {
         await reviewProposal(chat, j, "propose_original_setting", openingSetting());
@@ -103,7 +102,7 @@ for (const [owner, op] of operations)
         await freshProcess(s, chat, "OPENING");
         app = createPhoneServer(s.config, { pollMs: 300 });
         await app.listen();
-        await chat.init(UI_CAPS);
+        await chat.init({});
         for (let attempt = 0; attempt < 8; attempt++) {
           await call(chat, j, "reconcile_last_action");
           const o = await openingSettled(chat, j);
@@ -115,7 +114,7 @@ for (const [owner, op] of operations)
         await preservesPrefix(s, prefix);
         expect(await shape(s)).toEqual(reference);
         expect(o, op).toMatchObject({ state: "PREPARED" });
-        expect(j.reviews.map((r) => r.category)).toEqual(["setting", "generation"]);
+        expect(j.reviews).toEqual([]);
         const c = await openOrdinary(s.campaignDir);
         try {
           const facts = c.store.listFacts();
@@ -275,13 +274,13 @@ for (const op of ["establishWorld", "establishLocus", "establishSourceCondition"
         await freshProcess(r.s, r.chat, "SETTING");
         app = createPhoneServer(r.s.config, { pollMs: 20 });
         await app.listen();
-        await r.chat.init(UI_CAPS);
+        await r.chat.init({});
         await recoverSetting(r.chat, r.j);
-        expect(r.j.reviews).toHaveLength(1);
+        expect(r.j.reviews).toHaveLength(0);
         await preservesPrefix(r.s, prefix);
         await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
         expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
-        expect(r.j.reviews.map((v) => v.category)).toEqual(["setting", "generation"]);
+        expect(r.j.reviews).toEqual([]);
         expect(await shape(r.s)).toEqual(reference);
       } finally {
         fault.mockRestore();
@@ -357,9 +356,9 @@ for (const publication of [
         await freshProcess(r.s, r.chat, "OPENING");
         app = createPhoneServer(r.s.config, { pollMs: 20 });
         await app.listen();
-        await r.chat.init(UI_CAPS);
+        await r.chat.init({});
         await recoverOpening(r.chat, r.j);
-        expect(r.j.reviews).toHaveLength(2);
+        expect(r.j.reviews).toHaveLength(0);
         if (credential !== null)
           expect(
             readPlayerViewSecretFile(
@@ -385,76 +384,82 @@ for (const publication of [
         await app.close();
       }
     }, 120_000);
-for (const category of ["setting", "generation"] as const)
-  for (const accepted of [false, true])
-    it(`${category}: reconnect ${accepted ? "after acceptance with a lost acknowledgement" : "before human acceptance"} rejects stale callbacks and preserves the original intent`, async () => {
-      const r = await supportedOpening();
-      let app = r.app;
-      try {
-        if (category === "generation")
-          await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
-        const name =
-          category === "setting" ? "propose_original_setting" : "propose_original_character";
-        const input = category === "setting" ? openingSetting() : openingCharacter();
-        let pending = await call(r.chat, r.j, name, input);
-        for (let n = 0; n < 30 && !pending.result?._meta?.review; n++)
-          pending = await call(r.chat, r.j, "await_action", { wait_seconds: 1 });
-        const view = pending.result._meta.review;
-        const args = {
-          proposal_id: view.proposal_id,
-          digest: view.digest,
-          capability: view.capability,
-          decision: "accept",
-        };
-        if (accepted) {
-          // The simulated human gestures once. The response is lost to the client; the exact same MCP request is replayed once.
-          r.j.reviews.push({
-            category,
-            material: view.material,
-            proposal: view.proposal_id,
-            decision: "accept",
-            channel: "ui",
-          });
-          r.j.privateCapabilities.push(view.capability);
-          const rpc = {
-            jsonrpc: "2.0",
-            id: "lost-human-ack",
-            method: "tools/call",
-            params: { name: "submit_review_decision", arguments: args },
-          };
-          const first = await r.chat.raw("POST", "/mcp", rpc, r.chat.headers());
-          const replay = await r.chat.raw("POST", "/mcp", rpc, r.chat.headers());
-          expect(replay.json).toEqual(first.json);
-        }
-        await app.close();
-        await freshProcess(
-          r.s,
-          r.chat,
-          accepted ? (category === "setting" ? "SETTING" : "OPENING") : "RECONCILE_ONLY",
-        );
-        app = createPhoneServer(r.s.config, { pollMs: 20 });
-        await app.listen();
-        await r.chat.init(UI_CAPS);
-        expect((await r.chat.call("submit_review_decision", args)).isError).toBe(true);
-        if (category === "setting") {
-          if (accepted) await recoverSetting(r.chat, r.j);
-          else {
-            await stage(r.chat, "reconcile_last_action");
-            await reviewProposal(r.chat, r.j, name, input);
-          }
-          await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
-        } else if (!accepted) {
-          await stage(r.chat, "reconcile_last_action");
-          await reviewProposal(r.chat, r.j, name, input);
-        }
-        await recoverOpening(r.chat, r.j);
-        expect(r.j.reviews.filter((v) => v.decision === "accept").map((v) => v.category)).toEqual([
-          "setting",
-          "generation",
-        ]);
-        expect(await shape(r.s)).toEqual(reference);
-      } finally {
-        for (const h of r.hosts) await h.stop();
-        await app.close();
+
+it("an authenticated different grant cannot resume the captured character request; the original grant recovers without approval", async () => {
+  const r = await supportedOpening();
+  const original = CanonicalCampaign.prototype.releasePlayerCharacter;
+  let fired = false;
+  const fault = vi
+    .spyOn(CanonicalCampaign.prototype, "releasePlayerCharacter")
+    .mockImplementation(async function (
+      this: CanonicalCampaign,
+      ...args: Parameters<typeof original>
+    ) {
+      if (!fired) {
+        fired = true;
+        return UNKNOWN;
       }
-    }, 120_000);
+      return original.apply(this, args);
+    });
+  try {
+    await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
+    await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
+    await openingSettled(r.chat, r.j);
+    expect(fired).toBe(true);
+    fault.mockRestore();
+    const prefix = await receiptPrefix(r.s);
+    const { Chat, PLAYER } = await import("../support/chat-client.ts");
+    const foreign = new Chat(r.s.base);
+    expect((await foreign.link("player", { player: PLAYER })).ok).toBe(true);
+    await foreign.init({});
+    const refused = await foreign.call("resume_original_character");
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toMatch(/another authority|original.*request/);
+    await preservesPrefix(r.s, prefix);
+    await recoverOpening(r.chat, r.j);
+    expect(await shape(r.s)).toEqual(reference);
+    expect(r.j.reviews).toEqual([]);
+  } finally {
+    fault.mockRestore();
+    await r.stop();
+  }
+}, 120_000);
+
+it("a captured setting request interrupted before engine work reopens with its original input/run and no new commitment", async () => {
+  const { runCli } = await import("@immortalis/operator");
+  let fired = false;
+  const r = await supportedOpening({
+    runCli: async (argv, env) => {
+      if (!fired && argv.includes("establish-locality")) {
+        fired = true;
+        throw new Error("interrupted before engine work");
+      }
+      return runCli(argv, env);
+    },
+  });
+  let app = r.app;
+  try {
+    await reviewProposal(r.chat, r.j, "propose_original_setting", openingSetting());
+    expect(fired).toBe(true);
+    const file = join(r.s.operatorDir, `chat-requests.${r.s.config.campaignId}.json`);
+    const captured = JSON.parse(readFileSync(file, "utf8")).receipts[0];
+    expect(captured.meaning).toBe("");
+    await app.close();
+    await freshProcess(r.s, r.chat, "SETTING");
+    const recovered = JSON.parse(readFileSync(file, "utf8")).receipts;
+    expect(recovered).toHaveLength(1);
+    expect(recovered[0].run).toBe(captured.run);
+    expect(recovered[0].request).toEqual(captured.request);
+    expect(recovered[0].meaning).not.toBe("");
+    app = createPhoneServer(r.s.config, { pollMs: 20 });
+    await app.listen();
+    await r.chat.init({});
+    await reviewProposal(r.chat, r.j, "propose_original_character", openingCharacter());
+    expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "PREPARED" });
+    expect(await shape(r.s)).toEqual(reference);
+    expect(r.j.reviews).toEqual([]);
+  } finally {
+    for (const h of r.hosts) await h.stop();
+    await app.close();
+  }
+}, 120_000);

@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // Conformance evidence for the Original Active-PC Qualified Physical-Locus Custody slice (BLUE v5.1 bounded implementation brief, verified
@@ -290,7 +291,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
-    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
+    "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
 };
@@ -353,7 +354,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
+    head: "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",

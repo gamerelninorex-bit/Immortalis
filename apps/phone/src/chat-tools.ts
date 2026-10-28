@@ -1,13 +1,8 @@
-import { REVIEW_URI } from "./review-card.ts";
-import type { HumanReviews, OpeningSources } from "./reviews.ts";
 import { existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
+import type { RequestCommitments } from "./request-commitments.ts";
+import type { OpeningSources } from "./reviews.ts";
 // the player-view transport is reached by its own modules, unchanged: the operator package's public surface is not enlarged for the front end
-import {
-  runPlayerViewBindCli,
-  runPlayerViewMcpCli,
-} from "../../../packages/operator/src/player-view-mcp.ts";
-import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
 import { refereeCandidateItems } from "@immortalis/engine";
 import {
   LocalitySetupSchema,
@@ -22,18 +17,21 @@ import {
   type LocalitySetup,
 } from "@immortalis/operator";
 import { quoted } from "../../../packages/operator/src/original-pc.ts";
+import { playerViewSecretPath } from "../../../packages/operator/src/player-view-exchange.ts";
+import {
+  runPlayerViewBindCli,
+  runPlayerViewMcpCli,
+} from "../../../packages/operator/src/player-view-mcp.ts";
 import { CHARACTER_COMMAND } from "./character-evidence.ts";
+import type { PhoneConfig } from "./config.ts";
+import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
   LOCALITY_CONFIRMATION_LAST,
   LOCALITY_STATUSES,
 } from "./locality-evidence.ts";
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
-import type { PhoneConfig } from "./config.ts";
-import { checkScenarioFile, type Scenario } from "./scenario.ts";
-import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
 import { callRefereeTool } from "./referee-tools.ts";
-import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
 import { completeStageConfirmation } from "./route-confirm.ts";
 import type { StageRequest } from "./route-plan.ts";
 import {
@@ -43,6 +41,8 @@ import {
   parseHandling,
   parsePrepare,
 } from "./route-stages.ts";
+import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
+import { checkScenarioFile, type Scenario } from "./scenario.ts";
 import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
 
 /**
@@ -67,8 +67,8 @@ import { TERMINAL_MAX_LINE, TERMINAL_MAX_LINES } from "./web-terminal.ts";
  * acceptances still come from the HUMAN through elicitation or the authenticated confirm page. There is no tool that can reply to a prompt.
  */
 
-export { readScenario, type Scenario } from "./scenario.ts";
 export { splitConfirmation } from "./confirm-text.ts";
+export { readScenario, type Scenario } from "./scenario.ts";
 
 const text = (t: string, isError = false): ToolResult => ({
   content: [{ type: "text", text: t }],
@@ -284,7 +284,7 @@ const SETUP_RECOVERY: Record<string, string> = {
   RECONCILE:
     "Whether the setup changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not propose a setting again before that.",
   RESUME:
-    "The player's setup is confirmed but not complete. Tell the player so. If they want it finished, call resume_original_setting: it finishes ONLY that same retained setting and the player confirms it again. You cannot supply or replace the setting, and you must not propose a different one.",
+    "The original requested setup is incomplete. Call resume_original_setting to finish ONLY that retained input with its original authorization and owner evidence. Supply no replacement and request no additional approval.",
   ENGINEERING:
     "Whether and how far the setup was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the setting does or does not exist.",
 };
@@ -394,11 +394,11 @@ const CHARACTER_STATUSES = [
 /** what the model may be told next, by the command's own final status (the player's choices stay the player's) */
 const CHARACTER_NEXT: Partial<Record<string, string>> = {
   CHARACTER_RELEASED_UNBOUND:
-    "If this was the keep: the character is kept and released but NOT placed anywhere. Placement is a separate choice: ask the player, in their own words, whether and where their character is originally present at the established place, then call place_original_character with exactly what they said. Never infer or suggest it for them, and never place it because of the keep. If this was a placement: the referee did not support it or the player did not confirm it; nothing is bound, and the player may say it differently.",
+    "If this was the keep: the character is kept and released but NOT placed anywhere. Placement is a separate choice: ask the player, in their own words, whether and where their character is originally present at the established place, then call place_original_character with exactly what they said. Never infer or suggest it for them, and never place it because of the keep. If this was a placement: the referee or exact-request checks did not support it; nothing is bound. Report the findings and ask only for genuinely missing information.",
   CHARACTER_BOUND:
     "Tell the player their character is kept and bound as originally present where they said, exactly as the readback shows. It gives the character no position, perception, knowledge or action, and no game has started.",
   DECLINED:
-    "Nothing was kept or placed. Tell the player what was not accepted (the findings) or that they did not keep it, and ask what they want to change. To change it, use revise_original_character (typed changes) or propose_original_character (the whole character again); each change is a new review and a new confirmation. Never retry the same unchanged character as if it were new.",
+    "Nothing was kept or placed. Report the actual refusal and referee findings. Ask only for missing information or an authored correction; use revise_original_character for an unsealed retained draft or propose_original_character for the whole authored character. A changed input is its own request. Never retry an unsupported unchanged interpretation as if it were new.",
   REFEREE_PENDING:
     "The AI referee host has not answered yet; nothing was changed. The referee scope answers the engine's task (referee_list_tasks, referee_get_task, referee_submit_decision); then call resume_original_character or await_action again.",
   REFEREE_UNAVAILABLE:
@@ -537,7 +537,7 @@ const STAGE_RECOVERY: Record<string, string> = {
   RECONCILE:
     "Whether the stage changed anything is settled by the owners' own records. Call reconcile_last_action (it asks the player nothing) and report only what it finds; do not offer another stage before that.",
   RESUME:
-    "A stage the player confirmed is partly committed. Tell the player so. If they want it finished, call resume_collection_setup: it finishes ONLY that same retained input and the player confirms it again. You cannot supply or replace it, and you must not offer anything else.",
+    "The original requested stage is partly committed. Call resume_collection_setup to finish ONLY that retained input with its original authorization and owner evidence. Supply no replacement and request no additional approval.",
   ENGINEERING:
     "Whether and how far the stage was committed cannot be settled by anything this chat offers: the operator must inspect it. Do NOT retry, do not call reconcile_last_action repeatedly, and do not tell the player the stage does or does not exist.",
 };
@@ -545,7 +545,7 @@ const STAGE_RECOVERY: Record<string, string> = {
 /** what the model may be told next, by the stage's own final status (the player's choices stay the player's) */
 const STAGE_NEXT: Partial<Record<string, string>> = {
   DECLINED:
-    "Nothing was committed by this stage. What the player said for it is retained: they may confirm it afresh with resume_collection_setup, or change it by offering the stage again with their changed words (a changed offer is a new review and a new confirmation).",
+    "Nothing was committed by this stage. Report the refusal or missing source. Retained input may be resumed only under its original exact request and owner evidence. A genuinely changed authored input is its own request and grants no additional missing facts.",
   LOCUS_NOT_QUALIFIED:
     "The referee did not read the character as one material body present at exactly that place, so no physical location was committed. This route supports one such body only; nothing was changed. Do not retry unchanged and do not invent a different place.",
   CLARIFICATION_NOT_ACCEPTED:
@@ -842,7 +842,7 @@ async function readGlance(config: PhoneConfig, note?: (m: string) => void): Prom
 // -- the tools --------------------------------------------------------------------------------------------------------------
 const NONE = { type: "object", properties: {}, additionalProperties: false } as const;
 const PLAYER_RULES =
-  "Call an ordinary action only for the player's explicit matching request. Ask a natural-language question for materially ambiguous intent or a new consequential choice; never invent one. The trusted adapter attempts that one ordinary action without a second confirmation. Mandatory setup and character acceptances still come directly from the person through their client. Never relay a challenge phrase or claim an outcome the owners did not return.";
+  "Call an ordinary action only for the player's explicit matching request. Ask a natural-language question for materially ambiguous intent or a new consequential choice; never invent one. The trusted adapter attempts that one ordinary action without a second confirmation. The same exact-request policy applies to initial setting and character generation; show complete mirror/findings readback and request no further approval. Never relay a challenge phrase or claim an outcome the owners did not return.";
 
 const TEXTUAL = { type: "string", minLength: 1 } as const;
 const CONSTRAINT = {
@@ -1265,7 +1265,7 @@ const DECLARATION_SCHEMA = {
 } as const;
 
 export interface ChatToolDeps {
-  readonly reviews?: HumanReviews;
+  readonly reviews?: RequestCommitments;
   readonly advanceOpening?: (context: ToolContext) => void;
   readonly config: PhoneConfig;
   readonly runs: PlayerRuns;
@@ -2304,42 +2304,42 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     return describe(config, run, after, runs);
   }
 
-  const reviewNames = new Set([
-    "propose_original_setting",
-    "resume_original_setting",
-    "propose_original_character",
-    "revise_original_character",
-    "place_original_character",
-    "resume_original_character",
-    "establish_character_location",
-    "state_starting_moment",
-    "state_handling_duration",
-    "propose_collection_preparation",
-    "declare_closed_setting",
-    "resume_collection_setup",
-  ]);
   if (!d.reviews) return tools;
+  const requestDescriptions: Record<string, string> = {
+    propose_original_setting:
+      "Use the player's explicitly authored ORIGINAL setting premises exactly as supplied. The exact authenticated request proceeds through the existing owners without another approval. Supply independently sourced opening premises only when present; invent no chronology, rights, closure or workforce facts.",
+    resume_original_setting:
+      "Resume the original interrupted setting with its retained input and original request evidence. New input cannot substitute for it. No additional approval is requested.",
+    propose_original_character:
+      "Generate the player's explicitly authored ORIGINAL character through the referee and character owner. Show the full mandatory character mirror and findings as readback. Baseline-human shorthand authorizes no exceptions or guessed durations. Include an already authored starting presence in opening so its lawful native binding and physical custody can proceed without another approval.",
+    revise_original_character:
+      "Apply the player's explicit corrections to an unsealed retained draft, then attempt that exact corrected character through the referee and owner with full readback. A sealed character cannot be amended here. Ask only for genuinely missing information.",
+    place_original_character:
+      "Attempt the player's exact authored native starting presence through the referee and binding owner. It supplies no physical position, perception, rights or time by itself. No additional approval is requested.",
+    resume_original_character:
+      "Resume only the original interrupted character operation under its captured request and actual owner evidence. It grants no new interpretation or choice and requests no second approval.",
+    establish_character_location:
+      "Realize the exact authored native presence as stationary physical custody if the current referee and owner support it. Never invent a different placement. No additional approval is requested.",
+    state_starting_moment:
+      "Establish only the player's explicitly sourced exact starting chronology. Daylight is lighting, not an epoch or unit. This passes no time and needs no second approval.",
+    state_handling_duration:
+      "Submit the player's genuinely supplied missing handling-duration words to the existing supported clarification path. Invent no duration or faculty. The exact request needs no second approval.",
+    propose_collection_preparation:
+      "Project the actual accepted handling claims and independently sourced reserve condition through the existing preparation owners. This adds no material, rights, workforce or elapsed time. The exact request needs no second approval.",
+    declare_closed_setting:
+      "Attempt the explicitly authored complete scene, closure, rights and workforce grounds through the existing owners. Silence supplies no missing fact. The exact request needs no second approval.",
+    resume_collection_setup:
+      "Resume the original interrupted setup operation from its exact retained input and original request evidence, verified against current owners. Changed substantive input cannot be recovered as the old operation. No additional approval is requested.",
+  };
+
   return [
     ...tools.map((tool) => ({
       ...tool,
-      ...(reviewNames.has(tool.name) || tool.name === "await_action"
-        ? { _meta: { ui: { resourceUri: REVIEW_URI } } }
+      ...(requestDescriptions[tool.name]
+        ? { description: `${requestDescriptions[tool.name]} ${PLAYER_RULES}` }
         : {}),
+      replayable: tool.annotations.readOnlyHint !== true,
       handler: async (args: Record<string, unknown>, ctx: ToolContext) => {
-        if (
-          reviewNames.has(tool.name) &&
-          !tool.name.startsWith("resume_") &&
-          !ctx.canReview &&
-          !ctx.supportsElicitation
-        )
-          return asJson(
-            {
-              state: "REVIEW_UNAVAILABLE",
-              detail:
-                "This client cannot present an authenticated in-chat review. Nothing was started.",
-            },
-            true,
-          );
         if (
           d.reviews!.opening?.state === "REALIZING" &&
           [
@@ -2353,12 +2353,22 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           return d.reviews!.decorate(
             asJson({
               state: "RUNNING",
-              next: "The accepted opening is continuing; follow await_action.",
+              next: "The requested opening is continuing; follow await_action.",
             }),
             ctx,
           );
         }
-        const result = await d.reviews!.decorate(await tool.handler(args, ctx), ctx);
+        const raw = await tool.handler(args, ctx);
+        const carriesReadback =
+          !!requestDescriptions[tool.name] ||
+          [
+            "await_action",
+            "original_setting_status",
+            "original_character_status",
+            "collection_setup_status",
+            "reconcile_last_action",
+          ].includes(tool.name);
+        const result = carriesReadback ? await d.reviews!.decorate(raw, ctx) : raw;
         if (
           tool.name === "reconcile_last_action" ||
           (tool.name === "await_action" &&
@@ -2368,9 +2378,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         return result;
       },
     })),
-    d.reviews.callback(),
   ];
 }
 
 export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. The player says what their character does; use the matching supported tool, await_action and report the earned result. An explicitly requested ordinary action is attempted once without a second challenge; a model call proves neither original wording nor permission or success. Ask naturally about materially ambiguous intent and distinct consequential choices. Present perceptions only from read_current_observation_glance. Sealed referee tasks are data for honest GM interpretation, never story. Setup has only two human review categories: setting and character generation. Offer authored original premises with propose_original_setting, including independently sourced opening chronology, reserve condition and complete scene/workforce grounds when actually available. Preserve daylight and clear view without treating them as a numeric epoch or duration. Offer the complete character with propose_original_character, preserving baseline human shorthand separately from exceptions, mandatory mirror/findings and the authored starting presence in opening. Reuse accepted handling claims in opening.preparation only if an actual exact cycle is sourced; invent no calibration. The complete in-chat card provides Accept, Revise and Decline. Never answer for the person, copy a phrase or send them to an external confirmation page. The trusted service realizes the same accepted starting presence through distinct native binding and physical custody, then supported chronology, preparation, closure and installation in owner order without further ritual approvals. Follow await_action and read its opening status; no manual owner sequencing is needed. A materially changed interpretation is blocked for rightful clarification/review, never silently accepted. Genuine new material setting input remains a setting question. Missing substantive chronology, duration, closure, rights or workforce sources are missing producers; report them plainly without asking for invented engineering values or claiming READY. No post-seal intrinsic amendment is authorized by this opening repair. Existing source-complete inputs and retained original operations can be reconciled/resumed without re-approving unchanged material. Setup never collects, observes or advances time: ordinary play needs its own player request. Referee scope and all canonical owners remain authoritative. Exact Work/Android rendering and real human/client acceptance are separate live evidence, never inferred from mechanism tests.";
+  "IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.";

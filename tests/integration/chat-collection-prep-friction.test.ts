@@ -4,24 +4,22 @@
 // player, status mutates nothing and restarts nothing, and the consent that IS required stays required - fresh, whole, and the human's.
 //
 // EVERYTHING HERE IS A MECHANISM TEST (a scripted assistant, a scripted human, scripted PLUMBING referee hosts, the real owners).
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   ACTUATOR,
+  chain,
+  cloneSlot,
   CYCLE,
   DECLARATION,
   FOUR_OPS,
   HANDLING,
   MOMENT,
-  TRAVERSAL,
-  chain,
-  cloneSlot,
   openOrdinary,
   pendingFiles,
   preparation,
   reader,
-  readsAndDeclines,
   resumed,
   routePolicy,
   routeRecord,
@@ -29,6 +27,7 @@ import {
   stage,
   started,
   status,
+  TRAVERSAL,
   type Position,
   type Slot,
 } from "../support/chat-route.ts";
@@ -108,7 +107,7 @@ describe("MECHANISM: what is already settled is reused - nobody is asked again, 
     }
   }, 120_000);
 
-  it("a CHANGED declaration is a new review with a fresh confirmation (the owners' facts are re-derived); the player's old confirmation stands for nothing else", async () => {
+  it("a CHANGED authored declaration is its own exact request (the owners' facts are re-derived); the player's old confirmation stands for nothing else", async () => {
     const s = await cloneSlot(accepted["READY"]!);
     const r = await resumed(s);
     try {
@@ -117,8 +116,10 @@ describe("MECHANISM: what is already settled is reused - nobody is asked again, 
         closure_statement: "Nothing but the owners' own facts acts here",
       };
       const out = await stage(r.chat, "declare_closed_setting", changed);
-      expect(out.finished.elicited).toHaveLength(1);
-      expect(out.finished.elicited[0]).toContain(changed.closure_statement);
+      expect(out.finished.elicited).toHaveLength(0);
+      expect(out.finished.result.structuredContent.request_readback.operation).toContain(
+        changed.closure_statement,
+      );
       expect(out.finished.data.result.status).toBe("SETTING_DECLARED");
       // the change was the author's: it is current, and the finished route still stands
       expect(out.finished.data.route.readiness.prepared_to_request_collection).toBe(true);
@@ -180,158 +181,6 @@ describe("MECHANISM: a status read is a read - it mutates nothing, recreates no 
       expect(JSON.stringify(b.next.accepted_statements)).toContain(CYCLE);
     } finally {
       await q.stop();
-    }
-  }, 120_000);
-});
-
-describe("MECHANISM: declined consent is a decline - nothing is written, the player's words are kept, and they are never asked for them again", () => {
-  const cases: {
-    name: string;
-    at: () => Slot;
-    tool: string;
-    args: () => any;
-    verb: string;
-    kept: "chronology" | "handling" | "preparation" | "declaration" | null;
-  }[] = [
-    {
-      name: "the physical location",
-      at: () => accepted["CHARACTER"]!,
-      tool: "establish_character_location",
-      args: () => ({}),
-      verb: "establish-character-locus",
-      kept: null,
-    },
-    {
-      name: "the starting moment",
-      at: () => accepted["LOCUS"]!,
-      tool: "state_starting_moment",
-      args: () => MOMENT,
-      verb: "initialize-time",
-      kept: "chronology",
-    },
-    {
-      name: "the player's own handling duration (R-5)",
-      at: () => r5["MOMENT"]!,
-      tool: "state_handling_duration",
-      args: () => ({ words: HANDLING }),
-      verb: "accept-clarification",
-      kept: "handling",
-    },
-    {
-      name: "the collection preparation",
-      at: () => accepted["MOMENT"]!,
-      tool: "propose_collection_preparation",
-      args: () => preparation(CYCLE),
-      verb: "prepare-collection",
-      kept: "preparation",
-    },
-    {
-      name: "the closed-setting declaration",
-      at: () => accepted["PREPARED"]!,
-      tool: "declare_closed_setting",
-      args: () => DECLARATION,
-      verb: "declare-closed-setting",
-      kept: "declaration",
-    },
-  ];
-  for (const c of cases)
-    it(`${c.name}: declined, then offered again from the retained words and confirmed afresh`, async () => {
-      const s = await cloneSlot(c.at());
-      let r = await resumed(s);
-      try {
-        const before = await fingerprint(s);
-        if (c.kept === null) {
-          const noReview = vi.fn(() => {
-            throw new Error("the already accepted native presence needs no second consent");
-          });
-          const realized = await stage(r.chat, c.tool, c.args(), noReview);
-          expect(realized.finished.data.result.status).toBe("LOCUS_ESTABLISHED");
-          expect(realized.finished.elicited).toEqual([]);
-          expect(noReview).not.toHaveBeenCalled();
-          const world = await openOrdinary(s.campaignDir);
-          try {
-            expect(
-              world.pcPhysicalLocusCustody(world.binding()!.value.active_pc.entity_id),
-            ).toBeDefined();
-          } finally {
-            await world.close();
-          }
-          return;
-        }
-        const declined = await stage(r.chat, c.tool, c.args(), readsAndDeclines);
-        const shown = declined.finished.elicited as string[];
-        expect(shown).toHaveLength(1);
-        for (const value of Object.values(c.args()).filter((x) => typeof x === "string"))
-          expect(shown[0]).toContain(value);
-        expect(shown[0]).not.toMatch(/type exactly|\/confirm|"fact_key"|"format_version"/);
-        expect(declined.finished.data.result.status).toBe("DECLINED");
-        // nothing was written, nothing is pending, and the barrier is not held
-        expect(declined.finished.data.outcome).toBeUndefined();
-        expect(await fingerprint(s)).toEqual({ ...before, files: expect.any(Array) });
-        expect(pendingFiles(s)).toEqual([]);
-        expect(declined.finished.data.route.barrier).toBe("NONE");
-        // the player's own words are retained (never as consent) so the stage is offered again without asking for them
-        expect(routeRecord(s)[c.kept]).not.toBeNull();
-        expect(declined.finished.data.route.next).toMatchObject({
-          retained: true,
-          ask_the_player: [],
-        });
-        // ... even across a restart of the service
-        await r.stop();
-        r = await resumed(s);
-        const kept = (await status(r.chat)).route.next;
-        expect(kept).toMatchObject({ retained: true, ask_the_player: [] });
-        const redone = await stage(r.chat, "resume_collection_setup");
-        const second = redone.finished.elicited as string[];
-        expect(second).toHaveLength(1);
-        // Same complete material, but a fresh human answer is required: the earlier decline authorizes nothing.
-        expect(second[0]).toBe(shown[0]);
-        expect(redone.finished.data.exit_code).toBe(0);
-        expect(redone.finished.data.result.status).not.toBe("DECLINED");
-        // once the stage stands in canon, what the player said for it is no longer retained
-        expect(routeRecord(s)?.[c.kept] ?? null).toBeNull();
-      } finally {
-        await r.stop();
-      }
-    }, 180_000);
-
-  it("guessed legacy replies and missing native acceptance confirm nothing at any human stage", async () => {
-    const s = await cloneSlot(accepted["MOMENT"]!);
-    const r = await resumed(s);
-    try {
-      const before = await fingerprint(s);
-      const earlier: string[] = [];
-      for (const typed of [
-        "prepare-collection 000000000000",
-        "declare-closed-setting 000000000000",
-        "",
-      ]) {
-        const out = await stage(
-          r.chat,
-          "propose_collection_preparation",
-          preparation(CYCLE),
-          (e) => (
-            expect(e.requestedSchema.properties.accept).toBeDefined(),
-            earlier.push(typed),
-            { action: "accept", content: { reply: typed } }
-          ),
-        );
-        expect(out.finished.data.result.status).toBe("DECLINED");
-      }
-      // a phrase from an EARLIER question confirms nothing in a later one
-      const stale = await stage(
-        r.chat,
-        "propose_collection_preparation",
-        preparation(CYCLE),
-        (e) => (
-          expect(e.requestedSchema.properties.accept).toBeDefined(),
-          { action: "accept", content: { reply: earlier[0]! } }
-        ),
-      );
-      expect(stale.finished.data.result.status).toBe("DECLINED");
-      expect((await fingerprint(s)).state).toBe(before.state);
-    } finally {
-      await r.stop();
     }
   }, 120_000);
 });

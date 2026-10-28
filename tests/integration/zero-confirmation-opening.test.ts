@@ -1,21 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- scripted MCP and owner facts */
 // MECHANISM ONLY: elicitation absent, simulated inline component decision; real operators/referee protocol/canonical owners.
-import { expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { REVIEW_CALLBACK, REVIEW_URI, REVIEW_MIME } from "../../apps/phone/src/review-card.ts";
-import { Chat, PLAYER, REFEREE } from "../support/chat-client.ts";
-import { slot, run, openOrdinary } from "../support/chat-setting.ts";
-import { hosts, MOMENT, TAU, stage, routePolicy, WORDS } from "../support/chat-route.ts";
+import { expect, it } from "vitest";
+import { REVIEW_CALLBACK } from "../../apps/phone/src/review-card.ts";
+import { Chat, REFEREE } from "../support/chat-client.ts";
+import { MOMENT, TAU, WORDS, hosts, routePolicy, stage } from "../support/chat-route.ts";
+import { openOrdinary, run, slot } from "../support/chat-setting.ts";
 import {
-  UI_CAPS,
-  openingSetting,
-  openingCharacter,
   journey,
-  call,
-  reviewProposal,
+  openingCharacter,
+  openingSetting,
   openingSettled,
-  accept,
+  reviewProposal,
 } from "../support/two-review-opening.ts";
 const world = async (s: Awaited<ReturnType<typeof slot>>) => {
   const c = await openOrdinary(s.campaignDir);
@@ -36,29 +33,29 @@ const world = async (s: Awaited<ReturnType<typeof slot>>) => {
     await c.close();
   }
 };
-it("elicitation ABSENT: two complete inline reviews realize ordered setup, then a separate collect-five occurs once", async () => {
+it("UI and elicitation ABSENT: exact requests realize ordered setup, then a separate collect-five occurs once", async () => {
   const s = await slot({ playerViewHostId: "gm-setup" });
   const hs = await hosts(s);
-  const r = await run(s, {}, undefined, UI_CAPS);
+  const r = await run(s, {}, undefined, {});
   const j = journey();
   try {
     const list = await r.chat.rpc("tools/list");
     const tools = list.json.result.tools;
     expect(tools.filter((t: any) => t._meta?.ui?.visibility?.[0] !== "app")).toHaveLength(26);
-    expect(tools.find((t: any) => t.name === REVIEW_CALLBACK)._meta.ui.visibility).toEqual(["app"]);
-    const resource = await r.chat.rpc("resources/read", { uri: REVIEW_URI });
-    expect(resource.json.result.contents[0].mimeType).toBe(REVIEW_MIME);
-    expect(resource.json.result.contents[0].text).not.toMatch(/[0-9a-f]{64}/);
+    expect(tools.some((t: any) => t.name === REVIEW_CALLBACK)).toBe(false);
     const st = await reviewProposal(r.chat, j, "propose_original_setting", openingSetting());
     expect(st.data.exit_code).toBe(0);
     const ch = await reviewProposal(r.chat, j, "propose_original_character", openingCharacter());
     expect(ch.isError, JSON.stringify(ch.data)).toBe(false);
     expect(await openingSettled(r.chat, j)).toMatchObject({ state: "PREPARED" });
-    expect(j.reviews.map((x) => x.category)).toEqual(["setting", "generation"]);
-    expect(j.reviews[0]!.material).toContain("daylight");
-    expect(j.reviews[0]!.material).toContain(MOMENT.statement);
-    expect(j.reviews[1]!.material).toContain(WORDS.presence);
-    expect(j.reviews[1]!.material).toContain("12 second");
+    expect(j.reviews).toEqual([]);
+    const readback = (await r.chat.call("original_character_status")).result.structuredContent
+      .request_readback;
+    expect(readback.setting).toContain("daylight");
+    expect(readback.setting).toContain(MOMENT.statement);
+    expect(readback.character).toContain(WORDS.presence);
+    expect(readback.character).toContain("12 second");
+    expect(readback.character).toContain("The referee’s findings");
     const before = await world(s);
     expect(before).toMatchObject({ source: 5, reserves: [0], time: MOMENT.value });
     expect(before.custody).toBe(true);
@@ -77,15 +74,15 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
     expect(after).toMatchObject({ source: 0, reserves: [5], time: MOMENT.value + 5 * TAU });
     expect((await stage(r.chat, "finish_collection", {}, noHuman)).finished.data.exit_code).toBe(3);
     expect(await world(s)).toEqual(after);
-    await r.chat.init(UI_CAPS);
+    await r.chat.init({});
     await stage(r.chat, "reconcile_last_action", {}, noHuman);
     expect(await world(s)).toEqual(after);
     // Static resource, visible content, retained evidence never contain a live acceptance capability.
     for (const secret of j.privateCapabilities) expect(j.model.join("\n")).not.toContain(secret);
-    const receipt = readdirSync(s.operatorDir).find((f) => f.startsWith("chat-reviewed."))!;
+    const receipt = readdirSync(s.operatorDir).find((f) => f.startsWith("chat-requests."))!;
     expect(readFileSync(join(s.operatorDir, receipt), "utf8")).not.toContain('"capability"');
     console.log(
-      "TWO_REVIEW_JOURNEY",
+      "ZERO_CONFIRMATION_JOURNEY",
       JSON.stringify({
         reviews: j.reviews.map((x) => x.category),
         tools: j.tools,
@@ -99,73 +96,88 @@ it("elicitation ABSENT: two complete inline reviews realize ordered setup, then 
     await r.app.close();
   }
 }, 240_000);
-it("Bob, baseline human, daylight and clear view preserve meaning but invent no epoch, duration or scene/workforce producer", async () => {
+it("bare Bob premises stop truthfully at the missing physical source producer without inventing placement, time, rights or workforce", async () => {
   const s = await slot();
   const hs = await hosts(s);
-  const r = await run(s, {}, undefined, UI_CAPS);
+  const r = await run(s, {}, undefined, {});
   const j = journey();
   try {
     const setting = openingSetting();
     delete setting.opening;
-    await reviewProposal(r.chat, j, "propose_original_setting", setting);
-    await reviewProposal(r.chat, j, "propose_original_character", {
+    const premises = "Lumber yard; daylight; clear view; five stacked chopped logs.";
+    setting.world.premise = premises;
+    setting.world.reference_causal_basis.established_canon = premises;
+    setting.locus.designation = "Lumber yard";
+    setting.locus.constraints = [{ aspect: "visibility", statement: "Daylight; clear view." }];
+    setting.source.statement = "Five stacked chopped logs.";
+    setting.source.access_facts = [
+      { aspect: "visibility", statement: "Daylight; clear view of the five stacked chopped logs." },
+    ];
+    // The real transcript supplies no source-owned physical dimension. Do not copy the complete fixture's ground-surface claim into it.
+    delete setting.source.dimension;
+    const proposed = await reviewProposal(r.chat, j, "propose_original_setting", setting);
+    expect(proposed.isError).toBe(true);
+    expect(proposed.text).toContain("source.dimension");
+    expect(proposed.result?._meta?.review).toBeUndefined();
+    expect(proposed.elicited).toEqual([]);
+    const bob = await reviewProposal(r.chat, j, "propose_original_character", {
       identity: "Bob",
-      baseline_human: "An ordinary baseline human with normal faculties.",
-      opening: { presence: WORDS.presence },
+      baseline_human: "An ordinary human with nothing special.",
     });
-    const o = await openingSettled(r.chat, j);
-    expect(o.state, JSON.stringify(o)).toBe("MISSING_SOURCE");
-    expect(o.detail).toMatch(/chronology/);
-    expect(j.reviews.map((x) => x.category)).toEqual(["setting", "generation"]);
-    expect(j.reviews[1]!.material).toContain("normal faculties");
-    const facts = await world(s);
-    expect(facts).toMatchObject({ source: 5, reserves: [] });
-    expect(facts.time).toBeUndefined();
-    expect(
-      facts.keys.some((k) => k.startsWith("world/closure/") || k.startsWith("workforce/")),
-    ).toBe(false);
+    expect(bob.isError).toBe(true);
+    expect(bob.text).toMatch(/setting.*not established/);
     expect((await r.chat.call("collect", { amount: 5 })).isError).toBe(true);
+    expect(existsSync(s.campaignDir)).toBe(false);
+    expect(j.reviews).toEqual([]);
+    // Source-complete physical fixtures with genuinely missing chronology/cycle producers are separately compared in the A2 matrix.
   } finally {
     for (const h of hs) await h.stop();
     await r.app.close();
   }
 }, 180_000);
-it("wrong/missing private capability, another grant, referee scope, decline and stale revision cannot commit", async () => {
+it("duplicate transport delivery is one exact request; changed input, invented approvals and wrong scopes fail", async () => {
   const s = await slot();
-  const r = await run(s, {}, undefined, UI_CAPS);
-  const j = journey();
+  const r = await run(s, {}, undefined, {});
   try {
-    let p = await call(r.chat, j, "propose_original_setting", openingSetting());
-    for (let i = 0; i < 20 && !p.result?._meta?.review; i++)
-      p = await call(r.chat, j, "await_action", { after: 0, wait_seconds: 1 });
-    const v = p.result._meta.review;
-    const args = {
-      proposal_id: v.proposal_id,
-      digest: v.digest,
-      capability: v.capability,
-      decision: "accept",
+    const rpc = {
+      jsonrpc: "2.0",
+      id: "original-request",
+      method: "tools/call",
+      params: { name: "propose_original_setting", arguments: openingSetting() },
     };
+    const [first, replay] = await Promise.all([
+      r.chat.raw("POST", "/mcp", rpc, r.chat.headers()),
+      r.chat.raw("POST", "/mcp", rpc, r.chat.headers()),
+    ]);
+    expect(replay.json).toEqual(first.json);
+    const changed = structuredClone(rpc);
+    changed.params.arguments.source.quantity.amount = 6;
     expect(
-      (await r.chat.call(REVIEW_CALLBACK, { ...args, capability: "model-generated" })).isError,
-    ).toBe(true);
-    for (const extra of [{ actor: "other" }, { campaign: "other" }, { basis: "other" }])
-      expect((await r.chat.call(REVIEW_CALLBACK, { ...args, ...extra })).isError).toBe(true);
-    const other = new Chat(s.base);
-    expect((await other.link("player", { player: PLAYER })).ok).toBe(true);
-    await other.init(UI_CAPS);
-    expect((await other.call(REVIEW_CALLBACK, args)).isError).toBe(true);
+      (await r.chat.raw("POST", "/mcp", changed, r.chat.headers())).json.error.message,
+    ).toMatch(/different input/);
+    await import("../support/chat-setting.ts").then((m) => m.follow(r.chat));
+    expect((await world(s)).source).toBe(5);
+    expect((await r.chat.call(REVIEW_CALLBACK, { accept: true })).json.error).toBeDefined();
     const gm = new Chat(s.base);
     expect((await gm.link("referee", { referee: REFEREE })).ok).toBe(true);
-    await gm.init(UI_CAPS);
-    expect((await gm.call(REVIEW_CALLBACK, args)).json.error).toBeDefined();
-    await accept(r.chat, j, p, "decline");
-    await r.chat.call("await_action", { wait_seconds: 1 });
-    expect((await r.chat.call(REVIEW_CALLBACK, args)).isError).toBe(true);
+    await gm.init({});
+    expect((await gm.call("propose_original_setting", openingSetting())).json.error).toBeDefined();
+    expect(
+      (await r.chat.call("propose_original_setting", { ...openingSetting(), approve: true }))
+        .isError,
+    ).toBe(true);
+    const before = await world(s);
+    for (let i = 0; i < 3; i++) await r.chat.call("original_setting_status");
+    expect(await world(s)).toEqual(before);
     expect(readdirSync(s.operatorDir).some((f) => f.startsWith("chat-reviewed."))).toBe(false);
-    await r.chat.init({});
-    const unavailable = await r.chat.call("propose_original_setting", openingSetting());
-    expect(unavailable.data.state).toBe("REVIEW_UNAVAILABLE");
-    expect(JSON.stringify(unavailable.result)).not.toContain("/confirm");
+    const receipts = JSON.parse(
+      readFileSync(join(s.operatorDir, `chat-requests.${s.config.campaignId}.json`), "utf8"),
+    ).receipts;
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({
+      origin: "AUTHENTICATED_REQUEST",
+      request: { id: JSON.stringify("original-request"), tool: "propose_original_setting" },
+    });
   } finally {
     await r.app.close();
   }
@@ -176,13 +188,13 @@ it("a later materially different physical GM reading blocks reuse without invent
     s,
     routePolicy({ physical: { presence: { match: /originally present/, mode: "AMBIGUOUS" } } }),
   );
-  const r = await run(s, {}, undefined, UI_CAPS);
+  const r = await run(s, {}, undefined, {});
   const j = journey();
   try {
     await reviewProposal(r.chat, j, "propose_original_setting", openingSetting());
     await reviewProposal(r.chat, j, "propose_original_character", openingCharacter());
     expect((await openingSettled(r.chat, j)).state).toBe("BLOCKED");
-    expect(j.reviews).toHaveLength(2);
+    expect(j.reviews).toHaveLength(0);
     expect((await world(s)).reserves).toEqual([]);
   } finally {
     for (const h of hs) await h.stop();
@@ -210,11 +222,11 @@ it("a fresh service after real ordinary play does not rerun setup, refresh decla
     await app.close();
     app = createPhoneServer(r.s.config, { pollMs: 20 });
     await app.listen();
-    await r.chat.init(UI_CAPS);
+    await r.chat.init({});
     await stage(r.chat, "reconcile_last_action", {}, noHuman);
     expect(await openingSettled(r.chat, r.j)).toMatchObject({ state: "EXISTING_PLAY" });
     expect(await world(r.s)).toEqual(prior);
-    expect(r.j.reviews).toHaveLength(2);
+    expect(r.j.reviews).toHaveLength(0);
   } finally {
     for (const h of r.hosts) await h.stop();
     await app.close();

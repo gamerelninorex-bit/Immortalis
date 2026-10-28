@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // Conformance evidence for the Initial Local Demand & Independently Authored Production Start slice (@immortalis/operator
@@ -99,7 +100,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/terminal.ts":
-    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
+    "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
 };
 
 describe("nothing outside the operator is touched", () => {

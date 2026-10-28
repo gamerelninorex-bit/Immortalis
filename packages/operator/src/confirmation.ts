@@ -1,13 +1,14 @@
-import { randomBytes } from "node:crypto";
 import { canonicalJson } from "@immortalis/contracts";
-import { consumeReviewEvidence } from "./review-evidence.ts";
-import type { OperatorTerminal } from "./terminal.ts";
+import { randomBytes } from "node:crypto";
 import {
   consumeOrdinaryAction,
   type OrdinaryAction,
   type OrdinaryVerb,
 } from "./ordinary-action.ts";
+import { consumeRequestEvidence } from "./request-evidence.ts";
+import { consumeReviewEvidence } from "./review-evidence.ts";
 import type { LocalOperatorSession } from "./session.ts";
+import type { OperatorTerminal } from "./terminal.ts";
 
 /**
  * The explicit, bounded confirmation of ONE exact choice, obtained from the operator's console.
@@ -94,6 +95,21 @@ export async function requestOperatorConfirmation(
   shown: readonly string[],
   proposal?: unknown,
 ): Promise<OperatorConfirmation | null> {
+  if (terminal.authorize) {
+    const evidence = await terminal.authorize({
+      verb,
+      subject,
+      shown,
+      ...(proposal ? { proposal } : {}),
+    });
+    if (evidence) {
+      if (!consumeRequestEvidence(evidence, verb, subject)) return null;
+      const token = Object.freeze({ verb, subject });
+      live.add(token);
+      return token;
+    }
+    if (!terminal.review) return null;
+  }
   if (terminal.review) {
     const evidence = await terminal.review({
       verb,
@@ -148,6 +164,21 @@ export async function requestOperatorDecision(
   otherwise: string,
   interpretation?: unknown,
 ): Promise<OperatorDecision> {
+  if (terminal.authorize) {
+    const evidence = await terminal.authorize({
+      verb,
+      subject,
+      shown,
+      ...(interpretation ? { interpretation } : {}),
+    });
+    if (evidence) {
+      if (!consumeRequestEvidence(evidence, verb, subject)) return { kind: "END_OF_INPUT" };
+      const token = Object.freeze({ verb, subject });
+      live.add(token);
+      return { kind: "CONFIRMED", confirmation: token };
+    }
+    if (!terminal.review) return { kind: "END_OF_INPUT" };
+  }
   if (terminal.review) {
     const evidence = await terminal.review({
       verb,

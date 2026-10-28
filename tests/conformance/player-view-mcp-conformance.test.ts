@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2 conformance — the local player-view MCP transport of the existing current Active-PC Glance read (bounded brief 2026-10-15, native pin
@@ -74,7 +75,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/confirmation.ts":
-    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
+    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
 };
 
 const NEW_MODULES = [
@@ -158,6 +159,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "referee-session.ts",
         "session.ts",
         "review-evidence.ts",
+        "request-evidence.ts",
         "terminal.ts",
         "time-initialization.ts",
         ...NEW_MODULES,

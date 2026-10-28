@@ -9,9 +9,7 @@ const chat = new Chat(`http://127.0.0.1:${input.config.port}`);
 chat.access = input.client.access;
 chat.refresh = input.client.refresh;
 chat.clientId = input.client.clientId;
-const caps = {
-  extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } },
-};
+const caps = {};
 const call = async (name: string, args: Record<string, unknown> = {}) => {
   const r = await chat.call(name, args, () => {
     throw new Error("recovery cannot require another approval");

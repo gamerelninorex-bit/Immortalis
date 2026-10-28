@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
 // BLUE v5.2-A1 conformance — SOURCE-QUALIFIED original-PC observation (bounded brief 2026-10-22, native pin 2026-10-21T16:38:01.462Z; exact
@@ -87,7 +88,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/source-drawdown/admission.ts":
     "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
   "packages/operator/src/confirmation.ts":
-    "b8c3cafba051aab04c1a9266c0a4911556545127293eac7e078b8814a038c797",
+    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/original-pc.ts":
     "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
@@ -99,7 +100,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/terminal.ts":
-    "5e8e91363bde03778a07f3bd8bb70dbd4dff08a22ce38256582dc62bac6ec967",
+    "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/index.ts":

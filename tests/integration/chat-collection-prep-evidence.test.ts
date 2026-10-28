@@ -1,25 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- exercised scripted conversation and counters */
 // A2 mechanism evidence only. Actual Work/Android rendering, human acceptance and genuine referee interpretation remain UNRUN.
-import { execFileSync, spawn } from "node:child_process";
-import { symlinkSync, writeFileSync, readFileSync, mkdirSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { cpus, arch, platform } from "node:os";
-import { expect, it, vi } from "vitest";
 import { PcCollectionAdapter } from "@immortalis/engine";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { arch, cpus, platform } from "node:os";
+import { join } from "node:path";
+import { expect, it, vi } from "vitest";
 import { createPhoneServer } from "../../apps/phone/src/server.ts";
+import { MOMENT, TAU, hosts, openOrdinary, slot, stage } from "../support/chat-route.ts";
 import { routeMeter } from "../support/route-meter.ts";
 import { tempDir } from "../support/tmp.ts";
-import { hosts, slot, MOMENT, TAU, openOrdinary, stage } from "../support/chat-route.ts";
 import {
-  supportedOpening,
-  completeOpening,
   UI_CAPS,
+  call,
+  completeOpening,
   openingCharacter,
   openingSetting,
   openingSettled,
-  call,
+  supportedOpening,
 } from "../support/two-review-opening.ts";
-const BASE = "bb40fb2d2daf3661eb3407c1d3864797ef33162a";
+const BASE = "1a4563383f3783e417892414e0814a5da21dda38";
 const HEAD = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const root = process.cwd();
 const environment = {
@@ -127,14 +127,11 @@ it("A2: fixed-input whole journeys compare real review controls and I/O across b
         }
         const current = pair.current,
           prior = pair.base;
-        expect(prior.inlineResource).toBe(false);
-        expect(current.inlineResource).toBe(true); // falsifiable against the immutable base
-        expect(prior.reviews).toHaveLength(missing ? 4 : 7);
-        expect(prior.typedChallenges).toBe(prior.reviews.length);
-        expect(current.reviews).toEqual([
-          { channel: "ui", category: "setting" },
-          { channel: "ui", category: "generation" },
-        ]);
+        expect(prior.inlineResource).toBe(true);
+        expect(current.inlineResource).toBe(false); // falsifiable against the immutable base
+        expect(prior.reviews).toHaveLength(2);
+        expect(prior.typedChallenges).toBe(0);
+        expect(current.reviews).toEqual([]);
         expect(current.typedChallenges).toBe(0);
         expect(current.pageSwitches).toBe(0);
         expect(current.state).toEqual(prior.state);
@@ -162,7 +159,7 @@ it("A2: fixed-input whole journeys compare real review controls and I/O across b
         evidence.push(pair);
       }
   console.log(
-    "PR91_WHOLE_JOURNEY",
+    "ZERO_CONFIRMATION_WHOLE_JOURNEY",
     JSON.stringify({
       base: BASE,
       head: HEAD,
@@ -233,7 +230,7 @@ it("A2: a grouped opening partial declaration reopens under the same grant/recei
         await before.close();
       }
       const accepted = r.j.reviews.length;
-      expect(accepted).toBe(2);
+      expect(accepted).toBe(0);
       await app.close();
       app = createPhoneServer(r.s.config, { pollMs: 20 });
       await app.listen();

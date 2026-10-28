@@ -148,7 +148,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
                 ask_the_player: [
                   "the place they want to author (one world, one locality and one exact finite source), in their own words",
                 ],
-                note: "The place comes first. The player reads and confirms all of it themselves.",
+                note: "The authored place comes first. Its exact request proceeds through the owners with complete readback.",
               },
     };
   if (read.kind === "BLOCKED")
@@ -349,7 +349,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
       ? {
           tool: "resume_collection_setup",
           ask_the_player: [],
-          note: "A stage the player confirmed is only partly committed: this finishes exactly that retained input, and the player confirms it again.",
+          note: "The original requested stage is only partly committed. Resume exactly its retained input with original authorization and owner evidence.",
         }
       : input.barrier === "RECONCILE"
         ? {
@@ -403,11 +403,11 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
             ask_the_player: [
               "only the materially unresolved duration of ONE handling cycle of the existing hands, in the player's own words, with the number in digits and the campaign's unit",
             ],
-            note: "Use this existing clarification path only if that particular handling-cycle detail is unresolved. An unrelated duration settles nothing. The existing referee judges the branch and scope before the player's separate acceptance; never suggest or choose a rate.",
+            note: "Use this existing clarification path only if that particular handling-cycle detail is unresolved. An unrelated duration settles nothing. The existing referee judges the branch and scope under that exact authored request; never suggest or choose a rate.",
           },
         }
       : {}),
-    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; the player reviews and confirms the whole preparation.",
+    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
   };
 }
 
@@ -440,7 +440,7 @@ function nextStep(
       return {
         tool: TOOL["physical_location"]!,
         ask_the_player: [],
-        note: "A separate choice from placing the character: the referee reads the character's own words and the confirmed presence statement, and the player then confirms the physical location themselves. It asks them for nothing else.",
+        note: "The referee and owner validate stationary physical custody of the exact authored native presence. The request needs no additional approval and supplies no missing facts.",
       };
     case "starting_moment":
       return {
@@ -484,7 +484,7 @@ function nextStep(
         ...retained(rec?.declaration != null),
         note:
           open.state === "STALE"
-            ? "The owners' facts moved on since this was declared: it is stale and must be declared again, with a new confirmation. The player's earlier words are kept."
+            ? "The owners' facts moved on since this was declared. The declaration is stale; supply current authored grounds. The earlier words are retained and authorize no changed facts."
             : "These are the setting author's own words, not the character's; the owners derive who and what is present themselves.",
       };
     default:

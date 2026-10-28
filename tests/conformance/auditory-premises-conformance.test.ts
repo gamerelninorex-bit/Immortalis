@@ -1,3 +1,4 @@
+// Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read and tamper with arbitrary lock and fact values */
 // S1-P1 — conformance: the two new kinds and the typed profile are exactly the frozen lowering (owner, facet, lifecycle, key space,
 // governing citation); the F-027 lock records ONE additive executable lowering and leaves the 23 frozen pins, the R1 lowering and
@@ -158,7 +159,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // The absence-of-auditory-ingress assertion below remains operative.
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
-      "3f3cbdf9f896d0fdfed81bfafba6511c45cbcc53f02417cb9005396188eabb7f",
+      "b2311d0e72a563c12613f67af1a536dc9a0278e9b380610e491791a13985f9fc",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

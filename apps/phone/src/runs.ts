@@ -1,21 +1,23 @@
-import type { ReviewAuthority, OpeningSources } from "./reviews.ts";
+import type { ExistenceContract } from "@immortalis/contracts";
+import type { CharacterDraft, Edit } from "@immortalis/operator";
 import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
+import type { CharacterReadback } from "./character-evidence.ts";
+import type { LocalityReadback } from "./locality-evidence.ts";
+import type { ToolContext } from "./mcp-http.ts";
+import type { OpeningSources, ReviewAuthority } from "./reviews.ts";
+import type { StageExpectation } from "./route-confirm.ts";
+import type { StageRequest } from "./route-plan.ts";
+import type { StageKind } from "./route-stages.ts";
+import type { RouteStatus } from "./route-status.ts";
+import type { WebTerminal } from "./web-terminal.ts";
 export interface ReviewLaunch {
+  readonly recover?: boolean;
+  readonly originalRun?: string;
   readonly internal?: boolean;
   readonly authority: ReviewAuthority;
   readonly sources?: OpeningSources;
-  readonly derived?: (request: ReviewRequest) => boolean;
+  readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
 }
-import type { ToolContext } from "./mcp-http.ts";
-import type { ExistenceContract } from "@immortalis/contracts";
-import type { CharacterDraft, Edit } from "@immortalis/operator";
-import type { CharacterReadback } from "./character-evidence.ts";
-import type { LocalityReadback } from "./locality-evidence.ts";
-import type { StageExpectation } from "./route-confirm.ts";
-import type { StageRequest } from "./route-plan.ts";
-import type { RouteStatus } from "./route-status.ts";
-import type { StageKind } from "./route-stages.ts";
-import type { WebTerminal } from "./web-terminal.ts";
 
 /** One command the player lane is running (or ran last). The sequence numbers of its transcript restart with every run. */
 export interface Run {

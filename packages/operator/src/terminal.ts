@@ -1,12 +1,15 @@
-import type { ReviewEvidence, ReviewRequest } from "./review-evidence.ts";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
+import type { RequestEvidence } from "./request-evidence.ts";
+import type { ReviewEvidence, ReviewRequest } from "./review-evidence.ts";
 
 /**
  * The operator's console: the only channel through which a confirmation can enter. `ask` returns the next line the operator
  * typed, or null at the end of input (which is a decline, never a confirmation).
  */
 export interface OperatorTerminal {
+  /** Trusted exact-request dispatch. Separate from human review and from serialized tool arguments. */
+  authorize?(request: ReviewRequest): Promise<RequestEvidence | null>;
   /** Trusted in-process human review; never parsed from CLI arguments or host assertions. */
   review?(request: ReviewRequest): Promise<ReviewEvidence | null>;
   say(text: string): void;

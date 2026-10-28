@@ -531,7 +531,7 @@ describe("MECHANISM: the MCP transport", () => {
       const component = listed.json.result.tools.find(
         (x: any) => x.name === "submit_review_decision",
       );
-      expect(component._meta.ui.visibility).toEqual(["app"]);
+      expect(component).toBeUndefined();
       const publicTools = listed.json.result.tools.filter(
         (x: any) => x._meta?.ui?.visibility?.[0] !== "app",
       );

@@ -1,9 +1,11 @@
+import { canonicalJson } from "@immortalis/contracts";
+import type { OperatorTerminal } from "@immortalis/operator";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
-  constants,
-  fstatSync,
   chmodSync,
   closeSync,
+  constants,
+  fstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -12,12 +14,10 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { canonicalJson } from "@immortalis/contracts";
 import {
   issueReviewEvidence,
   type ReviewRequest,
 } from "../../../packages/operator/src/review-evidence.ts";
-import type { OperatorTerminal } from "@immortalis/operator";
 import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { REVIEW_CALLBACK, REVIEW_URI } from "./review-card.ts";
@@ -27,7 +27,8 @@ export type ReviewCategory = "setting" | "generation";
 export type ReviewAuthority = Pick<
   ToolContext,
   "client" | "grant" | "scopes" | "canReview" | "supportsElicitation"
->;
+> &
+  Pick<ToolContext, "request">;
 export interface OpeningSources {
   readonly campaign?: string;
   readonly setting?: {
@@ -45,13 +46,16 @@ export interface OpeningSources {
   };
 }
 export interface ReviewContext {
+  readonly recover?: boolean;
+  readonly originalRun?: string;
+  readonly dispatch?: unknown;
   readonly internal?: boolean;
   readonly authority: ReviewAuthority;
   readonly runId: string;
   readonly actor: string | null;
   readonly sources?: OpeningSources;
   /** Created by the trusted planner from accepted-source receipts and owner-verified current input, never from a tool boolean. */
-  readonly derived?: (request: ReviewRequest) => boolean;
+  readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
   readonly active: () => boolean;
 }
 interface Receipt {
@@ -77,7 +81,7 @@ interface Pending {
 }
 export const REVIEW_RECEIPT_LIMIT = 100;
 export const REVIEW_RECEIPT_BYTES = 32 * 1024 * 1024;
-function ownedRead(path: string, maxBytes = REVIEW_RECEIPT_BYTES): string {
+export function ownedRead(path: string, maxBytes = REVIEW_RECEIPT_BYTES): string {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const st = fstatSync(fd);
@@ -234,6 +238,36 @@ export class HumanReviews {
     } finally {
       closeSync(dir);
     }
+  }
+  /** Read-only compatibility checks for previously accepted, signed human reviews. Never create a decision here. */
+  ownsRun(authority: ReviewAuthority, run: string): boolean {
+    const original = this.#read().find((r) => r.run === run);
+    return original
+      ? authority.scopes.includes("player") &&
+          original.client === authority.client &&
+          original.grant === authority.grant
+      : this.verified(authority);
+  }
+  hasRun(run: string): boolean {
+    return this.#read().some((r) => r.run === run);
+  }
+  verified(authority: ReviewAuthority): boolean {
+    return (
+      authority.scopes.includes("player") &&
+      this.#read().some((r) => r.client === authority.client && r.grant === authority.grant)
+    );
+  }
+  ownsActor(authority: ReviewAuthority, actor: string): boolean {
+    return (
+      authority.scopes.includes("player") &&
+      this.#read().some(
+        (r) =>
+          r.client === authority.client &&
+          r.grant === authority.grant &&
+          r.actor === actor &&
+          JSON.parse(r.subject).verb === "keep-character",
+      )
+    );
   }
   /** Trusted recovery adapter only: exact signed acceptance, never a tool argument or new authority. */
   accepted(authority: ReviewAuthority, actor: string | null, subject: string): boolean {
