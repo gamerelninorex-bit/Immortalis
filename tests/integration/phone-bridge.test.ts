@@ -15,6 +15,7 @@ import { createPhoneServer, type PhoneDeps } from "../../apps/phone/src/server.t
 import { stubCollectionRecovery } from "../support/chat-recovery.ts";
 import { pendingPath } from "../../apps/phone/src/recovery.ts";
 import { createWebTerminal } from "../../apps/phone/src/web-terminal.ts";
+import { initializeRefereeHosts } from "../../apps/phone/src/referee-startup.ts";
 import { LOCALITY_CAMPAIGN, openOrdinary, setupDoc } from "../support/locality.ts";
 import { tempDir } from "../support/tmp.ts";
 import { ACTUATOR_WORDS, TRAVERSAL_CANNOT } from "../support/pc-collection.ts";
@@ -406,8 +407,6 @@ describe("MECHANISM: the closed command set builds the argument vector from the 
         "observe-surroundings",
         "prepare-collection",
         "reconcile",
-        "referee-bind-collection-host",
-        "referee-bind-host",
         "settle-collection-lapse",
         "status",
       ].sort(),
@@ -1166,12 +1165,15 @@ describe("MECHANISM: the SHIPPED commands run unchanged behind the front end (a 
     const root = tempDir("phone-e2e-");
     const campaignDir = join(root, "campaign");
     const operatorDir = join(root, "operator");
-    const { app, base } = await serve({
+    const configured = {
       campaignDir,
       operatorDir,
       campaignId: LOCALITY_CAMPAIGN,
       setupDir: join(operatorDir, "phone-setup"),
-    });
+    };
+    expect((await initializeRefereeHosts(config(configured))).ok).toBe(true);
+    expect(existsSync(campaignDir)).toBe(false);
+    const { app, base } = await serve(configured);
     try {
       const p = new Browser(base);
       await p.login("player", PLAYER);
@@ -1221,18 +1223,16 @@ describe("MECHANISM: the SHIPPED commands run unchanged behind the front end (a 
       const status = await p.untilPrompt("play");
       expect(status.seen.map((l: any) => l.text).join("\n")).toContain(LOCALITY_CAMPAIGN);
 
-      // 4. the referee lane: bind a real host through the player lane's operator command, then open its real console
-      await p.req("POST", "/api/play/command", {
-        command: "referee-bind-host",
-        options: { "host-id": "gm-setup" },
-      });
-      step = await p.untilPrompt("play");
-      if (step.snap.pending)
-        await p.req("POST", "/api/play/reply", {
-          prompt_id: step.snap.pending.id,
-          text: phraseOf(step.seen),
-        });
-      await finish(0);
+      // 4. the referee lane uses the trusted startup binding; the player cannot provision either host.
+      for (const command of ["referee-bind-host", "referee-bind-collection-host"])
+        expect(
+          (
+            await p.req("POST", "/api/play/command", {
+              command,
+              options: { "host-id": "gm-setup" },
+            })
+          ).status,
+        ).toBe(400);
       const r = new Browser(base);
       await r.login("referee", REFEREE);
       expect((await r.req("POST", "/api/ref/start", { host_id: "gm-setup" })).status).toBe(200);

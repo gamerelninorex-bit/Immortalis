@@ -426,7 +426,7 @@ describe("MECHANISM (24 October diagnostic): the service entry point writes each
   it("two identical initializes against the real `main.ts` are two identical lines on stderr, carrying nothing else", async () => {
     const dir = tempDir("immortalis-init-diag-main-");
     mkdirSync(join(dir, "setup"), { recursive: true });
-    mkdirSync(join(dir, "operator"), { recursive: true });
+    mkdirSync(join(dir, "operator"), { recursive: true, mode: 0o700 });
     mkdirSync(join(dir, "campaign"), { recursive: true });
     const port = await freePort();
     const child = spawn(
