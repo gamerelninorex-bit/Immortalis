@@ -1,3 +1,4 @@
+// Referee restart repair composition: trusted wait cancellation only; exchange wire formats, authentication and all owner/spec pins remain unchanged.
 // Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
@@ -72,7 +73,7 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/original-pc.ts":
     "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/referee-exchange.ts":
-    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
+    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   "packages/operator/src/referee-mcp.ts":
     "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-session.ts":

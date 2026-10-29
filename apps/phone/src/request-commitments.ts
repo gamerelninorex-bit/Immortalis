@@ -196,7 +196,9 @@ export class RequestCommitments {
     // just as authorize() does below; never treat an unbound capture as general accepted-source authority.
     const original = run
       ? receipts.find(
-          (r) => r.run === run && (dispatch === undefined || same(r.dispatch, dispatch)),
+          (r) =>
+            r.run === run &&
+            (dispatch === undefined || (r.dispatch !== undefined && same(r.dispatch, dispatch))),
         )
       : dispatch === undefined
         ? undefined

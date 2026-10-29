@@ -1,3 +1,4 @@
+// Referee restart repair composition: trusted wait cancellation only; exchange wire formats, authentication and all owner/spec pins remain unchanged.
 // Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
@@ -67,7 +68,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-exchange.ts":
-    "da700c899aeaca2aafb7c9b6469e7a2502c4d6868c5de00028e0b8ade7af730e",
+    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   "packages/operator/src/referee-session.ts":
     "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/operator/src/cli.ts":
@@ -154,6 +155,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "referee-bin.ts",
         "referee-console-bin.ts",
         "referee-console.ts",
+        "referee-cancellation.ts",
         "referee-exchange.ts",
         "referee-mcp.ts",
         "referee-session.ts",

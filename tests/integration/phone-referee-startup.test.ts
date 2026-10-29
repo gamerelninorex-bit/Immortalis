@@ -121,6 +121,9 @@ it("real main: fresh bootstrap, authenticated pending task/read/answer, retained
     ).toBe(true);
     // Stop with an unanswered, engine-built question. The host has not manufactured a decision.
     await app.stop();
+    // The interrupted wait must let the existing command release its own writer lock, without reclaiming one.
+    const readable = await openOrdinary(s.campaignDir);
+    await readable.close();
     const retained = snapshot(s.operatorDir);
     const canon = snapshot(s.campaignDir);
     app = await boot(s);
