@@ -159,7 +159,8 @@ describe("nothing outside the physical-source slice was built", () => {
       // The absence-of-auditory-ingress assertion below remains operative.
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
-      "b2311d0e72a563c12613f67af1a536dc9a0278e9b380610e491791a13985f9fc",
+      // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
+      "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",

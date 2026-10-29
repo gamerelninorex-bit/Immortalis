@@ -221,9 +221,13 @@ it("real main: fresh bootstrap, authenticated pending task/read/answer, retained
       expect(empty.ready, empty.logs()).toBe(true);
       expect(existsSync(s.campaignDir)).toBe(false);
       const fresh = await linked(s, "player");
-      expect(JSON.stringify((await fresh.call("original_setting_status")).result)).toMatch(
-        /NO_SETTING|not established|no setting/i,
-      );
+      const missing = await fresh.call("original_setting_status");
+      expect(missing.data.setting).toEqual({ state: "NOT_STARTED", barrier: "NONE" });
+      expect(missing.data.readiness).toEqual({
+        setting_established: false,
+        campaign_ready_for_play: false,
+      });
+      expect(missing.result.structuredContent.request_readback).toEqual({});
       expect(existsSync(s.campaignDir)).toBe(false);
     } finally {
       await empty.stop();
