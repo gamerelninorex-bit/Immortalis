@@ -67,7 +67,7 @@ export const COLLECTION_REFEREE_OPERATIONS = [
   "PC_COLLECTION_REACH",
 ] as const;
 export type CollectionRefereeOperation = (typeof COLLECTION_REFEREE_OPERATIONS)[number];
-const ExchangeOperationSchema = z.union([
+export const ExchangeOperationSchema = z.union([
   RefereeOperationSchema,
   z.enum(COLLECTION_REFEREE_OPERATIONS),
 ]);

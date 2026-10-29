@@ -1269,6 +1269,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "preflight.ts",
       "prepare-chat.ts",
       "recovery.ts",
+      "referee-startup.ts",
       "referee-tools.ts",
       "request-commitments.ts",
       "review-card.ts",

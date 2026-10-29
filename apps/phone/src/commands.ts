@@ -28,8 +28,6 @@ export const PLAYER_COMMANDS: Readonly<Record<string, Spec>> = {
   "locality-status": { options: {} },
   "character-status": { options: {} },
   "establish-locality": { options: {}, setup: true },
-  "referee-bind-host": { options: { "host-id": "id" } },
-  "referee-bind-collection-host": { options: { "host-id": "id" } },
   "author-character": {
     options: { world: "id", locus: "id", "player-character": "id", "referee-wait": "int" },
     optional: ["referee-wait"],
