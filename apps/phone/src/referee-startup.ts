@@ -10,8 +10,14 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
+  REFEREE_OP_I002,
+  REFEREE_OP_IR,
+  REFEREE_OP_OBSERVATION,
+  REFEREE_OP_PHYSICAL,
+} from "@immortalis/contracts";
+import {
   bindHost,
-  ExchangeOperationSchema,
+  COLLECTION_REFEREE_OPERATIONS,
   readConfig,
   refereeDir,
   secretPath,
@@ -24,14 +30,10 @@ export interface RefereeBinding {
   readonly operations: readonly ExchangeOperation[];
 }
 const DEFAULT_BINDINGS: Readonly<Record<string, readonly ExchangeOperation[]>> = {
-  "gm-setup": [
-    "I002_CLASSIFY",
-    "IR_NATIVE_COMPATIBILITY",
-    "IR_PHYSICAL_PLACEMENT",
-    "F014D_DIRECT_PERCEPTION",
-  ],
-  "gm-collection": ["PC_COLLECTION_CYCLE", "PC_COLLECTION_REACH"],
+  "gm-setup": [REFEREE_OP_I002, REFEREE_OP_IR, REFEREE_OP_PHYSICAL, REFEREE_OP_OBSERVATION],
+  "gm-collection": COLLECTION_REFEREE_OPERATIONS,
 };
+const OPERATIONS = Object.values(DEFAULT_BINDINGS).flat();
 
 /** Closed technical configuration, not authority inferred from an arbitrary host name. */
 export function parseRefereeBindings(
@@ -57,7 +59,7 @@ export function parseRefereeBindings(
       ops.length < 1 ||
       ops.length > 6 ||
       new Set(ops).size !== ops.length ||
-      ops.some((op) => !ExchangeOperationSchema.safeParse(op).success)
+      ops.some((op) => !OPERATIONS.includes(op))
     )
       return null;
     out.push({ hostId, operations: ops as ExchangeOperation[] });
@@ -105,8 +107,7 @@ function directory(path: string, uid: number, create: boolean): void {
   }
   if (!st.isDirectory() || st.isSymbolicLink()) refuse("UNSAFE_PATH");
   // Shared sticky parents (e.g. /tmp) protect an operator-owned child. Non-sticky writable parents do not.
-  if ((st.mode & 0o022) !== 0 && !((st.mode & 0o1000) !== 0 && (st.uid === 0 || st.uid === uid)))
-    refuse("UNSAFE_PATH");
+  if ((st.mode & 0o022) !== 0 && (st.mode & 0o1000) === 0) refuse("UNSAFE_PATH");
 }
 function privateDirectory(path: string, uid: number): void {
   directory(path, uid, true);
