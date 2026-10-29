@@ -204,23 +204,28 @@ it("real main: fresh bootstrap, authenticated pending task/read/answer, retained
       await campaign.close();
     }
     await app.stop();
-    const wiped = await slot();
-    const empty = await boot(wiped);
+    // A real wipe of THIS disposable campaign/operator storage, preserving its configured identity and origin.
+    rmSync(s.campaignDir, { recursive: true });
+    rmSync(s.operatorDir, { recursive: true });
+    const empty = await boot(s);
     try {
       expect(empty.ready, empty.logs()).toBe(true);
-      expect(existsSync(wiped.campaignDir)).toBe(false);
-      const fresh = await linked(wiped, "player");
+      expect(existsSync(s.campaignDir)).toBe(false);
+      const fresh = await linked(s, "player");
       expect(JSON.stringify((await fresh.call("original_setting_status")).result)).toMatch(
         /NO_SETTING|not established|no setting/i,
       );
-      expect(existsSync(wiped.campaignDir)).toBe(false);
+      expect(existsSync(s.campaignDir)).toBe(false);
     } finally {
       await empty.stop();
     }
   } finally {
     stopped = true;
-    if (pump) await pump;
-    await app.stop();
+    try {
+      if (pump) await pump;
+    } finally {
+      await app.stop();
+    }
   }
 }, 180_000);
 

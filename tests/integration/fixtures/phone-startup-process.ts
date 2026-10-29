@@ -76,6 +76,12 @@ for (const method of [
   };
 }
 syncBuiltinESMExports();
+const readdir = fs.readdirSync;
+fs.readdirSync = ((...a: any[]) => {
+  if (metering && track(a[0])) counts.lists++;
+  return Reflect.apply(readdir, fs, a);
+}) as any;
+syncBuiltinESMExports();
 for (const method of ["readFile", "readRange"] as const) {
   const original = engine.nodeFs[method];
   engine.nodeFs[method] = async (...a: any[]) => {
@@ -119,6 +125,23 @@ engine.nodeFs.fileSize = async (...a: any[]) => {
   return size(...a);
 };
 const start = performance.now();
+let phaseStart = start;
+process.on("message", (message: any) => {
+  if (message?.meter === "start") {
+    for (const key of Object.keys(counts) as (keyof typeof counts)[]) counts[key] = 0;
+    phaseStart = performance.now();
+    metering = true;
+    process.send?.({ meter: "start", id: message.id });
+  } else if (message?.meter === "stop") {
+    metering = false;
+    process.send?.({
+      meter: "stop",
+      id: message.id,
+      counts,
+      milliseconds: performance.now() - phaseStart,
+    });
+  }
+});
 const write = process.stdout.write.bind(process.stdout);
 process.stdout.write = ((chunk: any, ...a: any[]) => {
   const r = Reflect.apply(write, process.stdout, [chunk, ...a]);

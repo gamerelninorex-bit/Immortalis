@@ -103,6 +103,7 @@ it("§1A before/after: actual fresh/retained main and authenticated task access,
           expect(snapshot(s.operatorDir)).toEqual(privateBefore);
           expect(snapshot(s.campaignDir)).toEqual(worldBefore);
           const retained = { counts: app.counts, milliseconds: app.milliseconds };
+          await app.meter("start");
           await player.init({});
           const gm = await linked(s, "referee");
           const request = await player.call(
@@ -134,12 +135,14 @@ it("§1A before/after: actual fresh/retained main and authenticated task access,
             expect(request.text).toMatch(/no AI referee host is bound/);
             expect(listed.isError).toBe(true);
           }
+          const access = await app.meter("stop");
           rows.push({
             mode,
             variation,
             repetition,
             fresh,
             retained,
+            authenticatedPath: { counts: access.counts, milliseconds: access.milliseconds },
             authenticatedTask:
               mode === "current" ? "I002_CLASSIFY_PENDING_READ" : "NO_HOST_REFUSAL",
           });

@@ -1,11 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- real-process probe and scripted MCP */
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
+import { afterAll } from "vitest";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Chat, PLAYER, REFEREE } from "./chat-client.ts";
 import type { Slot } from "./chat-setting.ts";
 export const BASE = "8490f94cb3d29f3e538425bf89ed8fac08477cff";
+const children = new Set<ChildProcess>();
+afterAll(async () => {
+  await Promise.all(
+    [...children].map(
+      (child) =>
+        new Promise<void>((resolve) => {
+          child.once("exit", () => resolve());
+          child.kill("SIGKILL");
+        }),
+    ),
+  );
+});
 
 export async function boot(
   s: Slot,
@@ -54,6 +67,8 @@ export async function boot(
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     },
   );
+  children.add(child);
+  child.once("exit", () => children.delete(child));
   let logs = "";
   child.stdout!.on("data", (d) => {
     logs += String(d);
@@ -83,9 +98,27 @@ export async function boot(
     ...result,
     logs: () => logs,
     child,
+    meter: (action: "start" | "stop") =>
+      new Promise<any>((resolve, reject) => {
+        const id = `meter-${action}`;
+        const timer = setTimeout(() => reject(new Error("probe meter did not answer")), 5000);
+        const received = (message: any) => {
+          if (message?.id !== id) return;
+          clearTimeout(timer);
+          child.off("message", received);
+          resolve(message);
+        };
+        child.on("message", received);
+        child.send({ meter: action, id });
+      }),
     stop: async () => {
-      if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
-      await exited;
+      const live = child.exitCode === null && child.signalCode === null;
+      const timer = live ? setTimeout(() => child.kill("SIGKILL"), 15_000) : undefined;
+      if (live) child.kill("SIGTERM");
+      const exit = await exited;
+      clearTimeout(timer);
+      if (live && exit.signal === "SIGKILL")
+        throw new Error("serving process did not stop gracefully");
     },
   };
 }

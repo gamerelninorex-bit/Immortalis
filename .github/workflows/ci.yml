@@ -40,9 +40,6 @@ jobs:
       - name: Spec-lock / acceptance register / open-gates consistency
         if: ${{ !cancelled() }}
         run: pnpm run check:spec
-      - name: Referee real-startup/restart and matched base evidence (mechanism only)
-        if: ${{ !cancelled() }}
-        run: pnpm exec vitest run tests/integration/phone-referee-startup.test.ts tests/integration/phone-referee-startup-evidence.test.ts
       - name: Zero-confirmation opening (mechanism only; live client UNRUN)
         if: ${{ !cancelled() }}
         run: pnpm exec vitest run tests/integration/zero-confirmation-opening.test.ts
@@ -65,6 +62,24 @@ jobs:
         if: ${{ !cancelled() }}
         # The focused startup/A2/H1 files ran above; every integration file runs once.
         run: pnpm run test:integration --exclude tests/integration/phone-referee-startup.test.ts --exclude tests/integration/phone-referee-startup-evidence.test.ts --exclude tests/integration/zero-confirmation-opening.test.ts --exclude tests/integration/chat-collection-prep-evidence.test.ts --exclude tests/integration/chat-collection-prep-boundaries.test.ts --exclude tests/integration/chat-collection-prep.test.ts
+
+  referee-startup:
+    name: Referee real-startup/restart and matched base evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Real main, authenticated tasks, restart/wipe/refusal/concurrency and §1A before/after (mechanism only)
+        run: pnpm exec vitest run tests/integration/phone-referee-startup.test.ts tests/integration/phone-referee-startup-evidence.test.ts
 
   h07-evidence:
     name: H-07 matched persistence evidence
