@@ -1810,7 +1810,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       }
       const dispatched = identity!;
       const inherited =
-        review && req.kind === "RESUME" ? reviews.sources(review.authority) : undefined;
+        review && req.kind === "RESUME"
+          ? {
+              ...reviews.sources(review.authority),
+              ...reviews.runSources(review.authority, originalRequestRun ?? "", dispatched),
+            }
+          : undefined;
       const reviewed = review
         ? {
             ...review,

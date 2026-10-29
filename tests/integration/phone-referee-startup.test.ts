@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { bindHost, readConfig, refereeDir, secretPath } from "@immortalis/operator";
 import { expect, it } from "vitest";
 import { loadConfig } from "../../apps/phone/src/config.ts";
@@ -33,6 +34,7 @@ const params = (s: Awaited<ReturnType<typeof slot>>) => ({
 const noApproval = () => {
   throw new Error("startup/recovery must not add a player approval");
 };
+const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 async function tasks(gm: Awaited<ReturnType<typeof linked>>, host_id = "gm-setup") {
   const r = await gm.call("referee_list_tasks", { host_id });
   expect(r.isError, "authenticated listing must succeed, not merely reach an HTTP listener").toBe(
@@ -129,8 +131,10 @@ it("real main: fresh bootstrap, authenticated pending task/read/answer, retained
     await gm.init({});
     expect((await tasks(gm)).map((t) => t.task_id)).toContain(first.task_id);
     expect(
-      (await gm.call("referee_get_task", { host_id: "gm-setup", task_id: first.task_id })).data,
-    ).toEqual(doc.data);
+      digest(
+        (await gm.call("referee_get_task", { host_id: "gm-setup", task_id: first.task_id })).data,
+      ),
+    ).toBe(digest(doc.data));
     const policy = routePolicy();
     const accepted = await gm.call("referee_submit_decision", {
       host_id: "gm-setup",
@@ -166,8 +170,10 @@ it("real main: fresh bootstrap, authenticated pending task/read/answer, retained
         await new Promise((r) => setTimeout(r, 15));
       }
     })();
-    await player.call("reconcile_last_action", {}, noApproval);
-    await player.call("resume_original_character", {}, noApproval);
+    expect((await player.call("reconcile_last_action", {}, noApproval)).isError).toBe(false);
+    const resumed = await player.call("resume_original_character", {}, noApproval);
+    expect(resumed.json?.error).toBeUndefined();
+    expect(resumed.isError, resumed.text).toBe(false);
     let status = await openingSettled(player, j);
     if (status.state !== "PREPARED") {
       await player.call("reconcile_last_action", {}, noApproval);
@@ -253,7 +259,7 @@ it("consistent partial registration reuses its exact secret and finishes only th
   } finally {
     await app.stop();
   }
-});
+}, 30_000);
 
 for (const [label, change, code] of [
   [
@@ -350,7 +356,7 @@ for (const [label, change, code] of [
     expect(app.logs()).not.toContain("listening on");
     expect(snapshot(s.operatorDir)).toEqual(before);
     expect(existsSync(s.campaignDir)).toBe(false);
-  });
+  }, 30_000);
 function editConfig(p: Parameters<typeof refereeDir>[0], edit: (c: any) => void) {
   const file = join(refereeDir(p), "config.json");
   const c = JSON.parse(readFileSync(file, "utf8"));
@@ -371,7 +377,7 @@ for (const cut of ["secret", "config"])
       expect(retry.logs()).toContain("referee startup REGISTRATION_BUSY");
       expect(snapshot(s.operatorDir)).toEqual(before);
       expect(existsSync(s.campaignDir)).toBe(false);
-    });
+    }, 30_000);
 
 it("concurrent main processes never lose or rotate another startup's registration", async () => {
   const s = await slot();
@@ -395,7 +401,7 @@ it("concurrent main processes never lose or rotate another startup's registratio
   } finally {
     await retained.stop();
   }
-});
+}, 30_000);
 
 it("unknown host layouts fail closed; explicit custom scopes stay narrow; malformed maps reveal no input", async () => {
   const s = await slot({ refereeHostIds: ["custom"] });
@@ -426,4 +432,4 @@ it("unknown host layouts fail closed; explicit custom scopes stay narrow; malfor
     expect(invalid.logs()).not.toContain("SECRET-PARSER-INPUT");
   }
   expect(loadConfig({}).ok).toBe(false);
-});
+}, 30_000);

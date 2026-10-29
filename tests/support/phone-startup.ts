@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- real-process probe and scripted MCP */
 import { spawn, type ChildProcess } from "node:child_process";
-import { afterAll } from "vitest";
+import { afterEach } from "vitest";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -8,7 +8,7 @@ import { Chat, PLAYER, REFEREE } from "./chat-client.ts";
 import type { Slot } from "./chat-setting.ts";
 export const BASE = "8490f94cb3d29f3e538425bf89ed8fac08477cff";
 const children = new Set<ChildProcess>();
-afterAll(async () => {
+afterEach(async () => {
   await Promise.all(
     [...children].map(
       (child) =>

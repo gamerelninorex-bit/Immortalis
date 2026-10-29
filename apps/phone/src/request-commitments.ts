@@ -189,10 +189,21 @@ export class RequestCommitments {
       ) || this.#legacy.hasRun(run)
     );
   }
-  runSources(authority: ReviewAuthority, run: string): OpeningSources {
-    return (
-      this.#scoped(authority).find((r) => r.run === run)?.source ?? this.#legacy.sources(authority)
-    );
+  runSources(authority: ReviewAuthority, run: string, dispatch?: unknown): OpeningSources {
+    const receipts = this.#scoped(authority);
+    // Before the first referee answer the original request is captured but has no bound meaning yet.
+    // Reconciliation can clear its no-effect pending run. Recover ONLY the same private dispatch frame,
+    // just as authorize() does below; never treat an unbound capture as general accepted-source authority.
+    const original = run
+      ? receipts.find(
+          (r) => r.run === run && (dispatch === undefined || same(r.dispatch, dispatch)),
+        )
+      : dispatch === undefined
+        ? undefined
+        : receipts.findLast(
+            (r) => !r.parentRun && r.dispatch !== undefined && same(r.dispatch, dispatch),
+          );
+    return original?.source ?? this.#legacy.sources(authority);
   }
   ownsRun(authority: ReviewAuthority, run: string): boolean {
     const original = this.#read().find((r) => r.run === run);
