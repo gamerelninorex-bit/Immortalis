@@ -87,7 +87,11 @@ it("§1A before/after: actual fresh/retained main and authenticated task access,
         try {
           expect(app.ready, app.logs()).toBe(true);
           expect(existsSync(s.campaignDir)).toBe(false);
-          const fresh = { counts: app.counts, milliseconds: app.milliseconds };
+          const fresh = {
+            counts: app.counts,
+            milliseconds: app.processMilliseconds,
+            servingImportMilliseconds: app.milliseconds,
+          };
           const player = await linked(s, "player");
           const j = journey();
           expect(
@@ -102,7 +106,11 @@ it("§1A before/after: actual fresh/retained main and authenticated task access,
           expect(app.ready, app.logs()).toBe(true);
           expect(snapshot(s.operatorDir)).toEqual(privateBefore);
           expect(snapshot(s.campaignDir)).toEqual(worldBefore);
-          const retained = { counts: app.counts, milliseconds: app.milliseconds };
+          const retained = {
+            counts: app.counts,
+            milliseconds: app.processMilliseconds,
+            servingImportMilliseconds: app.milliseconds,
+          };
           await app.meter("start");
           await player.init({});
           const gm = await linked(s, "referee");
@@ -172,7 +180,7 @@ it("§1A before/after: actual fresh/retained main and authenticated task access,
       fixture:
         "openingSetting/openingCharacter, authored test premises; unrelated locus rows each add an immutable history group (cardinality and journal depth vary together)",
       meter:
-        "serving import through listener; logical FsOps data I/O + synchronous private-file I/O/mutations; no contents, credentials or sealed tasks recorded; not kernel syscall counts",
+        "milliseconds: parent process launch through ready IPC, including common engine preload, main import and probe overhead; servingImportMilliseconds: nested main-import through listener; private I/O: logical FsOps + synchronous private-file I/O/mutations, not kernel syscalls; no contents, credentials or sealed tasks recorded",
       rows,
       genuineAi: "UNRUN",
       supportedClient: "UNRUN",

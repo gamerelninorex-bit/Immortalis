@@ -32,6 +32,7 @@ export async function boot(
     { mode: 0o600 },
   );
   const config = s.config;
+  const spawnedAt = performance.now();
   const child = spawn(
     process.execPath,
     [
@@ -96,6 +97,7 @@ export async function boot(
   });
   return {
     ...result,
+    processMilliseconds: performance.now() - spawnedAt,
     logs: () => logs,
     child,
     meter: (action: "start" | "stop") =>
