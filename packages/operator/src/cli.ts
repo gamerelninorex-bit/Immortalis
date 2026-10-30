@@ -81,7 +81,7 @@ usage:
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--attention <what the player looks at>] [--referee-wait <seconds>]
   immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
-  immortalis-operator delegate-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> --shortest <n> --longest <n> [--words <your words>] [--referee-wait <seconds>]
+  immortalis-operator delegate-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--shortest <n>] [--longest <n>] [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator referee-bind-collection-host --campaign <dir> --campaign-id <id> --host-id <id>
@@ -244,16 +244,17 @@ clarify-collection-cycle: for a character that author-character released and bou
   release, your keep, the binding, the custody and the clock are untouched; no time passes and no material is created. The exact cycle
   still needs a collection preparation that quotes those words and a separate semantic attestation. Running it again with the same words
   converges.
-delegate-collection-cycle: the same branch, the same preconditions, but the choice is DELEGATED ("surprise me", I-002 section 9). You
-  commit a lawful bounded scope - a shortest and a longest whole number of the campaign's unit of time, and optionally words of your
-  own - and the AI referee host acting as role.gm chooses ONE number inside it and writes one statement of your character's handling. You
-  confirm the DELEGATION (the scope, the method class, that the choice is sealed), not a number you have seen: the choice is not shown
-  before you confirm, and the same question finds the same choice if you decline or the command is run again. Only then does the owner
-  validate it against your scope and your character's accepted content and write a sealed Delegation Commit Record (provenance
-  PLAYER-DELEGATED; executing role role.gm; not random; never your own words), before any collection of that character. The branch has
-  ONE slot: after a delegation or your own clarification the other is refused, and a delegation is refused once any collection
-  commitment of the character exists. It cannot be reselected, changed or taken back. The exact cycle still needs a collection
-  preparation that quotes the chosen words and a separate semantic attestation. Running it again with the same scope converges.
+delegate-collection-cycle: the same branch, the same preconditions, but the choice is DELEGATED ("surprise me", I-002 section 9). You may commit
+  numeric limits - a shortest and/or a longest whole number of the campaign's unit of time; none is required, and nothing is defaulted for you -
+  and the AI referee host acting as role.gm chooses ONE number inside the scope and writes one statement of your character's handling. Limits
+  are the only constraints an owner can verify against the sealed choice, so your free words are not accepted as constraints (say them with
+  clarify-collection-cycle instead). You confirm the DELEGATION (the scope, the method class, that the choice is sealed), not a number you
+  have seen: the choice is not shown before you confirm, and the same question finds the same choice if you decline or the command is run
+  again. Only then does the owner validate it against your scope and your character's accepted content and write a sealed Delegation Commit
+  Record (provenance PLAYER-DELEGATED; executing role role.gm; not random; never your own words), before any collection of that character. The
+  branch has ONE slot: after a delegation or your own clarification the other is refused, and a delegation is refused once any collection
+  commitment of the character exists. It cannot be reselected, changed or taken back. The exact cycle still needs a collection preparation that
+  quotes the chosen words and a separate semantic attestation. Running it again with the same scope converges.
 referee-bind-delegation-host: binds a NEW host identity only to the delegated selection of the handling cycle (I-002 section 9: role.gm chooses ONE
   number inside bounds the player committed). It is a separate, least-privilege binding, so a host already bound to the cycle and reach readings keeps
   working unchanged; delegate-collection-cycle cannot ask anyone until a host is bound to this operation. It confers nothing by itself.
@@ -404,7 +405,6 @@ const OPTIONS = {
   attention: { type: "string" },
   shortest: { type: "string" },
   longest: { type: "string" },
-  words: { type: "string" },
   reserve: { type: "string" },
   amount: { type: "string" },
   "quantity-unit": { type: "string" },
@@ -434,7 +434,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
   "clarify-collection-cycle": ["player-character"],
-  "delegate-collection-cycle": ["player-character", "shortest", "longest"],
+  "delegate-collection-cycle": ["player-character"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
   "referee-bind-collection-host": ["host-id"],
@@ -456,7 +456,7 @@ const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "establish-character-locus": ["referee-wait"],
   "observe-surroundings": ["referee-wait", "source", "attention"],
   "clarify-collection-cycle": ["referee-wait"],
-  "delegate-collection-cycle": ["referee-wait", "words"],
+  "delegate-collection-cycle": ["referee-wait", "shortest", "longest"],
   "attest-cycle": ["referee-wait"],
   "collect-continue": ["referee-wait"],
 };
@@ -765,18 +765,15 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       return exitOf(r.status);
     }
     if (command === "delegate-collection-cycle") {
-      const whole = (v: string | undefined): number =>
-        v !== undefined && /^[0-9]{1,15}$/.test(v) ? Number(v) : NaN;
+      // an absent limit is none; a present one that is not a whole number is refused by the command, never defaulted
+      const limit = (v: string | undefined): number | null =>
+        v === undefined ? null : /^[0-9]{1,15}$/.test(v) ? Number(v) : Number.NaN;
       const r = await delegateCollectionCycle({
         campaignDir: str("campaign") ?? "",
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
         terminal: terminal!,
-        scope: {
-          constraintWords: str("words") ?? null,
-          shortest: whole(str("shortest")),
-          longest: whole(str("longest")),
-        },
+        scope: { shortest: limit(str("shortest")), longest: limit(str("longest")) },
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),

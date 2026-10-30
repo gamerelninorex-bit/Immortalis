@@ -12,6 +12,7 @@ import {
   interpretDelegatedSelection,
   pcClarificationIdOf,
   pcDelegationMirror,
+  pcDelegationSeal,
   pcDelegationViolation,
 } from "@immortalis/engine";
 import {
@@ -35,6 +36,7 @@ import {
 import { NO_CYCLE_CLAIM, clarWords, retain } from "../support/pc-clarification.ts";
 import {
   DELEGATION_ID,
+  unboundedScope,
   DELEGATION_KEY,
   LONGEST,
   SELECTED,
@@ -100,7 +102,8 @@ describe("H1 the delegated selection: the lawful path", () => {
     expect(held.fact.key).toBe(DELEGATION_KEY);
     const d = held.value;
     // the Delegation Commit Record carries every element I-002 section 9 names
-    expect(d.scope.constraint_words).toBe("somewhere between four and twelve, nothing frantic");
+    // the scope carries NUMERIC limits only: no free words exist in the record for anyone to trust
+    expect(Object.keys(d.scope).sort()).toEqual(["branch", "candidate_space"]);
     expect(d.scope.candidate_space).toMatchObject({
       shortest: SHORTEST,
       longest: LONGEST,
@@ -264,14 +267,14 @@ describe("H1 falsifiers: the host's selection is judged against the committed sc
     }
   }, 240_000);
 
-  it("an unbounded, reversed or non-canonical scope is not a lawful bounded scope", async () => {
+  it("a malformed scope (reversed, zero, fractional, missing, unknown branch, free words) forms no task; a non-canonical unit is refused by the owner", async () => {
     const s = await startingShape();
     try {
       const space = (over: Record<string, unknown>) =>
         delegationScope({
           candidate_space: { ...delegationScope().candidate_space, ...over },
         });
-      // reversed bounds, zero, a fraction, and no bound at all cannot form a task
+      // reversed bounds, zero, a fraction, and no candidate space at all cannot form a task; nor can free words (below)
       expect(s.collect.delegationTask(PC, space({ shortest: 9, longest: 3 }))).toBeUndefined();
       expect(s.collect.delegationTask(PC, space({ shortest: 0 }))).toBeUndefined();
       expect(s.collect.delegationTask(PC, space({ longest: 1.5 }))).toBeUndefined();
@@ -301,6 +304,185 @@ describe("H1 falsifiers: the host's selection is judged against the committed sc
       await s.campaign.close();
     }
   }, 180_000);
+});
+
+describe("H1-C: constraints the owner cannot verify are never certified; the numeric limits it can verify are enforced", () => {
+  const limitFive = () =>
+    delegationScope({
+      candidate_space: { ...delegationScope().candidate_space, shortest: 4, longest: 5 },
+    });
+  const nine = (v: any) => {
+    v.sealed.duration.value = 9;
+    v.sealed.claims[0].statement = selectedStatement(9);
+    v.sealed.reading.statement_ground = selectedStatement(9);
+  };
+
+  it('the player\'s "never more than five seconds" is the longest limit: a valid-looking choice of 9 is refused by the host check, by admission and at load, and 5 is sealed', async () => {
+    const dir = tempDir("immortalis-delegate-limit-");
+    const s = await startingShape(dir);
+    try {
+      const task5 = s.collect.delegationTask(PC, limitFive())!;
+      // the host chooses 9 with otherwise perfectly valid quotations: it is outside the committed limit, so nothing seals
+      const host9 = await s.collect.delegate({
+        ...colPublication(7630),
+        pc_id: PC,
+        scope: limitFive(),
+        answer: selectionAnswer(task5, {
+          selection: {
+            value: 9,
+            statement: selectedStatement(9),
+            statement_ground: selectedStatement(9),
+          },
+        }),
+      });
+      expect(host9.ok).toBe(false);
+      expect((host9 as any).error.message).toMatch(/candidate space/);
+      expect(s.collect.delegation(PC)).toBeUndefined();
+      // the same choice written straight at the owner (a forged record, correctly sealed) is refused by admission, which re-derives the check
+      const forged = await s.campaign.store.commit(
+        delegationGroup(s.campaign, s.collect, 7631, {
+          scope: limitFive(),
+          value: nine,
+          reseal: true,
+        }),
+      );
+      expect(forged.ok).toBe(false);
+      expect((forged as any).error.message).toMatch(/candidate space/);
+      expect(s.collect.delegation(PC)).toBeUndefined();
+      // a choice inside the limit seals, and the record carries the limit it was validated against
+      const host5 = await s.collect.delegate({
+        ...colPublication(7632),
+        pc_id: PC,
+        scope: limitFive(),
+        answer: selectionAnswer(task5, {
+          selection: {
+            value: 5,
+            statement: selectedStatement(5),
+            statement_ground: selectedStatement(5),
+          },
+        }),
+      });
+      expect(host5.ok, JSON.stringify((host5 as any).error)).toBe(true);
+      const d = s.collect.delegation(PC)!.value;
+      expect(d.scope.candidate_space).toMatchObject({ shortest: 4, longest: 5 });
+      expect(d.sealed.duration.value).toBe(5);
+      await s.campaign.close();
+      // load verification re-derives it: the lawful record opens, the same record with the choice moved outside the limit does not
+      expect(await codes(dir)).toBe("OK");
+      expect(
+        await codes(
+          await rogueReplay(
+            dir,
+            editDelegation((v) => {
+              nine(v);
+              // resealed, so that the range is the ONLY defect the loader can find
+              v.sealed.seal = pcDelegationSeal({
+                pc_id: v.pc_id,
+                scope: v.scope,
+                generation_basis: v.generation_basis,
+                sealed: v.sealed,
+              });
+            }),
+          ),
+        ),
+      ).not.toBe("OK");
+    } finally {
+      await s.campaign.close().catch(() => undefined);
+    }
+  }, 360_000);
+
+  it("free words are not a constraint class: a scope that carries them forms no task, and a record that carries them fails the strict schema", async () => {
+    const s = await startingShape();
+    try {
+      const words = { ...limitFive(), constraint_words: "never more than five seconds" };
+      expect(s.collect.delegationTask(PC, words)).toBeUndefined();
+      const refused = await s.collect.delegate({
+        ...colPublication(7640),
+        pc_id: PC,
+        scope: words,
+        answer: selectionAnswer(s.collect.delegationTask(PC, limitFive())!),
+      });
+      expect(refused.ok).toBe(false);
+      const raw = await s.campaign.store.commit(
+        delegationGroup(s.campaign, s.collect, 7641, {
+          scope: limitFive(),
+          value: (v) => {
+            v.scope.constraint_words = "never more than five seconds";
+            v.sealed.duration.value = 5;
+            v.sealed.claims[0].statement = selectedStatement(5);
+            v.sealed.reading.statement_ground = selectedStatement(5);
+          },
+          reseal: true,
+        }),
+      );
+      expect(raw.ok).toBe(false);
+      expect(s.collect.delegation(PC)).toBeUndefined();
+    } finally {
+      await s.campaign.close();
+    }
+  }, 240_000);
+
+  it("a delegation that carries no limit at all is lawful (a seed that leaves the detail to the GM): the scope is the branch and the baseline, the choice is the host's grounded one, and the consumers follow it", async () => {
+    const s = await startingShape();
+    try {
+      const none = unboundedScope();
+      const task = s.collect.delegationTask(PC, none)!;
+      expect(task.scope.candidate_space).toMatchObject({ shortest: 1, longest: null });
+      // a non-positive or fractional choice can never be sealed
+      for (const [n, value] of [
+        [7650, 0],
+        [7651, -3],
+        [7652, 2.5],
+      ] as const)
+        expect(
+          (
+            await s.collect.delegate({
+              ...colPublication(n),
+              pc_id: PC,
+              scope: none,
+              answer: selectionAnswer(task, {
+                selection: {
+                  value,
+                  statement: `Handling one handful takes this body ${value} ${T0.unit}`,
+                  statement_ground: `Handling one handful takes this body ${value} ${T0.unit}`,
+                },
+              }),
+            })
+          ).ok,
+          String(value),
+        ).toBe(false);
+      const done = await s.collect.delegate({
+        ...colPublication(7653),
+        pc_id: PC,
+        scope: none,
+        answer: selectionAnswer(task),
+      });
+      expect(done.ok, JSON.stringify((done as any).error)).toBe(true);
+      const d = s.collect.delegation(PC)!.value;
+      expect(d.scope.candidate_space).toMatchObject({ shortest: 1, longest: null });
+      expect(pcDelegationMirror(d).scope).toMatchObject({ shortest: 1, longest: null });
+      expect(
+        (
+          await s.collect.establishMechanism({
+            ...colPublication(7654),
+            mechanism: mechanismFromDelegation(),
+          })
+        ).ok,
+      ).toBe(true);
+      const cycle = s.collect.cycleTask(PC, MECH)!;
+      expect(
+        (
+          await s.collect.attestCycle({
+            pc_id: PC,
+            mechanism_id: MECH,
+            answer: delegatedCycleAnswer(cycle),
+          })
+        ).ok,
+      ).toBe(true);
+    } finally {
+      await s.campaign.close();
+    }
+  }, 240_000);
 });
 
 describe("H1 falsifiers: the record itself (admission re-derives it)", () => {

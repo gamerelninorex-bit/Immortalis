@@ -2122,7 +2122,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     {
       name: "delegate_handling_duration",
       title: "Delegate to the referee how long one handling cycle of the character's hands takes",
-      description: `Use ONLY when the PLAYER themselves hand the choice of that one materially unresolved handling-cycle duration to the referee ("surprise me", "you decide") while collection_setup_status offers that open branch. Never delegate on the player's behalf and never use this to avoid asking the player for their own account (that is state_handling_duration). Ask the player ONLY for the bounds they will accept: the shortest and the longest whole number of the campaign's unit, and optionally words of their own about it. Never suggest, choose, widen or default a bound; without bounds there is no lawful bounded scope. The AI referee host, acting as role.gm, chooses ONE whole number inside the bounds and writes one statement of the character's handling; it is the referee's choice, recorded as PLAYER-DELEGATED and sealed, never the player's own words. The player confirms the delegation, not a number: the choice is not shown before they confirm, a declined confirmation buys no second draw, and once made it cannot be reselected, changed or taken back. It is refused once any collection of the character exists. Then follow it with await_action. ${PLAYER_RULES}`,
+      description: `Use ONLY when the PLAYER themselves hand the choice of that one materially unresolved handling-cycle duration to the Game Master - their seed leaves the routine detail to the Game Master, or they say "surprise me" or "you decide" - while collection_setup_status offers that open branch. It takes NO numbers by default and asks the player for no rate: the referee host, acting as role.gm, chooses ONE whole number of the campaign's unit that fits the character's accepted content and writes one statement of the character's handling. Never delegate on the player's behalf and never use this to avoid the player's own account (that is state_handling_duration). Pass shortest and/or longest ONLY if the player themselves stated a numeric limit ("never more than five seconds" is longest: 5); never suggest, choose, widen or default one. Numeric limits are the only constraints an owner can verify, so wording is not accepted: if the player has a qualitative wish ("nothing frantic"), tell them a delegation cannot honour it and offer state_handling_duration. The choice is the referee's, recorded as PLAYER-DELEGATED and sealed, never the player's own words; it is not shown before it is committed, so a repeated request cannot buy another draw; once made it cannot be reselected, changed or taken back; it is refused once any collection of the character exists. The committed choice appears as delegated_choice in collection_setup_status, whose statement and duration the preparation then quotes. Then follow it with await_action. ${PLAYER_RULES}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -2130,22 +2130,15 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             type: "integer",
             minimum: 1,
             description:
-              "the shortest whole number of the campaign's unit the player will accept for ONE handling cycle",
+              "only if the player stated it: the shortest whole number of the campaign's unit they will accept for ONE handling cycle",
           },
           longest: {
             type: "integer",
             minimum: 1,
             description:
-              "the longest whole number of the campaign's unit the player will accept for ONE handling cycle",
-          },
-          words: {
-            type: "string",
-            minLength: 1,
-            maxLength: 500,
-            description: "the player's own words about what they want, if they offered any",
+              "only if the player stated it: the longest whole number of the campaign's unit they will accept for ONE handling cycle",
           },
         },
-        required: ["shortest", "longest"],
         additionalProperties: false,
       },
       annotations: {
@@ -2161,7 +2154,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         if (!parsed.ok)
           return asJson(
             {
-              refused: "that is not a lawful bounded scope; nothing was started",
+              refused: "that is not a lawful delegation scope; nothing was started",
               issues: parsed.issues,
             },
             true,
@@ -2547,7 +2540,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     state_handling_duration:
       "Submit the player's genuinely supplied missing handling-duration words to the existing supported clarification path. Invent no duration or faculty. The exact request needs no second approval.",
     delegate_handling_duration:
-      "Submit the bounds the PLAYER themselves gave when they handed the choice of the missing handling duration to the referee. Choose, widen and default no bound; the referee's choice is sealed and is not the player's own words. The exact request needs no second approval.",
+      "Submit the player's delegation of the missing handling duration to the referee, with only the numeric limits the PLAYER themselves stated, if any. Choose, widen and default no limit; the referee's choice is sealed and is not the player's own words. The exact request needs no second approval.",
     propose_collection_preparation:
       "Project the actual accepted handling claims and independently sourced reserve condition through the existing preparation owners. This adds no material, rights, workforce or elapsed time. The exact request needs no second approval.",
     declare_closed_setting:

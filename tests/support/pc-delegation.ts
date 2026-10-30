@@ -36,10 +36,9 @@ export const LONGEST = 12;
 export const selectedStatement = (n = SELECTED, unit = T0.unit): string =>
   `Handling one handful of loose material takes this body ${n} ${unit}`;
 
-/** the scope the player commits: their own words and a bounded whole-number range in the campaign's unit */
+/** the scope the player commits: NUMERIC limits only (the whole of the constraint class an owner can verify) in the campaign's unit */
 export const delegationScope = (over: Record<string, unknown> = {}) => ({
   branch: PC_CLARIFICATION_BRANCH,
-  constraint_words: "somewhere between four and twelve, nothing frantic",
   candidate_space: {
     kind: PC_DELEGATION_SPACE_KIND,
     unit: T0.unit,
@@ -48,6 +47,17 @@ export const delegationScope = (over: Record<string, unknown> = {}) => ({
   },
   ...over,
 });
+
+/** a delegation with no player limit at all: the shortest positive duration and no upper limit (a seed that leaves the detail to the GM) */
+export const unboundedScope = () =>
+  delegationScope({
+    candidate_space: {
+      kind: PC_DELEGATION_SPACE_KIND,
+      unit: T0.unit,
+      shortest: 1,
+      longest: null,
+    },
+  });
 
 /** a faithful scripted host selection for the delivered task; `over` alters the answer to form a falsifier */
 export const selectionAnswer = (task: any, over: Record<string, unknown> = {}) => ({

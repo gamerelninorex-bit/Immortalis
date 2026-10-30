@@ -136,35 +136,35 @@ export function parseHandling(args: Record<string, unknown>): Parsed<string> {
 }
 
 /**
- * H1: the scope a player commits when they DELEGATE the choice of the handling cycle ("surprise me", I-002 section 9): their own words
- * (optional) and a shortest and a longest whole number of the campaign's unit. Bounded here; nothing is defaulted, widened or completed
- * for the player, and a missing bound is not a scope.
+ * H1: the scope a player commits when they DELEGATE the choice of the handling cycle ("surprise me", or a seed that leaves routine detail to
+ * the Game Master, I-002 section 9): at most two NUMERIC limits in the campaign's unit, each null when the player gave none. Nothing is
+ * required, defaulted, widened or completed for the player. The player's free words are not part of the scope: an owner cannot verify
+ * wording against sealed content, so only numeric limits are constraints (BLUE hold H1-C).
  */
 export interface DelegateInput {
-  readonly words: string | null;
-  readonly shortest: number;
-  readonly longest: number;
+  readonly shortest: number | null;
+  readonly longest: number | null;
 }
 export function parseDelegation(args: Record<string, unknown>): Parsed<DelegateInput> {
   const issues: string[] = [];
   for (const k of Object.keys(args))
-    if (!["words", "shortest", "longest"].includes(k)) issues.push(`${k}: is not offered`);
-  let words: string | null = null;
-  if (args["words"] !== undefined && args["words"] !== null) {
-    if (typeof args["words"] !== "string") issues.push("words: must be text");
-    else {
-      const j = judgeStatement(args["words"]);
-      if (j.ok) words = j.text;
-      else issues.push(`words: ${j.reason}`);
-    }
-  }
-  const shortest = wholeNumber("shortest", args["shortest"], 1, issues);
-  const longest = wholeNumber("longest", args["longest"], 1, issues);
+    issues.push(
+      k === "words"
+        ? "words: a delegation carries numeric limits only (shortest, longest); wording cannot be verified against the choice, so say it with state_handling_duration instead"
+        : !["shortest", "longest"].includes(k)
+          ? `${k}: is not offered`
+          : "",
+    );
+  const limit = (k: "shortest" | "longest"): number | null =>
+    args[k] === undefined || args[k] === null ? null : wholeNumber(k, args[k], 1, issues);
+  const shortest = limit("shortest");
+  const longest = limit("longest");
   if (shortest !== null && longest !== null && shortest > longest)
     issues.push("shortest: must not exceed longest");
-  return issues.length > 0 || shortest === null || longest === null
-    ? { ok: false, issues: issues.slice(0, 8) }
-    : { ok: true, value: { words, shortest, longest } };
+  const real = issues.filter((i) => i.length > 0);
+  return real.length > 0
+    ? { ok: false, issues: real.slice(0, 8) }
+    : { ok: true, value: { shortest, longest } };
 }
 
 export interface PrepareInput {
@@ -365,7 +365,7 @@ export interface PrepareFacts {
     readonly clarification_id: string;
     readonly statements: readonly string[];
     /** present only when the branch was closed by a DELEGATED selection (the referee's words, never the player's own) */
-    readonly delegated?: { readonly shortest: number; readonly longest: number };
+    readonly delegated?: { readonly shortest: number; readonly longest: number | null };
   } | null;
   readonly canonical_unit: string;
   readonly setting: SettingFacts;
@@ -492,10 +492,8 @@ export interface DelegateStage {
   readonly kind: "DELEGATE";
   readonly pc_id: string;
   readonly delegation_id: string;
-  /** the player's own words about what they want, exactly as offered (null when they offered none) */
-  readonly words: string | null;
-  readonly shortest: number;
-  readonly longest: number;
+  readonly shortest: number | null;
+  readonly longest: number | null;
   readonly scope_digest: string;
 }
 export interface PrepareStage {
@@ -558,13 +556,12 @@ export function clarifyIdentity(pc_id: string, words: string): ClarifyStage {
   };
 }
 const delegationScopeDigest = (i: DelegateInput): string =>
-  sha(canonicalJson({ words: i.words, shortest: i.shortest, longest: i.longest })).slice(0, 16);
+  sha(canonicalJson({ shortest: i.shortest, longest: i.longest })).slice(0, 16);
 export function delegateIdentity(pc_id: string, i: DelegateInput): DelegateStage {
   return {
     kind: "DELEGATE",
     pc_id,
     delegation_id: pcDelegationIdOf(pc_id),
-    words: i.words,
     shortest: i.shortest,
     longest: i.longest,
     scope_digest: delegationScopeDigest(i),
@@ -659,29 +656,18 @@ export function validStageIdentity(
     }
     case "DELEGATE": {
       if (
-        !exactKeys(v, [
-          "kind",
-          "pc_id",
-          "delegation_id",
-          "words",
-          "shortest",
-          "longest",
-          "scope_digest",
-        ]) ||
-        !entity(v["pc_id"]) ||
-        !(v["words"] === null || typeof v["words"] === "string") ||
-        typeof v["shortest"] !== "number" ||
-        typeof v["longest"] !== "number"
+        !exactKeys(v, ["kind", "pc_id", "delegation_id", "shortest", "longest", "scope_digest"]) ||
+        !entity(v["pc_id"])
       )
         return false;
       const parsed = parseDelegation({
-        shortest: v["shortest"],
-        longest: v["longest"],
-        ...(v["words"] === null ? {} : { words: v["words"] }),
+        ...(v["shortest"] === null ? {} : { shortest: v["shortest"] }),
+        ...(v["longest"] === null ? {} : { longest: v["longest"] }),
       });
       return (
         parsed.ok &&
-        parsed.value.words === v["words"] &&
+        parsed.value.shortest === v["shortest"] &&
+        parsed.value.longest === v["longest"] &&
         v["delegation_id"] === pcDelegationIdOf(v["pc_id"]) &&
         v["scope_digest"] === delegationScopeDigest(parsed.value)
       );

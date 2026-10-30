@@ -27,7 +27,6 @@ import {
   BUILD_ID,
   UNKNOWN_OUTCOME,
   closeQuietly,
-  judgeStatement,
   result,
   type CharacterResult,
 } from "./original-pc.ts";
@@ -39,14 +38,18 @@ import type { OperatorTerminal } from "./terminal.ts";
  * player-authored or delegated"; BLUE same-PR repair authorization).
  *
  * Where `clarify-collection-cycle` accepts the player's OWN words, this command lets the player DELEGATE the choice ("surprise me"):
- * they commit a lawful bounded scope - optional words of their own and a shortest and a longest whole number of the campaign's unit -
- * and `role.gm` (a bound AI referee host, never the player and never this command) selects inside it. The owner re-derives the task, validates the
+ * they may commit numeric limits - a shortest and/or a longest whole number of the campaign's unit; none is required - and `role.gm`
+ * (a bound AI referee host, never the player and never this command) selects inside the scope. The owner re-derives the task, validates the
  * selection against the committed scope and the character's accepted baseline, and writes a create-only Delegation Commit Record
  * (provenance PLAYER-DELEGATED, executing role role.gm, non-random, sealed) BEFORE any dependent collection commitment. The record
  * shares the ONE slot of the branch with the player-authored clarification, cannot be reselected, and is refused once any collection
  * of the character has begun. The player confirms the DELEGATION (the scope, the method class, that the choice is sealed), not a number
  * they have seen: the selected content is not shown before they confirm, so declining cannot shop for a better draw, and the retained
  * exchange returns the same selection to the same task if the command is run again.
+ *
+ * The player's free words are not accepted as constraints: an owner cannot verify wording against sealed content, so the only constraints
+ * a delegation carries are the numeric limits the owner can check (BLUE hold H1-C). A numeric wish is a limit; a qualitative wish is
+ * not a constraint this record can validate, and the player's own words belong to `clarify-collection-cycle`.
  *
  * Never: a bound chosen for the player, a default, a rate from any source but the host's selection inside the player's bounds, a
  * statement passed off as the player's own words, a second definition of the branch, a retrofit of an act that already exists, or a
@@ -65,11 +68,13 @@ export interface DelegateCollectionCycleParams {
   readonly ledgerFs?: FsOps;
   readonly refereePolls?: number;
   readonly refereePollMs?: number;
-  /** the scope the player commits (their own words, if any, and the bounds in the campaign's unit) */
+  /**
+   * The numeric limits the player committed, in the campaign's unit; null where they gave none. A limit that is present but not a whole
+   * number of at least 1 (NaN included) is refused, never defaulted or repaired.
+   */
   readonly scope: {
-    readonly constraintWords: string | null;
-    readonly shortest: number;
-    readonly longest: number;
+    readonly shortest: number | null;
+    readonly longest: number | null;
   };
 }
 
@@ -84,30 +89,28 @@ export async function delegateCollectionCycle(
 const NOT_AVAILABLE = (why: string, pcKey?: string): CharacterResult =>
   result("DELEGATION_NOT_AVAILABLE", [...(pcKey ? [`character: ${pcKey}`] : []), why]);
 
-/** The scope the player committed, or why it is not a lawful bounded scope. Nothing is defaulted, widened or completed. */
+/** The scope the player committed, or why it is not a lawful scope. Nothing is defaulted, widened or completed on their behalf. */
 function scopeOf(
   p: DelegateCollectionCycleParams,
   unit: string,
 ): { ok: true; scope: PcDelegationScope } | { ok: false; why: string } {
-  const { shortest, longest, constraintWords } = p.scope;
-  const whole = (n: number) => Number.isSafeInteger(n) && n >= 1;
-  if (!whole(shortest) || !whole(longest) || shortest > longest)
+  const { shortest, longest } = p.scope;
+  const whole = (n: number | null) => n === null || (Number.isSafeInteger(n) && n >= 1);
+  if (
+    !whole(shortest) ||
+    !whole(longest) ||
+    (shortest !== null && longest !== null && shortest > longest)
+  )
     return {
       ok: false,
-      why: `a delegation needs a lawful bounded scope: a shortest and a longest whole number of ${unit}, at least 1, the shortest not above the longest`,
+      why: `a limit is a whole number of ${unit}, at least 1, and the shortest cannot exceed the longest; nothing is defaulted for you`,
     };
-  let words: string | null = null;
-  if (constraintWords !== null) {
-    const judged = judgeStatement(constraintWords);
-    if (!judged.ok) return { ok: false, why: `your words were not used: ${judged.reason}` };
-    words = judged.text;
-  }
   return {
     ok: true,
     scope: {
       branch: PC_CLARIFICATION_BRANCH,
-      constraint_words: words,
-      candidate_space: { kind: PC_DELEGATION_SPACE_KIND, unit, shortest, longest },
+      // a duration is strictly positive: with no lower limit the shortest is 1, which is no player constraint
+      candidate_space: { kind: PC_DELEGATION_SPACE_KIND, unit, shortest: shortest ?? 1, longest },
     },
   };
 }
@@ -115,9 +118,14 @@ function scopeOf(
 /** What the player is shown and confirms: the scope they committed and the method, never the number (it is not shown before they confirm). */
 const scopeLines = (scope: PcDelegationScope): string[] => [
   `the choice you delegate: how long your character takes to handle ONE unit of loose material (lift it and carry it away) in one serial cycle`,
-  `your bounds: at least ${scope.candidate_space.shortest} and at most ${scope.candidate_space.longest} ${scope.candidate_space.unit}, a whole number`,
-  `your words: ${scope.constraint_words === null ? "(none)" : JSON.stringify(scope.constraint_words)}`,
-  `who chooses: role.gm (the AI referee host), inside those bounds, once; method ${PC_DELEGATION_METHOD_CLASS} ${PC_DELEGATION_METHOD_VERSION} (not random, no draw or seed)`,
+  scope.candidate_space.longest === null && scope.candidate_space.shortest === 1
+    ? `your limits: none given - the referee chooses any whole number of ${scope.candidate_space.unit} (at least 1) that fits your character's accepted content`
+    : `your limits: at least ${scope.candidate_space.shortest} and ${
+        scope.candidate_space.longest === null
+          ? "no upper limit given"
+          : `at most ${scope.candidate_space.longest}`
+      } ${scope.candidate_space.unit}, a whole number`,
+  `who chooses: role.gm (the AI referee host), inside that scope, once; method ${PC_DELEGATION_METHOD_CLASS} ${PC_DELEGATION_METHOD_VERSION} (not random, no draw or seed)`,
   `what is recorded: a Delegation Commit Record with provenance PLAYER-DELEGATED (the choice is the referee's, not your own words), sealed and effective from the canonical time of acceptance, before any collection exists`,
 ];
 
@@ -160,7 +168,7 @@ async function run(
     );
 
   terminal.say(
-    "Asking the AI referee host (role.gm) to choose inside the bounds you committed, against what your character already is ...",
+    "Asking the AI referee host (role.gm) to choose inside the scope you committed, against what your character already is ...",
   );
   const asked = await askCollection(
     {
@@ -212,7 +220,7 @@ async function run(
     OOC_BANNER,
     `character: ${pcId}`,
     ...scopeLines(scope),
-    "The referee has chosen inside your bounds. The choice is sealed with the delegation and is not shown here, so declining does not buy another draw: the same question finds the same choice. It is reported once the delegation is committed.",
+    "The referee has chosen inside your scope. The choice is sealed with the delegation and is not shown here, so declining does not buy another draw: the same question finds the same choice. It is reported once the delegation is committed.",
     `Confirming delegates the choice and seals it from the canonical time ${TIME(at)} onward. It cannot be reselected, changed or taken back. It changes no earlier record, moves no time, creates no material and starts no collection.`,
   ]);
   if (!confirmation || !consumeConfirmation(confirmation, "accept-delegation", subject))
@@ -279,7 +287,7 @@ async function accepted(
       `campaign: ${campaignId}`,
       `character: ${pcId}`,
       `delegation: ${held.value.delegation_id}${already ? " (accepted earlier; unchanged)" : ""}`,
-      `Character Mirror - scope: ${m.scope.shortest}..${m.scope.longest} ${m.scope.unit}${m.scope.your_words === null ? "" : `, your words ${JSON.stringify(m.scope.your_words)}`}`,
+      `Character Mirror - scope: ${m.scope.shortest}..${m.scope.longest === null ? "(no upper limit)" : m.scope.longest} ${m.scope.unit}`,
       `Character Mirror - method: ${m.method.class} ${m.method.version} (random: no), executed by ${m.executed_by}, provenance ${m.provenance}`,
       `Character Mirror - seal: ${m.seal}`,
       `effective from: ${TIME(m.effective_from)}; governing package ${m.governing_package}`,

@@ -81,7 +81,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/operator/src/cli.ts":
-    "e53e78c2ee0c7c16a7e67dff8369d5421cfdf647df52c1b905d0933724c5c2b3",
+    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/index.ts":
     "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
 };

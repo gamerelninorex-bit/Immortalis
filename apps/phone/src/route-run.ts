@@ -76,7 +76,7 @@ export async function runDelegate(
     ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
     ...(options.refereePolls !== undefined ? { refereePolls: options.refereePolls } : {}),
     ...(options.refereePollMs !== undefined ? { refereePollMs: options.refereePollMs } : {}),
-    scope: { constraintWords: id.words, shortest: id.shortest, longest: id.longest },
+    scope: { shortest: id.shortest, longest: id.longest },
   });
   out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
   out(r.message);

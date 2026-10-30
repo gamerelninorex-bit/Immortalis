@@ -282,29 +282,37 @@ export const PC_DELEGATION_METHOD_VERSION = "pc-cycle-gm-selection:v1";
 /** The shape of the candidate space: whole numbers of the campaign's canonical unit between two committed bounds, inclusive. */
 export const PC_DELEGATION_SPACE_KIND = "WHOLE_POSITIVE_DURATION_RANGE";
 /**
- * The question the delegated branch puts to `role.gm`, fixed by the engine and never composed by a caller. The GM chooses within the
- * committed bounds and writes ONE statement of the character's handling; the player did not author it and it is never recorded as
- * the player's own wording.
+ * The question the delegated branch puts to `role.gm`, fixed by the engine and never composed by a caller. The GM chooses and writes ONE
+ * statement of the character's handling; the player did not author it and it is never recorded as the player's own wording.
  */
 export const PC_DELEGATION_QUESTION =
-  "The player has delegated to you the choice of how long their character takes to handle ONE unit of loose material (lift it and carry it away) in one serial cycle. Choose a whole number of the campaign's unit of time between the committed bounds, inclusive, that is consistent with the character's accepted content and the player's words. Write ONE statement of that handling that states the number in digits and the unit and nothing else numeric. Add no capability, actuator, limb, power or reach.";
+  "The player has delegated to you the choice of how long their character takes to handle ONE unit of loose material (lift it and carry it away) in one serial cycle. Choose a whole number of the campaign's unit of time that is consistent with the character's accepted content, and that is at least the shortest bound and, where the player committed a longest bound, at most that bound. Write ONE statement of that handling that states the number in digits and the unit and nothing else numeric. Add no capability, actuator, limb, power or reach.";
 const MAX_DELEGATED_STATEMENT = 300;
 
 const WholeDuration = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
-/** The scope/constraints the player committed (the Mirror shows exactly this): the branch, their own words, and the candidate space. */
+/**
+ * The scope/constraints the player committed (the Mirror shows exactly this): the branch and the candidate space. The constraints are
+ * NUMERIC LIMITS ONLY, because they are the only constraints an owner can verify against sealed content. A numeric limit the player states
+ * ("never more than five seconds") is the `longest` bound; a lower one is the `shortest`. The player's free words are deliberately NOT
+ * part of the scope: wording the owner cannot check would be certified as "within constraints" on the host's say-so (BLUE hold H1-C), and a
+ * qualitative wish ("nothing frantic") is not a constraint class this record can validate (see `docs/gm-led-first-play.md`, L1).
+ * A duration is strictly positive, so `shortest` is at least 1 and is 1 when the player gave no lower limit; `longest` is null when the
+ * player gave no upper limit, and then the choice is bounded by the branch, the character's accepted baseline and representability only.
+ */
 export const PcDelegationScopeSchema = z.strictObject({
   branch: z.literal(PC_CLARIFICATION_BRANCH),
-  /** the player's own words about what they want, retained verbatim (never edited or completed); null when they offered none */
-  constraint_words: Text.max(500).nullable(),
   candidate_space: z
     .strictObject({
       kind: z.literal(PC_DELEGATION_SPACE_KIND),
       unit: Id,
       shortest: WholeDuration,
-      longest: WholeDuration,
+      longest: WholeDuration.nullable(),
     })
-    .refine((c) => c.shortest <= c.longest, "the shortest bound does not exceed the longest"),
+    .refine(
+      (c) => c.longest === null || c.shortest <= c.longest,
+      "the shortest bound does not exceed the longest",
+    ),
 });
 export type PcDelegationScope = z.infer<typeof PcDelegationScopeSchema>;
 

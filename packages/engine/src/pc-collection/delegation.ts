@@ -39,9 +39,11 @@ import type { ScanFacts } from "./determinations.ts";
 
 /**
  * H1 (BLUE same-PR repair authorization; I-002 §9 Delegation / Hidden-Seed Adapter; CPAA-C1 v0.3 F-2 "lawfully player-authored or
- * delegated"): the single statement of what a DELEGATED selection of the one-unit serial handling cycle must be. The player commits a
- * bounded scope (their own words, a unit, a shortest and a longest whole number); `role.gm` selects inside it; the owner re-derives
- * every check from committed facts and from the sealed content itself, at admission and again at every load.
+ * delegated"): the single statement of what a DELEGATED selection of the one-unit serial handling cycle must be. The player delegates the
+ * choice and may commit NUMERIC LIMITS (a shortest and a longest whole number of the campaign's unit); `role.gm` selects inside the scope;
+ * the owner re-derives every check from committed facts and from the sealed content itself, at admission and again at every load. The
+ * limits are the whole of the constraint class the owner can verify: free words are not part of the scope, so no unverifiable "constraint"
+ * is ever certified as satisfied (BLUE hold H1-C).
  *
  * It never supplies the selection: the number and the wording are the host's, validated, never invented here. A record claims no
  * validation it has not earned, carries no player-authored provenance, shares the ONE slot of the branch with the R-5 clarification,
@@ -51,7 +53,6 @@ import type { ScanFacts } from "./determinations.ts";
 
 const MIN_QUOTE_LENGTH = 8;
 const MAX_STATEMENT = 300;
-const MAX_CONSTRAINT_WORDS = 500;
 const NUMERALS = /[0-9]+(?:\.[0-9]+)?/g;
 
 /** The identity of the ONE delegated slot of a character's branch: independent of the selection, so a second one cannot enter. */
@@ -192,7 +193,7 @@ export function interpretDelegatedSelection(
   if (sel === null)
     return fail("ANSWER_INVALID", "a reading that the branch is unresolved carries the selection");
   const space = task.scope.candidate_space;
-  if (sel.value < space.shortest || sel.value > space.longest)
+  if (sel.value < space.shortest || (space.longest !== null && sel.value > space.longest))
     return fail("ANSWER_INVALID", "the selected number lies inside the committed candidate space");
   const duration: CanonicalTime = { unit: space.unit, value: sel.value };
   if (!boundedStatement(sel.statement))
@@ -247,12 +248,6 @@ export function pcDelegationViolation(
   const claim = d.sealed.claims[0]!;
   if (!boundedStatement(claim.statement))
     return "the sealed statement is bounded text without control characters";
-  if (
-    d.scope.constraint_words !== null &&
-    (d.scope.constraint_words.length > MAX_CONSTRAINT_WORDS ||
-      hasControlCharacters(d.scope.constraint_words))
-  )
-    return "the player's constraint words are bounded text without control characters";
   const contractKey = pcExistenceContractKey(d.pc_id);
   const contract = parse(facts, contractKey, ExistenceContractSchema);
   if (!contract)
@@ -286,7 +281,8 @@ export function pcDelegationViolation(
   if (d.sealed.duration.unit !== unit) return "the selected duration is in the committed unit";
   if (
     d.sealed.duration.value < d.scope.candidate_space.shortest ||
-    d.sealed.duration.value > d.scope.candidate_space.longest
+    (d.scope.candidate_space.longest !== null &&
+      d.sealed.duration.value > d.scope.candidate_space.longest)
   )
     return "the selected content lies within the committed candidate space";
   if (!statesExactDuration(claim.statement, d.sealed.duration))
@@ -341,9 +337,9 @@ export function pcDelegationViolation(
 export interface DelegationMirror {
   readonly scope: {
     readonly branch: string;
-    readonly your_words: string | null;
     readonly shortest: number;
-    readonly longest: number;
+    /** null: the player committed no upper limit */
+    readonly longest: number | null;
     readonly unit: string;
   };
   readonly method: { readonly class: string; readonly version: string; readonly random: false };
@@ -360,7 +356,6 @@ export function pcDelegationMirror(d: PcDelegatedClarification): DelegationMirro
   return {
     scope: {
       branch: d.scope.branch,
-      your_words: d.scope.constraint_words,
       shortest: d.scope.candidate_space.shortest,
       longest: d.scope.candidate_space.longest,
       unit: d.scope.candidate_space.unit,

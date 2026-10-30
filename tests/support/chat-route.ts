@@ -101,7 +101,11 @@ export function delegateSelection(
   o: { pick?: (task: any) => number; over?: Record<string, unknown> } = {},
 ): unknown {
   const space = task.scope.candidate_space;
-  const n = o.pick ? o.pick(task) : Math.min(space.longest, space.shortest + 5);
+  const n = o.pick
+    ? o.pick(task)
+    : space.longest === null
+      ? space.shortest + 5
+      : Math.min(space.longest, space.shortest + 5);
   const statement = delegatedStatement(n, space.unit);
   const ground = task.baseline
     .map((i: any) => i.text as string)

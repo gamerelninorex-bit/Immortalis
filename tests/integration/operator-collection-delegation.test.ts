@@ -122,11 +122,9 @@ function playerConsole(confirm = true): Script {
   };
 }
 
-const SCOPE = {
-  constraintWords: "somewhere between four and twelve",
-  shortest: SHORTEST,
-  longest: LONGEST,
-};
+const SCOPE = { shortest: SHORTEST, longest: LONGEST };
+/** a delegation that carries no limit at all (a seed that leaves the detail to the Game Master) */
+const NO_LIMITS = { shortest: null, longest: null };
 
 async function delegate(
   dirs: LocalityDirs,
@@ -194,7 +192,7 @@ describe("delegate-collection-cycle: the shipped command, from the live starting
       .join("\n");
     expect(beforeConfirm).not.toContain(STATEMENT());
     expect(beforeConfirm).toContain("PLAYER-DELEGATED");
-    expect(beforeConfirm).toContain(`at least ${SHORTEST} and at most ${LONGEST}`);
+    expect(beforeConfirm).toContain(`your limits: at least ${SHORTEST} and at most ${LONGEST}`);
     // the Character Mirror afterwards: scope, method class, executing role, seal, and the content that was chosen
     const report = result.details.join("\n");
     expect(report).toContain("Character Mirror - scope");
@@ -336,7 +334,7 @@ describe("delegate-collection-cycle: the shipped command, from the live starting
     expect((await delegate(dirs, playerConsole())).result.status).toBe("DELEGATION_ACCEPTED");
     const head = await headOf(dirs.campaignDir);
     const second = await delegate(dirs, playerConsole(false), gm(), {
-      scope: { constraintWords: null, shortest: 2, longest: 3 },
+      scope: { shortest: 2, longest: 3 },
     });
     expect(second.result.status).toBe("DELEGATION_NOT_AVAILABLE");
     expect(second.result.details.join("\n")).toMatch(/already closed/);
@@ -362,16 +360,16 @@ describe("delegate-collection-cycle: the shipped command, from the live starting
 });
 
 describe("delegate-collection-cycle: what is refused, and why nothing is written", () => {
-  it("an unlawful scope is not asked of any host: reversed, zero, fractional or missing bounds, and bad words", async () => {
+  it("an unlawful scope is not asked of any host: reversed, zero, fractional, NaN or infinite limits", async () => {
     const dirs = await startingShape();
     const head = await headOf(dirs.campaignDir);
     for (const scope of [
-      { constraintWords: null, shortest: 9, longest: 3 },
-      { constraintWords: null, shortest: 0, longest: 3 },
-      { constraintWords: null, shortest: 1.5, longest: 3 },
-      { constraintWords: null, shortest: Number.NaN, longest: 3 },
-      { constraintWords: null, shortest: 1, longest: Number.POSITIVE_INFINITY },
-      { constraintWords: "a\u0007bell", shortest: 1, longest: 3 },
+      { shortest: 9, longest: 3 },
+      { shortest: 0, longest: 3 },
+      { shortest: null, longest: 0 },
+      { shortest: 1.5, longest: 3 },
+      { shortest: Number.NaN, longest: 3 },
+      { shortest: 1, longest: Number.POSITIVE_INFINITY },
     ]) {
       const r = await delegate(dirs, playerConsole(false), gm(), { scope });
       expect(r.result.status, JSON.stringify(scope)).toBe("DELEGATION_NOT_AVAILABLE");
@@ -379,6 +377,67 @@ describe("delegate-collection-cycle: what is refused, and why nothing is written
     }
     expect(await headOf(dirs.campaignDir)).toEqual(head);
   }, 360_000);
+
+  it("a delegation with NO limit at all is asked and sealed: the player is shown that no limit was given, the choice is the host's, and no number is requested of the player", async () => {
+    const dirs = await startingShape();
+    const player = playerConsole();
+    const { result, host } = await delegate(dirs, player, gm(), { scope: NO_LIMITS });
+    expect(result.status, JSON.stringify(result.details) + player.said.join("\n")).toBe(
+      "DELEGATION_ACCEPTED",
+    );
+    expect(host!.answered).toHaveLength(1);
+    const beforeConfirm = player.said
+      .slice(0, player.said.findIndex((l) => PHRASE.test(l)) + 1)
+      .join("\n");
+    expect(beforeConfirm).toContain("your limits: none given");
+    expect(beforeConfirm).not.toContain(STATEMENT());
+    expect(player.typed).toEqual([expect.stringMatching(/^accept-delegation [0-9a-f]{12}$/)]);
+    const held = (await heldDelegation(dirs))!.value;
+    expect(held.scope.candidate_space).toMatchObject({ shortest: 1, longest: null });
+    expect(held.sealed.duration.value).toBe(PICK);
+    expect(result.details.join("\n")).toContain("(no upper limit)");
+    // asking again with the same (empty) scope converges; a scope with a limit now finds the branch closed
+    const again = await delegate(dirs, playerConsole(false), gm(), { scope: NO_LIMITS });
+    expect(again.result.status).toBe("DELEGATION_ACCEPTED");
+    expect(again.host!.answered).toEqual([]);
+    const narrowed = await delegate(dirs, playerConsole(false), gm(), {
+      scope: { shortest: 1, longest: 3 },
+    });
+    expect(narrowed.result.status).toBe("DELEGATION_NOT_AVAILABLE");
+  }, 360_000);
+
+  it('a numeric limit the player states is enforced against the host\'s choice ("never more than five" and a choice of 9 seals nothing)', async () => {
+    const dirs = await startingShape();
+    const head = await headOf(dirs.campaignDir);
+    const out = await delegate(
+      dirs,
+      playerConsole(false),
+      gm(
+        () => ({}),
+        () => 9,
+      ),
+      {
+        scope: { shortest: null, longest: 5 },
+      },
+    );
+    expect(out.result.status).toBe("REFEREE_ANSWER_REFUSED");
+    expect(await headOf(dirs.campaignDir)).toEqual(head);
+    expect(delegationKeys(await keysOf(dirs))).toEqual([]);
+    const ok = await delegate(
+      dirs,
+      playerConsole(),
+      gm(
+        () => ({}),
+        () => 5,
+      ),
+      {
+        // another scope is another question (the five refused answers of the first stay set aside, never reused)
+        scope: { shortest: 2, longest: 5 },
+      },
+    );
+    expect(ok.result.status, JSON.stringify(ok.result.details)).toBe("DELEGATION_ACCEPTED");
+    expect((await heldDelegation(dirs))!.value.sealed.duration.value).toBe(5);
+  }, 480_000);
 
   it("a genuine refusal by the host selects nothing: the duration is already stated, the request is outside the branch, or the answer is outside the bounds", async () => {
     const stated = await startingShape();
@@ -487,7 +546,7 @@ describe("delegate-collection-cycle: what is refused, and why nothing is written
     expect(r.result.status, JSON.stringify(r.result.details)).toBe("DELEGATION_ACCEPTED");
   }, 240_000);
 
-  it("is a closed command of the shipped CLI: it needs the character and both bounds, takes no other option, and a bad request prints the usage", async () => {
+  it("is a closed command of the shipped CLI: it needs the character, takes the two optional limits and no other option (free words included), and a bad request prints the usage", async () => {
     const dirs = await startingShape();
     const lines: string[] = [];
     const base = [
@@ -499,13 +558,18 @@ describe("delegate-collection-cycle: what is refused, and why nothing is written
       "--operator-dir",
       dirs.operatorDir,
     ];
-    expect(await runCli(base, { out: (l) => lines.push(l) })).not.toBe(0); // no character, no bounds
+    expect(await runCli(base, { out: (l) => lines.push(l) })).not.toBe(0); // no character
     expect(lines.join("\n")).toContain("delegate-collection-cycle");
     expect(
-      await runCli([...base, "--player-character", PC_ID, "--shortest", "4"], {
+      await runCli([...base, "--player-character", PC_ID, "--shortest", "four"], {
         out: () => undefined,
       }),
-    ).not.toBe(0); // no --longest
+    ).not.toBe(0); // a limit that is not a whole number
+    expect(
+      await runCli([...base, "--player-character", PC_ID, "--words", "nothing frantic"], {
+        out: () => undefined,
+      }),
+    ).not.toBe(0); // free words are not a constraint class
     expect(
       await runCli(
         [
@@ -535,8 +599,6 @@ describe("delegate-collection-cycle: what is refused, and why nothing is written
           String(SHORTEST),
           "--longest",
           String(LONGEST),
-          "--words",
-          "nothing frantic",
           "--referee-wait",
           "5",
         ],

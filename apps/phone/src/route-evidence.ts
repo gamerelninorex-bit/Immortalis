@@ -111,10 +111,10 @@ export interface RouteFacts {
      * owner holds them.
      */
     readonly delegated?: {
-      readonly words: string | null;
       readonly shortest: number;
-      readonly longest: number;
+      readonly longest: number | null;
       readonly unit: string;
+      readonly duration: number;
       readonly method: string;
       readonly seal: string;
     };
@@ -269,10 +269,10 @@ export async function readRoute(
           clarification_id: delegation.value.delegation_id,
           statements: delegation.value.sealed.claims.map((c) => c.statement),
           delegated: {
-            words: m.scope.your_words,
             shortest: m.scope.shortest,
             longest: m.scope.longest,
             unit: m.scope.unit,
+            duration: delegation.value.sealed.duration.value,
             method: `${m.method.class} ${m.method.version}`,
             seal: m.seal,
           },
@@ -552,7 +552,8 @@ export function stageOutcome(read: RouteRead, id: StageIdentity, campaignId: str
       const d = r.clarification?.delegated;
       if (!r.clarification || !d)
         return { kind: "NO_EFFECT", detail: "no delegation was committed" };
-      return d.words === id.words && d.shortest === id.shortest && d.longest === id.longest
+      // a delegation with no lower limit is recorded with the shortest positive duration (1), which is no player constraint
+      return d.shortest === (id.shortest ?? 1) && d.longest === id.longest
         ? { kind: "COMPLETE" }
         : {
             kind: "NO_EFFECT",

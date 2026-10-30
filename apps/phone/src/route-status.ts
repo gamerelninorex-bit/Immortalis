@@ -65,11 +65,13 @@ export interface NextStep {
     readonly provenance: "PLAYER-DELEGATED";
     readonly executed_by: "role.gm";
     readonly statement: string;
+    /** the sealed duration the statement states, in the campaign's unit: what the preparation's cycle_value is */
+    readonly duration: { readonly value: number; readonly unit: string };
     readonly scope: {
       readonly shortest: number;
-      readonly longest: number;
+      /** null: the player committed no upper limit */
+      readonly longest: number | null;
       readonly unit: string;
-      readonly your_words: string | null;
     };
     readonly method: string;
     readonly seal: string;
@@ -440,11 +442,14 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null, delegable: bool
             provenance: "PLAYER-DELEGATED" as const,
             executed_by: "role.gm" as const,
             statement: r.clarification.statements[0]!,
+            duration: {
+              value: r.clarification.delegated.duration,
+              unit: r.clarification.delegated.unit,
+            },
             scope: {
               shortest: r.clarification.delegated.shortest,
               longest: r.clarification.delegated.longest,
               unit: r.clarification.delegated.unit,
-              your_words: r.clarification.delegated.words,
             },
             method: r.clarification.delegated.method,
             seal: r.clarification.delegated.seal,
@@ -456,9 +461,9 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null, delegable: bool
           if_player_delegates_handling_duration: {
             tool: "delegate_handling_duration" as const,
             ask_the_player: [
-              'only if THEY hand the choice of that one duration to the referee ("surprise me"): the shortest and the longest whole number of the campaign\'s unit they will accept, and any words of their own about it',
+              'nothing is required. If the player\'s seed already leaves the routine detail to the Game Master, or they say so ("you decide", "surprise me"), call it with no numbers at all; pass shortest/longest only if the player THEMSELVES stated a numeric limit ("never more than five seconds" is longest: 5)',
             ],
-            note: "Never delegate on the player's behalf, never choose or suggest the bounds, and never present the referee's choice as the player's own words. The referee chooses once inside their bounds; the choice is sealed and not shown to them before it is committed; it cannot be reselected.",
+            note: "Never delegate on the player's behalf, never choose, suggest or default a limit, and never present the referee's choice as the player's own words. A qualitative wish (\"nothing frantic\") is not a constraint the owner can verify: tell the player so and offer state_handling_duration instead. The referee chooses once; the choice is sealed and not shown before it is committed; it cannot be reselected.",
           },
         }
       : {}),
@@ -473,7 +478,7 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null, delegable: bool
           },
         }
       : {}),
-    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first (or, only if the player themselves delegate the choice, if_player_delegates_handling_duration), asking only for that missing detail. A delegated_choice, once present, is the referee's sealed choice: quote it verbatim as the cycle; it is not the player's own words. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
+    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise the detail is open: if the player has not already spoken to it, ask them ONE question - whether they will say how long one handling cycle takes in their own words (if_handling_duration_unresolved) or leave that to the Game Master (if_player_delegates_handling_duration, which needs no number). That is a choice, not a rate form; never pick for them. A delegated_choice, once present, is the referee's sealed choice: quote it verbatim as the cycle; it is not the player's own words. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
   };
 }
 

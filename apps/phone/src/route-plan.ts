@@ -351,10 +351,7 @@ export function planStage(
       const need = clarificationNeed(r);
       if (need === "DONE") {
         const d = r.clarification!.delegated;
-        return d !== undefined &&
-          d.words === id.words &&
-          d.shortest === id.shortest &&
-          d.longest === id.longest
+        return d !== undefined && d.shortest === (id.shortest ?? 1) && d.longest === id.longest
           ? {
               kind: "DONE",
               step: "DELEGATE",
@@ -377,8 +374,6 @@ export function planStage(
         return refuse(
           "the starting moment is not established yet: state it first (state_starting_moment)",
         );
-      if (id.shortest > id.longest || id.shortest < 1)
-        return refuse("the bounds are not a lawful bounded scope; nothing was started", 400);
       if (!covers("PC_COLLECTION_DELEGATE"))
         return refuse(
           coverage === null
