@@ -47,7 +47,7 @@ export function startScene(
 }
 
 export interface SceneRule {
-  /** requests that carry a materially new commitment (default: a movement, an opening, a taking) */
+  /** WORDS that carry a materially new commitment (default: a movement, an opening, a taking) */
   readonly material?: RegExp;
   /** the character's own words veto any look (a stated blindness) */
   readonly vetoes?: RegExp;
@@ -124,15 +124,36 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
     };
   }
   const asked: string | null = ctx.request.statement;
-  const material = asked !== null && (rule.material ?? MATERIAL).test(asked);
+  if (asked !== null) {
+    // the player's WORDS are only CLASSIFIED; the physical circumstance is the basis's own, separate question
+    const material = (rule.material ?? MATERIAL).test(asked);
+    return {
+      ...common,
+      kind: "CURRENT_VIEWING",
+      viewing: {
+        request: {
+          classification: material ? "MATERIAL_NEW_COMMITMENT" : "ORDINARY_LOOK",
+          rule_ids: ["I001-8"],
+          grounds: material
+            ? "scripted host: the request names a movement or an act beyond routine attention"
+            : "scripted host: routine attention, turning and opening of the eyes",
+          evidence_quote: material ? quoteOf(asked, rule.material ?? MATERIAL) : asked,
+        },
+        state: "NOT_ESTABLISHED",
+        premises: [],
+        rule_ids: ["I001-8"],
+        grounds:
+          "scripted host: the words are classified; the physical circumstance is ruled separately",
+        statement: null,
+      },
+      appearance: null,
+    };
+  }
   const request = {
-    classification: material ? "MATERIAL_NEW_COMMITMENT" : "ORDINARY_LOOK",
+    classification: "ORDINARY_LOOK",
     rule_ids: ["I001-8"],
-    grounds: material
-      ? "scripted host: the request names a movement or an act beyond routine attention"
-      : "scripted host: routine attention, turning and opening of the eyes",
-    evidence_quote:
-      asked === null ? null : material ? quoteOf(asked, rule.material ?? MATERIAL) : asked,
+    grounds: "scripted host: a bare look is routine attention, turning and opening of the eyes",
+    evidence_quote: null,
   };
   const body = ctx.pc.find((i: any) => /ordinary human body/.test(i.text));
   const veto = rule.vetoes ? ctx.pc.find((i: any) => rule.vetoes!.test(i.text)) : undefined;
@@ -142,16 +163,7 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
     evidence_quote: quoteOf(item.text, re),
   });
   let viewing: any;
-  if (material)
-    viewing = {
-      request,
-      state: "NOT_ESTABLISHED",
-      premises: [],
-      rule_ids: ["I001-8"],
-      grounds: "scripted host: a materially new commitment is the player's to choose",
-      statement: null,
-    };
-  else if (veto)
+  if (veto)
     viewing = {
       request,
       state: "NOT_SUPPORTED",

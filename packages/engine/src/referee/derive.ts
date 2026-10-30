@@ -1850,6 +1850,8 @@ export type SceneVerdict =
   | "VIEWING_NOT_SUPPORTED"
   | "VIEWING_UNRESOLVED"
   | "PLAYER_CHOICE_REQUIRED"
+  | "LOOK_ORDINARY"
+  | "LOOK_UNCLEAR"
   | "APPEARANCE_RESOLVED"
   | "APPEARANCE_UNRESOLVED"
   | "SCENE_WORLD_CONFLICT";
@@ -1867,7 +1869,12 @@ export function sceneVerdictOf(d: SceneHostDecision): SceneVerdict {
     const v = d.viewing;
     if (v === null) return "VIEWING_UNRESOLVED";
     if (v.request.classification === "MATERIAL_NEW_COMMITMENT") return "PLAYER_CHOICE_REQUIRED";
-    if (v.request.classification === "UNCLEAR") return "VIEWING_UNRESOLVED";
+    // the player's WORDS (a non-null quotation exists exactly when words were delivered) are only classified: the physical circumstance is
+    // the unchanged basis's one ruling, asked of the basis alone
+    const worded = v.request.evidence_quote !== null;
+    if (v.request.classification === "UNCLEAR")
+      return worded ? "LOOK_UNCLEAR" : "VIEWING_UNRESOLVED";
+    if (worded) return "LOOK_ORDINARY";
     if (v.state === "NOT_SUPPORTED") return "VIEWING_NOT_SUPPORTED";
     return v.state === "SUPPORTED" && !unclear ? "VIEWING_SUPPORTED" : "VIEWING_UNRESOLVED";
   }
@@ -1989,13 +1996,17 @@ export function deriveScene(
       };
     const cited = cite(v.premises);
     if (!cited.ok) return cited;
-    if (v.request.classification === "MATERIAL_NEW_COMMITMENT" && v.state !== "NOT_ESTABLISHED")
-      return incoherent(
-        "a request that carries a materially new commitment is returned to the player, not ruled on",
-      );
+    if (asked !== null) {
+      // The player's words are CLASSIFIED here and nothing else: no physical ruling rests on, or is reopened by, how a look was worded.
+      if (v.state !== "NOT_ESTABLISHED" || v.premises.length > 0 || v.statement !== null)
+        return incoherent(
+          "the words of a request are classified here, not ruled on physically: the physical circumstance is the one ruling of the unchanged basis",
+        );
+      return { ok: true, verdict: sceneVerdictOf(decision) };
+    }
+    if (v.request.classification !== "ORDINARY_LOOK")
+      return incoherent("a bare look has no words to carry a commitment: it is an ordinary look");
     if (v.state === "SUPPORTED") {
-      if (v.request.classification !== "ORDINARY_LOOK")
-        return incoherent("only an ordinary look can be physically supported as one");
       if (v.statement === null)
         return incoherent("a supported ruling states the circumstance it supports");
       if (!v.premises.some((p) => p.from === "PC_STATEMENT" || p.from === "PLACEMENT_STATEMENT"))

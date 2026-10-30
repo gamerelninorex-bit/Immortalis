@@ -191,18 +191,19 @@ export async function resolveScene(p: {
     // an appearance the GM could not resolve (or a conflict) publishes nothing: the perception question then has none to rest on
   }
 
-  // 2. the current viewing circumstance of this look. It is published once per basis, but the player's WORDS are a request of their own: a
-  // worded look is ruled on even where a circumstance already stands (a retained ruling for those exact words is never asked again), because
-  // a materially new commitment in them ("climb up, then look") must be returned to the player, not silently dropped. A bare look has no
-  // words to rule on.
-  if (!p.plan.viewing_present || p.attention !== null) {
-    const request = { kind: "LOOK" as const, statement: p.attention };
+  // 2. the current viewing of this look, in two questions that must not be confused:
+  //    (a) the player's WORDS, if any, are CLASSIFIED (an ordinary look, or a materially new commitment which is returned to the player).
+  //        This is fresh for any new words: a paraphrase is a new request, but it is only ever classified;
+  //    (b) the PHYSICAL circumstance is the unchanged basis's ONE ruling, asked of the basis alone (no wording), retained whatever its
+  //        verdict, and published only when supported. Wording can neither reopen a negative, conflict or unresolved result nor
+  //        promote it: only a changed, owner-supported basis is a new task.
+  const viewing = async (
+    statement: string | null,
+  ): Promise<{ verdict: string; taskId: string } | { stop: CharacterResult }> => {
+    const request = { kind: "LOOK" as const, statement };
     const first = adapter.viewingTask({ pc_id: pcId, attempt: 0, request });
     if (!first.ok)
-      return {
-        kind: "RETURN",
-        result: result("OBSERVATION_NOT_AVAILABLE", [first.error.message], first.error.code),
-      };
+      return { stop: result("OBSERVATION_NOT_AVAILABLE", [first.error.message], first.error.code) };
     let taskId = first.value.task_id;
     let verdict = adapter.decision(taskId)?.value.verdict;
     if (verdict === undefined) {
@@ -213,7 +214,7 @@ export async function resolveScene(p: {
         request,
       });
       const stop = ask(["character: " + pcId + " (no observation made)"], asked);
-      if (stop || asked.kind !== "ANSWERED") return { kind: "RETURN", result: stop! };
+      if (stop || asked.kind !== "ANSWERED") return { stop: stop! };
       const recorded = await adapter.recordScene({
         operation: { ...REFEREE_AUTHORITY },
         host: { host_id: asked.host.host_id, claimed_model: asked.host.claimed_model },
@@ -225,22 +226,31 @@ export async function resolveScene(p: {
       });
       if (!recorded.ok)
         return {
-          kind: "RETURN",
-          result: unknownOrRefused("scene evidence", recorded.error.code, recorded.error.message),
+          stop: unknownOrRefused("scene evidence", recorded.error.code, recorded.error.message),
         };
       p.onProgress(`PROGRESS scene DECIDED ${recorded.value.record.key}`);
       taskId = asked.task_id;
       verdict = recorded.value.verdict;
     }
-    if (verdict === "PLAYER_CHOICE_REQUIRED")
+    return { verdict, taskId };
+  };
+
+  if (p.attention !== null) {
+    const words = await viewing(p.attention);
+    if ("stop" in words) return { kind: "RETURN", result: words.stop };
+    if (words.verdict === "PLAYER_CHOICE_REQUIRED" || words.verdict === "LOOK_UNCLEAR")
       return { kind: "RETURN", result: result("OBSERVATION_NEEDS_CHOICE") };
-    // a circumstance already published at this basis stands: nothing is published again, and these words add nothing to it
-    if (p.plan.viewing_present) return { kind: "CONTINUE" };
-    if (verdict !== "VIEWING_SUPPORTED") return { kind: "RETURN", result: p.notEstablished() };
+    if (words.verdict !== "LOOK_ORDINARY") return { kind: "RETURN", result: p.notEstablished() };
+  }
+  if (!p.plan.viewing_present) {
+    const physical = await viewing(null);
+    if ("stop" in physical) return { kind: "RETURN", result: physical.stop };
+    if (physical.verdict !== "VIEWING_SUPPORTED")
+      return { kind: "RETURN", result: p.notEstablished() };
     const written = await campaign.establishPcCurrentViewing({
-      ...publication("viewing", taskId),
+      ...publication("viewing", physical.taskId),
       pc_id: pcId,
-      ruling_task_id: taskId,
+      ruling_task_id: physical.taskId,
     });
     if (!written.ok)
       return {

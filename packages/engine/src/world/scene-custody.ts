@@ -101,6 +101,10 @@ export function derivePcCurrentViewing(
     return missing("only a supported ruling publishes a viewing circumstance");
   if (r.input.observed_at === null || r.input.refs.length !== 5)
     return missing("the ruling does not cite its basis");
+  if (r.input.statement !== null)
+    return missing(
+      "a viewing circumstance is published from the physical ruling of the basis, never from a classification of words",
+    );
   const bad = recordContextViolation(r, (k) => facts.get(k));
   if (bad) return missing(`the ruling no longer re-derives: ${bad.message}`);
   const [pc, binding, custody, world, locus] = r.input.refs;

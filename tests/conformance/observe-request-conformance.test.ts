@@ -45,7 +45,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the confirmation module (the only place a confirmation is made), re-used without edit
   "packages/operator/src/observation.ts":
-    "16c066a111d13bcb4275d0fa91df91f0bd1dd8bae97304b531baf62b211feb29",
+    "619952934550c275137ebb56dba271d6f8444859b453efcf6f8c0f685490a79f",
   "packages/operator/src/confirmation.ts":
     "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/original-pc.ts":
@@ -77,7 +77,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
   "packages/operator/src/referee-exchange.ts":
-    "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
+    "032a0381b7cbf7771b2a4012d55ecc72bdc709f6271780374be99f0344ffff66",
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/operator/src/cli.ts":

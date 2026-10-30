@@ -35,7 +35,10 @@ describe("the operator module has no ambient authority", () => {
 
   it("names a ruling only by the task identity the engine derived, and publishes only from the engine's own verdict", () => {
     // the two publications take `ruling_task_id`; nothing here takes a verdict, a statement or an aspect from the caller or the host
-    expect(src.match(/ruling_task_id: taskId/g)).toHaveLength(2);
+    expect(src.match(/ruling_task_id: (?:physical\.)?taskId/g)).toHaveLength(2);
+    // the physical question is asked of the basis alone: no wording reaches it, so wording cannot reopen a result
+    expect(src).toMatch(/await viewing\(null\)/);
+    expect(src).toMatch(/await viewing\(p\.attention\)/);
     expect(src).toMatch(/verdict === "APPEARANCE_RESOLVED"/);
     expect(src).toMatch(/verdict !== "VIEWING_SUPPORTED"/);
     expect(src).not.toMatch(/\.statement\b.*establish|aspects\s*:/);

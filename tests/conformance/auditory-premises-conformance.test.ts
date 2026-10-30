@@ -161,7 +161,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
       // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
-      "ac89fb35a351666afedb9bed0493386cf9ad123b7a3401edc4537f1aea418496",
+      "254093b1374d46c0392e8a6c4310e7b5318fb0a8428b41f5dbd52ac83f7c006a",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "6ab3fc2cf3fdbef51b5fd70a13194b39d65742056c820bd0377d2bd9c0ec4c3a",
@@ -184,7 +184,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       // GM-led first play: the PC-only GM_SCENE_RESOLUTION operation, viewing/appearance contexts, rulings and admission; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "f15e4daa24ee9190fc23914d20957d7601c6f4750c86d99b8becd8dca4f017e1",
+        "97f06a09d2fc1894dd897704701c0a6baa02aec1823d4bc033f279f8a60fd580",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

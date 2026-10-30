@@ -727,7 +727,9 @@ export const OBSERVATION_VERDICTS = [
   "OBSERVATION_WORLD_CONFLICT",
 ] as const;
 /**
- * The scene verdicts. `VIEWING_SUPPORTED` / `APPEARANCE_RESOLVED` are the only ones a physical owner may publish from. A request that
+ * The scene verdicts. `VIEWING_SUPPORTED` / `APPEARANCE_RESOLVED` are the only ones a physical owner may publish from. The physical question
+ * is asked of the BASIS ALONE (no wording): the player's words are classified separately (`LOOK_ORDINARY`, `LOOK_UNCLEAR`, or
+ * `PLAYER_CHOICE_REQUIRED`), so a paraphrase can never reopen a physical result already ruled at an unchanged basis. A request that
  * carries a materially new commitment is `PLAYER_CHOICE_REQUIRED`: it is returned to the player, never resolved here. Everything the
  * delivered premises leave unsettled is UNRESOLVED, never an obstruction.
  */
@@ -736,6 +738,8 @@ export const SCENE_VERDICTS = [
   "VIEWING_NOT_SUPPORTED",
   "VIEWING_UNRESOLVED",
   "PLAYER_CHOICE_REQUIRED",
+  "LOOK_ORDINARY",
+  "LOOK_UNCLEAR",
   "APPEARANCE_RESOLVED",
   "APPEARANCE_UNRESOLVED",
   "SCENE_WORLD_CONFLICT",

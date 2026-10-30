@@ -324,10 +324,20 @@ async function run(
       });
       if ("error" in plan)
         return result("OBSERVATION_NOT_AVAILABLE", [plan.error], "CONTEXT_UNAVAILABLE");
-      // is there anything left to rule? A ruling already retained at this basis and request is never asked again, and a retained
-      // negative ends the look without a prompt or a host call, exactly as a retained perception does
-      const request = { kind: "LOOK" as const, statement: p.attention ?? null };
-      const viewingTask = adapter.viewingTask({ pc_id: pcId, attempt: 0, request });
+      // is there anything left to rule? A ruling already retained is never asked again, and a retained final result ends the look without a
+      // prompt or a host call, exactly as a retained perception does. Two rulings are kept apart: the CLASSIFICATION of the player's words
+      // (fresh for new words) and the PHYSICAL circumstance of the unchanged basis, asked of the basis alone (so no wording reopens it).
+      const retainedOf = (statement: string | null) => {
+        const t = adapter.viewingTask({
+          pc_id: pcId,
+          attempt: 0,
+          request: { kind: "LOOK" as const, statement },
+        });
+        const d = t.ok ? adapter.decision(t.value.task_id) : undefined;
+        return d !== undefined && d.value.operation === REFEREE_OP_SCENE
+          ? d.value.verdict
+          : undefined;
+      };
       const appearanceTask = plan.appearance
         ? adapter.appearanceTask({
             pc_id: pcId,
@@ -335,22 +345,23 @@ async function run(
             extraction_id: plan.appearance.extraction_id,
           })
         : null;
-      const retainedViewing = viewingTask.ok
-        ? adapter.decision(viewingTask.value.task_id)
-        : undefined;
-      if (
-        !plan.viewing_present &&
-        retainedViewing !== undefined &&
-        retainedViewing.value.operation === REFEREE_OP_SCENE &&
-        retainedViewing.value.verdict !== "VIEWING_SUPPORTED" &&
-        (appearanceTask === null ||
-          !appearanceTask.ok ||
-          adapter.decision(appearanceTask.value.task_id) !== undefined)
-      )
-        return retainedViewing.value.verdict === "PLAYER_CHOICE_REQUIRED"
-          ? result("OBSERVATION_NEEDS_CHOICE")
-          : notEstablished();
-      if (!plan.viewing_present || plan.appearance !== null) {
+      const appearanceSettled =
+        appearanceTask === null ||
+        !appearanceTask.ok ||
+        adapter.decision(appearanceTask.value.task_id) !== undefined;
+      if (appearanceSettled) {
+        const words = p.attention !== undefined ? retainedOf(p.attention) : undefined;
+        if (words === "PLAYER_CHOICE_REQUIRED" || words === "LOOK_UNCLEAR")
+          return result("OBSERVATION_NEEDS_CHOICE");
+        if (words !== undefined && words !== "LOOK_ORDINARY") return notEstablished();
+        // the basis's physical result ends the look only once the words are settled: new words are classified first, so that a
+        // materially new commitment in them is returned to the player rather than folded into a negative
+        const wordsSettled = p.attention === undefined || words === "LOOK_ORDINARY";
+        const physical = plan.viewing_present ? undefined : retainedOf(null);
+        if (wordsSettled && physical !== undefined && physical !== "VIEWING_SUPPORTED")
+          return notEstablished();
+      }
+      if (!plan.viewing_present || plan.appearance !== null || p.attention !== undefined) {
         const declined = await confirmLook(task);
         if (declined) return declined;
         lookConfirmed = true;
