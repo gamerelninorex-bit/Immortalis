@@ -59,8 +59,12 @@ export interface RouteStatus {
   readonly readiness: {
     /** everything the existing collection tools need is committed, current, attested and configured: a SEPARATE player request for the supported collection may now be made */
     readonly prepared_to_request_collection: boolean;
-    /** setup never starts play, collects, observes or advances time */
-    readonly campaign_started: false;
+    /**
+     * This is a SETUP-READINESS report and says nothing about whether play has begun: it never reads collection, time or observation
+     * state. (It replaces a constant `campaign_started: false` that could be misread as a runtime probe.) Current play state is
+     * `play_status`.
+     */
+    readonly report_scope: "SETUP_READINESS_ONLY";
   };
   readonly barrier: Barrier;
   /** closed codes for service-side settings this route needs and does not have (an engineering step, never a player choice) */
@@ -124,7 +128,7 @@ const empty = (
   state,
   stages,
   next: null,
-  readiness: { prepared_to_request_collection: false, campaign_started: false },
+  readiness: { prepared_to_request_collection: false, report_scope: "SETUP_READINESS_ONLY" },
   barrier: input.barrier,
   detail,
 });
@@ -362,7 +366,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
     state: "OPEN",
     stages,
     next: prepared ? null : (held ?? next),
-    readiness: { prepared_to_request_collection: prepared, campaign_started: false },
+    readiness: { prepared_to_request_collection: prepared, report_scope: "SETUP_READINESS_ONLY" },
     barrier: input.barrier,
     ...(missing.length > 0 ? { blockers: [...new Set(missing)] } : {}),
     ...(input.barrierDetail ? { detail: input.barrierDetail } : {}),

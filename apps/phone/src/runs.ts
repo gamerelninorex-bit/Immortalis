@@ -3,7 +3,9 @@ import type { CharacterDraft, Edit } from "@immortalis/operator";
 import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
 import type { CharacterReadback } from "./character-evidence.ts";
 import type { LocalityReadback } from "./locality-evidence.ts";
+import type { GoalCoordinator } from "./goal.ts";
 import type { ToolContext } from "./mcp-http.ts";
+import type { PlayRead } from "./play-evidence.ts";
 import type { OpeningSources, ReviewAuthority } from "./reviews.ts";
 import type { StageExpectation } from "./route-confirm.ts";
 import type { StageRequest } from "./route-plan.ts";
@@ -167,6 +169,10 @@ export interface PlayerRuns {
   readonly routeStatus: () => Promise<RouteStatus>;
   /** what the confirmation now pending on the player's run must show whole (null when the run is not a stage run) */
   readonly stageExpectation: (run: Run) => StageExpectation | null;
+  /** the goal-level coordinator for the one supported ordinary goal (gather); absent in a host that offers no ordinary play */
+  readonly goal?: GoalCoordinator;
+  /** the owner-grounded, READ-ONLY account of the player's gathering (recomputed from canon on every call; never cached) */
+  readonly play?: () => Promise<PlayRead>;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

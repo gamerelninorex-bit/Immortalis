@@ -25,6 +25,7 @@ import {
 import { CHARACTER_COMMAND } from "./character-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
 import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
+import type { GoalReturn } from "./goal.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
   LOCALITY_CONFIRMATION_LAST,
@@ -725,6 +726,69 @@ async function describe(
             "If this stays RUNNING, the engine may be waiting for a referee reading: use referee_list_tasks and referee_get_task, then referee_submit_decision with your own reading, then await_action again.",
         }
       : {}),
+  });
+}
+
+// -- the goal-level account ---------------------------------------------------------------------------------------------------
+const GOAL_RETURN_TEXT: Record<GoalReturn, string> = {
+  ANOTHER_ATTEMPT_OPEN:
+    "A different gathering attempt is still open at the owners, so this goal did not touch it. Say so to the player; an open attempt is carried on or stopped by its own tools, never replaced.",
+  COMMIT_NOT_MADE:
+    "The player's willingness could not be recorded (it was refused or not accepted), so nothing was started. Do not retry blindly; read play_status.",
+  NOT_ADMITTED:
+    "The owners did not admit the work. Nothing was gathered and no time passed. This says nothing about why; do not guess a cause.",
+  ADMISSION_UNSETTLED:
+    "The owners have not settled whether the work is admitted. Read play_status; if it stays unsettled, call reconcile_last_action. Do not start another attempt.",
+  FINISH_REFUSED:
+    "The time kernel refused to carry the work to its end, so it is still held and nothing was gathered. This says nothing about why; do not guess a cause or probe other times. The player may separately choose to stop it (cease_collection).",
+  OUTCOME_UNCERTAIN:
+    "Whether the last step changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. Do NOT repeat the goal.",
+  STATE_NOT_RECOGNISED:
+    "The owners hold a state this request does not cover. Read play_status and tell the player only what it says.",
+  SERVICE_CLOSING:
+    "The service is closing. Reconnect and read play_status; repeat the goal only if nothing was started.",
+};
+
+async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
+  const view = runs.goal?.current() ?? null;
+  const goal = view?.goal ?? null;
+  // an IN_PROGRESS record that no chain in this process is carrying out was interrupted: repeating the SAME request resumes it
+  const interrupted = goal !== null && goal.outcome === "IN_PROGRESS" && view?.live !== true;
+  const play = runs.play ? await runs.play() : null;
+  const phase = play?.kind === "OPEN" ? play.latest.phase : null;
+  let next: string;
+  if (interrupted)
+    next =
+      "This goal was interrupted before it finished. The owners hold exactly what it did. Read play_status's phase, call reconcile_last_action if the last step's outcome is unsettled, and if the player still wants the same thing repeat the SAME gather request: that resumes this goal's own attempt and never starts another or repeats a step that already happened.";
+  else if (goal?.outcome === "IN_PROGRESS")
+    next =
+      "The engine is carrying out this goal. If it is waiting for a GM reading, answer it with referee_list_tasks, referee_get_task and referee_submit_decision using your own reading, then read play_status again. Do not call collect, continue_collection or finish_collection yourself.";
+  else if (goal?.outcome === "RETURNED" && goal.returned) next = GOAL_RETURN_TEXT[goal.returned];
+  else if (goal?.outcome === "DONE")
+    next =
+      goal.until === "complete"
+        ? "The gathering reached its earned end at the owners. Present only what the owners returned. What the character perceives is a separate request: observe_surroundings, then read_current_observation_glance."
+        : "The work is admitted and no time has passed. Whether to carry it to its end is a separate request from the player (gather with until complete).";
+  else if (phase === "IN_FLIGHT")
+    next =
+      "A gathering is admitted and held. Carrying it to its end is the player's request (gather with until complete, or finish_collection); stopping it is cease_collection.";
+  else if (phase === "COMPLETED" || phase === "NO_ATTEMPT" || phase === null)
+    next = "No gathering is open. A new gathering needs the player's request.";
+  else next = "Read the phase above and tell the player only what it says.";
+  return asJson({
+    goal: goal
+      ? {
+          goal_id: goal.id,
+          amount: goal.amount,
+          until: goal.until,
+          outcome: interrupted ? "INTERRUPTED" : goal.outcome,
+          step: goal.step,
+          ...(goal.returned ? { returned: goal.returned } : {}),
+        }
+      : null,
+    play,
+    next,
+    notice: REPORT_NOTICE,
   });
 }
 
@@ -1498,10 +1562,76 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         );
       },
     },
+    {
+      name: "gather",
+      title: "Gather material (one request)",
+      description: `Carry out the player's ordinary goal of gathering an amount of the material at hand, as ONE request. The engine runs its own routine steps itself - recording the player's willingness, the physical-reach reading and Production's admission of the work, and, only when you ask for "complete", letting time run to that work's own earned completion - so do NOT sequence collect, continue_collection and finish_collection yourself. until "start": willingness, reach and admission only; no time passes (use it for "see if I can start gathering"). until "complete": additionally carry that admitted work to its earned end (use it when the player asked for a completed result, such as "gather five logs"). Only the amount is yours to propose, and only if the player's own words give it; when the quantity is unclear and would change the choice, ask them naturally instead of picking one. The engine returns control, without retrying, at any material boundary: a refused or unadmitted step, an earlier attempt still open, a crossing the time kernel refuses, or an uncertain outcome. It follows in the background: call play_status, and while it is waiting for a GM reading answer it with referee_list_tasks, referee_get_task and referee_submit_decision using your own reading. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          amount: {
+            type: "integer",
+            minimum: 1,
+            maximum: 1000000,
+            description: "units the player asked to gather",
+          },
+          until: {
+            type: "string",
+            enum: ["start", "complete"],
+            description:
+              "how far the player's request goes: start (admit the work, no time passes) or complete (carry it to its earned end)",
+          },
+        },
+        required: ["amount", "until"],
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      ordinaryAction: true,
+      handler: async (args, ctx) => {
+        const amount = args["amount"];
+        const until = args["until"];
+        if (
+          !onlyKeys(args, ["amount", "until"]) ||
+          typeof amount !== "number" ||
+          !Number.isSafeInteger(amount) ||
+          amount < 1 ||
+          amount > 1_000_000 ||
+          (until !== "start" && until !== "complete")
+        )
+          return text(
+            "amount must be a whole number of units, at least 1, and until must be start or complete",
+            true,
+          );
+        if (!runs.goal) return text("ordinary play is not offered by this host", true);
+        const begun = await runs.goal.begin({ amount, until }, ctx, ctx.request?.id ?? "unbound");
+        if (!begun.ok) return text(begun.reason, true);
+        const deadline = Date.now() + settleMs;
+        while (begun.goal.outcome === "IN_PROGRESS" && Date.now() < deadline)
+          await new Promise((r) => setTimeout(r, 25));
+        return goalAccount(runs);
+      },
+    },
+    {
+      name: "play_status",
+      title: "Where the player's gathering stands",
+      description:
+        "Read where the player's gathering stands, from the owners' own records (read-only: it starts and settles nothing). It reports the goal being carried out and the owner-grounded phase of the latest attempt (no attempt, committed, in flight, completed, not admitted, stopped or held), the canonical time, and the one applicable next step. It reports no source or Reserve quantity and says nothing about WHY an attempt was not admitted. It is a PLAY report: for setup readiness use collection_setup_status, which says nothing about whether play has begun.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) =>
+        onlyKeys(args, []) ? goalAccount(runs) : text("this tool takes no arguments", true),
+    },
     simple(
       "continue_collection",
       "Continue gathering",
-      "Propose that the character resumes the gathering that is held.",
+      "Take the player's already-committed gathering attempt through the owners' own next steps: the physical-reach reading and Production's admission of the work. This is also what FIRST admits a just-committed attempt (a `collect` alone commits willingness only and starts no work), so it is not only a resumption of a held one. It passes no time. For an ordinary goal prefer `gather`, which runs these steps for you.",
       "collect-continue",
     ),
     simple(

@@ -57,7 +57,10 @@ import {
 } from "./collection-recovery.ts";
 import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
+import { createGoalCoordinator } from "./goal.ts";
+import { readGoal, writeGoal } from "./goal-record.ts";
 import type { LocalityOutcome } from "./locality-evidence.ts";
+import { readPlay } from "./play-evidence.ts";
 import type { ToolContext } from "./mcp-http.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
@@ -2280,7 +2283,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         state: "UNAVAILABLE",
         stages: [],
         next: null,
-        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        readiness: { prepared_to_request_collection: false, report_scope: "SETUP_READINESS_ONLY" },
         barrier: "NONE",
         detail: "another command is starting now",
       };
@@ -2298,7 +2301,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         state: "UNAVAILABLE",
         stages: [],
         next: null,
-        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        readiness: { prepared_to_request_collection: false, report_scope: "SETUP_READINESS_ONLY" },
         barrier: "NONE",
         detail: "another command is running now",
       };
@@ -2315,7 +2318,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           },
         ],
         next: null,
-        readiness: { prepared_to_request_collection: false, campaign_started: false },
+        readiness: { prepared_to_request_collection: false, report_scope: "SETUP_READINESS_ONLY" },
         barrier: "NONE",
       };
     }
@@ -2375,7 +2378,36 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     return stageReview(cur.stage);
   };
 
+  const goalCoordinator = createGoalCoordinator({
+    launch: (command, options, authority) => launchPlayer({ command, options }, "chat", authority),
+    read: () => readPlay(config),
+    scenario: () => {
+      const checked = checkScenarioFile(config.scenarioFile, { strict: true });
+      return checked.ok ? checked.scenario : null;
+    },
+    exitCode: exitCodeOfRun,
+    decline: () => {
+      reviews.decline();
+      const waiting = player?.terminal.snapshot(0).pending;
+      if (player && waiting) player.terminal.reply(waiting.id, "");
+    },
+    closing: () => closing,
+    track,
+    retain: (g) => writeGoal(config, g),
+    retained: () => readGoal(config),
+  });
+
   const playerRuns: PlayerRuns = {
+    goal: goalCoordinator,
+    play: () =>
+      closing || goalCoordinator.current()?.live === true
+        ? Promise.resolve({
+            kind: "UNAVAILABLE",
+            detail: closing
+              ? "the server is closing"
+              : "a goal is being carried out; its owner records are not read while it holds them",
+          } as const)
+        : track(readPlay(config)),
     resumeKind: () => (resumableBlock ? resumeWhat : null),
     proposeCharacter: (draft, review) =>
       track(launchCharacterWork({ kind: "PROPOSE", draft }, review)),
@@ -2395,14 +2427,19 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     characterExpectation: expectationOf,
     stage: (request, review) => track(launchStageWork(request, review)),
     routeStatus: () =>
-      closing || openingActive
+      closing || openingActive || goalCoordinator.current()?.live === true
         ? Promise.resolve({
             state: "UNAVAILABLE",
             stages: [],
             next: null,
-            readiness: { prepared_to_request_collection: false, campaign_started: false },
+            readiness: {
+              prepared_to_request_collection: false,
+              report_scope: "SETUP_READINESS_ONLY",
+            },
             barrier: "NONE",
-            detail: "the server is closing",
+            detail: closing
+              ? "the server is closing"
+              : "a step is being carried out; try again when it has finished",
           } as RouteStatus)
         : track(routeStatusWork()),
     stageExpectation: stageExpectationOf,

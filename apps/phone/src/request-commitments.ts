@@ -530,14 +530,16 @@ export class RequestCommitments {
                 text: JSON.stringify({
                   ...body,
                   request_readback: readback,
+                  // A terminal opening state is a HISTORICAL receipt of the original grouped request, kept for correction and
+                  // audit. It is not the current obstacle: later stages (a delegated cycle, an attestation, a declaration) can have
+                  // completed since, so it never replaces the owner-grounded `next` the result itself carries.
                   ...(this.opening
-                    ? {
-                        opening: this.opening,
-                        next:
-                          this.opening.state === "REALIZING"
-                            ? "The requested opening is continuing through its owners. Follow await_action."
-                            : this.opening.detail,
-                      }
+                    ? this.opening.state === "REALIZING"
+                      ? {
+                          opening: this.opening,
+                          next: "The requested opening is continuing through its owners. Follow await_action.",
+                        }
+                      : { opening: { ...this.opening, historical: true } }
                     : {}),
                 }),
               },
@@ -547,7 +549,9 @@ export class RequestCommitments {
       structuredContent: {
         ...result.structuredContent,
         request_readback: readback,
-        ...(this.opening ? { opening: this.opening } : {}),
+        ...(this.opening
+          ? { opening: this.opening.state === "REALIZING" ? this.opening : { ...this.opening, historical: true } }
+          : {}),
       },
     };
   }

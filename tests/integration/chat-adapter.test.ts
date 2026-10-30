@@ -541,6 +541,8 @@ describe("MECHANISM: the MCP transport", () => {
           "cancel_action",
           "await_action",
           "collect",
+          "gather",
+          "play_status",
           "continue_collection",
           "finish_collection",
           "cease_collection",

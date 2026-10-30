@@ -41,7 +41,7 @@ it("UI and elicitation ABSENT: exact requests realize ordered setup, then a sepa
   try {
     const list = await r.chat.rpc("tools/list");
     const tools = list.json.result.tools;
-    expect(tools.filter((t: any) => t._meta?.ui?.visibility?.[0] !== "app")).toHaveLength(26);
+    expect(tools.filter((t: any) => t._meta?.ui?.visibility?.[0] !== "app")).toHaveLength(28);
     expect(tools.some((t: any) => t.name === REVIEW_CALLBACK)).toBe(false);
     const st = await reviewProposal(r.chat, j, "propose_original_setting", openingSetting());
     expect(st.data.exit_code).toBe(0);
