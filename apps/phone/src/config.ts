@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { parseRefereeBindings, type RefereeBinding } from "./referee-startup.ts";
 
 /**
  * The phone bridge's configuration, read ONCE from the environment by `main.ts` and passed in as data. There are no defaults for
@@ -15,6 +16,8 @@ export interface PhoneConfig {
   readonly refereeToken: string;
   /** the referee host identities the referee lane may serve (each bound by the operator; at most 8) */
   readonly refereeHostIds: readonly string[];
+  /** Optional explicit operator scopes for custom host identities; never read from a client. */
+  readonly refereeBindings?: readonly RefereeBinding[];
   readonly bindHost: string;
   readonly port: number;
   /** `proxy`: TLS ends at the platform's edge and every non-health request must say so (`x-forwarded-proto: https`); `insecure-loopback`: plain HTTP on 127.0.0.1 for local development only */
@@ -75,6 +78,19 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
   if (hostIds.length === 0 || hostIds.length > 8 || new Set(hostIds).size !== hostIds.length)
     problems.push("IMMORTALIS_REFEREE_HOST_IDS must list 1 to 8 distinct host identities");
   if (hostIds.some((h) => !HOST_ID.test(h))) problems.push("a referee host identity is not valid");
+  const bindingsRaw = env["IMMORTALIS_REFEREE_BINDINGS"];
+  let refereeBindings: readonly RefereeBinding[] | undefined;
+  if (bindingsRaw !== undefined) {
+    try {
+      refereeBindings = parseRefereeBindings(hostIds, JSON.parse(bindingsRaw)) ?? undefined;
+    } catch {
+      // The input may contain secrets or arbitrary text. Never echo it or a parser diagnostic.
+    }
+    if (!refereeBindings)
+      problems.push(
+        "IMMORTALIS_REFEREE_BINDINGS must map every listed host to explicit supported operations",
+      );
+  }
   const transportRaw = env["IMMORTALIS_TRANSPORT"] ?? "proxy";
   if (transportRaw !== "proxy" && transportRaw !== "insecure-loopback")
     problems.push("IMMORTALIS_TRANSPORT must be proxy or insecure-loopback");
@@ -123,6 +139,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
       playerToken,
       refereeToken,
       refereeHostIds: hostIds,
+      ...(refereeBindings ? { refereeBindings } : {}),
       bindHost,
       port,
       transport,

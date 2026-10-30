@@ -2,6 +2,7 @@ import { loadConfig } from "./config.ts";
 import { preflightA, preflightB, type PreflightReport } from "./preflight.ts";
 import { createPhoneServer } from "./server.ts";
 import { prepareChat } from "./prepare-chat.ts";
+import { initializeRefereeHosts } from "./referee-startup.ts";
 
 /**
  * The phone bridge's entry point. It reads its configuration once, refuses to start on any problem and never prints a secret.
@@ -85,6 +86,13 @@ const negotiation = (line: string) => {
     // a log that cannot be written never affects the service
   }
 };
+const referee = await initializeRefereeHosts(config.value);
+if (!referee.ok) {
+  process.stderr.write(
+    `immortalis-phone: referee startup ${referee.code}; refusing to listen; inspect trusted configuration and private registration files\n`,
+  );
+  process.exit(2);
+}
 const app = createPhoneServer(config.value, { chat: { note }, negotiation });
 const port = await app.listen();
 process.stdout.write(

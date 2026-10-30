@@ -41,7 +41,9 @@ const MAX_LINE = TERMINAL_MAX_LINE;
 const MAX_TEXT = 1024 * 1024;
 const MAX_REPLY = 16384;
 
-export function createWebTerminal(options: { readonly askExpiryMs?: number } = {}): WebTerminal {
+export function createWebTerminal(
+  options: { readonly askExpiryMs?: number; readonly onAbort?: () => void } = {},
+): WebTerminal {
   const expiry = options.askExpiryMs ?? 15 * 60_000;
   const lines: TranscriptLine[] = [];
   let seq = 0;
@@ -125,6 +127,7 @@ export function createWebTerminal(options: { readonly askExpiryMs?: number } = {
     },
     abort: () => {
       closed = true;
+      options.onAbort?.();
       finish(null);
       notify();
     },

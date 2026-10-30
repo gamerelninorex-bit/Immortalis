@@ -135,6 +135,7 @@ import {
   setupEvidence,
 } from "./setup-recovery.ts";
 import { createWebTerminal } from "./web-terminal.ts";
+import { withRefereeCancellation } from "../../../packages/operator/src/referee-cancellation.ts";
 
 /**
  * The phone bridge: a small mobile-browser chat over the operator's and the referee's EXISTING commands. It is a transport and a front
@@ -578,9 +579,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     after: (run: Run, code: number | null) => Promise<void> | void,
     execute: (env: CliEnvironment) => Promise<number> = (env) => cli(argv, env),
   ): Run {
-    const terminal = createWebTerminal(
-      deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs },
-    );
+    const cancellation = new AbortController();
+    const terminal = createWebTerminal({
+      ...(deps.askExpiryMs === undefined ? {} : { askExpiryMs: deps.askExpiryMs }),
+      onAbort: () => cancellation.abort(),
+    });
     const run: Run = { id, label, terminal, done: false, uncertain: false };
     player = run;
     wakeLane("player");
@@ -602,7 +605,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         })
       : baseTerminal;
     const env = { terminal: reviewed, out: (line: string) => terminal.say(line) };
-    const chain = execute(env)
+    const chain = withRefereeCancellation(cancellation.signal, () => execute(env))
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
         await after(run, code);
@@ -1810,7 +1813,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       }
       const dispatched = identity!;
       const inherited =
-        review && req.kind === "RESUME" ? reviews.sources(review.authority) : undefined;
+        review && req.kind === "RESUME"
+          ? {
+              ...reviews.sources(review.authority),
+              ...reviews.runSources(review.authority, originalRequestRun ?? "", dispatched),
+            }
+          : undefined;
       const reviewed = review
         ? {
             ...review,

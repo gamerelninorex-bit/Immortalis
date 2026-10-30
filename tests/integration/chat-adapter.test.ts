@@ -2264,7 +2264,6 @@ describe("MECHANISM (BLUE R3 delta): every command that can write is recorded fi
     ["clarify-collection-cycle", { "player-character": "pc-x" }],
     ["author-character", { world: "w", locus: "l", "player-character": "pc-x" }],
     ["establish-character-locus", { "player-character": "pc-x" }],
-    ["referee-bind-host", { "host-id": "gm-setup" }],
     ["declare-closed-setting", {}, "{}"],
   ];
 
@@ -2288,6 +2287,16 @@ describe("MECHANISM (BLUE R3 delta): every command that can write is recorded fi
         expect(r.text, command).toMatch(/UNCERTAIN/);
         expect(r.text, command).toContain("Run reconcile first"); // the page's own command name, not a chat tool
       }
+      // Registration is now trusted startup only: it is unavailable to the player even behind an uncertainty barrier.
+      for (const command of ["referee-bind-host", "referee-bind-collection-host"])
+        expect(
+          (
+            await page.req("POST", "/api/play/command", {
+              command,
+              options: { "host-id": "gm-setup" },
+            })
+          ).status,
+        ).toBe(400);
       expect(stub.argvs.length).toBe(dispatched); // nothing reached the CLI
       // the read-only commands still run
       expect((await page.req("POST", "/api/play/command", { command: "status" })).status).toBe(200);

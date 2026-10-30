@@ -140,6 +140,49 @@ it("an interruption before binding preserves the original input/run and binds it
   expect(receipts[0].run).toBe(context.runId);
   expect(receipts[0].request).toEqual(authority.request);
 });
+
+it("pre-referee continuation retrieves the captured opening only for the original authenticated run or exact dispatch", () => {
+  const f = fixture();
+  const dispatch = { stage: "KEEP", pc_id: "pc", draft: { identity: "authored fixture" } };
+  const source = {
+    campaign: "request-fixture",
+    generation: { grouped: true as const, presence: "authored original presence", pc: "pc" },
+  };
+  const original = {
+    ...context,
+    actor: "pc",
+    dispatch,
+    sources: source,
+    authority: {
+      ...authority,
+      request: { ...authority.request, tool: "propose_original_character" },
+    },
+  };
+  f.adapter.terminal(f.base, original);
+  const before = readFileSync(f.file, "utf8");
+  const reopened = new RequestCommitments(f.config);
+  expect(reopened.sources(original.authority).generation).toBeUndefined();
+  expect(reopened.runSources(original.authority, context.runId, dispatch)).toEqual(source);
+  expect(reopened.runSources(original.authority, "", dispatch)).toEqual(source);
+  expect(reopened.runSources(original.authority, "wrong-run", dispatch).generation).toBeUndefined();
+  expect(
+    reopened.runSources(original.authority, "", { ...dispatch, pc_id: "other" }).generation,
+  ).toBeUndefined();
+  expect(
+    reopened.runSources({ ...original.authority, client: "other" }, "", dispatch).generation,
+  ).toBeUndefined();
+  expect(
+    reopened.runSources({ ...original.authority, grant: "other" }, "", dispatch).generation,
+  ).toBeUndefined();
+  expect(
+    reopened.runSources({ ...original.authority, scopes: ["referee"] }, "", dispatch).generation,
+  ).toBeUndefined();
+  expect(
+    reopened.runSources(original.authority, context.runId, { ...dispatch, pc_id: "other" })
+      .generation,
+  ).toBeUndefined();
+  expect(readFileSync(f.file, "utf8")).toBe(before);
+});
 it("refuses tampered durable input rather than inventing acceptance", async () => {
   const f = fixture();
   f.adapter.terminal(f.base, context);

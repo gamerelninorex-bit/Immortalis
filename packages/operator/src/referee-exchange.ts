@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { pauseRefereeWait, refereeWaitCancelled } from "./referee-cancellation.ts";
 import {
   OBSERVATION_BASE_REFS,
   OBSERVATION_FACULTY_STATES,
@@ -848,8 +849,10 @@ export async function awaitDecision(
   pollMs: number,
 ): Promise<Result<VouchedDecision | null, ExchangeErrorCode>> {
   for (let i = 0; ; i++) {
+    if (refereeWaitCancelled()) return ok(null);
     const got = await vouchedDecision(p, task);
+    if (refereeWaitCancelled()) return ok(null);
     if (!got.ok || got.value !== null || i >= polls) return got;
-    await new Promise<void>((resolve) => setTimeout(resolve, pollMs));
+    if (!(await pauseRefereeWait(pollMs))) return ok(null);
   }
 }

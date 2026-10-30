@@ -8,6 +8,7 @@ import { code } from "../support/f027.ts";
 const ENGINE_DIR = "packages/engine/src/referee";
 const CONTRACT = "packages/contracts/src/referee.ts";
 const OPERATOR = [
+  "packages/operator/src/referee-cancellation.ts",
   "packages/operator/src/referee-exchange.ts",
   "packages/operator/src/referee-mcp.ts",
   "packages/operator/src/referee-bin.ts",
