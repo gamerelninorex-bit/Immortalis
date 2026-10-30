@@ -418,6 +418,7 @@ export type CharacterStatus =
   | "LOCUS_VERIFICATION_FAILED"
   | "OBSERVATION_RECEIVED"
   | "OBSERVATION_NOT_ESTABLISHED"
+  | "OBSERVATION_NEEDS_CHOICE"
   | "OBSERVATION_NOT_AVAILABLE"
   | "OBSERVATION_VERIFICATION_FAILED"
   | "CLARIFICATION_ACCEPTED"
@@ -470,6 +471,8 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "your character looked, and the Epistemic owner established that its sight directly received the raw appearance shown below, at the current canonical basis; a fresh owner-verified open reads back exactly that. It is raw appearance only: it gives the character no recognition, comprehension, belief, memory, action or elapsed time, and it reveals nothing of the setting beyond what was received",
   OBSERVATION_NOT_ESTABLISHED:
     "no observation was established for your character at the current basis: nothing was received, no packet was formed and nothing the character receives was changed. This does not say why, and it is not a report that anything is or is not there; sealed evidence of the reading is kept for audit only",
+  OBSERVATION_NEEDS_CHOICE:
+    "what was asked carries more than looking around, so nothing was looked at and nothing was changed; say what the character actually does",
   OBSERVATION_NOT_AVAILABLE:
     "no observation can be asked now: the character has no committed physical position, or no canonical temporal basis is established, or the character is not the verified player character of this command; nothing was changed. An observation never establishes either, and never advances time",
   OBSERVATION_VERIFICATION_FAILED:

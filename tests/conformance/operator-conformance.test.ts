@@ -61,11 +61,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/logistics.ts":
     "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
   "packages/engine/src/owners/registry.ts":
-    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -205,6 +205,8 @@ describe("the package composes only the existing gateways and canonical reads", 
       "PopulationAdapter",
       "ProductionAdapter",
       "RefereeAdjudicationAdapter",
+      "SceneContext",
+      "SceneRequest",
       "SourceDrawdownAdapter",
       "StageOwnerExtension",
       "StageProviderRegistry",
@@ -212,10 +214,12 @@ describe("the package composes only the existing gateways and canonical reads", 
       "canonicalEqual",
       "clarificationCandidateItems",
       "committedCanonicalTime",
+      "currentViewingId",
       "deriveI002",
       "deriveIr",
       "deriveObservation",
       "derivePhysical",
+      "deriveScene",
       "formObservedPacket",
       "gipSunsetTemporalObject",
       "interpretCycleAnswer",
@@ -269,6 +273,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "askIr",
       "askObservation",
       "askPhysical",
+      "askScene",
       "attestCycle",
       "authorCharacter",
       "authorizeHost",

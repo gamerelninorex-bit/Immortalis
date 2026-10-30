@@ -226,6 +226,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world-state/pc/p1/locus-custody",
   },
   {
+    id: "world_pc_current_viewing",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_SCENE_FACT_KINDS",
+    exampleKey: "world-state/pc/p1/current-viewing/00000000000000000000000000000000",
+  },
+  {
+    id: "world_output_appearance",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_SCENE_FACT_KINDS",
+    exampleKey: "world/w1/output-appearance/x1",
+  },
+  {
     id: "actor_setup_placement",
     owner: "world_state",
     facet: "world_fallback_physical_entity",
@@ -830,11 +846,13 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
    */
   RefereeAdjudicationAdapter: {
     methods: [
+      "appearanceTask",
       "decision",
       "evaluateI002",
       "evaluateIr",
       "evaluateObservation",
       "evaluatePhysical",
+      "evaluateScene",
       "i002Task",
       "irTask",
       "observationTask",
@@ -843,6 +861,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "recordIr",
       "recordObservation",
       "recordPhysical",
+      "recordScene",
+      "viewingTask",
     ],
     source: {
       file: "packages/engine/src/referee/adapter.ts",

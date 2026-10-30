@@ -10,7 +10,9 @@ import {
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
   PhysicalHostDecisionSchema,
+  SceneHostDecisionSchema,
   REFEREE_RECORD_VERSION,
   REFEREE_DECISION_BASIS,
   REFEREE_SECRECY,
@@ -33,12 +35,20 @@ import {
   type RefereeRefusalCode,
   type RefereeVerdict,
   type Result,
+  type SceneHostDecision,
 } from "@immortalis/contracts";
 import { assertCjaCanonical } from "../culture-adjudication/canon.ts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, factKind } from "../owners/registry.ts";
+import {
+  REFEREE_OBSERVATION_RULE,
+  REFEREE_PHYSICAL_RULE,
+  REFEREE_SCENE_RULE,
+  factKind,
+} from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 import {
+  appearanceContext,
+  appearanceWithheld,
   candidateDigest,
   committedCanonicalTime,
   contextDigest,
@@ -46,6 +56,7 @@ import {
   deriveIr,
   deriveObservation,
   derivePhysical,
+  deriveScene,
   i002Context,
   irContext,
   observationContext,
@@ -54,11 +65,16 @@ import {
   recordContextViolation,
   refereeTaskId,
   statementDigest,
+  viewingContext,
+  type AppearanceContext,
   type CandidateItem,
   type I002Context,
   type IrContext,
   type ObservationContext,
   type PhysicalContext,
+  type SceneContext,
+  type SceneRequest,
+  type ViewingContext,
 } from "./derive.ts";
 
 export type RefereeErrorCode = RefereeRefusalCode | StoreCommitErrorCode;
@@ -327,6 +343,8 @@ export class RefereeAdjudicationAdapter {
     pc_id: string;
     attempt: number;
     source_key?: string;
+    /** default: the owner-published viewing circumstance and appearance of THIS basis are part of the question when they exist */
+    scene?: { viewing: "AUTO" | "NONE"; appearance: "AUTO" | "NONE" };
   }): Result<{ context: ObservationContext; task_id: string }, RefereeErrorCode> {
     const facts = (k: string) => this.#store.getFact(k);
     const at = committedCanonicalTime(facts);
@@ -406,6 +424,129 @@ export class RefereeAdjudicationAdapter {
     return this.#publish(record);
   }
 
+  /**
+   * The current-viewing question (GM_SCENE_RESOLUTION): committed facts at the CURRENT canonical basis plus the trusted side's request.
+   * The caller names the character, the attempt and the request - never a circumstance, a fact or an expected result.
+   */
+  viewingTask(input: {
+    pc_id: string;
+    attempt: number;
+    request: SceneRequest;
+  }): Result<{ context: ViewingContext; task_id: string }, RefereeErrorCode> {
+    const facts = (k: string) => this.#store.getFact(k);
+    const at = committedCanonicalTime(facts);
+    if (!at) return fail("CONTEXT_UNAVAILABLE", "no canonical temporal basis is established");
+    const built = viewingContext(facts, {
+      campaign_id: this.#store.head().campaign_id,
+      observed_at: at,
+      ...input,
+    });
+    return built.ok
+      ? ok({ context: built.context, task_id: refereeTaskId(built.context) })
+      : fail(built.code, built.message);
+  }
+
+  /** The output-appearance question for ONE credited delivery of the character's own collection (no observer, request or time). */
+  appearanceTask(input: {
+    pc_id: string;
+    attempt: number;
+    extraction_id: string;
+  }): Result<{ context: AppearanceContext; task_id: string }, RefereeErrorCode> {
+    const built = appearanceContext((k) => this.#store.getFact(k), {
+      campaign_id: this.#store.head().campaign_id,
+      ...input,
+    });
+    return built.ok
+      ? ok({ context: built.context, task_id: refereeTaskId(built.context) })
+      : fail(built.code, built.message);
+  }
+
+  /** Validates a scene answer against the context and derives its verdict WITHOUT writing anything. */
+  evaluateScene(
+    context: SceneContext,
+    answer: unknown,
+  ): Result<{ verdict: RefereeVerdict; decision: SceneHostDecision }, RefereeErrorCode> {
+    const parsed = parseAnswer(SceneHostDecisionSchema, answer);
+    if (!parsed.ok) return parsed;
+    const withheld =
+      context.kind === "OUTPUT_APPEARANCE"
+        ? appearanceWithheld((k) => this.#store.getFact(k), context)
+        : undefined;
+    if (withheld === null)
+      return fail("CONTEXT_UNAVAILABLE", "no credited delivery is available to this appearance");
+    const derived = deriveScene(context, parsed.value, withheld ?? undefined);
+    return derived.ok
+      ? ok({ verdict: derived.verdict, decision: parsed.value })
+      : fail(derived.refusal.code, derived.refusal.message);
+  }
+
+  /**
+   * Retains a scene decision (create-only), whatever its derived verdict: a physical owner publishes only from VIEWING_SUPPORTED or
+   * APPEARANCE_RESOLVED, and every other ruling is kept as sealed audit evidence and nothing else.
+   */
+  recordScene(
+    input:
+      | {
+          operation: unknown;
+          host: RefereeHost;
+          pc_id: string;
+          attempt: number;
+          kind: "CURRENT_VIEWING";
+          request: SceneRequest;
+          answer: unknown;
+        }
+      | {
+          operation: unknown;
+          host: RefereeHost;
+          pc_id: string;
+          attempt: number;
+          kind: "OUTPUT_APPEARANCE";
+          extraction_id: string;
+          answer: unknown;
+        },
+  ): Promise<Result<RefereeOutcome, RefereeErrorCode>> {
+    const denied = this.#authority(input.operation);
+    if (denied) return Promise.resolve(denied);
+    const task =
+      input.kind === "CURRENT_VIEWING" ? this.viewingTask(input) : this.appearanceTask(input);
+    if (!task.ok) return Promise.resolve(task);
+    const context: SceneContext = task.value.context;
+    const evaluated = this.evaluateScene(context, input.answer);
+    if (!evaluated.ok) return Promise.resolve(evaluated);
+    const statement = context.kind === "CURRENT_VIEWING" ? context.request.statement : null;
+    const record: RefereeDecisionRecord = {
+      record_version: REFEREE_RECORD_VERSION,
+      task_id: refereeTaskId(context),
+      campaign_id: context.campaign_id,
+      attempt: context.attempt,
+      authority: { ...REFEREE_AUTHORITY },
+      host: { ...input.host },
+      subject: { pc_id: input.pc_id },
+      input: {
+        digest: contextDigest(context),
+        candidate_digest: null,
+        candidate: null,
+        statement_digest: statement === null ? null : statementDigest(statement),
+        statement,
+        refs: context.refs.map((r) => ({ ...r })),
+        observed_at:
+          context.kind === "CURRENT_VIEWING" ? ({ ...context.observed_at } as CanonicalTime) : null,
+      },
+      validated_under: { ...OBSERVATION_RESOLVER_AUTHORITY },
+      operation: REFEREE_OP_SCENE,
+      decision: evaluated.value.decision,
+      verdict: evaluated.value.verdict as
+        | "VIEWING_SUPPORTED"
+        | "VIEWING_NOT_SUPPORTED"
+        | "VIEWING_UNRESOLVED"
+        | "PLAYER_CHOICE_REQUIRED"
+        | "APPEARANCE_RESOLVED"
+        | "APPEARANCE_UNRESOLVED"
+        | "SCENE_WORLD_CONFLICT",
+    };
+    return this.#publish(record);
+  }
+
   /** The committed decision of a task, by identity (an exact key, never a scan). */
   decision(taskId: string): { fact: OwnerFact; value: RefereeDecisionRecord } | undefined {
     if (!/^[0-9a-f]{64}$/.test(taskId)) return undefined;
@@ -463,7 +604,9 @@ export class RefereeAdjudicationAdapter {
           ? REFEREE_PHYSICAL_RULE
           : r.operation === REFEREE_OP_OBSERVATION
             ? REFEREE_OBSERVATION_RULE
-            : kind.rule,
+            : r.operation === REFEREE_OP_SCENE
+              ? REFEREE_SCENE_RULE
+              : kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
       reads,
       depends_on: [...new Set(r.input.refs.map((x) => x.group_id))],

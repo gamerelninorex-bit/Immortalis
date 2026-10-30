@@ -9,6 +9,7 @@ import {
   ORIGINAL_ACTIVATION,
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
+  PcCurrentViewingSchema,
   PcPhysicalLocusCustodySchema,
   PlayerCharacterBindingSchema,
   PopulationPcOccupancySchema,
@@ -16,18 +17,23 @@ import {
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
   REFEREE_SOURCES,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   WorldLocusSchema,
+  WorldOutputAppearanceSchema,
   WorldProfileSchema,
   WorldSourceConditionSchema,
   WorldSourceDeliverySchema,
+  parseObservationRefLayout,
   pcCollectionRequestId,
   parseWorldSourceConditionKey,
   pcExistenceContractKey,
   popPcOccupancyKey,
   worldLocusKey,
+  worldOutputAppearanceKey,
+  worldPcCurrentViewingKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
   worldSourceDeliveryKey,
@@ -47,6 +53,7 @@ import {
   type RefereeCandidateSlot,
   type RefereeRefusalCode,
   type RefereeVerdict,
+  type SceneHostDecision,
 } from "@immortalis/contracts";
 import { sha256Canonical } from "../hash.ts";
 import { extractionCredited } from "../pc-collection/state.ts";
@@ -134,8 +141,12 @@ export interface I002Context {
 
 export interface DeliveredFact {
   readonly fact_id: string;
-  /** A world/locus fact, a scoped Source Condition, or the sealed completed-collection delivery. */
-  readonly from: "world" | "locus" | "source" | "outcome";
+  /**
+   * A world/locus fact, a scoped Source Condition, the sealed completed-collection delivery, or - only when the World-State physical
+   * custodian published one for this basis - the current viewing circumstance (`viewing`) and the resolved appearance of the delivered
+   * output (`appearance`).
+   */
+  readonly from: "world" | "locus" | "source" | "outcome" | "viewing" | "appearance";
   readonly label: string;
   readonly text: string;
 }
@@ -214,7 +225,60 @@ export interface ObservationContext {
   readonly refs: readonly RefereeInputRef[];
 }
 
-export type RefereeContext = I002Context | IrContext | PhysicalContext | ObservationContext;
+/** The trusted side's statement of what the player asked for in a look: a bounded attention text (or none for a bare look). Never a fact. */
+export interface SceneRequest {
+  readonly kind: "LOOK";
+  readonly statement: string | null;
+}
+
+/**
+ * The current-viewing question (GM_SCENE_RESOLUTION / CURRENT_VIEWING): built ONLY from committed facts at ONE canonical basis plus the
+ * trusted side's statement of the request. It names the character, the basis and the request, and nothing else: no scene, no target, no
+ * expected result. Its five citations are the observation question's five base ones.
+ */
+export interface ViewingContext {
+  readonly operation: typeof REFEREE_OP_SCENE;
+  readonly kind: "CURRENT_VIEWING";
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  readonly observed_at: CanonicalTime;
+  readonly request: SceneRequest;
+  /** the player's separately confirmed native-presence statement, verbatim, as the committed binding preserves it */
+  readonly statement: string;
+  readonly pc: readonly CandidateItem[];
+  readonly facts: readonly DeliveredFact[];
+  readonly refs: readonly RefereeInputRef[];
+}
+
+/**
+ * The output-appearance question (GM_SCENE_RESOLUTION / OUTPUT_APPEARANCE): the credited delivery of the PC's own completed collection
+ * and the committed physical setting, as of the delivery's basis. It carries no observer, no request, no viewing circumstance and no time:
+ * the appearance of a pile is not a function of who is looking or whether they can see it (WG Resolution Rules; F-014D §21 item 11).
+ */
+export interface AppearanceContext {
+  readonly operation: typeof REFEREE_OP_SCENE;
+  readonly kind: "OUTPUT_APPEARANCE";
+  readonly campaign_id: string;
+  readonly attempt: number;
+  readonly subject: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+  };
+  readonly facts: readonly DeliveredFact[];
+  /** the world, the locus and the producing owner's delivery, in that order */
+  readonly refs: readonly RefereeInputRef[];
+}
+
+export type SceneContext = ViewingContext | AppearanceContext;
+
+export type RefereeContext =
+  I002Context | IrContext | PhysicalContext | ObservationContext | SceneContext;
 
 export const contextDigest = (ctx: RefereeContext): string => sha256Canonical(ctx);
 /** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
@@ -472,6 +536,189 @@ function collectionOutcome(
   };
 }
 
+/** The identity of the current viewing circumstance of one basis: derived from the BASIS (never from the wording of a request). */
+export function currentViewingId(input: {
+  pc_id: string;
+  observed_at: CanonicalTime;
+  pins: {
+    pc: number;
+    binding: number;
+    custody: number;
+    world: number;
+    locus: number;
+  };
+}): string {
+  return sha256Canonical({ current_viewing: 1, ...input }).slice(0, 32);
+}
+
+const refOf = (f: OwnerFact): RefereeInputRef => ({
+  fact_key: f.key,
+  version: f.version,
+  group_id: f.provenance.group_id,
+});
+
+/**
+ * The five premises every direct-perception and current-viewing question rests on, read from committed facts: the released character,
+ * its operative first-ACTIVATION binding, its ORIGINAL physical-locus custody at the locus the binding couples, and the world and locus.
+ */
+function observationBase(
+  facts: Facts,
+  pcId: string,
+):
+  | {
+      ok: true;
+      worldId: string;
+      locusId: string;
+      statement: string;
+      pcFact: OwnerFact;
+      bindingFact: OwnerFact;
+      custodyFact: OwnerFact;
+      worldFact: OwnerFact;
+      locusFact: OwnerFact;
+      pc: ExistenceContract;
+      world: ReturnType<typeof WorldProfileSchema.parse>;
+      locus: ReturnType<typeof WorldLocusSchema.parse>;
+      coupling: {
+        world: { entity_id: string; fact_key: string };
+        locus: { entity_id: string; fact_key: string };
+      };
+    }
+  | { ok: false; message: string } {
+  const unavailable = (message: string) => ({ ok: false as const, message });
+  const bindingFact = facts(PLAYER_CHARACTER_BINDING_KEY);
+  const pcFact = facts(pcExistenceContractKey(pcId));
+  const custodyFact = facts(worldPcLocusCustodyKey(pcId));
+  const parsedBinding = bindingFact
+    ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
+    : undefined;
+  const parsedCustody = custodyFact
+    ? PcPhysicalLocusCustodySchema.safeParse(custodyFact.value)
+    : undefined;
+  if (!bindingFact || !parsedBinding?.success || !pcFact)
+    return unavailable("the released character and its operative binding must be committed");
+  if (!custodyFact || !parsedCustody?.success)
+    return unavailable("the character's committed physical-locus custody must be held");
+  const binding = parsedBinding.data;
+  const custody = parsedCustody.data;
+  if (binding.active_pc.entity_id !== pcId || binding.transition.type !== "ACTIVATION")
+    return unavailable("the operative binding is the first ACTIVATION of exactly this character");
+  const worldId = binding.coupling.world.entity_id;
+  const locusId = binding.coupling.locus.entity_id;
+  if (
+    custody.pc_id !== pcId ||
+    custody.basis.established_from !== ORIGINAL_ACTIVATION ||
+    custody.stationary_locus.world.entity_id !== worldId ||
+    custody.stationary_locus.world.fact_key !== binding.coupling.world.fact_key ||
+    custody.stationary_locus.locus.entity_id !== locusId ||
+    custody.stationary_locus.locus.fact_key !== binding.coupling.locus.fact_key
+  )
+    return unavailable(
+      "the custody is the character's ORIGINAL one, at the locus the binding couples",
+    );
+  const worldFact = facts(worldProfileKey(worldId));
+  const locusFact = facts(worldLocusKey(worldId, locusId));
+  if (!worldFact || !locusFact) return unavailable("the coupled world and locus must be committed");
+  const pc = ExistenceContractSchema.safeParse(pcFact.value);
+  const world = WorldProfileSchema.safeParse(worldFact.value);
+  const locus = WorldLocusSchema.safeParse(locusFact.value);
+  if (!pc.success || !world.success || !locus.success)
+    return unavailable("a committed fact does not satisfy its contract");
+  return {
+    ok: true,
+    worldId,
+    locusId,
+    statement: binding.transition.basis.statement,
+    pcFact,
+    bindingFact,
+    custodyFact,
+    worldFact,
+    locusFact,
+    pc: pc.data,
+    world: world.data,
+    locus: locus.data,
+    coupling: binding.coupling,
+  };
+}
+
+/**
+ * The owner-published SUPPORTED current viewing circumstance of THIS basis, if any. Its key is derived from the basis (the character, the
+ * pinned versions of the five base premises and the canonical time), so it is found by identity, never by a scan. A fact at that key that
+ * is not exactly what the basis requires FAILS CLOSED (`invalid`); an absent one is simply absent.
+ */
+function viewingFor(
+  facts: Facts,
+  pcId: string,
+  at: CanonicalTime,
+  base: Extract<ReturnType<typeof observationBase>, { ok: true }>,
+): { fact: OwnerFact; delivered: DeliveredFact } | null | "invalid" {
+  const id = currentViewingId({
+    pc_id: pcId,
+    observed_at: at,
+    pins: {
+      pc: base.pcFact.version,
+      binding: base.bindingFact.version,
+      custody: base.custodyFact.version,
+      world: base.worldFact.version,
+      locus: base.locusFact.version,
+    },
+  });
+  const fact = facts(worldPcCurrentViewingKey(pcId, id));
+  if (!fact) return null;
+  const v = PcCurrentViewingSchema.safeParse(fact.value);
+  if (
+    !v.success ||
+    v.data.viewing_id !== id ||
+    v.data.pc_id !== pcId ||
+    v.data.circumstance.state !== "SUPPORTED" ||
+    v.data.observed_at.value !== at.value ||
+    v.data.observed_at.unit !== at.unit
+  )
+    return "invalid";
+  return {
+    fact,
+    delivered: {
+      fact_id: "viewing.current",
+      from: "viewing",
+      label: "current viewing circumstance (published by the physical custodian)",
+      text: v.data.circumstance.statement,
+    },
+  };
+}
+
+/**
+ * The owner-resolved appearance of a credited delivery, if any (found by the delivery's identity). Absent is absent; a fact at that key
+ * that does not reference exactly this delivery FAILS CLOSED.
+ */
+function appearanceFor(
+  facts: Facts,
+  worldId: string,
+  locusId: string,
+  deliveryFact: OwnerFact,
+  extractionId: string,
+): { fact: OwnerFact; delivered: DeliveredFact[] } | null | "invalid" {
+  const fact = facts(worldOutputAppearanceKey(worldId, extractionId));
+  if (!fact) return null;
+  const v = WorldOutputAppearanceSchema.safeParse(fact.value);
+  if (
+    !v.success ||
+    v.data.appearance_id !== extractionId ||
+    v.data.world.entity_id !== worldId ||
+    v.data.locus.entity_id !== locusId ||
+    v.data.delivery.fact_key !== deliveryFact.key ||
+    v.data.delivery.version !== deliveryFact.version
+  )
+    return "invalid";
+  return {
+    fact,
+    delivered: v.data.aspects.map((a, i): DeliveredFact => ({
+      fact_id: `appearance.${i + 1}`,
+      from: "appearance",
+      label: `resolved physical appearance of the gathered material (${a.aspect})`,
+      text: `${a.aspect}: ${a.statement}`,
+    })),
+  };
+}
+
 /** The one refusal of every source problem, so that no cause (absent, foreign, elsewhere, exhausted, undescribed) can be told from another. */
 const SOURCE_UNAVAILABLE = "no source is available to this observation";
 
@@ -529,6 +776,10 @@ function sourceScope(
  * custody at the very locus the binding couples, and the world and locus are committed. `source_key` is TRUSTED-SIDE input only (the
  * operator's choice of one existing candidate source to investigate); the source it names must pass `sourceScope`, and is never
  * discovered, enumerated or inferred here.
+ *
+ * `scene` says whether the owner-published current viewing circumstance and output appearance of THIS basis are part of the question.
+ * `AUTO` (a new question) includes whichever exist; `NONE` (a legacy question) includes neither; a retained record is rebuilt with
+ * `AUTO` only for the citations it actually made, so a fact published AFTER a decision can never change the question it was asked.
  */
 export function observationContext(
   facts: Facts,
@@ -540,6 +791,7 @@ export function observationContext(
     /** default `LATEST`: a new question cites the PC's own most recent completed collection, if any */
     outcome?: ObservationOutcomeSelector;
     source_key?: string;
+    scene?: { viewing: "AUTO" | "NONE"; appearance: "AUTO" | "NONE" };
   },
 ):
   | { ok: true; context: ObservationContext }
@@ -549,53 +801,13 @@ export function observationContext(
     code: "CONTEXT_UNAVAILABLE" as const,
     message,
   });
-  const bindingFact = facts(PLAYER_CHARACTER_BINDING_KEY);
-  const pcFact = facts(pcExistenceContractKey(input.pc_id));
-  const custodyFact = facts(worldPcLocusCustodyKey(input.pc_id));
-  const parsedBinding = bindingFact
-    ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
-    : undefined;
-  const parsedCustody = custodyFact
-    ? PcPhysicalLocusCustodySchema.safeParse(custodyFact.value)
-    : undefined;
-  if (!bindingFact || !parsedBinding?.success || !pcFact)
-    return unavailable("the released character and its operative binding must be committed");
-  if (!custodyFact || !parsedCustody?.success)
-    return unavailable("the character's committed physical-locus custody must be held");
-  const binding = parsedBinding.data;
-  const custody = parsedCustody.data;
-  if (binding.active_pc.entity_id !== input.pc_id || binding.transition.type !== "ACTIVATION")
-    return unavailable("the operative binding is the first ACTIVATION of exactly this character");
-  const worldId = binding.coupling.world.entity_id;
-  const locusId = binding.coupling.locus.entity_id;
-  if (
-    custody.pc_id !== input.pc_id ||
-    custody.basis.established_from !== ORIGINAL_ACTIVATION ||
-    custody.stationary_locus.world.entity_id !== worldId ||
-    custody.stationary_locus.world.fact_key !== binding.coupling.world.fact_key ||
-    custody.stationary_locus.locus.entity_id !== locusId ||
-    custody.stationary_locus.locus.fact_key !== binding.coupling.locus.fact_key
-  )
-    return unavailable(
-      "the custody is the character's ORIGINAL one, at the locus the binding couples",
-    );
-  const worldFact = facts(worldProfileKey(worldId));
-  const locusFact = facts(worldLocusKey(worldId, locusId));
-  if (!worldFact || !locusFact) return unavailable("the coupled world and locus must be committed");
-  const pc = ExistenceContractSchema.safeParse(pcFact.value);
-  const world = WorldProfileSchema.safeParse(worldFact.value);
-  const locus = WorldLocusSchema.safeParse(locusFact.value);
-  if (!pc.success || !world.success || !locus.success)
-    return unavailable("a committed fact does not satisfy its contract");
-  const ref = (f: OwnerFact): RefereeInputRef => ({
-    fact_key: f.key,
-    version: f.version,
-    group_id: f.provenance.group_id,
-  });
+  const base = observationBase(facts, input.pc_id);
+  if (!base.ok) return unavailable(base.message);
+  const { worldId, locusId } = base;
   const source =
     input.source_key === undefined
       ? undefined
-      : sourceScope(facts, binding.coupling, input.source_key);
+      : sourceScope(facts, base.coupling, input.source_key);
   if (input.source_key !== undefined && !source) return unavailable(SOURCE_UNAVAILABLE);
   // Source-scoped and outcome-citing contexts are separate six-reference variants.
   if (input.source_key !== undefined && input.outcome !== undefined && input.outcome !== "NONE")
@@ -607,6 +819,24 @@ export function observationContext(
     locusId,
     input.source_key === undefined ? (input.outcome ?? "LATEST") : "NONE",
   );
+  const mode = input.scene ?? { viewing: "AUTO", appearance: "AUTO" };
+  const viewing =
+    mode.viewing === "AUTO" ? viewingFor(facts, input.pc_id, input.observed_at, base) : null;
+  if (viewing === "invalid")
+    return unavailable("the published current viewing circumstance is not this basis's");
+  const deliveryFact = outcome ? facts(outcome.ref.fact_key) : undefined;
+  const appearance =
+    mode.appearance === "AUTO" && outcome && deliveryFact
+      ? appearanceFor(
+          facts,
+          worldId,
+          locusId,
+          deliveryFact,
+          DELIVERY_KEY.exec(outcome.ref.fact_key)![2]!,
+        )
+      : null;
+  if (appearance === "invalid")
+    return unavailable("the published appearance is not the delivered output's");
   return {
     ok: true,
     context: {
@@ -615,21 +845,25 @@ export function observationContext(
       attempt: input.attempt,
       subject: { pc_id: input.pc_id, world_id: worldId, locus_id: locusId },
       observed_at: input.observed_at,
-      statement: binding.transition.basis.statement,
-      pc: refereeCandidateItems(pc.data),
+      statement: base.statement,
+      pc: refereeCandidateItems(base.pc),
       facts: [
-        ...deliveredFacts(world.data, locus.data),
+        ...deliveredFacts(base.world, base.locus),
         ...(source?.delivered ?? []),
         ...(outcome ? [outcome.fact] : []),
+        ...(viewing ? [viewing.delivered] : []),
+        ...(appearance ? appearance.delivered : []),
       ],
       refs: [
-        ref(pcFact),
-        ref(bindingFact),
-        ref(custodyFact),
-        ref(worldFact),
-        ref(locusFact),
+        refOf(base.pcFact),
+        refOf(base.bindingFact),
+        refOf(base.custodyFact),
+        refOf(base.worldFact),
+        refOf(base.locusFact),
         ...(outcome ? [outcome.ref] : []),
-        ...(source ? [ref(source.fact)] : []),
+        ...(source ? [refOf(source.fact)] : []),
+        ...(viewing ? [refOf(viewing.fact)] : []),
+        ...(appearance ? [refOf(appearance.fact)] : []),
       ],
     },
   };
@@ -657,7 +891,13 @@ const NOTHING_WITHHELD: ObservationWithheld = { names: [], amounts: [] };
  */
 function deliveryWithheld(
   facts: Facts,
-  ctx: ObservationContext,
+  ctx: {
+    readonly subject: {
+      readonly pc_id: string;
+      readonly world_id: string;
+      readonly locus_id: string;
+    };
+  },
   key: string,
 ): ObservationWithheld | null {
   const cited = DELIVERY_KEY.exec(key);
@@ -708,13 +948,16 @@ export function observationWithheld(
   facts: Facts,
   ctx: ObservationContext,
 ): ObservationWithheld | null {
-  if (ctx.refs.length === OBSERVATION_BASE_REFS) return NOTHING_WITHHELD;
-  const pin = ctx.refs[OBSERVATION_BASE_REFS];
-  const key = ctx.refs.length === OBSERVATION_BASE_REFS + 1 ? pin?.fact_key : undefined;
+  const layout = parseObservationRefLayout(
+    ctx.refs.map((r) => r.fact_key),
+    (k) => parseWorldSourceConditionKey(k) !== null,
+  );
+  if (!layout) return null;
+  if (layout.variant.kind === "NONE") return NOTHING_WITHHELD;
   // The other six-reference variant cites a completed delivery: qualified by collectionOutcome, its withheld set built from that delivery.
-  if (key && DELIVERY_KEY.test(key)) return deliveryWithheld(facts, ctx, key);
-  const named = key ? parseWorldSourceConditionKey(key) : null;
-  const fact = key ? facts(key) : undefined;
+  if (layout.variant.kind === "DELIVERY") return deliveryWithheld(facts, ctx, layout.variant.key);
+  const named = parseWorldSourceConditionKey(layout.variant.key);
+  const fact = facts(layout.variant.key);
   const parsed = fact ? WorldSourceConditionSchema.safeParse(fact.value) : undefined;
   if (!named || !parsed?.success || named.world_id !== ctx.subject.world_id) return null;
   const s = parsed.data;
@@ -743,6 +986,14 @@ const escaped = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * exact withheld quantity (as a whole number). Mechanical only: it cannot see that a text MEANS the hidden thing, which stays the
  * host's instructed responsibility.
  */
+/**
+ * Count words an appearance may not use: the producing owner withholds the exact quantity, and a number spelled out is that quantity. A
+ * lexical guard (English cardinals and collective counts), defence in depth beside the owner-derived withheld set; it decides nothing
+ * about meaning and does not claim to catch every phrasing.
+ */
+const COUNT_WORDS =
+  /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|dozen|dozens|score|pair|couple|handful)\b/i;
+
 function carriesWithheld(text: string, withheld: ObservationWithheld): boolean {
   const plain = spelled(text);
   return (
@@ -1250,7 +1501,10 @@ function premiseText(ctx: ObservationContext, p: ObservationPremise): string | u
   if (p.from === "PC_STATEMENT") return ctx.pc.find((i) => i.item_id === p.ref)?.text;
   if (p.from === "PLACEMENT_STATEMENT")
     return p.ref === OBSERVATION_PLACEMENT_REF ? ctx.statement : undefined;
-  return ctx.facts.find((f) => f.fact_id === p.ref)?.text;
+  if (p.from === "CURRENT_VIEWING")
+    return ctx.facts.find((f) => f.fact_id === p.ref && f.from === "viewing")?.text;
+  // a world fact is never the viewing circumstance: that is cited only as CURRENT_VIEWING
+  return ctx.facts.find((f) => f.fact_id === p.ref && f.from !== "viewing")?.text;
 }
 
 /**
@@ -1307,12 +1561,12 @@ export function deriveObservation(
         "the faculty rests only on the character's own statements: no sensory ability is invented from the world, the placement or a label",
       ),
     };
-  if (!only(decision.position.premises, ["PLACEMENT_STATEMENT", "WORLD_FACT"]))
+  if (!only(decision.position.premises, ["PLACEMENT_STATEMENT", "WORLD_FACT", "CURRENT_VIEWING"]))
     return {
       ok: false,
       refusal: refuse(
         "DECISION_INCOHERENT",
-        "the viewing circumstances rest on the confirmed placement statement and world facts, never on the character's intrinsic statements",
+        "the viewing circumstances rest on the confirmed placement statement, the owner-published current viewing circumstance and world facts, never on the character's intrinsic statements",
       ),
     };
   if (!only(decision.path.premises, ["WORLD_FACT"]))
@@ -1335,15 +1589,31 @@ export function deriveObservation(
     needs(decision.path.state, "OPEN", decision.path.premises, "an open path") ??
     needs(decision.path.state, "BLOCKED", decision.path.premises, "a blocked path");
   if (missing) return { ok: false, refusal: missing };
+  const publishedViewing = ctx.facts.some((f) => f.from === "viewing");
   if (
     decision.position.state === "ESTABLISHED" &&
-    !decision.position.premises.some((p) => p.from === "PLACEMENT_STATEMENT")
+    !decision.position.premises.some(
+      (p) => p.from === "PLACEMENT_STATEMENT" || p.from === "CURRENT_VIEWING",
+    )
   )
     return {
       ok: false,
       refusal: refuse(
         "GROUNDS_UNSUPPORTED",
-        "the character's own viewing circumstances are established by the confirmed placement statement: a shared locus alone does not establish them",
+        "the character's own viewing circumstances are established by the confirmed placement statement or the owner-published current viewing circumstance: a shared locus alone does not establish them",
+      ),
+    };
+  // the World-State physical custodian published the circumstance of THIS look: the question consumes it, not the original sentence alone
+  if (
+    publishedViewing &&
+    decision.position.state === "ESTABLISHED" &&
+    !decision.position.premises.some((p) => p.from === "CURRENT_VIEWING")
+  )
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the owner published the current viewing circumstance of this look: establishing the position cites it",
       ),
     };
   const checked = checkAssessments(ctx.facts, decision.assessments);
@@ -1359,13 +1629,35 @@ export function deriveObservation(
           "an appearance is stated only when the whole direct-perception question is affirmatively answered",
         ),
       };
-    const source = ctx.facts.find((f) => f.fact_id === payload.source_fact_id);
+    const source = ctx.facts.find(
+      (f) => f.fact_id === payload.source_fact_id && f.from !== "viewing",
+    );
     if (!source)
       return {
         ok: false,
         refusal: refuse(
           "COVERAGE_INCOMPLETE",
           `the appearance names a source fact that was not delivered: ${payload.source_fact_id}`,
+        ),
+      };
+    // when the owner resolved the appearance of the delivered output, the appearance is OF that resolved appearance (the receipt pins it)
+    if (ctx.facts.some((f) => f.from === "appearance") && source.from !== "appearance")
+      return {
+        ok: false,
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "the owner resolved the appearance of the gathered output: the appearance stated is of that resolved appearance",
+        ),
+      };
+    if (
+      source.from === "appearance" &&
+      !payload.basis.some((p) => p.ref === payload.source_fact_id)
+    )
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "the appearance is anchored to a quotation of the resolved appearance",
         ),
       };
     // a question scoped to one Source Condition is answered by an appearance OF that source: the receipt pins it, never a neighbouring fact
@@ -1439,6 +1731,461 @@ export function observationVerdictOf(decision: ObservationHostDecision): Observa
   return "OBSERVATION_ESTABLISHED";
 }
 
+// ---------------------------------------------------------------------------------------------
+// GM_SCENE_RESOLUTION: the current viewing circumstance and the appearance of a credited output
+// ---------------------------------------------------------------------------------------------
+
+const REQUEST_STATEMENT_MAX = 240;
+const hasControlChar = (t: string): boolean => {
+  for (const ch of t) {
+    const c = ch.codePointAt(0)!;
+    if (c < 0x20 || c === 0x7f) return true;
+  }
+  return false;
+};
+
+/**
+ * The current-viewing context, built ONLY from committed facts at the supplied canonical basis plus the trusted side's request. The request
+ * is bounded plain text (or none for a bare look); it is DELIVERED to the host so that it can tell an ordinary look from a materially new
+ * commitment, and it is part of the question's identity, but it is never a fact and never a premise a ruling may rest on alone.
+ */
+export function viewingContext(
+  facts: Facts,
+  input: {
+    campaign_id: string;
+    attempt: number;
+    pc_id: string;
+    observed_at: CanonicalTime;
+    request: SceneRequest;
+  },
+):
+  { ok: true; context: ViewingContext } | { ok: false; code: RefereeRefusalCode; message: string } {
+  const unavailable = (message: string) => ({
+    ok: false as const,
+    code: "CONTEXT_UNAVAILABLE" as const,
+    message,
+  });
+  const st = input.request.statement;
+  if (
+    input.request.kind !== "LOOK" ||
+    (st !== null &&
+      (st.length === 0 ||
+        st.length > REQUEST_STATEMENT_MAX ||
+        st !== st.trim() ||
+        hasControlChar(st)))
+  )
+    return unavailable("the request is a bounded plain-text look");
+  const base = observationBase(facts, input.pc_id);
+  if (!base.ok) return unavailable(base.message);
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_SCENE,
+      kind: "CURRENT_VIEWING",
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { pc_id: input.pc_id, world_id: base.worldId, locus_id: base.locusId },
+      observed_at: input.observed_at,
+      request: { kind: "LOOK", statement: st },
+      statement: base.statement,
+      pc: refereeCandidateItems(base.pc),
+      facts: deliveredFacts(base.world, base.locus),
+      refs: [
+        refOf(base.pcFact),
+        refOf(base.bindingFact),
+        refOf(base.custodyFact),
+        refOf(base.worldFact),
+        refOf(base.locusFact),
+      ],
+    },
+  };
+}
+
+/**
+ * The output-appearance context for ONE credited delivery of the character's own collection: the committed physical setting and the
+ * producing owner's delivery, and nothing about who is looking, from where, when, or whether they can see.
+ */
+export function appearanceContext(
+  facts: Facts,
+  input: { campaign_id: string; attempt: number; pc_id: string; extraction_id: string },
+):
+  | { ok: true; context: AppearanceContext }
+  | { ok: false; code: RefereeRefusalCode; message: string } {
+  const unavailable = (message: string) => ({
+    ok: false as const,
+    code: "CONTEXT_UNAVAILABLE" as const,
+    message,
+  });
+  const base = observationBase(facts, input.pc_id);
+  if (!base.ok) return unavailable(base.message);
+  const outcome = collectionOutcome(facts, input.pc_id, base.worldId, base.locusId, {
+    extraction_id: input.extraction_id,
+  });
+  if (!outcome) return unavailable("no credited delivery of this character is available");
+  return {
+    ok: true,
+    context: {
+      operation: REFEREE_OP_SCENE,
+      kind: "OUTPUT_APPEARANCE",
+      campaign_id: input.campaign_id,
+      attempt: input.attempt,
+      subject: { pc_id: input.pc_id, world_id: base.worldId, locus_id: base.locusId },
+      facts: [...deliveredFacts(base.world, base.locus), outcome.fact],
+      refs: [refOf(base.worldFact), refOf(base.locusFact), outcome.ref],
+    },
+  };
+}
+
+/** The values an appearance may not carry: the delivery's source identifiers, material and every exact quantity (built from the delivery). */
+export function appearanceWithheld(
+  facts: Facts,
+  ctx: AppearanceContext,
+): ObservationWithheld | null {
+  const delivery = ctx.refs[2];
+  return delivery ? deliveryWithheld(facts, ctx, delivery.fact_key) : null;
+}
+
+export type SceneVerdict =
+  | "VIEWING_SUPPORTED"
+  | "VIEWING_NOT_SUPPORTED"
+  | "VIEWING_UNRESOLVED"
+  | "PLAYER_CHOICE_REQUIRED"
+  | "APPEARANCE_RESOLVED"
+  | "APPEARANCE_UNRESOLVED"
+  | "SCENE_WORLD_CONFLICT";
+
+/**
+ * The scene verdict as a function of the answer alone (re-derivable from the retained record). A contradicted world fact is a conflict; a
+ * request that carries a materially new commitment is returned to the player; only an ordinary look that the host affirmatively rules
+ * physically supported, with no unclear delivered fact, is VIEWING_SUPPORTED; anything else not fully answered is UNRESOLVED, never an
+ * obstruction. An appearance is RESOLVED only when it is affirmatively resolved with no unclear fact.
+ */
+export function sceneVerdictOf(d: SceneHostDecision): SceneVerdict {
+  if (d.assessments.some((a) => a.relation === "CONTRADICTS")) return "SCENE_WORLD_CONFLICT";
+  const unclear = d.assessments.some((a) => a.relation === "UNCLEAR");
+  if (d.kind === "CURRENT_VIEWING") {
+    const v = d.viewing;
+    if (v === null) return "VIEWING_UNRESOLVED";
+    if (v.request.classification === "MATERIAL_NEW_COMMITMENT") return "PLAYER_CHOICE_REQUIRED";
+    if (v.request.classification === "UNCLEAR") return "VIEWING_UNRESOLVED";
+    if (v.state === "NOT_SUPPORTED") return "VIEWING_NOT_SUPPORTED";
+    return v.state === "SUPPORTED" && !unclear ? "VIEWING_SUPPORTED" : "VIEWING_UNRESOLVED";
+  }
+  const a = d.appearance;
+  return a !== null && a.state === "RESOLVED" && !unclear
+    ? "APPEARANCE_RESOLVED"
+    : "APPEARANCE_UNRESOLVED";
+}
+
+/** The delivered text one scene premise cites, or undefined when it names nothing that was delivered. */
+function scenePremiseText(
+  ctx: SceneContext,
+  p: ObservationPremise,
+): { text: string } | { refusal: RefereeRefusal } | undefined {
+  if (p.from === "CURRENT_VIEWING")
+    return {
+      refusal: refuse(
+        "DECISION_INCOHERENT",
+        "a scene ruling does not rest on a viewing circumstance: it is what the ruling PRODUCES",
+      ),
+    };
+  if (ctx.kind === "OUTPUT_APPEARANCE") {
+    if (p.from !== "WORLD_FACT")
+      return {
+        refusal: refuse(
+          "DECISION_INCOHERENT",
+          "an appearance rests only on the committed physical setting and the delivery: no character statement or placement is delivered to it",
+        ),
+      };
+    const t = ctx.facts.find((f) => f.fact_id === p.ref)?.text;
+    return t === undefined ? undefined : { text: t };
+  }
+  const t =
+    p.from === "PC_STATEMENT"
+      ? ctx.pc.find((i) => i.item_id === p.ref)?.text
+      : p.from === "PLACEMENT_STATEMENT"
+        ? p.ref === OBSERVATION_PLACEMENT_REF
+          ? ctx.statement
+          : undefined
+        : ctx.facts.find((f) => f.fact_id === p.ref)?.text;
+  return t === undefined ? undefined : { text: t };
+}
+
+/** Whether a text carries an engine reference (a fact id, a key, or one of the question's identities). */
+const carriesEngineReference = (text: string, ctx: SceneContext): boolean =>
+  [
+    ...ctx.facts.map((f) => f.fact_id),
+    ...ctx.refs.map((r) => r.fact_key),
+    ctx.subject.pc_id,
+    ctx.subject.world_id,
+    ctx.subject.locus_id,
+  ].some((t) => text.includes(t));
+
+/**
+ * Validates a host's scene answer against the context it was given and derives the verdict. Nothing here understands the premises: it
+ * checks that every claim is anchored to a verbatim quotation of DELIVERED text of a kind that may establish it, that every delivered
+ * fact is assessed exactly once, and that the answer is coherent with its own state (a supported ruling states its circumstance and rests on
+ * the character's accepted words or the confirmed placement - never on the request alone; a materially new commitment is returned, not
+ * ruled on; an appearance cites the producing owner's result and carries no name, count or engine reference). The verdict is DERIVED.
+ */
+export function deriveScene(
+  ctx: SceneContext,
+  decision: SceneHostDecision,
+  withheld: ObservationWithheld = NOTHING_WITHHELD,
+): { ok: true; verdict: SceneVerdict } | { ok: false; refusal: RefereeRefusal } {
+  const incoherent = (message: string) => ({
+    ok: false as const,
+    refusal: refuse("DECISION_INCOHERENT", message),
+  });
+  if (decision.task_id !== refereeTaskId(ctx))
+    return { ok: false, refusal: refuse("TASK_MISMATCH", "the answer is for another task") };
+  if (decision.kind !== ctx.kind)
+    return incoherent("the answer is for the other kind of scene question");
+  const checked = checkAssessments(ctx.facts, decision.assessments);
+  if (!checked.ok) return checked;
+  const cite = (
+    premises: readonly ObservationPremise[],
+  ): { ok: true } | { ok: false; refusal: RefereeRefusal } => {
+    for (const p of premises) {
+      const found = scenePremiseText(ctx, p);
+      if (found === undefined)
+        return {
+          ok: false,
+          refusal: refuse(
+            "COVERAGE_INCOMPLETE",
+            `a premise names text that was not delivered: ${p.ref}`,
+          ),
+        };
+      if ("refusal" in found) return { ok: false, refusal: found.refusal };
+      if (!found.text.includes(p.evidence_quote))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            `${p.ref}: the quotation is not in the premise it cites`,
+          ),
+        };
+    }
+    return { ok: true };
+  };
+  if (ctx.kind === "CURRENT_VIEWING") {
+    const v = decision.viewing;
+    if (v === null || decision.appearance !== null)
+      return incoherent("a viewing question is answered by a viewing ruling and no appearance");
+    const asked = ctx.request.statement;
+    if (asked === null) {
+      if (v.request.evidence_quote !== null)
+        return {
+          ok: false,
+          refusal: refuse("GROUNDS_UNSUPPORTED", "a bare look has no request statement to quote"),
+        };
+    } else if (v.request.evidence_quote === null || !asked.includes(v.request.evidence_quote))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "the request reading is anchored to a quotation of the request",
+        ),
+      };
+    const cited = cite(v.premises);
+    if (!cited.ok) return cited;
+    if (v.request.classification === "MATERIAL_NEW_COMMITMENT" && v.state !== "NOT_ESTABLISHED")
+      return incoherent(
+        "a request that carries a materially new commitment is returned to the player, not ruled on",
+      );
+    if (v.state === "SUPPORTED") {
+      if (v.request.classification !== "ORDINARY_LOOK")
+        return incoherent("only an ordinary look can be physically supported as one");
+      if (v.statement === null)
+        return incoherent("a supported ruling states the circumstance it supports");
+      if (!v.premises.some((p) => p.from === "PC_STATEMENT" || p.from === "PLACEMENT_STATEMENT"))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "a request alone is not a physical result: the ruling rests on the character's accepted words or the confirmed placement",
+          ),
+        };
+      if (carriesEngineReference(v.statement, ctx))
+        return {
+          ok: false,
+          refusal: refuse(
+            "GROUNDS_UNSUPPORTED",
+            "a ruling's statement carries no engine reference",
+          ),
+        };
+    } else if (v.statement !== null) {
+      return incoherent("only a supported ruling states a circumstance");
+    }
+    if (v.state === "NOT_SUPPORTED" && v.premises.length === 0)
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "a refusal is anchored to the quoted premise that vetoes the look",
+        ),
+      };
+    return { ok: true, verdict: sceneVerdictOf(decision) };
+  }
+  const a = decision.appearance;
+  if (a === null || decision.viewing !== null)
+    return incoherent("an appearance question is answered by an appearance and no viewing ruling");
+  const cited = cite(a.basis);
+  if (!cited.ok) return cited;
+  if (a.state === "NOT_RESOLVED") {
+    if (a.aspects.length > 0)
+      return incoherent("an appearance that is not resolved states no aspect");
+  } else {
+    if (a.aspects.length === 0)
+      return incoherent("a resolved appearance states at least one aspect");
+    if (!a.basis.some((p) => p.ref === OBSERVATION_OUTCOME_FACT_ID))
+      return {
+        ok: false,
+        refusal: refuse(
+          "GROUNDS_UNSUPPORTED",
+          "an appearance references the producing owner's committed result: it is anchored to a quotation of the delivered outcome",
+        ),
+      };
+    for (const aspect of a.aspects)
+      for (const text of [aspect.aspect, aspect.statement]) {
+        if (carriesEngineReference(text, ctx))
+          return {
+            ok: false,
+            refusal: refuse(
+              "GROUNDS_UNSUPPORTED",
+              "an appearance carries no engine reference: no fact, key or identity",
+            ),
+          };
+        if (carriesWithheld(text, withheld) || COUNT_WORDS.test(text))
+          return {
+            ok: false,
+            refusal: refuse(
+              "GROUNDS_UNSUPPORTED",
+              "an appearance carries nothing the producing owner withholds: no source identifier, material class or quantity (a numeral or a number word)",
+            ),
+          };
+      }
+  }
+  return { ok: true, verdict: sceneVerdictOf(decision) };
+}
+
+/** The scene record's context, re-derived from the committed facts it cites (the same discipline as every other record). */
+function sceneRecordViolation(
+  r: Extract<RefereeDecisionRecord, { operation: typeof REFEREE_OP_SCENE }>,
+  facts: Facts,
+): RecordViolation {
+  const incoherent = (message: string): RecordViolation => ({
+    code: "DECISION_INCOHERENT",
+    message,
+    stale: false,
+  });
+  if (r.input.candidate !== null) return incoherent("a scene record carries no candidate");
+  let superseded = false;
+  for (const ref of r.input.refs) {
+    const f = facts(ref.fact_key);
+    if (!f)
+      return {
+        code: "CONTEXT_UNAVAILABLE",
+        message: `a cited fact is not committed: ${ref.fact_key}`,
+        stale: false,
+      };
+    if (f.version > ref.version) {
+      superseded = true;
+      continue;
+    }
+    if (f.version < ref.version || f.provenance.group_id !== ref.group_id)
+      return {
+        code: "CONTEXT_STALE",
+        message: `a cited fact is not at the cited version: ${ref.fact_key}`,
+        stale: true,
+      };
+  }
+  const keys = r.input.refs.map((x) => x.fact_key);
+  const verdictOnly = (): RecordViolation =>
+    sceneVerdictOf(r.decision) === r.verdict
+      ? null
+      : incoherent("the record's verdict is not the one its answer derives");
+  if (r.decision.kind === "CURRENT_VIEWING") {
+    const ids = irIdentities(r);
+    if (
+      !ids ||
+      r.input.observed_at === null ||
+      keys.length !== OBSERVATION_BASE_REFS ||
+      keys[0] !== pcExistenceContractKey(r.subject.pc_id) ||
+      keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
+      keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
+      keys[3] !== worldProfileKey(ids.world_id) ||
+      keys[4] !== worldLocusKey(ids.world_id, ids.locus_id) ||
+      r.input.statement_digest !==
+        (r.input.statement === null ? null : statementDigest(r.input.statement))
+    )
+      return incoherent("a viewing record cites the five base premises and its request digest");
+    if (superseded)
+      return r.decision.task_id === r.task_id
+        ? verdictOnly()
+        : incoherent("the record's task binding is not its own");
+    const built = viewingContext(facts, {
+      campaign_id: r.campaign_id,
+      attempt: r.attempt,
+      pc_id: r.subject.pc_id,
+      observed_at: r.input.observed_at,
+      request: { kind: "LOOK", statement: r.input.statement },
+    });
+    if (!built.ok) return { code: built.code, message: built.message, stale: false };
+    if (
+      r.input.digest !== contextDigest(built.context) ||
+      r.task_id !== refereeTaskId(built.context) ||
+      !sameRefs(built.context.refs, r.input.refs)
+    )
+      return incoherent(
+        "the record's digests are not those of the context built from the cited facts",
+      );
+    const d = deriveScene(built.context, r.decision);
+    if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+    return d.verdict === r.verdict
+      ? null
+      : incoherent("the record's verdict is not the one its answer derives");
+  }
+  const delivery = keys.length === 3 ? DELIVERY_KEY.exec(keys[2]!) : null;
+  const ids = irIdentities({ ...r, input: { ...r.input, refs: r.input.refs.slice(0, 2) } });
+  if (
+    !delivery ||
+    r.input.observed_at !== null ||
+    r.input.statement !== null ||
+    r.input.statement_digest !== null ||
+    keys[0] !== (ids ? worldProfileKey(ids.world_id) : "") ||
+    keys[1] !== (ids ? worldLocusKey(ids.world_id, ids.locus_id) : "") ||
+    delivery[1] !== ids?.world_id
+  )
+    return incoherent("an appearance record cites the world, the locus and one credited delivery");
+  if (superseded)
+    return r.decision.task_id === r.task_id
+      ? verdictOnly()
+      : incoherent("the record's task binding is not its own");
+  const built = appearanceContext(facts, {
+    campaign_id: r.campaign_id,
+    attempt: r.attempt,
+    pc_id: r.subject.pc_id,
+    extraction_id: delivery[2]!,
+  });
+  if (!built.ok) return { code: built.code, message: built.message, stale: false };
+  if (
+    r.input.digest !== contextDigest(built.context) ||
+    r.task_id !== refereeTaskId(built.context) ||
+    !sameRefs(built.context.refs, r.input.refs)
+  )
+    return incoherent(
+      "the record's digests are not those of the context built from the cited facts",
+    );
+  const withheld = appearanceWithheld(facts, built.context);
+  if (!withheld) return { code: "CONTEXT_UNAVAILABLE", message: SOURCE_UNAVAILABLE, stale: false };
+  const d = deriveScene(built.context, r.decision, withheld);
+  if (!d.ok) return { code: d.refusal.code, message: d.refusal.message, stale: false };
+  return d.verdict === r.verdict
+    ? null
+    : incoherent("the record's verdict is not the one its answer derives");
+}
+
 /** The context a retained record was decided on, re-derived from the record alone (I-002) or from committed facts (IR). */
 export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): RecordViolation {
   if (r.operation === REFEREE_OP_I002) {
@@ -1483,6 +2230,7 @@ export function recordContextViolation(r: RefereeDecisionRecord, facts: Facts): 
   }
   if (r.operation === REFEREE_OP_PHYSICAL) return physicalRecordViolation(r, facts);
   if (r.operation === REFEREE_OP_OBSERVATION) return observationRecordViolation(r, facts);
+  if (r.operation === REFEREE_OP_SCENE) return sceneRecordViolation(r, facts);
   if (r.input.statement === null || r.input.candidate !== null)
     return {
       code: "DECISION_INCOHERENT",
@@ -1692,14 +2440,16 @@ function observationRecordViolation(
   const ids = irIdentities(r);
   const pcKey = pcExistenceContractKey(r.subject.pc_id);
   const keys = r.input.refs.map((x) => x.fact_key);
-  const cited = keys.length === OBSERVATION_BASE_REFS + 1 ? DELIVERY_KEY.exec(keys[5]!) : null;
+  const layout = parseObservationRefLayout(keys, (k) => parseWorldSourceConditionKey(k) !== null);
+  const cited = layout?.variant.kind === "DELIVERY" ? DELIVERY_KEY.exec(layout.variant.key) : null;
   const named =
-    keys.length === OBSERVATION_BASE_REFS + 1 ? parseWorldSourceConditionKey(keys[5]!) : null;
+    layout?.variant.kind === "SCOPED" ? parseWorldSourceConditionKey(layout.variant.key) : null;
   if (
     !ids ||
-    (keys.length !== OBSERVATION_BASE_REFS &&
-      !(named && named.world_id === ids.world_id) &&
-      !(cited && cited[1] === ids.world_id)) ||
+    !layout ||
+    (layout.variant.kind === "SCOPED" && !(named && named.world_id === ids.world_id)) ||
+    (layout.variant.kind === "DELIVERY" && !(cited && cited[1] === ids.world_id)) ||
+    (layout.viewing !== null && layout.viewing.pc_id !== r.subject.pc_id) ||
     keys[0] !== pcKey ||
     keys[1] !== PLAYER_CHARACTER_BINDING_KEY ||
     keys[2] !== worldPcLocusCustodyKey(r.subject.pc_id) ||
@@ -1707,7 +2457,7 @@ function observationRecordViolation(
     keys[4] !== worldLocusKey(ids.world_id, ids.locus_id)
   )
     return incoherent(
-      "a direct-perception record cites five base premises and at most one scoped Source Condition or completed-collection delivery",
+      "a direct-perception record cites five base premises, at most one scoped Source Condition or completed-collection delivery, and (after a scene resolution) the owner-published viewing circumstance and the resolved appearance of that delivery",
     );
   if (superseded) {
     if (
@@ -1732,6 +2482,11 @@ function observationRecordViolation(
     observed_at: r.input.observed_at,
     outcome: cited ? { extraction_id: cited[2]! } : "NONE",
     ...(named ? { source_key: named.source_key } : {}),
+    // a fact published AFTER this decision can never change the question it was asked: only what the record cited is rebuilt
+    scene: {
+      viewing: layout.viewing !== null ? "AUTO" : "NONE",
+      appearance: layout.appearance !== null ? "AUTO" : "NONE",
+    },
   });
   if (!built.ok) return { code: built.code, message: built.message, stale: false };
   if (

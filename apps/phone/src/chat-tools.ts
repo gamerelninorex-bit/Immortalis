@@ -1503,13 +1503,48 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       scope: "player",
       handler: async (args) => (onlyKeys(args, []) ? glance(config) : text(OPAQUE, true)),
     },
-    simple(
-      "observe_surroundings",
-      "Look around",
-      "Propose that the character looks at their surroundings now. The engine asks the referee to interpret the circumstances; the result may be that nothing was perceived.",
-      "observe-surroundings",
-      true,
-    ),
+    {
+      name: "observe_surroundings",
+      title: "Look around",
+      description: `Propose that the character looks at their surroundings now, as ONE request. A normal look includes its routine means - attention, turning toward what is meant, opening the eyes - and you must NOT ask the player for them or for a posture, direction or light. If the player said what they look at or how (for example "at the logs"), pass those words as \`attention\`, exactly as said and at most 240 characters; leave it out for a bare look. The engine asks the Game Master whether an ordinary look is physically supported now (a materially new commitment such as moving, climbing or touching is returned to the player, not ruled on), the world's physical custodian publishes only what was supported, and the referee then interprets what the sight receives; the result may be that nothing was perceived, and it says nothing about why. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          attention: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240,
+            description:
+              "what the player said they look at, or how, in their own words (optional; omit for a bare look)",
+          },
+        },
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      ordinaryAction: true,
+      handler: async (args, ctx) => {
+        if (!onlyKeys(args, ["attention"])) return text("only attention is accepted", true);
+        const attention = args["attention"];
+        if (attention !== undefined && typeof attention !== "string")
+          return text("attention must be the player's own words as text", true);
+        const sc = scenarioOr();
+        if (!sc.ok) return sc.r;
+        return start(
+          "observe-surroundings",
+          {
+            "player-character": sc.s.player_character,
+            ...(attention !== undefined ? { attention } : {}),
+          },
+          ctx,
+        );
+      },
+    },
     {
       name: "collect",
       title: "Collect material",

@@ -9,7 +9,7 @@ import type { PhoneConfig } from "./config.ts";
  * permission, an identity of another lane, an "already confirmed" flag or any option that is not listed. There is no shell, no
  * free-text command and no file path from the phone: a pasted setting is written to a fresh owner-only file the server names.
  */
-type Kind = "id" | "int" | "unit";
+type Kind = "id" | "int" | "unit" | "attention";
 interface Spec {
   /** option → kind of value */
   readonly options: Readonly<Record<string, Kind>>;
@@ -21,7 +21,12 @@ interface Spec {
 const ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const INT = /^(0|[1-9][0-9]{0,8})$/;
 const UNIT = /^[A-Za-z0-9._ :-]{1,64}$/;
-const VALUE: Record<Kind, RegExp> = { id: ID, int: INT, unit: UNIT };
+/**
+ * What the player said they look at or how: bounded plain text, delivered to the GM scene host as DATA. No control character, no leading
+ * hyphen (it travels as one argv element and must never read as an option), no surrounding whitespace (the context builder requires it).
+ */
+const ATTENTION = /^[^\p{Cc}\s-](?:[^\p{Cc}]{0,238}[^\p{Cc}\s])?$/u;
+const VALUE: Record<Kind, RegExp> = { id: ID, int: INT, unit: UNIT, attention: ATTENTION };
 
 export const PLAYER_COMMANDS: Readonly<Record<string, Spec>> = {
   status: { options: {} },
@@ -64,8 +69,8 @@ export const PLAYER_COMMANDS: Readonly<Record<string, Spec>> = {
   cease: { options: {} },
   "settle-collection-lapse": { options: {} },
   "observe-surroundings": {
-    options: { "player-character": "id", "referee-wait": "int" },
-    optional: ["referee-wait"],
+    options: { "player-character": "id", "referee-wait": "int", attention: "attention" },
+    optional: ["referee-wait", "attention"],
   },
   reconcile: { options: {} },
 };

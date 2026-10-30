@@ -39,12 +39,13 @@ describe("negative reachability: no actor observation can be produced on this he
     expect(sources.filter((f) => /actor-observation/.test(f))).toEqual([]);
   });
 
-  it("the referee vocabulary is the four operations of main: no fifth, actor-subject operation exists", () => {
+  it("the referee vocabulary is the four operations of main plus the PC-only GM scene resolution: no actor-subject operation exists", () => {
     expect(RefereeOperationSchema.options).toEqual([
       "I002_CLASSIFY",
       "IR_NATIVE_COMPATIBILITY",
       "IR_PHYSICAL_PLACEMENT",
       "F014D_DIRECT_PERCEPTION",
+      "GM_SCENE_RESOLUTION",
     ]);
     const record = { operation: "F014D_ACTOR_DIRECT_PERCEPTION", subject: { actor_id: "a1" } };
     expect(RefereeDecisionRecordSchema.safeParse(record).success).toBe(false);

@@ -1,6 +1,5 @@
 import {
   AccessEventSchema,
-  OBSERVATION_BASE_REFS as OBSERVATION_SOURCE_INDEX,
   OBSERVATION_EVENT_BASIS,
   OWNER_REFEREE_KERNEL,
   OWNER_WORLD_STATE,
@@ -12,6 +11,7 @@ import {
   observationEventGroupId,
   observationEventIntentId,
   ok,
+  parseObservationRefLayout,
   parseWorldSourceConditionKey,
   refereeDecisionKey,
   timeEquals,
@@ -86,19 +86,18 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   const locusMatch = locusRef ? /^world\/([^/]+)\/locus\/([^/]+)$/.exec(locusRef.fact_key) : null;
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
-  // The optional sixth citation is one of two separate variants; never conflate a Source Condition and a delivery.
-  const sixth = record.input.refs[OBSERVATION_SOURCE_INDEX];
-  const delivery = sixth ? /^world\/([^/]+)\/source-delivery\/(.+)$/.exec(sixth.fact_key) : null;
-  const deliveryRef = delivery?.[1] === worldId ? sixth : undefined;
-  const scopedKey =
-    sixth && parseWorldSourceConditionKey(sixth.fact_key)?.world_id === worldId
-      ? sixth.fact_key
-      : null;
-  if (
-    (record.input.refs.length !== OBSERVATION_SOURCE_INDEX &&
-      !(record.input.refs.length === OBSERVATION_SOURCE_INDEX + 1 && (scopedKey || deliveryRef))) ||
-    d.payload.source_fact_id.startsWith("source.") !== (scopedKey !== null)
-  )
+  // The optional citations after the five base ones are typed, ordered and bounded: ONE qualified variant (a Source Condition or a
+  // delivery, never both), then (after a scene resolution) the owner-published viewing circumstance and the resolved appearance.
+  const layout = parseObservationRefLayout(
+    record.input.refs.map((r) => r.fact_key),
+    (k) => parseWorldSourceConditionKey(k)?.world_id === worldId,
+  );
+  const deliveryRef =
+    layout?.variant.kind === "DELIVERY" && layout.variant.world_id === worldId
+      ? record.input.refs[layout.variant.index]
+      : undefined;
+  const scopedKey = layout?.variant.kind === "SCOPED" ? layout.variant.key : null;
+  if (!layout || d.payload.source_fact_id.startsWith("source.") !== (scopedKey !== null))
     return fail(
       "OBSERVATION_RECORD_INVALID",
       "the record cites only one qualified observation variant",
@@ -107,10 +106,12 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : (scopedKey ??
-        (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
-          ? deliveryRef.fact_key
-          : null));
+      : d.payload.source_fact_id.startsWith("appearance.")
+        ? (layout.appearance?.key ?? null)
+        : (scopedKey ??
+          (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
+            ? deliveryRef.fact_key
+            : null));
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(

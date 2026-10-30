@@ -78,7 +78,7 @@ usage:
   immortalis-operator establish-local-demand --campaign <dir> --campaign-id <id> --demand-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
-  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
+  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--attention <what the player looks at>] [--referee-wait <seconds>]
   immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
@@ -384,6 +384,7 @@ const OPTIONS = {
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
   source: { type: "string" },
+  attention: { type: "string" },
   reserve: { type: "string" },
   amount: { type: "string" },
   "quantity-unit": { type: "string" },
@@ -431,7 +432,7 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
 const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
-  "observe-surroundings": ["referee-wait", "source"],
+  "observe-surroundings": ["referee-wait", "source", "attention"],
   "clarify-collection-cycle": ["referee-wait"],
   "attest-cycle": ["referee-wait"],
   "collect-continue": ["referee-wait"],
@@ -708,6 +709,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
         ...(str("source") !== undefined ? { sourceKey: str("source")! } : {}),
+        ...(str("attention") !== undefined ? { attention: str("attention")! } : {}),
         terminal: terminal!,
         ...(env.ordinaryAction ? { ordinaryAction: env.ordinaryAction } : {}),
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),

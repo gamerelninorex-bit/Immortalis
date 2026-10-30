@@ -52,7 +52,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/confirmation.ts":
     "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/cli.ts":
-    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
+    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
@@ -66,9 +66,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
+    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
   "packages/operator/src/original-pc.ts":
-    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
+    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -100,11 +100,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
   "packages/operator/src/referee-mcp.ts":
-    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
+    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
   "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
+    "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
   "packages/operator/src/referee-session.ts":
-    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
+    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
 };
 
 const NEW_MODULES = [

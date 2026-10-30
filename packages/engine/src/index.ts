@@ -157,6 +157,7 @@ export * from "./world/auditory-premises-evaluator.ts";
 export * from "./world/setup-eligibility.ts";
 export * from "./world/pc-locus-custody.ts";
 export * from "./world/pc-locus-custody-integrity.ts";
+export * from "./world/scene-custody.ts";
 export * from "./projection/event-signal.ts";
 export * from "./presentation/event-signal.ts";
 export * from "./persistence/file-package.ts";

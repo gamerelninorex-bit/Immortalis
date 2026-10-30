@@ -40,7 +40,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
   "packages/protocol/src/current-observation-glance.ts":
-    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
+    "be14b7a68d801511130c0f25ee1ba90cd1179ea12d1bb6c6c9dd521ac3fae7a4",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
@@ -55,9 +55,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the operator modules the trusted read re-uses without edit
   "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
+    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
   "packages/operator/src/original-pc.ts":
-    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
+    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/local-operator.ts":
@@ -66,13 +66,13 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
   "packages/operator/src/referee-mcp.ts":
-    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
+    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
   "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
+    "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
   "packages/operator/src/referee-session.ts":
-    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
+    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/operator/src/cli.ts":
-    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
+    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
   "packages/operator/src/index.ts":
     "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/confirmation.ts":
@@ -159,6 +159,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "referee-exchange.ts",
         "referee-mcp.ts",
         "referee-session.ts",
+        "scene-resolution.ts",
         "session.ts",
         "review-evidence.ts",
         "request-evidence.ts",

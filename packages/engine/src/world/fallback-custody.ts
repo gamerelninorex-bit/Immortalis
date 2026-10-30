@@ -30,6 +30,7 @@ import {
 import { worldActorRawSensoryGroupCheck } from "./auditory-premises.ts";
 import { worldTransitionGroupCheck } from "./entity-transition.ts";
 import { worldPcLocusCustodyGroupCheck } from "./pc-locus-custody.ts";
+import { worldSceneGroupCheck } from "./scene-custody.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   StageUnresolvedError,
@@ -97,6 +98,14 @@ export function worldEntityGroupCheck(group: CommitGroup, state: CampaignState):
   // the custodian's fact kind for an existing non-PC actor's one current locus coupling (actor-coupling.ts)
   if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_actor_coupling"))
     return worldActorCouplingGroupCheck(group, state);
+  // the custodian's two sparse scene facts: the current viewing circumstance and a credited output's appearance (scene-custody.ts)
+  if (
+    group.writes.some((w) => {
+      const id = resolveKey(w.key)?.kind.id;
+      return id === "world_pc_current_viewing" || id === "world_output_appearance";
+    })
+  )
+    return worldSceneGroupCheck(group, state);
   // the custodian's fact kind for the active PC's one stationary physical locus (pc-locus-custody.ts)
   if (group.writes.some((w) => resolveKey(w.key)?.kind.id === "world_pc_locus_custody"))
     return worldPcLocusCustodyGroupCheck(group, state);

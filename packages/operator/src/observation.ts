@@ -3,9 +3,11 @@ import {
   OBSERVATION_BASE_REFS,
   REFEREE_AUTHORITY,
   REFEREE_OP_OBSERVATION,
+  REFEREE_OP_SCENE,
   RefereeDecisionRecordSchema,
   accessEventKey,
   accessPacketKey,
+  parseObservationRefLayout,
   parseWorldSourceConditionKey,
   type CanonicalTime,
   type EventSignalPresentation,
@@ -38,6 +40,7 @@ import {
   type CharacterResult,
 } from "./original-pc.ts";
 import { askObservation } from "./referee-session.ts";
+import { planScene, resolveScene, sceneHostBound } from "./scene-resolution.ts";
 import type { LocalOperatorSession } from "./session.ts";
 import type { OperatorTerminal } from "./terminal.ts";
 
@@ -79,6 +82,12 @@ export interface ObserveSurroundingsParams {
   readonly terminal: OperatorTerminal;
   /** TRUSTED-SIDE: the one existing candidate Source Condition to look at (see above). Never a host, client or model input. */
   readonly sourceKey?: string;
+  /**
+   * TRUSTED-SIDE: what the player said they look at or how (bounded plain text), delivered to the GM scene host so it can tell an
+   * ordinary look from a materially new commitment. Never a fact, never a premise a ruling may rest on alone, never a host or model
+   * authority. Absent for a bare look.
+   */
+  readonly attention?: string;
   readonly operatorDir?: string;
   readonly reclaimStaleLock?: boolean;
   readonly buildId?: string;
@@ -222,16 +231,25 @@ async function run(
       ]);
     decisionKey = cited;
   } else {
-    // a decision already retained for this very question (a negative or unresolved one included) is not asked again: the host is never
-    // rerolled for a more convenient answer, and a reading already retained is never overwritten
-    const retained = adapter.decision(first.value.task_id);
-    if (retained && retained.value.operation === REFEREE_OP_OBSERVATION) {
-      if (retained.value.verdict !== "OBSERVATION_ESTABLISHED") return notEstablished();
-      decisionKey = retained.fact.key;
-    } else {
-      const worldId = binding.value.coupling.world.entity_id;
-      const locusId = binding.value.coupling.locus.entity_id;
-      const sourcePin = first.value.context.refs[OBSERVATION_BASE_REFS];
+    // GM-led natural look: when a GM scene host is bound, the appearance of an unresolved credited output and the current viewing
+    // circumstance of THIS look are ruled and published BEFORE the perception question, which then consumes them. The scene step runs
+    // before any retained-decision short-circuit on purpose: a negative decision retained for the question WITHOUT them is history, and
+    // the question WITH them is a different task (a changed current input) - it never overwrites, rerolls or reuses that negative.
+    let task = first.value;
+    let lookConfirmed = false;
+    const worldId = binding.value.coupling.world.entity_id;
+    const locusId = binding.value.coupling.locus.entity_id;
+    const confirmLook = async (current: typeof first.value): Promise<CharacterResult | null> => {
+      // the qualified variant (a scoped Source Condition or a completed delivery), if the question has one: exactly as before, whether or
+      // not a viewing circumstance or an appearance also follows it
+      const layout = parseObservationRefLayout(
+        current.context.refs.map((r) => r.fact_key),
+        (k) => parseWorldSourceConditionKey(k) !== null,
+      );
+      const sourcePin =
+        layout && layout.variant.kind !== "NONE"
+          ? current.context.refs[layout.variant.index]
+          : undefined;
       const pins = {
         pc: pc.fact.version,
         binding: binding.fact.version,
@@ -274,6 +292,78 @@ async function run(
       );
       if (!confirmation || !consumeConfirmation(confirmation, "observe-surroundings", subject))
         return result("DECLINED", ["nothing was observed; nothing was changed"]);
+      return null;
+    };
+
+    if (await sceneHostBound(campaignId, rt)) {
+      const plan = planScene(adapter, campaign, {
+        pcId,
+        at,
+        scope: p.sourceKey !== undefined ? { source_key: p.sourceKey } : {},
+      });
+      if ("error" in plan)
+        return result("OBSERVATION_NOT_AVAILABLE", [plan.error], "CONTEXT_UNAVAILABLE");
+      // is there anything left to rule? A ruling already retained at this basis and request is never asked again, and a retained
+      // negative ends the look without a prompt or a host call, exactly as a retained perception does
+      const request = { kind: "LOOK" as const, statement: p.attention ?? null };
+      const viewingTask = adapter.viewingTask({ pc_id: pcId, attempt: 0, request });
+      const appearanceTask = plan.appearance
+        ? adapter.appearanceTask({
+            pc_id: pcId,
+            attempt: 0,
+            extraction_id: plan.appearance.extraction_id,
+          })
+        : null;
+      const retainedViewing = viewingTask.ok
+        ? adapter.decision(viewingTask.value.task_id)
+        : undefined;
+      if (
+        !plan.viewing_present &&
+        retainedViewing !== undefined &&
+        retainedViewing.value.operation === REFEREE_OP_SCENE &&
+        retainedViewing.value.verdict !== "VIEWING_SUPPORTED" &&
+        (appearanceTask === null ||
+          !appearanceTask.ok ||
+          adapter.decision(appearanceTask.value.task_id) !== undefined)
+      )
+        return retainedViewing.value.verdict === "PLAYER_CHOICE_REQUIRED"
+          ? result("OBSERVATION_NEEDS_CHOICE")
+          : notEstablished();
+      if (!plan.viewing_present || plan.appearance !== null) {
+        const declined = await confirmLook(task);
+        if (declined) return declined;
+        lookConfirmed = true;
+        const step = await resolveScene({
+          adapter,
+          campaign,
+          session,
+          rt,
+          campaignId,
+          pcId,
+          plan,
+          attention: p.attention ?? null,
+          notEstablished,
+          onProgress: (line) => terminal.say(line),
+        });
+        if (step.kind === "RETURN") return step.result;
+        const rebuilt = adapter.observationTask({ pc_id: pcId, attempt: 0, ...scope });
+        if (!rebuilt.ok)
+          return result("OBSERVATION_NOT_AVAILABLE", [rebuilt.error.message], rebuilt.error.code);
+        task = rebuilt.value;
+      }
+    }
+
+    // a decision already retained for this very question (a negative or unresolved one included) is not asked again: the host is never
+    // rerolled for a more convenient answer, and a reading already retained is never overwritten
+    const retained = adapter.decision(task.task_id);
+    if (retained && retained.value.operation === REFEREE_OP_OBSERVATION) {
+      if (retained.value.verdict !== "OBSERVATION_ESTABLISHED") return notEstablished();
+      decisionKey = retained.fact.key;
+    } else {
+      if (!lookConfirmed) {
+        const declined = await confirmLook(task);
+        if (declined) return declined;
+      }
 
       const asked = await askObservation(adapter, rt, {
         campaign_id: campaignId,

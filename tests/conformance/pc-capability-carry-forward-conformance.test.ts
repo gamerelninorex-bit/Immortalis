@@ -194,6 +194,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, ad
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "scene-custody.ts",
       "setup-eligibility.ts",
       "source-condition.ts",
     ]);

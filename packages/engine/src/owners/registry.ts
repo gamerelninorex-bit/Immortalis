@@ -23,6 +23,7 @@ import {
   ORIGINAL_ACTIVATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
   AccessDisseminationEventSchema,
   BroadcastExposureEventSchema,
   AccessEventSchema,
@@ -132,6 +133,8 @@ import {
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  PcCurrentViewingSchema,
+  WorldOutputAppearanceSchema,
   PcPhysicalLocusCustodySchema,
   RECIPIENT_ROLE_PLAYER_CHARACTER,
   PopulationBasisSchema,
@@ -326,6 +329,10 @@ export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
 export const WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS = ["world_pc_locus_custody"] as const;
+export const WORLD_SCENE_FACT_KIND_IDS = [
+  "world_pc_current_viewing",
+  "world_output_appearance",
+] as const;
 export const WORLD_ACTOR_PRESENCE_FACT_KIND_IDS = [
   "actor_setup_placement",
   "world_setup_closure",
@@ -424,6 +431,7 @@ export type FactKindId =
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
+  | (typeof WORLD_SCENE_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_PRESENCE_FACT_KIND_IDS)[number]
   | (typeof WORLD_AUDITORY_PREMISES_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
@@ -1111,6 +1119,62 @@ export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
         },
       },
     ],
+  },
+];
+
+/**
+ * The 30 October 2026 BLUE bounded construction brief for the GM-led natural first-play rebuild (native pin 2026-10-30T03:34:44.575Z),
+ * cited as the construction objective and acceptance boundary ONLY: not a game-design source, not a spec-lock pin, and no amendment of
+ * any frozen owner contract. Its decisions 1 (current voluntary viewing is runtime physical context under the existing physical
+ * custodian) and 2 (visible physical detail is supplied through World-State) are what the two scene kinds lower.
+ */
+export const GM_FIRST_PLAY_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/40920af901e081088cccd3c7eaa995aa",
+  native_pin: "2026-10-30T03:34:44.575Z",
+} as const;
+const GM_FIRST_PLAY_LINEAGE = `BLUE Bounded Construction Brief - GM-led Natural First-Play Rebuild, verified native pin ${GM_FIRST_PLAY_BRIEF_SOURCE.native_pin} (${GM_FIRST_PLAY_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment to any frozen owner contract, NOT a spec-lock pin), with the Operating Charter section "30 October 2026 - Standing construction requirement: GM-led natural chat play" (native pin 2026-10-30T03:16:44.156Z, https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc) and I-001 section 8 (https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2, native pin 2026-09-25T00:17:49.551Z); the quotation of World Generation's Resolution Rules and F-016 fallback was read from the page as edited 2026-10-23T12:26:49.599Z and its equivalence at the frozen pin is NOT independently verified`;
+
+/** The World-State physical custodian's publication of the SUPPORTED current viewing circumstance of the active PC (runtime physical context). */
+export const WORLD_PC_CURRENT_VIEWING_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards - World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (World-State is the fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact); with I-002 4.3 (position, local physical condition and other world-locus differences are runtime physical state, not intrinsic PC state)",
+  [GM_FIRST_PLAY_LINEAGE, F016_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/** The World-State fallback custodian's physical appearance of a credited loose output: no quantity, no second ledger, no Production result. */
+export const WORLD_OUTPUT_APPEARANCE_RULE: SourceRef = rule(
+  WG_SOURCE,
+  "Ownership Guards - F-016 Ratified Fallback Objective Physical-Entity Custody (after accepted completion of a loose durable with no more-specific physical custodian: its physical identity, conserved quantity where applicable and physical condition; the causing owner does not become a second physical-condition writer; no universal per-object ledger) and World-State Resolution Kernel - Resolution Rules (resolve before revelation when an epistemic action requires a fixed answer; never choose a hidden fact based on the player's current branch or desired result)",
+  [GM_FIRST_PLAY_LINEAGE, F016_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED, create-only, sparse. The viewing circumstance is keyed by the BASIS it was ruled at (never by the wording of a request); the
+ * appearance is keyed by the delivery it is the appearance of. Neither is a Role Registry binding, an I-002 intrinsic amendment, a
+ * Production result or a knowledge/receipt: a perceived appearance still needs the Epistemic owner's own event.
+ */
+export const WORLD_SCENE_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_pc_current_viewing",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/pc/${ID}/current-viewing/([0-9a-f]{32})$`),
+    valueSchema: PcCurrentViewingSchema,
+    rule: WORLD_PC_CURRENT_VIEWING_RULE,
+  },
+  {
+    id: "world_output_appearance",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/output-appearance/(.+)$`),
+    valueSchema: WorldOutputAppearanceSchema,
+    rule: WORLD_OUTPUT_APPEARANCE_RULE,
   },
 ];
 
@@ -2277,6 +2341,20 @@ export const REFEREE_OBSERVATION_RULE: SourceRef = {
 };
 
 /**
+ * The scene decision's own governing citation: an exclusive current rule for the \`GM_SCENE_RESOLUTION\` value class (see
+ * \`FactKind.alternateRules\`); the other four decisions keep their own.
+ */
+export const REFEREE_SCENE_RULE: SourceRef = {
+  artifact: GM_FIRST_PLAY_BRIEF_SOURCE.artifact,
+  native_pin: GM_FIRST_PLAY_BRIEF_SOURCE.native_pin,
+  clause:
+    "Decisions 1 and 2 (the GM rules, through the existing provider-neutral referee pattern, whether an ORDINARY look is physically supported at one basis, distinguishing ordinary implied means from a materially new commitment and respecting established vetoes, or resolves the minimum raw appearance of a credited output once, before any observation of it, from branch-invariant world constraints; the interpretation is anchored to verbatim quotations of delivered premises, the engine validates and derives the verdict, and the retained record is create-only RC-09/IM-12 provenance, never a physical-truth or knowledge ledger)",
+  authority_lineage: [REFEREE_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "blue-bounded-brief-not-spec-locked",
+  supersedes: null,
+};
+
+/**
  * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the
  * Culture one. IM-03 routes only the dedicated key space `referee/<64 lowercase hex>/decision` to it; the kind is SEALED, i.e.
  * create-only. It authorizes no write of any world, PC, binding, Culture, Population, GIP, KTI or economic fact, and is no
@@ -2306,6 +2384,13 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
         admits: (value) => {
           const r = RefereeDecisionRecordSchema.safeParse(value);
           return r.success && r.data.operation === REFEREE_OP_OBSERVATION;
+        },
+      },
+      {
+        rule: REFEREE_SCENE_RULE,
+        admits: (value) => {
+          const r = RefereeDecisionRecordSchema.safeParse(value);
+          return r.success && r.data.operation === REFEREE_OP_SCENE;
         },
       },
     ],
@@ -3023,6 +3108,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
+  ...WORLD_SCENE_FACT_KINDS,
   ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
   ...WORLD_AUDITORY_PREMISES_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,

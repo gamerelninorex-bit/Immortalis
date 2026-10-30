@@ -171,10 +171,15 @@ describe("one fact kind, no new owner, no new facet: the second basis is an excl
     };
     expect(custody.alternateRules![0]!.admits(handover)).toBe(false);
     const referee = factKind("referee_decision");
-    // the physical-placement citation, and (BLUE v5.2) the direct-perception citation, each exclusive to its own value class
-    expect(referee.alternateRules).toHaveLength(2);
+    // the physical-placement citation, (BLUE v5.2) the direct-perception citation and (GM-led first play) the scene-resolution citation,
+    // each exclusive to its own value class
+    expect(referee.alternateRules).toHaveLength(3);
     expect(referee.alternateRules![0]!.rule).toEqual(REFEREE_PHYSICAL_RULE);
     expect(referee.alternateRules![1]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
+    expect(referee.alternateRules![2]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
+    expect(referee.alternateRules![2]!.admits({ operation: "F014D_DIRECT_PERCEPTION" })).toBe(
+      false,
+    );
     expect(referee.alternateRules![0]!.admits({ operation: "IR_NATIVE_COMPATIBILITY" })).toBe(
       false,
     );
@@ -260,17 +265,17 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "fca2e458f9fd81699243bfa416d26e3e9a49fde4925bf61567972ba6e24d24b0",
+    "f6fea96d12a03844564305682a83ac8738d4fc4fde1673b52c8b8078aea4f973",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
-    "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
+    "8877544bedbb4914ed0ddb6e3b22db687810693f5e8206067de5b17d5f322b32",
   "packages/engine/src/world/actor-coupling.ts":
     "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
   "packages/engine/src/world/fallback-custody.ts":
-    "6a216705bb3b16fc3e1a1eb359821675a25afeedc52956552bd22ece0be7128d",
+    "ff9fa3462be69b3dbbe58436b642a8a7d988b9b82c5707263c7aa5b2129f715a",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/pc-movement/integrity.ts":
@@ -310,11 +315,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
+    head: "a9b3068dea09db59dd636d897f4dab751a49654f7db84f9f8a9a4189050258b7",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
+    head: "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -322,24 +327,24 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
+    head: "b033bd1df6920ae22303fa1dc70254f0e48810bb29f8fd4a7af9bec249593492",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
-    head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
+    head: "67d5000626765cc01f1c8d402513979562727223b1e27490f49701c9b8593791",
   },
   // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
+    head: "dd5c76eeda87503fa5f28e03a6676edd899f9a46c4a632d41a4d7ad6ea4762f6",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
-    head: "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
+    head: "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
+    head: "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -351,7 +356,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
+    head: "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
@@ -363,19 +368,19 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
-    head: "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
+    head: "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
+    head: "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
+    head: "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
+    head: "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   },
 };
 // DELTAS:END

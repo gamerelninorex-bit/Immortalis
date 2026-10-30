@@ -160,10 +160,11 @@ describe("nothing outside the physical-source slice was built", () => {
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
-      "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637",
+      // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
+      "1eb9d260d520bf5d4a2e180e68d5d5f87f06fb850ad4a29d12d26bae2c9bf531",
     );
     expect(treeSha("packages/protocol/src")).toBe(
-      "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",
+      "6c6e6f8e926623c5f6e7c5c0498091cbf98fc6325bd690a75c6b88077b1b7cbf",
     );
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))
@@ -177,11 +178,13 @@ describe("nothing outside the physical-source slice was built", () => {
     const expected: Record<string, string> = {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
+      // GM-led first play: the F-014D event reads the owner-published appearance as its source only; no auditory ingress
       "packages/engine/src/epistemic":
-        "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186",
+        "458981b556ced93b1932c9b159eb56d59b8a0ff6b2a1cff76308b2031616be3e",
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
+      // GM-led first play: the PC-only GM_SCENE_RESOLUTION operation, viewing/appearance contexts, rulings and admission; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098",
+        "f15e4daa24ee9190fc23914d20957d7601c6f4750c86d99b8becd8dca4f017e1",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

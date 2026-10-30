@@ -65,11 +65,23 @@ export const REFEREE_OP_I002 = "I002_CLASSIFY";
 export const REFEREE_OP_IR = "IR_NATIVE_COMPATIBILITY";
 export const REFEREE_OP_PHYSICAL = "IR_PHYSICAL_PLACEMENT";
 export const REFEREE_OP_OBSERVATION = "F014D_DIRECT_PERCEPTION";
+/**
+ * (GM-led first play, 30 October 2026) the GM's bounded scene resolution: ONE of two lawful materializations a direct look needs, each
+ * a separate task of its own and neither decided by the perception question:
+ *   CURRENT_VIEWING    I-001 §4 Step 5 / §8: does an ORDINARY look (routine attention, turning, opening the eyes) cover the player's request
+ *                      at this basis, given the character's accepted baseline, the committed world and locus and the confirmed placement,
+ *                      or does the request carry a materially new commitment? The host rules; the World-State physical custodian
+ *                      publishes the SUPPORTED circumstance; a request alone is never a physical result.
+ *   OUTPUT_APPEARANCE  WG Resolution Rules / F-016: the minimum raw physical appearance of a loose output Production already credited,
+ *                      resolved ONCE from branch-invariant world constraints BEFORE any observation of it, never from a perception outcome.
+ */
+export const REFEREE_OP_SCENE = "GM_SCENE_RESOLUTION";
 export const RefereeOperationSchema = z.enum([
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_OBSERVATION,
+  REFEREE_OP_SCENE,
 ]);
 export type RefereeOperation = z.infer<typeof RefereeOperationSchema>;
 
@@ -97,7 +109,51 @@ const F014D = {
   native_pin: "2026-09-24T16:25:17.059Z",
 } as const;
 
+const I001 = {
+  artifact: "https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2",
+  native_pin: "2026-09-25T00:17:49.551Z",
+} as const;
+/**
+ * World Generation / World-State: the FROZEN authority pin the 30 October construction brief names (2026-09-25T13:44:22.668Z). The clauses
+ * below were read from the page as it stood at its later whole-page edit (2026-10-23T12:26:49.599Z); that their wording is unchanged at the
+ * frozen pin was NOT independently verified here and is carried as an open source-fidelity note in the PR evidence.
+ */
+const WG = {
+  artifact: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+  native_pin: "2026-09-25T13:44:22.668Z",
+} as const;
+
 export const REFEREE_SOURCES = {
+  "I001-5": {
+    ...I001,
+    clause: "§4 Step 5 — Route Goal-Level Intent",
+    text: "Infer ordinary intermediate means when: they are plainly implied by the goal; the PC can reasonably perform them; no material boundary intervenes. Stop compression when a material obstacle, danger, cost, resistance, permission issue, uncertainty, interruption or consequential branch appears.",
+  },
+  "I001-8": {
+    ...I001,
+    clause: "§8 Goal-Level Intent Compression Adapter",
+    text: "Infer: reaching; ordinary opening/closing; retrieval; routine walking/turning/stairs/doors; other mundane means strongly implied by the goal. Do not infer: breaking a lock; trespassing against a meaningful restriction; consuming a scarce resource; activating a costly power; selecting among consequential routes/options; attacking, stealing, deceiving or another materially distinct commitment unless the goal clearly contains it. Infer routine means; never infer consequential commitment.",
+  },
+  "I001-17": {
+    ...I001,
+    clause: "§17 Temporal Guard",
+    text: "Interface activity does not create simulation time. Goal-level compression may compress player commands, never causal time.",
+  },
+  "WG-RESOLUTION": {
+    ...WG,
+    clause: "World-State Resolution Kernel — Resolution Rules",
+    text: "When resolving new detail: obey the World Profile; obey established history and already resolved facts; obey applicable reference constraints; preserve causal dependencies and conservation; use prior latent constraints; resolve before revelation when an epistemic action requires a fixed answer; never choose a hidden fact based on the player's current branch or desired result. Exploration resolves possibilities inside established constraints.",
+  },
+  "WG-F016": {
+    ...WG,
+    clause: "Ownership Guards — F-016 Ratified Fallback Objective Physical-Entity Custody",
+    text: "World-State is the fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact. After accepted completion of a loose durable with no more-specific physical custodian, it may carry its physical identity, conserved quantity where applicable and physical condition. The causing owner does not become a second existence or physical-condition writer. This rule creates no universal per-object ledger: carry the shallowest faithful representation.",
+  },
+  "F014D-21": {
+    ...F014D,
+    clause: "§21 Temporal and Causality Rules, item 11 Past-Basis Resolution",
+    text: "If content is first materialized after its causal basis, use only state established as of that basis plus fresh resolution under priors/candidate rules identical across player branches and independent of post-basis information or current desired outcome. Once consequentially materialized, fix it with provenance. If bounded recovery cannot support the requested precision, lower resolution rather than scan cold history or invent detail.",
+  },
   "I002-2": {
     ...I002,
     clause: "§2 Ownership Contract",
@@ -497,6 +553,10 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
  *                        `ref` = `placement.statement`): the ONLY premise that can establish the character's own exact viewing
  *                        circumstances (a shared locus identity does not, and the faculty alone does not);
+ *   CURRENT_VIEWING      (only when the World-State physical custodian published one for THIS basis) the owner-published, SUPPORTED current viewing
+ *                        circumstance (`context.facts`, `fact_id` `viewing.current`): the character's attention, orientation and open eyes for the
+ *                        look being made now. It can establish the viewing circumstances in place of the original placement statement, which
+ *                        was written once and cannot contain every later gaze; it can establish nothing else;
  *   WORLD_FACT           a committed world, locus or (source-scoped questions only) Source Condition access fact (`context.facts`, by
  *                        `fact_id`): the physical setting, the light, the air path, any obstruction, and the owner-authored access or
  *                        appearance circumstance of the one source the question is scoped to.
@@ -505,6 +565,7 @@ export const OBSERVATION_PREMISE_KINDS = [
   "PC_STATEMENT",
   "PLACEMENT_STATEMENT",
   "WORLD_FACT",
+  "CURRENT_VIEWING",
 ] as const;
 export type ObservationPremiseKind = (typeof OBSERVATION_PREMISE_KINDS)[number];
 /** The `ref` of a PLACEMENT_STATEMENT premise: there is exactly one such statement in a delivered context. */
@@ -575,6 +636,68 @@ export const ObservationHostDecisionSchema = z.strictObject({
 export type ObservationHostDecision = z.infer<typeof ObservationHostDecisionSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// GM_SCENE_RESOLUTION
+// ---------------------------------------------------------------------------------------------
+
+export const SCENE_KINDS = ["CURRENT_VIEWING", "OUTPUT_APPEARANCE"] as const;
+export type SceneKind = (typeof SCENE_KINDS)[number];
+
+/** What the player's request is, as the host reads it against I-001 §8: an ordinary look, or something materially more. */
+export const SCENE_REQUEST_CLASSES = [
+  "ORDINARY_LOOK",
+  "MATERIAL_NEW_COMMITMENT",
+  "UNCLEAR",
+] as const;
+export const SCENE_VIEWING_STATES = ["SUPPORTED", "NOT_SUPPORTED", "NOT_ESTABLISHED"] as const;
+export const SCENE_APPEARANCE_STATES = ["RESOLVED", "NOT_RESOLVED"] as const;
+
+/**
+ * The premises a scene ruling may rest on. Every premise is a verbatim quotation of DELIVERED text, and the kind fixes what it may
+ * establish (see `deriveScene`): the character's baseline only on `PC_STATEMENT`, the confirmed placement only on `PLACEMENT_STATEMENT`,
+ * the physical setting only on `WORLD_FACT`. A viewing ruling never rests on the player's REQUEST alone: a narrative declaration is not a
+ * physical result.
+ */
+const ScenePremiseSchema = ObservationPremiseSchema;
+
+const SceneViewingSchema = z.strictObject({
+  /** I-001 §8: is the request an ORDINARY look (routine attention, turning, opening the eyes) or a materially new commitment? */
+  request: z.strictObject({
+    classification: z.enum(SCENE_REQUEST_CLASSES),
+    rule_ids: RuleIds,
+    grounds: Grounds,
+    /** a verbatim excerpt of the delivered request statement; null exactly when no statement was delivered (a bare look) */
+    evidence_quote: Quote.nullable(),
+  }),
+  state: z.enum(SCENE_VIEWING_STATES),
+  premises: z.array(ScenePremiseSchema).max(8),
+  rule_ids: RuleIds,
+  grounds: Grounds,
+  /** the ruling in the GM's words: what is physically supported right now (attention, orientation, eyes). No appearance, no recognition. */
+  statement: Trimmed(300).nullable(),
+});
+
+const SceneAppearanceSchema = z.strictObject({
+  state: z.enum(SCENE_APPEARANCE_STATES),
+  /** the minimum raw physical appearance (shape, colour, arrangement, condition): no name, count, function or identity */
+  aspects: z.array(z.strictObject({ aspect: Trimmed(60), statement: Trimmed(240) })).max(4),
+  basis: z.array(ScenePremiseSchema).max(8),
+  rule_ids: RuleIds,
+  grounds: Grounds,
+});
+
+export const SceneHostDecisionSchema = z.strictObject({
+  task_id: RefereeTaskIdSchema,
+  kind: z.enum(SCENE_KINDS),
+  viewing: SceneViewingSchema.nullable(),
+  appearance: SceneAppearanceSchema.nullable(),
+  /** every delivered world and locus fact assessed exactly once, as in the other operations */
+  assessments: z.array(IrFactAssessmentSchema).min(1).max(96),
+  /** material forks the delivered premises leave open, stated explicitly (retained evidence; the engine derives nothing from them) */
+  unresolved_forks: z.array(Grounds).max(6),
+});
+export type SceneHostDecision = z.infer<typeof SceneHostDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The verdicts (always DERIVED by the engine from the answer, never taken from it)
 // ---------------------------------------------------------------------------------------------
 
@@ -603,11 +726,26 @@ export const OBSERVATION_VERDICTS = [
   "OBSERVATION_UNRESOLVED",
   "OBSERVATION_WORLD_CONFLICT",
 ] as const;
+/**
+ * The scene verdicts. `VIEWING_SUPPORTED` / `APPEARANCE_RESOLVED` are the only ones a physical owner may publish from. A request that
+ * carries a materially new commitment is `PLAYER_CHOICE_REQUIRED`: it is returned to the player, never resolved here. Everything the
+ * delivered premises leave unsettled is UNRESOLVED, never an obstruction.
+ */
+export const SCENE_VERDICTS = [
+  "VIEWING_SUPPORTED",
+  "VIEWING_NOT_SUPPORTED",
+  "VIEWING_UNRESOLVED",
+  "PLAYER_CHOICE_REQUIRED",
+  "APPEARANCE_RESOLVED",
+  "APPEARANCE_UNRESOLVED",
+  "SCENE_WORLD_CONFLICT",
+] as const;
 export const RefereeVerdictSchema = z.enum([
   ...I002_VERDICTS,
   ...IR_VERDICTS,
   ...PHYSICAL_VERDICTS,
   ...OBSERVATION_VERDICTS,
+  ...SCENE_VERDICTS,
 ]);
 export type RefereeVerdict = z.infer<typeof RefereeVerdictSchema>;
 
@@ -691,6 +829,19 @@ export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
     operation: z.literal(REFEREE_OP_OBSERVATION),
     decision: ObservationHostDecisionSchema,
     verdict: z.enum(OBSERVATION_VERDICTS),
+  }),
+  z.strictObject({
+    ...RecordCore,
+    /** the viewing question's canonical basis; null for the appearance question, which is not a function of any basis of looking */
+    input: RecordCore.input.extend({ observed_at: CanonicalTimeSchema.nullable() }),
+    /** the trusted operation context under which the ENGINE validated the answer and derived the verdict; never read from an answer */
+    validated_under: z.strictObject({
+      role: z.literal(OBSERVATION_RESOLVER_AUTHORITY.role),
+      permission: z.literal(OBSERVATION_RESOLVER_AUTHORITY.permission),
+    }),
+    operation: z.literal(REFEREE_OP_SCENE),
+    decision: SceneHostDecisionSchema,
+    verdict: z.enum(SCENE_VERDICTS),
   }),
 ]);
 export type RefereeDecisionRecord = z.infer<typeof RefereeDecisionRecordSchema>;

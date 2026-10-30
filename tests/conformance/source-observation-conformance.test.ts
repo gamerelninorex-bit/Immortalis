@@ -43,11 +43,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
+    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
   "packages/engine/src/index.ts":
-    "595b02d0b604a1ea32518fe23cf1f307c3bf102bde426cbc718755f82230e221",
+    "d1521b5afb0afd6b23ceda468b81895eb36f6d41ebf2d175d93d2a9388dbf345",
   "packages/contracts/src/index.ts":
-    "e5f7d5ad9eb83c16f9faa81fd13d0e2ec581406613461257d44c061e8d6859ef",
+    "0326939feab773d2a2807b63833f8afa876c486c4e26b2d0906f16d0db84a9fd",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/protocol-current-glance.ts":
@@ -77,13 +77,13 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/derive.ts":
     "28fa26e19e7ddb4f3961db2ff093c79f9d284a5acb960042292c5b4127687659",
   "packages/engine/src/referee/admission.ts":
-    "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
+    "67d5000626765cc01f1c8d402513979562727223b1e27490f49701c9b8593791",
   "packages/engine/src/referee/integrity.ts":
-    "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
+    "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
+    "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
@@ -91,7 +91,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/confirmation.ts":
     "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/original-pc.ts":
-    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
+    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -113,7 +113,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/referee-mcp.ts":
-    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
+    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
   "packages/operator/src/observe-request.ts":
     "ff97b8f7cc4b4441af72d676b055146881270931c860ae7f9b87d326e5789880",
   "packages/operator/src/observe-request-answer.ts":
@@ -127,27 +127,27 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
+    "a9b3068dea09db59dd636d897f4dab751a49654f7db84f9f8a9a4189050258b7",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
-    "3bb16b6274b30504e8a46c909d35a578fd4de26ef5e3cefc35a8971679e615b9",
+    "a18f6f7922fa571f9a240781625c40a4f59b9e47ba655778f847d1519834607f",
   "packages/engine/src/referee/adapter.ts":
-    "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
+    "b033bd1df6920ae22303fa1dc70254f0e48810bb29f8fd4a7af9bec249593492",
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
+    "dd5c76eeda87503fa5f28e03a6676edd899f9a46c4a632d41a4d7ad6ea4762f6",
   "packages/operator/src/cli.ts":
-    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
+    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
   "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
+    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
   "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
+    "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
   "packages/operator/src/referee-session.ts":
-    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
+    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/protocol/src/current-observation-glance.ts":
-    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
+    "be14b7a68d801511130c0f25ee1ba90cd1179ea12d1bb6c6c9dd521ac3fae7a4",
 };
 
 const TESTS = [
@@ -256,16 +256,16 @@ describe("the slice is what it says: operator-side, trusted-input, mechanism onl
 
   it("the source selector is operator-side only: `--source` belongs to `observe-surroundings`, and no other command or surface accepts it", () => {
     const cli = read("packages/operator/src/cli.ts");
-    expect(cli).toMatch(/"observe-surroundings": \["referee-wait", "source"\]/);
+    expect(cli).toMatch(/"observe-surroundings": \["referee-wait", "source", "attention"\]/);
     expect(cli.match(/\bsource\b: \{ type: "string" \}/g)).toHaveLength(1);
     for (const cmd of ["relocate", "advance", "author-character", "establish-character-locus"])
       expect(cli).not.toMatch(new RegExp(`"${cmd}": \\[[^\\]]*"source"`));
   });
 
-  it("the predecessor glance read-count pins moved with the one added slot and nothing else: twelve identity getFacts and one group read after the bounded collection qualification repair", () => {
+  it("the predecessor glance read-count pins moved with the one added slot and nothing else: twelve identity getFacts and one group read after the bounded collection qualification repair, plus the two fixed GM-scene citation slots (fourteen)", () => {
     const body = read("packages/protocol/src/current-observation-glance.ts");
     const fn = body.slice(body.indexOf("export function readCurrentObservationGlance"));
-    expect(fn.match(/view\.getFact\(/g)).toHaveLength(12);
+    expect(fn.match(/view\.getFact\(/g)).toHaveLength(14);
     expect(fn.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(fn).toMatch(/premiseKey\(5\)/);
     expect(fn.match(/\breturn\b/g)).toHaveLength(2);

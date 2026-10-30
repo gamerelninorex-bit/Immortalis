@@ -9,6 +9,8 @@ import {
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
+  REFEREE_OP_SCENE,
+  SceneHostDecisionSchema,
   REFEREE_OP_PHYSICAL,
   RefereeTaskIdSchema,
 } from "@immortalis/contracts";
@@ -16,11 +18,13 @@ import {
   deriveI002,
   deriveIr,
   deriveObservation,
+  deriveScene,
   derivePhysical,
   type FsOps,
   type I002Context,
   type IrContext,
   type ObservationContext,
+  type SceneContext,
   type PhysicalContext,
 } from "@immortalis/engine";
 import {
@@ -211,6 +215,18 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
           true,
         );
       const d = deriveObservation(ctx as ObservationContext, parsed.data);
+      if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
+    } else if (op === REFEREE_OP_SCENE) {
+      const parsed = SceneHostDecisionSchema.safeParse(answer);
+      if (!parsed.success)
+        return text(
+          `the answer does not satisfy the shape: ${parsed.error.issues
+            .slice(0, 3)
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; ")}`,
+          true,
+        );
+      const d = deriveScene(ctx as SceneContext, parsed.data);
       if (!d.ok) return text(`${d.refusal.code}: ${d.refusal.message}`, true);
     }
     const written = await submitDecision(p, {

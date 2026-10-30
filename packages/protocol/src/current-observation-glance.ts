@@ -9,6 +9,8 @@ import {
   ProductionReserveSchema,
   WorldSourceConditionSchema,
   WorldSourceDeliverySchema,
+  parseObservationRefsLayout,
+  parseWorldSourceConditionKey,
   productionExtractionKey,
   productionReserveKey,
   worldSourceDeliveryKey,
@@ -166,9 +168,16 @@ function collectionKeys(fact: OwnerFact | undefined, decision: OwnerFact | undef
   const record = observationRecordOf(decision);
   const parsed = WorldSourceDeliverySchema.safeParse(fact?.value);
   const named = /^world\/([^/]+)\/source-delivery\/(.+)$/.exec(fact?.key ?? "");
+  // the original delivery is the sixth citation; after a scene resolution the record may also cite the owner-published viewing
+  // circumstance and the resolved appearance of that delivery, in the typed order and no other
+  const layout = record
+    ? parseObservationRefsLayout(record.input.refs, (k) => parseWorldSourceConditionKey(k) !== null)
+    : null;
   if (
     !record ||
-    record.input.refs.length !== 6 ||
+    !layout ||
+    layout.variant.kind !== "DELIVERY" ||
+    layout.variant.index !== 5 ||
     !fact ||
     !OwnerFactSchema.safeParse(fact).success ||
     !parsed.success ||
@@ -220,7 +229,7 @@ export function readCurrentObservationGlance(
     () => ReadCurrentObservationGlanceRequestSchema.safeParse(request).success,
   );
 
-  // -- thirteen identity reads: always these, always in this order ---------------------------------------------------------
+  // -- fifteen identity reads: always these, always in this order ---------------------------------------------------------
   const stateFact = step(undefined, () => view.getFact(TEMPORAL_STATE_KEY));
   const eventId = step(ABSENT_ID, () => currentObservationEventId(stateFact, recipient_id));
   const eventFact = step(undefined, () => view.getFact(accessEventKey(eventId)));
@@ -239,6 +248,10 @@ export function readCurrentObservationGlance(
   const premise4 = step(undefined, () => view.getFact(premiseKey(4)));
   // The sixth slot is a Source Condition, a completed delivery, or the sentinel (five-base-premise observation).
   const premise5 = step(undefined, () => view.getFact(premiseKey(5)));
+  // The seventh and eighth slots are the owner-published current viewing circumstance and the resolved appearance (or the sentinel).
+  // They are read for EVERY invocation, so the access pattern stays constant whatever the record cites.
+  const premise6 = step(undefined, () => view.getFact(premiseKey(6)));
+  const premise7 = step(undefined, () => view.getFact(premiseKey(7)));
   const collection = step(null, () => collectionKeys(premise5, decisionFact));
   const sourceKey = collection?.source ?? ABSENT_ID;
   const source = step(undefined, () => view.getFact(sourceKey));
@@ -257,6 +270,8 @@ export function readCurrentObservationGlance(
     [premiseKey(3), premise3],
     [premiseKey(4), premise4],
     [premiseKey(5), premise5],
+    [premiseKey(6), premise6],
+    [premiseKey(7), premise7],
     [
       sourceKey,
       step(undefined, () =>

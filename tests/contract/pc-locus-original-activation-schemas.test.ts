@@ -175,6 +175,7 @@ describe("the physical-placement decision is a closed vocabulary", () => {
       "IR_NATIVE_COMPATIBILITY",
       REFEREE_OP_PHYSICAL,
       "F014D_DIRECT_PERCEPTION",
+      "GM_SCENE_RESOLUTION",
     ]);
     expect(REFEREE_OP_PHYSICAL).toBe("IR_PHYSICAL_PLACEMENT");
     for (const v of PHYSICAL_VERDICTS) {

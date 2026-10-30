@@ -46,7 +46,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/engine/src/epistemic/observation.ts":
-    "3bb16b6274b30504e8a46c909d35a578fd4de26ef5e3cefc35a8971679e615b9",
+    "a18f6f7922fa571f9a240781625c40a4f59b9e47ba655778f847d1519834607f",
   "packages/engine/src/epistemic/direct-observation.ts":
     "a0ca78beee98677b855fa863c449bf88a371b997713e68ce59807dbce8801033",
   "packages/engine/src/epistemic/declaration.ts":
@@ -58,7 +58,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
+    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
   "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -192,7 +192,9 @@ describe("the read is read-only, causally inert and has no discovery surface", (
     );
     // no branch between the reads: each step is individually guarded, none is conditional on an earlier result
     expect(body).not.toMatch(/\bif\b[^;]*\bview\./);
-    expect(body.match(/view\.getFact\(/g)).toHaveLength(12);
+    // fourteen: the twelve of the bounded collection qualification plus the fixed seventh and eighth citation slots (the owner-published current
+    // viewing circumstance and the resolved appearance, or the sentinel), read for EVERY invocation
+    expect(body.match(/view\.getFact\(/g)).toHaveLength(14);
     expect(body.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(src.match(/observationEventViolation\(/g)).toHaveLength(1);
     expect(src.match(/deriveEventSignalProjection\(/g)).toHaveLength(1);

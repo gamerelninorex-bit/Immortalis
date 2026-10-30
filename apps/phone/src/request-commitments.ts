@@ -550,7 +550,12 @@ export class RequestCommitments {
         ...result.structuredContent,
         request_readback: readback,
         ...(this.opening
-          ? { opening: this.opening.state === "REALIZING" ? this.opening : { ...this.opening, historical: true } }
+          ? {
+              opening:
+                this.opening.state === "REALIZING"
+                  ? this.opening
+                  : { ...this.opening, historical: true },
+            }
           : {}),
       },
     };
