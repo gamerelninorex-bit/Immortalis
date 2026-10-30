@@ -161,10 +161,10 @@ describe("nothing outside the physical-source slice was built", () => {
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
       // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
-      "1eb9d260d520bf5d4a2e180e68d5d5f87f06fb850ad4a29d12d26bae2c9bf531",
+      "ac89fb35a351666afedb9bed0493386cf9ad123b7a3401edc4537f1aea418496",
     );
     expect(treeSha("packages/protocol/src")).toBe(
-      "6c6e6f8e926623c5f6e7c5c0498091cbf98fc6325bd690a75c6b88077b1b7cbf",
+      "6ab3fc2cf3fdbef51b5fd70a13194b39d65742056c820bd0377d2bd9c0ec4c3a",
     );
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))

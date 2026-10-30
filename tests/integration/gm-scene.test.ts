@@ -248,6 +248,50 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     }
   }, 300_000);
 
+  it("a reworded look at a basis whose circumstance already stands is still ruled on: a materially new commitment in the new words is returned, not dropped", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      const first = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(first.result.status).toBe("OBSERVATION_RECEIVED");
+      const held = await owners(dirs);
+      expect(held.viewing).toHaveLength(1);
+      const asked = gm.answered.length;
+      const again = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "after I climb onto the wall, at the far side" },
+        perceive,
+      );
+      expect(again.result.status).toBe("OBSERVATION_NEEDS_CHOICE");
+      expect(gm.answered.length).toBe(asked + 1); // exactly one new ruling: on the new words
+      const after = await owners(dirs);
+      // the published circumstance and the receipt stand untouched; nothing was added but the sealed ruling on the new words
+      expect(after.viewing.map((f) => after.raw[f.key])).toEqual(
+        held.viewing.map((f) => held.raw[f.key]),
+      );
+      expect(after.events).toHaveLength(1);
+      expect(after.time).toBe(held.time);
+      // an ordinary rewording needs no new publication
+      const ordinary = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "at the grain" },
+        perceive,
+      );
+      expect(ordinary.result.status).toBe("OBSERVATION_RECEIVED");
+      expect((await owners(dirs)).viewing).toHaveLength(1);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
   it("the character's own words can veto a look: the ruling is retained as evidence and nothing is published or perceived", async () => {
     const dirs = copy();
     await bindScene(dirs.operatorDir);

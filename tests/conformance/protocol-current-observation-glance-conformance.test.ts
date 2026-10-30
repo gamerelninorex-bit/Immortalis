@@ -58,7 +58,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/operator/src/observation.ts":
-    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
+    "16c066a111d13bcb4275d0fa91df91f0bd1dd8bae97304b531baf62b211feb29",
   "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",

@@ -66,7 +66,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
-    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
+    "16c066a111d13bcb4275d0fa91df91f0bd1dd8bae97304b531baf62b211feb29",
   "packages/operator/src/original-pc.ts":
     "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   "packages/operator/src/original-pc-keep.ts":

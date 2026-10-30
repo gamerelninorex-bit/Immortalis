@@ -191,8 +191,11 @@ export async function resolveScene(p: {
     // an appearance the GM could not resolve (or a conflict) publishes nothing: the perception question then has none to rest on
   }
 
-  // 2. the current viewing circumstance of this look
-  if (!p.plan.viewing_present) {
+  // 2. the current viewing circumstance of this look. It is published once per basis, but the player's WORDS are a request of their own: a
+  // worded look is ruled on even where a circumstance already stands (a retained ruling for those exact words is never asked again), because
+  // a materially new commitment in them ("climb up, then look") must be returned to the player, not silently dropped. A bare look has no
+  // words to rule on.
+  if (!p.plan.viewing_present || p.attention !== null) {
     const request = { kind: "LOOK" as const, statement: p.attention };
     const first = adapter.viewingTask({ pc_id: pcId, attempt: 0, request });
     if (!first.ok)
@@ -231,6 +234,8 @@ export async function resolveScene(p: {
     }
     if (verdict === "PLAYER_CHOICE_REQUIRED")
       return { kind: "RETURN", result: result("OBSERVATION_NEEDS_CHOICE") };
+    // a circumstance already published at this basis stands: nothing is published again, and these words add nothing to it
+    if (p.plan.viewing_present) return { kind: "CONTINUE" };
     if (verdict !== "VIEWING_SUPPORTED") return { kind: "RETURN", result: p.notEstablished() };
     const written = await campaign.establishPcCurrentViewing({
       ...publication("viewing", taskId),

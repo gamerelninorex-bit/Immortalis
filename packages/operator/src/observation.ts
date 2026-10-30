@@ -229,6 +229,27 @@ async function run(
         `character: ${pc.fact.key} (nothing was changed)`,
         "an observation of another scope already holds this canonical basis; a different look needs a new basis",
       ]);
+    // A replay shows the observation this basis earned. The player's WORDS of this request are still a request of their own: where a Game
+    // Master is bound, a materially new commitment in them is returned to the player rather than silently dropped. Nothing is published
+    // and no confirmation is asked here (a ruling already retained for exactly these words is never asked again).
+    if (p.attention !== undefined && (await sceneHostBound(campaignId, rt))) {
+      const plan = planScene(adapter, campaign, { pcId, at, scope });
+      if ("error" in plan)
+        return result("OBSERVATION_NOT_AVAILABLE", [plan.error], "CONTEXT_UNAVAILABLE");
+      const step = await resolveScene({
+        adapter,
+        campaign,
+        session,
+        rt,
+        campaignId,
+        pcId,
+        plan: { ...plan, viewing_present: true, appearance: null },
+        attention: p.attention,
+        notEstablished,
+        onProgress: (line) => terminal.say(line),
+      });
+      if (step.kind === "RETURN") return step.result;
+    }
     decisionKey = cited;
   } else {
     // GM-led natural look: when a GM scene host is bound, the appearance of an unresolved credited output and the current viewing

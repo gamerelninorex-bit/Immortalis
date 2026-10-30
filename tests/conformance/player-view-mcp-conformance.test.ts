@@ -40,7 +40,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
   "packages/protocol/src/current-observation-glance.ts":
-    "be14b7a68d801511130c0f25ee1ba90cd1179ea12d1bb6c6c9dd521ac3fae7a4",
+    "2f7931cdbf326493875a0d6d5dbf8588577a7c4cac3f232a1b20fc0713dfb754",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
@@ -55,7 +55,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the operator modules the trusted read re-uses without edit
   "packages/operator/src/observation.ts":
-    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
+    "16c066a111d13bcb4275d0fa91df91f0bd1dd8bae97304b531baf62b211feb29",
   "packages/operator/src/original-pc.ts":
     "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
   "packages/operator/src/original-pc-keep.ts":

@@ -141,13 +141,13 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/operator/src/cli.ts":
     "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
   "packages/operator/src/observation.ts":
-    "a1951f3a04fef55c9c425fea1bb97cab6b0750d0be76ed7fce522304146b8cdd",
+    "16c066a111d13bcb4275d0fa91df91f0bd1dd8bae97304b531baf62b211feb29",
   "packages/operator/src/referee-exchange.ts":
     "411cbb63d49e26e105c71a8cf33a55d2222c996bc0d17a45046f1b6eb92a7085",
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/protocol/src/current-observation-glance.ts":
-    "be14b7a68d801511130c0f25ee1ba90cd1179ea12d1bb6c6c9dd521ac3fae7a4",
+    "2f7931cdbf326493875a0d6d5dbf8588577a7c4cac3f232a1b20fc0713dfb754",
 };
 
 const TESTS = [
