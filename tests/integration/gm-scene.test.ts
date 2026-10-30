@@ -535,8 +535,8 @@ describe("the engine refuses a scene ruling that is not anchored, whoever sends 
     ruling.viewing.premises = [
       {
         from: "PC_STATEMENT",
-        ref: worded.context.pc[0].item_id,
-        evidence_quote: worded.context.pc[0].text.slice(0, 12),
+        ref: worded.context.pc[0]!.item_id,
+        evidence_quote: worded.context.pc[0]!.text.slice(0, 12),
       },
     ];
     const refused: any = await record(worded, ruling, LOOK);
