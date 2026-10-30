@@ -265,7 +265,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/owners/admission.ts":
-    "f6fea96d12a03844564305682a83ac8738d4fc4fde1673b52c8b8078aea4f973",
+    "59d58d3e70653cdc54153ac810f8cd39da856a3568cc0cb680520faec13a1b29",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
   "packages/engine/src/world/integrity.ts":
@@ -319,7 +319,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
+    head: "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -356,27 +356,27 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
+    head: "e53e78c2ee0c7c16a7e67dff8369d5421cfdf647df52c1b905d0933724c5c2b3",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
+    head: "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
+    head: "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
-    head: "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
+    head: "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "032a0381b7cbf7771b2a4012d55ecc72bdc709f6271780374be99f0344ffff66",
+    head: "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
+    head: "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",

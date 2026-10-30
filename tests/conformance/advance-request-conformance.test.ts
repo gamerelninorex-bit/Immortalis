@@ -50,15 +50,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   "packages/operator/src/confirmation.ts":
-    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
+    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
   "packages/operator/src/cli.ts":
-    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
+    "e53e78c2ee0c7c16a7e67dff8369d5421cfdf647df52c1b905d0933724c5c2b3",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
   "packages/operator/src/index.ts":
-    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
+    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -68,7 +68,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "619952934550c275137ebb56dba271d6f8444859b453efcf6f8c0f685490a79f",
   "packages/operator/src/original-pc.ts":
-    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
+    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -100,9 +100,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
   "packages/operator/src/referee-mcp.ts":
-    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
+    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-exchange.ts":
-    "032a0381b7cbf7771b2a4012d55ecc72bdc709f6271780374be99f0344ffff66",
+    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
 };

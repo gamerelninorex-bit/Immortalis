@@ -15,6 +15,7 @@ import {
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
   PcIntrinsicClarificationSchema,
+  PcDelegatedClarificationSchema,
   FACET_PC_INTRINSIC_CLARIFICATION,
   PcCollectionReachDecisionSchema,
   PcCollectionRequestSchema,
@@ -379,6 +380,7 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "world_scene_closure",
   "population_workforce_scope",
   "pc_intrinsic_clarification",
+  "pc_delegated_clarification",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -1894,6 +1896,22 @@ export const PC_INTRINSIC_CLARIFICATION_RULE: SourceRef = {
   supersedes: null,
 };
 
+/**
+ * H1 — the DELEGATED selection of the same branch: an I-002 §9 Delegation Commit Record for the exact-cycle class (BLUE same-PR repair
+ * authorization on PR #94, durable review https://app.notion.com/p/3fe20af901e08155a133e829b7a7020a, pin 2026-10-30T08:24:46.805Z).
+ * Source texts: I-002 §9 (markup removed) and CPAA-C1 v0.3 F-2. NEWLY AUTHORIZED construction, not a frozen-source rule, not a
+ * spec-lock pin, independent BLUE review pending; it lifts no First Playable or merge exclusion.
+ */
+export const PC_DELEGATED_CLARIFICATION_RULE: SourceRef = {
+  artifact: I002_SOURCE.artifact,
+  native_pin: I002_SOURCE.native_pin,
+  clause:
+    "I-002 §9 Delegation / Hidden-Seed Adapter: 'surprise me' delegates selection to role.gm within a lawful bounded scope and does not require statistical randomness; player constraints/exclusions narrow the delegated space; every delegated branch that can later affect outcomes is selected and sealed before Generation Hand-Off; Persist a Delegation Commit Record: scope/constraints; candidate space or generation basis; selection method; method/algorithm version; executing role; draw/seed where random; selected content in sealed form; validation result confirming the selected content lies within the committed scope, constraints, exclusions and candidate space; commit time / governing package version. A delegation first offered after hand-off is lawful only when no consequence depending on it is pending: the executing role must create and seal a fresh Delegation Commit Record immediately under GM Kernel Outcome Neutrality before any dependent resolution proceeds. If that condition cannot be met, decline the delegation and leave the branch UNRESOLVED. And CPAA-C1 v0.3 F-2: the eligible intrinsic premise is a lawfully player-authored or delegated, accepted I-002 Capability/Effect claim with an operative Temporal Hook; role.archivist canonically writes the accepted compilation and its provenance. Here: role.gm (not the player) selects the number inside the player's committed whole-number bounds, the owner re-derives the validation, role.archivist writes the create-only record (PLAYER-DELEGATED, never PLAYER-AUTHORED) before any dependent collection commitment, effective from the canonical time at acceptance and never retroactively; it shares the ONE slot of the branch with the player-authored R-5 clarification; the later mechanism and attestation follow it by exact version and still require the exact numeral and canonical unit and the role.gm cycle attestation",
+  authority_lineage: [CPAA_C1_R5_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "blue-same-pr-repair-authorization-independent-review-pending",
+  supersedes: null,
+};
+
 const pcCollectionKind = (
   id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
   owner: string,
@@ -2088,6 +2106,17 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^pc/${ID}/intrinsic-clarification/${ID}$`),
     PcIntrinsicClarificationSchema,
     PC_INTRINSIC_CLARIFICATION_RULE,
+  ),
+  pcCollectionKind(
+    "pc_delegated_clarification",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_INTRINSIC_CLARIFICATION,
+    "IM-07",
+    ["RC-02", "RC-03"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/delegated-clarification/${ID}$`),
+    PcDelegatedClarificationSchema,
+    PC_DELEGATED_CLARIFICATION_RULE,
   ),
 ];
 

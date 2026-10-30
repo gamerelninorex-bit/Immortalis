@@ -36,6 +36,7 @@ const tools: Readonly<Record<string, readonly string[]>> = {
   "establish-character-locus": ["establish_character_location"],
   "initialize-time": ["state_starting_moment"],
   "accept-clarification": ["state_handling_duration"],
+  "accept-delegation": ["delegate_handling_duration"],
   "prepare-collection": ["propose_collection_preparation"],
   "declare-closed-setting": ["declare_closed_setting"],
 };
@@ -363,6 +364,7 @@ export class RequestCommitments {
             "place-character",
             "establish-character-locus",
             "accept-clarification",
+            "accept-delegation",
           ].includes(request.verb);
           const source: OpeningSources = {
             campaign: this.#campaign,

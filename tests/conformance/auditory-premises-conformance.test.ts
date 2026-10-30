@@ -161,7 +161,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
       // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
-      "254093b1374d46c0392e8a6c4310e7b5318fb0a8428b41f5dbd52ac83f7c006a",
+      "08dd882a8490c6bcf76bb12d76be97b30824557bcda19ceca9198276fd849ec4",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "6ab3fc2cf3fdbef51b5fd70a13194b39d65742056c820bd0377d2bd9c0ec4c3a",

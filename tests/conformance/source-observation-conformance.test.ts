@@ -43,9 +43,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
+    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
   "packages/engine/src/index.ts":
-    "d1521b5afb0afd6b23ceda468b81895eb36f6d41ebf2d175d93d2a9388dbf345",
+    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
   "packages/contracts/src/index.ts":
     "0326939feab773d2a2807b63833f8afa876c486c4e26b2d0906f16d0db84a9fd",
   "packages/contracts/src/epistemic-access.ts":
@@ -89,9 +89,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/source-drawdown/admission.ts":
     "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
   "packages/operator/src/confirmation.ts":
-    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
+    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
   "packages/operator/src/original-pc.ts":
-    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
+    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -105,7 +105,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/index.ts":
-    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
+    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
@@ -113,7 +113,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
   "packages/operator/src/referee-mcp.ts":
-    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
+    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/observe-request.ts":
     "ff97b8f7cc4b4441af72d676b055146881270931c860ae7f9b87d326e5789880",
   "packages/operator/src/observe-request-answer.ts":
@@ -139,11 +139,11 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/derive.ts":
     "25c6895c3255e7974bd392952fdb1b568dd45ca0df52adb46cb0fd30b9c02684",
   "packages/operator/src/cli.ts":
-    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
+    "e53e78c2ee0c7c16a7e67dff8369d5421cfdf647df52c1b905d0933724c5c2b3",
   "packages/operator/src/observation.ts":
     "619952934550c275137ebb56dba271d6f8444859b453efcf6f8c0f685490a79f",
   "packages/operator/src/referee-exchange.ts":
-    "032a0381b7cbf7771b2a4012d55ecc72bdc709f6271780374be99f0344ffff66",
+    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
   "packages/protocol/src/current-observation-glance.ts":

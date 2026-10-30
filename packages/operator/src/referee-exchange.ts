@@ -72,10 +72,16 @@ export const COLLECTION_REFEREE_OPERATIONS = [
   "PC_COLLECTION_CYCLE",
   "PC_COLLECTION_REACH",
 ] as const;
-export type CollectionRefereeOperation = (typeof COLLECTION_REFEREE_OPERATIONS)[number];
+/**
+ * H1: the delegated selection of the collection cycle (I-002 section 9). A SEPARATE operation set, so a host already bound to the cycle and
+ * reach readings keeps loading and starting unchanged; a deployment opts in by binding a host to this operation.
+ */
+export const DELEGATION_REFEREE_OPERATIONS = ["PC_COLLECTION_DELEGATE"] as const;
+export type CollectionRefereeOperation =
+  (typeof COLLECTION_REFEREE_OPERATIONS)[number] | (typeof DELEGATION_REFEREE_OPERATIONS)[number];
 const ExchangeOperationSchema = z.union([
   RefereeOperationSchema,
-  z.enum(COLLECTION_REFEREE_OPERATIONS),
+  z.enum([...COLLECTION_REFEREE_OPERATIONS, ...DELEGATION_REFEREE_OPERATIONS]),
 ]);
 export type ExchangeOperation = z.infer<typeof ExchangeOperationSchema>;
 

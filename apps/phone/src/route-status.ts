@@ -47,6 +47,33 @@ export interface NextStep {
     readonly ask_the_player: readonly string[];
     readonly note: string;
   };
+  /**
+   * H1: the conditional DELEGATED path (I-002 section 9, "surprise me"): offered only if the PLAYER themselves hand the choice of that one
+   * duration to the referee and state the bounds. It is never the default, and the model must not delegate on the player's behalf.
+   */
+  readonly if_player_delegates_handling_duration?: {
+    readonly tool: "delegate_handling_duration";
+    readonly ask_the_player: readonly string[];
+    readonly note: string;
+  };
+  /**
+   * H1: once a delegation is committed, the Character Mirror's account (scope, method class, executing role, seal) and the sealed
+   * statement exactly as committed, so the preparation can quote it verbatim. It is the referee's choice, never the player's words.
+   */
+  readonly delegated_choice?: {
+    readonly clarification_id: string;
+    readonly provenance: "PLAYER-DELEGATED";
+    readonly executed_by: "role.gm";
+    readonly statement: string;
+    readonly scope: {
+      readonly shortest: number;
+      readonly longest: number;
+      readonly unit: string;
+      readonly your_words: string | null;
+    };
+    readonly method: string;
+    readonly seal: string;
+  };
   readonly note: string;
 }
 
@@ -183,7 +210,13 @@ export function routeStatus(input: StatusInput): RouteStatus {
         }
       : line;
   const needsReferee = (stage: string, line: StageLine): StageLine => {
-    if (line.state !== "NEXT" || covered(REFEREE_FOR[stage])) return line;
+    // the handling duration has two routes (the player's own words are classified by I-002; a delegated choice is made by role.gm)
+    if (
+      line.state !== "NEXT" ||
+      covered(REFEREE_FOR[stage]) ||
+      (stage === "handling_duration" && covered("PC_COLLECTION_DELEGATE"))
+    )
+      return line;
     missing.push(`REFEREE_GRANT_MISSING:${REFEREE_FOR[stage]}`);
     return { stage, state: "BLOCKED", detail: "no listed referee host is bound for this reading" };
   };
@@ -384,7 +417,7 @@ const ACCEPTED_SECTIONS = new Set<string>([
 ]);
 
 /** One conditional choice, not a semantic verdict inferred from accepted prose. */
-function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
+function preparationStep(r: RouteFacts, rec: RouteRecord | null, delegable: boolean): NextStep {
   return {
     tool: TOOL["collection_preparation"]!,
     ask_the_player: rec?.preparation
@@ -400,6 +433,35 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
       .filter((c) => ACCEPTED_SECTIONS.has(c.locator.section))
       .map((c) => ({ section: c.locator.section, text: c.statement })),
     canonical_unit: r.time!.canonical_time.unit,
+    ...(r.clarification?.delegated
+      ? {
+          delegated_choice: {
+            clarification_id: r.clarification.clarification_id,
+            provenance: "PLAYER-DELEGATED" as const,
+            executed_by: "role.gm" as const,
+            statement: r.clarification.statements[0]!,
+            scope: {
+              shortest: r.clarification.delegated.shortest,
+              longest: r.clarification.delegated.longest,
+              unit: r.clarification.delegated.unit,
+              your_words: r.clarification.delegated.words,
+            },
+            method: r.clarification.delegated.method,
+            seal: r.clarification.delegated.seal,
+          },
+        }
+      : {}),
+    ...(clarificationNeed(r) === "OPEN" && delegable
+      ? {
+          if_player_delegates_handling_duration: {
+            tool: "delegate_handling_duration" as const,
+            ask_the_player: [
+              'only if THEY hand the choice of that one duration to the referee ("surprise me"): the shortest and the longest whole number of the campaign\'s unit they will accept, and any words of their own about it',
+            ],
+            note: "Never delegate on the player's behalf, never choose or suggest the bounds, and never present the referee's choice as the player's own words. The referee chooses once inside their bounds; the choice is sealed and not shown to them before it is committed; it cannot be reselected.",
+          },
+        }
+      : {}),
     ...(clarificationNeed(r) === "OPEN"
       ? {
           if_handling_duration_unresolved: {
@@ -411,9 +473,13 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
           },
         }
       : {}),
-    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
+    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first (or, only if the player themselves delegate the choice, if_player_delegates_handling_duration), asking only for that missing detail. A delegated_choice, once present, is the referee's sealed choice: quote it verbatim as the cycle; it is not the player's own words. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
   };
 }
+
+/** the delegated selection is offered only where a listed, bound host can make it (an unlisted deployment keeps the status it always had) */
+const delegates = (input: StatusInput): boolean =>
+  input.coverage !== null && input.coverage.has("PC_COLLECTION_DELEGATE");
 
 function nextStep(
   r: RouteFacts,
@@ -460,7 +526,7 @@ function nextStep(
         note: "The setting author states this once; nothing is defaulted, converted or guessed, and no time passes by stating it.",
       };
     case "handling_duration":
-      if (!rec?.handling) return preparationStep(r, rec);
+      if (!rec?.handling) return preparationStep(r, rec, delegates(input));
       return {
         tool: TOOL["handling_duration"]!,
         ask_the_player: rec?.handling
@@ -473,7 +539,7 @@ function nextStep(
         note: "Reuse the player's retained words for this open handling-cycle question. The existing referee judges whether the detail is unresolved and whether the words only clarify that detail; the player separately accepts them. No rate is suggested or chosen.",
       };
     case "collection_preparation":
-      return preparationStep(r, rec);
+      return preparationStep(r, rec, delegates(input));
     case "closed_setting":
       return {
         tool: TOOL["closed_setting"]!,

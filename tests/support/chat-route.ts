@@ -62,6 +62,9 @@ export const CYCLE = `one handful every ${TAU} ${UNIT}`;
 /** the R-5 player's own account of the one unresolved duration (a test human's words, not a default) */
 export const HANDLING = `It takes me ${TAU} ${UNIT} to lift and carry one lump`;
 export const COLLECTION_OPS = ["PC_COLLECTION_CYCLE", "PC_COLLECTION_REACH"] as const;
+/** H1: the SEPARATE least-privilege host of the delegated selection (a deployment opts in by listing and binding it) */
+export const DELEGATE_OPS = ["PC_COLLECTION_DELEGATE"] as const;
+export const DELEGATE_HOST = "gm-delegate";
 export const SETUP_HOST = "gm-setup";
 export const COLLECTION_HOST = "gm-collection";
 
@@ -85,10 +88,39 @@ export function cycleReading(task: any, negative = false): unknown {
   };
 }
 
+/** the statement the scripted role.gm writes for a delegated selection (authored test content, never a default) */
+export const delegatedStatement = (n: number, unit: string = UNIT): string =>
+  `Handling one handful of loose material takes this body ${n} ${unit}`;
+
+/**
+ * The scripted role.gm selection (PLUMBING ONLY): a faithful selection inside the delivered bounds. `pick` chooses the number from the
+ * task (default: five above the shortest bound, clamped to the longest); `over` forms a falsifier.
+ */
+export function delegateSelection(
+  task: any,
+  o: { pick?: (task: any) => number; over?: Record<string, unknown> } = {},
+): unknown {
+  const space = task.scope.candidate_space;
+  const n = o.pick ? o.pick(task) : Math.min(space.longest, space.shortest + 5);
+  const statement = delegatedStatement(n, space.unit);
+  const ground = task.baseline
+    .map((i: any) => i.text as string)
+    .find((t: string) => t.includes(ACTUATOR));
+  return {
+    task_digest: task.digest,
+    branch: "UNRESOLVED_BEFORE",
+    scope: "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE",
+    baseline_ground: ground ? ACTUATOR : null,
+    selection: { value: n, statement, statement_ground: statement },
+    ...(o.over ?? {}),
+  };
+}
+
 /** The scripted policy for every referee operation of the route: the setup readings of the earlier slices, and the cycle reading. */
 export function routePolicy(
   rules: Parameters<typeof scriptedPolicy>[0] = {},
   cycle: { negative?: boolean } = {},
+  delegate: (task: any) => unknown = (task) => delegateSelection(task),
 ): Policy {
   const base = scriptedPolicy(rules);
   return (doc) =>
@@ -96,7 +128,9 @@ export function routePolicy(
       ? cycleReading(doc["context"], cycle.negative === true)
       : doc["operation"] === "PC_COLLECTION_REACH"
         ? hostAnswer(doc["context"], "OPEN", "NOT_AT_ISSUE")
-        : base(doc);
+        : doc["operation"] === "PC_COLLECTION_DELEGATE"
+          ? delegate(doc["context"])
+          : base(doc);
 }
 
 /**
@@ -146,7 +180,7 @@ export interface RouteRun extends Running {
 export async function hosts(
   s: Slot,
   policy: Policy = routePolicy(),
-  which: readonly ("setup" | "collection")[] = ["setup", "collection"],
+  which: readonly ("setup" | "collection" | "delegate")[] = ["setup", "collection"],
   setupOps: readonly string[] = FOUR_OPS,
 ): Promise<ScriptedHost[]> {
   const out: ScriptedHost[] = [];
@@ -158,6 +192,10 @@ export async function hosts(
     await bind(s, COLLECTION_OPS, COLLECTION_HOST);
     out.push(startScriptedHost({ operatorDir: s.operatorDir } as any, policy, COLLECTION_HOST));
   }
+  if (which.includes("delegate")) {
+    await bind(s, DELEGATE_OPS, DELEGATE_HOST);
+    out.push(startScriptedHost({ operatorDir: s.operatorDir } as any, policy, DELEGATE_HOST));
+  }
   return out;
 }
 
@@ -165,13 +203,13 @@ export async function hosts(
 export function startHosts(
   s: Slot,
   policy: Policy = routePolicy(),
-  which: readonly ("setup" | "collection")[] = ["setup", "collection"],
+  which: readonly ("setup" | "collection" | "delegate")[] = ["setup", "collection"],
 ): ScriptedHost[] {
   return which.map((w) =>
     startScriptedHost(
       { operatorDir: s.operatorDir } as any,
       policy,
-      w === "setup" ? SETUP_HOST : COLLECTION_HOST,
+      w === "setup" ? SETUP_HOST : w === "delegate" ? DELEGATE_HOST : COLLECTION_HOST,
     ),
   );
 }
@@ -179,7 +217,11 @@ export function startHosts(
 /** A service over an existing (possibly cloned) slot, with scripted referee hosts, linked to one player client. */
 export async function resumed(
   s: Slot,
-  o: { deps?: PhoneDeps; policy?: Policy; which?: readonly ("setup" | "collection")[] } = {},
+  o: {
+    deps?: PhoneDeps;
+    policy?: Policy;
+    which?: readonly ("setup" | "collection" | "delegate")[];
+  } = {},
 ): Promise<RouteRun> {
   const list = startHosts(s, o.policy ?? routePolicy(), o.which);
   const r = await run(s, o.deps ?? {});
@@ -200,7 +242,7 @@ export interface RouteOptions {
   readonly cycle?: boolean;
   readonly deps?: PhoneDeps;
   readonly policy?: Policy;
-  readonly which?: readonly ("setup" | "collection")[];
+  readonly which?: readonly ("setup" | "collection" | "delegate")[];
   /** the player-view host the service is configured with (null = unset) */
   readonly view?: string | null;
   readonly mutateSetting?: (doc: any) => void;
@@ -216,7 +258,11 @@ export interface RouteOptions {
  */
 export async function started(o: RouteOptions = {}): Promise<RouteRun> {
   const s = await slot({
-    refereeHostIds: [SETUP_HOST, COLLECTION_HOST],
+    refereeHostIds: [
+      SETUP_HOST,
+      COLLECTION_HOST,
+      ...(o.which?.includes("delegate") ? [DELEGATE_HOST] : []),
+    ],
     playerViewHostId: o.view === undefined ? "view-host" : o.view,
   });
   const list = await hosts(s, o.policy ?? routePolicy(), o.which, o.setupOps);

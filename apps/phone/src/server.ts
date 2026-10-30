@@ -105,7 +105,7 @@ import {
   retainInput,
   type RouteRecord,
 } from "./route-record.ts";
-import { refereeWaitSeconds, runClarify } from "./route-run.ts";
+import { refereeWaitSeconds, runClarify, runDelegate } from "./route-run.ts";
 import {
   STAGE_COMMAND,
   parseChronology,
@@ -800,6 +800,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       LOCUS: "the character's physical location",
       CHRONOLOGY: "the starting chronology",
       CLARIFY: "the player's handling-cycle clarification",
+      DELEGATE: "the delegated, sealed choice of the handling cycle",
       PREPARE: "the collection preparation",
       DECLARE: "the closed-setting declaration",
       FINISH: "the cycle attestation and the connection",
@@ -2165,7 +2166,10 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
 
       if (closing) return refuse(503, "the server is closing; nothing was dispatched");
       const options: Record<string, string> = { ...planned.options };
-      const direct = planned.identity.kind === "CLARIFY" || planned.identity.kind === "FINISH";
+      const direct =
+        planned.identity.kind === "CLARIFY" ||
+        planned.identity.kind === "DELEGATE" ||
+        planned.identity.kind === "FINISH";
       if (wait !== null && planned.identity.kind === "LOCUS") options["referee-wait"] = wait;
       const built = direct
         ? null
@@ -2265,9 +2269,11 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         settleStage,
         identity.kind === "CLARIFY"
           ? (env) => runClarify(config, identity, env, deps.character)
-          : identity.kind === "FINISH"
-            ? (env) => runFinish(config, cli, identity, env, wait)
-            : undefined,
+          : identity.kind === "DELEGATE"
+            ? (env) => runDelegate(config, identity, env, deps.character)
+            : identity.kind === "FINISH"
+              ? (env) => runFinish(config, cli, identity, env, wait)
+              : undefined,
       );
       run.step = identity.kind;
       return { ok: true, run };

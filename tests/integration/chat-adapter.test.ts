@@ -562,6 +562,7 @@ describe("MECHANISM: the MCP transport", () => {
           "establish_character_location",
           "state_starting_moment",
           "state_handling_duration",
+          "delegate_handling_duration",
           "propose_collection_preparation",
           "declare_closed_setting",
           "finish_collection_setup",

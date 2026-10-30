@@ -91,6 +91,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
       "production_pc_collection_termination",
       "production_pc_collection_lapse",
       "pc_intrinsic_clarification",
+      "pc_delegated_clarification",
     ]);
     for (const k of PC_COLLECTION_FACT_KINDS.filter((k) =>
       (C1_KIND_IDS as readonly string[]).includes(k.id),
@@ -350,6 +351,15 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
         "IM-07",
         ["RC-02", "RC-03"],
       ],
+      // H1: the Delegation Commit Record of the same branch (I-002 section 9), a second kind of the same facet
+      [
+        "pc_delegated_clarification",
+        "pc_existence",
+        "pc_intrinsic_clarification",
+        "SEALED",
+        "IM-07",
+        ["RC-02", "RC-03"],
+      ],
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
       [
@@ -465,6 +475,7 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "admission.ts",
       "cessation.ts",
       "clarification.ts",
+      "delegation.ts",
       "derive.ts",
       "determinations.ts",
       "integrity.ts",
@@ -487,6 +498,10 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "commit",
       "commitment",
       "cycleTask",
+      "delegate",
+      "delegation",
+      "delegationTask",
+      "delegations",
       "determineRepresentation",
       "establishMechanism",
       "establishRequest",

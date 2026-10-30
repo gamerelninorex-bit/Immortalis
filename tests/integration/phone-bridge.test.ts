@@ -400,6 +400,7 @@ describe("MECHANISM: the closed command set builds the argument vector from the 
         "collect-continue",
         "collect-finish",
         "declare-closed-setting",
+        "delegate-collection-cycle",
         "establish-character-locus",
         "establish-locality",
         "initialize-time",

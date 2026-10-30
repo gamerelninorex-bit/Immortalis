@@ -4,6 +4,7 @@ import {
   PC_CLARIFICATION_QUESTION,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  PcDelegatedClarificationSchema,
   PcIntrinsicClarificationSchema,
   REFEREE_OP_I002,
   RefereeDecisionRecordSchema,
@@ -43,8 +44,17 @@ import type { ScanFacts } from "./determinations.ts";
  * does not qualify. Whether the words state a rate is judged later, and only textually, by the mechanism that cites them.
  */
 
+/** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
+export function statesExactDuration(
+  quote: string,
+  duration: { readonly unit: string; readonly value: number },
+): boolean {
+  const numeral = new RegExp(`(?<![0-9.])${duration.value}(?![0-9]|\\.[0-9])`);
+  return numeral.test(quote) && quote.includes(duration.unit);
+}
+
 const MAX_STATEMENT = 500;
-const hasControl = (s: string): boolean => {
+export const hasControlCharacters = (s: string): boolean => {
   for (const ch of s) {
     const c = ch.codePointAt(0)!;
     if (c < 0x20 || c === 0x7f) return true;
@@ -94,14 +104,25 @@ export function pcClarificationScope(
   const prior: { clarification_id: string; statements: string[] }[] = [];
   if (facts.values) {
     const prefix = `pc/${pcId}/intrinsic-clarification/`;
+    // H1: a Delegation Commit Record closes the very same branch: the character has ONE slot, whichever route filled it
+    const delegated = `pc/${pcId}/delegated-clarification/`;
     for (const f of facts.values()) {
-      if (!f.key.startsWith(prefix) || f.key === exceptKey) continue;
-      const v = PcIntrinsicClarificationSchema.safeParse(f.value);
-      if (v.success)
-        prior.push({
-          clarification_id: v.data.clarification_id,
-          statements: v.data.claims.map((x) => x.statement),
-        });
+      if (f.key === exceptKey) continue;
+      if (f.key.startsWith(prefix)) {
+        const v = PcIntrinsicClarificationSchema.safeParse(f.value);
+        if (v.success)
+          prior.push({
+            clarification_id: v.data.clarification_id,
+            statements: v.data.claims.map((x) => x.statement),
+          });
+      } else if (f.key.startsWith(delegated)) {
+        const v = PcDelegatedClarificationSchema.safeParse(f.value);
+        if (v.success)
+          prior.push({
+            clarification_id: v.data.delegation_id,
+            statements: v.data.sealed.claims.map((x) => x.statement),
+          });
+      }
     }
   }
   return {
@@ -126,7 +147,7 @@ export function pcClarificationViolation(
   )
     return "a clarification is at the one slot, and has the identity, derived from its character and the branch";
   for (const s of statements)
-    if (s.length > MAX_STATEMENT || hasControl(s))
+    if (s.length > MAX_STATEMENT || hasControlCharacters(s))
       return "a clarified statement is the player's own words: bounded text without control characters";
   const contractKey = pcExistenceContractKey(c.pc_id);
   const contract = parse(facts, contractKey, ExistenceContractSchema);
@@ -212,7 +233,7 @@ export interface AcceptanceWitness {
  * Later consumer reads of a record accepted earlier are unaffected: they never compare against the current clock.
  */
 export function pcClarificationAcceptanceTimeViolation(
-  c: PcIntrinsicClarification,
+  c: { readonly effective_from: PcIntrinsicClarification["effective_from"] },
   w: AcceptanceWitness,
 ): string | null {
   const v = w.read_version;
@@ -234,41 +255,35 @@ export function pcClarificationAcceptanceTimeViolation(
 export interface ClarifiedClaim {
   readonly ref: ClarifiedClaimRef;
   readonly statement: string;
+  /** present only for a claim the player DELEGATED to role.gm (H1); the player's own R-5 words carry none */
+  readonly provenance?: "PLAYER-DELEGATED";
 }
 
 /**
- * The accepted claims a mechanism (or its attestation) cites among the character's clarifications: each reference names a committed
- * clarification of THIS character at its exact (sealed) version that itself holds, and a claim that exists in it. Returns the claims
- * with their committed wording, or the reason one does not resolve.
+ * ONE accepted claim of the character's own R-5 (player-authored) clarification at its exact committed version, or the reason it does
+ * not resolve. The delegated kind is resolved by `resolveClarifiedClaims` (delegation.ts), which dispatches on the cited key.
  */
-export function resolveClarifiedClaims(
+export function resolvePlayerClarifiedClaim(
   pcId: string,
-  refs: readonly ClarifiedClaimRef[] | undefined,
+  ref: ClarifiedClaimRef,
   facts: ScanFacts,
-): { ok: true; claims: readonly ClarifiedClaim[] } | { ok: false; message: string } {
-  const claims: ClarifiedClaim[] = [];
-  for (const ref of refs ?? []) {
-    const found = parse(facts, ref.clarification.fact_key, PcIntrinsicClarificationSchema);
-    if (!found || found.fact.version !== ref.clarification.version)
-      return {
-        ok: false,
-        message: "a cited clarification is committed at the exact version cited",
-      };
-    const c = found.value;
-    if (
-      c.pc_id !== pcId ||
-      found.fact.key !== pcIntrinsicClarificationKey(pcId, c.clarification_id)
-    )
-      return { ok: false, message: "a cited clarification is this character's own" };
-    const why = pcClarificationViolation(found.fact.key, c, facts, true);
-    if (why) return { ok: false, message: `a cited clarification does not hold: ${why}` };
-    const claim = c.claims[ref.index];
-    if (!claim)
-      return {
-        ok: false,
-        message: "a cited clarified claim is an accepted claim of the clarification",
-      };
-    claims.push({ ref, statement: claim.statement });
-  }
-  return { ok: true, claims };
+): { ok: true; claim: ClarifiedClaim } | { ok: false; message: string } {
+  const found = parse(facts, ref.clarification.fact_key, PcIntrinsicClarificationSchema);
+  if (!found || found.fact.version !== ref.clarification.version)
+    return {
+      ok: false,
+      message: "a cited clarification is committed at the exact version cited",
+    };
+  const c = found.value;
+  if (c.pc_id !== pcId || found.fact.key !== pcIntrinsicClarificationKey(pcId, c.clarification_id))
+    return { ok: false, message: "a cited clarification is this character's own" };
+  const why = pcClarificationViolation(found.fact.key, c, facts, true);
+  if (why) return { ok: false, message: `a cited clarification does not hold: ${why}` };
+  const claim = c.claims[ref.index];
+  if (!claim)
+    return {
+      ok: false,
+      message: "a cited clarified claim is an accepted claim of the clarification",
+    };
+  return { ok: true, claim: { ref, statement: claim.statement } };
 }

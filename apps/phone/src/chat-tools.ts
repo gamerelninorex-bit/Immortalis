@@ -39,6 +39,7 @@ import {
   MAX_TEXT,
   parseChronology,
   parseDeclare,
+  parseDelegation,
   parseHandling,
   parsePrepare,
 } from "./route-stages.ts";
@@ -551,6 +552,10 @@ const STAGE_NEXT: Partial<Record<string, string>> = {
     "The referee did not read the character as one material body present at exactly that place, so no physical location was committed. This route supports one such body only; nothing was changed. Do not retry unchanged and do not invent a different place.",
   CLARIFICATION_NOT_ACCEPTED:
     "The referee did not accept those words as the character's own account of the duration alone. Nothing was written. Ask the player for their own words again; do not suggest a number.",
+  DELEGATION_NOT_ACCEPTED:
+    "The referee did not select for the player: the duration is already stated in the character's accepted content, the branch is closed, or the request is outside this branch. Nothing was written. Do not retry unchanged and do not choose a number for the player.",
+  DELEGATION_NOT_AVAILABLE:
+    "No delegation can be made now (an unlawful or unbounded scope, a closed branch, no canonical time, or a collection of the character already exists). Nothing was changed. Report it plainly; ask the player only for bounds they will accept, never supply them.",
   FINISH_NOT_ATTESTED:
     "The referee did not establish the cycle, or has not answered. A genuine negative stays negative: do not retry it unchanged and invent no rate. Report it plainly and let the player decide what to change.",
   REFEREE_PENDING:
@@ -564,6 +569,7 @@ const STAGE_SUCCESS = new Set([
   "LOCUS_ESTABLISHED",
   "TIME_ESTABLISHED",
   "CLARIFICATION_ACCEPTED",
+  "DELEGATION_ACCEPTED",
   "COLLECTION_COMMITTED",
   "SETTING_DECLARED",
   "PC_COLLECTION_COMMITTED",
@@ -2114,6 +2120,57 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       },
     },
     {
+      name: "delegate_handling_duration",
+      title: "Delegate to the referee how long one handling cycle of the character's hands takes",
+      description: `Use ONLY when the PLAYER themselves hand the choice of that one materially unresolved handling-cycle duration to the referee ("surprise me", "you decide") while collection_setup_status offers that open branch. Never delegate on the player's behalf and never use this to avoid asking the player for their own account (that is state_handling_duration). Ask the player ONLY for the bounds they will accept: the shortest and the longest whole number of the campaign's unit, and optionally words of their own about it. Never suggest, choose, widen or default a bound; without bounds there is no lawful bounded scope. The AI referee host, acting as role.gm, chooses ONE whole number inside the bounds and writes one statement of the character's handling; it is the referee's choice, recorded as PLAYER-DELEGATED and sealed, never the player's own words. The player confirms the delegation, not a number: the choice is not shown before they confirm, a declined confirmation buys no second draw, and once made it cannot be reselected, changed or taken back. It is refused once any collection of the character exists. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          shortest: {
+            type: "integer",
+            minimum: 1,
+            description:
+              "the shortest whole number of the campaign's unit the player will accept for ONE handling cycle",
+          },
+          longest: {
+            type: "integer",
+            minimum: 1,
+            description:
+              "the longest whole number of the campaign's unit the player will accept for ONE handling cycle",
+          },
+          words: {
+            type: "string",
+            minLength: 1,
+            maxLength: 500,
+            description: "the player's own words about what they want, if they offered any",
+          },
+        },
+        required: ["shortest", "longest"],
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args, ctx) => {
+        void ctx;
+        const parsed = parseDelegation(args);
+        if (!parsed.ok)
+          return asJson(
+            {
+              refused: "that is not a lawful bounded scope; nothing was started",
+              issues: parsed.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "DELEGATE", input: parsed.value }, ctx);
+      },
+    },
+    {
       name: "propose_collection_preparation",
       title: "Offer the preparation for collecting from the source",
       description: `Offer the preparation the PLAYER, as the setting's author, confirms: the character's own accepted words for what its hands do, what they cannot pass and the one-unit cycle (three VERBATIM quotations of accepted statements, taken from collection_setup_status, and the number the cycle quotation states), plus the author's word for the condition the empty local Reserve keeps material in. You supply no identity, claim reference, unit or quantity: the engine resolves them from committed facts, the Reserve starts EMPTY, and nothing is collected, extracted, owned or timed by preparing. The player reads ALL of it and confirms it themselves. Then follow it with await_action. ${PLAYER_RULES}`,
@@ -2489,6 +2546,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       "Establish only the player's explicitly sourced exact starting chronology. Daylight is lighting, not an epoch or unit. This passes no time and needs no second approval.",
     state_handling_duration:
       "Submit the player's genuinely supplied missing handling-duration words to the existing supported clarification path. Invent no duration or faculty. The exact request needs no second approval.",
+    delegate_handling_duration:
+      "Submit the bounds the PLAYER themselves gave when they handed the choice of the missing handling duration to the referee. Choose, widen and default no bound; the referee's choice is sealed and is not the player's own words. The exact request needs no second approval.",
     propose_collection_preparation:
       "Project the actual accepted handling claims and independently sourced reserve condition through the existing preparation owners. This adds no material, rights, workforce or elapsed time. The exact request needs no second approval.",
     declare_closed_setting:

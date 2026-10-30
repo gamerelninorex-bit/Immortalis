@@ -67,6 +67,22 @@ export function expectationOf(id: StageIdentity): StageExpectation | null {
           ],
           last: 'To confirm, type exactly "accept-clarification ',
         };
+      case "DELEGATE":
+        return {
+          first:
+            "DELEGATE A CHOICE OF YOUR CHARACTER - a separate, fresh choice. Nothing is accepted yet.",
+          then: [
+            `character: ${id.pc_id}`,
+            "the choice you delegate:",
+            `your bounds: at least ${id.shortest} and at most ${id.longest}`,
+            `your words: ${id.words === null ? "(none)" : JSON.stringify(id.words)}`,
+            "who chooses: role.gm (the AI referee host), inside those bounds, once;",
+            "what is recorded: a Delegation Commit Record with provenance PLAYER-DELEGATED",
+            "The referee has chosen inside your bounds. The choice is sealed with the delegation and is not shown here",
+            "Confirming delegates the choice and seals it from the canonical time",
+          ],
+          last: 'To confirm, type exactly "accept-delegation ',
+        };
       case "PREPARE":
         return {
           first:

@@ -48,9 +48,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
   "packages/engine/src/owners/registry.ts":
-    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
-    "f6fea96d12a03844564305682a83ac8738d4fc4fde1673b52c8b8078aea4f973", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
+    "59d58d3e70653cdc54153ac810f8cd39da856a3568cc0cb680520faec13a1b29", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
   "packages/engine/src/source-drawdown/admission.ts":

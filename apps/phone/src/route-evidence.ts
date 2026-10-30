@@ -12,7 +12,12 @@ import {
   type CanonicalTime,
   type ExistenceContract,
 } from "@immortalis/contracts";
-import { PcCollectionAdapter, canonicalEqual, pcClarificationIdOf } from "@immortalis/engine";
+import {
+  PcCollectionAdapter,
+  canonicalEqual,
+  pcClarificationIdOf,
+  pcDelegationMirror,
+} from "@immortalis/engine";
 import { custodyProblems } from "../../../packages/operator/src/original-pc-locus.ts";
 import { ClosedSettingSchema } from "../../../packages/operator/src/closed-setting.ts";
 import type { KeepRecord } from "../../../packages/operator/src/original-pc-keep.ts";
@@ -100,6 +105,19 @@ export interface RouteFacts {
   readonly clarification: {
     readonly clarification_id: string;
     readonly statements: readonly string[];
+    /**
+     * H1: present ONLY when the branch was closed by a DELEGATED selection (a Delegation Commit Record, provenance PLAYER-DELEGATED); the
+     * statement is then the referee's choice, never the player's words. The Character Mirror's scope, method and seal are carried as the
+     * owner holds them.
+     */
+    readonly delegated?: {
+      readonly words: string | null;
+      readonly shortest: number;
+      readonly longest: number;
+      readonly unit: string;
+      readonly method: string;
+      readonly seal: string;
+    };
   } | null;
   readonly claims: readonly AcceptedClaim[];
   readonly contract: ExistenceContract | null;
@@ -239,11 +257,27 @@ export async function readRoute(
               : custodyProblems(campaign, config.campaignId, pcId, keep),
         };
       const held = adapter.clarification(pcId, pcClarificationIdOf(pcId));
+      const delegation = adapter.delegation(pcId);
       if (held)
         clarification = {
           clarification_id: held.value.clarification_id,
           statements: held.value.claims.map((c) => c.statement),
         };
+      else if (delegation) {
+        const m = pcDelegationMirror(delegation.value);
+        clarification = {
+          clarification_id: delegation.value.delegation_id,
+          statements: delegation.value.sealed.claims.map((c) => c.statement),
+          delegated: {
+            words: m.scope.your_words,
+            shortest: m.scope.shortest,
+            longest: m.scope.longest,
+            unit: m.scope.unit,
+            method: `${m.method.class} ${m.method.version}`,
+            seal: m.seal,
+          },
+        };
+      }
       // the shipped clarification refuses once ANY collection commitment of the character exists (a clarification retrofits no act)
       collection_commitment = facts.some(
         (f) => f.key.startsWith(`pc/${pcId}/collection/`) && f.key.endsWith("/commitment"),
@@ -500,11 +534,29 @@ export function stageOutcome(read: RouteRead, id: StageIdentity, campaignId: str
         );
       if (r.clarification === null)
         return { kind: "NO_EFFECT", detail: "no clarification was committed" };
-      return r.clarification.statements.length === 1 && r.clarification.statements[0] === id.words
+      return r.clarification.delegated === undefined &&
+        r.clarification.statements.length === 1 &&
+        r.clarification.statements[0] === id.words
         ? { kind: "COMPLETE" }
         : {
             kind: "NO_EFFECT",
             detail: "the character's cycle is already closed by other accepted words",
+          };
+    }
+    case "DELEGATE": {
+      if (r.character.kind !== "BOUND" || r.character.pc_id !== id.pc_id)
+        return blocked(
+          "CHARACTER_IDENTITY",
+          "the character held is not the one this operation was dispatched for",
+        );
+      const d = r.clarification?.delegated;
+      if (!r.clarification || !d)
+        return { kind: "NO_EFFECT", detail: "no delegation was committed" };
+      return d.words === id.words && d.shortest === id.shortest && d.longest === id.longest
+        ? { kind: "COMPLETE" }
+        : {
+            kind: "NO_EFFECT",
+            detail: "the character's cycle is already closed by another accepted record",
           };
     }
     case "PREPARE": {

@@ -667,6 +667,10 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["clarification_id"] === ids[1]
         ? null
         : "pc_id and clarification_id do not match the key";
+    case "pc_delegated_clarification":
+      return v["pc_id"] === ids[0] && v["delegation_id"] === ids[1]
+        ? null
+        : "pc_id and delegation_id do not match the key";
     case "pc_collection_cycle_attestation":
       return v["pc_id"] === ids[0] &&
         (v["mechanism"] as { fact_key: string }).fact_key ===

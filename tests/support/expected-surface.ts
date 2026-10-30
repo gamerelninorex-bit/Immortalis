@@ -724,6 +724,15 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "pc/p1/intrinsic-clarification/c1",
   },
+  /** H1: the PC owner's create-only Delegation Commit Record of the same branch (I-002 section 9), a second kind of the same facet. */
+  {
+    id: "pc_delegated_clarification",
+    owner: "pc_existence",
+    facet: "pc_intrinsic_clarification",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/delegated-clarification/d1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -1003,6 +1012,10 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "commit",
       "commitment",
       "cycleTask",
+      "delegate",
+      "delegation",
+      "delegationTask",
+      "delegations",
       "determineRepresentation",
       "establishMechanism",
       "establishRequest",

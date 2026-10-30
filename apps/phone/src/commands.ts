@@ -47,6 +47,11 @@ export const PLAYER_COMMANDS: Readonly<Record<string, Spec>> = {
     options: { "player-character": "id", "referee-wait": "int" },
     optional: ["referee-wait"],
   },
+  // H1: the delegated choice of the same branch (the scope is committed in the retained stage identity, never in this request)
+  "delegate-collection-cycle": {
+    options: { "player-character": "id", "referee-wait": "int" },
+    optional: ["referee-wait"],
+  },
   "prepare-collection": { options: {}, setup: true },
   "declare-closed-setting": { options: {}, setup: true },
   "attest-cycle": {

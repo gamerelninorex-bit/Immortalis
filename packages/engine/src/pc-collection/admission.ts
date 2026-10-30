@@ -1,6 +1,7 @@
 import {
   FACET_PC_COLLECTION_MECHANISM,
   FACET_PC_INTRINSIC_CLARIFICATION,
+  PcDelegatedClarificationSchema,
   PcIntrinsicClarificationSchema,
   PC_OCCUPANCY_OPEN,
   PC_OCCUPANCY_RELEASED_DENIED,
@@ -58,6 +59,7 @@ import { canonicalEqual } from "../hash.ts";
 import {
   PC_COLLECTION_ATTESTATION_RULE,
   PC_COLLECTION_CESSATION_RULE,
+  PC_DELEGATED_CLARIFICATION_RULE,
   PC_INTRINSIC_CLARIFICATION_RULE,
   POPULATION_PC_OCCUPANCY_LAPSE_RULE,
   POPULATION_PC_OCCUPANCY_TERMINATION_RULE,
@@ -98,6 +100,7 @@ import {
 } from "./derive.ts";
 import { lapseLineageHolds, pcCollectionLapseViolation } from "./lapse.ts";
 import { pcClarificationViolation } from "./clarification.ts";
+import { pcDelegationViolation } from "./delegation.ts";
 import { pcOccupancyRecord } from "./state.ts";
 
 /**
@@ -205,6 +208,24 @@ export function pcCollectionGroupCheck(group: CommitGroup, state: CampaignState)
     ]);
     if (missing) return missing;
     const v = pcClarificationViolation(w.key, c, state.facts);
+    return v ? ref(v, { key: w.key }) : null;
+  }
+  if (kind === "pc_delegated_clarification" && group.facet === FACET_PC_INTRINSIC_CLARIFICATION) {
+    const d = PcDelegatedClarificationSchema.parse(w.value);
+    // H1: the I-002 section 9 Delegation Commit Record of the same branch, created once and re-derived from the sealed content
+    if (!canonicalEqual(group.rule, PC_DELEGATED_CLARIFICATION_RULE))
+      return ref("a delegation is governed by the delegated-selection rule", { key: w.key });
+    if (w.expected_version !== 0)
+      return reject("VALUE_INVALID", "a delegation is created once and never amended", {
+        key: w.key,
+      });
+    const missing = need(group, state, [
+      [pcExistenceContractKey(d.pc_id), "the PC's released contract"],
+      [PLAYER_CHARACTER_BINDING_KEY, "the operative PC binding"],
+      [TEMPORAL_STATE_KEY, "the canonical temporal state"],
+    ]);
+    if (missing) return missing;
+    const v = pcDelegationViolation(w.key, d, state.facts);
     return v ? ref(v, { key: w.key }) : null;
   }
   if (kind === "pc_collection_cessation") {

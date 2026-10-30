@@ -73,7 +73,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/canonical-campaign.ts":
     "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c",
   "packages/engine/src/owners/registry.ts":
-    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
+    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":

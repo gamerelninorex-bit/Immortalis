@@ -425,6 +425,10 @@ export type CharacterStatus =
   | "CLARIFICATION_NOT_ACCEPTED"
   | "CLARIFICATION_NOT_AVAILABLE"
   | "CLARIFICATION_VERIFICATION_FAILED"
+  | "DELEGATION_ACCEPTED"
+  | "DELEGATION_NOT_ACCEPTED"
+  | "DELEGATION_NOT_AVAILABLE"
+  | "DELEGATION_VERIFICATION_FAILED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -485,6 +489,14 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "no clarification can be made now: the character is not the verified bound player character of this command, no canonical time is established, or a collection commitment of this character already exists (a clarification is prospective); nothing was changed",
   CLARIFICATION_VERIFICATION_FAILED:
     "what the campaign holds does not match what you confirmed; the clarification is NOT reported as accepted",
+  DELEGATION_ACCEPTED:
+    "the choice you delegated is made and sealed: the AI referee host, acting as role.gm, chose inside the bounds you committed; the owner validated the choice against your scope, wrote it as a Delegation Commit Record (provenance PLAYER-DELEGATED, never your own words) from the canonical time shown, and a fresh owner-verified open reads it back. It cannot be reselected or changed. Nothing earlier was changed; no time passed; no material was created and no collection was started or made possible by itself - the exact cycle still needs a preparation that quotes these words and a separate semantic attestation",
+  DELEGATION_NOT_ACCEPTED:
+    "the AI referee host did not select for you (the duration is already stated in your character's accepted content, the branch is already closed, or the request is outside this branch); nothing was written and your character is unchanged",
+  DELEGATION_NOT_AVAILABLE:
+    "no delegation can be made now: the character is not the verified bound player character of this command, no canonical time is established, the scope is not a lawful bounded scope, the branch is already closed, or a collection commitment of this character already exists (a delegation first offered after a consequence depends on it is declined and the branch stays unresolved); nothing was changed",
+  DELEGATION_VERIFICATION_FAILED:
+    "what the campaign holds does not match what you confirmed; the delegation is NOT reported as accepted",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:

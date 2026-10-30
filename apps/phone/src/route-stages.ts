@@ -9,6 +9,7 @@ import {
   pcClaimAt,
   pcClarificationIdOf,
   pcClarificationWordsDigest,
+  pcDelegationIdOf,
   statesExactDuration,
 } from "@immortalis/engine";
 import { judgeStatement } from "@immortalis/operator";
@@ -27,17 +28,20 @@ import { identify, type SetupIdentity } from "./setup-recovery.ts";
  *   LOCUS       the character's stationary physical custody (`establish-character-locus`)
  *   CHRONOLOGY  the origin of canonical time, as its author states it (`initialize-time`)
  *   CLARIFY     the player's own materially unresolved duration of ONE handling cycle (`clarify-collection-cycle`, R-5)
+ *   DELEGATE    the same branch, the choice DELEGATED to role.gm inside the player's bounds (`delegate-collection-cycle`, H1)
  *   PREPARE     the PC mechanism, an EMPTY Reserve and the extraction basis (`prepare-collection`)
  *   DECLARE     the author's closed domain and workforce scope (`declare-closed-setting`)
  *   FINISH      the referee's cycle attestation and the service's scenario/view installation (no human choice)
  */
-export type StageKind = "LOCUS" | "CHRONOLOGY" | "CLARIFY" | "PREPARE" | "DECLARE" | "FINISH";
+export type StageKind =
+  "LOCUS" | "CHRONOLOGY" | "CLARIFY" | "DELEGATE" | "PREPARE" | "DECLARE" | "FINISH";
 
 /** the shipped command each stage runs (FINISH is the service's own composite: the attestation command, then the installation) */
 export const STAGE_COMMAND: Readonly<Record<StageKind, string>> = {
   LOCUS: "establish-character-locus",
   CHRONOLOGY: "initialize-time",
   CLARIFY: "clarify-collection-cycle",
+  DELEGATE: "delegate-collection-cycle",
   PREPARE: "prepare-collection",
   DECLARE: "declare-closed-setting",
   FINISH: "finish-collection-setup",
@@ -48,6 +52,7 @@ export const STAGE_ORDER: readonly StageKind[] = [
   "LOCUS",
   "CHRONOLOGY",
   "CLARIFY",
+  "DELEGATE",
   "PREPARE",
   "DECLARE",
   "FINISH",
@@ -128,6 +133,38 @@ export function parseHandling(args: Record<string, unknown>): Parsed<string> {
   if (typeof w !== "string") return { ok: false, issues: ["words: must be text"] };
   const j = judgeStatement(w);
   return j.ok ? { ok: true, value: j.text } : { ok: false, issues: [`words: ${j.reason}`] };
+}
+
+/**
+ * H1: the scope a player commits when they DELEGATE the choice of the handling cycle ("surprise me", I-002 section 9): their own words
+ * (optional) and a shortest and a longest whole number of the campaign's unit. Bounded here; nothing is defaulted, widened or completed
+ * for the player, and a missing bound is not a scope.
+ */
+export interface DelegateInput {
+  readonly words: string | null;
+  readonly shortest: number;
+  readonly longest: number;
+}
+export function parseDelegation(args: Record<string, unknown>): Parsed<DelegateInput> {
+  const issues: string[] = [];
+  for (const k of Object.keys(args))
+    if (!["words", "shortest", "longest"].includes(k)) issues.push(`${k}: is not offered`);
+  let words: string | null = null;
+  if (args["words"] !== undefined && args["words"] !== null) {
+    if (typeof args["words"] !== "string") issues.push("words: must be text");
+    else {
+      const j = judgeStatement(args["words"]);
+      if (j.ok) words = j.text;
+      else issues.push(`words: ${j.reason}`);
+    }
+  }
+  const shortest = wholeNumber("shortest", args["shortest"], 1, issues);
+  const longest = wholeNumber("longest", args["longest"], 1, issues);
+  if (shortest !== null && longest !== null && shortest > longest)
+    issues.push("shortest: must not exceed longest");
+  return issues.length > 0 || shortest === null || longest === null
+    ? { ok: false, issues: issues.slice(0, 8) }
+    : { ok: true, value: { words, shortest, longest } };
 }
 
 export interface PrepareInput {
@@ -327,6 +364,8 @@ export interface PrepareFacts {
   readonly clarification: {
     readonly clarification_id: string;
     readonly statements: readonly string[];
+    /** present only when the branch was closed by a DELEGATED selection (the referee's words, never the player's own) */
+    readonly delegated?: { readonly shortest: number; readonly longest: number };
   } | null;
   readonly canonical_unit: string;
   readonly setting: SettingFacts;
@@ -371,7 +410,7 @@ export function buildPreparation(f: PrepareFacts, i: PrepareInput): PreparationB
   }
   if (released.length === 0 && clarified.length === 0)
     return no(
-      "cycle_quote is not a verbatim part of any accepted statement of the character or of the player's accepted clarification. If that handling duration is materially unresolved, use state_handling_duration; otherwise quote the accepted handling-cycle words",
+      "cycle_quote is not a verbatim part of any accepted statement of the character, of the player's accepted clarification or of a sealed delegated selection. If that handling duration is materially unresolved, use state_handling_duration (the player's own words) or delegate_handling_duration (the player delegates the choice, inside their bounds); otherwise quote the accepted handling-cycle words",
     );
   const cited = new Map<string, PcClaimLocator>();
   for (const c of [...actuator, ...traversal, ...released])
@@ -449,6 +488,16 @@ export interface ClarifyStage {
   readonly words: string;
   readonly words_digest: string;
 }
+export interface DelegateStage {
+  readonly kind: "DELEGATE";
+  readonly pc_id: string;
+  readonly delegation_id: string;
+  /** the player's own words about what they want, exactly as offered (null when they offered none) */
+  readonly words: string | null;
+  readonly shortest: number;
+  readonly longest: number;
+  readonly scope_digest: string;
+}
 export interface PrepareStage {
   readonly kind: "PREPARE";
   readonly setup: SetupIdentity;
@@ -475,7 +524,13 @@ export interface FinishStage {
   readonly attest: boolean;
 }
 export type StageIdentity =
-  LocusStage | ChronologyStage | ClarifyStage | PrepareStage | DeclareStage | FinishStage;
+  | LocusStage
+  | ChronologyStage
+  | ClarifyStage
+  | DelegateStage
+  | PrepareStage
+  | DeclareStage
+  | FinishStage;
 
 const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 const ENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -500,6 +555,19 @@ export function clarifyIdentity(pc_id: string, words: string): ClarifyStage {
     clarification_id: pcClarificationIdOf(pc_id),
     words,
     words_digest: pcClarificationWordsDigest([words]),
+  };
+}
+const delegationScopeDigest = (i: DelegateInput): string =>
+  sha(canonicalJson({ words: i.words, shortest: i.shortest, longest: i.longest })).slice(0, 16);
+export function delegateIdentity(pc_id: string, i: DelegateInput): DelegateStage {
+  return {
+    kind: "DELEGATE",
+    pc_id,
+    delegation_id: pcDelegationIdOf(pc_id),
+    words: i.words,
+    shortest: i.shortest,
+    longest: i.longest,
+    scope_digest: delegationScopeDigest(i),
   };
 }
 export function prepareIdentity(
@@ -587,6 +655,35 @@ export function validStageIdentity(
         j.text === v["words"] &&
         v["clarification_id"] === pcClarificationIdOf(v["pc_id"]) &&
         v["words_digest"] === pcClarificationWordsDigest([v["words"]])
+      );
+    }
+    case "DELEGATE": {
+      if (
+        !exactKeys(v, [
+          "kind",
+          "pc_id",
+          "delegation_id",
+          "words",
+          "shortest",
+          "longest",
+          "scope_digest",
+        ]) ||
+        !entity(v["pc_id"]) ||
+        !(v["words"] === null || typeof v["words"] === "string") ||
+        typeof v["shortest"] !== "number" ||
+        typeof v["longest"] !== "number"
+      )
+        return false;
+      const parsed = parseDelegation({
+        shortest: v["shortest"],
+        longest: v["longest"],
+        ...(v["words"] === null ? {} : { words: v["words"] }),
+      });
+      return (
+        parsed.ok &&
+        parsed.value.words === v["words"] &&
+        v["delegation_id"] === pcDelegationIdOf(v["pc_id"]) &&
+        v["scope_digest"] === delegationScopeDigest(parsed.value)
       );
     }
     case "PREPARE": {

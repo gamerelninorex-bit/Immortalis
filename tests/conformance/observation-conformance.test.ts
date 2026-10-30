@@ -47,9 +47,9 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "d1521b5afb0afd6b23ceda468b81895eb36f6d41ebf2d175d93d2a9388dbf345",
+    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
   "packages/engine/src/owners/registry.ts":
-    "88d9edc79bf7b8b1e9b3b8d97659f56e2cd7099ea9af7ac632f0920014a6ab0a",
+    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
   "packages/engine/src/referee/adapter.ts":
     "b033bd1df6920ae22303fa1dc70254f0e48810bb29f8fd4a7af9bec249593492",
   "packages/engine/src/referee/admission.ts":
@@ -65,17 +65,17 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "7734645c59c0cb375345c1023333d3c6870a55c591e60b0a4252c633b85ff833",
+    "e53e78c2ee0c7c16a7e67dff8369d5421cfdf647df52c1b905d0933724c5c2b3",
   "packages/operator/src/confirmation.ts":
-    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
+    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
   "packages/operator/src/index.ts":
-    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
+    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   "packages/operator/src/original-pc.ts":
-    "a3b9563b0c119a344ee81edd71815bb1d821383f3948ccb4b0fced58c9af97d4",
+    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/referee-exchange.ts":
-    "032a0381b7cbf7771b2a4012d55ecc72bdc709f6271780374be99f0344ffff66",
+    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
   "packages/operator/src/referee-mcp.ts":
-    "05ecde2220d3eafc74d4afe2c6e4ae22ebfadcd558ee13386ba2c4cbbc5f493d",
+    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-session.ts":
     "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
 };

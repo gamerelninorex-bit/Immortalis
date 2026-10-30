@@ -51,7 +51,8 @@ export type ConfirmationVerb =
   | "place-character"
   | "establish-character-locus"
   | "observe-surroundings"
-  | "accept-clarification";
+  | "accept-clarification"
+  | "accept-delegation";
 
 export interface OperatorConfirmation {
   readonly verb: ConfirmationVerb;

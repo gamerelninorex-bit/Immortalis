@@ -165,7 +165,11 @@ export async function serveRefereeMcp(o: RefereeMcpOptions): Promise<void> {
     const op = task.value.operation;
     const ctx = asRecord(task.value.document)["context"];
     // fast feedback for the host; the engine re-validates and derives the verdict itself
-    if (op === "PC_COLLECTION_CYCLE" || op === "PC_COLLECTION_REACH") {
+    if (
+      op === "PC_COLLECTION_CYCLE" ||
+      op === "PC_COLLECTION_REACH" ||
+      op === "PC_COLLECTION_DELEGATE"
+    ) {
       const invalid = validateCollectionReading(op, ctx, answer);
       if (invalid !== null) return text(invalid, true);
     } else if (op === REFEREE_OP_I002) {

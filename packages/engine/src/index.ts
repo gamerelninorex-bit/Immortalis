@@ -177,6 +177,7 @@ export {
 export * from "./pc-collection/integrity.ts";
 export * from "./pc-collection/lapse.ts";
 export * from "./pc-collection/clarification.ts";
+export * from "./pc-collection/delegation.ts";
 export * from "./pc-collection/state.ts";
 export * from "./pc-movement/derive.ts";
 export * from "./pc-movement/integrity.ts";
