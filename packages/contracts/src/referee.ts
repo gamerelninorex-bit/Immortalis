@@ -115,8 +115,11 @@ const I001 = {
 } as const;
 /**
  * World Generation / World-State: the FROZEN authority pin the 30 October construction brief names (2026-09-25T13:44:22.668Z). The clauses
- * below were read from the page as it stood at its later whole-page edit (2026-10-23T12:26:49.599Z); that their wording is unchanged at the
- * frozen pin was NOT independently verified here and is carried as an open source-fidelity note in the PR evidence.
+ * below are VERBATIM passages (formatting markup and list markers removed; the Resolution Rules bullets are joined in order) read from the page at its later whole-page edit (2026-10-23T12:26:49.599Z). Their
+ * identity with the frozen revision could not be diffed (the workspace keeps no version history that far back); the structural evidence is
+ * that both passages sit in the page's September body, that every 23 October addition is an appended dated successor section which states it
+ * cannot supersede or narrow a frozen pin, and that none of them mentions or restates the Resolution Rules or F-016's custody text. The
+ * F-016 section appears twice on the page; only sentences identical in both copies are quoted.
  */
 const WG = {
   artifact: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
@@ -147,7 +150,7 @@ export const REFEREE_SOURCES = {
   "WG-F016": {
     ...WG,
     clause: "Ownership Guards — F-016 Ratified Fallback Objective Physical-Entity Custody",
-    text: "World-State is the fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact. After accepted completion of a loose durable with no more-specific physical custodian, it may carry its physical identity, conserved quantity where applicable and physical condition. The causing owner does not become a second existence or physical-condition writer. This rule creates no universal per-object ledger: carry the shallowest faithful representation.",
+    text: "Under the Sovereign-ratified W6-INT1 / OB-019 R-1 owner assignment, World-State is the fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact. When materially consequential, that fallback may carry physical/entity identity or reference, existence/cessation, form/substrate/embodiment, intrinsic world-side ontology property, continuity-dependency binding, material conversion/animation result, predecessor/successor relation, objective agency topology needed to determine how many true entities/agencies exist or continue, and—after accepted completion of a loose durable with no more-specific physical custodian—its physical identity, conserved quantity where applicable and physical condition. The fallback never converts causal ownership into entity ownership. This rule creates no universal per-object ledger. Carry the shallowest faithful representation; promote unique entity/object state only when identity, condition, continuity, custody or later consequence becomes material, and recompress when that distinction ceases to matter while preserving conserved quantity, condition and provenance.",
   },
   "F014D-21": {
     ...F014D,

@@ -127,7 +127,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "cb025fb4213d18b72cabec89a8e0570c02150794f0f776c486d306858a6e3bcd",
+    "7adea323906519bda99ab1e4ba488abd83f80f3c89161c4d5d8c972e1de2a692",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
