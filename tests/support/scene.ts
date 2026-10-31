@@ -2,7 +2,7 @@
 // TEST SUPPORT for the GM scene step of a natural look (GM-led first play). MECHANISM ONLY: the "Game Master" here is a script whose rules
 // the test wrote; it demonstrates what the engine ENFORCES about an answer (verbatim anchoring, kinds of premise, withheld values, the derived
 // verdict), never that any AI host reads a request as a Game Master would. Genuine-host behaviour is UNRUN.
-import { REFEREE_OP_SCENE } from "@immortalis/contracts";
+import { OBSERVATION_PLACEMENT_REF, REFEREE_OP_SCENE } from "@immortalis/contracts";
 import { bindHost } from "@immortalis/operator";
 import { LOCALITY_CAMPAIGN } from "./locality.ts";
 import type { ObsRule } from "./observation.ts";
@@ -49,6 +49,8 @@ export interface SceneRule {
   readonly vetoes?: RegExp;
   /** rest the ruling on the request alone (no premise of the character): to exercise the engine's refusal */
   readonly requestOnly?: boolean;
+  /** rest the ruling on the confirmed placement statement alone (no quoted statement of the character's baseline): to exercise the engine's refusal */
+  readonly placementOnly?: boolean;
   /** state the viewing circumstance with this text (e.g. one that carries an engine reference) */
   readonly statement?: string;
   /** a different, equally valid ordinary reading of the same look (a second reading of one question) */
@@ -130,9 +132,17 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
             ref: f.fact_id,
             evidence_quote: f.text.slice(0, 12),
           }))
-        : body
-          ? [premise(body, /ordinary human body/)]
-          : [],
+        : rule.placementOnly
+          ? [
+              {
+                from: "PLACEMENT_STATEMENT",
+                ref: OBSERVATION_PLACEMENT_REF,
+                evidence_quote: ctx.statement.slice(0, 20),
+              },
+            ]
+          : body
+            ? [premise(body, /ordinary human body/)]
+            : [],
       rule_ids: ["I001-8", "F014D-6"],
       grounds: "scripted host: an ordinary look is routine attention, turning and opening the eyes",
       statement:

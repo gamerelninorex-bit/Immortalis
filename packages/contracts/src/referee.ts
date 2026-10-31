@@ -626,8 +626,8 @@ export const SCENE_VIEWING_STATES = ["SUPPORTED", "NOT_SUPPORTED", "NOT_ESTABLIS
 
 /**
  * The premises a scene ruling may rest on. Every premise is a verbatim quotation of DELIVERED text, and the kind fixes what it may
- * establish (see `deriveScene`): the character's baseline only on `PC_STATEMENT`, the confirmed placement only on `PLACEMENT_STATEMENT`,
- * the physical setting only on `WORLD_FACT`. A viewing ruling never rests on the player's REQUEST alone: a narrative declaration is not a
+ * establish (see `deriveScene`): the character's baseline only on `PC_STATEMENT` (a supported viewing ruling must quote at least one), the confirmed placement only
+ * on `PLACEMENT_STATEMENT` (it complements or vetoes, and is never the faculty), the physical setting only on `WORLD_FACT`. A viewing ruling never rests on the player's REQUEST alone: a narrative declaration is not a
  * physical result.
  */
 const ScenePremiseSchema = ObservationPremiseSchema;

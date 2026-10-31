@@ -2,10 +2,16 @@
 // F-027 v0.8 / RED O-3 - ratified clause 3 of the Active-PC Current-Look section, at the MECHANISM level, and the Stage A limit. MECHANISM ONLY:
 // the Game Master is a script. Nothing here shows Health clearance (Health S1) or that any host reads a character's faculty as a Game
 // Master would; the scene task carries no Health record and no separately owned sensory record, and these tests say so rather than hide it.
-import { chmodSync, cpSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, cpSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { PcCurrentViewingSchema } from "@immortalis/contracts";
+import {
+  OBSERVATION_PLACEMENT_REF,
+  PcCurrentViewingSchema,
+  REFEREE_AUTHORITY,
+  refereeDecisionKey,
+} from "@immortalis/contracts";
 import { RefereeAdjudicationAdapter } from "@immortalis/engine";
 import { openOrdinary, type LocalityDirs } from "../support/locality.ts";
 import { BASIS, PC_ID, PC_WORDS, observe, redScene, verbConsole } from "../support/observation.ts";
@@ -108,6 +114,32 @@ describe("ratified clause 3 at the mechanism level, and the Stage A limit: no He
       };
       // an empty premise list: silence is not evidence of a faculty or a path
       refuse((a) => (a.viewing.premises = []), "GROUNDS_UNSUPPORTED", "no premise");
+      // L12 (BLUE): the confirmed placement says where the character is and how, never that the character can see. A positive ruling must
+      // quote at least one PC_STATEMENT; the placement alone, or with world facts, is refused even though every quotation is genuine
+      const placement = {
+        from: "PLACEMENT_STATEMENT",
+        ref: OBSERVATION_PLACEMENT_REF,
+        evidence_quote: doc.context.statement.slice(0, 20),
+      };
+      expect(doc.context.statement).toContain(placement.evidence_quote);
+      refuse(
+        (a) => (a.viewing.premises = [placement]),
+        "GROUNDS_UNSUPPORTED",
+        "the placement alone",
+      );
+      refuse(
+        (a) =>
+          (a.viewing.premises = [
+            placement,
+            {
+              from: "WORLD_FACT",
+              ref: doc.context.facts[0].fact_id,
+              evidence_quote: doc.context.facts[0].text.slice(0, 12),
+            },
+          ]),
+        "GROUNDS_UNSUPPORTED",
+        "the placement with a world fact",
+      );
       // world facts alone say nothing about the character's faculty or routine bodily ability
       refuse(
         (a) =>
@@ -159,6 +191,139 @@ describe("ratified clause 3 at the mechanism level, and the Stage A limit: no He
       );
     } finally {
       await campaign.close();
+    }
+  }, 300_000);
+
+  it("L12 invariants: a placement COMPLEMENTS a quoted PC baseline, may still ground a veto, and every verdict derivation is unchanged", async () => {
+    const { campaign, adapter, doc } = await bareQuestion();
+    try {
+      const lawful = sceneAnswer(doc) as any;
+      const placement = {
+        from: "PLACEMENT_STATEMENT",
+        ref: OBSERVATION_PLACEMENT_REF,
+        evidence_quote: doc.context.statement.slice(0, 20),
+      };
+      // the lawful PC baseline plus the placement is accepted: the placement is not forbidden, only never sufficient
+      const both: any = JSON.parse(JSON.stringify(lawful));
+      both.viewing.premises = [...both.viewing.premises, placement];
+      expect(ruled(adapter, doc, both)).toMatchObject({
+        ok: true,
+        value: { verdict: "VIEWING_SUPPORTED" },
+      });
+      // a veto may rest on the placement (spatial constraints and vetoes are what it is for): still VIEWING_NOT_SUPPORTED
+      const veto: any = JSON.parse(JSON.stringify(lawful));
+      veto.viewing.state = "NOT_SUPPORTED";
+      veto.viewing.statement = null;
+      veto.viewing.premises = [placement];
+      expect(ruled(adapter, doc, veto)).toMatchObject({
+        ok: true,
+        value: { verdict: "VIEWING_NOT_SUPPORTED" },
+      });
+      // an unsettled ruling needs no faculty premise and stays UNRESOLVED, never an obstruction and never a positive
+      const open: any = JSON.parse(JSON.stringify(lawful));
+      open.viewing.state = "NOT_ESTABLISHED";
+      open.viewing.statement = null;
+      open.viewing.premises = [];
+      expect(ruled(adapter, doc, open)).toMatchObject({
+        ok: true,
+        value: { verdict: "VIEWING_UNRESOLVED" },
+      });
+    } finally {
+      await campaign.close();
+    }
+  }, 300_000);
+
+  it("L12: a placement-only supported ruling is refused when RECORDED too - no sealed decision, no viewing fact, no journal mutation - and the lawful baseline ruling still publishes", async () => {
+    const { campaign, adapter, doc } = await bareQuestion();
+    try {
+      const before = {
+        revision: campaign.store.head().revision,
+        facts: campaign.store.listFacts().length,
+      };
+      const placementOnly = sceneAnswer(doc, { placementOnly: true }) as any;
+      expect(placementOnly.viewing.premises.map((p: any) => p.from)).toEqual([
+        "PLACEMENT_STATEMENT",
+      ]);
+      const refused: any = await adapter.recordScene({
+        operation: { ...REFEREE_AUTHORITY },
+        host: { host_id: "engine-direct-test", claimed_model: null },
+        pc_id: PC_ID,
+        attempt: 0,
+        kind: "CURRENT_VIEWING",
+        request: { kind: "LOOK", statement: null },
+        answer: placementOnly,
+      } as any);
+      expect(refused.ok).toBe(false);
+      expect(refused.error.code).toBe("GROUNDS_UNSUPPORTED");
+      expect(campaign.store.head().revision).toBe(before.revision);
+      expect(campaign.store.listFacts()).toHaveLength(before.facts);
+      expect(campaign.store.getFact(refereeDecisionKey(doc.task_id))).toBeUndefined();
+      expect(campaign.store.listFacts().some((f) => VIEWING_KEY.test(f.key))).toBe(false);
+      // nothing retained means nothing to publish: the physical owner refuses
+      const published = await campaign.establishPcCurrentViewing({
+        group_id: "scene:l12:group",
+        intent_id: "scene:l12:intent",
+        cause: "scene:l12:cause",
+        basis: "gm-scene-ruling-publication",
+        secrecy: "operator-visible",
+        pc_id: PC_ID,
+        ruling_task_id: doc.task_id,
+      });
+      expect(published.ok).toBe(false);
+      expect(campaign.store.head().revision).toBe(before.revision);
+      // the lawful PC-baseline positive on the SAME task is unaffected: recorded once, published once
+      const lawfulRecord: any = await adapter.recordScene({
+        operation: { ...REFEREE_AUTHORITY },
+        host: { host_id: "engine-direct-test", claimed_model: null },
+        pc_id: PC_ID,
+        attempt: 0,
+        kind: "CURRENT_VIEWING",
+        request: { kind: "LOOK", statement: null },
+        answer: sceneAnswer(doc),
+      } as any);
+      expect(lawfulRecord.ok, JSON.stringify(lawfulRecord)).toBe(true);
+      expect(lawfulRecord.value.verdict).toBe("VIEWING_SUPPORTED");
+    } finally {
+      await campaign.close();
+    }
+  }, 300_000);
+
+  it("L12 on the operator path: a Game Master that rules on the placement alone is refused, nothing is published or perceived, and the campaign journal is byte-identical", async () => {
+    const dirs = copy();
+    const journal = join(dirs.campaignDir, "journal.jsonl");
+    const fileSha = () => createHash("sha256").update(readFileSync(journal)).digest("hex");
+    const before = fileSha();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(dirs.operatorDir, scenePolicy({ placementOnly: true }));
+    try {
+      // a BARE look asks the physical question only (a worded look first classifies the words, which seals a different, legitimate task)
+      const r = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        {},
+        perceptionPolicy(plainPolicy),
+      );
+      expect(r.result.status, JSON.stringify(r.result)).not.toBe("OBSERVATION_RECEIVED");
+      expect(gm.answered.length).toBeGreaterThan(0); // the Game Master WAS asked and answered placement-only
+    } finally {
+      await gm.stop();
+    }
+    expect(fileSha()).toBe(before);
+    const c = await openOrdinary(dirs.campaignDir);
+    try {
+      const facts = c.store.listFacts();
+      expect(facts.some((f) => VIEWING_KEY.test(f.key))).toBe(false);
+      expect(facts.some((f) => /^access\//.test(f.key))).toBe(false);
+      expect(
+        facts.some(
+          (f) =>
+            /^referee\/[0-9a-f]{64}\/decision$/.test(f.key) &&
+            (f.value as any).operation === "GM_SCENE_RESOLUTION",
+        ),
+      ).toBe(false);
+      expect(c.verify()).toEqual([]);
+    } finally {
+      await c.close();
     }
   }, 300_000);
 

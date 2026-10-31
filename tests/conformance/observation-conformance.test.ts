@@ -35,7 +35,7 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "178d48973276819a891997c7dab73b7b8de11e49c2272ffdbda191d266613d68",
+    "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
@@ -55,7 +55,7 @@ const MODIFIED: Record<string, string> = {
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "31ab4e3fbf916de8cd8ab02cf84a67ecc8f437d50e8ca7da6576a2695774688a",
+    "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
   "packages/engine/src/referee/integrity.ts":
     "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/temporal/admission.ts":
@@ -71,7 +71,7 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/original-pc.ts":
     "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/referee-exchange.ts":
-    "a2bed117d21a90fca71e231c7b8b6fab97456c94e576fe18fc05442328e4e0cc",
+    "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
   "packages/operator/src/referee-mcp.ts":
     "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-session.ts":

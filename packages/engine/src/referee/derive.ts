@@ -1780,8 +1780,8 @@ const carriesEngineReference = (text: string, ctx: SceneContext): boolean =>
  * Validates a host's scene answer against the context it was given and derives the verdict. Nothing here understands the premises: it
  * checks that every claim is anchored to a verbatim quotation of DELIVERED text of a kind that may establish it, that every delivered
  * fact is assessed exactly once, and that the answer is coherent with its own state (a supported ruling states its circumstance and rests on
- * the character's accepted words or the confirmed placement - never on the request alone; a materially new commitment is returned, not
- * ruled on). The verdict is DERIVED.
+ * at least one quoted statement of the character's accepted baseline - never on the request, the placement or world facts alone; a
+ * materially new commitment is returned, not ruled on). The verdict is DERIVED.
  */
 export function deriveScene(
   ctx: SceneContext,
@@ -1854,12 +1854,16 @@ export function deriveScene(
   if (v.state === "SUPPORTED") {
     if (v.statement === null)
       return incoherent("a supported ruling states the circumstance it supports");
-    if (!v.premises.some((p) => p.from === "PC_STATEMENT" || p.from === "PLACEMENT_STATEMENT"))
+    // The ordinary visual faculty and routine bodily ability are the CHARACTER'S (ratified clause 3: the accepted I-002 baseline, or an
+    // affirmation by the proper owner), so a positive ruling must quote at least one delivered PC_STATEMENT. The confirmed placement says
+    // where the character is and how, never that the character can see; it, like a world fact, can only complement (or veto). That the
+    // quoted words really entail sight is the host's reading, which this type check does not claim to verify.
+    if (!v.premises.some((p) => p.from === "PC_STATEMENT"))
       return {
         ok: false,
         refusal: refuse(
           "GROUNDS_UNSUPPORTED",
-          "a request alone is not a physical result: the ruling rests on the character's accepted words or the confirmed placement",
+          "a request, a placement or world facts alone are not a visual faculty: a supported ruling rests on a quoted statement of the character's accepted baseline",
         ),
       };
     if (carriesEngineReference(v.statement, ctx))
