@@ -1513,6 +1513,19 @@ export function deriveObservation(
     needs(decision.path.state, "OPEN", decision.path.premises, "an open path") ??
     needs(decision.path.state, "BLOCKED", decision.path.premises, "a blocked path");
   if (missing) return { ok: false, refusal: missing };
+  // The current context delivers no separately identified physical-owner record of this PC's sensory position.
+  // Its generic world/locus/source facts can complement placement, but clear air or a shared locus cannot replace it.
+  if (
+    decision.position.state === "ESTABLISHED" &&
+    !decision.position.premises.some((p) => p.from === "PLACEMENT_STATEMENT")
+  )
+    return {
+      ok: false,
+      refusal: refuse(
+        "GROUNDS_UNSUPPORTED",
+        "the delivered position evidence must independently cite the confirmed placement; generic world facts, shared locus and ordinary-look feasibility cannot establish this character's viewing circumstances",
+      ),
+    };
   const checked = checkAssessments(ctx.facts, decision.assessments);
   if (!checked.ok) return checked;
   const verdict = observationVerdictOf(decision);

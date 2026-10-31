@@ -56,6 +56,9 @@ establishing the actual viewing circumstances. Shared locus, intent, feasibility
 sightline or visibility. The host must answer `NOT_ESTABLISHED` when those circumstances lack support. The engine enforces quotation and
 premise-kind separation; it does not mechanically understand whether a host's interpretation of lawful placement/world prose is correct.
 Independent position evidence does not have to cite the feasibility premise. No facing owner, Health writer or broader GM permission is added.
+The current context has no separately identified physical-owner record of this PC's sensory position. Its general world/locus/source facts
+may complement the independently cited confirmed placement, but cannot substitute for that PC-specific evidence (clear air alone remains
+rejected). A future standalone specific-physical-owner carrier would require separately scoped work; none is invented here.
 
 R-1 mechanism regressions in `tests/integration/current-look-premise.test.ts` retain the exact phrase “facing the woodpile, eyes open” in the
 GM explanation while a bare placement yields `position NOT_ESTABLISHED`, no receipt, and the same unresolved perception after paraphrases and

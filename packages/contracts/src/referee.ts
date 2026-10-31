@@ -525,7 +525,8 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *                        establish the character's intrinsic sensory faculty (I-002 §4.3: no sensory ability is invented from a label);
  *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
  *                        `ref` = `placement.statement`): may establish the character's exact viewing circumstances when it affirmatively
- *                        states them, as may specific lawful physical-owner evidence. A shared locus and the faculty alone do not;
+ *                        states them, read with lawful physical-owner evidence. This context has no separately identified PC sensory-position
+ *                        owner record: generic world facts cannot replace placement. A shared locus and the faculty alone do not;
  *   CURRENT_VIEWING      (only when the World-State physical custodian published one for THIS basis) the owner-published, SUPPORTED current viewing
  *                        ordinary-look feasibility (`context.facts`, `fact_id` `viewing.current`): fixed typed verdict, instant, five-version
  *                        basis and lawful provenance only. GM circumstance prose is not delivered. This kind cannot establish faculty,

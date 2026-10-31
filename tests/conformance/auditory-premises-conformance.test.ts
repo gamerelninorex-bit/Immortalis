@@ -161,7 +161,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
       // BLUE R-1: typed ordinary-look feasibility, no GM-prose position evidence; no auditory ingress.
-      "3ca2ba023ee701f734e2d64d34ae37e87cbdacd7775dd60af4d3ab249ebb6072",
+      "90a35a08a6d3ecaaefc55015297521d897c33d08b3313c2155da913c83024de9",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
@@ -184,7 +184,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       // BLUE R-1: remove prose-grounded position and mandatory feasibility citations; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "6c50ddef6542e905e29f0cb7525d4aa61d1ef043ab5d68712b541c63b3be9a96",
+        "378998da68956de8331a0278f745baea1d47594b59454de32085e0de86c28e56",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

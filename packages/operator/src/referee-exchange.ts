@@ -464,7 +464,7 @@ export function taskDocument(
     const scoped = context.facts.some((f) => f.from === "source");
     const publishedViewing = context.facts.some((f) => f.from === "viewing");
     const sceneNote = publishedViewing
-      ? " The fact `viewing.current` delivers only the typed SUPPORTED ordinary-look feasibility verdict at its canonical instant and five-version basis, plus lawful provenance. The stored GM explanation is non-authoritative and is not delivered. Neither the verdict nor GM prose establishes position, orientation, open eyes, sightline, geometry, visibility, faculty, path or payload. Do not cite CURRENT_VIEWING as evidence for any sensory element. Establish `position` only from independently cited affirmative lawful placement or specific physical-owner facts establishing the actually required viewing circumstances. A shared locus is insufficient. If that evidence is absent, position is NOT_ESTABLISHED, the look is UNRESOLVED and payload is null. When legitimate independent position evidence exists it need not cite CURRENT_VIEWING."
+      ? " The fact `viewing.current` delivers only the typed SUPPORTED ordinary-look feasibility verdict at its canonical instant and five-version basis, plus lawful provenance. The stored GM explanation is non-authoritative and is not delivered. Neither the verdict nor GM prose establishes position, orientation, open eyes, sightline, geometry, visibility, faculty, path or payload. Do not cite CURRENT_VIEWING as evidence for any sensory element. Establish `position` only from independently cited affirmative lawful placement or specific physical-owner facts establishing the actually required viewing circumstances. A shared locus is insufficient. If that evidence is absent, position is NOT_ESTABLISHED, the look is UNRESOLVED and payload is null. The current delivery has no separately identified physical-owner record of this PC's sensory position: its generic world/locus/source facts can complement, but cannot replace, independently cited affirmative confirmed placement. That placement evidence need not cite CURRENT_VIEWING."
       : "";
 
     const sourceScopeNote = scoped
@@ -490,7 +490,7 @@ export function taskDocument(
       premise_kinds: {
         [OBSERVATION_PREMISE_KINDS[0]]:
           "one of the character's own statements: `ref` = an item_id of context.pc. The ONLY premise kind that may establish `faculty`",
-        [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}. May establish \`position\` only when it affirmatively states the required viewing circumstances; specific lawful physical-owner facts may also do so. Shared locus alone is insufficient`,
+        [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}. May establish \`position\` only when it affirmatively states the required viewing circumstances; specific lawful physical-owner facts can complement that placement. No separate PC sensory-position owner record is delivered here, and generic world facts or a shared locus cannot replace placement`,
         [OBSERVATION_PREMISE_KINDS[3]]:
           "only when `viewing.current` is delivered: fixed typed ordinary-look feasibility and provenance, never sensory evidence. Cannot establish faculty, position, path or payload; GM explanatory prose is not delivered",
         [OBSERVATION_PREMISE_KINDS[2]]: scoped
