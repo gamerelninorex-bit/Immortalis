@@ -41,9 +41,9 @@ const providerList = (file: string): string =>
     .join(",");
 
 /** Every module the gateway composes or must leave untouched, as it stood at the base (main 97c3788). */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
@@ -77,8 +77,6 @@ const UNCHANGED: Record<string, string> = {
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/logistics/adapter.ts":
@@ -113,7 +111,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, the Temporal kernel, the predecessor gateways and the frozen artifacts are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the Temporal kernel and schemas, GIP's sunset provider and adapter, the PC/Logistics/World owners, the canonical campaign, the NULL-PC and stop-at-delivery gateways and their contracts, and the frozen F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the Temporal kernel and schemas, GIP's sunset provider and adapter, the PC/Logistics/World owners, the canonical campaign, the NULL-PC and stop-at-delivery gateways and their contracts, and the frozen F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

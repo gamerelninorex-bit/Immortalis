@@ -22,9 +22,9 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base 7864425: the slice consumes or stands beside every one of these, and edits none. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
@@ -44,10 +44,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "f920e90c2898236e2aee2e6ba152d28eaa14a927c16681251618b1b3a71db918",
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
-  "packages/engine/src/index.ts":
-    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
-  "packages/contracts/src/index.ts":
-    "0326939feab773d2a2807b63833f8afa876c486c4e26b2d0906f16d0db84a9fd",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/protocol-current-glance.ts":
@@ -76,22 +72,12 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
   "packages/engine/src/epistemic/derive.ts":
     "28fa26e19e7ddb4f3961db2ff093c79f9d284a5acb960042292c5b4127687659",
-  "packages/engine/src/referee/admission.ts":
-    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
-  "packages/engine/src/referee/integrity.ts":
-    "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
     "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
-  "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
-  "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -104,16 +90,12 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
-  "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":
     "b185396a7858b9ab3133bf6e173ae76c7084ffcda335e8dc6cd3e0f22972a04e",
   "packages/operator/src/player-view-mcp.ts":
     "3925495aa279995dc2fc2d41d9040089ab01dcce17eabb5521d75cca8eace6b4",
-  "packages/operator/src/referee-mcp.ts":
-    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/observe-request.ts":
     "ff97b8f7cc4b4441af72d676b055146881270931c860ae7f9b87d326e5789880",
   "packages/operator/src/observe-request-answer.ts":
@@ -125,13 +107,20 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 };
 
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
-// These three files were changed by PR #94 after this suite's slice head (the L12/R-1/F-1 work among others), so their recorded values below
-// are the ORIGINAL ones main (8fda533) carried, kept as history, and are NOT compared with the working tree. Their present-day identities
-// are asserted only in current-look-lowering-conformance.test.ts, labeled as present-day and never as a base or slice-head pin.
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
 const CHANGED_AFTER_THE_SLICE_HEAD = new Set([
   "packages/contracts/src/referee.ts",
+  "packages/engine/src/epistemic/observation.ts",
+  "packages/engine/src/referee/adapter.ts",
   "packages/engine/src/referee/derive.ts",
+  "packages/operator/src/cli.ts",
+  "packages/operator/src/observation.ts",
   "packages/operator/src/referee-exchange.ts",
+  "packages/operator/src/referee-session.ts",
+  "packages/protocol/src/current-observation-glance.ts",
 ]);
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
@@ -139,23 +128,23 @@ const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
-    "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
+    "3bb16b6274b30504e8a46c909d35a578fd4de26ef5e3cefc35a8971679e615b9",
   "packages/engine/src/referee/adapter.ts":
-    "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
+    "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
     "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
+    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
+    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
   "packages/operator/src/referee-exchange.ts":
     "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   "packages/operator/src/referee-session.ts":
-    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   "packages/protocol/src/current-observation-glance.ts":
-    "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
+    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
 };
 
 const TESTS = [
@@ -171,7 +160,7 @@ const TESTS = [
 const DOC = "docs/source-qualified-observation-foundation.md";
 
 describe("the frozen specification, the owners and the surfaces the slice stands beside are untouched", () => {
-  it("the runtime-contract snapshot, register and gates (not the F-027 lock or the owner registry, which F-027 v0.8 changed on purpose), the Epistemic route, the projection, the presentation, the confirmation, the referee transport and the World-State owners are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock or the owner registry, which F-027 v0.8 changed on purpose), the Epistemic route, the projection, the presentation, the confirmation, the referee transport and the World-State owners are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -184,7 +173,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
     expect(pin("NPK")).toBe("2026-09-25T00:18:32.532Z");
   });
 
-  it("the existing source files the slice modified are exactly these, and each is pinned at the slice head", () => {
+  it("the existing source files the slice modified are exactly these, and each is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(MODIFIED))
       if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
     expect(Object.keys(MODIFIED)).toHaveLength(10);

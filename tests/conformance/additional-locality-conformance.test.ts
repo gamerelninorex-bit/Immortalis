@@ -23,9 +23,9 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main a10421dd2f433bc5bdd90d03ff39ebccfc96448b. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -34,8 +34,6 @@ const UNCHANGED: Record<string, string> = {
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/operator/src/locality.ts":
     "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/commands.ts":
@@ -45,7 +43,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the operator is touched", () => {
-  it("the gates, register, contracts, engine owner API, locality.ts, commands.ts and the session are byte-identical to main", () => {
+  it("the gates, register, contracts, engine owner API, locality.ts, commands.ts and the session are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

@@ -38,9 +38,9 @@ const importedNames = (file: string, from: string): string[] =>
     .filter(Boolean);
 
 /** Everything the slice composes or must leave untouched, byte-identical to main 884d09e889d6908e0244a7dbdfb49bbdde060843. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -78,18 +78,24 @@ const UNCHANGED: Record<string, string> = {
  * physical-locus custody) later modified canonical-campaign.ts and owners/registry.ts again: the `head` pins below follow that change, and the
  * v5.1 scoped deltas (with their own main and head hashes) are listed in original-pc-locus-conformance.test.ts.
  */
-// owners/registry.ts is deliberately NOT compared with the working tree here: PR #94 changed it on purpose (the viewing and scene kinds, then
-// the F-027 v0.8 source-locked citations), so its `head` below stays the ORIGINAL value main carried (8fda533) as history. Its current
-// identity is asserted by current-look-lowering-conformance.test.ts, labeled as the current v0.8 expectation, never as a main or PR #61 pin.
-const CHANGED_ON_PURPOSE_LATER = new Set(["packages/engine/src/owners/registry.ts"]);
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
+const CHANGED_ON_PURPOSE_LATER = new Set([
+  "packages/engine/src/owners/admission.ts",
+  "packages/engine/src/owners/registry.ts",
+  "packages/engine/src/world/canonical-campaign.ts",
+  "packages/engine/src/world/integrity.ts",
+]);
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
-    head: "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
+    head: "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   },
   "packages/engine/src/world/integrity.ts": {
     base: "e46bc19a095111796e473c20cebcb20aac0445c3be7d3f56dfa9f67d3e2f24e3",
-    head: "ad1272249ed8637f538ef08c3a97cba71c683a13069f44ed5bd7c497376d98da",
+    head: "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
@@ -97,16 +103,16 @@ const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
-    head: "7f140feb8657db6f1296b591f6e99a402b8b20428550aaa2cc641dd1a9c4f279",
+    head: "fca2e458f9fd81699243bfa416d26e3e9a49fde4925bf61567972ba6e24d24b0",
   },
 };
 
 describe("the owners, contracts, shipped binary and frozen artifacts: untouched except the four B61-A3 scoped deltas", () => {
-  it("the PC/binding contracts, the persistence package, the existing operator modules, the shipped binary and the F-027 lock, gates, register and runtime contract are byte-identical to main", () => {
+  it("the PC/binding contracts, the persistence package, the existing operator modules, the shipped binary and the F-027 gates, register and runtime contract are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the engine files B61-A3 modified are exactly the four scoped deltas: each differs from main and is pinned at the PR head (no silent further change)", () => {
+  it("the engine files B61-A3 modified are exactly the four scoped deltas: each differs from main and is pinned at the PR head (no silent further change) (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     expect(Object.keys(B61_A3_SCOPED_DELTAS).sort()).toEqual([
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",

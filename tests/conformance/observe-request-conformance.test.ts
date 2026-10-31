@@ -19,9 +19,9 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base d5d6ce5: the slice consumes or stands beside every one of these, and edits none. */
-// Not listed here, on purpose: spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts and packages/operator/src/referee-exchange.ts. PR #94 changed all three (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   // the frozen specification snapshot, the lock, the register and the gates
   "spec/f027/runtime-contract.md":
@@ -31,8 +31,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
-  "packages/protocol/src/current-observation-glance.ts":
-    "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
@@ -46,12 +44,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/presentation/event-signal.ts":
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the confirmation module (the only place a confirmation is made), re-used without edit
-  "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
-  "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
-  "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -76,14 +68,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view-bind-bin.ts":
     "8d06bb0cc0e6b9ffedb38ff65c2f8569ab9cd39fcfcd78530dd027102ba40b2a",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
-  "packages/operator/src/referee-mcp.ts":
-    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
-  "packages/operator/src/referee-session.ts":
-    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
-  "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
-  "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
 };
 
 const NEW_MODULES = [
@@ -110,7 +94,7 @@ const ADVANCE_MODULES = [
 ];
 
 describe("existing owners, the gateway, the read transport, the referee surface and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), IM-13/IM-14/IM-15, the observation producer, the confirmation module, the read transport and the referee surface are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), IM-13/IM-14/IM-15, the observation producer, the confirmation module, the read transport and the referee surface are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

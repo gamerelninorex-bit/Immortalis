@@ -25,13 +25,25 @@ const sha = (file: string) =>
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
 
-// These three files were changed by PR #94 after this suite's slice head (the L12/R-1/F-1 work among others), so their recorded values below
-// are the ORIGINAL ones main (8fda533) carried, kept as history, and are NOT compared with the working tree. Their present-day identities
-// are asserted only in current-look-lowering-conformance.test.ts, labeled as present-day and never as a base or slice-head pin.
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
 const CHANGED_AFTER_THE_SLICE_HEAD = new Set([
   "packages/contracts/src/referee.ts",
+  "packages/engine/src/index.ts",
+  "packages/engine/src/owners/registry.ts",
+  "packages/engine/src/referee/adapter.ts",
+  "packages/engine/src/referee/admission.ts",
   "packages/engine/src/referee/derive.ts",
+  "packages/engine/src/referee/integrity.ts",
+  "packages/operator/src/cli.ts",
+  "packages/operator/src/confirmation.ts",
+  "packages/operator/src/index.ts",
+  "packages/operator/src/original-pc.ts",
   "packages/operator/src/referee-exchange.ts",
+  "packages/operator/src/referee-mcp.ts",
+  "packages/operator/src/referee-session.ts",
 ]);
 const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
@@ -55,39 +67,39 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/integrity.ts":
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
-    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
+    "595b02d0b604a1ea32518fe23cf1f307c3bf102bde426cbc718755f82230e221",
   "packages/engine/src/referee/adapter.ts":
-    "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
+    "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   "packages/engine/src/referee/admission.ts":
-    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
+    "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
     "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/engine/src/referee/integrity.ts":
-    "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
+    "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   "packages/engine/src/temporal/admission.ts":
     "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
+    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
+    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
+    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
+    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/referee-exchange.ts":
     "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   "packages/operator/src/referee-mcp.ts":
-    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
+    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   "packages/operator/src/referee-session.ts":
-    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
+    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const SPEC: Record<string, string> = {
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -158,7 +170,7 @@ describe("one scoped delta: no new owner, no new fact kind, no new facet", () =>
     );
   });
 
-  it("every existing source file this slice modified is pinned at the slice head", () => {
+  it("every existing source file this slice modified is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(MODIFIED))
       if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
   });

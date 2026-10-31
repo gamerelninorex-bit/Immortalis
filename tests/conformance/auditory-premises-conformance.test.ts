@@ -35,9 +35,11 @@ const walk = (d: string): string[] =>
   readdirSync(d, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`],
   );
-/** The operator and referee trees as main (8fda533) carried them: history only, never compared with the working tree (see the tests below). */
+/** The operator, referee, protocol and epistemic trees as main (8fda533) carried them: history only, never compared with the working tree (see the tests below); recorded with their commit in tests/support/historical-pin-inventory.ts. */
 const OPERATOR_TREE_AT_MAIN = "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637";
 const REFEREE_TREE_AT_MAIN = "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098";
+const PROTOCOL_TREE_AT_MAIN = "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b";
+const EPISTEMIC_TREE_AT_MAIN = "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186";
 const treeSha = (d: string): string => {
   const h = createHash("sha256");
   for (const f of walk(d).sort()) h.update(`${f}\0${fileSha(f)}\n`);
@@ -156,15 +158,13 @@ describe("nothing outside the physical-source slice was built", () => {
       e.isDirectory() ? tree(join(dir, e.name)) : [join(dir, e.name)],
     );
 
-  it("no operator command, host operation, endpoint or protocol surface names the chain: the protocol baseline remains pinned (the operator tree's present-day identity is asserted by current-look-lowering-conformance)", () => {
+  it("no operator command, host operation, endpoint or protocol surface names the chain: the operator and protocol trees changed after this slice, so only their original values are kept, as history (present-day identities: tests/support/present-day-identities.ts)", () => {
     // The ORIGINAL operator tree main (8fda533) carried is recorded as history and is NOT compared with the working tree: PR #94 changed
     // packages/operator/src after this slice (scene, observation and referee-exchange work among others), so any value equal to today's tree
     // would be a present-day identity wearing a historical label. The absence-of-auditory-ingress assertion below stays operative.
     // ... and the recorded history really is history: it is not today's tree (re-pinning it to today's value would make this fail)
     expect(treeSha("packages/operator/src")).not.toBe(OPERATOR_TREE_AT_MAIN);
-    expect(treeSha("packages/protocol/src")).toBe(
-      "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
-    );
+    expect(treeSha("packages/protocol/src")).not.toBe(PROTOCOL_TREE_AT_MAIN);
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
@@ -173,13 +173,10 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the composed predecessor modules are pinned; P1 adds no Health, F-014D, referee or Temporal producer", () => {
+  it("the composed predecessor modules are pinned (the referee and epistemic trees excepted: PR #94 changed them); P1 adds no Health, F-014D, referee or Temporal producer", () => {
     const expected: Record<string, string> = {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
-      // GM-led first play: the F-014D event reads the owner-published appearance as its source only; no auditory ingress
-      "packages/engine/src/epistemic":
-        "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
@@ -189,9 +186,11 @@ describe("nothing outside the physical-source slice was built", () => {
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
-    // The referee tree is not in the map above on purpose: PR #94 changed it (R-1, F-1, L12), so the value main carried is history only and is
-    // not compared with the working tree; its present-day identity is asserted by current-look-lowering-conformance.test.ts.
+    // The referee and epistemic trees are not in the map above on purpose: PR #94 changed them (R-1, F-1, L12, the scene work), so the value main
+    // carried is history only and is not compared with the working tree; their present-day identities live only in
+    // tests/support/present-day-identities.ts.
     expect(treeSha("packages/engine/src/referee")).not.toBe(REFEREE_TREE_AT_MAIN);
+    expect(treeSha("packages/engine/src/epistemic")).not.toBe(EPISTEMIC_TREE_AT_MAIN);
   });
 
   it("R1 is preserved: its contract, rules, verifier and eligibility predicate are byte-identical to the merged foundation", () => {

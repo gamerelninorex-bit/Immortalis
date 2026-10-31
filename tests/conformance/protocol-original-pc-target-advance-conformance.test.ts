@@ -60,9 +60,9 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
-  // Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-  // to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-  // history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+  // Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+  // and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+  // values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
   const UNCHANGED: Record<string, string> = {
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
@@ -85,8 +85,6 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
-    "packages/engine/src/world/canonical-campaign.ts":
-      "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
@@ -104,7 +102,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   };
 
-  it("each is byte-identical to main", () => {
+  it("each is byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

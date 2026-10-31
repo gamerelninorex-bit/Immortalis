@@ -34,9 +34,9 @@ const walk = (d: string): string[] =>
   );
 
 /** Every module the gateway composes or must leave untouched, as it stood at the forty-third base (main 767f904). */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
@@ -68,8 +68,6 @@ const UNCHANGED: Record<string, string> = {
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/world/entity-transition.ts":
     "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/logistics/adapter.ts":
     "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
   "packages/engine/src/logistics/declaration.ts":
@@ -94,7 +92,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, the Temporal kernel, the relocation gateway and the frozen artifacts are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the Temporal kernel and schemas, Logistics, World-State custody and ECT-01, the relocation gateway, IM-13/IM-14 and the frozen F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the Temporal kernel and schemas, Logistics, World-State custody and ECT-01, the relocation gateway, IM-13/IM-14 and the frozen F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

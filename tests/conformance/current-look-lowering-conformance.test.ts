@@ -7,15 +7,7 @@
 // The expectations below are written out literally from the ratified carrier (sections 2, 4 and 5), NOT derived from the constructor or the
 // checker table under test, so a drift of either one is caught here.
 import { createHash } from "node:crypto";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -42,6 +34,7 @@ import {
   checkSpec,
 } from "../../tools/check-spec.ts";
 import { expectNotALockPin } from "../support/lock.ts";
+import { PRESENT_DAY_CODE_IDENTITIES } from "../support/present-day-identities.ts";
 import {
   PRE_LOWERING_SCENE_RULE,
   PRE_LOWERING_SCENE_RULE_SHA256,
@@ -755,47 +748,6 @@ const ORIGINAL_MAIN_REGISTRY_SHA256 =
 const CURRENT_V08_LOCK_SHA256 = "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c";
 const CURRENT_V08_REGISTRY_SHA256 =
   "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116";
-/**
- * PRESENT-DAY (PR #94 head) implementation identities of the referee code that PR #94 changed after the older suites were written (R-1, F-1,
- * L12 among others). NOT main pins, NOT slice-head pins of any older slice: the older suites record the ORIGINAL values as history and do not
- * compare these files with the working tree. A later change to any of them must update THIS table only.
- */
-const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
-  "packages/contracts/src/referee.ts":
-    "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
-  "packages/engine/src/referee/derive.ts":
-    "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
-  "packages/operator/src/referee-exchange.ts":
-    "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
-  // the directory trees containing them (same algorithm as auditory-premises-conformance: sorted `path\0sha256(bytes)\n`)
-  "packages/engine/src/referee": "8ab00353ae90c0617efc749cabc1541976396c0f843a757e7a467bdfd342fe30",
-  "packages/operator/src": "0e0714b1b0939acda9724637c051c53665e654a111bf3161791f87a7661b5067",
-};
-/** The ORIGINAL values main (8fda533) carried for the same paths: history, which the older suites may state and this guard never flags. */
-const ORIGINAL_MAIN_CODE_IDENTITIES: Readonly<Record<string, string>> = {
-  "packages/contracts/src/referee.ts":
-    "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
-  "packages/engine/src/referee/derive.ts":
-    "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
-  "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
-  "packages/engine/src/referee": "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098",
-  "packages/operator/src": "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637",
-};
-const fileSha256 = (path: string): string =>
-  createHash("sha256").update(readFileSync(path)).digest("hex");
-const walkFiles = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? walkFiles(`${dir}/${e.name}`) : [`${dir}/${e.name}`],
-  );
-/** Present-day identity of a file or of a directory tree. */
-const identityOf = (path: string): string => {
-  if (!statSync(path).isDirectory()) return fileSha256(path);
-  const h = createHash("sha256");
-  for (const f of walkFiles(path).sort()) h.update(`${f}\0${fileSha256(f)}\n`);
-  return h.digest("hex");
-};
-
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")
@@ -873,12 +825,13 @@ describe("provenance: original identities are history, today's are asserted only
 
   it("no older suite or document states today's lock or registry identity: they assert history, and today's identities live only in this test", () => {
     const here = "tests/conformance/current-look-lowering-conformance.test.ts";
+    const table = "tests/support/present-day-identities.ts";
     const found: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const path = join(dir, entry.name);
         if (entry.isDirectory()) walk(path);
-        else if (/\.(ts|md)$/.test(entry.name) && path !== here) {
+        else if (/\.(ts|md)$/.test(entry.name) && path !== here && path !== table) {
           const hits = currentIdentitiesIn(readFileSync(path, "utf8"));
           // the generated build identity is the lock's own mirror, and the PR text may cite it: only suites and the historical documents are policed
           if (hits.length > 0 && path !== "packages/contracts/src/spec-identity.ts")
@@ -904,25 +857,5 @@ describe("provenance: original identities are history, today's are asserted only
         `${ORIGINAL_MAIN_LOCK_BLOB} ${ORIGINAL_MAIN_LOCK_SHA256} ${ORIGINAL_MAIN_REGISTRY_SHA256}`,
       ),
     ).toEqual([]);
-  });
-  it("PRESENT-DAY identities of the referee code PR #94 changed (not original-main or slice-head pins): the three files and their two trees", () => {
-    for (const [path, expected] of Object.entries(PRESENT_DAY_CODE_IDENTITIES))
-      expect(identityOf(path), path).toBe(expected);
-    // each differs from what main carried: the older suites' recorded values are history, and none of them equals today's
-    for (const [path, original] of Object.entries(ORIGINAL_MAIN_CODE_IDENTITIES)) {
-      expect(PRESENT_DAY_CODE_IDENTITIES[path], path).toBeDefined();
-      expect(PRESENT_DAY_CODE_IDENTITIES[path], path).not.toBe(original);
-    }
-  });
-
-  it("the guard catches today's referee code identities stated as a base or slice-head pin, and lets the original values stand", () => {
-    for (const [path, today] of Object.entries(PRESENT_DAY_CODE_IDENTITIES)) {
-      const falseBase = `/** Byte-identical to the base e799fb8 */\nconst UNCHANGED = { "${path}": "${today}" };`;
-      const falseHead = `// pinned at the slice head\n  "${path}":\n    "${today}",`;
-      expect(currentIdentitiesIn(falseBase), `${path} as a base pin`).toEqual([today]);
-      expect(currentIdentitiesIn(falseHead), `${path} as a slice-head pin`).toEqual([today]);
-    }
-    for (const original of Object.values(ORIGINAL_MAIN_CODE_IDENTITIES))
-      expect(currentIdentitiesIn(`pinned at the slice head: "${original}"`)).toEqual([]);
   });
 });

@@ -26,9 +26,9 @@ const specifiersOf = (file: string): string[] =>
   [...readFileSync(file, "utf8").matchAll(/from "([^"]+)"/g)].map((m) => m[1]!);
 
 /** Byte-identical to the base 6e14c19: the read consumes every one of these, and edits none. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
@@ -48,8 +48,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "426cb9e790b435d75a4f6a1df39c792616310421e17eb953aa2f382ae4370e0c",
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
-  "packages/engine/src/epistemic/observation.ts":
-    "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/epistemic/direct-observation.ts":
     "a0ca78beee98677b855fa863c449bf88a371b997713e68ce59807dbce8801033",
   "packages/engine/src/epistemic/declaration.ts":
@@ -60,15 +58,13 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
-  "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
 };
 
 describe("existing owners, projection, presentation and predecessors are untouched: the read consumes them, never edits or duplicates them", () => {
-  it("IM-13, IM-14, their contracts, the sibling protocol operations, the Epistemic observation owner path, the Temporal coordinator, the operator observation command and the F-027 artifacts are byte-identical to the base", () => {
+  it("IM-13, IM-14, their contracts, the sibling protocol operations, the Epistemic observation owner path, the Temporal coordinator, the operator observation command and the F-027 artifacts are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

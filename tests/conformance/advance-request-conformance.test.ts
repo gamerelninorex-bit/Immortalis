@@ -19,9 +19,9 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base e799fb8: the slice consumes or stands beside every one of these, and edits none. */
-// Not listed here, on purpose: spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts and packages/operator/src/referee-exchange.ts. PR #94 changed all three (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
@@ -51,26 +51,16 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
-  "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
-  "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
-  "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
     "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
-  "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
-  "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -101,10 +91,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "863c3fa9650dbb8dddf1c2653e8a8a53ed3bac540447e36fcfd7e6fe8f6f683b",
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
-  "packages/operator/src/referee-mcp.ts":
-    "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
-  "packages/operator/src/referee-session.ts":
-    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
 };
 
 const NEW_MODULES = [
@@ -119,7 +105,7 @@ const NEW_MODULES = [
 ];
 
 describe("existing owners, the gateway, the Temporal kernel, GIP, the command set and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

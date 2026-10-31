@@ -241,16 +241,16 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
       );
   });
 
-  it("the frozen F-027 artifacts and every predecessor module the slice consumes unchanged are byte-identical to main", () => {
+  it("the frozen F-027 artifacts and every predecessor module the slice consumes unchanged are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 });
 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -263,18 +263,12 @@ const UNCHANGED: Record<string, string> = {
     "ee204eb2426b4c86c2a80207fbf1eec2192f0d83d5ae5bb22f469fb86830e681",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
-  "packages/engine/src/owners/admission.ts":
-    "7f140feb8657db6f1296b591f6e99a402b8b20428550aaa2cc641dd1a9c4f279",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
-  "packages/engine/src/world/integrity.ts":
-    "ad1272249ed8637f538ef08c3a97cba71c683a13069f44ed5bd7c497376d98da",
   "packages/engine/src/world/actor-coupling.ts":
     "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
-  "packages/engine/src/world/fallback-custody.ts":
-    "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/pc-movement/integrity.ts":
@@ -306,16 +300,25 @@ const UNCHANGED: Record<string, string> = {
  * The BLUE v5.1 SCOPED DELTAS to existing source files: each differs from main (`base`) and is pinned at this slice's head (`head`), so
  * any further edit is a new, visible change to this table. Files the slice only ADDED are not listed.
  */
-// DELTAS:BEGIN
-// owners/registry.ts (and, below, three referee files) are deliberately NOT compared with the working tree here: PR #94 changed them on purpose (the viewing and scene kinds, then
-// the F-027 v0.8 source-locked citations), so its `head` below stays the ORIGINAL value main carried (8fda533) as history. Its current
-// identity is asserted by current-look-lowering-conformance.test.ts, labeled as the current v0.8 expectation, never as a main or PR #61 pin.
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
 const CHANGED_ON_PURPOSE_LATER = new Set([
-  "packages/engine/src/owners/registry.ts",
-  // changed again by PR #94 (R-1, F-1, L12): the `head` recorded for each is the ORIGINAL value main carried, as history
   "packages/contracts/src/referee.ts",
+  "packages/engine/src/owners/registry.ts",
+  "packages/engine/src/referee/adapter.ts",
+  "packages/engine/src/referee/admission.ts",
   "packages/engine/src/referee/derive.ts",
+  "packages/engine/src/referee/integrity.ts",
+  "packages/engine/src/world/canonical-campaign.ts",
+  "packages/operator/src/cli.ts",
+  "packages/operator/src/confirmation.ts",
+  "packages/operator/src/index.ts",
+  "packages/operator/src/original-pc.ts",
   "packages/operator/src/referee-exchange.ts",
+  "packages/operator/src/referee-mcp.ts",
+  "packages/operator/src/referee-session.ts",
 ]);
 const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/contracts/src/pc-locus-custody.ts": {
@@ -336,11 +339,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/adapter.ts": {
     base: "3399b7977bc4d832dcc2cf1428ad0e0331bb01a9826a8efd24cc9c052d6219d4",
-    head: "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
+    head: "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   },
   "packages/engine/src/referee/admission.ts": {
     base: "2b38fa9521358d4052cfb8ba58a276a222308d392aa0c5596f8bc8b71650cebc",
-    head: "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
+    head: "91fd5daf300e3676b7b3849415d2f1924d1d32642ce245181ceaf1139d5275c1",
   },
   // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
@@ -349,11 +352,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
-    head: "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
+    head: "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   },
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "227ea9fba026f5ac594a12ddc511901559dcd14a0bf29ec1578442063fff46a5",
-    head: "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
+    head: "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   },
   "packages/engine/src/world/pc-locus-custody-integrity.ts": {
     base: "36483247d0f80ac205e76c927ad0ab60f1efecf4b83df07a4ef654cdf7ee23b8",
@@ -365,19 +368,19 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/cli.ts": {
     base: "069223d65a2198a9707f86878288f4652568b2a98d6bbe4a88072b05c8b09180",
-    head: "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
+    head: "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   },
   "packages/operator/src/confirmation.ts": {
     base: "ad807c7402b7ba323e43f5712027a38c2087bc071a9c7e7bf92b0fa630671ad8",
-    head: "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
+    head: "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
   },
   "packages/operator/src/index.ts": {
     base: "a5db33bcab750664eeeb240a33ec8b85ce02eb536c9284b3c9f563e774d84284",
-    head: "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
+    head: "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   },
   "packages/operator/src/original-pc.ts": {
     base: "065e77c316b111081986f0f16f7afb5af348a8c00939641c45210cc2345d5229",
-    head: "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
+    head: "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
@@ -385,17 +388,17 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",
-    head: "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
+    head: "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
   },
   "packages/operator/src/referee-session.ts": {
     base: "a0ef2582f232fd7c23f23f0b777377096f5a76859eb151d33a7b2c26fe08ec16",
-    head: "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
+    head: "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
   },
 };
 // DELTAS:END
 
 describe("the existing source files BLUE v5.1 modified are exactly the scoped deltas", () => {
-  it("each differs from main and is pinned at the slice head", () => {
+  it("each differs from main and is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     expect(Object.keys(V51_SCOPED_DELTAS).sort()).toEqual(EXPECTED_DELTA_FILES);
     for (const [file, { base, head }] of Object.entries(V51_SCOPED_DELTAS)) {
       expect(base, file).not.toBe(head);

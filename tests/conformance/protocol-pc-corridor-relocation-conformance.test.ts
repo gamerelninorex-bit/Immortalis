@@ -39,9 +39,9 @@ const bodyOf = (file: string, from: string, to: string): string => {
 };
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 3b06e6591303e72ee7523555dc08d13c4c9c7d5b. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
-// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
-// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
@@ -67,8 +67,6 @@ const UNCHANGED: Record<string, string> = {
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/world/corridor.ts":
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":
@@ -91,7 +89,7 @@ const DERIVE = "packages/engine/src/logistics/derive.ts";
 const DERIVE_AT_SLICE_HEAD = "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4";
 
 describe("existing owners and predecessors are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor and the Temporal kernel are byte-identical to the base (not the owner registry, which F-027 v0.8 changed on purpose)", () => {
+  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor and the Temporal kernel are byte-identical to the base (not the owner registry, which F-027 v0.8 changed on purpose) (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
