@@ -248,7 +248,12 @@ source-locks the two registry citations this PR introduced. The carrier is the N
   `spec/f027/spec-lock.json` or `packages/engine/src/owners/registry.ts` as "byte-identical to main" or to a PR #61 head, because this PR changed both
   on purpose. Their original values stay as history (an old suite's registry `head` is the value main carried), the other byte pins stay, and the
   dedicated test proves the original lock is exactly the current lock minus the three v0.8 rows (same git blob and SHA-256), states today's lock and
-  registry identities once, labeled as the current v0.8 expectation, and fails if an older suite or a historical document states them again.
+  registry identities once, labeled as the current v0.8 expectation, and fails if an older suite or a historical document states them again. (H-PROVENANCE-2) The same holds for the three referee files PR #94 changed after the older suites were written
+  (`packages/contracts/src/referee.ts`, `packages/engine/src/referee/derive.ts`, `packages/operator/src/referee-exchange.ts`) and for the referee and operator
+  trees: the older suites now record the original values main carried as history and no longer compare those files with the working tree, the three
+  files are out of the "byte-identical to the base" sets, and the dedicated test holds their present-day identities in one labeled table and fails if an
+  older suite states them again. Other files PR #94 modified are still pinned at the current head in older suites under the earlier refresh convention;
+  that wider inventory is reported to BLUE, not changed here.
 - **What this does not do.** It clears no gate and builds no Health record: the scene task carries **no Health or separately owned sensory record**,
   so it cannot certify Health clearance or close Health S1 (an empty Health ledger is not proof of impairment for a qualified active PC, and not
   proof of a faculty either). Implied attention or eye-opening language classifies the request only; it is never an owner fact. H3/D-2, L5, the genuine

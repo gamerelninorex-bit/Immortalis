@@ -307,10 +307,16 @@ const UNCHANGED: Record<string, string> = {
  * any further edit is a new, visible change to this table. Files the slice only ADDED are not listed.
  */
 // DELTAS:BEGIN
-// owners/registry.ts is deliberately NOT compared with the working tree here: PR #94 changed it on purpose (the viewing and scene kinds, then
+// owners/registry.ts (and, below, three referee files) are deliberately NOT compared with the working tree here: PR #94 changed them on purpose (the viewing and scene kinds, then
 // the F-027 v0.8 source-locked citations), so its `head` below stays the ORIGINAL value main carried (8fda533) as history. Its current
 // identity is asserted by current-look-lowering-conformance.test.ts, labeled as the current v0.8 expectation, never as a main or PR #61 pin.
-const CHANGED_ON_PURPOSE_LATER = new Set(["packages/engine/src/owners/registry.ts"]);
+const CHANGED_ON_PURPOSE_LATER = new Set([
+  "packages/engine/src/owners/registry.ts",
+  // changed again by PR #94 (R-1, F-1, L12): the `head` recorded for each is the ORIGINAL value main carried, as history
+  "packages/contracts/src/referee.ts",
+  "packages/engine/src/referee/derive.ts",
+  "packages/operator/src/referee-exchange.ts",
+]);
 const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/contracts/src/pc-locus-custody.ts": {
     base: "72d543bfb838dfe8d0bfae946da617623e14de7d6235faf5613f5d9de0ea7b9e",
@@ -318,7 +324,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
+    head: "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
@@ -339,7 +345,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
+    head: "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
@@ -375,7 +381,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
+    head: "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",

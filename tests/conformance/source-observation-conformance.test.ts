@@ -125,9 +125,17 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 };
 
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
+// These three files were changed by PR #94 after this suite's slice head (the L12/R-1/F-1 work among others), so their recorded values below
+// are the ORIGINAL ones main (8fda533) carried, kept as history, and are NOT compared with the working tree. Their present-day identities
+// are asserted only in current-look-lowering-conformance.test.ts, labeled as present-day and never as a base or slice-head pin.
+const CHANGED_AFTER_THE_SLICE_HEAD = new Set([
+  "packages/contracts/src/referee.ts",
+  "packages/engine/src/referee/derive.ts",
+  "packages/operator/src/referee-exchange.ts",
+]);
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
+    "08178c84f7430bd12ccd9d290ab8b8d0774c876978bba604dce1ab0b9bbb6307",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
@@ -137,13 +145,13 @@ const MODIFIED: Readonly<Record<string, string>> = {
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
+    "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/operator/src/cli.ts":
     "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/observation.ts":
     "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "packages/operator/src/referee-exchange.ts":
-    "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
+    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
   "packages/operator/src/referee-session.ts":
     "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
   "packages/protocol/src/current-observation-glance.ts":
@@ -177,7 +185,8 @@ describe("the frozen specification, the owners and the surfaces the slice stands
   });
 
   it("the existing source files the slice modified are exactly these, and each is pinned at the slice head", () => {
-    for (const [file, hash] of Object.entries(MODIFIED)) expect(sha(file), file).toBe(hash);
+    for (const [file, hash] of Object.entries(MODIFIED))
+      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
     expect(Object.keys(MODIFIED)).toHaveLength(10);
   });
 

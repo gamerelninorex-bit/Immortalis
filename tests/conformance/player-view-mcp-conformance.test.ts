@@ -29,7 +29,7 @@ const identifiers = (file: string): string =>
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 
 /** Byte-identical to the base 76b3209: the transport consumes or stands beside every one of these, and edits none. */
-// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// Not listed here, on purpose: spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts and packages/operator/src/referee-exchange.ts. PR #94 changed all three (F-027 v0.8 added
 // to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
 // history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Readonly<Record<string, string>> = {
@@ -69,8 +69,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
   "packages/operator/src/referee-mcp.ts":
     "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
-  "packages/operator/src/referee-exchange.ts":
-    "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
   "packages/operator/src/referee-session.ts":
     "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
   "packages/operator/src/cli.ts":
