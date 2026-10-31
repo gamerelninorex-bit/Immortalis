@@ -38,10 +38,10 @@ const LOOK = "at the pale material I have just gathered";
 
 let master: LocalityDirs;
 beforeAll(async () => {
-  // a placement that states neither a direction nor open eyes: the case the legacy question leaves unresolved
+  // The positive has independent affirmative placement evidence; the GM prose supplies none.
   const made = await originalCollectionCampaign({
     scene: redScene(),
-    presence: PC_WORDS.presenceBare,
+    presence: PC_WORDS.presence,
   });
   const c = await openOrdinary(made.dirs.campaignDir);
   try {
@@ -107,93 +107,65 @@ async function glance(dirs: LocalityDirs) {
 }
 
 describe("a natural look, ruled by the Game Master and consumed by the perception question", () => {
-  it("the legacy question leaves the placement-only character without a look (the unresolved case); once a scene host is bound the SAME look is a lawful receipted observation, the old negative untouched", async () => {
+  it("a supported look uses independent placement evidence, cites typed feasibility and earns one receipt without an appearance owner fact", async () => {
     const dirs = copy();
     const before = await owners(dirs);
-    expect(before.viewing).toHaveLength(0);
-
-    // 1. no scene host bound: the unchanged legacy question is asked, and nothing establishes the viewing position
-    const legacy = await observe(
-      dirs,
-      verbConsole("observe-surroundings"),
-      { attention: LOOK },
-      perceive,
-    );
-    expect(legacy.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
-    const negative = await owners(dirs);
-    expect(negative.viewing).toHaveLength(0);
-    expect(negative.events).toHaveLength(0);
-    expect(negative.decisions.map(kindOf)).toContain("F014D_DIRECT_PERCEPTION");
-    const t0 = negative.decisions.filter((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION");
-    expect(t0).toHaveLength(1);
-    expect((t0[0]!.value as any).verdict).toBe("OBSERVATION_UNRESOLVED");
-
-    // 2. the operator binds the GM scene host; the same character looks again at the same canonical basis
     await bindScene(dirs.operatorDir);
-    const gm = startScene(dirs.operatorDir, scenePolicy());
-    let second: Awaited<ReturnType<typeof observe>>;
+    const gm = startScene(
+      dirs.operatorDir,
+      scenePolicy({ statement: "facing the woodpile, eyes open" }),
+    );
     try {
-      second = await observe(
+      const seen = await observe(
         dirs,
         verbConsole("observe-surroundings"),
         { attention: LOOK },
         perceive,
       );
+      expect(seen.result.status, JSON.stringify(seen.result)).toBe("OBSERVATION_RECEIVED");
+      const after = await owners(dirs);
+      expect(after.viewing).toHaveLength(1);
+      expect(after.events).toHaveLength(1);
+      const decision: any = after.decisions.find(
+        (f) => kindOf(f) === "F014D_DIRECT_PERCEPTION",
+      )!.value;
+      expect(decision.verdict).toBe("OBSERVATION_ESTABLISHED");
+      expect(decision.decision.position.premises.map((p: any) => p.from)).toEqual([
+        "PLACEMENT_STATEMENT",
+      ]);
+      expect(decision.input.refs).toHaveLength(7);
+      expect(decision.input.refs[5].fact_key).toMatch(/^world\/[^/]+\/source-delivery\//);
+      expect(decision.input.refs[6].fact_key).toBe(after.viewing[0]!.key);
+      expect(
+        after.decisions
+          .filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION")
+          .map((f) => (f.value as any).verdict)
+          .sort(),
+      ).toEqual(["LOOK_ORDINARY", "VIEWING_SUPPORTED"]);
+      const written = after.keys.filter((k) => !before.keys.includes(k));
+      expect(
+        written.filter(
+          (k) =>
+            !/^referee\/[0-9a-f]{64}\/decision$/.test(k) &&
+            !/^world-state\/pc\/[^/]+\/current-viewing\//.test(k) &&
+            !/^access\//.test(k) &&
+            !/^temporal\/transaction(-authority)?\/observation-tx-/.test(k) &&
+            !/^epistemic\//.test(k),
+        ),
+      ).toEqual([]);
+      expect(
+        after.keys.filter((k) => !before.keys.includes(k)).some((k) => /appearance/i.test(k)),
+      ).toBe(false);
+      for (const f of after.owned)
+        expect(JSON.stringify(f.value), f.key).not.toMatch(/pale|grains|heap/i);
+      expect(after.time).toBe(before.time);
+      expect(after.verify).toEqual([]);
+      const shown = JSON.stringify(await glance(dirs));
+      expect(shown).toContain(PILE_LOOK);
+      expect(shown).not.toMatch(/\bred\b|gathering|completed|source-delivery|salt|\b3\b/);
     } finally {
       await gm.stop();
     }
-    expect(second.result.status, JSON.stringify(second.result.details)).toBe(
-      "OBSERVATION_RECEIVED",
-    );
-    expect(gm.answered).toHaveLength(2); // one classification of the words, one physical ruling of the basis
-
-    const after = await owners(dirs);
-    // the old negative decision is byte-identical; the new question has its own identity
-    expect(after.raw[t0[0]!.key]).toBe(negative.raw[t0[0]!.key]);
-    const t1 = after.decisions.filter((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION");
-    expect(t1).toHaveLength(2);
-    const fresh = t1.find((f) => f.key !== t0[0]!.key)!;
-    expect((fresh.value as any).verdict).toBe("OBSERVATION_ESTABLISHED");
-    // sparse owner publication: exactly one viewing circumstance, from the GM's retained ruling, and nothing about how the pile looks
-    expect(after.viewing).toHaveLength(1);
-    const scene = after.decisions.filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION");
-    expect(scene).toHaveLength(2);
-    expect(scene.map((f) => (f.value as any).verdict).sort()).toEqual([
-      "LOOK_ORDINARY",
-      "VIEWING_SUPPORTED",
-    ]);
-    // the receipt was earned: one event, and the question cites the producing owner's delivery then the owner-published viewing
-    expect(after.events).toHaveLength(1);
-    const cited = (fresh.value as any).input.refs.map((r: any) => r.fact_key);
-    expect(cited).toHaveLength(7);
-    expect(cited[5]).toMatch(/^world\/[^/]+\/source-delivery\//);
-    expect(cited[6]).toBe(after.viewing[0]!.key);
-    // what the look wrote is exactly: the sealed rulings and reading, the one viewing circumstance and the receipt - no appearance of the
-    // pile as an owner fact of any kind (the description lives only in the player's own receipt)
-    const written = after.keys.filter((k) => !before.keys.includes(k));
-    const unexpected = written.filter(
-      (k) =>
-        !/^referee\/[0-9a-f]{64}\/decision$/.test(k) &&
-        !/^world-state\/pc\/[^/]+\/current-viewing\//.test(k) &&
-        !/^access\//.test(k) &&
-        !/^temporal\/transaction(-authority)?\/observation-tx-/.test(k) && // the receipt's own zero-time transaction, as on main
-        !/^epistemic\//.test(k),
-    );
-    expect(unexpected, JSON.stringify(unexpected)).toEqual([]);
-    expect(written.some((k) => /appearance/i.test(k))).toBe(false);
-    for (const f of after.owned)
-      expect(JSON.stringify(f.value), f.key).not.toMatch(/pale|grains|heap/i);
-    // the look passed no time
-    expect(after.time).toBe(before.time);
-    expect(after.verify).toEqual([]);
-
-    // 3. the player's Glance shows the GM's description of the pile, anchored to the delivery (not the wall, not the mechanical sentence)
-    const shown = await glance(dirs);
-    expect(shown.ok, JSON.stringify(shown)).toBe(true);
-    expect(JSON.stringify(shown)).toContain(PILE_LOOK);
-    expect(JSON.stringify(shown)).not.toMatch(
-      /\bred\b|gathering|completed|source-delivery|salt|\b3\b/,
-    );
   }, 300_000);
 
   it("the same look repeated asks nobody again: the retained rulings and decision answer, nothing is rerolled", async () => {

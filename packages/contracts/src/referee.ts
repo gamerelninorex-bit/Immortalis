@@ -524,12 +524,12 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *   PC_STATEMENT         one of the accepted character's own I-002 statements (`context.pc`, by `item_id`): the ONLY premise that can
  *                        establish the character's intrinsic sensory faculty (I-002 §4.3: no sensory ability is invented from a label);
  *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
- *                        `ref` = `placement.statement`): the ONLY premise that can establish the character's own exact viewing
- *                        circumstances (a shared locus identity does not, and the faculty alone does not);
+ *                        `ref` = `placement.statement`): may establish the character's exact viewing circumstances when it affirmatively
+ *                        states them, as may specific lawful physical-owner evidence. A shared locus and the faculty alone do not;
  *   CURRENT_VIEWING      (only when the World-State physical custodian published one for THIS basis) the owner-published, SUPPORTED current viewing
- *                        circumstance (`context.facts`, `fact_id` `viewing.current`): the character's attention, orientation and open eyes for the
- *                        look being made now. It can establish the viewing circumstances in place of the original placement statement, which
- *                        was written once and cannot contain every later gaze; it can establish nothing else;
+ *                        ordinary-look feasibility (`context.facts`, `fact_id` `viewing.current`): fixed typed verdict, instant, five-version
+ *                        basis and lawful provenance only. GM circumstance prose is not delivered. This kind cannot establish faculty,
+ *                        position, orientation, eye state, path or payload; retained as a readable kind, never as sensory evidence;
  *   WORLD_FACT           a committed world, locus or (source-scoped questions only) Source Condition access fact (`context.facts`, by
  *                        `fact_id`): the physical setting, the light, the air path, any obstruction, and the owner-authored access or
  *                        appearance circumstance of the one source the question is scoped to.
@@ -644,7 +644,7 @@ const SceneViewingSchema = z.strictObject({
   premises: z.array(ScenePremiseSchema).max(8),
   rule_ids: RuleIds,
   grounds: Grounds,
-  /** the ruling in the GM's words: what is physically supported right now (attention, orientation, eyes). No appearance, no recognition. */
+  /** Explanatory, non-authoritative GM narration retained verbatim; establishes no position, orientation, eye state or other world truth. */
   statement: Trimmed(300).nullable(),
 });
 

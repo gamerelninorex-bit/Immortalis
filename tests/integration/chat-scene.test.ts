@@ -69,9 +69,9 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
       mutateSetting: redScene(),
       policy: perceptionPolicy(base),
       characterWords: {
-        // the character states neither a direction nor open eyes: the legacy question could never place their sight
+        // Independent placement establishes the viewing details; GM explanatory prose cannot.
         embodiment: `${PC_WORDS.embodiment}; ${ACTUATOR}; ${CYCLE}; ${TRAVERSAL}`,
-        presence: PC_WORDS.presenceBare,
+        presence: PC_WORDS.presence,
       },
     });
     await bindScene(r.s.operatorDir);

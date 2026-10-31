@@ -1,4 +1,5 @@
 import {
+  canonicalJson,
   EntityId,
   ExistenceContractSchema,
   FACET_WORLD_SOURCE_CONDITION,
@@ -656,8 +657,17 @@ function viewingFor(
     delivered: {
       fact_id: "viewing.current",
       from: "viewing",
-      label: "current viewing circumstance (published by the physical custodian)",
-      text: v.data.circumstance.statement,
+      label: "ordinary-look feasibility only (published by the physical custodian)",
+      // Ratified current-look clause 6: retain the journal's explanatory GM words, but never deliver them as a physical premise.
+      // The typed verdict, instant, five-version basis and lawful provenance are the entire published meaning.
+      text: canonicalJson({
+        state: v.data.circumstance.state,
+        observed_at: v.data.observed_at,
+        basis: v.data.basis,
+        ruling: v.data.ruling,
+        ruled_by: v.data.ruled_by,
+        custodian: v.data.custodian,
+      }),
     },
   };
 }
@@ -1475,12 +1485,12 @@ export function deriveObservation(
         "the faculty rests only on the character's own statements: no sensory ability is invented from the world, the placement or a label",
       ),
     };
-  if (!only(decision.position.premises, ["PLACEMENT_STATEMENT", "WORLD_FACT", "CURRENT_VIEWING"]))
+  if (!only(decision.position.premises, ["PLACEMENT_STATEMENT", "WORLD_FACT"]))
     return {
       ok: false,
       refusal: refuse(
         "DECISION_INCOHERENT",
-        "the viewing circumstances rest on the confirmed placement statement, the owner-published current viewing circumstance and world facts, never on the character's intrinsic statements",
+        "the viewing circumstances require independent affirmative placement or specific physical-owner evidence; ordinary-look feasibility and GM narration cannot establish position, orientation or eye state",
       ),
     };
   if (!only(decision.path.premises, ["WORLD_FACT"]))
@@ -1503,33 +1513,6 @@ export function deriveObservation(
     needs(decision.path.state, "OPEN", decision.path.premises, "an open path") ??
     needs(decision.path.state, "BLOCKED", decision.path.premises, "a blocked path");
   if (missing) return { ok: false, refusal: missing };
-  const publishedViewing = ctx.facts.some((f) => f.from === "viewing");
-  if (
-    decision.position.state === "ESTABLISHED" &&
-    !decision.position.premises.some(
-      (p) => p.from === "PLACEMENT_STATEMENT" || p.from === "CURRENT_VIEWING",
-    )
-  )
-    return {
-      ok: false,
-      refusal: refuse(
-        "GROUNDS_UNSUPPORTED",
-        "the character's own viewing circumstances are established by the confirmed placement statement or the owner-published current viewing circumstance: a shared locus alone does not establish them",
-      ),
-    };
-  // the World-State physical custodian published the circumstance of THIS look: the question consumes it, not the original sentence alone
-  if (
-    publishedViewing &&
-    decision.position.state === "ESTABLISHED" &&
-    !decision.position.premises.some((p) => p.from === "CURRENT_VIEWING")
-  )
-    return {
-      ok: false,
-      refusal: refuse(
-        "GROUNDS_UNSUPPORTED",
-        "the owner published the current viewing circumstance of this look: establishing the position cites it",
-      ),
-    };
   const checked = checkAssessments(ctx.facts, decision.assessments);
   if (!checked.ok) return checked;
   const verdict = observationVerdictOf(decision);

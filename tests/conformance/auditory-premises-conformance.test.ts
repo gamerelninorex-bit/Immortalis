@@ -160,8 +160,8 @@ describe("nothing outside the physical-source slice was built", () => {
       // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
-      // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
-      "d5b2b4c11af72749f2301805fa40e226d537d0975d854940bc4d1c00bc6cafb8",
+      // BLUE R-1: typed ordinary-look feasibility, no GM-prose position evidence; no auditory ingress.
+      "3ca2ba023ee701f734e2d64d34ae37e87cbdacd7775dd60af4d3ab249ebb6072",
     );
     expect(treeSha("packages/protocol/src")).toBe(
       "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
@@ -182,9 +182,9 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/epistemic":
         "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
-      // GM-led first play: the PC-only GM_SCENE_RESOLUTION operation, viewing/appearance contexts, rulings and admission; no actor-subject or auditory surface
+      // BLUE R-1: remove prose-grounded position and mandatory feasibility citations; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "94b00fd69e2691406fd2e5efa4004f87812c7b8972a4e8a0923c0fcbf5ad7901",
+        "6c50ddef6542e905e29f0cb7525d4aa61d1ef043ab5d68712b541c63b3be9a96",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

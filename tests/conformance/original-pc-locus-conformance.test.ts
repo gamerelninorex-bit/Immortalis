@@ -315,7 +315,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/contracts/src/referee.ts": {
     base: "e3f927b5e0ecc5b608934ac04d7dca1f1baec4db1b459a7a27cf07fee0769e5f",
-    head: "d94d5790a9c361555b100052c3abdabbaa321bd4f648daf24c8c3e53ca7db846",
+    head: "200300bffc43d404f53ac22a4a24a6aa3c8377b07a41b546bb4b5cd3b47f0d4d",
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
@@ -336,7 +336,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "f781cef9c354206b1f990bf00e8976964249a3246690cbdcd0b7afc3429c5b0f",
+    head: "22a7cc87c62145c27df638c1a6da0d319e678999e7b4b62b877d2945f6a0dd69",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",
@@ -372,7 +372,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/operator/src/referee-exchange.ts": {
     base: "57bd77549ea3498607a56e436456fbf6c9d7050bf4c340da9dae8590d49e16b2",
-    head: "c5bc9b8c037fbab032f87f63a6c13794f60cee863cbb1a356cda2e39ba70e584",
+    head: "db4c6f45df99efa11d91807a4d70427ab424f5884c69fcefb85fc5bf70f88d92",
   },
   "packages/operator/src/referee-mcp.ts": {
     base: "b935a2e2e62f844c48da1bcfd268fe18b0d7e171cc1374a6c888f7a47dbe2923",

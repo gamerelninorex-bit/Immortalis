@@ -4,6 +4,12 @@ This page records what the 30 October 2026 bounded construction release adds to 
 evidenced only by mechanism tests, and what is **not** built. The authority is the BLUE brief _GM-led Natural First-Play Rebuild_ and the
 Operating Charter's standing requirement _GM-led natural chat play_ (see `IMPLEMENTATION_CHARTER.md`). Nothing here is a full-game claim.
 
+**31 October R-1 repair:** BLUE's same-PR direction [6538562410](https://github.com/gamerelninorex-bit/Immortalis/pull/94#issuecomment-6538562410)
+governs this delta under the [ratified active-PC current-look section](https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d), native
+`2026-10-31T03:34:15.074Z`, clauses 4, 6 and 8. GM explanatory prose no longer establishes viewing position. A placement-only seed that states
+no required viewing circumstances now stays **UNRESOLVED**, including after a supported ordinary-look feasibility ruling. The positive
+mechanism fixtures explicitly supply independent lawful placement evidence. This is a repair of evidence handling, not natural-play acceptance.
+
 ## What a player can now do in one request
 
 | Request                                           | Tool                                                   | What the engine does                                                                                                                                                                                                                                                                                                                                                                              |
@@ -41,6 +47,55 @@ Only `VIEWING_SUPPORTED` is published, and only by the World-State physical cust
 **consumes** the published circumstance, so a changed input is a new task: an earlier negative decision stays byte-identical, a retained ruling is
 never asked again, and same-input retries cannot reroll. The circumstance is not an I-002 intrinsic branch, a Role Registry binding, a Production
 result or a receipt. The player sees only what the earned Glance returns.
+
+The published premise reaches direct perception as canonical JSON containing only the typed `SUPPORTED` state, canonical instant,
+five pinned versions and ruling/custodian provenance. The stored `circumstance.statement` remains byte-for-byte explanatory journal text;
+it is not delivered or accepted as sensory evidence. `CURRENT_VIEWING` remains a readable premise-kind identifier but cannot establish
+faculty, position, path or payload. Position requires independently quoted affirmative placement or specific lawful physical-owner facts
+establishing the actual viewing circumstances. Shared locus, intent, feasibility and intrinsic faculty do not establish facing, open eyes,
+sightline or visibility. The host must answer `NOT_ESTABLISHED` when those circumstances lack support. The engine enforces quotation and
+premise-kind separation; it does not mechanically understand whether a host's interpretation of lawful placement/world prose is correct.
+Independent position evidence does not have to cite the feasibility premise. No facing owner, Health writer or broader GM permission is added.
+
+R-1 mechanism regressions in `tests/integration/current-look-premise.test.ts` retain the exact phrase “facing the woodpile, eyes open” in the
+GM explanation while a bare placement yields `position NOT_ESTABLISHED`, no receipt, and the same unresolved perception after paraphrases and
+reopen. They reject both feasibility-as-position and relabelling that premise as a world fact. Blind and unresolved-sight PC baselines receive
+no visual receipt even with a favourable scene script. The positive in `gm-scene`/`chat-scene` uses independent affirmative placement with
+sensory/path prerequisites. Context construction makes the identical reads with 0 and 40 unrelated synthetic retained facts; the fixed Glance
+reader and its read-count tests are unchanged. All are **MECHANISM ONLY**; genuine host/client evidence remains UNRUN.
+
+**Health limitation (ratified clause 3):** the scene and direct-perception contexts deliver accepted PC statements and the existing physical
+premises, not Health-owned impairment/process facts. PC-declared absent or unresolved sight is exercised fail closed by the scripted host.
+This does not demonstrate handling of a later Health impairment or pending Health process, nor prevent a semantically dishonest host from
+misreading a PC quotation. Clause 3 is **not fully enforced or accepted** by this repair. Adding a Health reader/writer or new owner design is
+outside this scope and remains held for BLUE.
+
+### R-1 journal inventory and compatibility STOP
+
+Read-only inventory covered accessible `/workspace` and `/tmp` for `journal.jsonl`, excluding dependency/cache/control directories. Before
+the repair tests, neither root contained a campaign journal; the existing `docs/evidence/b61-a3-live-host/host-tool-results.jsonl` is host
+transcript evidence, not a campaign journal. Subsequent local journals are disposable mechanism fixtures created during this repair;
+their paths, byte counts, SHA-256 hashes and presence of viewing references were inventoried read-only in `/tmp/r1-journal-inventory.json`.
+The first snapshot contains 16 disposable local journals (8 with viewing facts/references, none with a `CURRENT_VIEWING` evidence premise),
+and no workspace journal. This is a point-in-time local snapshot, not an external campaign inventory.
+No deployed/remote or externally retained journal is available in this workspace: that inventory is **UNKNOWN**, never an assertion of absence.
+
+A pre-R-1 observation decision citing `viewing.current` hashes a context containing the old GM prose and label. Rebuilding it with typed
+feasibility yields a different context/task digest. The existing `recordContextViolation` exact-context check therefore rejects it
+(`DECISION_INCOHERENT`; campaign open fails `CANON_INTEGRITY` when that record is verified). The regression constructs the old reference
+semantics and proves that rejection. Even an old observation that grounded position independently is affected if it cited this context.
+Viewing facts/rulings alone retain their schema, stored explanation and exact citation checks; pre-scene observations remain unchanged.
+
+The regression was also run on an isolated exact pre-repair source tree (`5b11e431060dcc228a5b4a37386ea9b4e7bafa35`): it fails because that
+build returns `OBSERVATION_RECEIVED` for the bare placement plus GM phrase. One resulting disposable journal was captured at
+`/tmp/immortalis-r1-legacy-journal`; repaired-code open returns `CANON_INTEGRITY` with the exact-context mismatch in both the referee decision
+and its receipt. Its journal SHA-256 is `ed902fefa805c55ab02c23996959268baa14f59b48651f8c87c2c5ef7dcbc5ce` both before and after that open.
+This demonstrates the compatibility refusal without modifying historical journal bytes; it grants no compatibility waiver.
+
+**Compatibility portion STOPPED:** no dual-semantics reader, migration, digest exception, citation cutover, source re-pin or journal rewrite
+is authorized. Safely accepting an old prose-grounded receipt would require a separately governed compatibility disposition, not weakening
+tamper checks or silently treating it as a new lawful receipt. Branch journals without an observation citing viewing are not refused by this
+R-1 context change; Stage A's separate L10 refusal still applies. External inventory and the affected-journal deployment hold remain open.
 
 **How a gathered output looks is not an owner fact.** There is no output-appearance record (31 October 2026, Stage A; the earlier route, which
 published a World-State appearance of a credited output under an accepted-completed-durable F-016 fallback, was withdrawn from the construction

@@ -65,7 +65,7 @@ export const PcCurrentViewingSchema = z.strictObject({
   request: z.strictObject({ kind: z.literal("LOOK"), statement_digest: Sha256.nullable() }),
   circumstance: z.strictObject({
     state: z.literal("SUPPORTED"),
-    /** the GM's ruling, verbatim from the retained decision: attention, orientation and open eyes. No appearance, no recognition. */
+    /** Explanatory GM narration retained verbatim; non-authoritative, never delivered or cited as a physical/sensory premise (ratified clause 6). */
     statement: Trimmed(300),
   }),
   /** the retained GM_SCENE_RESOLUTION decision this is published from, at its exact version */

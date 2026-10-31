@@ -127,7 +127,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "d94d5790a9c361555b100052c3abdabbaa321bd4f648daf24c8c3e53ca7db846",
+    "200300bffc43d404f53ac22a4a24a6aa3c8377b07a41b546bb4b5cd3b47f0d4d",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
@@ -137,13 +137,13 @@ const MODIFIED: Readonly<Record<string, string>> = {
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "f781cef9c354206b1f990bf00e8976964249a3246690cbdcd0b7afc3429c5b0f",
+    "22a7cc87c62145c27df638c1a6da0d319e678999e7b4b62b877d2945f6a0dd69",
   "packages/operator/src/cli.ts":
     "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/observation.ts":
     "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "packages/operator/src/referee-exchange.ts":
-    "c5bc9b8c037fbab032f87f63a6c13794f60cee863cbb1a356cda2e39ba70e584",
+    "db4c6f45df99efa11d91807a4d70427ab424f5884c69fcefb85fc5bf70f88d92",
   "packages/operator/src/referee-session.ts":
     "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
   "packages/protocol/src/current-observation-glance.ts":

@@ -150,28 +150,26 @@ export const scenePolicy =
     doc["operation"] === REFEREE_OP_SCENE ? sceneAnswer(doc, rule) : null;
 
 export interface PerceptionRule extends ObsRule {
-  /** reason from the confirmed placement alone, ignoring the owner-published viewing circumstance (to exercise the engine's refusal) */
-  readonly ignoreViewing?: boolean;
+  /** Adversarial host: try using the typed feasibility premise as position evidence. */
+  readonly useViewingAsPosition?: boolean;
 }
 
-const sentence = (text: string): string => /^[^.]+\./.exec(text)?.[0].trim() ?? text.trim();
-
 /**
- * The scripted direct-perception reading that CONSUMES what the owner published: the position rests on the owner-published current viewing
- * circumstance, and the appearance stated is anchored to the producing owner's delivered result. Where nothing was published it is the
- * earlier scripted reading, unchanged.
+ * Position comes only from the independent confirmed placement. The typed ordinary-look feasibility premise never supplies it.
+ * The appearance is anchored to the producing owner's delivered result. MECHANISM ONLY, not semantic host acceptance.
  */
 export function perceptionAnswer(doc: Record<string, any>, rule: PerceptionRule = {}): any {
   const base: any = outcomeAnswer(doc, rule);
   const facts: any[] = doc["context"].facts;
   const viewing = facts.find((f) => f.fact_id === "viewing.current");
-  if (viewing && !rule.ignoreViewing)
+  if (viewing && rule.useViewingAsPosition)
     base.position = {
       rule_ids: ["F014D-6"],
-      grounds: "scripted host: the owner published the circumstance of this look",
+      grounds:
+        "adversarial script: tries to promote ordinary-look feasibility into sensory position",
       state: "ESTABLISHED",
       premises: [
-        { from: "CURRENT_VIEWING", ref: viewing.fact_id, evidence_quote: sentence(viewing.text) },
+        { from: "CURRENT_VIEWING", ref: viewing.fact_id, evidence_quote: '"state":"SUPPORTED"' },
       ],
     };
   const affirmative =
