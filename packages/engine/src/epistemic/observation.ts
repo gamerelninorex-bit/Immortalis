@@ -87,7 +87,7 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
   if (!worldId || !locusMatch || locusMatch[1] !== worldId)
     return fail("OBSERVATION_RECORD_INVALID", "the record cites the world and the locus");
   // The optional citations after the five base ones are typed, ordered and bounded: ONE qualified variant (a Source Condition or a
-  // delivery, never both), then (after a scene resolution) the owner-published viewing circumstance and the resolved appearance.
+  // delivery, never both), then (after a scene resolution) the owner-published viewing circumstance.
   const layout = parseObservationRefLayout(
     record.input.refs.map((r) => r.fact_key),
     (k) => parseWorldSourceConditionKey(k)?.world_id === worldId,
@@ -106,12 +106,10 @@ export function deriveObservationEvent(record: ObservationRecord): Result<Access
     ? worldProfileKey(worldId)
     : d.payload.source_fact_id.startsWith("locus.")
       ? worldLocusKey(worldId, locusMatch[2]!)
-      : d.payload.source_fact_id.startsWith("appearance.")
-        ? (layout.appearance?.key ?? null)
-        : (scopedKey ??
-          (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
-            ? deliveryRef.fact_key
-            : null));
+      : (scopedKey ??
+        (d.payload.source_fact_id === OBSERVATION_OUTCOME_FACT_ID && deliveryRef
+          ? deliveryRef.fact_key
+          : null));
   const pin = sourceKey ? record.input.refs.find((r) => r.fact_key === sourceKey) : undefined;
   if (!sourceKey || !pin || pin.version < 1)
     return fail(

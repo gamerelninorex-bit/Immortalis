@@ -286,30 +286,21 @@ export async function askObservation(
 }
 
 /**
- * The GM's scene questions (GM_SCENE_RESOLUTION): the CURRENT VIEWING of one basis (built from committed facts plus the trusted side's
- * request) or the OUTPUT APPEARANCE of one credited delivery (committed facts only). Never asked of a host that is not bound to this
+ * The GM's scene question (GM_SCENE_RESOLUTION): the CURRENT VIEWING of one basis (built from committed facts plus the trusted side's
+ * request). Never asked of a host that is not bound to this
  * operation: the exchange authenticates the host for THIS operation before any of the context is disclosed. The same discipline as every
  * other question: an unanswered task is PENDING (the same identity is found again), an invalid answer is set aside and never reused.
  */
 export async function askScene(
   adapter: RefereeAdjudicationAdapter,
   rt: RefereeRuntime,
-  input:
-    | { campaign_id: string; pc_id: string; kind: "CURRENT_VIEWING"; request: SceneRequest }
-    | { campaign_id: string; pc_id: string; kind: "OUTPUT_APPEARANCE"; extraction_id: string },
+  input: { campaign_id: string; pc_id: string; kind: "CURRENT_VIEWING"; request: SceneRequest },
 ): Promise<Asked<SceneHostDecision, SceneContext>> {
   const configured = await refereeConfigured(input.campaign_id, rt);
   if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
   const p = exchange(input.campaign_id, rt);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const built =
-      input.kind === "CURRENT_VIEWING"
-        ? adapter.viewingTask({ pc_id: input.pc_id, attempt, request: input.request })
-        : adapter.appearanceTask({
-            pc_id: input.pc_id,
-            attempt,
-            extraction_id: input.extraction_id,
-          });
+    const built = adapter.viewingTask({ pc_id: input.pc_id, attempt, request: input.request });
     if (!built.ok)
       return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
     const { context, task_id } = built.value;

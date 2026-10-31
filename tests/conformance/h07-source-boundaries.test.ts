@@ -16,7 +16,7 @@ const unchanged = {
   "packages/contracts/src/commit.ts":
     "a99df55a0c1efbe2ab366a0d3d55cea52496a0ed1e0cdf5974e37c5a8f20d2c8",
   "packages/engine/src/owners/registry.ts":
-    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
+    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
   "packages/engine/src/world/actor-presence.ts":
     "e26e2cc5018c36a1dc401de2fb3545171f8684570ade41ff595247c6ca29d46e",
   "packages/engine/src/world/auditory-premises.ts":

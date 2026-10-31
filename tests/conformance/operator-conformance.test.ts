@@ -61,11 +61,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/logistics.ts":
     "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/engine/src/world/canonical-campaign.ts":
-    "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
+    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
   "packages/engine/src/owners/registry.ts":
-    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":

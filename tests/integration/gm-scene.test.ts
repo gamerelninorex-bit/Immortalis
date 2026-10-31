@@ -16,7 +16,7 @@ import {
 } from "@immortalis/protocol";
 import { pcTargetTransaction } from "../support/pc-target-advance.ts";
 import { openOrdinary, type LocalityDirs } from "../support/locality.ts";
-import { BASIS, PC_ID, PC_WORDS, observe, verbConsole } from "../support/observation.ts";
+import { BASIS, PC_ID, PC_WORDS, observe, redScene, verbConsole } from "../support/observation.ts";
 import { plainPolicy, type Policy } from "../support/original-pc.ts";
 import {
   SALT_TAU,
@@ -25,12 +25,12 @@ import {
 } from "../support/pc-collection-original.ts";
 import { GLANCE_REQUEST } from "../support/protocol.ts";
 import {
+  PILE_LOOK,
   bindScene,
   perceptionPolicy,
   sceneAnswer,
   scenePolicy,
   startScene,
-  withGranules,
 } from "../support/scene.ts";
 
 const boundary = { unit: BASIS.unit, value: BASIS.value + 3 * SALT_TAU };
@@ -40,7 +40,7 @@ let master: LocalityDirs;
 beforeAll(async () => {
   // a placement that states neither a direction nor open eyes: the case the legacy question leaves unresolved
   const made = await originalCollectionCampaign({
-    scene: withGranules(),
+    scene: redScene(),
     presence: PC_WORDS.presenceBare,
   });
   const c = await openOrdinary(made.dirs.campaignDir);
@@ -79,7 +79,8 @@ async function owners(dirs: LocalityDirs) {
     const by = (re: RegExp) => facts.filter((f) => re.test(f.key));
     return {
       viewing: by(/^world-state\/pc\/[^/]+\/current-viewing\//),
-      appearance: by(/^world\/[^/]+\/output-appearance\//),
+      keys: facts.map((f) => f.key),
+      owned: facts.filter((f) => f.owner === "world_state" || f.owner === "production"),
       decisions: by(/^referee\/[0-9a-f]{64}\/decision$/),
       events: by(/^access\/[^/]+\/event$/),
       time: (c.store.getFact("temporal/state")!.value as any).canonical_time.value as number,
@@ -110,7 +111,6 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     const dirs = copy();
     const before = await owners(dirs);
     expect(before.viewing).toHaveLength(0);
-    expect(before.appearance).toHaveLength(0);
 
     // 1. no scene host bound: the unchanged legacy question is asked, and nothing establishes the viewing position
     const legacy = await observe(
@@ -122,7 +122,6 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     expect(legacy.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
     const negative = await owners(dirs);
     expect(negative.viewing).toHaveLength(0);
-    expect(negative.appearance).toHaveLength(0);
     expect(negative.events).toHaveLength(0);
     expect(negative.decisions.map(kindOf)).toContain("F014D_DIRECT_PERCEPTION");
     const t0 = negative.decisions.filter((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION");
@@ -146,7 +145,7 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     expect(second.result.status, JSON.stringify(second.result.details)).toBe(
       "OBSERVATION_RECEIVED",
     );
-    expect(gm.answered).toHaveLength(3); // one appearance ruling, one classification of the words, one physical ruling of the basis
+    expect(gm.answered).toHaveLength(2); // one classification of the words, one physical ruling of the basis
 
     const after = await owners(dirs);
     // the old negative decision is byte-identical; the new question has its own identity
@@ -155,39 +154,43 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     expect(t1).toHaveLength(2);
     const fresh = t1.find((f) => f.key !== t0[0]!.key)!;
     expect((fresh.value as any).verdict).toBe("OBSERVATION_ESTABLISHED");
-    // sparse owner publication: exactly one viewing circumstance and one appearance, from the GM's retained rulings
+    // sparse owner publication: exactly one viewing circumstance, from the GM's retained ruling, and nothing about how the pile looks
     expect(after.viewing).toHaveLength(1);
-    expect(after.appearance).toHaveLength(1);
     const scene = after.decisions.filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION");
-    expect(scene).toHaveLength(3);
+    expect(scene).toHaveLength(2);
     expect(scene.map((f) => (f.value as any).verdict).sort()).toEqual([
-      "APPEARANCE_RESOLVED",
       "LOOK_ORDINARY",
       "VIEWING_SUPPORTED",
     ]);
-    // the appearance carries no quantity, material, ownership or source identifier
-    const appearance = JSON.stringify(after.appearance[0]!.value);
-    expect(appearance).toContain("pale, dry, granular crystals");
-    // (it REFERENCES the producing owner's delivery by key; it copies no value from it)
-    expect(appearance).not.toMatch(/"amount"|"quantity"|"material|"reserve|"source_key"/i);
-    // what it SAYS (the aspects) names no material, unit or number
-    expect(JSON.stringify((after.appearance[0]!.value as any).aspects)).not.toMatch(
-      /salt|sack|\d|\b(one|two|three|four|five)\b/i,
-    );
-    expect(appearance).not.toMatch(/(?<![\w:.-])3(?![\w:.-])/);
-    // the receipt was earned: one event, and it cites the owner-published facts
+    // the receipt was earned: one event, and the question cites the producing owner's delivery then the owner-published viewing
     expect(after.events).toHaveLength(1);
     const cited = (fresh.value as any).input.refs.map((r: any) => r.fact_key);
-    expect(cited).toContain(after.viewing[0]!.key);
-    expect(cited).toContain(after.appearance[0]!.key);
+    expect(cited).toHaveLength(7);
+    expect(cited[5]).toMatch(/^world\/[^/]+\/source-delivery\//);
+    expect(cited[6]).toBe(after.viewing[0]!.key);
+    // what the look wrote is exactly: the sealed rulings and reading, the one viewing circumstance and the receipt - no appearance of the
+    // pile as an owner fact of any kind (the description lives only in the player's own receipt)
+    const written = after.keys.filter((k) => !before.keys.includes(k));
+    const unexpected = written.filter(
+      (k) =>
+        !/^referee\/[0-9a-f]{64}\/decision$/.test(k) &&
+        !/^world-state\/pc\/[^/]+\/current-viewing\//.test(k) &&
+        !/^access\//.test(k) &&
+        !/^temporal\/transaction(-authority)?\/observation-tx-/.test(k) && // the receipt's own zero-time transaction, as on main
+        !/^epistemic\//.test(k),
+    );
+    expect(unexpected, JSON.stringify(unexpected)).toEqual([]);
+    expect(written.some((k) => /appearance/i.test(k))).toBe(false);
+    for (const f of after.owned)
+      expect(JSON.stringify(f.value), f.key).not.toMatch(/pale|grains|heap/i);
     // the look passed no time
     expect(after.time).toBe(before.time);
     expect(after.verify).toEqual([]);
 
-    // 3. the player's Glance shows the appearance the owner resolved (not the wall, not the mechanical sentence)
+    // 3. the player's Glance shows the GM's description of the pile, anchored to the delivery (not the wall, not the mechanical sentence)
     const shown = await glance(dirs);
     expect(shown.ok, JSON.stringify(shown)).toBe(true);
-    expect(JSON.stringify(shown)).toContain("pale, dry, granular crystals");
+    expect(JSON.stringify(shown)).toContain(PILE_LOOK);
     expect(JSON.stringify(shown)).not.toMatch(
       /\bred\b|gathering|completed|source-delivery|salt|\b3\b/,
     );
@@ -290,7 +293,13 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
         perceive,
       );
       expect(ordinary.result.status).toBe("OBSERVATION_RECEIVED");
-      expect((await owners(dirs)).viewing).toHaveLength(1);
+      const reworded = await owners(dirs);
+      expect(reworded.viewing).toHaveLength(1);
+      // a changed phrase is not new causality: the same one receipt answers it, and no owner fact was added by it
+      expect(reworded.events).toHaveLength(1);
+      expect(reworded.owned.map((f) => reworded.raw[f.key])).toEqual(
+        held.owned.map((f) => held.raw[f.key]),
+      );
     } finally {
       await gm.stop();
     }
@@ -420,27 +429,30 @@ describe("a natural look, ruled by the Game Master and consumed by the perceptio
     }
   }, 300_000);
 
-  it("a world that states nothing of how the loose material looks yields no appearance: the GM cannot invent one, and the look consumes none", async () => {
+  it("a look at the gathered pile writes no owner fact about its appearance, and one the character cannot see states nothing of it", async () => {
+    // the sight is vetoed by the character's own words: nothing is perceived, so the pile's look is stated nowhere
     const dirs = copy();
     await bindScene(dirs.operatorDir);
-    const gm = startScene(dirs.operatorDir, scenePolicy({ unresolvedAppearance: true }));
+    const gm = startScene(
+      dirs.operatorDir,
+      scenePolicy({ vetoes: /ordinary, fully functioning colour vision/ }),
+    );
     try {
+      const before = await owners(dirs);
       const r = await observe(
         dirs,
         verbConsole("observe-surroundings"),
         { attention: LOOK },
         perceive,
       );
+      expect(r.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
+      expect(JSON.stringify(r.result)).not.toContain(PILE_LOOK);
+      expect(JSON.stringify(await glance(dirs))).not.toContain(PILE_LOOK);
       const after = await owners(dirs);
-      expect(after.appearance).toHaveLength(0);
       expect(
-        after.decisions
-          .filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION")
-          .map((f) => (f.value as any).verdict),
-      ).toContain("APPEARANCE_UNRESOLVED");
-      // whatever the perception question then does, it does not state an appearance the owners never resolved
-      expect(JSON.stringify(r.result)).not.toContain("pale, dry, granular");
-      expect(JSON.stringify(await glance(dirs))).not.toContain("pale, dry, granular");
+        after.keys.filter((k) => !before.keys.includes(k)).some((k) => /appearance/i.test(k)),
+      ).toBe(false);
+      expect(after.events).toHaveLength(0);
     } finally {
       await gm.stop();
     }
@@ -548,31 +560,33 @@ describe("the engine refuses a scene ruling that is not anchored, whoever sends 
     expect(((await record(bare, claimed)) as any).error.code).toBe("DECISION_INCOHERENT");
   });
 
-  it("an appearance may carry no count, material or source: the producing owner withholds them", async () => {
-    const task = adapter.appearanceTask({
-      pc_id: PC_ID,
-      attempt: 0,
-      extraction_id: `pc-collect:${PC_ID}:act-scene`,
+  it("the output-appearance scene question no longer exists: it cannot be built, and an answer that states an appearance or names that kind is not a decision", () => {
+    expect((adapter as any).appearanceTask).toBeUndefined();
+    const doc = viewingDoc();
+    const stated: any = sceneAnswer(doc);
+    stated.appearance = {
+      state: "RESOLVED",
+      aspects: [{ aspect: "colour", statement: "pale and granular" }],
+      basis: [],
+      rule_ids: ["I001-8"],
+      grounds: "scripted host",
+    };
+    const refused: any = adapter.evaluateScene(doc.context, stated);
+    expect(refused.ok).toBe(false);
+    expect(refused.error.code).toBe("DECISION_INPUT_INVALID");
+    const retiredKind: any = adapter.evaluateScene(doc.context, {
+      ...(sceneAnswer(doc) as any),
+      kind: "OUTPUT_APPEARANCE",
     });
-    if (!task.ok) throw new Error(JSON.stringify(task.error));
-    const doc = { task_id: task.value.task_id, context: task.value.context };
-    for (const leak of [
-      "three pale granular lumps",
-      "3 pale granular lumps",
-      "pale lumps of raw salt",
-      "pale lumps from src-salt-pan-1",
-    ]) {
-      const refused = await adapter.recordScene({
-        operation: { ...REFEREE_AUTHORITY },
-        host: { host_id: "engine-direct-test", claimed_model: null },
-        pc_id: PC_ID,
-        attempt: 0,
-        kind: "OUTPUT_APPEARANCE",
-        extraction_id: `pc-collect:${PC_ID}:act-scene`,
-        answer: sceneAnswer(doc, { appearance: leak }),
-      } as any);
-      expect(refused.ok, leak).toBe(false);
-    }
+    expect(retiredKind.ok).toBe(false);
+    expect(retiredKind.error.code).toBe("DECISION_INPUT_INVALID");
+    // the retired field's old shape, `appearance: null`, as an earlier build of this branch wrote it, is still a readable ruling
+    const legacy: any = adapter.evaluateScene(doc.context, {
+      ...(sceneAnswer(doc) as any),
+      appearance: null,
+    });
+    expect(legacy.ok).toBe(true);
+    expect(legacy.value.verdict).toBe("VIEWING_SUPPORTED");
   });
 
   it("the physical owner publishes nothing from a ruling that is not VIEWING_SUPPORTED, from a forged one, or from one made for a stale basis", async () => {

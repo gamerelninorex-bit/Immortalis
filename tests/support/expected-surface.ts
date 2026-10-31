@@ -234,14 +234,6 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world-state/pc/p1/current-viewing/00000000000000000000000000000000",
   },
   {
-    id: "world_output_appearance",
-    owner: "world_state",
-    facet: "world_fallback_physical_entity",
-    lifecycle: "SEALED",
-    group: "WORLD_SCENE_FACT_KINDS",
-    exampleKey: "world/w1/output-appearance/x1",
-  },
-  {
     id: "actor_setup_placement",
     owner: "world_state",
     facet: "world_fallback_physical_entity",
@@ -855,7 +847,6 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
    */
   RefereeAdjudicationAdapter: {
     methods: [
-      "appearanceTask",
       "decision",
       "evaluateI002",
       "evaluateIr",

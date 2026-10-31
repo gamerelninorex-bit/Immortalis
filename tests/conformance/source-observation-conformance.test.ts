@@ -43,7 +43,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
+    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
   "packages/engine/src/index.ts":
     "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
   "packages/contracts/src/index.ts":
@@ -77,13 +77,13 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/derive.ts":
     "28fa26e19e7ddb4f3961db2ff093c79f9d284a5acb960042292c5b4127687659",
   "packages/engine/src/referee/admission.ts":
-    "67d5000626765cc01f1c8d402513979562727223b1e27490f49701c9b8593791",
+    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
   "packages/engine/src/referee/integrity.ts":
     "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/world/source-condition.ts":
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/world/canonical-campaign.ts":
-    "97beb648fd916a630e07222c55c9ecac5c26220255373a1273cc0f47c70f7d4c",
+    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
   "packages/engine/src/source-drawdown/admission.ts":
@@ -127,27 +127,27 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */
 const MODIFIED: Readonly<Record<string, string>> = {
   "packages/contracts/src/referee.ts":
-    "7adea323906519bda99ab1e4ba488abd83f80f3c89161c4d5d8c972e1de2a692",
+    "d94d5790a9c361555b100052c3abdabbaa321bd4f648daf24c8c3e53ca7db846",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/epistemic/observation.ts":
-    "a18f6f7922fa571f9a240781625c40a4f59b9e47ba655778f847d1519834607f",
+    "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/referee/adapter.ts":
-    "b033bd1df6920ae22303fa1dc70254f0e48810bb29f8fd4a7af9bec249593492",
+    "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "25c6895c3255e7974bd392952fdb1b568dd45ca0df52adb46cb0fd30b9c02684",
+    "f781cef9c354206b1f990bf00e8976964249a3246690cbdcd0b7afc3429c5b0f",
   "packages/operator/src/cli.ts":
     "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/observation.ts":
-    "619952934550c275137ebb56dba271d6f8444859b453efcf6f8c0f685490a79f",
+    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "packages/operator/src/referee-exchange.ts":
-    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
+    "c5bc9b8c037fbab032f87f63a6c13794f60cee863cbb1a356cda2e39ba70e584",
   "packages/operator/src/referee-session.ts":
-    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
+    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
   "packages/protocol/src/current-observation-glance.ts":
-    "2f7931cdbf326493875a0d6d5dbf8588577a7c4cac3f232a1b20fc0713dfb754",
+    "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
 };
 
 const TESTS = [
@@ -262,10 +262,10 @@ describe("the slice is what it says: operator-side, trusted-input, mechanism onl
       expect(cli).not.toMatch(new RegExp(`"${cmd}": \\[[^\\]]*"source"`));
   });
 
-  it("the predecessor glance read-count pins moved with the one added slot and nothing else: twelve identity getFacts and one group read after the bounded collection qualification repair, plus the two fixed GM-scene citation slots (fourteen)", () => {
+  it("the predecessor glance read-count pins moved with the one added slot and nothing else: twelve identity getFacts and one group read after the bounded collection qualification repair, plus the one fixed GM-scene citation slot (thirteen)", () => {
     const body = read("packages/protocol/src/current-observation-glance.ts");
     const fn = body.slice(body.indexOf("export function readCurrentObservationGlance"));
-    expect(fn.match(/view\.getFact\(/g)).toHaveLength(14);
+    expect(fn.match(/view\.getFact\(/g)).toHaveLength(13);
     expect(fn.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(fn).toMatch(/premiseKey\(5\)/);
     expect(fn.match(/\breturn\b/g)).toHaveLength(2);

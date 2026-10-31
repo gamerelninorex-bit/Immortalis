@@ -5,22 +5,18 @@
 import { REFEREE_OP_SCENE } from "@immortalis/contracts";
 import { bindHost } from "@immortalis/operator";
 import { LOCALITY_CAMPAIGN } from "./locality.ts";
-import { observationAnswer, redScene, type ObsRule } from "./observation.ts";
+import type { ObsRule } from "./observation.ts";
 import { startScriptedHost, type Policy, type ScriptedHost } from "./original-pc.ts";
+import { outcomeAnswer } from "./pc-collection-original.ts";
 
 export const SCENE_HOST = "gm-scene";
 
-/** The pale granular loose material of the fixture: the ONLY world statement an appearance may be resolved from. */
-export const GRANULES =
-  "The loose material that lies on the flat is pale, dry and granular: small crystals that cling together in loose lumps.";
-
-/** The fixture setting with a world-authored statement of how the loose material looks (an appearance's branch-invariant ground). */
-export const withGranules =
-  (extra: readonly string[] = []) =>
-  (doc: any): void => {
-    redScene(extra)(doc);
-    doc.locus.constraints.push({ aspect: "loose material", statement: GRANULES });
-  };
+/**
+ * What the scripted perception host SAYS about the gathered pile: ordinary descriptive prose anchored to the producing owner's delivery
+ * (`outcome.collection`), which the engine only checks for anchoring, engine references and the producing owner's withheld values. It is
+ * incidental narration: the engine does not know whether the pile is pale, and persists no appearance of it.
+ */
+export const PILE_LOOK = "a small heap of loose, pale grains lying gathered together";
 
 /** The operator's step: a separate, least-privilege host bound for the scene operation only. */
 export async function bindScene(
@@ -55,10 +51,6 @@ export interface SceneRule {
   readonly requestOnly?: boolean;
   /** state the viewing circumstance with this text (e.g. one that carries an engine reference) */
   readonly statement?: string;
-  /** do not resolve the appearance whatever the world says */
-  readonly unresolvedAppearance?: boolean;
-  /** state this as the appearance instead of the world's (e.g. one that carries a count or the material) */
-  readonly appearance?: string;
   /** a different, equally valid ordinary reading of the same look (a second reading of one question) */
   readonly viewing?: string;
 }
@@ -80,49 +72,6 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
   const facts: any[] = ctx.facts;
   const assessments = facts.map(NOT_RELEVANT);
   const common = { task_id: doc["task_id"], assessments, unresolved_forks: [] as unknown[] };
-  if (ctx.kind === "OUTPUT_APPEARANCE") {
-    const outcome = facts.find((f) => f.fact_id === "outcome.collection");
-    const granules = facts.find((f) => /pale, dry and granular/.test(f.text));
-    const resolved = outcome && granules && !rule.unresolvedAppearance;
-    return {
-      ...common,
-      kind: "OUTPUT_APPEARANCE",
-      viewing: null,
-      appearance: resolved
-        ? {
-            state: "RESOLVED",
-            aspects: [
-              {
-                aspect: "colour and grain",
-                statement:
-                  rule.appearance ??
-                  "pale, dry, granular crystals that cling together in loose lumps",
-              },
-            ],
-            basis: [
-              {
-                from: "WORLD_FACT",
-                ref: outcome.fact_id,
-                evidence_quote: quoteOf(outcome.text, /has been completed/),
-              },
-              {
-                from: "WORLD_FACT",
-                ref: granules.fact_id,
-                evidence_quote: quoteOf(granules.text, /pale, dry and granular/),
-              },
-            ],
-            rule_ids: ["WG-RESOLUTION"],
-            grounds: "scripted host: the world states how the loose material looks",
-          }
-        : {
-            state: "NOT_RESOLVED",
-            aspects: [],
-            basis: [],
-            rule_ids: ["WG-RESOLUTION"],
-            grounds: "scripted host: the world states nothing of how the loose material looks",
-          },
-    };
-  }
   const asked: string | null = ctx.request.statement;
   if (asked !== null) {
     // the player's WORDS are only CLASSIFIED; the physical circumstance is the basis's own, separate question
@@ -146,7 +95,6 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
           "scripted host: the words are classified; the physical circumstance is ruled separately",
         statement: null,
       },
-      appearance: null,
     };
   }
   const request = {
@@ -168,7 +116,7 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
       request,
       state: "NOT_SUPPORTED",
       premises: [premise(veto, rule.vetoes!)],
-      rule_ids: ["I001-8", "F014D-21"],
+      rule_ids: ["I001-8", "F014D-6"],
       grounds: "scripted host: the character's own words veto any look",
       statement: null,
     };
@@ -185,14 +133,14 @@ export function sceneAnswer(doc: Record<string, any>, rule: SceneRule = {}): unk
         : body
           ? [premise(body, /ordinary human body/)]
           : [],
-      rule_ids: ["I001-8", "F014D-21"],
+      rule_ids: ["I001-8", "F014D-6"],
       grounds: "scripted host: an ordinary look is routine attention, turning and opening the eyes",
       statement:
         rule.statement ??
         rule.viewing ??
         "The character's attention can turn, and their eyes can open and rest on what lies before them: nothing prevents an ordinary look now.",
     };
-  return { ...common, kind: "CURRENT_VIEWING", viewing, appearance: null };
+  return { ...common, kind: "CURRENT_VIEWING", viewing };
 }
 
 /** The scene host's policy: scene rulings only (every other question is for the setup and collection hosts). */
@@ -209,15 +157,14 @@ export interface PerceptionRule extends ObsRule {
 const sentence = (text: string): string => /^[^.]+\./.exec(text)?.[0].trim() ?? text.trim();
 
 /**
- * The scripted direct-perception reading that CONSUMES what the owners published: the position rests on the owner-published current
- * viewing circumstance, and the appearance stated is of the owner-resolved appearance of the gathered output. Where nothing was
- * published it is the earlier scripted reading, unchanged.
+ * The scripted direct-perception reading that CONSUMES what the owner published: the position rests on the owner-published current viewing
+ * circumstance, and the appearance stated is anchored to the producing owner's delivered result. Where nothing was published it is the
+ * earlier scripted reading, unchanged.
  */
 export function perceptionAnswer(doc: Record<string, any>, rule: PerceptionRule = {}): any {
-  const base: any = observationAnswer(doc, rule);
+  const base: any = outcomeAnswer(doc, rule);
   const facts: any[] = doc["context"].facts;
   const viewing = facts.find((f) => f.fact_id === "viewing.current");
-  const seen = facts.filter((f) => String(f.fact_id).startsWith("appearance."));
   if (viewing && !rule.ignoreViewing)
     base.position = {
       rule_ids: ["F014D-6"],
@@ -237,17 +184,17 @@ export function perceptionAnswer(doc: Record<string, any>, rule: PerceptionRule 
     if (!rule.forcePayload) base.payload = null;
     return base;
   }
-  if (seen.length > 0) {
-    const text = String(seen[0].text);
+  const outcome = facts.find((f) => f.fact_id === "outcome.collection");
+  if (outcome) {
     base.payload = {
-      source_fact_id: seen[0].fact_id,
-      referent: "what the character gathered",
-      content: text.slice(text.indexOf(": ") + 2),
+      source_fact_id: outcome.fact_id,
+      referent: "the material the character just worked",
+      content: rule.appearance ?? PILE_LOOK,
       basis: [
         {
           from: "WORLD_FACT",
-          ref: seen[0].fact_id,
-          evidence_quote: text.slice(text.indexOf(": ") + 2),
+          ref: outcome.fact_id,
+          evidence_quote: quoteOf(outcome.text, /gathering of \d+ \S+ of \S+/),
         },
       ],
     };

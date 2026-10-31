@@ -123,8 +123,8 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
       "the direct-perception and scene records carry role.resolver + permission.resolution.execute as the context their validation ran under",
       { key: w.key },
     );
-  // a viewing ruling, like a perception, is made at the CURRENT canonical basis (an appearance ruling has no basis of looking)
-  if (r.operation === REFEREE_OP_SCENE && r.input.observed_at !== null) {
+  // a viewing ruling, like a perception, is made at the CURRENT canonical basis
+  if (r.operation === REFEREE_OP_SCENE) {
     const now = committedCanonicalTime((k) => state.facts.get(k));
     if (!now || !timeEquals(r.input.observed_at, now))
       return reject(

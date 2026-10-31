@@ -404,7 +404,6 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "world_actor_coupling",
       "world_pc_locus_custody",
       "world_pc_current_viewing",
-      "world_output_appearance",
       "actor_setup_placement",
       "world_setup_closure",
       "actor_physical_presence",
@@ -637,7 +636,7 @@ describe("the BLUE repair: the exact cycle is grounded, the §11 determination i
     // The consumer now supplies a fixed qualification closure, without adding owner writes or a question selector.
     const module = code("packages/protocol/src/current-observation-glance.ts");
     const glance = module.slice(module.indexOf("export function readCurrentObservationGlance"));
-    expect(glance.match(/view\.getFact\(/g)).toHaveLength(14);
+    expect(glance.match(/view\.getFact\(/g)).toHaveLength(13);
     expect(glance.match(/view\.committedGroup\(/g)).toHaveLength(1);
     expect(glance).not.toMatch(/\.commit\(|\.listFacts\(|outcome\?:|source_key\?:/);
   });

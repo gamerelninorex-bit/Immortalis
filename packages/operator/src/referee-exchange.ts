@@ -19,7 +19,6 @@ import {
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_SCENE,
-  SCENE_APPEARANCE_STATES,
   SCENE_REQUEST_CLASSES,
   SCENE_VIEWING_STATES,
   REFEREE_SOURCES,
@@ -464,14 +463,10 @@ export function taskDocument(
     // a question scoped to ONE Source Condition (the trusted operator's candidate) says so; every other question's document is unchanged
     const scoped = context.facts.some((f) => f.from === "source");
     const publishedViewing = context.facts.some((f) => f.from === "viewing");
-    const resolvedAppearance = context.facts.some((f) => f.from === "appearance");
-    const sceneNote =
-      (publishedViewing
-        ? " The fact `viewing.current` is the CURRENT VIEWING CIRCUMSTANCE of this very look, ruled by the Game Master and published by the world's physical custodian: that an ordinary look is physically supported now. It is not a placement and not the character's sight. Establish `position` by citing it as a CURRENT_VIEWING premise (`ref` = viewing.current), alone or with the placement statement and world facts; it is the owner's account of attention, orientation and open eyes for THIS look, and the original placement sentence is not required to contain them. It does not settle light, distance or obstruction (`path`) and it grants no appearance."
-        : "") +
-      (resolvedAppearance
-        ? " The facts whose `fact_id` begins with `appearance.` are the physical appearance of the gathered material, resolved and published by its owner BEFORE this look from the committed setting alone. If all three states are established, `payload.source_fact_id` MUST be one of those `appearance.` facts and the appearance you state is anchored to a quotation of it; you add nothing to it and do not rename, count or recognize what it shows."
-        : "");
+    const sceneNote = publishedViewing
+      ? " The fact `viewing.current` is the CURRENT VIEWING CIRCUMSTANCE of this very look, ruled by the Game Master and published by the world's physical custodian: that an ordinary look is physically supported now. It is not a placement and not the character's sight. Establish `position` by citing it as a CURRENT_VIEWING premise (`ref` = viewing.current), alone or with the placement statement and world facts; it is the owner's account of attention, orientation and open eyes for THIS look, and the original placement sentence is not required to contain them. It does not settle light, distance or obstruction (`path`) and it grants no appearance."
+      : "";
+
     const sourceScopeNote = scoped
       ? " This question is scoped to ONE physical feature at the locus: the facts of `context.facts` whose `fact_id` begins with `source.` are the access and appearance circumstances its owner committed for that feature, and they are premises like any other fact: assess each, and quote them. The raw appearance, if all three states are established, MUST be an appearance OF that feature: `payload.source_fact_id` must be one of those `source.` facts, and the appearance is anchored to a quotation of it; an appearance of any other fact is refused. A circumstance that hides, buries, covers or otherwise denies sight of the feature is a quoted blocking fact (BLOCKED), and one that merely does not say it can be seen leaves the path NOT_ESTABLISHED. The appearance is only what the eye receives: it carries no identifier of the feature, no material class and no exact quantity or count, none of which is delivered to you or may be inferred into it."
       : "";
@@ -592,7 +587,7 @@ export function taskDocument(
         "the fact, as written, is INCONSISTENT with another delivered premise (a contradiction among the committed words, so that the question cannot be settled on them); quote it. Darkness, distance or an obstruction is NOT a contradiction",
       UNCLEAR: "it is not possible to tell whether the fact bears on this question",
     };
-    if (context.kind === "CURRENT_VIEWING" && context.request.statement !== null)
+    if (context.request.statement !== null)
       return {
         ...common,
         operation: REFEREE_OP_SCENE,
@@ -617,56 +612,6 @@ export function taskDocument(
             grounds: "<why>",
             statement: null,
           },
-          appearance: null,
-          assessments,
-          unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],
-        },
-        context,
-      };
-    if (context.kind === "CURRENT_VIEWING")
-      return {
-        ...common,
-        operation: REFEREE_OP_SCENE,
-        purpose:
-          "Game Master scene ruling - the CURRENT VIEWING of ONE canonical basis. `context.request` is a bare LOOK (`statement` is null: the physical question is asked of the basis alone, never of any wording); `context.pc` is the character's own accepted statements, `context.statement` the player's confirmed placement, and `context.facts` the committed world and locus. You are the Game Master: decide, ONLY from this delivered text and by quoting it, (1) `request.classification`: ORDINARY_LOOK (a bare look is the ordinary act of looking including the routine means it plainly implies - attention, turning, opening the eyes; these are inferred and are NEVER asked of the player); `evidence_quote` is null. (2) `state`: SUPPORTED only if, given the character's accepted words, the confirmed placement and the committed world and locus, an ordinary look is physically possible NOW; NOT_SUPPORTED if a quoted premise vetoes it (a blindfold, restraint, closed or covered or injured eyes, a bound or covered head, sleep or unconsciousness, a barrier at the eyes, an established incapacity); NOT_ESTABLISHED if the delivered text leaves it open. A request alone is never a physical result: a SUPPORTED ruling rests on at least one PC_STATEMENT or PLACEMENT_STATEMENT premise, and you assume no body, posture or ability the text does not give. But do not demand, and do not invent a requirement of, routine detail (facing, blinking, which way the head is turned) merely because no sentence states it: a physically present character that nothing stated impairs can ordinarily look. (3) `statement`: ONLY when SUPPORTED, one plain sentence of what is physically supported right now - attention, orientation, eyes - at most 300 characters, with no appearance, no recognition, no place name and no fact_id. Light, distance and obstruction are NOT decided here: they belong to the later perception question. Favour neither the player nor difficulty: apply the committed words exactly as they stand, and invent no world fact, light, posture, threshold or chance.",
-        rules: rules(["I001-5", "I001-8", "I001-17", "I002-4.3", "IR-5", "IR-7", "F014D-6"]),
-        premise_kinds: {
-          [OBSERVATION_PREMISE_KINDS[0]]:
-            "one of the character's own statements: `ref` = an item_id of context.pc",
-          [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}`,
-          [OBSERVATION_PREMISE_KINDS[2]]:
-            "a committed world or locus fact: `ref` = a fact_id of context.facts",
-        },
-        states: {
-          classification: SCENE_REQUEST_CLASSES,
-          state: SCENE_VIEWING_STATES,
-        },
-        relations,
-        response_shape: {
-          task_id: "<this task_id>",
-          kind: "CURRENT_VIEWING",
-          viewing: {
-            request: {
-              classification: `<one of ${SCENE_REQUEST_CLASSES.join(" | ")}>`,
-              rule_ids: ["<rule_id>"],
-              grounds: "<why>",
-              evidence_quote:
-                "<verbatim excerpt of context.request.statement; null EXACTLY when that statement is null>",
-            },
-            state: `<one of ${SCENE_VIEWING_STATES.join(" | ")}>`,
-            premises: [
-              {
-                from: "<a premise kind above>",
-                ref: "<its ref>",
-                evidence_quote: "<verbatim excerpt of that premise's delivered text>",
-              },
-            ],
-            rule_ids: ["<rule_id>"],
-            grounds: "<why>",
-            statement:
-              "<one plain sentence, at most 300 chars, ONLY when state is SUPPORTED; else null>",
-          },
-          appearance: null,
           assessments,
           unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],
         },
@@ -676,35 +621,43 @@ export function taskDocument(
       ...common,
       operation: REFEREE_OP_SCENE,
       purpose:
-        "Game Master scene ruling - the physical APPEARANCE of an output that Production has already credited. `context.facts` holds the committed world and locus words and one fact, `outcome.collection`, the producing owner's committed result: it names the amount and the material so that your appearance is coherent with it, and you must NOT repeat them. Resolve ONCE, from this delivered text alone and independent of who will look or whether they will see it, the minimum RAW PHYSICAL appearance of what was gathered: 1 to 4 aspects (shape, size, colour, arrangement, condition) in plain descriptive words. It is a physical fact of the world: resolve it from what the committed setting and the owner's result make plausible, using the priors you would give identically whatever the player wants or does next (it is fixed with this provenance once resolved and never chosen after seeing how any perception turns out). An aspect carries NO name, material class, function or use, NO count or exact quantity, no place name, no fact_id or key, and no recognition: describe how it looks, not what it is called or how many there are. If the delivered text cannot support even that much, `state` is NOT_RESOLVED with no aspects: unsupported precision is lowered, never invented. Anchor the answer with at least one premise quoting `outcome.collection`.",
-      rules: rules(["WG-RESOLUTION", "WG-F016", "F014D-21", "F014D-6"]),
+        "Game Master scene ruling - the CURRENT VIEWING of ONE canonical basis. `context.request` is a bare LOOK (`statement` is null: the physical question is asked of the basis alone, never of any wording); `context.pc` is the character's own accepted statements, `context.statement` the player's confirmed placement, and `context.facts` the committed world and locus. You are the Game Master: decide, ONLY from this delivered text and by quoting it, (1) `request.classification`: ORDINARY_LOOK (a bare look is the ordinary act of looking including the routine means it plainly implies - attention, turning, opening the eyes; these are inferred and are NEVER asked of the player); `evidence_quote` is null. (2) `state`: SUPPORTED only if, given the character's accepted words, the confirmed placement and the committed world and locus, an ordinary look is physically possible NOW; NOT_SUPPORTED if a quoted premise vetoes it (a blindfold, restraint, closed or covered or injured eyes, a bound or covered head, sleep or unconsciousness, a barrier at the eyes, an established incapacity); NOT_ESTABLISHED if the delivered text leaves it open. A request alone is never a physical result: a SUPPORTED ruling rests on at least one PC_STATEMENT or PLACEMENT_STATEMENT premise, and you assume no body, posture or ability the text does not give. But do not demand, and do not invent a requirement of, routine detail (facing, blinking, which way the head is turned) merely because no sentence states it: a physically present character that nothing stated impairs can ordinarily look. (3) `statement`: ONLY when SUPPORTED, one plain sentence of what is physically supported right now - attention, orientation, eyes - at most 300 characters, with no appearance, no recognition, no place name and no fact_id. Light, distance and obstruction are NOT decided here: they belong to the later perception question. Favour neither the player nor difficulty: apply the committed words exactly as they stand, and invent no world fact, light, posture, threshold or chance.",
+      rules: rules(["I001-5", "I001-8", "I001-17", "I002-4.3", "IR-5", "IR-7", "F014D-6"]),
       premise_kinds: {
+        [OBSERVATION_PREMISE_KINDS[0]]:
+          "one of the character's own statements: `ref` = an item_id of context.pc",
+        [OBSERVATION_PREMISE_KINDS[1]]: `the player's confirmed placement statement: \`ref\` = ${OBSERVATION_PLACEMENT_REF}`,
         [OBSERVATION_PREMISE_KINDS[2]]:
-          "a committed world or locus fact, or `outcome.collection`: `ref` = a fact_id of context.facts. The only kind this question uses",
+          "a committed world or locus fact: `ref` = a fact_id of context.facts",
       },
-      states: { state: SCENE_APPEARANCE_STATES },
+      states: {
+        classification: SCENE_REQUEST_CLASSES,
+        state: SCENE_VIEWING_STATES,
+      },
       relations,
       response_shape: {
         task_id: "<this task_id>",
-        kind: "OUTPUT_APPEARANCE",
-        viewing: null,
-        appearance: {
-          state: `<one of ${SCENE_APPEARANCE_STATES.join(" | ")}>`,
-          aspects: [
+        kind: "CURRENT_VIEWING",
+        viewing: {
+          request: {
+            classification: `<one of ${SCENE_REQUEST_CLASSES.join(" | ")}>`,
+            rule_ids: ["<rule_id>"],
+            grounds: "<why>",
+            evidence_quote:
+              "<verbatim excerpt of context.request.statement; null EXACTLY when that statement is null>",
+          },
+          state: `<one of ${SCENE_VIEWING_STATES.join(" | ")}>`,
+          premises: [
             {
-              aspect: "<what the aspect is of, e.g. shape or colour; at most 60 chars>",
-              statement: "<how it appears, plain descriptive words, at most 240 chars>",
-            },
-          ],
-          basis: [
-            {
-              from: "WORLD_FACT",
-              ref: "<a fact_id of context.facts; include outcome.collection>",
-              evidence_quote: "<verbatim excerpt of that fact>",
+              from: "<a premise kind above>",
+              ref: "<its ref>",
+              evidence_quote: "<verbatim excerpt of that premise's delivered text>",
             },
           ],
           rule_ids: ["<rule_id>"],
           grounds: "<why>",
+          statement:
+            "<one plain sentence, at most 300 chars, ONLY when state is SUPPORTED; else null>",
         },
         assessments,
         unresolved_forks: ["<each material fork the delivered text leaves open; [] when none>"],

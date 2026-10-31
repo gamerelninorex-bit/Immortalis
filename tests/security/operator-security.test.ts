@@ -96,9 +96,9 @@ describe("the mechanism cannot reach authority it was not given", () => {
     // republishes the committed world and both loci to prove the owner path admits the corridor. It is bound by its own, narrower checks
     // (tests/security/corridor-security.test.ts and tests/conformance/corridor-conformance.test.ts), which also forbid it any request,
     // movement, Logistics, clock, advance or registration surface.
-    // `scene-resolution.ts` is likewise the one module the GM-led first-play brief authorizes to call the two existing-owner publications of
-    // a retained GM scene ruling - `establishPcCurrentViewing` and `establishWorldOutputAppearance` - on the operator's campaign, each only
-    // from a retained `GM_SCENE_RESOLUTION` decision whose DERIVED verdict was VIEWING_SUPPORTED / APPEARANCE_RESOLVED. It is bound by its
+    // `scene-resolution.ts` is likewise the one module the GM-led first-play brief authorizes to call the one existing-owner publication of
+    // a retained GM scene ruling - `establishPcCurrentViewing` - on the operator's campaign, only from a retained
+    // `GM_SCENE_RESOLUTION` decision whose DERIVED verdict was VIEWING_SUPPORTED. It is bound by its
     // own, narrower checks (tests/security/scene-resolution-security.test.ts), which also forbid it any commit, clock, advance,
     // registration, dispatch, quantity or Source/Reserve surface.
     for (const f of files.filter(

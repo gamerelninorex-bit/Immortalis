@@ -746,11 +746,6 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["viewing_id"] === ids[1]
         ? null
         : "PC and viewing identity do not match the key";
-    case "world_output_appearance":
-      return v["appearance_id"] === ids[1] &&
-        (v["world"] as { entity_id: string }).entity_id === ids[0]
-        ? null
-        : "appearance identity does not match the key";
     case "actor_setup_placement":
     case "actor_physical_presence":
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";

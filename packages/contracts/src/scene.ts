@@ -1,27 +1,26 @@
 import { z } from "zod";
-import { Id, Sha256, Version } from "./ids.ts";
+import { Sha256, Version } from "./ids.ts";
 import { FALLBACK_BASIS, FACET_WORLD_FALLBACK_ENTITY } from "./production.ts";
 import { RefereeInputRefSchema } from "./referee.ts";
 import { CanonicalTimeSchema } from "./temporal.ts";
-import { EntityId, FactRefSchema, OWNER_WORLD_STATE } from "./world-foundation.ts";
+import { EntityId, OWNER_WORLD_STATE } from "./world-foundation.ts";
 
 /**
- * GM-led first play (30 October 2026): the TWO sparse World-State facts a direct look can need, each published by the physical custodian
- * from ONE retained `GM_SCENE_RESOLUTION` decision of the GM host, never authored by the host, the narrator or the adapter.
+ * GM-led first play (30 October 2026): the ONE sparse World-State fact a direct look needs, published by the physical custodian from ONE
+ * retained `GM_SCENE_RESOLUTION` decision of the GM host, never authored by the host, the narrator or the adapter.
  *
  *   world_pc_current_viewing   the SUPPORTED current viewing circumstance of the active PC at one canonical basis: that an ordinary look
  *                              (routine attention, turning, opening the eyes) is physically supported NOW. It is RUNTIME physical context
  *                              under the existing World-State physical custodian (BLUE decision 1): it is not an intrinsic I-002 branch,
  *                              rewrites no original placement, and a request alone is never a physical result. Only a SUPPORTED ruling is
  *                              published (sparse): a negative or unresolved ruling stays sealed referee evidence and nothing else.
- *   world_output_appearance    the minimum raw physical appearance of a loose output Production already credited (BLUE decision 2; WG
- *                              Resolution Rules; F-016 fallback only where no more-specific custodian exists). It REFERENCES the producing
- *                              owner's committed delivery and carries NO quantity, material name, count or ownership: it is not a second
- *                              source/Reserve ledger and not a Production result. Resolved once, before any observation of it, from
- *                              branch-invariant world constraints, and never from a perception outcome.
  *
- * Both are SEALED and create-only: the first established result is preserved, a different second one at the same identity is a conflict.
- * Every schema is strict; foreign state is referenced by exact pin, never copied (RC-02).
+ * The fact is SEALED and create-only: the first established result is preserved, a different second one at the same identity is a conflict.
+ * The schema is strict; foreign state is referenced by exact pin, never copied (RC-02).
+ *
+ * There is NO output-appearance fact. A loose output's look is incidental GM narration grounded in the producing owner's committed result
+ * and the supported current viewing; it is not an OwnerFact, a per-output record or a physical premise (31 October 2026 Stage A
+ * amendment to the construction brief, section 2: the earlier accepted-durable World-State fallback route was withdrawn).
  */
 
 const Trimmed = (max: number) =>
@@ -45,10 +44,6 @@ const GmRuling = z.strictObject({
 /** `world-state/pc/<pc>/current-viewing/<viewing id>`: the viewing id is derived from the BASIS, never from the request's wording. */
 export const worldPcCurrentViewingKey = (pcId: string, viewingId: string): string =>
   `world-state/pc/${pcId}/current-viewing/${viewingId}`;
-/** `world/<world>/output-appearance/<delivery id>`: one appearance per completed delivery. */
-export const worldOutputAppearanceKey = (worldId: string, deliveryId: string): string =>
-  `world/${worldId}/output-appearance/${deliveryId}`;
-
 export const VIEWING_ID = /^[0-9a-f]{32}$/;
 
 export const PcCurrentViewingSchema = z.strictObject({
@@ -80,27 +75,6 @@ export const PcCurrentViewingSchema = z.strictObject({
 });
 export type PcCurrentViewing = z.infer<typeof PcCurrentViewingSchema>;
 
-export const OutputAppearanceAspectSchema = z.strictObject({
-  aspect: Trimmed(60),
-  statement: Trimmed(240),
-});
-
-export const WorldOutputAppearanceSchema = z.strictObject({
-  appearance_id: Id,
-  world: FactRefSchema,
-  locus: FactRefSchema,
-  /** the producing owner's committed, credited delivery this is the appearance of: referenced, never copied */
-  delivery: RefereeInputRefSchema,
-  aspects: z.array(OutputAppearanceAspectSchema).min(1).max(4),
-  /** the retained GM_SCENE_RESOLUTION decision this is published from, at its exact version */
-  resolution: RefereeInputRefSchema,
-  resolved_by: GmRuling,
-  /** the Temporal owner's canonical time at publication */
-  effective_at: CanonicalTimeSchema,
-  custodian: Custodian,
-});
-export type WorldOutputAppearance = z.infer<typeof WorldOutputAppearanceSchema>;
-
 // ---------------------------------------------------------------------------------------------
 // The citation layout of a direct-perception record
 // ---------------------------------------------------------------------------------------------
@@ -110,14 +84,12 @@ export const OBSERVATION_BASE_REF_COUNT = 5;
 
 const DELIVERY_REF = /^world\/([^/]+)\/source-delivery\/(.+)$/;
 const VIEWING_REF = /^world-state\/pc\/([^/]+)\/current-viewing\/([0-9a-f]{32})$/;
-const APPEARANCE_REF = /^world\/([^/]+)\/output-appearance\/(.+)$/;
 
 /**
  * Which optional citations follow the five base ones. Legacy records cite none or exactly one (a scoped Source Condition, or a completed
- * delivery); a record made after a look's scene resolution may ALSO cite, in this order and each at most once, the owner-published
- * current viewing circumstance and the owner-resolved appearance of the delivered output. The appearance is of a DELIVERY, so it can only
- * follow a delivery citation and must name that delivery. Anything else - another order, a repeat, an unknown key - is not a layout.
- * Pure key arithmetic: it reads no fact and decides nothing; each consumer still checks the facts the keys name.
+ * delivery); a record made after a look's scene resolution may ALSO cite, last, the owner-published current viewing circumstance. Anything
+ * else - another order, a repeat, an unknown key - is not a layout. Pure key arithmetic: it reads no fact and decides nothing; each
+ * consumer still checks the facts the keys name.
  */
 export interface ObservationRefLayout {
   readonly variant:
@@ -131,7 +103,6 @@ export interface ObservationRefLayout {
         readonly extraction_id: string;
       };
   readonly viewing: { readonly index: number; readonly key: string; readonly pc_id: string } | null;
-  readonly appearance: { readonly index: number; readonly key: string } | null;
 }
 
 export function parseObservationRefLayout(
@@ -164,15 +135,7 @@ export function parseObservationRefLayout(
     viewing = { index: i, key: keys[i]!, pc_id: v[1]! };
     i++;
   }
-  let appearance: ObservationRefLayout["appearance"] = null;
-  const a = keys[i] === undefined ? null : APPEARANCE_REF.exec(keys[i]!);
-  if (a) {
-    if (variant.kind !== "DELIVERY" || a[1] !== variant.world_id || a[2] !== variant.extraction_id)
-      return null;
-    appearance = { index: i, key: keys[i]! };
-    i++;
-  }
-  return i === keys.length ? { variant, viewing, appearance } : null;
+  return i === keys.length ? { variant, viewing } : null;
 }
 
 /** The same layout read from a record's own citations (so a caller that must stay free of iteration need not build the key list). */

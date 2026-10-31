@@ -66,7 +66,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
   "packages/operator/src/observation.ts":
-    "619952934550c275137ebb56dba271d6f8444859b453efcf6f8c0f685490a79f",
+    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "packages/operator/src/original-pc.ts":
     "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/original-pc-keep.ts":
@@ -102,9 +102,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/referee-mcp.ts":
     "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-exchange.ts":
-    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
+    "c5bc9b8c037fbab032f87f63a6c13794f60cee863cbb1a356cda2e39ba70e584",
   "packages/operator/src/referee-session.ts":
-    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
+    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
 };
 
 const NEW_MODULES = [

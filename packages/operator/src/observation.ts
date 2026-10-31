@@ -243,7 +243,7 @@ async function run(
         rt,
         campaignId,
         pcId,
-        plan: { ...plan, viewing_present: true, appearance: null },
+        plan: { ...plan, viewing_present: true },
         attention: p.attention,
         notEstablished,
         onProgress: (line) => terminal.say(line),
@@ -252,17 +252,17 @@ async function run(
     }
     decisionKey = cited;
   } else {
-    // GM-led natural look: when a GM scene host is bound, the appearance of an unresolved credited output and the current viewing
-    // circumstance of THIS look are ruled and published BEFORE the perception question, which then consumes them. The scene step runs
-    // before any retained-decision short-circuit on purpose: a negative decision retained for the question WITHOUT them is history, and
-    // the question WITH them is a different task (a changed current input) - it never overwrites, rerolls or reuses that negative.
+    // GM-led natural look: when a GM scene host is bound, the current viewing circumstance of THIS look is ruled and published BEFORE the
+    // perception question, which then consumes it. The scene step runs before any retained-decision short-circuit on purpose: a negative
+    // decision retained for the question WITHOUT it is history, and the question WITH it is a different task (a changed current input) -
+    // it never overwrites, rerolls or reuses that negative.
     let task = first.value;
     let lookConfirmed = false;
     const worldId = binding.value.coupling.world.entity_id;
     const locusId = binding.value.coupling.locus.entity_id;
     const confirmLook = async (current: typeof first.value): Promise<CharacterResult | null> => {
       // the qualified variant (a scoped Source Condition or a completed delivery), if the question has one: exactly as before, whether or
-      // not a viewing circumstance or an appearance also follows it
+      // not a viewing circumstance also follows it
       const layout = parseObservationRefLayout(
         current.context.refs.map((r) => r.fact_key),
         (k) => parseWorldSourceConditionKey(k) !== null,
@@ -338,30 +338,17 @@ async function run(
           ? d.value.verdict
           : undefined;
       };
-      const appearanceTask = plan.appearance
-        ? adapter.appearanceTask({
-            pc_id: pcId,
-            attempt: 0,
-            extraction_id: plan.appearance.extraction_id,
-          })
-        : null;
-      const appearanceSettled =
-        appearanceTask === null ||
-        !appearanceTask.ok ||
-        adapter.decision(appearanceTask.value.task_id) !== undefined;
-      if (appearanceSettled) {
-        const words = p.attention !== undefined ? retainedOf(p.attention) : undefined;
-        if (words === "PLAYER_CHOICE_REQUIRED" || words === "LOOK_UNCLEAR")
-          return result("OBSERVATION_NEEDS_CHOICE");
-        if (words !== undefined && words !== "LOOK_ORDINARY") return notEstablished();
-        // the basis's physical result ends the look only once the words are settled: new words are classified first, so that a
-        // materially new commitment in them is returned to the player rather than folded into a negative
-        const wordsSettled = p.attention === undefined || words === "LOOK_ORDINARY";
-        const physical = plan.viewing_present ? undefined : retainedOf(null);
-        if (wordsSettled && physical !== undefined && physical !== "VIEWING_SUPPORTED")
-          return notEstablished();
-      }
-      if (!plan.viewing_present || plan.appearance !== null || p.attention !== undefined) {
+      const words = p.attention !== undefined ? retainedOf(p.attention) : undefined;
+      if (words === "PLAYER_CHOICE_REQUIRED" || words === "LOOK_UNCLEAR")
+        return result("OBSERVATION_NEEDS_CHOICE");
+      if (words !== undefined && words !== "LOOK_ORDINARY") return notEstablished();
+      // the basis's physical result ends the look only once the words are settled: new words are classified first, so that a
+      // materially new commitment in them is returned to the player rather than folded into a negative
+      const wordsSettled = p.attention === undefined || words === "LOOK_ORDINARY";
+      const physical = plan.viewing_present ? undefined : retainedOf(null);
+      if (wordsSettled && physical !== undefined && physical !== "VIEWING_SUPPORTED")
+        return notEstablished();
+      if (!plan.viewing_present || p.attention !== undefined) {
         const declined = await confirmLook(task);
         if (declined) return declined;
         lookConfirmed = true;

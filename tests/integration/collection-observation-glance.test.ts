@@ -96,9 +96,9 @@ describe("completed-collection qualification through the fixed Glance consumer",
       CAUSAL_REQUEST(),
     );
     expect(a.out).toEqual(causal);
-    expect(a.calls).toHaveLength(23); // fifteen gateway reads (two fixed citations for the viewing circumstance and the resolved appearance), unchanged eight projection reads
-    // the sixth citation (the delivery), then the two fixed GM-scene citation slots (sentinels here), then the delivery's own source and its owners
-    expect(a.calls.slice(9, 15).map((r) => r.key)).toEqual([delivery, "-", "-", ...keys]);
+    expect(a.calls).toHaveLength(22); // fourteen gateway reads (one fixed citation slot for the viewing circumstance), unchanged eight projection reads
+    // the sixth citation (the delivery), then the one fixed GM-scene citation slot (a sentinel here), then the delivery's own source and its owners
+    expect(a.calls.slice(9, 14).map((r) => r.key)).toEqual([delivery, "-", ...keys]);
     expect(read().out).toEqual(causal);
     expect(c.store.head().state_sha256).toBe(before);
     await c.close();

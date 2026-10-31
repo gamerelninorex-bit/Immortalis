@@ -161,10 +161,10 @@ describe("nothing outside the physical-source slice was built", () => {
       // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
       // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
       // GM-led first play adds the scene-resolution step (current viewing, output appearance) and the goal-level attention text only; no sensory/world producer.
-      "de381f94a278ef9e815dd4d83a492374f07674f5987cac3461cc65c70be65af8",
+      "d5b2b4c11af72749f2301805fa40e226d537d0975d854940bc4d1c00bc6cafb8",
     );
     expect(treeSha("packages/protocol/src")).toBe(
-      "6ab3fc2cf3fdbef51b5fd70a13194b39d65742056c820bd0377d2bd9c0ec4c3a",
+      "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
     );
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))
@@ -180,11 +180,11 @@ describe("nothing outside the physical-source slice was built", () => {
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       // GM-led first play: the F-014D event reads the owner-published appearance as its source only; no auditory ingress
       "packages/engine/src/epistemic":
-        "458981b556ced93b1932c9b159eb56d59b8a0ff6b2a1cff76308b2031616be3e",
+        "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       // GM-led first play: the PC-only GM_SCENE_RESOLUTION operation, viewing/appearance contexts, rulings and admission; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "97f06a09d2fc1894dd897704701c0a6baa02aec1823d4bc033f279f8a60fd580",
+        "94b00fd69e2691406fd2e5efa4004f87812c7b8972a4e8a0923c0fcbf5ad7901",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

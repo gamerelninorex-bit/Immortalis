@@ -35,7 +35,7 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "7adea323906519bda99ab1e4ba488abd83f80f3c89161c4d5d8c972e1de2a692",
+    "d94d5790a9c361555b100052c3abdabbaa321bd4f648daf24c8c3e53ca7db846",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
@@ -49,15 +49,15 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/index.ts":
     "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
   "packages/engine/src/owners/registry.ts":
-    "da1132dd2ec5bcbbedcacf7723883dfa14121ed2fc90179be03ab712353a6b45",
+    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
   "packages/engine/src/referee/adapter.ts":
-    "b033bd1df6920ae22303fa1dc70254f0e48810bb29f8fd4a7af9bec249593492",
+    "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
-    "67d5000626765cc01f1c8d402513979562727223b1e27490f49701c9b8593791",
+    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "25c6895c3255e7974bd392952fdb1b568dd45ca0df52adb46cb0fd30b9c02684",
+    "f781cef9c354206b1f990bf00e8976964249a3246690cbdcd0b7afc3429c5b0f",
   "packages/engine/src/referee/integrity.ts":
     "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/temporal/admission.ts":
@@ -73,11 +73,11 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/original-pc.ts":
     "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
   "packages/operator/src/referee-exchange.ts":
-    "cd04511ea3b57053c006232a18e26b55e36ae6fd48442fff2082259fb332c49f",
+    "c5bc9b8c037fbab032f87f63a6c13794f60cee863cbb1a356cda2e39ba70e584",
   "packages/operator/src/referee-mcp.ts":
     "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-session.ts":
-    "c8a46a7a516d02359d0069b9051e6044a4b757b39b3d8205abb3f63f612b687b",
+    "9bcaac5ba355405becb2563f3257f68a7e8b0c50525d6ed3107cd720b1ca973b",
 };
 const SPEC: Record<string, string> = {
   "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",

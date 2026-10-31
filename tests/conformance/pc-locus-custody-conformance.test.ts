@@ -203,7 +203,6 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_actor_coupling",
       "world_pc_locus_custody",
       "world_pc_current_viewing",
-      "world_output_appearance",
       "actor_setup_placement",
       "world_setup_closure",
       "actor_physical_presence",

@@ -18,13 +18,13 @@ import {
   follow,
   resumed,
 } from "../support/chat-route.ts";
-import { PC_WORDS, SCENE } from "../support/observation.ts";
+import { PC_WORDS, SCENE, redScene } from "../support/observation.ts";
 import {
+  PILE_LOOK,
   bindScene,
   perceptionPolicy,
   scenePolicy,
   startScene,
-  withGranules,
 } from "../support/scene.ts";
 
 const LOOK = "at the pale material I have just gathered";
@@ -48,7 +48,7 @@ async function facts(s: { campaignDir: string }) {
     const all = c.store.listFacts();
     return {
       viewing: all.filter((f) => /^world-state\/pc\/[^/]+\/current-viewing\//.test(f.key)),
-      appearance: all.filter((f) => /^world\/[^/]+\/output-appearance\//.test(f.key)),
+      keys: all.map((f) => f.key),
       scene: all.filter((f) => (f.value as any).operation === "GM_SCENE_RESOLUTION"),
       perception: all.filter((f) => (f.value as any).operation === "F014D_DIRECT_PERCEPTION"),
       events: all.filter((f) => /^access\/[^/]+\/event$/.test(f.key)),
@@ -66,7 +66,7 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
   it("sparse setup -> one gather request -> one look in the player's words -> the earned Glance -> another gather -> reopen", async () => {
     const base = routePolicy();
     const r = await started({
-      mutateSetting: withGranules(),
+      mutateSetting: redScene(),
       policy: perceptionPolicy(base),
       characterWords: {
         // the character states neither a direction nor open eyes: the legacy question could never place their sight
@@ -96,7 +96,6 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
       }
       const setup = await facts(r.s);
       expect(setup.viewing).toHaveLength(0);
-      expect(setup.appearance).toHaveLength(0);
       expect(setup.scene).toHaveLength(0);
 
       // ONE natural request carries the gathering to its earned end
@@ -106,23 +105,23 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
       const afterGather = await facts(r.s);
       expect(afterGather.reserve).toBe(3);
       expect(afterGather.time).toBe(MOMENT.value + 3 * TAU);
-      // gathering is a Production result; it asked the Game Master nothing and published no appearance
+      // gathering is a Production result; it asked the Game Master nothing
       expect(afterGather.scene).toHaveLength(0);
 
-      // ONE look in the player's own words: the GM rules the appearance and the ordinary look, the custodian publishes, the referee perceives
+      // ONE look in the player's own words: the GM rules the ordinary look, the custodian publishes it, the referee perceives and describes
       const look = await stage(r.chat, "observe_surroundings", { attention: LOOK });
       expect(look.finished.isError, JSON.stringify(look.finished.data)).toBe(false);
       expect(look.finished.data?.exit_code).toBe(0);
       expect(look.finished.elicited ?? []).toHaveLength(0);
       const looked = await facts(r.s);
       expect(looked.viewing).toHaveLength(1);
-      expect(looked.appearance).toHaveLength(1);
+      expect(looked.keys.some((k) => /appearance/i.test(k))).toBe(false); // the description is narration, never an owner fact
       expect(looked.events).toHaveLength(1);
       expect(looked.time).toBe(afterGather.time); // a look passes no time
       expect(looked.verify).toEqual([]);
       const glance = await r.chat.call("read_current_observation_glance");
       expect(glance.isError, glance.text).toBe(false);
-      expect(JSON.stringify(glance.data)).toContain("pale, dry, granular crystals");
+      expect(JSON.stringify(glance.data)).toContain(PILE_LOOK);
       expect(JSON.stringify(glance.data)).not.toMatch(
         /source-delivery|reserve|recoverable|\b3\b|salt|gathering/,
       );
@@ -145,7 +144,7 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
       await follow(r.chat, null, 40);
       const newLook = await facts(r.s);
       expect(newLook.viewing).toHaveLength(2);
-      expect(newLook.appearance).toHaveLength(2);
+      expect(newLook.keys.some((k) => /appearance/i.test(k))).toBe(false);
       expect(newLook.verify).toEqual([]);
     } finally {
       await gm.stop();
@@ -158,7 +157,7 @@ describe("a natural first-play loop, start to finish, through the chat tools", (
       await back.chat.init({});
       const glance = await back.chat.call("read_current_observation_glance");
       expect(glance.isError, glance.text).toBe(false);
-      expect(JSON.stringify(glance.data)).toContain("pale, dry, granular crystals");
+      expect(JSON.stringify(glance.data)).toContain(PILE_LOOK);
       const status = (await back.chat.call("play_status")).data;
       expect(status.play.latest.phase).toBe("COMPLETED");
       expect((await facts(r.s)).verify).toEqual([]);

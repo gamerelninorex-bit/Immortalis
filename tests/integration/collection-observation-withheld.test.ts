@@ -379,8 +379,8 @@ describe("a retained reading that carries a withheld value no longer re-derives,
     const real = read(null);
     expect(real.out.ok, JSON.stringify(real.out)).toBe(true);
     expect(JSON.stringify(real.out)).toContain(INDEPENDENT);
-    expect(real.calls).toHaveLength(23);
-    expect(real.calls.slice(9, 15).map((r) => r.key)).toEqual([deliveryKey, "-", "-", ...keys]);
+    expect(real.calls).toHaveLength(22);
+    expect(real.calls.slice(9, 14).map((r) => r.key)).toEqual([deliveryKey, "-", ...keys]);
     const harmless = read("a broad patch of bright red on plaster");
     expect(harmless.out.ok, JSON.stringify(harmless.out)).toBe(true);
     expect(harmless.calls).toEqual(real.calls);
