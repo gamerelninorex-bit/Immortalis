@@ -336,7 +336,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   // head adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
   "packages/engine/src/referee/derive.ts": {
     base: "3322515912a51a9179ff316465b0a59532cb0ea05c3c8cae676dab53299189ef",
-    head: "1ebf1900b23e595275d3b79d7bce082bfb13c2f09c76e2e1454afd0bcf5fb3fa",
+    head: "31ab4e3fbf916de8cd8ab02cf84a67ecc8f437d50e8ca7da6576a2695774688a",
   },
   "packages/engine/src/referee/integrity.ts": {
     base: "00b860919ed8e01889d67ccd6d8827f03220e0ceee571ec2bf4293983f1a4df7",

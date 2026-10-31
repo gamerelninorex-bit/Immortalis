@@ -137,7 +137,7 @@ const MODIFIED: Readonly<Record<string, string>> = {
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "1ebf1900b23e595275d3b79d7bce082bfb13c2f09c76e2e1454afd0bcf5fb3fa",
+    "31ab4e3fbf916de8cd8ab02cf84a67ecc8f437d50e8ca7da6576a2695774688a",
   "packages/operator/src/cli.ts":
     "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/observation.ts":

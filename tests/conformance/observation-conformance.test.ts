@@ -57,7 +57,7 @@ const MODIFIED: Record<string, string> = {
   // adjusted openly for N-1 (RED, #72): derive.ts gains `deliveryWithheld` (the completed-collection variant's withheld set) and
   // comment-only authority-label corrections; see tests/integration/collection-observation-withheld.test.ts
   "packages/engine/src/referee/derive.ts":
-    "1ebf1900b23e595275d3b79d7bce082bfb13c2f09c76e2e1454afd0bcf5fb3fa",
+    "31ab4e3fbf916de8cd8ab02cf84a67ecc8f437d50e8ca7da6576a2695774688a",
   "packages/engine/src/referee/integrity.ts":
     "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
   "packages/engine/src/temporal/admission.ts":

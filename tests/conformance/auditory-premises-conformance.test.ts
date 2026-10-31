@@ -184,7 +184,7 @@ describe("nothing outside the physical-source slice was built", () => {
       // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
       // BLUE R-1: remove prose-grounded position and mandatory feasibility citations; no actor-subject or auditory surface
       "packages/engine/src/referee":
-        "378998da68956de8331a0278f745baea1d47594b59454de32085e0de86c28e56",
+        "de064daf96b8b38819d3b3d5389e8bc79b91413d6c850199eb9060ca6988cca1",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":

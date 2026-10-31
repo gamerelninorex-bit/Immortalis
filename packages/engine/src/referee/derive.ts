@@ -20,6 +20,7 @@ import {
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_SCENE,
   REFEREE_SOURCES,
+  RefereeInputRefSchema,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   WorldLocusSchema,
@@ -1432,6 +1433,26 @@ function premiseText(ctx: ObservationContext, p: ObservationPremise): string | u
 }
 
 /**
+ * The engine references a delivered typed premise carries INSIDE its text: the ruling pin of the viewing feasibility premise (its decision
+ * key and group). Like every cited fact key they are provenance for the engine, never words a stated appearance may carry.
+ */
+function premiseReferences(ctx: ObservationContext): string[] {
+  const out: string[] = [];
+  for (const f of ctx.facts) {
+    if (f.from !== "viewing") continue;
+    try {
+      const ruling = RefereeInputRefSchema.safeParse(
+        (JSON.parse(f.text) as { ruling?: unknown }).ruling,
+      );
+      if (ruling.success) out.push(ruling.data.fact_key, ruling.data.group_id);
+    } catch {
+      // not a typed premise: nothing to add
+    }
+  }
+  return out;
+}
+
+/**
  * Validates a host's direct-perception answer against the context it was given and derives the verdict (F-014D §§5 steps 2-4, 6).
  * Nothing here understands the premises: it checks that every claim is anchored to a verbatim quotation of DELIVERED text of the kind
  * of premise that may establish it (the faculty only on the character's own statements; the viewing circumstances only on the
@@ -1573,6 +1594,7 @@ export function deriveObservation(
     const forbidden = [
       ...ctx.facts.map((f) => f.fact_id),
       ...ctx.refs.map((r) => r.fact_key),
+      ...premiseReferences(ctx),
       ctx.subject.pc_id,
       ctx.subject.world_id,
       ctx.subject.locus_id,
