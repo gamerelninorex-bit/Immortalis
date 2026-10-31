@@ -53,7 +53,7 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       native_pin: pin("I-002").native_pin,
     });
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+      "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
     );
   });
 
@@ -252,7 +252,7 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -319,7 +319,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+    head: "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",

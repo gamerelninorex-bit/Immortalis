@@ -22,7 +22,7 @@ const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
   it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
     expect(sha("spec/f027/spec-lock.json")).toBe(
-      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+      "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
     );
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
@@ -64,7 +64,7 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+    "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":
@@ -87,7 +87,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
     "packages/engine/src/owners/registry.ts":
-      "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+      "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
     "packages/engine/src/world/canonical-campaign.ts":
       "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator

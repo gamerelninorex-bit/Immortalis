@@ -73,7 +73,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/canonical-campaign.ts":
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/owners/registry.ts":
-    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":
@@ -100,8 +100,8 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the F-027 spec lock is unchanged: blob 2df29edfd08b1fb986666c94153f9432cf227324", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+  it("the F-027 spec lock is unchanged: blob d63ccd859f6f2da1728ee13c6d25b062804f3293", () => {
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
   });
 
   it("the one engine edit is the Logistics derivation, narrowed and nothing else: the route-less foundation, every other refusal and the single corridor read remain", () => {
@@ -319,7 +319,7 @@ describe("the gateway advances no time, resolves nothing, plans no route, invent
       "MECHANISM ONLY",
       "2026-10-22T16:13:49.400Z",
       "3b06e6591303e72ee7523555dc08d13c4c9c7d5b",
-      "2df29edfd08b1fb986666c94153f9432cf227324",
+      "d63ccd859f6f2da1728ee13c6d25b062804f3293",
       "2026-10-08T01:25:36.611Z",
       "commit_confirmed_pc_corridor_relocation",
       "bindTrustedConfirmedPcCorridorRelocationContext",

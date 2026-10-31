@@ -23,7 +23,7 @@ const sha = (file: string) =>
 
 /** Byte-identical to the base 7864425: the slice consumes or stands beside every one of these, and edits none. */
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -43,7 +43,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/testkit/package.json":
     "9ae35b68a741efea5b5b55b46754122035628dea4a5c2235f796747560dc81e4",
   "packages/engine/src/owners/registry.ts":
-    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/index.ts":
     "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
   "packages/contracts/src/index.ts":
@@ -172,7 +172,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
       .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
       .update(readFileSync("spec/f027/spec-lock.json"))
       .digest("hex");
-    expect(blob).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+    expect(blob).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
     expect(pin("I-002")).toBe("2026-09-25T00:15:54.536Z");
@@ -235,7 +235,7 @@ describe("the slice is what it says: operator-side, trusted-input, mechanism onl
       "40020af901e081279a61d16635561654",
       "2026-10-21T16:38:01.462Z",
       "78644258939d70fca2c94b110eeb1710b3543e7a",
-      "2df29edfd08b1fb986666c94153f9432cf227324",
+      "d63ccd859f6f2da1728ee13c6d25b062804f3293",
       "#72",
       "#73",
       "Mechanical conformance-pin adjustments",

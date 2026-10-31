@@ -301,7 +301,8 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     expect(sha(lock["frozen_sources"])).toBe(
       "d12a4d73380f75d2594ed8aacf77ad6eb85d7679a235f37faa4412810d075de7",
     );
-    expect(sha(lock["design_lineage_successors"])).toBe(
+    // the ORIGINAL four lineage rows, in order, byte-identical (the hash is of those four, not of the later five-row array)
+    expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
     );
     expect(sha(rows[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
@@ -310,11 +311,20 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "736a27bef959afbbc88266d6eab4ffc56892d8509aaa71054821e0dba037c53c",
     );
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
-    expect(lock["design_lineage_successors"]).toHaveLength(4);
+    // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
+    expect(lock["design_lineage_successors"]).toHaveLength(5);
+    expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
-  it("the R1 lowering is the first row and the P1 lowering is the one row after it: exactly two executable lowerings exist", () => {
-    expect(rows.map((r) => r.id)).toEqual(["R1-STAGE-ONE-V1.1-LOWERING", "S1-P1-WG-LOWERING"]);
+  it("the R1 lowering is the first row and the P1 lowering is the one row after it; the two current-look lowerings follow and nothing else exists", () => {
+    // the S1-P1 row is byte-identical to the one this slice added (the 31 October 2026 rows are asserted by current-look-lowering-conformance)
+    expect(sha(p1)).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
+    expect(rows.map((r) => r.id)).toEqual([
+      "R1-STAGE-ONE-V1.1-LOWERING",
+      "S1-P1-WG-LOWERING",
+      "PC-CURRENT-LOOK-WORLD-LOWERING",
+      "GM-CURRENT-LOOK-SCENE-LOWERING",
+    ]);
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.map((r) => r.id));
   });
 

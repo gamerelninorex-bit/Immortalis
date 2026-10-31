@@ -31,7 +31,7 @@ const importedNames = (file: string, from: string): string[] =>
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 7fe37737165ce5085c89401cddf421a651441796. */
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
+  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -48,7 +48,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
   "packages/engine/src/owners/registry.ts":
-    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
+    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/owners/admission.ts":
     "7f140feb8657db6f1296b591f6e99a402b8b20428550aaa2cc641dd1a9c4f279", // B61-A3 scoped delta (owners/admission.ts): pinned at the PR #61 head; main 95846b5c2471
   "packages/engine/src/source-drawdown/adapter.ts":

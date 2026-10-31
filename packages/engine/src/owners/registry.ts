@@ -1135,11 +1135,60 @@ export const GM_FIRST_PLAY_BRIEF_SOURCE = {
 } as const;
 const GM_FIRST_PLAY_LINEAGE = `BLUE Bounded Construction Brief - GM-led Natural First-Play Rebuild, verified native pin ${GM_FIRST_PLAY_BRIEF_SOURCE.native_pin} (${GM_FIRST_PLAY_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment to any frozen owner contract, NOT a spec-lock pin), with the Operating Charter section "30 October 2026 - Standing construction requirement: GM-led natural chat play" (native pin 2026-10-30T03:16:44.156Z, https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc) and I-001 section 8 (https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2, native pin 2026-09-25T00:17:49.551Z); the quotation of World Generation's Resolution Rules and F-016 fallback was read from the page as edited 2026-10-23T12:26:49.599Z and its equivalence at the frozen pin is NOT independently verified`;
 
-/** The World-State physical custodian's publication of the SUPPORTED current viewing circumstance of the active PC (runtime physical context). */
-export const WORLD_PC_CURRENT_VIEWING_RULE: SourceRef = rule(
-  WG_SOURCE,
-  "Ownership Guards - World Generation May Own: world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem, and F-016 Ratified Fallback Objective Physical-Entity Custody (World-State is the fallback custodian of objective physical/entity facts only where no more-specific authoritative owner exists for the exact fact); with I-002 4.3 (position, local physical condition and other world-locus differences are runtime physical state, not intrinsic PC state)",
-  [GM_FIRST_PLAY_LINEAGE, F016_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+/**
+ * The F-027 v1.0 additive executable-lowering source of the Active-PC Current-Look premise (31 October 2026, v0.8 carrier): ONE page that
+ * two rows of `spec/f027/spec-lock.json` lower, `PC-CURRENT-LOOK-WORLD-LOWERING` (section 3A, IM-03) and
+ * `GM-CURRENT-LOOK-SCENE-LOWERING` (section 3B, IM-12, operation `GM_SCENE_RESOLUTION` only). Both rows carry exactly this `url` and
+ * `native_pin`; tests/conformance/current-look-lowering-conformance cross-checks that against the lock, so the two cannot drift apart.
+ * It composes with F-027 v1.0 and replaces none of the 23 frozen pins; the earlier citation of these two rules is no longer a valid
+ * citation (old journals fail closed, no legacy reader).
+ */
+export const F027_CURRENT_LOOK_LOWERING_SOURCE = {
+  artifact: "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+  native_pin: "2026-10-31T06:30:53.024Z",
+} as const;
+
+const LOWERED_WORLD_CLAUSE = "§3A — Frozen executable lowering: World-State current-look premise";
+const LOWERED_SCENE_CLAUSE =
+  "§3B — Frozen executable lowering: Referee ordinary-look scene decision";
+const CURRENT_LOOK_LOWERING_LINEAGE = (id: string, section: string): string =>
+  `F-027 v1.0 additive executable lowering ${id}, section '${section}' (native pin ${F027_CURRENT_LOOK_LOWERING_SOURCE.native_pin}, ${F027_CURRENT_LOOK_LOWERING_SOURCE.artifact}), COMPOSES_WITH F-027 v1.0 (native pin 2026-09-29T00:40:44.707Z, https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639); not a 2026-09-25 frozen-source quotation`;
+const ACTIVE_LOOK_RATIFIED_LINEAGE =
+  "Sovereign-ratified Active-PC Current-Look Physical Premise — Additive Section — 31 October 2026 (native pin 2026-10-31T03:34:15.074Z, https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d); Sovereign ratification and narrow historical-exception record (native pin 2026-10-31T05:28:54.280Z, https://app.notion.com/p/40a20af901e081189358cb60bae11ccd); F-027 PC-CURRENT-LOOK-PREMISE-LINEAGE is non-executable, not a September frozen-source quote";
+const I002_VIEWING_LINEAGE =
+  "I-002 §4.3: position and local world-locus differences remain runtime physical state, not intrinsic PC state (native pin 2026-09-25T00:15:54.536Z, https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718); the F-016 v0.4 candidate manifest (native pin 2026-09-25T13:48:12.575Z, https://app.notion.com/p/3e620af901e0812bb807d234d88fadb6) is supporting conformance evidence, not itself ratification";
+
+/**
+ * The ONE constructor of the two current-look citations. It is deliberately not `rule()`, whose 25 September basis and ratification
+ * strings would misstate this October lowering: the citation is the lowering page itself, at the pin both lock rows carry, with the
+ * lowering's own deterministic lineage first and the ratified section second, followed by the caller's remaining lineage in order.
+ */
+const currentLookRule = (
+  loweringId: string,
+  clause: string,
+  lineage: readonly string[],
+): SourceRef => ({
+  artifact: F027_CURRENT_LOOK_LOWERING_SOURCE.artifact,
+  native_pin: F027_CURRENT_LOOK_LOWERING_SOURCE.native_pin,
+  clause,
+  authority_lineage: [
+    CURRENT_LOOK_LOWERING_LINEAGE(loweringId, clause),
+    ACTIVE_LOOK_RATIFIED_LINEAGE,
+    ...lineage,
+  ],
+  effective_basis: "pinned-by-spec-lock",
+  supersedes: null,
+});
+
+/**
+ * The World-State physical custodian's publication of the SUPPORTED current viewing circumstance of the active PC (runtime physical
+ * context): source-locked by the `PC-CURRENT-LOOK-WORLD-LOWERING` row (IM-03, `world_pc_current_viewing`, no operation key). The
+ * historical WG quotation in `GM_FIRST_PLAY_LINEAGE` stays disclosed as not independently verified; it is not the authority.
+ */
+export const WORLD_PC_CURRENT_VIEWING_RULE: SourceRef = currentLookRule(
+  "PC-CURRENT-LOOK-WORLD-LOWERING",
+  LOWERED_WORLD_CLAUSE,
+  [F016_LINEAGE, I002_VIEWING_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
 );
 
 /**
@@ -2352,17 +2401,15 @@ export const REFEREE_OBSERVATION_RULE: SourceRef = {
 
 /**
  * The scene decision's own governing citation: an exclusive current rule for the \`GM_SCENE_RESOLUTION\` value class (see
- * \`FactKind.alternateRules\`); the other four decisions keep their own.
+ * \`FactKind.alternateRules\`); the other four decisions keep their own. It is source-locked by the \`GM-CURRENT-LOOK-SCENE-LOWERING\`
+ * row (IM-12, \`referee_decision\`, operation \`GM_SCENE_RESOLUTION\` only) and by nothing wider: the kind-level \`REFEREE_RULE\`, the
+ * physical and the observation rules above stay as they were (B61-A3, not spec-locked) and are not licensed through this operation.
  */
-export const REFEREE_SCENE_RULE: SourceRef = {
-  artifact: GM_FIRST_PLAY_BRIEF_SOURCE.artifact,
-  native_pin: GM_FIRST_PLAY_BRIEF_SOURCE.native_pin,
-  clause:
-    "Decision 1 (the GM rules, through the existing provider-neutral referee pattern, whether an ORDINARY look is physically supported at one basis, distinguishing ordinary implied means from a materially new commitment and respecting established vetoes; the interpretation is anchored to verbatim quotations of delivered premises, the engine validates and derives the verdict, and the retained record is create-only RC-09/IM-12 provenance, never a physical-truth or knowledge ledger)",
-  authority_lineage: [REFEREE_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
-  effective_basis: "blue-bounded-brief-not-spec-locked",
-  supersedes: null,
-};
+export const REFEREE_SCENE_RULE: SourceRef = currentLookRule(
+  "GM-CURRENT-LOOK-SCENE-LOWERING",
+  LOWERED_SCENE_CLAUSE,
+  [REFEREE_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
 
 /**
  * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the

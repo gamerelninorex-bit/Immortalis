@@ -38,7 +38,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/production/admission.ts":
     "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
   "packages/engine/src/owners/registry.ts":
-    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/world/canonical-campaign.ts":
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/operator/src/locality.ts":
@@ -57,7 +57,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, contracts, the Production owner, the registry, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -127,7 +127,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T04:15:36.156Z");
     expect(doc).toContain("6021693c1cf79e4a9c5d9216b7211fb65726c193");
-    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
+    expect(doc).toContain("d63ccd859f6f2da1728ee13c6d25b062804f3293");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no collection, conversion, delivery, entitlement, title or downstream success", () => {

@@ -58,7 +58,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/population/integrity.ts":
     "a34b8d131e542f41556b0a3beb629fd40b1d83b0b9bd6a51b3621ca90156ae09",
   "packages/engine/src/owners/registry.ts":
-    "6576bcd346c9f4c8c582f99fe2c04d28912b339399a4465c0bd251e5f57002e4",
+    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/world/canonical-campaign.ts":
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/temporal/coordinator.ts":
@@ -85,7 +85,7 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the F-027 lock is the pinned blob, and the gates, register, contracts, the Population and Temporal owners, the registry, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -191,7 +191,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T07:02:36.427Z");
     expect(doc).toContain("40527749b68781f008c6b59e97f5cf90db24618b");
-    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
+    expect(doc).toContain("d63ccd859f6f2da1728ee13c6d25b062804f3293");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no actor, mind, labour, demography, perception, collection or Cohort outcome", () => {
