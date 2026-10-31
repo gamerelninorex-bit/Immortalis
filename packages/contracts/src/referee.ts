@@ -528,7 +528,7 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *                        states them, read with lawful physical-owner evidence. This context has no separately identified PC sensory-position
  *                        owner record: generic world facts cannot replace placement. A shared locus and the faculty alone do not;
  *   CURRENT_VIEWING      (only when the World-State physical custodian published one for THIS basis) the owner-published, SUPPORTED current viewing
- *                        ordinary-look feasibility (`context.facts`, `fact_id` `viewing.current`): fixed typed verdict, instant, five-version
+ *                        ordinary-look feasibility (`context.facts`, `fact_id` `viewing.current`): fixed typed SUPPORTED state, instant, five-version
  *                        basis and lawful provenance only. GM circumstance prose is not delivered. This kind cannot establish faculty,
  *                        position, orientation, eye state, path or payload; retained as a readable kind, never as sensory evidence;
  *   WORLD_FACT           a committed world, locus or (source-scoped questions only) Source Condition access fact (`context.facts`, by

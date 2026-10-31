@@ -35,7 +35,7 @@ const MODIFIED: Record<string, string> = {
   "packages/contracts/src/epistemic-access.ts":
     "a7f2d4bf7ae5abedfd34a3f73f45b67ebab3521c7ff60d6a93feeb823cad865c",
   "packages/contracts/src/referee.ts":
-    "3b07a22105772f0021a5631f50b8a69bc2ae3fb103a092ee7e99ae24be7b8303",
+    "178d48973276819a891997c7dab73b7b8de11e49c2272ffdbda191d266613d68",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/epistemic/adapter.ts":
