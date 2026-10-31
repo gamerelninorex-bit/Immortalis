@@ -20,12 +20,6 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
-const gitBlob = (file: string) => {
-  const body = readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest("hex");
-};
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
@@ -45,6 +39,9 @@ const bodyOf = (file: string, from: string, to: string): string => {
 };
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 3b06e6591303e72ee7523555dc08d13c4c9c7d5b. */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
@@ -72,8 +69,6 @@ const UNCHANGED: Record<string, string> = {
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
   "packages/engine/src/world/canonical-campaign.ts":
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
-  "packages/engine/src/owners/registry.ts":
-    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":
@@ -96,12 +91,8 @@ const DERIVE = "packages/engine/src/logistics/derive.ts";
 const DERIVE_AT_SLICE_HEAD = "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4";
 
 describe("existing owners and predecessors are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor, the owner registry and the Temporal kernel are byte-identical to the base", () => {
+  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor and the Temporal kernel are byte-identical to the base (not the owner registry, which F-027 v0.8 changed on purpose)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
-  });
-
-  it("the F-027 spec lock is unchanged: blob d63ccd859f6f2da1728ee13c6d25b062804f3293", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
   });
 
   it("the one engine edit is the Logistics derivation, narrowed and nothing else: the route-less foundation, every other refusal and the single corridor read remain", () => {
@@ -319,7 +310,7 @@ describe("the gateway advances no time, resolves nothing, plans no route, invent
       "MECHANISM ONLY",
       "2026-10-22T16:13:49.400Z",
       "3b06e6591303e72ee7523555dc08d13c4c9c7d5b",
-      "d63ccd859f6f2da1728ee13c6d25b062804f3293",
+      "2df29edfd08b1fb986666c94153f9432cf227324",
       "2026-10-08T01:25:36.611Z",
       "commit_confirmed_pc_corridor_relocation",
       "bindTrustedConfirmedPcCorridorRelocationContext",

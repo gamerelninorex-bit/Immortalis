@@ -25,14 +25,11 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
-const gitBlob = (file: string) => {
-  const body = readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest("hex");
-};
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 40527749b68781f008c6b59e97f5cf90db24618b. */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -57,8 +54,6 @@ const UNCHANGED: Record<string, string> = {
     "f9e49354a379144fb3244ce33b2f758f4eb459aabd8aeb13183168eabdfeec1b",
   "packages/engine/src/population/integrity.ts":
     "a34b8d131e542f41556b0a3beb629fd40b1d83b0b9bd6a51b3621ca90156ae09",
-  "packages/engine/src/owners/registry.ts":
-    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
   "packages/engine/src/world/canonical-campaign.ts":
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
   "packages/engine/src/temporal/coordinator.ts":
@@ -84,8 +79,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the operator is touched", () => {
-  it("the F-027 lock is the pinned blob, and the gates, register, contracts, the Population and Temporal owners, the registry, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
+  it("the gates, register, contracts, the Population and Temporal owners, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -191,7 +185,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T07:02:36.427Z");
     expect(doc).toContain("40527749b68781f008c6b59e97f5cf90db24618b");
-    expect(doc).toContain("d63ccd859f6f2da1728ee13c6d25b062804f3293");
+    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no actor, mind, labour, demography, perception, collection or Cohort outcome", () => {

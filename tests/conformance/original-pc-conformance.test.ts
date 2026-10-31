@@ -38,8 +38,10 @@ const importedNames = (file: string, from: string): string[] =>
     .filter(Boolean);
 
 /** Everything the slice composes or must leave untouched, byte-identical to main 884d09e889d6908e0244a7dbdfb49bbdde060843. */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -76,6 +78,10 @@ const UNCHANGED: Record<string, string> = {
  * physical-locus custody) later modified canonical-campaign.ts and owners/registry.ts again: the `head` pins below follow that change, and the
  * v5.1 scoped deltas (with their own main and head hashes) are listed in original-pc-locus-conformance.test.ts.
  */
+// owners/registry.ts is deliberately NOT compared with the working tree here: PR #94 changed it on purpose (the viewing and scene kinds, then
+// the F-027 v0.8 source-locked citations), so its `head` below stays the ORIGINAL value main carried (8fda533) as history. Its current
+// identity is asserted by current-look-lowering-conformance.test.ts, labeled as the current v0.8 expectation, never as a main or PR #61 pin.
+const CHANGED_ON_PURPOSE_LATER = new Set(["packages/engine/src/owners/registry.ts"]);
 const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/engine/src/world/canonical-campaign.ts": {
     base: "da14f15afdd6024e7d3ff3996fab0c1f711e013addda368aa38f92696608e761",
@@ -87,7 +93,7 @@ const B61_A3_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "7ce3421f88478795adbd05bd8e6b43c5d31322420fc61748b0af43043598a1d9",
-    head: "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/owners/admission.ts": {
     base: "95846b5c2471939ffd8d2d968de19ba5fafafca8f142479976805953d7193272",
@@ -109,7 +115,7 @@ describe("the owners, contracts, shipped binary and frozen artifacts: untouched 
     ]);
     for (const [file, { base, head }] of Object.entries(B61_A3_SCOPED_DELTAS)) {
       expect(base, file).not.toBe(head);
-      expect(sha(file), file).toBe(head);
+      if (!CHANGED_ON_PURPOSE_LATER.has(file)) expect(sha(file), file).toBe(head);
     }
   });
 

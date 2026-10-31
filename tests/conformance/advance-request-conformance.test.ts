@@ -19,8 +19,10 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base e799fb8: the slice consumes or stands beside every one of these, and edits none. */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -119,16 +121,11 @@ const NEW_MODULES = [
 ];
 
 describe("existing owners, the gateway, the Temporal kernel, GIP, the command set and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the F-027 lock, runtime-contract snapshot, register and gates, the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the spec lock is the same Git blob the PR #70 closeout verified, and the frozen pins are the brief's", () => {
-    const blob = createHash("sha1")
-      .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
-      .update(readFileSync("spec/f027/spec-lock.json"))
-      .digest("hex");
-    expect(blob).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
+  it("the frozen pins are the brief's", () => {
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014B")).toBe("2026-09-25T23:42:29.547Z");
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");

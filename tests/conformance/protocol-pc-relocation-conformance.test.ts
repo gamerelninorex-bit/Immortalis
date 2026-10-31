@@ -34,6 +34,9 @@ const walk = (d: string): string[] =>
   );
 
 /** Every module the gateway composes or must leave untouched, as it stood at the forty-second base (main d8307d5). */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
@@ -65,8 +68,6 @@ const UNCHANGED: Record<string, string> = {
     "4eb298089ebfd930f40d80a1ea6fb433bfc4308f7aef2454c469f1ae773f1fef",
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
-  "packages/engine/src/owners/registry.ts":
-    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/projection/event-signal.ts":
@@ -80,7 +81,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners and predecessors are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the PC movement contract, the PC-owned facts, Logistics, World-State custody, the owner registry, the Temporal kernel, IM-13/IM-14 and the two read-only operations are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the PC movement contract, the PC-owned facts, Logistics, World-State custody, the Temporal kernel, IM-13/IM-14 and the two read-only operations are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head (the owner registry is not pinned here: F-027 v0.8 changed it on purpose)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

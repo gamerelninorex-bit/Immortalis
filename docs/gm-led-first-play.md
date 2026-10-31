@@ -242,9 +242,13 @@ source-locks the two registry citations this PR introduced. The carrier is the N
   `tests/integration/current-look-citation.test.ts` (new citations on a fresh disposable campaign and strict replay, admission and load refusals, the
   seven engine-derived verdicts and publication only for `VIEWING_SUPPORTED`, the scene citation admitting the real scene record and no other
   operation's), and `tests/integration/current-look-clause3.test.ts` (clause 3 at the mechanism level: what a supported ruling may not rest on, and the Stage A absence of any Health or separately owned sensory record; see L12). Same-basis rewording, change of instant or version, independent placement, the vetoing and sensor-limited characters and the
-  GM-prose-is-not-position cases are the existing `gm-scene` and `current-look-premise` tests, unchanged. Existing pins of the lock and the registry
-  (file hashes and git blob) were re-pinned as earlier lock changes did; the one-row-per-lineage and two-row-lowering counts in the older lock
-  conformance tests were updated to four lowerings and five lineage rows without weakening their identity, status, scope and no-source-pin guards.
+  GM-prose-is-not-position cases are the existing `gm-scene` and `current-look-premise` tests, unchanged. The older lock tests that counted rows were updated to four lowerings and five lineage
+  rows without weakening their identity, status, scope and no-source-pin guards. **Provenance (BLUE H-PROVENANCE repair):** the historical
+  foundation documents keep their original statements, including the original lock blob `2df29edf…`, and the older suites no longer list
+  `spec/f027/spec-lock.json` or `packages/engine/src/owners/registry.ts` as "byte-identical to main" or to a PR #61 head, because this PR changed both
+  on purpose. Their original values stay as history (an old suite's registry `head` is the value main carried), the other byte pins stay, and the
+  dedicated test proves the original lock is exactly the current lock minus the three v0.8 rows (same git blob and SHA-256), states today's lock and
+  registry identities once, labeled as the current v0.8 expectation, and fails if an older suite or a historical document states them again.
 - **What this does not do.** It clears no gate and builds no Health record: the scene task carries **no Health or separately owned sensory record**,
   so it cannot certify Health clearance or close Health S1 (an empty Health ledger is not proof of impairment for a qualified active PC, and not
   proof of a faculty either). Implied attention or eye-opening language classifies the request only; it is never an owner fact. H3/D-2, L5, the genuine

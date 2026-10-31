@@ -730,3 +730,130 @@ describe("the registry: the two citations are the lowering page itself, built by
     expect(sha(REFEREE_SCENE_RULE)).not.toBe(PRE_LOWERING_SCENE_RULE_SHA256);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// PROVENANCE (BLUE H-PROVENANCE hold, 31 October 2026). The F-027 lock and the owner registry were changed ON PURPOSE by this PR. An older
+// suite or foundation document that says "unchanged since main" was true of ITS slice and stays a statement about that slice: it may not be
+// quietly re-pinned to today's bytes. Original values are kept here as history; today's identities are asserted ONLY here, and labeled as such.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/** ORIGINAL values: what main (8fda533, and PR #94 up to 853f2da for the lock) carried. History, not expectations about the working tree. */
+const ORIGINAL_MAIN_LOCK_BLOB = "2df29edfd08b1fb986666c94153f9432cf227324";
+const ORIGINAL_MAIN_LOCK_SHA256 =
+  "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6";
+const ORIGINAL_MAIN_REGISTRY_SHA256 =
+  "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
+/** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
+const CURRENT_V08_LOCK_SHA256 = "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c";
+const CURRENT_V08_REGISTRY_SHA256 =
+  "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116";
+
+const gitBlobOf = (text: string): string => {
+  const body = Buffer.from(text, "utf8");
+  return createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
+    .digest("hex");
+};
+const sha256Of = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
+const lf = (text: string): string => text.replace(/\r\n/g, "\n");
+
+/** The lock with exactly the three v0.8 rows removed and nothing else touched, serialised the way the lock is written. */
+function lockWithoutV08Rows(): string {
+  const copy = JSON.parse(rawLock) as Record<string, any>;
+  copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
+    (r: any) => r.id !== LINEAGE_ID,
+  );
+  copy["executable_lowerings"] = copy["executable_lowerings"].filter(
+    (r: any) => r.id !== WORLD_ID && r.id !== SCENE_ID,
+  );
+  return JSON.stringify(copy, null, 2) + "\n";
+}
+
+const HISTORICAL_FOUNDATION_DOCS = [
+  "docs/additional-locality-admission-foundation.md",
+  "docs/additional-source-admission-foundation.md",
+  "docs/initial-local-demand-admission-foundation.md",
+  "docs/initial-population-admission-foundation.md",
+  "docs/initial-timed-governance-admission-foundation.md",
+  "docs/production-reserve-admission-foundation.md",
+  "docs/protocol-pc-corridor-relocation-foundation.md",
+  "docs/source-qualified-observation-foundation.md",
+  "docs/world-corridor-logistics-read-foundation.md",
+];
+
+/** Every spot in a test or document that states one of TODAY'S lock or registry identities (the conflation this guard forbids elsewhere). */
+function currentIdentitiesIn(text: string): string[] {
+  const current = [
+    CURRENT_V08_LOCK_SHA256,
+    CURRENT_V08_REGISTRY_SHA256,
+    gitBlobOf(lf(rawLock)),
+    BUILD_SPEC_IDENTITY.spec_lock_sha256,
+  ];
+  return [...new Set(current)].filter((c) => text.includes(c));
+}
+
+describe("provenance: original identities are history, today's are asserted only here and labeled as today's (H-PROVENANCE)", () => {
+  it("the ORIGINAL main lock is exactly the current lock minus the three v0.8 rows: same git blob and SHA-256 as before this PR touched it", () => {
+    const original = lockWithoutV08Rows();
+    expect(gitBlobOf(original)).toBe(ORIGINAL_MAIN_LOCK_BLOB);
+    expect(sha256Of(original)).toBe(ORIGINAL_MAIN_LOCK_SHA256);
+    // ... and the current lock is a different file: the change is real and additive, not hidden by the reconstruction
+    expect(sha256Of(lf(rawLock))).not.toBe(ORIGINAL_MAIN_LOCK_SHA256);
+    expect(gitBlobOf(lf(rawLock))).not.toBe(ORIGINAL_MAIN_LOCK_BLOB);
+  });
+
+  it("CURRENT v0.8 head expectations (not original-main pins): the lock and the owner registry", () => {
+    expect(sha256Of(lf(rawLock))).toBe(CURRENT_V08_LOCK_SHA256);
+    expect(BUILD_SPEC_IDENTITY.spec_lock_sha256).toBe(CURRENT_V08_LOCK_SHA256);
+    const registry = lf(readFileSync("packages/engine/src/owners/registry.ts", "utf8"));
+    expect(sha256Of(registry)).toBe(CURRENT_V08_REGISTRY_SHA256);
+    // the registry is no longer what main carried: PR #94 changed it on purpose, so no suite may call it unchanged since main
+    expect(CURRENT_V08_REGISTRY_SHA256).not.toBe(ORIGINAL_MAIN_REGISTRY_SHA256);
+  });
+
+  it("the historical foundation documents keep their ORIGINAL time-scoped statements: each names the original lock blob and not today's", () => {
+    const today = gitBlobOf(lf(rawLock));
+    expect(today).not.toBe(ORIGINAL_MAIN_LOCK_BLOB);
+    for (const doc of HISTORICAL_FOUNDATION_DOCS) {
+      const text = readFileSync(doc, "utf8");
+      expect(text, doc).toContain(ORIGINAL_MAIN_LOCK_BLOB);
+      expect(text, doc).not.toContain(today);
+      expect(currentIdentitiesIn(text), doc).toEqual([]);
+    }
+  });
+
+  it("no older suite or document states today's lock or registry identity: they assert history, and today's identities live only in this test", () => {
+    const here = "tests/conformance/current-look-lowering-conformance.test.ts";
+    const found: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else if (/\.(ts|md)$/.test(entry.name) && path !== here) {
+          const hits = currentIdentitiesIn(readFileSync(path, "utf8"));
+          // the generated build identity is the lock's own mirror, and the PR text may cite it: only suites and the historical documents are policed
+          if (hits.length > 0 && path !== "packages/contracts/src/spec-identity.ts")
+            found.push(`${path}: ${hits.join(", ")}`);
+        }
+      }
+    };
+    walk("tests");
+    walk("docs");
+    expect([...new Set(found)]).toEqual([]);
+  });
+
+  it("the guard is not vacuous: a suite that re-pinned today's lock or registry value into an old 'unchanged since main' map is caught", () => {
+    const repinnedLock = `const UNCHANGED = { "spec/f027/spec-lock.json": "${CURRENT_V08_LOCK_SHA256}" }; // byte-identical to main`;
+    const repinnedRegistry = `"packages/engine/src/owners/registry.ts": "${CURRENT_V08_REGISTRY_SHA256}", // exactly as it stood at the base`;
+    const repinnedBlob = `expect(blob).toBe("${gitBlobOf(lf(rawLock))}"); // the spec lock is unchanged`;
+    expect(currentIdentitiesIn(repinnedLock)).toEqual([CURRENT_V08_LOCK_SHA256]);
+    expect(currentIdentitiesIn(repinnedRegistry)).toEqual([CURRENT_V08_REGISTRY_SHA256]);
+    expect(currentIdentitiesIn(repinnedBlob)).toEqual([gitBlobOf(lf(rawLock))]);
+    // the original values, which the old suites may keep stating as history, are not flagged
+    expect(
+      currentIdentitiesIn(
+        `${ORIGINAL_MAIN_LOCK_BLOB} ${ORIGINAL_MAIN_LOCK_SHA256} ${ORIGINAL_MAIN_REGISTRY_SHA256}`,
+      ),
+    ).toEqual([]);
+  });
+});

@@ -35,14 +35,11 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
-const gitBlob = (file: string) => {
-  const body = readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest("hex");
-};
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 9f7a8f425a296784a2460c6f68eb4f4e6f502e7a. */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -80,8 +77,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the corridor and its one consumer is touched", () => {
-  it("the F-027 lock is the pinned blob, and the gates, register, World-State contracts, the temporal coordinator, the delivery/retirement providers, the temporal declaration, the locus resolver, the ECT-01 seam and the session are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("d63ccd859f6f2da1728ee13c6d25b062804f3293");
+  it("the gates, register, World-State contracts, the temporal coordinator, the delivery/retirement providers, the temporal declaration, the locus resolver, the ECT-01 seam and the session are byte-identical to main", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -247,7 +243,7 @@ describe("the document states what the slice is and is not", () => {
   it("exists, pins the brief and the base, and keeps every gate where it was", () => {
     expect(doc).toContain("2026-10-22T13:47:37.910Z");
     expect(doc).toContain("9f7a8f425a296784a2460c6f68eb4f4e6f502e7a");
-    expect(doc).toContain("d63ccd859f6f2da1728ee13c6d25b062804f3293");
+    expect(doc).toContain("2df29edfd08b1fb986666c94153f9432cf227324");
     expect(doc).toContain("F-028/OB-030 remains Blocked");
   });
   it("claims no route calibration, travel time, access, delivery, original-PC travel or actor agreement", () => {

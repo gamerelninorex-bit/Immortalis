@@ -20,10 +20,7 @@ const BRIEF_ID = "3f920af901e081898168eef701fe0ea2";
 const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
-  it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
-    expect(sha("spec/f027/spec-lock.json")).toBe(
-      "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
-    );
+  it("the spec-lock keeps the package and the CD1 addendum at their pins (its file identity is asserted by current-look-lowering-conformance: F-027 v0.8 added to it on purpose)", () => {
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
       implementation_authority_addenda: { id: string; native_pin: string }[];
@@ -63,8 +60,10 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
+  // Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+  // to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+  // history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":
@@ -86,8 +85,6 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
-    "packages/engine/src/owners/registry.ts":
-      "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
     "packages/engine/src/world/canonical-campaign.ts":
       "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator

@@ -42,7 +42,7 @@ const BRIEF_ID = "3f620af901e0811abc1ee604de833a41";
 const BRIEF_PIN = "2026-10-11T05:30:16.307Z";
 
 describe("IA-01 source/version fidelity: the composed authority is cited at the exact pins; no pin moved", () => {
-  it("the spec-locked pins this slice rests on are the exact pins observed at the base, and the lock itself is byte-identical", () => {
+  it("the spec-locked pins this slice rests on are the exact pins observed at the base (the lock file itself is asserted by current-look-lowering-conformance: F-027 v0.8 added to it on purpose)", () => {
     expect(pin("WG").native_pin).toBe("2026-09-25T13:44:22.668Z");
     expect(pin("IR").native_pin).toBe("2026-09-25T00:17:26.287Z");
     expect(pin("I-002").native_pin).toBe("2026-09-25T00:15:54.536Z");
@@ -52,9 +52,6 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       artifact: pin("I-002").url,
       native_pin: pin("I-002").native_pin,
     });
-    expect(sha("spec/f027/spec-lock.json")).toBe(
-      "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
-    );
   });
 
   it("the BLUE v5.1 brief is recorded as a construction source and is NOT a spec-lock pin", () => {
@@ -251,8 +248,10 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -308,6 +307,10 @@ const UNCHANGED: Record<string, string> = {
  * any further edit is a new, visible change to this table. Files the slice only ADDED are not listed.
  */
 // DELTAS:BEGIN
+// owners/registry.ts is deliberately NOT compared with the working tree here: PR #94 changed it on purpose (the viewing and scene kinds, then
+// the F-027 v0.8 source-locked citations), so its `head` below stays the ORIGINAL value main carried (8fda533) as history. Its current
+// identity is asserted by current-look-lowering-conformance.test.ts, labeled as the current v0.8 expectation, never as a main or PR #61 pin.
+const CHANGED_ON_PURPOSE_LATER = new Set(["packages/engine/src/owners/registry.ts"]);
 const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/contracts/src/pc-locus-custody.ts": {
     base: "72d543bfb838dfe8d0bfae946da617623e14de7d6235faf5613f5d9de0ea7b9e",
@@ -319,7 +322,7 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   },
   "packages/engine/src/owners/registry.ts": {
     base: "15cefc0e7a70f61440536ac0e59326cad76889743d11396fbbcd7fda6f4639c3",
-    head: "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116",
+    head: "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   },
   "packages/engine/src/pc-movement/derive.ts": {
     base: "cc1f2dd3fa2ce1ba1c95c9cd9f3748a8bb18d58f432f170474413b93ae3f00a4",
@@ -390,7 +393,7 @@ describe("the existing source files BLUE v5.1 modified are exactly the scoped de
     expect(Object.keys(V51_SCOPED_DELTAS).sort()).toEqual(EXPECTED_DELTA_FILES);
     for (const [file, { base, head }] of Object.entries(V51_SCOPED_DELTAS)) {
       expect(base, file).not.toBe(head);
-      expect(sha(file), file).toBe(head);
+      if (!CHANGED_ON_PURPOSE_LATER.has(file)) expect(sha(file), file).toBe(head);
     }
   });
 });

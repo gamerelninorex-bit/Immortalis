@@ -31,6 +31,9 @@ const walk = (d: string): string[] =>
   );
 
 /** Every module the gateway composes or must leave untouched, as it stood at the forty-fifth base (main 7265550). */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
@@ -82,8 +85,6 @@ const UNCHANGED: Record<string, string> = {
     "294369e690f0d7c70d5f3750e60809ceabff54768ec4cca2c423e2434a984a2d",
   "packages/engine/src/pc-capability/provider.ts":
     "74fc2146cc4692ef42fd50f1d501bb210d476037f973620e8f3d83e18e5f061f",
-  "packages/engine/src/owners/registry.ts":
-    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
@@ -92,7 +93,6 @@ const UNCHANGED: Record<string, string> = {
     "9b1713f26f43b1eb58725ce5e88ea3499a52c5ede08d8838de7d1367d9f5031d",
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
-  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -101,7 +101,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, the Temporal kernel, the predecessor gateways and the frozen artifacts are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the Temporal kernel and schemas, every shipped owner stage provider, the canonical campaign, the owner registry, the predecessor gateways, IM-13/IM-14 and the frozen F-027 artifacts are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the Temporal kernel and schemas, every shipped owner stage provider, the canonical campaign, the predecessor gateways, IM-13/IM-14 and the frozen F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

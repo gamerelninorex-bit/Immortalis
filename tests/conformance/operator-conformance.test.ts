@@ -35,8 +35,10 @@ const importedNames = (file: string, from: string): string[] =>
     .filter(Boolean);
 
 /** Everything the mechanism composes or must leave untouched, exactly as it stood at the base (main f0e4069). */
+// Not listed here, on purpose: spec/f027/spec-lock.json and packages/engine/src/owners/registry.ts. PR #94 changed both (F-027 v0.8 added
+// to the lock and source-locked two registry citations), so "byte-identical to main" is no longer true of either. Their original values stay in
+// history; their CURRENT identities are asserted only by current-look-lowering-conformance.test.ts, labeled as current v0.8 expectations.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -64,8 +66,6 @@ const UNCHANGED: Record<string, string> = {
     "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
-  "packages/engine/src/owners/registry.ts":
-    "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -85,7 +85,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
-  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package and the F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
