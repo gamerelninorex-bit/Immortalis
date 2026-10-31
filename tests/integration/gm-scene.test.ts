@@ -1,0 +1,588 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- scripted host documents and raw owner facts are untyped JSON */
+// MECHANISM ONLY. The Game Master here is a script whose rules this test wrote, the player is a script, the owners are real. These tests show
+// what the ENGINE enforces about a scene ruling (verbatim anchoring, the kind of premise a claim may rest on, withheld values, the derived
+// verdict, sparse owner publication, changed-input task identity, retention). They do NOT show that any AI host reads a request as a Game
+// Master would: that, and every named-client or retained-storage claim, is UNRUN.
+import { chmodSync, cpSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { beforeAll, describe, expect, it } from "vitest";
+import { REFEREE_AUTHORITY } from "@immortalis/contracts";
+import { RefereeAdjudicationAdapter, type CanonicalCampaign } from "@immortalis/engine";
+import {
+  advanceActivePcToTarget,
+  bindTrustedActivePcTargetAdvanceContext,
+  bindTrustedCurrentPlayerContext,
+  readCurrentObservationGlance,
+} from "@immortalis/protocol";
+import { pcTargetTransaction } from "../support/pc-target-advance.ts";
+import { openOrdinary, type LocalityDirs } from "../support/locality.ts";
+import { BASIS, PC_ID, PC_WORDS, observe, redScene, verbConsole } from "../support/observation.ts";
+import { plainPolicy, type Policy } from "../support/original-pc.ts";
+import {
+  SALT_TAU,
+  collectAndComplete,
+  originalCollectionCampaign,
+} from "../support/pc-collection-original.ts";
+import { GLANCE_REQUEST } from "../support/protocol.ts";
+import {
+  PILE_LOOK,
+  bindScene,
+  perceptionPolicy,
+  sceneAnswer,
+  scenePolicy,
+  startScene,
+} from "../support/scene.ts";
+
+const boundary = { unit: BASIS.unit, value: BASIS.value + 3 * SALT_TAU };
+const LOOK = "at the pale material I have just gathered";
+
+let master: LocalityDirs;
+beforeAll(async () => {
+  // The positive has independent affirmative placement evidence; the GM prose supplies none.
+  const made = await originalCollectionCampaign({
+    scene: redScene(),
+    presence: PC_WORDS.presence,
+  });
+  const c = await openOrdinary(made.dirs.campaignDir);
+  try {
+    await collectAndComplete(c, "act-scene", 3, "tx-scene", boundary);
+  } finally {
+    await c.close();
+  }
+  master = made.dirs;
+}, 300_000);
+
+/** a private byte-for-byte copy of the completed collection (same identities, same hosts, nothing observed yet) */
+function copy(): LocalityDirs {
+  const root = dirname(master.campaignDir);
+  const to = join(dirname(root), `copy-${Math.random().toString(36).slice(2)}`);
+  cpSync(root, to, { recursive: true });
+  const priv = (d: string): void => {
+    chmodSync(d, 0o700);
+    for (const e of readdirSync(d, { withFileTypes: true }))
+      if (e.isDirectory()) priv(join(d, e.name));
+  };
+  priv(to);
+  return {
+    campaignDir: join(to, master.campaignDir.slice(root.length + 1)),
+    operatorDir: join(to, master.operatorDir.slice(root.length + 1)),
+  };
+}
+
+const perceive: Policy = perceptionPolicy(plainPolicy);
+
+/** the owners' own facts, read afresh and independently of the code under test */
+async function owners(dirs: LocalityDirs) {
+  const c = await openOrdinary(dirs.campaignDir);
+  try {
+    const facts = c.store.listFacts();
+    const by = (re: RegExp) => facts.filter((f) => re.test(f.key));
+    return {
+      viewing: by(/^world-state\/pc\/[^/]+\/current-viewing\//),
+      keys: facts.map((f) => f.key),
+      owned: facts.filter((f) => f.owner === "world_state" || f.owner === "production"),
+      decisions: by(/^referee\/[0-9a-f]{64}\/decision$/),
+      events: by(/^access\/[^/]+\/event$/),
+      time: (c.store.getFact("temporal/state")!.value as any).canonical_time.value as number,
+      raw: Object.fromEntries(facts.map((f) => [f.key, JSON.stringify(f)])),
+      verify: c.verify(),
+    };
+  } finally {
+    await c.close();
+  }
+}
+
+const kindOf = (f: any): string => f.value.operation;
+
+async function glance(dirs: LocalityDirs) {
+  const c = await openOrdinary(dirs.campaignDir);
+  try {
+    return readCurrentObservationGlance(
+      bindTrustedCurrentPlayerContext({ view: c.store, recipient_id: PC_ID }),
+      GLANCE_REQUEST(),
+    );
+  } finally {
+    await c.close();
+  }
+}
+
+describe("a natural look, ruled by the Game Master and consumed by the perception question", () => {
+  it("a supported look uses independent placement evidence, cites typed feasibility and earns one receipt without an appearance owner fact", async () => {
+    const dirs = copy();
+    const before = await owners(dirs);
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(
+      dirs.operatorDir,
+      scenePolicy({ statement: "facing the woodpile, eyes open" }),
+    );
+    try {
+      const seen = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(seen.result.status, JSON.stringify(seen.result)).toBe("OBSERVATION_RECEIVED");
+      const after = await owners(dirs);
+      expect(after.viewing).toHaveLength(1);
+      expect(after.events).toHaveLength(1);
+      const decision: any = after.decisions.find(
+        (f) => kindOf(f) === "F014D_DIRECT_PERCEPTION",
+      )!.value;
+      expect(decision.verdict).toBe("OBSERVATION_ESTABLISHED");
+      expect(decision.decision.position.premises.map((p: any) => p.from)).toEqual([
+        "PLACEMENT_STATEMENT",
+      ]);
+      expect(decision.input.refs).toHaveLength(7);
+      expect(decision.input.refs[5].fact_key).toMatch(/^world\/[^/]+\/source-delivery\//);
+      expect(decision.input.refs[6].fact_key).toBe(after.viewing[0]!.key);
+      expect(
+        after.decisions
+          .filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION")
+          .map((f) => (f.value as any).verdict)
+          .sort(),
+      ).toEqual(["LOOK_ORDINARY", "VIEWING_SUPPORTED"]);
+      const written = after.keys.filter((k) => !before.keys.includes(k));
+      expect(
+        written.filter(
+          (k) =>
+            !/^referee\/[0-9a-f]{64}\/decision$/.test(k) &&
+            !/^world-state\/pc\/[^/]+\/current-viewing\//.test(k) &&
+            !/^access\//.test(k) &&
+            !/^temporal\/transaction(-authority)?\/observation-tx-/.test(k) &&
+            !/^epistemic\//.test(k),
+        ),
+      ).toEqual([]);
+      expect(
+        after.keys.filter((k) => !before.keys.includes(k)).some((k) => /appearance/i.test(k)),
+      ).toBe(false);
+      for (const f of after.owned)
+        expect(JSON.stringify(f.value), f.key).not.toMatch(/pale|grains|heap/i);
+      expect(after.time).toBe(before.time);
+      expect(after.verify).toEqual([]);
+      const shown = JSON.stringify(await glance(dirs));
+      expect(shown).toContain(PILE_LOOK);
+      expect(shown).not.toMatch(/\bred\b|gathering|completed|source-delivery|salt|\b3\b/);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
+  it("the same look repeated asks nobody again: the retained rulings and decision answer, nothing is rerolled", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      const first = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(first.result.status).toBe("OBSERVATION_RECEIVED");
+      const held = await owners(dirs);
+      const asked = gm.answered.length;
+      // a scene host that would now rule differently is never consulted: a published circumstance is found by its identity
+      const flipped = startScene(dirs.operatorDir, scenePolicy({ vetoes: /./ }), "gm-scene");
+      const again = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      await flipped.stop();
+      expect(again.result.status).toBe("OBSERVATION_RECEIVED");
+      expect(gm.answered).toHaveLength(asked);
+      expect(flipped.answered).toHaveLength(0);
+      const after = await owners(dirs);
+      expect(after.raw).toEqual(held.raw);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
+  it("a request that carries a materially new commitment is returned to the player: nothing is published, the perception question is never asked, no time passes", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      const before = await owners(dirs);
+      const r = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "after I climb onto the wall, at the far side" },
+        perceive,
+      );
+      expect(r.result.status).toBe("OBSERVATION_NEEDS_CHOICE");
+      expect(JSON.stringify(r.result)).not.toMatch(/climb|wall|salt|\b3\b/i);
+      const after = await owners(dirs);
+      expect(after.viewing).toHaveLength(0);
+      expect(after.events).toHaveLength(0);
+      expect(after.decisions.some((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION")).toBe(false);
+      expect(after.time).toBe(before.time);
+      const ruled = after.decisions.filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION");
+      expect(ruled.some((f) => (f.value as any).verdict === "PLAYER_CHOICE_REQUIRED")).toBe(true);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
+  it("a reworded look at a basis whose circumstance already stands is still ruled on: a materially new commitment in the new words is returned, not dropped", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      const first = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(first.result.status).toBe("OBSERVATION_RECEIVED");
+      const held = await owners(dirs);
+      expect(held.viewing).toHaveLength(1);
+      const asked = gm.answered.length;
+      const again = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "after I climb onto the wall, at the far side" },
+        perceive,
+      );
+      expect(again.result.status).toBe("OBSERVATION_NEEDS_CHOICE");
+      expect(gm.answered.length).toBe(asked + 1); // exactly one new ruling: on the new words
+      const after = await owners(dirs);
+      // the published circumstance and the receipt stand untouched; nothing was added but the sealed ruling on the new words
+      expect(after.viewing.map((f) => after.raw[f.key])).toEqual(
+        held.viewing.map((f) => held.raw[f.key]),
+      );
+      expect(after.events).toHaveLength(1);
+      expect(after.time).toBe(held.time);
+      // an ordinary rewording needs no new publication
+      const ordinary = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "at the grain" },
+        perceive,
+      );
+      expect(ordinary.result.status).toBe("OBSERVATION_RECEIVED");
+      const reworded = await owners(dirs);
+      expect(reworded.viewing).toHaveLength(1);
+      // a changed phrase is not new causality: the same one receipt answers it, and no owner fact was added by it
+      expect(reworded.events).toHaveLength(1);
+      expect(reworded.owned.map((f) => reworded.raw[f.key])).toEqual(
+        held.owned.map((f) => held.raw[f.key]),
+      );
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
+  it("a negative physical result is not rerolled by wording: a paraphrase at the unchanged basis cannot promote it, new words are still classified, and only a changed basis is a new task", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const veto = /ordinary, fully functioning colour vision/;
+    const physical = (after: Awaited<ReturnType<typeof owners>>) =>
+      after.decisions
+        .filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION")
+        .map((f) => (f.value as any).verdict)
+        .filter((v: string) => v.startsWith("VIEWING_"));
+    // 1. a look the character's own words veto: the physical result of this basis is negative, retained as sealed evidence only
+    const unfavourable = startScene(dirs.operatorDir, scenePolicy({ vetoes: veto }));
+    try {
+      const a = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(a.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
+    } finally {
+      await unfavourable.stop();
+    }
+    const held = await owners(dirs);
+    expect(physical(held)).toEqual(["VIEWING_NOT_SUPPORTED"]);
+    expect(held.viewing).toHaveLength(0); // no synthetic negative fact is ever published
+    // 2. the Game Master would now answer favourably to anything: it must never be asked the physical question again at this basis
+    const favourable = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      for (const words of ["at the grain of what I gathered", "at the stuff on the ground", null]) {
+        const r = await observe(
+          dirs,
+          verbConsole("observe-surroundings"),
+          words === null ? {} : { attention: words },
+          perceive,
+        );
+        expect(r.result.status, String(words)).toBe("OBSERVATION_NOT_ESTABLISHED");
+      }
+      // new words are classified (fresh), the physical question is not asked: two paraphrases, two classifications, nothing else
+      expect(favourable.answered).toHaveLength(2);
+      // and a materially new commitment in new words is still returned to the player, not folded into the negative
+      const climb = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: "after I climb onto the wall, at the far side" },
+        perceive,
+      );
+      expect(climb.result.status).toBe("OBSERVATION_NEEDS_CHOICE");
+      expect(favourable.answered).toHaveLength(3);
+      const after = await owners(dirs);
+      expect(after.viewing).toHaveLength(0);
+      expect(after.events).toHaveLength(0);
+      expect(after.decisions.filter((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION")).toHaveLength(
+        held.decisions.filter((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION").length,
+      );
+      expect(physical(after)).toEqual(["VIEWING_NOT_SUPPORTED"]);
+      // the sealed old negative is byte-identical
+      for (const f of held.decisions) expect(after.raw[f.key]).toBe(held.raw[f.key]);
+    } finally {
+      await favourable.stop();
+    }
+    // 3. a genuinely changed basis (canonical time moved through a lawful advance) is a NEW lawful task, and now the same favourable answer holds
+    const c = await openOrdinary(dirs.campaignDir);
+    try {
+      const moved = await advanceActivePcToTarget(
+        bindTrustedActivePcTargetAdvanceContext({
+          campaign: c,
+          pc_id: PC_ID,
+          target: { unit: BASIS.unit, value: boundary.value + 5 },
+          transaction: pcTargetTransaction("tx-h2-moved") as never,
+        }),
+        { operation: "advance_active_pc_to_target" },
+      );
+      expect(moved.ok).toBe(true);
+    } finally {
+      await c.close();
+    }
+    const later = startScene(dirs.operatorDir, scenePolicy());
+    try {
+      const b = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(b.result.status, JSON.stringify(b.result.details)).toBe("OBSERVATION_RECEIVED");
+    } finally {
+      await later.stop();
+    }
+    const end = await owners(dirs);
+    expect(end.viewing).toHaveLength(1);
+    expect(physical(end).sort()).toEqual(["VIEWING_NOT_SUPPORTED", "VIEWING_SUPPORTED"]);
+    for (const f of held.decisions) expect(end.raw[f.key]).toBe(held.raw[f.key]);
+  }, 300_000);
+
+  it("the character's own words can veto a look: the ruling is retained as evidence and nothing is published or perceived", async () => {
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    // the veto is read from the DELIVERED character words (the fixture character has ordinary sight, so the script finds nothing to quote)
+    const gm = startScene(
+      dirs.operatorDir,
+      scenePolicy({ vetoes: /ordinary, fully functioning colour vision/ }),
+    );
+    try {
+      const r = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(r.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
+      const after = await owners(dirs);
+      expect(after.viewing).toHaveLength(0);
+      expect(after.events).toHaveLength(0);
+      expect(
+        after.decisions
+          .filter((f) => kindOf(f) === "GM_SCENE_RESOLUTION")
+          .map((f) => (f.value as any).verdict),
+      ).toContain("VIEWING_NOT_SUPPORTED");
+      expect(after.decisions.some((f) => kindOf(f) === "F014D_DIRECT_PERCEPTION")).toBe(false);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+
+  it("a look at the gathered pile writes no owner fact about its appearance, and one the character cannot see states nothing of it", async () => {
+    // the sight is vetoed by the character's own words: nothing is perceived, so the pile's look is stated nowhere
+    const dirs = copy();
+    await bindScene(dirs.operatorDir);
+    const gm = startScene(
+      dirs.operatorDir,
+      scenePolicy({ vetoes: /ordinary, fully functioning colour vision/ }),
+    );
+    try {
+      const before = await owners(dirs);
+      const r = await observe(
+        dirs,
+        verbConsole("observe-surroundings"),
+        { attention: LOOK },
+        perceive,
+      );
+      expect(r.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
+      expect(JSON.stringify(r.result)).not.toContain(PILE_LOOK);
+      expect(JSON.stringify(await glance(dirs))).not.toContain(PILE_LOOK);
+      const after = await owners(dirs);
+      expect(
+        after.keys.filter((k) => !before.keys.includes(k)).some((k) => /appearance/i.test(k)),
+      ).toBe(false);
+      expect(after.events).toHaveLength(0);
+    } finally {
+      await gm.stop();
+    }
+  }, 300_000);
+});
+
+describe("the engine refuses a scene ruling that is not anchored, whoever sends it", () => {
+  let campaign: CanonicalCampaign;
+  let adapter: RefereeAdjudicationAdapter;
+  beforeAll(async () => {
+    campaign = await openOrdinary(copy().campaignDir);
+    adapter = new RefereeAdjudicationAdapter(campaign.store);
+  });
+
+  // the physical question is asked of the basis alone (a bare look); the player's words are classified by a separate task
+  const viewingDoc = (statement: string | null = null) => {
+    const task = adapter.viewingTask({
+      pc_id: PC_ID,
+      attempt: 0,
+      request: { kind: "LOOK", statement },
+    });
+    if (!task.ok) throw new Error(JSON.stringify(task.error));
+    return { task_id: task.value.task_id, context: task.value.context };
+  };
+  const record = (doc: any, answer: unknown, statement: string | null = null) =>
+    adapter.recordScene({
+      operation: { ...REFEREE_AUTHORITY },
+      host: { host_id: "engine-direct-test", claimed_model: null },
+      pc_id: PC_ID,
+      attempt: 0,
+      kind: "CURRENT_VIEWING",
+      request: { kind: "LOOK", statement },
+      answer,
+    } as any);
+
+  it("a ruling that rests on the request alone is not a physical result", async () => {
+    const doc = viewingDoc();
+    const refused = await record(doc, sceneAnswer(doc, { requestOnly: true }));
+    expect(refused.ok).toBe(false);
+    expect((refused as any).error.code).toBe("GROUNDS_UNSUPPORTED");
+  });
+
+  it("a ruling whose statement carries an engine reference is refused", async () => {
+    const doc = viewingDoc();
+    const refused = await record(doc, sceneAnswer(doc, { statement: `${PC_ID} can look` }));
+    expect(refused.ok).toBe(false);
+    expect((refused as any).error.code).toBe("GROUNDS_UNSUPPORTED");
+  });
+
+  it("an answer for another task, a quotation that is not in the premise, and an uncovered fact are each refused", async () => {
+    const doc = viewingDoc();
+    const wrongTask = { ...(sceneAnswer(doc) as any), task_id: "0".repeat(64) };
+    expect(((await record(doc, wrongTask)) as any).error.code).toBe("TASK_MISMATCH");
+    const forged: any = sceneAnswer(doc);
+    forged.viewing.premises[0].evidence_quote = "a body that can fly";
+    expect(((await record(doc, forged)) as any).error.code).toBe("GROUNDS_UNSUPPORTED");
+    const uncovered: any = sceneAnswer(doc);
+    uncovered.assessments = uncovered.assessments.slice(1);
+    expect(((await record(doc, uncovered)) as any).error.code).toBe("COVERAGE_INCOMPLETE");
+  });
+
+  it("a bare look has no request statement to quote, and a worded one must quote it", async () => {
+    const bare = viewingDoc(null);
+    const quoted: any = sceneAnswer({
+      ...bare,
+      context: { ...bare.context, request: { kind: "LOOK", statement: LOOK } },
+    });
+    const refusedBare = await record(bare, { ...quoted, task_id: bare.task_id }, null);
+    expect(refusedBare.ok).toBe(false);
+    const worded = viewingDoc(LOOK);
+    const unquoted: any = sceneAnswer(worded);
+    unquoted.viewing.request.evidence_quote = "something the player never said";
+    expect(((await record(worded, unquoted, LOOK)) as any).error.code).toBe("GROUNDS_UNSUPPORTED");
+  });
+
+  it("the physical question is asked of the basis alone: its task identity carries no wording, and the words are classified by their own task", () => {
+    const a = viewingDoc(null);
+    const b = viewingDoc(null);
+    expect(a.task_id).toBe(b.task_id);
+    expect(JSON.stringify(a.context)).not.toContain(LOOK);
+    const x = viewingDoc(LOOK);
+    const y = viewingDoc("at the pale stuff I gathered");
+    expect(new Set([a.task_id, x.task_id, y.task_id]).size).toBe(3);
+  });
+
+  it("a worded request is only classified: an answer that also rules on the physical circumstance is refused, and so is a bare look that claims a commitment", async () => {
+    const worded = viewingDoc(LOOK);
+    const ruling: any = sceneAnswer(worded);
+    // the same words, answered as if they carried a physical ruling (the reroll an unchanged basis must never offer)
+    ruling.viewing.state = "SUPPORTED";
+    ruling.viewing.statement = "Nothing prevents an ordinary look now.";
+    ruling.viewing.premises = [
+      {
+        from: "PC_STATEMENT",
+        ref: worded.context.pc[0]!.item_id,
+        evidence_quote: worded.context.pc[0]!.text.slice(0, 12),
+      },
+    ];
+    const refused: any = await record(worded, ruling, LOOK);
+    expect(refused.ok).toBe(false);
+    expect(refused.error.code).toBe("DECISION_INCOHERENT");
+    const bare = viewingDoc(null);
+    const claimed: any = sceneAnswer(bare);
+    claimed.viewing.request.classification = "MATERIAL_NEW_COMMITMENT";
+    expect(((await record(bare, claimed)) as any).error.code).toBe("DECISION_INCOHERENT");
+  });
+
+  it("the output-appearance scene question no longer exists: it cannot be built, and an answer that states an appearance or names that kind is not a decision", () => {
+    expect((adapter as any).appearanceTask).toBeUndefined();
+    const doc = viewingDoc();
+    const stated: any = sceneAnswer(doc);
+    stated.appearance = {
+      state: "RESOLVED",
+      aspects: [{ aspect: "colour", statement: "pale and granular" }],
+      basis: [],
+      rule_ids: ["I001-8"],
+      grounds: "scripted host",
+    };
+    const refused: any = adapter.evaluateScene(doc.context, stated);
+    expect(refused.ok).toBe(false);
+    expect(refused.error.code).toBe("DECISION_INPUT_INVALID");
+    const retiredKind: any = adapter.evaluateScene(doc.context, {
+      ...(sceneAnswer(doc) as any),
+      kind: "OUTPUT_APPEARANCE",
+    });
+    expect(retiredKind.ok).toBe(false);
+    expect(retiredKind.error.code).toBe("DECISION_INPUT_INVALID");
+    // the retired field's old shape, `appearance: null`, as an earlier build of this branch wrote it, is still a readable ruling
+    const legacy: any = adapter.evaluateScene(doc.context, {
+      ...(sceneAnswer(doc) as any),
+      appearance: null,
+    });
+    expect(legacy.ok).toBe(true);
+    expect(legacy.value.verdict).toBe("VIEWING_SUPPORTED");
+  });
+
+  it("the physical owner publishes nothing from a ruling that is not VIEWING_SUPPORTED, from a forged one, or from one made for a stale basis", async () => {
+    const material = viewingDoc("after I climb onto the wall");
+    const recorded: any = await record(
+      material,
+      sceneAnswer(material),
+      "after I climb onto the wall",
+    );
+    expect(recorded.ok).toBe(true);
+    expect(recorded.value.verdict).toBe("PLAYER_CHOICE_REQUIRED");
+    const publication = (task: string) => ({
+      group_id: `forge:${task}:group`,
+      intent_id: `forge:${task}:intent`,
+      cause: `forge:${task}:cause`,
+      basis: "gm-scene-ruling-publication",
+      secrecy: "operator-visible",
+      pc_id: PC_ID,
+      ruling_task_id: task,
+    });
+    const refused = await campaign.establishPcCurrentViewing(publication(material.task_id));
+    expect(refused.ok).toBe(false);
+    const forged = await campaign.establishPcCurrentViewing(publication("f".repeat(64)));
+    expect(forged.ok).toBe(false);
+    expect(campaign.store.listFacts().some((f) => /\/current-viewing\//.test(f.key))).toBe(false);
+  });
+});

@@ -65,6 +65,7 @@ export * from "./population.ts";
 export * from "./presentation.ts";
 export * from "./projection.ts";
 export * from "./referee.ts";
+export * from "./scene.ts";
 export * from "./production.ts";
 export * from "./source-drawdown.ts";
 export * from "./protocol-advance.ts";

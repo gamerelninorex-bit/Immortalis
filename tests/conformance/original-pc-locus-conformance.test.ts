@@ -42,7 +42,7 @@ const BRIEF_ID = "3f620af901e0811abc1ee604de833a41";
 const BRIEF_PIN = "2026-10-11T05:30:16.307Z";
 
 describe("IA-01 source/version fidelity: the composed authority is cited at the exact pins; no pin moved", () => {
-  it("the spec-locked pins this slice rests on are the exact pins observed at the base, and the lock itself is byte-identical", () => {
+  it("the spec-locked pins this slice rests on are the exact pins observed at the base (the lock file itself is asserted by current-look-lowering-conformance: F-027 v0.8 added to it on purpose)", () => {
     expect(pin("WG").native_pin).toBe("2026-09-25T13:44:22.668Z");
     expect(pin("IR").native_pin).toBe("2026-09-25T00:17:26.287Z");
     expect(pin("I-002").native_pin).toBe("2026-09-25T00:15:54.536Z");
@@ -52,9 +52,6 @@ describe("IA-01 source/version fidelity: the composed authority is cited at the 
       artifact: pin("I-002").url,
       native_pin: pin("I-002").native_pin,
     });
-    expect(sha("spec/f027/spec-lock.json")).toBe(
-      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
-    );
   });
 
   it("the BLUE v5.1 brief is recorded as a construction source and is NOT a spec-lock pin", () => {
@@ -171,10 +168,15 @@ describe("one fact kind, no new owner, no new facet: the second basis is an excl
     };
     expect(custody.alternateRules![0]!.admits(handover)).toBe(false);
     const referee = factKind("referee_decision");
-    // the physical-placement citation, and (BLUE v5.2) the direct-perception citation, each exclusive to its own value class
-    expect(referee.alternateRules).toHaveLength(2);
+    // the physical-placement citation, (BLUE v5.2) the direct-perception citation and (GM-led first play) the scene-resolution citation,
+    // each exclusive to its own value class
+    expect(referee.alternateRules).toHaveLength(3);
     expect(referee.alternateRules![0]!.rule).toEqual(REFEREE_PHYSICAL_RULE);
     expect(referee.alternateRules![1]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
+    expect(referee.alternateRules![2]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
+    expect(referee.alternateRules![2]!.admits({ operation: "F014D_DIRECT_PERCEPTION" })).toBe(
+      false,
+    );
     expect(referee.alternateRules![0]!.admits({ operation: "IR_NATIVE_COMPATIBILITY" })).toBe(
       false,
     );
@@ -239,15 +241,17 @@ describe("gates, register and the lock are untouched; nothing was promoted", () 
       );
   });
 
-  it("the frozen F-027 artifacts and every predecessor module the slice consumes unchanged are byte-identical to main", () => {
+  it("the frozen F-027 artifacts and every predecessor module the slice consumes unchanged are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 });
 
 /** Everything the slice consumes and must leave untouched, byte-identical to main edad9da9d1ceda032131dbae2fb52df080da55e9. */
 // UNCHANGED:BEGIN
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
@@ -259,18 +263,12 @@ const UNCHANGED: Record<string, string> = {
     "ee204eb2426b4c86c2a80207fbf1eec2192f0d83d5ae5bb22f469fb86830e681",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
-  "packages/engine/src/owners/admission.ts":
-    "fca2e458f9fd81699243bfa416d26e3e9a49fde4925bf61567972ba6e24d24b0",
   "packages/engine/src/owners/rejection.ts":
     "23cb880a764ae525ec424ea3fc2786bc9c45999e7336f162a3c203201f0262aa",
-  "packages/engine/src/world/integrity.ts":
-    "eae25c49a1698b08a77e7f6531a6f1866e67b3d4bcd4f03d29e071c0f525795f",
   "packages/engine/src/world/actor-coupling.ts":
     "19091c16a325fc8e51e26f4bb628f41525598d2ae6342f8f48b6b57771ff8aaa",
   "packages/engine/src/world/actor-coupling-integrity.ts":
     "ca6638ef984e6d189d915068cb512fc1269ee921ae58dc2460c83a245b5e0f4f",
-  "packages/engine/src/world/fallback-custody.ts":
-    "6a216705bb3b16fc3e1a1eb359821675a25afeedc52956552bd22ece0be7128d",
   "packages/engine/src/world/physical-subject.ts":
     "64b66f00c8efe66eb023cedd24f3f37c25affcbe394a39f8fb723d741a4510c5",
   "packages/engine/src/pc-movement/integrity.ts":
@@ -302,7 +300,26 @@ const UNCHANGED: Record<string, string> = {
  * The BLUE v5.1 SCOPED DELTAS to existing source files: each differs from main (`base`) and is pinned at this slice's head (`head`), so
  * any further edit is a new, visible change to this table. Files the slice only ADDED are not listed.
  */
-// DELTAS:BEGIN
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
+const CHANGED_ON_PURPOSE_LATER = new Set([
+  "packages/contracts/src/referee.ts",
+  "packages/engine/src/owners/registry.ts",
+  "packages/engine/src/referee/adapter.ts",
+  "packages/engine/src/referee/admission.ts",
+  "packages/engine/src/referee/derive.ts",
+  "packages/engine/src/referee/integrity.ts",
+  "packages/engine/src/world/canonical-campaign.ts",
+  "packages/operator/src/cli.ts",
+  "packages/operator/src/confirmation.ts",
+  "packages/operator/src/index.ts",
+  "packages/operator/src/original-pc.ts",
+  "packages/operator/src/referee-exchange.ts",
+  "packages/operator/src/referee-mcp.ts",
+  "packages/operator/src/referee-session.ts",
+]);
 const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
   "packages/contracts/src/pc-locus-custody.ts": {
     base: "72d543bfb838dfe8d0bfae946da617623e14de7d6235faf5613f5d9de0ea7b9e",
@@ -381,11 +398,11 @@ const V51_SCOPED_DELTAS: Record<string, { base: string; head: string }> = {
 // DELTAS:END
 
 describe("the existing source files BLUE v5.1 modified are exactly the scoped deltas", () => {
-  it("each differs from main and is pinned at the slice head", () => {
+  it("each differs from main and is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     expect(Object.keys(V51_SCOPED_DELTAS).sort()).toEqual(EXPECTED_DELTA_FILES);
     for (const [file, { base, head }] of Object.entries(V51_SCOPED_DELTAS)) {
       expect(base, file).not.toBe(head);
-      expect(sha(file), file).toBe(head);
+      if (!CHANGED_ON_PURPOSE_LATER.has(file)) expect(sha(file), file).toBe(head);
     }
   });
 });

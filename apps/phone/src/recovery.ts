@@ -297,6 +297,21 @@ export async function captureObservation(
 }
 
 /**
+ * Every task identity a decision for THIS observation may be retained under: the identities captured before the command ran, and the same
+ * attempts rebuilt now. A look that ran the GM scene step asked its perception question under an identity that includes the facts the
+ * scene step published (a changed input is a new task), which cannot be known before the command runs. The recovery of an interrupted
+ * command is the next thing that happens in the campaign (a pending operation blocks every other action), so the rebuilt identities are
+ * those of the same basis; a decision is accepted only if it is for this campaign, character and recorded basis (checked by the callers).
+ */
+function observationTaskIds(adapter: RefereeAdjudicationAdapter, identity: ObservationIdentity) {
+  const rebuilt = identity.task_ids.flatMap((_, attempt) => {
+    const built = adapter.observationTask({ pc_id: identity.pc_id, attempt });
+    return built.ok ? [built.value.task_id] : [];
+  });
+  return [...new Set([...identity.task_ids, ...rebuilt])];
+}
+
+/**
  * What the owners hold for THAT observation (the recorded basis, never the current one, read under every attempt's task identity): nothing
  * at all; a retained negative reading (the final word at that basis); a retained affirmative reading, an earned event or a packet without
  * the rest of the formation (a partial write that the same command completes by identity, or fails to and stays blocked); or the event,
@@ -315,7 +330,7 @@ export async function observationEvidence(
       return { kind: "UNAVAILABLE", detail: "the campaign identity does not match" };
     const adapter = new RefereeAdjudicationAdapter(c.store);
     // the answer that landed is retained under the task identity of the attempt that produced it: every attempt asked at this basis is read
-    const decisions = identity.task_ids.flatMap((id) => {
+    const decisions = observationTaskIds(adapter, identity).flatMap((id) => {
       const d = adapter.decision(id);
       return d &&
         d.value.operation === REFEREE_OP_OBSERVATION &&
@@ -380,7 +395,7 @@ export async function completeObservation(
       !canonicalEqual(state.data.canonical_time, identity.basis)
     )
       return { kind: "UNAVAILABLE", detail: "the original character or canonical basis changed" };
-    const decisions = identity.task_ids.flatMap((id) => {
+    const decisions = observationTaskIds(adapter, identity).flatMap((id) => {
       const d = adapter.decision(id);
       return d &&
         d.value.operation === REFEREE_OP_OBSERVATION &&

@@ -23,10 +23,12 @@ const identifiers = (file: string): string =>
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 
 /** The host-visible contract and the kernel as they stood at the forty-fourth base (main de3cf41): untouched by this slice. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/protocol-advance.ts":
     "3f64a45e7fe169b61593cedc06a062ea3a4c4faed4538786abf2ec757c3f026a",
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -35,7 +37,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("only the gateway operation changed: the host contract, the kernel, the owners and the frozen artifacts are the base's", () => {
-  it("the host-visible contract and the F-027 lock, contract, register and gates are byte-identical to the base", () => {
+  it("the host-visible contract and the F-027 contract, register and gates are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

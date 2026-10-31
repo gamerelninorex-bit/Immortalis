@@ -40,6 +40,7 @@ import {
 import { establishCharacterLocus } from "./original-pc-locus.ts";
 import { authorCharacter, characterStatus, type CharacterStatus } from "./original-pc.ts";
 import { clarifyCollectionCycle } from "./collection-clarification.ts";
+import { delegateCollectionCycle } from "./collection-delegation.ts";
 import { bindHost, refereeDir } from "./referee-exchange.ts";
 import { collectionRefereeHosts } from "./collection-referee.ts";
 import { prepareCollection } from "./collection-preparation.ts";
@@ -78,11 +79,13 @@ usage:
   immortalis-operator establish-local-demand --campaign <dir> --campaign-id <id> --demand-file <file>
   immortalis-operator author-character   --campaign <dir> --campaign-id <id> --world <id> --locus <id> --player-character <id> [--referee-wait <seconds>]
   immortalis-operator establish-character-locus --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
-  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--referee-wait <seconds>]
+  immortalis-operator observe-surroundings --campaign <dir> --campaign-id <id> --player-character <id> [--source <source-key>] [--attention <what the player looks at>] [--referee-wait <seconds>]
   immortalis-operator clarify-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--referee-wait <seconds>]
+  immortalis-operator delegate-collection-cycle --campaign <dir> --campaign-id <id> --player-character <id> [--shortest <n>] [--longest <n>] [--referee-wait <seconds>]
   immortalis-operator character-status   --campaign <dir> [--campaign-id <id>]
   immortalis-operator referee-bind-host  --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator referee-bind-collection-host --campaign <dir> --campaign-id <id> --host-id <id>
+  immortalis-operator referee-bind-delegation-host --campaign <dir> --campaign-id <id> --host-id <id>
   immortalis-operator attest-cycle --campaign <dir> --campaign-id <id> --mechanism <id> [--referee-wait <seconds>]
   immortalis-operator initialize-time --campaign <dir> --campaign-id <id> --setup <file>
   immortalis-operator declare-closed-setting --campaign <dir> --campaign-id <id> --setup <file>
@@ -235,12 +238,26 @@ observe-surroundings: for a character that author-character released and bound A
 clarify-collection-cycle: for a character that author-character released and bound (verified), at a campaign whose canonical time is
   established and BEFORE any collection commitment of that character. When the character's accepted content says it can lift and carry but
   states no duration for ONE handling cycle, you may say it in your OWN words (the number in digits and the unit of time); nothing is
-  suggested, defaulted or chosen for you, and the choice cannot be delegated to a host. The AI referee host (the same I-002 classification
+  suggested, defaulted or chosen for you by this command. The AI referee host (the same I-002 classification
   your character's Mirror used) is asked whether exactly those words are your own character-local claim; only if it accepts them, and only
   after your separate fresh confirmation, they become a new accepted claim of your character from the current canonical time. The sealed
   release, your keep, the binding, the custody and the clock are untouched; no time passes and no material is created. The exact cycle
   still needs a collection preparation that quotes those words and a separate semantic attestation. Running it again with the same words
   converges.
+delegate-collection-cycle: the same branch, the same preconditions, but the choice is DELEGATED ("surprise me", I-002 section 9). You may commit
+  numeric limits - a shortest and/or a longest whole number of the campaign's unit of time; none is required, and nothing is defaulted for you -
+  and the AI referee host acting as role.gm chooses ONE number inside the scope and writes one statement of your character's handling. Limits
+  are the only constraints an owner can verify against the sealed choice, so your free words are not accepted as constraints (say them with
+  clarify-collection-cycle instead). You confirm the DELEGATION (the scope, the method class, that the choice is sealed), not a number you
+  have seen: the choice is not shown before you confirm, and the same question finds the same choice if you decline or the command is run
+  again. Only then does the owner validate it against your scope and your character's accepted content and write a sealed Delegation Commit
+  Record (provenance PLAYER-DELEGATED; executing role role.gm; not random; never your own words), before any collection of that character. The
+  branch has ONE slot: after a delegation or your own clarification the other is refused, and a delegation is refused once any collection
+  commitment of the character exists. It cannot be reselected, changed or taken back. The exact cycle still needs a collection preparation that
+  quotes the chosen words and a separate semantic attestation. Running it again with the same scope converges.
+referee-bind-delegation-host: binds a NEW host identity only to the delegated selection of the handling cycle (I-002 section 9: role.gm chooses ONE
+  number inside bounds the player committed). It is a separate, least-privilege binding, so a host already bound to the cycle and reach readings keeps
+  working unchanged; delegate-collection-cycle cannot ask anyone until a host is bound to this operation. It confers nothing by itself.
 referee-bind-host: the TRUSTED operator action that binds one concrete AI host identity to the campaign's four referee operations (I-002
   character classification; native/compatibility; physical placement; direct perception) and writes that host's owner-only secret file. It confers nothing by itself: the
   host's tool server (immortalis-referee, a stdio MCP server; point your AI client at it with --operator-dir, --campaign-id,
@@ -304,6 +321,7 @@ const exitOf = (
     case "LOCUS_ESTABLISHED":
     case "OBSERVATION_RECEIVED":
     case "CLARIFICATION_ACCEPTED":
+    case "DELEGATION_ACCEPTED":
       return EXIT.OK;
     case "CHARACTER_OUTCOME_UNKNOWN":
       return EXIT.UNKNOWN;
@@ -384,6 +402,9 @@ const OPTIONS = {
   "host-id": { type: "string" },
   "referee-wait": { type: "string" },
   source: { type: "string" },
+  attention: { type: "string" },
+  shortest: { type: "string" },
+  longest: { type: "string" },
   reserve: { type: "string" },
   amount: { type: "string" },
   "quantity-unit": { type: "string" },
@@ -413,9 +434,11 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
   "establish-character-locus": ["player-character"],
   "observe-surroundings": ["player-character"],
   "clarify-collection-cycle": ["player-character"],
+  "delegate-collection-cycle": ["player-character"],
   "character-status": [],
   "referee-bind-host": ["host-id"],
   "referee-bind-collection-host": ["host-id"],
+  "referee-bind-delegation-host": ["host-id"],
   "attest-cycle": ["mechanism"],
   "initialize-time": ["setup"],
   "declare-closed-setting": ["setup"],
@@ -431,8 +454,9 @@ const COMMAND_OPTIONS: Record<string, readonly string[]> = {
 const OPTIONAL_OPTIONS: Record<string, readonly string[]> = {
   "author-character": ["referee-wait"],
   "establish-character-locus": ["referee-wait"],
-  "observe-surroundings": ["referee-wait", "source"],
+  "observe-surroundings": ["referee-wait", "source", "attention"],
   "clarify-collection-cycle": ["referee-wait"],
+  "delegate-collection-cycle": ["referee-wait", "shortest", "longest"],
   "attest-cycle": ["referee-wait"],
   "collect-continue": ["referee-wait"],
 };
@@ -553,7 +577,8 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
     command === "locality-status" ||
     command === "character-status" ||
     command === "referee-bind-host" ||
-    command === "referee-bind-collection-host"
+    command === "referee-bind-collection-host" ||
+    command === "referee-bind-delegation-host"
       ? undefined
       : stdioTerminal());
   try {
@@ -708,6 +733,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
         ...(str("source") !== undefined ? { sourceKey: str("source")! } : {}),
+        ...(str("attention") !== undefined ? { attention: str("attention")! } : {}),
         terminal: terminal!,
         ...(env.ordinaryAction ? { ordinaryAction: env.ordinaryAction } : {}),
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
@@ -727,6 +753,27 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         campaignId: str("campaign-id") ?? "",
         pcId: str("player-character") ?? "",
         terminal: terminal!,
+        ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
+        ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
+        ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
+        ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
+      });
+      out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
+      out(r.message);
+      for (const line of r.details) out(line);
+      return exitOf(r.status);
+    }
+    if (command === "delegate-collection-cycle") {
+      // an absent limit is none; a present one that is not a whole number is refused by the command, never defaulted
+      const limit = (v: string | undefined): number | null =>
+        v === undefined ? null : /^[0-9]{1,15}$/.test(v) ? Number(v) : Number.NaN;
+      const r = await delegateCollectionCycle({
+        campaignDir: str("campaign") ?? "",
+        campaignId: str("campaign-id") ?? "",
+        pcId: str("player-character") ?? "",
+        terminal: terminal!,
+        scope: { shortest: limit(str("shortest")), longest: limit(str("longest")) },
         ...(str("operator-dir") !== undefined ? { operatorDir: str("operator-dir")! } : {}),
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
@@ -781,21 +828,28 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         for (const line of r.details) out(line);
         return exitOf(r.status);
       }
-      if (command === "referee-bind-host" || command === "referee-bind-collection-host") {
+      if (
+        command === "referee-bind-host" ||
+        command === "referee-bind-collection-host" ||
+        command === "referee-bind-delegation-host"
+      ) {
         const collection = command === "referee-bind-collection-host";
+        const delegation = command === "referee-bind-delegation-host";
         const bound = await bindHost({
           stateDir: str("operator-dir") ?? defaultOperatorDir(str("campaign") ?? ""),
           campaignId: session.campaignId,
           operatorUid: session.operator.uid,
           hostId: str("host-id") ?? "",
-          operations: collection
-            ? ["PC_COLLECTION_CYCLE", "PC_COLLECTION_REACH"]
-            : [
-                "I002_CLASSIFY",
-                "IR_NATIVE_COMPATIBILITY",
-                "IR_PHYSICAL_PLACEMENT",
-                "F014D_DIRECT_PERCEPTION",
-              ],
+          operations: delegation
+            ? ["PC_COLLECTION_DELEGATE"]
+            : collection
+              ? ["PC_COLLECTION_CYCLE", "PC_COLLECTION_REACH"]
+              : [
+                  "I002_CLASSIFY",
+                  "IR_NATIVE_COMPATIBILITY",
+                  "IR_PHYSICAL_PLACEMENT",
+                  "F014D_DIRECT_PERCEPTION",
+                ],
           ...(env.ledgerFs ? { fs: env.ledgerFs } : {}),
         });
         if (!bound.ok) {
@@ -805,9 +859,11 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         }
         out("STATUS REFEREE_HOST_BOUND");
         out(
-          collection
-            ? `host ${str("host-id")} is bound only to the cycle and reach/scene interpretations; it grants no owner evidence or player choice.`
-            : `host ${str("host-id")} is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).`,
+          delegation
+            ? `host ${str("host-id")} is bound only to the delegated selection of the handling cycle (role.gm chooses inside the player's bounds); it grants no owner evidence or player choice.`
+            : collection
+              ? `host ${str("host-id")} is bound only to the cycle and reach/scene interpretations; it grants no owner evidence or player choice.`
+              : `host ${str("host-id")} is bound to this campaign for the four referee operations (I-002 classification; native/compatibility; physical placement; direct perception).`,
         );
         out(
           `secret file (owner-only; give the PATH to the host's tool server, never the contents): ${bound.value.secret_file}`,

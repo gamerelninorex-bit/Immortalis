@@ -267,6 +267,7 @@ describe("the source choice is a trusted-side input: nothing a host controls nam
       "locality.ts",
       "observation.ts",
       "referee-session.ts",
+      "scene-resolution.ts",
     ]);
   });
 

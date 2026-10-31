@@ -20,10 +20,7 @@ const BRIEF_ID = "3f920af901e081898168eef701fe0ea2";
 const BRIEF_PIN = "2026-10-14T18:01:29.811Z";
 
 describe("F-027 spec-lock and the frozen source pointers are exactly the brief's", () => {
-  it("the spec-lock is byte-identical to the base, with the package and the CD1 addendum at their pins", () => {
-    expect(sha("spec/f027/spec-lock.json")).toBe(
-      "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
-    );
+  it("the spec-lock keeps the package and the CD1 addendum at their pins (its file identity is asserted by current-look-lowering-conformance: F-027 v0.8 added to it on purpose)", () => {
     const raw = JSON.parse(readFileSync("spec/f027/spec-lock.json", "utf8")) as {
       package: { native_pin: string; url: string };
       implementation_authority_addenda: { id: string; native_pin: string }[];
@@ -63,8 +60,10 @@ describe("F-027 spec-lock and the frozen source pointers are exactly the brief's
 
 describe("the slice is one scoped delta: every owner, contract, predecessor gateway and the handover-only movement boundary is byte-identical to main", () => {
   /** Everything the original branch consumes and must leave untouched, byte-identical to main dacda593b5a349805eab51e7c46da182a251fef1. */
+  // Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+  // and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+  // values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
   const UNCHANGED: Record<string, string> = {
-    "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
     "spec/f027/runtime-contract.md":
       "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
     "spec/f027/acceptance-register.yaml":
@@ -86,10 +85,6 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
     "packages/engine/src/gip/adapter.ts":
       "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
-    "packages/engine/src/owners/registry.ts":
-      "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
-    "packages/engine/src/world/canonical-campaign.ts":
-      "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
     // the host contract (strict one-field request, one-status receipt), the sibling gateways and the operator
     "packages/contracts/src/protocol-pc-target-advance.ts":
       "0e5db2b3506fcb6317b26a1b7e8707f0d456b444c4c6240be3ef2fdb378faf5f",
@@ -107,7 +102,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
   };
 
-  it("each is byte-identical to main", () => {
+  it("each is byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

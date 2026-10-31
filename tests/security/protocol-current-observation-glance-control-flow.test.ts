@@ -38,10 +38,11 @@ import { GLANCE_REQUEST, PROTOCOL_REFUSAL } from "../support/protocol.ts";
 import { must } from "../support/temporal.ts";
 
 /**
- * The gateway's own reads (twelve `getFact` — the sixth premise slot is the one Source Condition of a source-scoped observation, or a
- * sentinel — and one `committedGroup`) plus the unchanged IM-13 guard's fixed seven and one.
+ * The gateway's own reads (thirteen `getFact` — the sixth premise slot is the one Source Condition of a source-scoped observation, or a
+ * sentinel; the seventh is the owner-published current viewing circumstance, or the sentinel — and one `committedGroup`) plus the
+ * unchanged IM-13 guard's fixed seven and one.
  */
-const EXPECTED_READS = 12 + 1 + 7 + 1;
+const EXPECTED_READS = 13 + 1 + 7 + 1;
 
 interface Call {
   readonly method: "getFact" | "committedGroup";

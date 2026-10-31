@@ -15,6 +15,7 @@ import {
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
   PcIntrinsicClarificationSchema,
+  PcDelegatedClarificationSchema,
   FACET_PC_INTRINSIC_CLARIFICATION,
   PcCollectionReachDecisionSchema,
   PcCollectionRequestSchema,
@@ -23,6 +24,7 @@ import {
   ORIGINAL_ACTIVATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
   AccessDisseminationEventSchema,
   BroadcastExposureEventSchema,
   AccessEventSchema,
@@ -132,6 +134,7 @@ import {
   OWNER_WORLD_STATE,
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
+  PcCurrentViewingSchema,
   PcPhysicalLocusCustodySchema,
   RECIPIENT_ROLE_PLAYER_CHARACTER,
   PopulationBasisSchema,
@@ -326,6 +329,7 @@ export const WORLD_FALLBACK_FACT_KIND_IDS = ["world_fallback_entity"] as const;
 export const WORLD_ENTITY_TRANSITION_FACT_KIND_IDS = ["world_entity_transition"] as const;
 export const WORLD_ACTOR_COUPLING_FACT_KIND_IDS = ["world_actor_coupling"] as const;
 export const WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS = ["world_pc_locus_custody"] as const;
+export const WORLD_SCENE_FACT_KIND_IDS = ["world_pc_current_viewing"] as const;
 export const WORLD_ACTOR_PRESENCE_FACT_KIND_IDS = [
   "actor_setup_placement",
   "world_setup_closure",
@@ -372,6 +376,7 @@ export const PC_COLLECTION_FACT_KIND_IDS = [
   "world_scene_closure",
   "population_workforce_scope",
   "pc_intrinsic_clarification",
+  "pc_delegated_clarification",
 ] as const;
 export const EPISTEMIC_ACCESS_FACT_KIND_IDS = [
   "epistemic_access_event",
@@ -424,6 +429,7 @@ export type FactKindId =
   | (typeof WORLD_ENTITY_TRANSITION_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_COUPLING_FACT_KIND_IDS)[number]
   | (typeof WORLD_PC_LOCUS_CUSTODY_FACT_KIND_IDS)[number]
+  | (typeof WORLD_SCENE_FACT_KIND_IDS)[number]
   | (typeof WORLD_ACTOR_PRESENCE_FACT_KIND_IDS)[number]
   | (typeof WORLD_AUDITORY_PREMISES_FACT_KIND_IDS)[number]
   | (typeof ECONOMY_FACT_KIND_IDS)[number]
@@ -1111,6 +1117,96 @@ export const WORLD_PC_LOCUS_CUSTODY_FACT_KINDS: readonly FactKind[] = [
         },
       },
     ],
+  },
+];
+
+/**
+ * The 30 October 2026 BLUE bounded construction brief for the GM-led natural first-play rebuild (native pin 2026-10-30T03:34:44.575Z),
+ * cited as the construction objective and acceptance boundary ONLY: not a game-design source, not a spec-lock pin, and no amendment of
+ * any frozen owner contract. Its decision 1 (current voluntary viewing is runtime physical context under the existing physical
+ * custodian) is what the one scene kind lowers. Its decision 2 (visible physical detail supplied through World-State by an accepted-
+ * completed-durable F-016 fallback) was WITHDRAWN by the 31 October 2026 section 2 amendment (native pin 2026-10-31T01:20:02.671Z): a
+ * loose output's incidental description is transient GM narration, and no output-appearance kind exists. The pin below is the one the
+ * rule text was written against; the brief has been edited since (an older pin's text cannot be re-read).
+ */
+export const GM_FIRST_PLAY_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/40920af901e081088cccd3c7eaa995aa",
+  native_pin: "2026-10-30T03:34:44.575Z",
+} as const;
+const GM_FIRST_PLAY_LINEAGE = `BLUE Bounded Construction Brief - GM-led Natural First-Play Rebuild, verified native pin ${GM_FIRST_PLAY_BRIEF_SOURCE.native_pin} (${GM_FIRST_PLAY_BRIEF_SOURCE.artifact}), cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT an amendment to any frozen owner contract, NOT a spec-lock pin), with the Operating Charter section "30 October 2026 - Standing construction requirement: GM-led natural chat play" (native pin 2026-10-30T03:16:44.156Z, https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc) and I-001 section 8 (https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2, native pin 2026-09-25T00:17:49.551Z); the quotation of World Generation's Resolution Rules and F-016 fallback was read from the page as edited 2026-10-23T12:26:49.599Z and its equivalence at the frozen pin is NOT independently verified`;
+
+/**
+ * The F-027 v1.0 additive executable-lowering source of the Active-PC Current-Look premise (31 October 2026, v0.8 carrier): ONE page that
+ * two rows of `spec/f027/spec-lock.json` lower, `PC-CURRENT-LOOK-WORLD-LOWERING` (section 3A, IM-03) and
+ * `GM-CURRENT-LOOK-SCENE-LOWERING` (section 3B, IM-12, operation `GM_SCENE_RESOLUTION` only). Both rows carry exactly this `url` and
+ * `native_pin`; tests/conformance/current-look-lowering-conformance cross-checks that against the lock, so the two cannot drift apart.
+ * It composes with F-027 v1.0 and replaces none of the 23 frozen pins; the earlier citation of these two rules is no longer a valid
+ * citation (old journals fail closed, no legacy reader).
+ */
+export const F027_CURRENT_LOOK_LOWERING_SOURCE = {
+  artifact: "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+  native_pin: "2026-10-31T06:30:53.024Z",
+} as const;
+
+const LOWERED_WORLD_CLAUSE = "§3A — Frozen executable lowering: World-State current-look premise";
+const LOWERED_SCENE_CLAUSE =
+  "§3B — Frozen executable lowering: Referee ordinary-look scene decision";
+const CURRENT_LOOK_LOWERING_LINEAGE = (id: string, section: string): string =>
+  `F-027 v1.0 additive executable lowering ${id}, section '${section}' (native pin ${F027_CURRENT_LOOK_LOWERING_SOURCE.native_pin}, ${F027_CURRENT_LOOK_LOWERING_SOURCE.artifact}), COMPOSES_WITH F-027 v1.0 (native pin 2026-09-29T00:40:44.707Z, https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639); not a 2026-09-25 frozen-source quotation`;
+const ACTIVE_LOOK_RATIFIED_LINEAGE =
+  "Sovereign-ratified Active-PC Current-Look Physical Premise — Additive Section — 31 October 2026 (native pin 2026-10-31T03:34:15.074Z, https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d); Sovereign ratification and narrow historical-exception record (native pin 2026-10-31T05:28:54.280Z, https://app.notion.com/p/40a20af901e081189358cb60bae11ccd); F-027 PC-CURRENT-LOOK-PREMISE-LINEAGE is non-executable, not a September frozen-source quote";
+const I002_VIEWING_LINEAGE =
+  "I-002 §4.3: position and local world-locus differences remain runtime physical state, not intrinsic PC state (native pin 2026-09-25T00:15:54.536Z, https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718); the F-016 v0.4 candidate manifest (native pin 2026-09-25T13:48:12.575Z, https://app.notion.com/p/3e620af901e0812bb807d234d88fadb6) is supporting conformance evidence, not itself ratification";
+
+/**
+ * The ONE constructor of the two current-look citations. It is deliberately not `rule()`, whose 25 September basis and ratification
+ * strings would misstate this October lowering: the citation is the lowering page itself, at the pin both lock rows carry, with the
+ * lowering's own deterministic lineage first and the ratified section second, followed by the caller's remaining lineage in order.
+ */
+const currentLookRule = (
+  loweringId: string,
+  clause: string,
+  lineage: readonly string[],
+): SourceRef => ({
+  artifact: F027_CURRENT_LOOK_LOWERING_SOURCE.artifact,
+  native_pin: F027_CURRENT_LOOK_LOWERING_SOURCE.native_pin,
+  clause,
+  authority_lineage: [
+    CURRENT_LOOK_LOWERING_LINEAGE(loweringId, clause),
+    ACTIVE_LOOK_RATIFIED_LINEAGE,
+    ...lineage,
+  ],
+  effective_basis: "pinned-by-spec-lock",
+  supersedes: null,
+});
+
+/**
+ * The World-State physical custodian's publication of the SUPPORTED current viewing circumstance of the active PC (runtime physical
+ * context): source-locked by the `PC-CURRENT-LOOK-WORLD-LOWERING` row (IM-03, `world_pc_current_viewing`, no operation key). The
+ * historical WG quotation in `GM_FIRST_PLAY_LINEAGE` stays disclosed as not independently verified; it is not the authority.
+ */
+export const WORLD_PC_CURRENT_VIEWING_RULE: SourceRef = currentLookRule(
+  "PC-CURRENT-LOOK-WORLD-LOWERING",
+  LOWERED_WORLD_CLAUSE,
+  [F016_LINEAGE, I002_VIEWING_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
+ * SEALED, create-only, sparse. The viewing circumstance is keyed by the BASIS it was ruled at (never by the wording of a request). It is
+ * not a Role Registry binding, an I-002 intrinsic amendment, a Production result or a knowledge/receipt: a perceived appearance still needs
+ * the Epistemic owner's own event. There is no output-appearance kind (31 October 2026 Stage A).
+ */
+export const WORLD_SCENE_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "world_pc_current_viewing",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_FALLBACK_ENTITY,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world-state/pc/${ID}/current-viewing/([0-9a-f]{32})$`),
+    valueSchema: PcCurrentViewingSchema,
+    rule: WORLD_PC_CURRENT_VIEWING_RULE,
   },
 ];
 
@@ -1830,6 +1926,22 @@ export const PC_INTRINSIC_CLARIFICATION_RULE: SourceRef = {
   supersedes: null,
 };
 
+/**
+ * H1 — the DELEGATED selection of the same branch: an I-002 §9 Delegation Commit Record for the exact-cycle class (BLUE same-PR repair
+ * authorization on PR #94, durable review https://app.notion.com/p/3fe20af901e08155a133e829b7a7020a, pin 2026-10-30T08:24:46.805Z).
+ * Source texts: I-002 §9 (markup removed) and CPAA-C1 v0.3 F-2. NEWLY AUTHORIZED construction, not a frozen-source rule, not a
+ * spec-lock pin, independent BLUE review pending; it lifts no First Playable or merge exclusion.
+ */
+export const PC_DELEGATED_CLARIFICATION_RULE: SourceRef = {
+  artifact: I002_SOURCE.artifact,
+  native_pin: I002_SOURCE.native_pin,
+  clause:
+    "I-002 §9 Delegation / Hidden-Seed Adapter: 'surprise me' delegates selection to role.gm within a lawful bounded scope and does not require statistical randomness; player constraints/exclusions narrow the delegated space; every delegated branch that can later affect outcomes is selected and sealed before Generation Hand-Off; Persist a Delegation Commit Record: scope/constraints; candidate space or generation basis; selection method; method/algorithm version; executing role; draw/seed where random; selected content in sealed form; validation result confirming the selected content lies within the committed scope, constraints, exclusions and candidate space; commit time / governing package version. A delegation first offered after hand-off is lawful only when no consequence depending on it is pending: the executing role must create and seal a fresh Delegation Commit Record immediately under GM Kernel Outcome Neutrality before any dependent resolution proceeds. If that condition cannot be met, decline the delegation and leave the branch UNRESOLVED. And CPAA-C1 v0.3 F-2: the eligible intrinsic premise is a lawfully player-authored or delegated, accepted I-002 Capability/Effect claim with an operative Temporal Hook; role.archivist canonically writes the accepted compilation and its provenance. Here: role.gm (not the player) selects the number inside the player's committed whole-number bounds, the owner re-derives the validation, role.archivist writes the create-only record (PLAYER-DELEGATED, never PLAYER-AUTHORED) before any dependent collection commitment, effective from the canonical time at acceptance and never retroactively; it shares the ONE slot of the branch with the player-authored R-5 clarification; the later mechanism and attestation follow it by exact version and still require the exact numeral and canonical unit and the role.gm cycle attestation",
+  authority_lineage: [CPAA_C1_R5_LINEAGE, CPAA_C1_V03_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+  effective_basis: "blue-same-pr-repair-authorization-independent-review-pending",
+  supersedes: null,
+};
+
 const pcCollectionKind = (
   id: (typeof PC_COLLECTION_FACT_KIND_IDS)[number],
   owner: string,
@@ -2024,6 +2136,17 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^pc/${ID}/intrinsic-clarification/${ID}$`),
     PcIntrinsicClarificationSchema,
     PC_INTRINSIC_CLARIFICATION_RULE,
+  ),
+  pcCollectionKind(
+    "pc_delegated_clarification",
+    OWNER_PC_EXISTENCE,
+    FACET_PC_INTRINSIC_CLARIFICATION,
+    "IM-07",
+    ["RC-02", "RC-03"],
+    "SEALED",
+    new RegExp(`^pc/${ID}/delegated-clarification/${ID}$`),
+    PcDelegatedClarificationSchema,
+    PC_DELEGATED_CLARIFICATION_RULE,
   ),
 ];
 
@@ -2277,6 +2400,18 @@ export const REFEREE_OBSERVATION_RULE: SourceRef = {
 };
 
 /**
+ * The scene decision's own governing citation: an exclusive current rule for the \`GM_SCENE_RESOLUTION\` value class (see
+ * \`FactKind.alternateRules\`); the other four decisions keep their own. It is source-locked by the \`GM-CURRENT-LOOK-SCENE-LOWERING\`
+ * row (IM-12, \`referee_decision\`, operation \`GM_SCENE_RESOLUTION\` only) and by nothing wider: the kind-level \`REFEREE_RULE\`, the
+ * physical and the observation rules above stay as they were (B61-A3, not spec-locked) and are not licensed through this operation.
+ */
+export const REFEREE_SCENE_RULE: SourceRef = currentLookRule(
+  "GM-CURRENT-LOOK-SCENE-LOWERING",
+  LOWERED_SCENE_CLAUSE,
+  [REFEREE_LINEAGE, GM_FIRST_PLAY_LINEAGE, RUNTIME_TRANSLATION_LINEAGE],
+);
+
+/**
  * `referee_adjudication_kernel / referee_provenance`: an INFRASTRUCTURE-ONLY adjudication-provenance owner/facet, distinct from the
  * Culture one. IM-03 routes only the dedicated key space `referee/<64 lowercase hex>/decision` to it; the kind is SEALED, i.e.
  * create-only. It authorizes no write of any world, PC, binding, Culture, Population, GIP, KTI or economic fact, and is no
@@ -2306,6 +2441,13 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
         admits: (value) => {
           const r = RefereeDecisionRecordSchema.safeParse(value);
           return r.success && r.data.operation === REFEREE_OP_OBSERVATION;
+        },
+      },
+      {
+        rule: REFEREE_SCENE_RULE,
+        admits: (value) => {
+          const r = RefereeDecisionRecordSchema.safeParse(value);
+          return r.success && r.data.operation === REFEREE_OP_SCENE;
         },
       },
     ],
@@ -3023,6 +3165,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_ENTITY_TRANSITION_FACT_KINDS,
   ...WORLD_ACTOR_COUPLING_FACT_KINDS,
   ...WORLD_PC_LOCUS_CUSTODY_FACT_KINDS,
+  ...WORLD_SCENE_FACT_KINDS,
   ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
   ...WORLD_AUDITORY_PREMISES_FACT_KINDS,
   ...ECONOMY_FACT_KINDS,

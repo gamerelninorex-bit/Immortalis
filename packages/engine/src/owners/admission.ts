@@ -667,6 +667,10 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["clarification_id"] === ids[1]
         ? null
         : "pc_id and clarification_id do not match the key";
+    case "pc_delegated_clarification":
+      return v["pc_id"] === ids[0] && v["delegation_id"] === ids[1]
+        ? null
+        : "pc_id and delegation_id do not match the key";
     case "pc_collection_cycle_attestation":
       return v["pc_id"] === ids[0] &&
         (v["mechanism"] as { fact_key: string }).fact_key ===
@@ -738,6 +742,10 @@ export function identityMismatch(
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";
     case "world_pc_locus_custody":
       return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
+    case "world_pc_current_viewing":
+      return v["pc_id"] === ids[0] && v["viewing_id"] === ids[1]
+        ? null
+        : "PC and viewing identity do not match the key";
     case "actor_setup_placement":
     case "actor_physical_presence":
       return v["actor_id"] === ids[0] ? null : "actor identity does not match the key";

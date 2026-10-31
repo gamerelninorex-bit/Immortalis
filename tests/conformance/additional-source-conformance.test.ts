@@ -19,14 +19,11 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
-const gitBlob = (file: string) => {
-  const body = readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest("hex");
-};
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main c739ec3834376dc42f7d83c827904f7d94c91911. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
@@ -35,8 +32,6 @@ const UNCHANGED: Record<string, string> = {
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
   "packages/operator/src/locality.ts":
     "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/commands.ts":
@@ -44,8 +39,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the operator is touched", () => {
-  it("the F-027 lock is the pinned blob, and the gates, register, contracts and engine owner API are byte-identical to main", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+  it("the gates, register, contracts and engine owner API are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

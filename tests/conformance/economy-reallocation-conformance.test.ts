@@ -28,8 +28,10 @@ const sha = (f: string) => createHash("sha256").update(readFileSync(f)).digest("
 const kind = ECONOMY_HOLDING_FACT_KINDS.find((k) => k.id === "economy_reallocation")!;
 
 /** Byte-identical to the merged base (#55): this slice consumes them, never edits or duplicates them. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -47,8 +49,6 @@ const UNCHANGED: Record<string, string> = {
     "155c19637229779675a2a489ddbcd3a77e33123913ff581fbbc158391bfd16bd",
   "packages/engine/src/persistence/store.ts":
     "2405d8f8d8afa44bcb63e6a5ef73a476b1a3632f63c307c5d615ef7b063f4ff1",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {
@@ -184,7 +184,7 @@ describe("reuse, not fork: IM-03, IM-11, IM-12 and IM-17 are the existing machin
 });
 
 describe("frozen artifacts, register and gates are untouched; nothing was promoted", () => {
-  it("the F-027 snapshot, the Economy modules this slice does not change and the persistence core are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the F-027 snapshot, the Economy modules this slice does not change and the persistence core are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

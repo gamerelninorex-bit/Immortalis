@@ -91,6 +91,7 @@ export * from "./closed-setting.ts";
 export * from "./collection-referee.ts";
 export * from "./collection-preparation.ts";
 export * from "./collection-clarification.ts";
+export * from "./collection-delegation.ts";
 export {
   consumeConfirmation,
   requestOperatorConfirmation,

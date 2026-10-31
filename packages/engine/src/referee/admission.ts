@@ -8,6 +8,7 @@ import {
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
   REFEREE_SECRECY,
   RefereeDecisionRecordSchema,
   refereeDecisionCause,
@@ -23,7 +24,12 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { REFEREE_OBSERVATION_RULE, REFEREE_PHYSICAL_RULE, resolveKey } from "../owners/registry.ts";
+import {
+  REFEREE_OBSERVATION_RULE,
+  REFEREE_PHYSICAL_RULE,
+  REFEREE_SCENE_RULE,
+  resolveKey,
+} from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import {
   candidateDigest,
@@ -101,15 +107,32 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
       "the direct-perception decision, and only it, carries the direct-perception governing citation",
       { key: w.key },
     );
+  // the scene decision, and only it, carries its own governing citation
+  if (canonicalEqual(group.rule, REFEREE_SCENE_RULE) !== (r.operation === REFEREE_OP_SCENE))
+    return reject(
+      "VALUE_INVALID",
+      "the scene decision, and only it, carries the scene governing citation",
+      { key: w.key },
+    );
   if (
-    r.operation === REFEREE_OP_OBSERVATION &&
+    (r.operation === REFEREE_OP_OBSERVATION || r.operation === REFEREE_OP_SCENE) &&
     !canonicalEqual(r.validated_under, OBSERVATION_RESOLVER_AUTHORITY)
   )
     return reject(
       "VALUE_INVALID",
-      "the direct-perception record carries role.resolver + permission.resolution.execute as the context its validation ran under",
+      "the direct-perception and scene records carry role.resolver + permission.resolution.execute as the context their validation ran under",
       { key: w.key },
     );
+  // a viewing ruling, like a perception, is made at the CURRENT canonical basis
+  if (r.operation === REFEREE_OP_SCENE) {
+    const now = committedCanonicalTime((k) => state.facts.get(k));
+    if (!now || !timeEquals(r.input.observed_at, now))
+      return reject(
+        "REFERENCE_INVALID",
+        "a viewing ruling is made at the current canonical basis: a changed basis is a different question",
+        { key: w.key },
+      );
+  }
   if (r.operation === REFEREE_OP_OBSERVATION) {
     const now = committedCanonicalTime((k) => state.facts.get(k));
     if (!now || !timeEquals(r.input.observed_at, now))

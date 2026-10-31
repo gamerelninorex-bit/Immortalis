@@ -35,6 +35,11 @@ const walk = (d: string): string[] =>
   readdirSync(d, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`],
   );
+/** The operator, referee, protocol and epistemic trees as main (8fda533) carried them: history only, never compared with the working tree (see the tests below); recorded with their commit in tests/support/historical-pin-inventory.ts. */
+const OPERATOR_TREE_AT_MAIN = "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637";
+const REFEREE_TREE_AT_MAIN = "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098";
+const PROTOCOL_TREE_AT_MAIN = "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b";
+const EPISTEMIC_TREE_AT_MAIN = "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186";
 const treeSha = (d: string): string => {
   const h = createHash("sha256");
   for (const f of walk(d).sort()) h.update(`${f}\0${fileSha(f)}\n`);
@@ -153,18 +158,13 @@ describe("nothing outside the physical-source slice was built", () => {
       e.isDirectory() ? tree(join(dir, e.name)) : [join(dir, e.name)],
     );
 
-  it("no operator command, host operation, endpoint or protocol surface names the chain: the composed baseline remains pinned", () => {
-    expect(treeSha("packages/operator/src")).toBe(
-      // A2 preparation composition: only the equivalent typed R-5 input seam changed.
-      // The absence-of-auditory-ingress assertion below remains operative.
-      // H-07 changes only the existing scratch-package copy to follow verified checkpoints.
-      // Two-review composition adds only trusted receipt adaptation; no sensory/world producer.
-      // Referee restart repair adds private wait-lifetime context and cancellation only; no new command or auditory ingress.
-      "26f6a888db94bf6891063d02ba37857879504058bd8ae842da06483732b00637",
-    );
-    expect(treeSha("packages/protocol/src")).toBe(
-      "3c895a7bad2214abd044d4be8283fc885bdd7bc0998974e9e4b194935501720b",
-    );
+  it("no operator command, host operation, endpoint or protocol surface names the chain: the operator and protocol trees changed after this slice, so only their original values are kept, as history (present-day identities: tests/support/present-day-identities.ts)", () => {
+    // The ORIGINAL operator tree main (8fda533) carried is recorded as history and is NOT compared with the working tree: PR #94 changed
+    // packages/operator/src after this slice (scene, observation and referee-exchange work among others), so any value equal to today's tree
+    // would be a present-day identity wearing a historical label. The absence-of-auditory-ingress assertion below stays operative.
+    // ... and the recorded history really is history: it is not today's tree (re-pinning it to today's value would make this fail)
+    expect(treeSha("packages/operator/src")).not.toBe(OPERATOR_TREE_AT_MAIN);
+    expect(treeSha("packages/protocol/src")).not.toBe(PROTOCOL_TREE_AT_MAIN);
     const surface = [...tree("packages/operator/src"), ...tree("packages/protocol/src")]
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
@@ -173,15 +173,10 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the composed predecessor modules are pinned; P1 adds no Health, F-014D, referee or Temporal producer", () => {
+  it("the composed predecessor modules are pinned (the referee and epistemic trees excepted: PR #94 changed them); P1 adds no Health, F-014D, referee or Temporal producer", () => {
     const expected: Record<string, string> = {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
-      "packages/engine/src/epistemic":
-        "31ded7151880f89175058634615bad2d7352ee9d3eedaa3ea5349f42c0ce6186",
-      // adjusted openly for N-1 (RED, #72): referee/derive.ts gains `deliveryWithheld` and comment-only authority-label corrections
-      "packages/engine/src/referee":
-        "0037364e047b70c865f68962f9e0fecc517c18a887c17a5958f7225ba8363098",
       "packages/engine/src/temporal":
         "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
       "packages/engine/src/persistence":
@@ -191,6 +186,11 @@ describe("nothing outside the physical-source slice was built", () => {
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
+    // The referee and epistemic trees are not in the map above on purpose: PR #94 changed them (R-1, F-1, L12, the scene work), so the value main
+    // carried is history only and is not compared with the working tree; their present-day identities live only in
+    // tests/support/present-day-identities.ts.
+    expect(treeSha("packages/engine/src/referee")).not.toBe(REFEREE_TREE_AT_MAIN);
+    expect(treeSha("packages/engine/src/epistemic")).not.toBe(EPISTEMIC_TREE_AT_MAIN);
   });
 
   it("R1 is preserved: its contract, rules, verifier and eligibility predicate are byte-identical to the merged foundation", () => {
@@ -298,7 +298,8 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     expect(sha(lock["frozen_sources"])).toBe(
       "d12a4d73380f75d2594ed8aacf77ad6eb85d7679a235f37faa4412810d075de7",
     );
-    expect(sha(lock["design_lineage_successors"])).toBe(
+    // the ORIGINAL four lineage rows, in order, byte-identical (the hash is of those four, not of the later five-row array)
+    expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
     );
     expect(sha(rows[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
@@ -307,11 +308,20 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "736a27bef959afbbc88266d6eab4ffc56892d8509aaa71054821e0dba037c53c",
     );
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
-    expect(lock["design_lineage_successors"]).toHaveLength(4);
+    // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
+    expect(lock["design_lineage_successors"]).toHaveLength(5);
+    expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
-  it("the R1 lowering is the first row and the P1 lowering is the one row after it: exactly two executable lowerings exist", () => {
-    expect(rows.map((r) => r.id)).toEqual(["R1-STAGE-ONE-V1.1-LOWERING", "S1-P1-WG-LOWERING"]);
+  it("the R1 lowering is the first row and the P1 lowering is the one row after it; the two current-look lowerings follow and nothing else exists", () => {
+    // the S1-P1 row is byte-identical to the one this slice added (the 31 October 2026 rows are asserted by current-look-lowering-conformance)
+    expect(sha(p1)).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
+    expect(rows.map((r) => r.id)).toEqual([
+      "R1-STAGE-ONE-V1.1-LOWERING",
+      "S1-P1-WG-LOWERING",
+      "PC-CURRENT-LOOK-WORLD-LOWERING",
+      "GM-CURRENT-LOOK-SCENE-LOWERING",
+    ]);
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.map((r) => r.id));
   });
 

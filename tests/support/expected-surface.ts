@@ -226,6 +226,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "world-state/pc/p1/locus-custody",
   },
   {
+    id: "world_pc_current_viewing",
+    owner: "world_state",
+    facet: "world_fallback_physical_entity",
+    lifecycle: "SEALED",
+    group: "WORLD_SCENE_FACT_KINDS",
+    exampleKey: "world-state/pc/p1/current-viewing/00000000000000000000000000000000",
+  },
+  {
     id: "actor_setup_placement",
     owner: "world_state",
     facet: "world_fallback_physical_entity",
@@ -708,6 +716,15 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "pc/p1/intrinsic-clarification/c1",
   },
+  /** H1: the PC owner's create-only Delegation Commit Record of the same branch (I-002 section 9), a second kind of the same facet. */
+  {
+    id: "pc_delegated_clarification",
+    owner: "pc_existence",
+    facet: "pc_intrinsic_clarification",
+    lifecycle: "SEALED",
+    group: "PC_COLLECTION_FACT_KINDS",
+    exampleKey: "pc/p1/delegated-clarification/d1",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -835,6 +852,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "evaluateIr",
       "evaluateObservation",
       "evaluatePhysical",
+      "evaluateScene",
       "i002Task",
       "irTask",
       "observationTask",
@@ -843,6 +861,8 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "recordIr",
       "recordObservation",
       "recordPhysical",
+      "recordScene",
+      "viewingTask",
     ],
     source: {
       file: "packages/engine/src/referee/adapter.ts",
@@ -983,6 +1003,10 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "commit",
       "commitment",
       "cycleTask",
+      "delegate",
+      "delegation",
+      "delegationTask",
+      "delegations",
       "determineRepresentation",
       "establishMechanism",
       "establishRequest",
