@@ -8,6 +8,7 @@ LLM-neutral persistent narrative and world-simulation engine (Resurreccion Core)
 
 - Implementation package: F-027 v1.0 — see [`spec/f027/spec-lock.json`](spec/f027/spec-lock.json) (exact Notion pins). "Latest Notion" is never an implicit build input.
 - Rules for contributors and agents: [`IMPLEMENTATION_CHARTER.md`](IMPLEMENTATION_CHARTER.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md).
+- GM-facing builds follow the standing GM-led natural chat play requirement (30 October 2026) in [`IMPLEMENTATION_CHARTER.md`](IMPLEMENTATION_CHARTER.md); the current first-play capability boundary and its evidence labels are in [`docs/gm-led-first-play.md`](docs/gm-led-first-play.md).
 - Notion is the design/governance source of truth; GitHub is the implementation/version/review source of truth.
 
 ## Layout

@@ -19,9 +19,11 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base d5d6ce5: the slice consumes or stands beside every one of these, and edits none. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   // the frozen specification snapshot, the lock, the register and the gates
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -29,8 +31,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   // the Glance gateway (IM-15), its contract, and the projection (IM-13) and presentation (IM-14) it composes
-  "packages/protocol/src/current-observation-glance.ts":
-    "60eb9c27908c2c214ba579b1f36af452cb8a168bcb348c4183c43799f7b0fe75",
   "packages/contracts/src/protocol-current-glance.ts":
     "c51e39c962137b912e05ce24a6590038afead2b32a891e145a43ece1b909ccba",
   "packages/protocol/src/index.ts":
@@ -44,12 +44,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/presentation/event-signal.ts":
     "314b6e38bcb0aee7467a3ebb284e55da45ac8f74fcbe82b1157ccd2923970345",
   // the observation producer and the confirmation module (the only place a confirmation is made), re-used without edit
-  "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
-  "packages/operator/src/confirmation.ts":
-    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
-  "packages/operator/src/original-pc.ts":
-    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -74,16 +68,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/player-view-bind-bin.ts":
     "8d06bb0cc0e6b9ffedb38ff65c2f8569ab9cd39fcfcd78530dd027102ba40b2a",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
-  "packages/operator/src/referee-mcp.ts":
-    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
-  "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
-  "packages/operator/src/referee-session.ts":
-    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
-  "packages/operator/src/cli.ts":
-    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
-  "packages/operator/src/index.ts":
-    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
 };
 
 const NEW_MODULES = [
@@ -110,16 +94,11 @@ const ADVANCE_MODULES = [
 ];
 
 describe("existing owners, the gateway, the read transport, the referee surface and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the F-027 lock, runtime-contract snapshot, register and gates, IM-13/IM-14/IM-15, the observation producer, the confirmation module, the read transport and the referee surface are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), IM-13/IM-14/IM-15, the observation producer, the confirmation module, the read transport and the referee surface are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the spec lock is the same Git blob the PR #68/#69 closeouts verified, and the frozen pins are the brief's", () => {
-    const blob = createHash("sha1")
-      .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
-      .update(readFileSync("spec/f027/spec-lock.json"))
-      .digest("hex");
-    expect(blob).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+  it("the frozen pins are the brief's", () => {
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");
     expect(pin("F-014D")).toBe("2026-09-24T16:25:17.059Z");
@@ -137,6 +116,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "cli.ts",
         "closed-setting.ts",
         "collection-clarification.ts",
+        "collection-delegation.ts",
         "collection-preparation.ts",
         "collection-referee.ts",
         "commands.ts",
@@ -169,6 +149,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "referee-exchange.ts",
         "referee-mcp.ts",
         "referee-session.ts",
+        "scene-resolution.ts",
         "session.ts",
         "review-evidence.ts",
         "request-evidence.ts",

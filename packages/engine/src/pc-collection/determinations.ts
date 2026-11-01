@@ -59,7 +59,8 @@ import { deliveredFacts } from "../referee/derive.ts";
 import type { FactView } from "../world/pc-locus-custody.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
 import { pcHasMovementRecords } from "./state.ts";
-import { resolveClarifiedClaims } from "./clarification.ts";
+import { statesExactDuration } from "./clarification.ts";
+import { resolveClarifiedClaims } from "./delegation.ts";
 
 /**
  * CPAA-C1 v0.3 (design RATIFIED by the Sovereign; implementation acceptance pending) — the determinations the closed class rests on,
@@ -78,11 +79,7 @@ export type ScanFacts = FactView & {
   readonly values?: () => Iterable<OwnerFact>;
 };
 
-/** Does the quotation state this duration: its exact numeral (as a whole number, not part of another) and its canonical unit? */
-export function statesExactDuration(quote: string, duration: CanonicalTime): boolean {
-  const numeral = new RegExp(`(?<![0-9.])${duration.value}(?![0-9]|\\.[0-9])`);
-  return numeral.test(quote) && quote.includes(duration.unit);
-}
+export { statesExactDuration };
 
 const PREREQ = "PREREQUISITE_MISSING" as const;
 const refuse = (message: string) => fail(PREREQ, message);
@@ -561,7 +558,13 @@ export function buildCycleTask(
     mechanism: pin(mechanism.fact),
     claims,
     ...(clarified.claims.length > 0
-      ? { clarified: clarified.claims.map((c) => ({ ref: c.ref, statement: c.statement })) }
+      ? {
+          clarified: clarified.claims.map((c) => ({
+            ref: c.ref,
+            statement: c.statement,
+            ...(c.provenance ? { provenance: c.provenance } : {}),
+          })),
+        }
       : {}),
     actuator: m.actuator.statement,
     cycle: m.cycle.duration,

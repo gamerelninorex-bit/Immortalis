@@ -26,6 +26,8 @@ import {
   type PrepareInput,
   type StageIdentity,
   type StageKind,
+  type DelegateInput,
+  delegateIdentity,
 } from "./route-stages.ts";
 import type { PhoneConfig } from "./config.ts";
 
@@ -38,6 +40,7 @@ export type StageRequest =
   | { readonly kind: "LOCUS" }
   | { readonly kind: "CHRONOLOGY"; readonly input: ChronologyInput }
   | { readonly kind: "CLARIFY"; readonly words: string }
+  | { readonly kind: "DELEGATE"; readonly input: DelegateInput }
   | { readonly kind: "PREPARE"; readonly input: PrepareInput }
   | { readonly kind: "DECLARE"; readonly input: DeclareInput }
   | { readonly kind: "FINISH" }
@@ -124,6 +127,19 @@ export function candidateOf(
           setup: null,
           options: { "player-character": pc },
           retain: { handling: req.words },
+        },
+      };
+    }
+    case "DELEGATE": {
+      if (pc === null) return bad(`the character is not kept and placed yet: ${FIRST}`);
+      return {
+        ok: true,
+        run: {
+          identity: delegateIdentity(pc, req.input),
+          command: STAGE_COMMAND.DELEGATE,
+          setup: null,
+          options: { "player-character": pc },
+          retain: {},
         },
       };
     }
@@ -293,7 +309,8 @@ export function planStage(
     case "CLARIFY": {
       const need = clarificationNeed(r);
       if (need === "DONE")
-        return r.clarification!.statements.length === 1 &&
+        return r.clarification!.delegated === undefined &&
+          r.clarification!.statements.length === 1 &&
           r.clarification!.statements[0] === id.words
           ? {
               kind: "DONE",
@@ -326,6 +343,42 @@ export function planStage(
           coverage === null
             ? "the configured referee grants cannot be verified now"
             : "no AI referee host that this service lists is bound to read the character's own words; nothing was started",
+          coverage === null ? 503 : 409,
+        );
+      return { kind: "RUN", run };
+    }
+    case "DELEGATE": {
+      const need = clarificationNeed(r);
+      if (need === "DONE") {
+        const d = r.clarification!.delegated;
+        return d !== undefined && d.shortest === (id.shortest ?? 1) && d.longest === id.longest
+          ? {
+              kind: "DONE",
+              step: "DELEGATE",
+              message:
+                "this delegation is already the character's accepted, sealed choice; nobody was asked",
+            }
+          : refuse(
+              "this character's handling-cycle branch is already closed by an accepted record; it is not reselected, redefined or amended",
+            );
+      }
+      if (need === "NOT_NEEDED")
+        return refuse(
+          "the collection mechanism is already prepared from the character's accepted words: no delegation applies",
+        );
+      if (need === "CLOSED")
+        return refuse(
+          "a collection commitment of this character already exists: a delegation first offered after a consequence depends on it is declined and the branch stays unresolved",
+        );
+      if (need === "WAITING")
+        return refuse(
+          "the starting moment is not established yet: state it first (state_starting_moment)",
+        );
+      if (!covers("PC_COLLECTION_DELEGATE"))
+        return refuse(
+          coverage === null
+            ? "the configured referee grants cannot be verified now"
+            : "no AI referee host that this service lists is bound to make the delegated selection (role.gm; the operator lists and binds gm-delegate); nothing was started",
           coverage === null ? 503 : 409,
         );
       return { kind: "RUN", run };

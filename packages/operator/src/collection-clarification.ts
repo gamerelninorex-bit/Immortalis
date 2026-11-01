@@ -80,6 +80,17 @@ const TIME = (t: CanonicalTime): string => `${t.value} ${t.unit}`;
 export async function clarifyCollectionCycle(
   p: ClarifyCollectionCycleParams,
 ): Promise<CharacterResult> {
+  return withBranchSession(p, (session) => run(p, session));
+}
+
+/**
+ * One owner session for a command on the character's cycle branch (R-5 clarification and H1 delegation alike): opened under the
+ * local operator, closed afterwards, and an unexpected failure after any write reported as an unknown outcome, never a success.
+ */
+export async function withBranchSession(
+  p: ClarifyCollectionCycleParams,
+  body: (session: LocalOperatorSession) => Promise<CharacterResult>,
+): Promise<CharacterResult> {
   if (!EntityId.safeParse(p.pcId).success)
     return result("INVALID_REQUEST", ["the character identity is not valid"]);
   const opened = await openSession({
@@ -94,7 +105,7 @@ export async function clarifyCollectionCycle(
   if (!opened.ok) return opened.refusal;
   const session = opened.session;
   try {
-    return await run(p, session);
+    return await body(session);
   } catch {
     // an unexpected failure after any write may have left that write landed or not: an unknown outcome, never a success
     session.markAmbiguous();
@@ -120,6 +131,9 @@ const scopeLines = (r: I002ClarificationReading | undefined): string[] =>
 
 const NOT_AVAILABLE = (why: string, pcKey?: string): CharacterResult =>
   result("CLARIFICATION_NOT_AVAILABLE", [...(pcKey ? [`character: ${pcKey}`] : []), why]);
+
+const DELEGATION_NOT_AVAILABLE = (why: string, pcKey?: string): CharacterResult =>
+  result("DELEGATION_NOT_AVAILABLE", [...(pcKey ? [`character: ${pcKey}`] : []), why]);
 
 /** Why the player's words cannot be used as the cycle's account, or null: a number in digits and the campaign's unit, or the collection could never quote them. */
 const unusable = (text: string, unit: string): string | null =>
@@ -178,10 +192,28 @@ function chatWords(
   return { ok: true, text: judged.text };
 }
 
-async function run(
+/** What a command on the cycle branch needs before it may ask anything: the verified, bound character and the current canonical time. */
+export interface BranchCharacter {
+  readonly rt: ReturnType<typeof runtimeOf>;
+  readonly campaign: LocalOperatorSession["campaign"];
+  readonly pc: NonNullable<ReturnType<LocalOperatorSession["campaign"]["playerCharacter"]>>;
+  readonly at: CanonicalTime;
+  readonly collection: PcCollectionAdapter;
+}
+
+/**
+ * The preconditions the prospective branch shares (R-5 clarification and H1 delegation): only the character this operator's commands
+ * released AND bound (verified), only at a campaign whose canonical time is established, and only BEFORE any collection commitment of
+ * that character. `what` only words the refusals.
+ */
+export async function branchCharacter(
   p: ClarifyCollectionCycleParams,
   session: LocalOperatorSession,
-): Promise<CharacterResult> {
+  what: "clarification" | "delegation",
+): Promise<
+  | { readonly ok: true; readonly value: BranchCharacter }
+  | { readonly ok: false; readonly refusal: CharacterResult }
+> {
   const { terminal, pcId, campaignId } = p;
   const campaign = session.campaign;
   const rt = runtimeOf(
@@ -199,8 +231,7 @@ async function run(
     },
     session,
   );
-
-  // only the character this operator's commands released AND bound (verified) can be clarified, and only this one
+  const refuse = (refusal: CharacterResult) => ({ ok: false as const, refusal });
   const keepRead = await readKeep({
     dir: rt.stateDir,
     campaignId,
@@ -208,33 +239,44 @@ async function run(
     ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
   });
   if (!keepRead.ok)
-    return result(
-      "SESSION_UNAVAILABLE",
-      [keepRead.error.message],
-      `STATE_UNAVAILABLE ${keepRead.error.code}`,
+    return refuse(
+      result(
+        "SESSION_UNAVAILABLE",
+        [keepRead.error.message],
+        `STATE_UNAVAILABLE ${keepRead.error.code}`,
+      ),
     );
   const keep = keepRead.value;
   const pc = campaign.playerCharacter(pcId);
   if (!pc || keep === null || keep.pc_id !== pcId)
-    return result("CHARACTER_NONE", [
-      `no character ${pcId} of \`author-character\` is held for this campaign`,
-    ]);
+    return refuse(
+      result("CHARACTER_NONE", [
+        `no character ${pcId} of \`author-character\` is held for this campaign`,
+      ]),
+    );
   const released = releaseProblems(campaignId, pc.fact, keep, campaign.store);
-  if (released.length > 0) return result("CHARACTER_CONFLICT", released);
+  if (released.length > 0) return refuse(result("CHARACTER_CONFLICT", released));
+  const notAvailable = (why: string) =>
+    refuse(
+      what === "delegation"
+        ? DELEGATION_NOT_AVAILABLE(why, pc.fact.key)
+        : NOT_AVAILABLE(why, pc.fact.key),
+    );
   if (!campaign.binding())
-    return NOT_AVAILABLE("the character is not bound: run author-character first", pc.fact.key);
+    return notAvailable("the character is not bound: run author-character first");
   const bound = bindingProblems({ campaign, campaignId, keep }, pc.fact);
   if (bound.length > 0 || campaign.verify().length > 0)
-    return result("BINDING_CONFLICT", [
-      ...bound,
-      ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
-    ]);
+    return refuse(
+      result("BINDING_CONFLICT", [
+        ...bound,
+        ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
+      ]),
+    );
   const clock = campaign.store.getFact(TEMPORAL_STATE_KEY);
   const state = clock ? TemporalStateSchema.safeParse(clock.value) : undefined;
   if (!state?.success)
-    return NOT_AVAILABLE(
-      "no canonical time is established: run initialize-time first (a clarification is effective from a time)",
-      pc.fact.key,
+    return notAvailable(
+      `no canonical time is established: run initialize-time first (a ${what} is effective from a time)`,
     );
   const prefix = `pc/${pcId}/collection/`;
   if (
@@ -242,11 +284,31 @@ async function run(
       .listFacts()
       .some((f) => f.key.startsWith(prefix) && f.key.endsWith("/commitment"))
   )
-    return NOT_AVAILABLE(
-      "a collection commitment of this character already exists: a clarification is prospective and retrofits no act",
-      pc.fact.key,
+    return notAvailable(
+      what === "delegation"
+        ? "a collection commitment of this character already exists: a delegation first offered after a consequence depends on it is declined and the branch stays unresolved"
+        : "a collection commitment of this character already exists: a clarification is prospective and retrofits no act",
     );
-  const at = state.data.canonical_time;
+  return {
+    ok: true,
+    value: {
+      rt,
+      campaign,
+      pc,
+      at: state.data.canonical_time,
+      collection: new PcCollectionAdapter(campaign.store),
+    },
+  };
+}
+
+async function run(
+  p: ClarifyCollectionCycleParams,
+  session: LocalOperatorSession,
+): Promise<CharacterResult> {
+  const { terminal, pcId, campaignId } = p;
+  const pre = await branchCharacter(p, session, "clarification");
+  if (!pre.ok) return pre.refusal;
+  const { rt, campaign, pc, at, collection } = pre.value;
 
   const words = p.chat
     ? chatWords(terminal, at.unit, p.chat.words)
@@ -255,7 +317,6 @@ async function run(
   const statements = [words.text];
   const id = pcClarificationIdOf(pcId);
   const wordsId = pcClarificationWordsDigest(statements);
-  const collection = new PcCollectionAdapter(campaign.store);
 
   // the branch has ONE slot per character (BLUE H-1): the same words already accepted converge (nothing is asked, confirmed or decided
   // again); other words find the branch closed, and nothing is written

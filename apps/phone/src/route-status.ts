@@ -47,6 +47,35 @@ export interface NextStep {
     readonly ask_the_player: readonly string[];
     readonly note: string;
   };
+  /**
+   * H1: the conditional DELEGATED path (I-002 section 9, "surprise me"): offered only if the PLAYER themselves hand the choice of that one
+   * duration to the referee and state the bounds. It is never the default, and the model must not delegate on the player's behalf.
+   */
+  readonly if_player_delegates_handling_duration?: {
+    readonly tool: "delegate_handling_duration";
+    readonly ask_the_player: readonly string[];
+    readonly note: string;
+  };
+  /**
+   * H1: once a delegation is committed, the Character Mirror's account (scope, method class, executing role, seal) and the sealed
+   * statement exactly as committed, so the preparation can quote it verbatim. It is the referee's choice, never the player's words.
+   */
+  readonly delegated_choice?: {
+    readonly clarification_id: string;
+    readonly provenance: "PLAYER-DELEGATED";
+    readonly executed_by: "role.gm";
+    readonly statement: string;
+    /** the sealed duration the statement states, in the campaign's unit: what the preparation's cycle_value is */
+    readonly duration: { readonly value: number; readonly unit: string };
+    readonly scope: {
+      readonly shortest: number;
+      /** null: the player committed no upper limit */
+      readonly longest: number | null;
+      readonly unit: string;
+    };
+    readonly method: string;
+    readonly seal: string;
+  };
   readonly note: string;
 }
 
@@ -59,8 +88,12 @@ export interface RouteStatus {
   readonly readiness: {
     /** everything the existing collection tools need is committed, current, attested and configured: a SEPARATE player request for the supported collection may now be made */
     readonly prepared_to_request_collection: boolean;
-    /** setup never starts play, collects, observes or advances time */
-    readonly campaign_started: false;
+    /**
+     * This is a SETUP-READINESS report and says nothing about whether play has begun: it never reads collection, time or observation
+     * state. (It replaces a constant `campaign_started: false` that could be misread as a runtime probe.) Current play state is
+     * `play_status`.
+     */
+    readonly report_scope: "SETUP_READINESS_ONLY";
   };
   readonly barrier: Barrier;
   /** closed codes for service-side settings this route needs and does not have (an engineering step, never a player choice) */
@@ -124,7 +157,7 @@ const empty = (
   state,
   stages,
   next: null,
-  readiness: { prepared_to_request_collection: false, campaign_started: false },
+  readiness: { prepared_to_request_collection: false, report_scope: "SETUP_READINESS_ONLY" },
   barrier: input.barrier,
   detail,
 });
@@ -179,7 +212,13 @@ export function routeStatus(input: StatusInput): RouteStatus {
         }
       : line;
   const needsReferee = (stage: string, line: StageLine): StageLine => {
-    if (line.state !== "NEXT" || covered(REFEREE_FOR[stage])) return line;
+    // the handling duration has two routes (the player's own words are classified by I-002; a delegated choice is made by role.gm)
+    if (
+      line.state !== "NEXT" ||
+      covered(REFEREE_FOR[stage]) ||
+      (stage === "handling_duration" && covered("PC_COLLECTION_DELEGATE"))
+    )
+      return line;
     missing.push(`REFEREE_GRANT_MISSING:${REFEREE_FOR[stage]}`);
     return { stage, state: "BLOCKED", detail: "no listed referee host is bound for this reading" };
   };
@@ -362,7 +401,7 @@ export function routeStatus(input: StatusInput): RouteStatus {
     state: "OPEN",
     stages,
     next: prepared ? null : (held ?? next),
-    readiness: { prepared_to_request_collection: prepared, campaign_started: false },
+    readiness: { prepared_to_request_collection: prepared, report_scope: "SETUP_READINESS_ONLY" },
     barrier: input.barrier,
     ...(missing.length > 0 ? { blockers: [...new Set(missing)] } : {}),
     ...(input.barrierDetail ? { detail: input.barrierDetail } : {}),
@@ -380,7 +419,7 @@ const ACCEPTED_SECTIONS = new Set<string>([
 ]);
 
 /** One conditional choice, not a semantic verdict inferred from accepted prose. */
-function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
+function preparationStep(r: RouteFacts, rec: RouteRecord | null, delegable: boolean): NextStep {
   return {
     tool: TOOL["collection_preparation"]!,
     ask_the_player: rec?.preparation
@@ -396,6 +435,38 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
       .filter((c) => ACCEPTED_SECTIONS.has(c.locator.section))
       .map((c) => ({ section: c.locator.section, text: c.statement })),
     canonical_unit: r.time!.canonical_time.unit,
+    ...(r.clarification?.delegated
+      ? {
+          delegated_choice: {
+            clarification_id: r.clarification.clarification_id,
+            provenance: "PLAYER-DELEGATED" as const,
+            executed_by: "role.gm" as const,
+            statement: r.clarification.statements[0]!,
+            duration: {
+              value: r.clarification.delegated.duration,
+              unit: r.clarification.delegated.unit,
+            },
+            scope: {
+              shortest: r.clarification.delegated.shortest,
+              longest: r.clarification.delegated.longest,
+              unit: r.clarification.delegated.unit,
+            },
+            method: r.clarification.delegated.method,
+            seal: r.clarification.delegated.seal,
+          },
+        }
+      : {}),
+    ...(clarificationNeed(r) === "OPEN" && delegable
+      ? {
+          if_player_delegates_handling_duration: {
+            tool: "delegate_handling_duration" as const,
+            ask_the_player: [
+              'nothing is required. If the player\'s seed already leaves the routine detail to the Game Master, or they say so ("you decide", "surprise me"), call it with no numbers at all; pass shortest/longest only if the player THEMSELVES stated a numeric limit ("never more than five seconds" is longest: 5)',
+            ],
+            note: "Never delegate on the player's behalf, never choose, suggest or default a limit, and never present the referee's choice as the player's own words. A qualitative wish (\"nothing frantic\") is not a constraint the owner can verify: tell the player so and offer state_handling_duration instead. The referee chooses once; the choice is sealed and not shown before it is committed; it cannot be reselected.",
+          },
+        }
+      : {}),
     ...(clarificationNeed(r) === "OPEN"
       ? {
           if_handling_duration_unresolved: {
@@ -407,9 +478,13 @@ function preparationStep(r: RouteFacts, rec: RouteRecord | null): NextStep {
           },
         }
       : {}),
-    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise use if_handling_duration_unresolved first, asking only for that missing detail. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
+    note: "If accepted words already state the actual handling cycle, quote them in the preparation without asking for a new duration or R-5 confirmation. Otherwise the detail is open: if the player has not already spoken to it, ask them ONE question - whether they will say how long one handling cycle takes in their own words (if_handling_duration_unresolved) or leave that to the Game Master (if_player_delegates_handling_duration, which needs no number). That is a choice, not a rate form; never pick for them. A delegated_choice, once present, is the referee's sealed choice: quote it verbatim as the cycle; it is not the player's own words. A number and time unit in unrelated words prove no cycle. The existing preparation and referee/owner paths determine admissibility and actual cycle meaning; return the complete preparation readback without another approval.",
   };
 }
+
+/** the delegated selection is offered only where a listed, bound host can make it (an unlisted deployment keeps the status it always had) */
+const delegates = (input: StatusInput): boolean =>
+  input.coverage !== null && input.coverage.has("PC_COLLECTION_DELEGATE");
 
 function nextStep(
   r: RouteFacts,
@@ -456,7 +531,7 @@ function nextStep(
         note: "The setting author states this once; nothing is defaulted, converted or guessed, and no time passes by stating it.",
       };
     case "handling_duration":
-      if (!rec?.handling) return preparationStep(r, rec);
+      if (!rec?.handling) return preparationStep(r, rec, delegates(input));
       return {
         tool: TOOL["handling_duration"]!,
         ask_the_player: rec?.handling
@@ -469,7 +544,7 @@ function nextStep(
         note: "Reuse the player's retained words for this open handling-cycle question. The existing referee judges whether the detail is unresolved and whether the words only clarify that detail; the player separately accepts them. No rate is suggested or chosen.",
       };
     case "collection_preparation":
-      return preparationStep(r, rec);
+      return preparationStep(r, rec, delegates(input));
     case "closed_setting":
       return {
         tool: TOOL["closed_setting"]!,

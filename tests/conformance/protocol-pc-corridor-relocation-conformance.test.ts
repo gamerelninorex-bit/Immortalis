@@ -20,12 +20,6 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
-const gitBlob = (file: string) => {
-  const body = readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest("hex");
-};
 /** Source with comments AND string literals removed: only the identifiers and operators of the code remain. */
 const identifiers = (file: string): string =>
   code(file)
@@ -45,6 +39,9 @@ const bodyOf = (file: string, from: string, to: string): string => {
 };
 
 /** Everything the slice composes or must leave untouched, exactly as it stood at main 3b06e6591303e72ee7523555dc08d13c4c9c7d5b. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/pc-relocation.ts":
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
@@ -70,10 +67,6 @@ const UNCHANGED: Record<string, string> = {
     "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
   "packages/engine/src/world/corridor.ts":
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a",
-  "packages/engine/src/owners/registry.ts":
-    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/engine/src/pc-movement/derive.ts":
@@ -96,12 +89,8 @@ const DERIVE = "packages/engine/src/logistics/derive.ts";
 const DERIVE_AT_SLICE_HEAD = "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4";
 
 describe("existing owners and predecessors are untouched: the gateway consumes them, never edits or duplicates them", () => {
-  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor, the owner registry and the Temporal kernel are byte-identical to the base", () => {
+  it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor and the Temporal kernel are byte-identical to the base (not the owner registry, which F-027 v0.8 changed on purpose) (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
-  });
-
-  it("the F-027 spec lock is unchanged: blob 2df29edfd08b1fb986666c94153f9432cf227324", () => {
-    expect(gitBlob("spec/f027/spec-lock.json")).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
   });
 
   it("the one engine edit is the Logistics derivation, narrowed and nothing else: the route-less foundation, every other refusal and the single corridor read remain", () => {

@@ -34,6 +34,7 @@ import {
   worldActorCouplingKey,
   worldCorridorKey,
   worldLocusKey,
+  worldPcCurrentViewingKey,
   worldPcLocusCustodyKey,
   worldProfileKey,
   worldSourceConditionKey,
@@ -105,6 +106,7 @@ import {
   deriveOriginalPcPhysicalLocusCustody,
 } from "./pc-locus-custody.ts";
 import { verifyPcPhysicalLocusCustodyIntegrity } from "./pc-locus-custody-integrity.ts";
+import { derivePcCurrentViewing, verifySceneIntegrity } from "./scene-custody.ts";
 import { verifyEntityTransitionIntegrity } from "./entity-transition-integrity.ts";
 import { verifyCanonicalIntegrity, type IntegrityViolation } from "./integrity.ts";
 
@@ -667,6 +669,38 @@ export class CanonicalCampaign {
   }
 
   /**
+   * World-State physical custody (GM-led first play): publishes the SUPPORTED current viewing circumstance of the active PC from ONE
+   * retained \`GM_SCENE_RESOLUTION\` ruling. The caller names the character and the ruling, never a circumstance, verdict or time: the
+   * value is derived from the ruling and re-validated against the facts it cited. Sparse and create-only: a negative or unresolved
+   * ruling publishes nothing.
+   */
+  establishPcCurrentViewing(input: {
+    group_id: string;
+    intent_id: string;
+    cause: string;
+    basis: string;
+    secrecy: string;
+    pc_id: string;
+    ruling_task_id: string;
+  }): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const { group_id, intent_id, cause, basis, secrecy, pc_id, ruling_task_id } = input;
+    const derived = derivePcCurrentViewing(this.store, { pc_id, ruling_task_id });
+    if (!derived.ok) return Promise.resolve(fail("PREREQUISITE_MISSING", derived.error.message));
+    return this.#publish(
+      { group_id, intent_id, cause, basis, secrecy },
+      "world_pc_current_viewing",
+      worldPcCurrentViewingKey(pc_id, derived.value.viewing_id),
+      derived.value,
+      [
+        pcExistenceContractKey(pc_id),
+        PLAYER_CHARACTER_BINDING_KEY,
+        worldPcLocusCustodyKey(pc_id),
+        derived.value.ruling.fact_key,
+      ],
+    );
+  }
+
+  /**
    * I-002 (the current lawful PC-state owner): the player's voluntary-movement COMMITMENT-OF-RECORD for the active PC (frozen
    * Post-Handover contract §4, §8, §14). It states willingness only: one relocation of the continuing PC to one already-established
    * lawful locus of its own world, authored under role.player + permission.player_choice.commit. It is not a world result, not a
@@ -884,6 +918,7 @@ function verifyAll(
     ...verifyActorPresenceIntegrity(store),
     ...verifyAuditoryPremisesIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
+    ...verifySceneIntegrity(store),
     ...verifyPcMovementIntegrity(store),
     ...verifyPcCollectionIntegrity(store),
     ...verifyLogisticsIntegrity(store),

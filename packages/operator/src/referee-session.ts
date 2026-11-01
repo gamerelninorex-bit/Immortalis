@@ -5,6 +5,7 @@ import type {
   ObservationHostDecision,
   PhysicalHostDecision,
   RefereeVerdict,
+  SceneHostDecision,
 } from "@immortalis/contracts";
 import {
   RefereeAdjudicationAdapter,
@@ -14,6 +15,8 @@ import {
   type IrContext,
   type ObservationContext,
   type PhysicalContext,
+  type SceneContext,
+  type SceneRequest,
 } from "@immortalis/engine";
 import {
   awaitDecision,
@@ -265,6 +268,54 @@ export async function askObservation(
     if (got.value === null)
       return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
     const evaluated = adapter.evaluateObservation(context, got.value.answer);
+    if (!evaluated.ok) {
+      await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
+      continue;
+    }
+    return {
+      kind: "ANSWERED",
+      task_id,
+      attempt,
+      context,
+      verdict: evaluated.value.verdict,
+      decision: evaluated.value.decision,
+      host: { host_id: got.value.host_id, claimed_model: got.value.claimed_model },
+    };
+  }
+  return { kind: "REFUSED", message: "the host's answers were not valid; none was used" };
+}
+
+/**
+ * The GM's scene question (GM_SCENE_RESOLUTION): the CURRENT VIEWING of one basis (built from committed facts plus the trusted side's
+ * request). Never asked of a host that is not bound to this
+ * operation: the exchange authenticates the host for THIS operation before any of the context is disclosed. The same discipline as every
+ * other question: an unanswered task is PENDING (the same identity is found again), an invalid answer is set aside and never reused.
+ */
+export async function askScene(
+  adapter: RefereeAdjudicationAdapter,
+  rt: RefereeRuntime,
+  input: { campaign_id: string; pc_id: string; kind: "CURRENT_VIEWING"; request: SceneRequest },
+): Promise<Asked<SceneHostDecision, SceneContext>> {
+  const configured = await refereeConfigured(input.campaign_id, rt);
+  if (!configured.ok) return { kind: "UNAVAILABLE", ...configured };
+  const p = exchange(input.campaign_id, rt);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const built = adapter.viewingTask({ pc_id: input.pc_id, attempt, request: input.request });
+    if (!built.ok)
+      return { kind: "UNAVAILABLE", code: built.error.code, message: built.error.message };
+    const { context, task_id } = built.value;
+    if (await isSetAside(p, task_id)) continue;
+    const task = await publishTask(p, { task_id, operation: "GM_SCENE_RESOLUTION", context });
+    if (!task.ok)
+      return { kind: "UNAVAILABLE", code: task.error.code, message: task.error.message };
+    const got = await awaitDecision(p, task.value, rt.polls, rt.pollMs);
+    if (!got.ok) {
+      await setAsideDecision(p, task_id, got.error.code);
+      continue;
+    }
+    if (got.value === null)
+      return { kind: "PENDING", task_id, message: "the AI referee host has not answered yet" };
+    const evaluated = adapter.evaluateScene(context, got.value.answer);
     if (!evaluated.ok) {
       await setAsideDecision(p, task_id, `${evaluated.error.code}: ${evaluated.error.message}`);
       continue;

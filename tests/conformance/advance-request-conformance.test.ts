@@ -19,8 +19,10 @@ const sha = (file: string) =>
     .digest("hex");
 
 /** Byte-identical to the base e799fb8: the slice consumes or stands beside every one of these, and edits none. */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
@@ -49,26 +51,16 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
     "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
-  "packages/operator/src/confirmation.ts":
-    "f8b131a482f86719538bb754900f8a597522e1e355035b5af7c7612caf870cd3",
-  "packages/operator/src/cli.ts":
-    "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/session.ts":
     "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
   "packages/operator/src/ledger.ts":
     "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
-  "packages/operator/src/index.ts":
-    "0963a796522254e3f2a6fd2fa9dd53af2419dab6589f9649f5ae30c578994a57",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
     "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
-  "packages/operator/src/observation.ts":
-    "08e45a9c8ca22178d0a1cb07b1888a7a5b3c51c4927d6671005395c7b7f6e5e7",
-  "packages/operator/src/original-pc.ts":
-    "4cbcee683e45ee447ddd3b300566d8982ddad46a068a6eafac4c16e9ff3052ac",
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
@@ -99,12 +91,6 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "863c3fa9650dbb8dddf1c2653e8a8a53ed3bac540447e36fcfd7e6fe8f6f683b",
   "packages/operator/src/observe-request-answer-bin.ts":
     "7b181279766a13d4a2235a0d1dcb4279a27f7bd3a96a63e591813597dbe9b23e",
-  "packages/operator/src/referee-mcp.ts":
-    "de0bb376deb35c9a3f12fa550a2332a3b601e4bb7cbadd26a1d36f814a4c62a8",
-  "packages/operator/src/referee-exchange.ts":
-    "608150ab6febbb9266773a050fe69b96afb3787ee34c7acccf1867a493779106",
-  "packages/operator/src/referee-session.ts":
-    "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
 
 const NEW_MODULES = [
@@ -119,16 +105,11 @@ const NEW_MODULES = [
 ];
 
 describe("existing owners, the gateway, the Temporal kernel, GIP, the command set and the specification are untouched: the slice consumes them, never edits or duplicates them", () => {
-  it("the F-027 lock, runtime-contract snapshot, register and gates, the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base", () => {
+  it("the runtime-contract snapshot, register and gates (not the F-027 lock, which F-027 v0.8 changed on purpose), the target-advance gateway and contract, the Temporal and GIP sunset owners, the command set, the confirmation module, the observation-request and read transports and the referee surface are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
-  it("the spec lock is the same Git blob the PR #70 closeout verified, and the frozen pins are the brief's", () => {
-    const blob = createHash("sha1")
-      .update(`blob ${readFileSync("spec/f027/spec-lock.json").length}\0`)
-      .update(readFileSync("spec/f027/spec-lock.json"))
-      .digest("hex");
-    expect(blob).toBe("2df29edfd08b1fb986666c94153f9432cf227324");
+  it("the frozen pins are the brief's", () => {
     const pin = (id: string) => lock.frozen_sources.find((s) => s.id === id)!.native_pin;
     expect(pin("F-014B")).toBe("2026-09-25T23:42:29.547Z");
     expect(pin("I-001")).toBe("2026-09-25T00:17:49.551Z");

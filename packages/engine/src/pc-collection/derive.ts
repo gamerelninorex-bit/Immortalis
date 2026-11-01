@@ -76,7 +76,7 @@ import {
 import { pcClaimAt } from "../pc-capability/derive.ts";
 import { pcPhysicalLocusCustodyViolation, type FactView } from "../world/pc-locus-custody.ts";
 import { pcOccupancyRecord, pcOccupancyState } from "./state.ts";
-import { resolveClarifiedClaims } from "./clarification.ts";
+import { resolveClarifiedClaims } from "./delegation.ts";
 
 /**
  * CPAA-C1 lowering, first built as the v0.2 PROVISIONAL CANDIDATE (the v0.3 design is ratified, implementation acceptance pending; see

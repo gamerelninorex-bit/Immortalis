@@ -40,7 +40,17 @@ export const REQUIRED_ADDENDA: Readonly<Record<string, string>> = {
  * never replaces, narrows or supersedes a frozen pin. `of` is the frozen source id the page extends, or null for a governance source.
  */
 export const REQUIRED_DESIGN_LINEAGE: Readonly<
-  Record<string, { of: string | null; url: string; pin: string; sections: number }>
+  Record<
+    string,
+    {
+      of: string | null;
+      url: string;
+      pin: string;
+      sections: number;
+      /** the exact section titles, for a row whose titles are part of its closed expectation (the 31 October 2026 row only) */
+      titles?: readonly string[];
+    }
+  >
 > = {
   "R1-WG-LINEAGE": {
     of: "WG",
@@ -67,14 +77,51 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     pin: "2026-10-23T06:20:02.171Z",
     sections: 1,
   },
+  // 31 October 2026: the Sovereign-ratified Active-PC Current-Look section of the SAME governance-source page, at its own later pin. It is
+  // lineage only: the page is still no frozen source and no addendum, and its 8 October contract text is not re-pinned.
+  "PC-CURRENT-LOOK-PREMISE-LINEAGE": {
+    of: null,
+    url: "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+    pin: "2026-10-31T03:34:15.074Z",
+    sections: 1,
+    titles: [
+      "Active-PC Current-Look Physical Premise — Sovereign-Ratified Additive Section — 31 October 2026",
+    ],
+  },
 };
+
+/** The exclusions both current-look lowerings (31 October 2026) carry, as separate strings, in this order. */
+const CURRENT_LOOK_COMMON_DOES_NOT: readonly string[] = [
+  "does not replace, narrow, supersede or restate any of the 23 frozen F-027 source pins or the original WG/F-014D citations",
+  "does not originate new GM-owned physical, position, target-visibility, Health, Epistemic, or intrinsic PC facts",
+  "does not enable a legacy reader, a journal cutover, read-either acceptance, or a migration",
+  "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance",
+];
 
 /**
  * The executable lowerings the lock records, by id: an executable lowering composes with the F-027 package, cites the design lineage it
  * lowers and names its exact native pin. It is the only recorded executable authority for what it lowers.
+ *
+ * A row with a `closed` expectation (the two 31 October 2026 current-look lowerings only) is also held to its exact primary IM, its exact
+ * section, its `operation` (a string, or ABSENT when `null`) and its `does_not` as one closed, exact, ordered array of strings: a missing,
+ * changed, extra or reordered item falsifies it. The older R1 and S1-P1 rows carry no such expectation and are checked exactly as before.
  */
 export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
-  Record<string, { url: string; pin: string; kinds: readonly string[]; lineage: readonly string[] }>
+  Record<
+    string,
+    {
+      url: string;
+      pin: string;
+      kinds: readonly string[];
+      lineage: readonly string[];
+      closed?: {
+        im: string;
+        section: string;
+        operation: string | null;
+        does_not: readonly string[];
+      };
+    }
+  >
 > = {
   "R1-STAGE-ONE-V1.1-LOWERING": {
     url: "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
@@ -94,6 +141,35 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
     pin: "2026-10-23T12:26:49.599Z",
     kinds: ["actor_raw_sensory_state", "world_acoustic_emission"],
     lineage: [],
+  },
+  // 31 October 2026 (v0.8 carrier, native pin 2026-10-31T06:30:53.024Z): two additive lowerings of one ratified section. The World-State
+  // row names NO operation (its absence is checked); the Referee row is the GM_SCENE_RESOLUTION value class of referee_decision only.
+  "PC-CURRENT-LOOK-WORLD-LOWERING": {
+    url: "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+    pin: "2026-10-31T06:30:53.024Z",
+    kinds: ["world_pc_current_viewing"],
+    lineage: ["PC-CURRENT-LOOK-PREMISE-LINEAGE"],
+    closed: {
+      im: "IM-03",
+      section: "§3A — Frozen executable lowering: World-State current-look premise",
+      operation: null,
+      does_not: CURRENT_LOOK_COMMON_DOES_NOT,
+    },
+  },
+  "GM-CURRENT-LOOK-SCENE-LOWERING": {
+    url: "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+    pin: "2026-10-31T06:30:53.024Z",
+    kinds: ["referee_decision"],
+    lineage: ["PC-CURRENT-LOOK-PREMISE-LINEAGE"],
+    closed: {
+      im: "IM-12",
+      section: "§3B — Frozen executable lowering: Referee ordinary-look scene decision",
+      operation: "GM_SCENE_RESOLUTION",
+      does_not: [
+        ...CURRENT_LOOK_COMMON_DOES_NOT,
+        "does not lock the referee_decision kind-level REFEREE_RULE, its referee_adjudication_kernel owner, referee_provenance facet or key space, all of which remain under B61-A3 with the base rule sovereign-approved-not-native-pinned-not-spec-locked; does not modify REFEREE_PHYSICAL_RULE or REFEREE_OBSERVATION_RULE or license their operations through GM_SCENE_RESOLUTION",
+      ],
+    },
   },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -230,6 +306,10 @@ export function checkSpec(root: string): string[] {
       errors.push(
         `spec-lock.json: design lineage ${id} must list its ${want.sections} exact section title(s)`,
       );
+    else if (want.titles && JSON.stringify(e["sections"]) !== JSON.stringify(want.titles))
+      errors.push(
+        `spec-lock.json: design lineage ${id} must list exactly its ratified section title`,
+      );
     if (e["of_frozen_source"] !== want.of)
       errors.push(`spec-lock.json: design lineage ${id} extends ${String(want.of)}`);
     if (want.of === null) {
@@ -298,6 +378,23 @@ export function checkSpec(root: string): string[] {
       errors.push(`spec-lock.json: ${id} must cite exactly the design lineage it lowers`);
     if (JSON.stringify(e["fact_kinds"]) !== JSON.stringify(want.kinds))
       errors.push(`spec-lock.json: ${id} must name exactly its fact kinds`);
+    if (want.closed) {
+      const c = want.closed;
+      if (e["primary_im"] !== c.im)
+        errors.push(`spec-lock.json: executable lowering ${id} must be primary ${c.im}`);
+      if (e["section"] !== c.section)
+        errors.push(`spec-lock.json: executable lowering ${id} must name its exact section`);
+      // the operation is a value-class restriction: required on the Referee row, absent (not merely empty) on the World-State row
+      if (c.operation === null) {
+        if (Object.hasOwn(e, "operation"))
+          errors.push(`spec-lock.json: executable lowering ${id} must carry no operation key`);
+      } else if (e["operation"] !== c.operation)
+        errors.push(`spec-lock.json: executable lowering ${id} must name operation ${c.operation}`);
+      if (JSON.stringify(e["does_not"]) !== JSON.stringify(c.does_not))
+        errors.push(
+          `spec-lock.json: executable lowering ${id} must carry exactly its ${c.does_not.length} ordered does_not exclusions`,
+        );
+    }
   }
   for (const e of lowerings) {
     if (typeof e["id"] !== "string" || !(e["id"] in REQUIRED_EXECUTABLE_LOWERINGS))

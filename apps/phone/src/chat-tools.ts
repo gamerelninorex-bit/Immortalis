@@ -25,6 +25,7 @@ import {
 import { CHARACTER_COMMAND } from "./character-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
 import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
+import type { GoalReturn } from "./goal.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
   LOCALITY_CONFIRMATION_LAST,
@@ -38,6 +39,7 @@ import {
   MAX_TEXT,
   parseChronology,
   parseDeclare,
+  parseDelegation,
   parseHandling,
   parsePrepare,
 } from "./route-stages.ts";
@@ -550,6 +552,10 @@ const STAGE_NEXT: Partial<Record<string, string>> = {
     "The referee did not read the character as one material body present at exactly that place, so no physical location was committed. This route supports one such body only; nothing was changed. Do not retry unchanged and do not invent a different place.",
   CLARIFICATION_NOT_ACCEPTED:
     "The referee did not accept those words as the character's own account of the duration alone. Nothing was written. Ask the player for their own words again; do not suggest a number.",
+  DELEGATION_NOT_ACCEPTED:
+    "The referee did not select for the player: the duration is already stated in the character's accepted content, the branch is closed, or the request is outside this branch. Nothing was written. Do not retry unchanged and do not choose a number for the player.",
+  DELEGATION_NOT_AVAILABLE:
+    "No delegation can be made now (an unlawful or unbounded scope, a closed branch, no canonical time, or a collection of the character already exists). Nothing was changed. Report it plainly; ask the player only for bounds they will accept, never supply them.",
   FINISH_NOT_ATTESTED:
     "The referee did not establish the cycle, or has not answered. A genuine negative stays negative: do not retry it unchanged and invent no rate. Report it plainly and let the player decide what to change.",
   REFEREE_PENDING:
@@ -563,6 +569,7 @@ const STAGE_SUCCESS = new Set([
   "LOCUS_ESTABLISHED",
   "TIME_ESTABLISHED",
   "CLARIFICATION_ACCEPTED",
+  "DELEGATION_ACCEPTED",
   "COLLECTION_COMMITTED",
   "SETTING_DECLARED",
   "PC_COLLECTION_COMMITTED",
@@ -725,6 +732,69 @@ async function describe(
             "If this stays RUNNING, the engine may be waiting for a referee reading: use referee_list_tasks and referee_get_task, then referee_submit_decision with your own reading, then await_action again.",
         }
       : {}),
+  });
+}
+
+// -- the goal-level account ---------------------------------------------------------------------------------------------------
+const GOAL_RETURN_TEXT: Record<GoalReturn, string> = {
+  ANOTHER_ATTEMPT_OPEN:
+    "A different gathering attempt is still open at the owners, so this goal did not touch it. Say so to the player; an open attempt is carried on or stopped by its own tools, never replaced.",
+  COMMIT_NOT_MADE:
+    "The player's willingness could not be recorded (it was refused or not accepted), so nothing was started. Do not retry blindly; read play_status.",
+  NOT_ADMITTED:
+    "The owners did not admit the work. Nothing was gathered and no time passed. This says nothing about why; do not guess a cause.",
+  ADMISSION_UNSETTLED:
+    "The owners have not settled whether the work is admitted. Read play_status; if it stays unsettled, call reconcile_last_action. Do not start another attempt.",
+  FINISH_REFUSED:
+    "The time kernel refused to carry the work to its end, so it is still held and nothing was gathered. This says nothing about why; do not guess a cause or probe other times. The player may separately choose to stop it (cease_collection).",
+  OUTCOME_UNCERTAIN:
+    "Whether the last step changed anything is not established. Call reconcile_last_action (the owner-backed check) and report only what it finds. Do NOT repeat the goal.",
+  STATE_NOT_RECOGNISED:
+    "The owners hold a state this request does not cover. Read play_status and tell the player only what it says.",
+  SERVICE_CLOSING:
+    "The service is closing. Reconnect and read play_status; repeat the goal only if nothing was started.",
+};
+
+async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
+  const view = runs.goal?.current() ?? null;
+  const goal = view?.goal ?? null;
+  // an IN_PROGRESS record that no chain in this process is carrying out was interrupted: repeating the SAME request resumes it
+  const interrupted = goal !== null && goal.outcome === "IN_PROGRESS" && view?.live !== true;
+  const play = runs.play ? await runs.play() : null;
+  const phase = play?.kind === "OPEN" ? play.latest.phase : null;
+  let next: string;
+  if (interrupted)
+    next =
+      "This goal was interrupted before it finished. The owners hold exactly what it did. Read play_status's phase, call reconcile_last_action if the last step's outcome is unsettled, and if the player still wants the same thing repeat the SAME gather request: that resumes this goal's own attempt and never starts another or repeats a step that already happened.";
+  else if (goal?.outcome === "IN_PROGRESS")
+    next =
+      "The engine is carrying out this goal. If it is waiting for a GM reading, answer it with referee_list_tasks, referee_get_task and referee_submit_decision using your own reading, then read play_status again. Do not call collect, continue_collection or finish_collection yourself.";
+  else if (goal?.outcome === "RETURNED" && goal.returned) next = GOAL_RETURN_TEXT[goal.returned];
+  else if (goal?.outcome === "DONE")
+    next =
+      goal.until === "complete"
+        ? "The gathering reached its earned end at the owners. Present only what the owners returned. What the character perceives is a separate request: observe_surroundings, then read_current_observation_glance."
+        : "The work is admitted and no time has passed. Whether to carry it to its end is a separate request from the player (gather with until complete).";
+  else if (phase === "IN_FLIGHT")
+    next =
+      "A gathering is admitted and held. Carrying it to its end is the player's request (gather with until complete, or finish_collection); stopping it is cease_collection.";
+  else if (phase === "COMPLETED" || phase === "NO_ATTEMPT" || phase === null)
+    next = "No gathering is open. A new gathering needs the player's request.";
+  else next = "Read the phase above and tell the player only what it says.";
+  return asJson({
+    goal: goal
+      ? {
+          goal_id: goal.id,
+          amount: goal.amount,
+          until: goal.until,
+          outcome: interrupted ? "INTERRUPTED" : goal.outcome,
+          step: goal.step,
+          ...(goal.returned ? { returned: goal.returned } : {}),
+        }
+      : null,
+    play,
+    next,
+    notice: REPORT_NOTICE,
   });
 }
 
@@ -1439,13 +1509,48 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       scope: "player",
       handler: async (args) => (onlyKeys(args, []) ? glance(config) : text(OPAQUE, true)),
     },
-    simple(
-      "observe_surroundings",
-      "Look around",
-      "Propose that the character looks at their surroundings now. The engine asks the referee to interpret the circumstances; the result may be that nothing was perceived.",
-      "observe-surroundings",
-      true,
-    ),
+    {
+      name: "observe_surroundings",
+      title: "Look around",
+      description: `Propose that the character looks at their surroundings now, as ONE request. A normal look includes its routine means - attention, turning toward what is meant, opening the eyes - and you must NOT ask the player for them or for a posture, direction or light. If the player said what they look at or how (for example "at the logs"), pass those words as \`attention\`, exactly as said and at most 240 characters; leave it out for a bare look. The engine asks the Game Master whether an ordinary look is physically supported now (a materially new commitment such as moving, climbing or touching is returned to the player, not ruled on), the world's physical custodian publishes only what was supported, and the referee then interprets what the sight receives; the result may be that nothing was perceived, and it says nothing about why. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          attention: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240,
+            description:
+              "what the player said they look at, or how, in their own words (optional; omit for a bare look)",
+          },
+        },
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      ordinaryAction: true,
+      handler: async (args, ctx) => {
+        if (!onlyKeys(args, ["attention"])) return text("only attention is accepted", true);
+        const attention = args["attention"];
+        if (attention !== undefined && typeof attention !== "string")
+          return text("attention must be the player's own words as text", true);
+        const sc = scenarioOr();
+        if (!sc.ok) return sc.r;
+        return start(
+          "observe-surroundings",
+          {
+            "player-character": sc.s.player_character,
+            ...(attention !== undefined ? { attention } : {}),
+          },
+          ctx,
+        );
+      },
+    },
     {
       name: "collect",
       title: "Collect material",
@@ -1498,10 +1603,76 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         );
       },
     },
+    {
+      name: "gather",
+      title: "Gather material (one request)",
+      description: `Carry out the player's ordinary goal of gathering an amount of the material at hand, as ONE request. The engine runs its own routine steps itself - recording the player's willingness, the physical-reach reading and Production's admission of the work, and, only when you ask for "complete", letting time run to that work's own earned completion - so do NOT sequence collect, continue_collection and finish_collection yourself. until "start": willingness, reach and admission only; no time passes (use it for "see if I can start gathering"). until "complete": additionally carry that admitted work to its earned end (use it when the player asked for a completed result, such as "gather five logs"). Only the amount is yours to propose, and only if the player's own words give it; when the quantity is unclear and would change the choice, ask them naturally instead of picking one. The engine returns control, without retrying, at any material boundary: a refused or unadmitted step, an earlier attempt still open, a crossing the time kernel refuses, or an uncertain outcome. It follows in the background: call play_status, and while it is waiting for a GM reading answer it with referee_list_tasks, referee_get_task and referee_submit_decision using your own reading. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          amount: {
+            type: "integer",
+            minimum: 1,
+            maximum: 1000000,
+            description: "units the player asked to gather",
+          },
+          until: {
+            type: "string",
+            enum: ["start", "complete"],
+            description:
+              "how far the player's request goes: start (admit the work, no time passes) or complete (carry it to its earned end)",
+          },
+        },
+        required: ["amount", "until"],
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      ordinaryAction: true,
+      handler: async (args, ctx) => {
+        const amount = args["amount"];
+        const until = args["until"];
+        if (
+          !onlyKeys(args, ["amount", "until"]) ||
+          typeof amount !== "number" ||
+          !Number.isSafeInteger(amount) ||
+          amount < 1 ||
+          amount > 1_000_000 ||
+          (until !== "start" && until !== "complete")
+        )
+          return text(
+            "amount must be a whole number of units, at least 1, and until must be start or complete",
+            true,
+          );
+        if (!runs.goal) return text("ordinary play is not offered by this host", true);
+        const begun = await runs.goal.begin({ amount, until }, ctx, ctx.request?.id ?? "unbound");
+        if (!begun.ok) return text(begun.reason, true);
+        const deadline = Date.now() + settleMs;
+        while (begun.goal.outcome === "IN_PROGRESS" && Date.now() < deadline)
+          await new Promise((r) => setTimeout(r, 25));
+        return goalAccount(runs);
+      },
+    },
+    {
+      name: "play_status",
+      title: "Where the player's gathering stands",
+      description:
+        "Read where the player's gathering stands, from the owners' own records (read-only: it starts and settles nothing). It reports the goal being carried out and the owner-grounded phase of the latest attempt (no attempt, committed, in flight, completed, not admitted, stopped or held), the canonical time, and the one applicable next step. It reports no source or Reserve quantity and says nothing about WHY an attempt was not admitted. It is a PLAY report: for setup readiness use collection_setup_status, which says nothing about whether play has begun.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) =>
+        onlyKeys(args, []) ? goalAccount(runs) : text("this tool takes no arguments", true),
+    },
     simple(
       "continue_collection",
       "Continue gathering",
-      "Propose that the character resumes the gathering that is held.",
+      "Take the player's already-committed gathering attempt through the owners' own next steps: the physical-reach reading and Production's admission of the work. This is also what FIRST admits a just-committed attempt (a `collect` alone commits willingness only and starts no work), so it is not only a resumption of a held one. It passes no time. For an ordinary goal prefer `gather`, which runs these steps for you.",
       "collect-continue",
     ),
     simple(
@@ -1949,6 +2120,50 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       },
     },
     {
+      name: "delegate_handling_duration",
+      title: "Delegate to the referee how long one handling cycle of the character's hands takes",
+      description: `Use ONLY when the PLAYER themselves hand the choice of that one materially unresolved handling-cycle duration to the Game Master - their seed leaves the routine detail to the Game Master, or they say "surprise me" or "you decide" - while collection_setup_status offers that open branch. It takes NO numbers by default and asks the player for no rate: the referee host, acting as role.gm, chooses ONE whole number of the campaign's unit that fits the character's accepted content and writes one statement of the character's handling. Never delegate on the player's behalf and never use this to avoid the player's own account (that is state_handling_duration). Pass shortest and/or longest ONLY if the player themselves stated a numeric limit ("never more than five seconds" is longest: 5); never suggest, choose, widen or default one. Numeric limits are the only constraints an owner can verify, so wording is not accepted: if the player has a qualitative wish ("nothing frantic"), tell them a delegation cannot honour it and offer state_handling_duration. The choice is the referee's, recorded as PLAYER-DELEGATED and sealed, never the player's own words; it is not shown before it is committed, so a repeated request cannot buy another draw; once made it cannot be reselected, changed or taken back; it is refused once any collection of the character exists. The committed choice appears as delegated_choice in collection_setup_status, whose statement and duration the preparation then quotes. Then follow it with await_action. ${PLAYER_RULES}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          shortest: {
+            type: "integer",
+            minimum: 1,
+            description:
+              "only if the player stated it: the shortest whole number of the campaign's unit they will accept for ONE handling cycle",
+          },
+          longest: {
+            type: "integer",
+            minimum: 1,
+            description:
+              "only if the player stated it: the longest whole number of the campaign's unit they will accept for ONE handling cycle",
+          },
+        },
+        additionalProperties: false,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      scope: "player",
+      handler: async (args, ctx) => {
+        void ctx;
+        const parsed = parseDelegation(args);
+        if (!parsed.ok)
+          return asJson(
+            {
+              refused: "that is not a lawful delegation scope; nothing was started",
+              issues: parsed.issues,
+            },
+            true,
+          );
+        await supersede();
+        return startStage({ kind: "DELEGATE", input: parsed.value }, ctx);
+      },
+    },
+    {
       name: "propose_collection_preparation",
       title: "Offer the preparation for collecting from the source",
       description: `Offer the preparation the PLAYER, as the setting's author, confirms: the character's own accepted words for what its hands do, what they cannot pass and the one-unit cycle (three VERBATIM quotations of accepted statements, taken from collection_setup_status, and the number the cycle quotation states), plus the author's word for the condition the empty local Reserve keeps material in. You supply no identity, claim reference, unit or quantity: the engine resolves them from committed facts, the Reserve starts EMPTY, and nothing is collected, extracted, owned or timed by preparing. The player reads ALL of it and confirms it themselves. Then follow it with await_action. ${PLAYER_RULES}`,
@@ -2324,6 +2539,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       "Establish only the player's explicitly sourced exact starting chronology. Daylight is lighting, not an epoch or unit. This passes no time and needs no second approval.",
     state_handling_duration:
       "Submit the player's genuinely supplied missing handling-duration words to the existing supported clarification path. Invent no duration or faculty. The exact request needs no second approval.",
+    delegate_handling_duration:
+      "Submit the player's delegation of the missing handling duration to the referee, with only the numeric limits the PLAYER themselves stated, if any. Choose, widen and default no limit; the referee's choice is sealed and is not the player's own words. The exact request needs no second approval.",
     propose_collection_preparation:
       "Project the actual accepted handling claims and independently sourced reserve condition through the existing preparation owners. This adds no material, rights, workforce or elapsed time. The exact request needs no second approval.",
     declare_closed_setting:

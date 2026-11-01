@@ -19,6 +19,16 @@
 - Measured fixture environment/configuration (if any):
 - Unresolved/deferred gates touched:
 
+## Engineering Acceptance
+
+- Player result and interaction/confirmation burden:
+- Reused path and material complexity added:
+- Whole-operation cost, and which dimensions may grow (state reads, record/proof/readback bytes, host/tool round trips, latency):
+- Correctness, continuity and before/after evidence (exact base and head, runtime, fixture, repetitions):
+- GM-facing changes (30 October 2026 standing requirement): sparse-seed ordinary scenario; genuine GM selection plus a falsifying constrained case; owner-verified consequence and another meaningful decision; recovery or reconnect; initiative with no new player command and a missing-cause refusal, if claimed:
+- Evidence labels: MECHANISM ONLY (scripted doubles) / GENUINE HOST / NAMED CLIENT / RETAINED STORAGE — each PASS, FAIL or UNRUN:
+- Provisional limits, owning route and concrete reconsideration trigger:
+
 ## Risk boundaries
 
 - Semantic change proposed? YES / NO (YES blocks normal merge and requires escalation)

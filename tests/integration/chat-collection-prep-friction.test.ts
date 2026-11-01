@@ -143,7 +143,8 @@ describe("MECHANISM: a status read is a read - it mutates nothing, recreates no 
         const third = await status(r.chat);
         expect(second).toEqual(first);
         expect(third).toEqual(first);
-        expect(first.route.readiness.campaign_started).toBe(false);
+        expect(first.route.readiness.report_scope).toBe("SETUP_READINESS_ONLY");
+        expect(first.route.readiness).not.toHaveProperty("campaign_started");
         expect(await fingerprint(s)).toEqual(before);
         expect(routeRecord(s)).toEqual(record);
         expect(pendingFiles(s)).toEqual([]);

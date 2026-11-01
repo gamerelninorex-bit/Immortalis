@@ -31,6 +31,10 @@ Coherent and reviewable; no secrets, generated credentials, production data or o
 
 Layers live under `tests/` (unit, contract, conformance, security, integration; recovery and scaling are created when first used). Conformance tests cite their register ID (`V-xx`/`IA-xx`) and the spec lock. A row moves to `PASS` in `spec/f027/acceptance-register.yaml` only with an evidence reference. A skipped or absent test is never `PASS`; keep `NOT_IMPLEMENTED`, `BLOCKED` or `UNRUN`.
 
+## GM-led natural chat play
+
+A change that touches GM-facing play must also satisfy the standing construction requirement recorded in [`IMPLEMENTATION_CHARTER.md`](IMPLEMENTATION_CHARTER.md). Routine looking, turning, reaching and handling are inferred, not filed by the player; the engine validates a GM ruling through the lawful owner instead of requiring the player to author it. Label every result honestly in the PR: scripted referee or client doubles are _mechanism only_; genuine-host, named-client and retained-storage results are `UNRUN` until witnessed.
+
 ## Escalation
 
 Genuine semantic gaps are escalated, not guessed; see the Charter.

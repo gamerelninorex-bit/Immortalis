@@ -314,6 +314,21 @@
       "supersedes": null,
       "superseded_by": null,
       "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input. It is a governance-source page with no F-027 frozen-source entry; it composes with the prior frozen 8 October 2026 Active-PC Post-Handover Physical Locus Ownership & Relocation Contract, which stays the ownership rule it already is and is not added to the frozen pins or the addenda."
+    },
+    {
+      "id": "PC-CURRENT-LOOK-PREMISE-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+      "native_pin": "2026-10-31T03:34:15.074Z",
+      "sections": [
+        "Active-PC Current-Look Physical Premise — Sovereign-Ratified Additive Section — 31 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It is not executable authority and does not re-pin that page as a frozen source."
     }
   ],
   "executable_lowerings": [
@@ -397,6 +412,70 @@
         "add an operator command, host operation, endpoint, player-visible rendering or any public make-actor-hear command",
         "change the R1 Stage-One lowering, its design lineage, its presence semantics or its non-receipt conformance, or supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins",
         "close H1, reach First Playable, or touch the held PR #72 and PR #73"
+      ]
+    },
+    {
+      "id": "PC-CURRENT-LOOK-WORLD-LOWERING",
+      "title": "IMMORTALIS — F-027 Current-Look / GM-Scene Executable Lowering Source v0.8 — 2026-10-31",
+      "url": "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+      "native_pin": "2026-10-31T06:30:53.024Z",
+      "section": "§3A — Frozen executable lowering: World-State current-look premise",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "PC-CURRENT-LOOK-PREMISE-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": [
+        "world_pc_current_viewing"
+      ],
+      "scope": "Only the sealed GM_SCENE_RESOLUTION Referee verdict VIEWING_SUPPORTED for an ordinary LOOK at one exact pc_id, canonical observed_at instant and five pinned PC/binding/custody/world/locus versions permits the lawful physical owner to publish one sparse, SEALED, create-only world_pc_current_viewing fact with exact ruling provenance. That fact is the owner-published current-viewing feasibility circumstance only. It is not a position, facing, sightline, eye-state, sensory-function, target visibility, source appearance, perception, recipient knowledge or Health fact.",
+      "does_not": [
+        "does not replace, narrow, supersede or restate any of the 23 frozen F-027 source pins or the original WG/F-014D citations",
+        "does not originate new GM-owned physical, position, target-visibility, Health, Epistemic, or intrinsic PC facts",
+        "does not enable a legacy reader, a journal cutover, read-either acceptance, or a migration",
+        "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance"
+      ]
+    },
+    {
+      "id": "GM-CURRENT-LOOK-SCENE-LOWERING",
+      "title": "IMMORTALIS — F-027 Current-Look / GM-Scene Executable Lowering Source v0.8 — 2026-10-31",
+      "url": "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+      "native_pin": "2026-10-31T06:30:53.024Z",
+      "section": "§3B — Frozen executable lowering: Referee ordinary-look scene decision",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "PC-CURRENT-LOOK-PREMISE-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-12",
+      "fact_kinds": [
+        "referee_decision"
+      ],
+      "operation": "GM_SCENE_RESOLUTION",
+      "scope": "The existing GM_SCENE_RESOLUTION alternate value class only of referee_decision is a create-only, sealed Referee record adjudicated through role.gm and permission.rule.adjudicate at the trusted operation. The scene decision is RC-09/IM-12 adjudication provenance, not a physical-truth, source-description, sensory-receipt or PC-knowledge ledger.",
+      "does_not": [
+        "does not replace, narrow, supersede or restate any of the 23 frozen F-027 source pins or the original WG/F-014D citations",
+        "does not originate new GM-owned physical, position, target-visibility, Health, Epistemic, or intrinsic PC facts",
+        "does not enable a legacy reader, a journal cutover, read-either acceptance, or a migration",
+        "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance",
+        "does not lock the referee_decision kind-level REFEREE_RULE, its referee_adjudication_kernel owner, referee_provenance facet or key space, all of which remain under B61-A3 with the base rule sovereign-approved-not-native-pinned-not-spec-locked; does not modify REFEREE_PHYSICAL_RULE or REFEREE_OBSERVATION_RULE or license their operations through GM_SCENE_RESOLUTION"
       ]
     }
   ],

@@ -35,8 +35,10 @@ const importedNames = (file: string, from: string): string[] =>
     .filter(Boolean);
 
 /** Everything the mechanism composes or must leave untouched, exactly as it stood at the base (main f0e4069). */
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/runtime-contract.md":
     "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
   "spec/f027/acceptance-register.yaml":
@@ -60,12 +62,8 @@ const UNCHANGED: Record<string, string> = {
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/contracts/src/logistics.ts":
     "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
-  "packages/engine/src/world/canonical-campaign.ts":
-    "db811a1818b2bc7dab57faa55d17d6611a824ab43a20b6decbbcca8e401df30a", // B61-A3 scoped delta (world/canonical-campaign.ts): pinned at the PR #61 head; main da14f15afdd6
   "packages/engine/src/persistence/file-package.ts":
     "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
-  "packages/engine/src/owners/registry.ts":
-    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2", // B61-A3 scoped delta (owners/registry.ts): pinned at the PR #61 head; main 7ce3421f8847
   "packages/engine/src/temporal/coordinator.ts":
     "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
   "packages/protocol/src/null-pc-ooc-advance.ts":
@@ -85,7 +83,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("existing owners, gateways and the frozen artifacts are untouched: the mechanism consumes them, never edits or duplicates them", () => {
-  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package, the owner registry and the F-027 artifacts are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head", () => {
+  it("the active-PC and NULL-PC gateways, their contracts, the GIP sunset provider, the PC/Logistics/Temporal owners, the campaign and package and the F-027 snapshot artifacts (not the lock or the owner registry, which F-027 v0.8 changed on purpose) are byte-identical to the base, except the B61-A3 scoped deltas (PR #61) pinned at its head (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 
@@ -205,6 +203,8 @@ describe("the package composes only the existing gateways and canonical reads", 
       "PopulationAdapter",
       "ProductionAdapter",
       "RefereeAdjudicationAdapter",
+      "SceneContext",
+      "SceneRequest",
       "SourceDrawdownAdapter",
       "StageOwnerExtension",
       "StageProviderRegistry",
@@ -212,20 +212,26 @@ describe("the package composes only the existing gateways and canonical reads", 
       "canonicalEqual",
       "clarificationCandidateItems",
       "committedCanonicalTime",
+      "currentViewingId",
       "deriveI002",
       "deriveIr",
       "deriveObservation",
       "derivePhysical",
+      "deriveScene",
       "formObservedPacket",
       "gipSunsetTemporalObject",
       "interpretCycleAnswer",
+      "interpretDelegatedSelection",
       "interpretPcCollectionReachAnswer",
       "nodeFs",
       "observationEventId",
       "pcClarificationIdOf",
       "pcClarificationWordsDigest",
+      "pcDelegationIdOf",
+      "pcDelegationMirror",
       "refereeCandidateItems",
       "refereeQualificationViolation",
+      "sha256Canonical",
       "verifyEpistemicIntegrity",
     ]);
   });
@@ -237,6 +243,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "ClosedSettingSchema",
       "CollectionPreparationSchema",
       "DELEGATION_NONE_TEXT",
+      "DELEGATION_REFEREE_OPERATIONS",
       "EMPTY_DRAFT",
       "EXIT",
       "IntentLedger",
@@ -265,16 +272,19 @@ describe("the package composes only the existing gateways and canonical reads", 
       "additionalSourceId",
       "advance",
       "applyEdits",
+      "askCollection",
       "askI002",
       "askIr",
       "askObservation",
       "askPhysical",
+      "askScene",
       "attestCycle",
       "authorCharacter",
       "authorizeHost",
       "awaitDecision",
       "bindHost",
       "bindingIdOf",
+      "branchCharacter",
       "cease",
       "characterStatus",
       "clarifyCollectionCycle",
@@ -290,6 +300,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "custodyProblems",
       "declareClosedSetting",
       "defaultOperatorDir",
+      "delegateCollectionCycle",
       "ensureOperatorStateDirectory",
       "establishAdditionalLocality",
       "establishAdditionalSource",
@@ -370,6 +381,7 @@ describe("the package composes only the existing gateways and canonical reads", 
       "validateCollectionReading",
       "verifyLocalOperator",
       "vouchedDecision",
+      "withBranchSession",
     ]);
   });
 

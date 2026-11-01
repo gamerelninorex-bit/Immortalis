@@ -21,6 +21,7 @@ import {
   temporalObjectKey,
   PcCollectionCommitmentSchema,
   PcCollectionMechanismSchema,
+  PcDelegatedClarificationSchema,
   PcIntrinsicClarificationSchema,
   ResolutionTransactionSchema,
   TemporalStateSchema,
@@ -46,6 +47,7 @@ import {
   pcClarificationViolation,
   type AcceptanceWitness,
 } from "./clarification.ts";
+import { pcDelegationViolation } from "./delegation.ts";
 import {
   pcCycleAttestationViolation,
   pcRepresentationViolation,
@@ -94,6 +96,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
   const lapses = ofKind("production_pc_collection_lapse");
   const attestations = ofKind("pc_collection_cycle_attestation");
   const clarifications = ofKind("pc_intrinsic_clarification");
+  const delegations = ofKind("pc_delegated_clarification");
   const representations = ofKind("population_pc_representation");
   const closures = ofKind("world_scene_closure");
   const scopes = ofKind("population_workforce_scope");
@@ -109,6 +112,7 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
       lapses.length +
       attestations.length +
       clarifications.length +
+      delegations.length +
       representations.length +
       closures.length +
       scopes.length ===
@@ -298,6 +302,38 @@ export function verifyPcCollectionIntegrity(store: CampaignStore): readonly Inte
           f.key,
           "a clarification precedes every collection commitment of its character: it retrofits no act",
         );
+    }
+  }
+  // H1: a Delegation Commit Record is re-derived exactly as a clarification is, from the facts as they stood before it was written
+  for (const f of delegations) {
+    const d = PcDelegatedClarificationSchema.safeParse(f.value);
+    if (!d.success) continue;
+    const at = revisionOf(f);
+    const v = pcDelegationViolation(f.key, d.data, view(at), true);
+    if (v) bad(f.key, v);
+    checkPins(f, [d.data.contract.fact_key, d.data.binding.fact_key]);
+    const witnessed = acceptanceWitness(f, at);
+    if (!witnessed.ok) bad(f.key, witnessed.message.replace("clarification", "delegation"));
+    else {
+      const t = pcClarificationAcceptanceTimeViolation(d.data, witnessed.witness);
+      if (t) bad(f.key, t.replace(/clarification/g, "delegation"));
+    }
+    // I-002 §9: sealed before any dependent consequence: no collection commitment of this character was committed before it
+    for (const other of commitments) {
+      const oc = PcCollectionCommitmentSchema.safeParse(other.value);
+      if (oc.success && oc.data.pc_id === d.data.pc_id && revisionOf(other) < at)
+        bad(
+          f.key,
+          "a delegation precedes every collection commitment of its character: it is sealed before any dependent consequence",
+        );
+    }
+    // ONE slot: the branch is closed by exactly one accepted route
+    for (const other of [...clarifications, ...delegations]) {
+      if (other.key === f.key) continue;
+      const pcOf = (fact: OwnerFact): string | undefined =>
+        (fact.value as { pc_id?: string } | null)?.pc_id;
+      if (pcOf(other) === d.data.pc_id)
+        bad(f.key, "this branch of the character is closed by exactly one accepted route");
     }
   }
   for (const f of mechanisms) {

@@ -107,6 +107,7 @@ const categoryOf = (r: ReviewRequest): ReviewCategory =>
     "place-character",
     "establish-character-locus",
     "accept-clarification",
+    "accept-delegation",
   ].includes(r.verb)
     ? "generation"
     : "setting";

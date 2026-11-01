@@ -14,10 +14,12 @@ import {
   REFEREE_OP_IR,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
+  REFEREE_OP_SCENE,
 } from "@immortalis/contracts";
 import {
   bindHost,
   COLLECTION_REFEREE_OPERATIONS,
+  DELEGATION_REFEREE_OPERATIONS,
   readConfig,
   refereeDir,
   secretPath,
@@ -32,6 +34,13 @@ export interface RefereeBinding {
 const DEFAULT_BINDINGS: Readonly<Record<string, readonly ExchangeOperation[]>> = {
   "gm-setup": [REFEREE_OP_I002, REFEREE_OP_IR, REFEREE_OP_PHYSICAL, REFEREE_OP_OBSERVATION],
   "gm-collection": COLLECTION_REFEREE_OPERATIONS,
+  // GM-led first play: the Game Master's scene ruling (the current viewing of a look). A
+  // SEPARATE least-privilege host, so a deployment already registered with gm-setup,gm-collection keeps loading unchanged; a deployment
+  // lists it to opt in. Without a host bound to this operation the legacy look is asked unchanged.
+  "gm-scene": [REFEREE_OP_SCENE],
+  // H1: the delegated selection of the one missing handling duration (I-002 section 9). Another SEPARATE least-privilege host, for the same
+  // reason: gm-collection keeps its two operations, so a registered deployment keeps starting; listing gm-delegate opts in.
+  "gm-delegate": DELEGATION_REFEREE_OPERATIONS,
 };
 const OPERATIONS = Object.values(DEFAULT_BINDINGS).flat();
 

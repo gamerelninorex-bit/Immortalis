@@ -157,6 +157,7 @@ export * from "./world/auditory-premises-evaluator.ts";
 export * from "./world/setup-eligibility.ts";
 export * from "./world/pc-locus-custody.ts";
 export * from "./world/pc-locus-custody-integrity.ts";
+export * from "./world/scene-custody.ts";
 export * from "./projection/event-signal.ts";
 export * from "./presentation/event-signal.ts";
 export * from "./persistence/file-package.ts";
@@ -176,6 +177,7 @@ export {
 export * from "./pc-collection/integrity.ts";
 export * from "./pc-collection/lapse.ts";
 export * from "./pc-collection/clarification.ts";
+export * from "./pc-collection/delegation.ts";
 export * from "./pc-collection/state.ts";
 export * from "./pc-movement/derive.ts";
 export * from "./pc-movement/integrity.ts";

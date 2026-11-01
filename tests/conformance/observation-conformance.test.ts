@@ -25,6 +25,26 @@ const sha = (file: string) =>
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
 
+// Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
+// (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
+// the value at that commit); it is NOT compared with the working tree and is NOT a slice-head claim. Present-day identities live only in
+// tests/support/present-day-identities.ts.
+const CHANGED_AFTER_THE_SLICE_HEAD = new Set([
+  "packages/contracts/src/referee.ts",
+  "packages/engine/src/index.ts",
+  "packages/engine/src/owners/registry.ts",
+  "packages/engine/src/referee/adapter.ts",
+  "packages/engine/src/referee/admission.ts",
+  "packages/engine/src/referee/derive.ts",
+  "packages/engine/src/referee/integrity.ts",
+  "packages/operator/src/cli.ts",
+  "packages/operator/src/confirmation.ts",
+  "packages/operator/src/index.ts",
+  "packages/operator/src/original-pc.ts",
+  "packages/operator/src/referee-exchange.ts",
+  "packages/operator/src/referee-mcp.ts",
+  "packages/operator/src/referee-session.ts",
+]);
 const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
@@ -48,8 +68,6 @@ const MODIFIED: Record<string, string> = {
     "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
   "packages/engine/src/index.ts":
     "595b02d0b604a1ea32518fe23cf1f307c3bf102bde426cbc718755f82230e221",
-  "packages/engine/src/owners/registry.ts":
-    "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2",
   "packages/engine/src/referee/adapter.ts":
     "8fbbfc6a6fb5045395eb5f0333fc41464260031e7e1ec93b4ad57fca7d872340",
   "packages/engine/src/referee/admission.ts":
@@ -79,8 +97,10 @@ const MODIFIED: Record<string, string> = {
   "packages/operator/src/referee-session.ts":
     "dd35e343618713523f2403196b03f5d0b525acf47a49abc0047c6253691e2a79",
 };
+// Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
+// and the other files named in tests/support/historical-pin-inventory.ts). "Byte-identical to the base" is no longer true of them, so the base's
+// values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const SPEC: Record<string, string> = {
-  "spec/f027/spec-lock.json": "88f40002275977f5774ea275d8c4ab4e25c630e30edfd305b507272dc892eff6",
   "spec/f027/acceptance-register.yaml":
     "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
@@ -150,8 +170,9 @@ describe("one scoped delta: no new owner, no new fact kind, no new facet", () =>
     );
   });
 
-  it("every existing source file this slice modified is pinned at the slice head", () => {
-    for (const [file, hash] of Object.entries(MODIFIED)) expect(sha(file), file).toBe(hash);
+  it("every existing source file this slice modified is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
+    for (const [file, hash] of Object.entries(MODIFIED))
+      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
   });
 
   it("the held current-basis boundary exception is removed; formation uses the committed event trigger", () => {

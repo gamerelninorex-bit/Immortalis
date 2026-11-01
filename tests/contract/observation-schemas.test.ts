@@ -114,6 +114,7 @@ describe("the host's direct-perception answer is a closed, strict shape", () => 
       "PC_STATEMENT",
       "PLACEMENT_STATEMENT",
       "WORLD_FACT",
+      "CURRENT_VIEWING",
     ]);
     expect(OBSERVATION_PLACEMENT_REF).toBe("placement.statement");
     for (const bad of [true, "VISIBLE", "visible", "yes", 1, null]) {

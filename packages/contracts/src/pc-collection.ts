@@ -2,6 +2,10 @@ import { z } from "zod";
 import { Id, Sha256, Version } from "./ids.ts";
 import { PcClaimLocatorSchema } from "./pc-capability.ts";
 import { PositiveQuantitySchema, ProductionRequestSchema } from "./production.ts";
+import {
+  I002_CLARIFICATION_BRANCH_READINGS,
+  I002_CLARIFICATION_SCOPE_READINGS,
+} from "./referee.ts";
 import { CanonicalTimeSchema, StageKeySchema } from "./temporal.ts";
 import { EntityId, OWNER_PC_EXISTENCE, PLAYER_CHOICE_AUTHORITY, Text } from "./world-foundation.ts";
 
@@ -54,6 +58,9 @@ export const FACET_PC_INTRINSIC_CLARIFICATION = "pc_intrinsic_clarification";
 
 export const pcIntrinsicClarificationKey = (pcId: string, clarificationId: string): string =>
   `pc/${pcId}/intrinsic-clarification/${clarificationId}`;
+/** H1: the Delegation Commit Record of the same branch (I-002 §9), a second kind of the same facet and the same ONE slot. */
+export const pcDelegatedClarificationKey = (pcId: string, delegationId: string): string =>
+  `pc/${pcId}/delegated-clarification/${delegationId}`;
 
 export const pcCollectionCommitmentKey = (pcId: string, actId: string): string =>
   `pc/${pcId}/collection/${actId}/commitment`;
@@ -264,6 +271,177 @@ export const PcIntrinsicClarificationSchema = z.strictObject({
 export type PcIntrinsicClarification = z.infer<typeof PcIntrinsicClarificationSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// H1 — the DELEGATED selection of the same branch (I-002 §9 Delegation / Hidden-Seed Adapter; CPAA-C1 v0.3 F-2 "lawfully player-authored
+// or DELEGATED"). The player does not state the cycle; they delegate its choice to `role.gm` ("surprise me") within a bounded scope.
+// ---------------------------------------------------------------------------------------------
+
+/** "surprise me": the selection is delegated to `role.gm` within a lawful bounded scope and needs no statistical randomness (I-002 §9). */
+export const PC_DELEGATION_METHOD_CLASS = "ROLE_GM_NON_RANDOM_SELECTION";
+/** The method/algorithm version the Delegation Commit Record names: the task, its validation and the identities below, exactly. */
+export const PC_DELEGATION_METHOD_VERSION = "pc-cycle-gm-selection:v1";
+/** The shape of the candidate space: whole numbers of the campaign's canonical unit between two committed bounds, inclusive. */
+export const PC_DELEGATION_SPACE_KIND = "WHOLE_POSITIVE_DURATION_RANGE";
+/**
+ * The question the delegated branch puts to `role.gm`, fixed by the engine and never composed by a caller. The GM chooses and writes ONE
+ * statement of the character's handling; the player did not author it and it is never recorded as the player's own wording.
+ */
+export const PC_DELEGATION_QUESTION =
+  "The player has delegated to you the choice of how long their character takes to handle ONE unit of loose material (lift it and carry it away) in one serial cycle. Choose a whole number of the campaign's unit of time that is consistent with the character's accepted content, and that is at least the shortest bound and, where the player committed a longest bound, at most that bound. Write ONE statement of that handling that states the number in digits and the unit and nothing else numeric. Add no capability, actuator, limb, power or reach.";
+const MAX_DELEGATED_STATEMENT = 300;
+
+const WholeDuration = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+
+/**
+ * The scope/constraints the player committed (the Mirror shows exactly this): the branch and the candidate space. The constraints are
+ * NUMERIC LIMITS ONLY, because they are the only constraints an owner can verify against sealed content. A numeric limit the player states
+ * ("never more than five seconds") is the `longest` bound; a lower one is the `shortest`. The player's free words are deliberately NOT
+ * part of the scope: wording the owner cannot check would be certified as "within constraints" on the host's say-so (BLUE hold H1-C), and a
+ * qualitative wish ("nothing frantic") is not a constraint class this record can validate (see `docs/gm-led-first-play.md`, L1).
+ * A duration is strictly positive, so `shortest` is at least 1 and is 1 when the player gave no lower limit; `longest` is null when the
+ * player gave no upper limit, and then the choice is bounded by the branch, the character's accepted baseline and representability only.
+ */
+export const PcDelegationScopeSchema = z.strictObject({
+  branch: z.literal(PC_CLARIFICATION_BRANCH),
+  candidate_space: z
+    .strictObject({
+      kind: z.literal(PC_DELEGATION_SPACE_KIND),
+      unit: Id,
+      shortest: WholeDuration,
+      longest: WholeDuration.nullable(),
+    })
+    .refine(
+      (c) => c.longest === null || c.shortest <= c.longest,
+      "the shortest bound does not exceed the longest",
+    ),
+});
+export type PcDelegationScope = z.infer<typeof PcDelegationScopeSchema>;
+
+/**
+ * The bounded task `role.gm` answers: the scope, the character's accepted baseline exactly as the released contract holds it (and any
+ * earlier closure of the branch), the fixed question and the method. Built by the engine from committed facts only.
+ */
+export const PcDelegatedSelectionTaskSchema = z.strictObject({
+  pc_id: EntityId,
+  branch: z.literal(PC_CLARIFICATION_BRANCH),
+  question: z.literal(PC_DELEGATION_QUESTION),
+  scope: PcDelegationScopeSchema,
+  method: z.strictObject({
+    class: z.literal(PC_DELEGATION_METHOD_CLASS),
+    version: z.literal(PC_DELEGATION_METHOD_VERSION),
+  }),
+  baseline: z
+    .array(z.strictObject({ item_id: Id, slot: Id, text: z.string().min(1).max(600) }))
+    .min(1)
+    .max(64),
+  prior_closures: z
+    .array(
+      z.strictObject({
+        clarification_id: Id,
+        statements: z.array(z.string().min(1).max(600)).min(1).max(3),
+      }),
+    )
+    .max(3),
+  digest: Sha256,
+});
+export type PcDelegatedSelectionTask = z.infer<typeof PcDelegatedSelectionTaskSchema>;
+
+/**
+ * The host's UNTRUSTED selection: no role, permission, verdict or commit time. Its readings and quotations are checked against the
+ * delivered task, and the number must lie inside the committed candidate space.
+ */
+export const PcDelegatedSelectionAnswerSchema = z.strictObject({
+  task_digest: Sha256,
+  branch: z.enum(I002_CLARIFICATION_BRANCH_READINGS),
+  scope: z.enum(I002_CLARIFICATION_SCOPE_READINGS),
+  /** a verbatim quotation of the BASELINE that states the actuator whose cycle is chosen */
+  baseline_ground: Text.nullable(),
+  selection: z
+    .strictObject({
+      value: WholeDuration,
+      statement: Text.max(MAX_DELEGATED_STATEMENT),
+      /** a verbatim quotation of the statement that states the number and unit */
+      statement_ground: Text,
+    })
+    .nullable(),
+});
+export type PcDelegatedSelectionAnswer = z.infer<typeof PcDelegatedSelectionAnswerSchema>;
+
+/**
+ * I-002 §9 Delegation Commit Record for the ONE delegable branch of the collection class. The selected content is sealed (create-only,
+ * content-digest bound) before any dependent collection exists; its provenance is `PLAYER-DELEGATED` and can never be
+ * `PLAYER-AUTHORED`: this kind is not the R-5 clarification and nothing in it is the player's own wording. The method is non-random,
+ * so no draw or seed exists (`draw` is null by construction). The owner re-derives `validation` from the sealed content; the record
+ * cannot claim it.
+ */
+export const PcDelegatedClarificationSchema = z.strictObject({
+  delegation_id: EntityId,
+  pc_id: EntityId,
+  invocation: z.strictObject({
+    branch: z.literal(PC_CLARIFICATION_BRANCH),
+    question: z.literal(PC_DELEGATION_QUESTION),
+  }),
+  contract: Pin,
+  binding: Pin,
+  /** scope/constraints (I-002 §9): exactly what the player committed */
+  scope: PcDelegationScopeSchema,
+  /** candidate space or generation basis: the accepted baseline the choice was made against, by digest, and the space itself */
+  generation_basis: z.strictObject({
+    baseline_digest: Sha256,
+    task_digest: Sha256,
+  }),
+  method: z.strictObject({
+    class: z.literal(PC_DELEGATION_METHOD_CLASS),
+    version: z.literal(PC_DELEGATION_METHOD_VERSION),
+  }),
+  executing_role: z.strictObject({
+    role: z.literal("role.gm"),
+    permission: z.literal("permission.rule.adjudicate"),
+  }),
+  /** draw/seed where random: this method is not random */
+  draw: z.null(),
+  /** the selected content, sealed */
+  sealed: z.strictObject({
+    claims: z
+      .array(
+        z.strictObject({
+          statement: Text.max(MAX_DELEGATED_STATEMENT),
+          provenance: z.literal("PLAYER-DELEGATED"),
+        }),
+      )
+      .length(1),
+    duration: CanonicalTimeSchema.refine((d) => d.value > 0, "a duration is positive"),
+    reading: z.strictObject({
+      branch: z.literal("UNRESOLVED_BEFORE"),
+      scope: z.literal("ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE"),
+      baseline_ground: Text,
+      statement_ground: Text,
+    }),
+    seal: Sha256,
+  }),
+  /** the validation the owner re-derives (confirming the content lies within the committed scope, constraints and candidate space) */
+  validation: z.strictObject({
+    result: z.literal("WITHIN_COMMITTED_SCOPE"),
+    derived_by: z.literal("pc_existence"),
+  }),
+  accepted_by: z.strictObject({
+    role: z.literal("role.archivist"),
+    permission: z.literal("permission.canon.write"),
+  }),
+  /** commit time (never earlier than the acceptance, so never a retrofit) and the governing package version */
+  effective_from: CanonicalTimeSchema,
+  governing_package: z.strictObject({
+    line: Id,
+    package_version: Id,
+    package_native_pin: Text,
+  }),
+  committer: z.strictObject({
+    owner: z.literal(OWNER_PC_EXISTENCE),
+    facet: z.literal(FACET_PC_INTRINSIC_CLARIFICATION),
+  }),
+});
+export type PcDelegatedClarification = z.infer<typeof PcDelegatedClarificationSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // C6 / PROVISIONAL P-1 — the intrinsic exact-cycle mechanism carrier (PC-side, intrinsic, sealed).
 // ---------------------------------------------------------------------------------------------
 
@@ -466,7 +644,16 @@ export const PcCollectionCycleTaskSchema = z.strictObject({
   mechanism: Pin,
   claims: z.array(z.strictObject({ locator: PcClaimLocatorSchema, statement: Text })).min(1),
   /** R-5: the clarified claims' committed wording, as the host reads it beside the contract's claims */
-  clarified: z.array(z.strictObject({ ref: ClarifiedClaimRefSchema, statement: Text })).optional(),
+  clarified: z
+    .array(
+      z.strictObject({
+        ref: ClarifiedClaimRefSchema,
+        statement: Text,
+        /** H1: present only for a claim the player DELEGATED to role.gm (never for the player's own words) */
+        provenance: z.literal("PLAYER-DELEGATED").optional(),
+      }),
+    )
+    .optional(),
   actuator: Text,
   cycle: CanonicalTimeSchema,
   digest: Sha256,

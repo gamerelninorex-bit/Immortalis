@@ -30,6 +30,22 @@ This is the coding-era operating contract derived from F-027. It is **not** a de
 21. **Implementation escalation.** Clear spec + bad code → repair code. Presentation-only issue → tune within the lawful envelope. Genuine semantic contradiction/ambiguity/missing owner → stop the affected scope and escalate to Blue; independent Red review/ratification only where the governance route requires it.
 22. **Role/permission neutrality.** Persona, provider, model, tool or developer identity grants no runtime campaign authority.
 
+## Standing construction requirement: GM-led natural chat play (effective 30 October 2026)
+
+Canonical text: Implementation Agent Operating Charter section "30 October 2026 — Standing construction requirement: GM-led natural chat play" (native pin `2026-10-30T03:16:44.156Z`), <https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc>. This repository section only points at it and states how it binds a build here. It adds no game-design tenet, no substantive owner and no host write permission, and it does not weaken principles 1-22.
+
+For every GM-facing change:
+
+- **The LLM is an active Game Master, not a read-only narrator and not a clerk relaying player-authored facts into referee forms.** It interprets rules and intentions, infers mundane implied means, resolves legitimately open scene detail under the right world or actor authority, adjudicates bounded qualitative uncertainty, and supplies lawful initiative. The engine supplies authoritative memory, constraints, arithmetic, conservation, validation, publication and recovery. A validated GM ruling is a legitimate causal input; it is never an unchecked "GM says yes".
+- **Routine implied means stay implicit.** A normal look includes ordinary attention, turning and opening one's eyes when physically possible; a normal collection goal includes routine reaching and handling. Do not turn them into player micro-commands, per-blink proof forms, copied confirmation phrases or manual owner sequencing. "The tool has no field" and "epistemics requires it" are not finished-product justifications for routine clerical friction: resolve the actual evidence or authority seam.
+- **Record only what continuity needs.** Persist an ordinary detail only when uncertainty, cost of reconstruction, a material result or continuity needs it. Transient context is not a second canonical save.
+- **Known constraints stay effective.** Blindness, impairment, restraint, deliberate closed eyes, actual darkness, obstruction, ownership, resource limits, timing and independent actor knowledge are real. Intention does not prove physical success. A material fork is resolved once through its owner, from priors independent of the desired player result, before its consequence is revealed; the result is preserved.
+- **Provenance is honest.** Player choice, delegated selection, GM/world authorship, adjudication, mechanical resolution and narrative presentation stay distinct. Routine GM facts are not recorded as the player's own words; delegated content carries its delegation scope and executing role. Persona or conversational confidence confers no role or permission.
+- **Player consequential choice is preserved.** Delegating routine selection never authorizes a new attack, theft, costly power or other materially distinct commitment.
+- **Evidence is labelled.** The Engineering Acceptance section of the PR must state ordinary-language scenarios from sparse seeds with no micro-detail filing, a genuine GM selection and a falsifying constrained case, owner-verified consequences, another meaningful decision, recovery or reconnect evidence, and complete-operation interaction cost. Scripted referee or client doubles are labelled MECHANISM ONLY; genuine-host and named-client results are separate and stay UNRUN until witnessed. Where proactive GM or world capability is claimed, include a bounded causal event or initiative with no new player command and a genuine missing-cause refusal. A narrowed read-only relay, or a green fixture that bypasses these functions, is not natural-play acceptance.
+
+Any real conflict with a source-defined owner, lifecycle, contract or calibrated mechanic uses the Implementation Escalation route below; this requirement never delegates open-ended rule invention to a coding agent.
+
 ## Implementation Escalation
 
 When implementation exposes a genuine ambiguity, contradiction, missing substantive rule, ownership conflict or impossible approved constraint, **do not guess**. Stop only the affected scope and report:

@@ -164,20 +164,29 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     expect(JSON.stringify(lock.frozen_sources)).not.toContain(id);
     expect(JSON.stringify(lock.implementation_authority_addenda)).not.toContain(id);
     expect(JSON.stringify(lock.executable_lowerings)).not.toContain(id);
+    // the same governance-source page is cited by exactly two lineage rows: the 23 October one (first, byte-unchanged) and the
+    // 31 October 2026 Active-PC Current-Look section (appended, non-executable; current-look-lowering-conformance)
     const rows = lock.design_lineage_successors.filter((e: any) => e.url.includes(id));
-    expect(rows.map((e: any) => e.id)).toEqual(["R1-PC-CUSTODY-LINEAGE"]);
+    expect(rows.map((e: any) => e.id)).toEqual([
+      "R1-PC-CUSTODY-LINEAGE",
+      "PC-CURRENT-LOOK-PREMISE-LINEAGE",
+    ]);
     expect(rows[0].of_frozen_source).toBeNull();
     expect(rows[0].sections).toEqual([
       "R1 Stage-One v1.1 Ratified Handover Exclusion Overlay \u2014 23 October 2026",
     ]);
+    expect(sha(rows[0])).toBe("ac22e960da47e40713728a482ee4b40f5a9d71406d369e113662e15473c0fca6");
+    expect(rows[1].executable).toBe(false);
+    expect(rows[1].status).toBe("DESIGN_RATIFIED");
     for (const pin of ["2026-10-08T01:25:36.611Z", "2026-10-08T01:30:19.780Z"])
       expect(rawLock).not.toContain(pin);
   });
 
   it("the executable lowering composes with F-027, cites exactly the lineage it lowers and names exactly the three kinds", () => {
-    // S1-P1 appended ONE further lowering after R1's (auditory-premises-conformance.test.ts); the R1 row stays first and byte-unchanged
+    // S1-P1 appended ONE further lowering after R1's (auditory-premises-conformance.test.ts) and 31 October 2026 appended exactly two more
+    // (current-look-lowering-conformance.test.ts); the R1 row stays first and byte-unchanged
     const [low] = lock.executable_lowerings as any[];
-    expect(lock.executable_lowerings).toHaveLength(2);
+    expect(lock.executable_lowerings).toHaveLength(4);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");
@@ -185,7 +194,12 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     expect(low.superseded_by).toBeNull();
     expect(low.native_pin).toBe("2026-10-23T09:27:39.157Z");
     expect(low.fact_kinds).toEqual([...WORLD_ACTOR_PRESENCE_FACT_KIND_IDS]);
-    expect(low.cites_design_lineage).toEqual(Object.keys(REQUIRED_DESIGN_LINEAGE));
+    expect(low.cites_design_lineage).toEqual([
+      "R1-WG-LINEAGE",
+      "R1-TEMPORAL-LINEAGE",
+      "R1-EPISTEMIC-LINEAGE",
+      "R1-PC-CUSTODY-LINEAGE",
+    ]);
     expect(low.cites_design_lineage.every((id: string) => id in REQUIRED_DESIGN_LINEAGE)).toBe(
       true,
     );

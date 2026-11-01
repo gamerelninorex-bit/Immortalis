@@ -1,10 +1,18 @@
 import {
+  BUILD_SPEC_IDENTITY,
   CANON_WRITE_AUTHORITY,
   FACET_PC_INTRINSIC_CLARIFICATION,
   PC_CLARIFICATION_BRANCH,
   PC_CLARIFICATION_QUESTION,
+  PC_DELEGATION_METHOD_CLASS,
+  PC_DELEGATION_METHOD_VERSION,
+  PC_DELEGATION_QUESTION,
+  PcDelegatedClarificationSchema,
   PcIntrinsicClarificationSchema,
+  pcDelegatedClarificationKey,
   pcIntrinsicClarificationKey,
+  type PcDelegatedClarification,
+  type PcDelegatedSelectionTask,
   type ClarifiedClaimRef,
   type I002ClarificationContext,
   type PcIntrinsicClarification,
@@ -103,6 +111,14 @@ import {
 } from "../owners/registry.ts";
 import { collectionFacts, deriveCessation, deriveTermination } from "./cessation.ts";
 import { pcClarificationIdOf, pcClarificationScope } from "./clarification.ts";
+import {
+  buildDelegatedSelectionTask,
+  interpretDelegatedSelection,
+  pcDelegatedRecords,
+  pcDelegationBaselineDigest,
+  pcDelegationIdOf,
+  pcDelegationSeal,
+} from "./delegation.ts";
 import { acceptableHeldLineage, deriveLapse, lapseCauseViolation } from "./lapse.ts";
 import {
   sceneClosureStatus,
@@ -162,6 +178,7 @@ const byId = (a: { extraction_id: string }, b: { extraction_id: string }): numbe
 
 type KindId =
   | "pc_intrinsic_clarification"
+  | "pc_delegated_clarification"
   | "pc_collection_cycle_attestation"
   | "population_pc_representation"
   | "pc_collection_cessation"
@@ -270,7 +287,12 @@ export class PcCollectionAdapter {
     // R-5: the claims of the PC's own committed clarifications the mechanism also follows, pinned at their exact versions
     const clarifiedPins: ClarifiedClaimRef[] = [];
     for (const c of d.clarified ?? []) {
-      const found = this.#store.getFact(pcIntrinsicClarificationKey(d.pc_id, c.clarification_id));
+      // H1: the identity says which route closed the branch: the player's own R-5 words, or the delegated selection
+      const found = this.#store.getFact(
+        c.clarification_id === pcDelegationIdOf(d.pc_id)
+          ? pcDelegatedClarificationKey(d.pc_id, c.clarification_id)
+          : pcIntrinsicClarificationKey(d.pc_id, c.clarification_id),
+      );
       if (!found)
         return Promise.resolve(
           fail("PREREQUISITE_MISSING", "a cited clarification of the PC is not committed"),
@@ -363,6 +385,126 @@ export class PcCollectionAdapter {
       0,
       [contract.key, binding.key, TEMPORAL_STATE_KEY, referee.key],
     );
+  }
+
+  /**
+   * H1: the bounded task `role.gm` answers to select the cycle the player delegated (I-002 section 9): the scope the player committed,
+   * the character's accepted baseline and any closure of the branch, built from committed facts only. `undefined` without a released
+   * contract. The operator delivers exactly this to the referee host and the owner re-derives it at admission and at every load.
+   */
+  delegationTask(pcId: string, scope: unknown): PcDelegatedSelectionTask | undefined {
+    const task = buildDelegatedSelectionTask(this.#view(), pcId, scope);
+    return task.ok ? task.value : undefined;
+  }
+
+  /**
+   * H1: creates the I-002 section 9 Delegation Commit Record of the delegated selection. The caller supplies the committed scope and
+   * the host's UNTRUSTED selection; the task is re-built here, the selection validated against it, and everything else (identity,
+   * pins, generation basis, method, executing role, validation, seal, effective time, governing package) is DERIVED or fixed here,
+   * never supplied. A genuine refusal by the host (the branch is stated, closed or out of scope) writes nothing. Create-only,
+   * re-derived by admission; presenting it again reconciles by identity.
+   */
+  delegate(
+    input: Publication & {
+      readonly pc_id: string;
+      readonly scope: unknown;
+      readonly answer: unknown;
+    },
+  ): Promise<Result<CommitOutcome, PcCollectionErrorCode>> {
+    const p = PublicationSchema.safeParse(pick(input));
+    if (!p.success) return Promise.resolve(invalid("publication", p.error));
+    const replay = this.#store.committedGroup(p.data.intent_id);
+    if (replay) return this.#store.commit(replay);
+    const contract = this.#store.getFact(pcExistenceContractKey(input.pc_id));
+    const binding = this.#store.getFact(PLAYER_CHARACTER_BINDING_KEY);
+    const state = this.#view().get(TEMPORAL_STATE_KEY);
+    if (!contract || !binding || !state)
+      return Promise.resolve(
+        fail(
+          "PREREQUISITE_MISSING",
+          "the released contract, the operative binding and a canonical time are committed",
+        ),
+      );
+    const task = buildDelegatedSelectionTask(this.#view(), input.pc_id, input.scope);
+    if (!task.ok) return Promise.resolve(fail("PREREQUISITE_MISSING", task.error.message));
+    const reading = interpretDelegatedSelection(task.value, input.answer);
+    if (!reading.ok) return Promise.resolve(fail("ANSWER_INVALID", reading.error.message));
+    if (reading.value.kind !== "SELECTED")
+      return Promise.resolve(
+        fail(
+          "ANSWER_INVALID",
+          "the host did not select: the branch is stated in the accepted baseline, already closed, or the request is outside this branch; nothing was written",
+        ),
+      );
+    const clock = (state.value as { canonical_time: PcDelegatedClarification["effective_from"] })
+      .canonical_time;
+    const id = pcDelegationIdOf(input.pc_id);
+    const generation_basis = {
+      baseline_digest: pcDelegationBaselineDigest(task.value.baseline),
+      task_digest: task.value.digest,
+    };
+    const sealed = {
+      claims: [{ statement: reading.value.statement, provenance: "PLAYER-DELEGATED" as const }],
+      duration: reading.value.duration,
+      reading: {
+        branch: "UNRESOLVED_BEFORE" as const,
+        scope: "ONLY_THE_DURATION_OF_THE_EXISTING_ACTUATOR_CYCLE" as const,
+        baseline_ground: reading.value.baseline_ground,
+        statement_ground: reading.value.statement_ground,
+      },
+    };
+    const value = PcDelegatedClarificationSchema.safeParse({
+      delegation_id: id,
+      pc_id: input.pc_id,
+      invocation: { branch: PC_CLARIFICATION_BRANCH, question: PC_DELEGATION_QUESTION },
+      contract: { fact_key: contract.key, version: contract.version },
+      binding: { fact_key: binding.key, version: binding.version },
+      scope: task.value.scope,
+      generation_basis,
+      method: { class: PC_DELEGATION_METHOD_CLASS, version: PC_DELEGATION_METHOD_VERSION },
+      executing_role: { role: "role.gm", permission: "permission.rule.adjudicate" },
+      draw: null,
+      sealed: {
+        ...sealed,
+        seal: pcDelegationSeal({
+          pc_id: input.pc_id,
+          scope: task.value.scope,
+          generation_basis,
+          sealed,
+        }),
+      },
+      validation: { result: "WITHIN_COMMITTED_SCOPE", derived_by: "pc_existence" },
+      accepted_by: { role: "role.archivist", permission: "permission.canon.write" },
+      effective_from: clock,
+      governing_package: {
+        line: BUILD_SPEC_IDENTITY.line,
+        package_version: BUILD_SPEC_IDENTITY.package_version,
+        package_native_pin: BUILD_SPEC_IDENTITY.package_native_pin,
+      },
+      committer: { owner: "pc_existence", facet: FACET_PC_INTRINSIC_CLARIFICATION },
+    });
+    if (!value.success) return Promise.resolve(invalid("delegation", value.error));
+    return this.#publish(
+      p.data,
+      "pc_delegated_clarification",
+      pcDelegatedClarificationKey(input.pc_id, id),
+      value.data,
+      0,
+      [contract.key, binding.key, TEMPORAL_STATE_KEY],
+    );
+  }
+
+  /** The PC's committed Delegation Commit Record of the cycle branch, if any. */
+  delegation(pcId: string): Typed<PcDelegatedClarification> | undefined {
+    return this.#typed(
+      pcDelegatedClarificationKey(pcId, pcDelegationIdOf(pcId)),
+      PcDelegatedClarificationSchema,
+    );
+  }
+
+  /** Every delegated record a character holds (by key shape): zero or one, by the one slot. */
+  delegations(pcId: string): readonly Typed<PcDelegatedClarification>[] {
+    return pcDelegatedRecords(pcId, this.#view());
   }
 
   /** The PC's committed clarification of this identity, if any. */

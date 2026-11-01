@@ -65,11 +65,20 @@ export const REFEREE_OP_I002 = "I002_CLASSIFY";
 export const REFEREE_OP_IR = "IR_NATIVE_COMPATIBILITY";
 export const REFEREE_OP_PHYSICAL = "IR_PHYSICAL_PLACEMENT";
 export const REFEREE_OP_OBSERVATION = "F014D_DIRECT_PERCEPTION";
+/**
+ * (GM-led first play, 30 October 2026) the GM's bounded scene resolution: the CURRENT VIEWING of one canonical basis (I-001 §4 Step 5 /
+ * §8). Does an ORDINARY look (routine attention, turning, opening the eyes) cover the player's request at this basis, given the
+ * character's accepted baseline, the committed world and locus and the confirmed placement, or does the request carry a materially new
+ * commitment? The host rules; the World-State physical custodian publishes the SUPPORTED circumstance; a request alone is never a
+ * physical result. (The appearance of a credited output is NOT a scene question: it is incidental narration, never an owner fact.)
+ */
+export const REFEREE_OP_SCENE = "GM_SCENE_RESOLUTION";
 export const RefereeOperationSchema = z.enum([
   REFEREE_OP_I002,
   REFEREE_OP_IR,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_OBSERVATION,
+  REFEREE_OP_SCENE,
 ]);
 export type RefereeOperation = z.infer<typeof RefereeOperationSchema>;
 
@@ -97,7 +106,27 @@ const F014D = {
   native_pin: "2026-09-24T16:25:17.059Z",
 } as const;
 
+const I001 = {
+  artifact: "https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2",
+  native_pin: "2026-09-25T00:17:49.551Z",
+} as const;
+
 export const REFEREE_SOURCES = {
+  "I001-5": {
+    ...I001,
+    clause: "§4 Step 5 — Route Goal-Level Intent",
+    text: "Infer ordinary intermediate means when: they are plainly implied by the goal; the PC can reasonably perform them; no material boundary intervenes. Stop compression when a material obstacle, danger, cost, resistance, permission issue, uncertainty, interruption or consequential branch appears.",
+  },
+  "I001-8": {
+    ...I001,
+    clause: "§8 Goal-Level Intent Compression Adapter",
+    text: "Infer: reaching; ordinary opening/closing; retrieval; routine walking/turning/stairs/doors; other mundane means strongly implied by the goal. Do not infer: breaking a lock; trespassing against a meaningful restriction; consuming a scarce resource; activating a costly power; selecting among consequential routes/options; attacking, stealing, deceiving or another materially distinct commitment unless the goal clearly contains it. Infer routine means; never infer consequential commitment.",
+  },
+  "I001-17": {
+    ...I001,
+    clause: "§17 Temporal Guard",
+    text: "Interface activity does not create simulation time. Goal-level compression may compress player commands, never causal time.",
+  },
   "I002-2": {
     ...I002,
     clause: "§2 Ownership Contract",
@@ -495,8 +524,13 @@ export type PhysicalHostDecision = z.infer<typeof PhysicalHostDecisionSchema>;
  *   PC_STATEMENT         one of the accepted character's own I-002 statements (`context.pc`, by `item_id`): the ONLY premise that can
  *                        establish the character's intrinsic sensory faculty (I-002 §4.3: no sensory ability is invented from a label);
  *   PLACEMENT_STATEMENT  the player's confirmed native-presence statement the committed binding preserves verbatim (`context.statement`,
- *                        `ref` = `placement.statement`): the ONLY premise that can establish the character's own exact viewing
- *                        circumstances (a shared locus identity does not, and the faculty alone does not);
+ *                        `ref` = `placement.statement`): may establish the character's exact viewing circumstances when it affirmatively
+ *                        states them, read with lawful physical-owner evidence. This context has no separately identified PC sensory-position
+ *                        owner record: generic world facts cannot replace placement. A shared locus and the faculty alone do not;
+ *   CURRENT_VIEWING      (only when the World-State physical custodian published one for THIS basis) the owner-published, SUPPORTED current viewing
+ *                        ordinary-look feasibility (`context.facts`, `fact_id` `viewing.current`): fixed typed SUPPORTED state, instant, five-version
+ *                        basis and lawful provenance only. GM circumstance prose is not delivered. This kind cannot establish faculty,
+ *                        position, orientation, eye state, path or payload; retained as a readable kind, never as sensory evidence;
  *   WORLD_FACT           a committed world, locus or (source-scoped questions only) Source Condition access fact (`context.facts`, by
  *                        `fact_id`): the physical setting, the light, the air path, any obstruction, and the owner-authored access or
  *                        appearance circumstance of the one source the question is scoped to.
@@ -505,6 +539,7 @@ export const OBSERVATION_PREMISE_KINDS = [
   "PC_STATEMENT",
   "PLACEMENT_STATEMENT",
   "WORLD_FACT",
+  "CURRENT_VIEWING",
 ] as const;
 export type ObservationPremiseKind = (typeof OBSERVATION_PREMISE_KINDS)[number];
 /** The `ref` of a PLACEMENT_STATEMENT premise: there is exactly one such statement in a delivered context. */
@@ -575,6 +610,63 @@ export const ObservationHostDecisionSchema = z.strictObject({
 export type ObservationHostDecision = z.infer<typeof ObservationHostDecisionSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// GM_SCENE_RESOLUTION
+// ---------------------------------------------------------------------------------------------
+
+export const SCENE_KINDS = ["CURRENT_VIEWING"] as const;
+export type SceneKind = (typeof SCENE_KINDS)[number];
+
+/** What the player's request is, as the host reads it against I-001 §8: an ordinary look, or something materially more. */
+export const SCENE_REQUEST_CLASSES = [
+  "ORDINARY_LOOK",
+  "MATERIAL_NEW_COMMITMENT",
+  "UNCLEAR",
+] as const;
+export const SCENE_VIEWING_STATES = ["SUPPORTED", "NOT_SUPPORTED", "NOT_ESTABLISHED"] as const;
+
+/**
+ * The premises a scene ruling may rest on. Every premise is a verbatim quotation of DELIVERED text, and the kind fixes what it may
+ * establish (see `deriveScene`): the character's baseline only on `PC_STATEMENT` (a supported viewing ruling must quote at least one), the confirmed placement only
+ * on `PLACEMENT_STATEMENT` (it complements or vetoes, and is never the faculty), the physical setting only on `WORLD_FACT`. A viewing ruling never rests on the player's REQUEST alone: a narrative declaration is not a
+ * physical result.
+ */
+const ScenePremiseSchema = ObservationPremiseSchema;
+
+const SceneViewingSchema = z.strictObject({
+  /** I-001 §8: is the request an ORDINARY look (routine attention, turning, opening the eyes) or a materially new commitment? */
+  request: z.strictObject({
+    classification: z.enum(SCENE_REQUEST_CLASSES),
+    rule_ids: RuleIds,
+    grounds: Grounds,
+    /** a verbatim excerpt of the delivered request statement; null exactly when no statement was delivered (a bare look) */
+    evidence_quote: Quote.nullable(),
+  }),
+  state: z.enum(SCENE_VIEWING_STATES),
+  premises: z.array(ScenePremiseSchema).max(8),
+  rule_ids: RuleIds,
+  grounds: Grounds,
+  /** Explanatory, non-authoritative GM narration retained verbatim; establishes no position, orientation, eye state or other world truth. */
+  statement: Trimmed(300).nullable(),
+});
+
+export const SceneHostDecisionSchema = z.strictObject({
+  task_id: RefereeTaskIdSchema,
+  kind: z.enum(SCENE_KINDS),
+  viewing: SceneViewingSchema.nullable(),
+  /**
+   * RETIRED (31 October 2026 Stage A): a scene ruling no longer has an appearance. The only value ever accepted is null (or absent); the
+   * field stays readable solely so that a current-viewing ruling retained by an earlier build of this branch, which carried
+   * `appearance: null`, still reads.
+   */
+  appearance: z.null().optional(),
+  /** every delivered world and locus fact assessed exactly once, as in the other operations */
+  assessments: z.array(IrFactAssessmentSchema).min(1).max(96),
+  /** material forks the delivered premises leave open, stated explicitly (retained evidence; the engine derives nothing from them) */
+  unresolved_forks: z.array(Grounds).max(6),
+});
+export type SceneHostDecision = z.infer<typeof SceneHostDecisionSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The verdicts (always DERIVED by the engine from the answer, never taken from it)
 // ---------------------------------------------------------------------------------------------
 
@@ -603,11 +695,28 @@ export const OBSERVATION_VERDICTS = [
   "OBSERVATION_UNRESOLVED",
   "OBSERVATION_WORLD_CONFLICT",
 ] as const;
+/**
+ * The scene verdicts. `VIEWING_SUPPORTED` is the only one a physical owner may publish from. The physical question
+ * is asked of the BASIS ALONE (no wording): the player's words are classified separately (`LOOK_ORDINARY`, `LOOK_UNCLEAR`, or
+ * `PLAYER_CHOICE_REQUIRED`), so a paraphrase can never reopen a physical result already ruled at an unchanged basis. A request that
+ * carries a materially new commitment is `PLAYER_CHOICE_REQUIRED`: it is returned to the player, never resolved here. Everything the
+ * delivered premises leave unsettled is UNRESOLVED, never an obstruction.
+ */
+export const SCENE_VERDICTS = [
+  "VIEWING_SUPPORTED",
+  "VIEWING_NOT_SUPPORTED",
+  "VIEWING_UNRESOLVED",
+  "PLAYER_CHOICE_REQUIRED",
+  "LOOK_ORDINARY",
+  "LOOK_UNCLEAR",
+  "SCENE_WORLD_CONFLICT",
+] as const;
 export const RefereeVerdictSchema = z.enum([
   ...I002_VERDICTS,
   ...IR_VERDICTS,
   ...PHYSICAL_VERDICTS,
   ...OBSERVATION_VERDICTS,
+  ...SCENE_VERDICTS,
 ]);
 export type RefereeVerdict = z.infer<typeof RefereeVerdictSchema>;
 
@@ -691,6 +800,19 @@ export const RefereeDecisionRecordSchema = z.discriminatedUnion("operation", [
     operation: z.literal(REFEREE_OP_OBSERVATION),
     decision: ObservationHostDecisionSchema,
     verdict: z.enum(OBSERVATION_VERDICTS),
+  }),
+  z.strictObject({
+    ...RecordCore,
+    /** the viewing question's canonical basis */
+    input: ObservationRecordInput,
+    /** the trusted operation context under which the ENGINE validated the answer and derived the verdict; never read from an answer */
+    validated_under: z.strictObject({
+      role: z.literal(OBSERVATION_RESOLVER_AUTHORITY.role),
+      permission: z.literal(OBSERVATION_RESOLVER_AUTHORITY.permission),
+    }),
+    operation: z.literal(REFEREE_OP_SCENE),
+    decision: SceneHostDecisionSchema,
+    verdict: z.enum(SCENE_VERDICTS),
   }),
 ]);
 export type RefereeDecisionRecord = z.infer<typeof RefereeDecisionRecordSchema>;

@@ -102,7 +102,7 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
       const complete = (await status(r.chat)).route;
       expect(complete.readiness).toEqual({
         prepared_to_request_collection: true,
-        campaign_started: false,
+        report_scope: "SETUP_READINESS_ONLY",
       });
       expect(complete.next).toBeNull();
 
@@ -167,7 +167,7 @@ describe("MECHANISM: the accepted-cycle branch, from an empty configured slot to
       const again = await status(fresh.chat);
       expect(again.route.readiness).toEqual({
         prepared_to_request_collection: true,
-        campaign_started: false,
+        report_scope: "SETUP_READINESS_ONLY",
       });
       expect(
         again.route.stages.every((s: any) => s.state === "DONE" || s.state === "NOT_NEEDED"),

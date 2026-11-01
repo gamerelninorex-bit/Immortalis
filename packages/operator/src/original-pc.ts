@@ -418,12 +418,17 @@ export type CharacterStatus =
   | "LOCUS_VERIFICATION_FAILED"
   | "OBSERVATION_RECEIVED"
   | "OBSERVATION_NOT_ESTABLISHED"
+  | "OBSERVATION_NEEDS_CHOICE"
   | "OBSERVATION_NOT_AVAILABLE"
   | "OBSERVATION_VERIFICATION_FAILED"
   | "CLARIFICATION_ACCEPTED"
   | "CLARIFICATION_NOT_ACCEPTED"
   | "CLARIFICATION_NOT_AVAILABLE"
   | "CLARIFICATION_VERIFICATION_FAILED"
+  | "DELEGATION_ACCEPTED"
+  | "DELEGATION_NOT_ACCEPTED"
+  | "DELEGATION_NOT_AVAILABLE"
+  | "DELEGATION_VERIFICATION_FAILED"
   | "WORLD_NOT_ESTABLISHED"
   | "LOCUS_NOT_ESTABLISHED"
   | "INVALID_REQUEST"
@@ -470,6 +475,8 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "your character looked, and the Epistemic owner established that its sight directly received the raw appearance shown below, at the current canonical basis; a fresh owner-verified open reads back exactly that. It is raw appearance only: it gives the character no recognition, comprehension, belief, memory, action or elapsed time, and it reveals nothing of the setting beyond what was received",
   OBSERVATION_NOT_ESTABLISHED:
     "no observation was established for your character at the current basis: nothing was received, no packet was formed and nothing the character receives was changed. This does not say why, and it is not a report that anything is or is not there; sealed evidence of the reading is kept for audit only",
+  OBSERVATION_NEEDS_CHOICE:
+    "what was asked carries more than looking around, so nothing was looked at and nothing was changed; say what the character actually does",
   OBSERVATION_NOT_AVAILABLE:
     "no observation can be asked now: the character has no committed physical position, or no canonical temporal basis is established, or the character is not the verified player character of this command; nothing was changed. An observation never establishes either, and never advances time",
   OBSERVATION_VERIFICATION_FAILED:
@@ -482,6 +489,14 @@ const MESSAGES: Record<CharacterStatus, string> = {
     "no clarification can be made now: the character is not the verified bound player character of this command, no canonical time is established, or a collection commitment of this character already exists (a clarification is prospective); nothing was changed",
   CLARIFICATION_VERIFICATION_FAILED:
     "what the campaign holds does not match what you confirmed; the clarification is NOT reported as accepted",
+  DELEGATION_ACCEPTED:
+    "the choice you delegated is made and sealed: the AI referee host, acting as role.gm, chose inside the bounds you committed; the owner validated the choice against your scope, wrote it as a Delegation Commit Record (provenance PLAYER-DELEGATED, never your own words) from the canonical time shown, and a fresh owner-verified open reads it back. It cannot be reselected or changed. Nothing earlier was changed; no time passed; no material was created and no collection was started or made possible by itself - the exact cycle still needs a preparation that quotes these words and a separate semantic attestation",
+  DELEGATION_NOT_ACCEPTED:
+    "the AI referee host did not select for you (the duration is already stated in your character's accepted content, the branch is already closed, or the request is outside this branch); nothing was written and your character is unchanged",
+  DELEGATION_NOT_AVAILABLE:
+    "no delegation can be made now: the character is not the verified bound player character of this command, no canonical time is established, the scope is not a lawful bounded scope, the branch is already closed, or a collection commitment of this character already exists (a delegation first offered after a consequence depends on it is declined and the branch stays unresolved); nothing was changed",
+  DELEGATION_VERIFICATION_FAILED:
+    "what the campaign holds does not match what you confirmed; the delegation is NOT reported as accepted",
   WORLD_NOT_ESTABLISHED:
     "that world is not established in this campaign; nothing was changed. This command never creates, defaults or infers a world",
   LOCUS_NOT_ESTABLISHED:
