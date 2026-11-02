@@ -69,8 +69,9 @@ for (const r of rows)
     if (r[v])
       md += `| ${r[v].journal_entries} | ${v} | ${f(r[v].cold_open_ms)} | ${f(r[v].cold_open_cpu_ms)} | ${r[v].cold_open_read_bytes} | ${r[v].cold_open_groups_verified} | ${f(r[v].warm_open_ms)} | ${r[v].warm_open_groups_verified} | ${f(r[v].hot_path_commit_ms)} | ${r[v].peak_rss_kb.median} |\n`;
 md +=
-  "\n## Option A presence-guard scan (head only)\n\n| facts in prefix | ms per qualifies() call |\n|---:|---:|\n";
-for (const g of guard) md += `| ${g.facts} | ${g.qualifies_ms_per_call.toFixed(3)} |\n`;
+  "\n## Option A presence-guard scan (head only)\n\n| facts in prefix | first call ms (kinds not yet cached) | steady-state ms per call |\n|---:|---:|---:|\n";
+for (const g of guard)
+  md += `| ${g.facts} | ${g.qualifies_first_call_ms.toFixed(3)} | ${g.qualifies_warm_ms_per_call.toFixed(3)} |\n`;
 writeFileSync(
   join(dir!, "report.md"),
   md + "\nNo SLA is invented; the figures describe this fixture and runtime only.\n",

@@ -181,14 +181,23 @@ async function guard(facts: number, out: string) {
       key,
     });
   }
-  const reps = 20;
   const t0 = performance.now();
+  qualifies(completion, map, null);
+  const first = performance.now() - t0;
+  const reps = 20;
+  const t1 = performance.now();
   for (let i = 0; i < reps; i++) qualifies(completion, map, null);
-  const per = (performance.now() - t0) / reps;
+  const warm = (performance.now() - t1) / reps;
   writeFileSync(
     out,
     JSON.stringify(
-      { facts: map.size, qualifies_ms_per_call: per, exact_sha: exactSha, node: process.version },
+      {
+        facts: map.size,
+        qualifies_first_call_ms: first,
+        qualifies_warm_ms_per_call: warm,
+        exact_sha: exactSha,
+        node: process.version,
+      },
       null,
       2,
     ),

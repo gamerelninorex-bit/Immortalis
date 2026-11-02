@@ -144,33 +144,3 @@ The 23 frozen entrypoints remain the complete frozen scope. IM-01, IM-11, IM-12,
 | 23  | WS-016 Character Capability Protocol         | IM-07                                                                    | C/B/A/S + EX remain qualitative source semantics; no hidden numeric conversion or duplicate contribution.                  |
 
 Runtime role/permission mapping (OB-016 documentary translation, Runtime/Translation v0.2 §5) is **not** snapshotted here; it remains in the pinned Notion source and is tracked as gate `OB-016` in `open-gates.yaml`. Code that needs it must load it through a separately reviewed snapshot change, never by inference.
-
-# Initial Locality Bootstrap v0.9 — registered surfaces (GM-INITIAL-BOOTSTRAP-V9)
-
-CORE_V9 and, separately, OPTION_A_V9 are ratified (Sovereign, 2026-11-02T15:46:21.719Z; `option_a_status` is `ADOPTED` in `spec-lock.json`). This section is the runtime-contract record of what the code registers; the paired executable companion (native pin 2026-11-01T12:13:53.634Z) is the literal schema authority and is not paraphrased here. The tier of every result is **T1: fixture-driven mechanism**. No genuine production message-proof method and no isolation-capable model driver is selected; T2 (genuine host and original-message evidence) and T3 (deployed named-client play) are UNRUN and remain open under OB-030.
-
-| Surface | Registered as | Notes |
-| --- | --- | --- |
-| Six sealed records | World-State owner, new facet `world_initial_setup` (IM-03/RC-02); kinds `initial_setup_input`, `initial_setup_invocation`, `initial_setup_response`, `initial_setup_grant`, `initial_locality_completion`, `initial_setup_disposition` | SEALED, create-only, version 1, expected_version 0; keys and cardinalities as the companion states; each cites its own `INITIAL_*_V9_RULE` through the `GM-INITIAL-BOOTSTRAP-V9-LOWERING` row. |
-| Strict parser | `INITIAL_LOCALITY_PARSER_V1` | Strict UTF-8 JSON, duplicate keys decided on the decoded key, no BOM, no trailing data, no non-finite or unsafe numbers; limits 65 536 / 65 536 / 262 144 / 2 097 152 bytes (transport bounds, never game limits, never truncated). |
-| Scope classification | `referee_decision`, alternate world-subject value branch, operation `WG_INITIAL_DELEGATION_CLASSIFY`, host `gm-initial-scope`, rule `INITIAL_SETUP_SCOPE_V9_RULE` | Written only by the trusted Referee service from the signed canonical Response; the engine derives the verdict; PC-subject branches are unchanged. |
-| Chronology | record-only `ChronologyCapture` (`captureStartingChronology`); Temporal precondition `bootstrapInitialTimePrecondition`; writer `initialize-captured-chronology` | The capture writes no `temporal/state`. The precondition runs in Temporal's `expected_version === 0` branch and in historical verification; a plain `KERNEL_RULE` write is not exempt; non-bootstrap prefixes keep existing initialization. |
-| Private runner | `PrivateRunner`: enrolled Ed25519 key, durable outbox, one-shot capability minted from a committed reservation | A reserved invocation is never invoked twice and is never negative-voided: recover or park. A signature proves origin and integrity, not semantic correctness or invisible provider isolation. |
-| Evidence namespace | reserved `fixture:` prefix | Production admission, intake, startup, load and replay reject it; the fixture admission is testkit-only with a distinct `historyVerificationId`. |
-| Freeze | active-Input freeze of the genesis basis in canonical admission and replay | Authenticated concurrent edits are reported `SETUP_BUSY`. |
-| OPTION_A_V9 | `INITIAL_COMPLETION_SCENE_CLOSURE_V9_RULE`, `INITIAL_COMPLETION_WORKFORCE_SCOPE_V9_RULE` as alternate rules of `world_scene_closure` and `population_workforce_scope`; explicit 90-row `BOOTSTRAP_SUNSET_POLICY_V9`; as-of `qualifies(completion, prefix, occupied)` | Projects only CLOSED + NONE_IN_DOMAIN + every source NONE_ESTABLISHED; qualified again at collection-work enrollment for the full occupied interval; completeness is an executable exact-set guard against the actual registry. |
-| History verification | `historyVerificationId` extended with the bootstrap source/contract pin | Every campaign opened under the new policy replays strictly on first open; measured separately (OB-030). |
-
-## Interpretations the companion leaves open (reported to BLUE; not silently settled)
-
-1. **Producer-input identity.** `task_id` is derived from `input_hash` while the producer input lists `task_id`, which would be circular if `input_hash` hashed those same bytes. Here `input_hash` hashes the canonical producer input **without** `task_id`; `task_id` follows by the companion's formula; the delivered bytes carry the companion's exact field set.
-2. **Selected-leaf paths.** The companion requires "one provenance entry per selected leaf" without enumerating leaves. The implemented leaves are `domain.designation|topology`, `closure.kind|ground`, `actors.kind|constraints|ground`, `source_claims.<source fact key>`, `workforce.scope_statement` and `coverage.start|end|ground`.
-3. **Set-valued arrays.** Pin arrays, evidence quotes and restrictions are held lexically sorted and unique.
-4. **`pre_state`.** `head` is `revision:<n>` and `basis_hash` hashes the projection hash and the revision, so a stale Input is refused.
-5. **Stable source fields.** Without a stored baseline value, the selected source's stable fields are held by the source owner's own refusal of any non-delivery change (re-verified at replay); the guard checks locality, key and version monotonicity.
-
-## Status of this change
-
-BUILT and exercised at T1: the six records and their admission/replay; the strict parser and golden vectors; record-only chronology capture and its store; the private runner, outbox and recovery; the scope classification branch; the freeze; fingerprint deduplication, cancellation and park; the Temporal precondition, historical hook and writer; OPTION_A_V9 projection, sunset policy and guard; lock rows and checker.
-
-NOT BUILT in this change (each remains an open dependency of the same bounded slice, stated rather than stubbed): the protected `PendingActionGrantStore` and `QueuedSetupEditStore`; the `continue_pending_goal` and `continue_queued_setup_edit` tools and `QueuedSetupEditCapability`; the V2 operator-ledger `dispatch_ref` join; the OAuth grant issuance/revocation ledger; the `entryEvidence` all-CONJUNCTIVE external-claims bridge; and the full closure → look → supported-collection → strict-replay witness that depends on them.

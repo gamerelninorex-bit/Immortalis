@@ -123,6 +123,20 @@ const sourceIsStable = (
   return current.version >= pinnedVersion;
 };
 
+/**
+ * The guard visits every fact of the actual prefix at each dependent admission, so resolving a key against all registered key spaces
+ * would dominate its cost. A committed fact is immutable, so its kind is cached on the fact object itself (a WeakMap: no growth beyond the
+ * facts alive, nothing shared between campaigns). A key outside every key space caches as `null` and still withholds as UNKNOWN.
+ */
+const KIND_OF = new WeakMap<object, string | null>();
+function kindIdOf(fact: OwnerFact): string | undefined {
+  const hit = KIND_OF.get(fact);
+  if (hit !== undefined) return hit ?? undefined;
+  const id = resolveKey(fact.key)?.kind.id ?? null;
+  KIND_OF.set(fact, id);
+  return id ?? undefined;
+}
+
 export function qualifies(
   completion: InitialLocalityCompletion,
   facts: ReadonlyMap<string, OwnerFact>,
@@ -141,7 +155,7 @@ export function qualifies(
   const selectedSource = completion.selection.source_claims[0]?.source;
 
   for (const fact of facts.values()) {
-    const kind = resolveKey(fact.key)?.kind.id;
+    const kind = kindIdOf(fact);
     if (kind === undefined)
       return withhold(
         "UNKNOWN_KIND_PRESENT",

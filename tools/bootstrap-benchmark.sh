@@ -25,14 +25,11 @@ repo,base=map(pathlib.Path,sys.argv[1:])
 for name in ['contracts','engine','testkit','protocol','operator']:
  target=base/'node_modules/@immortalis'/name
  if not target.exists():target.symlink_to(base/'packages'/name,target_is_directory=True)
-for dep in ['zod','vitest','yaml']:
- t=base/'node_modules'/dep
- s=repo/'node_modules'/dep
- if not t.exists() and s.exists():t.symlink_to(s.resolve(),target_is_directory=True)
-zod=base/'packages/contracts/node_modules/zod'
-if not zod.exists():
- zod.parent.mkdir(parents=True,exist_ok=True)
- zod.symlink_to((repo/'packages/contracts/node_modules/zod').resolve(),target_is_directory=True)
+# third-party packages live in the per-package pnpm folders; resolve them from the installed head checkout
+zod=(repo/'packages/contracts/node_modules/zod').resolve()
+for t in [base/'node_modules/zod', base/'packages/contracts/node_modules/zod', base/'packages/engine/node_modules/zod', base/'packages/operator/node_modules/zod', base/'packages/testkit/node_modules/zod', base/'packages/protocol/node_modules/zod']:
+ t.parent.mkdir(parents=True,exist_ok=True)
+ if not t.exists():t.symlink_to(zod,target_is_directory=True)
 PY
 run() { # run <source_dir> <exact_sha> <args...>
   local src="$1" sha="$2"; shift 2
