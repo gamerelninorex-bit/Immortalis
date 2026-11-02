@@ -61,6 +61,8 @@ export * from "./initial-setup/producer.ts";
 export * from "./initial-setup/publish.ts";
 export * from "./initial-setup/publisher.ts";
 export * from "./initial-setup/rules.ts";
+export * from "./initial-setup/sunset-guard.ts";
+export * from "./initial-setup/sunset-policy.ts";
 export * from "./temporal/bootstrap.ts";
 export * from "./temporal/captured-chronology.ts";
 export * from "./diplomacy/adapter.ts";
