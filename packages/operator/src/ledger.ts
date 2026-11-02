@@ -33,6 +33,14 @@ import { nodeFs, type FsOps } from "@immortalis/engine";
 
 export const LEDGER_FORMAT = "immortalis-operator-intents";
 export const LEDGER_FORMAT_VERSION = 1;
+/**
+ * Version 2 (Initial Locality Bootstrap v0.9): the SAME intent kinds and fields, plus `dispatch_ref: Id | null` on COLLECTION intents
+ * ONLY (null for a direct command), with at most one COLLECTION intent per non-null dispatch_ref enforced inside the one atomic record.
+ * Only a FRESH v0.9 workflow initialises it, before its setup commands run. The version-1 reader and writer are untouched and exact:
+ * a version-1 reader refuses a version-2 file and the reverse (no read-either, no automatic migration, no downgrade).
+ */
+export const LEDGER_FORMAT_VERSION_2 = 2;
+export type LedgerVersion = typeof LEDGER_FORMAT_VERSION | typeof LEDGER_FORMAT_VERSION_2;
 
 const Status = z.enum(["CONFIRMED", "COMMITTED"]);
 export type IntentStatus = z.infer<typeof Status>;
@@ -126,7 +134,7 @@ export type PcTargetResumeIntent = z.infer<typeof PcTargetResumeIntentSchema>;
  * confirmed — including the immutable per-act identity minted by this trusted side BEFORE the first canonical write — together with the
  * PC's established mechanism and Production's Capability / Access basis it names. One retained intent per act identity.
  */
-const CollectionIntentSchema = z.strictObject({
+const CollectionIntentFields = {
   kind: z.literal("COLLECTION"),
   seq: z.number().int().positive(),
   intent_id: Id,
@@ -136,8 +144,17 @@ const CollectionIntentSchema = z.strictObject({
   mechanism_id: EntityId,
   basis_id: EntityId,
   publication: Material,
+} as const;
+const CollectionIntentSchema = z.strictObject(CollectionIntentFields);
+/** the version-2 collection intent: exactly the version-1 fields plus the trusted dispatch_ref (null for a direct command) */
+const CollectionIntentSchemaV2 = z.strictObject({
+  ...CollectionIntentFields,
+  dispatch_ref: Id.nullable(),
 });
-export type CollectionIntent = z.infer<typeof CollectionIntentSchema>;
+/** `dispatch_ref` is present (string or null) in a version-2 ledger and ABSENT from a version-1 one */
+export type CollectionIntent = z.infer<typeof CollectionIntentSchema> & {
+  readonly dispatch_ref?: string | null;
+};
 
 /**
  * D-1 (PROVISIONAL, not adopted): the player's SEPARATELY confirmed request to cease the SAME in-flight collection. `choice` is exactly
@@ -155,17 +172,21 @@ const CollectionCessationIntentSchema = z.strictObject({
 });
 export type CollectionCessationIntent = z.infer<typeof CollectionCessationIntentSchema>;
 
-const IntentSchema = z.discriminatedUnion("kind", [
-  RelocationIntentSchema,
-  AdvanceIntentSchema,
-  NullAdvanceIntentSchema,
-  NullResumeIntentSchema,
-  PcTargetAdvanceIntentSchema,
-  PcTargetResumeIntentSchema,
-  CollectionIntentSchema,
-  CollectionCessationIntentSchema,
-]);
-export type Intent = z.infer<typeof IntentSchema>;
+const intentSchemaFor = (collection: z.ZodType) =>
+  z.discriminatedUnion("kind", [
+    RelocationIntentSchema,
+    AdvanceIntentSchema,
+    NullAdvanceIntentSchema,
+    NullResumeIntentSchema,
+    PcTargetAdvanceIntentSchema,
+    PcTargetResumeIntentSchema,
+    collection as unknown as typeof CollectionIntentSchema,
+    CollectionCessationIntentSchema,
+  ]);
+const IntentSchema = intentSchemaFor(CollectionIntentSchema);
+const IntentSchemaV2 = intentSchemaFor(CollectionIntentSchemaV2);
+export type Intent =
+  Exclude<z.infer<typeof IntentSchema>, { kind: "COLLECTION" }> | CollectionIntent;
 export type NullPcIntent = NullAdvanceIntent | NullResumeIntent;
 export type PcTargetIntent = PcTargetAdvanceIntent | PcTargetResumeIntent;
 
@@ -177,7 +198,22 @@ const LedgerFileSchema = z.strictObject({
   next_seq: z.number().int().positive(),
   intents: z.array(IntentSchema),
 });
-type LedgerFile = z.infer<typeof LedgerFileSchema>;
+const LedgerFileSchemaV2 = z.strictObject({
+  format: z.literal(LEDGER_FORMAT),
+  format_version: z.literal(LEDGER_FORMAT_VERSION_2),
+  campaign_id: Id,
+  operator_uid: z.number().int().nonnegative(),
+  next_seq: z.number().int().positive(),
+  intents: z.array(IntentSchemaV2),
+});
+type LedgerFile = {
+  readonly format: typeof LEDGER_FORMAT;
+  readonly format_version: LedgerVersion;
+  readonly campaign_id: string;
+  readonly operator_uid: number;
+  readonly next_seq: number;
+  readonly intents: Intent[];
+};
 
 export type NewRelocationIntent = Omit<RelocationIntent, "seq" | "status">;
 export type NewAdvanceIntent = Omit<AdvanceIntent, "seq" | "status">;
@@ -274,7 +310,13 @@ export class IntentLedger {
     readonly campaignId: string;
     readonly operatorUid: number;
     readonly fs?: FsOps;
+    /**
+     * Which ledger this campaign's workflow uses. Absent = version 1, exactly as before. Version 2 is for a FRESH v0.9 workflow
+     * only: a file of the other version is refused (no read-either reader, no migration, no downgrade).
+     */
+    readonly version?: LedgerVersion;
   }): Promise<Result<IntentLedger, LedgerErrorCode>> {
+    const version = params.version ?? LEDGER_FORMAT_VERSION;
     const fs = params.fs ?? nodeFs;
     const path = join(params.dir, ledgerFileName(params.campaignId));
     let raw: string | undefined;
@@ -287,7 +329,7 @@ export class IntentLedger {
       return ok(
         new IntentLedger(fs, path, {
           format: LEDGER_FORMAT,
-          format_version: LEDGER_FORMAT_VERSION,
+          format_version: version,
           campaign_id: params.campaignId,
           operator_uid: params.operatorUid,
           next_seq: 1,
@@ -301,9 +343,11 @@ export class IntentLedger {
     } catch {
       return fail("LEDGER_MALFORMED", "the retained intents are not valid");
     }
-    const parsed = LedgerFileSchema.safeParse(json);
+    const parsed = (
+      version === LEDGER_FORMAT_VERSION_2 ? LedgerFileSchemaV2 : LedgerFileSchema
+    ).safeParse(json);
     if (!parsed.success) return fail("LEDGER_MALFORMED", "the retained intents are not valid");
-    const file = parsed.data;
+    const file = parsed.data as unknown as LedgerFile;
     if (file.campaign_id !== params.campaignId)
       return fail("LEDGER_CAMPAIGN_MISMATCH", "the retained intents belong to another campaign");
     if (file.operator_uid !== params.operatorUid)
@@ -315,11 +359,15 @@ export class IntentLedger {
     const ceased = file.intents.flatMap((i) =>
       i.kind === "COLLECTION_CESSATION" ? [i.choice.act_id] : [],
     );
+    const refs = file.intents.flatMap((i) =>
+      i.kind === "COLLECTION" && typeof i.dispatch_ref === "string" ? [i.dispatch_ref] : [],
+    );
     if (
       new Set(seqs).size !== seqs.length ||
       ids.size !== file.intents.length ||
       relocations.length > 1 ||
       new Set(acts).size !== acts.length ||
+      new Set(refs).size !== refs.length ||
       new Set(ceased).size !== ceased.length ||
       ceased.some((a) => !acts.includes(a)) ||
       seqs.some((s) => s >= file.next_seq) ||
@@ -342,6 +390,37 @@ export class IntentLedger {
     return this.intents()
       .filter((i): i is CollectionIntent => i.kind === "COLLECTION")
       .sort((a, b) => a.seq - b.seq);
+  }
+
+  /** 1 for an original ledger; 2 for a fresh v0.9 workflow's (COLLECTION intents carry a dispatch_ref). */
+  get version(): LedgerVersion {
+    return this.#file.format_version;
+  }
+
+  /**
+   * The COLLECTION intents retained under one trusted dispatch_ref (version 2 only; none for a version-1 ledger). At most one can exist:
+   * the uniqueness is enforced inside the same atomic record that retains the intent, and re-checked when the ledger is read.
+   */
+  collectionsByDispatchRef(ref: string): readonly CollectionIntent[] {
+    return this.collections().filter((c) => c.dispatch_ref === ref);
+  }
+
+  /**
+   * Durably initialises an EMPTY version-2 ledger (idempotent): a fresh v0.9 workflow does this before its setup commands run, so the
+   * file exists as version 2 from the start and a version-1 reader refuses it. A ledger that already holds intents is untouched.
+   */
+  initializeV2(): Promise<Result<null, LedgerErrorCode>> {
+    return this.#serial(async () => {
+      if (this.#file.format_version !== LEDGER_FORMAT_VERSION_2)
+        return fail("LEDGER_CONFLICT", "only a version-2 ledger is initialised this way");
+      try {
+        if ((await this.#fs.fileSize(this.#path)) !== null) return ok(null);
+      } catch {
+        return fail("LEDGER_UNREADABLE", "the retained intents cannot be read");
+      }
+      const committed = await this.#commit(this.#file, null);
+      return committed.ok ? ok(null) : committed;
+    });
   }
 
   /** The confirmed cessations of in-flight collections (D-1, PROVISIONAL), in the order they were confirmed. */
@@ -392,6 +471,21 @@ export class IntentLedger {
         taken.some((i) => i.kind === "COLLECTION" && i.choice.act_id === intent.choice.act_id)
       )
         return fail("LEDGER_CONFLICT", "that collection act identity is already retained");
+      if (intent.kind === "COLLECTION") {
+        const ref = intent.dispatch_ref;
+        // version 1 has no dispatch_ref at all; version 2 requires it (null for a direct command) and keeps it unique when non-null
+        if (
+          this.#file.format_version === LEDGER_FORMAT_VERSION
+            ? ref !== undefined
+            : ref === undefined
+        )
+          return fail("LEDGER_MALFORMED", "the intent does not match this ledger's version");
+        if (
+          typeof ref === "string" &&
+          taken.some((i) => i.kind === "COLLECTION" && i.dispatch_ref === ref)
+        )
+          return fail("LEDGER_CONFLICT", "that dispatch_ref already holds a retained collection");
+      }
       if (
         intent.kind === "COLLECTION_CESSATION" &&
         (taken.some(
@@ -405,17 +499,18 @@ export class IntentLedger {
         );
       if (intent.kind === "RELOCATION" && taken.some((i) => i.kind === "RELOCATION"))
         return fail("LEDGER_CONFLICT", "a relocation is already retained for this campaign");
-      const next = IntentSchema.safeParse({
+      const next = this.#schema().safeParse({
         ...intent,
         seq: this.#file.next_seq,
         status: "CONFIRMED",
       });
       if (!next.success) return fail("LEDGER_MALFORMED", "the intent is not valid");
-      if (!targetLineagesAreSound([...taken, next.data]))
+      const added = next.data as Intent;
+      if (!targetLineagesAreSound([...taken, added]))
         return fail("LEDGER_CONFLICT", "that choice does not continue a retained one");
       return this.#commit(
-        { ...this.#file, next_seq: this.#file.next_seq + 1, intents: [...taken, next.data] },
-        next.data,
+        { ...this.#file, next_seq: this.#file.next_seq + 1, intents: [...taken, added] },
+        added,
       );
     });
   }
@@ -435,19 +530,20 @@ export class IntentLedger {
         return fail("LEDGER_CONFLICT", "no such retained relocation");
       if (taken.some((i) => i.intent_id === intent.intent_id))
         return fail("LEDGER_CONFLICT", "that intent identity is already retained");
-      const next = IntentSchema.safeParse({
+      const next = this.#schema().safeParse({
         ...intent,
         seq: this.#file.next_seq,
         status: "CONFIRMED",
       });
       if (!next.success) return fail("LEDGER_MALFORMED", "the intent is not valid");
+      const added = next.data as Intent;
       return this.#commit(
         {
           ...this.#file,
           next_seq: this.#file.next_seq + 1,
-          intents: [...taken.filter((i) => i.intent_id !== oldIntentId), next.data],
+          intents: [...taken.filter((i) => i.intent_id !== oldIntentId), added],
         },
-        next.data,
+        added,
       );
     });
   }
@@ -477,6 +573,10 @@ export class IntentLedger {
       );
       return committed.ok ? ok(null) : committed;
     });
+  }
+
+  #schema() {
+    return this.#file.format_version === LEDGER_FORMAT_VERSION_2 ? IntentSchemaV2 : IntentSchema;
   }
 
   async #commit<T>(next: LedgerFile, value: T): Promise<Result<T, LedgerErrorCode>> {

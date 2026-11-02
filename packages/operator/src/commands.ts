@@ -192,6 +192,12 @@ import type { OrdinaryAction } from "./ordinary-action.ts";
 export interface CommandContext {
   /** Trusted adapter capability for this one ordinary request; never CLI/model input. */
   readonly ordinaryAction?: OrdinaryAction;
+  /**
+   * The trusted dispatch identity of a DELAYED collection (Initial Locality Bootstrap v0.9). It is set only by the trusted adapter that
+   * minted the ordinary-action capability for it, is never a CLI or model argument, and is bound to that capability: a collection
+   * carrying it is retained with this exact dispatch_ref in the SAME atomic version-2 ledger record. A direct command carries none.
+   */
+  readonly dispatchRef?: string;
   readonly session: LocalOperatorSession;
   readonly terminal: OperatorTerminal;
   /** the source of newly minted, immutable intent identities (default: random UUIDs) */
@@ -1181,6 +1187,9 @@ const collectionContext = (ctx: CommandContext, intent: CollectionIntent) =>
 export async function collect(ctx: CommandContext, input: unknown): Promise<CommandResult> {
   const refused = guard(ctx) ?? unreconciledPcTarget(ctx);
   if (refused) return refused;
+  // a delayed collection (a trusted dispatch_ref) is possible only with the capability minted for it and a version-2 ledger
+  if (ctx.dispatchRef !== undefined && (!ctx.ordinaryAction || ctx.session.ledger.version !== 2))
+    return result("UNAVAILABLE");
   const parsed = CollectInputSchema.safeParse(input);
   if (!parsed.success) return result("INVALID_INPUT");
   const { session, terminal } = ctx;
@@ -1254,7 +1263,14 @@ export async function collect(ctx: CommandContext, input: unknown): Promise<Comm
       `and Production's admission follow, and nothing moves until you separately choose to let time pass.`,
       OOC_DEBUG_NOTE,
     ],
-    ctx.ordinaryAction ? { token: ctx.ordinaryAction, session, action: parsed.data } : undefined,
+    ctx.ordinaryAction
+      ? {
+          token: ctx.ordinaryAction,
+          session,
+          action: parsed.data,
+          ...(ctx.dispatchRef === undefined ? {} : { dispatchRef: ctx.dispatchRef }),
+        }
+      : undefined,
   );
   if (!confirmation) return result("DECLINED");
   if (!consumeConfirmation(confirmation, "collect", subject)) return result("UNAVAILABLE");
@@ -1272,6 +1288,8 @@ export async function collect(ctx: CommandContext, input: unknown): Promise<Comm
       basis: OPERATOR_PUBLICATION_BASIS,
       secrecy: OPERATOR_PUBLICATION_SECRECY,
     },
+    // a version-2 ledger records the trusted dispatch_ref (null for a direct command) in this very record; a version-1 ledger has none
+    ...(session.ledger.version === 2 ? { dispatch_ref: ctx.dispatchRef ?? null } : {}),
   });
   if (!retained.ok) {
     session.markAmbiguous();
