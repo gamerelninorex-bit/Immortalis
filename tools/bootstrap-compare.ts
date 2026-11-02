@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- reducer over untyped raw benchmark JSON, never production */
 // Reduces the raw samples of tools/bootstrap-benchmark.sh to a matched base-versus-head report (medians, with min/max retained).
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
