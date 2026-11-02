@@ -106,16 +106,28 @@ export class ScriptedIsolatedDriver {
   readonly config_hash: string;
   readonly calls: { phase: SetupPhase; instructions: string; producerInput: Uint8Array }[] = [];
   readonly #answers: ScriptedAnswers;
-  readonly #behaviour: { throwAfterSend: boolean };
+  readonly #behaviour: {
+    throwAfterSend: boolean | readonly SetupPhase[];
+    rawOverride: Partial<Record<SetupPhase, Uint8Array>>;
+  };
 
   constructor(
     answers: ScriptedAnswers,
-    options: { driverId?: string; throwAfterSend?: boolean } = {},
+    options: {
+      driverId?: string;
+      /** crash after the send window opened, for the given phases (or all, when true) */
+      throwAfterSend?: boolean | readonly SetupPhase[];
+      /** return these exact raw bytes instead of the scripted object (invalid-output / duplicate-key falsifiers) */
+      rawOverride?: Partial<Record<SetupPhase, Uint8Array>>;
+    } = {},
   ) {
     this.driver_id = options.driverId ?? FIXTURE_DRIVER_ID;
     this.config_hash = sha(`fixture-driver-config:${this.driver_id}`);
     this.#answers = answers;
-    this.#behaviour = { throwAfterSend: options.throwAfterSend ?? false };
+    this.#behaviour = {
+      throwAfterSend: options.throwAfterSend ?? false,
+      rawOverride: options.rawOverride ?? {},
+    };
   }
 
   async run(args: {
@@ -128,8 +140,12 @@ export class ScriptedIsolatedDriver {
       instructions: args.instructions,
       producerInput: args.producerInput,
     });
-    if (this.#behaviour.throwAfterSend)
+    const crash = this.#behaviour.throwAfterSend;
+    if (crash === true || (Array.isArray(crash) && crash.includes(args.phase)))
       throw new Error("driver crashed after the send window opened");
+    const override = this.#behaviour.rawOverride[args.phase];
+    if (override)
+      return { raw: override, context_manifest_hash: sha256Bytes(Buffer.from(args.producerInput)) };
     const input = JSON.parse(Buffer.from(args.producerInput).toString("utf8")) as Record<
       string,
       unknown

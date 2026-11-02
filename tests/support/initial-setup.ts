@@ -184,3 +184,101 @@ export function emittedKinds(store: CampaignStore): string[] {
 }
 
 export { FIXTURE_KEY_ID };
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Raw-boundary helpers for the falsifiers: build exactly what the trusted service builds, so a test can substitute one premise.
+// ---------------------------------------------------------------------------------------------------------------------
+import {
+  InitialSetupInputSchema,
+  InitialSetupInvocationSchema,
+  INITIAL_LOCALITY_PARSER_V1,
+  type InitialSetupResponse,
+  type Pin,
+  type SetupPhase,
+} from "@immortalis/contracts";
+import {
+  InitialSetupPublisher,
+  buildProducerInput,
+  genesisProjection,
+  scanInitialSetup,
+  sha256Bytes,
+} from "@immortalis/engine";
+import type { DispatchOutcome, DispatchRequest } from "@immortalis/operator";
+
+export const factsOf = (store: CampaignStore) => new Map(store.listFacts().map((f) => [f.key, f]));
+const pinOf = (f: { key: string; version: number }): Pin => ({
+  fact_key: f.key,
+  version: f.version,
+});
+
+/** The dispatch request for a session's SCOPE reservation (the reservation must already be committed). */
+export function scopeDispatchRequest(h: Harness, setupId: string): DispatchRequest {
+  const facts = factsOf(h.store);
+  const session = scanInitialSetup(facts).sessions.get(setupId)!;
+  const input = InitialSetupInputSchema.parse(session.input.value);
+  const inv = InitialSetupInvocationSchema.parse(session.scopeReservation!.value);
+  const projection = genesisProjection(facts);
+  if (!projection.ok) throw new Error("genesis projection unavailable");
+  const built = buildProducerInput({
+    campaign_id: BOOTSTRAP_CAMPAIGN,
+    phase: "SCOPE",
+    input_pin: pinOf(session.input),
+    input,
+    genesis: projection.value.facts,
+  });
+  if (!built.ok) throw new Error(built.error.message);
+  return {
+    campaign_id: BOOTSTRAP_CAMPAIGN,
+    world_id: input.world_id,
+    locus_id: input.locus_id,
+    setup_id: setupId,
+    phase: "SCOPE",
+    task_id: inv.task_id,
+    reservation: pinOf(session.scopeReservation!),
+    input_hash: inv.input_hash,
+    projection_hash: input.projection_hash,
+    producerInput: built.value.bytes,
+  };
+}
+
+/** A second, healthy runner that holds the given key material (for the right key, or for a wrong one). */
+export function runnerWith(
+  h: Harness,
+  keys: ReturnType<typeof generateFixtureRunnerKeys>,
+  answers: ScriptedAnswers = { scope: delegatingScope(), scene: delegatingScene() },
+): PrivateRunner {
+  return new PrivateRunner({
+    keyId: keys.keyId,
+    privateKeyPkcs8Base64: keys.privateKeyPkcs8Base64,
+    publicKeySpkiBase64: keys.publicKeySpkiBase64,
+    driver: new ScriptedIsolatedDriver(answers),
+    outboxDir: scratch("immortalis-bootstrap-outbox-"),
+    macKey: h.macKey,
+  });
+}
+
+/** The canonical Response record for a runner outcome, as the trusted service would form it. */
+export function responseFrom(
+  req: DispatchRequest,
+  outcome: Extract<DispatchOutcome, { status: "RESPONDED" }>,
+): InitialSetupResponse {
+  return {
+    world_id: req.world_id,
+    locus_id: req.locus_id,
+    setup_id: req.setup_id,
+    reservation: req.reservation,
+    phase: req.phase as SetupPhase,
+    task_id: req.task_id,
+    input_hash: req.input_hash,
+    raw_response_base64: Buffer.from(outcome.raw).toString("base64"),
+    raw_response_hash: sha256Bytes(outcome.raw),
+    envelope: outcome.envelope,
+    parser: INITIAL_LOCALITY_PARSER_V1,
+  };
+}
+
+export const commitResponse = (h: Harness, r: InitialSetupResponse) =>
+  new InitialSetupPublisher(h.store).response(r);
+
+export const reasonOf = (r: { ok: boolean; error?: { details?: unknown } }): string | undefined =>
+  (r.error?.details as { reason?: string } | undefined)?.reason;
