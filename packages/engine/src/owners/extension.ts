@@ -30,8 +30,15 @@ export interface StoreBindings {
 
 export function storeBindings(
   extension?: StageOwnerExtension,
+  /**
+   * TESTKIT-ONLY: the T1 fixture admission (`fixtureCanonicalAdmission`). Never supplied by production code (apps/, the operator, the
+   * protocol, serving startup): a static security test enforces it, and the fixture admission carries a distinct
+   * `historyVerificationId`, so its journals can never be mistaken for real evidence.
+   */
+  admissionOverride?: WriteAdmission,
 ): Result<StoreBindings, ExtensionErrorCode> {
-  if (!extension) return ok({ owners: CANONICAL_OWNER_REGISTRY, admission: canonicalAdmission });
+  const base = admissionOverride ?? canonicalAdmission;
+  if (!extension) return ok({ owners: CANONICAL_OWNER_REGISTRY, admission: base });
   for (const [owner, facets] of extension.owners) {
     if (CANONICAL_OWNER_REGISTRY.has(owner)) {
       return fail("EXTENSION_INVALID", "an extension may not reuse a canonical or kernel owner", {
@@ -43,11 +50,9 @@ export function storeBindings(
   }
   const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...extension.owners]);
   const admission: WriteAdmission = {
-    ...(canonicalAdmission.historyVerificationId
-      ? { historyVerificationId: canonicalAdmission.historyVerificationId }
-      : {}),
+    ...(base.historyVerificationId ? { historyVerificationId: base.historyVerificationId } : {}),
     check(group, state) {
-      if (!extension.owners.has(group.owner)) return canonicalAdmission.check(group, state);
+      if (!extension.owners.has(group.owner)) return base.check(group, state);
       for (const w of group.writes) {
         if (resolveKey(w.key)) {
           return reject(
@@ -62,7 +67,7 @@ export function storeBindings(
     // the canonical historical verification is forwarded unchanged: an extension owner's groups write no canonical key
     verifyHistorical(group, state) {
       if (extension.owners.has(group.owner)) return null;
-      return canonicalAdmission.verifyHistorical?.(group, state) ?? null;
+      return base.verifyHistorical?.(group, state) ?? null;
     },
   };
   return ok({ owners, admission });

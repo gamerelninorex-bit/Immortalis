@@ -31,6 +31,7 @@ export type ConfirmationVerb =
   | "collect"
   | "prepare-collection"
   | "initialize-time"
+  | "capture-chronology"
   | "declare-closed-setting"
   | "cease"
   | "collect-finish"

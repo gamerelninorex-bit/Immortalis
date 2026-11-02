@@ -48,6 +48,7 @@ import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
 import { productionObjectViolation } from "../production/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
+import { bootstrapInitialTimePrecondition } from "./bootstrap.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 import { entityTransitionObjectViolation } from "../world/entity-transition.ts";
 import {
@@ -109,7 +110,9 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
     if (s.last_transaction !== null || s.continuation !== null) {
       return reject("VALUE_INVALID", "the initial basis has no transaction and no continuation");
     }
-    return null;
+    // v0.9: in a bootstrap-bearing prefix the initial time is the captured chronology of the governing Completion's Input, whatever
+    // governing rule the group cites (a plain KERNEL_RULE write is not exempt); a never-bootstrap prefix returns null here at once
+    return bootstrapInitialTimePrecondition(group, state);
   }
 
   if (!stateW && txW) {

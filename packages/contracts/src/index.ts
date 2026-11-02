@@ -56,6 +56,7 @@ export * from "./gip.ts";
 export * from "./gip-instrument.ts";
 export * from "./gip-scope-binding.ts";
 export * from "./ids.ts";
+export * from "./initial-locality.ts";
 export * from "./json.ts";
 export * from "./kti.ts";
 export * from "./logistics.ts";

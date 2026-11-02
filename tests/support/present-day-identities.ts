@@ -8,25 +8,25 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "0326939feab773d2a2807b63833f8afa876c486c4e26b2d0906f16d0db84a9fd",
+    "4898f925a9512cc4ede2107f460d962646590a8e6a20a943a93d101f0733dd5e",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
+    "16e1fc26a73c2407b69548ae092c4e3a6b36746c6e9c79cd73ac58c4e8eee9b3",
   "packages/engine/src/owners/admission.ts":
-    "7f140feb8657db6f1296b591f6e99a402b8b20428550aaa2cc641dd1a9c4f279",
+    "bec9e53cf4d65c09a99b53fad4f75c6341b78ed824b000f240418030a1831f9d",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
-    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
+    "848f24a880dbab2e4f73eab5d5ce326d04255742d08c9f2b686b8461e3a7e079",
   "packages/engine/src/referee/derive.ts":
     "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
   "packages/engine/src/referee/integrity.ts":
-    "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
+    "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
+    "8d53dd9affa1c46734abde91045735cb7fdad8e9a4b5633b3d836ef7a96db276",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
@@ -34,9 +34,9 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/operator/src/cli.ts":
     "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
   "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
+    "f5f5c9d4ff4648a7877c6ca5ec24c059b50f67b8a8693a339e0f116020c044a3",
   "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
+    "20c9574bc69ed925888a1b232829b7a98a82bcf8c1484a0adb40a30a8e782b34",
   "packages/operator/src/observation.ts":
     "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
   "packages/operator/src/original-pc.ts":
@@ -52,8 +52,8 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   // directory trees (sorted `path\0sha256(bytes)\n`, the algorithm auditory-premises-conformance uses)
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
-  "packages/engine/src/referee": "8ab00353ae90c0617efc749cabc1541976396c0f843a757e7a467bdfd342fe30",
-  "packages/operator/src": "0e0714b1b0939acda9724637c051c53665e654a111bf3161791f87a7661b5067",
+  "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
+  "packages/operator/src": "5d829638f9f05a7354094d384365ae70ae9fe24a1e46cead4bac204659f05e53",
   "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
 };
 

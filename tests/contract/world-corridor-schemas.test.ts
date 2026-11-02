@@ -120,6 +120,8 @@ describe("the registered kind", () => {
     expect([...CANONICAL_OWNER_REGISTRY.get("world_state")!].sort()).toEqual(
       [
         "world_fallback_physical_entity",
+        // Initial Locality Bootstrap v0.9 (CORE_V9): the sealed bootstrap records are one more facet of the same owner
+        "world_initial_setup",
         "world_locus",
         "world_profile",
         "world_scene_closure",

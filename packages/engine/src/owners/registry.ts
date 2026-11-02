@@ -1,4 +1,15 @@
+import { z } from "zod";
 import {
+  FACET_WORLD_INITIAL_SETUP,
+  INITIAL_SETUP_FACT_KIND_IDS,
+  InitialLocalityCompletionSchema,
+  InitialSetupDispositionSchema,
+  InitialSetupGrantSchema,
+  InitialSetupInputSchema,
+  InitialSetupInvocationSchema,
+  InitialSetupResponseSchema,
+  REFEREE_OP_INITIAL_DELEGATION,
+  ScopeDecisionRecordSchema,
   CPAA_C1_D1_PROVISIONAL,
   CPAA_C1_PROVISIONAL,
   FACET_PC_COLLECTION_MECHANISM,
@@ -152,6 +163,7 @@ import {
   type ValueSchema,
 } from "@immortalis/contracts";
 import type { OwnerRegistry } from "../commit/campaign-core.ts";
+import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "../initial-setup/rules.ts";
 
 /**
  * IM-03 Owner Resolver Layer — the specification-backed owner/facet assignments for the Canonical
@@ -406,6 +418,7 @@ export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_
 export const CULTURE_ADJUDICATION_FACT_KIND_IDS = ["culture_adjudication_decision"] as const;
 export const REFEREE_FACT_KIND_IDS = ["referee_decision"] as const;
 export type FactKindId =
+  | (typeof INITIAL_SETUP_FACT_KIND_IDS)[number]
   | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
   | (typeof CULTURE_ADJUDICATION_FACT_KIND_IDS)[number]
   | (typeof REFEREE_FACT_KIND_IDS)[number]
@@ -2426,9 +2439,17 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
     rc: ["RC-02", "RC-09", "RC-16"],
     lifecycle: "SEALED",
     keyPattern: /^referee\/([0-9a-f]{64})\/decision$/,
-    valueSchema: RefereeDecisionRecordSchema,
+    // the PC-subject record, or the world-subject WG_INITIAL_DELEGATION_CLASSIFY branch (v0.9): one strict alternate value branch
+    valueSchema: z.union([RefereeDecisionRecordSchema, ScopeDecisionRecordSchema]),
     rule: REFEREE_RULE,
     alternateRules: [
+      {
+        rule: INITIAL_SETUP_SCOPE_RULE,
+        admits: (value) => {
+          const r = ScopeDecisionRecordSchema.safeParse(value);
+          return r.success && r.data.operation === REFEREE_OP_INITIAL_DELEGATION;
+        },
+      },
       {
         rule: REFEREE_PHYSICAL_RULE,
         admits: (value) => {
@@ -3146,6 +3167,83 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+const SETUP_ROOT = `^world/${ID}/locus/${ID}/initial-setup`;
+const HEX64 = "([0-9a-f]{64})";
+
+/**
+ * The six sealed v0.9 Initial Locality Bootstrap record kinds — new facet `world_initial_setup` of the existing World-State owner
+ * (IM-03/RC-02). All are SEALED, create-only, version 1. Their keys, cardinalities and strict values are the companion's; the
+ * deterministic admission lives in `../initial-setup/admission.ts`.
+ */
+export const INITIAL_SETUP_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "initial_setup_input",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/${HEX64}/input$`),
+    valueSchema: InitialSetupInputSchema,
+    rule: INITIAL_SETUP_RULES.initial_setup_input,
+  },
+  {
+    id: "initial_setup_invocation",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/(?:${HEX64}/scope-reservation|scene-reservation)$`),
+    valueSchema: InitialSetupInvocationSchema,
+    rule: INITIAL_SETUP_RULES.initial_setup_invocation,
+  },
+  {
+    id: "initial_setup_response",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/${HEX64}/response/(SCOPE|SCENE)$`),
+    valueSchema: InitialSetupResponseSchema,
+    rule: INITIAL_SETUP_RULES.initial_setup_response,
+  },
+  {
+    id: "initial_setup_grant",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/${HEX64}/grant$`),
+    valueSchema: InitialSetupGrantSchema,
+    rule: INITIAL_SETUP_RULES.initial_setup_grant,
+  },
+  {
+    id: "initial_locality_completion",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/completion$`),
+    valueSchema: InitialLocalityCompletionSchema,
+    rule: INITIAL_SETUP_RULES.initial_locality_completion,
+  },
+  {
+    id: "initial_setup_disposition",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`${SETUP_ROOT}/${HEX64}/disposition$`),
+    valueSchema: InitialSetupDispositionSchema,
+    rule: INITIAL_SETUP_RULES.initial_setup_disposition,
+  },
+];
+
 /**
  * Every registered kind: the canonical world/PC kinds, the IM-02 kernel kinds, the IM-04 Population kinds, the
  * IM-05 Production kinds, the World-State fallback physical-entity kind, its entity-transition kind, the IM-06
@@ -3184,6 +3282,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...REFEREE_FACT_KINDS,
   ...WORLD_SOURCE_CONDITION_FACT_KINDS,
   ...PC_COLLECTION_FACT_KINDS,
+  ...INITIAL_SETUP_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {
