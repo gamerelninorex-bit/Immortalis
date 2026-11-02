@@ -163,7 +163,12 @@ import {
   type ValueSchema,
 } from "@immortalis/contracts";
 import type { OwnerRegistry } from "../commit/campaign-core.ts";
-import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "../initial-setup/rules.ts";
+import {
+  INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
+  INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+  INITIAL_SETUP_RULES,
+  INITIAL_SETUP_SCOPE_RULE,
+} from "../initial-setup/rules.ts";
 
 /**
  * IM-03 Owner Resolver Layer — the specification-backed owner/facet assignments for the Canonical
@@ -1965,7 +1970,19 @@ const pcCollectionKind = (
   keyPattern: RegExp,
   valueSchema: ValueSchema,
   ruleRef: SourceRef,
-): FactKind => ({ id, owner, facet, im, rc, lifecycle, keyPattern, valueSchema, rule: ruleRef });
+  alternateRules?: FactKind["alternateRules"],
+): FactKind => ({
+  id,
+  owner,
+  facet,
+  im,
+  rc,
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: ruleRef,
+  ...(alternateRules ? { alternateRules } : {}),
+});
 
 /**
  * CPAA-C1 v0.2 PROVISIONAL CANDIDATE LOWERINGS (not ratified; see `@immortalis/contracts` `pc-collection.ts`). Six kinds, no new
@@ -2105,6 +2122,13 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^world/${ID}/locus/${ID}/scene-closure$`),
     WorldSceneClosureSchema,
     WORLD_SCENE_CLOSURE_RULE,
+    // OPTION_A_V9 (ADOPTED): the owner-derived projection of an admitted Initial Locality Completion carries its own citation
+    [
+      {
+        rule: INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
+        admits: (value) => WorldSceneClosureSchema.safeParse(value).success,
+      },
+    ],
   ),
   pcCollectionKind(
     "population_workforce_scope",
@@ -2116,6 +2140,12 @@ export const PC_COLLECTION_FACT_KINDS: readonly FactKind[] = [
     new RegExp(`^population-scope/${ID}/${ID}/workforce$`),
     PopulationWorkforceScopeSchema,
     POPULATION_WORKFORCE_SCOPE_RULE,
+    [
+      {
+        rule: INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+        admits: (value) => PopulationWorkforceScopeSchema.safeParse(value).success,
+      },
+    ],
   ),
   pcCollectionKind(
     "production_pc_collection_termination",

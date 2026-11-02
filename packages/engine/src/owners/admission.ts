@@ -59,6 +59,14 @@ import {
   type InitialSetupPolicy,
 } from "../initial-setup/admission.ts";
 import { classifyFact } from "../initial-setup/genesis.ts";
+import {
+  adverseCompletionErasureViolation,
+  initialCompletionProjectionCheck,
+} from "../initial-setup/projection.ts";
+import {
+  INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
+  INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+} from "../initial-setup/rules.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
@@ -534,7 +542,7 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         return group.facet === FACET_POPULATION_PC_OCCUPANCY
           ? pcOccupancyGroupCheck(group, state)
           : group.facet === FACET_POPULATION_WORKFORCE_SCOPE
-            ? workforceScopeGroupCheck(group, state)
+            ? (projectionPreconditions(group, state) ?? workforceScopeGroupCheck(group, state))
             : populationGroupCheck(group, state);
       // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
       if (group.owner === OWNER_PRODUCTION)
@@ -592,13 +600,28 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         return worldSourceGroupCheck(group, state);
       // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
       if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
-        return sceneClosureGroupCheck(group, state);
+        return projectionPreconditions(group, state) ?? sceneClosureGroupCheck(group, state);
       // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
       if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
         return worldAcousticEmissionGroupCheck(group, state);
       return null;
     },
   };
+}
+
+/**
+ * OPTION_A_V9 routing for the two projected kinds. A group carrying an INITIAL_COMPLETION_V9 rule must satisfy the exception's own
+ * premises (Completion, as-of qualification, projectable branch); a group carrying the author-only rule must not erase an admitted
+ * adverse constraint. The owner's own derivation always runs after this and is never relaxed.
+ */
+function projectionPreconditions(group: CommitGroup, state: CampaignState) {
+  const which = group.facet === FACET_WORLD_SCENE_CLOSURE ? "CLOSURE" : "WORKFORCE";
+  const exception =
+    which === "CLOSURE"
+      ? canonicalEqual(group.rule, INITIAL_COMPLETION_SCENE_CLOSURE_RULE)
+      : canonicalEqual(group.rule, INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE);
+  if (exception) return initialCompletionProjectionCheck(group, state, which);
+  return which === "CLOSURE" ? adverseCompletionErasureViolation(state) : null;
 }
 
 /**
@@ -620,6 +643,11 @@ function initialSetupHistoricalCheck(
     )
   )
     return scopeDecisionGroupCheck(group, state);
+  if (
+    (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE) ||
+    (group.owner === OWNER_POPULATION && group.facet === FACET_POPULATION_WORKFORCE_SCOPE)
+  )
+    return projectionPreconditions(group, state);
   if (
     group.owner === OWNER_TEMPORAL_KERNEL &&
     group.writes.some(
