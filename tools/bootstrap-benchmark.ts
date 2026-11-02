@@ -93,6 +93,10 @@ async function sample(kind: string, extra: number, fixture: string, out: string)
   const dir = join(work, "campaign");
   cpSync(fixture, dir, { recursive: true });
   const io = meter();
+  // BOOTSTRAP_FORCE_REPLAY=1 changes ONLY the history verification identity, so any build performs its full strict replay on first open: it
+  // lets the BASE build be measured doing the same work the head does after its identity change (attribution, not a different workload)
+  if (process.env["BOOTSTRAP_FORCE_REPLAY"] === "1")
+    (engine as any).canonicalAdmission.historyVerificationId += "+forced-replay";
   const counts = countAdmission((engine as any).canonicalAdmission);
   const pass = async (label: string) => {
     const before = {
