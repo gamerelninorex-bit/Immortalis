@@ -160,6 +160,13 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "world_source_condition",
       "world_source_delivery",
       "world_scene_closure",
+      // Initial Locality Bootstrap v0.9 (CORE_V9): the six sealed bootstrap records, under their own new facet of the same owner
+      "initial_setup_input",
+      "initial_setup_invocation",
+      "initial_setup_response",
+      "initial_setup_grant",
+      "initial_locality_completion",
+      "initial_setup_disposition",
     ]);
     expect([...expectedKindIds({ owner: "world_state" })].sort()).toEqual(
       ALL_FACT_KINDS.filter((k) => k.owner === "world_state")
@@ -171,6 +178,8 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
     );
     expect([...CANONICAL_OWNER_REGISTRY.get("world_state")!].sort()).toEqual([
       "world_fallback_physical_entity",
+      // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
+      "world_initial_setup",
       "world_locus",
       "world_profile",
       "world_scene_closure",

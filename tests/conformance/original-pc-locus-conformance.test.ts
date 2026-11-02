@@ -170,7 +170,8 @@ describe("one fact kind, no new owner, no new facet: the second basis is an excl
     const referee = factKind("referee_decision");
     // the physical-placement citation, (BLUE v5.2) the direct-perception citation and (GM-led first play) the scene-resolution citation,
     // each exclusive to its own value class
-    expect(referee.alternateRules).toHaveLength(3);
+    // + the v0.9 world-subject scope classification (Initial Locality Bootstrap): a fourth exclusive value class
+    expect(referee.alternateRules).toHaveLength(4);
     expect(referee.alternateRules![0]!.rule).toEqual(REFEREE_PHYSICAL_RULE);
     expect(referee.alternateRules![1]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);
     expect(referee.alternateRules![2]!.admits({ operation: "IR_PHYSICAL_PLACEMENT" })).toBe(false);

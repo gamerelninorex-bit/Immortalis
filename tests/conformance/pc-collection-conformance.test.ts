@@ -413,6 +413,13 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "world_source_delivery",
       // the bounded semantic delegation (newly authorized): the one World-State kind this slice adds, under its own new facet
       "world_scene_closure",
+      // Initial Locality Bootstrap v0.9 (CORE_V9): the six sealed bootstrap records, under their own new facet of the same owner
+      "initial_setup_input",
+      "initial_setup_invocation",
+      "initial_setup_response",
+      "initial_setup_grant",
+      "initial_locality_completion",
+      "initial_setup_disposition",
     ]);
   });
 

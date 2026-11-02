@@ -145,6 +145,11 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "request-evidence.ts",
         "terminal.ts",
         "time-initialization.ts",
+        // Initial Locality Bootstrap v0.9 (CORE_V9): the trusted workflow stores, private runner and setup service
+        "chronology-capture.ts",
+        "initial-runner.ts",
+        "initial-setup.ts",
+        "protected-store.ts",
         ...NEW_MODULES,
       ].sort(),
     );

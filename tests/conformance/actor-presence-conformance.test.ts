@@ -20,6 +20,7 @@ import {
   resolveKey,
 } from "@immortalis/engine";
 import {
+  BOOTSTRAP_OPTION_A_LINEAGE_ID,
   REQUIRED_DESIGN_LINEAGE,
   REQUIRED_EXECUTABLE_LOWERINGS,
   checkSpec,
@@ -143,7 +144,10 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
 
   it("the design lineage is ratified-not-executable, supersedes and narrows nothing, and restates no frozen pin", () => {
     const entries: any[] = lock.design_lineage_successors;
-    expect(entries.map((e) => e.id).sort()).toEqual(Object.keys(REQUIRED_DESIGN_LINEAGE).sort());
+    // + the adoption-conditional OPTION_A_V9 lineage row (option_a_status ADOPTED), validated by checkBootstrapV9
+    expect(entries.map((e) => e.id).sort()).toEqual(
+      [...Object.keys(REQUIRED_DESIGN_LINEAGE), BOOTSTRAP_OPTION_A_LINEAGE_ID].sort(),
+    );
     for (const e of entries) {
       expect(e.status).toBe("DESIGN_RATIFIED");
       expect(e.executable).toBe(false);
@@ -186,7 +190,8 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     // S1-P1 appended ONE further lowering after R1's (auditory-premises-conformance.test.ts) and 31 October 2026 appended exactly two more
     // (current-look-lowering-conformance.test.ts); the R1 row stays first and byte-unchanged
     const [low] = lock.executable_lowerings as any[];
-    expect(lock.executable_lowerings).toHaveLength(4);
+    // + the two Initial Locality Bootstrap v0.9 lowerings (core and the adopted OPTION_A_V9 row)
+    expect(lock.executable_lowerings).toHaveLength(6);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");
@@ -245,7 +250,13 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
       /pinned at exactly/,
     );
     has(
-      mutate((l) => l.design_lineage_successors.pop()),
+      // remove a REQUIRED row by identity (the last row is now the adoption-conditional OPTION_A_V9 lineage, checked separately)
+      mutate(
+        (l) =>
+          (l.design_lineage_successors = l.design_lineage_successors.filter(
+            (e: any) => e.id !== "PC-CURRENT-LOOK-PREMISE-LINEAGE",
+          )),
+      ),
       /appears 0 times/,
     );
     has(

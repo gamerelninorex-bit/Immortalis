@@ -59,8 +59,15 @@ describe("IA-03 owner exclusivity: the projection adds no owner, facet, key spac
         .filter((k) => /Projection|EventSignal|EVENT_SIGNAL/i.test(k))
         .sort(),
     ).toEqual([
+      // Initial Locality Bootstrap v0.9 exports (its "genesis projection" and the OPTION_A_V9 owner-derived projection are unrelated to the
+      // I-001 Event-Signal projection and add no I-001 construct); sorted among the names this heuristic matches
+      "BOOTSTRAP_PROJECTION_BASIS",
+      "BOOTSTRAP_PROJECTION_SECRECY",
       "EVENT_SIGNAL_DERIVATION_STEPS",
+      "InitialCompletionProjection",
       "deriveEventSignalProjection",
+      "genesisProjection",
+      "initialCompletionProjectionCheck",
       "presentEventSignal",
       "traceEventSignalDerivation",
     ]);

@@ -236,6 +236,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "economy",
       "epistemic",
       "gip",
+      "initial-setup",
       "kti",
       "logistics",
       "owners",

@@ -78,7 +78,7 @@ describe("the slice is one scoped delta: every owner, contract, predecessor gate
       "181218063894d0458e8143ac7a4866d70732ff967410b18846a78cc457b30a0a",
     // the kernel, GIP's own sunset expiry and enrollment, the owner registry and the canonical campaign
     "packages/engine/src/temporal/coordinator.ts":
-      "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+      "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
     "packages/engine/src/temporal/providers.ts":
       "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
     "packages/engine/src/gip/provider.ts":

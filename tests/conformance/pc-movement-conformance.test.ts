@@ -234,6 +234,13 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "world_source_condition",
       "world_source_delivery",
       "world_scene_closure",
+      // Initial Locality Bootstrap v0.9 (CORE_V9): the six sealed bootstrap records, under their own new facet of the same owner
+      "initial_setup_input",
+      "initial_setup_invocation",
+      "initial_setup_response",
+      "initial_setup_grant",
+      "initial_locality_completion",
+      "initial_setup_disposition",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics").map((k) => k.id)).toEqual([
       "logistics_commitment",
@@ -326,6 +333,9 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "packages/engine/src/pc-collection/derive.ts",
       "packages/engine/src/pc-collection/admission.ts",
       "packages/engine/src/pc-collection/integrity.ts",
+      // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the explicit 90-row BOOTSTRAP_SUNSET_POLICY_V9 has one reviewed row per registered kind,
+      // and so necessarily names both movement kinds (OWNER_CHECKS_ONLY: the record alone asserts no non-PC presence or rights)
+      "packages/engine/src/initial-setup/sunset-policy.ts",
     ]);
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>

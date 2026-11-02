@@ -327,6 +327,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "economy",
       "epistemic",
       "gip",
+      "initial-setup",
       "kti",
       "logistics",
       "owners",
@@ -345,6 +346,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
     ]);
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
+      "bootstrap.ts",
+      "captured-chronology.ts",
       "coordinator.ts",
       "graph.ts",
       "identity.ts",

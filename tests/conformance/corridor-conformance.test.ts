@@ -59,7 +59,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/world/entity-transition.ts":
     "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/operator/src/locality.ts":
@@ -107,6 +107,8 @@ describe("the corridor reuses the existing World-State owner and facet and adds 
     expect([...CANONICAL_OWNER_REGISTRY.get(OWNER_WORLD_STATE)!].sort()).toEqual(
       [
         "world_fallback_physical_entity",
+        // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
+        "world_initial_setup",
         "world_locus",
         "world_profile",
         "world_scene_closure",

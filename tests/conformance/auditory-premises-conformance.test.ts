@@ -178,7 +178,7 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       "packages/engine/src/temporal":
-        "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
+        "616eac431452e31fcce97c8798b7a83cd0041619fadbe0663971666fe3362104",
       "packages/engine/src/persistence":
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
         "e1436cd128b3989b25a6cfdeb029db55ecdaa4ec5c146c993ee37a8365f3591b",
@@ -309,7 +309,8 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     );
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
     // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
-    expect(lock["design_lineage_successors"]).toHaveLength(5);
+    // + the two Initial Locality Bootstrap v0.9 lineage rows (core and the adopted OPTION_A_V9 row), appended after it
+    expect(lock["design_lineage_successors"]).toHaveLength(7);
     expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
@@ -321,8 +322,10 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "S1-P1-WG-LOWERING",
       "PC-CURRENT-LOOK-WORLD-LOWERING",
       "GM-CURRENT-LOOK-SCENE-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+      "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
     ]);
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.map((r) => r.id));
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.slice(0, 5).map((r) => r.id));
   });
 
   it("the P1 lowering cites the WG native pin, composes with F-027, supersedes nothing and names exactly its kinds", () => {

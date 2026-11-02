@@ -2474,13 +2474,6 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
     rule: REFEREE_RULE,
     alternateRules: [
       {
-        rule: INITIAL_SETUP_SCOPE_RULE,
-        admits: (value) => {
-          const r = ScopeDecisionRecordSchema.safeParse(value);
-          return r.success && r.data.operation === REFEREE_OP_INITIAL_DELEGATION;
-        },
-      },
-      {
         rule: REFEREE_PHYSICAL_RULE,
         admits: (value) => {
           const r = RefereeDecisionRecordSchema.safeParse(value);
@@ -2499,6 +2492,13 @@ export const REFEREE_FACT_KINDS: readonly FactKind[] = [
         admits: (value) => {
           const r = RefereeDecisionRecordSchema.safeParse(value);
           return r.success && r.data.operation === REFEREE_OP_SCENE;
+        },
+      },
+      {
+        rule: INITIAL_SETUP_SCOPE_RULE,
+        admits: (value) => {
+          const r = ScopeDecisionRecordSchema.safeParse(value);
+          return r.success && r.data.operation === REFEREE_OP_INITIAL_DELEGATION;
         },
       },
     ],

@@ -14,9 +14,9 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "16e1fc26a73c2407b69548ae092c4e3a6b36746c6e9c79cd73ac58c4e8eee9b3",
+    "cca07232c82b0a92f1773d30439788a67a0962225179c938f883b136d2c5a83e",
   "packages/engine/src/owners/admission.ts":
-    "bec9e53cf4d65c09a99b53fad4f75c6341b78ed824b000f240418030a1831f9d",
+    "90fbc02552d15adae09b0a89ca6cc3e7dfb2f1882eb89c6ac89fada73bdf5233",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "5d829638f9f05a7354094d384365ae70ae9fe24a1e46cead4bac204659f05e53",
+  "packages/operator/src": "73dc4e668a3f88659c1e5ea91483f3ad95b8ecce9db47c01ce34462f8824fde2",
   "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
 };
 
