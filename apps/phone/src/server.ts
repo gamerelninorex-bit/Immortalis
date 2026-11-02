@@ -14,6 +14,7 @@ import {
 } from "@immortalis/operator";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { join } from "node:path";
 import {
   bindOrdinaryAction,
   revokeOrdinaryAction,
@@ -64,6 +65,7 @@ import { readPlay } from "./play-evidence.ts";
 import type { ToolContext } from "./mcp-http.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
+import { openOAuthGrantLedger } from "./oauth-ledger.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
 import {
   PENDING_FORMAT,
@@ -2703,7 +2705,18 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   let oauth: OAuthServer | null = null;
   let mcp: McpHttp | null = null;
   if (config.publicUrl !== null) {
-    oauth = createOAuth(config, now, (who, role, token) => checkLane(who, role, token));
+    // the protected grant ledger is created by trusted first startup BEFORE any token is issued; a missing or corrupt initialised ledger
+    // later denies every OAuth request (fail closed, application-wide). Prior stateless tokens are never adopted.
+    oauth = createOAuth(
+      config,
+      now,
+      (who, role, token) => checkLane(who, role, token),
+      openOAuthGrantLedger({
+        dir: join(config.operatorDir, "oauth-ledger"),
+        campaignId: config.campaignId,
+        now,
+      }),
+    );
     mcp = createMcpHttp({
       oauth,
       now,
@@ -2802,6 +2815,42 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       if (form === undefined) return (json(res, 400, { error: "invalid_request" }), true);
       const r = oauth.token(form);
       return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/revoke" && req.method === "POST") {
+      // RFC 7009 self-revocation by the client that holds the token: it ends the grant's access AND refresh tokens
+      const form = await readForm(req);
+      if (form === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const r = oauth.revokeToken(form);
+      return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/operator" && req.method === "POST") {
+      // the trusted OPERATOR's view and revocation: authorized only by the referee lane secret, through the same constant-time,
+      // rate-limited check the lanes' own sign-in uses; it never reveals or accepts a token
+      if (!sameOrigin(req)) return (deny(res, 403, "cross-origin request refused"), true);
+      const body = await readBody(req);
+      if (body === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const typed = body["referee_token"];
+      const checked =
+        typeof typed === "string" && typed !== ""
+          ? checkLane(clientOf(req), "referee", typed)
+          : "bad";
+      if (checked === "locked") return (json(res, 429, { error: "temporarily_unavailable" }), true);
+      if (checked !== "ok") return (json(res, 401, { error: "access_denied" }), true);
+      if (body["action"] === "list") {
+        const grants = oauth.grants();
+        return grants === null
+          ? (json(res, 503, { error: "temporarily_unavailable" }), true)
+          : (json(res, 200, { grants }), true);
+      }
+      if (
+        body["action"] === "revoke" &&
+        typeof body["client_id"] === "string" &&
+        typeof body["grant_id"] === "string"
+      ) {
+        const done = oauth.revokeGrant(body["client_id"], body["grant_id"], "OPERATOR");
+        return (json(res, done === "UNAVAILABLE" ? 503 : 200, { result: done }), true);
+      }
+      return (json(res, 400, { error: "invalid_request" }), true);
     }
     if (path === "/oauth/decision" && req.method === "POST") {
       if (!sameOrigin(req)) return (deny(res, 403, "cross-origin request refused"), true);

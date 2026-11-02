@@ -43,6 +43,11 @@ export interface ToolContext {
   readonly client: string;
   /** Authenticated grant identity; never accepted from tool arguments. */
   readonly grant: string;
+  /**
+   * When the verified access token of THIS request expires (epoch ms): the trusted source of a delayed request's transport-authority
+   * deadline. Never a tool argument; a refresh does not extend a deadline already retained from an earlier request.
+   */
+  readonly accessExpiresAtMs?: number;
   /** true only when this client declared elicitation AND this call is being carried on an event stream */
   readonly canElicit: boolean;
   /** asks the HUMAN (through the client's own surface) for a reply; null when it was not answered in time or not possible */
@@ -279,6 +284,7 @@ export function createMcpHttp(o: {
       scopes: claims.scopes,
       client: claims.client,
       grant: claims.grant,
+      ...(claims.expiresAtMs === undefined ? {} : { accessExpiresAtMs: claims.expiresAtMs }),
       canElicit: stream,
       elicit: (message, schema, timeoutMs) =>
         new Promise((resolve) => {
