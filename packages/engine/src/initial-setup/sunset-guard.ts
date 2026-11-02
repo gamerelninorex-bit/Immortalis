@@ -5,13 +5,18 @@ import {
   InitialLocalityCompletionSchema,
   InitialSetupInputSchema,
   WorldSourceConditionSchema,
+  WorldSourceDeliverySchema,
   compareTime,
   worldLocusKey,
   worldProfileKey,
   type CanonicalTime,
   type InitialLocalityCompletion,
+  type InitialSetupInput,
   type OwnerFact,
+  type WorldSourceCondition,
+  type WorldSourceDelivery,
 } from "@immortalis/contracts";
+import { sha256Canonical } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { BOOTSTRAP_SUNSET_POLICY_V9, type SunsetPolicyRow } from "./sunset-policy.ts";
 
@@ -104,24 +109,99 @@ function malformedReferences(w: Ref, l: Ref, facts: ReadonlyMap<string, OwnerFac
   return null;
 }
 
-/** The stable fields of a Source Condition: lawful recoverable/delivered/exhaustion changes are NOT among them. */
-const sourceIsStable = (
-  current: OwnerFact,
-  pinnedVersion: number,
-  selected: { world_id: string; locus_id: string },
-): boolean => {
+/**
+ * The DIRECT comparison of the selected source's stable fields (source_key, locality, dimension, material_class, depth, establishment,
+ * access_facts) with the canonical Input baseline (companion: "for selected-source stable fields use the canonical Input baseline";
+ * "no receipt/journal ordering query, widened WriteAdmission interface or new OwnerFact/state-file field").
+ *
+ * The Input commits the baseline as `projection_hash = SHA256(canonicalJson([{fact_key, version, value}…]))` over its pinned genesis
+ * facts. Every genesis kind is SEALED (version 1, never rewritten) except the Source Condition, whose only lawful later versions are
+ * World-State deliveries — each recorded once as a `world_source_delivery` fact that states the version it advanced from and to and
+ * the quantity it moved. So the source value AT THE PINNED VERSION is reconstructed from canonical committed facts alone: take the
+ * current value and un-apply the recorded, contiguous delivery chain (drop the delivery entries, restore their quantity to
+ * `recoverable`, clear an exhaustion that a removed delivery caused). That value, with the other pinned facts at their pinned versions,
+ * must reproduce the Input's `projection_hash` exactly. Because the reconstruction un-applies ONLY recoverable/delivered/exhaustion,
+ * lawful drawdown variation passes, while a changed stable value — at the pinned version or an otherwise greater one — cannot
+ * reproduce the committed baseline and withholds. A later version with no (or a non-contiguous, or inconsistent) recorded delivery
+ * chain is unverifiable and withholds. Returns null when the baseline is reproduced, else the reason it is not.
+ */
+function sourceBaselineViolation(
+  input: InitialSetupInput,
+  facts: ReadonlyMap<string, OwnerFact>,
+): string | null {
+  const pin = input.source;
+  const current = facts.get(pin.fact_key);
+  if (!current) return "the Input's selected source is not committed in the prefix";
+  if (current.version < pin.version)
+    return "the selected source is older than the version the Input pinned";
   const parsed = WorldSourceConditionSchema.safeParse(current.value);
-  if (!parsed.success) return false;
-  const v = parsed.data;
-  if (
-    v.locality.world.entity_id !== selected.world_id ||
-    v.locality.locus.entity_id !== selected.locus_id
-  )
-    return false;
-  // an unchanged version is trivially stable; a later version is lawful only as an owner-checked delivery (World-State's source
-  // owner refuses any change to the stable fields, and replay re-verifies it), which leaves these fields as established
-  return current.version >= pinnedVersion;
-};
+  if (!parsed.success) return "the selected source violates its own contract";
+  const baseline = reconstructPinnedSource(current, parsed.data, pin.version, facts);
+  if (typeof baseline === "string") return baseline;
+  const projected: { fact_key: string; version: number; value: unknown }[] = [];
+  for (const p of input.genesis) {
+    if (p.fact_key === pin.fact_key) {
+      projected.push({ fact_key: p.fact_key, version: p.version, value: baseline });
+      continue;
+    }
+    const f = facts.get(p.fact_key);
+    if (!f || f.version !== p.version)
+      return `the pinned genesis fact ${p.fact_key} is absent or is not at its pinned version`;
+    projected.push({ fact_key: p.fact_key, version: p.version, value: f.value });
+  }
+  projected.sort((a, b) => (a.fact_key < b.fact_key ? -1 : a.fact_key > b.fact_key ? 1 : 0));
+  return sha256Canonical(projected) === input.projection_hash
+    ? null
+    : "a stable field of the selected source differs from the canonical Input baseline";
+}
+
+/** The value the source had at `pinnedVersion`, from the current value and the recorded delivery chain; a string is the reason it cannot be. */
+function reconstructPinnedSource(
+  current: OwnerFact,
+  value: WorldSourceCondition,
+  pinnedVersion: number,
+  facts: ReadonlyMap<string, OwnerFact>,
+): WorldSourceCondition | string {
+  if (current.version === pinnedVersion) return value;
+  const steps = new Map<number, WorldSourceDelivery>();
+  const prefix = `world/${value.locality.world.entity_id}/source-delivery/`;
+  for (const f of facts.values()) {
+    if (!f.key.startsWith(prefix)) continue;
+    const d = WorldSourceDeliverySchema.safeParse(f.value);
+    if (!d.success || d.data.source.fact_key !== current.key) continue;
+    if (
+      d.data.source.version_before < pinnedVersion ||
+      d.data.source.version_after > current.version ||
+      steps.has(d.data.source.version_before)
+    )
+      continue;
+    steps.set(d.data.source.version_before, d.data);
+  }
+  let recoverable = value.recoverable.amount;
+  const removed = new Set<string>();
+  const unit = value.establishment.quantity.unit;
+  for (let v = pinnedVersion; v < current.version; v++) {
+    const d = steps.get(v);
+    if (!d || d.source.version_after !== v + 1 || d.delivered.unit !== unit)
+      return "the selected source advanced without a contiguous recorded delivery chain from the pinned version";
+    const entry = value.delivered.find((x) => x.delivery_id === d.delivery_id);
+    if (!entry || entry.quantity.amount !== d.delivered.amount || entry.quantity.unit !== unit)
+      return "a recorded delivery is not the entry the selected source carries";
+    removed.add(d.delivery_id);
+    recoverable += d.delivered.amount;
+  }
+  const exhaustion =
+    value.exhaustion && removed.has(value.exhaustion.delivery_id) ? null : value.exhaustion;
+  const rebuilt = WorldSourceConditionSchema.safeParse({
+    ...value,
+    recoverable: { ...value.recoverable, amount: recoverable },
+    delivered: value.delivered.filter((x) => !removed.has(x.delivery_id)),
+    exhaustion,
+  });
+  return rebuilt.success
+    ? rebuilt.data
+    : "the selected source's pinned value cannot be reconstructed consistently";
+}
 
 /**
  * The guard visits every fact of the actual prefix at each dependent admission, so resolving a key against all registered key spaces
@@ -152,7 +232,6 @@ export function qualifies(
   const genesisVersion = new Map(input.data.genesis.map((p) => [p.fact_key, p.version]));
   const selectedWorldKey = worldProfileKey(completion.world_id);
   const selectedLocusKey = worldLocusKey(completion.world_id, completion.locus_id);
-  const selectedSource = completion.selection.source_claims[0]?.source;
 
   for (const fact of facts.values()) {
     const kind = kindIdOf(fact);
@@ -222,18 +301,9 @@ export function qualifies(
         }
         break;
       case "SELECTED_SOURCE_FIELDS":
-        if (selectedSource && fact.key === selectedSource.fact_key) {
-          if (
-            !sourceIsStable(fact, selectedSource.version, {
-              world_id: completion.world_id,
-              locus_id: completion.locus_id,
-            })
-          )
-            return withhold(
-              "SELECTED_SOURCE_CHANGED",
-              "a stable field of the selected source changed after the Input",
-              fact.key,
-            );
+        if (fact.key === input.data.source.fact_key) {
+          const changed = sourceBaselineViolation(input.data, facts);
+          if (changed !== null) return withhold("SELECTED_SOURCE_CHANGED", changed, fact.key);
         }
         break;
       default:

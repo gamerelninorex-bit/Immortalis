@@ -346,40 +346,188 @@ describe("qualifies(completion, prefix, occupied): the as-of Initial Scene Excep
     expect(qualifies(completion, earlier, null).qualified).toBe(true);
   });
 
-  it("a changed selected world/locus key withholds; a lawful source delivery that changes only recoverable/delivered does not", async () => {
+  it("a changed selected world/locus key withholds", async () => {
     const { facts, completion } = await completedPrefix();
     const locus = facts.get(worldLocusKey(W, L))!;
     expect(
       qualifies(completion, plus(facts, { ...locus, version: locus.version + 1 }), null).code,
     ).toBe("SELECTED_KEY_CHANGED");
-    const srcKey = completion.selection.source_claims[0]!.source.fact_key;
-    const src = facts.get(srcKey)!;
-    const delivered = {
-      ...(src.value as any),
-      recoverable: { ...(src.value as any).recoverable, amount: 1 },
-      delivered: [
-        { delivery_id: "d1", quantity: { amount: 4, unit: (src.value as any).recoverable.unit } },
-      ],
-      exhaustion: null,
-    };
-    expect(
-      qualifies(
-        completion,
-        plus(facts, { ...src, version: src.version + 1, value: delivered }),
-        null,
-      ).qualified,
-    ).toBe(true);
-    const moved = {
-      ...(src.value as any),
-      locality: {
-        ...(src.value as any).locality,
-        locus: { fact_key: worldLocusKey(W, "elsewhere"), entity_id: "elsewhere" },
+  });
+
+  // -- the selected source: DIRECT comparison of the stable fields with the canonical Input baseline ---------------------------------
+  // The baseline is the Input's committed projection_hash; the pinned source value is reconstructed from the current value and the
+  // recorded, contiguous World-State delivery chain (no journal query, no widened interface, no new fact field).
+  const unitOfSource = (v: any) => v.establishment.quantity.unit as string;
+  /** A World-State delivery record (WorldSourceDeliverySchema) that advances `src` from version `before` by `amount` of `beforeAmount`. */
+  const delivery = (
+    src: OwnerFact,
+    id: string,
+    before: number,
+    amount: number,
+    beforeAmount: number,
+  ) =>
+    stub(`world/${W}/source-delivery/${id}`, {
+      delivery_id: id,
+      source: {
+        fact_key: src.key,
+        source_key: (src.value as any).source_key,
+        version_before: before,
+        version_after: before + 1,
       },
+      delta: { fact_key: `production/source-delta/${id}`, version: 1 },
+      delivered: { amount, unit: unitOfSource(src.value) },
+      before: { amount: beforeAmount, unit: unitOfSource(src.value) },
+      after: { amount: beforeAmount - amount, unit: unitOfSource(src.value) },
+      exhausted: beforeAmount - amount === 0,
+      delivered_at: t(10),
+      contribution: { extraction_id: id, accounting: "DISCRETE_EPISODIC_RESIDUE" },
+      close_stage: {
+        causal_process_id: `production-extraction:${id}`,
+        owner_operation: {
+          owner: "world_state",
+          operation: "world-state-deliver-source-drawdown",
+        },
+        prospective_result_id: `source-delivery:${id}`,
+      },
+    });
+  /** The source after the given successive drawdowns, with the delivery records that advanced it version by version. */
+  const drawn = (src: OwnerFact, amounts: readonly number[], edit: (v: any) => any = (v) => v) => {
+    let value: any = src.value;
+    const records: OwnerFact[] = [];
+    amounts.forEach((amount, i) => {
+      const id = `d${i + 1}`;
+      records.push(delivery(src, id, src.version + i, amount, value.recoverable.amount));
+      const recoverable = value.recoverable.amount - amount;
+      value = {
+        ...value,
+        recoverable: { ...value.recoverable, amount: recoverable },
+        delivered: [
+          ...value.delivered,
+          { delivery_id: id, quantity: { amount, unit: unitOfSource(value) } },
+        ],
+        exhaustion: recoverable === 0 ? { kind: "PHYSICAL", delivery_id: id } : null,
+      };
+    });
+    return {
+      records,
+      fact: { ...src, version: src.version + amounts.length, value: edit(value) } as OwnerFact,
     };
-    expect(
-      qualifies(completion, plus(facts, { ...src, version: src.version + 1, value: moved }), null)
-        .code,
-    ).toBe("SELECTED_SOURCE_CHANGED");
+  };
+
+  it("lawful recoverable/delivered/exhaustion variation does not sunset the exception: one drawdown, several, and physical exhaustion", async () => {
+    const { facts, completion } = await completedPrefix();
+    const src = facts.get(completion.selection.source_claims[0]!.source.fact_key)!;
+    const total = (src.value as any).recoverable.amount as number;
+    expect(total).toBeGreaterThan(2);
+    for (const amounts of [[1], [1, 1], [total]]) {
+      const { records, fact } = drawn(src, amounts);
+      const r = qualifies(completion, plus(facts, fact, ...records), null);
+      expect([amounts, r.code]).toEqual([amounts, "QUALIFIED"]);
+    }
+  });
+
+  it("a changed stable field of the selected source withholds - at an otherwise greater version with a complete lawful delivery chain, and at the pinned version itself", async () => {
+    const { facts, completion } = await completedPrefix();
+    const src = facts.get(completion.selection.source_claims[0]!.source.fact_key)!;
+    const v: any = src.value;
+    const mutations: Record<string, (x: any) => any> = {
+      source_key: (x) => ({ ...x, source_key: `${x.source_key}-other` }),
+      locality: (x) => ({
+        ...x,
+        locality: {
+          ...x.locality,
+          locus: { fact_key: worldLocusKey(W, "elsewhere"), entity_id: "elsewhere" },
+        },
+      }),
+      dimension: (x) => ({ ...x, dimension: `${x.dimension}-other` }),
+      material_class: (x) => ({ ...x, material_class: `${x.material_class}-other` }),
+      establishment_statement: (x) => ({
+        ...x,
+        establishment: { ...x.establishment, statement: `${x.establishment.statement} (revised)` },
+      }),
+      establishment_quantity: (x) => ({
+        ...x,
+        establishment: {
+          ...x.establishment,
+          quantity: { ...x.establishment.quantity, amount: x.establishment.quantity.amount + 1 },
+        },
+        recoverable: { ...x.recoverable, amount: x.recoverable.amount + 1 },
+      }),
+      access_facts: (x) => ({
+        ...x,
+        access_facts: [...x.access_facts, { aspect: "added-aspect", statement: "a new fact" }],
+      }),
+    };
+    expect(v.access_facts).toBeDefined();
+    for (const [field, mutate] of Object.entries(mutations)) {
+      // (a) an otherwise greater version: one lawful recorded delivery, then the stable field changed
+      const { records, fact } = drawn(src, [1], mutate);
+      const greater = qualifies(completion, plus(facts, fact, ...records), null);
+      expect([field, "greater", greater.code]).toEqual([
+        field,
+        "greater",
+        "SELECTED_SOURCE_CHANGED",
+      ]);
+      expect(greater.message).toContain("differs from the canonical Input baseline");
+      // (b) the pinned version itself carrying another value (a typed counterfactual: a committed journal cannot hold it)
+      const same = qualifies(
+        completion,
+        plus(facts, { ...src, value: mutate(src.value) } as OwnerFact),
+        null,
+      );
+      expect([field, "pinned", same.code]).toEqual([field, "pinned", "SELECTED_SOURCE_CHANGED"]);
+    }
+  });
+
+  it("a later source version with no, a gapped, an inconsistent or a foreign recorded delivery chain is unverifiable and withholds", async () => {
+    const { facts, completion } = await completedPrefix();
+    const src = facts.get(completion.selection.source_claims[0]!.source.fact_key)!;
+    const { records, fact } = drawn(src, [1, 1]);
+    const code = (prefix: Map<string, OwnerFact>) => qualifies(completion, prefix, null).code;
+    expect(code(plus(facts, fact, ...records))).toBe("QUALIFIED");
+    expect(code(plus(facts, fact))).toBe("SELECTED_SOURCE_CHANGED"); // no recorded chain at all
+    expect(code(plus(facts, fact, records[1]!))).toBe("SELECTED_SOURCE_CHANGED"); // a gap at the pinned version
+    expect(code(plus(facts, fact, records[0]!))).toBe("SELECTED_SOURCE_CHANGED"); // a gap at the end
+    // a delivery record that disagrees with the entry the source carries
+    const wrongAmount = stub(records[0]!.key, {
+      ...(records[0]!.value as any),
+      delivered: { amount: 2, unit: unitOfSource(src.value) },
+      after: {
+        amount: (records[0]!.value as any).before.amount - 2,
+        unit: unitOfSource(src.value),
+      },
+    });
+    expect(code(plus(facts, fact, wrongAmount, records[1]!))).toBe("SELECTED_SOURCE_CHANGED");
+    // a record of another source's delivery cannot stand for this one's chain
+    const foreign = stub(records[0]!.key, {
+      ...(records[0]!.value as any),
+      source: { ...(records[0]!.value as any).source, fact_key: `world/${W}/source/another` },
+    });
+    expect(code(plus(facts, fact, foreign, records[1]!))).toBe("SELECTED_SOURCE_CHANGED");
+    // an older version than the Input pinned
+    if (src.version > 1)
+      expect(code(plus(facts, { ...src, version: src.version - 1 } as OwnerFact))).toBe(
+        "SELECTED_SOURCE_CHANGED",
+      );
+  });
+
+  it("any other pinned genesis fact absent or at another version is unverifiable and withholds", async () => {
+    const { facts, completion } = await completedPrefix();
+    const pins: { fact_key: string }[] = (facts.get(completion.input.fact_key)!.value as any)
+      .genesis;
+    const others = pins.filter(
+      (p) => p.fact_key !== completion.selection.source_claims[0]!.source.fact_key,
+    );
+    expect(others.length).toBeGreaterThan(0);
+    for (const p of others) {
+      const fact = facts.get(p.fact_key)!;
+      const bumped = qualifies(
+        completion,
+        plus(facts, { ...fact, version: fact.version + 1 }),
+        null,
+      );
+      expect(bumped.qualified).toBe(false);
+    }
   });
 
   it("PC custody and Population standing alone do not end the exception (OWNER_CHECKS_ONLY / RECHECK are not presence)", async () => {
