@@ -27,7 +27,8 @@ Written when the previous builder ran out of usage. Everything below is true of 
 
 - Fast layers green on the last run: unit + contract + conformance + security = 253 files / 4,539 tests; `format:check`, `lint`, `typecheck`, `check:spec` clean.
 - The full INTEGRATION suite has NOT been run on this head. Run it (`pnpm exec vitest run --project integration`, about 12 minutes) before pushing for CI. Subsets known green: `chat-adapter`, `chat-goal`, `chat-ordinary-actions`, `chat-collection-recovery`, `chat-tool-registration`, `oauth-grant-revocation`, `delayed-continuation`, `initial-setup-*`.
-- CI has not been observed on this head. A new push cancels the earlier run; wait for the run of the exact final head.
+- CI on `1469919` failed ONE job: `tests/integration/phone-referee-startup-evidence.test.ts` (§1A) requires server startup to list no directory and write no private file; the OAuth ledger initialised eagerly. Fixed by making `oauth-ledger.ts` initialise lazily on first use (commit after `1469919`). Any new startup-time I/O in `server.ts` breaks that test.
+- CI has not been observed on the fixed head. A new push cancels the earlier run; wait for the run of the exact final head.
 - The PR body is STALE: it still says the delayed-action, OAuth, V2-ledger and bridge items are "NOT built" and still carries the old "keep byte-identical" Runtime Contract question. Rewrite it (keep the template headings) once item 6 and 7 are settled; state UNRUN T2/T3 and whatever is still partial.
 
 ## Things that will bite you

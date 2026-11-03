@@ -179,13 +179,21 @@ export function openOAuthGrantLedger(params: {
       }
     }
   };
-  initialize();
+  // LAZY: server startup performs no directory listing and writes nothing (the startup-evidence invariant). The ledger is created on its
+  // first use - before any token can be issued, since issuance registers the grant first - and a ledger that already exists is never touched.
+  let initialized = false;
+  const ensureInitialized = (): void => {
+    if (initialized) return;
+    initialized = true;
+    initialize();
+  };
 
   /**
    * The key and a verified marker, or null (the ledger is missing, partial, foreign or corrupt). The key is read afresh on every
    * check - nothing is cached in memory - so a swapped or removed key or marker is noticed at the very next request, not at restart.
    */
   const intact = (): Buffer | null => {
+    ensureInitialized();
     const k = readKey();
     if (k === null) return null;
     let text: string;

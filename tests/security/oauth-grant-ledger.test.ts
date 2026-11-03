@@ -111,8 +111,10 @@ describe("OAuth grant ledger: issuance registers the grant durably before any to
 
   it("a registration that cannot be made durable returns NO tokens; the spent code needs a new authorization", async () => {
     const config = await chatConfig({ operatorDir: tempDir("oauth-ledger-") });
-    const { oauth, dir } = await rig({ config });
-    // break the directory so the registration fails after the code is spent
+    const { oauth, dir, ledger } = await rig({ config });
+    // the ledger is created on first use (server startup touches no file); use it once, then break the marker so the registration fails
+    // after the code is spent
+    expect(ledger.usable()).toBe(true);
     rmSync(join(dir, "ledger.json"));
     const { client, token } = consent(oauth);
     expect(token.status).toBe(503);
