@@ -14,6 +14,10 @@ import {
 import { dirname, join } from "node:path";
 import { issueRequestEvidence } from "../../../packages/operator/src/request-evidence.ts";
 import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
+import {
+  requestQueuedSetupAuthorization,
+  revokeQueuedSetupEditCapability,
+} from "../../../packages/operator/src/queued-setup.ts";
 import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { projectReview } from "./review-projection.ts";
@@ -270,6 +274,10 @@ export class RequestCommitments {
     }
   }
   terminal(base: OperatorTerminal, context: ReviewContext): OperatorTerminal {
+    // A QUEUED setup edit applied by a NEW live continue_queued_setup_edit request has its own source: the original queued authorship plus
+    // that fresh continuation, bound to the exact queue entry and its retained target. Adding the tool to the generic allowlist would not
+    // be enough (capture() would find no ordinary tool), and requestOrdinaryConfirmation is not used for it.
+    if (context.queued) return this.#queuedTerminal(base, context, context.queued);
     const captured = this.capture(context);
     let legacyReview: OperatorTerminal["review"];
     try {
@@ -492,6 +500,53 @@ export class RequestCommitments {
             );
           return null;
         }
+      },
+    };
+  }
+  /** The terminal of a queued edit: it can issue exact request evidence for ONE subject of the entry's retained target, and nothing else. */
+  #queuedTerminal(
+    base: OperatorTerminal,
+    context: ReviewContext,
+    queued: NonNullable<ReviewContext["queued"]>,
+  ): OperatorTerminal {
+    return {
+      say: (text) => base.say(text),
+      ask: async () => null,
+      close: () => base.close(),
+      authorize: async (request) => {
+        const r = queued.record;
+        try {
+          const subject = JSON.parse(request.subject);
+          // the subject must be the entry's own target: a revised mirror of the retained draft's PC, or the proposed document of the
+          // retained setup; another PC, setup or campaign is never covered by this authority
+          const target = r.command === "REVISE_PC" ? subject.pc_id : subject.setup_id;
+          if (
+            !context.active() ||
+            !context.authority.scopes.includes("player") ||
+            context.authority.client !== r.client ||
+            context.authority.grant !== r.oauth_grant ||
+            subject.campaign_id !== this.#campaign ||
+            target !== r.retained_workflow_ref
+          ) {
+            revokeQueuedSetupEditCapability(queued.capability);
+            return null;
+          }
+        } catch {
+          revokeQueuedSetupEditCapability(queued.capability);
+          return null;
+        }
+        const evidence = requestQueuedSetupAuthorization({
+          capability: queued.capability,
+          record: r,
+          live: queued.live,
+          now: queued.now(),
+          asked: { verb: request.verb, subject: request.subject },
+        });
+        if (!evidence)
+          base.say(
+            "REQUEST_BLOCKED: the queued edit's exact authorship, target, deadline or authority cannot be verified. No new authorization was inferred.",
+          );
+        return evidence;
       },
     };
   }

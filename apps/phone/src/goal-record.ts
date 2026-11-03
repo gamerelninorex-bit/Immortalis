@@ -49,6 +49,11 @@ export interface GoalRecord {
   step: GoalStep;
   returned?: GoalReturn;
   act_id?: string;
+  /**
+   * Present only for a DELAYED goal (Initial Locality Bootstrap v0.9): the trusted dispatch_ref its first `collect` was launched under.
+   * Such a goal never adopts an open attempt by its quantity - only the act the version-2 ledger links to this exact dispatch_ref.
+   */
+  dispatch_ref?: string;
 }
 
 interface Stored {
@@ -105,7 +110,12 @@ export function readGoal(config: Where): GoalRead {
       !oneOf(GOAL_OUTCOMES, g["outcome"]) ||
       !oneOf(GOAL_STEPS, g["step"]) ||
       (g["returned"] !== undefined && !oneOf(GOAL_RETURNS, g["returned"])) ||
-      (g["act_id"] !== undefined && (typeof g["act_id"] !== "string" || g["act_id"].length > 200))
+      (g["act_id"] !== undefined &&
+        (typeof g["act_id"] !== "string" || g["act_id"].length > 200)) ||
+      (g["dispatch_ref"] !== undefined &&
+        (typeof g["dispatch_ref"] !== "string" ||
+          g["dispatch_ref"].length === 0 ||
+          g["dispatch_ref"].length > 200))
     )
       return { kind: "UNREADABLE" };
     return {
@@ -118,6 +128,7 @@ export function readGoal(config: Where): GoalRead {
         step: g["step"],
         ...(g["returned"] !== undefined ? { returned: g["returned"] } : {}),
         ...(g["act_id"] !== undefined ? { act_id: g["act_id"] as string } : {}),
+        ...(g["dispatch_ref"] !== undefined ? { dispatch_ref: g["dispatch_ref"] as string } : {}),
       },
     };
   } catch {

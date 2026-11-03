@@ -25,6 +25,12 @@ import {
 import { CHARACTER_COMMAND } from "./character-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
 import { inOrder, splitConfirmation, wholeConfirmationBody } from "./confirm-text.ts";
+import {
+  continuePendingGoal,
+  continueQueuedSetupEdit,
+  type DelayedDeps,
+  type QueuedAuthorization,
+} from "./delayed-continuation.ts";
 import type { GoalReturn } from "./goal.ts";
 import {
   LOCALITY_CONFIRMATION_FIRST,
@@ -1343,12 +1349,18 @@ export interface ChatToolDeps {
   readonly settleMs?: number;
   readonly elicitMs?: number;
   readonly callReferee?: typeof callRefereeTool;
+  /**
+   * The delayed-action path of a version-2 workflow (Initial Locality Bootstrap v0.9). When present the two closed continuation tools are
+   * registered, and a legitimate character or setting edit made while the initial setup's freeze is active is RETAINED in the queue
+   * instead of being refused. Absent (every original campaign): nothing here exists.
+   */
+  readonly delayed?: Omit<DelayedDeps, "config" | "runs" | "goal" | "runQueued">;
   readonly glance?: (config: PhoneConfig) => Promise<ToolResult>;
   /** a cause for the OPERATOR's log (the preflight names the same causes); never shown to the player or the assistant */
   readonly note?: (message: string) => void;
 }
 
-function parseSettingOpening(v: unknown): OpeningSources["setting"] | null {
+export function parseSettingOpening(v: unknown): OpeningSources["setting"] | null {
   if (v === undefined) return null;
   if (!record(v) || !onlyKeys(v, ["chronology", "declaration", "reserve_condition"])) return null;
   const c =
@@ -1374,7 +1386,7 @@ function parseSettingOpening(v: unknown): OpeningSources["setting"] | null {
     ...(typeof condition === "string" ? { reserve_condition: condition } : {}),
   };
 }
-function parseGenerationOpening(v: unknown): OpeningSources["generation"] | null {
+export function parseGenerationOpening(v: unknown): OpeningSources["generation"] | null {
   if (v === undefined) return null;
   if (!record(v) || !onlyKeys(v, ["presence", "preparation"])) return null;
   const presence = v["presence"];
@@ -1496,6 +1508,49 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     runs.decline();
     const deadline = Date.now() + 5_000;
     while (!run.done && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+  };
+
+  /**
+   * While the initial setup's FREEZE is active, a legitimate edit is not lost and not applied behind the player's back: it is retained
+   * exactly as authored (the strict argument branch the existing parser accepted) and applied only after the freeze releases, by a NEW
+   * live `continue_queued_setup_edit` request. Returns null when nothing is queued (no freeze, no delayed path, or the freeze state
+   * cannot be established, in which case the owners' own freeze refusal still stands).
+   */
+  const queueWhileFrozen = async (
+    command: "REVISE_PC" | "REVISE_SETUP",
+    args: Record<string, unknown>,
+    ctx: ToolContext,
+  ): Promise<ToolResult | null> => {
+    const dd = d.delayed;
+    if (!dd || (await dd.freezeReleased()) !== false) return null;
+    if (ctx.request === undefined || ctx.accessExpiresAtMs === undefined)
+      return text("an authenticated player request is required; nothing was queued", true);
+    const sc = dd.scenario();
+    if (sc === null)
+      return text("This campaign's scenario is not configured; nothing was queued.", true);
+    const revision = command === "REVISE_PC" ? ((await runs.characterStatus()).revision ?? 0) : 0;
+    const queued = await dd.queue.enqueue({
+      client: ctx.client,
+      oauth_grant: ctx.grant,
+      original_request_ref: ctx.request.id,
+      command,
+      payload: JSON.parse(JSON.stringify(args)) as Record<string, unknown>,
+      retained_workflow_ref: command === "REVISE_PC" ? sc.player_character : config.campaignId,
+      retained_revision: revision,
+      access_expires_at_ms: ctx.accessExpiresAtMs,
+    });
+    if (!queued.ok)
+      return text(
+        queued.error.code === "QUEUE_EXPIRED"
+          ? "this request's authority has already expired; nothing was queued"
+          : "the edit could not be retained; nothing was queued",
+        true,
+      );
+    return asJson({
+      status: "QUEUED",
+      queue_id: queued.value.queue_id,
+      next: "The setup is still running, so this edit is kept exactly as the player authored it. When the setup has finished, call continue_queued_setup_edit with this queue_id; it will not change on its own.",
+    });
   };
 
   const tools: McpTool[] = [
@@ -1748,6 +1803,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             "this setting has too many separate entries to be shown whole to the player for confirmation; nothing was started. Offer fewer separate entries.",
             true,
           );
+        const waiting = await queueWhileFrozen("REVISE_SETUP", args, ctx);
+        if (waiting) return waiting;
         await supersede();
         const launched = await runs.proposeSetup(JSON.stringify(parsed.data), {
           authority: ctx,
@@ -1913,6 +1970,8 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             { refused: "those are not valid changes; nothing was changed", issues: parsed.issues },
             true,
           );
+        const waiting = await queueWhileFrozen("REVISE_PC", args, ctx);
+        if (waiting) return waiting;
         await supersede();
         return startCharacter(
           runs.reviseCharacter(parsed.value, {
@@ -2517,6 +2576,105 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     // let the lines that trail a final status flush, so a finished command is reported as finished
     if (!run.done) await new Promise((r) => setTimeout(r, 120));
     return describe(config, run, after, runs);
+  }
+
+  if (d.delayed && runs.goal) {
+    const full: DelayedDeps = {
+      ...d.delayed,
+      config,
+      runs,
+      goal: runs.goal,
+      runQueued: async (rec, ctx, queued: QueuedAuthorization) => {
+        const finish = async (
+          launch: CharacterLaunch | Awaited<ReturnType<typeof runs.proposeSetup>>,
+        ) => {
+          if (!launch.ok) {
+            await d.delayed!.queue.markRejected(rec.queue_id, launch.reason);
+            return asJson(
+              { status: "REJECTED", queue_id: rec.queue_id, reason: launch.reason },
+              true,
+            );
+          }
+          await d.delayed!.queue.markApplied(rec.queue_id);
+          if (launch.run === null) return asJson({ status: "APPLIED", queue_id: rec.queue_id });
+          await launch.run.terminal.changed(0, settleMs);
+          return describe(config, launch.run, 0, runs);
+        };
+        if (rec.command === "REVISE_PC") {
+          const { opening: openingRaw, ...editArgs } = rec.payload;
+          const opening = parseGenerationOpening(openingRaw);
+          const edits = parseEdits(editArgs);
+          if (!edits.ok || (openingRaw !== undefined && !opening)) {
+            await d.delayed!.queue.markRejected(
+              rec.queue_id,
+              "the retained edit is no longer valid",
+            );
+            return asJson({ status: "REJECTED", queue_id: rec.queue_id }, true);
+          }
+          return finish(
+            await runs.reviseCharacter(edits.value, {
+              authority: ctx,
+              queued,
+              ...(opening ? { sources: { generation: opening } } : {}),
+            }),
+          );
+        }
+        const { opening: openingRaw, ...settingArgs } = rec.payload;
+        const opening = parseSettingOpening(openingRaw);
+        const setup = LocalitySetupSchema.safeParse(settingArgs);
+        if (
+          !setup.success ||
+          (openingRaw !== undefined && !opening) ||
+          !fitsConfirmation(setup.data)
+        ) {
+          await d.delayed!.queue.markRejected(rec.queue_id, "the retained edit is no longer valid");
+          return asJson({ status: "REJECTED", queue_id: rec.queue_id }, true);
+        }
+        return finish(
+          await runs.proposeSetup(JSON.stringify(setup.data), {
+            authority: ctx,
+            queued,
+            ...(opening ? { sources: { setting: opening } } : {}),
+          }),
+        );
+      },
+    };
+    const mutating = {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    };
+    tools.push(
+      {
+        name: "continue_pending_goal",
+        title: "Carry out the player's earlier gathering request",
+        description: `Carry out the gathering request the player ALREADY made earlier (while setup was still running), exactly as they made it. Pass only its request_id; you cannot change the amount, the source or anything else, and this never starts anything the player did not ask for. It acts only on a request of THIS authorization, only within the time its original authority allows, and only when the world's own facts still support exactly that request; otherwise it says why nothing was started. Do not call it to check status. ${PLAYER_RULES}`,
+        inputSchema: {
+          type: "object",
+          properties: { request_id: { type: "string", minLength: 1, maxLength: 200 } },
+          required: ["request_id"],
+          additionalProperties: false,
+        },
+        annotations: mutating,
+        scope: "player",
+        handler: (args, ctx) => continuePendingGoal(full, args, ctx),
+      },
+      {
+        name: "continue_queued_setup_edit",
+        title: "Apply the player's edit that was kept while setup ran",
+        description: `Apply a change the PLAYER asked for while the setup was still running and that was kept exactly as authored. Pass only its queue_id; you cannot change the kept change. It applies only after the setup has finished, only to the same unsealed draft it was written for, and only within the time its original authority allows; otherwise it says why nothing was applied and the player must say the change again. ${PLAYER_RULES}`,
+        inputSchema: {
+          type: "object",
+          properties: { queue_id: { type: "string", minLength: 1, maxLength: 200 } },
+          required: ["queue_id"],
+          additionalProperties: false,
+        },
+        annotations: mutating,
+        scope: "player",
+        handler: (args, ctx) => continueQueuedSetupEdit(full, args, ctx),
+      },
+    );
   }
 
   if (!d.reviews) return tools;

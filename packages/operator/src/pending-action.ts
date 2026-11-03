@@ -719,6 +719,8 @@ export interface DelayedRecoveryFacts {
   readonly run: {
     /** the launch/recovery frame carrying this dispatch_ref was persisted */
     readonly recorded: boolean;
+    /** the run that frame names (the frame, not the grant's copy, is the first durable witness of a launch) */
+    readonly run_ref?: string | null;
     readonly process: "ACTIVE" | "EXITED" | "UNKNOWN" | "NONE";
     /** the recovery slot of that run is settled (not unresolved) */
     readonly slotSettled: boolean;
@@ -790,6 +792,7 @@ export function planDelayedRecovery(f: DelayedRecoveryFacts): DelayedPlan {
     return { action: "NO_LAUNCH", reason: "REVOKED" };
   if (f.grant.state === "EXPIRED") return { action: "NO_LAUNCH", reason: "EXPIRED" };
 
+  const runRef = f.run.run_ref ?? f.grant.run_ref;
   const dispatched = f.grant.dispatch_ref !== null && (f.run.recorded || f.grant.run_ref !== null);
 
   // a dispatch that could have had an effect, judged against a ledger that cannot be read, proves nothing
@@ -805,8 +808,8 @@ export function planDelayedRecovery(f: DelayedRecoveryFacts): DelayedPlan {
     // crash after the ledger record but before the optional link/index: rebuild ONLY from the exact dispatch_ref
     if (intentId !== f.grant.operator_intent_ref)
       return { action: "REBUILD_LINK", operator_intent_ref: intentId };
-    if ((f.run.process === "ACTIVE" || f.run.process === "UNKNOWN") && f.grant.run_ref !== null)
-      return { action: "RECONCILE_RUN", run_ref: f.grant.run_ref };
+    if ((f.run.process === "ACTIVE" || f.run.process === "UNKNOWN") && runRef !== null)
+      return { action: "RECONCILE_RUN", run_ref: runRef };
     return { action: "RECONCILE_INTENT", operator_intent_ref: intentId };
   }
 
@@ -826,8 +829,8 @@ export function planDelayedRecovery(f: DelayedRecoveryFacts): DelayedPlan {
   }
   if (f.run.process === "ACTIVE" || f.run.process === "UNKNOWN") {
     // settle/reconcile that exact run; never start another and never match by quantity
-    return f.grant.run_ref !== null
-      ? { action: "RECONCILE_RUN", run_ref: f.grant.run_ref }
+    return runRef !== null
+      ? { action: "RECONCILE_RUN", run_ref: runRef }
       : { action: "PAUSE", reason: "OUTCOME_UNKNOWN" };
   }
   if (f.run.process === "EXITED" && f.run.slotSettled) {

@@ -90,6 +90,34 @@ export class FixtureEvidenceVerifier {
   }
 }
 
+/**
+ * The T1 fixture counterpart of the later ORIGINAL-MESSAGE intake of a delayed request: it returns a labelled fixture proof (the
+ * reserved `fixture:` source namespace) for exactly the utterance the test scripts, and reports tier T1. It is testkit-only: production
+ * is constructed with `UnavailableOriginalMessageVerifier`, which returns the actual unresolved-authority result, and a store that rejects
+ * the reserved namespace.
+ */
+export class FixtureOriginalMessageVerifier {
+  readonly tier = "T1_DOUBLE" as const;
+  readonly #utterance: string;
+  readonly #grade: "ORIGINAL_MESSAGE_VERIFIED" | "TOOL_CALL_ONLY";
+  constructor(
+    utterance: string,
+    grade: "ORIGINAL_MESSAGE_VERIFIED" | "TOOL_CALL_ONLY" = "ORIGINAL_MESSAGE_VERIFIED",
+  ) {
+    this.#utterance = utterance;
+    this.#grade = grade;
+  }
+  verify = async (request: { readonly request_ref: string }) => ({
+    ok: true as const,
+    value: {
+      source_ref: `${FIXTURE_NAMESPACE_PREFIX}message:${request.request_ref}`,
+      utterance: this.#utterance,
+      proof_hash: fixtureProofHash(setupMessageHash(this.#utterance)),
+      grade: this.#grade,
+    },
+  });
+}
+
 export interface ScriptedAnswers {
   /** returns the SCOPE output (without the echo fields, which the driver adds from the dispatch header) */
   readonly scope: (input: Record<string, unknown>) => Record<string, unknown>;
