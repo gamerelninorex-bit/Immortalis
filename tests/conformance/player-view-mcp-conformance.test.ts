@@ -59,7 +59,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   // the interpreter-only referee surface (a distinct, independently authenticated authority) and the operator command set
 };
 

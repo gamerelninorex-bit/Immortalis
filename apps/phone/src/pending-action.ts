@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
 import {
+  z,
   EntityId,
   Id,
   PinSchema,
@@ -13,7 +13,7 @@ import {
   type Result,
 } from "@immortalis/contracts";
 import type { FsOps } from "@immortalis/engine";
-import { ProtectedStore } from "./protected-store.ts";
+import { ProtectedStore } from "@immortalis/operator";
 
 /**
  * The campaign-private PendingActionGrantStore (Initial Locality Bootstrap v0.9, "Delayed Action Contract").

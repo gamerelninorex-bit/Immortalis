@@ -6,9 +6,9 @@ import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   PendingActionGrantStore,
-  QueuedSetupEditStore,
   type ActionBinding,
-} from "@immortalis/operator";
+} from "../../apps/phone/src/pending-action.ts";
+import { QueuedSetupEditStore } from "../../apps/phone/src/queued-setup.ts";
 import { FixtureOriginalMessageVerifier } from "@immortalis/testkit";
 import {
   SITE_RESERVE_DISCLOSURE,
@@ -212,7 +212,8 @@ describe("acceptPendingRequest: trusted intake of the later original request", (
       "Collection credits the site's Reserve; it does not put the log in your hands or let you carry it.",
     );
     expect(got.record.intent).toMatchObject({ disclosure_delivered: true, expires_at_ms: 5_000 });
-    const { UnavailableOriginalMessageVerifier } = await import("@immortalis/operator");
+    const { UnavailableOriginalMessageVerifier } =
+      await import("../../apps/phone/src/pending-action.ts");
     const none = rig();
     const refused = await acceptPendingRequest(
       none.deps,

@@ -1,6 +1,6 @@
+import { fail, ok, type Result } from "@immortalis/contracts";
 import {
   PendingActionGrantStore,
-  QueuedSetupEditStore,
   planDelayedRecovery,
   type ActionBinding,
   type DelayedRecoveryFacts,
@@ -8,13 +8,13 @@ import {
   type PendingActionRecord,
   type PendingIntake,
   type PendingErrorCode,
-  type QueuedSetupEditRecord,
-} from "@immortalis/operator";
-import { fail, ok, type Result } from "@immortalis/contracts";
+} from "./pending-action.ts";
 import {
+  QueuedSetupEditStore,
   mintQueuedSetupEditCapability,
   revokeQueuedSetupEditCapability,
-} from "../../../packages/operator/src/queued-setup.ts";
+  type QueuedSetupEditRecord,
+} from "./queued-setup.ts";
 import type { readActionBinding, readDispatchLink } from "./collection-recovery.ts";
 import type { PhoneConfig } from "./config.ts";
 import type { GoalCoordinator } from "./goal.ts";

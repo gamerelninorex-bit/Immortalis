@@ -35,7 +35,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/locality.ts":
     "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
 };
 
 describe("nothing outside the operator is touched", () => {

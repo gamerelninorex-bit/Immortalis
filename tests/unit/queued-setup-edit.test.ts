@@ -9,22 +9,20 @@ import {
   QUEUED_COMMANDS,
   QUEUED_COMMAND_VERB,
   QueuedSetupEditStore,
+  mintQueuedSetupEditCapability,
   queuedPayloadHash,
+  requestQueuedSetupAuthorization,
+  type QueuedCapabilityBinding,
   type QueuedEditIntake,
   type QueuedSetupCommand,
   type QueuedSetupEditRecord,
-} from "@immortalis/operator";
+} from "../../apps/phone/src/queued-setup.ts";
 // trusted-adapter functions are imported by path, exactly as the phone adapter does; they are not on the package surface
 import {
   bindOrdinaryAction,
   consumeOrdinaryAction,
 } from "../../packages/operator/src/ordinary-action.ts";
 import { consumeRequestEvidence } from "../../packages/operator/src/request-evidence.ts";
-import {
-  mintQueuedSetupEditCapability,
-  requestQueuedSetupAuthorization,
-  type QueuedCapabilityBinding,
-} from "../../packages/operator/src/queued-setup.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const CAMPAIGN = "campaign-queue";

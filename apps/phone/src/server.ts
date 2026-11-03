@@ -72,11 +72,8 @@ import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import { openOAuthGrantLedger, type OAuthGrantLedger } from "./oauth-ledger.ts";
 import { setupFreezeReleased } from "./setup-freeze.ts";
 import { loadOrCreateStoreKey } from "./store-key.ts";
-import {
-  PendingActionGrantStore,
-  QueuedSetupEditStore,
-  type PendingPolicy,
-} from "@immortalis/operator";
+import { PendingActionGrantStore, type PendingPolicy } from "./pending-action.ts";
+import { QueuedSetupEditStore } from "./queued-setup.ts";
 import { parseEdits, parseGenerationOpening } from "./chat-tools.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
 import {

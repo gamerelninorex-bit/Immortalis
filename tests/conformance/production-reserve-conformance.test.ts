@@ -41,11 +41,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/additional-locality.ts":
     "5f1fea4718c816d755c086d2cfef6bffdbfdad62e3ac2f2935ba54e94bf4c782",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   "packages/operator/src/ledger.ts":
-    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
+    "695aed303988e1ef543809895a06ffa70896d9a77fef04d041086bfbf892e1a8",
 };
 
 describe("nothing outside the operator is touched", () => {

@@ -100,21 +100,6 @@ export {
 } from "./confirmation.ts";
 export type { ConfirmationVerb, OperatorConfirmation, OperatorDecision } from "./confirmation.ts";
 export * from "./ledger.ts";
-export * from "./pending-action.ts";
-// the trusted-adapter capability functions (mint / revoke / requestQueuedSetupAuthorization) are deliberately NOT part of the package
-// surface: like bindOrdinaryAction and issueRequestEvidence, only the phone adapter imports them by path, after its own checks
-export {
-  QUEUED_COMMANDS,
-  QUEUED_COMMAND_VERB,
-  QUEUED_SETUP_EDIT_FORMAT,
-  QueuedSetupEditRecordSchema,
-  QueuedSetupEditStore,
-  queuedPayloadHash,
-  type QueuedEditIntake,
-  type QueuedErrorCode,
-  type QueuedSetupCommand,
-  type QueuedSetupEditRecord,
-} from "./queued-setup.ts";
 export * from "./locality.ts";
 export * from "./local-operator.ts";
 export * from "./ooc.ts";

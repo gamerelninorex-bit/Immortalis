@@ -25,8 +25,6 @@ import {
   collectionTaskId,
   reconcile,
   settleCollectionLapse,
-  bindingHashOf,
-  type ActionBinding,
   type CliEnvironment,
   type CommandResult,
   type Intent,
@@ -34,6 +32,7 @@ import {
 } from "@immortalis/operator";
 import type { PhoneConfig } from "./config.ts";
 import type { PendingOperation } from "./recovery.ts";
+import { bindingHashOf, type ActionBinding } from "./pending-action.ts";
 import { sha256Of } from "./scenario-hash.ts";
 import type { Scenario } from "./scenario.ts";
 

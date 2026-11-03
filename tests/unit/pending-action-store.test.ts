@@ -15,7 +15,7 @@ import {
   type PendingIntake,
   type PendingPolicy,
   type ActionBinding,
-} from "@immortalis/operator";
+} from "../../apps/phone/src/pending-action.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const CAMPAIGN = "campaign-pending";

@@ -4,9 +4,12 @@
 // ordinary capture finds no ordinary tool and issues nothing. MECHANISM ONLY.
 import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { QueuedSetupEditStore, type QueuedSetupEditRecord } from "@immortalis/operator";
+import {
+  QueuedSetupEditStore,
+  mintQueuedSetupEditCapability,
+  type QueuedSetupEditRecord,
+} from "../../apps/phone/src/queued-setup.ts";
 import { consumeRequestEvidence } from "../../packages/operator/src/request-evidence.ts";
-import { mintQueuedSetupEditCapability } from "../../packages/operator/src/queued-setup.ts";
 import type { PhoneConfig } from "../../apps/phone/src/config.ts";
 import { RequestCommitments } from "../../apps/phone/src/request-commitments.ts";
 import { scriptedTerminal } from "../support/operator.ts";

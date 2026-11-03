@@ -17,7 +17,7 @@ import type { ReviewRequest } from "../../../packages/operator/src/review-eviden
 import {
   requestQueuedSetupAuthorization,
   revokeQueuedSetupEditCapability,
-} from "../../../packages/operator/src/queued-setup.ts";
+} from "./queued-setup.ts";
 import type { PhoneConfig } from "./config.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { projectReview } from "./review-projection.ts";

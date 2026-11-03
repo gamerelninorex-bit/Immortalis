@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
-import { Id, Sha256, Text, canonicalJson, fail, ok, type Result } from "@immortalis/contracts";
+import { Id, Sha256, Text, canonicalJson, fail, ok, z, type Result } from "@immortalis/contracts";
 import type { FsOps } from "@immortalis/engine";
-import { ProtectedStore } from "./protected-store.ts";
-import { issueRequestEvidence, type RequestEvidence } from "./request-evidence.ts";
-import type { ConfirmationVerb } from "./confirmation.ts";
+import { ProtectedStore } from "@immortalis/operator";
+import type { ConfirmationVerb } from "../../../packages/operator/src/confirmation.ts";
+import {
+  issueRequestEvidence,
+  type RequestEvidence,
+} from "../../../packages/operator/src/request-evidence.ts";
 
 /**
  * The QueuedSetupEditStore and its distinct capability (Initial Locality Bootstrap v0.9, "Queue command surface").
