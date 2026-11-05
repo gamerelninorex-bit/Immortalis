@@ -1,0 +1,45 @@
+{
+  "kind": "plain",
+  "extra_sources": 100,
+  "exact_sha": "eafbb127c476cafb8498316e496de29e078a2146",
+  "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
+  "spec_lock_sha256": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "fixture_bytes": 700711,
+  "passes": [
+    {
+      "label": "cold-first-open",
+      "elapsed_ms": 610.1193549999999,
+      "cpu_user_ms": 665.038,
+      "cpu_system_ms": 95.605,
+      "read_calls": 3,
+      "read_bytes": 698537,
+      "write_calls": 1,
+      "write_bytes": 99,
+      "groups_historically_verified": 103,
+      "journal_entries": 103
+    },
+    {
+      "label": "warm-reopen",
+      "elapsed_ms": 565.744461,
+      "cpu_user_ms": 507.018,
+      "cpu_system_ms": 87.9,
+      "read_calls": 3,
+      "read_bytes": 698537,
+      "write_calls": 1,
+      "write_bytes": 99,
+      "groups_historically_verified": 103,
+      "journal_entries": 103
+    }
+  ],
+  "hot_path_commit": {
+    "commit_ms": 18.61239300000011,
+    "write_calls": 2,
+    "write_bytes": 9104,
+    "read_calls": 2,
+    "admission_checks": 1
+  },
+  "peak_rss_kb": 168784
+}
