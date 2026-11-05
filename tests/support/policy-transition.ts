@@ -1,9 +1,12 @@
 // H-07 S2 MECHANISM test support: a v2 package written under an OLDER history-verification policy, reopened by a build whose
 // policy differs. Synthetic disposable data only; no real campaign, host, model or provider is involved.
+import { appendFile, rename, writeFile } from "node:fs/promises";
 import {
   CampaignCore,
   createFileCampaign,
+  nodeFs,
   type FileCampaignOptions,
+  type FsOps,
   type WriteAdmission,
 } from "@immortalis/engine";
 import { TEST_OWNERS, group, write } from "@immortalis/testkit";
@@ -52,13 +55,28 @@ export const optionsFor = (admission: WriteAdmission, extra: FileCampaignOptions
   ...extra,
 });
 
+/**
+ * Fixture SEEDING only: the same bytes as the production file seam, without the per-write fsync. A seeded package is closed cleanly
+ * before it is used, so only crash durability differs, and thousands of fsyncs would otherwise load a shared CI disk and slow
+ * unrelated suites. Every operation UNDER TEST (the transition, its faults, recovery) still uses the production `nodeFs`.
+ */
+export const seedFs: FsOps = {
+  ...nodeFs,
+  writeFileDurable: async (path, data) => {
+    const tmp = `${path}.tmp`;
+    await writeFile(tmp, data, "utf8");
+    await rename(tmp, path);
+  },
+  appendDurable: (path, data) => appendFile(path, data, "utf8"),
+};
+
 /** A closed package of `count` entries written under the OLD policy (every group judged by it at commit). */
 export async function seedOldPolicy(count: number): Promise<string> {
   const dir = tempDir();
   const store = await must(
     createFileCampaign(dir, {
       campaignId: POLICY_CAMPAIGN,
-      ...optionsFor(policyAdmission(OLD_POLICY_ID).admission),
+      ...optionsFor(policyAdmission(OLD_POLICY_ID).admission, { fs: seedFs }),
     }),
   );
   for (let n = 1; n <= count; n++) await must(store.commit(change(n)));

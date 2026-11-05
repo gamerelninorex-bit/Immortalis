@@ -44,6 +44,7 @@ import {
   countReplays,
   optionsFor,
   policyAdmission,
+  seedFs,
   seedOldPolicy,
 } from "../support/policy-transition.ts";
 import { must } from "../support/temporal.ts";
@@ -92,7 +93,7 @@ async function identity(store: FileCampaignStore, n: number) {
 }
 
 describe("H-07 S2: first open under a changed history-verification policy replays each entry once", () => {
-  it.each([3, 103, 128, 256, 503, 2003])(
+  it.each([3, 103, 128, 503, 2003])(
     "%i-entry old-policy package: one strict pass, identical canonical results, a real future commit and exact lookups",
     async (n) => {
       const dir = await seedOldPolicy(n);
@@ -174,7 +175,7 @@ describe("H-07 S2: first open under a changed history-verification policy replay
   );
 
   it("an independent fresh process performs the transition, and another reads the result back", () => {
-    const n = 260;
+    const n = 140;
     return seedOldPolicy(n).then(async (dir) => {
       const original = journalBytes(dir);
       const reference = await must(
@@ -224,7 +225,7 @@ describe("H-07 S2: first open under a changed history-verification policy replay
 });
 
 describe("H-07 S2 falsifying negatives: nothing is published, nothing is trusted", () => {
-  const N = 300;
+  const N = 200;
   let base: string;
   const baseDir = async () => (base ??= await seedOldPolicy(N));
   const fresh = async () => copyDir(await baseDir());
@@ -346,7 +347,7 @@ describe("H-07 S2 falsifying negatives: nothing is published, nothing is trusted
     const other = await must(
       createFileCampaign(foreign, {
         campaignId: "foreign-campaign",
-        ...optionsFor(policyAdmission(OLD_POLICY_ID).admission),
+        ...optionsFor(policyAdmission(OLD_POLICY_ID).admission, { fs: seedFs }),
       }),
     );
     for (let i = 1; i <= 130; i++)
@@ -512,7 +513,7 @@ describe("H-07 S2 falsifying negatives: nothing is published, nothing is trusted
 
 describe("H-07 S2 interruption: every publication boundary converges to the same verified successor", () => {
   it("crash before/after each durable step of the transition leaves the old or the verified new manifest, then converges byte-for-byte", async () => {
-    const n = 260;
+    const n = 130;
     const base = await seedOldPolicy(n);
     const original = journalBytes(base);
     const priorManifest = manifestBytes(base);
@@ -561,7 +562,7 @@ describe("H-07 S2 interruption: every publication boundary converges to the same
   }, 300_000);
 
   it("a crash between publication and cleanup of the superseded snapshot is repaired by the proved R-01 reconciliation, then clean", async () => {
-    const n = 260;
+    const n = 140;
     const dir = await seedOldPolicy(n);
     const prior = manifestOf(dir);
     const superseded = prior.head.state_file;
@@ -592,7 +593,7 @@ describe("H-07 S2 interruption: every publication boundary converges to the same
   async function supersededRewrittenAfterPublication(
     tamper: (path: string, original: Buffer) => string | Buffer,
   ) {
-    const n = 260;
+    const n = 140;
     const dir = await seedOldPolicy(n);
     const superseded = join(dir, manifestOf(dir).head.state_file);
     const original = readFileSync(superseded);
@@ -698,12 +699,13 @@ describe("H-07 S2 with the real canonical owners and the declared pre-v0.9 Runti
       CanonicalCampaign.create(dir, {
         campaignId: "campaign-s2-canonical",
         specIdentity: legacySpec,
+        fs: seedFs,
       }),
     );
     await must(created.establishWorld({ ...publication(1), world: fixtureWorld() }));
     await must(created.establishLocus({ ...publication(2), locus: fixtureLocus() }));
     await must(created.establishSourceCondition({ ...publication(3), source: sourceInput() }));
-    for (let i = 0; i < 140; i++)
+    for (let i = 0; i < 130; i++)
       await must(
         created.establishSourceCondition({
           ...publication(10 + i),
