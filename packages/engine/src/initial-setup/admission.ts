@@ -3,7 +3,9 @@ import {
   CANON_WRITE_AUTHORITY,
   CHECKLIST,
   CHRONOLOGY_DOCUMENT_MAX_BYTES,
+  CONTEXT_MANIFEST_MISMATCH,
   INITIAL_LOCALITY_PARSER_V1,
+  INITIAL_LOCALITY_PARSER_V2,
   INITIAL_SETUP_FACT_KIND_IDS,
   InitialLocalityCompletionSchema,
   InitialSetupDispositionSchema,
@@ -16,8 +18,10 @@ import {
   REFEREE_OP_INITIAL_DELEGATION,
   SETUP_MESSAGE_MAX_BYTES,
   SceneOutputSchema,
+  SceneOutputSchemaV1,
   ScopeDecisionRecordSchema,
   ScopeOutputSchema,
+  ScopeOutputSchemaV1,
   canonicalJson,
   compareTime,
   fail,
@@ -43,9 +47,12 @@ import {
   type OwnerFact,
   type Pin,
   type Result,
+  type InitialLocalityParser,
   type SceneOutput,
+  type SceneOutputV1,
   type ScopeDecisionRecord,
   type ScopeOutput,
+  type ScopeOutputV1,
   type Selection,
   type SetupPhase,
 } from "@immortalis/contracts";
@@ -62,7 +69,7 @@ import {
   sha256Bytes,
   verifyEnvelopeSignature,
 } from "./identity.ts";
-import { buildProducerInput, inputHashOfDelivered } from "./producer.ts";
+import { buildProducerInput, contextManifestHashOf, resolveInstructionMap } from "./producer.ts";
 import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
 
 /**
@@ -77,8 +84,21 @@ import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
  */
 export interface InitialSetupPolicy {
   readonly syntheticEvidence: "REJECT" | "REQUIRE";
+  /**
+   * The parser versions this admission accepts for a NEW bootstrap Input. Absent: production (REJECT) accepts V2 only and the fixture
+   * admission (REQUIRE) accepts the frozen V1 history as well as V2. A V2-only fixture policy refuses a retained V1 fixture. Production
+   * can never create or resume a V1 route through an alternate literal or compatibility reader.
+   */
+  readonly parsers?: readonly InitialLocalityParser[];
 }
 export const PRODUCTION_INITIAL_SETUP_POLICY: InitialSetupPolicy = { syntheticEvidence: "REJECT" };
+
+/** The parser versions a policy admits (see InitialSetupPolicy.parsers). */
+export const allowedParsers = (policy: InitialSetupPolicy): readonly InitialLocalityParser[] =>
+  policy.parsers ??
+  (policy.syntheticEvidence === "REJECT"
+    ? [INITIAL_LOCALITY_PARSER_V2]
+    : [INITIAL_LOCALITY_PARSER_V1, INITIAL_LOCALITY_PARSER_V2]);
 
 export const INITIAL_SETUP_BASIS = "initial-locality-bootstrap-v9";
 export const INITIAL_SETUP_SECRECY = "engine-internal";
@@ -193,8 +213,8 @@ export function decodeRawResponse(
 }
 
 export type InterpretedResponse =
-  | { readonly phase: "SCOPE"; readonly output: ScopeOutput }
-  | { readonly phase: "SCENE"; readonly output: SceneOutput };
+  | { readonly phase: "SCOPE"; readonly output: ScopeOutput | ScopeOutputV1 }
+  | { readonly phase: "SCENE"; readonly output: SceneOutput | SceneOutputV1 };
 
 /**
  * The strict versioned parse of the exact signed raw bytes (INITIAL_LOCALITY_PARSER_V1, then the phase's strict schema), plus the
@@ -207,18 +227,36 @@ export function interpretResponse(
   if (!bytes.ok) return fail("OUTPUT_INVALID", bytes.error.message, { cause: bytes.error.code });
   const json = parseInitialLocalityJson(bytes.value, RAW_RESPONSE_MAX_BYTES);
   if (!json.ok) return fail("OUTPUT_INVALID", json.error.message, { cause: json.error.code });
+  // V2 (current): the model echoes ONLY task_id; an output that carries input_hash is rejected by the strict shape, never stripped.
+  // V1 (frozen, fixture history only): the shape that also echoed the producer-input hash. Neither is a fallback for the other.
+  if (r.parser === INITIAL_LOCALITY_PARSER_V1) {
+    if (r.phase === "SCOPE") {
+      const out = ScopeOutputSchemaV1.safeParse(json.value);
+      if (!out.success)
+        return fail("OUTPUT_INVALID", "the scope output violates its strict contract");
+      if (out.data.task_id !== r.task_id || out.data.input_hash !== r.input_hash)
+        return fail("OUTPUT_INVALID", "the scope output names a different task or input");
+      return ok({ phase: "SCOPE", output: out.data });
+    }
+    const out = SceneOutputSchemaV1.safeParse(json.value);
+    if (!out.success)
+      return fail("OUTPUT_INVALID", "the scene output violates its strict contract");
+    if (out.data.task_id !== r.task_id || out.data.input_hash !== r.input_hash)
+      return fail("OUTPUT_INVALID", "the scene output names a different task or input");
+    return ok({ phase: "SCENE", output: out.data });
+  }
   if (r.phase === "SCOPE") {
     const out = ScopeOutputSchema.safeParse(json.value);
     if (!out.success)
       return fail("OUTPUT_INVALID", "the scope output violates its strict contract");
-    if (out.data.task_id !== r.task_id || out.data.input_hash !== r.input_hash)
-      return fail("OUTPUT_INVALID", "the scope output names a different task or input");
+    if (out.data.task_id !== r.task_id)
+      return fail("OUTPUT_INVALID", "the scope output names a different task");
     return ok({ phase: "SCOPE", output: out.data });
   }
   const out = SceneOutputSchema.safeParse(json.value);
   if (!out.success) return fail("OUTPUT_INVALID", "the scene output violates its strict contract");
-  if (out.data.task_id !== r.task_id || out.data.input_hash !== r.input_hash)
-    return fail("OUTPUT_INVALID", "the scene output names a different task or input");
+  if (out.data.task_id !== r.task_id)
+    return fail("OUTPUT_INVALID", "the scene output names a different task");
   return ok({ phase: "SCENE", output: out.data });
 }
 
@@ -376,6 +414,19 @@ function checkInput(
     });
   const fx = fixtureViolation(i, policy);
   if (fx) return fx;
+  // a NEW bootstrap Input must name a parser this admission supports: production supports V2 only (no V1 route, no compatibility reader)
+  if (!allowedParsers(policy).includes(i.parser))
+    return refuse(
+      "PARSER",
+      `this admission does not accept a new bootstrap Input naming ${i.parser}: production supports INITIAL_LOCALITY_PARSER_V2 only`,
+    );
+  // the pinned instruction map must resolve in the immutable registry and belong to the Input's parser (a later replay needs it)
+  const registered = resolveInstructionMap(i.runner.instruction_hash);
+  if (!registered || registered.parser !== i.parser)
+    return refuse(
+      "INSTRUCTION_REGISTRY",
+      "the runner's instruction_hash is not a registered instruction map of the Input's parser",
+    );
   // only ORIGINAL_MESSAGE_VERIFIED qualifies Input.author, and it must map to the exact full message
   if (i.author.grade !== "ORIGINAL_MESSAGE_VERIFIED")
     return refuse(
@@ -584,10 +635,7 @@ function checkInvocation(group: CommitGroup, state: CampaignState): Rejection | 
     });
   }
   if (!producer.ok) return refuse(producer.error.code, producer.error.message);
-  if (
-    producer.value.task_id !== v.task_id ||
-    inputHashOfDelivered(producer.value.bytes) !== v.input_hash
-  )
+  if (producer.value.task_id !== v.task_id || producer.value.input_hash !== v.input_hash)
     return reject(
       "REFERENCE_INVALID",
       "the reservation's task and input hash are not those of the engine-built producer input",
@@ -595,7 +643,11 @@ function checkInvocation(group: CommitGroup, state: CampaignState): Rejection | 
         reason: "TASK_BINDING",
       },
     );
-  if (v.parser !== INITIAL_LOCALITY_PARSER_V1) return refuse("PARSER", "an unknown parser");
+  if (v.parser !== input.parser)
+    return refuse(
+      "PARSER",
+      "the reservation names another parser than its Input: no mixing within a session",
+    );
   const pins = v.grant ? [v.input, v.grant] : [v.input];
   return bindingViolation(group, state, pins, "session facts");
 }
@@ -612,6 +664,93 @@ function scopeOutputOf(
     return fail("SCOPE_UNAVAILABLE", "the accepted scope response does not parse");
   return ok(out.value.output);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Context manifest (C-1 CE-1)
+// ---------------------------------------------------------------------------------------------------------------------
+
+export type ManifestVerdict = "MATCH" | "MISMATCH" | "UNVERIFIABLE";
+
+/**
+ * Recomputes the context manifest a retained Response MUST report and compares it with the manifest the runner signed: SHA-256 of
+ * canonicalJson({instructions: the exact phase string from the immutable registry entry keyed by the Input's instruction_hash,
+ * producer_input_sha: SHA-256(D)}), where D is rebuilt from the canonical Input, the total genesis projection and (SCENE) the accepted
+ * Grant and scope. A missing or unverifiable canonical source or registry entry is UNVERIFIABLE and FAILS CLOSED - it is never
+ * classified as a proved mismatch. The manifest attests the declared visible context, not a provider's invisible honesty.
+ */
+export function manifestVerdict(
+  state: CampaignState,
+  response: InitialSetupResponse,
+): ManifestVerdict {
+  const index = scanInitialSetup(state.facts);
+  const session = sessionOf(index, response.setup_id);
+  if (!session) return "UNVERIFIABLE";
+  const inputParsed = InitialSetupInputSchema.safeParse(session.input.value);
+  if (!inputParsed.success) return "UNVERIFIABLE";
+  const input = inputParsed.data;
+  const registration = resolveInstructionMap(input.runner.instruction_hash);
+  if (!registration || registration.parser !== input.parser) return "UNVERIFIABLE";
+  const reservation = factAt(state, response.reservation);
+  const inv = reservation ? InitialSetupInvocationSchema.safeParse(reservation.value) : undefined;
+  if (!inv?.success || inv.data.phase !== response.phase) return "UNVERIFIABLE";
+  const projection = genesisProjection(state.facts);
+  if (!projection.ok) return "UNVERIFIABLE";
+  let producer;
+  if (response.phase === "SCOPE") {
+    producer = buildProducerInput({
+      campaign_id: state.campaign_id,
+      phase: "SCOPE",
+      input_pin: pinOf(session.input),
+      input,
+      genesis: projection.value.facts,
+    });
+  } else {
+    if (!inv.data.grant) return "UNVERIFIABLE";
+    const grantFact = factAt(state, inv.data.grant);
+    const grant = grantFact ? InitialSetupGrantSchema.safeParse(grantFact.value) : undefined;
+    if (!grant?.success) return "UNVERIFIABLE";
+    const scope = scopeOutputOf(state, grant.data);
+    if (!scope.ok) return "UNVERIFIABLE";
+    producer = buildProducerInput({
+      campaign_id: state.campaign_id,
+      phase: "SCENE",
+      input_pin: pinOf(session.input),
+      input,
+      genesis: projection.value.facts,
+      grant: inv.data.grant,
+      scope: scope.value,
+    });
+  }
+  if (
+    !producer.ok ||
+    producer.value.task_id !== inv.data.task_id ||
+    producer.value.input_hash !== inv.data.input_hash
+  )
+    return "UNVERIFIABLE";
+  const expected = contextManifestHashOf(registration.map[response.phase], producer.value.bytes);
+  return response.envelope.body.context_manifest_hash === expected ? "MATCH" : "MISMATCH";
+}
+
+/** A retained Response may be QUALIFIED (classified, granted, completed) only when its signed manifest matches the recomputed one. */
+const manifestViolation = (
+  state: CampaignState,
+  response: InitialSetupResponse,
+): Rejection | null => {
+  const v = manifestVerdict(state, response);
+  return v === "MATCH"
+    ? null
+    : v === "MISMATCH"
+      ? reject(
+          "REFERENCE_INVALID",
+          "the signed context manifest differs from the recomputed one: the answer is INVALID_OUTPUT, never qualified",
+          { reason: CONTEXT_MANIFEST_MISMATCH },
+        )
+      : reject(
+          "PREREQUISITE_MISSING",
+          "the context manifest cannot be verified (a canonical source or the instruction registry is unavailable): failing closed",
+          { reason: "MANIFEST_UNVERIFIABLE" },
+        );
+};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Response
@@ -681,10 +820,7 @@ function checkResponse(group: CommitGroup, state: CampaignState): Rejection | nu
   expect("instruction_hash", env.instruction_hash === input.runner.instruction_hash);
   expect("driver_id", env.driver_id === input.runner.driver_id);
   expect("driver_config_hash", env.driver_config_hash === input.runner.driver_config_hash);
-  expect(
-    "parser",
-    env.parser === INITIAL_LOCALITY_PARSER_V1 && r.parser === INITIAL_LOCALITY_PARSER_V1,
-  );
+  expect("parser", env.parser === input.parser && r.parser === input.parser);
   expect("raw_response_hash", env.raw_response_hash === r.raw_response_hash);
   if (mismatches.length > 0)
     return reject(
@@ -890,6 +1026,8 @@ export function scopeDecisionGroupCheck(
       "OUTPUT_INVALID",
       "the signed response is not a valid SCOPE output: it is retained and disposed, not classified",
     );
+  const manifest = manifestViolation(state, resp);
+  if (manifest) return manifest;
   if (!canonicalEqual(interpreted.value.output, r.decision))
     return refuse(
       "DECISION_MISMATCH",
@@ -949,6 +1087,11 @@ function checkGrant(group: CommitGroup, state: CampaignState): Rejection | null 
   const decision = ScopeDecisionRecordSchema.safeParse(classification.value);
   if (!decision.success)
     return refuse("CLASSIFICATION", "the cited classification is not a scope decision");
+  const scopeResponseParsed = InitialSetupResponseSchema.safeParse(scopeResp.value);
+  if (!scopeResponseParsed.success)
+    return refuse("CLASSIFICATION", "the cited SCOPE response is not a Response");
+  const grantManifest = manifestViolation(state, scopeResponseParsed.data);
+  if (grantManifest) return grantManifest;
   if (decision.data.verdict !== "SCOPE_AUTHORIZED")
     return refuse("CLASSIFICATION", "a grant exists only after an accepted scope classification");
   if (
@@ -1174,6 +1317,14 @@ function checkCompletion(group: CommitGroup, state: CampaignState): Rejection | 
   const rv = InitialSetupInvocationSchema.parse(index.sceneReservation.value);
   if (rv.setup_id !== c.setup_id || !rv.grant || !samePin(rv.grant, c.grant))
     return reject("REFERENCE_INVALID", "the SCENE reservation belongs to another session or grant");
+  const sceneFact = factAt(state, c.scene_response);
+  const sceneResponse = sceneFact
+    ? InitialSetupResponseSchema.safeParse(sceneFact.value)
+    : undefined;
+  if (!sceneResponse?.success)
+    return reject("PREREQUISITE_MISSING", "the Completion needs its retained SCENE response");
+  const completionManifest = manifestViolation(state, sceneResponse.data);
+  if (completionManifest) return completionManifest;
   const violation = completionViolation(state, c);
   if (violation)
     return reject("VALUE_INVALID", violation.message, { reason: `COMPLETION_${violation.code}` });
@@ -1279,6 +1430,8 @@ function checkDisposition(group: CommitGroup, state: CampaignState): Rejection |
           "REFERENCE_INVALID",
           "the retained SCOPE response is not a valid scope output (INVALID_OUTPUT applies)",
         );
+      const scopeManifest = manifestViolation(state, r);
+      if (scopeManifest) return scopeManifest;
       const input = InitialSetupInputSchema.parse(session.input.value);
       const verdict = derivedScopeVerdict(out.value.output, input, state.facts);
       if (verdict === "SCOPE_AUTHORIZED" || verdict !== d.reason)
@@ -1292,8 +1445,28 @@ function checkDisposition(group: CommitGroup, state: CampaignState): Rejection |
       if (d.phase === null) return refuse("SHAPE", "INVALID_OUTPUT names its phase");
       const r = needResponse(d.phase);
       if ("code" in r) return r;
-      if (interpretResponse(r).ok)
+      // CE-1: INVALID_OUTPUT is justified exactly when strict interpretation FAILS or the independently recomputed manifest DIFFERS
+      // from the signed reported one. A well-formed answer with a matching manifest is never misfiled as invalid, and an unverifiable
+      // canonical source is not a proved mismatch.
+      if (!interpretResponse(r).ok) {
+        if (d.rejection_code !== null)
+          return refuse("SHAPE", "a parse-invalid output carries no rejection code");
+        break;
+      }
+      const verdict = manifestVerdict(state, r);
+      if (verdict === "UNVERIFIABLE")
+        return reject(
+          "PREREQUISITE_MISSING",
+          "the context manifest cannot be verified: INVALID_OUTPUT is not proved, failing closed",
+          { reason: "MANIFEST_UNVERIFIABLE" },
+        );
+      if (verdict === "MATCH")
         return reject("REFERENCE_INVALID", "the retained response is a valid output");
+      if (d.rejection_code !== CONTEXT_MANIFEST_MISMATCH)
+        return refuse(
+          "SHAPE",
+          `a manifest-mismatch INVALID_OUTPUT carries the rejection code ${CONTEXT_MANIFEST_MISMATCH}`,
+        );
       break;
     }
     case "GENERATOR_UNRESOLVED": {
@@ -1307,6 +1480,8 @@ function checkDisposition(group: CommitGroup, state: CampaignState): Rejection |
           "REFERENCE_INVALID",
           "the retained scene response is not an UNRESOLVED result",
         );
+      const unresolvedManifest = manifestViolation(state, r);
+      if (unresolvedManifest) return unresolvedManifest;
       break;
     }
     case "COMPLETION_REFUSED": {
@@ -1325,6 +1500,8 @@ function checkDisposition(group: CommitGroup, state: CampaignState): Rejection |
           "REFERENCE_INVALID",
           "COMPLETION_REFUSED follows a valid SELECTION under an accepted grant",
         );
+      const refusedManifest = manifestViolation(state, r);
+      if (refusedManifest) return refusedManifest;
       const candidate = {
         world_id: d.world_id,
         locus_id: d.locus_id,
@@ -1333,7 +1510,7 @@ function checkDisposition(group: CommitGroup, state: CampaignState): Rejection |
         grant: pinOf(session.grant),
         scene_response: d.response!,
         selection: out.value.output.selection,
-        parser: INITIAL_LOCALITY_PARSER_V1,
+        parser: r.parser,
       } as const;
       const violation = completionViolation(state, candidate);
       if (!violation || violation.code !== d.rejection_code)

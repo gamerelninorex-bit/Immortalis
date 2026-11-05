@@ -15,6 +15,29 @@ import { EntityId, Text } from "./world-foundation.ts";
  */
 
 export const INITIAL_LOCALITY_PARSER_V1 = "INITIAL_LOCALITY_PARSER_V1";
+/**
+ * C-1 (Sovereign-ratified clarification v0.4, native pin 2026-11-03T00:51:23.053Z; ratification pin 2026-11-03T00:54:41.601Z): the strict
+ * output shape WITHOUT the model-authored `input_hash`. It identifies that output-shape change only; the byte-level strict JSON rules
+ * (UTF-8, duplicate keys, size, depth) are exactly V1's. V1 is FROZEN: it is decoded only for fixture-namespaced journals through the
+ * testkit admission and is refused by production admission and by a V2-only policy. Mixing versions within one session refuses.
+ */
+export const INITIAL_LOCALITY_PARSER_V2 = "INITIAL_LOCALITY_PARSER_V2";
+export const INITIAL_LOCALITY_PARSERS = [
+  INITIAL_LOCALITY_PARSER_V1,
+  INITIAL_LOCALITY_PARSER_V2,
+] as const;
+export type InitialLocalityParser = (typeof INITIAL_LOCALITY_PARSERS)[number];
+/** C-2: the independent STATEFUL Selection-provenance profile; never implied by a parser version. */
+export const INITIAL_LOCALITY_PROVENANCE_V1 = "INITIAL_LOCALITY_PROVENANCE_V1";
+/** C-1 CE-1: the rejection_code of an INVALID_OUTPUT Disposition whose signed context manifest differs from the recomputed one. */
+export const CONTEXT_MANIFEST_MISMATCH = "CONTEXT_MANIFEST_MISMATCH";
+/** The Sovereign-adopted clarification, as registered (additively) beside the ratified v0.9 pins. */
+export const C1_C2_CLARIFICATION = {
+  source_url: "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+  source_native_pin: "2026-11-03T00:51:23.053Z",
+  ratification_url: "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+  ratification_native_pin: "2026-11-03T00:54:41.601Z",
+} as const;
 export const INITIAL_SETUP_FORMAT_VERSION = 1;
 
 /** Technical transport bounds (NOT game limits): oversize is an availability limit owned by OB-030, never a truncation. */
@@ -420,6 +443,9 @@ export type RunnerPin = z.infer<typeof RunnerPinSchema>;
 // Canonical records
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** The parser a record names: one consistent version per session (checked by admission); V1 only under the fixture admission. */
+export const ParserFieldSchema = z.enum(INITIAL_LOCALITY_PARSERS);
+
 export const INITIAL_SETUP_INPUT_FORMAT = "immortalis-initial-setup-input";
 export const InitialSetupInputSchema = z.strictObject({
   format: z.literal(INITIAL_SETUP_INPUT_FORMAT),
@@ -437,7 +463,7 @@ export const InitialSetupInputSchema = z.strictObject({
   projection_hash: Sha256,
   pre_state: z.strictObject({ head: Id, basis_hash: Sha256 }),
   runner: RunnerPinSchema,
-  parser: z.literal(INITIAL_LOCALITY_PARSER_V1),
+  parser: ParserFieldSchema,
 });
 export type InitialSetupInput = z.infer<typeof InitialSetupInputSchema>;
 
@@ -449,7 +475,7 @@ export const InitialSetupInvocationSchema = z.strictObject({
   phase: SetupPhaseSchema,
   task_id: Sha256,
   input_hash: Sha256,
-  parser: z.literal(INITIAL_LOCALITY_PARSER_V1),
+  parser: ParserFieldSchema,
   grant: PinSchema.nullable(),
 });
 export type InitialSetupInvocation = z.infer<typeof InitialSetupInvocationSchema>;
@@ -473,7 +499,7 @@ export const SignedEnvelopeBodySchema = z.strictObject({
   driver_id: Id,
   driver_config_hash: Sha256,
   context_manifest_hash: Sha256,
-  parser: z.literal(INITIAL_LOCALITY_PARSER_V1),
+  parser: ParserFieldSchema,
   raw_response_hash: Sha256,
 });
 export type SignedEnvelopeBody = z.infer<typeof SignedEnvelopeBodySchema>;
@@ -494,7 +520,7 @@ export const InitialSetupResponseSchema = z.strictObject({
   raw_response_base64: Text,
   raw_response_hash: Sha256,
   envelope: SignedEnvelopeSchema,
-  parser: z.literal(INITIAL_LOCALITY_PARSER_V1),
+  parser: ParserFieldSchema,
 });
 export type InitialSetupResponse = z.infer<typeof InitialSetupResponseSchema>;
 
@@ -539,17 +565,21 @@ export const FacetListSchema = z
   .refine(facetsInChecklistOrder, "all four facets occur once in checklist order");
 
 export const MESSAGE_USES = ["SETUP_AUTHORSHIP_ONLY", "MIXED_INPUT", "UNCLEAR"] as const;
-export const ScopeOutputSchema = z.strictObject({
+const ScopeOutputFields = {
   kind: z.literal("SCOPE"),
   task_id: Sha256,
-  input_hash: Sha256,
   message_use: z.enum(MESSAGE_USES),
   facets: FacetListSchema,
   restrictions: RestrictionSetSchema,
   unhandled_constraints: z.array(Text),
   clarification: Text.nullable(),
-});
+} as const;
+/** INITIAL_LOCALITY_PARSER_V2: the model echoes ONLY task_id; an output carrying input_hash is rejected, never stripped. */
+export const ScopeOutputSchema = z.strictObject(ScopeOutputFields);
 export type ScopeOutput = z.infer<typeof ScopeOutputSchema>;
+/** INITIAL_LOCALITY_PARSER_V1 (FROZEN, fixture history only): the model also echoed the producer-input hash. */
+export const ScopeOutputSchemaV1 = z.strictObject({ ...ScopeOutputFields, input_hash: Sha256 });
+export type ScopeOutputV1 = z.infer<typeof ScopeOutputSchemaV1>;
 
 // -- SCENE ------------------------------------------------------------------------------------------------------------
 
@@ -611,22 +641,29 @@ export const UNRESOLVED_REASONS_V9 = [
   "INCOMPATIBLE_CONSTRAINTS",
   "UNSUPPORTED_REFERENCE",
 ] as const;
+const SelectionOutputFields = {
+  kind: z.literal("SELECTION"),
+  task_id: Sha256,
+  selection: SelectionSchema,
+} as const;
+const UnresolvedOutputFields = {
+  kind: z.literal("UNRESOLVED"),
+  task_id: Sha256,
+  reason: z.enum(UNRESOLVED_REASONS_V9),
+  explanation: Text,
+} as const;
+/** INITIAL_LOCALITY_PARSER_V2 (task_id echo only). */
 export const SceneOutputSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("SELECTION"),
-    task_id: Sha256,
-    input_hash: Sha256,
-    selection: SelectionSchema,
-  }),
-  z.strictObject({
-    kind: z.literal("UNRESOLVED"),
-    task_id: Sha256,
-    input_hash: Sha256,
-    reason: z.enum(UNRESOLVED_REASONS_V9),
-    explanation: Text,
-  }),
+  z.strictObject(SelectionOutputFields),
+  z.strictObject(UnresolvedOutputFields),
 ]);
 export type SceneOutput = z.infer<typeof SceneOutputSchema>;
+/** INITIAL_LOCALITY_PARSER_V1 (FROZEN, fixture history only). */
+export const SceneOutputSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ ...SelectionOutputFields, input_hash: Sha256 }),
+  z.strictObject({ ...UnresolvedOutputFields, input_hash: Sha256 }),
+]);
+export type SceneOutputV1 = z.infer<typeof SceneOutputSchemaV1>;
 
 export const InitialSetupGrantSchema = z.strictObject({
   world_id: EntityId,
@@ -650,7 +687,7 @@ export const InitialLocalityCompletionSchema = z.strictObject({
   grant: PinSchema,
   scene_response: PinSchema,
   selection: SelectionSchema,
-  parser: z.literal(INITIAL_LOCALITY_PARSER_V1),
+  parser: ParserFieldSchema,
 });
 export type InitialLocalityCompletion = z.infer<typeof InitialLocalityCompletionSchema>;
 
@@ -702,7 +739,8 @@ export const ScopeDecisionRecordSchema = z.strictObject({
     reservation: PinSchema,
     response: PinSchema,
   }),
-  decision: ScopeOutputSchema,
+  // the exact parse of the retained SCOPE response under the session's parser: V2 by default, the frozen V1 shape for fixture history
+  decision: z.union([ScopeOutputSchema, ScopeOutputSchemaV1]),
   verdict: z.enum(SCOPE_VERDICTS),
 });
 export type ScopeDecisionRecord = z.infer<typeof ScopeDecisionRecordSchema>;

@@ -5,12 +5,14 @@ import {
   RUNNER_ID,
   RUNNER_RESULT_FORMAT,
   INITIAL_LOCALITY_PARSER_V1,
+  INITIAL_LOCALITY_PARSER_V2,
   RAW_RESPONSE_MAX_BYTES,
   SignedEnvelopeSchema,
   canonicalJson,
   fail,
   initialSetupInvocationKey,
   ok,
+  type InitialLocalityParser,
   type Pin,
   type Result,
   type RunnerPin,
@@ -18,11 +20,13 @@ import {
   type SignedEnvelope,
 } from "@immortalis/contracts";
 import {
-  INITIAL_SETUP_INSTRUCTIONS,
-  instructionHashOf,
-  inputHashOfDelivered,
+  INSTRUCTIONS_V1,
+  INSTRUCTIONS_V2,
+  deliveredProducerBytesViolation,
+  instructionMapHash,
   sha256Bytes,
   type CampaignStore,
+  type InstructionMap,
 } from "@immortalis/engine";
 import type { FsOps } from "@immortalis/engine";
 import { ProtectedStore } from "./protected-store.ts";
@@ -42,6 +46,24 @@ import { ProtectedStore } from "./protected-store.ts";
  * What a signature proves is origin and integrity under the declared trusted-startup/provider model — NOT semantic correctness and
  * NOT a provider's invisible internal behaviour. The driver's `context_manifest_hash` is attestation, not independent proof.
  */
+/**
+ * The runner's PROFILE: the parser version it answers under and the COMPLETE instruction map it pins into `Input.runner`. The default is
+ * the current profile (parser V2, task-only echo). The frozen V1 profile exists only so retained V1 history can be rebuilt under the
+ * testkit admission; a production admission refuses any new Input naming V1, so selecting it in production yields no usable route.
+ */
+export interface RunnerProfile {
+  readonly parser: InitialLocalityParser;
+  readonly instructions: InstructionMap;
+}
+export const CURRENT_RUNNER_PROFILE: RunnerProfile = {
+  parser: INITIAL_LOCALITY_PARSER_V2,
+  instructions: INSTRUCTIONS_V2,
+};
+export const LEGACY_V1_RUNNER_PROFILE: RunnerProfile = {
+  parser: INITIAL_LOCALITY_PARSER_V1,
+  instructions: INSTRUCTIONS_V1,
+};
+
 export interface DriverRun {
   readonly raw: Uint8Array;
   /** hash of the exact fixed instructions and exact producer-input bytes the fresh context was given, with no other channel */
@@ -74,9 +96,11 @@ export interface DispatchRequest {
 
 export type DispatchOutcome =
   | { readonly status: "RESPONDED"; readonly raw: Uint8Array; readonly envelope: SignedEnvelope }
+  /** refused BEFORE the send window opened (nothing reached the driver); the reservation stays retriable */
+  | { readonly status: "REFUSED"; readonly reason: string }
   | { readonly status: "UNKNOWN"; readonly reason: string };
 
-const capabilities = new WeakMap<object, { task_id: string }>();
+const capabilities = new WeakMap<object, { task_id: string; input: Pin }>();
 
 export type RunnerErrorCode =
   | "RESERVATION_NOT_COMMITTED"
@@ -90,6 +114,7 @@ export class PrivateRunner {
   readonly #driver: IsolatedDriver;
   readonly #outbox: ProtectedStore;
   readonly #pin: RunnerPin;
+  readonly #profile: RunnerProfile;
   readonly #inflight = new Map<string, Promise<DispatchOutcome>>();
 
   /** Called by trusted startup only. `privateKeyPkcs8Base64` is generated or read from an operator-owned file; never from content. */
@@ -101,7 +126,9 @@ export class PrivateRunner {
     readonly outboxDir: string;
     readonly macKey: Buffer;
     readonly fs?: FsOps;
+    readonly profile?: RunnerProfile;
   }) {
+    this.#profile = params.profile ?? CURRENT_RUNNER_PROFILE;
     this.#key = createPrivateKey({
       key: Buffer.from(params.privateKeyPkcs8Base64, "base64"),
       format: "der",
@@ -118,7 +145,7 @@ export class PrivateRunner {
       runner_id: RUNNER_ID,
       key_id: params.keyId,
       public_key: params.publicKeySpkiBase64,
-      instruction_hash: instructionHashOf(),
+      instruction_hash: instructionMapHash(this.#profile.instructions),
       driver_id: params.driver.driver_id,
       driver_config_hash: params.driver.config_hash,
     };
@@ -127,6 +154,11 @@ export class PrivateRunner {
   /** The enrollment pinned into every Input before dispatch. */
   get pin(): RunnerPin {
     return this.#pin;
+  }
+
+  /** The parser version every record of a session answered by this runner names (one consistent version per session). */
+  get parser(): InitialLocalityParser {
+    return this.#profile.parser;
   }
 
   /**
@@ -160,7 +192,8 @@ export class PrivateRunner {
     )
       return fail("RESERVATION_MISMATCH", "the committed reservation is not this task");
     const cap = Object.freeze({});
-    capabilities.set(cap, { task_id: req.task_id });
+    // the capability carries the Input pin of the COMMITTED reservation, so the delivered bytes are judged against canonical state
+    capabilities.set(cap, { task_id: req.task_id, input: inv.data.input });
     return ok(cap);
   }
 
@@ -179,7 +212,11 @@ export class PrivateRunner {
     capabilities.delete(capability);
     const existing = this.#inflight.get(req.task_id);
     if (existing) return existing;
-    const run = this.#dispatchOnce(req);
+    const run = this.#dispatchOnce(req, bound.input).then((outcome) => {
+      // a refusal happened BEFORE the send window opened: nothing was sent, so it must not be remembered against the task
+      if (outcome.status === "REFUSED") this.#inflight.delete(req.task_id);
+      return outcome;
+    });
     this.#inflight.set(req.task_id, run);
     return run;
   }
@@ -195,14 +232,20 @@ export class PrivateRunner {
     return { status: "RESPONDED", raw: Buffer.from(rec.raw_base64, "base64"), envelope: env.data };
   }
 
-  async #dispatchOnce(req: DispatchRequest): Promise<DispatchOutcome> {
+  async #dispatchOnce(req: DispatchRequest, inputPin: Pin): Promise<DispatchOutcome> {
     const prior = await this.recover(req.task_id);
     if (prior) return prior;
-    if (inputHashOfDelivered(req.producerInput) !== req.input_hash)
-      return {
-        status: "UNKNOWN",
-        reason: "the producer input is not the one the reservation names",
-      };
+    // C-1: the bytes to be delivered must be BYTE-EQUAL to D (P/H/T/D rebuilt from the bytes' own content); a parsed-and-recanonicalized
+    // variant is not eligible. A failed check is refused BEFORE the send window and never reaches the driver.
+    const violation = deliveredProducerBytesViolation(req.producerInput, {
+      campaign_id: req.campaign_id,
+      setup_id: req.setup_id,
+      phase: req.phase,
+      input: inputPin,
+      task_id: req.task_id,
+      input_hash: req.input_hash,
+    });
+    if (violation) return { status: "REFUSED", reason: violation };
     // the send window opens HERE: record it durably before the driver can be reached, so a crash can never be mistaken for
     // "nothing was sent"
     const started = await this.#outbox.create(`started:${req.task_id}`, {
@@ -222,7 +265,7 @@ export class PrivateRunner {
     try {
       run = await this.#driver.run({
         phase: req.phase,
-        instructions: INITIAL_SETUP_INSTRUCTIONS[req.phase],
+        instructions: this.#profile.instructions[req.phase],
         producerInput: req.producerInput,
       });
     } catch {
@@ -231,11 +274,27 @@ export class PrivateRunner {
         reason: "the driver failed after the send window opened; its outcome is unknown",
       };
     }
-    if (run.raw.length > RAW_RESPONSE_MAX_BYTES)
+    // A return that cannot form a strict signed Response (an oversize answer, a malformed manifest) is NEVER discarded in order to
+    // reroll: the exact returned bytes are retained in this task's protected outbox, nothing is fabricated or coerced, and the outcome
+    // stays UNKNOWN so the service parks it (PARKED_UNKNOWN, response:null). The outbox's own loss/recovery limits are as disclosed.
+    const wellFormedManifest =
+      typeof run.context_manifest_hash === "string" &&
+      /^[0-9a-f]{64}$/.test(run.context_manifest_hash);
+    if (run.raw.length > RAW_RESPONSE_MAX_BYTES || !wellFormedManifest) {
+      await this.#outbox.create(`malformed:${req.task_id}`, {
+        raw_base64: Buffer.from(run.raw).toString("base64"),
+        raw_response_hash: sha256Bytes(run.raw),
+        reported_manifest:
+          typeof run.context_manifest_hash === "string" ? run.context_manifest_hash : null,
+        why: run.raw.length > RAW_RESPONSE_MAX_BYTES ? "OVERSIZE_RAW" : "MALFORMED_MANIFEST",
+      });
       return {
         status: "UNKNOWN",
-        reason: "the raw answer exceeds its transport bound and cannot be signed",
+        reason: !wellFormedManifest
+          ? "the driver returned an answer without a well-formed context manifest; the exact bytes are retained and the task is parked, never regenerated"
+          : "the raw answer exceeds its transport bound and cannot be signed; the exact bytes are retained",
       };
+    }
     const body = {
       format: RUNNER_RESULT_FORMAT,
       format_version: 1 as const,
@@ -254,7 +313,7 @@ export class PrivateRunner {
       driver_id: this.#pin.driver_id,
       driver_config_hash: this.#pin.driver_config_hash,
       context_manifest_hash: run.context_manifest_hash,
-      parser: INITIAL_LOCALITY_PARSER_V1,
+      parser: this.#profile.parser,
       raw_response_hash: sha256Bytes(run.raw),
     };
     const signature = cryptoSign(

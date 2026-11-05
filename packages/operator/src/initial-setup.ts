@@ -3,7 +3,7 @@ import {
   InitialSetupInputSchema,
   InitialSetupInvocationSchema,
   InitialSetupResponseSchema,
-  INITIAL_LOCALITY_PARSER_V1,
+  CONTEXT_MANIFEST_MISMATCH,
   ScopeDecisionRecordSchema,
   refereeDecisionKey,
   type AuthoredEvidence,
@@ -23,6 +23,7 @@ import {
   derivedScopeVerdict,
   genesisProjection,
   interpretResponse,
+  manifestVerdict,
   scanInitialSetup,
   scopeDecisionRecord,
   scopeFingerprintOf,
@@ -226,7 +227,7 @@ export class InitialSetupService {
           basis_hash: sha256Canonical({ projection: p.projection_hash, revision: head.revision }),
         },
         runner: this.#d.runner.pin,
-        parser: INITIAL_LOCALITY_PARSER_V1,
+        parser: this.#d.runner.parser,
       };
       const committed = await this.#publisher.input(input);
       if (committed.ok)
@@ -296,7 +297,7 @@ export class InitialSetupService {
           phase: "SCOPE",
           task_id: built.value.task_id,
           input_hash: built.value.input_hash,
-          parser: INITIAL_LOCALITY_PARSER_V1,
+          parser: input.parser,
           grant: null,
         });
         if (!r.ok && !this.#benign(r.error.message)) return done("HOLD", r.error.message);
@@ -318,6 +319,26 @@ export class InitialSetupService {
           pinOf(s.scopeResponse),
           null,
           "the signed SCOPE answer is not a valid output",
+        );
+        continue;
+      }
+      // C-1: before any qualifying classification or Grant the reported context manifest is compared with the recomputed one. A proved
+      // mismatch is a terminal INVALID_OUTPUT that keeps the retained Response; an unverifiable source holds (it is not a proved mismatch).
+      const scopeManifest = manifestVerdict(
+        { campaign_id: campaignId, revision: store.head().revision, facts },
+        scopeResp,
+      );
+      if (scopeManifest === "UNVERIFIABLE")
+        return done("HOLD", "the SCOPE context manifest cannot be verified now");
+      if (scopeManifest === "MISMATCH") {
+        await this.#dispose(
+          facts,
+          s,
+          "INVALID_OUTPUT",
+          "SCOPE",
+          pinOf(s.scopeResponse),
+          CONTEXT_MANIFEST_MISMATCH,
+          "the signed context manifest differs from the recomputed one: the answer was not produced from the declared context",
         );
         continue;
       }
@@ -402,7 +423,7 @@ export class InitialSetupService {
           phase: "SCENE",
           task_id: built.value.task_id,
           input_hash: built.value.input_hash,
-          parser: INITIAL_LOCALITY_PARSER_V1,
+          parser: input.parser,
           grant: grantPin,
         });
         if (!r.ok && !this.#benign(r.error.message)) return done("HOLD", r.error.message);
@@ -427,6 +448,24 @@ export class InitialSetupService {
         );
         continue;
       }
+      const sceneManifest = manifestVerdict(
+        { campaign_id: campaignId, revision: store.head().revision, facts },
+        sceneResp,
+      );
+      if (sceneManifest === "UNVERIFIABLE")
+        return done("HOLD", "the SCENE context manifest cannot be verified now");
+      if (sceneManifest === "MISMATCH") {
+        await this.#dispose(
+          facts,
+          s,
+          "INVALID_OUTPUT",
+          "SCENE",
+          pinOf(s.sceneResponse),
+          CONTEXT_MANIFEST_MISMATCH,
+          "the signed context manifest differs from the recomputed one: the answer was not produced from the declared context",
+        );
+        continue;
+      }
       if (scene.value.output.kind === "UNRESOLVED") {
         await this.#dispose(
           facts,
@@ -447,7 +486,7 @@ export class InitialSetupService {
         grant: pinOf(s.grant),
         scene_response: pinOf(s.sceneResponse),
         selection: scene.value.output.selection,
-        parser: INITIAL_LOCALITY_PARSER_V1,
+        parser: input.parser,
       });
       // completion validation is a named pure function of the frozen pre-state and the signed response; a refusal is canonical
       const state = { campaign_id: campaignId, revision: store.head().revision, facts };
@@ -533,6 +572,8 @@ export class InitialSetupService {
     const cap = runner.authorize(store, req);
     if (!cap.ok) return { status: "HOLD", setup_id: s.setup_id, message: cap.error.message };
     const out = await runner.invokeOnce(cap.value, req);
+    if (out.status === "REFUSED")
+      return { status: "HOLD", setup_id: s.setup_id, message: out.reason };
     if (out.status === "UNKNOWN")
       return {
         status: phase === "SCOPE" ? "SCOPE_RESERVED_UNRESOLVED" : "SCENE_RESERVED_UNRESOLVED",
@@ -550,7 +591,7 @@ export class InitialSetupService {
       raw_response_base64: Buffer.from(out.raw).toString("base64"),
       raw_response_hash: sha256Bytes(out.raw),
       envelope: out.envelope,
-      parser: INITIAL_LOCALITY_PARSER_V1,
+      parser: input.parser,
     };
     const r = await this.#publisher.response(response);
     if (!r.ok && !this.#benign(r.error.message))

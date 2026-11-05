@@ -191,7 +191,7 @@ export { FIXTURE_KEY_ID };
 import {
   InitialSetupInputSchema,
   InitialSetupInvocationSchema,
-  INITIAL_LOCALITY_PARSER_V1,
+  INITIAL_LOCALITY_PARSER_V2,
   type InitialSetupResponse,
   type Pin,
   type SetupPhase,
@@ -273,7 +273,7 @@ export function responseFrom(
     raw_response_base64: Buffer.from(outcome.raw).toString("base64"),
     raw_response_hash: sha256Bytes(outcome.raw),
     envelope: outcome.envelope,
-    parser: INITIAL_LOCALITY_PARSER_V1,
+    parser: INITIAL_LOCALITY_PARSER_V2,
   };
 }
 

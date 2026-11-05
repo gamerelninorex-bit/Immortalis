@@ -2,17 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   CHRONOLOGY_DOCUMENT_MAX_BYTES,
   INITIAL_LOCALITY_PARSER_V1,
+  INITIAL_LOCALITY_PARSER_V2,
   PRODUCER_INPUT_MAX_BYTES,
   RAW_RESPONSE_MAX_BYTES,
   SETUP_MESSAGE_MAX_BYTES,
   SceneOutputSchema,
+  SceneOutputSchemaV1,
   ScopeOutputSchema,
+  ScopeOutputSchemaV1,
   canonicalJson,
   parseInitialLocalityJson,
 } from "@immortalis/contracts";
 
 /**
- * INITIAL_LOCALITY_PARSER_V1 golden vectors (Initial Locality Bootstrap v0.9, companion "Common Types"). MECHANISM: pure
+ * Golden vectors of the strict initial-locality parsers (Initial Locality Bootstrap v0.9, companion "Common Types", and the Sovereign-ratified
+ * C-1 amendment). V2 is current: the model echoes only task_id. V1 is FROZEN fixture history: it also echoed input_hash. MECHANISM: pure
  * parser/schema behaviour; no model, runner or journal is involved.
  */
 const H = "a".repeat(64);
@@ -35,7 +39,6 @@ const facets = ["DOMAIN_BOUNDARY", "ACTOR_COVERAGE", "SOURCE_CLAIMS", "WORKFORCE
 const scope = {
   kind: "SCOPE",
   task_id: H,
-  input_hash: H,
   message_use: "SETUP_AUTHORSHIP_ONLY",
   facets,
   restrictions: [],
@@ -63,17 +66,43 @@ const selection = {
   provenance: [],
 };
 
-describe("INITIAL_LOCALITY_PARSER_V1 golden vectors", () => {
-  it("names the version-pinned parser", () => {
+const scopeV1 = { ...scope, input_hash: H };
+
+describe("INITIAL_LOCALITY_PARSER_V2 golden vectors (current) and the frozen V1 shape", () => {
+  it("names the version-pinned parsers", () => {
     expect(INITIAL_LOCALITY_PARSER_V1).toBe("INITIAL_LOCALITY_PARSER_V1");
+    expect(INITIAL_LOCALITY_PARSER_V2).toBe("INITIAL_LOCALITY_PARSER_V2");
+  });
+
+  it("V2 rejects (never strips) a returned input_hash and requires task_id; the frozen V1 shape requires input_hash", () => {
+    expect(ScopeOutputSchema.safeParse(scope).success).toBe(true);
+    expect(ScopeOutputSchema.safeParse(scopeV1).success).toBe(false); // input_hash is a foreign field under V2
+    const { task_id: _omit, ...noTask } = scope;
+    void _omit;
+    expect(ScopeOutputSchema.safeParse(noTask).success).toBe(false); // wrong/missing task_id rejects
+    expect(ScopeOutputSchema.safeParse({ ...scope, task_id: "short" }).success).toBe(false);
+    expect(ScopeOutputSchemaV1.safeParse(scopeV1).success).toBe(true);
+    expect(ScopeOutputSchemaV1.safeParse(scope).success).toBe(false); // V1 requires the echo
+    const selV2 = { kind: "SELECTION", task_id: H, selection };
+    const unrV2 = {
+      kind: "UNRESOLVED",
+      task_id: H,
+      reason: "INSUFFICIENT_CONSTRAINTS",
+      explanation: "x",
+    };
+    for (const v2 of [selV2, unrV2]) {
+      expect(SceneOutputSchema.safeParse(v2).success).toBe(true);
+      expect(SceneOutputSchema.safeParse({ ...v2, input_hash: H }).success).toBe(false);
+      expect(SceneOutputSchemaV1.safeParse({ ...v2, input_hash: H }).success).toBe(true);
+      expect(SceneOutputSchemaV1.safeParse(v2).success).toBe(false);
+    }
   });
 
   it("accepts valid SCOPE, SELECTION and UNRESOLVED outputs and replays identical bytes to an identical value", () => {
-    const sel = { kind: "SELECTION", task_id: H, input_hash: H, selection };
+    const sel = { kind: "SELECTION", task_id: H, selection };
     const unresolved = {
       kind: "UNRESOLVED",
       task_id: H,
-      input_hash: H,
       reason: "INSUFFICIENT_CONSTRAINTS",
       explanation: "nothing was said about the ground",
     };
@@ -155,7 +184,6 @@ describe("INITIAL_LOCALITY_PARSER_V1 golden vectors", () => {
       SceneOutputSchema.safeParse({
         kind: "UNRESOLVED",
         task_id: H,
-        input_hash: H,
         reason: "BECAUSE",
         explanation: "x",
       }).success,
@@ -165,8 +193,7 @@ describe("INITIAL_LOCALITY_PARSER_V1 golden vectors", () => {
       actors: { kind: "NONE_IN_DOMAIN", constraints: ["an actor"], ground: "g" },
     };
     expect(
-      SceneOutputSchema.safeParse({ kind: "SELECTION", task_id: H, input_hash: H, selection: bad })
-        .success,
+      SceneOutputSchema.safeParse({ kind: "SELECTION", task_id: H, selection: bad }).success,
     ).toBe(false);
     const claimant = {
       ...selection,
@@ -176,7 +203,6 @@ describe("INITIAL_LOCALITY_PARSER_V1 golden vectors", () => {
       SceneOutputSchema.safeParse({
         kind: "SELECTION",
         task_id: H,
-        input_hash: H,
         selection: claimant,
       }).success,
     ).toBe(false);
@@ -188,7 +214,6 @@ describe("INITIAL_LOCALITY_PARSER_V1 golden vectors", () => {
       SceneOutputSchema.safeParse({
         kind: "SELECTION",
         task_id: H,
-        input_hash: H,
         selection: producer,
       }).success,
     ).toBe(false);

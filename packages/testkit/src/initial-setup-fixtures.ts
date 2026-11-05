@@ -8,7 +8,7 @@ import {
   type SetupPhase,
 } from "@immortalis/contracts";
 import {
-  inputHashOfDelivered,
+  contextManifestHashOf,
   selectionLeafPaths,
   setupMessageHash,
   sha256Bytes,
@@ -137,6 +137,8 @@ export class ScriptedIsolatedDriver {
   readonly #behaviour: {
     throwAfterSend: boolean | readonly SetupPhase[];
     rawOverride: Partial<Record<SetupPhase, Uint8Array>>;
+    echoInputHash: boolean;
+    manifest: Partial<Record<SetupPhase, string>>;
   };
 
   constructor(
@@ -147,6 +149,13 @@ export class ScriptedIsolatedDriver {
       throwAfterSend?: boolean | readonly SetupPhase[];
       /** return these exact raw bytes instead of the scripted object (invalid-output / duplicate-key falsifiers) */
       rawOverride?: Partial<Record<SetupPhase, Uint8Array>>;
+      /**
+       * Echo the producer-input hash as well as the task id: the FROZEN parser-V1 shape. With the current parser a returned `input_hash`
+       * is an invalid output (the falsifier); with the frozen V1 profile it is required.
+       */
+      echoInputHash?: boolean;
+      /** report this manifest instead of the one the declared context yields ("MALFORMED" reports a value that is not a SHA-256) */
+      manifest?: Partial<Record<SetupPhase, string>>;
     } = {},
   ) {
     this.driver_id = options.driverId ?? FIXTURE_DRIVER_ID;
@@ -155,6 +164,8 @@ export class ScriptedIsolatedDriver {
     this.#behaviour = {
       throwAfterSend: options.throwAfterSend ?? false,
       rawOverride: options.rawOverride ?? {},
+      echoInputHash: options.echoInputHash ?? false,
+      manifest: options.manifest ?? {},
     };
   }
 
@@ -171,30 +182,25 @@ export class ScriptedIsolatedDriver {
     const crash = this.#behaviour.throwAfterSend;
     if (crash === true || (Array.isArray(crash) && crash.includes(args.phase)))
       throw new Error("driver crashed after the send window opened");
+    // the manifest the declared visible context yields: the exact phase string and the exact bytes D (or a scripted falsification)
+    const declared = contextManifestHashOf(args.instructions, args.producerInput);
+    const reported = this.#behaviour.manifest[args.phase];
+    const context_manifest_hash =
+      reported === undefined ? declared : reported === "MALFORMED" ? "not-a-sha256" : reported;
     const override = this.#behaviour.rawOverride[args.phase];
-    if (override)
-      return { raw: override, context_manifest_hash: sha256Bytes(Buffer.from(args.producerInput)) };
+    if (override) return { raw: override, context_manifest_hash };
     const input = JSON.parse(Buffer.from(args.producerInput).toString("utf8")) as Record<
       string,
       unknown
     >;
-    const echo = {
-      task_id: input["task_id"],
-      input_hash: inputHashOfDelivered(args.producerInput),
-    };
+    // INITIAL_LOCALITY_PARSER_V2: the script copies ONLY task_id from the input object. The frozen V1 shape also echoed the pre-task
+    // hash H, which this script recomputes from the delivered object (no channel carries it to a real model).
+    const { task_id, ...producerObject } = input;
+    const echo: Record<string, unknown> = { task_id };
+    if (this.#behaviour.echoInputHash)
+      echo["input_hash"] = sha256Bytes(Buffer.from(canonicalJson(producerObject), "utf8"));
     const body = args.phase === "SCOPE" ? this.#answers.scope(input) : this.#answers.scene(input);
-    return {
-      raw: Buffer.from(canonicalJson({ ...body, ...echo }), "utf8"),
-      context_manifest_hash: sha256Bytes(
-        Buffer.from(
-          canonicalJson({
-            instructions: args.instructions,
-            producer_input_sha: sha256Bytes(args.producerInput),
-          }),
-          "utf8",
-        ),
-      ),
-    };
+    return { raw: Buffer.from(canonicalJson({ ...body, ...echo }), "utf8"), context_manifest_hash };
   }
 }
 
