@@ -182,9 +182,11 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/persistence":
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
         // H-07 S2: a policy-transition first open replays history once (the successor is proved from durable files; the reopen is bounded).
-        "dc33e267d29dbab67b31b05fe17c6f45ee378301aba4c97d87a25e5d40bf5853",
+        // H-07 S3: the strict pass releases its per-fact digest cache when it ends (one call in checkpoint-package.ts; no receipt meaning changes).
+        "db72efe01a4ec245378accf389cc16ea83e6024e9fbf327026d95b006cbd0e54",
+      // H-07 S3: an incremental evaluator of the SAME canonical full-state SHA-256 serves one strict-replay step (state-digest.ts; `#compute` is byte-identical).
       "packages/engine/src/commit":
-        "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
+        "1107888498ee8e8f2c405c44bbb0880054792b11a8165e64f307eb3dfbb8f2f9",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
     // The referee and epistemic trees are not in the map above on purpose: PR #94 changed them (R-1, F-1, L12, the scene work), so the value main

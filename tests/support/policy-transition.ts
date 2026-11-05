@@ -194,3 +194,163 @@ export function walkIndexTree(
   };
   go(tree, null);
 }
+
+// -- H-07 S3 fixtures: growing and adversarially rewritten state under an OLD policy -------------------------------------------------
+// Both are written by the ordinary live commit path (so every receipt carries the reference full-state SHA-256) and closed cleanly.
+export const SHAPES = ["early", "middle", "late", "rotate"] as const;
+export type Shape = (typeof SHAPES)[number];
+const pad6 = (i: number) => String(i).padStart(6, "0");
+
+/** mulberry32: a small deterministic PRNG so every run builds the identical history. */
+export function prng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const chained = (n: number) => (n > 1 ? { depends_on: [`group-${n - 1}`] } : {});
+
+/**
+ * `count` entries, each adding ONE new fact at a pseudo-random place of the key order: state and history grow together, and the
+ * insertion point is anywhere (early, middle, late), so every length of unchanged canonical prefix occurs.
+ */
+export async function seedGrowth(count: number, seed = 1): Promise<string> {
+  const dir = tempDir();
+  const store = await must(
+    createFileCampaign(dir, {
+      campaignId: POLICY_CAMPAIGN,
+      ...optionsFor(policyAdmission(OLD_POLICY_ID).admission, { fs: seedFs }),
+    }),
+  );
+  const rand = prng(seed);
+  const used = new Set<string>();
+  for (let n = 1; n <= count; n++) {
+    let key = `growth/${pad6(Math.floor(rand() * 1_000_000))}`;
+    while (used.has(key)) key = `growth/${pad6(Math.floor(rand() * 1_000_000))}`;
+    used.add(key);
+    await must(
+      store.commit(
+        group(
+          POLICY_CAMPAIGN,
+          n,
+          [write(key, { n, text: "é".repeat(Math.floor(rand() * 300)), nest: { b: n, a: [n] } })],
+          chained(n),
+        ),
+      ),
+    );
+  }
+  await store.close();
+  return dir;
+}
+
+/** The key rewritten by update `u` of a shape: the first, middle or last key of `cold`, or a rotating one. */
+export const shapeKey = (kind: Shape, cold: number, u: number) =>
+  `shape/${pad6(
+    kind === "early"
+      ? 0
+      : kind === "middle"
+        ? Math.floor(cold / 2)
+        : kind === "late"
+          ? cold - 1
+          : (u * 7919) % cold,
+  )}`;
+
+/**
+ * `cold` padded facts (one per entry), then `updates` entries that each rewrite ONE EXISTING fact at the named position of the key
+ * order: the state stays the same size while history grows, and the position decides how much of the canonical message precedes the
+ * first changed byte (none for `early`, nearly all for `late`).
+ */
+export async function seedShape(kind: Shape, cold: number, updates: number): Promise<string> {
+  const dir = tempDir();
+  const store = await must(
+    createFileCampaign(dir, {
+      campaignId: POLICY_CAMPAIGN,
+      ...optionsFor(policyAdmission(OLD_POLICY_ID).admission, { fs: seedFs }),
+    }),
+  );
+  const versions = new Map<string, number>();
+  const put = async (n: number, key: string, value: Parameters<typeof write>[1]) => {
+    const expected = versions.get(key) ?? 0;
+    await must(
+      store.commit(
+        group(POLICY_CAMPAIGN, n, [write(key, value, { expected_version: expected })], chained(n)),
+      ),
+    );
+    versions.set(key, expected + 1);
+  };
+  for (let i = 0; i < cold; i++)
+    await put(i + 1, `shape/${pad6(i)}`, { n: i, pad: "x".repeat(200) });
+  for (let u = 1; u <= updates; u++)
+    await put(cold + u, shapeKey(kind, cold, u), { n: u, pad: "y".repeat(200) });
+  await store.close();
+  return dir;
+}
+
+interface JournalLine {
+  readonly revision: number;
+  readonly group: {
+    readonly campaign_id: string;
+    readonly group_id: string;
+    readonly intent_id: string;
+    readonly cause: string;
+    readonly rule: unknown;
+    readonly writes: readonly {
+      readonly key: string;
+      readonly owner: string;
+      readonly facet: string;
+      readonly value: unknown;
+      readonly unit: unknown;
+      readonly basis: string;
+      readonly secrecy: string;
+    }[];
+  };
+}
+
+/**
+ * An independent definition of the receipt digest, sharing no code with CampaignCore: folds the journal's groups into facts,
+ * and at each requested revision hashes the canonical JSON of the whole state exactly as the specification of `state_sha256` reads.
+ */
+export function oracleStateDigests(
+  journalText: string,
+  revisions: ReadonlySet<number> | "all",
+): Map<number, string> {
+  const facts = new Map<string, { key: string; version: number } & Record<string, unknown>>();
+  const out = new Map<number, string>();
+  let revision = 0;
+  for (const line of journalText.split("\n")) {
+    if (line === "") continue;
+    const entry = JSON.parse(line) as JournalLine;
+    const g = entry.group;
+    for (const w of g.writes)
+      facts.set(w.key, {
+        key: w.key,
+        owner: w.owner,
+        facet: w.facet,
+        value: w.value,
+        unit: w.unit,
+        basis: w.basis,
+        secrecy: w.secrecy,
+        version: (facts.get(w.key)?.version ?? 0) + 1,
+        provenance: {
+          group_id: g.group_id,
+          intent_id: g.intent_id,
+          cause: g.cause,
+          rule: g.rule,
+        },
+      });
+    revision++;
+    if (revision !== entry.revision) throw new Error("oracle: journal is not consecutive");
+    if (revisions === "all" || revisions.has(revision)) {
+      const sorted = [...facts.values()].sort((a, b) =>
+        a.key < b.key ? -1 : a.key > b.key ? 1 : 0,
+      );
+      out.set(revision, sha256Canonical({ campaign_id: g.campaign_id, revision, facts: sorted }));
+    }
+  }
+  return out;
+}

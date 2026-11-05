@@ -12,6 +12,7 @@ import {
   type StateFile,
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import { IncrementalStateDigest } from "./state-digest.ts";
 
 /**
  * Pure, storage-free commit logic (IM-11 subset). Nothing here touches a filesystem, clock or RNG,
@@ -114,7 +115,18 @@ export function stateFromFile(file: StateFile): Result<CampaignState, "SCHEMA_IN
   return ok({ campaign_id: file.campaign_id, revision: file.revision, facts });
 }
 
-export const stateSha256 = (state: CampaignState): string => sha256Canonical(stateToFile(state));
+/** The canonical full-state digest, computed from scratch: the SHA-256 of `canonicalJson(stateToFile(state))`. */
+const referenceStateSha256 = (state: CampaignState): string => sha256Canonical(stateToFile(state));
+
+/**
+ * H-07 S3. Normally `stateSha256` IS `referenceStateSha256`. For the one synchronous instant in which a strict replay step is
+ * re-deriving a receipt (see `CampaignCore.replay`), it is answered by that step's incremental evaluator instead, which hashes
+ * the very same bytes. The hook is set and cleared inside `replay` around `#compute`, answers one call, and is cleared on
+ * every exit (including a throw), so `#compute`, every live commit and every other caller are exactly as before.
+ */
+let replayStepDigest: ((state: CampaignState) => string) | null = null;
+export const stateSha256 = (state: CampaignState): string =>
+  replayStepDigest === null ? referenceStateSha256(state) : replayStepDigest(state);
 export const groupSha256 = (group: CommitGroup): string => sha256Canonical(group);
 
 export function entryHash(entry: Omit<JournalEntry, "entry_sha256">): string {
@@ -175,6 +187,11 @@ export class CampaignCore {
    */
   readonly #ruleChecked = new Set<string>();
   readonly #params: CoreParams;
+  /**
+   * H-07 S3: process-local evaluator of the same canonical full-state digest, used only while a strict replay advances this core one
+   * committed entry at a time. Derived and ephemeral: dropped when the replay ends (`endReplay`) or a live commit is accepted.
+   */
+  #replayDigest: IncrementalStateDigest | null = null;
 
   constructor(params: CoreParams) {
     this.#params = params;
@@ -219,8 +236,18 @@ export class CampaignCore {
     this.#register(entry.group, entry.receipt);
   }
 
+  /**
+   * Ends a strict replay: drops the derived per-fact bytes and SHA-256 prefix states the replay kept. Optional (a live commit also
+   * drops them) and never observable in any result; it only returns the memory.
+   */
+  endReplay(): void {
+    this.#replayDigest?.release();
+    this.#replayDigest = null;
+  }
+
   /** Called by a store after the entry is durable. */
   accept(prepared: Extract<Prepared, { kind: "apply" }>): void {
+    this.endReplay();
     this.adopt(prepared.entry, prepared.nextState);
     if (this.#params.admission !== undefined) this.#ruleChecked.add(prepared.entry.group.group_id);
   }
@@ -335,7 +362,27 @@ export class CampaignCore {
     // takes it from there so a later evidence-only lock change cannot alter history.
     // The lock hash in force at commit time is recorded (and hash-chained) in the receipt; replay
     // takes it from there so a later evidence-only lock change cannot alter history.
-    const computed = this.#compute(entry.group, digest, entry.receipt.basis.spec_lock_sha256);
+    // The receipt's full-state SHA-256 is re-derived over the exact same canonical bytes as at commit time. Only the cost of
+    // re-producing those bytes while a strict replay advances one entry at a time differs (see IncrementalStateDigest): `#compute`
+    // below is the unchanged receipt construction and asks `stateSha256` for the digest as it always does.
+    const evaluator = (this.#replayDigest ??= new IncrementalStateDigest());
+    const pre = this.#state;
+    replayStepDigest = (next) => {
+      replayStepDigest = null; // answers this one call; any other digest requested in this window is the reference
+      const written: OwnerFact[] = [];
+      for (const key of new Set(entry.group.writes.map((w) => w.key))) {
+        const fact = next.facts.get(key);
+        if (fact === undefined) return referenceStateSha256(next);
+        written.push(fact);
+      }
+      return evaluator.digest(pre, next, written, referenceStateSha256);
+    };
+    let computed: { nextState: CampaignState; entry: JournalEntry };
+    try {
+      computed = this.#compute(entry.group, digest, entry.receipt.basis.spec_lock_sha256);
+    } finally {
+      replayStepDigest = null;
+    }
     if (canonicalEqual(computed.entry, entry) === false)
       return mismatch("recomputed entry differs");
     this.adopt(computed.entry, computed.nextState);
