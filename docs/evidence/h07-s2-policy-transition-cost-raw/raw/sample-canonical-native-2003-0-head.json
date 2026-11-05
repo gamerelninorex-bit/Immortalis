@@ -1,0 +1,239 @@
+{
+  "series": "canonical",
+  "variant": "native",
+  "entries": 2003,
+  "build": "head",
+  "exact_sha": "40d41e79ef86a300629a568a480619f4f064bc86",
+  "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "logical_cpus": 4,
+  "fs_type": "0xef53",
+  "fixture_bytes": 39934584,
+  "verification_policy_after_first_open": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+  "outcome_sha256": "8b67db377d252da18b7dec3e81ec04bf7630ed451adc312c7716c11ca99290e9",
+  "outcome": {
+    "head": {
+      "campaign_id": "campaign-bench",
+      "revision": 2004,
+      "state_sha256": "29140357b946d8333a0540aa0b6bcf36ea2fd0d525f665944357a8dc082170b0",
+      "journal_entries": 2004,
+      "journal_head_sha256": "bf707fa258cef0799ea9d25f1b5510d5a26931f2d1fc1b60311993d36043d262",
+      "spec_identity": {
+        "line": "f027",
+        "package_version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z",
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "snapshot_files": {
+          "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+          "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+          "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+        }
+      },
+      "last_saved_spec_identity": {
+        "line": "f027",
+        "package_version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z",
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "snapshot_files": {
+          "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+          "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+          "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+        }
+      },
+      "created_with": {
+        "package": "@immortalis/engine",
+        "version": "0.0.0",
+        "build_id": "bench-seed"
+      },
+      "last_saved_with": {
+        "package": "@immortalis/engine",
+        "version": "0.0.0",
+        "build_id": null
+      }
+    },
+    "facts_sha256": "37fa1ac71c9bfef6fe0fde37d87fe8e3838b4b76ed6185bb9e1828427f36c1be",
+    "readback_sha256": "ac9668171f3cea00ea2acc7869bf5961b233dbdea81a082f59ebcfb4b4fda363",
+    "journal_sha256": "f364fc1597b07424952f62a992a9dde53477cb932035bbf2df516e3df65813bc",
+    "commit_receipt": {
+      "outcome": "COMMITTED",
+      "campaign_id": "campaign-bench",
+      "group_id": "wf-group-900000",
+      "intent_id": "wf-intent-900000",
+      "revision": 2004,
+      "group_sha256": "9303cc244fb46a5ebdd6c98d8b2d40cec41ebffe542b3ee91d6fdb9fd7fc743a",
+      "state_sha256": "29140357b946d8333a0540aa0b6bcf36ea2fd0d525f665944357a8dc082170b0",
+      "basis": {
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "rule": {
+          "artifact": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+          "native_pin": "2026-09-25T13:44:22.668Z",
+          "clause": "Ownership Guards — World Generation May Own (world-side environmental, geographic, topological and other general world-state facts not owned by a more specific subsystem; integration of committed outputs from functional owners into the persistent world representation without duplicating their internal state); World Generation May Not Own (Production functional state); Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners (provide physical world conditions and receive their lawful state changes); with WS-003 §4A Source Stock / Renewal Execution Contract (Source Condition is world truth; Production does not compute the resulting authoritative source condition) and §4B Source Boundary Basis (delivery; the owner returns Source Condition net of all delivered drawdown)",
+          "authority_lineage": [
+            "F-027 v1.0 spec-lock (spec/f027/spec-lock.json) frozen-source pin",
+            "Sovereign-ratified within W3-CP3 / OB-044, 2026-09-25 (https://app.notion.com/p/3e620af901e0818a8c85cee779263a2c)",
+            "WS-003 Production & Resources §4A Source Stock / Renewal Execution Contract and §4B Source Boundary Basis (Source Delta channel, Pending Drawdown, Delivery, Calibration), spec-locked pin 2026-09-25T13:44:44.982Z (https://app.notion.com/p/3e020af901e0819aab34ebd5412b6338); WG World Generation & World-State Kernel \"Ownership Guards — World Generation May Own\" and \"Interface Handoffs — To Production / KTI / Population / Economy / Other Functional Owners\", spec-locked pin 2026-09-25T13:44:22.668Z (https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d)",
+            "F-017 Whole-Engine Dependency Graph Candidate v0.3 §§2-4, 9 — ratified candidate pin 2026-09-25T15:03:49.887Z with PCB-01 §5.1 conformance at pin 2026-09-25T23:42:27.802Z (https://app.notion.com/p/3e620af901e081109144ef14f52012a8): DERIVE, persist no graph",
+            "F-027 Runtime Contract & Translation Tranche v0.2 §5.2 rule 6 and §4 lowering set, pin 2026-09-29T00:33:04.009Z (https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a)"
+          ],
+          "effective_basis": "pinned-by-spec-lock",
+          "supersedes": null
+        },
+        "authority": {
+          "role": "role.archivist",
+          "permission": "permission.canon.write"
+        }
+      },
+      "invariants": [
+        {
+          "name": "authority-present",
+          "passed": true
+        },
+        {
+          "name": "owner-registered",
+          "passed": true
+        },
+        {
+          "name": "owner-exclusive",
+          "passed": true
+        },
+        {
+          "name": "unique-keys-in-group",
+          "passed": true
+        },
+        {
+          "name": "expected-versions-current",
+          "passed": true
+        },
+        {
+          "name": "reads-current",
+          "passed": true
+        },
+        {
+          "name": "dependencies-committed",
+          "passed": true
+        }
+      ]
+    },
+    "owner_violations": 0
+  },
+  "passes": [
+    {
+      "label": "first-open",
+      "elapsed_ms": 11044.754173,
+      "cpu_user_ms": 10151.576,
+      "cpu_system_ms": 2167.494,
+      "peak_rss_kb": 443664,
+      "read_calls": 31861,
+      "read_bytes": 33770102,
+      "journal_full_reads": 0,
+      "index_reads": 29769,
+      "index_read_bytes": 13199645,
+      "write_calls": 1,
+      "write_bytes": 98,
+      "fsyncs": 1,
+      "removes": 0,
+      "replay_entries": 83,
+      "groups_verified": 83,
+      "sha256_calls": 36541,
+      "sha256_bytes": 585388706,
+      "full_state_hashes": 85,
+      "full_state_hash_bytes": 550027787,
+      "strict_passes": 1
+    },
+    {
+      "label": "accepted-commit",
+      "elapsed_ms": 140.43537300000025,
+      "cpu_user_ms": 90.53,
+      "cpu_system_ms": 38.917,
+      "peak_rss_kb": 443664,
+      "read_calls": 58,
+      "read_bytes": 30422,
+      "journal_full_reads": 0,
+      "index_reads": 54,
+      "index_read_bytes": 23948,
+      "write_calls": 2,
+      "write_bytes": 9608,
+      "fsyncs": 3,
+      "removes": 0,
+      "replay_entries": 0,
+      "groups_verified": 0,
+      "sha256_calls": 66,
+      "sha256_bytes": 6655794,
+      "full_state_hashes": 1,
+      "full_state_hash_bytes": 6609694,
+      "strict_passes": 0
+    },
+    {
+      "label": "close",
+      "elapsed_ms": 3.297827000000325,
+      "cpu_user_ms": 1.521,
+      "cpu_system_ms": 0.32,
+      "peak_rss_kb": 443664,
+      "read_calls": 1,
+      "read_bytes": 98,
+      "journal_full_reads": 0,
+      "index_reads": 0,
+      "index_read_bytes": 0,
+      "write_calls": 1,
+      "write_bytes": 120,
+      "fsyncs": 1,
+      "removes": 2,
+      "replay_entries": 0,
+      "groups_verified": 0,
+      "sha256_calls": 0,
+      "sha256_bytes": 0,
+      "full_state_hashes": 0,
+      "full_state_hash_bytes": 0,
+      "strict_passes": 0
+    },
+    {
+      "label": "second-open",
+      "elapsed_ms": 11138.500007,
+      "cpu_user_ms": 10537.653,
+      "cpu_system_ms": 2002.11,
+      "peak_rss_kb": 507468,
+      "read_calls": 31917,
+      "read_bytes": 33807187,
+      "journal_full_reads": 0,
+      "index_reads": 29823,
+      "index_read_bytes": 13223593,
+      "write_calls": 1,
+      "write_bytes": 98,
+      "fsyncs": 1,
+      "removes": 0,
+      "replay_entries": 84,
+      "groups_verified": 84,
+      "sha256_calls": 36607,
+      "sha256_bytes": 592051934,
+      "full_state_hashes": 86,
+      "full_state_hash_bytes": 556640798,
+      "strict_passes": 1
+    },
+    {
+      "label": "third-open",
+      "elapsed_ms": 10634.272597000003,
+      "cpu_user_ms": 9916.142,
+      "cpu_system_ms": 1856.626,
+      "peak_rss_kb": 565264,
+      "read_calls": 31917,
+      "read_bytes": 33807187,
+      "journal_full_reads": 0,
+      "index_reads": 29823,
+      "index_read_bytes": 13223593,
+      "write_calls": 1,
+      "write_bytes": 98,
+      "fsyncs": 1,
+      "removes": 0,
+      "replay_entries": 84,
+      "groups_verified": 84,
+      "sha256_calls": 36607,
+      "sha256_bytes": 592051934,
+      "full_state_hashes": 86,
+      "full_state_hash_bytes": 556640798,
+      "strict_passes": 1
+    }
+  ],
+  "peak_rss_kb": 565264
+}

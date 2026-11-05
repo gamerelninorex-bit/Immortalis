@@ -2,6 +2,7 @@
  * Checkpoints/indexes are derived verified evidence, never independent canonical owners.
  * Dormant prefix corruption is detected on lookup or explicit strict audit, not every ordinary open.
  */
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { z } from "zod";
 import {
@@ -122,6 +123,76 @@ function parseLines(bytes: Buffer, expected: number): { entry: JournalEntry; len
     entry: JournalEntrySchema.parse(JSON.parse(line)),
     length: Buffer.byteLength(line) + 1,
   }));
+}
+
+/**
+ * Pre-publication proof that a policy-transition successor describes exactly the strict replay that earned it. It reads only
+ * durable files and re-runs no owner rule and recomputes no state (the replay already did, once):
+ *  - the committed journal bytes must be byte-identical (SHA-256) to the bytes the strict replay judged;
+ *  - for EVERY historical intent and group the hash-directed `lookup` of the successor index must reach exactly the location the
+ *    replay derived (so a misrouted branch, a missing identity or a duplicate standing in for one is refused, not merely counted);
+ *  - and the tree must hold nothing else: each enumerated leaf is a distinct expected key, and there are exactly as many leaves as
+ *    expected keys.
+ * Each node is hash-verified as it is read; the verifying reader memoizes the nodes it has verified, so every node is read once.
+ */
+async function proveSuccessor(
+  dir: string,
+  fs: FsOps,
+  index: HistoryIndex,
+  successor: V2Manifest,
+  verified: readonly { entry: JournalEntry; location: Location }[],
+  strictBytesSha256: string,
+): Promise<void> {
+  const head = successor.head;
+  const journal = await fs.readRange(join(dir, "journal.jsonl"), 0, head.journal_bytes);
+  if (createHash("sha256").update(journal).digest("hex") !== strictBytesSha256)
+    throw new Error("committed journal changed after strict replay");
+  const expected = new Map<string, string>();
+  for (const { entry, location } of verified)
+    for (const key of [`i:${entry.group.intent_id}`, `g:${entry.group.group_id}`]) {
+      if (expected.has(key)) throw new Error("duplicate historical identity in the strict replay");
+      expected.set(key, canonicalJson(location));
+    }
+  if (expected.size !== 2 * head.journal_entries)
+    throw new Error("strict replay does not cover every historical identity");
+  const root = head.checkpoint.index;
+  const reader = new HistoryIndex(dir, fs, index.generation, true);
+  for (const [key, location] of expected)
+    if (canonicalJson(reader.lookup(root, key)) !== location)
+      throw new Error("successor index does not reach a historical identity by its key path");
+  const leaves = new Set<string>();
+  for (const [key] of reader.entries(root)) {
+    if (!expected.has(key)) throw new Error("successor index holds an unexpected identity");
+    if (leaves.has(key)) throw new Error("successor index holds a duplicate identity");
+    leaves.add(key);
+  }
+  if (leaves.size !== expected.size) throw new Error("successor index is incomplete");
+}
+
+/**
+ * Best-effort removal of the checkpoint snapshot a just-published transition superseded, under the R-01 cleanup conditions: held
+ * writer authority, the published successor still the authoritative manifest, and the candidate bytes still the very bytes this load
+ * verified against the old checkpoint. Any doubt, or any failure, removes nothing and leaves the proved R-01 reconciliation to the
+ * next open.
+ */
+async function removeSuperseded(
+  dir: string,
+  fs: FsOps,
+  lock: Lock,
+  published: V2Manifest,
+  name: string,
+  verifiedSha256: string,
+): Promise<void> {
+  try {
+    if ((await lock.check()) !== "owned") return;
+    const onDisk = JSON.parse((await fs.readFile(join(dir, "manifest.json"))).toString("utf8"));
+    if (canonicalJson(onDisk) !== canonicalJson(published)) return;
+    const bytes = await fs.readFile(join(dir, name));
+    if (createHash("sha256").update(bytes).digest("hex") !== verifiedSha256) return;
+    await fs.remove(join(dir, name));
+  } catch {
+    // the commit path's cleanup is equally best effort; an unremoved snapshot is proved and removed by the next open
+  }
 }
 
 /** R-01: exceptional recovery only. A filename alone never earns clearance for a player read.
@@ -334,10 +405,12 @@ export async function loadCheckpoint(
       issues: parsed.error.issues.slice(0, 5),
     });
   const m = parsed.data;
-  options =
-    policy(options) === null || policy(options) !== m.head.checkpoint.verification_policy
-      ? { ...options, audit: true }
-      : options;
+  // What the caller asked for. An untrusted/changed policy forces ONE strict replay below, but that is not the caller's audit
+  // request: the verified successor is reopened with the caller's own options, as any later ordinary open would be.
+  const requested = options;
+  const transition =
+    policy(options) !== null && policy(options) !== m.head.checkpoint.verification_policy;
+  options = policy(options) === null || transition ? { ...options, audit: true } : options;
   const { self_sha256, ...unsealed } = m;
   if (sha256Canonical(unsealed) !== self_sha256)
     return fail("INTEGRITY_MANIFEST", "v2 manifest hash mismatch");
@@ -374,8 +447,11 @@ export async function loadCheckpoint(
   if ((await fs.fileSize(join(dir, h.state_file))) === null)
     return fail("MISSING_STATE", "checkpoint state missing");
   let state;
+  let snapshotSha256 = "";
   try {
-    const raw: unknown = JSON.parse((await fs.readFile(join(dir, h.state_file))).toString("utf8"));
+    const snapshot = await fs.readFile(join(dir, h.state_file));
+    if (transition) snapshotSha256 = createHash("sha256").update(snapshot).digest("hex");
+    const raw: unknown = JSON.parse(snapshot.toString("utf8"));
     const file = StateFileSchema.safeParse(raw);
     if (!file.success) return fail("SCHEMA_INVALID", "checkpoint state schema mismatch");
     const from = stateFromFile(file.data);
@@ -473,6 +549,8 @@ export async function loadCheckpoint(
       offsetStart,
       h.journal_bytes - offsetStart,
     );
+    // The exact committed bytes this strict replay judges. The successor proof below must see the same bytes.
+    const strictBytesSha256 = transition ? createHash("sha256").update(bytes).digest("hex") : "";
     const tail: { entry: JournalEntry; location: Location }[] = [];
     let offset = offsetStart;
     const verifiedEntries: { entry: JournalEntry; location: Location }[] = [];
@@ -511,7 +589,7 @@ export async function loadCheckpoint(
       return fail("INTEGRITY_JOURNAL", "tail chain head mismatch");
     if (core.state.revision !== h.revision || stateSha256(core.state) !== h.state_sha256)
       return fail("INTEGRITY_STATE", "tail state mismatch");
-    if (policy(options) !== null && cp.verification_policy !== policy(options)) {
+    if (transition) {
       const before = options.beforeMigrationCheck?.(
         new CheckpointStore(dir, fs, lock, core, m, options, size, tail, []),
       );
@@ -553,17 +631,30 @@ export async function loadCheckpoint(
       });
       if ((await lock.check()) !== "owned")
         throw new Error("writer authority lost during checkpoint verification");
+      // Independent pre-publication check of the derived successor, from durable files and without a second replay: the strict
+      // pass above already judged every historical group once, against its actual incremental pre-state, with the current
+      // verifier. Replaying the same bytes again cannot reach a different verdict, so the successor is instead proved to
+      // describe exactly that replay (see proveSuccessor), and its state file and publication proof are read back as for any open.
       const successor = await loadCheckpoint(
         dir,
         fs,
         lock,
-        { ...options, audit: true },
+        { ...requested, audit: false },
         fresh,
         true,
       );
       if (!successor.ok) return successor;
+      await proveSuccessor(dir, fs, index, fresh, verifiedEntries, strictBytesSha256);
+      if ((await lock.check()) !== "owned")
+        throw new Error("writer authority lost before checkpoint publication");
       await fs.writeFileDurable(join(dir, "manifest.json"), `${canonicalJson(fresh)}\n`);
-      return loadCheckpoint(dir, fs, lock, options, fresh);
+      // The superseded checkpoint snapshot is now unreferenced derived evidence: remove it, under the R-01 cleanup conditions, as
+      // an ordinary checkpoint commit removes its predecessor, so the reopen below finds no residue. A crash or failure here
+      // leaves the exceptional, fully proved R-01 reconciliation to the next open; nothing is ever removed unproved.
+      if (h.state_file !== stateFile)
+        await removeSuperseded(dir, fs, lock, fresh, h.state_file, snapshotSha256);
+      // Reopen the published successor as any later open would (bounded tail), unless the caller itself asked for a strict audit.
+      return loadCheckpoint(dir, fs, lock, requested, fresh);
     }
     const known = new Set([
       "manifest.json",

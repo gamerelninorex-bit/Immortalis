@@ -43,17 +43,29 @@ export class HistoryIndex {
   readonly dir: string;
   readonly fs: FsOps;
   readonly generation: string;
-  constructor(dir: string, fs: FsOps, generation = sha256Canonical("structural-v1")) {
+  /** Hash-verified nodes already read by this instance (only when memoizing, for one bounded verification; nodes are immutable). */
+  readonly #verified: Map<string, Node> | undefined;
+  constructor(
+    dir: string,
+    fs: FsOps,
+    generation = sha256Canonical("structural-v1"),
+    memoize = false,
+  ) {
     this.dir = dir;
     this.fs = fs;
     this.generation = generation;
+    this.#verified = memoize ? new Map() : undefined;
   }
   read(ref: IndexRef): Node {
+    const memo = `${ref.file}\0${ref.offset}\0${ref.length}\0${ref.sha256}`;
+    const known = this.#verified?.get(memo);
+    if (known) return known;
     const raw: unknown = JSON.parse(
       this.fs.readRangeSync(join(this.dir, ref.file), ref.offset, ref.length).toString("utf8"),
     );
     const node = NodeSchema.parse(raw);
     if (sha256Canonical(node) !== ref.sha256) throw new Error("history index hash mismatch");
+    this.#verified?.set(memo, node);
     return node;
   }
   lookup(root: IndexRef | null, key: string): Location | null {
