@@ -29,12 +29,29 @@ if (!opened.ok) throw new Error(JSON.stringify(opened.error));
 const store = opened.value;
 const count = Number(probes);
 const sample = [1, Math.ceil(count / 2), count];
+// every historical identity, resolved through this fresh process's own hash-directed lookups
+let exact = 0;
+let mismatches = 0;
+for (let i = 1; i <= count; i++) {
+  const receipt = store.lookupReceipt(`intent-${i}`);
+  const byGroup = store.committedGroupById?.(`group-${i}`);
+  const byIntent = store.committedGroup(`intent-${i}`);
+  if (
+    receipt?.revision === i &&
+    byGroup?.intent_id === `intent-${i}` &&
+    byIntent?.group_id === `group-${i}`
+  )
+    exact++;
+  else mismatches++;
+}
 console.log(
   JSON.stringify({
     head: store.head(),
     replayed,
     judged,
     residue: store.residue,
+    exact,
+    mismatches,
     receipts: sample.map((n) => store.lookupReceipt(`intent-${n}`)),
     groups: sample.map((n) => store.committedGroupById?.(`group-${n}`) ?? null),
   }),

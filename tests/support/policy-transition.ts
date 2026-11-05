@@ -1,15 +1,19 @@
 // H-07 S2 MECHANISM test support: a v2 package written under an OLDER history-verification policy, reopened by a build whose
 // policy differs. Synthetic disposable data only; no real campaign, host, model or provider is involved.
+import { createHash } from "node:crypto";
 import { appendFile, rename, writeFile } from "node:fs/promises";
+import { canonicalJson } from "@immortalis/contracts";
 import {
   CampaignCore,
   createFileCampaign,
   nodeFs,
+  sha256Canonical,
   type FileCampaignOptions,
   type FsOps,
   type WriteAdmission,
 } from "@immortalis/engine";
 import { TEST_OWNERS, group, write } from "@immortalis/testkit";
+import type { IndexRef, Location } from "../../packages/engine/src/persistence/history-index.ts";
 import { must } from "./temporal.ts";
 import { tempDir } from "./tmp.ts";
 
@@ -104,4 +108,89 @@ export async function countReplays<T>(
   } finally {
     CampaignCore.prototype.replay = original;
   }
+}
+
+// -- digest-valid derived index trees ------------------------------------------------------------------------------------------------
+// The successor proof must not trust "every node hashes correctly": a tree whose every node is hash-valid can still route a key to
+// the wrong place, repeat a leaf, or omit an identity. These helpers build such durable, hash-valid trees on purpose.
+export type IndexTree =
+  | { kind: "leaf"; key: string; value: Location }
+  | { kind: "branch"; bit: number; left: IndexTree; right: IndexTree };
+const digestOf = (key: string) => createHash("sha256").update(canonicalJson(key)).digest();
+const bitAt = (bytes: Buffer, bit: number) => (bytes[bit >> 3]! >> (7 - (bit & 7))) & 1;
+
+/** The canonical compressed binary trie over the SHA-256 path of each key: what `HistoryIndex.lookup` routes through. */
+export function buildIndexTree(items: readonly (readonly [string, Location])[]): IndexTree {
+  const hashed = items.map(([key, value]) => ({ key, value, hash: digestOf(key) }));
+  const grow = (set: typeof hashed, from: number): IndexTree => {
+    if (set.length === 1) return { kind: "leaf", key: set[0]!.key, value: set[0]!.value };
+    let bit = from;
+    while (set.every((x) => bitAt(x.hash, bit) === bitAt(set[0]!.hash, bit))) bit++;
+    return {
+      kind: "branch",
+      bit,
+      left: grow(
+        set.filter((x) => bitAt(x.hash, bit) === 0),
+        bit + 1,
+      ),
+      right: grow(
+        set.filter((x) => bitAt(x.hash, bit) === 1),
+        bit + 1,
+      ),
+    };
+  };
+  return grow(hashed, 0);
+}
+
+/** One pack holding the whole tree, every node referenced by its true SHA-256 (children before parents). */
+export function serializeIndexTree(
+  tree: IndexTree,
+  file: string,
+): { root: IndexRef; text: string } {
+  const lines: string[] = [];
+  let offset = 0;
+  const emit = (node: IndexTree): IndexRef => {
+    const stored =
+      node.kind === "leaf"
+        ? node
+        : {
+            kind: "branch" as const,
+            bit: node.bit,
+            left: emit(node.left),
+            right: emit(node.right),
+          };
+    const line = `${canonicalJson(stored)}\n`;
+    const ref = { file, offset, length: Buffer.byteLength(line), sha256: sha256Canonical(stored) };
+    lines.push(line);
+    offset += ref.length;
+    return ref;
+  };
+  const root = emit(tree);
+  return { root, text: lines.join("") };
+}
+
+/** Every node on the way from the root to the leaf of `key`, root first. */
+export function pathTo(tree: IndexTree, key: string): IndexTree[] {
+  const hash = digestOf(key);
+  const path: IndexTree[] = [];
+  for (let node: IndexTree = tree; ;) {
+    path.push(node);
+    if (node.kind === "leaf") return path;
+    node = bitAt(hash, node.bit) ? node.right : node.left;
+  }
+}
+
+/** All branch nodes and all leaves, depth first. */
+export function walkIndexTree(
+  tree: IndexTree,
+  visit: (node: IndexTree, parent: IndexTree | null) => void,
+) {
+  const go = (node: IndexTree, parent: IndexTree | null) => {
+    visit(node, parent);
+    if (node.kind === "branch") {
+      go(node.left, node);
+      go(node.right, node);
+    }
+  };
+  go(tree, null);
 }

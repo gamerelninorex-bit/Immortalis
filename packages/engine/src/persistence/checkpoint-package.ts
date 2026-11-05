@@ -127,9 +127,13 @@ function parseLines(bytes: Buffer, expected: number): { entry: JournalEntry; len
 
 /**
  * Pre-publication proof that a policy-transition successor describes exactly the strict replay that earned it. It reads only
- * durable files: the committed journal bytes must be the very bytes the strict replay judged, and the freshly written index
- * generation must hold, for every historical intent and group, exactly the location that replay derived, and nothing else
- * (each node is hash-verified as it is read). It re-runs no owner rule and recomputes no state; the replay already did, once.
+ * durable files and re-runs no owner rule and recomputes no state (the replay already did, once):
+ *  - the committed journal bytes must be byte-identical (SHA-256) to the bytes the strict replay judged;
+ *  - for EVERY historical intent and group the hash-directed `lookup` of the successor index must reach exactly the location the
+ *    replay derived (so a misrouted branch, a missing identity or a duplicate standing in for one is refused, not merely counted);
+ *  - and the tree must hold nothing else: each enumerated leaf is a distinct expected key, and there are exactly as many leaves as
+ *    expected keys.
+ * Each node is hash-verified as it is read; the verifying reader memoizes the nodes it has verified, so every node is read once.
  */
 async function proveSuccessor(
   dir: string,
@@ -145,16 +149,24 @@ async function proveSuccessor(
     throw new Error("committed journal changed after strict replay");
   const expected = new Map<string, string>();
   for (const { entry, location } of verified)
-    for (const key of [`i:${entry.group.intent_id}`, `g:${entry.group.group_id}`])
+    for (const key of [`i:${entry.group.intent_id}`, `g:${entry.group.group_id}`]) {
+      if (expected.has(key)) throw new Error("duplicate historical identity in the strict replay");
       expected.set(key, canonicalJson(location));
-  let seen = 0;
-  for (const [key, location] of index.entries(head.checkpoint.index)) {
-    if (expected.get(key) !== canonicalJson(location))
-      throw new Error("successor index disagrees with strict replay");
-    seen++;
+    }
+  if (expected.size !== 2 * head.journal_entries)
+    throw new Error("strict replay does not cover every historical identity");
+  const root = head.checkpoint.index;
+  const reader = new HistoryIndex(dir, fs, index.generation, true);
+  for (const [key, location] of expected)
+    if (canonicalJson(reader.lookup(root, key)) !== location)
+      throw new Error("successor index does not reach a historical identity by its key path");
+  const leaves = new Set<string>();
+  for (const [key] of reader.entries(root)) {
+    if (!expected.has(key)) throw new Error("successor index holds an unexpected identity");
+    if (leaves.has(key)) throw new Error("successor index holds a duplicate identity");
+    leaves.add(key);
   }
-  if (seen !== expected.size || expected.size !== 2 * head.journal_entries)
-    throw new Error("successor index is incomplete");
+  if (leaves.size !== expected.size) throw new Error("successor index is incomplete");
 }
 
 /**

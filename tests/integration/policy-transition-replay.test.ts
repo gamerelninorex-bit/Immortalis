@@ -43,9 +43,14 @@ import {
   change,
   countReplays,
   optionsFor,
+  buildIndexTree,
+  pathTo,
   policyAdmission,
   seedFs,
   seedOldPolicy,
+  serializeIndexTree,
+  walkIndexTree,
+  type IndexTree,
 } from "../support/policy-transition.ts";
 import { must } from "../support/temporal.ts";
 import { copyDir, snapshotDir, tempDir } from "../support/tmp.ts";
@@ -151,13 +156,14 @@ describe("H-07 S2: first open under a changed history-verification policy replay
       expect(cold.entries).toBe(1);
       expect(again.verified()).toBe(1);
       expect(cold.result.lookupReceipt(`intent-${n + 1}`)).toEqual(next.receipt);
-      for (const i of probes(n)) {
-        expect(cold.result.lookupReceipt(`intent-${i}`)).toEqual(
-          expected.receipts[probes(n).indexOf(i)],
-        );
+      // exact historical lookups for EVERY identity, not a sample: receipt, group by id and group by intent
+      for (let i = 1; i <= n + 1; i++) {
+        expect(cold.result.lookupReceipt(`intent-${i}`)?.revision).toBe(i);
         expect(cold.result.committedGroupById!(`group-${i}`)).toEqual(change(i));
         expect(cold.result.committedGroup(`intent-${i}`)).toEqual(change(i));
       }
+      for (const [k, i] of probes(n).entries())
+        expect(cold.result.lookupReceipt(`intent-${i}`)).toEqual(expected.receipts[k]);
       await cold.result.close();
       const audit = await countReplays(() =>
         must(
@@ -194,12 +200,16 @@ describe("H-07 S2: first open under a changed history-verification policy replay
         ) as Record<string, any>;
       const first = run();
       expect(first.replayed).toBe(n);
+      expect(first.exact).toBe(n);
+      expect(first.mismatches).toBe(0);
       expect(first.judged).toBe(n);
       expect(first.head).toEqual(expected.head);
       expect(first.receipts).toEqual(expected.receipts);
       expect(first.groups).toEqual(expected.groups);
       const second = run(); // cold, in yet another process: bounded tail only
       expect(second.replayed).toBe(0);
+      expect(second.exact).toBe(n);
+      expect(second.mismatches).toBe(0);
       expect(second.judged).toBe(0);
       expect(second.head).toEqual(expected.head);
       expect(second.receipts).toEqual(expected.receipts);
@@ -419,6 +429,90 @@ describe("H-07 S2 falsifying negatives: nothing is published, nothing is trusted
       expect(existsSync(join(dir, oldSnapshot))).toBe(true); // and the old snapshot was NOT removed
       return r.ok ? "OK" : r.error.code;
     }
+
+    /**
+     * Replaces the transition's FINAL index batch with a durable tree built by hand: every node is referenced by its true SHA-256 and
+     * the whole tree is one pack, so `shape` can break what a node-hash check cannot see (routing, uniqueness).
+     */
+    const injectDurableTree = (shape: (tree: IndexTree) => void) => {
+      const generation = sha256Canonical(NEW_POLICY_ID);
+      const all: [string, any][] = [];
+      HistoryIndex.prototype.extend = async function (
+        this: HistoryIndex,
+        root,
+        additions,
+        revision,
+      ) {
+        if (this.generation !== generation) return realExtend.call(this, root, additions, revision);
+        all.push(...additions);
+        if (revision !== N) return realExtend.call(this, root, additions, revision);
+        const tree = buildIndexTree(all);
+        shape(tree);
+        const file = `history/index.${String(revision).padStart(10, "0")}.${generation}.json`;
+        const { root: ref, text } = serializeIndexTree(tree, file);
+        await this.fs.writeFileDurable(join(this.dir, file), text);
+        return ref;
+      };
+    };
+    /** Every historical identity, resolved through the opened store's hash-directed lookups. */
+    async function everyIdentityResolves(dir: string) {
+      const s = await must(openNew(dir));
+      for (let i = 1; i <= N; i++) {
+        expect(s.lookupReceipt(`intent-${i}`)?.revision).toBe(i);
+        expect(s.committedGroupById!(`group-${i}`)).toEqual(change(i));
+      }
+      await s.close();
+    }
+
+    it("control: a hand-built, correctly routed durable tree is accepted and resolves every identity", async () => {
+      const dir = await fresh();
+      injectDurableTree(() => undefined);
+      await everyIdentityResolves(dir);
+      expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(NEW_POLICY_ID);
+    });
+
+    it("a digest-valid successor with a misrouted branch, the last intent still reachable, is refused before publication", async () => {
+      const dir = await fresh();
+      let swapped = "";
+      injectDurableTree((tree) => {
+        const onLastPath = new Set(pathTo(tree, `i:intent-${N}`));
+        let victim: IndexTree | undefined;
+        walkIndexTree(tree, (node) => {
+          if (node.kind === "branch" && !onLastPath.has(node) && !victim) victim = node;
+        });
+        if (victim?.kind !== "branch")
+          throw new Error("test construction found no branch to misroute");
+        [victim.left, victim.right] = [victim.right, victim.left]; // every leaf survives; only the routing is wrong
+        swapped = `bit ${victim.bit}`;
+      });
+      expect(await refusedBeforePublication(dir)).toBe("INTEGRITY_JOURNAL");
+      expect(swapped).not.toBe("");
+      HistoryIndex.prototype.extend = realExtend;
+      await everyIdentityResolves(dir); // a clean same-PR retry converges and every identity is reachable
+    });
+
+    it("a digest-valid successor in which a duplicate leaf stands in for a missing identity is refused before publication", async () => {
+      const dir = await fresh();
+      let leaves = 0;
+      injectDurableTree((tree) => {
+        let stand: IndexTree | undefined;
+        let replace:
+          { parent: Extract<IndexTree, { kind: "branch" }>; side: "left" | "right" } | undefined;
+        walkIndexTree(tree, (node, parent) => {
+          if (node.kind !== "leaf") return;
+          leaves++;
+          if (node.key === "g:group-78") stand = node;
+          if (node.key === "g:group-77" && parent?.kind === "branch")
+            replace = { parent, side: parent.left === node ? "left" : "right" };
+        });
+        if (!stand || !replace) throw new Error("test construction found no leaf to duplicate");
+        replace.parent[replace.side] = stand; // 2N leaves are still enumerated; g:group-77 is gone, g:group-78 appears twice
+      });
+      expect(await refusedBeforePublication(dir)).toBe("INTEGRITY_JOURNAL");
+      expect(leaves).toBe(2 * N);
+      HistoryIndex.prototype.extend = realExtend;
+      await everyIdentityResolves(dir);
+    });
 
     it("a successor index missing one historical identity is refused although every node is hash-valid", async () => {
       const dir = await fresh();
