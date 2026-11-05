@@ -245,6 +245,16 @@ export interface SelectionOptions {
   readonly claimKind?: "NONE_ESTABLISHED" | "CLAIM_REQUIRED" | "UNRESOLVED";
   readonly claimant?: string | null;
   readonly closure?: Selection["closure"]["kind"];
+  /** the selected domain text (default: delegated renderings) */
+  readonly designation?: string;
+  readonly topology?: string;
+  /**
+   * Paths that are PLAYER_AUTHORED rather than delegated, each with the exact quotes (from the accepted setup message) that contain the
+   * selected string. The test supplies a setup message that really contains them; every other non-start path stays PLAYER_DELEGATED.
+   */
+  readonly authored?: Readonly<Record<string, readonly string[]>>;
+  /** replaces the provenance array after it is built (falsifiers): the raw order and content of the signed answer */
+  readonly provenance?: (entries: Selection["provenance"]) => Selection["provenance"];
 }
 
 /** The lawful positive selection: a CLOSED domain with no non-PC actor and no established source claim. */
@@ -261,7 +271,10 @@ export function delegatedSelection(
   const grant = input["grant"] as Pin;
   const kind = options.claimKind ?? "NONE_ESTABLISHED";
   const base: Omit<Selection, "provenance"> = {
-    domain: { designation: "the woodlot", topology: "a single cleared stand" },
+    domain: {
+      designation: options.designation ?? "the woodlot",
+      topology: options.topology ?? "a single cleared stand",
+    },
     closure: { kind: options.closure ?? "CLOSED", ground: "bounded by the stand's edge" },
     actors: options.actors ?? {
       kind: "NONE_IN_DOMAIN",
@@ -287,18 +300,33 @@ export function delegatedSelection(
     },
   };
   const provisional: Selection = { ...base, provenance: [] };
-  const provenance = selectionLeafPaths(provisional).map((path) =>
-    path === "coverage.start"
-      ? {
-          path,
-          origin: "PLAYER_AUTHORED" as const,
-          source_refs: [],
-          evidence_quotes: [chronology.statement],
-          grant: null,
-        }
-      : { path, origin: "PLAYER_DELEGATED" as const, source_refs: [], evidence_quotes: [], grant },
-  );
-  return { ...base, provenance };
+  const entries = selectionLeafPaths(provisional).map((path) => {
+    if (path === "coverage.start")
+      return {
+        path,
+        origin: "PLAYER_AUTHORED" as const,
+        source_refs: [],
+        evidence_quotes: [chronology.statement],
+        grant: null,
+      };
+    const quotes = options.authored?.[path];
+    if (quotes)
+      return {
+        path,
+        origin: "PLAYER_AUTHORED" as const,
+        source_refs: [],
+        evidence_quotes: [...quotes],
+        grant: null,
+      };
+    return {
+      path,
+      origin: "PLAYER_DELEGATED" as const,
+      source_refs: [],
+      evidence_quotes: [],
+      grant,
+    };
+  });
+  return { ...base, provenance: options.provenance ? options.provenance(entries) : entries };
 }
 
 export const delegatingScene =

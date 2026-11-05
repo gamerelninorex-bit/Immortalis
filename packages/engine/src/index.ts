@@ -58,6 +58,7 @@ export * from "./initial-setup/admission.ts";
 export * from "./initial-setup/genesis.ts";
 export * from "./initial-setup/identity.ts";
 export * from "./initial-setup/producer.ts";
+export * from "./initial-setup/provenance.ts";
 export * from "./initial-setup/projection.ts";
 export * from "./initial-setup/publish.ts";
 export * from "./initial-setup/publisher.ts";

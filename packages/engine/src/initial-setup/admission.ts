@@ -1,7 +1,6 @@
 import { createPublicKey } from "node:crypto";
 import {
   CANON_WRITE_AUTHORITY,
-  CHECKLIST,
   CHRONOLOGY_DOCUMENT_MAX_BYTES,
   CONTEXT_MANIFEST_MISMATCH,
   INITIAL_LOCALITY_PARSER_V1,
@@ -70,6 +69,7 @@ import {
   verifyEnvelopeSignature,
 } from "./identity.ts";
 import { buildProducerInput, contextManifestHashOf, resolveInstructionMap } from "./producer.ts";
+import { fixedSourceViolation, genesisValueIndex, provenanceViolation } from "./provenance.ts";
 import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
 
 /**
@@ -942,9 +942,26 @@ export function derivedScopeVerdict(
   input: InitialSetupInput,
   facts: ReadonlyMap<string, OwnerFact>,
 ): ScopeDecisionRecord["verdict"] {
-  return scopeEvidenceViolation(out, input, genesisSourceText(facts))
-    ? "SCOPE_REFUSED"
-    : scopeVerdict(out);
+  if (scopeEvidenceViolation(out, input, genesisSourceText(facts))) return "SCOPE_REFUSED";
+  const verdict = scopeVerdict(out);
+  // C-2 / CE-3: an otherwise authorized scope whose FIXED_BY_SOURCE facets the cited pinned sources cannot support is refused HERE,
+  // before any Grant or SCENE reservation. The same function serves the trusted service, the Referee/Disposition admission and replay,
+  // so the stored reason always equals the canonically derived verdict. A fixed facet is never silently relabelled DELEGATED.
+  if (
+    verdict === "SCOPE_AUTHORIZED" &&
+    fixedSourceViolation(out.facets, out.restrictions, genesisValuesOf(input, facts))
+  )
+    return "SCOPE_REFUSED";
+  return verdict;
+}
+
+/** The Input-pinned genesis values (by `fact_key@version`) of the actual prefix; empty when the genesis projection is unavailable. */
+export function genesisValuesOf(
+  input: InitialSetupInput,
+  facts: ReadonlyMap<string, OwnerFact>,
+): Map<string, unknown> {
+  const projection = genesisProjection(facts);
+  return projection.ok ? genesisValueIndex(input, projection.value.facts) : new Map();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1117,6 +1134,14 @@ function checkGrant(group: CommitGroup, state: CampaignState): Rejection | null 
       "REFERENCE_INVALID",
       "the Grant carries no adapter-selected time: chronology_hash is the Input capture's document hash",
     );
+  // C-2: the fixed-source support check is applied again at Grant admission, from the canonical Input and the prefix's own genesis
+  const unsupported = fixedSourceViolation(
+    g.facets,
+    g.restrictions,
+    genesisValuesOf(input, state.facts),
+  );
+  if (unsupported)
+    return reject("REFERENCE_INVALID", unsupported, { reason: "FIXED_SOURCE_UNSUPPORTED" });
   return bindingViolation(
     group,
     state,
@@ -1128,33 +1153,6 @@ function checkGrant(group: CommitGroup, state: CampaignState): Rejection | null 
 // ---------------------------------------------------------------------------------------------------------------------
 // Completion
 // ---------------------------------------------------------------------------------------------------------------------
-
-/** The selected leaves, one provenance entry each: no omitted, duplicate or foreign path. */
-export function selectionLeafPaths(s: Selection): string[] {
-  return [
-    "domain.designation",
-    "domain.topology",
-    "closure.kind",
-    "closure.ground",
-    "actors.kind",
-    "actors.constraints",
-    "actors.ground",
-    ...s.source_claims.map((c) => `source_claims.${c.source.fact_key}`),
-    "workforce.scope_statement",
-    "coverage.start",
-    "coverage.end",
-    "coverage.ground",
-  ].sort();
-}
-
-const FACET_OF_LEAF = (path: string): (typeof CHECKLIST)[number] =>
-  path.startsWith("actors.")
-    ? "ACTOR_COVERAGE"
-    : path.startsWith("source_claims.")
-      ? "SOURCE_CLAIMS"
-      : path.startsWith("workforce.")
-        ? "WORKFORCE_COVERAGE"
-        : "DOMAIN_BOUNDARY";
 
 /**
  * Completion validation: a NAMED PURE FUNCTION of the frozen pre-state and the signed response (companion "Admission and Freeze").
@@ -1235,57 +1233,16 @@ export function completionViolation(
     };
   const restricted = restrictionViolation(grant.restrictions, selection);
   if (restricted) return { code: "RESTRICTION", message: restricted };
-  // provenance: one entry per selected leaf
-  const leaves = selectionLeafPaths(selection);
-  const paths = selection.provenance.map((p) => p.path).sort();
-  if (paths.length !== leaves.length || paths.some((p, i) => p !== leaves[i]))
-    return {
-      code: "PROVENANCE_PATHS",
-      message:
-        "provenance has exactly one entry per selected leaf: no omitted, duplicate or foreign path",
-    };
-  const sourceText = canonicalJson(projection.value.facts) + "\n" + doc.statement;
-  for (const p of selection.provenance) {
-    if (p.origin !== "PLAYER_AUTHORED" && p.origin !== "PLAYER_DELEGATED")
-      return {
-        code: "PROVENANCE_ORIGIN",
-        message:
-          "only PLAYER_AUTHORED and PLAYER_DELEGATED are emitted by selection; WORLD_COMPLETION, ACTOR_DECISION and ENGINE_DERIVED are not",
-      };
-    const facet = grant.facets.find((f) => f.facet === FACET_OF_LEAF(p.path))!;
-    if (p.origin === "PLAYER_DELEGATED") {
-      if (p.grant === null || !samePin(p.grant, c.grant))
-        return { code: "PROVENANCE_GRANT", message: "PLAYER_DELEGATED needs this session's grant" };
-      if (facet.mode !== "DELEGATED")
-        return {
-          code: "PROVENANCE_FACET",
-          message:
-            "a leaf of a facet fixed by source or not authorized is not a delegated selection",
-        };
-    } else {
-      if (p.grant !== null)
-        return { code: "PROVENANCE_GRANT", message: "PLAYER_AUTHORED carries no grant" };
-      if (p.evidence_quotes.length === 0 && p.source_refs.length === 0)
-        return {
-          code: "PROVENANCE_EVIDENCE",
-          message: "PLAYER_AUTHORED needs an exact already accepted source value or quote",
-        };
-      for (const q of p.evidence_quotes)
-        if (!occurs(input.setup_message, q) && !occurs(sourceText, q))
-          return {
-            code: "PROVENANCE_QUOTE",
-            message:
-              "a provenance quote occurs in neither the accepted instruction nor a cited source",
-          };
-      const known = new Set(input.genesis.map((x) => x.fact_key + "@" + x.version));
-      for (const s of p.source_refs)
-        if (!known.has(s.fact_key + "@" + s.version))
-          return {
-            code: "PROVENANCE_REF",
-            message: "a provenance source ref is not an admitted genesis pin",
-          };
-    }
-  }
+  // provenance: INITIAL_LOCALITY_PROVENANCE_V1 over the closed indexed path set, validated at each entry's actual path and value
+  const bad = provenanceViolation({
+    selection,
+    setupMessage: input.setup_message,
+    chronologyStatement: doc.statement,
+    grant: c.grant,
+    facets: grant.facets,
+    genesis: genesisValueIndex(input, projection.value.facts),
+  });
+  if (bad) return bad;
   return null;
 }
 

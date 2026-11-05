@@ -48,7 +48,10 @@ export const CHRONOLOGY_DOC = {
 export const scratch = (prefix: string): string => mkdtempSync(join(tmpdir(), prefix));
 
 /** A fresh original world/locus/source with NO PC, no binding and no canonical time, under the T1 fixture admission. */
-export async function openFixtureCampaign(campaignId = BOOTSTRAP_CAMPAIGN) {
+export async function openFixtureCampaign(
+  campaignId = BOOTSTRAP_CAMPAIGN,
+  sourceOver: Record<string, unknown> = {},
+) {
   const dir = scratch("immortalis-bootstrap-campaign-");
   const campaign = await must(
     CanonicalCampaign.create(dir, {
@@ -59,7 +62,9 @@ export async function openFixtureCampaign(campaignId = BOOTSTRAP_CAMPAIGN) {
   );
   await must(campaign.establishWorld({ ...publication(1), world: fixtureWorld() }));
   await must(campaign.establishLocus({ ...publication(2), locus: fixtureLocus() }));
-  await must(campaign.establishSourceCondition({ ...publication(3), source: sourceInput() }));
+  await must(
+    campaign.establishSourceCondition({ ...publication(3), source: sourceInput(sourceOver) }),
+  );
   return { campaign, dir };
 }
 
