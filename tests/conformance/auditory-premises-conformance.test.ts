@@ -181,7 +181,8 @@ describe("nothing outside the physical-source slice was built", () => {
         "616eac431452e31fcce97c8798b7a83cd0041619fadbe0663971666fe3362104",
       "packages/engine/src/persistence":
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
-        "cdac9cd5bfd46b89edaff583b7e0b47fddaf3fd05a9c78724c69de271141f8eb",
+        // H-07 S2: a policy-transition first open replays history once (the successor is proved from durable files; the reopen is bounded).
+        "bebe827f854b9363cc2fc4f1a29f5c91f70990eedaf5e039f21ff46b3761e9d7",
       "packages/engine/src/commit":
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
