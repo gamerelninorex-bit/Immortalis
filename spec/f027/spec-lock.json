@@ -383,6 +383,26 @@
         "native_pin": "2026-11-02T15:46:21.719Z"
       },
       "note": "The separately ratified OPTION_A_V9 scope (2026-11-02T15:46:21.719Z). Precedence applies only to the explicit INITIAL_COMPLETION_V9 derivation branch; CPAA-C1 v0.3 F-2 through F-5 and all other clauses are unchanged."
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "sections": [
+        "C-1 — exact producer identity and one model echo",
+        "C-2 — the v0.9 one-source Selection provenance"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+        "native_pin": "2026-11-03T00:54:41.601Z"
+      },
+      "note": "Section-scoped, Sovereign-ratified clarification of the v0.9 CORE_V9 contract (BLUE C-1/C-2 v0.4, RED PASS pin 2026-11-03T00:42:43.420Z, CE-1/CE-2/CE-3 incorporated). It amends neither the ratified v0.9 source nor the executable companion pages, does not re-pin any frozen source and is not itself executable authority; its executable consequences are registered additively by GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING."
     }
   ],
   "executable_lowerings": [
@@ -628,6 +648,51 @@
       "sunset_unknown": "UNREVIEWED_BLOCK",
       "sunset_missing_row": "VALIDATION_FAILURE",
       "policy_coverage": "ALL_FACT_KINDS_EXACT_SET_NO_SYNTHESIZED_ROWS"
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+      "title": "IMMORTALIS — BLUE C-1/C-2 Clarification v0.4 — Activation, Terminal Evidence and Fixed-Source Feasibility — 2026-11-03",
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "section": "C-1 and C-2",
+      "scope": "C1_C2_CLARIFICATION_V0_4",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "AMENDS_ADDITIVELY",
+      "amends": {
+        "id": "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+        "native_pin": "2026-11-01T12:13:53.634Z"
+      },
+      "cites_design_lineage": [
+        "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "producer_identity": "P_H_T_D_NON_CIRCULAR_BYTE_EQUAL_DELIVERY",
+      "model_echo": "TASK_ID_ONLY_NO_INPUT_HASH_HEADER",
+      "parser_current": "INITIAL_LOCALITY_PARSER_V2",
+      "parser_frozen": "INITIAL_LOCALITY_PARSER_V1",
+      "parser_frozen_reader": "FIXTURE_NAMESPACED_JOURNALS_ONLY_VIA_TESTKIT_VERIFIER",
+      "provenance_profile": "INITIAL_LOCALITY_PROVENANCE_V1",
+      "instruction_registry": "IMMUTABLE_COMPLETE_MAPS_KEYED_BY_INSTRUCTION_HASH",
+      "instruction_hashes": {
+        "INITIAL_LOCALITY_PARSER_V1": "2f5814308d45b7a3ac692cca904a4df7b5a6a06cadee62b3792bf2673d864543",
+        "INITIAL_LOCALITY_PARSER_V2": "de40650cfbd2f2747c8984bb4715024f8f7915c9ce754985c973cda68ef43c7a"
+      },
+      "context_manifest": "SHA256_OF_EXACT_PHASE_INSTRUCTIONS_AND_SHA256_OF_D",
+      "manifest_mismatch": "INVALID_OUTPUT_CONTEXT_MANIFEST_MISMATCH_RETAINS_RESPONSE",
+      "unverifiable_source": "FAIL_CLOSED_NEVER_A_PROVED_MISMATCH",
+      "selection_leaf_grammar": "CLOSED_INDEXED_TWELVE_PATHS_PLUS_ONE_PER_CONSTRAINT_AND_NON_NULL_CLAIMANT",
+      "chronology_exception": "COVERAGE_START_ONLY_EXACT_CAPTURED_STATEMENT",
+      "fixed_source_feasibility": "SCOPE_VERDICT_AND_GRANT_ADMISSION_SCOPE_REFUSED_REJECTION_CODE_NULL",
+      "history_verification": "ONE_TRANSITION_PARSER_V2_PROVENANCE_V1_C1C2_PIN",
+      "does_not": [
+        "does not amend the ratified v0.9 source or executable companion pages",
+        "does not admit a production parser V1 route or a read-either reader",
+        "does not prove a quotation's meaning, an interpretation's correctness or a favourable scene",
+        "does not promote any fixture evidence to T2 or T3 acceptance"
+      ]
     }
   ],
   "snapshot_files": {

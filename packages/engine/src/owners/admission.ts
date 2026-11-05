@@ -481,7 +481,7 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
   return {
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z${idSuffix}`,
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}`,
     verifyHistorical(group, state) {
       return (
         worldActorPresenceHistoricalCheck(group, state) ??

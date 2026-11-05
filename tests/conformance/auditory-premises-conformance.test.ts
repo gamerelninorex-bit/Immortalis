@@ -309,8 +309,8 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     );
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
     // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
-    // + the two Initial Locality Bootstrap v0.9 lineage rows (core and the adopted OPTION_A_V9 row), appended after it
-    expect(lock["design_lineage_successors"]).toHaveLength(7);
+    // + the two Initial Locality Bootstrap v0.9 lineage rows (core and the adopted OPTION_A_V9 row), appended after it, and the additive C-1/C-2 row
+    expect(lock["design_lineage_successors"]).toHaveLength(8);
     expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
@@ -324,6 +324,7 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "GM-CURRENT-LOOK-SCENE-LOWERING",
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
     ]);
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.slice(0, 5).map((r) => r.id));
   });

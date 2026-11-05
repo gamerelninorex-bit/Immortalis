@@ -127,6 +127,8 @@ describe("the lock: one non-executable lineage row and two additive executable l
       // Initial Locality Bootstrap v0.9 (2 November 2026) appended its core and, with option_a_status ADOPTED, its optional lineage row
       "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
+      // the Sovereign-adopted C-1/C-2 clarification (3 November 2026), registered additively after them
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
     ]);
     expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
@@ -200,6 +202,7 @@ describe("the lock: one non-executable lineage row and two additive executable l
       SCENE_ID,
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
     ]);
     // the required table lists the unconditional rows; the OPTION_A_V9 rows are checked conditionally on option_a_status
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(
@@ -758,7 +761,7 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "ab12a3ccfe6e5093a77a96a21d71d658514832ca504afa4e046489bf0ba00a6e";
+const CURRENT_V08_LOCK_SHA256 = "d3267dfe72341125e1cd5563cd791e84fd4b753e832a6e4dd9419756e6b35447";
 const CURRENT_V08_REGISTRY_SHA256 =
   "9a61ff41c0b74997239c5c90c053cd5c83e0ed469529c4ff4fc323fcf3c45def";
 const gitBlobOf = (text: string): string => {
@@ -779,6 +782,9 @@ function lockWithoutV08Rows(): string {
     "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
     "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
     "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+    // and the additive C-1/C-2 clarification rows (3 November 2026)
+    "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+    "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
   ]);
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
     (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),

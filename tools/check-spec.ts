@@ -88,11 +88,55 @@ export const BOOTSTRAP_CORE_LINEAGE_ID = "GM-INITIAL-BOOTSTRAP-V9-LINEAGE";
 export const BOOTSTRAP_CORE_LOWERING_ID = "GM-INITIAL-BOOTSTRAP-V9-LOWERING";
 export const BOOTSTRAP_OPTION_A_LINEAGE_ID = "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE";
 export const BOOTSTRAP_OPTION_A_LOWERING_ID = "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING";
+/** The additive registration of the Sovereign-adopted C-1/C-2 clarification (v0.4); validated by `checkBootstrapC1C2`, never by the required tables. */
+export const BOOTSTRAP_C1C2_LINEAGE_ID = "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE";
+export const BOOTSTRAP_C1C2_LOWERING_ID = "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING";
 /** The optional rows are validated by `checkBootstrapV9` (present exactly when option_a_status is ADOPTED), never by the required tables. */
 const BOOTSTRAP_OPTIONAL_IDS: ReadonlySet<string> = new Set([
   BOOTSTRAP_OPTION_A_LINEAGE_ID,
   BOOTSTRAP_OPTION_A_LOWERING_ID,
+  BOOTSTRAP_C1C2_LINEAGE_ID,
+  BOOTSTRAP_C1C2_LOWERING_ID,
 ]);
+
+/** The adopted C-1/C-2 clarification: the conformed page, the Sovereign's separate ratification and the closed identities it registers. */
+const BOOTSTRAP_C1C2 = {
+  url: "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+  pin: "2026-11-03T00:51:23.053Z",
+  ratification: {
+    url: "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+    pin: "2026-11-03T00:54:41.601Z",
+  },
+  sections: [
+    "C-1 — exact producer identity and one model echo",
+    "C-2 — the v0.9 one-source Selection provenance",
+  ],
+  closed: [
+    ["scope", "C1_C2_CLARIFICATION_V0_4"],
+    ["status", "FROZEN_EXECUTABLE_LOWERING"],
+    ["relation", "AMENDS_ADDITIVELY"],
+    ["producer_identity", "P_H_T_D_NON_CIRCULAR_BYTE_EQUAL_DELIVERY"],
+    ["model_echo", "TASK_ID_ONLY_NO_INPUT_HASH_HEADER"],
+    ["parser_current", "INITIAL_LOCALITY_PARSER_V2"],
+    ["parser_frozen", "INITIAL_LOCALITY_PARSER_V1"],
+    ["parser_frozen_reader", "FIXTURE_NAMESPACED_JOURNALS_ONLY_VIA_TESTKIT_VERIFIER"],
+    ["provenance_profile", "INITIAL_LOCALITY_PROVENANCE_V1"],
+    ["instruction_registry", "IMMUTABLE_COMPLETE_MAPS_KEYED_BY_INSTRUCTION_HASH"],
+    ["context_manifest", "SHA256_OF_EXACT_PHASE_INSTRUCTIONS_AND_SHA256_OF_D"],
+    ["manifest_mismatch", "INVALID_OUTPUT_CONTEXT_MANIFEST_MISMATCH_RETAINS_RESPONSE"],
+    ["unverifiable_source", "FAIL_CLOSED_NEVER_A_PROVED_MISMATCH"],
+    [
+      "selection_leaf_grammar",
+      "CLOSED_INDEXED_TWELVE_PATHS_PLUS_ONE_PER_CONSTRAINT_AND_NON_NULL_CLAIMANT",
+    ],
+    ["chronology_exception", "COVERAGE_START_ONLY_EXACT_CAPTURED_STATEMENT"],
+    [
+      "fixed_source_feasibility",
+      "SCOPE_VERDICT_AND_GRANT_ADMISSION_SCOPE_REFUSED_REJECTION_CODE_NULL",
+    ],
+    ["history_verification", "ONE_TRANSITION_PARSER_V2_PROVENANCE_V1_C1C2_PIN"],
+  ] as const,
+} as const;
 
 /**
  * R1 Stage-One v1.1 section-scoped DESIGN lineage the lock records (23 October 2026), by id. A design-lineage successor says that named
@@ -512,6 +556,124 @@ export function checkBootstrapV9(
   return errors;
 }
 
+/**
+ * The adopted C-1/C-2 clarification registered ADDITIVELY beside the ratified v0.9 rows. Both rows must appear exactly once with their exact
+ * key sets and closed values; the amended core row is cited (not edited), nothing is superseded or narrowed, and the two instruction-map
+ * hashes are well-formed SHA-256 digests (their equality with the engine's registry is a conformance test, not a checker claim). It validates
+ * DECLARED strings only: heading separation and the reviewed content are verified by BLUE/RED.
+ */
+export function checkBootstrapC1C2(
+  lineage: readonly Record<string, unknown>[],
+  lowerings: readonly Record<string, unknown>[],
+): string[] {
+  const errors: string[] = [];
+  const e = (m: string) => errors.push(`spec-lock.json: ${m}`);
+  const rows = (list: readonly Record<string, unknown>[], id: string) =>
+    list.filter((r) => r["id"] === id);
+  const l = rows(lineage, BOOTSTRAP_C1C2_LINEAGE_ID);
+  const w = rows(lowerings, BOOTSTRAP_C1C2_LOWERING_ID);
+  if (l.length !== 1 || w.length !== 1) {
+    e(
+      "the C-1/C-2 clarification rows must appear exactly once each (the adopted clarification is registered, never defaulted)",
+    );
+    return errors;
+  }
+  const lr = l[0]!;
+  const lineageKeys = [
+    "id",
+    "of_frozen_source",
+    "url",
+    "native_pin",
+    "sections",
+    "status",
+    "executable",
+    "narrows_frozen_pin",
+    "supersedes",
+    "superseded_by",
+    "adoption_decision",
+    "note",
+  ];
+  if (keySet(lr) !== JSON.stringify([...lineageKeys].sort()))
+    e(`${BOOTSTRAP_C1C2_LINEAGE_ID} must carry exactly its closed fields`);
+  const decision = lr["adoption_decision"] as { url?: unknown; native_pin?: unknown } | undefined;
+  if (
+    lr["of_frozen_source"] !== null ||
+    lr["url"] !== BOOTSTRAP_C1C2.url ||
+    lr["native_pin"] !== BOOTSTRAP_C1C2.pin ||
+    !sameJson(lr["sections"], BOOTSTRAP_C1C2.sections) ||
+    lr["status"] !== "DESIGN_RATIFIED" ||
+    lr["executable"] !== false ||
+    lr["narrows_frozen_pin"] !== false ||
+    lr["supersedes"] !== null ||
+    lr["superseded_by"] !== null ||
+    decision?.url !== BOOTSTRAP_C1C2.ratification.url ||
+    decision?.native_pin !== BOOTSTRAP_C1C2.ratification.pin ||
+    Object.keys(decision ?? {}).length !== 2
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LINEAGE_ID} must name exactly the conformed clarification, its two sections and the Sovereign ratification, as ratified, non-executable lineage that supersedes and narrows nothing`,
+    );
+  const wr = w[0]!;
+  const loweringKeys = [
+    "id",
+    "title",
+    "url",
+    "native_pin",
+    "section",
+    "scope",
+    "status",
+    "executable",
+    "relation",
+    "amends",
+    "cites_design_lineage",
+    "supersedes",
+    "superseded_by",
+    "primary_im",
+    ...BOOTSTRAP_C1C2.closed
+      .map(([k]) => k)
+      .filter((k) => k !== "scope" && k !== "status" && k !== "relation"),
+    "instruction_hashes",
+    "does_not",
+  ];
+  if (keySet(wr) !== JSON.stringify([...loweringKeys].sort()))
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must carry exactly its closed fields (no absent, extra or renamed field)`,
+    );
+  for (const [k, want] of BOOTSTRAP_C1C2.closed)
+    if (wr[k] !== want)
+      e(`${BOOTSTRAP_C1C2_LOWERING_ID} field ${k} must be exactly ${JSON.stringify(want)}`);
+  const amends = wr["amends"] as { id?: unknown; native_pin?: unknown } | undefined;
+  if (
+    wr["url"] !== BOOTSTRAP_C1C2.url ||
+    wr["native_pin"] !== BOOTSTRAP_C1C2.pin ||
+    wr["executable"] !== true ||
+    wr["primary_im"] !== "IM-03" ||
+    wr["supersedes"] !== null ||
+    wr["superseded_by"] !== null ||
+    !sameJson(wr["cites_design_lineage"], [BOOTSTRAP_C1C2_LINEAGE_ID]) ||
+    amends?.id !== BOOTSTRAP_CORE_LOWERING_ID ||
+    amends?.native_pin !== BOOTSTRAP_V9.contract.pin ||
+    Object.keys(amends ?? {}).length !== 2
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must cite the clarification and its lineage row and amend ${BOOTSTRAP_CORE_LOWERING_ID} additively at the companion pin, superseding nothing`,
+    );
+  const hashes = wr["instruction_hashes"] as Record<string, unknown> | undefined;
+  const wantParsers = ["INITIAL_LOCALITY_PARSER_V1", "INITIAL_LOCALITY_PARSER_V2"];
+  if (
+    !hashes ||
+    !sameJson(Object.keys(hashes).sort(), wantParsers) ||
+    wantParsers.some(
+      (p) => typeof hashes[p] !== "string" || !/^[0-9a-f]{64}$/.test(hashes[p] as string),
+    ) ||
+    hashes["INITIAL_LOCALITY_PARSER_V1"] === hashes["INITIAL_LOCALITY_PARSER_V2"]
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must register one distinct SHA-256 instruction-map hash per parser version (V1 frozen, V2 current)`,
+    );
+  return errors;
+}
+
 /** Returns a list of consistency errors; an empty list means the spec snapshot is internally consistent. */
 export function checkSpec(root: string): string[] {
   const errors: string[] = [];
@@ -728,6 +890,7 @@ export function checkSpec(root: string): string[] {
       errors.push(`spec-lock.json: unexpected executable lowering ${String(e["id"])}`);
   }
   errors.push(...checkBootstrapV9(lineage, lowerings));
+  errors.push(...checkBootstrapC1C2(lineage, lowerings));
 
   const snapshot = lock.snapshot_files ?? {};
   for (const rel of [
