@@ -36,7 +36,7 @@ import { BUILD_SPEC_IDENTITY, canonicalJson } from "@immortalis/contracts";
 import * as kit from "@immortalis/testkit";
 
 const [, , mode, ...args] = process.argv;
-const exactSha = process.env["H07_EXACT_SHA"] ?? "unknown";
+const exactSha = process.env["H07S2_EXACT_SHA"] ?? "unknown";
 const E: any = engine;
 const nodeFs: any = E.nodeFs;
 const OLD_ID = "h07-s2-old-policy";

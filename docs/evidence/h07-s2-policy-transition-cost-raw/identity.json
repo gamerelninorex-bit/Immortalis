@@ -1,0 +1,25 @@
+{
+  "note": "Per-sample records carry build=base|head (set by the driver). Their exact_sha field reads \"unknown\" because the tool read H07_EXACT_SHA while the driver exports H07S2_EXACT_SHA (a tooling defect, fixed after the run; the measured logic is unaffected). The exact commits are recorded here and in report.md/summary.json instead.",
+  "base": {
+    "sha": "a1f26c70862dd0de26c0836b1708ca3b9d9aa667",
+    "tree": "43f04623c666287f844418a0cad834296b22a440",
+    "how": "git archive of the exact commit into tree-base; workspace packages resolved inside that tree"
+  },
+  "head": {
+    "code_sha": "6e9e0e03b2c5724e6f64d332ab06e0fb94cd9394",
+    "tree": "959576d6a584527d7eb64689d6e37e7fdbe0e49a",
+    "how": "the repository working tree, clean at launch (git status empty), equal to that commit for packages/, tools/ and tests/"
+  },
+  "old_fixture_builder": {
+    "sha": "eafbb127c476cafb8498316e496de29e078a2146",
+    "how": "git archive; old-policy canonical fixtures were seeded by this tree running tools/h07-s2-benchmark.ts seed canonical"
+  },
+  "runtime": {
+    "node": "v22.23.4",
+    "platform": "linux x64 6.18.44-fc-v236",
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "logical_cpus": 4,
+    "fs_type": "0xef53"
+  },
+  "samples": 316
+}
