@@ -1,0 +1,16 @@
+base entries=2000 facts<=1: median replay 248.6 ms (124.3 us/entry), min 235.8 ms, max 276.7 ms
+base entries=2000 facts<=8: median replay 388.3 ms (194.1 us/entry), min 331.1 ms, max 427.5 ms
+base entries=2000 facts<=64: median replay 1248.2 ms (624.1 us/entry), min 1171.7 ms, max 1349.6 ms
+base entries=2000 facts<=500: median replay 7949.6 ms (3974.8 us/entry), min 7660.7 ms, max 8600.3 ms
+head entries=2000 facts<=1: median replay 293.1 ms (146.5 us/entry), min 249.3 ms, max 311.0 ms
+head entries=2000 facts<=8: median replay 276.1 ms (138.1 us/entry), min 267.7 ms, max 340.6 ms
+head entries=2000 facts<=64: median replay 310.9 ms (155.4 us/entry), min 302.5 ms, max 386.4 ms
+head entries=2000 facts<=500: median replay 606.0 ms (303.0 us/entry), min 525.7 ms, max 630.9 ms
+base entries=2000 facts<=1: median replay 225.6 ms (112.8 us/entry), min 218.4 ms, max 248.8 ms
+base entries=2000 facts<=8: median replay 396.6 ms (198.3 us/entry), min 364.5 ms, max 477.7 ms
+base entries=2000 facts<=64: median replay 1317.9 ms (659.0 us/entry), min 1169.6 ms, max 1359.1 ms
+base entries=2000 facts<=500: median replay 8266.8 ms (4133.4 us/entry), min 8025.6 ms, max 8574.8 ms
+head entries=2000 facts<=1: median replay 252.6 ms (126.3 us/entry), min 249.7 ms, max 266.1 ms
+head entries=2000 facts<=8: median replay 314.9 ms (157.4 us/entry), min 251.9 ms, max 445.1 ms
+head entries=2000 facts<=64: median replay 340.5 ms (170.2 us/entry), min 319.0 ms, max 379.1 ms
+head entries=2000 facts<=500: median replay 594.7 ms (297.3 us/entry), min 566.9 ms, max 662.6 ms

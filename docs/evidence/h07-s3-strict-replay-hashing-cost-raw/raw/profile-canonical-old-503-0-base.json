@@ -1,0 +1,32 @@
+{
+  "series": "canonical",
+  "variant": "old",
+  "entries": 503,
+  "build": "base",
+  "exact_sha": "0b203a5ca502dd79ed847aedd235c97b660ad9ea",
+  "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "logical_cpus": 4,
+  "fs_type": "0xef53",
+  "open_wall_ms_under_profiler": 6769.233541,
+  "profiled_ms": 6811.016,
+  "gc_ms": 507.616,
+  "inclusive_ms": {
+    "replay campaign-core.ts": 4975.217,
+    "stateSha256 campaign-core.ts": 4818.438,
+    "canonicalJson json.ts": 4166.419,
+    "verifyAll canonical-campaign.ts": 503.001,
+    "loadCheckpoint checkpoint-package.ts": 5802.799,
+    "reconcileCheckpointStates checkpoint-package.ts": 0,
+    "proveSuccessor checkpoint-package.ts": 51.249,
+    "extend history-index.ts": 165.306,
+    "lookup history-index.ts": 354.458,
+    "#compute campaign-core.ts": 4769.775,
+    "digest state-digest.ts": 0,
+    "#rebuild state-digest.ts": 0,
+    "#merge state-digest.ts": 0,
+    "#hash state-digest.ts": 0
+  }
+}

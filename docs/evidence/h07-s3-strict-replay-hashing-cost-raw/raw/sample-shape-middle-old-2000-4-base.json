@@ -1,0 +1,243 @@
+{
+  "series": "shape-middle",
+  "variant": "old",
+  "entries": 2000,
+  "build": "base",
+  "exact_sha": "0b203a5ca502dd79ed847aedd235c97b660ad9ea",
+  "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "logical_cpus": 4,
+  "fs_type": "0xef53",
+  "fixture_bytes": 24314980,
+  "verification_policy_after_first_open": "h07-s3-new-policy",
+  "outcome_sha256": "b9b7b893b99acaf96f771385a4945e4c4a484d618349c4ccbf26cf5fd327e73f",
+  "outcome": {
+    "head": {
+      "campaign_id": "h07-s3-shape",
+      "revision": 2001,
+      "state_sha256": "b89325ced2c8088d41afa38e79708358c1834113fe909e021e9b76a533c6216c",
+      "journal_entries": 2001,
+      "journal_head_sha256": "adef74078d109fbd4a645f5fb2376220c4104b98294aad4116a598477ded454e",
+      "spec_identity": {
+        "line": "f027",
+        "package_version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z",
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "snapshot_files": {
+          "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+          "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+          "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+        }
+      },
+      "last_saved_spec_identity": {
+        "line": "f027",
+        "package_version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z",
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "snapshot_files": {
+          "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+          "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+          "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+        }
+      },
+      "created_with": {
+        "package": "@immortalis/engine",
+        "version": "0.0.0",
+        "build_id": null
+      },
+      "last_saved_with": {
+        "package": "@immortalis/engine",
+        "version": "0.0.0",
+        "build_id": null
+      }
+    },
+    "facts_sha256": "f19348c22b0f4414942641e017565abe7f9d42d5815541270d3ee6a4ec9c000e",
+    "readback_sha256": "4b46bb0b283928f610225ebf3f7fb70b77af66b034eaa53240dd6e6d78761e46",
+    "journal_sha256": "09c7bd52fda3f43bfa5305ab3107970cdfa4df0f5bb5bc6b4b8609f2bfc4ba3f",
+    "commit_receipt": {
+      "outcome": "COMMITTED",
+      "campaign_id": "h07-s3-shape",
+      "group_id": "group-2001",
+      "intent_id": "intent-2001",
+      "revision": 2001,
+      "group_sha256": "5c8dbfd831b32f445eb13b4c19caa108e20495318ddd64ef745b249c295670c8",
+      "state_sha256": "b89325ced2c8088d41afa38e79708358c1834113fe909e021e9b76a533c6216c",
+      "basis": {
+        "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+        "rule": {
+          "artifact": "test://synthetic-rule",
+          "native_pin": "test-pin-1",
+          "clause": "test-clause",
+          "authority_lineage": ["test-lineage"],
+          "effective_basis": "test-basis",
+          "supersedes": null
+        },
+        "authority": {
+          "role": "role.archivist",
+          "permission": "permission.canon.write"
+        }
+      },
+      "invariants": [
+        {
+          "name": "authority-present",
+          "passed": true
+        },
+        {
+          "name": "owner-registered",
+          "passed": true
+        },
+        {
+          "name": "owner-exclusive",
+          "passed": true
+        },
+        {
+          "name": "unique-keys-in-group",
+          "passed": true
+        },
+        {
+          "name": "expected-versions-current",
+          "passed": true
+        },
+        {
+          "name": "reads-current",
+          "passed": true
+        },
+        {
+          "name": "dependencies-committed",
+          "passed": true
+        }
+      ]
+    },
+    "owner_violations": 0
+  },
+  "passes": [
+    {
+      "label": "first-open",
+      "elapsed_ms": 11701.26224,
+      "cpu_user_ms": 10848.954,
+      "cpu_system_ms": 1233.953,
+      "peak_rss_kb": 269624,
+      "read_calls": 85351,
+      "read_bytes": 45287047,
+      "journal_full_reads": 2,
+      "index_reads": 85335,
+      "index_read_bytes": 35771435,
+      "write_calls": 19,
+      "write_bytes": 21180542,
+      "fsyncs": 37,
+      "removes": 1,
+      "replay_entries": 2000,
+      "groups_verified": 2000,
+      "sha256_calls": 156585,
+      "sha256_bytes": 673681475,
+      "full_state_hashes": 2007,
+      "full_state_hash_bytes": 598574244,
+      "full_state_logical_bytes": 598574244,
+      "hash_copies": 0,
+      "strict_passes": 1
+    },
+    {
+      "label": "accepted-commit",
+      "elapsed_ms": 15.989368000000468,
+      "cpu_user_ms": 8.73,
+      "cpu_system_ms": 0.082,
+      "peak_rss_kb": 269624,
+      "read_calls": 44,
+      "read_bytes": 20404,
+      "journal_full_reads": 0,
+      "index_reads": 41,
+      "index_read_bytes": 18168,
+      "write_calls": 2,
+      "write_bytes": 4571,
+      "fsyncs": 3,
+      "removes": 0,
+      "replay_entries": 0,
+      "groups_verified": 0,
+      "sha256_calls": 50,
+      "sha256_bytes": 366930,
+      "full_state_hashes": 1,
+      "full_state_hash_bytes": 340629,
+      "full_state_logical_bytes": 340629,
+      "hash_copies": 0,
+      "strict_passes": 0
+    },
+    {
+      "label": "close",
+      "elapsed_ms": 4.417242999999871,
+      "cpu_user_ms": 0.991,
+      "cpu_system_ms": 0.116,
+      "peak_rss_kb": 269624,
+      "read_calls": 1,
+      "read_bytes": 97,
+      "journal_full_reads": 0,
+      "index_reads": 0,
+      "index_read_bytes": 0,
+      "write_calls": 1,
+      "write_bytes": 119,
+      "fsyncs": 1,
+      "removes": 2,
+      "replay_entries": 0,
+      "groups_verified": 0,
+      "sha256_calls": 0,
+      "sha256_bytes": 0,
+      "full_state_hashes": 0,
+      "full_state_hash_bytes": 0,
+      "full_state_logical_bytes": 0,
+      "hash_copies": 0,
+      "strict_passes": 0
+    },
+    {
+      "label": "second-open",
+      "elapsed_ms": 27.257571000000098,
+      "cpu_user_ms": 24.82,
+      "cpu_system_ms": 3.694,
+      "peak_rss_kb": 271292,
+      "read_calls": 61,
+      "read_bytes": 374123,
+      "journal_full_reads": 0,
+      "index_reads": 56,
+      "index_read_bytes": 24838,
+      "write_calls": 1,
+      "write_bytes": 97,
+      "fsyncs": 1,
+      "removes": 0,
+      "replay_entries": 1,
+      "groups_verified": 1,
+      "sha256_calls": 75,
+      "sha256_bytes": 1061449,
+      "full_state_hashes": 3,
+      "full_state_hash_bytes": 1021887,
+      "full_state_logical_bytes": 1021887,
+      "hash_copies": 0,
+      "strict_passes": 1
+    },
+    {
+      "label": "third-open",
+      "elapsed_ms": 28.477117000000362,
+      "cpu_user_ms": 38.113,
+      "cpu_system_ms": 0,
+      "peak_rss_kb": 272188,
+      "read_calls": 61,
+      "read_bytes": 374123,
+      "journal_full_reads": 0,
+      "index_reads": 56,
+      "index_read_bytes": 24838,
+      "write_calls": 1,
+      "write_bytes": 97,
+      "fsyncs": 1,
+      "removes": 0,
+      "replay_entries": 1,
+      "groups_verified": 1,
+      "sha256_calls": 75,
+      "sha256_bytes": 1061449,
+      "full_state_hashes": 3,
+      "full_state_hash_bytes": 1021887,
+      "full_state_logical_bytes": 1021887,
+      "hash_copies": 0,
+      "strict_passes": 1
+    }
+  ],
+  "peak_rss_kb": 287740
+}

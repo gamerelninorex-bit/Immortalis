@@ -1,0 +1,12 @@
+control (unmutated) passes
+killed              reuse prefix states past the first changed fact
+killed              prefix boundary off by one fact
+killed              final fact hashed with its trailing comma
+killed              stale prefix states are never dropped
+killed              prefix state captured one fact late
+killed              overwrite reported as an insertion after the changed fact
+killed              new facts always appended instead of merged in key order
+killed              header lacks the campaign identity check
+killed              stale cached order reused for a state it was not built from
+killed              ordering by code point instead of UTF-16 code unit
+survivors/unapplied: 0

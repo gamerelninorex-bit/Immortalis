@@ -222,7 +222,7 @@ interruptedTable();
 
 const profiles = raws.filter((r) => r.kind === "profile");
 if (profiles.length) {
-  md += `## Where the first open of a canonical old-policy package spends its time (inspector profile, inclusive ms; the profiler perturbs timing)\n\n| entries | build | profiled ms | GC ms | replay | stateSha256 (reference) | incremental digest | canonicalJson | owner validation (verifyAll) | loadCheckpoint | reconcileCheckpointStates | proveSuccessor | index extend | index lookup |\n|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n`;
+  md += `## Where the first open of a canonical old-policy package spends its time (inspector profile, inclusive ms; the profiler perturbs timing)\n\n| entries | build | profiled ms | GC ms | replay | stateSha256 (all calls, incl. the replay hook) | of which the incremental digest | canonicalJson | owner validation (verifyAll) | loadCheckpoint | reconcileCheckpointStates | proveSuccessor | index extend | index lookup |\n|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n`;
   for (const r of profiles.sort((a, b) => a.n - b.n || a.build.localeCompare(b.build))) {
     const i = r.data.inclusive_ms as Record<string, number>;
     const k = (name: string) => (i[name] ?? 0).toFixed(0);
