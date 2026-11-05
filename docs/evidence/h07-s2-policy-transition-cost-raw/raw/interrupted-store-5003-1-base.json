@@ -3,7 +3,7 @@
   "variant": "interrupted",
   "entries": 5003,
   "build": "base",
-  "exact_sha": "unknown",
+  "exact_sha": "a1f26c70862dd0de26c0836b1708ca3b9d9aa667",
   "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
   "node": "v22.23.4",
   "platform": "linux x64 6.18.44-fc-v236",
@@ -17,17 +17,17 @@
   "passes": [
     {
       "label": "killed-first-open",
-      "elapsed_ms": 10789.92861,
-      "cpu_user_ms": 10405.613,
-      "cpu_system_ms": 942.169,
-      "peak_rss_kb": 308280,
+      "elapsed_ms": 10440.277441,
+      "cpu_user_ms": 10224.078,
+      "cpu_system_ms": 878.556,
+      "peak_rss_kb": 345312,
       "read_calls": 382717,
-      "read_bytes": 185210114,
+      "read_bytes": 185210112,
       "journal_full_reads": 2,
       "index_reads": 382708,
       "index_read_bytes": 167564498,
       "write_calls": 43,
-      "write_bytes": 58284660,
+      "write_bytes": 58284658,
       "fsyncs": 84,
       "removes": 2,
       "replay_entries": 10006,
@@ -40,17 +40,17 @@
     },
     {
       "label": "recovery-open",
-      "elapsed_ms": 15467.917861999998,
-      "cpu_user_ms": 14760.697,
-      "cpu_system_ms": 1132.778,
-      "peak_rss_kb": 361324,
+      "elapsed_ms": 14445.76962,
+      "cpu_user_ms": 13542.472,
+      "cpu_system_ms": 1300.096,
+      "peak_rss_kb": 361584,
       "read_calls": 528975,
-      "read_bytes": 267873689,
+      "read_bytes": 267873686,
       "journal_full_reads": 4,
       "index_reads": 528957,
       "index_read_bytes": 232581324,
       "write_calls": 43,
-      "write_bytes": 58287068,
+      "write_bytes": 58287067,
       "fsyncs": 85,
       "removes": 1,
       "replay_entries": 20012,
@@ -62,5 +62,5 @@
       "strict_passes": 4
     }
   ],
-  "peak_rss_kb": 370156
+  "peak_rss_kb": 370288
 }

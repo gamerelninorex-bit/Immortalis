@@ -3,7 +3,7 @@
   "variant": "interrupted",
   "entries": 503,
   "build": "base",
-  "exact_sha": "unknown",
+  "exact_sha": "a1f26c70862dd0de26c0836b1708ca3b9d9aa667",
   "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
   "node": "v22.23.4",
   "platform": "linux x64 6.18.44-fc-v236",
@@ -17,17 +17,17 @@
   "passes": [
     {
       "label": "killed-first-open",
-      "elapsed_ms": 11828.412953,
-      "cpu_user_ms": 10003.1,
-      "cpu_system_ms": 2116.996,
-      "peak_rss_kb": 366024,
+      "elapsed_ms": 13837.441546999999,
+      "cpu_user_ms": 12004.824,
+      "cpu_system_ms": 2394.43,
+      "peak_rss_kb": 356248,
       "read_calls": 22762,
-      "read_bytes": 19590396,
+      "read_bytes": 19590394,
       "journal_full_reads": 2,
       "index_reads": 22753,
       "index_read_bytes": 9793247,
       "write_calls": 7,
-      "write_bytes": 5951270,
+      "write_bytes": 5951268,
       "fsyncs": 12,
       "removes": 2,
       "replay_entries": 1006,
@@ -40,17 +40,17 @@
     },
     {
       "label": "recovery-open",
-      "elapsed_ms": 23282.037307,
-      "cpu_user_ms": 19683.977,
-      "cpu_system_ms": 4195.413,
-      "peak_rss_kb": 433996,
+      "elapsed_ms": 26518.002703,
+      "cpu_user_ms": 22361.708,
+      "cpu_system_ms": 4802.187,
+      "peak_rss_kb": 413336,
       "read_calls": 34143,
-      "read_bytes": 35642871,
+      "read_bytes": 35642868,
       "journal_full_reads": 4,
       "index_reads": 34125,
       "index_read_bytes": 14790682,
       "write_calls": 7,
-      "write_bytes": 5953921,
+      "write_bytes": 5953920,
       "fsyncs": 13,
       "removes": 1,
       "replay_entries": 2012,
@@ -62,5 +62,5 @@
       "strict_passes": 4
     }
   ],
-  "peak_rss_kb": 433996
+  "peak_rss_kb": 413336
 }

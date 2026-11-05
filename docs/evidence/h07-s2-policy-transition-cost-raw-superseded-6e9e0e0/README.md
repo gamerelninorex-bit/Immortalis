@@ -1,0 +1,3 @@
+# Superseded measurement (kept for audit)
+
+Raw records of the first H-07 S2 run, which measured product code `6e9e0e03b2c5724e6f64d332ab06e0fb94cd9394` and the enumeration-only successor proof reviewed on PR #96 head `14220f6`. BLUE hold S2-I1 found that proof insufficient (it did not require keyed lookup of every historical identity). It is **not** the evidence for the repaired code: see [`../h07-s2-policy-transition-cost-raw/`](../h07-s2-policy-transition-cost-raw/) and [`../h07-s2-policy-transition-cost.md`](../h07-s2-policy-transition-cost.md). Its `exact_sha` fields read `unknown` (a tool defect since fixed); `identity.json` records the commits.
