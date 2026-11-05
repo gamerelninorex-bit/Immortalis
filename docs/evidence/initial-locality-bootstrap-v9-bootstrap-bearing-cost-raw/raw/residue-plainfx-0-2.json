@@ -1,0 +1,12 @@
+{
+  "kind": "residue-plainfx",
+  "torn_tail_bytes_reported": 43,
+  "elapsed_ms": 105.80938300000003,
+  "cpu_user_ms": 131.14,
+  "cpu_system_ms": 11.661,
+  "read_calls": 4,
+  "read_bytes": 70436,
+  "exact_sha": "20db7eefb1224c93b14d08bcb21086811dd1f928",
+  "node": "v22.23.4",
+  "peak_rss_kb": 146988
+}

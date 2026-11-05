@@ -1,0 +1,45 @@
+{
+  "kind": "plainfx",
+  "extra_sources": 2000,
+  "exact_sha": "20db7eefb1224c93b14d08bcb21086811dd1f928",
+  "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+fixture-evidence-t1",
+  "spec_lock_sha256": "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "fixture_bytes": 40013564,
+  "passes": [
+    {
+      "label": "cold-first-open",
+      "elapsed_ms": 20881.910086,
+      "cpu_user_ms": 19484.33,
+      "cpu_system_ms": 3627.648,
+      "read_calls": 32290,
+      "read_bytes": 34084304,
+      "write_calls": 1,
+      "write_bytes": 98,
+      "groups_historically_verified": 91,
+      "journal_entries": 2011
+    },
+    {
+      "label": "warm-reopen",
+      "elapsed_ms": 18621.766248000004,
+      "cpu_user_ms": 17827.404,
+      "cpu_system_ms": 3007.206,
+      "read_calls": 32290,
+      "read_bytes": 34084304,
+      "write_calls": 1,
+      "write_bytes": 98,
+      "groups_historically_verified": 91,
+      "journal_entries": 2011
+    }
+  ],
+  "hot_path_commit": {
+    "commit_ms": 251.99201300000277,
+    "write_calls": 2,
+    "write_bytes": 9648,
+    "read_calls": 58,
+    "admission_checks": 1
+  },
+  "peak_rss_kb": 501832
+}

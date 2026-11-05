@@ -1,0 +1,18 @@
+{
+  "kind": "recovery",
+  "status": "SCOPE_RESERVED_UNRESOLVED",
+  "driver_calls": 0,
+  "elapsed_ms": 26.915072999999893,
+  "cpu_user_ms": 71.747,
+  "cpu_system_ms": 4.828,
+  "read_calls": 0,
+  "read_bytes": 0,
+  "write_calls": 1,
+  "write_bytes": 403,
+  "journal_entries": 5,
+  "exact_sha": "20db7eefb1224c93b14d08bcb21086811dd1f928",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "peak_rss_kb": 159184
+}
