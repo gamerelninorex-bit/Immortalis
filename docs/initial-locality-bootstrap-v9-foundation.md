@@ -32,7 +32,7 @@ BUILT and exercised at T1: the six records and their admission/replay; the stric
 
 Also built by the predecessor repair: the protected `PendingActionGrantStore` and `QueuedSetupEditStore`; the `continue_pending_goal` and `continue_queued_setup_edit` tools and distinct `QueuedSetupEditCapability`; the V2 operator-ledger `dispatch_ref` join and recovery; the OAuth grant issuance/revocation ledger for access and refresh; and the `entryEvidence` all-CONJUNCTIVE external-claims bridge. Their unit/integration regressions and the non-bootstrap delayed-collection fixture are mechanism evidence.
 
-T2 genuine-host/original-message evidence and T3 named-client natural play remain UNRUN. No T1 completion or BLUE PASS is claimed here.
+T2 genuine-host/original-message evidence and T3 named-client natural play remain UNRUN. The bootstrap-bearing witness is PARTIAL (stage A only, below). No T1 completion or BLUE PASS is claimed here.
 
 ## Runtime Contract and register alignment: compatibility PROVED, then edited
 
@@ -46,6 +46,18 @@ BLUE's [HOLD direction](https://github.com/gamerelninorex-bit/Immortalis/pull/95
 - **Register.** IA-01 and IA-02 stay `NOT_IMPLEMENTED`; only bounded, real, named test evidence and a scope sentence were appended to each `partial_evidence`.
 
 The V1 operator ledger keeps its file format, version number and acceptance rules: the V2 ledger sits beside it (the shared schemas were only renamed so both versions can coexist) and is gated by `IMMORTALIS_OPERATOR_LEDGER_VERSION=2`, with no read-either reader. The existing `tests/unit/operator-ledger.test.ts` is unmodified from the base and passes. No live campaign is used, migrated, reset or relabelled.
+
+## Bootstrap-bearing witness: stage A built, later stages NOT built
+
+The brief's integrated witness (capture/Input → SCOPE → Grant → SCENE → Completion → queued-edit revalidation → native/physical PC placement and captured time → preparation/cycle and Option A closure/Population → trusted scenario → ordinary look with an owner-earned Epistemic event → separately authorized collection → V2 intent and canonical act → owner source/Reserve/time consequence → close/reopen/strict per-prefix replay → another choice) is **only partly built**.
+
+**Built (`tests/integration/initial-setup-witness.test.ts`, T1 mechanism only).** One campaign whose genesis is produced by the real bootstrap and Completion, then driven by the SHIPPED operator commands and real owners: `author-character` (CHARACTER_BOUND) and `establish-character-locus` (LOCUS_ESTABLISHED, World-State custody at the bootstrap's locality, scripted referee host as plumbing), then `initializeCapturedChronology` (the owners' time equals the captured chronology start), then the OPTION_A_V9 closure and workforce projections, then close, reopen and a strict `audit` replay of every group, and finally a refusal of the same package under the production admission. Nothing in it is supplied by the test: the custody, time and projections are read back from the owners.
+
+**How a bootstrap-bearing journal is opened by the shipped commands without a production seam.** A production campaign can never contain `fixture:` evidence, so the commands' own `CanonicalCampaign.open` would refuse it by design. The test routes exactly that call through the testkit fixture admission with a `vi.spyOn(CanonicalCampaign, "open")` that exists only inside the test file. No `SessionParams` option, no production export and no configuration reaches a fixture admission, and the existing static security test that nothing outside tests/testkit imports it still holds.
+
+**NOT built.** Queued-edit revalidation inside this chain; preparation (mechanism and exact-cycle attestation), the Production Reserve and extraction basis, and a Population ledger on top of the bootstrap-bearing prefix; a trusted scenario and the ordinary look with an owner-earned Epistemic event; the separately authorized collection with `continue_pending_goal`, its V2 intent and canonical act, and the owner source/Reserve/time consequence on a bootstrap-bearing journal; the final choice. The existing delayed-collection test runs those stages on the lawful non-bootstrap ORIGINAL-F-1 fixture and is mechanism evidence only.
+
+**Why the later stages are not built, and what is and is not established.** These stages were **not attempted**; no producer was found unable to form them, so no "missing producer" is claimed. What reading the code shows: the collection and look helpers (`tests/support/pc-collection-original.ts`, `observation.ts`, `chat-route.ts`) are written against the fixed `campaign-ashfall` locality (`world-ashfall`, `locus-salt-pans`, `src-salt-pan-1`) and its setup document, whose world and locus carry the scene prose the scripted perception host reads, while the bootstrap fixture identities (`world-fixture-1`, `locus-fixture-1`) carry no such prose. Whether a look on the bootstrap fixture would succeed is **UNVERIFIED**. Doing the work needs a test-support change (a bootstrap fixture whose world/locus carry scene prose, or those helpers parameterized by identity), not a production one. No owner verdict was stubbed and no production fixture-admission route was added.
 
 ## OB-030: mitigation before live campaign opening
 

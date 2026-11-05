@@ -5,7 +5,9 @@
 // plumbing, not a GM's reading; nothing here is T2 (genuine host/original-message) or T3 (named client) evidence.
 //
 // The downstream owner chain is the existing ORIGINAL-F-1 basis on a lawful non-bootstrap fixture (the brief: "do not assert that such a source
-// exists on a bootstrap-bearing journal"); the bootstrap-bearing closure -> look -> collection witness is in initial-setup-witness.test.ts.
+// exists on a bootstrap-bearing journal"). The bootstrap-bearing STAGE A (Completion -> shipped PC placement -> captured time -> OPTION_A_V9
+// projection -> strict replay) is in initial-setup-witness.test.ts; the bootstrap-bearing look -> separately authorized collection ->
+// conservation stages are NOT built (see docs/initial-locality-bootstrap-v9-foundation.md, "Bootstrap-bearing witness").
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, expect, it } from "vitest";
