@@ -25,6 +25,7 @@ import {
   REFEREE_PHYSICAL_RULE,
   REFEREE_RULE,
   REFEREE_SCENE_RULE,
+  INITIAL_SETUP_SCOPE_RULE,
   WORLD_PC_CURRENT_VIEWING_RULE,
   factKind,
 } from "@immortalis/engine";
@@ -123,6 +124,11 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "R1-EPISTEMIC-LINEAGE",
       "R1-PC-CUSTODY-LINEAGE",
       LINEAGE_ID,
+      // Initial Locality Bootstrap v0.9 (2 November 2026) appended its core and, with option_a_status ADOPTED, its optional lineage row
+      "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+      "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
+      // the Sovereign-adopted C-1/C-2 clarification (3 November 2026), registered additively after them
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
     ]);
     expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
@@ -194,10 +200,18 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "S1-P1-WG-LOWERING",
       WORLD_ID,
       SCENE_ID,
+      "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+      "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
     ]);
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows().map((r) => r.id));
+    // the required table lists the unconditional rows; the OPTION_A_V9 rows are checked conditionally on option_a_status
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(
+      rows()
+        .slice(0, 5)
+        .map((r) => r.id),
+    );
     expect(Object.keys(REQUIRED_DESIGN_LINEAGE)).toEqual(
-      lock["design_lineage_successors"].map((r: any) => r.id),
+      lock["design_lineage_successors"].slice(0, 6).map((r: any) => r.id),
     );
     expect(sha(rows()[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
     expect(sha(rows()[1])).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
@@ -241,9 +255,9 @@ describe("the lock: one non-executable lineage row and two additive executable l
     );
     expect(lock["snapshot_files"]).toEqual({
       "spec/f027/runtime-contract.md":
-        "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+        "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
       "spec/f027/acceptance-register.yaml":
-        "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+        "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
       "spec/f027/open-gates.yaml":
         "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     });
@@ -649,6 +663,8 @@ describe("the registry: the two citations are the lowering page itself, built by
       REFEREE_PHYSICAL_RULE,
       REFEREE_OBSERVATION_RULE,
       REFEREE_SCENE_RULE,
+      // Initial Locality Bootstrap v0.9: the world-subject scope classification is a fourth, exclusive value class
+      INITIAL_SETUP_SCOPE_RULE,
     ]);
   });
 
@@ -745,9 +761,9 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c";
+const CURRENT_V08_LOCK_SHA256 = "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654";
 const CURRENT_V08_REGISTRY_SHA256 =
-  "926aa1af36d783ef3760524ad36f3ebc6994f906bf9861bbbdc1e1adb8d97116";
+  "9a61ff41c0b74997239c5c90c053cd5c83e0ed469529c4ff4fc323fcf3c45def";
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")
@@ -760,11 +776,27 @@ const lf = (text: string): string => text.replace(/\r\n/g, "\n");
 /** The lock with exactly the three v0.8 rows removed and nothing else touched, serialised the way the lock is written. */
 function lockWithoutV08Rows(): string {
   const copy = JSON.parse(rawLock) as Record<string, any>;
+  // (and exactly the four Initial Locality Bootstrap v0.9 rows added after it: this identity is the ORIGINAL main lock)
+  const v09 = new Set([
+    "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+    "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
+    "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+    "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+    // and the additive C-1/C-2 clarification rows (3 November 2026)
+    "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+    "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+  ]);
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
-    (r: any) => r.id !== LINEAGE_ID,
+    (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),
   );
+  // ... and the two snapshot hashes the additive Runtime Contract section and the bounded IA-01/IA-02 evidence changed (the prefix of the
+  // Runtime Contract is the original file, proved by tests/integration/legacy-package-compat.test.ts)
+  copy["snapshot_files"]["spec/f027/runtime-contract.md"] =
+    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd";
+  copy["snapshot_files"]["spec/f027/acceptance-register.yaml"] =
+    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf";
   copy["executable_lowerings"] = copy["executable_lowerings"].filter(
-    (r: any) => r.id !== WORLD_ID && r.id !== SCENE_ID,
+    (r: any) => r.id !== WORLD_ID && r.id !== SCENE_ID && !v09.has(r.id),
   );
   return JSON.stringify(copy, null, 2) + "\n";
 }

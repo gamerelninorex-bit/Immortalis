@@ -39,6 +39,8 @@ import {
 } from "./character-evidence.ts";
 import {
   captureCollection,
+  readActionBinding,
+  readDispatchLink,
   runCollectionOperation,
   validCollectionIdentity,
   type CollectionIdentity,
@@ -111,7 +113,32 @@ export interface PendingOperation {
    * console record carries none. Never consent: the human confirms each stage afresh at the trusted terminal.
    */
   readonly stage?: StageIdentity | null;
+  /**
+   * The trusted dispatch identity of a DELAYED collection (Initial Locality Bootstrap v0.9): persisted with the launch frame BEFORE the
+   * command starts, so a crash anywhere afterwards can be reconciled by this exact dispatch_ref and never by matching a quantity. Only a
+   * `collect` carries it. It is workflow bookkeeping, never consent and never authority by itself.
+   */
+  readonly dispatch?: DispatchFrame | null;
 }
+
+export interface DispatchFrame {
+  readonly dispatch_ref: string;
+  readonly grant_id: string;
+  /** the digest of the complete ActionBinding this dispatch was authorized with */
+  readonly binding_digest: string;
+}
+
+const validDispatchFrame = (command: unknown, v: unknown): boolean =>
+  command === "collect" &&
+  record(v) &&
+  Object.keys(v).length === 3 &&
+  typeof v["dispatch_ref"] === "string" &&
+  v["dispatch_ref"].length > 0 &&
+  typeof v["grant_id"] === "string" &&
+  v["grant_id"].length > 0 &&
+  typeof v["binding_digest"] === "string" &&
+  HEX64_RE.test(v["binding_digest"]);
+const HEX64_RE = /^[0-9a-f]{64}$/;
 
 /** one record per campaign: the operator directory may serve several, and one campaign's block is never another's */
 export const pendingPath = (config: PhoneConfig): string =>
@@ -181,6 +208,11 @@ export function readPending(config: PhoneConfig): PendingRead {
         v["stage"] === undefined ||
         v["stage"] === null ||
         validStageIdentity(config, v["command"], v["stage"])
+      ) ||
+      !(
+        v["dispatch"] === undefined ||
+        v["dispatch"] === null ||
+        validDispatchFrame(v["command"], v["dispatch"])
       )
     )
       return { kind: "UNREADABLE" };
@@ -250,6 +282,8 @@ export interface RecoveryDeps {
   readonly completeObservation?: typeof completeObservation;
   readonly captureCollection?: typeof captureCollection;
   readonly runCollection?: typeof runCollectionOperation;
+  readonly readDispatchLink?: typeof readDispatchLink;
+  readonly readActionBinding?: typeof readActionBinding;
   readonly characterOutcome?: typeof characterOutcome;
   readonly readCharacter?: typeof readCharacter;
   /** what became of ONE dispatched stage of the collection-preparation route (the owners' own records, read once) */

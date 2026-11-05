@@ -8,6 +8,23 @@ import type { Scenario } from "./scenario.ts";
 export type { GoalOutcome, GoalRecord, GoalReturn, GoalStep, GoalUntil } from "./goal-record.ts";
 
 /**
+ * The trusted identity of a DELAYED goal's first `collect` (Initial Locality Bootstrap v0.9): the unique dispatch_ref allocated under the
+ * dispatch lock, the grant it belongs to and the digest of the complete ActionBinding it was authorized with. Set only by the trusted
+ * continuation; never a tool argument.
+ */
+export interface DelayedLaunch {
+  readonly dispatchRef: string;
+  readonly grantId: string;
+  readonly bindingDigest: string;
+}
+
+/** What the version-2 ledger and the owners say a dispatch_ref produced. Adoption of a delayed goal's act is by THIS join alone. */
+export type LinkedAct =
+  | { readonly kind: "UNAVAILABLE" }
+  | { readonly kind: "NONE" }
+  | { readonly kind: "ACT"; readonly act_id: string };
+
+/**
  * The GOAL-LEVEL COORDINATOR for the one supported ordinary goal: gather an amount of the material at hand (I-001 goal-level action
  * compression). It is WORKFLOW PLUMBING, not a world owner, a scheduler or a second save:
  *
@@ -35,7 +52,10 @@ export interface GoalDeps {
     command: string,
     options: Readonly<Record<string, string>>,
     authority: Pick<ToolContext, "scopes" | "client" | "grant">,
+    delayed?: DelayedLaunch,
   ) => Promise<Launch>;
+  /** the act the version-2 ledger links to a dispatch_ref (present only in a host that offers delayed goals) */
+  readonly linked?: (dispatchRef: string) => Promise<LinkedAct>;
   readonly read: () => Promise<PlayRead>;
   readonly scenario: () => Scenario | null;
   readonly exitCode: (run: Run) => number | null;
@@ -69,6 +89,7 @@ export interface GoalCoordinator {
     request: GoalRequest,
     authority: Pick<ToolContext, "scopes" | "client" | "grant">,
     requestId: string,
+    delayed?: DelayedLaunch,
   ) => Promise<GoalStart>;
   /** the goal being carried out, or the last one; an IN_PROGRESS record with no live chain is an INTERRUPTED goal */
   readonly current: () => GoalView | null;
@@ -96,8 +117,9 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
     command: string,
     options: Readonly<Record<string, string>>,
     authority: Pick<ToolContext, "scopes" | "client" | "grant">,
+    delayed?: DelayedLaunch,
   ): Promise<GoalReturn | null | "REFUSED"> => {
-    const launched = await d.launch(command, options, authority);
+    const launched = await d.launch(command, options, authority, delayed);
     if (!launched.ok) return "REFUSED";
     if ((await wait(launched.run)) === "CLOSING") return "SERVICE_CLOSING";
     // a run that ended because the service is closing was interrupted, not refused: the goal stays resumable
@@ -111,6 +133,7 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
     g: GoalRecord,
     authority: Pick<ToolContext, "scopes" | "client" | "grant">,
     sc: Scenario,
+    delayed?: DelayedLaunch,
   ): Promise<void> => {
     // every change of the record is retained BEFORE the next phase is dispatched; a record that cannot be retained stops the chain
     const note = (step: GoalRecord["step"]): boolean => {
@@ -152,7 +175,18 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
     if (resuming && latest.phase === "COMPLETED") return done();
     const isOpen = latest.phase === "COMMITTED" || latest.phase === "IN_FLIGHT";
     if (latest.phase === "HELD") return stop("STATE_NOT_RECOGNISED");
-    if (isOpen) {
+    // A DELAYED goal never adopts an open attempt by its quantity: the only act that can be its own is the one the version-2 ledger links
+    // to its exact dispatch_ref (dispatch_ref -> retained intent -> canonical act). Anything else open is another attempt.
+    const linkedAct = async (): Promise<LinkedAct> =>
+      g.dispatch_ref === undefined || !d.linked ? { kind: "NONE" } : d.linked(g.dispatch_ref);
+    if (g.dispatch_ref !== undefined && isOpen) {
+      const link = await linkedAct();
+      if (link.kind === "UNAVAILABLE") return stop("OUTCOME_UNCERTAIN");
+      if (link.kind !== "ACT" || !("act_id" in latest) || latest.act_id !== link.act_id)
+        return stop("ANOTHER_ATTEMPT_OPEN");
+      g.act_id = link.act_id;
+      if (!note("ADOPTING")) return stop("OUTCOME_UNCERTAIN");
+    } else if (isOpen) {
       // only an attempt of exactly this goal's quantity is this goal's; another open attempt is never completed, replaced or widened
       if (!("quantity" in latest) || latest.quantity.amount !== g.amount)
         return stop("ANOTHER_ATTEMPT_OPEN");
@@ -163,7 +197,7 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
       if (resuming)
         return stop(latest.phase === "NOT_ADMITTED" ? "NOT_ADMITTED" : "STATE_NOT_RECOGNISED");
       if (!note("COMMITTING")) return stop("OUTCOME_UNCERTAIN");
-      const made = await phase("collect", collectOptions, authority);
+      const made = await phase("collect", collectOptions, authority, delayed);
       if (made === "SERVICE_CLOSING" || made === "OUTCOME_UNCERTAIN") return stop(made);
       if (made !== null) return stop("COMMIT_NOT_MADE");
       seen = await d.read();
@@ -171,6 +205,13 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
         return stop("COMMIT_NOT_MADE");
       latest = seen.latest;
       if (!("act_id" in latest)) return stop("STATE_NOT_RECOGNISED");
+      if (g.dispatch_ref !== undefined) {
+        // the act is whatever the ledger links to THIS dispatch_ref; the adapter never allocates, guesses or matches an act
+        const link = await linkedAct();
+        if (link.kind === "UNAVAILABLE") return stop("OUTCOME_UNCERTAIN");
+        if (link.kind !== "ACT" || link.act_id !== latest.act_id)
+          return stop("STATE_NOT_RECOGNISED");
+      }
       g.act_id = latest.act_id;
       if (!note("COMMITTING")) return stop("OUTCOME_UNCERTAIN");
     }
@@ -216,7 +257,7 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
     settled: async () => {
       await running;
     },
-    begin: async (request, authority, requestId) => {
+    begin: async (request, authority, requestId, delayed) => {
       if (d.closing())
         return { ok: false, reason: "the server is closing; nothing was dispatched" };
       if (running !== null)
@@ -241,11 +282,13 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
         };
       // the SAME request repeated after an interruption resumes that goal's exact identity; anything else is a new goal
       const prior = held.kind === "RECORD" ? held.goal : null;
+      // a delayed goal resumes only its OWN dispatch (the same dispatch_ref); an ordinary goal only an ordinary one
       const resumes =
         prior !== null &&
         prior.outcome === "IN_PROGRESS" &&
         prior.amount === request.amount &&
-        prior.until === request.until;
+        prior.until === request.until &&
+        prior.dispatch_ref === delayed?.dispatchRef;
       const g: GoalRecord = resumes
         ? { ...prior }
         : {
@@ -257,6 +300,7 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
             until: request.until,
             outcome: "IN_PROGRESS",
             step: "ADOPTING",
+            ...(delayed ? { dispatch_ref: delayed.dispatchRef } : {}),
           };
       if (resumes) {
         delete g.returned;
@@ -268,7 +312,7 @@ export function createGoalCoordinator(d: GoalDeps): GoalCoordinator {
       goal = g;
       running = d
         .track(
-          chain(g, authority, sc).catch(() => {
+          chain(g, authority, sc, delayed).catch(() => {
             g.outcome = "RETURNED";
             g.returned = "OUTCOME_UNCERTAIN";
             d.retain(g);

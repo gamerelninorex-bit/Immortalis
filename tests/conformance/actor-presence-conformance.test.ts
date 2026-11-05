@@ -20,6 +20,8 @@ import {
   resolveKey,
 } from "@immortalis/engine";
 import {
+  BOOTSTRAP_C1C2_LINEAGE_ID,
+  BOOTSTRAP_OPTION_A_LINEAGE_ID,
   REQUIRED_DESIGN_LINEAGE,
   REQUIRED_EXECUTABLE_LOWERINGS,
   checkSpec,
@@ -133,7 +135,7 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
       "8e2c1555138454b2e43959746cf958c9e37b82e9c0b3796ab13c7a70a03daed4",
     );
     expect(sha(lock.snapshot_files)).toBe(
-      "5923b3c7062a5e5247a8d2193d4d155ddd43f324c3d0591f1c304a297c8f7cc0",
+      "ebfc63e9b459cbac91b97c7cf7cd0c28b69ec317bb4aa4316842a3a80c00ab7a",
     );
     expect(sha(lock.source_validation)).toBe(
       "cc6c7979eb4d40c94e050e1c39bae09d33d43066525b2bc76fef8d239a99f806",
@@ -143,7 +145,15 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
 
   it("the design lineage is ratified-not-executable, supersedes and narrows nothing, and restates no frozen pin", () => {
     const entries: any[] = lock.design_lineage_successors;
-    expect(entries.map((e) => e.id).sort()).toEqual(Object.keys(REQUIRED_DESIGN_LINEAGE).sort());
+    // + the adoption-conditional OPTION_A_V9 lineage row (option_a_status ADOPTED), validated by checkBootstrapV9, and the additive C-1/C-2
+    // clarification lineage row, validated by checkBootstrapC1C2
+    expect(entries.map((e) => e.id).sort()).toEqual(
+      [
+        ...Object.keys(REQUIRED_DESIGN_LINEAGE),
+        BOOTSTRAP_OPTION_A_LINEAGE_ID,
+        BOOTSTRAP_C1C2_LINEAGE_ID,
+      ].sort(),
+    );
     for (const e of entries) {
       expect(e.status).toBe("DESIGN_RATIFIED");
       expect(e.executable).toBe(false);
@@ -186,7 +196,8 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     // S1-P1 appended ONE further lowering after R1's (auditory-premises-conformance.test.ts) and 31 October 2026 appended exactly two more
     // (current-look-lowering-conformance.test.ts); the R1 row stays first and byte-unchanged
     const [low] = lock.executable_lowerings as any[];
-    expect(lock.executable_lowerings).toHaveLength(4);
+    // + the two Initial Locality Bootstrap v0.9 lowerings (core and the adopted OPTION_A_V9 row) and the additive C-1/C-2 clarification row
+    expect(lock.executable_lowerings).toHaveLength(7);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");
@@ -245,7 +256,13 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
       /pinned at exactly/,
     );
     has(
-      mutate((l) => l.design_lineage_successors.pop()),
+      // remove a REQUIRED row by identity (the last row is now the adoption-conditional OPTION_A_V9 lineage, checked separately)
+      mutate(
+        (l) =>
+          (l.design_lineage_successors = l.design_lineage_successors.filter(
+            (e: any) => e.id !== "PC-CURRENT-LOOK-PREMISE-LINEAGE",
+          )),
+      ),
       /appears 0 times/,
     );
     has(
@@ -356,7 +373,7 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     );
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
   });
 });

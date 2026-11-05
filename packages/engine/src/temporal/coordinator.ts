@@ -221,7 +221,12 @@ export class TemporalCoordinator {
    * through a committed ResolutionTransaction.
    */
   async establishCanonicalTime(
-    input: Publication & { readonly time: unknown },
+    input: Publication & {
+      readonly time: unknown;
+      /** v0.9 bootstrap branch only: the governing Completion/Input pins and their committing groups (plain initialization omits them) */
+      readonly reads?: CommitGroup["reads"];
+      readonly depends_on?: readonly string[];
+    },
   ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
     const p = PublicationSchema.safeParse({
       group_id: input.group_id,
@@ -240,9 +245,14 @@ export class TemporalCoordinator {
     if (!value.success)
       return failure("INPUT_INVALID", "time failed validation", { issues: issues(value.error) });
     return this.#store.commit(
-      this.#kernelGroup(p.data, [
-        { key: TEMPORAL_STATE_KEY, value: value.data, expected_version: 0 },
-      ]),
+      this.#kernelGroup(
+        p.data,
+        [{ key: TEMPORAL_STATE_KEY, value: value.data, expected_version: 0 }],
+        {
+          ...(input.reads ? { reads: input.reads } : {}),
+          ...(input.depends_on ? { depends_on: input.depends_on } : {}),
+        },
+      ),
     );
   }
 

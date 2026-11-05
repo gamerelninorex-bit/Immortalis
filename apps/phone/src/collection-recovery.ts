@@ -4,10 +4,14 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   canonicalJson,
+  pcCollectionMechanismKey,
   pcCollectionRequestId,
+  productionExtractionBasisKey,
   productionExtractionObjectId,
+  productionReserveKey,
   temporalObjectKey,
   temporalTransactionKey,
+  worldSourceConditionKey,
   type CanonicalTime,
 } from "@immortalis/contracts";
 import { PcCollectionAdapter, canonicalEqual, heldPcCollections } from "@immortalis/engine";
@@ -28,6 +32,9 @@ import {
 } from "@immortalis/operator";
 import type { PhoneConfig } from "./config.ts";
 import type { PendingOperation } from "./recovery.ts";
+import { bindingHashOf, type ActionBinding } from "./pending-action.ts";
+import { sha256Of } from "./scenario-hash.ts";
+import type { Scenario } from "./scenario.ts";
 
 export const COLLECTION_COMMANDS = new Set([
   "collect",
@@ -99,6 +106,8 @@ const open = (config: PhoneConfig, options: Options) =>
     expectedCampaignId: config.campaignId,
     operatorDir: config.operatorDir,
     buildId: "immortalis-chat-recovery",
+    // a FRESH v0.9 workflow initialised its ledger as version 2 before its setup commands ran; every other campaign stays on version 1
+    ...(config.operatorLedgerVersion === 2 ? { ledgerVersion: 2 as const } : {}),
     ...options,
   });
 
@@ -376,9 +385,13 @@ export async function runCollectionOperation(
     const current = snapshot(session, p.collection.uid);
     if (!recovering && !canonicalEqual(current, p.collection))
       return blocked("the operation's captured context changed before dispatch");
+    // the trusted dispatch_ref of a DELAYED collection rides only with the capability minted for it; recovery never starts a collection
+    if (p.dispatch && (recovering || !env.ordinaryAction || p.command !== "collect"))
+      return blocked("a delayed dispatch can only be started by its own capability");
     const ctx = {
       session,
       ...(!recovering && env.ordinaryAction ? { ordinaryAction: env.ordinaryAction } : {}),
+      ...(!recovering && p.dispatch ? { dispatchRef: p.dispatch.dispatch_ref } : {}),
       terminal: env.terminal!,
       newId: () => p.collection!.uid,
       ...(recovering
@@ -480,3 +493,128 @@ export async function runCollectionOperation(
     await reopened.value.close();
   }
 }
+
+// -- the delayed-action join, read from the version-2 ledger and the owners (read-only) -------------------------------------------
+
+/** What the version-2 ledger and the owners hold about ONE trusted dispatch_ref. Never a match by quantity, shape or recency. */
+export type DispatchLink =
+  | { readonly kind: "UNAVAILABLE" }
+  | {
+      readonly kind: "READ";
+      /** COLLECTION intents carrying exactly this dispatch_ref (the ledger's uniqueness makes it 0 or 1) */
+      readonly withDispatchRef: number;
+      readonly intentId: string | null;
+      /** the act identity the operator minted into that retained intent */
+      readonly actId: string | null;
+      /** the act, once the OWNERS hold its commitment (the canonical act this dispatch produced) */
+      readonly canonicalActId: string | null;
+      /** an open (CONFIRMED) collection that carries NO dispatch_ref: a legacy orphan or an unrelated direct attempt */
+      readonly openWithoutDispatchRef: boolean;
+    };
+
+export async function readDispatchLink(
+  config: PhoneConfig,
+  dispatchRef: string,
+  options: Options = {},
+): Promise<DispatchLink> {
+  const opened = await open(config, options);
+  if (!opened.ok) return { kind: "UNAVAILABLE" };
+  const session = opened.value;
+  try {
+    if (session.ledger.version !== 2) return { kind: "UNAVAILABLE" };
+    const found = session.ledger.collectionsByDispatchRef(dispatchRef);
+    const only = found.length === 1 ? found[0]! : null;
+    const adapter = new PcCollectionAdapter(session.campaign.store);
+    return {
+      kind: "READ",
+      withDispatchRef: found.length,
+      intentId: only?.intent_id ?? null,
+      actId: only?.choice.act_id ?? null,
+      canonicalActId:
+        only && adapter.commitment(only.pc_id, only.choice.act_id) ? only.choice.act_id : null,
+      openWithoutDispatchRef: session.ledger
+        .collections()
+        .some((c) => c.status === "CONFIRMED" && (c.dispatch_ref ?? null) === null),
+    };
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * The complete ActionBinding, filled ONCE from the trusted installed Scenario and the owners' own facts at authorized handover. The
+ * scenario's reserve, mechanism, basis and quantity unit must AGREE with the actual Production Reserve, the PC's accepted mechanism (with
+ * its attested cycle), the extraction basis, the source and the PC's physical locus; the owners' canonical schemas decide compatibility.
+ * Anything missing or disagreeing yields null (the request pauses): a binding is never invented or rebound.
+ */
+export async function readActionBinding(
+  config: PhoneConfig,
+  scenario: Scenario,
+  scope: {
+    readonly pc_id: string;
+    readonly world_id: string;
+    readonly locus_id: string;
+    readonly source: { readonly fact_key: string; readonly version: number };
+    readonly amount: number;
+    readonly until: "start" | "complete";
+  },
+  options: Options = {},
+): Promise<ActionBinding | null> {
+  const opened = await open(config, options);
+  if (!opened.ok) return null;
+  const session = opened.value;
+  try {
+    const c = session.campaign;
+    const adapter = new PcCollectionAdapter(c.store);
+    const pc = c.binding()?.value.active_pc.entity_id;
+    if (
+      !pc ||
+      pc !== scenario.player_character ||
+      pc !== scope.pc_id ||
+      scenario.world !== scope.world_id
+    )
+      return null;
+    const source = c.store.getFact(worldSourceConditionKey(scenario.world, scenario.source));
+    const reserve = c.store.getFact(productionReserveKey(scenario.reserve));
+    const basis = c.store.getFact(productionExtractionBasisKey(scenario.basis));
+    const mechanism = c.store.getFact(pcCollectionMechanismKey(pc, scenario.mechanism));
+    const attested = adapter.attestation(pc, scenario.mechanism);
+    const custody = c.pcPhysicalLocusCustody(pc);
+    if (!source || !reserve || !basis || !mechanism || !attested || !custody) return null;
+    const s = source.value as { locality?: { locus?: { entity_id?: string } } };
+    const r = reserve.value as { quantity?: { unit?: string } };
+    const b = basis.value as { source?: { fact_key?: string; source_key?: string }; unit?: string };
+    const k = custody.value.stationary_locus;
+    if (
+      source.key !== scope.source.fact_key ||
+      r.quantity?.unit !== scenario.quantity_unit ||
+      b.unit !== scenario.quantity_unit ||
+      b.source?.fact_key !== source.key ||
+      b.source?.source_key !== scenario.source ||
+      s.locality?.locus?.entity_id !== scope.locus_id ||
+      k.world.entity_id !== scenario.world ||
+      k.locus.entity_id !== scope.locus_id
+    )
+      return null;
+    const pin = (f: { key: string; version: number }) => ({ fact_key: f.key, version: f.version });
+    return {
+      scenario_hash: sha256Of(scenario),
+      pc_id: pc,
+      world_id: scope.world_id,
+      locus_id: scope.locus_id,
+      source: pin(source),
+      reserve: pin(reserve),
+      mechanism: pin(mechanism),
+      basis: pin(basis),
+      quantity_unit: scenario.quantity_unit,
+      amount: scope.amount,
+      until: scope.until,
+      as_of_head: String(c.store.head().revision),
+    };
+  } finally {
+    await session.close();
+  }
+}
+
+/** The digest of a complete binding, as persisted in the launch frame and compared on every recovery. */
+export const bindingDigest = (b: ActionBinding): string => bindingHashOf(b);

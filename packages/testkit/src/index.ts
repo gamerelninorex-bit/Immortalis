@@ -15,6 +15,7 @@ export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";
 export * from "./gip-fixtures.ts";
 export * from "./in-memory-store.ts";
+export * from "./initial-setup-fixtures.ts";
 export * from "./kti-fixtures.ts";
 export * from "./logistics-fixtures.ts";
 export * from "./pc-capability-fixtures.ts";

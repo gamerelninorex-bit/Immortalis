@@ -725,6 +725,59 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     group: "PC_COLLECTION_FACT_KINDS",
     exampleKey: "pc/p1/delegated-clarification/d1",
   },
+  {
+    id: "initial_setup_input",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/input",
+  },
+  {
+    id: "initial_setup_invocation",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/scope-reservation",
+  },
+  {
+    id: "initial_setup_response",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/response/SCOPE",
+  },
+  {
+    id: "initial_setup_grant",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/grant",
+  },
+  {
+    id: "initial_locality_completion",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey: "world/w1/locus/l1/initial-setup/completion",
+  },
+  {
+    id: "initial_setup_disposition",
+    owner: "world_state",
+    facet: "world_initial_setup",
+    lifecycle: "SEALED",
+    group: "INITIAL_SETUP_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/disposition",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -735,6 +788,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "world_fallback_physical_entity",
     "world_source_condition",
     "world_scene_closure",
+    "world_initial_setup",
   ],
   pc_existence: [
     "existence_contract",

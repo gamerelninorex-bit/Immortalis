@@ -8,39 +8,39 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "0326939feab773d2a2807b63833f8afa876c486c4e26b2d0906f16d0db84a9fd",
+    "6f182fc931f94d0a819c159d2fded2ae1fc81c5ffbdab744b3f873fb7aa94af4",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "35f7107f6313a0970bca81875ecf0ab410c5cda33a0dacf1aae6016db774ca48",
+    "8fc1229fb31349f6b9ec3afbdb5b273c9031b352a777d9c090b424c8cebc135d",
   "packages/engine/src/owners/admission.ts":
-    "7f140feb8657db6f1296b591f6e99a402b8b20428550aaa2cc641dd1a9c4f279",
+    "67a526f091dec113647d6100cd2660612ebf2c2e9435f61fad3c72aa246a80f9",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
-    "52ca74c3537206912d5d43f9bbd47afbbd35cceea13a38081d88e700bdeb7c79",
+    "848f24a880dbab2e4f73eab5d5ce326d04255742d08c9f2b686b8461e3a7e079",
   "packages/engine/src/referee/derive.ts":
     "9dc9780ad928462b3761ff610db30437fe758a6cf3f50c51be524740a215f18a",
   "packages/engine/src/referee/integrity.ts":
-    "0de08afe1f82134d7b0648a5e4c6979a94915a807648d9b240f4d65c9de5a844",
+    "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "4bfaf68c1383e6cddbed6cb3028d06ef9c0a3cccc26a40f0dbfbac15ec575090",
+    "8d53dd9affa1c46734abde91045735cb7fdad8e9a4b5633b3d836ef7a96db276",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
     "ad1272249ed8637f538ef08c3a97cba71c683a13069f44ed5bd7c497376d98da",
   "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
+    "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":
-    "c52bb99b5a9bad89490cb9eb5b93a5985e6c1b705de3886bf98523404f0a24a0",
+    "7283bae5d6144fd44f7ea6ec17a3d7e44040745339766e6b72ce274dc8ba16c7",
   "packages/operator/src/index.ts":
-    "e971e2d15b8f0d9011034f8509c35dda72824b61fc3be2eef81a3b24965980e7",
+    "20c9574bc69ed925888a1b232829b7a98a82bcf8c1484a0adb40a30a8e782b34",
   "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
+    "afb54d18665a1527335cea3cb5c22ceccfbe106e68e708a6f63d2575d7b61669",
   "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
+    "3ba2c4a726e080d697c3edc7610971d2c4318eb293f9aed27fab8cdee4f8347a",
   "packages/operator/src/referee-exchange.ts":
     "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
   "packages/operator/src/referee-mcp.ts":
@@ -52,8 +52,8 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   // directory trees (sorted `path\0sha256(bytes)\n`, the algorithm auditory-premises-conformance uses)
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
-  "packages/engine/src/referee": "8ab00353ae90c0617efc749cabc1541976396c0f843a757e7a467bdfd342fe30",
-  "packages/operator/src": "0e0714b1b0939acda9724637c051c53665e654a111bf3161791f87a7661b5067",
+  "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
+  "packages/operator/src": "d23269586b33fc99cdfb0325c67cdc8027a16e6ece4d1410f01bd9dcb0f9ef94",
   "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
 };
 

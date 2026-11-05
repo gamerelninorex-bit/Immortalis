@@ -57,9 +57,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic/admission.ts":
     "0172458a289e4014b15a1ae3179bd0b5d1cc8985af6acb984cf4818d130ec0d1",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
 };
 

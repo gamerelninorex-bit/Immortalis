@@ -97,6 +97,7 @@ import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
 import { verifyActorPresenceIntegrity } from "./actor-presence-integrity.ts";
 import { verifyAuditoryPremisesIntegrity } from "./auditory-premises-integrity.ts";
+import type { WriteAdmission } from "../commit/campaign-core.ts";
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
 import { verifyPcCollectionIntegrity } from "../pc-collection/integrity.ts";
@@ -246,10 +247,12 @@ export class CanonicalCampaign {
     params: Pick<FileCampaignOptions, "buildId" | "fs" | "specIdentity"> & {
       campaignId: string;
       extension?: StageOwnerExtension;
+      /** TESTKIT-ONLY (see `storeBindings`): the T1 fixture admission. Production never supplies it. */
+      testkitFixtureAdmission?: WriteAdmission;
     },
   ): Promise<Result<CanonicalCampaign, CanonicalCreateCode>> {
-    const { extension, ...rest } = params;
-    const bindings = storeBindings(extension);
+    const { extension, testkitFixtureAdmission, ...rest } = params;
+    const bindings = storeBindings(extension, testkitFixtureAdmission);
     if (!bindings.ok) return bindings;
     const created = await createFileCampaign(dir, { ...rest, ...bindings.value });
     return created.ok ? ok(new CanonicalCampaign(created.value, extension)) : created;
@@ -263,10 +266,12 @@ export class CanonicalCampaign {
     dir: string,
     options: Pick<FileCampaignOptions, "buildId" | "fs" | "reclaimStaleLock" | "audit"> & {
       extension?: StageOwnerExtension;
+      /** TESTKIT-ONLY (see `storeBindings`): the T1 fixture admission. Production never supplies it. */
+      testkitFixtureAdmission?: WriteAdmission;
     } = {},
   ): Promise<Result<CanonicalCampaign, CanonicalOpenCode>> {
-    const { extension, ...rest } = options;
-    const bindings = storeBindings(extension);
+    const { extension, testkitFixtureAdmission, ...rest } = options;
+    const bindings = storeBindings(extension, testkitFixtureAdmission);
     if (!bindings.ok) return bindings;
     const opened = await openFileCampaign(dir, {
       ...rest,

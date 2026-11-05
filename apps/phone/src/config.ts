@@ -34,6 +34,12 @@ export interface PhoneConfig {
   readonly scenarioFile: string;
   /** the player-view host identity used for the earned-Glance read (bound once by the trusted server process); null disables the read */
   readonly playerViewHostId: string | null;
+  /**
+   * The operator intent ledger this campaign's workflow uses. Absent / 1: the original ledger, byte-for-byte as before. 2: a FRESH v0.9
+   * workflow whose COLLECTION intents carry the trusted dispatch_ref (the delayed-action join); chosen by trusted startup only and never
+   * switched for an existing campaign (a ledger of the other version is refused, not read or migrated).
+   */
+  readonly operatorLedgerVersion?: 1 | 2;
 }
 
 export type ConfigResult =
@@ -126,6 +132,9 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
   const playerViewHostId = viewRaw === undefined || viewRaw === "" ? null : viewRaw;
   if (playerViewHostId !== null && !HOST_ID.test(playerViewHostId))
     problems.push("IMMORTALIS_PLAYER_VIEW_HOST_ID is not a valid identity");
+  const ledgerRaw = env["IMMORTALIS_OPERATOR_LEDGER_VERSION"];
+  if (ledgerRaw !== undefined && ledgerRaw !== "" && ledgerRaw !== "1" && ledgerRaw !== "2")
+    problems.push("IMMORTALIS_OPERATOR_LEDGER_VERSION must be 1 or 2");
   const portRaw = env["PORT"] ?? "8080";
   const port = /^[0-9]{1,5}$/.test(portRaw) ? Number(portRaw) : -1;
   if (port < 1 || port > 65535) problems.push("PORT is not a valid port");
@@ -148,6 +157,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
       publicUrl,
       scenarioFile: env["IMMORTALIS_SCENARIO_FILE"] ?? `${operatorDir}/chat-scenario.json`,
       playerViewHostId,
+      ...(ledgerRaw === "2" ? { operatorLedgerVersion: 2 as const } : {}),
     },
   };
 }

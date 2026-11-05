@@ -43,7 +43,7 @@ const sha = (file: string) =>
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/contracts/src/source-drawdown.ts":
@@ -59,19 +59,19 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/world/entity-transition.ts":
     "6eba3057099b2d331e4f846498bb9d3f6275fdabf1c76c23ed267795aa809e2b",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   "packages/operator/src/additional-locality.ts":
-    "5f1fea4718c816d755c086d2cfef6bffdbfdad62e3ac2f2935ba54e94bf4c782",
+    "744847bc53de4c51ae9ef1ce11f4b4d3b648e4d163c1c96c36c2472a7e43a24f",
   "packages/operator/src/additional-source.ts":
-    "56428eac482b003420120cca2e617fc019c1b1e59c09a37f0d2dca4ceb63111e",
+    "756446981c46c1c3c4a49c929709be3142dd922c95cbf864d8052529972c2970",
   "packages/operator/src/ooc.ts":
     "082877d345b80e61f7e8f962e26b25a971377acf5859cabd1078d78dbbbd348e",
 };
@@ -107,6 +107,8 @@ describe("the corridor reuses the existing World-State owner and facet and adds 
     expect([...CANONICAL_OWNER_REGISTRY.get(OWNER_WORLD_STATE)!].sort()).toEqual(
       [
         "world_fallback_physical_entity",
+        // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
+        "world_initial_setup",
         "world_locus",
         "world_profile",
         "world_scene_closure",

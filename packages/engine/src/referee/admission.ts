@@ -6,6 +6,7 @@ import {
   REFEREE_DECISION_BASIS,
   REFEREE_OP_I002,
   REFEREE_OP_IR,
+  REFEREE_OP_INITIAL_DELEGATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_SCENE,
@@ -31,6 +32,7 @@ import {
   resolveKey,
 } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
+import { scopeDecisionGroupCheck } from "../initial-setup/admission.ts";
 import {
   candidateDigest,
   committedCanonicalTime,
@@ -65,6 +67,9 @@ export function refereeGroupCheck(group: CommitGroup, state: CampaignState): Rej
       "VALUE_INVALID",
       "referee state changes only by one decision record, created once",
     );
+  // v0.9: the world-subject scope classification is its own strict alternate branch; the PC-subject branches below stay intact
+  if ((w.value as { operation?: unknown } | null)?.operation === REFEREE_OP_INITIAL_DELEGATION)
+    return scopeDecisionGroupCheck(group, state);
   const parsed = RefereeDecisionRecordSchema.safeParse(w.value);
   if (!parsed.success)
     return reject("VALUE_INVALID", "the referee record violates its contract", { key: w.key });

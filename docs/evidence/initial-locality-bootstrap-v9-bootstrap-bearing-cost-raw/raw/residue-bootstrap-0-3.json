@@ -1,0 +1,12 @@
+{
+  "kind": "residue-bootstrap",
+  "torn_tail_bytes_reported": 43,
+  "elapsed_ms": 157.50987600000008,
+  "cpu_user_ms": 204.104,
+  "cpu_system_ms": 11.316,
+  "read_calls": 4,
+  "read_bytes": 77155,
+  "exact_sha": "20db7eefb1224c93b14d08bcb21086811dd1f928",
+  "node": "v22.23.4",
+  "peak_rss_kb": 147568
+}

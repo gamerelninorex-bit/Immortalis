@@ -34,6 +34,110 @@ const REQUIRED_GATES = [
 export const REQUIRED_ADDENDA: Readonly<Record<string, string>> = {
   "F-027-CD1": "2026-10-02T15:11:03.450Z",
 };
+
+/** Initial Locality Bootstrap v0.9 pins (paired semantic source, executable companion, Sovereign ratification). */
+const BOOTSTRAP_V9 = {
+  semantic: {
+    url: "https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1",
+    pin: "2026-11-01T12:13:42.692Z",
+  },
+  contract: {
+    url: "https://app.notion.com/p/40b20af901e08198abdacb340e3507df",
+    pin: "2026-11-01T12:13:53.634Z",
+  },
+  ratification: {
+    url: "https://app.notion.com/p/40c20af901e081d7999be2b4f317c70a",
+    pin: "2026-11-02T15:46:21.719Z",
+  },
+  coreSections: [
+    "Purpose",
+    "Authority",
+    "Initial Setup",
+    "Authorship and Delegation",
+    "Chronology",
+    "Isolated Generation",
+    "Scene Premises",
+    "Placement and Preparation",
+    "Pending Intent and Action",
+    "Publication and Legacy Continuity",
+    "Acceptance and Release",
+  ],
+  coreKinds: [
+    "initial_setup_input",
+    "initial_setup_invocation",
+    "initial_setup_response",
+    "initial_setup_grant",
+    "initial_locality_completion",
+    "initial_setup_disposition",
+    "referee_decision",
+    "temporal_state",
+  ],
+  coreDoesNot: [
+    "does not inherit executable text from v0.1 through v0.8",
+    "does not recover or re-pin frozen historical sources",
+    "does not treat authenticated model arguments as original human-message evidence",
+    "does not run a reserved invocation twice or use negative void proofs",
+    "does not dispatch delayed actions from background or status reads",
+    "does not pre-allocate collection act IDs or adopt same-shape orphan intents",
+    "does not enable the separately optional F-1 exception without its ratification rows",
+    "does not migrate or relabel old readers or promote IA/V/PF-6/F-028",
+    "does not certify a production driver, original-message intake or deployed natural play",
+  ],
+} as const;
+export const BOOTSTRAP_CORE_LINEAGE_ID = "GM-INITIAL-BOOTSTRAP-V9-LINEAGE";
+export const BOOTSTRAP_CORE_LOWERING_ID = "GM-INITIAL-BOOTSTRAP-V9-LOWERING";
+export const BOOTSTRAP_OPTION_A_LINEAGE_ID = "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE";
+export const BOOTSTRAP_OPTION_A_LOWERING_ID = "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING";
+/** The additive registration of the Sovereign-adopted C-1/C-2 clarification (v0.4); validated by `checkBootstrapC1C2`, never by the required tables. */
+export const BOOTSTRAP_C1C2_LINEAGE_ID = "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE";
+export const BOOTSTRAP_C1C2_LOWERING_ID = "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING";
+/** The optional rows are validated by `checkBootstrapV9` (present exactly when option_a_status is ADOPTED), never by the required tables. */
+const BOOTSTRAP_OPTIONAL_IDS: ReadonlySet<string> = new Set([
+  BOOTSTRAP_OPTION_A_LINEAGE_ID,
+  BOOTSTRAP_OPTION_A_LOWERING_ID,
+  BOOTSTRAP_C1C2_LINEAGE_ID,
+  BOOTSTRAP_C1C2_LOWERING_ID,
+]);
+
+/** The adopted C-1/C-2 clarification: the conformed page, the Sovereign's separate ratification and the closed identities it registers. */
+const BOOTSTRAP_C1C2 = {
+  url: "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+  pin: "2026-11-03T00:51:23.053Z",
+  ratification: {
+    url: "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+    pin: "2026-11-03T00:54:41.601Z",
+  },
+  sections: [
+    "C-1 — exact producer identity and one model echo",
+    "C-2 — the v0.9 one-source Selection provenance",
+  ],
+  closed: [
+    ["scope", "C1_C2_CLARIFICATION_V0_4"],
+    ["status", "FROZEN_EXECUTABLE_LOWERING"],
+    ["relation", "AMENDS_ADDITIVELY"],
+    ["producer_identity", "P_H_T_D_NON_CIRCULAR_BYTE_EQUAL_DELIVERY"],
+    ["model_echo", "TASK_ID_ONLY_NO_INPUT_HASH_HEADER"],
+    ["parser_current", "INITIAL_LOCALITY_PARSER_V2"],
+    ["parser_frozen", "INITIAL_LOCALITY_PARSER_V1"],
+    ["parser_frozen_reader", "FIXTURE_NAMESPACED_JOURNALS_ONLY_VIA_TESTKIT_VERIFIER"],
+    ["provenance_profile", "INITIAL_LOCALITY_PROVENANCE_V1"],
+    ["instruction_registry", "IMMUTABLE_COMPLETE_MAPS_KEYED_BY_INSTRUCTION_HASH"],
+    ["context_manifest", "SHA256_OF_EXACT_PHASE_INSTRUCTIONS_AND_SHA256_OF_D"],
+    ["manifest_mismatch", "INVALID_OUTPUT_CONTEXT_MANIFEST_MISMATCH_RETAINS_RESPONSE"],
+    ["unverifiable_source", "FAIL_CLOSED_NEVER_A_PROVED_MISMATCH"],
+    [
+      "selection_leaf_grammar",
+      "CLOSED_INDEXED_TWELVE_PATHS_PLUS_ONE_PER_CONSTRAINT_AND_NON_NULL_CLAIMANT",
+    ],
+    ["chronology_exception", "COVERAGE_START_ONLY_EXACT_CAPTURED_STATEMENT"],
+    [
+      "fixed_source_feasibility",
+      "SCOPE_VERDICT_AND_GRANT_ADMISSION_SCOPE_REFUSED_REJECTION_CODE_NULL",
+    ],
+    ["history_verification", "ONE_TRANSITION_PARSER_V2_PROVENANCE_V1_C1C2_PIN"],
+  ] as const,
+} as const;
+
 /**
  * R1 Stage-One v1.1 section-scoped DESIGN lineage the lock records (23 October 2026), by id. A design-lineage successor says that named
  * sections of an already-frozen source (or of an existing governance source) are Sovereign-ratified; it is never executable authority and
@@ -87,6 +191,15 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     titles: [
       "Active-PC Current-Look Physical Premise — Sovereign-Ratified Additive Section — 31 October 2026",
     ],
+  },
+  // 2 November 2026: the CORE_V9 section-scoped design lineage of the Initial Locality Bootstrap. It excludes the separately headed Initial Scene
+  // Exception (OPTION_A_V9), whose own row exists only when option_a_status is ADOPTED. Lineage only: no page is promoted into the frozen pins.
+  [BOOTSTRAP_CORE_LINEAGE_ID]: {
+    of: null,
+    url: BOOTSTRAP_V9.semantic.url,
+    pin: BOOTSTRAP_V9.semantic.pin,
+    sections: BOOTSTRAP_V9.coreSections.length,
+    titles: BOOTSTRAP_V9.coreSections,
   },
 };
 
@@ -171,6 +284,20 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       ],
     },
   },
+  // 2 November 2026: CORE_V9 of the Initial Locality Bootstrap. temporal_state is the additional state-dependent initial-write precondition and
+  // referee_decision is a narrowed alternate value/rule branch; neither re-pins the full kind. Its closed core fields are checked by checkBootstrapV9.
+  [BOOTSTRAP_CORE_LOWERING_ID]: {
+    url: BOOTSTRAP_V9.contract.url,
+    pin: BOOTSTRAP_V9.contract.pin,
+    kinds: BOOTSTRAP_V9.coreKinds,
+    lineage: [BOOTSTRAP_CORE_LINEAGE_ID],
+    closed: {
+      im: "IM-03",
+      section: "Common Types through Verification",
+      operation: "INITIAL_LOCALITY_COMPLETION_V9",
+      does_not: BOOTSTRAP_V9.coreDoesNot,
+    },
+  },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
 const range = (prefix: string, n: number) =>
@@ -190,6 +317,362 @@ type Row = {
   partial_evidence?: { scope?: unknown; tests?: unknown };
 };
 type Gate = { id?: unknown; status?: unknown };
+
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+const keySet = (e: Record<string, unknown>): string => JSON.stringify(Object.keys(e).sort());
+
+/**
+ * Initial Locality Bootstrap v0.9: the closed core fields and the adoption-conditional optional rows (companion "Source Registration and
+ * Reader Boundary"). It validates DECLARED strings and flags only: heading separation and the reviewed content are verified by BLUE/RED, and
+ * the checker cannot authenticate old CPAA or WG page text. Every row is held to its EXACT key set (an absent, extra or renamed field falsifies
+ * it) and every array to its exact ordered contents. option_a_status has no default: it must be ADOPTED or DECLINED; ADOPTED requires both
+ * optional rows exactly once and DECLINED requires both absent (an optional branch running after a decline is a spec error). No input,
+ * tool or model can toggle the flag.
+ */
+export function checkBootstrapV9(
+  lineage: readonly Record<string, unknown>[],
+  lowerings: readonly Record<string, unknown>[],
+): string[] {
+  const errors: string[] = [];
+  const e = (m: string) => errors.push(`spec-lock.json: ${m}`);
+  const one = (rows: readonly Record<string, unknown>[], id: string) =>
+    rows.filter((r) => r["id"] === id);
+  const core = one(lowerings, BOOTSTRAP_CORE_LOWERING_ID)[0];
+  if (!core) return errors; // the generic required-table check already reported its absence
+  const coreKeys = [
+    "id",
+    "title",
+    "url",
+    "native_pin",
+    "section",
+    "scope",
+    "status",
+    "executable",
+    "relation",
+    "composed_with",
+    "cites_design_lineage",
+    "supersedes",
+    "superseded_by",
+    "primary_im",
+    "operation",
+    "fact_kinds",
+    "scope_operation",
+    "scope_host",
+    "scope_channel",
+    "parser",
+    "projection",
+    "chronology",
+    "temporal_owner",
+    "temporal_precondition",
+    "temporal_writer",
+    "reservation",
+    "dispatch_join",
+    "dispatch_trigger",
+    "expiry",
+    "revocation",
+    "option_a_status",
+    "adoption_decision",
+    "replay",
+    "does_not",
+  ];
+  if (keySet(core) !== JSON.stringify([...coreKeys].sort()))
+    e(
+      `${BOOTSTRAP_CORE_LOWERING_ID} must carry exactly its closed core fields (no absent, extra or renamed field)`,
+    );
+  const closed: [string, unknown][] = [
+    ["scope", "CORE_V9_EXCLUDING_OPTIONAL_SCENE_PROJECTION_RULES"],
+    ["scope_operation", "WG_INITIAL_DELEGATION_CLASSIFY"],
+    ["scope_host", "gm-initial-scope"],
+    ["scope_channel", "PRIVATE_ISOLATED_RUNNER"],
+    ["parser", "INITIAL_LOCALITY_PARSER_V1"],
+    ["projection", "GENESIS_WHITELIST_NO_BOOTSTRAP_HISTORY"],
+    ["chronology", "RECORD_ONLY_CAPTURE_AND_STATE_PRECONDITION_V9"],
+    ["temporal_owner", "temporal_kernel/temporal_coordination"],
+    ["temporal_precondition", "bootstrapInitialTimePrecondition"],
+    ["temporal_writer", "initialize-captured-chronology"],
+    ["reservation", "CANONICAL_BEFORE_INVOCATION_NO_NEGATIVE_VOID"],
+    ["dispatch_join", "V2_COLLECTION_DISPATCH_REF_IN_SAME_RECORD"],
+    ["dispatch_trigger", "LIVE_CONTINUE_PENDING_GOAL_ONLY"],
+    ["expiry", "ORIGINAL_VERIFIED_ACCESS_TOKEN_EXPIRY_NO_REFRESH_EXTENSION"],
+    ["revocation", "ALL_OAUTH_ACCESS_AND_REFRESH_FAIL_CLOSED"],
+    ["replay", "CANONICAL_PREFIX_ENROLLMENT_AUTHENTICITY_NOT_INDEPENDENTLY_PROVEN"],
+  ];
+  for (const [k, want] of closed)
+    if (core[k] !== want)
+      e(`${BOOTSTRAP_CORE_LOWERING_ID} field ${k} must be exactly ${JSON.stringify(want)}`);
+
+  const status = core["option_a_status"];
+  if (status !== "ADOPTED" && status !== "DECLINED")
+    e(
+      `${BOOTSTRAP_CORE_LOWERING_ID} option_a_status must be ADOPTED or DECLINED (there is no default adoption)`,
+    );
+  const decision = core["adoption_decision"] as { url?: unknown; native_pin?: unknown } | undefined;
+  if (
+    status === "ADOPTED" &&
+    (decision?.url !== BOOTSTRAP_V9.ratification.url ||
+      decision?.native_pin !== BOOTSTRAP_V9.ratification.pin ||
+      Object.keys(decision ?? {}).length !== 2)
+  )
+    e(
+      `${BOOTSTRAP_CORE_LOWERING_ID} adoption_decision must be exactly the Sovereign ratification URL and pin`,
+    );
+
+  const optLineage = one(lineage, BOOTSTRAP_OPTION_A_LINEAGE_ID);
+  const optLowering = one(lowerings, BOOTSTRAP_OPTION_A_LOWERING_ID);
+  if (status === "DECLINED") {
+    if (optLineage.length + optLowering.length > 0)
+      e(
+        "option_a_status is DECLINED: both optional rows and both new projection rules must be absent/disabled",
+      );
+    return errors;
+  }
+  if (status !== "ADOPTED") return errors;
+  if (optLineage.length !== 1 || optLowering.length !== 1) {
+    e("option_a_status is ADOPTED: both optional rows must appear exactly once");
+    return errors;
+  }
+  const ol = optLineage[0]!;
+  const lineageKeys = [
+    "id",
+    "of_frozen_source",
+    "url",
+    "native_pin",
+    "sections",
+    "status",
+    "executable",
+    "narrows_frozen_pin",
+    "supersedes",
+    "superseded_by",
+    "related_cpaa",
+    "scoped_precedence",
+    "other_cpaa_clauses",
+    "adoption_decision",
+    "note",
+  ];
+  if (keySet(ol) !== JSON.stringify([...lineageKeys].sort()))
+    e(`${BOOTSTRAP_OPTION_A_LINEAGE_ID} must carry exactly its closed fields`);
+  if (
+    ol["url"] !== BOOTSTRAP_V9.semantic.url ||
+    ol["native_pin"] !== BOOTSTRAP_V9.semantic.pin ||
+    ol["of_frozen_source"] !== null ||
+    !sameJson(ol["sections"], ["Initial Scene Exception"])
+  )
+    e(
+      `${BOOTSTRAP_OPTION_A_LINEAGE_ID} must name the paired source, pin and exactly the Initial Scene Exception section`,
+    );
+  if (
+    ol["status"] !== "DESIGN_RATIFIED" ||
+    ol["executable"] !== false ||
+    ol["narrows_frozen_pin"] !== false ||
+    ol["supersedes"] !== null ||
+    ol["superseded_by"] !== null
+  )
+    e(
+      `${BOOTSTRAP_OPTION_A_LINEAGE_ID} is DESIGN_RATIFIED lineage, never executable, and supersedes or narrows nothing`,
+    );
+  if (
+    ol["scoped_precedence"] !== "INITIAL_COMPLETION_V9_ONLY" ||
+    ol["other_cpaa_clauses"] !== "UNCHANGED"
+  )
+    e(
+      `${BOOTSTRAP_OPTION_A_LINEAGE_ID} must scope precedence to INITIAL_COMPLETION_V9 only and leave every other CPAA clause UNCHANGED`,
+    );
+  if (
+    !sameJson(ol["related_cpaa"], {
+      url: "https://app.notion.com/p/3fb20af901e08115b141f5e2e55ca37e",
+      native_pin: "2026-10-16T07:19:16.351Z",
+      ratification: {
+        url: "https://app.notion.com/p/3fb20af901e08124a6a8fe243b2ec351",
+        native_pin: "2026-10-16T07:56:18.556Z",
+      },
+    })
+  )
+    e(
+      `${BOOTSTRAP_OPTION_A_LINEAGE_ID} must name the original CPAA-C1 v0.3 page, pin and ratification exactly`,
+    );
+  if (!sameJson(ol["adoption_decision"], core["adoption_decision"]))
+    e(
+      `${BOOTSTRAP_OPTION_A_LINEAGE_ID} must cite the same independent exception-adoption decision as the core row`,
+    );
+
+  const ow = optLowering[0]!;
+  const loweringKeys = [
+    "id",
+    "title",
+    "url",
+    "native_pin",
+    "section",
+    "scope",
+    "status",
+    "executable",
+    "relation",
+    "composed_with",
+    "cites_design_lineage",
+    "supersedes",
+    "superseded_by",
+    "primary_im",
+    "operation",
+    "fact_kinds",
+    "sunset",
+    "sunset_policy",
+    "sunset_unknown",
+    "sunset_missing_row",
+    "policy_coverage",
+  ];
+  if (keySet(ow) !== JSON.stringify([...loweringKeys].sort()))
+    e(`${BOOTSTRAP_OPTION_A_LOWERING_ID} must carry exactly its closed fields`);
+  const optClosed: [string, unknown][] = [
+    ["url", BOOTSTRAP_V9.contract.url],
+    ["native_pin", BOOTSTRAP_V9.contract.pin],
+    ["section", "CPAA Projection and Canonical Sunset"],
+    ["scope", "OPTION_A_V9_ONLY"],
+    ["status", "FROZEN_EXECUTABLE_LOWERING"],
+    ["executable", true],
+    ["relation", "COMPOSES_WITH"],
+    ["primary_im", "IM-03"],
+    ["operation", "INITIAL_COMPLETION_V9"],
+    ["sunset", "REGISTRY_COMPLETE_FAIL_CLOSED_POLICY_AT_HISTORICAL_PREFIX"],
+    ["sunset_policy", "BOOTSTRAP_SUNSET_POLICY_V9"],
+    ["sunset_unknown", "UNREVIEWED_BLOCK"],
+    ["sunset_missing_row", "VALIDATION_FAILURE"],
+    ["policy_coverage", "ALL_FACT_KINDS_EXACT_SET_NO_SYNTHESIZED_ROWS"],
+  ];
+  for (const [k, want] of optClosed)
+    if (ow[k] !== want)
+      e(`${BOOTSTRAP_OPTION_A_LOWERING_ID} field ${k} must be exactly ${JSON.stringify(want)}`);
+  if (
+    !sameJson(ow["cites_design_lineage"], [
+      BOOTSTRAP_CORE_LINEAGE_ID,
+      BOOTSTRAP_OPTION_A_LINEAGE_ID,
+    ]) ||
+    !sameJson(ow["fact_kinds"], ["world_scene_closure", "population_workforce_scope"]) ||
+    ow["supersedes"] !== null ||
+    ow["superseded_by"] !== null ||
+    !sameJson(ow["composed_with"], core["composed_with"])
+  )
+    e(
+      `${BOOTSTRAP_OPTION_A_LOWERING_ID} must cite exactly both lineage rows and name exactly its two fact kinds, composing with F-027`,
+    );
+  return errors;
+}
+
+/**
+ * The adopted C-1/C-2 clarification registered ADDITIVELY beside the ratified v0.9 rows. Both rows must appear exactly once with their exact
+ * key sets and closed values; the amended core row is cited (not edited), nothing is superseded or narrowed, and the two instruction-map
+ * hashes are well-formed SHA-256 digests (their equality with the engine's registry is a conformance test, not a checker claim). It validates
+ * DECLARED strings only: heading separation and the reviewed content are verified by BLUE/RED.
+ */
+export function checkBootstrapC1C2(
+  lineage: readonly Record<string, unknown>[],
+  lowerings: readonly Record<string, unknown>[],
+): string[] {
+  const errors: string[] = [];
+  const e = (m: string) => errors.push(`spec-lock.json: ${m}`);
+  const rows = (list: readonly Record<string, unknown>[], id: string) =>
+    list.filter((r) => r["id"] === id);
+  const l = rows(lineage, BOOTSTRAP_C1C2_LINEAGE_ID);
+  const w = rows(lowerings, BOOTSTRAP_C1C2_LOWERING_ID);
+  if (l.length !== 1 || w.length !== 1) {
+    e(
+      "the C-1/C-2 clarification rows must appear exactly once each (the adopted clarification is registered, never defaulted)",
+    );
+    return errors;
+  }
+  const lr = l[0]!;
+  const lineageKeys = [
+    "id",
+    "of_frozen_source",
+    "url",
+    "native_pin",
+    "sections",
+    "status",
+    "executable",
+    "narrows_frozen_pin",
+    "supersedes",
+    "superseded_by",
+    "adoption_decision",
+    "note",
+  ];
+  if (keySet(lr) !== JSON.stringify([...lineageKeys].sort()))
+    e(`${BOOTSTRAP_C1C2_LINEAGE_ID} must carry exactly its closed fields`);
+  const decision = lr["adoption_decision"] as { url?: unknown; native_pin?: unknown } | undefined;
+  if (
+    lr["of_frozen_source"] !== null ||
+    lr["url"] !== BOOTSTRAP_C1C2.url ||
+    lr["native_pin"] !== BOOTSTRAP_C1C2.pin ||
+    !sameJson(lr["sections"], BOOTSTRAP_C1C2.sections) ||
+    lr["status"] !== "DESIGN_RATIFIED" ||
+    lr["executable"] !== false ||
+    lr["narrows_frozen_pin"] !== false ||
+    lr["supersedes"] !== null ||
+    lr["superseded_by"] !== null ||
+    decision?.url !== BOOTSTRAP_C1C2.ratification.url ||
+    decision?.native_pin !== BOOTSTRAP_C1C2.ratification.pin ||
+    Object.keys(decision ?? {}).length !== 2
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LINEAGE_ID} must name exactly the conformed clarification, its two sections and the Sovereign ratification, as ratified, non-executable lineage that supersedes and narrows nothing`,
+    );
+  const wr = w[0]!;
+  const loweringKeys = [
+    "id",
+    "title",
+    "url",
+    "native_pin",
+    "section",
+    "scope",
+    "status",
+    "executable",
+    "relation",
+    "amends",
+    "cites_design_lineage",
+    "supersedes",
+    "superseded_by",
+    "primary_im",
+    ...BOOTSTRAP_C1C2.closed
+      .map(([k]) => k)
+      .filter((k) => k !== "scope" && k !== "status" && k !== "relation"),
+    "instruction_hashes",
+    "does_not",
+  ];
+  if (keySet(wr) !== JSON.stringify([...loweringKeys].sort()))
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must carry exactly its closed fields (no absent, extra or renamed field)`,
+    );
+  for (const [k, want] of BOOTSTRAP_C1C2.closed)
+    if (wr[k] !== want)
+      e(`${BOOTSTRAP_C1C2_LOWERING_ID} field ${k} must be exactly ${JSON.stringify(want)}`);
+  const amends = wr["amends"] as { id?: unknown; native_pin?: unknown } | undefined;
+  if (
+    wr["url"] !== BOOTSTRAP_C1C2.url ||
+    wr["native_pin"] !== BOOTSTRAP_C1C2.pin ||
+    wr["executable"] !== true ||
+    wr["primary_im"] !== "IM-03" ||
+    wr["supersedes"] !== null ||
+    wr["superseded_by"] !== null ||
+    !sameJson(wr["cites_design_lineage"], [BOOTSTRAP_C1C2_LINEAGE_ID]) ||
+    amends?.id !== BOOTSTRAP_CORE_LOWERING_ID ||
+    amends?.native_pin !== BOOTSTRAP_V9.contract.pin ||
+    Object.keys(amends ?? {}).length !== 2
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must cite the clarification and its lineage row and amend ${BOOTSTRAP_CORE_LOWERING_ID} additively at the companion pin, superseding nothing`,
+    );
+  const hashes = wr["instruction_hashes"] as Record<string, unknown> | undefined;
+  const wantParsers = ["INITIAL_LOCALITY_PARSER_V1", "INITIAL_LOCALITY_PARSER_V2"];
+  if (
+    !hashes ||
+    !sameJson(Object.keys(hashes).sort(), wantParsers) ||
+    wantParsers.some(
+      (p) => typeof hashes[p] !== "string" || !/^[0-9a-f]{64}$/.test(hashes[p] as string),
+    ) ||
+    hashes["INITIAL_LOCALITY_PARSER_V1"] === hashes["INITIAL_LOCALITY_PARSER_V2"]
+  )
+    e(
+      `${BOOTSTRAP_C1C2_LOWERING_ID} must register one distinct SHA-256 instruction-map hash per parser version (V1 frozen, V2 current)`,
+    );
+  return errors;
+}
 
 /** Returns a list of consistency errors; an empty list means the spec snapshot is internally consistent. */
 export function checkSpec(root: string): string[] {
@@ -334,7 +817,10 @@ export function checkSpec(root: string): string[] {
     }
   }
   for (const e of lineage) {
-    if (typeof e["id"] !== "string" || !(e["id"] in REQUIRED_DESIGN_LINEAGE))
+    if (
+      typeof e["id"] !== "string" ||
+      !(e["id"] in REQUIRED_DESIGN_LINEAGE || BOOTSTRAP_OPTIONAL_IDS.has(e["id"]))
+    )
       errors.push(`spec-lock.json: unexpected design lineage ${String(e["id"])}`);
   }
   const lowerings = lock.executable_lowerings ?? [];
@@ -397,9 +883,14 @@ export function checkSpec(root: string): string[] {
     }
   }
   for (const e of lowerings) {
-    if (typeof e["id"] !== "string" || !(e["id"] in REQUIRED_EXECUTABLE_LOWERINGS))
+    if (
+      typeof e["id"] !== "string" ||
+      !(e["id"] in REQUIRED_EXECUTABLE_LOWERINGS || BOOTSTRAP_OPTIONAL_IDS.has(e["id"]))
+    )
       errors.push(`spec-lock.json: unexpected executable lowering ${String(e["id"])}`);
   }
+  errors.push(...checkBootstrapV9(lineage, lowerings));
+  errors.push(...checkBootstrapC1C2(lineage, lowerings));
 
   const snapshot = lock.snapshot_files ?? {};
   for (const rel of [

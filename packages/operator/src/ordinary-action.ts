@@ -17,6 +17,12 @@ interface Binding {
   readonly verb: OrdinaryVerb;
   readonly action: unknown;
   readonly revision?: number;
+  /**
+   * The trusted dispatch identity of a DELAYED action (Initial Locality Bootstrap v0.9): additional capability metadata, not a new game
+   * choice. When present, the capability can be consumed only by a command carrying exactly this dispatch_ref; when absent, only by one
+   * carrying none (a direct command). Never a tool argument, never serialised.
+   */
+  readonly dispatchRef?: string;
 }
 
 const live = new WeakMap<OrdinaryAction, Binding>();
@@ -43,6 +49,7 @@ export function consumeOrdinaryAction(
   session: LocalOperatorSession,
   verb: OrdinaryVerb,
   action: unknown,
+  dispatchRef?: string,
 ): boolean {
   const b = live.get(token);
   live.delete(token);
@@ -57,6 +64,7 @@ export function consumeOrdinaryAction(
     session.campaign.binding()?.value.active_pc.entity_id === b.pcId &&
     (b.revision === undefined || session.campaign.store.head().revision === b.revision) &&
     b.verb === verb &&
+    b.dispatchRef === dispatchRef &&
     canonicalJson(b.action) === canonicalJson(action)
   );
 }

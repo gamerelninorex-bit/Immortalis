@@ -151,6 +151,8 @@ describe("IA-03 owner exclusivity: World-State owns Source Condition truth; Prod
     expect([...CANONICAL_OWNER_REGISTRY.get("world_state")!].sort()).toEqual(
       [
         "world_fallback_physical_entity",
+        // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
+        "world_initial_setup",
         "world_locus",
         "world_profile",
         "world_scene_closure",
@@ -394,10 +396,10 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       ).toBe(64);
     }
     expect(readFileSync("spec/f027/spec-lock.json", "utf8")).toContain(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(readFileSync("spec/f027/spec-lock.json", "utf8")).toContain(
-      "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
     );
   });
 });

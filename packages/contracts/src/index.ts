@@ -56,6 +56,7 @@ export * from "./gip.ts";
 export * from "./gip-instrument.ts";
 export * from "./gip-scope-binding.ts";
 export * from "./ids.ts";
+export * from "./initial-locality.ts";
 export * from "./json.ts";
 export * from "./kti.ts";
 export * from "./logistics.ts";
@@ -84,3 +85,9 @@ export * from "./temporal.ts";
 export * from "./world-corridor.ts";
 export * from "./world-foundation.ts";
 export { BUILD_SPEC_IDENTITY } from "./spec-identity.ts";
+
+/**
+ * The schema library the contracts are written in, re-exported for trusted adapters that keep strict workflow records of their own (the
+ * phone app is not a workspace package and declares no dependencies; it must not carry a second copy or a second version of the library).
+ */
+export { z } from "zod";

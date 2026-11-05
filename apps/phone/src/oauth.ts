@@ -2,6 +2,7 @@ import { createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "
 import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PhoneConfig } from "./config.ts";
+import type { GrantEntry, OAuthGrantLedger, RevokedBy } from "./oauth-ledger.ts";
 
 /**
  * A small OAuth 2.1 authorization server for the ordinary-chat adapter (the `/mcp` endpoint), so that a chat host that can only link a
@@ -9,8 +10,13 @@ import type { PhoneConfig } from "./config.ts";
  * transport authentication and nothing else: a token says WHICH of the two existing lanes' secrets a human typed on the consent page,
  * as a scope (`player`, `referee`), and the resource server still enforces that scope on every call. No scope is ever granted from a
  * client's request, a registration or a model's wording: each is granted only by the matching lane secret, verified by the same
- * constant-time, rate-limited check the lanes' own sign-in uses. Tokens are stateless (HMAC-signed, audience-bound, expiring); the
- * signing key is derived from both lane secrets, so rotating either secret revokes every token it could have granted.
+ * constant-time, rate-limited check the lanes' own sign-in uses. Tokens are HMAC-signed, audience-bound and expiring; the signing key
+ * is derived from both lane secrets, so rotating either secret revokes every token it could have granted.
+ *
+ * A signature alone is no longer enough (Initial Locality Bootstrap v0.9, "Revocation"): every grant is registered ISSUED in the
+ * protected OAuth grant ledger BEFORE its tokens are returned, and every access verification and every refresh consults that ledger.
+ * An unknown grant denies even with a valid signature (a prior stateless token is never silently adopted), a revoked grant ends both
+ * its access and its refresh tokens, and a missing or corrupt initialised ledger denies EVERYTHING (fail closed, application-wide).
  */
 export const OAUTH_SCOPES = ["player", "referee"] as const;
 export type OAuthScope = (typeof OAUTH_SCOPES)[number];
@@ -38,6 +44,11 @@ export interface AccessClaims {
    * session and a pending question are bound to, because a public client id is not the authority of a person.
    */
   readonly grant: string;
+  /**
+   * When THIS access token expires (epoch ms), taken from its own verified expiry. It is the only source of a delayed request's
+   * transport-authority deadline: never a caller argument, and a refresh does not extend a deadline already retained from it.
+   */
+  readonly expiresAtMs: number;
 }
 
 export type SecretCheck = "ok" | "bad" | "locked";
@@ -70,12 +81,26 @@ export interface OAuthServer {
     body: Record<string, unknown>;
   };
   readonly verifyAccess: (bearer: string) => AccessClaims | null;
+  /** RFC 7009 self-revocation: the presented access or refresh token's WHOLE grant ends (its access and refresh tokens) */
+  readonly revokeToken: (form: Record<string, unknown>) => {
+    status: number;
+    body: Record<string, unknown>;
+  };
+  /** the trusted OPERATOR's revocation of one actual client/grant; the caller has already authenticated the operator */
+  readonly revokeGrant: (
+    client: string,
+    grant: string,
+    by: RevokedBy,
+  ) => "REVOKED" | "UNKNOWN" | "UNAVAILABLE";
+  /** every registered grant (operator view), or null when the ledger is unavailable */
+  readonly grants: () => readonly GrantEntry[] | null;
 }
 
 export function createOAuth(
   config: PhoneConfig,
   now: () => number,
   checkSecret: (who: string, role: "player" | "referee", token: string) => SecretCheck,
+  ledger: OAuthGrantLedger,
 ): OAuthServer {
   if (config.publicUrl === null) throw new Error("the public origin is not configured");
   const issuer = config.publicUrl;
@@ -205,6 +230,7 @@ export function createOAuth(
       authorization_endpoint: `${issuer}/oauth/authorize`,
       token_endpoint: `${issuer}/oauth/token`,
       registration_endpoint: `${issuer}/oauth/register`,
+      revocation_endpoint: `${issuer}/oauth/revoke`,
       scopes_supported: [...OAUTH_SCOPES],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
@@ -388,16 +414,25 @@ export function createOAuth(
           !consume(c["jti"], c["exp"])
         )
           return err(400, "invalid_grant", "the authorization code is not valid");
-        return issue(scopesIn(c["sc"]), c["gid"]);
+        // the ISSUED entry is durable BEFORE any token is returned; a code whose registration fails stays spent (a new authorization)
+        const scopes = scopesIn(c["sc"]);
+        const registered = ledger.register({ client: String(clientId), grant: c["gid"], scopes });
+        if (registered === "UNAVAILABLE")
+          return err(503, "temporarily_unavailable", "the grant ledger is unavailable");
+        if (registered === "REVOKED")
+          return err(400, "invalid_grant", "the authorization code is not valid");
+        return issue(scopes, c["gid"]);
       }
       if (grant === "refresh_token") {
         const r = open(form["refresh_token"], "rt");
-        if (
-          !r ||
-          r["cid"] !== clientId ||
-          typeof r["gid"] !== "string" ||
-          !consume(r["jti"], r["exp"])
-        )
+        if (!r || r["cid"] !== clientId || typeof r["gid"] !== "string")
+          return err(400, "invalid_grant", "the refresh token is not valid");
+        // every refresh consults the ledger first (before the token is spent): a revoked, unknown or unverifiable grant never refreshes
+        const live = ledger.status(String(clientId), r["gid"]);
+        if (live === "UNAVAILABLE")
+          return err(503, "temporarily_unavailable", "the grant ledger is unavailable");
+        if (live !== "ISSUED") return err(400, "invalid_grant", "the refresh token is not valid");
+        if (!consume(r["jti"], r["exp"]))
           return err(400, "invalid_grant", "the refresh token is not valid");
         return issue(scopesIn(r["sc"]), r["gid"]);
       }
@@ -413,9 +448,29 @@ export function createOAuth(
       const scopes = Array.isArray(a["sc"])
         ? (a["sc"] as unknown[]).filter((s): s is OAuthScope => OAUTH_SCOPES.some((o) => o === s))
         : [];
-      return scopes.length > 0 && typeof a["gid"] === "string"
-        ? { client: a["cid"], scopes, grant: a["gid"] }
-        : null;
+      if (
+        scopes.length === 0 ||
+        typeof a["gid"] !== "string" ||
+        typeof a["exp"] !== "number" ||
+        // ALL access is judged against the ledger: unknown, revoked and unverifiable grants (a missing or corrupt ledger) all deny
+        ledger.status(a["cid"], a["gid"]) !== "ISSUED"
+      )
+        return null;
+      return { client: a["cid"], scopes, grant: a["gid"], expiresAtMs: a["exp"] };
     },
+    revokeToken: (form) => {
+      const clientId = form["client_id"];
+      if (!clientOf(clientId)) return err(401, "invalid_client", "unknown client");
+      const token = form["token"];
+      const t = open(token, "at") ?? open(token, "rt");
+      // RFC 7009: a token that names no live grant of this client revokes nothing and is not an error
+      if (!t || t["cid"] !== clientId || typeof t["gid"] !== "string")
+        return { status: 200, body: {} };
+      return ledger.revoke(String(clientId), t["gid"], "SELF") === "UNAVAILABLE"
+        ? err(503, "temporarily_unavailable", "the grant ledger is unavailable")
+        : { status: 200, body: {} };
+    },
+    revokeGrant: (client, grant, by) => ledger.revoke(client, grant, by),
+    grants: () => ledger.list(),
   };
 }

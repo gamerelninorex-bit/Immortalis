@@ -141,7 +141,10 @@ export function routePolicy(
  * A byte-for-byte private copy of a quiescent slot (the service and the scripted hosts stopped, no lock held), on its own port: how a
  * recovery case reaches the stage it tests without repeating the stages before it. Same campaign identity, hosts and configuration.
  */
-export async function cloneSlot(base: Slot): Promise<Slot> {
+export async function cloneSlot(
+  base: Slot,
+  o: { readonly ledgerVersion?: 1 | 2 } = {},
+): Promise<Slot> {
   const root = tempDir("immortalis-chat-route-clone-");
   chmodSync(root, 0o700);
   cpSync(base.root, root, { recursive: true });
@@ -162,6 +165,7 @@ export async function cloneSlot(base: Slot): Promise<Slot> {
     scenarioFile: join(root, "no-scenario.json"),
     refereeHostIds: base.config.refereeHostIds,
     playerViewHostId: base.config.playerViewHostId,
+    ...(o.ledgerVersion === 2 ? { operatorLedgerVersion: 2 as const } : {}),
   });
   return {
     config,

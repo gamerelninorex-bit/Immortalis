@@ -68,7 +68,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/world/corridor.ts":
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/pc-movement/derive.ts":
     "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   "packages/engine/src/pc-movement/integrity.ts":
@@ -81,7 +81,7 @@ const UNCHANGED: Record<string, string> = {
     "d54ee795a20712fc64f01c85a86d9de602e87a161b21af35c6610bcbb006ab9f",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
 };
 
 /** The one engine file this slice edits: the Logistics derivation whose active-PC corridor refusal is narrowed. */

@@ -4,10 +4,12 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   REFEREE_AUTHORITY,
+  REFEREE_OP_INITIAL_DELEGATION,
   REFEREE_OP_OBSERVATION,
   REFEREE_OP_PHYSICAL,
   REFEREE_OP_SCENE,
   RefereeDecisionRecordSchema,
+  ScopeDecisionRecordSchema,
   refereeDecisionCause,
   refereeDecisionGroupId,
   refereeDecisionIntentId,
@@ -15,6 +17,7 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
+import { INITIAL_SETUP_SCOPE_RULE } from "../initial-setup/rules.ts";
 import {
   REFEREE_OBSERVATION_RULE,
   REFEREE_PHYSICAL_RULE,
@@ -41,6 +44,11 @@ export function verifyRefereeIntegrity(store: CampaignStore): readonly Integrity
   const bad = (key: string, message: string) => out.push({ key, code: "REFEREE_STATE", message });
   for (const f of all) {
     if (resolveKey(f.key)?.kind.id !== "referee_decision") continue;
+    // v0.9: the world-subject scope classification is its own strict branch with its own derivation
+    if ((f.value as { operation?: unknown } | null)?.operation === REFEREE_OP_INITIAL_DELEGATION) {
+      verifyScopeDecision(f, store, bad);
+      continue;
+    }
     const parsed = RefereeDecisionRecordSchema.safeParse(f.value);
     if (!parsed.success) {
       bad(f.key, "a record satisfies its referee record contract");
@@ -113,4 +121,46 @@ export function verifyRefereeIntegrity(store: CampaignStore): readonly Integrity
     }
   }
   return out;
+}
+
+/**
+ * Load-time re-verification of one WG_INITIAL_DELEGATION_CLASSIFY decision: strict value, the key its task derives, the referee
+ * owner and authority, ONE group under the deterministic identities writing only itself, reading exactly the cited Input,
+ * reservation and Response, and carrying INITIAL_SETUP_SCOPE_V9_RULE exclusively. Its derivation (verdict, quotes, binding to the
+ * signed Response) was re-run against its own incremental pre-state by strict replay on open; a later fact never re-judges it.
+ */
+function verifyScopeDecision(
+  f: OwnerFact,
+  store: CampaignStore,
+  bad: (key: string, message: string) => void,
+): void {
+  const parsed = ScopeDecisionRecordSchema.safeParse(f.value);
+  if (!parsed.success) return bad(f.key, "a scope classification satisfies its strict contract");
+  const r = parsed.data;
+  if (f.key !== refereeDecisionKey(r.task_id))
+    return bad(f.key, "a record is at the key its task identity derives");
+  if (f.owner !== OWNER_REFEREE_KERNEL) bad(f.key, "a record carries the referee owner");
+  if (!canonicalEqual(r.authority, REFEREE_AUTHORITY))
+    bad(f.key, "a record carries role.gm + permission.rule.adjudicate");
+  const group = store.committedGroup(f.provenance.intent_id);
+  if (!group || group.writes.length !== 1 || group.writes[0]!.key !== f.key)
+    return bad(f.key, "the committing group is in the journal and writes only this record");
+  if (
+    group.group_id !== refereeDecisionGroupId(r.task_id) ||
+    group.intent_id !== refereeDecisionIntentId(r.task_id) ||
+    group.cause !== refereeDecisionCause(r.task_id)
+  )
+    bad(f.key, "the record was committed under the deterministic identities of its task");
+  const cited = [r.input.setup_input, r.input.reservation, r.input.response];
+  const reads = new Set(group.reads.map((x) => `${x.key}@${x.version}`));
+  if (
+    group.reads.length !== cited.length ||
+    cited.some((p) => !reads.has(`${p.fact_key}@${p.version}`))
+  )
+    bad(f.key, "the record read exactly the cited Input, reservation and Response");
+  if (
+    !canonicalEqual(f.provenance.rule, INITIAL_SETUP_SCOPE_RULE) ||
+    !canonicalEqual(group.rule, INITIAL_SETUP_SCOPE_RULE)
+  )
+    bad(f.key, "the record carries INITIAL_SETUP_SCOPE_V9_RULE exclusively");
 }

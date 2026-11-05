@@ -56,7 +56,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/temporal/admission.ts":
-    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
+    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -68,7 +68,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
   "packages/engine/src/logistics/provider.ts":
@@ -98,9 +98,9 @@ const UNCHANGED: Record<string, string> = {
   "packages/protocol/src/causal-event-signal.ts":
     "6b2d56f4953b1c7c0fa073b01b5743f81e8a540f719d9fe110f2740ebdcce3fb",
   "spec/f027/runtime-contract.md":
-    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
@@ -363,10 +363,10 @@ describe("the gateway invents no time, interpretation, journey or presentation a
 describe("register, lock and gate honesty: nothing moved", () => {
   it("no spec snapshot or source pin differs from the predecessor's", () => {
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(lock.snapshot_files["spec/f027/acceptance-register.yaml"]).toBe(
-      "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
     );
     expect(lock.snapshot_files["spec/f027/open-gates.yaml"]).toBe(
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",

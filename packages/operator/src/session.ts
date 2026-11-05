@@ -6,7 +6,7 @@ import {
   type FsOps,
   type StageOwnerExtension,
 } from "@immortalis/engine";
-import { IntentLedger, type LedgerErrorCode } from "./ledger.ts";
+import { IntentLedger, type LedgerErrorCode, type LedgerVersion } from "./ledger.ts";
 import {
   ensureOperatorStateDirectory,
   verifyLocalOperator,
@@ -31,6 +31,11 @@ export interface SessionParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /**
+   * The retained-intent ledger this campaign's workflow uses. Absent = version 1, exactly as before. A FRESH v0.9 workflow passes 2 and
+   * the empty version-2 file is made durable before any setup command runs; a file of the other version is refused (no read-either).
+   */
+  readonly ledgerVersion?: LedgerVersion;
 }
 
 export const defaultOperatorDir = (campaignDir: string): string =>
@@ -109,12 +114,22 @@ export class LocalOperatorSession {
       campaignId,
       operatorUid: operator.value.uid,
       ...(params.ledgerFs ? { fs: params.ledgerFs } : {}),
+      ...(params.ledgerVersion ? { version: params.ledgerVersion } : {}),
     });
     if (!ledger.ok) {
       await campaign.close();
       return fail("STATE_UNAVAILABLE", "the retained intents cannot be used", {
         code: ledger.error.code satisfies LedgerErrorCode,
       });
+    }
+    if (params.ledgerVersion === 2) {
+      const initialised = await ledger.value.initializeV2();
+      if (!initialised.ok) {
+        await campaign.close();
+        return fail("STATE_UNAVAILABLE", "the retained intents cannot be used", {
+          code: initialised.error.code satisfies LedgerErrorCode,
+        });
+      }
     }
     return ok(new LocalOperatorSession(campaign, operator.value, ledger.value, campaignId));
   }

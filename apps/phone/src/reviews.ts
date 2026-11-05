@@ -19,6 +19,7 @@ import {
   type ReviewRequest,
 } from "../../../packages/operator/src/review-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
+import type { QueuedAuthorization } from "./delayed-continuation.ts";
 import type { ToolContext, ToolResult } from "./mcp-http.ts";
 import { REVIEW_CALLBACK, REVIEW_URI } from "./review-card.ts";
 import { projectReview } from "./review-projection.ts";
@@ -56,6 +57,8 @@ export interface ReviewContext {
   readonly sources?: OpeningSources;
   /** Created by the trusted planner from accepted-source receipts and owner-verified current input, never from a tool boolean. */
   readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
+  /** the queue-source/target binding of a queued setup edit (see ReviewLaunch.queued); handled before any ordinary request capture */
+  readonly queued?: QueuedAuthorization;
   readonly active: () => boolean;
 }
 interface Receipt {

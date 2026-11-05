@@ -27,10 +27,10 @@ const sha = (file: string) =>
 // values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/runtime-contract.md":
-    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "package.json": "b2acccd475eb15d803c5bdb96d77d5566fe1280cdde3ed22c59ad2383c0b0268",
   "pnpm-lock.yaml": "cdc03a8da34594c1b8d9ced92a35975dcbb27a274456183014dc5a7ab8aec08a",
@@ -81,11 +81,11 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
-    "834f0bbbdfe52e1dc68fdec0567c91905bda23b98eddac9fb4eff66c37449c8c",
+    "4a2de8295fb928a366e8a4d90b5cf7131360de88c17bbc00c24b7cf5729a1ffd",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   "packages/operator/src/terminal.ts":
     "1e2486167cc16a30ae52a15b8059d73e44f4d68dbd7f51b79ee936ca73a2708e",
   "packages/operator/src/ooc.ts":

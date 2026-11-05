@@ -40,7 +40,7 @@ describe("IA-01 source/version fidelity (I-001 projection aspect)", () => {
 
   it("the Runtime Contract and open-gates snapshots are byte-identical to the predecessor's: this slice resolves and changes no gate", () => {
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(lock.snapshot_files["spec/f027/open-gates.yaml"]).toBe(
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
@@ -59,8 +59,15 @@ describe("IA-03 owner exclusivity: the projection adds no owner, facet, key spac
         .filter((k) => /Projection|EventSignal|EVENT_SIGNAL/i.test(k))
         .sort(),
     ).toEqual([
+      // Initial Locality Bootstrap v0.9 exports (its "genesis projection" and the OPTION_A_V9 owner-derived projection are unrelated to the
+      // I-001 Event-Signal projection and add no I-001 construct); sorted among the names this heuristic matches
+      "BOOTSTRAP_PROJECTION_BASIS",
+      "BOOTSTRAP_PROJECTION_SECRECY",
       "EVENT_SIGNAL_DERIVATION_STEPS",
+      "InitialCompletionProjection",
       "deriveEventSignalProjection",
+      "genesisProjection",
+      "initialCompletionProjectionCheck",
       "presentEventSignal",
       "traceEventSignalDerivation",
     ]);

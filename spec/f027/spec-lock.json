@@ -329,6 +329,80 @@
       "supersedes": null,
       "superseded_by": null,
       "note": "Section-scoped, Sovereign-ratified design lineage only. It is not executable authority and does not re-pin that page as a frozen source."
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1",
+      "native_pin": "2026-11-01T12:13:42.692Z",
+      "sections": [
+        "Purpose",
+        "Authority",
+        "Initial Setup",
+        "Authorship and Delegation",
+        "Chronology",
+        "Isolated Generation",
+        "Scene Premises",
+        "Placement and Preparation",
+        "Pending Intent and Action",
+        "Publication and Legacy Continuity",
+        "Acceptance and Release"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified (CORE_V9, 2026-11-02T15:46:21.719Z) design lineage only. It is not executable authority, does not re-pin any page as a frozen source and does not recover or re-pin the historical WG snapshot. It does not include the separately headed Initial Scene Exception."
+    },
+    {
+      "id": "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1",
+      "native_pin": "2026-11-01T12:13:42.692Z",
+      "sections": [
+        "Initial Scene Exception"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "related_cpaa": {
+        "url": "https://app.notion.com/p/3fb20af901e08115b141f5e2e55ca37e",
+        "native_pin": "2026-10-16T07:19:16.351Z",
+        "ratification": {
+          "url": "https://app.notion.com/p/3fb20af901e08124a6a8fe243b2ec351",
+          "native_pin": "2026-10-16T07:56:18.556Z"
+        }
+      },
+      "scoped_precedence": "INITIAL_COMPLETION_V9_ONLY",
+      "other_cpaa_clauses": "UNCHANGED",
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40c20af901e081d7999be2b4f317c70a",
+        "native_pin": "2026-11-02T15:46:21.719Z"
+      },
+      "note": "The separately ratified OPTION_A_V9 scope (2026-11-02T15:46:21.719Z). Precedence applies only to the explicit INITIAL_COMPLETION_V9 derivation branch; CPAA-C1 v0.3 F-2 through F-5 and all other clauses are unchanged."
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "sections": [
+        "C-1 — exact producer identity and one model echo",
+        "C-2 — the v0.9 one-source Selection provenance"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+        "native_pin": "2026-11-03T00:54:41.601Z"
+      },
+      "note": "Section-scoped, Sovereign-ratified clarification of the v0.9 CORE_V9 contract (BLUE C-1/C-2 v0.4, RED PASS pin 2026-11-03T00:42:43.420Z, CE-1/CE-2/CE-3 incorporated). It amends neither the ratified v0.9 source nor the executable companion pages, does not re-pin any frozen source and is not itself executable authority; its executable consequences are registered additively by GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING."
     }
   ],
   "executable_lowerings": [
@@ -477,11 +551,153 @@
         "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance",
         "does not lock the referee_decision kind-level REFEREE_RULE, its referee_adjudication_kernel owner, referee_provenance facet or key space, all of which remain under B61-A3 with the base rule sovereign-approved-not-native-pinned-not-spec-locked; does not modify REFEREE_PHYSICAL_RULE or REFEREE_OBSERVATION_RULE or license their operations through GM_SCENE_RESOLUTION"
       ]
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+      "title": "IMMORTALIS — Initial Locality Bootstrap v0.9 — Consolidated Executable Contract — 2026-11-01",
+      "url": "https://app.notion.com/p/40b20af901e08198abdacb340e3507df",
+      "native_pin": "2026-11-01T12:13:53.634Z",
+      "section": "Common Types through Verification",
+      "scope": "CORE_V9_EXCLUDING_OPTIONAL_SCENE_PROJECTION_RULES",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "GM-INITIAL-BOOTSTRAP-V9-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "operation": "INITIAL_LOCALITY_COMPLETION_V9",
+      "fact_kinds": [
+        "initial_setup_input",
+        "initial_setup_invocation",
+        "initial_setup_response",
+        "initial_setup_grant",
+        "initial_locality_completion",
+        "initial_setup_disposition",
+        "referee_decision",
+        "temporal_state"
+      ],
+      "scope_operation": "WG_INITIAL_DELEGATION_CLASSIFY",
+      "scope_host": "gm-initial-scope",
+      "scope_channel": "PRIVATE_ISOLATED_RUNNER",
+      "parser": "INITIAL_LOCALITY_PARSER_V1",
+      "projection": "GENESIS_WHITELIST_NO_BOOTSTRAP_HISTORY",
+      "chronology": "RECORD_ONLY_CAPTURE_AND_STATE_PRECONDITION_V9",
+      "temporal_owner": "temporal_kernel/temporal_coordination",
+      "temporal_precondition": "bootstrapInitialTimePrecondition",
+      "temporal_writer": "initialize-captured-chronology",
+      "reservation": "CANONICAL_BEFORE_INVOCATION_NO_NEGATIVE_VOID",
+      "dispatch_join": "V2_COLLECTION_DISPATCH_REF_IN_SAME_RECORD",
+      "dispatch_trigger": "LIVE_CONTINUE_PENDING_GOAL_ONLY",
+      "expiry": "ORIGINAL_VERIFIED_ACCESS_TOKEN_EXPIRY_NO_REFRESH_EXTENSION",
+      "revocation": "ALL_OAUTH_ACCESS_AND_REFRESH_FAIL_CLOSED",
+      "option_a_status": "ADOPTED",
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40c20af901e081d7999be2b4f317c70a",
+        "native_pin": "2026-11-02T15:46:21.719Z"
+      },
+      "replay": "CANONICAL_PREFIX_ENROLLMENT_AUTHENTICITY_NOT_INDEPENDENTLY_PROVEN",
+      "does_not": [
+        "does not inherit executable text from v0.1 through v0.8",
+        "does not recover or re-pin frozen historical sources",
+        "does not treat authenticated model arguments as original human-message evidence",
+        "does not run a reserved invocation twice or use negative void proofs",
+        "does not dispatch delayed actions from background or status reads",
+        "does not pre-allocate collection act IDs or adopt same-shape orphan intents",
+        "does not enable the separately optional F-1 exception without its ratification rows",
+        "does not migrate or relabel old readers or promote IA/V/PF-6/F-028",
+        "does not certify a production driver, original-message intake or deployed natural play"
+      ]
+    },
+    {
+      "id": "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "title": "IMMORTALIS — Initial Locality Bootstrap v0.9 — Consolidated Executable Contract — 2026-11-01",
+      "url": "https://app.notion.com/p/40b20af901e08198abdacb340e3507df",
+      "native_pin": "2026-11-01T12:13:53.634Z",
+      "section": "CPAA Projection and Canonical Sunset",
+      "scope": "OPTION_A_V9_ONLY",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+        "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "operation": "INITIAL_COMPLETION_V9",
+      "fact_kinds": [
+        "world_scene_closure",
+        "population_workforce_scope"
+      ],
+      "sunset": "REGISTRY_COMPLETE_FAIL_CLOSED_POLICY_AT_HISTORICAL_PREFIX",
+      "sunset_policy": "BOOTSTRAP_SUNSET_POLICY_V9",
+      "sunset_unknown": "UNREVIEWED_BLOCK",
+      "sunset_missing_row": "VALIDATION_FAILURE",
+      "policy_coverage": "ALL_FACT_KINDS_EXACT_SET_NO_SYNTHESIZED_ROWS"
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+      "title": "IMMORTALIS — BLUE C-1/C-2 Clarification v0.4 — Activation, Terminal Evidence and Fixed-Source Feasibility — 2026-11-03",
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "section": "C-1 and C-2",
+      "scope": "C1_C2_CLARIFICATION_V0_4",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "AMENDS_ADDITIVELY",
+      "amends": {
+        "id": "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+        "native_pin": "2026-11-01T12:13:53.634Z"
+      },
+      "cites_design_lineage": [
+        "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "producer_identity": "P_H_T_D_NON_CIRCULAR_BYTE_EQUAL_DELIVERY",
+      "model_echo": "TASK_ID_ONLY_NO_INPUT_HASH_HEADER",
+      "parser_current": "INITIAL_LOCALITY_PARSER_V2",
+      "parser_frozen": "INITIAL_LOCALITY_PARSER_V1",
+      "parser_frozen_reader": "FIXTURE_NAMESPACED_JOURNALS_ONLY_VIA_TESTKIT_VERIFIER",
+      "provenance_profile": "INITIAL_LOCALITY_PROVENANCE_V1",
+      "instruction_registry": "IMMUTABLE_COMPLETE_MAPS_KEYED_BY_INSTRUCTION_HASH",
+      "instruction_hashes": {
+        "INITIAL_LOCALITY_PARSER_V1": "2f5814308d45b7a3ac692cca904a4df7b5a6a06cadee62b3792bf2673d864543",
+        "INITIAL_LOCALITY_PARSER_V2": "de40650cfbd2f2747c8984bb4715024f8f7915c9ce754985c973cda68ef43c7a"
+      },
+      "context_manifest": "SHA256_OF_EXACT_PHASE_INSTRUCTIONS_AND_SHA256_OF_D",
+      "manifest_mismatch": "INVALID_OUTPUT_CONTEXT_MANIFEST_MISMATCH_RETAINS_RESPONSE",
+      "unverifiable_source": "FAIL_CLOSED_NEVER_A_PROVED_MISMATCH",
+      "selection_leaf_grammar": "CLOSED_INDEXED_TWELVE_PATHS_PLUS_ONE_PER_CONSTRAINT_AND_NON_NULL_CLAIMANT",
+      "chronology_exception": "COVERAGE_START_ONLY_EXACT_CAPTURED_STATEMENT",
+      "fixed_source_feasibility": "SCOPE_VERDICT_AND_GRANT_ADMISSION_SCOPE_REFUSED_REJECTION_CODE_NULL",
+      "history_verification": "ONE_TRANSITION_PARSER_V2_PROVENANCE_V1_C1C2_PIN",
+      "does_not": [
+        "does not amend the ratified v0.9 source or executable companion pages",
+        "does not admit a production parser V1 route or a read-either reader",
+        "does not prove a quotation's meaning, an interpretation's correctness or a favourable scene",
+        "does not promote any fixture evidence to T2 or T3 acceptance"
+      ]
     }
   ],
   "snapshot_files": {
-    "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
-    "spec/f027/acceptance-register.yaml": "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
     "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
   },
   "hash_algorithm": "sha256 over file bytes with CRLF normalized to LF",

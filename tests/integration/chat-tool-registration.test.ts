@@ -1,16 +1,25 @@
 // MECHANISM ONLY: a harmless, isolated registration proves the transport extension seam; it is not a game operation.
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createMcpHttp, type McpTool } from "../../apps/phone/src/mcp-http.ts";
 import { createOAuth, type OAuthScope } from "../../apps/phone/src/oauth.ts";
+import { openOAuthGrantLedger } from "../../apps/phone/src/oauth-ledger.ts";
 import { Chat, PLAYER, REFEREE, chatConfig, pkce } from "../support/chat-client.ts";
 import { tempDir } from "../support/tmp.ts";
 
 describe("provider-neutral authenticated tool registration", () => {
   it("registers a typed harmless handler on the existing transport and refuses a different scope and an unregistered owner operation", async () => {
     const config = await chatConfig({ operatorDir: tempDir("registration-") });
-    const oauth = createOAuth(config, Date.now, (_who, role, secret) =>
-      secret === (role === "player" ? PLAYER : REFEREE) ? "ok" : "bad",
+    const oauth = createOAuth(
+      config,
+      Date.now,
+      (_who, role, secret) => (secret === (role === "player" ? PLAYER : REFEREE) ? "ok" : "bad"),
+      openOAuthGrantLedger({
+        dir: join(config.operatorDir, "oauth-ledger"),
+        campaignId: config.campaignId,
+        now: Date.now,
+      }),
     );
     let calls = 0;
     const tool: McpTool = {

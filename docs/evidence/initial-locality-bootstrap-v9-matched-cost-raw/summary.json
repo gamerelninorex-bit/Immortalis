@@ -1,0 +1,502 @@
+{
+  "base_sha": "eafbb127c476cafb8498316e496de29e078a2146",
+  "head_sha": "13b92adeda8cea4fdae6f0148c3fe6f925fe8d51",
+  "tier": "T1 mechanism only: no host, model or provider; T2/T3 latency UNRUN",
+  "node": "v22.23.4",
+  "platform": "linux x64 6.18.44-fc-v236",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "repetitions_per_cell": 5,
+  "rows": [
+    {
+      "extra_sources": 0,
+      "before": {
+        "samples": 5,
+        "journal_entries": 3,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
+        "cold_open_ms": {
+          "median": 58.25127599999996,
+          "min": 57.287722999999914,
+          "max": 60.973172999999974
+        },
+        "cold_open_cpu_ms": {
+          "median": 59.379,
+          "min": 57.682,
+          "max": 61.492999999999995
+        },
+        "cold_open_read_bytes": 15406,
+        "cold_open_read_calls": 3,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 3,
+        "warm_open_ms": {
+          "median": 11.889045999999894,
+          "min": 10.880742999999939,
+          "max": 16.314623000000097
+        },
+        "warm_open_groups_verified": 3,
+        "hot_path_commit_ms": {
+          "median": 11.785998000000063,
+          "min": 11.09186299999999,
+          "max": 16.17607799999996
+        },
+        "hot_path_write_bytes": 9095,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 137460,
+          "min": 133388,
+          "max": 141052
+        },
+        "fixture_bytes": 17580
+      },
+      "after-oldid": {
+        "samples": 5,
+        "journal_entries": 3,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 126.60058700000002,
+          "min": 107.09110399999997,
+          "max": 165.97611100000006
+        },
+        "cold_open_cpu_ms": {
+          "median": 165.368,
+          "min": 141.266,
+          "max": 207.04399999999998
+        },
+        "cold_open_read_bytes": 108597,
+        "cold_open_read_calls": 75,
+        "cold_open_write_bytes": 12961,
+        "cold_open_groups_verified": 12,
+        "warm_open_ms": {
+          "median": 12.597627999999986,
+          "min": 12.034502999999972,
+          "max": 13.906466000000023
+        },
+        "warm_open_groups_verified": 0,
+        "hot_path_commit_ms": {
+          "median": 31.47995800000001,
+          "min": 14.438334000000054,
+          "max": 37.424311999999986
+        },
+        "hot_path_write_bytes": 9605,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 152004,
+          "min": 147332,
+          "max": 154644
+        },
+        "fixture_bytes": 17580
+      },
+      "after-native": {
+        "samples": 5,
+        "journal_entries": 3,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 63.63992399999995,
+          "min": 55.78601100000003,
+          "max": 79.78574800000001
+        },
+        "cold_open_cpu_ms": {
+          "median": 64.357,
+          "min": 58.084,
+          "max": 84.15
+        },
+        "cold_open_read_bytes": 15548,
+        "cold_open_read_calls": 3,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 3,
+        "warm_open_ms": {
+          "median": 16.49412499999994,
+          "min": 14.553087000000005,
+          "max": 18.576111999999966
+        },
+        "warm_open_groups_verified": 3,
+        "hot_path_commit_ms": {
+          "median": 10.843168000000105,
+          "min": 10.022622999999953,
+          "max": 17.92268899999999
+        },
+        "hot_path_write_bytes": 9237,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 144356,
+          "min": 143140,
+          "max": 145772
+        },
+        "fixture_bytes": 17722
+      }
+    },
+    {
+      "extra_sources": 100,
+      "before": {
+        "samples": 5,
+        "journal_entries": 103,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
+        "cold_open_ms": {
+          "median": 602.168723,
+          "min": 568.167012,
+          "max": 611.633482
+        },
+        "cold_open_cpu_ms": {
+          "median": 760.812,
+          "min": 721.373,
+          "max": 772.467
+        },
+        "cold_open_read_bytes": 698537,
+        "cold_open_read_calls": 3,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 103,
+        "warm_open_ms": {
+          "median": 542.10427,
+          "min": 472.0084099999999,
+          "max": 565.744461
+        },
+        "warm_open_groups_verified": 103,
+        "hot_path_commit_ms": {
+          "median": 18.14483199999995,
+          "min": 17.18115399999988,
+          "max": 21.049342999999908
+        },
+        "hot_path_write_bytes": 9104,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 165684,
+          "min": 162580,
+          "max": 168784
+        },
+        "fixture_bytes": 700711
+      },
+      "after-oldid": {
+        "samples": 5,
+        "journal_entries": 103,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 2430.57835,
+          "min": 2370.0646899999997,
+          "max": 2697.6994299999997
+        },
+        "cold_open_cpu_ms": {
+          "median": 2760.867,
+          "min": 2669.5969999999998,
+          "max": 3020.394
+        },
+        "cold_open_read_bytes": 5089926,
+        "cold_open_read_calls": 3751,
+        "cold_open_write_bytes": 1005253,
+        "cold_open_groups_verified": 412,
+        "warm_open_ms": {
+          "median": 158.75606500000004,
+          "min": 146.82997300000034,
+          "max": 195.5788889999999
+        },
+        "warm_open_groups_verified": 0,
+        "hot_path_commit_ms": {
+          "median": 22.76684499999965,
+          "min": 21.115667999999914,
+          "max": 26.200002999999924
+        },
+        "hot_path_write_bytes": 9625,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 173100,
+          "min": 170276,
+          "max": 177940
+        },
+        "fixture_bytes": 700711
+      },
+      "after-native": {
+        "samples": 5,
+        "journal_entries": 103,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 621.6712989999999,
+          "min": 600.3054490000001,
+          "max": 631.213357
+        },
+        "cold_open_cpu_ms": {
+          "median": 784.908,
+          "min": 753.993,
+          "max": 804.7360000000001
+        },
+        "cold_open_read_bytes": 698679,
+        "cold_open_read_calls": 3,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 103,
+        "warm_open_ms": {
+          "median": 515.941705,
+          "min": 505.0390910000001,
+          "max": 539.7445680000001
+        },
+        "warm_open_groups_verified": 103,
+        "hot_path_commit_ms": {
+          "median": 20.594029999999975,
+          "min": 18.08181300000001,
+          "max": 23.99403200000006
+        },
+        "hot_path_write_bytes": 9246,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 166236,
+          "min": 161696,
+          "max": 169608
+        },
+        "fixture_bytes": 700853
+      }
+    },
+    {
+      "extra_sources": 500,
+      "before": {
+        "samples": 5,
+        "journal_entries": 503,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
+        "cold_open_ms": {
+          "median": 5138.0912960000005,
+          "min": 4924.626485,
+          "max": 5375.380168
+        },
+        "cold_open_cpu_ms": {
+          "median": 5567.6900000000005,
+          "min": 5305.463,
+          "max": 5777.119
+        },
+        "cold_open_read_bytes": 9520440,
+        "cold_open_read_calls": 9908,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 119,
+        "warm_open_ms": {
+          "median": 4778.447819000001,
+          "min": 4629.891042000001,
+          "max": 5007.912581999999
+        },
+        "warm_open_groups_verified": 119,
+        "hot_path_commit_ms": {
+          "median": 52.32213099999899,
+          "min": 51.3120429999999,
+          "max": 60.35791900000004
+        },
+        "hot_path_write_bytes": 9456,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 334452,
+          "min": 330416,
+          "max": 341608
+        },
+        "fixture_bytes": 7853168
+      },
+      "after-oldid": {
+        "samples": 5,
+        "journal_entries": 503,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 41249.939157999994,
+          "min": 40914.472798999996,
+          "max": 41736.624229
+        },
+        "cold_open_cpu_ms": {
+          "median": 42132.203,
+          "min": 42023.665,
+          "max": 42726.238
+        },
+        "cold_open_read_bytes": 35642871,
+        "cold_open_read_calls": 34143,
+        "cold_open_write_bytes": 5953921,
+        "cold_open_groups_verified": 2012,
+        "warm_open_ms": {
+          "median": 736.5021919999999,
+          "min": 704.0281900000045,
+          "max": 821.8957259999952
+        },
+        "warm_open_groups_verified": 0,
+        "hot_path_commit_ms": {
+          "median": 49.03611099999398,
+          "min": 45.82884300000296,
+          "max": 76.73425499999576
+        },
+        "hot_path_write_bytes": 9629,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 390364,
+          "min": 377948,
+          "max": 407252
+        },
+        "fixture_bytes": 7853168
+      },
+      "after-native": {
+        "samples": 5,
+        "journal_entries": 503,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 5102.212482,
+          "min": 4851.9769559999995,
+          "max": 5240.594813000001
+        },
+        "cold_open_cpu_ms": {
+          "median": 5505.68,
+          "min": 5351.916,
+          "max": 5660.427
+        },
+        "cold_open_read_bytes": 9520582,
+        "cold_open_read_calls": 9908,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 119,
+        "warm_open_ms": {
+          "median": 4891.992117000001,
+          "min": 4666.430463,
+          "max": 5002.244102
+        },
+        "warm_open_groups_verified": 119,
+        "hot_path_commit_ms": {
+          "median": 54.66840899999988,
+          "min": 54.18697400000019,
+          "max": 63.291314999998576
+        },
+        "hot_path_write_bytes": 9598,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 333316,
+          "min": 317704,
+          "max": 340672
+        },
+        "fixture_bytes": 7853310
+      }
+    },
+    {
+      "extra_sources": 2000,
+      "before": {
+        "samples": 5,
+        "journal_entries": 2003,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
+        "cold_open_ms": {
+          "median": 16279.523233,
+          "min": 16067.408969,
+          "max": 16585.029356
+        },
+        "cold_open_cpu_ms": {
+          "median": 18485.075,
+          "min": 18270.535,
+          "max": 18802.174
+        },
+        "cold_open_read_bytes": 33769960,
+        "cold_open_read_calls": 31861,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 83,
+        "warm_open_ms": {
+          "median": 16046.060680000002,
+          "min": 15702.911781000003,
+          "max": 16136.214129000004
+        },
+        "warm_open_groups_verified": 83,
+        "hot_path_commit_ms": {
+          "median": 196.78653799999665,
+          "min": 168.7958110000036,
+          "max": 200.2322820000045
+        },
+        "hot_path_write_bytes": 9466,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 559964,
+          "min": 528520,
+          "max": 602412
+        },
+        "fixture_bytes": 39934442
+      },
+      "after-oldid": {
+        "samples": 5,
+        "journal_entries": 2003,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 631361.6767760001,
+          "min": 626871.720189,
+          "max": 663810.9545100001
+        },
+        "cold_open_cpu_ms": {
+          "median": 703057.976,
+          "min": 696836.1109999999,
+          "max": 739264.785
+        },
+        "cold_open_read_bytes": 167407849,
+        "cold_open_read_calls": 183859,
+        "cold_open_write_bytes": 27477052,
+        "cold_open_groups_verified": 8012,
+        "warm_open_ms": {
+          "median": 3217.4762869999977,
+          "min": 3121.0880180000095,
+          "max": 3430.898967999965
+        },
+        "warm_open_groups_verified": 0,
+        "hot_path_commit_ms": {
+          "median": 159.61571799998637,
+          "min": 148.8874160000123,
+          "max": 205.21300300001167
+        },
+        "hot_path_write_bytes": 9638,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 858992,
+          "min": 851788,
+          "max": 862660
+        },
+        "fixture_bytes": 39934442
+      },
+      "after-native": {
+        "samples": 5,
+        "journal_entries": 2003,
+        "history_verification_id": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1",
+        "cold_open_ms": {
+          "median": 16603.899728,
+          "min": 16106.57283,
+          "max": 16658.447629000002
+        },
+        "cold_open_cpu_ms": {
+          "median": 18547.987,
+          "min": 18026.017,
+          "max": 18665.495
+        },
+        "cold_open_read_bytes": 33770102,
+        "cold_open_read_calls": 31861,
+        "cold_open_write_bytes": 99,
+        "cold_open_groups_verified": 83,
+        "warm_open_ms": {
+          "median": 15509.424512000001,
+          "min": 15219.626179000003,
+          "max": 15719.059034000002
+        },
+        "warm_open_groups_verified": 83,
+        "hot_path_commit_ms": {
+          "median": 192.021133000002,
+          "min": 184.9532279999985,
+          "max": 219.99016799999663
+        },
+        "hot_path_write_bytes": 9608,
+        "hot_path_admission_checks": 1,
+        "peak_rss_kb": {
+          "median": 501700,
+          "min": 499188,
+          "max": 521640
+        },
+        "fixture_bytes": 39934584
+      }
+    }
+  ],
+  "option_a_presence_guard_scan": [
+    {
+      "facts": 111,
+      "qualifies_first_call_ms": 2.322014000000081,
+      "qualifies_warm_ms_per_call": 0.3171429500000045,
+      "exact_sha": "13b92adeda8cea4fdae6f0148c3fe6f925fe8d51",
+      "node": "v22.23.4"
+    },
+    {
+      "facts": 1011,
+      "qualifies_first_call_ms": 14.811314000000039,
+      "qualifies_warm_ms_per_call": 0.6410862500000007,
+      "exact_sha": "13b92adeda8cea4fdae6f0148c3fe6f925fe8d51",
+      "node": "v22.23.4"
+    },
+    {
+      "facts": 10011,
+      "qualifies_first_call_ms": 53.70700800000009,
+      "qualifies_warm_ms_per_call": 1.9815317499999991,
+      "exact_sha": "13b92adeda8cea4fdae6f0148c3fe6f925fe8d51",
+      "node": "v22.23.4"
+    }
+  ]
+}

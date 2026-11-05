@@ -1,4 +1,6 @@
 import {
+  FACET_WORLD_INITIAL_SETUP,
+  INITIAL_SETUP_FACT_KIND_IDS,
   EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
   ExistingActorCouplingSchema,
@@ -21,6 +23,7 @@ import {
   OWNER_CULTURE,
   OWNER_CULTURE_ADJUDICATION_KERNEL,
   OWNER_REFEREE_KERNEL,
+  REFEREE_OP_INITIAL_DELEGATION,
   OWNER_KTI,
   OWNER_LOGISTICS,
   OWNER_NAMED_ACTOR,
@@ -49,6 +52,22 @@ import { canonicalEqual } from "../hash.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { existingActorSourceViolation } from "../actor/derive.ts";
 import { causalDrawGroupCheck } from "../causal-draw/admission.ts";
+import {
+  PRODUCTION_INITIAL_SETUP_POLICY,
+  frozenBasisViolation,
+  initialSetupGroupCheck,
+  scopeDecisionGroupCheck,
+  type InitialSetupPolicy,
+} from "../initial-setup/admission.ts";
+import { classifyFact } from "../initial-setup/genesis.ts";
+import {
+  adverseCompletionErasureViolation,
+  initialCompletionProjectionCheck,
+} from "../initial-setup/projection.ts";
+import {
+  INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
+  INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+} from "../initial-setup/rules.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
@@ -71,6 +90,7 @@ import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
+import { bootstrapInitialTimePrecondition } from "../temporal/bootstrap.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
 import {
   PRESENCE_EXCLUSION,
@@ -458,127 +478,251 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  *
  * Pure: a function of (group, state) only.
  */
-export const canonicalAdmission: WriteAdmission = {
-  // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
-  // change to R1 or S1-P1 historical verification must change this identity (and force strict replay).
-  historyVerificationId:
-    "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z",
-  verifyHistorical(group, state) {
-    return (
-      worldActorPresenceHistoricalCheck(group, state) ??
-      auditoryPremisesHistoricalCheck(group, state)
-    );
-  },
-  check(group, state) {
-    for (const w of group.writes) {
-      const resolved = resolveKey(w.key);
-      if (!resolved) {
-        return reject(
-          "KEY_NOT_ADMITTED",
-          "key is outside every registered key space; there is no fallback owner",
-          {
+function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
+  return {
+    // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
+    // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}`,
+    verifyHistorical(group, state) {
+      return (
+        worldActorPresenceHistoricalCheck(group, state) ??
+        auditoryPremisesHistoricalCheck(group, state) ??
+        initialSetupHistoricalCheck(group, state, policy)
+      );
+    },
+    check(group, state) {
+      for (const w of group.writes) {
+        const resolved = resolveKey(w.key);
+        if (!resolved) {
+          return reject(
+            "KEY_NOT_ADMITTED",
+            "key is outside every registered key space; there is no fallback owner",
+            {
+              key: w.key,
+            },
+          );
+        }
+        const { kind, ids } = resolved;
+        if (kind.owner !== w.owner || kind.facet !== w.facet) {
+          return reject("KEY_NOT_ADMITTED", "key belongs to a different owner/facet", {
             key: w.key,
-          },
-        );
+            owner: kind.owner,
+            facet: kind.facet,
+          });
+        }
+        if (kind.lifecycle === "SEALED" && w.expected_version !== 0) {
+          return reject(
+            "AMENDMENT_NOT_SUPPORTED",
+            "sealed canon cannot be overwritten; no amendment mechanism is implemented",
+            { key: w.key },
+          );
+        }
+        const parsed = kind.valueSchema.safeParse(w.value);
+        if (!parsed.success) {
+          return reject("VALUE_INVALID", `value violates the ${kind.id} contract`, {
+            key: w.key,
+            issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`),
+          });
+        }
+        const mismatch = identityMismatch(kind, ids, parsed.data);
+        if (mismatch) return reject("VALUE_INVALID", mismatch, { key: w.key });
+        const dependent = dependencyCheck(kind, group, state, w.key, parsed.data);
+        if (dependent) return dependent;
       }
-      const { kind, ids } = resolved;
-      if (kind.owner !== w.owner || kind.facet !== w.facet) {
-        return reject("KEY_NOT_ADMITTED", "key belongs to a different owner/facet", {
-          key: w.key,
-          owner: kind.owner,
-          facet: kind.facet,
-        });
-      }
-      if (kind.lifecycle === "SEALED" && w.expected_version !== 0) {
-        return reject(
-          "AMENDMENT_NOT_SUPPORTED",
-          "sealed canon cannot be overwritten; no amendment mechanism is implemented",
-          { key: w.key },
-        );
-      }
-      const parsed = kind.valueSchema.safeParse(w.value);
-      if (!parsed.success) {
-        return reject("VALUE_INVALID", `value violates the ${kind.id} contract`, {
-          key: w.key,
-          issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`),
-        });
-      }
-      const mismatch = identityMismatch(kind, ids, parsed.data);
-      if (mismatch) return reject("VALUE_INVALID", mismatch, { key: w.key });
-      const dependent = dependencyCheck(kind, group, state, w.key, parsed.data);
-      if (dependent) return dependent;
-    }
-    // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
-    // boundary-index and engaged-object updates).
-    if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
-    // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
-    if (group.owner === OWNER_POPULATION)
-      return group.facet === FACET_POPULATION_PC_OCCUPANCY
-        ? pcOccupancyGroupCheck(group, state)
-        : group.facet === FACET_POPULATION_WORKFORCE_SCOPE
-          ? workforceScopeGroupCheck(group, state)
-          : populationGroupCheck(group, state);
-    // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
-    if (group.owner === OWNER_PRODUCTION)
-      return group.writes.some((w) => isDrawdownProductionKey(w.key))
-        ? sourceDrawdownGroupCheck(group, state)
-        : productionGroupCheck(group, state);
-    // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
-    if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
-    // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
-    if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
-    // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
-    if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
-    // IM-07 PC capability profile groups (a facet of the one I-002 PC owner): a received basis and a PC Capability Close are each re-derived.
-    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_CAPABILITY_PROFILE)
-      return pcCapabilityGroupCheck(group, state);
-    // IM-07 PC movement groups (a third facet of the one I-002 PC owner): the player's commitment-of-record and the PC-owned request are each re-derived.
-    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_VOLUNTARY_COMMITMENT)
-      return group.writes.some((w) => resolveKey(w.key)?.kind.id.startsWith("pc_collection_"))
-        ? pcCollectionGroupCheck(group, state)
-        : pcMovementGroupCheck(group, state);
-    // CPAA-C1 v0.2 PROVISIONAL: the P-1 intrinsic exact-cycle mechanism (a further facet of the one PC owner), re-derived.
-    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_COLLECTION_MECHANISM)
-      return pcCollectionGroupCheck(group, state);
-    // R-5: the prospective intrinsic clarification (a further facet of the one PC owner), re-derived.
-    if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_INTRINSIC_CLARIFICATION)
-      return pcCollectionGroupCheck(group, state);
-    // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
-    if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
-    // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
-    if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
-    // IM-09 Culture groups: a sealed Social Update Context and a Communicative Convention Close are each re-derived.
-    if (group.owner === OWNER_CULTURE) return cultureGroupCheck(group, state);
-    // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
-    if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
-    // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute, Relation Edge or Framework establishment, created once.
-    if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
-    // IM-12 Causal Draw provenance groups (F-027-CD1): one precommit or one result, each created once and re-derived.
-    if (group.owner === OWNER_CAUSAL_DRAW_KERNEL) return causalDrawGroupCheck(group, state);
-    // IM-12 Culture adjudication provenance groups (F-027-CJA1): one decision record, created once and re-derived.
-    if (group.owner === OWNER_CULTURE_ADJUDICATION_KERNEL)
-      return cultureAdjudicationGroupCheck(group, state);
-    // IM-12 referee provenance groups (PR #61, B61-A3): one decision record per task, created once and re-derived.
-    if (group.owner === OWNER_REFEREE_KERNEL)
-      return group.writes.some((w) => resolveKey(w.key)?.kind.id === "pc_collection_reach_decision")
-        ? pcReachGroupCheck(group, state)
-        : refereeGroupCheck(group, state);
-    // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
-    // entity transition from its causing result and the accepted entity.
-    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
-      return worldEntityGroupCheck(group, state);
-    // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
-    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
-      return worldSourceGroupCheck(group, state);
-    // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
-    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
-      return sceneClosureGroupCheck(group, state);
-    // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
-    if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
-      return worldAcousticEmissionGroupCheck(group, state);
-    return null;
-  },
-};
+      // v0.9 active-Input freeze: no group may write the frozen genesis basis while an initial-setup session is active.
+      const frozen = frozenBasisViolation(group, state);
+      if (frozen) return frozen;
+      // IM-03 v0.9 Initial Locality Bootstrap records (a facet of the World-State owner), each re-derived from the pre-state.
+      if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
+        return initialSetupGroupCheck(group, state, policy);
+      // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
+      // boundary-index and engaged-object updates).
+      if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
+      // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
+      if (group.owner === OWNER_POPULATION)
+        return group.facet === FACET_POPULATION_PC_OCCUPANCY
+          ? pcOccupancyGroupCheck(group, state)
+          : group.facet === FACET_POPULATION_WORKFORCE_SCOPE
+            ? (projectionPreconditions(group, state) ?? workforceScopeGroupCheck(group, state))
+            : populationGroupCheck(group, state);
+      // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
+      if (group.owner === OWNER_PRODUCTION)
+        return group.writes.some((w) => isDrawdownProductionKey(w.key))
+          ? sourceDrawdownGroupCheck(group, state)
+          : productionGroupCheck(group, state);
+      // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
+      if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
+      // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
+      if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
+      // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
+      if (group.owner === OWNER_NAMED_ACTOR) return namedActorGroupCheck(group, state);
+      // IM-07 PC capability profile groups (a facet of the one I-002 PC owner): a received basis and a PC Capability Close are each re-derived.
+      if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_CAPABILITY_PROFILE)
+        return pcCapabilityGroupCheck(group, state);
+      // IM-07 PC movement groups (a third facet of the one I-002 PC owner): the player's commitment-of-record and the PC-owned request are each re-derived.
+      if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_VOLUNTARY_COMMITMENT)
+        return group.writes.some((w) => resolveKey(w.key)?.kind.id.startsWith("pc_collection_"))
+          ? pcCollectionGroupCheck(group, state)
+          : pcMovementGroupCheck(group, state);
+      // CPAA-C1 v0.2 PROVISIONAL: the P-1 intrinsic exact-cycle mechanism (a further facet of the one PC owner), re-derived.
+      if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_COLLECTION_MECHANISM)
+        return pcCollectionGroupCheck(group, state);
+      // R-5: the prospective intrinsic clarification (a further facet of the one PC owner), re-derived.
+      if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_INTRINSIC_CLARIFICATION)
+        return pcCollectionGroupCheck(group, state);
+      // IM-10 Epistemic Access groups: an access event and a packet formation (packet + sealed provenance) are each re-derived.
+      if (group.owner === OWNER_EPISTEMIC_ACCESS) return epistemicGroupCheck(group, state);
+      // IM-09 KTI groups: a development object, a transfer basis and a Transfer Package result close are each re-derived.
+      if (group.owner === OWNER_KTI) return ktiGroupCheck(group, state);
+      // IM-09 Culture groups: a sealed Social Update Context and a Communicative Convention Close are each re-derived.
+      if (group.owner === OWNER_CULTURE) return cultureGroupCheck(group, state);
+      // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
+      if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
+      // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute, Relation Edge or Framework establishment, created once.
+      if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
+      // IM-12 Causal Draw provenance groups (F-027-CD1): one precommit or one result, each created once and re-derived.
+      if (group.owner === OWNER_CAUSAL_DRAW_KERNEL) return causalDrawGroupCheck(group, state);
+      // IM-12 Culture adjudication provenance groups (F-027-CJA1): one decision record, created once and re-derived.
+      if (group.owner === OWNER_CULTURE_ADJUDICATION_KERNEL)
+        return cultureAdjudicationGroupCheck(group, state);
+      // IM-12 referee provenance groups (PR #61, B61-A3): one decision record per task, created once and re-derived.
+      if (group.owner === OWNER_REFEREE_KERNEL)
+        return group.writes.some(
+          (w) => resolveKey(w.key)?.kind.id === "pc_collection_reach_decision",
+        )
+          ? pcReachGroupCheck(group, state)
+          : refereeGroupCheck(group, state);
+      // IM-03 World-State fallback physical-entity custody: an acceptance is re-derived from the completion, and an
+      // entity transition from its causing result and the accepted entity.
+      if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_FALLBACK_ENTITY)
+        return worldEntityGroupCheck(group, state);
+      // IM-03 World-State Source Condition: an establishment, and a delivery re-derived from the actual Production-caused Source Delta.
+      if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SOURCE_CONDITION)
+        return worldSourceGroupCheck(group, state);
+      // CPAA-C1 v0.3 bounded semantic delegation (newly authorized): the scene closure, derived from the owners' facts.
+      if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE)
+        return projectionPreconditions(group, state) ?? sceneClosureGroupCheck(group, state);
+      // IM-03 S1-P1 W2b: an acoustic emission is the locus's own physical event, judged against its original typed profile.
+      if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_LOCUS)
+        return worldAcousticEmissionGroupCheck(group, state);
+      return null;
+    },
+  };
+}
+
+/**
+ * OPTION_A_V9 routing for the two projected kinds. A group carrying an INITIAL_COMPLETION_V9 rule must satisfy the exception's own
+ * premises (Completion, as-of qualification, projectable branch); a group carrying the author-only rule must not erase an admitted
+ * adverse constraint. The owner's own derivation always runs after this and is never relaxed.
+ */
+function projectionPreconditions(group: CommitGroup, state: CampaignState) {
+  const which = group.facet === FACET_WORLD_SCENE_CLOSURE ? "CLOSURE" : "WORKFORCE";
+  const exception =
+    which === "CLOSURE"
+      ? canonicalEqual(group.rule, INITIAL_COMPLETION_SCENE_CLOSURE_RULE)
+      : canonicalEqual(group.rule, INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE);
+  if (exception) return initialCompletionProjectionCheck(group, state, which);
+  return which === "CLOSURE" ? adverseCompletionErasureViolation(state) : null;
+}
+
+/**
+ * Historical verification of the v0.9 bootstrap records, the world-subject scope classification and the freeze, each against the
+ * ACTUAL incremental pre-state. A group that writes none of them returns at once (legacy journals replay exactly as before).
+ */
+function initialSetupHistoricalCheck(
+  group: CommitGroup,
+  state: CampaignState,
+  policy: InitialSetupPolicy,
+) {
+  if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
+    return initialSetupGroupCheck(group, state, policy);
+  if (
+    group.owner === OWNER_REFEREE_KERNEL &&
+    group.writes.some(
+      (w) =>
+        (w.value as { operation?: unknown } | null)?.operation === REFEREE_OP_INITIAL_DELEGATION,
+    )
+  )
+    return scopeDecisionGroupCheck(group, state);
+  if (
+    (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_SCENE_CLOSURE) ||
+    (group.owner === OWNER_POPULATION && group.facet === FACET_POPULATION_WORKFORCE_SCOPE)
+  )
+    return projectionPreconditions(group, state);
+  if (
+    group.owner === OWNER_TEMPORAL_KERNEL &&
+    group.writes.some(
+      (w) => resolveKey(w.key)?.kind.id === "temporal_state" && w.expected_version === 0,
+    )
+  )
+    return bootstrapInitialTimePrecondition(group, state);
+  if (group.writes.some((w) => classifyFact({ key: w.key, value: w.value }) === "GENESIS"))
+    return frozenBasisViolation(group, state);
+  return null;
+}
+
+/** The production admission: the reserved fixture: namespace is rejected at admission, startup, load and replay. */
+export const canonicalAdmission: WriteAdmission = buildCanonicalAdmission(
+  PRODUCTION_INITIAL_SETUP_POLICY,
+  "",
+);
+
+/**
+ * TESTKIT-ONLY: the T1 fixture admission requires the wholly fixture-namespaced evidence that only the testkit's
+ * FixtureEvidenceVerifier produces, under a distinct `historyVerificationId`, so checkpoint evidence can never be shared between
+ * the two. Production code (apps/, operator, serving startup) never imports this; a static security test enforces it.
+ */
+export const fixtureCanonicalAdmission: WriteAdmission = buildCanonicalAdmission(
+  { syntheticEvidence: "REQUIRE" },
+  "+fixture-evidence-t1",
+);
+
+/**
+ * The v0.9 surfaces a campaign created under a PRE-v0.9 Runtime Contract must never accept: the six bootstrap record kinds (by key
+ * space, whatever owner/facet a group claims), the WG_INITIAL_DELEGATION Referee branch, and the OPTION_A_V9 projection rules. The
+ * captured-chronology initial-time route cannot be reached either, because it requires a Completion, which is one of the refused kinds.
+ */
+function legacyContractSurface(group: CommitGroup): Rejection | null {
+  const refuse = (what: string) =>
+    reject(
+      "KEY_NOT_ADMITTED",
+      `${what} is a v0.9 Initial Locality Bootstrap surface; this package was created under a pre-v0.9 Runtime Contract and does not accept it`,
+      { reason: LEGACY_RUNTIME_CONTRACT_SURFACE },
+    );
+  if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
+    return refuse("the world_initial_setup facet");
+  for (const w of group.writes) {
+    const kind = resolveKey(w.key)?.kind.id;
+    if (kind && (INITIAL_SETUP_FACT_KIND_IDS as readonly string[]).includes(kind))
+      return refuse(`the ${kind} record`);
+    if ((w.value as { operation?: unknown } | null)?.operation === REFEREE_OP_INITIAL_DELEGATION)
+      return refuse("the WG_INITIAL_DELEGATION_CLASSIFY Referee operation");
+  }
+  if (
+    canonicalEqual(group.rule, INITIAL_COMPLETION_SCENE_CLOSURE_RULE) ||
+    canonicalEqual(group.rule, INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE)
+  )
+    return refuse("an OPTION_A_V9 projection rule");
+  return null;
+}
+
+/** The reason a legacy package reports for a v0.9 surface (a stable, separately testable code). */
+export const LEGACY_RUNTIME_CONTRACT_SURFACE = "LEGACY_RUNTIME_CONTRACT_SURFACE";
+
+/**
+ * The admission under which this build opens and extends a campaign created under a pre-v0.9 Runtime Contract: the canonical
+ * admission for everything the old contract already admitted, with every v0.9 surface refused, at commit AND on replay. It carries its
+ * own `historyVerificationId`, so checkpoint evidence earned under any other policy is never trusted and the first open replays
+ * strictly (OB-030).
+ */
+export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
+  return {
+    historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+    check: (group, state) => legacyContractSurface(group) ?? base.check(group, state),
+    verifyHistorical: (group, state) =>
+      legacyContractSurface(group) ?? base.verifyHistorical?.(group, state) ?? null,
+  };
+}
 
 export function identityMismatch(
   kind: FactKind,
@@ -848,6 +992,29 @@ export function identityMismatch(
       return v["culture_update_id"] === ids[0] ? null : "culture_update_id does not match the key";
     case "referee_decision":
       return v["task_id"] === ids[0] ? null : "task_id does not match the key";
+    case "initial_setup_input":
+    case "initial_setup_grant":
+    case "initial_setup_disposition":
+      return v["world_id"] === ids[0] && v["locus_id"] === ids[1] && v["setup_id"] === ids[2]
+        ? null
+        : "world, locus and setup identity do not match the key";
+    case "initial_setup_invocation":
+      return v["world_id"] === ids[0] &&
+        v["locus_id"] === ids[1] &&
+        (v["phase"] === "SCOPE" ? v["setup_id"] === ids[2] : ids[2] === undefined)
+        ? null
+        : "world, locus, phase and setup identity do not match the key";
+    case "initial_setup_response":
+      return v["world_id"] === ids[0] &&
+        v["locus_id"] === ids[1] &&
+        v["setup_id"] === ids[2] &&
+        v["phase"] === ids[3]
+        ? null
+        : "world, locus, setup and phase identity do not match the key";
+    case "initial_locality_completion":
+      return v["world_id"] === ids[0] && v["locus_id"] === ids[1]
+        ? null
+        : "world and locus identity do not match the key";
     case "causal_draw_precommit":
     case "causal_draw_result":
       return v["draw_id"] === `cdraw:v1:${ids[0]}` ? null : "draw_id does not match the key";

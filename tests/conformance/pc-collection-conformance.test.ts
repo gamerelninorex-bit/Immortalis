@@ -168,7 +168,7 @@ describe("IA-01 provisional status: every new kind is tagged as an unratified ca
     expect(lock.frozen_sources).toHaveLength(23);
     expect(lock.incorporated_tranches).toHaveLength(2);
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(lock.snapshot_files["spec/f027/open-gates.yaml"]).toBe(
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
@@ -413,6 +413,13 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "world_source_delivery",
       // the bounded semantic delegation (newly authorized): the one World-State kind this slice adds, under its own new facet
       "world_scene_closure",
+      // Initial Locality Bootstrap v0.9 (CORE_V9): the six sealed bootstrap records, under their own new facet of the same owner
+      "initial_setup_input",
+      "initial_setup_invocation",
+      "initial_setup_response",
+      "initial_setup_grant",
+      "initial_locality_completion",
+      "initial_setup_disposition",
     ]);
   });
 

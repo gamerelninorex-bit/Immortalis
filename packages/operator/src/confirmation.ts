@@ -31,6 +31,7 @@ export type ConfirmationVerb =
   | "collect"
   | "prepare-collection"
   | "initialize-time"
+  | "capture-chronology"
   | "declare-closed-setting"
   | "cease"
   | "collect-finish"
@@ -76,11 +77,14 @@ export async function requestOrdinaryConfirmation(
         readonly token: OrdinaryAction;
         readonly session: LocalOperatorSession;
         readonly action: unknown;
+        /** the trusted dispatch identity a delayed capability was minted for (absent for a direct command) */
+        readonly dispatchRef?: string;
       }
     | undefined,
 ): Promise<OperatorConfirmation | null> {
   if (!use) return requestOperatorConfirmation(terminal, verb, subject, shown);
-  if (!consumeOrdinaryAction(use.token, use.session, verb, use.action)) return null;
+  if (!consumeOrdinaryAction(use.token, use.session, verb, use.action, use.dispatchRef))
+    return null;
   const token: OperatorConfirmation = Object.freeze({ verb, subject });
   live.add(token);
   return token;

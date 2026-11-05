@@ -67,7 +67,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/logistics/provider.ts":
     "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/projection/event-signal.ts":
     "5fa2712c00ce8ea7df4720d26e1250ff484f6a3475ef156fe3527c514f9a7e47",
   "packages/engine/src/presentation/event-signal.ts":
@@ -284,7 +284,7 @@ describe("the gateway advances no time, resolves nothing, plans no route and hol
 describe("register, lock and gate honesty: nothing moved", () => {
   it("no spec snapshot or source pin differs from the predecessor's, and the frozen relocation contract is not a lock pin", () => {
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(lock.snapshot_files["spec/f027/open-gates.yaml"]).toBe(
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",

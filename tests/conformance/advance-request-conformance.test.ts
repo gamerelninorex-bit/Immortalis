@@ -24,10 +24,10 @@ const sha = (file: string) =>
 // values are kept there as history (with their commit) and today's only in tests/support/present-day-identities.ts, never in this map.
 const UNCHANGED: Readonly<Record<string, string>> = {
   "spec/f027/runtime-contract.md":
-    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
   "spec/f027/README.md": "aed7da7bd7b40002125849b2cbff39b73bd85f2a4c0664cc0f08eb558e7a15cb",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "packages/protocol/src/active-pc-target-advance.ts":
     "1339417f932845a5fc466560d6da35dfc2b11991ef11fadf7e49712f3963c268",
@@ -40,21 +40,21 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
   "packages/engine/src/temporal/coordinator.ts":
-    "5bdbc6cbf4cb4cc9a01f11f009ecc0767ac75d0e8373974ed09bd465a8febdd1",
+    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/engine/src/temporal/admission.ts":
-    "7e079c4df4b756b741d04241f752d9c68ce12a6aa9938204d7afeee6f9b03b67",
+    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
   "packages/engine/src/gip/adapter.ts":
     "2b73b74c3f32d245d88999115a74f4804f8bdcb03d16f9a2793fe61c5d2e1f8b",
   "packages/engine/src/gip/provider.ts":
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   "packages/operator/src/ledger.ts":
-    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
+    "695aed303988e1ef543809895a06ffa70896d9a77fef04d041086bfbf892e1a8",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/terminal.ts":
@@ -64,7 +64,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
-    "834f0bbbdfe52e1dc68fdec0567c91905bda23b98eddac9fb4eff66c37449c8c",
+    "4a2de8295fb928a366e8a4d90b5cf7131360de88c17bbc00c24b7cf5729a1ffd",
   "packages/operator/src/player-view.ts":
     "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
   "packages/operator/src/player-view-exchange.ts":

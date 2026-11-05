@@ -1,0 +1,7 @@
+{
+  "facts": 111,
+  "qualifies_first_call_ms": 2.322014000000081,
+  "qualifies_warm_ms_per_call": 0.3171429500000045,
+  "exact_sha": "13b92adeda8cea4fdae6f0148c3fe6f925fe8d51",
+  "node": "v22.23.4"
+}

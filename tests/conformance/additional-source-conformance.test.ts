@@ -27,15 +27,15 @@ const sha = (file: string) =>
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "packages/contracts/src/source-drawdown.ts":
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
 };
 
 describe("nothing outside the operator is touched", () => {

@@ -2,6 +2,7 @@ import type { ExistenceContract } from "@immortalis/contracts";
 import type { CharacterDraft, Edit } from "@immortalis/operator";
 import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
 import type { CharacterReadback } from "./character-evidence.ts";
+import type { QueuedAuthorization } from "./delayed-continuation.ts";
 import type { LocalityReadback } from "./locality-evidence.ts";
 import type { GoalCoordinator } from "./goal.ts";
 import type { ToolContext } from "./mcp-http.ts";
@@ -19,6 +20,12 @@ export interface ReviewLaunch {
   readonly authority: ReviewAuthority;
   readonly sources?: OpeningSources;
   readonly derived?: (request: ReviewRequest, source?: OpeningSources) => boolean;
+  /**
+   * The queue-source/target binding of a QUEUED setup edit being applied by a NEW live `continue_queued_setup_edit` request. Present only
+   * from that trusted continuation; with it the run's request evidence comes from the one-use QueuedSetupEditCapability instead of an
+   * in-chat challenge. It is never a tool argument and never a general authorization flag.
+   */
+  readonly queued?: QueuedAuthorization;
 }
 
 /** One command the player lane is running (or ran last). The sequence numbers of its transcript restart with every run. */

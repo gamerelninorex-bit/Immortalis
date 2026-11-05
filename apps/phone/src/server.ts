@@ -3,6 +3,7 @@ import {
   applyEdits,
   compileContract,
   judgeStatement,
+  LocalitySetupSchema,
   missingOf,
   runCli,
   runRefereeConsole,
@@ -13,7 +14,9 @@ import {
   type OperatorTerminal,
 } from "@immortalis/operator";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { join } from "node:path";
 import {
   bindOrdinaryAction,
   revokeOrdinaryAction,
@@ -53,17 +56,25 @@ import {
 import {
   COLLECTION_COMMANDS,
   captureCollection,
+  readActionBinding,
+  readDispatchLink,
   runCollectionOperation,
 } from "./collection-recovery.ts";
 import { PLAYER_COMMANDS, buildPlayerCommand } from "./commands.ts";
 import type { PhoneConfig } from "./config.ts";
-import { createGoalCoordinator } from "./goal.ts";
+import { createGoalCoordinator, type DelayedLaunch } from "./goal.ts";
 import { readGoal, writeGoal } from "./goal-record.ts";
 import type { LocalityOutcome } from "./locality-evidence.ts";
 import { readPlay } from "./play-evidence.ts";
 import type { ToolContext } from "./mcp-http.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
+import { openOAuthGrantLedger, type OAuthGrantLedger } from "./oauth-ledger.ts";
+import { setupFreezeReleased } from "./setup-freeze.ts";
+import { loadOrCreateStoreKey } from "./store-key.ts";
+import { PendingActionGrantStore, type PendingPolicy } from "./pending-action.ts";
+import { QueuedSetupEditStore } from "./queued-setup.ts";
+import { parseEdits, parseGenerationOpening } from "./chat-tools.ts";
 import { confirmPage, consentPage, landingPage, playerPage, refereePage } from "./pages.ts";
 import {
   PENDING_FORMAT,
@@ -170,6 +181,17 @@ export interface PhoneDeps {
   readonly negotiation?: (line: string) => void;
   /** the shipped character authoring and its referee waits (tests wrap the command to inject faults and shorten the waits) */
   readonly character?: CharacterRunOptions;
+  /**
+   * The delayed-action stores of a version-2 workflow. `policy` is production's REJECT of the reserved fixture namespace unless a T1 test
+   * explicitly requires labelled fixture evidence; it is a startup parameter, never a runtime or caller choice.
+   */
+  readonly delayed?: { readonly policy?: PendingPolicy };
+}
+
+/** The trusted-process handle of the delayed-action path (for the in-process trusted intake and the operator); absent on a version-1 workflow. */
+export interface DelayedHandle {
+  readonly grants: PendingActionGrantStore;
+  readonly queue: QueuedSetupEditStore;
 }
 
 type Role = "player" | "referee";
@@ -197,6 +219,10 @@ const same = (a: string, b: string) => timingSafeEqual(digest(a), digest(b));
 
 export interface PhoneServer {
   readonly server: Server;
+  /** the delayed-action stores (a version-2 workflow only): the trusted in-process handle, never reachable from a tool or a request */
+  readonly delayed?: DelayedHandle;
+  /** the OAuth grant ledger (operator-side inspection); absent without the chat adapter */
+  readonly oauthLedger?: OAuthGrantLedger;
   readonly listen: () => Promise<number>;
   readonly close: () => Promise<void>;
 }
@@ -247,6 +273,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     completeObservation: deps.recovery?.completeObservation ?? completeObservation,
     captureCollection: deps.recovery?.captureCollection ?? captureCollection,
     runCollection: deps.recovery?.runCollection ?? runCollectionOperation,
+    readDispatchLink: deps.recovery?.readDispatchLink ?? readDispatchLink,
+    readActionBinding: deps.recovery?.readActionBinding ?? readActionBinding,
     characterOutcome: deps.recovery?.characterOutcome ?? characterOutcome,
     readCharacter: deps.recovery?.readCharacter ?? readCharacter,
     stageOutcome: deps.recovery?.stageOutcome ?? stageEvidence,
@@ -604,10 +632,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             ? { sources: { ...opts.review.sources, campaign: config.campaignId } }
             : {}),
           ...(opts.review.derived ? { derived: opts.review.derived } : {}),
+          ...(opts.review.queued ? { queued: opts.review.queued } : {}),
           active: () => !closing && !run.done && player?.id === id && pending?.run_id === id,
         })
       : baseTerminal;
-    const env = { terminal: reviewed, out: (line: string) => terminal.say(line) };
+    const env = {
+      terminal: reviewed,
+      out: (line: string) => terminal.say(line),
+      // a version-2 workflow opens EVERY command's session as version 2 (a ledger file of the other version is refused)
+      ...(config.operatorLedgerVersion === 2 ? { ledgerVersion: 2 as const } : {}),
+    };
     const chain = withRefereeCancellation(cancellation.signal, () => execute(env))
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);
@@ -1064,16 +1098,24 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     lane: "page" | "chat",
     authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
     review?: ReviewLaunch,
+    delayed?: DelayedLaunch,
   ): Promise<Launch> {
-    return track(launchPlayerWork(request, lane, authority, review));
+    return track(launchPlayerWork(request, lane, authority, review, delayed));
   }
   async function launchPlayerWork(
     request: { command: unknown; options?: unknown; setup?: unknown },
     lane: "page" | "chat",
     authority?: Pick<ToolContext, "scopes" | "client" | "grant">,
     review?: ReviewLaunch,
+    delayed?: DelayedLaunch,
   ): Promise<Launch> {
     if (closing) return refuse(503, "the server is closing; nothing was dispatched");
+    // a DELAYED dispatch is only ever the ordinary chat `collect` of a version-2 workflow, under its own capability
+    if (
+      delayed &&
+      (request.command !== "collect" || lane !== "chat" || config.operatorLedgerVersion !== 2)
+    )
+      return refuse(409, "a delayed dispatch needs a version-2 workflow; nothing was dispatched");
     if (launching || (player && !player.done))
       return refuse(409, "a command is already running: answer it or stop it first");
     if (readingSetting > 0)
@@ -1204,6 +1246,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
             client: authority!.client,
             grant: authority!.grant,
             verb,
+            // the trusted dispatch_ref is additional capability metadata, not a new game choice
+            ...(delayed ? { dispatchRef: delayed.dispatchRef } : {}),
             ...(collection ? { revision: collection.revision } : {}),
             action:
               command === "collect"
@@ -1239,6 +1283,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         identity,
         collection,
         setup,
+        // persisted with the launch frame BEFORE the command starts: a crash from here on is reconciled by this exact dispatch_ref
+        ...(delayed
+          ? {
+              dispatch: {
+                dispatch_ref: delayed.dispatchRef,
+                grant_id: delayed.grantId,
+                binding_digest: delayed.bindingDigest,
+              },
+            }
+          : {}),
       };
       if (!writePending(config, record)) {
         if (accepted) revokeOrdinaryAction(accepted);
@@ -2385,7 +2439,16 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   };
 
   const goalCoordinator = createGoalCoordinator({
-    launch: (command, options, authority) => launchPlayer({ command, options }, "chat", authority),
+    launch: (command, options, authority, delayed) =>
+      launchPlayer({ command, options }, "chat", authority, undefined, delayed),
+    linked: async (ref) => {
+      const link = await rec.readDispatchLink(config, ref);
+      return link.kind === "READ" && link.withDispatchRef === 1 && link.canonicalActId !== null
+        ? { kind: "ACT" as const, act_id: link.canonicalActId }
+        : link.kind === "READ"
+          ? { kind: "NONE" as const }
+          : { kind: "UNAVAILABLE" as const };
+    },
     read: () => readPlay(config),
     scenario: () => {
       const checked = checkScenarioFile(config.scenarioFile, { strict: true });
@@ -2702,8 +2765,93 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
   // -- the ordinary-chat adapter (off unless the public origin is configured) -------------------------------------------------
   let oauth: OAuthServer | null = null;
   let mcp: McpHttp | null = null;
+  let oauthLedger: OAuthGrantLedger | undefined;
+  let delayedHandle: DelayedHandle | undefined;
+  /** A version-2 workflow only: the protected stores (their secret is created by trusted first startup) and the continuation's collaborators. */
+  const delayedDeps: ChatToolDeps["delayed"] | undefined = (() => {
+    if (config.publicUrl === null || config.operatorLedgerVersion !== 2) return undefined;
+    const dir = join(config.operatorDir, "delayed-action");
+    const populated = existsSync(dir) && readdirSync(dir).length > 0;
+    const key = loadOrCreateStoreKey(config.operatorDir, "delayed-action-store.key", populated);
+    // a missing/corrupt secret over existing records means NO delayed authority: the tools are not offered (fail closed)
+    if (key === null) return undefined;
+    const grants = new PendingActionGrantStore({
+      campaignId: config.campaignId,
+      dir: join(dir, "pending"),
+      macKey: key,
+      now,
+      policy: deps.delayed?.policy ?? { syntheticEvidence: "REJECT" },
+    });
+    const queue = new QueuedSetupEditStore({
+      campaignId: config.campaignId,
+      dir: join(dir, "queued"),
+      macKey: key,
+      now,
+      validPayload: {
+        REVISE_PC: (p) => {
+          const { opening, ...edits } = p;
+          return (
+            parseEdits(edits).ok &&
+            (opening === undefined || parseGenerationOpening(opening) !== null)
+          );
+        },
+        REVISE_SETUP: (p) => {
+          const { opening, ...setting } = p;
+          void opening;
+          return LocalitySetupSchema.safeParse(setting).success;
+        },
+      },
+    });
+    delayedHandle = { grants, queue };
+    return {
+      now,
+      grants,
+      queue,
+      oauthStatus: (client, grant) => oauthLedger?.status(client, grant) ?? "UNAVAILABLE",
+      scenario: () => {
+        const checked = checkScenarioFile(config.scenarioFile, { strict: true });
+        return checked.ok ? checked.scenario : null;
+      },
+      readBinding: rec.readActionBinding,
+      readLink: rec.readDispatchLink,
+      pendingFrame: () => (pending && pending.dispatch ? pending : null),
+      runActive: (runId) => player?.id === runId && !player.done,
+      freezeReleased: () => setupFreezeReleased(config),
+      queuedTarget: async (r) => {
+        if (r.command === "REVISE_PC") {
+          const st = await playerRuns.characterStatus();
+          return st.state === "DRAFT_RETAINED" && (st.revision ?? 0) === r.retained_revision
+            ? { ok: true }
+            : {
+                ok: false,
+                reason: "the character is no longer the unkept draft this edit was written for",
+              };
+        }
+        const st = await playerRuns.settingStatus();
+        return st.state === "NOT_STARTED" || st.state === "NOT_CONFIRMED"
+          ? { ok: true }
+          : {
+              ok: false,
+              reason:
+                "the setting is no longer an unsealed draft; an established setting cannot be rewritten here",
+            };
+      },
+    };
+  })();
   if (config.publicUrl !== null) {
-    oauth = createOAuth(config, now, (who, role, token) => checkLane(who, role, token));
+    // the protected grant ledger is created by trusted first startup BEFORE any token is issued; a missing or corrupt initialised ledger
+    // later denies every OAuth request (fail closed, application-wide). Prior stateless tokens are never adopted.
+    oauthLedger = openOAuthGrantLedger({
+      dir: join(config.operatorDir, "oauth-ledger"),
+      campaignId: config.campaignId,
+      now,
+    });
+    oauth = createOAuth(
+      config,
+      now,
+      (who, role, token) => checkLane(who, role, token),
+      oauthLedger,
+    );
     mcp = createMcpHttp({
       oauth,
       now,
@@ -2717,6 +2865,7 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
         runs: playerRuns,
         ...(deps.chat ?? {}),
         callReferee: refereeTool,
+        ...(delayedDeps ? { delayed: delayedDeps } : {}),
       }),
     });
   }
@@ -2802,6 +2951,42 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       if (form === undefined) return (json(res, 400, { error: "invalid_request" }), true);
       const r = oauth.token(form);
       return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/revoke" && req.method === "POST") {
+      // RFC 7009 self-revocation by the client that holds the token: it ends the grant's access AND refresh tokens
+      const form = await readForm(req);
+      if (form === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const r = oauth.revokeToken(form);
+      return (json(res, r.status, r.body), true);
+    }
+    if (path === "/oauth/operator" && req.method === "POST") {
+      // the trusted OPERATOR's view and revocation: authorized only by the referee lane secret, through the same constant-time,
+      // rate-limited check the lanes' own sign-in uses; it never reveals or accepts a token
+      if (!sameOrigin(req)) return (deny(res, 403, "cross-origin request refused"), true);
+      const body = await readBody(req);
+      if (body === undefined) return (json(res, 400, { error: "invalid_request" }), true);
+      const typed = body["referee_token"];
+      const checked =
+        typeof typed === "string" && typed !== ""
+          ? checkLane(clientOf(req), "referee", typed)
+          : "bad";
+      if (checked === "locked") return (json(res, 429, { error: "temporarily_unavailable" }), true);
+      if (checked !== "ok") return (json(res, 401, { error: "access_denied" }), true);
+      if (body["action"] === "list") {
+        const grants = oauth.grants();
+        return grants === null
+          ? (json(res, 503, { error: "temporarily_unavailable" }), true)
+          : (json(res, 200, { grants }), true);
+      }
+      if (
+        body["action"] === "revoke" &&
+        typeof body["client_id"] === "string" &&
+        typeof body["grant_id"] === "string"
+      ) {
+        const done = oauth.revokeGrant(body["client_id"], body["grant_id"], "OPERATOR");
+        return (json(res, done === "UNAVAILABLE" ? 503 : 200, { result: done }), true);
+      }
+      return (json(res, 400, { error: "invalid_request" }), true);
     }
     if (path === "/oauth/decision" && req.method === "POST") {
       if (!sameOrigin(req)) return (deny(res, 403, "cross-origin request refused"), true);
@@ -2951,6 +3136,8 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
 
   return {
     server,
+    ...(delayedHandle ? { delayed: delayedHandle } : {}),
+    ...(oauthLedger ? { oauthLedger } : {}),
     listen: () =>
       new Promise((resolve, reject) => {
         server.once("error", reject);

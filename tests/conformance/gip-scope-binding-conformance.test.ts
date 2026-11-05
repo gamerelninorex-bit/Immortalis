@@ -199,6 +199,8 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       .filter((f) => /gip_scope_binding|ScopeBinding|gipScopeBinding/.test(code(f)))
       .sort();
     expect(touching).toEqual([
+      // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the reviewed 90-row sunset policy has one row per registered kind
+      "packages/engine/src/initial-setup/sunset-policy.ts",
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",
     ]);
@@ -385,7 +387,7 @@ describe("acceptance-register and open-gate honesty (fifteenth slice)", () => {
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     );
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     const statusOf = (id: string) => gates.find((g) => g.id === id)?.status;
     expect(statusOf("PF-6/F-028")).toBe("NOT_ACTIVATED_BLOCKED");

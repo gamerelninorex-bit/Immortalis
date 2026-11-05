@@ -77,6 +77,7 @@ import {
   pcCollectionCessationViolation,
   pcCollectionTerminationViolation,
 } from "./cessation.ts";
+import { initialCompletionWorkViolation } from "../initial-setup/projection.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   foreignEngagementViolation,
@@ -767,6 +768,14 @@ export function pcCollectionStartViolation(
       "VALUE_INVALID",
       "the extraction declares exactly the derived start and earned completion: never a caller-declared boundary",
     );
+  // OPTION_A_V9: a closure projected under the Initial Scene Exception is qualified AGAIN at this admission's own prefix for the work's
+  // FULL occupied interval; closures established by the author-only rule are untouched (the call returns null when not engaged)
+  const exception = initialCompletionWorkViolation(
+    state,
+    { world_id: s.locality.world.entity_id, locus_id: s.locality.locus.entity_id },
+    { begin: w.derivation.started_at, finish: w.derivation.completes_at },
+  );
+  if (exception) return exception;
   // enrollment: nothing else may bear on the source or on the interval (a foreign claim, another process falling due within it)
   const engagement = foreignEngagementViolation(state.facts, {
     worldId: s.locality.world.entity_id,

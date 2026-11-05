@@ -1,3 +1,4 @@
+import type { LedgerVersion } from "./ledger.ts";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -339,6 +340,8 @@ export interface EstablishAdditionalSourceParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /** the workflow's retained-intent ledger version (absent = 1); a version-2 workflow passes 2 to every command */
+  readonly ledgerVersion?: LedgerVersion;
 }
 
 /**
@@ -370,6 +373,7 @@ export async function establishAdditionalSource(
     ...(params.reclaimStaleLock ? { reclaimStaleLock: true } : {}),
     ...(params.campaignFs ? { campaignFs: params.campaignFs } : {}),
     ...(params.ledgerFs ? { ledgerFs: params.ledgerFs } : {}),
+    ...(params.ledgerVersion ? { ledgerVersion: params.ledgerVersion } : {}),
   });
   if (!opened.ok) {
     const sub = (opened.error.details as { code?: string } | undefined)?.code;

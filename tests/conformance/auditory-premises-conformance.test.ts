@@ -178,10 +178,10 @@ describe("nothing outside the physical-source slice was built", () => {
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       "packages/engine/src/temporal":
-        "6f99e3e3ebd4c9286d3d25f1c012c2084a26826e46ebed73fc5811c2bf1e59a7",
+        "616eac431452e31fcce97c8798b7a83cd0041619fadbe0663971666fe3362104",
       "packages/engine/src/persistence":
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
-        "e1436cd128b3989b25a6cfdeb029db55ecdaa4ec5c146c993ee37a8365f3591b",
+        "cdac9cd5bfd46b89edaff583b7e0b47fddaf3fd05a9c78724c69de271141f8eb",
       "packages/engine/src/commit":
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
@@ -309,7 +309,8 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     );
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
     // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
-    expect(lock["design_lineage_successors"]).toHaveLength(5);
+    // + the two Initial Locality Bootstrap v0.9 lineage rows (core and the adopted OPTION_A_V9 row), appended after it, and the additive C-1/C-2 row
+    expect(lock["design_lineage_successors"]).toHaveLength(8);
     expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
@@ -321,8 +322,11 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "S1-P1-WG-LOWERING",
       "PC-CURRENT-LOOK-WORLD-LOWERING",
       "GM-CURRENT-LOOK-SCENE-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+      "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
     ]);
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.map((r) => r.id));
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.slice(0, 5).map((r) => r.id));
   });
 
   it("the P1 lowering cites the WG native pin, composes with F-027, supersedes nothing and names exactly its kinds", () => {
@@ -447,10 +451,10 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     );
     expect(fileSha("spec/f027/acceptance-register.yaml")).toBe(
-      "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
     );
     expect(fileSha("spec/f027/runtime-contract.md")).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
   });
 });

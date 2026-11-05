@@ -1,4 +1,4 @@
-import { canonicalJson } from "@immortalis/contracts";
+import { PhysicalHostDecisionSchema, canonicalJson } from "@immortalis/contracts";
 import type { ReviewRequest } from "../../../packages/operator/src/review-evidence.ts";
 import { CollectionPreparationSchema } from "../../../packages/operator/src/collection-preparation.ts";
 import { ClosedSettingSchema } from "../../../packages/operator/src/closed-setting.ts";
@@ -9,6 +9,20 @@ const record = (x: unknown): x is Record<string, unknown> =>
   !!x && typeof x === "object" && !Array.isArray(x);
 const same = (a: unknown, b: unknown) =>
   a !== undefined && b !== undefined && canonicalJson(a) === canonicalJson(b);
+/**
+ * The v0.9 external-claims rule of the automatic native-entry bridge (Initial Locality Bootstrap v0.9, "Placement and Cycle"). The bridge
+ * is permitted only for claims that are VALID under the complete PhysicalHostDecisionSchema and whose bearing is ALL `CONJUNCTIVE`: the
+ * claim is stated ALONGSIDE a presence the player's own words establish by themselves. An empty list (the original rule) still passes.
+ * Any `CONTINGENT` claim, any claim that is not exactly a valid claim, or a missing or non-list value WITHHOLDS the bridge, so no
+ * contingent permission becomes unconditional and no claim is accepted as rights. This predicate neither edits nor drops a claim: every
+ * claim stays in the reading exactly as the host gave it and is forwarded unchanged to the existing physical qualification, which still
+ * judges it. Removing a claim to make custody pass is never done here.
+ */
+export function externalClaimsAllowBridge(claims: unknown): boolean {
+  const parsed = PhysicalHostDecisionSchema.shape.external_claims.safeParse(claims);
+  return parsed.success && parsed.data.every((c) => c.bearing === "CONJUNCTIVE");
+}
+
 /** A later GM reading can realize only the exact reviewed native entry; other interpretations remain blocked. */
 export function entryEvidence(source: OpeningSources, request: ReviewRequest): boolean {
   const entry = source.generation;
@@ -41,8 +55,7 @@ export function entryEvidence(source: OpeningSources, request: ReviewRequest): b
       reading.embodiment.mode === "SINGLE_MATERIAL_BODY" &&
       record(reading.presence) &&
       reading.presence.mode === "NATIVE_AT_THIS_LOCUS" &&
-      Array.isArray(reading.external_claims) &&
-      reading.external_claims.length === 0 &&
+      externalClaimsAllowBridge(reading.external_claims) &&
       reading.clarification === null
     );
   return false;

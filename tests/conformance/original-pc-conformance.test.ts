@@ -44,25 +44,25 @@ const importedNames = (file: string, from: string): string[] =>
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/runtime-contract.md":
-    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+    "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/engine/src/persistence/file-package.ts":
-    "cd57b52e464a06dd6484ae0a30167857b3e24ce8f3052fd5f9c4d2628a55151b", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
+    "32567d99fbdcbf2857317ebd79728280f8446fd02850f5bfc7ad5d76fb4f6278", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":
-    "01a0d46c417d24f568070e348dc4ea0e373e99bac66b098f92a849575c927574",
+    "256cc35dde918316c5bbeaf885d266148988ec79c37c57adb6e3ed737936e990",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/ledger.ts":
-    "94092549ec67f9631f05fba78890775c45e574a1e9335a36daa3abe82921c3c9",
+    "695aed303988e1ef543809895a06ffa70896d9a77fef04d041086bfbf892e1a8",
   "packages/operator/src/commands.ts":
-    "f14467cae3334d2f13f65ab9b941a7f66b889d157779a7afad53e09eb6baa8af",
+    "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/locality-pin.ts":
     "df06db12a7ec3cb7ffe185701aa4ea4728adf9d28fac85d8c1dc54e0f52d6bd6",
   "packages/operator/src/terminal.ts":
