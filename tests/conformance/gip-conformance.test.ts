@@ -452,7 +452,7 @@ describe("acceptance-register and open-gate honesty", () => {
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     );
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
   });
   it("every open gate stays at its recorded status; PF-6/F-028, provider, deployment and migration stay inactive", () => {

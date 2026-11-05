@@ -33,7 +33,7 @@ describe("source fidelity: CJA1 is a Sovereign-approved source that is not claim
     expect(JSON.stringify(raw)).not.toContain("3f420af901e0815dae8ac3912a1214fe");
     expect(JSON.stringify(raw)).not.toContain("CJA1");
     expect(lock.snapshot_files["spec/f027/runtime-contract.md"]).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
     expect(BUILD_SPEC_IDENTITY.snapshot_files).toEqual(lock.snapshot_files);
     expect(checkSpec(".")).toEqual([]);

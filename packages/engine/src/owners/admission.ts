@@ -1,5 +1,6 @@
 import {
   FACET_WORLD_INITIAL_SETUP,
+  INITIAL_SETUP_FACT_KIND_IDS,
   EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
   ExistingActorCouplingSchema,
@@ -675,6 +676,53 @@ export const fixtureCanonicalAdmission: WriteAdmission = buildCanonicalAdmission
   { syntheticEvidence: "REQUIRE" },
   "+fixture-evidence-t1",
 );
+
+/**
+ * The v0.9 surfaces a campaign created under a PRE-v0.9 Runtime Contract must never accept: the six bootstrap record kinds (by key
+ * space, whatever owner/facet a group claims), the WG_INITIAL_DELEGATION Referee branch, and the OPTION_A_V9 projection rules. The
+ * captured-chronology initial-time route cannot be reached either, because it requires a Completion, which is one of the refused kinds.
+ */
+function legacyContractSurface(group: CommitGroup): Rejection | null {
+  const refuse = (what: string) =>
+    reject(
+      "KEY_NOT_ADMITTED",
+      `${what} is a v0.9 Initial Locality Bootstrap surface; this package was created under a pre-v0.9 Runtime Contract and does not accept it`,
+      { reason: LEGACY_RUNTIME_CONTRACT_SURFACE },
+    );
+  if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
+    return refuse("the world_initial_setup facet");
+  for (const w of group.writes) {
+    const kind = resolveKey(w.key)?.kind.id;
+    if (kind && (INITIAL_SETUP_FACT_KIND_IDS as readonly string[]).includes(kind))
+      return refuse(`the ${kind} record`);
+    if ((w.value as { operation?: unknown } | null)?.operation === REFEREE_OP_INITIAL_DELEGATION)
+      return refuse("the WG_INITIAL_DELEGATION_CLASSIFY Referee operation");
+  }
+  if (
+    canonicalEqual(group.rule, INITIAL_COMPLETION_SCENE_CLOSURE_RULE) ||
+    canonicalEqual(group.rule, INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE)
+  )
+    return refuse("an OPTION_A_V9 projection rule");
+  return null;
+}
+
+/** The reason a legacy package reports for a v0.9 surface (a stable, separately testable code). */
+export const LEGACY_RUNTIME_CONTRACT_SURFACE = "LEGACY_RUNTIME_CONTRACT_SURFACE";
+
+/**
+ * The admission under which this build opens and extends a campaign created under a pre-v0.9 Runtime Contract: the canonical
+ * admission for everything the old contract already admitted, with every v0.9 surface refused, at commit AND on replay. It carries its
+ * own `historyVerificationId`, so checkpoint evidence earned under any other policy is never trusted and the first open replays
+ * strictly (OB-030).
+ */
+export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
+  return {
+    historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+    check: (group, state) => legacyContractSurface(group) ?? base.check(group, state),
+    verifyHistorical: (group, state) =>
+      legacyContractSurface(group) ?? base.verifyHistorical?.(group, state) ?? null,
+  };
+}
 
 export function identityMismatch(
   kind: FactKind,

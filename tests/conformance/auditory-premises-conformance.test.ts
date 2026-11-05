@@ -181,7 +181,7 @@ describe("nothing outside the physical-source slice was built", () => {
         "616eac431452e31fcce97c8798b7a83cd0041619fadbe0663971666fe3362104",
       "packages/engine/src/persistence":
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
-        "e1436cd128b3989b25a6cfdeb029db55ecdaa4ec5c146c993ee37a8365f3591b",
+        "cdac9cd5bfd46b89edaff583b7e0b47fddaf3fd05a9c78724c69de271141f8eb",
       "packages/engine/src/commit":
         "ccfb7305301424c71d8e0d79a314729adb8d00b739cf933bdc9ca1bbd1209f5b",
     };
@@ -451,10 +451,10 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     );
     expect(fileSha("spec/f027/acceptance-register.yaml")).toBe(
-      "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
     );
     expect(fileSha("spec/f027/runtime-contract.md")).toBe(
-      "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+      "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
     );
   });
 });

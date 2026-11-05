@@ -96,6 +96,12 @@ export interface FileCampaignOptions {
   readonly owners?: OwnerRegistry;
   /** Optional IM-03 admission consulted for new commits (never on replay). See WriteAdmission. */
   readonly admission?: WriteAdmission;
+  /**
+   * The admission for a package created under another (declared-compatible, older) Runtime Contract, chosen from the package's own
+   * manifest at open. `undefined` keeps `admission`. It is what lets this build extend a pre-v0.9 package while refusing every v0.9
+   * surface in it.
+   */
+  readonly admissionFor?: (runtimeContractSha256: string) => WriteAdmission | undefined;
   /** Informational build identifier (e.g. git SHA). Recorded, never used to gate loading. */
   readonly buildId?: string | null;
   /** Spec identity this build implements. Defaults to the generated F-027 identity. */
@@ -548,6 +554,13 @@ async function load(
   if (typeof rm !== "object" || rm === null || rm.format !== PACKAGE_FORMAT) {
     return fail("UNSUPPORTED_FORMAT", "manifest is not an IMMORTALIS campaign package");
   }
+  // the package's own declared Runtime Contract selects its admission (before either format's replay builds its core)
+  const declaredContract = (
+    rawManifest.value as { compatibility?: { runtime_contract_sha256?: unknown } }
+  ).compatibility?.runtime_contract_sha256;
+  const forPackage =
+    typeof declaredContract === "string" ? options.admissionFor?.(declaredContract) : undefined;
+  if (forPackage) options = { ...options, admission: forPackage };
   if (rm.format_version === 2) return loadCheckpoint(dir, fs, lock, options, rawManifest.value);
   if (rm.format_version !== PACKAGE_FORMAT_VERSION) {
     return fail(

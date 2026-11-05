@@ -1,0 +1,50 @@
+{
+  "campaign_id": "campaign-bench",
+  "compatibility": {
+    "runtime_contract_sha256": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd"
+  },
+  "created_with": {
+    "build_id": "bench-seed",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "format": "immortalis.campaign-package",
+  "format_version": 1,
+  "genesis_sha256": "8ca393012d0aa9bce22c2d6d12babd0a9f9214c6fe104de4c409f2d2ae8fb099",
+  "head": {
+    "journal_bytes": 0,
+    "journal_entries": 0,
+    "journal_head_sha256": "8ca393012d0aa9bce22c2d6d12babd0a9f9214c6fe104de4c409f2d2ae8fb099",
+    "revision": 0,
+    "state_file": "state.0000000000.json",
+    "state_sha256": "f5a2654aa522178d1ac0a41cb8bac0325e26d16694a94e712204248d3740a1a6"
+  },
+  "last_saved_spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd"
+    },
+    "spec_lock_sha256": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c"
+  },
+  "last_saved_with": {
+    "build_id": "bench-seed",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "self_sha256": "39aa3567cebf4c61b4b0840f6319134cf030a75220800f7de27cb5d656aa705f",
+  "spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd"
+    },
+    "spec_lock_sha256": "2133b8b80f3078c90d84d5d75845169164bafcd8541aa614981da63ac55af18c"
+  }
+}

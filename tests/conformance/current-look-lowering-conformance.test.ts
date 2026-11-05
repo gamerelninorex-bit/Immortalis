@@ -255,9 +255,9 @@ describe("the lock: one non-executable lineage row and two additive executable l
     );
     expect(lock["snapshot_files"]).toEqual({
       "spec/f027/runtime-contract.md":
-        "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd",
+        "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
       "spec/f027/acceptance-register.yaml":
-        "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+        "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
       "spec/f027/open-gates.yaml":
         "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
     });
@@ -761,7 +761,7 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "d3267dfe72341125e1cd5563cd791e84fd4b753e832a6e4dd9419756e6b35447";
+const CURRENT_V08_LOCK_SHA256 = "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654";
 const CURRENT_V08_REGISTRY_SHA256 =
   "9a61ff41c0b74997239c5c90c053cd5c83e0ed469529c4ff4fc323fcf3c45def";
 const gitBlobOf = (text: string): string => {
@@ -789,6 +789,12 @@ function lockWithoutV08Rows(): string {
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
     (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),
   );
+  // ... and the two snapshot hashes the additive Runtime Contract section and the bounded IA-01/IA-02 evidence changed (the prefix of the
+  // Runtime Contract is the original file, proved by tests/integration/legacy-package-compat.test.ts)
+  copy["snapshot_files"]["spec/f027/runtime-contract.md"] =
+    "ab2f6385e598c306a4bc2cae91cde5b798ae53d18d176a39ef8a4024d63696fd";
+  copy["snapshot_files"]["spec/f027/acceptance-register.yaml"] =
+    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf";
   copy["executable_lowerings"] = copy["executable_lowerings"].filter(
     (r: any) => r.id !== WORLD_ID && r.id !== SCENE_ID && !v09.has(r.id),
   );

@@ -39,7 +39,7 @@ const sha = (file: string) =>
 const UNCHANGED: Record<string, string> = {
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
   "spec/f027/acceptance-register.yaml":
-    "58349ecd93bf94181596ca1082b13a6a31a99c5903afee6609ad5dad90505bdf",
+    "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "packages/contracts/src/economy.ts":
     "53703c6eab2f1129c27b44f1c03904fdba60e33777523d0d95a570efb8b75e33",
   "packages/contracts/src/production.ts":
