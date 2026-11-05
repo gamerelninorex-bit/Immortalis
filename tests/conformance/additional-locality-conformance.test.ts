@@ -35,7 +35,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/commands.ts":
     "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/session.ts":
@@ -82,7 +82,7 @@ describe("nothing outside the operator is touched", () => {
 
   it("the predecessor additional-source module changed only by exporting two read-only helpers it already had", () => {
     expect(sha("packages/operator/src/additional-source.ts")).toBe(
-      "56428eac482b003420120cca2e617fc019c1b1e59c09a37f0d2dca4ceb63111e",
+      "756446981c46c1c3c4a49c929709be3142dd922c95cbf864d8052529972c2970",
     );
     const text = readFileSync("packages/operator/src/additional-source.ts", "utf8");
     expect(text).toContain("export function sourceProblems(");

@@ -32,15 +32,15 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/world/integrity.ts":
     "ad1272249ed8637f538ef08c3a97cba71c683a13069f44ed5bd7c497376d98da",
   "packages/operator/src/cli.ts":
-    "380bdea3f0a0252de4a78514f83e471aa5184058246cfcda67135843b711d7c7",
+    "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":
     "7283bae5d6144fd44f7ea6ec17a3d7e44040745339766e6b72ce274dc8ba16c7",
   "packages/operator/src/index.ts":
     "20c9574bc69ed925888a1b232829b7a98a82bcf8c1484a0adb40a30a8e782b34",
   "packages/operator/src/observation.ts":
-    "f24b70a38eaa59dd21c93e4b7effc96d5bd198dc31e5fae65557462472fae5dc",
+    "afb54d18665a1527335cea3cb5c22ceccfbe106e68e708a6f63d2575d7b61669",
   "packages/operator/src/original-pc.ts":
-    "b692d3180afa7a432addfc84a614370095b056a505560c99c0d61434144655c8",
+    "3ba2c4a726e080d697c3edc7610971d2c4318eb293f9aed27fab8cdee4f8347a",
   "packages/operator/src/referee-exchange.ts":
     "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
   "packages/operator/src/referee-mcp.ts":
@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "e70fecafe029b0935962eaa649556c042e789d1dc88ef5e38ea9a8f6bb1b546a",
+  "packages/operator/src": "d23269586b33fc99cdfb0325c67cdc8027a16e6ece4d1410f01bd9dcb0f9ef94",
   "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
 };
 

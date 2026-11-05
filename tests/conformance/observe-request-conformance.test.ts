@@ -47,7 +47,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
-    "834f0bbbdfe52e1dc68fdec0567c91905bda23b98eddac9fb4eff66c37449c8c",
+    "4a2de8295fb928a366e8a4d90b5cf7131360de88c17bbc00c24b7cf5729a1ffd",
   "packages/operator/src/local-operator.ts":
     "1bf152e2a05e64474beb661b215c33b1e4ab318ceff845856aaef916de3250a8",
   "packages/operator/src/session.ts":

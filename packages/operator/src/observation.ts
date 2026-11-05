@@ -1,3 +1,4 @@
+import type { LedgerVersion } from "./ledger.ts";
 import {
   EntityId,
   OBSERVATION_BASE_REFS,
@@ -93,6 +94,8 @@ export interface ObserveSurroundingsParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /** the workflow's retained-intent ledger version (absent = 1); a version-2 workflow passes 2 to every command */
+  readonly ledgerVersion?: LedgerVersion;
   readonly refereePolls?: number;
   readonly refereePollMs?: number;
 }
@@ -112,6 +115,7 @@ export async function observeSurroundings(p: ObserveSurroundingsParams): Promise
     ...(p.buildId !== undefined ? { buildId: p.buildId } : {}),
     ...(p.campaignFs ? { campaignFs: p.campaignFs } : {}),
     ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
+    ...(p.ledgerVersion ? { ledgerVersion: p.ledgerVersion } : {}),
   });
   if (!opened.ok) return opened.refusal;
   const session = opened.session;

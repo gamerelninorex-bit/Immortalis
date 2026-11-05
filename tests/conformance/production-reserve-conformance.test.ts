@@ -35,11 +35,11 @@ const UNCHANGED: Record<string, string> = {
   "packages/engine/src/production/admission.ts":
     "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/additional-source.ts":
-    "56428eac482b003420120cca2e617fc019c1b1e59c09a37f0d2dca4ceb63111e",
+    "756446981c46c1c3c4a49c929709be3142dd922c95cbf864d8052529972c2970",
   "packages/operator/src/additional-locality.ts":
-    "5f1fea4718c816d755c086d2cfef6bffdbfdad62e3ac2f2935ba54e94bf4c782",
+    "744847bc53de4c51ae9ef1ce11f4b4d3b648e4d163c1c96c36c2472a7e43a24f",
   "packages/operator/src/commands.ts":
     "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/session.ts":

@@ -636,7 +636,12 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
           active: () => !closing && !run.done && player?.id === id && pending?.run_id === id,
         })
       : baseTerminal;
-    const env = { terminal: reviewed, out: (line: string) => terminal.say(line) };
+    const env = {
+      terminal: reviewed,
+      out: (line: string) => terminal.say(line),
+      // a version-2 workflow opens EVERY command's session as version 2 (a ledger file of the other version is refused)
+      ...(config.operatorLedgerVersion === 2 ? { ledgerVersion: 2 as const } : {}),
+    };
     const chain = withRefereeCancellation(cancellation.signal, () => execute(env))
       .then(async (code) => {
         terminal.say(`— command finished (exit code ${code}) —`);

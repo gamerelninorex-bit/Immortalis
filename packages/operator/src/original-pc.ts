@@ -1,3 +1,4 @@
+import type { LedgerVersion } from "./ledger.ts";
 import { createHash, createHmac } from "node:crypto";
 import {
   EntityId,
@@ -755,6 +756,8 @@ export interface AuthorCharacterParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /** the workflow's retained-intent ledger version (absent = 1); a version-2 workflow passes 2 to every command */
+  readonly ledgerVersion?: LedgerVersion;
   /** how many times each referee answer is looked for (default 1200) and the pause between looks (default 500 ms) */
   readonly refereePolls?: number;
   readonly refereePollMs?: number;
@@ -1099,6 +1102,7 @@ export async function openSession(p: {
   buildId?: string;
   campaignFs?: FsOps;
   ledgerFs?: FsOps;
+  ledgerVersion?: LedgerVersion;
 }): Promise<Opened> {
   const opened = await LocalOperatorSession.open({
     campaignDir: p.campaignDir,
@@ -1108,6 +1112,7 @@ export async function openSession(p: {
     ...(p.reclaimStaleLock ? { reclaimStaleLock: true } : {}),
     ...(p.campaignFs ? { campaignFs: p.campaignFs } : {}),
     ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
+    ...(p.ledgerVersion ? { ledgerVersion: p.ledgerVersion } : {}),
   });
   if (opened.ok) return { ok: true, session: opened.value };
   const sub = (opened.error.details as { code?: string } | undefined)?.code;

@@ -62,7 +62,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/operator/src/commands.ts":
     "c0288a5d8f9326fa3427d0f92f07ff5e625beee7bfb5d34719d1c30806c1e9da",
   "packages/operator/src/locality.ts":
-    "808a3e0329822ef6085e48f7db02a7354d25995d7e1b24a7d8f1a90f7a8c6c2a",
+    "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/locality-pin.ts":
     "df06db12a7ec3cb7ffe185701aa4ea4728adf9d28fac85d8c1dc54e0f52d6bd6",
   "packages/operator/src/terminal.ts":

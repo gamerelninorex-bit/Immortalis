@@ -72,6 +72,8 @@ export const reopenFixtureCampaign = (dir: string) =>
   CanonicalCampaign.open(dir, { testkitFixtureAdmission: fixtureCanonicalAdmission });
 
 export interface Harness {
+  /** the campaign identity every bootstrap record, capture and runner receipt of this harness names (default BOOTSTRAP_CAMPAIGN) */
+  readonly campaignId: string;
   readonly campaign: CanonicalCampaign;
   readonly store: CampaignStore;
   readonly dir: string;
@@ -93,9 +95,11 @@ export async function harness(
     macKey?: Buffer;
     keys?: ReturnType<typeof generateFixtureRunnerKeys>;
     driver?: ScriptedIsolatedDriver;
+    campaignId?: string;
   } = {},
 ): Promise<Harness> {
-  const open = options.open ?? (await openFixtureCampaign());
+  const campaignId = options.campaignId ?? BOOTSTRAP_CAMPAIGN;
+  const open = options.open ?? (await openFixtureCampaign(campaignId));
   const keys = options.keys ?? generateFixtureRunnerKeys();
   const macKey = options.macKey ?? randomBytes(32);
   const outboxDir = options.outboxDir ?? scratch("immortalis-bootstrap-outbox-");
@@ -114,7 +118,7 @@ export async function harness(
   });
   const verifier = new FixtureEvidenceVerifier();
   const service = new InitialSetupService({
-    campaignId: BOOTSTRAP_CAMPAIGN,
+    campaignId,
     store: open.campaign.store,
     runner,
     verifier: verifier as any,
@@ -122,6 +126,7 @@ export async function harness(
   });
   const captureStore = new ChronologyCaptureStore({ dir: outboxDir, macKey });
   return {
+    campaignId,
     campaign: open.campaign,
     store: open.campaign.store,
     dir: open.dir,
@@ -148,7 +153,7 @@ export async function intakeRequest(
   });
   const captured = await captureStartingChronology(
     {
-      campaignId: BOOTSTRAP_CAMPAIGN,
+      campaignId: h.campaignId,
       store: h.captureStore,
       verifier: h.verifier as any,
       policy: FIXTURE_POLICY,

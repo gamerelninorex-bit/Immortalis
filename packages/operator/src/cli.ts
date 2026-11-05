@@ -1,3 +1,4 @@
+import type { LedgerVersion } from "./ledger.ts";
 import { parseArgs } from "node:util";
 import type { StageOwnerExtension, FsOps } from "@immortalis/engine";
 import {
@@ -288,6 +289,12 @@ export interface CliEnvironment {
   readonly extension?: StageOwnerExtension;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /**
+   * The retained-intent ledger version of this campaign's workflow (absent = version 1). A version-2 workflow passes 2 to EVERY command:
+   * a ledger file of the other version is refused (no read-either), so a command that opened its session without it would fail once the
+   * version-2 file exists.
+   */
+  readonly ledgerVersion?: LedgerVersion;
   readonly out?: (line: string) => void;
 }
 
@@ -592,6 +599,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -608,6 +616,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -624,6 +633,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -640,6 +650,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -656,6 +667,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -672,6 +684,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -688,6 +701,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -704,6 +718,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
       out(r.message);
@@ -720,6 +735,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
         ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
@@ -740,6 +756,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
         ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
@@ -757,6 +774,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
         ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
@@ -778,6 +796,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
         ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
@@ -797,6 +816,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
         ...(values["reclaim-stale-lock"] === true ? { reclaimStaleLock: true } : {}),
         ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
         ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+        ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
         ...(waitPolls !== undefined ? { refereePolls: waitPolls } : {}),
       });
       out(`STATUS ${r.status}${r.code ? ` ${r.code}` : ""}`);
@@ -812,6 +832,7 @@ export async function runCli(argv: readonly string[], env: CliEnvironment = {}):
       ...(env.extension ? { extension: env.extension } : {}),
       ...(env.campaignFs ? { campaignFs: env.campaignFs } : {}),
       ...(env.ledgerFs ? { ledgerFs: env.ledgerFs } : {}),
+      ...(env.ledgerVersion ? { ledgerVersion: env.ledgerVersion } : {}),
     });
     if (!opened.ok) {
       const code = (opened.error.details as { code?: string } | undefined)?.code;
