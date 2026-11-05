@@ -16,12 +16,18 @@
 //            audit replay followed by a service reopen.
 //   Stage D  falsifiers on that same chain: another authorization, a tool-call-only proof, extra arguments and a revoked grant (D1);
 //            expired authority (D2); a stale projected closure once Population holds someone at the locus (D3, isolated by contrast with
-//            C); a queued REVISE_PC edit revalidated against the sealed target (D5); and an abrupt stop right after a live dispatch (D4).
+//            C); a queued REVISE_PC edit retained through the trusted store and revalidated against the sealed target (D5); a real
+//            player edit authored through the ADAPTER while the bootstrap Input is admitted and the freeze is ACTIVE (D6): it is QUEUED
+//            with the authentic client/grant/request identity and the original access expiry, writes nothing, waits while the freeze
+//            holds, is refused to another authorization, and after the Completion a live continue_queued_setup_edit gives the exact
+//            verdict (REJECTED against the sealed setting, idempotent, owners untouched); and an abrupt stop right after a live dispatch
+//            (D4): resumption reaches DONE under the SAME dispatch_ref with one canonical act, exact conservation and one v2 collection,
+//            and a second restart answers DONE and moves nothing.
 //
 // NOT COVERED HERE (do not read it into this file): a genuine isolation-capable model, genuine original-message evidence (T2), a named
-// client (T3), retained live storage, an interruption at every step of the chain, and a queued edit retained DURING an active freeze
-// on a live adapter (D5 retains it through the trusted store after the Completion). Every isolated answer, message proof and referee host
-// is a LABELLED FIXTURE or scripted plumbing.
+// client (T3), retained live storage, and an interruption at every step of the chain (one representative point is exercised; D6 releases
+// the freeze through the bootstrap service, not through the adapter). Every isolated answer, message proof and referee host is a
+// LABELLED FIXTURE or scripted plumbing.
 //
 // Why a spy: a production campaign can never contain `fixture:` evidence, so the shipped commands' own `CanonicalCampaign.open`
 // (production admission) refuses this journal by design. The TEST routes exactly that one call through the testkit fixture admission. No
@@ -243,7 +249,7 @@ import {
   started,
   type Slot,
 } from "../support/chat-route.ts";
-import { LOCUS, WORLD } from "../support/chat-setting.ts";
+import { LOCUS, WORLD, courtyard } from "../support/chat-setting.ts";
 import { draft } from "../support/chat-character.ts";
 import { PC_WORDS, redScene } from "../support/observation.ts";
 import { bindScene, perceptionPolicy, scenePolicy, startScene } from "../support/scene.ts";
@@ -257,7 +263,7 @@ import { ledgerFileName } from "@immortalis/operator";
 import { join as pathJoin } from "node:path";
 import type { Chat } from "../support/chat-client.ts";
 import { cloneSlot } from "../support/chat-route.ts";
-import { readFileSync as readFile, readdirSync } from "node:fs";
+import { readFileSync as readFile, readdirSync, writeFileSync } from "node:fs";
 
 const CHRONOLOGY = {
   format: "immortalis-starting-chronology",
@@ -778,36 +784,207 @@ describe("bootstrap-bearing witness, stage D: falsifiers on the same chain", () 
     }
   }, 300_000);
 
-  it("D4 interruption: the service stops right after a live dispatch; resuming never double-debits (one commitment, one debit, one credit)", async () => {
+  it("D6 queued edit DURING an active freeze (Q-1): a real player edit through the adapter is retained with its authentic request identity and writes nothing; after the Completion a live continue_queued_setup_edit gives the exact verdict", async () => {
+    // a slot whose Input is ADMITTED but not advanced: the freeze is active. The operator's own scenario file (seven identities, no player
+    // text) is provisioned in advance, as a deployment configures it; the player character it names does not exist yet.
+    const first = await started({ mutateSetting: redScene(), policy, upTo: "SETTING" });
+    await first.stop();
+    const s = await cloneSlot(first.s, { ledgerVersion: 2 });
+    const provisioned = readFile(ready.config.scenarioFile, "utf8");
+    writeFileSync(s.config.scenarioFile, provisioned, { mode: 0o600 });
+    const campaign = await must(reopenFixtureCampaign(s.campaignDir));
+    const answers = {
+      scope: delegatingScope(),
+      scene: delegatingScene({
+        designation: "The stone alcove",
+        topology: "a four-pace stone room",
+      }),
+    };
+    const h = await harness({
+      campaignId: s.config.campaignId,
+      open: { campaign, dir: s.campaignDir },
+      answers,
+    });
+    const message = `Make a stone alcove where collection is possible. ${FIXTURE_DELEGATION_QUOTE}`;
+    const intake = await h.service.intake(await intakeRequest(h, { message, doc: CHRONOLOGY }));
+    expect(intake.status).toBe("ADMITTED");
+    await h.campaign.close(); // nothing advanced: the Input stands alone and the freeze is active
+
+    const snapshot = () =>
+      withCampaign(s.campaignDir, async (c) =>
+        c.store
+          .listFacts()
+          .map((f) => `${f.key}@${f.version}`)
+          .sort(),
+      );
+    const heldBefore = await snapshot();
+    const r = await resumed(s, {
+      policy,
+      deps: { delayed: { policy: { syntheticEvidence: "REQUIRE" } } },
+    });
+    try {
+      await r.chat.init({});
+      // the player's own revised setting, authored while the setup is running (a different premise: a real edit, not a repeat)
+      const revised = courtyard();
+      redScene()(revised);
+      revised.world.premise =
+        "A small invented walled courtyard, revised while the setup was still running.";
+      const waiting = await r.chat.call("propose_original_setting", revised);
+      expect(waiting.isError, JSON.stringify(waiting)).toBe(false);
+      expect(waiting.data).toMatchObject({ status: "QUEUED" });
+      const id = waiting.data.queue_id as string;
+      // nothing was written and nothing was started: the owners hold exactly what they held, and no setting run exists
+      expect(await snapshot()).toEqual(heldBefore);
+      const record = ((await r.app.delayed!.queue.get(id)) as any).value;
+      const mine = r.app
+        .oauthLedger!.list()!
+        .find((e) => e.client === r.chat.clientId && e.state === "ISSUED")!;
+      expect(record).toMatchObject({
+        phase: "QUEUED",
+        command: "REVISE_SETUP",
+        client: mine.client,
+        oauth_grant: mine.grant,
+        retained_workflow_ref: s.config.campaignId,
+      });
+      expect(typeof record.original_request_ref).toBe("string");
+      expect(record.original_request_ref.length).toBeGreaterThan(0);
+      expect(record.payload.world.premise).toBe(revised.world.premise);
+      expect(record.expires_at_ms).toBe(expiryOf(r.chat)); // the ORIGINAL access expiry; nothing is refreshed
+
+      // while the freeze holds, a live continuation waits and applies nothing
+      const stillFrozen = await r.chat.call("continue_queued_setup_edit", { queue_id: id });
+      expect(stillFrozen.data).toMatchObject({ status: "QUEUED" });
+      expect(await snapshot()).toEqual(heldBefore);
+
+      // another authorization cannot use this queued edit
+      const other = new ChatClient(s.base);
+      expect((await other.link("player", { player: PLAYER })).ok).toBe(true);
+      await other.init({});
+      const foreign = await other.call("continue_queued_setup_edit", { queue_id: id });
+      expect(foreign.isError).toBe(true);
+      expect(JSON.stringify(foreign)).toContain("no such queued edit for this authorization");
+
+      // the freeze is released by the bootstrap's own Completion (the SAME runner key and outbox: a restart, not a new runner)
+      const campaign2 = await must(reopenFixtureCampaign(s.campaignDir));
+      const resumedBootstrap = await harness({
+        campaignId: s.config.campaignId,
+        open: { campaign: campaign2, dir: s.campaignDir },
+        answers,
+        keys: h.keys,
+        macKey: h.macKey,
+        outboxDir: h.outboxDir,
+      });
+      expect((await resumedBootstrap.service.advance(intake.setup_id!)).status).toBe("COMPLETED");
+      await resumedBootstrap.campaign.close();
+      const settingBefore = await withCampaign(s.campaignDir, async (c) =>
+        c.store
+          .listFacts()
+          .filter((f) => /^world\/[^/]+\/(profile|locus|source)/.test(f.key))
+          .map((f) => `${f.key}@${f.version}`)
+          .sort(),
+      );
+
+      // the NEW live request revalidates the retained target against the sealed setting: lawfully REJECTED, never substituted or applied
+      const verdict = await r.chat.call("continue_queued_setup_edit", { queue_id: id });
+      expect(verdict.data).toMatchObject({ status: "REJECTED", queue_id: id });
+      expect(String(verdict.data.reason)).toContain("no longer an unsealed draft");
+      const again = await r.chat.call("continue_queued_setup_edit", { queue_id: id });
+      expect(again.data).toMatchObject({ status: "REJECTED" }); // terminal and idempotent
+      expect(((await r.app.delayed!.queue.get(id)) as any).value.phase).toBe("REJECTED");
+      // the setting the owners hold is exactly the one the bootstrap sealed: the edit never reached an owner
+      const settingAfter = await withCampaign(s.campaignDir, async (c) => ({
+        facts: c.store
+          .listFacts()
+          .filter((f) => /^world\/[^/]+\/(profile|locus|source)/.test(f.key))
+          .map((f) => `${f.key}@${f.version}`)
+          .sort(),
+        premise: (c.store.getFact(`world/${WORLD}/profile`)!.value as any).premise,
+        verify: c.verify(),
+      }));
+      expect(settingAfter.facts).toEqual(settingBefore);
+      expect(settingAfter.premise).not.toBe(revised.world.premise);
+      expect(settingAfter.verify).toEqual([]);
+    } finally {
+      await r.stop();
+    }
+  }, 300_000);
+
+  it("D4 interruption (R-1): the front end stops right after a live dispatch; resumption reaches the ONE rightful committed outcome under the SAME dispatch_ref, and repeat resumption never dispatches twice", async () => {
     const { s, r, gm, facts } = await playSlot();
     const before = await readOwners(s);
     await intakeEarlier(r, facts);
     const started = await r.chat.call("continue_pending_goal", { request_id: "request-1" });
     expect(started.isError).toBe(false);
+    expect(started.data).toMatchObject({ status: "DISPATCHED" });
+    const dispatchRef = ((await r.app.delayed!.grants.get("request-1")) as any).value.grant
+      .dispatch_ref as string;
+    expect(dispatchRef).toMatch(/^dispatch-/);
     await gm.stop();
     await r.stop(); // abrupt end of the front end mid-goal
-    const again = await resumed(s, {
-      policy,
-      deps: { delayed: { policy: { syntheticEvidence: "REQUIRE" } } },
-    });
-    const gm2 = startScene(s.operatorDir, scenePolicy());
-    try {
-      await again.chat.init({});
-      let last: any;
-      for (let i = 0; i < 60; i++) {
-        last = (await again.chat.call("continue_pending_goal", { request_id: "request-1" })).data;
-        if (last?.status === "DONE") break;
-        await sleep(500);
+
+    const resumeOnce = async () => {
+      const again = await resumed(s, {
+        policy,
+        deps: { delayed: { policy: { syntheticEvidence: "REQUIRE" } } },
+      });
+      const scene = startScene(s.operatorDir, scenePolicy());
+      try {
+        await again.chat.init({});
+        const seen: string[] = [];
+        let last: any;
+        for (let i = 0; i < 80; i++) {
+          last = (await again.chat.call("continue_pending_goal", { request_id: "request-1" })).data;
+          seen.push(String(last?.status));
+          if (last?.status === "DONE" || last?.status === "PAUSED") break;
+          await sleep(500);
+        }
+        return {
+          last,
+          seen,
+          grant: ((await again.app.delayed!.grants.get("request-1")) as any).value,
+        };
+      } finally {
+        await scene.stop();
+        await again.stop();
       }
-      const after = await readOwners(s);
-      expect(after.commitments.length).toBeLessThanOrEqual(1);
-      if (after.commitments.length === 1)
-        expect([after.source, after.reserve]).toEqual([before.source - 2, before.reserve + 2]);
-      else expect([after.source, after.reserve]).toEqual([before.source, before.reserve]);
-      expect(after.verify).toEqual([]);
-    } finally {
-      await gm2.stop();
-      await again.stop();
-    }
-  }, 300_000);
+    };
+
+    const first = await resumeOnce();
+    // the resumed status is asserted: the request was NOT lost - it reached its one committed canonical act (a parked/unknown disposition
+    // would be an acceptable alternative only if durable and truthful, but this representative interruption point recovers fully)
+    expect(first.last, first.seen.join(">")).toMatchObject({ status: "DONE" });
+    expect(first.last.act_id).toMatch(/^operator-act-/);
+    expect(first.grant.grant.dispatch_ref).toBe(dispatchRef); // the same authority, never a second dispatch
+    expect(first.grant.grant).toMatchObject({ state: "CONSUMED", act_id: first.last.act_id });
+
+    const after = await readOwners(s);
+    expect([after.source, after.reserve, after.time]).toEqual([
+      before.source - 2,
+      before.reserve + 2,
+      MOMENT.value + 2 * TAU,
+    ]);
+    expect(after.commitments).toHaveLength(1);
+    expect(after.commitments[0]!.key).toContain(first.last.act_id);
+    expect(after.verify).toEqual([]);
+    const collections = v2Ledger(s).intents.filter((i: any) => i.kind === "COLLECTION");
+    expect(collections).toHaveLength(1);
+    expect(collections[0]).toMatchObject({
+      dispatch_ref: dispatchRef,
+      status: "COMMITTED",
+    });
+    expect(collections[0].choice.act_id).toBe(first.last.act_id);
+
+    // repeat resumption (another restart, another ask): the same DONE answer, and the owners and the ledger do not move
+    const second = await resumeOnce();
+    expect(second.last).toMatchObject({ status: "DONE", act_id: first.last.act_id });
+    expect(second.seen).toEqual(["DONE"]);
+    const settled = await readOwners(s);
+    expect([settled.source, settled.reserve, settled.time, settled.commitments.length]).toEqual([
+      after.source,
+      after.reserve,
+      after.time,
+      1,
+    ]);
+    expect(v2Ledger(s).intents.filter((i: any) => i.kind === "COLLECTION")).toHaveLength(1);
+  }, 400_000);
 });
