@@ -48,6 +48,7 @@ import {
   parseDelegation,
   parseHandling,
   parsePrepare,
+  type PrepareInput,
 } from "./route-stages.ts";
 import type { CharacterExpectation, CharacterLaunch, PlayerRuns, Run } from "./runs.ts";
 import { checkScenarioFile, type Scenario } from "./scenario.ts";
@@ -1020,6 +1021,8 @@ export function fitsConfirmation(setup: LocalitySetup): boolean {
 // -- the player's ORIGINAL character: typed offers (the engine's own bounds are the authority; these tell the model the shape) ------
 const STATEMENT = { type: "string", minLength: 1, maxLength: MAX_STATEMENT_CHARS } as const;
 const STATEMENTS = { type: "array", items: STATEMENT, maxItems: MAX_LIST_ITEMS } as const;
+const AUTHORED_HANDLING_GUIDANCE =
+  "Before the first character proposal, carry the player's already-authored character-local actuator, traversal and one-cycle words from prior chat verbatim into the appropriate existing character fields. When supplying opening.preparation, its character quotes must match those draft statements; preparation alone does not add them to the character. Preserve a standalone or placement-only proposal when preparation is absent. Do not ask the player to repeat known details or approve the same request again. Use the existing authored clarification or delegated-duration path only for a genuinely missing duration and only with its own authorization; invent no faculty, duration or consent.";
 const CHARACTER_SCHEMA = {
   type: "object",
   properties: {
@@ -1048,7 +1051,11 @@ const CHARACTER_SCHEMA = {
         },
       ],
     },
-    embodiment: { ...STATEMENT, description: "what form constitutes the character" },
+    embodiment: {
+      ...STATEMENT,
+      description:
+        "what form constitutes the character; carry the player's already-authored character-local actuator, traversal and one-cycle words verbatim into this or the appropriate existing character fields before the first proposal",
+    },
     continuity: { ...STATEMENT, description: "what keeps the character the same continuing self" },
     exceptions: {
       ...STATEMENTS,
@@ -1269,17 +1276,17 @@ const PREPARATION_SCHEMA = {
     actuator_quote: {
       ...QUOTE,
       description:
-        "a verbatim quotation of one of the character's ACCEPTED statements that says what its hands (the actuator) do",
+        "a verbatim quotation of one of the character's ACCEPTED statements that says what its hands (the actuator) do; in a first opening, these words must also be in a locatable statement of the submitted character draft",
     },
     traversal_quote: {
       ...QUOTE,
       description:
-        "a verbatim quotation of an accepted statement that says what the mechanism can and cannot pass",
+        "a verbatim quotation of an accepted statement that says what the mechanism can and cannot pass; in a first opening, these words must also be in a locatable statement of the submitted character draft",
     },
     cycle_quote: {
       ...QUOTE,
       description:
-        "a verbatim quotation of an accepted statement (or of the player's accepted clarification) that states the duration of one handling cycle: its number and the campaign's unit",
+        "a verbatim quotation of an accepted statement (or of the player's accepted clarification or sealed delegated selection) that states the duration of one handling cycle: its number and the campaign's unit; in a first opening, these words must be in a locatable statement of the submitted character draft",
     },
     cycle_value: {
       type: "integer",
@@ -1386,7 +1393,9 @@ export function parseSettingOpening(v: unknown): OpeningSources["setting"] | nul
     ...(typeof condition === "string" ? { reserve_condition: condition } : {}),
   };
 }
-export function parseGenerationOpening(v: unknown): OpeningSources["generation"] | null {
+export function parseGenerationOpening(
+  v: unknown,
+): (NonNullable<OpeningSources["generation"]> & { readonly preparation?: PrepareInput }) | null {
   if (v === undefined) return null;
   if (!record(v) || !onlyKeys(v, ["presence", "preparation"])) return null;
   const presence = v["presence"];
@@ -1403,6 +1412,31 @@ export function parseGenerationOpening(v: unknown): OpeningSources["generation"]
     ...(typeof presence === "string" ? { presence, grouped: true as const } : {}),
     ...(p?.ok ? { preparation: p.value } : {}),
   };
+}
+
+/**
+ * Fresh-draft presence only, using buildPreparation's single-statement, verbatim matching convention. Open items and mirror boilerplate
+ * cannot become locatable PC claims. I-002 still classifies the candidate; no text match establishes a faculty, duration or consent.
+ * A fresh PC cannot yet have its own accepted clarification/delegation. Later preparation and unchanged resume paths resolve those
+ * through their existing owners instead of this check.
+ */
+function freshPreparationIssues(draft: CharacterDraft, preparation: PrepareInput): string[] {
+  const statements = [
+    draft.identity,
+    draft.embodiment,
+    draft.continuity,
+    ...(draft.contact?.kind === "CONTACT_ANCHOR"
+      ? draft.contact.surfaces
+      : [draft.contact?.statement]),
+    ...draft.exceptions,
+    ...draft.possessions,
+  ];
+  return (["actuator_quote", "traversal_quote", "cycle_quote"] as const)
+    .filter((key) => !statements.some((s) => s?.includes(preparation[key])))
+    .map(
+      (key) =>
+        `opening.preparation.${key}: is not a verbatim part of a locatable statement in this fresh character draft. Carry the player's already-authored words into the appropriate character field before proposing it; ask only for genuinely missing information. A text match remains subject to I-002 classification and owner validation`,
+    );
 }
 
 export function buildChatTools(d: ChatToolDeps): McpTool[] {
@@ -1862,7 +1896,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
     {
       name: "propose_original_character",
       title: "Offer the player's own original character",
-      description: `Offer the character the PLAYER has authored in their own words as their ORIGINAL character: who or what they are, how the world can register them (or an explicit no-contact), their form, what keeps them the same continuing self, and optionally anything that differs from the ordinary, anything left open, and anything they begin with. Every field is the player's words, exactly as they said them: nothing is inferred from memory or a profile, completed, defaulted or improved for them, and nothing is delegated to you. An AI referee host reads each statement and says what it accepts as the character's own; the player is then shown ALL of it with those findings and keeps it (or not) themselves. Include an already authored starting presence in opening.presence so it is mirrored in the generation review. Its eligible native binding and physical custody are then realized internally, in owner order, without another approval. Then follow it with await_action. ${PLAYER_RULES}`,
+      description: `Offer the character the PLAYER has authored in their own words as their ORIGINAL character: who or what they are, how the world can register them (or an explicit no-contact), their form, what keeps them the same continuing self, and optionally anything that differs from the ordinary, anything left open, and anything they begin with. Every field is the player's words, exactly as they said them: nothing is inferred from memory or a profile, completed, defaulted or improved for them, and nothing is delegated to you. An AI referee host reads each statement and says what it accepts as the character's own; the player is then shown ALL of it with those findings and keeps it (or not) themselves. Include an already authored starting presence in opening.presence so it is mirrored in the generation review. Its eligible native binding and physical custody are then realized internally, in owner order, without another approval. ${AUTHORED_HANDLING_GUIDANCE} Then follow it with await_action. ${PLAYER_RULES}`,
       inputSchema: {
         ...CHARACTER_SCHEMA,
         required: ["identity"],
@@ -1879,6 +1913,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           },
           opening: {
             type: "object",
+            description: AUTHORED_HANDLING_GUIDANCE,
             properties: { presence: { type: "string" }, preparation: PREPARATION_SCHEMA },
             additionalProperties: false,
           },
@@ -1927,6 +1962,18 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
             },
             true,
           );
+        if (opening?.preparation) {
+          const issues = freshPreparationIssues(offer.value, opening.preparation);
+          if (issues.length > 0)
+            return asJson(
+              {
+                refused:
+                  "inconsistent first-opening preparation; no character was dispatched or retained",
+                issues,
+              },
+              true,
+            );
+        }
         await supersede();
         return startCharacter(
           runs.proposeCharacter(offer.value, {
@@ -2683,8 +2730,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       "Use the player's explicitly authored ORIGINAL setting premises exactly as supplied. The exact authenticated request proceeds through the existing owners without another approval. Supply independently sourced opening premises only when present; invent no chronology, rights, closure or workforce facts.",
     resume_original_setting:
       "Resume the original interrupted setting with its retained input and original request evidence. New input cannot substitute for it. No additional approval is requested.",
-    propose_original_character:
-      "Generate the player's explicitly authored ORIGINAL character through the referee and character owner. Show the full mandatory character mirror and findings as readback. Baseline-human shorthand authorizes no exceptions or guessed durations. Include an already authored starting presence in opening so its lawful native binding and physical custody can proceed without another approval.",
+    propose_original_character: `Generate the player's explicitly authored ORIGINAL character through the referee and character owner. Show the full mandatory character mirror and findings as readback. Baseline-human shorthand authorizes no exceptions or guessed durations. Include an already authored starting presence in opening so its lawful native binding and physical custody can proceed without another approval. ${AUTHORED_HANDLING_GUIDANCE}`,
     revise_original_character:
       "Apply the player's explicit corrections to an unsealed retained draft, then attempt that exact corrected character through the referee and owner with full readback. A sealed character cannot be amended here. Ask only for genuinely missing information.",
     place_original_character:
@@ -2756,5 +2802,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
   ];
 }
 
-export const TOOL_INSTRUCTIONS =
-  "IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.";
+export const TOOL_INSTRUCTIONS = `IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. ${AUTHORED_HANDLING_GUIDANCE} Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.`;
