@@ -61,6 +61,11 @@ export class IncrementalStateDigest {
     return { digests: this.#digests, rebuilds: this.#rebuilds, fallbacks: this.#fallbacks };
   }
 
+  /** What is held right now: cached canonical fact bytes and SHA-256 prefix states (both 0 once released). Diagnostic only. */
+  get retained(): { readonly facts: number; readonly prefixStates: number } {
+    return { facts: this.#texts.length, prefixStates: this.#marks.length };
+  }
+
   /** Drops every cached byte and hash state. The next digest rebuilds from the state it is given. */
   release(): void {
     this.#aligned = null;
