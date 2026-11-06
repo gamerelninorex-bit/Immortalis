@@ -1,0 +1,25 @@
+{
+  "base_sha": "0b203a5ca502dd79ed847aedd235c97b660ad9ea",
+  "base_tree": "0091fd13be8cdf70d02087570e6b58f1babbb6a8",
+  "head_sha": "eb997bcadc9951f955f2a029f9576310e29c12ba",
+  "head_tree": "827ade2e578bc06073ff24af60224daf5afe0a31",
+  "old_contract_sha": "eafbb127c476cafb8498316e496de29e078a2146",
+  "old_contract_tree": "dca80d4ea942c081bd224697187ec2b69d38a4cf",
+  "product_files_changed_base_to_head": [
+    "packages/engine/src/commit/campaign-core.ts",
+    "packages/engine/src/commit/state-digest.ts",
+    "packages/engine/src/persistence/checkpoint-package.ts"
+  ],
+  "node": "v22.23.4",
+  "kernel": "Linux 6.18.44-fc-v236",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "logical_cpus": 4,
+  "repetitions": 5,
+  "canonical_extra": "0 100 500 2000",
+  "store_entries": "3 103 503 2003 5003",
+  "shapes": "early middle late rotate",
+  "shape_cold": 500,
+  "shape_updates": 1500,
+  "started_utc": "2026-11-05T21:15:29Z",
+  "finished_utc": "2026-11-05T22:21:15Z"
+}

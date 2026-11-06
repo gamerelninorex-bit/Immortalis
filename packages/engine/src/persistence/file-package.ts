@@ -666,6 +666,9 @@ async function load(
     const replayed = core.replay(entry.data);
     if (!replayed.ok) return replayed;
   }
+  // H-07 S3-I1: the strict replay is over. Drop the derived evaluator now: this core outlives the loader inside the store (a read-only
+  // legacyFormat handle keeps it for its whole life), and nothing after this point replays.
+  core.endReplay();
   if (core.headSha256 !== head.journal_head_sha256) {
     return fail("INTEGRITY_JOURNAL", "journal chain head differs from the manifest");
   }

@@ -63,7 +63,7 @@ const UNCHANGED: Record<string, string> = {
   "packages/contracts/src/logistics.ts":
     "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
   "packages/engine/src/persistence/file-package.ts":
-    "32567d99fbdcbf2857317ebd79728280f8446fd02850f5bfc7ad5d76fb4f6278", // H-07 S1 scoped persistence successor; H-01 arbitration remains independently byte-locked.
+    "50d5a2bd7bc0940f43212ee494d24b3b71d6aef658f645fb59aea2565754a9ea", // H-07 S1 scoped persistence successor, then S3-I1 (one core.endReplay() call in the v1 loader); H-01 arbitration remains independently byte-locked.
   "packages/engine/src/temporal/coordinator.ts":
     "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
   "packages/protocol/src/null-pc-ooc-advance.ts":

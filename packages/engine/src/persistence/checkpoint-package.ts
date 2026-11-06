@@ -585,6 +585,8 @@ export async function loadCheckpoint(
       } else tail.push({ entry, location: loc });
       offset += length;
     }
+    // The strict replay is over: return the memory of the per-fact bytes and hash states it used (derived, never observable).
+    core.endReplay();
     if (core.headSha256 !== h.journal_head_sha256)
       return fail("INTEGRITY_JOURNAL", "tail chain head mismatch");
     if (core.state.revision !== h.revision || stateSha256(core.state) !== h.state_sha256)
