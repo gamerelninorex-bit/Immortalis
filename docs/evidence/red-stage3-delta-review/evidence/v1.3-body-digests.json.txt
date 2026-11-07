@@ -1,0 +1,31 @@
+{
+ "purpose": "Custody record for the page body digests used in RED's review of BLUE v1.3. A raw fetch now expands labelled mentions, so a digest of raw fetched text no longer reproduces BLUE's; the canonical form below does.",
+ "canonicalisation": "Replace every labelled mention <mention url=\"U\">label</mention> by the self-closing form <mention url=\"U\" /> (regex: <mention url=\"([^\"]+)\">[^<]*</mention> -> <mention url=\"\\1\" />), then trim, encode UTF-8, SHA-256. Bodies taken before this serialisation change contain no labelled mentions, so their raw and canonical digests are equal.",
+ "bodies": {
+  "pre_v1.3 (after RED v1.2 review; native stamp 2026-11-07T15:53:44.785Z)": {
+   "chars": 594916,
+   "labelled_mentions": 0,
+   "sha256_raw": "e993e0463f7d7f8a0c216f42d02b1303af839421df9a22f4eb198169b4982156",
+   "sha256_canonical": "e993e0463f7d7f8a0c216f42d02b1303af839421df9a22f4eb198169b4982156"
+  },
+  "v1.3 (native stamp 2026-11-07T16:39:34.816Z; last block write 2026-11-07T16:39:35.950Z)": {
+   "chars_raw": 618791,
+   "chars_canonical": 615333,
+   "labelled_mentions": 35,
+   "sha256_raw": "136ed4c0c21bf101b07e3a15088fbace55b4ddcd94c5d83e33ee50652c774a00",
+   "sha256_canonical": "67ab64627b59bb2a30ef8812113e69ae6cb9d665d135c408fdd22a484eb4ea88",
+   "blue_stated_sha256": "67ab64627b59bb2a30ef8812113e69ae6cb9d665d135c408fdd22a484eb4ea88"
+  }
+ },
+ "checks": {
+  "canonical_v1.3_equals_blue_stated": true,
+  "pre_v1.3_is_exact_prefix_of_canonical_v1.3": true,
+  "appended_chars_canonical": 20417
+ },
+ "write_log": {
+  "window": "2026-11-07T16:30:00Z/17:30:00Z",
+  "records": "all block additions at one instant, 2026-11-07T16:39:35.950Z; no edited or removed record; nothing after it",
+  "native_stamp_to_block_write_ms": 1134,
+  "blue_settled_reference": "2026-11-07T16:39:58Z (22 s after the last write)"
+ }
+}

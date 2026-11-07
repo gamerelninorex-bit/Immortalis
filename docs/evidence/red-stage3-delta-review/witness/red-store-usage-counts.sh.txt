@@ -1,0 +1,22 @@
+#!/bin/sh
+# RED measurement script (stored with a .txt suffix so format, lint and the test runner never see it).
+# Run from a checkout of 36d50639ccf099fc0e69421f35cf036242c9bcad. All counts are COARSE text patterns:
+# they include non-campaign `.store` uses and overlap one another. They are exposure indicators, not conversion counts.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+echo "== production code outside packages/engine: references to .store =="
+for d in packages/operator/src packages/protocol/src apps/phone/src; do
+  n=$(git ls-files $d | grep '\.ts$' | xargs grep -n -E '\.store\b' 2>/dev/null | wc -l)
+  f=$(git ls-files $d | grep '\.ts$' | xargs grep -l -E '\.store\b' 2>/dev/null | wc -l)
+  echo "$d: $n references in $f files"
+done
+echo "production adapter constructions outside engine: $(git ls-files packages/operator packages/protocol apps/phone | grep '\.ts$' | grep -v tests | xargs grep -n -E 'new [A-Za-z]+Adapter\(' 2>/dev/null | wc -l)"
+
+echo "== tests: references to .store =="
+echo "$(git ls-files tests | grep '\.ts$' | xargs grep -n -E '\.store\b' | wc -l) references in $(git ls-files tests | grep '\.ts$' | xargs grep -l -E '\.store\b' | wc -l) files"
+
+echo "== tests: .store.<method> histogram (top 8) =="
+git ls-files tests | grep '\.ts$' | xargs grep -h -o -E '\.store\.[A-Za-z_]+' 2>/dev/null | sort | uniq -c | sort -rn | head -8
+
+echo "== tests: prototype spies (existing fault-injection style) =="
+echo "$(git ls-files tests | grep '\.ts$' | xargs grep -h -E 'spyOn\([^)]*[Pp]rototype' 2>/dev/null | wc -l) call sites in $(git ls-files tests | grep '\.ts$' | xargs grep -l -E 'spyOn\([^)]*[Pp]rototype' 2>/dev/null | wc -l) files"
