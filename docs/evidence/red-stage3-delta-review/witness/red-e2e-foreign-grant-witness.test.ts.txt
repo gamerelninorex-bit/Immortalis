@@ -1,0 +1,104 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- RED witness; temporary, not for commit */
+// RED WITNESS (temporary). MECHANISM / T1 only: scripted hosts, real owners, real trusted adapter, real OAuth lane.
+// Question: a gather goal is interrupted while IN_PROGRESS under grant G1. A SECOND, separately consented grant G2 (same player-lane
+// secret) opens its own session and repeats the request. Does the retained goal resume under G2, or is G2 refused?
+import { readFileSync } from "node:fs";
+import { beforeAll, expect, it } from "vitest";
+import { goalRecordPath } from "../../apps/phone/src/goal-record.ts";
+import { Chat, PLAYER } from "../support/chat-client.ts";
+import { MOMENT, TAU, cloneSlot, openOrdinary, resumed, template, type Slot } from "../support/chat-route.ts";
+
+let ready: Slot;
+beforeAll(async () => {
+  ready = await template("READY", { cycle: true });
+}, 300_000);
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const read = async (s: Slot) => {
+  const c = await openOrdinary(s.campaignDir);
+  try {
+    const facts = c.store.listFacts();
+    return {
+      source: (c.store.getFact("world/world-courtyard/source/src-loose-stones")!.value as any).recoverable.amount,
+      reserve: (facts.find((f) => f.key.startsWith("production/reserve/"))!.value as any).quantity.amount,
+      time: (c.store.getFact("temporal/state")!.value as any).canonical_time.value,
+      commitments: facts.filter((f) => f.key.includes("/collection/") && f.key.endsWith("/commitment")).length,
+    };
+  } finally {
+    await c.close();
+  }
+};
+async function until(chat: Chat, ok: (status: any) => boolean, rounds = 120) {
+  let last: any;
+  for (let i = 0; i < rounds; i++) {
+    last = (await chat.call("play_status")).data;
+    if (last && ok(last)) return last;
+    await sleep(250);
+  }
+  return last;
+}
+const settled = (s: any) => s?.goal != null && ["DONE", "RETURNED", "INTERRUPTED"].includes(s.goal.outcome);
+
+async function interruptedUnderG1() {
+  const s = await cloneSlot(ready);
+  const r = await resumed(s, { which: ["setup"] }); // the reach reading goes unanswered: the goal waits on the GM
+  try {
+    await r.chat.init({});
+    await r.chat.call("gather", { amount: 2, until: "complete" });
+    await sleep(2500);
+    expect((await r.chat.call("play_status")).data.goal.outcome).toBe("IN_PROGRESS");
+  } finally {
+    await r.stop();
+  }
+  const stored = JSON.parse(readFileSync(goalRecordPath(s.config), "utf8"));
+  expect(stored.goal.outcome).toBe("IN_PROGRESS");
+  expect(await read(s)).toEqual({ source: 12, reserve: 0, time: MOMENT.value, commitments: 1 });
+  return { s, stored };
+}
+
+it("E2E-1: a SECOND grant repeating the SAME request", async () => {
+  const { s, stored } = await interruptedUnderG1();
+  const r = await resumed(s); // service restarted; hosts now answer
+  const log: any = { storedGoalId: stored.goal.id };
+  try {
+    const g2 = new Chat(s.base);
+    expect((await g2.link("player", { player: PLAYER })).ok).toBe(true);
+    await g2.init({});
+    log.sameClientAsG1 = g2.clientId === r.chat.clientId;
+    log.status0 = (await g2.call("play_status")).data?.goal ?? null;
+    const call = await g2.call("gather", { amount: 2, until: "complete" });
+    log.gatherIsError = call.isError;
+    log.gatherText = String(call.text).slice(0, 160);
+    log.final = (await until(g2, settled))?.goal ?? null;
+  } finally {
+    await r.stop();
+  }
+  log.owners = await read(s);
+  log.recordAfter = JSON.parse(readFileSync(goalRecordPath(s.config), "utf8")).goal;
+  console.log("RED-E2E-1 " + JSON.stringify(log));
+  // asserted so the observation is a hard fact either way
+  expect(log.final?.outcome).toBe("DONE");
+  expect(log.final?.goal_id).toBe(stored.goal.id);
+  expect(log.owners).toEqual({ source: 10, reserve: 2, time: MOMENT.value + 2 * TAU, commitments: 1 });
+}, 300_000);
+
+it("E2E-2 (control): a SECOND grant with a DIFFERENT amount", async () => {
+  const { s, stored } = await interruptedUnderG1();
+  const r = await resumed(s);
+  const log: any = { storedGoalId: stored.goal.id };
+  try {
+    const g2 = new Chat(s.base);
+    expect((await g2.link("player", { player: PLAYER })).ok).toBe(true);
+    await g2.init({});
+    const call = await g2.call("gather", { amount: 3, until: "complete" });
+    log.gatherIsError = call.isError;
+    log.final = (await until(g2, settled))?.goal ?? null;
+  } finally {
+    await r.stop();
+  }
+  log.owners = await read(s);
+  console.log("RED-E2E-2 " + JSON.stringify(log));
+  expect(log.final?.goal_id).not.toBe(stored.goal.id);
+  expect(log.owners.commitments).toBe(1);
+  expect(log.owners.reserve).toBe(0);
+}, 300_000);

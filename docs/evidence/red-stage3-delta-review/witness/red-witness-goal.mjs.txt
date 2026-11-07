@@ -1,0 +1,58 @@
+// RED witness (scratchpad only; not part of the repository).
+// Drives the REAL createGoalCoordinator from apps/phone/src/goal.ts at 36d5063 with stub dependencies.
+// MECHANISM only: it shows what the coordinator does, not what the full host/OAuth stack in front of it does.
+import { createGoalCoordinator } from "/home/user/Immortalis/apps/phone/src/goal.ts";
+
+const SC = { world: "w", source: "s", reserve: "r", quantity_unit: "u", mechanism: "m", basis: "b" };
+
+function build({ retained, latest, linked }) {
+  const launches = [];
+  let store = retained;
+  const d = {
+    launch: async (command, _opts, authority, delayed) => {
+      launches.push({ command, client: authority.client, grant: authority.grant, delayed: Boolean(delayed) });
+      return { ok: false }; // every phase is "refused" so the chain stops after logging which authority it carried
+    },
+    ...(linked ? { linked } : {}),
+    read: async () => ({ kind: "OPEN", time: {}, attempts: 1, latest }),
+    scenario: () => SC,
+    exitCode: () => 0,
+    decline: () => {},
+    closing: () => false,
+    track: (p) => p,
+    retain: (g) => { store = { kind: "RECORD", goal: { ...g } }; return true; },
+    retained: () => store,
+    pollMs: 1,
+  };
+  return { co: createGoalCoordinator(d), launches, get store() { return store; } };
+}
+
+const A = { scopes: ["player"], client: "clientA", grant: "grantA" };
+const B = { scopes: ["player"], client: "clientB", grant: "grantB" };
+const inflight = (act, amount) => ({ phase: "IN_FLIGHT", act_id: act, quantity: { amount, unit: "u" }, completes_at: {} });
+
+async function run(name, cfg, request, authority, reqId, delayed) {
+  const h = build(cfg);
+  const r = await h.co.begin(request, authority, reqId, delayed);
+  await h.co.settled();
+  const g = h.store.kind === "RECORD" ? h.store.goal : null;
+  console.log(`\n[${name}]`);
+  console.log("  begin ->", r.ok ? `ok resumed=${r.resumed}` : `refused: ${r.reason.slice(0, 70)}`);
+  console.log("  launches ->", h.launches.length ? JSON.stringify(h.launches) : "none");
+  console.log("  final record ->", g ? JSON.stringify({ id: g.id, amount: g.amount, until: g.until, outcome: g.outcome, returned: g.returned, act_id: g.act_id, dispatch_ref: g.dispatch_ref }) : "none");
+}
+
+// CONTROLS
+await run("C1 ordinary, no record, open attempt of SAME amount (the DLT-1 adoption path)",
+  { retained: { kind: "NONE" }, latest: inflight("act-X-not-created-by-this-goal", 5) }, { amount: 5, until: "complete" }, A, "req-1");
+await run("C2 ordinary, no record, open attempt of DIFFERENT amount",
+  { retained: { kind: "NONE" }, latest: inflight("act-X", 7) }, { amount: 5, until: "complete" }, A, "req-1");
+await run("C3 DELAYED (dispatch_ref), open attempt of same amount, ledger links nothing",
+  { retained: { kind: "NONE" }, latest: inflight("act-X", 5), linked: async () => ({ kind: "NONE" }) }, { amount: 5, until: "complete" }, A, "req-1",
+  { dispatchRef: "dispatch-1", grantId: "gid", bindingDigest: "dg" });
+
+// THE QUESTION: a goal started under grantA is interrupted (record IN_PROGRESS, act-1 named); grantB repeats the same request.
+const interrupted = { kind: "RECORD", goal: { id: "goal-minted-for-grantA", amount: 5, until: "complete", outcome: "IN_PROGRESS", step: "FINISHING", act_id: "act-1" } };
+await run("W1 FOREIGN GRANT, same amount/until, same open act", { retained: interrupted, latest: inflight("act-1", 5) }, { amount: 5, until: "complete" }, B, "req-from-B");
+await run("W2 foreign grant, DIFFERENT amount (control: predicate does discriminate on amount)", { retained: interrupted, latest: inflight("act-1", 5) }, { amount: 6, until: "complete" }, B, "req-from-B");
+await run("W3 foreign grant, same amount, but a NEWER different act is open (control: exact identity check)", { retained: interrupted, latest: inflight("act-2-newer", 5) }, { amount: 5, until: "complete" }, B, "req-from-B");

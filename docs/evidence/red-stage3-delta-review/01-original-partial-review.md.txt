@@ -1,0 +1,89 @@
+# 🔴 RED First Stage 3 Delta Review — BLUE Stage 3 v1.0 — AMEND (narrow) — PARTIAL REVIEW, NOT A PASS — 2026-11-07
+
+**REVIEW — NOT CONSENSUS, NOT RATIFICATION, NOT A SOURCE-FIDELITY PASS.** No winner, runner-up, ratio, source-lock change, implementation slice, Builder assignment or Stage 4 action follows from this record. Dependent ratios remain **unaccepted** (U3-01 gate stays closed).
+
+## 1. Reviewed objects, custody and method
+
+- **Object:** study page `41120af9-01e0-816d-992f-ffae5ae223c3` fetched as of its saved pin **2026-11-07T14:05:06.737Z** (`page_last_edited_at` equal to the pin). Stage 3 v1.0 begins at S3.01.
+- **Custody of earlier material:** RED's completed Stage 2 sample, draw and verdict were not re-run or redrawn. The first 85,592 characters of the page are byte-identical between the 13:27:29Z version and the pin; the version read was truncated there, so that is all that was compared. The final 207 recorded change records (14:04:29–14:04:59) are additions only. Between 14:04:59.629Z and the pin stamp no change is listed; cause unknown.
+- **Code under review:** repository `gamerelninorex-bit/Immortalis` at `36d50639ccf099fc0e69421f35cf036242c9bcad` (tree `dfe8fd0f…`), equal to live `origin/main` (`git ls-remote`) and to the study's S3.01 freeze. LA anchor `26ea9aba…` is an ancestor of HEAD, **81** commits before #98 (first-parent 11), as S3.01 states.
+- **Method:** (a) mechanical resolution of every C-1 index link; (b) line-content check of every anchor; (c) full source reads for DLT-1, DLT-2 and the action-path authority claim; (d) T1 witnesses on the real coordinator and on the project's own integration harness; (e) recomputation of Stage 3 arithmetic and counts; (f) text search for non-use of quarantined C-2 figures.
+- **Disclosure:** the same reviewing session earlier performed a mechanical check of the BLUE handoff note (pin match, counts, summary-versus-page). That check made no judgement on the study's substance.
+
+## 2. Handoff items — status
+
+| # | Item | Status |
+| --- | --- | --- |
+| 1 | C-1 before ratios | **PARTIAL.** Anchor layer done (§3.1); DLT-1 and DLT-2 settled (§3.2–3.3). **Not done:** edge-by-edge A3–A7 node trace, Pmain/Mq re-derivation, A7 reclassification beyond the DLT deltas. |
+| 2 | C-2 accounting | **Source side PASS**; omission side needs the manifest (not examined). Non-use PASS (§3.5). |
+| 3 | A counter-trace (Bob seed, deferred consequence) | **Not reviewed.** |
+| 4 | B counter-trace (foreign grant) | **A0/A side only** (§3.4). B's side — whether "consolidation" changes owner semantics — **not reviewed.** |
+| 5–7 | C, D, MX counter-traces | **Not reviewed.** |
+| 8–10 | Autonomy, injection, non-physical | **Not reviewed.** |
+| 11 | Independent effort challenge | **Arithmetic only** (§3.6). Work-package omissions, correlated high cases, dual-policy and proof costs **not challenged.** |
+| 12 | Method conformance | **Partial** (§3.6). |
+
+## 3. Findings
+
+### 3.1 C-1 anchor layer — PASS with imprecisions (non-blocking)
+
+- 80 of 80 links in SF01–SF27 resolve to an existing path and in-range line. 76 cite `36d5063`; 4 cite `26ea9ab`, all in SF27 and expressly LA-labelled, so S3.01's citation rule holds. The LA anchors, read at `26ea9ab`, land correctly.
+- Every anchor sits on, or within a few lines of, the construct described. Imprecise (cite the nearer line): `goal.ts#282` → predicate is **283–291**; `ordinary-action.ts#45` → `consumeOrdinaryAction` at 47; `two-review-opening.ts#40` → `openingCharacter` begins 41; `admission.ts#480` → function begins 481; `commands.ts#1320` → consumer begins 1321.
+- A resolving anchor is not node-level fidelity. This is stated so the pass above is not read as C-1 closure.
+
+### 3.2 DLT-1 — CONFIRMED as disclosed; one refinement
+
+- `goal.ts` 176–217 is described accurately: ordinary adoption matches an open attempt by **amount alone** (line 191; unit not compared, and I did not verify whether the unit can vary); delayed adoption requires the dispatch_ref→act link (182–188); a resumed goal requires `act_id` identity (173).
+- **T1 witness (stub dependencies, real coordinator):** with no retained goal, an open attempt of the same amount that this goal did not create is adopted and finished (C1). A different amount is refused (C2). A delayed goal with no ledger link is refused (C3). A newer different act is never accepted for a resumed goal (W3).
+- **RED decision on the dependent A7 delta:** no further downgrade of A0 beyond the disclosure. A5 CA21 and A6 CA.S06.ACTION should read: *adopt by quantity when no retained goal names an act; by exact act_id when resuming; by dispatch_ref link when delayed.* "Do not start another goal because its quantity looks similar" is true only in the sense that the attempt is adopted rather than duplicated.
+
+### 3.3 DLT-2 — CONFIRMED as disclosed
+
+- `file-package.ts` 831–878: prepare → state file (842) → journal append (846) → manifest (867) → accept (878). `checkpoint-package.ts` 805–907: lock check (814) → prepare (823) → journal append (846) → optional index/checkpoint at the interval (848–869) → lock re-check (890) → manifest (892) → accept (904). Ranges and ordering are exact. Both poison the handle and return `UNKNOWN_OUTCOME` on any exception.
+- **Open:** whether any interruption or recovery edge depends on the original order was **not traced.** Only the commit paths were read; the open/recovery paths (v1 orphan state file; v2 journal beyond manifest) were not.
+
+### 3.4 RF-1 — MATERIAL — the S3.05 recovery table overstates action-path grant binding for the A column
+
+- **Study text:** S3.05 R04, column A: "Original accepted request/grant/actor authority; no copied capability … foreign grant/actor→X"; and "for each arm … different grant→R04→X".
+- **Source (OBSERVED):** the resume predicate (`goal.ts` 286–291) compares amount, until and dispatch_ref; it compares no client or grant. `GoalRecord` (`goal-record.ts` 44–57) has no authority field. A resumed goal copies the record (293), and the chain runs under the **caller's** authority (315). The class comment (`goal.ts` 34–36) says phases run "under the ORIGINAL request's authority"; the code does not do that. The delayed path **is** grant-bound (`delayed-continuation.ts` 190, 431).
+- **Existing evidence does not cover it:** the SF24 test (`zero-confirmation-recovery.test.ts` 388) exercises `resume_original_character`, the setup request. `chat-ordinary-actions.test.ts` 121 exercises reuse of the old **session id** under a new grant, refused by `mcp-http.ts` 478. The suite's `run()` helper resumes with the **same** grant, refreshed.
+- **T1 integration witness (project harness, scripted hosts):** a gather goal interrupted under grant G1; a second, separately consented grant G2 (new client, same player-lane secret, own session) calls `play_status` and sees G1's goal; `gather` with the same request is not refused and completes the **same goal id**. Owners: one commitment, reserve 2, source 10, time 31 — no second act, debit or time. A different amount under G2 gets a new goal id, `ANOTHER_ATTEMPT_OPEN`, owners untouched. The baseline `chat-goal` suite passes 6/6 on this machine.
+- **Project's own stance:** two integration tests call a second grant under the same lane secret "a DIFFERENT authorization" (`delayed-continuation.test.ts` 250; `initial-setup-witness.test.ts` 622) and refuse it for pending and delayed work.
+- **What this does and does not show.** The frozen A0 graph is consistent with the code: A6 CA.S06.SETUP names the "original retained grant"; CA.S06.ACTION names "matching request/goal/act/dispatch", no grant. **A0's classification is not changed.** The defect is the A-column and the "each arm" sentence, which attribute to the retained action path a protection only the setup request and the delayed path have. It also blurs a differentiator the study otherwise draws for B ("Reauthorize same retained scope, not goal similarity"). RED does **not** rule whether resume-by-any-valid-player-grant is a defect or intended reconnect continuity. That is a design question for BLUE and the Sovereign. No exploit is shown: nothing beyond the original act occurs.
+- **Required before comparison:** BLUE records a **DLT-3** (exact old claim, new claim, source reason, affected arms) and corrects R04/A and the "each arm" sentence. Symmetric accounting for B, C, D and MX follows. Each arm that promises grant refusal needs its own evidence or an UNTESTED label.
+
+### 3.5 C-2 — source side PASS; omission side NOT EXAMINED; non-use PASS
+
+- Blob hashes for `pages.ts` (`c6bffbea…`) and `chat-tools.ts` (`09d1f053…`) match. `pages.ts` has exactly **eight** exports at 33, 56, 66, 81, 148, 173, 200, 224. `completeSetupConfirmation` 149, `completeCharacterConfirmation` 184, `fitsCharacterConfirmation` 241 exist; 8 + 3 = **11**. `registry.ts` 2465/2473 and 3014/3023, and `admission.ts` 513 (the `SEALED … AMENDMENT_NOT_SUPPORTED` condition; `registry.ts` 450 is only a kind-ID union) are exact. The four mid-file imports are at `tests/support/observation.ts` 357–358 and `tests/support/operator.ts` 192–193.
+- **Defect:** the register cites bare basenames. `observation.ts` exists in three directories. Path-qualify, since the register's own standard is "exact source correction".
+- **Not examined:** that the manifest omitted exactly these exports (the manifest is outside the repository and was not retrieved).
+- **Non-use:** the 5,459 and 5,487 figures appear only in the S3.01 custody statement ("not complexity or runtime measures") and the C-2 register; S3.07 disclaims consumer-count use. No Stage 3 argument was found that relies on them (text search; paraphrase not excluded).
+
+### 3.6 Method and arithmetic (partial)
+
+- Recomputed: all six rows of the effort table (components and additive totals) and all five base-case allocations sum exactly as stated. Fifty numbered items in S3.03 (five specifications × ten) explain "ten requested architecture dimensions"; that is the specification template, distinct from the 13 audit dimensions of S1.10. Vocabulary only; the closing line does not say whether all 13 are covered.
+- 42 component rows (L01–L42) and all of S01–S10 are present.
+- **Not checked:** A9 exclusions, evidence-tier separation, disabled early exit, symmetric treatment of classification deltas outside DLT-1/2/3.
+
+## 4. Conditions carried to BLUE (RED does not select or rank)
+
+1. Record DLT-3 and correct S3.05 R04/A and the "different grant→R04→X for each arm" sentence (§3.4).
+2. Use `goal.ts` 283–291 for the predicate and path-qualify the C-2 basenames (§3.1, §3.5).
+3. Restate the ordinary-branch wording in A5 CA21 and A6 CA.S06.ACTION as in §3.2.
+4. The page title still reads "Stage 3 Conditionally Ready". Any title edit moves the pin; if made, return a new pin to RED.
+
+## 5. Disposition and path
+
+**AMEND (narrow) — partial.** DLT-1 and DLT-2 stand as disclosed. RF-1 requires BLUE correction before any cross-arm S06 comparison. Items 3 and 5–11 and the C-1 node-level trace remain for a further RED pass. **No dependent ratio is accepted.** Stage 4 remains unopened. M-S and OB-030 retain their separate recorded statuses (the repository records `PF-6/F-028 (OB-030)` as `NOT_ACTIVATED_BLOCKED`).
+
+## 6. Evidence status
+
+| Tier | Content |
+| --- | --- |
+| OBSERVED | Source at `36d5063` (all file and line citations above); live `origin/main`; page text at the pin. |
+| RECORDED | Existing `chat-goal` suite 6/6 on this machine (Node 22.23.4, pnpm 10.33.0, vitest 5.0.2) at HEAD. |
+| T1 MECHANISM, stubbed | Coordinator witnesses C1–C3, W1–W3 (`red-witness-goal.mjs`). |
+| T1 MECHANISM, project harness | E2E-1 and E2E-2 (`red-e2e-foreign-grant-witness.test.ts.txt`): scripted hosts, real owners and adapter. Not a genuine GM host, named client or retained-service restart. |
+| UNTESTED / UNRUN | Real host and named-client behaviour; retained service restart (OB-030); B/C/D/MX counter-traces; D store behaviour. |
+
+**Repository custody:** no commit, push, branch or PR. `pnpm install --frozen-lockfile` set ten bin files executable as a side effect; modes were restored and the tree verified clean (HEAD `36d5063`). The temporary test file was removed after a copy was kept in the scratchpad. Nothing was written to Notion.

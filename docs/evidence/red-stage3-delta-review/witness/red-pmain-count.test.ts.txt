@@ -1,0 +1,58 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- RED witness; temporary, not for commit */
+// RED WITNESS (temporary). MECHANISM / T1 only. Counts canonical publication groups (= journal entries) on CURRENT main for the
+// complete-setup route (BLUE's S01 CA path claims Pmain = 16), then for the ordinary gather actions that follow (S02; no claim made).
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, it } from "vitest";
+import { hosts, stage } from "../support/chat-route.ts";
+import { run, slot } from "../support/chat-setting.ts";
+import {
+  journey,
+  openingCharacter,
+  openingSetting,
+  openingSettled,
+  reviewProposal,
+} from "../support/two-review-opening.ts";
+
+const entries = (s: any): number => {
+  try {
+    return JSON.parse(readFileSync(join(s.campaignDir, "manifest.json"), "utf8")).head.journal_entries;
+  } catch {
+    return 0; // no campaign package yet: nothing published
+  }
+};
+
+it("RED: canonical publication groups on current main for the complete setup route, then gather", async () => {
+  const s = await slot({ playerViewHostId: "gm-setup" });
+  const hs = await hosts(s);
+  const r = await run(s, {}, undefined, {});
+  const j = journey();
+  const log: any = {};
+  try {
+    log.start = entries(s);
+    await reviewProposal(r.chat, j, "propose_original_setting", openingSetting());
+    log.afterSetting = entries(s);
+    await reviewProposal(r.chat, j, "propose_original_character", openingCharacter());
+    const settled: any = await openingSettled(r.chat, j);
+    log.state = settled.state;
+    log.afterSetup = entries(s);
+    log.S01_groups = log.afterSetup - log.start;
+    const noHuman = () => {
+      throw new Error("no human review expected");
+    };
+    await stage(r.chat, "collect", { amount: 5 }, noHuman);
+    log.afterCollect = entries(s);
+    await stage(r.chat, "continue_collection", {}, noHuman);
+    log.afterContinue = entries(s);
+    await stage(r.chat, "finish_collection", {}, noHuman);
+    log.afterFinish = entries(s);
+    log.S02_collect = log.afterCollect - log.afterSetup;
+    log.S02_continue = log.afterContinue - log.afterCollect;
+    log.S02_finish = log.afterFinish - log.afterContinue;
+    console.log("RED-PMAIN " + JSON.stringify(log));
+  } finally {
+    for (const h of hs) await h.stop();
+    await r.app.close();
+  }
+  expect(log.state).toBe("PREPARED");
+}, 240_000);
