@@ -1,0 +1,9 @@
+// RED witness (scratchpad): counts the REAL expanded fact-kind population at the frozen commit.
+import { ALL_FACT_KINDS, CANONICAL_OWNER_REGISTRY } from "/home/user/Immortalis/packages/engine/src/owners/registry.ts";
+const by = {};
+for (const k of ALL_FACT_KINDS) by[k.lifecycle] = (by[k.lifecycle] ?? 0) + 1;
+console.log("ALL_FACT_KINDS:", ALL_FACT_KINDS.length, JSON.stringify(by));
+const ids = ALL_FACT_KINDS.map((k) => k.id);
+console.log("distinct ids:", new Set(ids).size);
+console.log("CANONICAL_OWNER_REGISTRY entries:", CANONICAL_OWNER_REGISTRY.size);
+console.log("lifecycle classes present:", [...new Set(ALL_FACT_KINDS.map((k) => k.lifecycle))].join(","));

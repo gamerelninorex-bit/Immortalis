@@ -1,0 +1,23 @@
+// RED witness (scratchpad): the REAL native InsertionFactSchema at 36d5063 fails closed for a GM-established grade.
+import { InsertionFactSchema } from "/home/user/Immortalis/packages/contracts/src/world-foundation.ts";
+import * as wf from "/home/user/Immortalis/packages/contracts/src/world-foundation.ts";
+import * as roles from "/home/user/Immortalis/packages/contracts/src/index.ts";
+const PCA = roles.PLAYER_CHOICE_AUTHORITY ?? wf.PLAYER_CHOICE_AUTHORITY;
+const base = {
+  bridge: "NATIVE_ALREADY_THERE",
+  established_by: "EXPLICIT_PLAYER_AUTHORED_FACT",
+  authored_under: { role: PCA.role, permission: PCA.permission },
+  statement: "Bob stands in the lumber yard.",
+};
+const cases = {
+  "control: native player-authored fact": base,
+  "GM-established grade in established_by": { ...base, established_by: "GM_ESTABLISHED_ROUTINE_ACTION" },
+  "other bridge value (ARRIVAL)": { ...base, bridge: "ARRIVAL" },
+  "extra source_kind key (strict object)": { ...base, source_kind: "GM_ACTION_BASIS" },
+  "GM role in authored_under": { ...base, authored_under: { role: "role.gm", permission: PCA.permission } },
+  "grade omitted": (({ established_by, ...r }) => r)(base),
+};
+for (const [name, v] of Object.entries(cases)) {
+  const r = InsertionFactSchema.safeParse(v);
+  console.log(`${r.success ? "ACCEPTED" : "REFUSED "}  ${name}`);
+}
