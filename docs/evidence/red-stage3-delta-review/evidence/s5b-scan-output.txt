@@ -1,0 +1,130 @@
+== custody (NFM-MENTIONS-v1)
+full characters       819135
+prefix characters     782441
+appended characters   36694
+raw   full            f30108f2934212766bb33b83b7aabe564881a123e0f543c54cab909baa5a1b32
+nfm   full            1d877f048fddeab38ec78528d4dec0ec84b3c56046fe52cec2f258772e47c3eb
+raw   prefix          3c8bd57548356278d50be9bcff3e4e83d215a7fffae1ef3e49abba79eebd5e9f
+nfm   prefix          b997cda4b77373196383a6d62defce18222539ec976df99bfd7ef22a11b84131
+raw   appended        91fd211817f72f668efddf02785590a6c705d23b3e51a663ca4de70ebc1cfe28
+canonical prefix is an exact prefix of canonical full: True
+mention tags (all / simple form / in appended section): 35 35 0
+
+== headings in appended section
+   🔵 BLUE Documentary Response v1.0 to RED Stage 5 — Unresolved Guarantees and Explicit Claim Limits — 8 November
+   S5B.01 — Scope, reviewed evidence and disposition
+   S5B.02 — S5B-D1 / UG-1: source tags do not enforce the content boundary
+   S5B.03 — S5B-D2 / UG-2: identify the proposed read boundary; keep conversion and task repair unresolved
+   S5B.04 — S5B-D3 / UG-3: history-policy dispatch is a missing mechanism
+   S5B.05 — S5B-D4 / UG-4: no revisable-kind set or owner-repair mapping has been specified
+   S5B.06 — S5B-D6 / UG-6: B retains a single current goal slot and serial executor
+   S5B.07 — S5B-D7 / UG-7: extend the MX classification to player-choice authority
+   S5B.08 — S5B-D8 / UG-8: D's coordination protocols are not supplied by relocation
+   S5B.09 — Resulting guarantee register and Step 9 boundary
+   S5B.10 — Sovereign inputs, unchanged limits and RED handoff
+
+== links and 40/64-hex strings in appended section
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/apps/phone/src/goal.ts#L263
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/contracts/src/pc-collection.ts#L151
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/contracts/src/pc-movement.ts#L55
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/contracts/src/temporal.ts#L484
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/contracts/src/world-foundation.ts#L248
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/contracts/src/world-foundation.ts#L286
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/engine/src/epistemic/direct-observation.ts#L106
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/operator/src/commands.ts#L352
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/operator/src/original-pc.ts#L1550
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/packages/operator/src/original-pc.ts#L316
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/fe3e6897e43ba870b6a4211709e61e46112f30e7/docs/evidence/red-stage3-delta-review/10-stage5-adversarial-paper-review.md
+  hex 35867715713bc26310888e471c36de8ba9feb348c88892b9fb2a56ef4806a6fa
+  hex 36d50639ccf099fc0e69421f35cf036242c9bcad
+  hex 3c8bd57548356278d50be9bcff3e4e83d215a7fffae1ef3e49abba79eebd5e9f
+  hex b997cda4b77373196383a6d62defce18222539ec976df99bfd7ef22a11b84131
+  hex dfe8fd0f1da025cc0704f4b66e165cab20a7ef3b
+  hex fe3e6897e43ba870b6a4211709e61e46112f30e7
+
+== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)
+  A0             prefix=  396 appended= 15
+  A3             prefix=   25 appended=  1
+  A6             prefix=   30 appended=  1
+  A9             prefix=   24 appended=  1
+  K-4            prefix=   35 appended=  4
+  L55            prefix=    0 appended=  1   <-- NOT IN PREFIX
+  M-S            prefix=   79 appended=  1
+  OB-030         prefix=   70 appended=  2
+  R12.03         prefix=   14 appended=  1
+  R12.04         prefix=   12 appended=  4
+  R12.05         prefix=   17 appended=  2
+  R13.01         prefix=    6 appended=  1
+  R13.02         prefix=    8 appended=  1
+  R13.04         prefix=    4 appended=  1
+  R14.02         prefix=    3 appended=  1
+  R14.05         prefix=    6 appended=  1
+  RF-1           prefix=  167 appended=  1
+  RF-21          prefix=   14 appended=  1
+  S1.12          prefix=   35 appended=  1
+  S3.02          prefix=    5 appended=  1
+  U3-03          prefix=   13 appended=  2
+  U3-06          prefix=   13 appended=  2
+  U3-17          prefix=   14 appended=  1
+
+== wording scan (word-bounded) with context; every hit must be read, not counted
+  preference   ...'reserve the Stage 4 outcome of carrying options forward and deferring preference, ranking, effort and adoption.</b> This responds to the documentary r'
+  ranking      ...'Stage 4 outcome of carrying options forward and deferring preference, ranking, effort and adoption.</b> This responds to the documentary reconcilia'
+  effort       ...'utcome of carrying options forward and deferring preference, ranking, effort and adoption.</b> This responds to the documentary reconciliation req'
+  cheap        ...' rule has not been defined. No automatic checkpoint-trust transfer or cheap first open follows.\n\n<b>Arms/tier:</b> C/MX historical-policy mechani'
+  effort       ...'semantic route. The matrix supplies no numerical completeness, reuse, effort or interaction-saving inference. <b>Arms/tier:</b> MX, DESIGNED/UNTES'
+  winner       ...'ts. They do not specify the writer-takeover, external host-proof, one-winner decision or end-to-end delivery protocols. <b>UG-8 remains UNKNOWN.</'
+  winner       ...' a claimed model name does not prove which model actually ran |\n| One-winner decision | Decision uniqueness key, transaction/admission for first a'
+  winner       ...'tion | UNKNOWN protocols and D counterpart evidence | Writer/host/one-winner/delivery obligations relocated, not discharged |\n| UG-9 host-dependen'
+  effort       ...' suite, four witnesses and retained restart are unrun |\n| Independent effort challenge | Not met; U3-17 has no calibrated basis |\n| Sensitivity | '
+  effort       ...' U3-17 has no calibrated basis |\n| Sensitivity | Qualitative only; no effort ranges or invented weights |\n| Sovereign decision | Pending; this res'
+  cost         ...'e-context isolation remain materially dependent on the host/model. No cost, speed, naturalness, reliability, affordability or dominance conclusi'
+  speed        ...'ext isolation remain materially dependent on the host/model. No cost, speed, naturalness, reliability, affordability or dominance conclusion is s'
+  naturalness  ...'lation remain materially dependent on the host/model. No cost, speed, naturalness, reliability, affordability or dominance conclusion is supported.\n\n##'
+  reliability  ...' materially dependent on the host/model. No cost, speed, naturalness, reliability, affordability or dominance conclusion is supported.\n\n### S5B.10 — So'
+  affordability ...'ependent on the host/model. No cost, speed, naturalness, reliability, affordability or dominance conclusion is supported.\n\n### S5B.10 — Sovereign inputs,'
+  preference   ...'sponse does not ask RED to repeat its sample, run evidence or issue a preference.\n\n<b>Unchanged conditions:</b> C-1–C-8 and A9 remain binding. H/O/M/M'
+  percentages  ...' binding. H/O/M/Mq, unreviewed A3–A6 edge/node and challenger counts, percentages, polling-derived ratios and calibrated effort remain unavailable as c'
+  effort       ...'challenger counts, percentages, polling-derived ratios and calibrated effort remain unavailable as comparison inputs. No source counts, test count'
+  ranking      ...'son inputs. No source counts, test counts or file totals are used for ranking or pricing. No thresholds, eligibility criteria, fixtures, burdens, e'
+  preferred    ..." remain carried forward with their gaps; no architecture is selected, preferred or ranked.\n\nM-S's recorded authority status remains separate. OB-030'"
+  ranked       ..."ed forward with their gaps; no architecture is selected, preferred or ranked.\n\nM-S's recorded authority status remains separate. OB-030's pre-live"
+  simple       ...'s; NFM-MENTIONS-v1 is unchanged from R14.05/S4.10 and normalizes only simple paired mention labels to the same self-closing URL mention before tri'
+
+== bare numerals (outside identifiers, hashes and URLs)
+  5          ...'mentary Response v1.0 to RED Stage 5 — Unresolved Guarantees and Explic'
+  8          ...'antees and Explicit Claim Limits — 8 November 2026\n\n### S5B.01 — Scope,'
+  2026       ...'Explicit Claim Limits — 8 November 2026\n\n### S5B.01 — Scope, reviewed evid'
+  4          ...'ification gaps; preserve the Stage 4 outcome of carrying options forwar'
+  5          ..."t an architecture. RED's own Stage 5 authority account remains attribut"
+  5          ...'lementation.\n\nThe [immutable Stage 5 adversarial review](<U> was read i'
+  782,441    ...'ent was run.\n\nIncoming study body: 782,441 Unicode characters, native stamp <'
+  54         ...', native stamp <code>2026-11-08T01:54:33.472Z</code>; RED reports last w'
+  33         ...'ative stamp <code>2026-11-08T01:54:33.472Z</code>; RED reports last writ'
+  54         ...'rts last write <code>2026-11-08T01:54:36.061Z</code> and settled referen'
+  36         ...' last write <code>2026-11-08T01:54:36.061Z</code> and settled reference '
+  54         ...'tled reference <code>2026-11-08T01:54:51Z</code>. Both reported body has'
+  4          ..." <ID>–<ID> closure and RED's Stage 4 conformance PASS remain at their r"
+  4          ...'ified\n\n<b>Exact old claims, C item 4:</b>\n\n> It does not change every S'
+  263        ...'e.\n\n<b>Source reason:</b> [goal.ts:263](<U> refuses begin while running; '
+  283        ...'lies the resume predicate at lines 283–291, and retains the chosen goal b'
+  291,       ...' the resume predicate at lines 283–291, and retains the chosen goal before'
+  309        ...'osen goal before dispatch at lines 309–310. Durable-before-dispatch is al'
+  310.       ...' goal before dispatch at lines 309–310. Durable-before-dispatch is already'
+  248        ...'mit</code> in [world-foundation.ts:248](<U> A truthful GM tag is not that'
+  151        ...'\n| --- | --- |\n| [pc-collection.ts:151](<U> AuthoredUnder and collection '
+  55         ...'l unspecified. |\n| [pc-movement.ts:55](<U> voluntary-relocation authorit'
+  484        ...'path is credited. |\n| [temporal.ts:484](<U> TransactionContextSchema | RE'
+  286        ...'pecified. |\n| [world-foundation.ts:286](<U> mirror acceptance and native '
+  106        ..."tinues. |\n| [direct-observation.ts:106](<U> retained observation's tempor"
+  352        ...'s sensory source. |\n| [commands.ts:352](<U> source stamps and command rou'
+  316        ...'n unqualified. |\n| [original-pc.ts:316](<U> and [line 1550](<U> mirror co'
+  1550       ...'[original-pc.ts:316](<U> and [line 1550](<U> mirror compiler and native bi'
+  2,         ...'tion\n\n<b>Exact old claims, D items 2, 5 and 6:</b>\n\n> Sole writer is the'
+  5          ...'n\n\n<b>Exact old claims, D items 2, 5 and 6:</b>\n\n> Sole writer is the T'
+  6          ...'Exact old claims, D items 2, 5 and 6:</b>\n\n> Sole writer is the Transac'
+  9          ...'ulting guarantee register and Step 9 boundary\n\n| Guarantee | State afte'
+  9          ...'not behavioral PASS.\n\n<b><ID> step 9 remains unsatisfied:</b>\n\n| Requir'
+  4          ...'assertion routine.\n- <b>EG-8 Stage 4 authority record:</b> the existing'
+  5          ..." by this response. RED's own Stage 5 instruction does not verify the ea"
+  5          ..."onse is appended after RED's Stage 5 review; the complete incoming raw "
