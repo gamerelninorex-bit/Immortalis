@@ -1,0 +1,10 @@
+started_utc: 2026-11-08T14:58:25Z
+finished_utc: 2026-11-08T15:06:35Z
+base_sha: 36d50639ccf099fc0e69421f35cf036242c9bcad
+base_tree: dfe8fd0f1da025cc0704f4b66e165cab20a7ef3b
+head_sha: 94b2bffaf3dac54bd59c9fd7950a06d5d30a647b
+head_tree: c28f3e9aa85540f3a9844b4858676d2eb8844bfe
+node: v22.23.4
+os: Linux 6.18.44-fc-v310 x86_64
+cpus: 4
+sizes: 0,250,1000  reps_per_round: 3  rounds: 3

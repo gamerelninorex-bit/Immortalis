@@ -1,0 +1,200 @@
+{
+  "build": "head",
+  "exact_sha": "94b2bffaf3dac54bd59c9fd7950a06d5d30a647b",
+  "node": "v22.23.4",
+  "os": "linux 6.18.44-fc-v310",
+  "cpus": 4,
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.30GHz",
+  "repetitions": 3,
+  "sizes": [0, 250, 1000],
+  "label": "MECHANISM / T1 only: scripted client and hosts, real owners and transport, one process, local temporary disk. Model/client latency, genuine host, named client and retained storage are UNRUN.",
+  "campaign_open_is_CanonicalCampaign_open": true,
+  "results": [
+    {
+      "unrelated_facts_added": 0,
+      "facts_before": 39,
+      "journal_entries_before": 36,
+      "journal_entries_after": 48,
+      "legacy": {
+        "tools": [
+          "original_setting_status",
+          "original_character_status",
+          "read_current_observation_glance",
+          "play_status"
+        ],
+        "round_trips": 4,
+        "response_bytes": 17356,
+        "wall_ms": {
+          "median": 321.3,
+          "all": [328.2, 321.3, 292]
+        },
+        "counters": {
+          "opens": 4,
+          "enumerations": 6,
+          "verifications": 5,
+          "fact_reads": 134,
+          "group_reads": 267,
+          "enumerations_inside_open_and_verify": 225
+        }
+      },
+      "one": {
+        "tools": ["get_play_context"],
+        "round_trips": 1,
+        "response_bytes": 4596,
+        "wall_ms": {
+          "median": 73.8,
+          "all": [73.8, 73.3, 81.2]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 67,
+          "enumerations_inside_open_and_verify": 50
+        }
+      },
+      "terminal": {
+        "tools": ["play_status"],
+        "round_trips": 1,
+        "response_bytes": 4928,
+        "wall_ms": {
+          "median": 87.1,
+          "all": [82.8, 87.1, 90.2]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 85,
+          "enumerations_inside_open_and_verify": 50
+        }
+      }
+    },
+    {
+      "unrelated_facts_added": 250,
+      "facts_before": 289,
+      "journal_entries_before": 286,
+      "journal_entries_after": 298,
+      "legacy": {
+        "tools": [
+          "original_setting_status",
+          "original_character_status",
+          "read_current_observation_glance",
+          "play_status"
+        ],
+        "round_trips": 4,
+        "response_bytes": 17356,
+        "wall_ms": {
+          "median": 2085,
+          "all": [2324.5, 2085, 2077.4]
+        },
+        "counters": {
+          "opens": 4,
+          "enumerations": 6,
+          "verifications": 5,
+          "fact_reads": 134,
+          "group_reads": 267,
+          "enumerations_inside_open_and_verify": 225
+        }
+      },
+      "one": {
+        "tools": ["get_play_context"],
+        "round_trips": 1,
+        "response_bytes": 4596,
+        "wall_ms": {
+          "median": 486.5,
+          "all": [501.2, 486.5, 480.4]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 67,
+          "enumerations_inside_open_and_verify": 50
+        }
+      },
+      "terminal": {
+        "tools": ["play_status"],
+        "round_trips": 1,
+        "response_bytes": 4928,
+        "wall_ms": {
+          "median": 533.4,
+          "all": [494.3, 536.6, 533.4]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 85,
+          "enumerations_inside_open_and_verify": 50
+        }
+      }
+    },
+    {
+      "unrelated_facts_added": 1000,
+      "facts_before": 1039,
+      "journal_entries_before": 1036,
+      "journal_entries_after": 1048,
+      "legacy": {
+        "tools": [
+          "original_setting_status",
+          "original_character_status",
+          "read_current_observation_glance",
+          "play_status"
+        ],
+        "round_trips": 4,
+        "response_bytes": 17356,
+        "wall_ms": {
+          "median": 4840.6,
+          "all": [5481.9, 4840.6, 4631.6]
+        },
+        "counters": {
+          "opens": 4,
+          "enumerations": 6,
+          "verifications": 5,
+          "fact_reads": 134,
+          "group_reads": 267,
+          "enumerations_inside_open_and_verify": 225
+        }
+      },
+      "one": {
+        "tools": ["get_play_context"],
+        "round_trips": 1,
+        "response_bytes": 4596,
+        "wall_ms": {
+          "median": 1063.6,
+          "all": [1063.6, 892.3, 1183.2]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 67,
+          "enumerations_inside_open_and_verify": 50
+        }
+      },
+      "terminal": {
+        "tools": ["play_status"],
+        "round_trips": 1,
+        "response_bytes": 4928,
+        "wall_ms": {
+          "median": 1155.2,
+          "all": [1155.2, 1130.8, 1186.6]
+        },
+        "counters": {
+          "opens": 1,
+          "enumerations": 2,
+          "verifications": 1,
+          "fact_reads": 63,
+          "group_reads": 85,
+          "enumerations_inside_open_and_verify": 50
+        }
+      }
+    }
+  ]
+}
