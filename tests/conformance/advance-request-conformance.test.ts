@@ -65,8 +65,9 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":
     "4a2de8295fb928a366e8a4d90b5cf7131360de88c17bbc00c24b7cf5729a1ffd",
-  "packages/operator/src/player-view.ts":
-    "639b7e44e13f0467880f8e8e6b1943ce9ac57c298cec4cdddcf953fac9818d31",
+  // packages/operator/src/player-view.ts is deliberately not pinned here: the play-context slice (BLUE A7 brief, native pin 2026-11-08T13:31:35.036Z)
+  // extracted its proof and gateway tail into one shared internal path and added one on-open entry. Its authentication, proof and fixed
+  // gateway control flow are pinned structurally by tests/security/player-view-mcp-security.test.ts, which still holds.
   "packages/operator/src/player-view-exchange.ts":
     "b185396a7858b9ab3133bf6e173ae76c7084ffcda335e8dc6cd3e0f22972a04e",
   "packages/operator/src/player-view-mcp.ts":

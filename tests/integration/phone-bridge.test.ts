@@ -1272,6 +1272,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "oauth.ts",
       "pages.ts",
       "pending-action.ts",
+      "play-context.ts",
       "play-evidence.ts",
       "preflight.ts",
       "prepare-chat.ts",

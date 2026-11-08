@@ -65,6 +65,7 @@ import type { PhoneConfig } from "./config.ts";
 import { createGoalCoordinator, type DelayedLaunch } from "./goal.ts";
 import { readGoal, writeGoal } from "./goal-record.ts";
 import type { LocalityOutcome } from "./locality-evidence.ts";
+import { readPlayContext, unavailableContext, type PlayContextRead } from "./play-context.ts";
 import { readPlay } from "./play-evidence.ts";
 import type { ToolContext } from "./mcp-http.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
@@ -2438,6 +2439,30 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
     return stageReview(cur.stage);
   };
 
+  /**
+   * The briefing: read-only, one owner-verified open, and a command that would open the same package waits while it is being read (the
+   * same protection the status reads have). A command that is already starting holds the writer lock: nothing is read then. Briefing
+   * reads of this server are serialised (a second would otherwise meet the first one's writer lock and report UNAVAILABLE for no reason).
+   */
+  let briefingTail: Promise<unknown> = Promise.resolve();
+  function briefingWork(): Promise<PlayContextRead> {
+    const run = briefingTail.then(readBriefing);
+    briefingTail = run.catch(() => undefined);
+    return run;
+  }
+  async function readBriefing(): Promise<PlayContextRead> {
+    if (closing)
+      return unavailableContext({ kind: "UNAVAILABLE", detail: "the server is closing" });
+    if (launching)
+      return unavailableContext({ kind: "UNAVAILABLE", detail: "another command is starting now" });
+    readingSetting++;
+    try {
+      return await readPlayContext(config, deps.chat?.note ? { note: deps.chat.note } : {});
+    } finally {
+      readingSetting--;
+    }
+  }
+
   const goalCoordinator = createGoalCoordinator({
     launch: (command, options, authority, delayed) =>
       launchPlayer({ command, options }, "chat", authority, undefined, delayed),
@@ -2477,6 +2502,17 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
               : "a goal is being carried out; its owner records are not read while it holds them",
           } as const)
         : track(readPlay(config)),
+    briefing: () =>
+      closing || goalCoordinator.current()?.live === true
+        ? Promise.resolve(
+            unavailableContext({
+              kind: "UNAVAILABLE",
+              detail: closing
+                ? "the server is closing"
+                : "a goal is being carried out; its owner records are not read while it holds them",
+            }),
+          )
+        : track(briefingWork()),
     resumeKind: () => (resumableBlock ? resumeWhat : null),
     proposeCharacter: (draft, review) =>
       track(launchCharacterWork({ kind: "PROPOSE", draft }, review)),
