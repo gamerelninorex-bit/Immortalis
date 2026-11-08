@@ -1,0 +1,201 @@
+== custody (NFM-MENTIONS-v1)
+full characters       719334
+prefix characters     665170
+appended characters   54164
+raw   full            727b610cb3612ab47b1c2e19f5dd00492911998b0053107a837bb2df3c7e2de2
+nfm   full            cc2dfce38340672f6a98737ee86dd8ef0352af77b989efe1f22e12a3df5aef38
+raw   prefix          e0d0460ae4a5540e8b273690e43ecaf45d3a80ed650a693c7643aedbe6dabcdd
+nfm   prefix          fc0ca55ef34751bcadafffade8bfa21f088ee0634815ea62184656e787ab4d1b
+raw   appended        ba8cdd2ad636326a196a11e4287464cbb91188264cc221ac229112e7801dca39
+canonical prefix is an exact prefix of canonical full: True
+mention tags (all / simple form / in appended section): 35 35 0
+
+== headings in appended section
+   🔵 BLUE Stage 4 v1.0 — Conditional Paper Comparison — Options Carried Forward; Selection Deferred — 8 November 
+   S4.01 — Authority, frozen inputs and disposition
+   S4.02 — Controlling text, evidence contract and comparison vocabulary
+   S4.03 — Consolidated hard-eligibility register, applied first
+   S4.04 — Matched scenario coverage and negative-path comparison
+   S4.05 — Structural distinctions, guarantee replacements and falsifiers
+   S4.06 — Attached adoption, governance, security and continuity prerequisites
+   S4.07 — Uncertainty and sensitivity without invented weights
+   S4.08 — Conditional findings and explicit deferrals
+   S4.09 — RED conditions-of-use audit and exact handoff
+   S4.10 — Append-only custody and digest method
+
+== links and 40/64-hex strings in appended section
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/a8d7160a8a56e2f0db49a6e5d5fc87b214d4955b/docs/evidence/red-stage3-delta-review/06-stage3-readiness-assessment.md
+  hex 36d50639ccf099fc0e69421f35cf036242c9bcad
+  hex 8b367ec3ec0152dab503d51d6367b1ee1f46383fde5da00a0b202480412c3d64
+  hex a8d7160a8a56e2f0db49a6e5d5fc87b214d4955b
+  hex aefe31f60123dbf97d5b671d9bc6dfcfda7769e9786a58a4c4c01ed8fdba9ef5
+  hex dfe8fd0f1da025cc0704f4b66e165cab20a7ef3b
+  hex e0d0460ae4a5540e8b273690e43ecaf45d3a80ed650a693c7643aedbe6dabcdd
+  hex fc0ca55ef34751bcadafffade8bfa21f088ee0634815ea62184656e787ab4d1b
+
+== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)
+  A0             prefix=  338 appended= 21
+  A3             prefix=   18 appended=  2
+  A6             prefix=   23 appended=  2
+  A7             prefix=   32 appended=  3
+  A9             prefix=   20 appended=  2
+  B.RETAIN       prefix=    2 appended=  3
+  C-ACT          prefix=   20 appended=  2
+  C-INIT         prefix=   12 appended=  4
+  C-REV          prefix=    6 appended=  1
+  C-WORLD        prefix=   13 appended=  3
+  DLT-1          prefix=   14 appended=  1
+  DLT-4          prefix=    6 appended=  1
+  E4             prefix=    7 appended=  1
+  K-1            prefix=   14 appended=  1
+  K-3            prefix=    6 appended=  1
+  K-4            prefix=   10 appended=  8
+  K-5            prefix=   17 appended=  1
+  L01            prefix=    6 appended=  1
+  L42            prefix=    9 appended=  1
+  M-S            prefix=   73 appended=  1
+  OB-030         prefix=   53 appended=  8
+  PW-EXCL-1      prefix=   10 appended=  2
+  PW-EXCL-2      prefix=   13 appended=  1
+  PW-REL-1       prefix=    9 appended=  2
+  PW-REL-2       prefix=    8 appended=  1
+  R12.02         prefix=    1 appended=  1
+  R12.03         prefix=    3 appended= 10
+  R12.04         prefix=    1 appended=  5
+  R12.05         prefix=    1 appended=  9
+  R12.06         prefix=    3 appended=  6
+  R13.01         prefix=    3 appended=  3
+  R13.02         prefix=    3 appended=  5
+  R13.03         prefix=    2 appended=  1
+  R14.01         prefix=    1 appended=  3
+  R14.02         prefix=    1 appended=  2
+  R14.03         prefix=    1 appended=  5
+  R14.05         prefix=    1 appended=  3
+  RF-1           prefix=  113 appended=  2
+  RF-14          prefix=   23 appended=  1
+  S1.12          prefix=   16 appended= 11
+  S3.03          prefix=    3 appended=  5
+  S3.04          prefix=    4 appended=  1
+  S3.06          prefix=    2 appended=  1
+  S3.07          prefix=    2 appended=  3
+  S3.08          prefix=    9 appended=  1
+  S3.10          prefix=    5 appended=  1
+  U3-03          prefix=    2 appended=  5
+  U3-06          prefix=    3 appended=  5
+  U3-17          prefix=    5 appended=  4
+  W-C-READ       prefix=   15 appended=  1
+  W-D-HISTORY    prefix=    2 appended=  1
+  W-MIG          prefix=    3 appended=  1
+  W-TRANS        prefix=    2 appended=  1
+  X.Q            prefix=   10 appended=  1
+  X01            prefix=    4 appended=  2
+  X16            prefix=    5 appended=  2
+
+== wording scan (word-bounded) with context; every hit must be read, not counted
+  recommended  ...'is submitted for independent RED review. No architecture is selected, recommended for adoption, or ratified.</b> The useful result is a set of structur'
+  Cost         ...'l distinctions, attached prerequisites and decision-turning unknowns. Cost, operational eligibility and preference remain unresolved.\n\n<b>Author'
+  preference   ...'ites and decision-turning unknowns. Cost, operational eligibility and preference remain unresolved.\n\n<b>Authority for this appendix:</b> the Sovereign'
+  Effort       ..."AIN, superseding blanket grant/refusal and journal-only shorthand |\n| Effort uncertainty and D's missing work | R12.06, superseding all historical"
+  effort       ..."y and D's missing work | R12.06, superseding all historical numerical effort tables; RED readiness C-1 |\n| Policy identity, first trust and contin"
+  percentages  ...'polling-derived ratios, A3–A6 node/edge counts, challenger counts and percentages. Authentication, polling and diagnostics are not pooled into substant'
+  effort       ...'under C-2. File counts and dependency graph sizes supply no deletion, effort or performance inference here.\n\n<b>Effort is UNKNOWN for every arm.</'
+  Effort       ..."h sizes supply no deletion, effort or performance inference here.\n\n<b>Effort is UNKNOWN for every arm.</b> R12.06's symmetric withdrawal remains c"
+  cost         ..."'s symmetric withdrawal remains controlling. No low/base/high number, cost ordering, affordability assertion, savings estimate or effort-based d"
+  affordability ...'thdrawal remains controlling. No low/base/high number, cost ordering, affordability assertion, savings estimate or effort-based dominance is reinstated. '
+  effort       ...'h number, cost ordering, affordability assertion, savings estimate or effort-based dominance is reinstated. Work dependencies can be named without'
+  effort       ...'g them. Structural containment is not overall dominance when lifetime effort, behavior and continuity remain unresolved.\n\n### S4.03 — Consolidated'
+  natural      ...' |\n| --- | --- | --- | --- | --- | --- | --- |\n| S4.H01 Active GM-led natural chat, K-4 | R bounded interpretation/adjudication and owner-backed pl'
+  winner       ...'option and original wording | P separate choice/world sources and one-winner decision transition; U implementation and original wording | P actual'
+  winner       ...' outcome; explicit justified policy and actual repairs required | One-winner decision/draw/guard identity proposed; new request text is not new ca'
+  cheaper      ...'fiers\n\nThese are conditional mechanism comparisons. They do not imply cheaper construction, fewer interactions, better reliability, greater natural'
+  fewer        ...'tional mechanism comparisons. They do not imply cheaper construction, fewer interactions, better reliability, greater naturalness or superior ope'
+  better       ...'parisons. They do not imply cheaper construction, fewer interactions, better reliability, greater naturalness or superior operation. The retained/'
+  reliability  ...'s. They do not imply cheaper construction, fewer interactions, better reliability, greater naturalness or superior operation. The retained/adapt/consol'
+  naturalness  ...'cheaper construction, fewer interactions, better reliability, greater naturalness or superior operation. The retained/adapt/consolidate/replace/retire '
+  superior     ...'ction, fewer interactions, better reliability, greater naturalness or superior operation. The retained/adapt/consolidate/replace/retire proposals re'
+  preference   ...'ding false player authorship. A/B cannot infer new permission from UX preference. | A premise that changes consequential PC agency must await the actu'
+  fewer        ...'propose semantic contracts behind it. | One outer goal does not prove fewer canonical stages or better conversation. A phone status response that'
+  better       ...' behind it. | One outer goal does not prove fewer canonical stages or better conversation. A phone status response that invents success from a tim'
+  fewer        ...'dary and its falsifier. “LLM handles it,” “event store,” “reuse” and “fewer files” provide no such proof. | S1.12 steps 3–4; S3.07; R12–R14 |\n\n<b'
+  effort       ...'ing release/continuity proof and host/client assessment remain; study effort is not a zero-cost operation claim. | Actual unmodified source/author'
+  cost         ...'y proof and host/client assessment remain; study effort is not a zero-cost operation claim. | Actual unmodified source/authority status continue'
+  cost         ...'path. Empty history has no old replay to perform. Exact interruption, cost and first-open behavior under the proposed policies are UNKNOWN.\n3. D'
+  effort       ...'future source-policy changes also remain UNKNOWN. The independent RED effort challenge U3-17 remains necessary before any effort-based conclusion.'
+  effort       ...'e independent RED effort challenge U3-17 remains necessary before any effort-based conclusion.\n\n### S4.07 — Uncertainty and sensitivity without in'
+  cost         ...'inance order is justified: the arms change different contracts, while cost, measured behavior and adoption continuity are unresolved. The follow'
+  cost         ...'covery and independent continuity review are needed. Unknown duration/cost or incompatibility may constrain adoption. Empty-campaign analysis ca'
+  affordable   ...'t for D needs its own seam. This appendix runs none. |\n| Which arm is affordable or cheaper over its lifetime? | UNKNOWN for all; broader changed scop'
+  cheaper      ...'its own seam. This appendix runs none. |\n| Which arm is affordable or cheaper over its lifetime? | UNKNOWN for all; broader changed scope and appar'
+  cost         ...'s with assumptions and independent RED challenge U3-17. Until then no cost ranking, dominance or affordable-by-default claim is admissible. |\n| '
+  ranking      ...'h assumptions and independent RED challenge U3-17. Until then no cost ranking, dominance or affordable-by-default claim is admissible. |\n| Which ar'
+  affordable   ...'pendent RED challenge U3-17. Until then no cost ranking, dominance or affordable-by-default claim is admissible. |\n| Which arm feels natural, is faste'
+  natural      ...'nce or affordable-by-default claim is admissible. |\n| Which arm feels natural, is faster, or is more reliable in play? | UNKNOWN; paper structure c'
+  faster       ...'dable-by-default claim is admissible. |\n| Which arm feels natural, is faster, or is more reliable in play? | UNKNOWN; paper structure cannot estab'
+  reliable     ...'aim is admissible. |\n| Which arm feels natural, is faster, or is more reliable in play? | UNKNOWN; paper structure cannot establish these outcomes. '
+  better       ...'nsolidation and semantic capability are distinct.</b> A/B can propose better organized access to retained mechanisms, but no paper proof establish'
+  better       ..."ganized access to retained mechanisms, but no paper proof establishes better play, and they do not supply the target's missing source, generic rev"
+  effort       ...'d runtime, equal guarantees, host suitability, continuity or lifetime effort (S4.03–S4.07; R12.03/R12.06/R13.02).\n\n<b>S4.F03 — MX is a conditional'
+  effort       ...'t are adoption prerequisites with unresolved feasibility/availability/effort implications, not incidental wrapper work (R12.03; R13.01–R13.02; R14'
+  preference   ...' S4.05).\n\n<b>S4.F06 — Shared host and proof limits prevent an overall preference.</b> Original-wording provenance, private-context isolation, retained'
+  effort       ...'tart, active-GM behavior and unrun seams remain unresolved. Withdrawn effort cannot be reconstructed from changed-file scope or historical velocit'
+  cheaper      ...'ucted from changed-file scope or historical velocity. No arm is shown cheaper, faster, more natural, more reliable or globally eligible (A9; R12.06'
+  faster       ...'m changed-file scope or historical velocity. No arm is shown cheaper, faster, more natural, more reliable or globally eligible (A9; R12.06; RED re'
+  natural      ...'e scope or historical velocity. No arm is shown cheaper, faster, more natural, more reliable or globally eligible (A9; R12.06; RED readiness C-1–C-'
+  reliable     ...'torical velocity. No arm is shown cheaper, faster, more natural, more reliable or globally eligible (A9; R12.06; RED readiness C-1–C-5).\n\n<b>Output '
+  shortlist    ...'ersarial examination; it gives none priority, adoption endorsement, a shortlist position or a preferred implementation. <b>Defer architecture prefere'
+  preferred    ...' gives none priority, adoption endorsement, a shortlist position or a preferred implementation. <b>Defer architecture preference, ranking, effort con'
+  preference   ...'ortlist position or a preferred implementation. <b>Defer architecture preference, ranking, effort conclusion and adoption decision.</b> The comparison'
+  ranking      ..."tion or a preferred implementation. <b>Defer architecture preference, ranking, effort conclusion and adoption decision.</b> The comparison's archit"
+  effort       ..." preferred implementation. <b>Defer architecture preference, ranking, effort conclusion and adoption decision.</b> The comparison's architectural "
+  cost         ...'ess condition | Application in this appendix |\n| --- | --- |\n| C-1 No cost basis | Effort UNKNOWN for all; no affordability, cost ordering or ef'
+  Effort       ...' | Application in this appendix |\n| --- | --- |\n| C-1 No cost basis | Effort UNKNOWN for all; no affordability, cost ordering or effort-based domi'
+  affordability ...'ndix |\n| --- | --- |\n| C-1 No cost basis | Effort UNKNOWN for all; no affordability, cost ordering or effort-based dominance. U3-17 retained. |\n| C-2 No '
+  cost         ...'--- |\n| C-1 No cost basis | Effort UNKNOWN for all; no affordability, cost ordering or effort-based dominance. U3-17 retained. |\n| C-2 No exclud'
+  effort       ...'st basis | Effort UNKNOWN for all; no affordability, cost ordering or effort-based dominance. U3-17 retained. |\n| C-2 No excluded inputs | No H/O/'
+  percentages  ...'d. |\n| C-2 No excluded inputs | No H/O/M/Mq, graph/challenger counts, percentages or polling-derived argument. Quarantined extraction fields unused. |\n'
+  preference   ...'estated below. |\n| C-7 Output form | Options carried forward; overall preference deferred; no architecture selected or experiment authorized. |\n| C-8 '
+  cost         ...'ns have become detached in any finding.\n- Whether any wording implies cost, speed, naturalness, reliability, source-fidelity acceptance, an effo'
+  speed        ...'e become detached in any finding.\n- Whether any wording implies cost, speed, naturalness, reliability, source-fidelity acceptance, an effort orde'
+  naturalness  ...'e detached in any finding.\n- Whether any wording implies cost, speed, naturalness, reliability, source-fidelity acceptance, an effort order or architec'
+  reliability  ...' any finding.\n- Whether any wording implies cost, speed, naturalness, reliability, source-fidelity acceptance, an effort order or architecture preferen'
+  effort       ..."cost, speed, naturalness, reliability, source-fidelity acceptance, an effort order or architecture preference without admissible evidence.\n\nU3-17'"
+  preference   ..."iability, source-fidelity acceptance, an effort order or architecture preference without admissible evidence.\n\nU3-17's independent calibrated effort c"
+  effort       ..."eference without admissible evidence.\n\nU3-17's independent calibrated effort challenge remains outstanding. There is no calibrated basis to challe"
+
+== bare numerals (outside identifiers, hashes and URLs)
+  4          ...'\n\n## 🔵 BLUE Stage 4 v1.0 — Conditional Paper Compariso'
+  8          ...'ried Forward; Selection Deferred — 8 November 2026\n\n### <ID> — Authorit'
+  2026       ...'d; Selection Deferred — 8 November 2026\n\n### <ID> — Authority, frozen inpu'
+  4          ...'ounded proposal: conduct the Stage 4 paper comparison under frozen <ID>'
+  4          ...'ry comparison only. Earlier “Stage 4 stays closed” statements remain ac'
+  26         ..."e saved stamp: <code>2026-11-08T00:26:59.619Z</code>; RED's settled refe"
+  59         ..."aved stamp: <code>2026-11-08T00:26:59.619Z</code>; RED's settled referen"
+  27         ...'led reference: <code>2026-11-08T00:27:19Z</code>. Trimmed body: 665,170 '
+  665,170    ...'08T00:27:19Z</code>. Trimmed body: 665,170 Unicode characters. Raw SHA-256: <'
+  1          ...', especially <ID>/<ID>; <ID> steps 1–3 |\n| Eligibility and decision pro'
+  3          ...'especially <ID>/<ID>; <ID> steps 1–3 |\n| Eligibility and decision proce'
+  2          ...'nd decision procedure | <ID> steps 2–9; RED Stage 3 Readiness Assessmen'
+  9          ...' decision procedure | <ID> steps 2–9; RED Stage 3 Readiness Assessment '
+  3          ...'cedure | <ID> steps 2–9; RED Stage 3 Readiness Assessment §§3–5 |\n| Fix'
+  3          ...'RED Stage 3 Readiness Assessment §§3–5 |\n| Fixtures, branches and basel'
+  5          ...'D Stage 3 Readiness Assessment §§3–5 |\n| Fixtures, branches and baselin'
+  1          ...'ne support | <ID> <ID>–<ID>; Stage 1 v1.1 <ID> reference graphs and <ID'
+  100        ...'n or due state |\n| <ID> GIP origin 100/sunset 150; separate NPC event | B'
+  150        ...'ate |\n| <ID> GIP origin 100/sunset 150; separate NPC event | Bounded inde'
+  100        ..."ixture. The GIP clock stays origin 100/sunset 150, not CA's chronology. S"
+  150,       ..." GIP clock stays origin 100/sunset 150, not CA's chronology. Serial two-un"
+  3          ...'rovide no such proof. | <ID> steps 3–4; <ID>; <ID>–<ID> |\n\n<b>Comparabl'
+  4          ...'vide no such proof. | <ID> steps 3–4; <ID>; <ID>–<ID> |\n\n<b>Comparable '
+  3          ...'neither replace the detailed Stage 3 graphs nor imply a count, ratio or'
+  1.         ...'rules, controlling <ID>/<ID>:</b>\n\n1. A runtime/format compatibility ide'
+  2.         ...'rmance review must keep it honest.\n2. Every compatible retained campaign'
+  3.         ...'the proposed policies are UNKNOWN.\n3. D must verify original history und'
+  4.         ...'n database is not migration proof.\n4. The first-open/historical-proof ob'
+  5.         ...'harge retained-service acceptance.\n5. C/MX gate conversion includes runt'
+  6.         ..."ed, as RED's v1.4 erratum records.\n6. Governance includes prospective am"
+  7.         ...'y adopts none of those amendments.\n7. M-S remains at its recorded Sovere'
+  6          ...'–<ID>).\n\n<b>Output under <ID> step 6 and readiness <ID>:</b> carry <ID>'
+  4          ...'pendent RED:</b> review this Stage 4 v1.0 comparison at the final settl'
+  3          ...'er than treating the earlier Stage 3 PASS as acceptance of this new rea'
+  4          ...'thority.\n\n<b>Stop state:</b> Stage 4 paper comparison submitted, indepe'
+  4          ...' BLUE Architect, IMMORTALIS; Stage 4 v1.0 conditional paper comparison '

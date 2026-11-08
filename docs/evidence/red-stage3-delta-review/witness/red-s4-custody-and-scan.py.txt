@@ -1,0 +1,88 @@
+# RED review evidence, not engine code. Claims no PASS, selects no architecture, opens no Stage 4.
+#
+# Reproduces the text-level checks RED made on BLUE's Stage 4 v1.0 appendix (study page
+# 41120af9-01e0-816d-992f-ffae5ae223c3, native stamp 2026-11-08T00:46:18.059Z).
+#
+# Input: a file holding the page body exactly as fetched, i.e. the text strictly between
+# <content> and </content>, outer whitespace trimmed (UTF-8). Nothing else is read.
+# Usage:  python3 -I red-s4-custody-and-scan.py.txt <body-file> <prefix-length-in-characters>
+# For the object reviewed here the prefix length is 665170 (RED readiness body, appended section follows).
+#
+# Method for digests: NFM-MENTIONS-v1 (study R14.05 / S4.10). Raw digest hashes the trimmed body.
+# Normalised digest replaces only <mention url="U">label</mention> (label with no nested markup)
+# by <mention url="U" />, trims again, and hashes. Every other character is untouched.
+#
+# This is a LEXICAL scan plus identifier bookkeeping. It cannot prove that no comparative claim is
+# implied; RED read the whole appendix as well. It runs no project code and contacts no network.
+
+import hashlib
+import re
+import sys
+
+
+def sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def canon(text: str) -> str:
+    return re.sub(r'<mention url="([^"]+)">[^<]*</mention>', r'<mention url="\1" />', text).strip()
+
+
+def main() -> None:
+    body = open(sys.argv[1], encoding="utf-8").read().strip()
+    n = int(sys.argv[2])
+    prefix, appended = body[:n], body[n:]
+
+    print("== custody (NFM-MENTIONS-v1)")
+    print("full characters      ", len(body))
+    print("prefix characters    ", len(prefix))
+    print("appended characters  ", len(appended))
+    print("raw   full           ", sha(body))
+    print("nfm   full           ", sha(canon(body)))
+    print("raw   prefix         ", sha(prefix))
+    print("nfm   prefix         ", sha(canon(prefix)))
+    print("raw   appended       ", sha(appended))
+    print("canonical prefix is an exact prefix of canonical full:", canon(body).startswith(canon(prefix)))
+    total = len(re.findall(r"<mention", body))
+    simple = len(re.findall(r'<mention url="[^"]+">[^<]*</mention>', body))
+    print("mention tags (all / simple form / in appended section):", total, simple, len(re.findall(r"<mention", appended)))
+
+    print("\n== headings in appended section")
+    for m in re.finditer(r"^#{2,4} (.+)$", appended, flags=re.M):
+        print("  ", m.group(1)[:110])
+
+    print("\n== links and 40/64-hex strings in appended section")
+    for u in sorted(set(re.findall(r"https?://[^\s)<>\"']+", appended))):
+        print("  url", u)
+    for h in sorted(set(re.findall(r"\b[0-9a-f]{40,64}\b", appended))):
+        print("  hex", h)
+
+    print("\n== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)")
+    pat = (
+        r"\b(?:R1[234]\.\d\d|U3-\d\d|S3\.\d\d|S1\.12|L\d\d|PW-[A-Z]+-\d|W-[A-Z\-]+|X\d\d|X\.Q|B\.RETAIN"
+        r"|C-(?:WORLD|ACT|REV|INIT)|OB-030|M-S|DLT-\d|RF-\d+|K-\d|E4|A[0-9])\b"
+    )
+    for ident in sorted(set(re.findall(pat, appended))):
+        flag = "   <-- NOT IN PREFIX" if prefix.count(ident) == 0 else ""
+        print(f"  {ident:14} prefix={prefix.count(ident):5} appended={appended.count(ident):3}{flag}")
+
+    print("\n== wording scan (word-bounded) with context; every hit must be read, not counted")
+    terms = (
+        r"cheap\w*|expensive|faster|slower|speed|fewer|natural\w*|reliab\w*|simpl\w*|dominat\w*|afford\w*"
+        r"|prefer\w*|recommend\w*|better|superior|easier|harder|winner|shortlist|rank\w*|effort|cost\w*|percent\w*"
+    )
+    for m in re.finditer(rf"\b(?:{terms})\b", appended, flags=re.I):
+        a = max(0, m.start() - 70)
+        print(f"  {m.group(0):12} ...{appended[a:m.end() + 70]!r}")
+
+    print("\n== bare numerals (outside identifiers, hashes and URLs)")
+    stripped = re.sub(r"\b[0-9a-f]{40,64}\b", "<H>", appended)
+    stripped = re.sub(r"https?://\S+", "<U>", stripped)
+    stripped = re.sub(r"\b(?:R\d+|S\d+|U\d+|W|K|C|E|A|L|X|PW|OB|M|RF|DLT)[-.]?\w*\d\w*", "<ID>", stripped)
+    for m in re.finditer(r"(?<![\w.\-/])\d[\d,\.]*(?![\w\-])", stripped):
+        a = max(0, m.start() - 35)
+        print(f"  {m.group(0):10} ...{stripped[a:m.end() + 35]!r}")
+
+
+if __name__ == "__main__":
+    main()
