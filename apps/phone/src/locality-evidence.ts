@@ -173,14 +173,27 @@ function inspect(campaign: CanonicalCampaign, stages: readonly Stage[]): Plan {
   return { kind: "PENDING" };
 }
 
+/**
+ * Reads ONE open already made, shared between the readers of a composed briefing so that the package is enumerated and verified once, not
+ * once per reader. Both members are optional and a reader that is handed neither does exactly what it always did. The open holds the
+ * package's writer lock for the whole composition and nothing in it writes, so a reader sees the same state whoever made the read.
+ */
+export interface SharedRead {
+  /** the package's facts, enumerated ONCE for this open (a full listing is an exceptional path: the composer makes it, never each reader) */
+  readonly facts?: readonly OwnerFact[];
+  /** canonical-integrity verification of THIS open, run at most once */
+  readonly verify?: () => { readonly length: number };
+}
+
 /** The same comparison the shipped command makes before it reports a completion: typed values, owners/facets and committed provenance. */
 function problemsOf(
   campaign: CanonicalCampaign,
   setup: LocalitySetup,
   stages: readonly Stage[],
+  verify: () => { readonly length: number } = () => campaign.verify(),
 ): string[] {
   const problems: string[] = [];
-  if (campaign.verify().length > 0) problems.push("canonical integrity reports a violation");
+  if (verify().length > 0) problems.push("canonical integrity reports a violation");
   const attempt = <T>(read: () => T | undefined): T | undefined => {
     try {
       return read();
@@ -408,10 +421,11 @@ export function readLocality(
   campaign: CanonicalCampaign,
   campaignId: string,
   pin: string | null,
+  shared: SharedRead = {},
 ): LocalityCampaignRead {
   const store = campaign.store;
-  // a full listing is an exceptional diagnostic path; this is an operator inspection, not a runtime read
-  const facts = store.listFacts().filter((f) => f.owner === "world_state");
+  // a full listing is an exceptional diagnostic path; an operator inspection makes its own, a composed briefing hands in the one it made
+  const facts = (shared.facts ?? store.listFacts()).filter((f) => f.owner === "world_state");
   const world = facts.find((f) => f.facet === "world_profile" && GROUP.test(f.provenance.group_id));
   const match = world ? GROUP.exec(world.provenance.group_id) : null;
   if (!world || !match) return { kind: "NONE" };
@@ -475,7 +489,7 @@ export function readLocality(
       kind: "FAILED",
       detail: "the committed setting is not the one the retained confirmation identity names",
     };
-  const problems = problemsOf(campaign, rebuilt.data, stagesOf(id, rebuilt.data));
+  const problems = problemsOf(campaign, rebuilt.data, stagesOf(id, rebuilt.data), shared.verify);
   if (problems.length > 0) return { kind: "FAILED", detail: problems.join("; ") };
   const readback = readbackOf(campaign, w, locus.value.locus_id, source.value.source_key);
   return readback

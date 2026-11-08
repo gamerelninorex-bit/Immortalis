@@ -70,6 +70,15 @@ async function until(chat: any, ok: (status: any) => boolean, rounds = 240) {
 }
 const finished = (s: any) =>
   s.goal !== null && ["DONE", "RETURNED", "INTERRUPTED"].includes(s.goal.outcome);
+/**
+ * What the engine says about the play, from a `play_status` result: the briefing's authored starting context is the player's own words and
+ * the fixed Character Mirror text (which names "offices" and "institutions" in general), not anything the engine says of a gathering.
+ */
+const engineSays = (status: any) => ({
+  ...status,
+  briefing: { ...status.briefing, authored_starting_context: null },
+});
+
 const NEUTRAL =
   /sunset|expire|instrument|ordinance|institution|office|governance|boundary|closure/i;
 
@@ -221,7 +230,10 @@ describe("an independent consequence composed with the chat tools", () => {
       expect((await r.chat.call("gather", { amount: 1, until: "complete" })).isError).toBe(false);
       const clash = await until(r.chat, (x) => finished(x) && x.goal.outcome === "RETURNED");
       expect(clash.goal.returned).toBe("NOT_ADMITTED");
-      expect(JSON.stringify(clash)).not.toMatch(NEUTRAL);
+      // `play_status` now also carries the briefing. Its authored starting context is the player's own words and the fixed Mirror text (which
+      // names "offices" and "institutions" in general), not anything the engine says of THIS attempt; everything else it says must stay neutral
+      expect(JSON.stringify(engineSays(clash))).not.toMatch(NEUTRAL);
+      expect(clash.briefing.status).toBe("QUALIFIED");
       const held = await owners(s);
       expect(held.reserve).toBe(1);
       expect(held.time).toBe(MOMENT.value + TAU);
@@ -282,7 +294,10 @@ describe("an independent consequence composed with the chat tools", () => {
       expect(end.gip).toEqual([]);
       expect(end.verify).toEqual([]);
       const glance = await r.chat.call("read_current_observation_glance");
-      for (const surface of [JSON.stringify(two), JSON.stringify(glance.data ?? glance.text)])
+      for (const surface of [
+        JSON.stringify(engineSays(two)),
+        JSON.stringify(glance.data ?? glance.text),
+      ])
         expect(surface).not.toMatch(NEUTRAL);
     } finally {
       await r.stop();

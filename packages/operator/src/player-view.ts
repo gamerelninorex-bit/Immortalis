@@ -12,7 +12,7 @@ import {
   type ReadCurrentObservationGlanceResult,
 } from "@immortalis/protocol";
 import { verifyLocalOperator } from "./local-operator.ts";
-import { readKeep } from "./original-pc-keep.ts";
+import { readKeep, type KeepRecord } from "./original-pc-keep.ts";
 import { BUILD_ID, bindingProblems, releaseProblems } from "./original-pc.ts";
 import { authorizePlayerViewHost } from "./player-view-exchange.ts";
 
@@ -88,7 +88,7 @@ export async function openAuthorizedPlayerView(p: {
   if (!opened.ok) return fail("CAMPAIGN_UNAVAILABLE", "the campaign cannot be opened");
   const campaign = opened.value;
   try {
-    const refused = await proofOf(campaign, p, owner.value.uid);
+    const refused = await proveAuthorizedPlayerView(campaign, p, owner.value.uid);
     if (refused !== null) {
       await campaign.close();
       return fail(refused, "the authorized player view cannot be proved");
@@ -101,13 +101,22 @@ export async function openAuthorizedPlayerView(p: {
   }
 }
 
-async function proofOf(
+/**
+ * The proofs of the authorized player view against an OPEN, owner-verified campaign, in their one order. The standalone read and the
+ * composed briefing run exactly these. `keep` and `verify` are optional: a caller that has already read the retained KEEP from the same
+ * state directory, or already verified this very open, hands the result in instead of repeating it; without them each is made here.
+ */
+export async function proveAuthorizedPlayerView(
   campaign: CanonicalCampaign,
   p: {
     readonly campaignId: string;
     readonly stateDir: string;
     readonly ledgerFs?: FsOps;
     readonly boundPcId?: string;
+    /** the retained KEEP the caller already read for THIS campaign and operator (null: none is on record) */
+    readonly keep?: KeepRecord | null;
+    /** canonical-integrity verification of THIS open, already memoised by the caller */
+    readonly verify?: () => { readonly length: number };
   },
   operatorUid: number,
 ): Promise<PlayerViewRefusalCode | null> {
@@ -115,17 +124,22 @@ async function proofOf(
   const residue = campaign.store.residue;
   if (residue.journal_tail_bytes > 0 || residue.other_files.length > 0)
     return "CAMPAIGN_NOT_RECONCILED";
-  if (campaign.verify().length > 0 || verifyEpistemicIntegrity(campaign.store).length > 0)
+  const verify = p.verify ?? (() => campaign.verify());
+  if (verify().length > 0 || verifyEpistemicIntegrity(campaign.store).length > 0)
     return "CAMPAIGN_NOT_RECONCILED";
 
-  const keepRead = await readKeep({
-    dir: p.stateDir,
-    campaignId: p.campaignId,
-    operatorUid,
-    ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
-  });
-  if (!keepRead.ok || keepRead.value === null) return "VIEW_UNPROVEN";
-  const keep = keepRead.value;
+  let keep: KeepRecord | null;
+  if (p.keep !== undefined) keep = p.keep;
+  else {
+    const keepRead = await readKeep({
+      dir: p.stateDir,
+      campaignId: p.campaignId,
+      operatorUid,
+      ...(p.ledgerFs ? { fs: p.ledgerFs } : {}),
+    });
+    keep = keepRead.ok ? keepRead.value : null;
+  }
+  if (keep === null) return "VIEW_UNPROVEN";
   const binding = campaign.binding();
   const pc = campaign.playerCharacter(keep.pc_id);
   if (!binding || !pc) return "VIEW_UNPROVEN";
@@ -146,12 +160,21 @@ const refusal = (): ReadCurrentObservationGlanceResult =>
   fail(PROJECTION_UNAVAILABLE, PROJECTION_UNAVAILABLE_MESSAGE);
 
 /**
- * The one trusted read. `request` is the host's untrusted input, handed on to the unchanged gateway (which refuses anything but its one
- * strict request). Returns exactly what the gateway returns, or the gateway's own refusal when the player view cannot be proved.
+ * The ONE trusted read path, shared by the standalone read and the composed briefing. The host's untrusted `request` is handed on to the
+ * unchanged gateway (which refuses anything but its one strict request) once the view has been authorized and proved by `proved`, which is
+ * either a fresh owner-verified open (the standalone read) or the open the caller already holds (a briefing). The operating-system user and
+ * the host secret are checked first, either way; every failure is the gateway's own refusal.
  */
-export async function readPlayerViewGlance(
-  p: PlayerViewReadParams,
+async function readViaProvedView(
+  p: Pick<PlayerViewReadParams, "campaignDir" | "campaignId" | "stateDir" | "hostId" | "secret"> & {
+    readonly ledgerFs?: FsOps;
+  },
   request: unknown,
+  proved: (
+    boundPcId: string,
+    operatorUid: number,
+  ) => Promise<Result<AuthorizedPlayerView, PlayerViewRefusalCode>>,
+  closesCampaign: boolean,
 ): Promise<ReadCurrentObservationGlanceResult> {
   try {
     const owner = verifyLocalOperator(p.campaignDir, "campaign");
@@ -163,15 +186,7 @@ export async function readPlayerViewGlance(
       p.secret,
     );
     if (!authorized.ok) return refusal();
-    const view = await openAuthorizedPlayerView({
-      campaignDir: p.campaignDir,
-      campaignId: p.campaignId,
-      stateDir: p.stateDir,
-      boundPcId: authorized.value.pc_id,
-      ...(p.buildId !== undefined ? { buildId: p.buildId } : {}),
-      ...(p.campaignFs ? { campaignFs: p.campaignFs } : {}),
-      ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
-    });
+    const view = await proved(authorized.value.pc_id, owner.value.uid);
     if (!view.ok) return refusal();
     try {
       const context = bindTrustedCurrentPlayerContext({
@@ -180,9 +195,79 @@ export async function readPlayerViewGlance(
       });
       return readCurrentObservationGlance(context, request);
     } finally {
-      await view.value.campaign.close().catch(() => undefined);
+      if (closesCampaign) await view.value.campaign.close().catch(() => undefined);
     }
   } catch {
     return refusal();
   }
+}
+
+/**
+ * The one trusted read. `request` is the host's untrusted input, handed on to the unchanged gateway (which refuses anything but its one
+ * strict request). Returns exactly what the gateway returns, or the gateway's own refusal when the player view cannot be proved.
+ */
+export async function readPlayerViewGlance(
+  p: PlayerViewReadParams,
+  request: unknown,
+): Promise<ReadCurrentObservationGlanceResult> {
+  return readViaProvedView(
+    p,
+    request,
+    (boundPcId) =>
+      openAuthorizedPlayerView({
+        campaignDir: p.campaignDir,
+        campaignId: p.campaignId,
+        stateDir: p.stateDir,
+        boundPcId,
+        ...(p.buildId !== undefined ? { buildId: p.buildId } : {}),
+        ...(p.campaignFs ? { campaignFs: p.campaignFs } : {}),
+        ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
+      }),
+    true,
+  );
+}
+
+/**
+ * The same trusted read on a campaign the caller has ALREADY opened (an owner-verified open) and still holds, so that a composed briefing
+ * delivers the Glance without a second open of the package. Every authentication and proof is the standalone read's, in its order: the
+ * invoking operating-system user owns the package and the retained-state directory, the host holds the secret the operator bound, and the
+ * authorized view and the canonical active-PC binding AGREE (`proveAuthorizedPlayerView`, handed the KEEP and the integrity result the
+ * caller already has); only then is the UNCHANGED gateway invoked with the host's untrusted request. A host the operator never bound is the
+ * gateway's own refusal: this read binds and mints nothing. It neither opens nor closes the campaign and writes nothing.
+ */
+export function readPlayerViewGlanceOnOpen(
+  held: {
+    readonly campaign: CanonicalCampaign;
+    /** the retained KEEP read for this campaign and operator by the caller (null: none is on record) */
+    readonly keep: KeepRecord | null;
+    readonly verify?: () => { readonly length: number };
+  },
+  p: PlayerViewReadParams,
+  request: unknown,
+): Promise<ReadCurrentObservationGlanceResult> {
+  return readViaProvedView(
+    p,
+    request,
+    async (boundPcId, operatorUid) => {
+      const state = verifyLocalOperator(p.stateDir, "operator-state");
+      if (!state.ok || state.value.uid !== operatorUid)
+        return fail("OPERATOR_UNVERIFIED", "the local operator is not verified for this campaign");
+      const refused = await proveAuthorizedPlayerView(
+        held.campaign,
+        {
+          campaignId: p.campaignId,
+          stateDir: p.stateDir,
+          boundPcId,
+          keep: held.keep,
+          ...(held.verify ? { verify: held.verify } : {}),
+          ...(p.ledgerFs ? { ledgerFs: p.ledgerFs } : {}),
+        },
+        operatorUid,
+      );
+      if (refused !== null) return fail(refused, "the authorized player view cannot be proved");
+      const pcId = held.campaign.binding()!.value.active_pc.entity_id;
+      return ok({ campaign: held.campaign, pcId, operatorUid });
+    },
+    false,
+  );
 }

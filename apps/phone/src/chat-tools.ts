@@ -38,6 +38,8 @@ import {
   LOCALITY_STATUSES,
 } from "./locality-evidence.ts";
 import type { McpTool, ToolContext, ToolResult } from "./mcp-http.ts";
+import { assembleBriefing } from "./play-context.ts";
+import type { PlayRead } from "./play-evidence.ts";
 import { callRefereeTool } from "./referee-tools.ts";
 import { completeStageConfirmation } from "./route-confirm.ts";
 import type { StageRequest } from "./route-plan.ts";
@@ -762,12 +764,19 @@ const GOAL_RETURN_TEXT: Record<GoalReturn, string> = {
     "The service is closing. Reconnect and read play_status; repeat the goal only if nothing was started.",
 };
 
-async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
+/**
+ * The owner-grounded account of the player's gathering: the goal being carried out, the owners' play state and the one applicable next
+ * step. `supplied` is the play state a briefing composition already read from its one open; without it the play state is read here.
+ */
+async function accountOf(
+  runs: PlayerRuns,
+  supplied?: PlayRead,
+): Promise<{ goal: Record<string, unknown> | null; play: PlayRead | null; next: string }> {
   const view = runs.goal?.current() ?? null;
   const goal = view?.goal ?? null;
   // an IN_PROGRESS record that no chain in this process is carrying out was interrupted: repeating the SAME request resumes it
   const interrupted = goal !== null && goal.outcome === "IN_PROGRESS" && view?.live !== true;
-  const play = runs.play ? await runs.play() : null;
+  const play = supplied ?? (runs.play ? await runs.play() : null);
   const phase = play?.kind === "OPEN" ? play.latest.phase : null;
   let next: string;
   if (interrupted)
@@ -788,7 +797,7 @@ async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
   else if (phase === "COMPLETED" || phase === "NO_ATTEMPT" || phase === null)
     next = "No gathering is open. A new gathering needs the player's request.";
   else next = "Read the phase above and tell the player only what it says.";
-  return asJson({
+  return {
     goal: goal
       ? {
           goal_id: goal.id,
@@ -801,8 +810,34 @@ async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
       : null,
     play,
     next,
+  };
+}
+
+/** The write-side account (`gather`): exactly what it has always returned. It carries no briefing and changes no request identity. */
+async function goalAccount(runs: PlayerRuns): Promise<ToolResult> {
+  return asJson({ ...(await accountOf(runs)), notice: REPORT_NOTICE });
+}
+
+/**
+ * `play_status`: the read-only account it has always returned, from ONE composition that also yields the briefing (so a follow-up to a
+ * material operation carries the Game Master's next context without a further read chain). A host without the briefing returns the
+ * account alone. Nothing is started or settled.
+ */
+async function playStatus(runs: PlayerRuns): Promise<ToolResult> {
+  const read = runs.briefing ? await runs.briefing() : null;
+  const account = await accountOf(runs, read?.play);
+  return asJson({
+    ...account,
     notice: REPORT_NOTICE,
+    ...(read ? { briefing: assembleBriefing(read, account) } : {}),
   });
+}
+
+/** `get_play_context`: the briefing alone. */
+async function playContext(runs: PlayerRuns): Promise<ToolResult> {
+  if (!runs.briefing) return text("play context is not offered by this host", true);
+  const read = await runs.briefing();
+  return asJson({ briefing: assembleBriefing(read, await accountOf(runs, read.play)) });
 }
 
 // -- the earned Glance (the existing player-view transport, in-process) -----------------------------------------------------
@@ -1751,12 +1786,23 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
       name: "play_status",
       title: "Where the player's gathering stands",
       description:
-        "Read where the player's gathering stands, from the owners' own records (read-only: it starts and settles nothing). It reports the goal being carried out and the owner-grounded phase of the latest attempt (no attempt, committed, in flight, completed, not admitted, stopped or held), the canonical time, and the one applicable next step. It reports no source or Reserve quantity and says nothing about WHY an attempt was not admitted. It is a PLAY report: for setup readiness use collection_setup_status, which says nothing about whether play has begun.",
+        "Read where the player's gathering stands, from the owners' own records (read-only: it starts and settles nothing). It reports the goal being carried out and the owner-grounded phase of the latest attempt (no attempt, committed, in flight, completed, not admitted, stopped or held), the canonical time, and the one applicable next step. It reports no source or Reserve quantity and says nothing about WHY an attempt was not admitted. It also carries the same briefing as get_play_context, so after an action finishes no further context read is needed. It is a PLAY report: for setup readiness use collection_setup_status, which says nothing about whether play has begun.",
       inputSchema: NONE,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       scope: "player",
       handler: async (args) =>
-        onlyKeys(args, []) ? goalAccount(runs) : text("this tool takes no arguments", true),
+        onlyKeys(args, []) ? playStatus(runs) : text("this tool takes no arguments", true),
+    },
+    {
+      name: "get_play_context",
+      title: "Resume play: the player-safe briefing",
+      description:
+        "Read ONE compact, read-only briefing of what play already holds, instead of reading the setting, the character, the play state and the character's current awareness one after another. Call it once when play begins or resumes. Takes no arguments. It carries: the authored starting setting and the kept character with its accepted presence statement (authored starting context: the setting's established quantity is not what remains now, and nothing there clears a sense, health condition or right); the gathering state, canonical time and the one applicable next step (out of character, for you: not automatically known to the character); and current_observation, exactly what the character has actually perceived and that is still current, or the same refusal that says nothing about why (the character's awareness; present only that, never add to it). It creates no perception and establishes no constraint or permission it does not state: ordinary attention, turning and opening the eyes stay yours to interpret in the scene. It starts, settles and changes nothing, and gives no authority for any later action. An unavailable or not-ready status is not a failure of the player's request: read the named status tool or ask naturally.",
+      inputSchema: NONE,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      scope: "player",
+      handler: async (args) =>
+        onlyKeys(args, []) ? playContext(runs) : text("this tool takes no arguments", true),
     },
     simple(
       "continue_collection",
@@ -2802,4 +2848,4 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
   ];
 }
 
-export const TOOL_INSTRUCTIONS = `IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. ${AUTHORED_HANDLING_GUIDANCE} Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.`;
+export const TOOL_INSTRUCTIONS = `IMMORTALIS campaign. A clear authored request attempts exactly that supported operation once, including initial setting and character generation, without another yes, button, copied phrase or confirmation page. This is exact-request authority, not standing consent or proof of original human wording. Keep player choices, GM interpretation, resolver execution and canonical owner publication distinct. Ask real missing-information questions for material ambiguity, missing sources or distinct consequential choices. Present the complete character mirror, referee findings and request readback as information for correction, never another approval. Offer original authored premises using propose_original_setting, preserving daylight and clear view without inventing chronology, duration, rights, closure or workforce completeness. Offer the complete authored character with propose_original_character; baseline human shorthand supplies no exceptional faculty or guessed cycle. ${AUTHORED_HANDLING_GUIDANCE} Include the already authored starting presence in opening.presence and only independently sourced chronology, preparation and scene grounds in opening. The trusted service realizes that exact request through native binding, physical custody and existing preparation owners in order. Follow await_action and report its actual opening status; no manual owner sequencing is needed. Missing source producers remain truthful blockers, not playable success. Changed substantive input or interpretation cannot recover as the old operation. Reconcile and resume only the original retained operation; never fabricate human-review receipts. Setup never collects, observes or advances time. Ordinary play needs its separate player request. Report perceptions only from read_current_observation_glance, or from the current_observation of get_play_context and play_status, which carry exactly its result. When play begins or resumes, call get_play_context once instead of reading the setting, the character, the play state and the character's awareness separately; play_status after a finished action carries the same briefing. The briefing is information for you, not a new permission: ordinary attention, turning and opening the eyes stay yours to interpret in the scene, and a stated blindness, closed eyes or obstruction in the character's words still binds. No post-seal intrinsic amendment or broader GM/world-generation capability is authorized by this repair. Scripted mechanism evidence is not Work/Android play or genuine AI interpretation.`;

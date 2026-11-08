@@ -3,8 +3,9 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   type CanonicalTime,
+  type OwnerFact,
 } from "@immortalis/contracts";
-import { PcCollectionAdapter } from "@immortalis/engine";
+import { PcCollectionAdapter, type CanonicalCampaign } from "@immortalis/engine";
 import { openCharacterCampaign } from "./character-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
 
@@ -56,70 +57,81 @@ export type PlayRead =
 const BUILD_ID = "immortalis-chat-play-readback";
 const COMMITMENT_KEY = /^pc\/([^/]+)\/collection\/([^/]+)\/commitment$/;
 
+/**
+ * The play state of an ALREADY OPEN, owner-verified campaign: what the PC owner, Production, Population and Temporal hold now. Read-only,
+ * and it never closes the campaign. `facts` is the package's enumeration when the caller made one for this very open (a composed
+ * briefing enumerates once for all of its readers); without it the listing is made here, exactly as before.
+ */
+export function playOf(campaign: CanonicalCampaign, facts?: readonly OwnerFact[]): PlayRead {
+  const clock = campaign.store.getFact(TEMPORAL_STATE_KEY);
+  const state = clock ? TemporalStateSchema.safeParse(clock.value) : undefined;
+  const time = state?.success ? state.data.canonical_time : null;
+  const pc = campaign.binding()?.value.active_pc.entity_id ?? null;
+  if (pc === null) return { kind: "OPEN", time, attempts: 0, latest: { phase: "NO_ATTEMPT" } };
+  const adapter = new PcCollectionAdapter(campaign.store);
+  const commitments = (facts ?? campaign.store.listFacts())
+    .filter((f) => {
+      const m = COMMITMENT_KEY.exec(f.key);
+      return m !== null && m[1] === pc;
+    })
+    .map((f) => ({ fact: f, parsed: PcCollectionCommitmentSchema.safeParse(f.value) }))
+    .filter((c) => c.parsed.success);
+  if (commitments.length === 0)
+    return { kind: "OPEN", time, attempts: 0, latest: { phase: "NO_ATTEMPT" } };
+  // the latest attempt is the one with the highest commit revision (a real order); never an identifier's spelling
+  const byRevision = commitments
+    .map((c) => ({
+      act: c.parsed.data!.act_id,
+      revision: campaign.store.lookupReceipt(c.fact.provenance.intent_id)?.revision ?? 0,
+    }))
+    .sort((a, b) => a.revision - b.revision);
+  const act = byRevision.at(-1)!.act;
+  const asked = commitments.find((c) => c.parsed.data!.act_id === act)!.parsed.data!.intent
+    .quantity;
+  const quantity: AttemptQuantity = { amount: asked.amount, unit: asked.unit };
+  const attempts = commitments.length;
+  const reach = adapter.reach(pc, act);
+  const hold = adapter.hold(pc);
+  const occ = adapter.occupancyState(pc);
+  const extraction = adapter.extraction(pc, act);
+  let latest: PlayPhase;
+  if (adapter.closed(pc, act)) latest = { phase: "COMPLETED", act_id: act, quantity };
+  else if (hold.state === "IN_FLIGHT" && hold.act_id === act && extraction)
+    latest = {
+      phase: "IN_FLIGHT",
+      act_id: act,
+      quantity,
+      completes_at: extraction.value.timing.boundary.at,
+    };
+  else if (hold.state !== "NONE") latest = { phase: "HELD", act_id: act, quantity };
+  else if (occ.state === "RELEASED" && occ.act_id === act)
+    latest =
+      occ.why === "DENIED"
+        ? { phase: "NOT_ADMITTED", act_id: act, quantity }
+        : { phase: "STOPPED", act_id: act, quantity };
+  else if (reach !== undefined && reach.value.verdict === "NOT_REACHABLE" && !extraction)
+    latest = { phase: "NOT_ADMITTED", act_id: act, quantity };
+  else latest = { phase: "COMMITTED", act_id: act, quantity };
+  return { kind: "OPEN", time, attempts, latest };
+}
+
+/** What a play read says when the campaign could not be opened: the same two accounts whoever asked (a setting is absent, or the package is not readable now). */
+export const playUnavailable = (
+  noSetting: boolean,
+): Extract<PlayRead, { readonly kind: "UNAVAILABLE" }> => ({
+  kind: "UNAVAILABLE",
+  detail: noSetting
+    ? "no setting is established yet"
+    : "the campaign cannot be read now (a command may be running)",
+});
+
 /** Reads the player's gathering state. A lock held by a running command, an unverifiable package or an unreadable record is UNAVAILABLE. */
 export async function readPlay(config: PhoneConfig): Promise<PlayRead> {
   const open = await openCharacterCampaign(config, BUILD_ID);
-  if (!open.ok)
-    return {
-      kind: "UNAVAILABLE",
-      detail:
-        open.state.kind === "NO_SETTING"
-          ? "no setting is established yet"
-          : "the campaign cannot be read now (a command may be running)",
-    };
+  if (!open.ok) return playUnavailable(open.state.kind === "NO_SETTING");
   const { campaign } = open;
   try {
-    const clock = campaign.store.getFact(TEMPORAL_STATE_KEY);
-    const state = clock ? TemporalStateSchema.safeParse(clock.value) : undefined;
-    const time = state?.success ? state.data.canonical_time : null;
-    const pc = campaign.binding()?.value.active_pc.entity_id ?? null;
-    if (pc === null) return { kind: "OPEN", time, attempts: 0, latest: { phase: "NO_ATTEMPT" } };
-    const adapter = new PcCollectionAdapter(campaign.store);
-    const commitments = campaign.store
-      .listFacts()
-      .filter((f) => {
-        const m = COMMITMENT_KEY.exec(f.key);
-        return m !== null && m[1] === pc;
-      })
-      .map((f) => ({ fact: f, parsed: PcCollectionCommitmentSchema.safeParse(f.value) }))
-      .filter((c) => c.parsed.success);
-    if (commitments.length === 0)
-      return { kind: "OPEN", time, attempts: 0, latest: { phase: "NO_ATTEMPT" } };
-    // the latest attempt is the one with the highest commit revision (a real order); never an identifier's spelling
-    const byRevision = commitments
-      .map((c) => ({
-        act: c.parsed.data!.act_id,
-        revision: campaign.store.lookupReceipt(c.fact.provenance.intent_id)?.revision ?? 0,
-      }))
-      .sort((a, b) => a.revision - b.revision);
-    const act = byRevision.at(-1)!.act;
-    const asked = commitments.find((c) => c.parsed.data!.act_id === act)!.parsed.data!.intent
-      .quantity;
-    const quantity: AttemptQuantity = { amount: asked.amount, unit: asked.unit };
-    const attempts = commitments.length;
-    const reach = adapter.reach(pc, act);
-    const hold = adapter.hold(pc);
-    const occ = adapter.occupancyState(pc);
-    const extraction = adapter.extraction(pc, act);
-    let latest: PlayPhase;
-    if (adapter.closed(pc, act)) latest = { phase: "COMPLETED", act_id: act, quantity };
-    else if (hold.state === "IN_FLIGHT" && hold.act_id === act && extraction)
-      latest = {
-        phase: "IN_FLIGHT",
-        act_id: act,
-        quantity,
-        completes_at: extraction.value.timing.boundary.at,
-      };
-    else if (hold.state !== "NONE") latest = { phase: "HELD", act_id: act, quantity };
-    else if (occ.state === "RELEASED" && occ.act_id === act)
-      latest =
-        occ.why === "DENIED"
-          ? { phase: "NOT_ADMITTED", act_id: act, quantity }
-          : { phase: "STOPPED", act_id: act, quantity };
-    else if (reach !== undefined && reach.value.verdict === "NOT_REACHABLE" && !extraction)
-      latest = { phase: "NOT_ADMITTED", act_id: act, quantity };
-    else latest = { phase: "COMMITTED", act_id: act, quantity };
-    return { kind: "OPEN", time, attempts, latest };
+    return playOf(campaign);
   } finally {
     await campaign.close();
   }

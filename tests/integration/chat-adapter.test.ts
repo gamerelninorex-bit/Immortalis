@@ -543,6 +543,7 @@ describe("MECHANISM: the MCP transport", () => {
           "collect",
           "gather",
           "play_status",
+          "get_play_context",
           "continue_collection",
           "finish_collection",
           "cease_collection",
@@ -911,6 +912,35 @@ describe("MECHANISM: orchestration without deadlock, and no blind retry", () => 
       expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
       // the follow-up tool names a stale run: refused
       expect((await s.chat.call("await_action", { run_id: "0".repeat(16) })).isError).toBe(true);
+    } finally {
+      await s.app.close();
+    }
+  });
+
+  it("the briefing and the status are reads: neither releases an unresolved outcome nor hides it, and only the owner-backed reconcile does", async () => {
+    const [cli, stub] = stubCli({ crashAfterConfirm: true });
+    const s = await withChat({ runCli: cli });
+    try {
+      await s.chat.call("collect", { amount: 1 });
+      const done = await s.chat.call("await_action", { wait_seconds: 5 }, humanConfirms);
+      expect(done.data.outcome).toBe("UNCERTAIN");
+      for (const read of ["get_play_context", "play_status", "get_play_context"]) {
+        const r = await s.chat.call(read);
+        expect(r.isError, read).toBe(false);
+        // a read states what the owners hold and claims no outcome of the lost step
+        expect(JSON.stringify(r.data), read).not.toMatch(/confirmed|committed|completed the/i);
+      }
+      // the barrier stands exactly as before the reads: nothing may start, and nothing but the reconcile was run
+      for (const again of ["collect", "observe_surroundings", "cease_collection"]) {
+        const r = await s.chat.call(again, again === "collect" ? { amount: 1 } : {});
+        expect(r.isError, again).toBe(true);
+        expect(r.text).toMatch(/UNCERTAIN/);
+      }
+      expect(stub.argvs.map((a) => a[0])).toEqual(["collect"]);
+      const rec = await s.chat.call("reconcile_last_action");
+      expect(rec.isError).toBe(false);
+      expect((await s.chat.call("await_action", { wait_seconds: 5 })).data.exit_code).toBe(0);
+      expect((await s.chat.call("observe_surroundings")).isError).toBe(false);
     } finally {
       await s.app.close();
     }

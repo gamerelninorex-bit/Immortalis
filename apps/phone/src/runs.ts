@@ -6,6 +6,7 @@ import type { QueuedAuthorization } from "./delayed-continuation.ts";
 import type { LocalityReadback } from "./locality-evidence.ts";
 import type { GoalCoordinator } from "./goal.ts";
 import type { ToolContext } from "./mcp-http.ts";
+import type { PlayContextRead } from "./play-context.ts";
 import type { PlayRead } from "./play-evidence.ts";
 import type { OpeningSources, ReviewAuthority } from "./reviews.ts";
 import type { StageExpectation } from "./route-confirm.ts";
@@ -180,6 +181,8 @@ export interface PlayerRuns {
   readonly goal?: GoalCoordinator;
   /** the owner-grounded, READ-ONLY account of the player's gathering (recomputed from canon on every call; never cached) */
   readonly play?: () => Promise<PlayRead>;
+  /** the player-safe supported-play briefing: ONE owner-verified open, READ-ONLY, recomputed from canon on every call (never cached or kept) */
+  readonly briefing?: () => Promise<PlayContextRead>;
   /** ends the pending prompt as a decline and stops the run's replies */
   readonly abort: () => void;
   /** answers the pending confirmation (if any) with a non-confirmation, leaving the run to end by its own account */

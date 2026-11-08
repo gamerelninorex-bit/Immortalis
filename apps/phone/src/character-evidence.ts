@@ -20,7 +20,7 @@ import {
 import { bindingProblems } from "../../../packages/operator/src/original-pc.ts";
 import { readKeep, type KeepRecord } from "../../../packages/operator/src/original-pc-keep.ts";
 import { readPin } from "../../../packages/operator/src/locality-pin.ts";
-import { readLocality } from "./locality-evidence.ts";
+import { readLocality, type LocalityCampaignRead, type SharedRead } from "./locality-evidence.ts";
 import type { PhoneConfig } from "./config.ts";
 
 /**
@@ -129,18 +129,21 @@ export function characterStateOf(
   config: Pick<PhoneConfig, "campaignId">,
   pin: string,
   keep: KeepRecord | null,
+  shared: SharedRead & { readonly setting?: LocalityCampaignRead } = {},
 ): CharacterState {
   if (campaign.store.head().campaign_id !== config.campaignId)
     return blocked("CAMPAIGN_MISMATCH", "the package holds another campaign");
-  const setting = readLocality(campaign, config.campaignId, pin);
+  // a composer that already read the setting from this very open hands the result in; the judgement below is the same either way
+  const setting = shared.setting ?? readLocality(campaign, config.campaignId, pin, shared);
   if (setting.kind === "NONE" || setting.kind === "INCOMPLETE")
     return { kind: "NO_SETTING", detail: "the original setting is not established" };
   if (setting.kind === "FAILED") return blocked("SETTING_BLOCKED", setting.detail);
   const worldId = setting.readback.world_id;
   const locusId = setting.readback.locus_id;
-  const characters = campaign.store
-    .listFacts()
-    .filter((f) => f.owner === "pc_existence" && f.facet === "existence_contract");
+  const verify = shared.verify ?? (() => campaign.verify());
+  const characters = (shared.facts ?? campaign.store.listFacts()).filter(
+    (f) => f.owner === "pc_existence" && f.facet === "existence_contract",
+  );
   const binding = campaign.binding();
   if (characters.length > 1)
     return blocked("CHARACTER_CONFLICT", "more than one character is held");
@@ -178,7 +181,7 @@ export function characterStateOf(
       contract: pc.value,
     };
   const why = [
-    ...(campaign.verify().length > 0 ? ["canonical integrity reports violations"] : []),
+    ...(verify().length > 0 ? ["canonical integrity reports violations"] : []),
     ...bindingProblems({ campaign, campaignId: config.campaignId, keep }, pc.fact, {
       worldId,
       locusId,
