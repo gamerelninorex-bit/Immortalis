@@ -1,0 +1,25 @@
+== custody (NFM-MENTIONS-v1)
+full characters       832692
+prefix characters     832200
+appended characters   492
+raw   full            ac163535a9abbab19c8df1bb03422ce1371cba59ecbb04d39b269d7d9e2f0858
+nfm   full            ac4dbf89dc68e5ad8995431563e7f3c41703eb71992741db5ce12b43a6774f86
+raw   prefix          1c29f5ac8a8a19156d1e3d0759388b1f99febdd1bec24a4c7b683ac747d86899
+nfm   prefix          93462d1f078e0e5720ff2b9456de13f1a359fa46a77830d10f15fa4bc75652a1
+raw   appended        64ff9c23f1ac621ca371f4085e4fe7b0f34013cd90bf29a4fd180bdd5e43ed94
+canonical prefix is an exact prefix of canonical full: True
+mention tags (all / simple form / in appended section): 35 35 0
+
+== headings in appended section
+   🔵 BLUE RF-22 — UG-2-TASK Scope Addendum v1.0 — 8 November 2026
+
+== links and 40/64-hex strings in appended section
+
+== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)
+  RF-22          prefix=    7 appended=  2
+
+== wording scan (word-bounded) with context; every hit must be read, not counted
+
+== bare numerals (outside identifiers, hashes and URLs)
+  8          ...' — UG-2-TASK Scope Addendum v1.0 — 8 November 2026\n\n<b>S5B-D22 / <ID> ('
+  2026       ...'K Scope Addendum v1.0 — 8 November 2026\n\n<b>S5B-D22 / <ID> (C, D and MX; D'
