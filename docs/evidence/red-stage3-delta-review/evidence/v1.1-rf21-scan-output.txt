@@ -1,0 +1,30 @@
+== custody (NFM-MENTIONS-v1)
+full characters       759996
+prefix characters     759394
+appended characters   602
+raw   full            c7c2ac07b7886a2bd67183c6f85158a4afcbac0021985c360aee1ca7c06c525f
+nfm   full            a5f2626fe4a7da12e4251d527fe80e34ceda2f69db225bf5f09c437717e1527b
+raw   prefix          89e0d298d7acbb784c298f45dce9e4bea94802771bacf5bc389966aa813ee049
+nfm   prefix          ce9d747f5eb2b20085b026e6eb3b4bad354dc28455ef0c77bed755c4915dd832
+raw   appended        33b231ecaae0695c766d17fce323a9cb394bb343689fb3e87e672fddd3bc33f9
+canonical prefix is an exact prefix of canonical full: True
+mention tags (all / simple form / in appended section): 35 35 0
+
+== headings in appended section
+   🔵 BLUE Stage 4 v1.1 — RF-21 Corrective Addendum — 8 November 2026
+
+== links and 40/64-hex strings in appended section
+
+== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)
+  A0             prefix=  384 appended=  1
+  RF-21          prefix=    5 appended=  2
+  S3.05          prefix=   10 appended=  1
+
+== wording scan (word-bounded) with context; every hit must be read, not counted
+
+== bare numerals (outside identifiers, hashes and URLs)
+  4          ...'\n\n## 🔵 BLUE Stage 4 v1.1 — <ID> Corrective Addendum — '
+  8          ...' v1.1 — <ID> Corrective Addendum — 8 November 2026\n\n<b><ID> / <ID> (ver'
+  2026       ...'> Corrective Addendum — 8 November 2026\n\n<b><ID> / <ID> (versioned append-'
+  02         ...'t,” as specified by <ID> look rows 02–04, superseding only those quoted '
+  04,        ...' as specified by <ID> look rows 02–04, superseding only those quoted phra'
