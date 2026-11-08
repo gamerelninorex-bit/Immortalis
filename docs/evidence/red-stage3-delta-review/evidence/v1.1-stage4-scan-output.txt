@@ -1,0 +1,111 @@
+== custody (NFM-MENTIONS-v1)
+full characters       751723
+prefix characters     731811
+appended characters   19912
+raw   full            a0320d527f497eb1202c4d5189f2f01ea685a81b34c653b2448f316577d071fc
+nfm   full            b6ac1c63f7bdbdcda713ad427e90e45b2fe4558100021d8dbc1912ede3fc2e64
+raw   prefix          ed2c766e0f6f086eb676c7599c6d9d6475e80d564a40058bef4400d564d033b1
+nfm   prefix          01cc18e31cd854e3cfe1df95a7f59a4d0168fc2a812e3945805d4b6fcab059c0
+raw   appended        e317145af9fb0756c50b1d563db2d75550afff1f7e8dbb16cadae1393db4742f
+canonical prefix is an exact prefix of canonical full: True
+mention tags (all / simple form / in appended section): 35 35 0
+
+== headings in appended section
+   🔵 BLUE Stage 4 v1.1 — Append-Only Precision Deltas RF-16–RF-20 — 8 November 2026
+   S4R.01 — Reviewed object, scope and controlling interpretation
+   S4R.02 — S4-D16 / RF-16: protective authority limit is not an A0-only gap
+   S4R.03 — S4-D17 / RF-17: symmetric K-4 unknown and falsifier
+   S4R.04 — S4-D18 / RF-18: C/D grant-continuation authority remains a named UNKNOWN
+   S4R.05 — S4-D19 / RF-19: notation, ordinary look and neutral wording
+   S4R.06 — S4-D20 / RF-20: authority attestation and top-level navigation
+   S4R.07 — Disposition, inherited limits and RED handoff
+
+== links and 40/64-hex strings in appended section
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/apps/phone/src/delayed-continuation.ts#L190
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/apps/phone/src/delayed-continuation.ts#L431
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/36d50639ccf099fc0e69421f35cf036242c9bcad/apps/phone/src/goal.ts#L283
+  url https://github.com/gamerelninorex-bit/Immortalis/blob/ada15652b88997aaeb06c40f3d0df6a038a4b5bb/docs/evidence/red-stage3-delta-review/07-stage4-comparison-review.md
+  hex 01cc18e31cd854e3cfe1df95a7f59a4d0168fc2a812e3945805d4b6fcab059c0
+  hex 36d50639ccf099fc0e69421f35cf036242c9bcad
+  hex ada15652b88997aaeb06c40f3d0df6a038a4b5bb
+  hex c874ec1358c9bef4e0e056d8e650f21982897186e732c942dfc929130c70fc51
+  hex dfe8fd0f1da025cc0704f4b66e165cab20a7ef3b
+  hex ed2c766e0f6f086eb676c7599c6d9d6475e80d564a40058bef4400d564d033b1
+
+== cited identifiers: occurrences in prefix vs appended section (0 in prefix = not defined earlier)
+  A0             prefix=  368 appended= 13
+  A3             prefix=   21 appended=  1
+  A6             prefix=   26 appended=  1
+  A7             prefix=   36 appended=  3
+  A9             prefix=   22 appended=  1
+  C-INIT         prefix=   16 appended=  2
+  C-WORLD        prefix=   16 appended=  2
+  K-4            prefix=   21 appended=  7
+  M-S            prefix=   75 appended=  1
+  OB-030         prefix=   64 appended=  2
+  PW-EXCL-1      prefix=   13 appended=  1
+  PW-EXCL-2      prefix=   15 appended=  1
+  PW-REL-1       prefix=   12 appended=  1
+  PW-REL-2       prefix=   10 appended=  1
+  R12.03         prefix=   13 appended=  1
+  R12.04         prefix=    8 appended=  3
+  R12.05         prefix=   12 appended=  3
+  R13.04         prefix=    2 appended=  1
+  R14.05         prefix=    5 appended=  1
+  RF-1           prefix=  138 appended= 13
+  RF-14          prefix=   26 appended=  1
+  RF-16          prefix=    7 appended=  4
+  RF-17          prefix=    3 appended=  2
+  RF-18          prefix=    4 appended=  2
+  RF-19          prefix=    5 appended=  3
+  RF-20          prefix=    3 appended=  6
+  S1.12          prefix=   28 appended=  4
+  S3.05          prefix=    7 appended=  1
+  S3.06          prefix=    3 appended=  1
+  S3.10          prefix=    8 appended=  1
+  U3-03          prefix=    8 appended=  1
+  U3-06          prefix=    9 appended=  1
+  U3-17          prefix=   10 appended=  1
+  X.Q            prefix=   11 appended=  2
+
+== wording scan (word-bounded) with context; every hit must be read, not counted
+  preference   ...'iments. RF-1–RF-14 retain their recorded closure. No arm is selected; preference, ranking, effort and adoption remain deferred.\n\n<b>Incoming body inde'
+  ranking      ...'–RF-14 retain their recorded closure. No arm is selected; preference, ranking, effort and adoption remain deferred.\n\n<b>Incoming body independently'
+  effort       ...'tain their recorded closure. No arm is selected; preference, ranking, effort and adoption remain deferred.\n\n<b>Incoming body independently verifie'
+  ranking      ...'or every arm. The P and G letter pattern is not summable and is not a ranking, dominance or eligibility argument; absence of G is not proof of cove'
+  better       ...'> first clause of S4.F01.\n\n<b>Exact old claim:</b>\n\n> A/B can propose better organized access to retained mechanisms\n\n<b>Controlling replacement:<'
+  better       ...'of S4.F01 remains as written, including the absence of paper proof of better play and the missing target producers. <b>Reason, arms and tier:</b> '
+  cost         ...' A/B DESIGNED descriptions supply no comparative outcome evidence. No cost, effort, speed, naturalness or reliability inference follows.\n\nFor cl'
+  effort       ...'ESIGNED descriptions supply no comparative outcome evidence. No cost, effort, speed, naturalness or reliability inference follows.\n\nFor clarity wh'
+  speed        ...'descriptions supply no comparative outcome evidence. No cost, effort, speed, naturalness or reliability inference follows.\n\nFor clarity when read'
+  naturalness  ...'tions supply no comparative outcome evidence. No cost, effort, speed, naturalness or reliability inference follows.\n\nFor clarity when read independentl'
+  reliability  ...' comparative outcome evidence. No cost, effort, speed, naturalness or reliability inference follows.\n\nFor clarity when read independently, S4.F02 and S'
+  preference   ...'C-8 remain binding; all options stay carried forward and architecture preference, ranking, effort and adoption remain deferred.\n\n<b>Still unresolved:<'
+  ranking      ...'inding; all options stay carried forward and architecture preference, ranking, effort and adoption remain deferred.\n\n<b>Still unresolved:</b> origi'
+  effort       ...'ll options stay carried forward and architecture preference, ranking, effort and adoption remain deferred.\n\n<b>Still unresolved:</b> original-word'
+  effort       ...'ctual host/client/GM behavior, C/D continuation policy and calibrated effort U3-17. PW-EXCL-1, PW-EXCL-2, PW-REL-1 and PW-REL-2 remain UNRUN. A3–A'
+
+== bare numerals (outside identifiers, hashes and URLs)
+  4          ...'\n\n## 🔵 BLUE Stage 4 v1.1 — Append-Only Precision Delta'
+  8          ...'-Only Precision Deltas <ID>–<ID> — 8 November 2026\n\n### S4R.01 — Review'
+  2026       ...'sion Deltas <ID>–<ID> — 8 November 2026\n\n### S4R.01 — Reviewed object, sco'
+  4          ..."ation changes.\n\nRED's [filed Stage 4 review](<U> gives <b>PASS for conf"
+  00         ..."> native stamp <code>2026-11-08T01:00:31.316Z</code>; RED's reported las"
+  31         ..."ative stamp <code>2026-11-08T01:00:31.316Z</code>; RED's reported last b"
+  00         ...'st block write <code>2026-11-08T01:00:33.249Z</code> and settled referen'
+  33         ...'block write <code>2026-11-08T01:00:33.249Z</code> and settled reference '
+  01         ...'tled reference <code>2026-11-08T01:01:01Z</code>. Trimmed body 731,811 U'
+  731,811    ...'-08T01:01:01Z</code>. Trimmed body 731,811 Unicode characters. Both supplied '
+  2          ...'and source:</b> <ID> and <ID> step 2 are common criteria; RED readiness'
+  283        ...'e.\n\n<b>Source reason:</b> [goal.ts:283](<U> matches retained in-progress '
+  190        ...' applies. [delayed-continuation.ts:190](<U> binds pending continuation to'
+  431        ...'nt; [the queued-edit check at line 431](<U> likewise checks authoring cli'
+  2          ...'ID> and <ID> also carry <ID> rules 2–4: C/MX first trust, D original/de'
+  4          ...'> and <ID> also carry <ID> rules 2–4: C/MX first trust, D original/dest'
+  4          ..."you post findings ?”. BLUE's Stage 4 execution then began with the comm"
+  4          ...'I’ll complete the authorized Stage 4 paper comparison in the existing s'
+  4          ...'\n\nHistorical statements that Stage 4 was closed remain unchanged and ac'
+  3          ...'tecture Reassessment Study — Stage 3 Responses Confirmed — Proof Obliga'
+  4          ...'tecture Reassessment Study — Stage 4 Paper Comparison v1.1 — Selection '
+  4          ...'\n\nThe title signals that the Stage 4 paper comparison and these control'
+  4          ...' BLUE Architect, IMMORTALIS; Stage 4 v1.1 precision responses only; sel'
