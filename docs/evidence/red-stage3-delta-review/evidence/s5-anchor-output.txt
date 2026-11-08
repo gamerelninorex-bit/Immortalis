@@ -1,0 +1,96 @@
+== 0. custody of the reviewed body (NFM-MENTIONS-v1)
+characters 765255
+raw e9b969a724461586e227c6460ff4b50914c9848572b9166d5f9aeb4164c1d168
+nfm 23031bcefbee34abb7b3ad8437acf5efee58844689d9de2b9978df98200ed524
+
+== 1. one publication point: CampaignStore.commit, and its read methods
+  packages/engine/src/persistence/store.ts:51: head(): CampaignHead;
+  packages/engine/src/persistence/store.ts:52: getFact(key: string): OwnerFact | undefined;
+  packages/engine/src/persistence/store.ts:54: listFacts(): readonly OwnerFact[];
+  packages/engine/src/persistence/store.ts:60: commit(group: unknown): Promise<Result<CommitOutcome, StoreCommitErrorCode>>;
+  packages/engine/src/persistence/store.ts:61: lookupReceipt(intentId: string): CommitReceipt | null;
+  packages/engine/src/persistence/store.ts:66: committedGroup(intentId: string): CommitGroup | null;
+  packages/engine/src/persistence/store.ts:72: committedGroupById?(groupId: string): CommitGroup | null;
+  packages/engine/src/persistence/store.ts:77: ruleCheckedGroupIds?(): ReadonlySet<string>;
+
+== 2. sealed canon cannot be amended (admission)
+  packages/engine/src/owners/admission.ts:513: if (kind.lifecycle === "SEALED" && w.expected_version !== 0) {
+  packages/engine/src/owners/admission.ts:515: "AMENDMENT_NOT_SUPPORTED",
+  packages/engine/src/owners/admission.ts:516: "sealed canon cannot be overwritten; no amendment mechanism is implemented",
+
+== 3. task identity is derived from the exact context (stale-task replay)
+  packages/operator/src/collection-referee.ts:33: export const collectionTaskId = (
+  packages/operator/src/collection-referee.ts:39: .update(canonicalJson({ namespace: "pc-collection-referee:v1", operation, task, attempt }))
+  packages/engine/src/referee/derive.ts:263: /** The task identity: derived from the exact context (so a rerun of the same question is the same task). */
+  packages/engine/src/referee/derive.ts:264: export const refereeTaskId = (ctx: RefereeContext): string =>
+  packages/operator/src/referee-exchange.ts:169: /** The proof a host gives: a keyed digest over the task, its one-time nonce, the claimed model and the exact answer. */
+  packages/operator/src/referee-exchange.ts:771: return fail("TASK_CONFLICT", "this task identity already names a different question");
+
+== 4. history-verification policy: one identity per campaign open, legacy variant is a restriction
+  packages/engine/src/owners/admission.ts:714: * admission for everything the old contract already admitted, with every v0.9 surface refused, at commit AND on replay. It carries its
+  packages/engine/src/owners/admission.ts:715: * own `historyVerificationId`, so checkpoint evidence earned under any other policy is never trusted and the first open replays
+  packages/engine/src/owners/admission.ts:718: export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
+  packages/engine/src/owners/admission.ts:720: historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+  packages/engine/src/persistence/checkpoint-package.ts:79: const policy = (o: FileCampaignOptions) =>
+
+== 5. goal coordinator: one running goal, one retained record, identity, resume predicate
+  apps/phone/src/goal.ts:246: const held = d.retained();
+  apps/phone/src/goal.ts:255: return { goal, live: running !== null };
+  apps/phone/src/goal.ts:263: if (running !== null)
+  apps/phone/src/goal.ts:269: const held = d.retained();
+  apps/phone/src/goal.ts:289: prior.amount === request.amount &&
+  apps/phone/src/goal.ts:290: prior.until === request.until &&
+  apps/phone/src/goal.ts:291: prior.dispatch_ref === delayed?.dispatchRef;
+  apps/phone/src/goal.ts:296: .update(`${authority.client}\u0000${authority.grant}\u0000${requestId}`)
+  apps/phone/src/goal.ts:309: // retained BEFORE anything is dispatched: if it cannot be, no goal starts
+  apps/phone/src/goal.ts:310: if (!d.retain(g))
+
+== 6. the player-choice authority literal: production files (tests and testkit excluded)
+  packages/contracts/src/pc-collection.ts  references=3
+  packages/contracts/src/pc-movement.ts  references=3
+  packages/contracts/src/temporal.ts  references=3
+  packages/contracts/src/world-foundation.ts  references=5
+  packages/engine/src/epistemic/direct-observation.ts  references=2
+  packages/operator/src/commands.ts  references=7
+  packages/operator/src/original-pc.ts  references=3
+  packet mentions of PLAYER_CHOICE_AUTHORITY: 0
+
+== 7. native-insertion literal sites versus the study's R12.04 MX consumer matrix
+  apps/phone/src/review-projection.ts                        named in R12.04 matrix: True
+  apps/phone/src/review-sources.ts                           named in R12.04 matrix: True
+  packages/contracts/src/referee.ts                          named in R12.04 matrix: True
+  packages/contracts/src/world-foundation.ts                 named in R12.04 matrix: True
+  packages/engine/src/referee/derive.ts                      named in R12.04 matrix: True
+  packages/engine/src/world/pc-locus-custody.ts              named in R12.04 matrix: True
+  packages/operator/src/original-pc.ts                       named in R12.04 matrix: True
+  packages/operator/src/referee-exchange.ts                  named in R12.04 matrix: True
+  packages/engine/src/referee/derive.ts:1161: | { ok: true; verdict: "BIND_ELIGIBLE" | "UNSUPPORTED_BRIDGE" | "WORLD_CONFLICT" | "UNRESOLVED" }
+  packages/engine/src/referee/derive.ts:1231: ): "BIND_ELIGIBLE" | "UNSUPPORTED_BRIDGE" | "WORLD_CONFLICT" | "UNRESOLVED" {
+  packages/engine/src/referee/derive.ts:1233: if (m !== "NATIVE_ALREADY_THERE" && m !== "AMBIGUOUS") return "UNSUPPORTED_BRIDGE";
+
+== 8. content screen on GM-origin assertions: phrases searched in the study body (zero hits means unspecified)
+  'PC-subject': 0
+  'content (?:test|screen|classifier)': 0
+  'closed (?:set|list|vocabulary) of [^.\\n]{0,60}(?:assertion|default|premise)': 0
+  FictionAssertion mentions: 2 | 'GM-established' mentions: 11
+
+== 9. confirmation in ordinary chat is taken from the human by the client, not by the assistant
+  apps/phone/src/chat-tools.ts:98: "To confirm, the person answers the confirmation prompt shown to them (the phrase is not shown to the assistant)",
+  apps/phone/src/chat-tools.ts:363: "The player must confirm this setting themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to
+  apps/phone/src/chat-tools.ts:528: "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you
+  apps/phone/src/chat-tools.ts:682: "The player must decide this themselves, reading all of it. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you
+  apps/phone/src/chat-tools.ts:733: "The player must confirm this action themselves. Call await_action again: their client will ask them. You cannot confirm, and you must not ask them to tell you the confir
+
+== 10. single-writer lock family of the file package
+  packages/engine/src/persistence/file-package.ts:55: *   LOCK                 single-writer lock while a campaign is open (plus inert `LOCK.*` arbitration
+  packages/engine/src/persistence/file-package.ts:280: * is never judged dead); a PID that answers `kill(pid, 0)` is alive. Anything else is a refusal.
+  packages/engine/src/persistence/file-package.ts:282: const LOCK_NAME = "LOCK";
+  operator entry points: 10
+
+== 11. Stage 4 and earlier text this review relies on (anchors in the study body)
+  S4.U-GRANT-C                                     occurrences=7
+  S4.U-GRANT-D                                     occurrences=7
+  S07 executable transcript/seed unregistered      occurrences=1
+  disposable-campaign scope                        occurrences=1
+  S1.12 step 9                                     occurrences=1
+  Stage 5 definition                               occurrences=1

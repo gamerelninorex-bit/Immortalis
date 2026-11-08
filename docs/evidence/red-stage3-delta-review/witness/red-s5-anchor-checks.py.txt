@@ -1,0 +1,112 @@
+# RED Stage 5 review evidence, not engine code. Claims no PASS, selects no architecture, authorises nothing.
+#
+# READ-ONLY. It opens source files and the study body as text and prints line anchors and counts. It executes no project code, runs no
+# test or witness, writes nothing, and contacts no network. Stage 5 authority excludes experiments, and this script is not one.
+#
+# Reproduces the source anchors and packet text checks cited by RED's Stage 5 adversarial paper review.
+# Usage (from the repository root, at commit 36d50639ccf099fc0e69421f35cf036242c9bcad):
+#   python3 -I docs/evidence/red-stage3-delta-review/witness/red-s5-anchor-checks.py.txt <study-body-file>
+# <study-body-file> is the page body exactly as fetched: the text strictly between <content> and </content>, outer whitespace trimmed.
+
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+
+def lines_of(path):
+    return Path(path).read_text(encoding="utf-8").split("\n")
+
+
+def show(path, pattern, ctx=0, flags=0):
+    ls = lines_of(path)
+    hit = False
+    for i, line in enumerate(ls, 1):
+        if re.search(pattern, line, flags):
+            hit = True
+            for j in range(max(1, i - ctx), min(len(ls), i + ctx) + 1):
+                print(f"  {path}:{j}: {ls[j - 1].strip()[:170]}")
+            if ctx:
+                print("  --")
+    if not hit:
+        print(f"  {path}: NO MATCH for {pattern!r}")
+
+
+def canon(t):
+    return re.sub(r'<mention url="([^"]+)">[^<]*</mention>', r'<mention url="\1" />', t).strip()
+
+
+body = Path(sys.argv[1]).read_text(encoding="utf-8").strip()
+print("== 0. custody of the reviewed body (NFM-MENTIONS-v1)")
+print("characters", len(body))
+print("raw", hashlib.sha256(body.encode("utf-8")).hexdigest())
+print("nfm", hashlib.sha256(canon(body).encode("utf-8")).hexdigest())
+
+print("\n== 1. one publication point: CampaignStore.commit, and its read methods")
+show("packages/engine/src/persistence/store.ts", r"^\s*commit\(group: unknown\)|committedGroupById\?|ruleCheckedGroupIds\?|^\s*(head|getFact|listFacts|lookupReceipt|committedGroup)\(")
+
+print("\n== 2. sealed canon cannot be amended (admission)")
+show("packages/engine/src/owners/admission.ts", r'lifecycle === "SEALED" && w\.expected_version|AMENDMENT_NOT_SUPPORTED|no amendment mechanism', 0)
+
+print("\n== 3. task identity is derived from the exact context (stale-task replay)")
+show("packages/operator/src/collection-referee.ts", r"pc-collection-referee:v1|export const collectionTaskId")
+show("packages/engine/src/referee/derive.ts", r"export const refereeTaskId|The task identity: derived from the exact context")
+show("packages/operator/src/referee-exchange.ts", r"keyed digest over the task|export function .*[Pp]roof|TASK_CONFLICT\", \"this task identity")
+
+print("\n== 4. history-verification policy: one identity per campaign open, legacy variant is a restriction")
+show("packages/engine/src/owners/admission.ts", r"export function legacyContractAdmission|\+LEGACY-PRE-V9-RUNTIME-CONTRACT|every v0\.9 surface refused|first open replays")
+show("packages/engine/src/persistence/checkpoint-package.ts", r"const policy = \(o: FileCampaignOptions\)")
+
+print("\n== 5. goal coordinator: one running goal, one retained record, identity, resume predicate")
+show("apps/phone/src/goal.ts", r"running !== null|const held = d\.retained\(\)|\.update\(`\$\{authority\.client\}|prior\.amount === request\.amount|prior\.until === request\.until|prior\.dispatch_ref ===|retained BEFORE anything is dispatched|if \(!d\.retain\(g\)\)")
+
+print("\n== 6. the player-choice authority literal: production files (tests and testkit excluded)")
+root = Path(".")
+files = {}
+for p in list(Path("packages").rglob("*.ts")) + list(Path("apps").rglob("*.ts")):
+    s = str(p)
+    if "node_modules" in s or "/tests/" in s or "testkit" in s:
+        continue
+    n = len(re.findall(r"PLAYER_CHOICE_AUTHORITY", p.read_text(encoding="utf-8")))
+    if n:
+        files[s] = n
+for f in sorted(files):
+    print(f"  {f}  references={files[f]}")
+print("  packet mentions of PLAYER_CHOICE_AUTHORITY:", body.count("PLAYER_CHOICE_AUTHORITY"))
+
+print("\n== 7. native-insertion literal sites versus the study's R12.04 MX consumer matrix")
+i, j = body.find("### R12.04"), body.find("### R12.05")
+matrix = body[i:j]
+sites = []
+for p in list(Path("packages").rglob("*.ts")) + list(Path("apps").rglob("*.ts")):
+    s = str(p)
+    if "node_modules" in s or "/tests/" in s or "testkit" in s:
+        continue
+    if re.search(r"EXPLICIT_PLAYER_AUTHORED_FACT|NATIVE_ALREADY_THERE", p.read_text(encoding="utf-8")):
+        sites.append(s)
+for s in sorted(sites):
+    print(f"  {s:58} named in R12.04 matrix: {s in matrix}")
+show("packages/engine/src/referee/derive.ts", r"UNSUPPORTED_BRIDGE")
+
+print("\n== 8. content screen on GM-origin assertions: phrases searched in the study body (zero hits means unspecified)")
+for pat in [r"PC-subject", r"content (?:test|screen|classifier)", r"closed (?:set|list|vocabulary) of [^.\n]{0,60}(?:assertion|default|premise)"]:
+    print(f"  {pat!r}: {len(re.findall(pat, body))}")
+print("  FictionAssertion mentions:", len(re.findall("FictionAssertion", body)), "| 'GM-established' mentions:", len(re.findall("GM-established", body)))
+
+print("\n== 9. confirmation in ordinary chat is taken from the human by the client, not by the assistant")
+show("apps/phone/src/chat-tools.ts", r"the phrase is not shown to the assistant|You cannot confirm, and you must not ask them", 0)
+
+print("\n== 10. single-writer lock family of the file package")
+show("packages/engine/src/persistence/file-package.ts", r'const LOCK_NAME = "LOCK"|kill\(pid, 0\)|single-writer lock while a campaign is open')
+print("  operator entry points:", len(list(Path("packages/operator/src").glob("*-bin.ts"))))
+
+print("\n== 11. Stage 4 and earlier text this review relies on (anchors in the study body)")
+for label, needle in [
+    ("S4.U-GRANT-C", "S4.U-GRANT-C"),
+    ("S4.U-GRANT-D", "S4.U-GRANT-D"),
+    ("S07 executable transcript/seed unregistered", "S07's executable transcript/seed is still unregistered and unrun"),
+    ("disposable-campaign scope", "Disposable-campaign scope is an explicit future decision, not presumed"),
+    ("S1.12 step 9", "RED may construct adversarial counter-traces at Stage 5."),
+    ("Stage 5 definition", "Stage 5 — Final independent RED and Sovereign"),
+]:
+    print(f"  {label:48} occurrences={body.count(needle)}")
