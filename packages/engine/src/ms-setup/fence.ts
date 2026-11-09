@@ -42,6 +42,7 @@ export const msFenceMetrics = {
   scannedFacts: 0,
   keyInspections: 0,
   viewReads: 0,
+  historyChecks: 0,
 };
 const pin = (key: string, version: number): Pin => ({ fact_key: key, version });
 export function inspectMsFenceView(state: CampaignState): MsFenceView | null {
@@ -53,12 +54,43 @@ export function initializeMsFence(state: CampaignState, checked: (id: string) =>
   const all = [...state.facts.values()];
   msFenceMetrics.scans++;
   msFenceMetrics.scannedFacts += all.length;
-  if (state.revision !== 0 && all.some((f) => !checked(f.provenance.group_id))) return;
   if (state.revision === 0 && all.length !== 0) return;
-  const input = all.find((f) => isMsInputRule(f.provenance.rule));
+  // The core supplies a policy-bound verified snapshot (or empty genesis). Absence is derived
+  // from that snapshot; unrelated facts need no additional per-fact index/journal lookup.
+  // For MS, corroborate only the milestones this view actually summarizes. Full chain and
+  // original pre-state verification remain the independent snapshot/replay obligations.
+  const verified = new Set<string>();
+  let evidenceMissing = false;
+  const hasEvidence = (fact: (typeof all)[number]): boolean => {
+    const id = fact.provenance.group_id;
+    if (verified.has(id)) return true;
+    msFenceMetrics.historyChecks++;
+    if (!checked(id)) {
+      evidenceMissing = true;
+      return false;
+    }
+    verified.add(id);
+    return true;
+  };
+  const completion = all.find((f) => isMsCompletionRule(f.provenance.rule));
+  const completionValue = completion
+    ? InitialLocalityCompletionSchema.safeParse(completion.value)
+    : null;
+  if (completion && !completionValue?.success) return;
+  if (completionValue?.success) msFenceMetrics.reads++;
+  const input = completionValue?.success
+    ? state.facts.get(completionValue.data.input.fact_key)
+    : all.find((f) => isMsInputRule(f.provenance.rule));
+  if (
+    completionValue?.success &&
+    (!input ||
+      !isMsInputRule(input.provenance.rule) ||
+      input.version !== completionValue.data.input.version)
+  )
+    return;
   const inputValue = input ? InitialSetupInputSchema.safeParse(input.value) : null;
   if (input && !inputValue?.success) return;
-  const completion = all.find((f) => isMsCompletionRule(f.provenance.rule));
+  if ((input && !hasEvidence(input)) || (completion && !hasEvidence(completion))) return;
   let closure: Pin | null = null,
     inventory: readonly Pin[] = [],
     released = false;
@@ -68,6 +100,7 @@ export function initializeMsFence(state: CampaignState, checked: (id: string) =>
     msFenceMetrics.reads++;
     const cf = state.facts.get(worldSetupClosureKey(c.data.world_id));
     const cv = WorldSetupClosureSchema.safeParse(cf?.value);
+    if (cf && (!cv.success || !hasEvidence(cf))) return;
     if (cf && cv.success) {
       closure = pin(cf.key, cf.version);
       inventory = cv.data.placements;
@@ -77,10 +110,13 @@ export function initializeMsFence(state: CampaignState, checked: (id: string) =>
           msFenceMetrics.reads++;
           const b = state.facts.get(p.fact_key);
           const id = (b?.value as { actor_id?: string } | undefined)?.actor_id;
-          if (!id) return false;
+          if (!id || !hasEvidence(b!)) return false;
           msFenceMetrics.reads++;
-          return state.facts.has(actorPhysicalPresenceKey(id));
+          const presence = state.facts.get(actorPhysicalPresenceKey(id));
+          return !!presence && hasEvidence(presence);
         });
+      // Missing history cannot turn an apparently completed snapshot into an active view.
+      if (evidenceMissing) return;
     }
   }
   views.set(

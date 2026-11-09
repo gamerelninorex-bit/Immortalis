@@ -19,6 +19,8 @@ const counts = {
   fs_write_bytes: 0,
   fs_metadata: 0,
   package_opens: 0,
+  history_index_lookups: 0,
+  history_index_node_reads: 0,
 };
 const originalHash = crypto.createHash;
 function instrumentHash(h: any): any {
@@ -56,6 +58,17 @@ for (const file of ["contracts", "engine", "operator"]
     file + "\0" + originalHash("sha256").update(readFileSync(file)).digest("hex") + "\n",
   );
 const runtime_source_sha256 = runtimeSourceHash.digest("hex");
+const { HistoryIndex } = await import("../packages/engine/src/persistence/history-index.ts");
+const indexLookup = HistoryIndex.prototype.lookup;
+const indexRead = HistoryIndex.prototype.read;
+HistoryIndex.prototype.lookup = function (...args: Parameters<typeof indexLookup>) {
+  counts.history_index_lookups++;
+  return indexLookup.apply(this, args);
+};
+HistoryIndex.prototype.read = function (...args: Parameters<typeof indexRead>) {
+  counts.history_index_node_reads++;
+  return indexRead.apply(this, args);
+};
 const must = async (p: Promise<any>) => {
   const r = await p;
   if (!r.ok) throw new Error(JSON.stringify(r.error));

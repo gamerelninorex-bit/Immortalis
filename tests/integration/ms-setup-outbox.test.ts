@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { MsActorRunner } from "@immortalis/operator";
-import { MsSetupPublisher, planMsActor } from "@immortalis/engine";
+import { MsSetupPublisher, planMsActor, nodeFs } from "@immortalis/engine";
 import { msActorIssueKey } from "@immortalis/contracts";
 import { msHarness } from "../support/ms-setup.ts";
 async function issue() {
@@ -23,6 +23,51 @@ async function issue() {
   return { h, p, s, plan: plan.value, pin, fresh };
 }
 describe("isolated ACTOR pre-send, one-attempt protected recovery and disclosed loss boundary", () => {
+  for (const landed of [false, true])
+    it(
+      "surfaces a protected result-write failure (landed=" + landed + ") without a second send",
+      async () => {
+        const { h, plan, pin, fresh } = await issue();
+        let failures = 0;
+        const runner = new MsActorRunner({
+          ...h.keys,
+          driver: h.actorDriver,
+          outboxDir: h.outboxDir,
+          macKey: h.macKey,
+          fs: {
+            ...nodeFs,
+            async createExclusive(path, bytes) {
+              const record = JSON.parse(bytes) as { name: string };
+              if (record.name.startsWith("result:")) {
+                if (landed) await nodeFs.createExclusive(path, bytes);
+                failures++;
+                throw new Error("TEST: protected result write failed before acknowledgement");
+              }
+              await nodeFs.createExclusive(path, bytes);
+            },
+          },
+        });
+        expect(
+          await runner.dispatch(runner.authorize(h.store, pin)!, plan.instructions, plan.bytes),
+        ).toEqual({
+          status: "UNKNOWN",
+          reason: "MS_RESULT_STORE_WRITE_FAILED",
+        });
+        expect(failures).toBe(1);
+        expect(h.calls()).toBe(1);
+        const restarted = fresh();
+        const recovered = await restarted.dispatch(
+          restarted.authorize(h.store, pin)!,
+          plan.instructions,
+          plan.bytes,
+        );
+        expect(recovered).toMatchObject(
+          landed ? { status: "RESPONDED" } : { status: "UNKNOWN", reason: "MS_PARKED_UNKNOWN" },
+        );
+        expect(h.calls()).toBe(1);
+        await h.campaign.close();
+      },
+    );
   it("refuses instruction/whitespace/key-order substitutions before send, then consumes the exact committed issue once", async () => {
     const { h, plan, pin } = await issue();
     for (const [instructions, bytes] of [

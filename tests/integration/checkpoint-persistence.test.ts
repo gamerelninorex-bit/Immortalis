@@ -318,7 +318,7 @@ describe("H-07 interruption, migration and corruption", () => {
     expect(await openCode(dir, { audit: true })).toBe("OK");
   });
 
-  it("a cold proof consumed during the C5 verified-view rebuild refuses the open and releases its writer lock", async () => {
+  it("a cold proof consumed by an owner validator refuses the open and releases its writer lock", async () => {
     const dir = tempDir();
     const scene = await seededTemporalCampaign(dir);
     for (let n = 0; n < 130; n++)
@@ -337,7 +337,7 @@ describe("H-07 interruption, migration and corruption", () => {
       bytes.replace(JSON.stringify(cause), JSON.stringify(cause.slice(0, -1) + "x")),
     );
     const opened = await CanonicalCampaign.open(dir, { extension: SYNTH_EXTENSION });
-    expect(opened).toMatchObject({ ok: false, error: { code: "INTEGRITY_JOURNAL" } });
+    expect(opened).toMatchObject({ ok: false, error: { code: "CANON_INTEGRITY" } });
     expect(readdirSync(dir)).not.toContain("LOCK");
   });
 

@@ -200,10 +200,13 @@ export class CampaignCore {
     this.#params = params;
     this.#state = params.state;
     this.#headSha256 = params.headSha256;
-    params.admission?.initializeView?.(
-      params.state,
-      (id) => params.history?.ruleChecked(id) ?? false,
-    );
+    // Only genesis or the existing policy-bound verified checkpoint history can seed a view.
+    // A caller's detached non-genesis state is not verified-open evidence.
+    if (params.state.revision === 0 || params.history !== undefined)
+      params.admission?.initializeView?.(
+        params.state,
+        (id) => params.history?.ruleChecked(id) ?? false,
+      );
   }
 
   get state(): CampaignState {

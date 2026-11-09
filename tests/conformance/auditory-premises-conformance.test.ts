@@ -173,8 +173,13 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the untouched predecessor modules are pinned (MS integration paths are excluded explicitly) (the referee and epistemic trees excepted: PR #94 changed them); P1 adds no Health, F-014D, referee or Temporal producer", () => {
+  it("the predecessor modules and explicit MS temporal/commit compositions retain their regression pins; P1 added no Health, F-014D or referee producer", () => {
     const expected: Record<string, string> = {
+      // Authorized MS composition identities; unchanged siblings are also individually pinned.
+      "packages/engine/src/temporal":
+        "0dc735d59959ec6ecd752a1a0b531bf10f564ff1f25dfca886814f39a769ffbb",
+      "packages/engine/src/commit":
+        "c2958df6a3295cececb6854eeb8cc964012f0c70184e241809234f322380e8b4",
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       "packages/engine/src/persistence":
@@ -193,10 +198,15 @@ describe("nothing outside the physical-source slice was built", () => {
     expect(treeSha("packages/engine/src/epistemic")).not.toBe(EPISTEMIC_TREE_AT_MAIN);
   });
 
-  it("R1 untouched contracts, eligibility and related custody modules retain their bytes; MS dispatch is separately source-qualified", () => {
+  it("R1 contracts, eligibility and custody remain pinned, with explicit current MS dispatch identities", () => {
     const expected: Record<string, string> = {
       "packages/contracts/src/actor-presence.ts":
         "828ef1ea9d36376d3179ed5765e78b3a9cdd8a984220faf17e00387913576a26",
+      // Current source-qualified MS composition; legacy behavioral regressions remain separate.
+      "packages/engine/src/world/actor-presence.ts":
+        "9f53460f72c03e5953ec2c80e49455bd59b910b0bb041ba38e54705878743ad5",
+      "packages/engine/src/world/actor-presence-integrity.ts":
+        "550b675db14367b0b02a9a9743e09bda0de4506e1b7be876715970d5b552b85e",
       "packages/engine/src/world/setup-eligibility.ts":
         "6a8b584be266f78c80cb087569e455d2ca399da00a0fea16866e9d5072be4738",
       "docs/actor-presence-foundation.md":

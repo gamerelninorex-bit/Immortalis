@@ -63,6 +63,16 @@ export function verifyMsIntegrity(store: CampaignStore): readonly IntegrityViola
         canonicalEqual(r, f.provenance.rule),
       ),
   );
+  // Pair every Completion with its own Input, including the direction where the Completion
+  // carries the legacy citation and would otherwise be absent from `relevant`.
+  for (const f of all) {
+    if (resolveKey(f.key)?.kind.id !== "initial_locality_completion") continue;
+    const c = InitialLocalityCompletionSchema.safeParse(f.value);
+    if (!c.success) continue;
+    const input = facts.get(c.data.input.fact_key);
+    if (input && isMsInputRule(input.provenance.rule) !== isMsCompletionRule(f.provenance.rule))
+      bad(f.key, "MS Input/Completion route pairing differs");
+  }
   if (!relevant.length) return out;
   function provePins(f: OwnerFact, pins: readonly Pin[], exact: boolean) {
     const group = store.committedGroup(f.provenance.intent_id);

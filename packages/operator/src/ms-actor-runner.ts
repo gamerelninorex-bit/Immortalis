@@ -263,10 +263,11 @@ export class MsActorRunner {
       body,
       signature: sign(null, Buffer.from(canonicalJson(body)), this.#key).toString("base64"),
     });
-    await this.#outbox.create("result:" + attempt, {
+    const retained = await this.#outbox.create("result:" + attempt, {
       raw_base64: Buffer.from(run.raw).toString("base64"),
       envelope,
     });
+    if (!retained.ok) return { status: "UNKNOWN", reason: "MS_RESULT_" + retained.error.code };
     return { status: "RESPONDED", raw: run.raw, envelope };
   }
 }
