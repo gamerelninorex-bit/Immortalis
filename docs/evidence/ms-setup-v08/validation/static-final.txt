@@ -1,0 +1,39 @@
+Final local static validation
+UTC: 2026-11-09T05:45:54.954492+00:00
+Node v22.22.2; pnpm 10.33.0
+Runtime checkpoint: cd9270d452312ae862c9787b2034d4beb66697ca
+Runtime/spec/tools diff from measured checkpoint: empty
+
+Command: pnpm run format:check
+Exit code: 0
+
+> immortalis@0.0.0 format:check /workspace/Immortalis
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+Command: pnpm run lint
+Exit code: 0
+
+> immortalis@0.0.0 lint /workspace/Immortalis
+> eslint .
+
+
+Command: pnpm run typecheck
+Exit code: 0
+
+> immortalis@0.0.0 typecheck /workspace/Immortalis
+> tsc --noEmit -p tsconfig.json
+
+
+Command: pnpm run check:spec
+Exit code: 0
+
+> immortalis@0.0.0 check:spec /workspace/Immortalis
+> node --experimental-strip-types tools/check-spec.ts
+
+spec check OK: spec-lock, acceptance register and open gates are consistent
+
+Command: git diff --check
+Exit code: 0

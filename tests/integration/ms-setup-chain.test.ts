@@ -14,6 +14,11 @@ describe("M-S v0.8 T1 signed source chain (MECHANISM ONLY)", () => {
         .listFacts()
         .filter((f) => resolveKey(f.key)?.kind.id === "named_actor_existence_basis"),
     ).toHaveLength(1);
+    const leaf = "SYNTHETIC FIXTURE: one representative boatwright";
+    for (const kind of ["named_actor_existence_basis", "actor_setup_placement"])
+      expect(
+        JSON.stringify(h.store.listFacts().find((f) => resolveKey(f.key)?.kind.id === kind)!.value),
+      ).not.toContain(leaf);
     const head = h.store.head();
     expect(await new MsSetupPublisher(h.store).issue()).toMatchObject({ ok: true });
     expect(h.store.head()).toEqual(head);

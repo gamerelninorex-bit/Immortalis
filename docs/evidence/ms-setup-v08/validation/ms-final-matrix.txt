@@ -1,0 +1,8 @@
+
+ RUN  v5.0.2 /workspace/Immortalis
+
+
+ Test Files  10 passed (10)
+      Tests  55 passed (55)
+   Start at  05:40:06
+   Duration  14.73s (tests 61%, import 25%, transform 14%)
