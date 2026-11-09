@@ -1,0 +1,36 @@
+AMEND repair static validation
+2026-11-09T15:34:20.514460+00:00
+Node v22.22.2; pnpm 10.33.0
+Runtime checkpoint: 4d655407b4aeffbd2a515992d8d8df14e68a50a6
+
+pnpm run format:check
+Exit code: 0
+
+> immortalis@0.0.0 format:check /workspace/Immortalis
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+pnpm run lint
+Exit code: 0
+
+> immortalis@0.0.0 lint /workspace/Immortalis
+> eslint .
+
+pnpm run typecheck
+Exit code: 0
+
+> immortalis@0.0.0 typecheck /workspace/Immortalis
+> tsc --noEmit -p tsconfig.json
+
+pnpm run check:spec
+Exit code: 0
+
+> immortalis@0.0.0 check:spec /workspace/Immortalis
+> node --experimental-strip-types tools/check-spec.ts
+
+spec check OK: spec-lock, acceptance register and open gates are consistent
+
+git diff --check: exit 0
+Final report-only edits formatted and checked separately.

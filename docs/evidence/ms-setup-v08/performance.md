@@ -1,5 +1,7 @@
 # M-S v0.8 performance evidence
 
+Historical measurements of the initial reviewed runtime `cd9270d` / `e5c0f49`. The [AMEND repair report](amendment.md) contains the replacement 128/256/512 comparison and deterministic index counters for the repaired path. The samples below are preserved unchanged.
+
 MECHANISM ONLY. These measurements establish the C5 cost boundary and disclose complete-operation costs. They do not establish genuine-host, named-client or retained-storage acceptance. No timing SLA or performance improvement is claimed.
 
 ## Revisions and method
