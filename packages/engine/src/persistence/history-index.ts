@@ -44,7 +44,7 @@ export class HistoryIndex {
   readonly fs: FsOps;
   readonly generation: string;
   /** Hash-verified nodes already read by this instance (only when memoizing, for one bounded verification; nodes are immutable). */
-  readonly #verified: Map<string, Node> | undefined;
+  #verified: Map<string, Node> | undefined;
   constructor(
     dir: string,
     fs: FsOps,
@@ -55,6 +55,17 @@ export class HistoryIndex {
     this.fs = fs;
     this.generation = generation;
     this.#verified = memoize ? new Map() : undefined;
+  }
+  /** Reuse hash-verified immutable nodes for one synchronous verification; never retain them for later store access. */
+  withVerifiedReadCache<T>(verify: () => T): T {
+    const previous = this.#verified;
+    this.#verified = previous ?? new Map();
+    try {
+      return verify();
+    } finally {
+      if (previous === undefined) this.#verified.clear();
+      this.#verified = previous;
+    }
   }
   read(ref: IndexRef): Node {
     const memo = `${ref.file}\0${ref.offset}\0${ref.length}\0${ref.sha256}`;

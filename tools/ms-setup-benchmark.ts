@@ -21,6 +21,7 @@ const counts = {
   package_opens: 0,
   history_index_lookups: 0,
   history_index_node_reads: 0,
+  history_index_node_file_reads: 0,
 };
 const originalHash = crypto.createHash;
 function instrumentHash(h: any): any {
@@ -79,6 +80,8 @@ for (const [name, fn] of Object.entries(engine.nodeFs) as [string, (...a: any[])
     const record = (result: any) => {
       if (["readFile", "readRange", "readRangeSync"].includes(name)) {
         counts.fs_reads++;
+        if (name === "readRangeSync" && String(args[0]).includes("/history/index."))
+          counts.history_index_node_file_reads++;
         counts.fs_read_bytes += result.length;
       } else if (["writeFileDurable", "appendDurable", "createExclusive"].includes(name)) {
         counts.fs_writes++;

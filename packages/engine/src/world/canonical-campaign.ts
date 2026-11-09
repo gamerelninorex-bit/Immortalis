@@ -60,6 +60,7 @@ import { canonicalAdmission } from "../owners/admission.ts";
 import { msCanonicalAdmission } from "../owners/admission.ts";
 import type { InitialSetupPolicy } from "../initial-setup/admission.ts";
 import { verifyMsIntegrity } from "../ms-setup/integrity.ts";
+import { withCheckpointHistoryReadCache } from "../persistence/checkpoint-package.ts";
 import {
   storeBindings,
   type ExtensionErrorCode,
@@ -301,7 +302,9 @@ export class CanonicalCampaign {
     if (!opened.ok) return opened;
     let violations: readonly IntegrityViolation[];
     try {
-      violations = verifyAll(opened.value, extension);
+      violations = withCheckpointHistoryReadCache(opened.value, () =>
+        verifyAll(opened.value, extension),
+      );
     } catch (e) {
       await opened.value.close().catch(() => undefined);
       return fail("CANON_INTEGRITY", "historical owner evidence could not be verified", {

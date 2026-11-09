@@ -49,6 +49,13 @@ import {
 } from "./history-index.ts";
 
 export const CHECKPOINT_INTERVAL = 128;
+// The existing reader of this exact opened store; no caller flag or persistent trust summary.
+const openHistoryReaders = new WeakMap<FileCampaignStore, HistoryIndex>();
+/** Internal bounded owner-verification optimization. Journal entries are still read and authenticated on every lookup. */
+export function withCheckpointHistoryReadCache<T>(store: FileCampaignStore, verify: () => T): T {
+  const reader = openHistoryReaders.get(store);
+  return reader ? reader.withVerifiedReadCache(verify) : verify();
+}
 const integer = z.number().int().nonnegative();
 const CheckpointSchema = z.strictObject({
   revision: integer,
@@ -677,11 +684,12 @@ export async function loadCheckpoint(
       ? ok(residue)
       : await reconcileCheckpointStates(dir, fs, lock, options, m, store, size, residue);
     if (!reconciled.ok) return reconciled;
-    return ok(
+    const result =
       reconciled.value === residue
         ? store
-        : new CheckpointStore(dir, fs, lock, core, m, options, size, tail, reconciled.value),
-    );
+        : new CheckpointStore(dir, fs, lock, core, m, options, size, tail, reconciled.value);
+    openHistoryReaders.set(result, index);
+    return ok(result);
   } catch (e) {
     return fail("INTEGRITY_JOURNAL", "checkpoint/index/tail verification failed", {
       cause: String(e),

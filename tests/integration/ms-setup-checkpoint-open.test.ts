@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CampaignCore,
   CanonicalCampaign,
@@ -8,12 +10,14 @@ import {
   inspectMsFenceView,
   msFenceMetrics,
   resolveKey,
+  nodeFs,
   type CampaignState,
 } from "@immortalis/engine";
 import { gipPublication, institutionIdentity } from "@immortalis/testkit";
 import { tempDir } from "../support/tmp.ts";
 import { msHarness } from "../support/ms-setup.ts";
 import { must } from "../support/temporal.ts";
+import { HistoryIndex } from "../../packages/engine/src/persistence/history-index.ts";
 
 describe("F-1 bounded verified checkpoint fence derivation", () => {
   for (const size of [128, 256, 512])
@@ -59,6 +63,17 @@ describe("F-1 bounded verified checkpoint fence derivation", () => {
           }),
         );
         expect(msFenceMetrics.scans).toBe(scans);
+        if (size === 128) {
+          // The open's verified-node cache must have ended. A later cold lookup consumes
+          // disk evidence again and detects corruption even for a node read during open.
+          const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
+          const ref = manifest.head.checkpoint.index as { file: string; offset: number };
+          const path = join(dir, ref.file),
+            bytes = readFileSync(path);
+          bytes[ref.offset] = 32;
+          writeFileSync(path, bytes);
+          expect(() => opened.store.lookupReceipt(gipPublication(1).intent_id)).toThrow();
+        }
         await opened.close();
       },
       30_000,
@@ -114,5 +129,47 @@ describe("F-1 bounded verified checkpoint fence derivation", () => {
     expect(inspectMsFenceView(core(true, true).c.state)).toBeNull();
     expect(inspectMsFenceView(core(false, false).c.state)).toBeNull();
     await h.campaign.close();
+  });
+
+  it("reuses verified index nodes only within one synchronous check and drops them on success or exception", async () => {
+    let reads = 0;
+    const dir = tempDir();
+    await nodeFs.mkdirp(join(dir, "history"));
+    const index = new HistoryIndex(dir, {
+      ...nodeFs,
+      readRangeSync(path, offset, length) {
+        reads++;
+        return nodeFs.readRangeSync(path, offset, length);
+      },
+    });
+    const location = { offset: 0, length: 1, sha256: "a".repeat(64), checked: true, revision: 1 };
+    const root = await index.extend(
+      null,
+      [
+        ["i:a", location],
+        ["g:a", location],
+      ],
+      1,
+    );
+    reads = 0;
+    index.withVerifiedReadCache(() => {
+      expect(index.lookup(root, "i:a")).toEqual(location);
+      const first = reads;
+      expect(first).toBeGreaterThan(0);
+      expect(index.lookup(root, "i:a")).toEqual(location);
+      expect(reads).toBe(first);
+    });
+    const after = reads;
+    index.lookup(root, "i:a");
+    expect(reads).toBeGreaterThan(after);
+    expect(() =>
+      index.withVerifiedReadCache(() => {
+        index.lookup(root, "i:a");
+        throw new Error("TEST: verification failed");
+      }),
+    ).toThrow("verification failed");
+    const afterFailure = reads;
+    index.lookup(root, "i:a");
+    expect(reads).toBeGreaterThan(afterFailure);
   });
 });
