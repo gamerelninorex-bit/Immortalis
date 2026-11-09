@@ -115,7 +115,9 @@ describe("IA-03 owner exclusivity: World-State, and only World-State, owns the e
           f !== "actor_profile" &&
           f !== "epistemic_access" &&
           f !== "kti_development" &&
-          f !== "culture_social",
+          f !== "culture_social" &&
+          f !== "world_initial_actor_setup" &&
+          f !== "actor_existence",
       )
       .join(" ");
     for (const forbidden of [
@@ -350,6 +352,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "initial-setup",
       "kti",
       "logistics",
+      "ms-setup",
       "owners",
       "pc-capability",
       "pc-collection",

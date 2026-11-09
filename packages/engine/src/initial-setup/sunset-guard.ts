@@ -18,7 +18,7 @@ import {
 } from "@immortalis/contracts";
 import { sha256Canonical } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
-import { BOOTSTRAP_SUNSET_POLICY_V9, type SunsetPolicyRow } from "./sunset-policy.ts";
+import { BOOTSTRAP_SUNSET_POLICY_MS_V08, type SunsetPolicyRow } from "./sunset-policy.ts";
 
 /**
  * The as-of qualification of the OPTION_A_V9 Initial Scene Exception (Initial Locality Bootstrap v0.9 companion, "CPAA Projection and
@@ -62,7 +62,7 @@ export interface OccupiedInterval {
 }
 
 const POLICY_BY_KIND: ReadonlyMap<string, SunsetPolicyRow> = new Map(
-  BOOTSTRAP_SUNSET_POLICY_V9.map((r) => [r.kind, r]),
+  BOOTSTRAP_SUNSET_POLICY_MS_V08.map((r) => [r.kind, r]),
 );
 
 /** The reviewed policy row of a kind, or undefined for a kind with no row (which withholds). */

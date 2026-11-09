@@ -99,6 +99,8 @@ export function authorizeOperatorDisposition(): OperatorAuthorization {
 }
 
 export interface InitialSetupDeps {
+  /** Trusted operation selection; the committed full Input SourceRef fixes the route. */
+  readonly route?: "MS";
   readonly campaignId: string;
   readonly store: CampaignStore;
   readonly runner: PrivateRunner;
@@ -119,7 +121,7 @@ export class InitialSetupService {
   constructor(deps: InitialSetupDeps) {
     this.#d = deps;
     this.#policy = deps.policy ?? PRODUCTION_INITIAL_SETUP_POLICY;
-    this.#publisher = new InitialSetupPublisher(deps.store);
+    this.#publisher = new InitialSetupPublisher(deps.store, deps.route);
   }
 
   /** Serializes every mutation of this campaign's bootstrap path inside this process; across processes the canonical create-only

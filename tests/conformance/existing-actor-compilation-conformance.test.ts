@@ -161,7 +161,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
         "pc_voluntary_commitment",
       ],
       role_registry: ["player_character_binding"],
-      named_actor: ["actor_profile"],
+      named_actor: ["actor_profile", "actor_existence"],
     })) {
       expect([...(CANONICAL_OWNER_REGISTRY.get(owner) ?? [])].sort()).toEqual([...facets].sort());
       expect(CANONICAL_OWNER_REGISTRY.get(owner)).toEqual(expectedOwnerFacetSet(owner));
@@ -239,6 +239,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "initial-setup",
       "kti",
       "logistics",
+      "ms-setup",
       "owners",
       "pc-capability",
       "pc-collection",

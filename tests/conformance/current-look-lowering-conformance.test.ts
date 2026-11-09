@@ -81,6 +81,7 @@ function mutate(edit: (l: any) => void): string[] {
     "spec/f027/acceptance-register.yaml",
     "spec/f027/open-gates.yaml",
     "packages/contracts/src/spec-identity.ts",
+    "spec/f027/ms-setup-v08-manifest.json",
   ]) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
     cpSync(rel, join(root, rel));
@@ -129,6 +130,7 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
       // the Sovereign-adopted C-1/C-2 clarification (3 November 2026), registered additively after them
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+      "MS-SETUP-V08-LINEAGE",
     ]);
     expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
@@ -203,16 +205,19 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+      "MS-SETUP-V08-LOWERING",
     ]);
     // the required table lists the unconditional rows; the OPTION_A_V9 rows are checked conditionally on option_a_status
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(
-      rows()
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual([
+      ...rows()
         .slice(0, 5)
         .map((r) => r.id),
-    );
-    expect(Object.keys(REQUIRED_DESIGN_LINEAGE)).toEqual(
-      lock["design_lineage_successors"].slice(0, 6).map((r: any) => r.id),
-    );
+      "MS-SETUP-V08-LOWERING",
+    ]);
+    expect(Object.keys(REQUIRED_DESIGN_LINEAGE)).toEqual([
+      ...lock["design_lineage_successors"].slice(0, 6).map((r: any) => r.id),
+      "MS-SETUP-V08-LINEAGE",
+    ]);
     expect(sha(rows()[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
     expect(sha(rows()[1])).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
     expect(sha(lock["frozen_sources"])).toBe(
@@ -761,9 +766,9 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "d40e4a9dd71a9625fbcfffc930a5edff08f05b057202670a80002ee79b4ae654";
+const CURRENT_V08_LOCK_SHA256 = "55e48507870cadaf2cba0c1248e867e78d15cf62172175cd7057fdcb2cc69dd4";
 const CURRENT_V08_REGISTRY_SHA256 =
-  "9a61ff41c0b74997239c5c90c053cd5c83e0ed469529c4ff4fc323fcf3c45def";
+  "4c4d938fd66ab3578dd167a57a55d05d6b8f62e5ab91e843bc3b444cac7133fa";
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")
@@ -784,7 +789,9 @@ function lockWithoutV08Rows(): string {
     "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
     // and the additive C-1/C-2 clarification rows (3 November 2026)
     "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+    "MS-SETUP-V08-LINEAGE",
     "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+    "MS-SETUP-V08-LOWERING",
   ]);
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
     (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),
@@ -835,7 +842,7 @@ describe("provenance: original identities are history, today's are asserted only
     expect(gitBlobOf(lf(rawLock))).not.toBe(ORIGINAL_MAIN_LOCK_BLOB);
   });
 
-  it("CURRENT v0.8 head expectations (not original-main pins): the lock and the owner registry", () => {
+  it("CURRENT composed head expectations, including MS (not original-main pins): the lock and the owner registry", () => {
     expect(sha256Of(lf(rawLock))).toBe(CURRENT_V08_LOCK_SHA256);
     expect(BUILD_SPEC_IDENTITY.spec_lock_sha256).toBe(CURRENT_V08_LOCK_SHA256);
     const registry = lf(readFileSync("packages/engine/src/owners/registry.ts", "utf8"));

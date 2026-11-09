@@ -106,6 +106,8 @@ describe("the mechanism cannot reach authority it was not given", () => {
         !x.endsWith("/locality.ts") &&
         !x.endsWith("/corridor.ts") &&
         !x.endsWith("/scene-resolution.ts") &&
+        // MS v0.8 explicitly licenses this isolated actor dispatch and owner sequencer; its narrower security suite applies.
+        !x.endsWith("/ms-initial-actor.ts") &&
         !x.endsWith("/original-pc.ts") &&
         !x.endsWith("/time-initialization.ts") &&
         !x.endsWith("/additional-source.ts") &&

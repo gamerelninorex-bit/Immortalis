@@ -197,7 +197,7 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     // (current-look-lowering-conformance.test.ts); the R1 row stays first and byte-unchanged
     const [low] = lock.executable_lowerings as any[];
     // + the two Initial Locality Bootstrap v0.9 lowerings (core and the adopted OPTION_A_V9 row) and the additive C-1/C-2 clarification row
-    expect(lock.executable_lowerings).toHaveLength(7);
+    expect(lock.executable_lowerings).toHaveLength(8);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");

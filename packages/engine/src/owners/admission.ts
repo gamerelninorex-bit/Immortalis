@@ -346,6 +346,11 @@ export function coupledActorFreshContractViolation(
 
 function checkExistenceContract(group: CommitGroup, state: CampaignState, value: unknown) {
   const contract = ExistenceContractSchema.parse(value);
+  if (state.facts.has(namedActorExistenceBasisKey(contract.pc_id)))
+    return reject(
+      "REFERENCE_INVALID",
+      "an MS existence-bearing identity cannot be appropriated as a PC",
+    );
   // a release that cites a referee decision must be the one that decision qualifies (a release citing none is simply not attested)
   const qualification = refereeQualificationViolation(group, (k) => state.facts.get(k), "RELEASE", {
     contract,
@@ -371,6 +376,11 @@ function checkExistenceContract(group: CommitGroup, state: CampaignState, value:
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
+  if (state.facts.has(namedActorExistenceBasisKey(b.active_pc.entity_id)))
+    return reject(
+      "REFERENCE_INVALID",
+      "an MS existence-bearing identity has no adopted PC handover",
+    );
   // a presence-bearing non-PC actor is refused in BOTH branches before the binding commits, so no PC-custody write can follow
   if (presenceBearing(b.active_pc.entity_id, state.facts)) {
     return reject("REFERENCE_INVALID", PRESENCE_EXCLUSION, { key: PLAYER_CHARACTER_BINDING_KEY });
@@ -480,17 +490,23 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  */
 function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
   return {
+    initializeView: initializeMsFence,
+    committedView: advanceMsFence,
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}`,
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}`,
     verifyHistorical(group, state) {
       return (
+        msFenceCheck(group, state) ??
+        msActorGroupCheck(group, state) ??
         worldActorPresenceHistoricalCheck(group, state) ??
         auditoryPremisesHistoricalCheck(group, state) ??
-        initialSetupHistoricalCheck(group, state, policy)
+        initialSetupHistoricalCheck(group, state, { ...policy, historical: true })
       );
     },
     check(group, state) {
+      const fence = msFenceCheck(group, state);
+      if (fence) return fence;
       for (const w of group.writes) {
         const resolved = resolveKey(w.key);
         if (!resolved) {
@@ -532,6 +548,10 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       // v0.9 active-Input freeze: no group may write the frozen genesis basis while an initial-setup session is active.
       const frozen = frozenBasisViolation(group, state);
       if (frozen) return frozen;
+      const ms = msActorGroupCheck(group, state);
+      if (ms) return ms;
+      if (group.facet === "world_initial_actor_setup" || group.facet === "actor_existence")
+        return ms;
       // IM-03 v0.9 Initial Locality Bootstrap records (a facet of the World-State owner), each re-derived from the pre-state.
       if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
         return initialSetupGroupCheck(group, state, policy);
@@ -667,6 +687,25 @@ export const canonicalAdmission: WriteAdmission = buildCanonicalAdmission(
   "",
 );
 
+/** Trusted startup pins its locally enrolled ACTOR-capable tuple before accepting an MS Input. */
+export function msCanonicalAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+): WriteAdmission {
+  return buildCanonicalAdmission(
+    { ...PRODUCTION_INITIAL_SETUP_POLICY, msActorBinding: Object.freeze({ ...binding }) },
+    "",
+  );
+}
+/** TESTKIT ONLY: same source semantics, wholly synthetic evidence and distinct history policy. */
+export function fixtureMsCanonicalAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+): WriteAdmission {
+  return buildCanonicalAdmission(
+    { syntheticEvidence: "REQUIRE", msActorBinding: Object.freeze({ ...binding }) },
+    "+fixture-evidence-t1",
+  );
+}
+
 /**
  * TESTKIT-ONLY: the T1 fixture admission requires the wholly fixture-namespaced evidence that only the testkit's
  * FixtureEvidenceVerifier produces, under a distinct `historyVerificationId`, so checkpoint evidence can never be shared between
@@ -717,6 +756,8 @@ export const LEGACY_RUNTIME_CONTRACT_SURFACE = "LEGACY_RUNTIME_CONTRACT_SURFACE"
  */
 export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
   return {
+    ...(base.initializeView ? { initializeView: base.initializeView } : {}),
+    ...(base.committedView ? { committedView: base.committedView } : {}),
     historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
     check: (group, state) => legacyContractSurface(group) ?? base.check(group, state),
     verifyHistorical: (group, state) =>
@@ -998,6 +1039,18 @@ export function identityMismatch(
       return v["world_id"] === ids[0] && v["locus_id"] === ids[1] && v["setup_id"] === ids[2]
         ? null
         : "world, locus and setup identity do not match the key";
+    case "initial_actor_setup_issue":
+      return v["world_id"] === ids[0] &&
+        v["locus_id"] === ids[1] &&
+        v["completion_digest"] === ids[2]
+        ? null
+        : "MS issue identity does not match its key";
+    case "initial_actor_setup_response":
+      return v["world_id"] === ids[0] && v["locus_id"] === ids[1]
+        ? null
+        : "MS response locality differs";
+    case "named_actor_existence_basis":
+      return v["actor_id"] === ids[0] ? null : "MS actor identity differs";
     case "initial_setup_invocation":
       return v["world_id"] === ids[0] &&
         v["locus_id"] === ids[1] &&
@@ -1047,3 +1100,7 @@ function dependencyCheck(
       return null;
   }
 }
+import { namedActorExistenceBasisKey } from "@immortalis/contracts";
+import { msActorGroupCheck } from "../ms-setup/admission.ts";
+import { initializeMsFence, advanceMsFence, msFenceCheck } from "../ms-setup/fence.ts";
+import { MS_HISTORY_POLICY_SUFFIX } from "../ms-setup/rules.ts";

@@ -1,0 +1,694 @@
+{
+  "schema_version": 1,
+  "line": "f027",
+  "package": {
+    "title": "PF-5 / F-027 FINAL WORK / CODING-AGENT IMPLEMENTATION INSTRUCTIONS PACKAGE v1.0 — 2026-09-29",
+    "version": "v1.0",
+    "url": "https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639",
+    "native_pin": "2026-09-29T00:40:44.707Z"
+  },
+  "incorporated_tranches": [
+    {
+      "title": "F-027 Foundation Tranche v0.1",
+      "url": "https://app.notion.com/p/3ea20af901e081ce9c5dd3044d388173",
+      "native_pin": "2026-09-29T00:09:56.571Z"
+    },
+    {
+      "title": "F-027 Runtime Contract & Translation Tranche v0.2",
+      "url": "https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a",
+      "native_pin": "2026-09-29T00:33:04.009Z"
+    }
+  ],
+  "governance_references": [
+    {
+      "title": "Repository Bootstrap Plan v1.0 — 2026-09-29",
+      "url": "https://app.notion.com/p/3ea20af901e081ae8873e28d5290fc51",
+      "native_pin": "2026-09-29T00:50:15.564Z"
+    },
+    {
+      "title": "Implementation Agent Operating Charter — Claude Code",
+      "url": "https://app.notion.com/p/3ea20af901e0819a88b2c490ab874acc",
+      "native_pin": "2026-09-29T03:32:40.491Z"
+    },
+    {
+      "title": "Standing implementation roadmap / runtime-save-LLM-host security direction",
+      "url": "https://app.notion.com/p/3e220af901e081d98375f3fcd4a8d058",
+      "native_pin": "2026-09-27T07:27:48.079Z"
+    },
+    {
+      "title": "Canonical Role Registry v1",
+      "url": "https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a",
+      "native_pin": "2026-09-25T08:21:22.816Z"
+    },
+    {
+      "title": "Immutable Legacy Codex v1.2.9.2",
+      "url": "https://app.notion.com/p/3de20af901e081d4bf90c817f3cdc286",
+      "native_pin": "2026-09-17T02:57:25.703Z"
+    }
+  ],
+  "frozen_sources": [
+    {
+      "id": "F-014B",
+      "title": "Temporal Resolution",
+      "url": "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
+      "native_pin": "2026-09-25T23:42:29.547Z",
+      "primary_im": "IM-02"
+    },
+    {
+      "id": "F-014D",
+      "title": "Epistemic Access",
+      "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+      "native_pin": "2026-09-24T16:25:17.059Z",
+      "primary_im": "IM-10"
+    },
+    {
+      "id": "I-001",
+      "title": "Context-Adaptive Player Interface",
+      "url": "https://app.notion.com/p/3e220af901e081c6b0f2edcfefe9e4d2",
+      "native_pin": "2026-09-25T00:17:49.551Z",
+      "primary_im": "IM-13"
+    },
+    {
+      "id": "I-002",
+      "title": "Player Character Generation",
+      "url": "https://app.notion.com/p/5a520af901e0829eadb201bccd6c4718",
+      "native_pin": "2026-09-25T00:15:54.536Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "IR",
+      "title": "Player–World Insertion",
+      "url": "https://app.notion.com/p/3e320af901e081a3a669c1c0b842c9df",
+      "native_pin": "2026-09-25T00:17:26.287Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "NPK",
+      "title": "Narrative & Performance Kernel",
+      "url": "https://app.notion.com/p/3e320af901e081db854eef7c53de47a3",
+      "native_pin": "2026-09-25T00:18:32.532Z",
+      "primary_im": "IM-14"
+    },
+    {
+      "id": "WG",
+      "title": "World Generation",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-09-25T13:44:22.668Z",
+      "primary_im": "IM-03"
+    },
+    {
+      "id": "WS-001",
+      "title": "Population / Labor / Migration",
+      "url": "https://app.notion.com/p/3de20af901e081929b5df2337e4b2cf6",
+      "native_pin": "2026-09-25T23:42:28.770Z",
+      "primary_im": "IM-04"
+    },
+    {
+      "id": "WS-002",
+      "title": "KTI",
+      "url": "https://app.notion.com/p/3e720af901e081d1b9e9ce4bbe475268",
+      "native_pin": "2026-09-26T02:44:38.319Z",
+      "primary_im": "IM-09"
+    },
+    {
+      "id": "WS-003",
+      "title": "Production & Resources",
+      "url": "https://app.notion.com/p/3e020af901e0819aab34ebd5412b6338",
+      "native_pin": "2026-09-25T13:44:44.982Z",
+      "primary_im": "IM-05"
+    },
+    {
+      "id": "WS-004",
+      "title": "Economy / Exchange / Demand",
+      "url": "https://app.notion.com/p/3e220af901e081fa9d84caf71a4f4f01",
+      "native_pin": "2026-09-24T11:45:02.825Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-005",
+      "title": "Culture & Society",
+      "url": "https://app.notion.com/p/3e720af901e0813b82f5ca864ad8daff",
+      "native_pin": "2026-09-26T07:23:03.549Z",
+      "primary_im": "IM-09"
+    },
+    {
+      "id": "WS-006",
+      "title": "Named Actors",
+      "url": "https://app.notion.com/p/3e520af901e081619a59c069a36db420",
+      "native_pin": "2026-09-25T00:18:36.828Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "WS-007",
+      "title": "Government / Institutions / Politics",
+      "url": "https://app.notion.com/p/3e120af901e081c7ad5ecba62e11f521",
+      "native_pin": "2026-09-24T01:42:24.952Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-008",
+      "title": "Diplomacy",
+      "url": "https://app.notion.com/p/3e220af901e081fd8594d6f2e6c453f6",
+      "native_pin": "2026-09-24T07:01:45.312Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-009",
+      "title": "Military / Security",
+      "url": "https://app.notion.com/p/3e620af901e081248a12fde8dfa1538f",
+      "native_pin": "2026-09-25T20:39:44.035Z",
+      "primary_im": "IM-08"
+    },
+    {
+      "id": "WS-010",
+      "title": "Logistics",
+      "url": "https://app.notion.com/p/3e620af901e081e78415e03cda7cad12",
+      "native_pin": "2026-09-25T02:18:10.619Z",
+      "primary_im": "IM-05"
+    },
+    {
+      "id": "WS-011",
+      "title": "Autonomous Collective State",
+      "url": "https://app.notion.com/p/3e620af901e081ba85d2c8ef2d963223",
+      "native_pin": "2026-09-25T03:04:04.095Z",
+      "primary_im": "IM-07"
+    },
+    {
+      "id": "WS-012",
+      "title": "Intelligence / Covert Action classification",
+      "url": "https://app.notion.com/p/3e220af901e08148a334e565bf52d2ce",
+      "native_pin": "2026-09-24T12:14:21.325Z",
+      "primary_im": "IM-03"
+    },
+    {
+      "id": "WS-013",
+      "title": "Fiscal / Treasury classification",
+      "url": "https://app.notion.com/p/3e220af901e0816aa403e63f1b749541",
+      "native_pin": "2026-09-24T09:00:43.018Z",
+      "primary_im": "IM-06"
+    },
+    {
+      "id": "WS-014",
+      "title": "Health — Condition & Process",
+      "url": "https://app.notion.com/p/3e620af901e0817c8b1ac2caf852e3aa",
+      "native_pin": "2026-09-25T08:16:44.399Z",
+      "primary_im": "IM-08"
+    },
+    {
+      "id": "WS-015",
+      "title": "Cohort Reference Architecture",
+      "url": "https://app.notion.com/p/3e120af901e081069cacdd9dcca751ab",
+      "native_pin": "2026-09-20T15:53:58.732Z",
+      "primary_im": "IM-04"
+    },
+    {
+      "id": "WS-016",
+      "title": "Character Capability Protocol",
+      "url": "https://app.notion.com/p/3e220af901e08168b37ccee101d23e49",
+      "native_pin": "2026-09-24T17:38:59.210Z",
+      "primary_im": "IM-07"
+    }
+  ],
+  "implementation_authority_addenda": [
+    {
+      "id": "F-027-CD1",
+      "title": "F-027-CD1 Causal Draw Implementation-Authority Addendum v1.0 — Twenty-Fifth Blue Freeze — 2026-10-02",
+      "version": "v1.0",
+      "url": "https://app.notion.com/p/3ed20af901e08176abe1c203943294b1",
+      "native_pin": "2026-10-02T15:11:03.450Z",
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "supersedes": null,
+      "superseded_by": null,
+      "composition_note": "Candidate composed implementation authority is F-027 v1.0 + F-027-CD1 v1.0. Historical F-027 v1.0 is neither rewritten nor silently superseded; the package, tranches, frozen sources and every pin above are unchanged.",
+      "primary_im": "IM-12",
+      "governing_decision": {
+        "url": "https://app.notion.com/p/3ed20af901e08198a108d327b4a776ce",
+        "native_pin": "2026-10-02T13:52:36.839Z"
+      },
+      "preflight": {
+        "url": "https://app.notion.com/p/3ed20af901e081349d1bc09e76e40615",
+        "native_pin": "2026-10-02T14:05:02.361Z"
+      },
+      "review": {
+        "kind": "independent Red delta review",
+        "verdict": "PASS",
+        "scope": "this exact native pin",
+        "unchanged_since_clearance": true
+      },
+      "scope": "Neutral Causal Draw engine foundation only: CausalDrawKey and draw_id (CD-CANON-1), CausalDrawSpecification and CDS-02 normalization, the CDR-01 deterministic-first gate, CDE-01 secure 32-byte entropy and precommitment, CDA-01 IMMORTALIS_WEIGHTED_FINITE_V1, create-only precommit and result records under causal_draw_kernel / draw_provenance (infrastructure-only RC-09 evidence owner/facet), CDR-02 replay/recovery and CDV-01 historical algorithm verification.",
+      "does_not": [
+        "enable WS-016 BOUNDED_PRIOR_RANDOMIZED (it remains ESTABLISHMENT_UNCERTAINTY_UNSUPPORTED)",
+        "close GitHub Issue #11 (it remains OPEN)",
+        "resolve Legacy L-29, L-30 or L-31 (they remain Requires Decision)",
+        "define candidate meaning, causal weighting, resulting world-state effects, grades or EX semantics",
+        "add Temporal-specific stochastic mechanics, provider adoption, IA-07 work or PF-6/F-028"
+      ],
+      "source_validation": "Live Notion page fetched 2026-10-02; the page_last_edited_at value observed equals the cleared native pin above."
+    }
+  ],
+  "design_lineage_successors": [
+    {
+      "id": "R1-WG-LINEAGE",
+      "of_frozen_source": "WG",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T06:19:21.435Z",
+      "sections": [
+        "R1 Sovereign-Ratified Successor Amendment — NPC Locus Presence — 23 October 2026",
+        "R1 Stage-One v1.1 Sovereign-Ratified Successor — Setup Placement and Exclusive NPC Presence — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-TEMPORAL-LINEAGE",
+      "of_frozen_source": "F-014B",
+      "url": "https://app.notion.com/p/3e020af901e081fb88e9f691748db990",
+      "native_pin": "2026-10-23T06:19:22.288Z",
+      "sections": [
+        "R1 Sovereign-Ratified Interface Amendment — Physical Presence Temporal Read — 23 October 2026",
+        "R1 Stage-One v1.1 Ratified Temporal Cutoff and Read — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-EPISTEMIC-LINEAGE",
+      "of_frozen_source": "F-014D",
+      "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+      "native_pin": "2026-10-23T06:20:01.146Z",
+      "sections": [
+        "R1 Ratified Upstream Physical-Presence Boundary — 23 October 2026",
+        "R1 Stage-One v1.1 Ratified Prerequisite for Non-PC Direct Perception — 23 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input."
+    },
+    {
+      "id": "R1-PC-CUSTODY-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+      "native_pin": "2026-10-23T06:20:02.171Z",
+      "sections": ["R1 Stage-One v1.1 Ratified Handover Exclusion Overlay — 23 October 2026"],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It records that these sections exist and are ratified; it is not implementation authority, it never replaces, narrows or silently supersedes the frozen pin it extends, and the page's newer whole-page timestamp is not a build input. It is a governance-source page with no F-027 frozen-source entry; it composes with the prior frozen 8 October 2026 Active-PC Post-Handover Physical Locus Ownership & Relocation Contract, which stays the ownership rule it already is and is not added to the frozen pins or the addenda."
+    },
+    {
+      "id": "PC-CURRENT-LOOK-PREMISE-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/3f320af901e08166ad96ca0fc5e5069d",
+      "native_pin": "2026-10-31T03:34:15.074Z",
+      "sections": [
+        "Active-PC Current-Look Physical Premise — Sovereign-Ratified Additive Section — 31 October 2026"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified design lineage only. It is not executable authority and does not re-pin that page as a frozen source."
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1",
+      "native_pin": "2026-11-01T12:13:42.692Z",
+      "sections": [
+        "Purpose",
+        "Authority",
+        "Initial Setup",
+        "Authorship and Delegation",
+        "Chronology",
+        "Isolated Generation",
+        "Scene Premises",
+        "Placement and Preparation",
+        "Pending Intent and Action",
+        "Publication and Legacy Continuity",
+        "Acceptance and Release"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Section-scoped, Sovereign-ratified (CORE_V9, 2026-11-02T15:46:21.719Z) design lineage only. It is not executable authority, does not re-pin any page as a frozen source and does not recover or re-pin the historical WG snapshot. It does not include the separately headed Initial Scene Exception."
+    },
+    {
+      "id": "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1",
+      "native_pin": "2026-11-01T12:13:42.692Z",
+      "sections": ["Initial Scene Exception"],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "related_cpaa": {
+        "url": "https://app.notion.com/p/3fb20af901e08115b141f5e2e55ca37e",
+        "native_pin": "2026-10-16T07:19:16.351Z",
+        "ratification": {
+          "url": "https://app.notion.com/p/3fb20af901e08124a6a8fe243b2ec351",
+          "native_pin": "2026-10-16T07:56:18.556Z"
+        }
+      },
+      "scoped_precedence": "INITIAL_COMPLETION_V9_ONLY",
+      "other_cpaa_clauses": "UNCHANGED",
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40c20af901e081d7999be2b4f317c70a",
+        "native_pin": "2026-11-02T15:46:21.719Z"
+      },
+      "note": "The separately ratified OPTION_A_V9 scope (2026-11-02T15:46:21.719Z). Precedence applies only to the explicit INITIAL_COMPLETION_V9 derivation branch; CPAA-C1 v0.3 F-2 through F-5 and all other clauses are unchanged."
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "sections": [
+        "C-1 — exact producer identity and one model echo",
+        "C-2 — the v0.9 one-source Selection provenance"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40d20af901e081ea9235df051dbf9908",
+        "native_pin": "2026-11-03T00:54:41.601Z"
+      },
+      "note": "Section-scoped, Sovereign-ratified clarification of the v0.9 CORE_V9 contract (BLUE C-1/C-2 v0.4, RED PASS pin 2026-11-03T00:42:43.420Z, CE-1/CE-2/CE-3 incorporated). It amends neither the ratified v0.9 source nor the executable companion pages, does not re-pin any frozen source and is not itself executable authority; its executable consequences are registered additively by GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING."
+    }
+  ],
+  "executable_lowerings": [
+    {
+      "id": "R1-STAGE-ONE-V1.1-LOWERING",
+      "title": "R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T09:27:39.157Z",
+      "section": "R1 Stage-One v1.1 — BLUE executable lowering freeze and bounded construction authority — 23 October 2026",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "R1-WG-LINEAGE",
+        "R1-TEMPORAL-LINEAGE",
+        "R1-EPISTEMIC-LINEAGE",
+        "R1-PC-CUSTODY-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": ["actor_setup_placement", "world_setup_closure", "actor_physical_presence"],
+      "scope": "First-stage non-PC actor physical presence mechanism only: B1 actor_setup_placement (SEALED setup evidence), the once-per-world world_setup_closure, and the first-version-only ADVANCING B2 actor_physical_presence, with the setup-eligibility predicate, the narrow historical replay verification, the fail-closed load of an R1-bearing journal and the exact-identity physical-custody exclusions.",
+      "does_not": [
+        "enable any sensory faculty, Health close, acoustic coverage or true NPC perception positive (PR #84 H1 remains STOP)",
+        "change deriveActorObservation or its coupling-as-position premise",
+        "add an operator, Temporal-establishment or caller-authentication command (OB-016/IA-28 unresolved)",
+        "permit NPC movement, a second current locus, a successor presence or an NPC->PC handover of a presence-bearing actor",
+        "supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins"
+      ]
+    },
+    {
+      "id": "S1-P1-WG-LOWERING",
+      "title": "S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026",
+      "url": "https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d",
+      "native_pin": "2026-10-23T12:26:49.599Z",
+      "section": "S1-P1 — BLUE executable lowering freeze: paired W1 raw-hearing and W2 acoustic-source premises — 23 October 2026, with its S1-P1 emitter-source executability clarification",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": ["actor_raw_sensory_state", "world_acoustic_emission"],
+      "extends_fact_kinds": [
+        {
+          "kind": "world_locus",
+          "field": "acoustic_profile_v1",
+          "optional": true
+        }
+      ],
+      "consumer_boundary": {
+        "url": "https://app.notion.com/p/3e020af901e08103b81aec5f7119318e",
+        "native_pin": "2026-10-23T12:28:14.041Z",
+        "section": "S1-P1 Upstream Auditory Premises Consumer Boundary — BLUE technical alignment — 23 October 2026",
+        "role": "physical-input consumer boundary only; F-014D is not a writer in this slice"
+      },
+      "scope": "Paired World-State physical-source premises for one non-PC actor, one existing locus and one bounded airborne-sound emission, as one mechanism-only owner slice: the OPTIONAL typed acoustic_profile_v1 (with its mandatory environmental_emitter_basis) on the existing strict world_locus, authored only before the world's setup closure; the first-version-only ADVANCING W1 actor_raw_sensory_state; the create-only SEALED W2b world_acoustic_emission; their admission, the narrow historical replay verification, the fail-closed load of a P1-bearing journal; and the pure read-only S1 P1 Auditory Premises derivation (SOURCE_PREMISES_READY_FOR_HEALTH, a coded refusal, or a coded UNRESOLVED). The earlier BLUE-frozen S1 World-State physical-source owner boundary is the design context this lowers; no separate lineage row is recorded for it.",
+      "does_not": [
+        "produce a Health Sensory Function Close or any Health AVAILABLE, IMPAIRED or UNKNOWN result, or infer one from an empty Health ledger",
+        "produce an F-014D access or dissemination event, access packet, individual receipt, retention, PERCEIVED event or actor knowledge, or treat a singleton BOUNDED_SHARED_ACCESS or BROADCAST_EXPOSURE as an individual hearing verdict",
+        "enable NPC observation, actor eyesight or line of sight, position-dependent or directional acoustics, neighbouring-locus propagation, attenuation, duration, recurrence or an actor-initiated emission",
+        "add an operator command, host operation, endpoint, player-visible rendering or any public make-actor-hear command",
+        "change the R1 Stage-One lowering, its design lineage, its presence semantics or its non-receipt conformance, or supersede or narrow F-027 v1.0, F-027-CD1 or any of the 23 frozen pins",
+        "close H1, reach First Playable, or touch the held PR #72 and PR #73"
+      ]
+    },
+    {
+      "id": "PC-CURRENT-LOOK-WORLD-LOWERING",
+      "title": "IMMORTALIS — F-027 Current-Look / GM-Scene Executable Lowering Source v0.8 — 2026-10-31",
+      "url": "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+      "native_pin": "2026-10-31T06:30:53.024Z",
+      "section": "§3A — Frozen executable lowering: World-State current-look premise",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": ["PC-CURRENT-LOOK-PREMISE-LINEAGE"],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "fact_kinds": ["world_pc_current_viewing"],
+      "scope": "Only the sealed GM_SCENE_RESOLUTION Referee verdict VIEWING_SUPPORTED for an ordinary LOOK at one exact pc_id, canonical observed_at instant and five pinned PC/binding/custody/world/locus versions permits the lawful physical owner to publish one sparse, SEALED, create-only world_pc_current_viewing fact with exact ruling provenance. That fact is the owner-published current-viewing feasibility circumstance only. It is not a position, facing, sightline, eye-state, sensory-function, target visibility, source appearance, perception, recipient knowledge or Health fact.",
+      "does_not": [
+        "does not replace, narrow, supersede or restate any of the 23 frozen F-027 source pins or the original WG/F-014D citations",
+        "does not originate new GM-owned physical, position, target-visibility, Health, Epistemic, or intrinsic PC facts",
+        "does not enable a legacy reader, a journal cutover, read-either acceptance, or a migration",
+        "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance"
+      ]
+    },
+    {
+      "id": "GM-CURRENT-LOOK-SCENE-LOWERING",
+      "title": "IMMORTALIS — F-027 Current-Look / GM-Scene Executable Lowering Source v0.8 — 2026-10-31",
+      "url": "https://app.notion.com/p/40a20af901e081ae900fe03017f25640",
+      "native_pin": "2026-10-31T06:30:53.024Z",
+      "section": "§3B — Frozen executable lowering: Referee ordinary-look scene decision",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": ["PC-CURRENT-LOOK-PREMISE-LINEAGE"],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-12",
+      "fact_kinds": ["referee_decision"],
+      "operation": "GM_SCENE_RESOLUTION",
+      "scope": "The existing GM_SCENE_RESOLUTION alternate value class only of referee_decision is a create-only, sealed Referee record adjudicated through role.gm and permission.rule.adjudicate at the trusted operation. The scene decision is RC-09/IM-12 adjudication provenance, not a physical-truth, source-description, sensory-receipt or PC-knowledge ledger.",
+      "does_not": [
+        "does not replace, narrow, supersede or restate any of the 23 frozen F-027 source pins or the original WG/F-014D citations",
+        "does not originate new GM-owned physical, position, target-visibility, Health, Epistemic, or intrinsic PC facts",
+        "does not enable a legacy reader, a journal cutover, read-either acceptance, or a migration",
+        "does not settle historical L5/F014D-6-MAIN, Health S1, H3/D-2, H-07, or live host, named-client and retained-storage acceptance",
+        "does not lock the referee_decision kind-level REFEREE_RULE, its referee_adjudication_kernel owner, referee_provenance facet or key space, all of which remain under B61-A3 with the base rule sovereign-approved-not-native-pinned-not-spec-locked; does not modify REFEREE_PHYSICAL_RULE or REFEREE_OBSERVATION_RULE or license their operations through GM_SCENE_RESOLUTION"
+      ]
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+      "title": "IMMORTALIS — Initial Locality Bootstrap v0.9 — Consolidated Executable Contract — 2026-11-01",
+      "url": "https://app.notion.com/p/40b20af901e08198abdacb340e3507df",
+      "native_pin": "2026-11-01T12:13:53.634Z",
+      "section": "Common Types through Verification",
+      "scope": "CORE_V9_EXCLUDING_OPTIONAL_SCENE_PROJECTION_RULES",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": ["GM-INITIAL-BOOTSTRAP-V9-LINEAGE"],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "operation": "INITIAL_LOCALITY_COMPLETION_V9",
+      "fact_kinds": [
+        "initial_setup_input",
+        "initial_setup_invocation",
+        "initial_setup_response",
+        "initial_setup_grant",
+        "initial_locality_completion",
+        "initial_setup_disposition",
+        "referee_decision",
+        "temporal_state"
+      ],
+      "scope_operation": "WG_INITIAL_DELEGATION_CLASSIFY",
+      "scope_host": "gm-initial-scope",
+      "scope_channel": "PRIVATE_ISOLATED_RUNNER",
+      "parser": "INITIAL_LOCALITY_PARSER_V1",
+      "projection": "GENESIS_WHITELIST_NO_BOOTSTRAP_HISTORY",
+      "chronology": "RECORD_ONLY_CAPTURE_AND_STATE_PRECONDITION_V9",
+      "temporal_owner": "temporal_kernel/temporal_coordination",
+      "temporal_precondition": "bootstrapInitialTimePrecondition",
+      "temporal_writer": "initialize-captured-chronology",
+      "reservation": "CANONICAL_BEFORE_INVOCATION_NO_NEGATIVE_VOID",
+      "dispatch_join": "V2_COLLECTION_DISPATCH_REF_IN_SAME_RECORD",
+      "dispatch_trigger": "LIVE_CONTINUE_PENDING_GOAL_ONLY",
+      "expiry": "ORIGINAL_VERIFIED_ACCESS_TOKEN_EXPIRY_NO_REFRESH_EXTENSION",
+      "revocation": "ALL_OAUTH_ACCESS_AND_REFRESH_FAIL_CLOSED",
+      "option_a_status": "ADOPTED",
+      "adoption_decision": {
+        "url": "https://app.notion.com/p/40c20af901e081d7999be2b4f317c70a",
+        "native_pin": "2026-11-02T15:46:21.719Z"
+      },
+      "replay": "CANONICAL_PREFIX_ENROLLMENT_AUTHENTICITY_NOT_INDEPENDENTLY_PROVEN",
+      "does_not": [
+        "does not inherit executable text from v0.1 through v0.8",
+        "does not recover or re-pin frozen historical sources",
+        "does not treat authenticated model arguments as original human-message evidence",
+        "does not run a reserved invocation twice or use negative void proofs",
+        "does not dispatch delayed actions from background or status reads",
+        "does not pre-allocate collection act IDs or adopt same-shape orphan intents",
+        "does not enable the separately optional F-1 exception without its ratification rows",
+        "does not migrate or relabel old readers or promote IA/V/PF-6/F-028",
+        "does not certify a production driver, original-message intake or deployed natural play"
+      ]
+    },
+    {
+      "id": "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
+      "title": "IMMORTALIS — Initial Locality Bootstrap v0.9 — Consolidated Executable Contract — 2026-11-01",
+      "url": "https://app.notion.com/p/40b20af901e08198abdacb340e3507df",
+      "native_pin": "2026-11-01T12:13:53.634Z",
+      "section": "CPAA Projection and Canonical Sunset",
+      "scope": "OPTION_A_V9_ONLY",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
+        "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "operation": "INITIAL_COMPLETION_V9",
+      "fact_kinds": ["world_scene_closure", "population_workforce_scope"],
+      "sunset": "REGISTRY_COMPLETE_FAIL_CLOSED_POLICY_AT_HISTORICAL_PREFIX",
+      "sunset_policy": "BOOTSTRAP_SUNSET_POLICY_V9",
+      "sunset_unknown": "UNREVIEWED_BLOCK",
+      "sunset_missing_row": "VALIDATION_FAILURE",
+      "policy_coverage": "ALL_FACT_KINDS_EXACT_SET_NO_SYNTHESIZED_ROWS"
+    },
+    {
+      "id": "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+      "title": "IMMORTALIS — BLUE C-1/C-2 Clarification v0.4 — Activation, Terminal Evidence and Fixed-Source Feasibility — 2026-11-03",
+      "url": "https://app.notion.com/p/40d20af901e081309889e8333d2a9286",
+      "native_pin": "2026-11-03T00:51:23.053Z",
+      "section": "C-1 and C-2",
+      "scope": "C1_C2_CLARIFICATION_V0_4",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "AMENDS_ADDITIVELY",
+      "amends": {
+        "id": "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
+        "native_pin": "2026-11-01T12:13:53.634Z"
+      },
+      "cites_design_lineage": ["GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE"],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "producer_identity": "P_H_T_D_NON_CIRCULAR_BYTE_EQUAL_DELIVERY",
+      "model_echo": "TASK_ID_ONLY_NO_INPUT_HASH_HEADER",
+      "parser_current": "INITIAL_LOCALITY_PARSER_V2",
+      "parser_frozen": "INITIAL_LOCALITY_PARSER_V1",
+      "parser_frozen_reader": "FIXTURE_NAMESPACED_JOURNALS_ONLY_VIA_TESTKIT_VERIFIER",
+      "provenance_profile": "INITIAL_LOCALITY_PROVENANCE_V1",
+      "instruction_registry": "IMMUTABLE_COMPLETE_MAPS_KEYED_BY_INSTRUCTION_HASH",
+      "instruction_hashes": {
+        "INITIAL_LOCALITY_PARSER_V1": "2f5814308d45b7a3ac692cca904a4df7b5a6a06cadee62b3792bf2673d864543",
+        "INITIAL_LOCALITY_PARSER_V2": "de40650cfbd2f2747c8984bb4715024f8f7915c9ce754985c973cda68ef43c7a"
+      },
+      "context_manifest": "SHA256_OF_EXACT_PHASE_INSTRUCTIONS_AND_SHA256_OF_D",
+      "manifest_mismatch": "INVALID_OUTPUT_CONTEXT_MANIFEST_MISMATCH_RETAINS_RESPONSE",
+      "unverifiable_source": "FAIL_CLOSED_NEVER_A_PROVED_MISMATCH",
+      "selection_leaf_grammar": "CLOSED_INDEXED_TWELVE_PATHS_PLUS_ONE_PER_CONSTRAINT_AND_NON_NULL_CLAIMANT",
+      "chronology_exception": "COVERAGE_START_ONLY_EXACT_CAPTURED_STATEMENT",
+      "fixed_source_feasibility": "SCOPE_VERDICT_AND_GRANT_ADMISSION_SCOPE_REFUSED_REJECTION_CODE_NULL",
+      "history_verification": "ONE_TRANSITION_PARSER_V2_PROVENANCE_V1_C1C2_PIN",
+      "does_not": [
+        "does not amend the ratified v0.9 source or executable companion pages",
+        "does not admit a production parser V1 route or a read-either reader",
+        "does not prove a quotation's meaning, an interpretation's correctness or a favourable scene",
+        "does not promote any fixture evidence to T2 or T3 acceptance"
+      ]
+    }
+  ],
+  "snapshot_files": {
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
+  },
+  "hash_algorithm": "sha256 over file bytes with CRLF normalized to LF",
+  "snapshot_commit": null,
+  "snapshot_commit_note": "A commit cannot contain its own SHA. The reviewed PR head SHA and the resulting main commit are recorded in the PR/release evidence (Bootstrap Plan §6, §12 step 9).",
+  "supersedes": null,
+  "superseded_by": null,
+  "source_validation": {
+    "performed_against": "Live Notion pages fetched 2026-09-29 for the package, both tranches and the Bootstrap Plan; pins above are the page_last_edited_at values observed.",
+    "frozen_source_pins_basis": "Copied from Runtime/Translation v0.2 §4 as carried by F-027; the 23 frozen pages themselves were not re-fetched at bootstrap."
+  },
+  "rules": [
+    "'latest Notion' is never an implicit build input.",
+    "A newer timestamp does not silently supersede this lock.",
+    "Changing this file is a substantive PR requiring exact-version review.",
+    "Code built against a different spec lock is a different review object.",
+    "An implementation-authority addendum composes with the package it names; it never rewrites or silently supersedes it, and its exact native pin is the only version the repository builds against.",
+    "A design-lineage successor records that a section of an already-frozen source (or of an existing governance source) is ratified; it is never executable authority, never replaces, narrows or silently supersedes a frozen pin, and its newer whole-page native pin is not a build input. An executable lowering composes with the package, cites the design lineage it lowers, and is the only recorded executable authority for the R1 stage-one presence chain."
+  ]
+}

@@ -27,6 +27,25 @@ export interface SunsetPolicyRow {
   readonly effect: string;
 }
 
+/** Restrictive additive delta under M-S v0.8 v0.3 @ 2026-11-09T00:43:08.394Z, C7/N-8. */
+export const MS_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] = [
+  {
+    kind: "initial_actor_setup_issue",
+    policy: "UNREVIEWED_BLOCK",
+    effect: "Identity-only setup evidence supplies no solitude, workforce or rights premise.",
+  },
+  {
+    kind: "initial_actor_setup_response",
+    policy: "UNREVIEWED_BLOCK",
+    effect: "Identity-only setup evidence supplies no solitude, workforce or rights premise.",
+  },
+  {
+    kind: "named_actor_existence_basis",
+    policy: "UNREVIEWED_BLOCK",
+    effect: "Identity-only setup evidence supplies no solitude, workforce or rights premise.",
+  },
+];
+
 export const BOOTSTRAP_SUNSET_POLICY_V9: readonly SunsetPolicyRow[] = [
   {
     kind: "actor_physical_presence",
@@ -568,4 +587,9 @@ export const BOOTSTRAP_SUNSET_POLICY_V9: readonly SunsetPolicyRow[] = [
     effect:
       "No direct solitude sunset from lawful source drawdown/delivery; all source, conservation and actual foreign-engagement/admission refusals remain effective.",
   },
+];
+
+export const BOOTSTRAP_SUNSET_POLICY_MS_V08: readonly SunsetPolicyRow[] = [
+  ...BOOTSTRAP_SUNSET_POLICY_V9,
+  ...MS_SUNSET_POLICY_DELTA,
 ];

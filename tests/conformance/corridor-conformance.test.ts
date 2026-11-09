@@ -108,6 +108,7 @@ describe("the corridor reuses the existing World-State owner and facet and adds 
       [
         "world_fallback_physical_entity",
         // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
+        "world_initial_actor_setup",
         "world_initial_setup",
         "world_locus",
         "world_profile",

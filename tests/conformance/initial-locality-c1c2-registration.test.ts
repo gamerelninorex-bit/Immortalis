@@ -35,12 +35,12 @@ const row = (list: string, id: string) => lock[list].find((r: any) => r.id === i
 describe("the C-1/C-2 clarification is registered additively and bound to the code", () => {
   it("appends exactly one lineage row and one lowering row after the four v0.9 rows, leaving those rows' ids and order intact", () => {
     const ids = (k: string) => lock[k].map((r: any) => r.id);
-    expect(ids("design_lineage_successors").slice(-3)).toEqual([
+    expect(ids("design_lineage_successors").slice(-4, -1)).toEqual([
       "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
       BOOTSTRAP_C1C2_LINEAGE_ID,
     ]);
-    expect(ids("executable_lowerings").slice(-3)).toEqual([
+    expect(ids("executable_lowerings").slice(-4, -1)).toEqual([
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
       BOOTSTRAP_C1C2_LOWERING_ID,
@@ -94,7 +94,7 @@ describe("the C-1/C-2 clarification is registered additively and bound to the co
     const prod = canonicalAdmission.historyVerificationId!;
     const fixture = fixtureCanonicalAdmission.historyVerificationId!;
     expect(fixture).not.toBe(prod);
-    expect(fixture.startsWith(prod)).toBe(true);
+    expect(fixture.replace("+fixture-evidence-t1", "") === prod).toBe(true);
   });
 });
 
@@ -117,7 +117,9 @@ describe("the checker refuses a tampered or missing registration", () => {
     expect(checkBootstrapC1C2(missing.lineage, missing.lowerings).length).toBeGreaterThan(0);
 
     const dup = copy();
-    dup.lineage.push(structuredClone(dup.lineage.at(-1)!));
+    dup.lineage.push(
+      structuredClone(dup.lineage.find((r) => r["id"] === BOOTSTRAP_C1C2_LINEAGE_ID)!),
+    );
     expect(checkBootstrapC1C2(dup.lineage, dup.lowerings).length).toBeGreaterThan(0);
 
     const extra = copy();

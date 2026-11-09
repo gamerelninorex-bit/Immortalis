@@ -778,6 +778,32 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey:
       "world/w1/locus/l1/initial-setup/0000000000000000000000000000000000000000000000000000000000000000/disposition",
   },
+  {
+    id: "initial_actor_setup_issue",
+    owner: "world_state",
+    facet: "world_initial_actor_setup",
+    lifecycle: "SEALED",
+    group: "MS_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-actor/0000000000000000000000000000000000000000000000000000000000000000/issue",
+  },
+  {
+    id: "initial_actor_setup_response",
+    owner: "world_state",
+    facet: "world_initial_actor_setup",
+    lifecycle: "SEALED",
+    group: "MS_FACT_KINDS",
+    exampleKey:
+      "world/w1/locus/l1/initial-actor/0000000000000000000000000000000000000000000000000000000000000000/response",
+  },
+  {
+    id: "named_actor_existence_basis",
+    owner: "named_actor",
+    facet: "actor_existence",
+    lifecycle: "SEALED",
+    group: "MS_FACT_KINDS",
+    exampleKey: "named-actor/a1/existence-basis",
+  },
 ];
 
 /** The owner → facet registration, written out independently of the kind table above. */
@@ -789,6 +815,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
     "world_source_condition",
     "world_scene_closure",
     "world_initial_setup",
+    "world_initial_actor_setup",
   ],
   pc_existence: [
     "existence_contract",
@@ -803,7 +830,7 @@ export const EXPECTED_OWNER_FACETS: Readonly<Record<string, readonly string[]>> 
   production: ["production_state"],
   economy: ["economy_state"],
   logistics: ["logistics_state"],
-  named_actor: ["actor_profile"],
+  named_actor: ["actor_profile", "actor_existence"],
   epistemic_access: ["epistemic_access"],
   kti: ["kti_development"],
   culture: ["culture_social"],

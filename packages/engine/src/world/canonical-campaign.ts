@@ -57,6 +57,9 @@ import {
 } from "@immortalis/contracts";
 import type { FactKindId } from "../owners/registry.ts";
 import { canonicalAdmission } from "../owners/admission.ts";
+import { msCanonicalAdmission } from "../owners/admission.ts";
+import type { InitialSetupPolicy } from "../initial-setup/admission.ts";
+import { verifyMsIntegrity } from "../ms-setup/integrity.ts";
 import {
   storeBindings,
   type ExtensionErrorCode,
@@ -249,10 +252,15 @@ export class CanonicalCampaign {
       extension?: StageOwnerExtension;
       /** TESTKIT-ONLY (see `storeBindings`): the T1 fixture admission. Production never supplies it. */
       testkitFixtureAdmission?: WriteAdmission;
+      msActorBinding?: InitialSetupPolicy["msActorBinding"];
     },
   ): Promise<Result<CanonicalCampaign, CanonicalCreateCode>> {
-    const { extension, testkitFixtureAdmission, ...rest } = params;
-    const bindings = storeBindings(extension, testkitFixtureAdmission);
+    const { extension, testkitFixtureAdmission, msActorBinding, ...rest } = params;
+    const bindings = storeBindings(
+      extension,
+      testkitFixtureAdmission ??
+        (msActorBinding ? msCanonicalAdmission(msActorBinding) : undefined),
+    );
     if (!bindings.ok) return bindings;
     const created = await createFileCampaign(dir, { ...rest, ...bindings.value });
     return created.ok ? ok(new CanonicalCampaign(created.value, extension)) : created;
@@ -268,10 +276,15 @@ export class CanonicalCampaign {
       extension?: StageOwnerExtension;
       /** TESTKIT-ONLY (see `storeBindings`): the T1 fixture admission. Production never supplies it. */
       testkitFixtureAdmission?: WriteAdmission;
+      msActorBinding?: InitialSetupPolicy["msActorBinding"];
     } = {},
   ): Promise<Result<CanonicalCampaign, CanonicalOpenCode>> {
-    const { extension, testkitFixtureAdmission, ...rest } = options;
-    const bindings = storeBindings(extension, testkitFixtureAdmission);
+    const { extension, testkitFixtureAdmission, msActorBinding, ...rest } = options;
+    const bindings = storeBindings(
+      extension,
+      testkitFixtureAdmission ??
+        (msActorBinding ? msCanonicalAdmission(msActorBinding) : undefined),
+    );
     if (!bindings.ok) return bindings;
     const opened = await openFileCampaign(dir, {
       ...rest,
@@ -921,6 +934,7 @@ function verifyAll(
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),
     ...verifyActorPresenceIntegrity(store),
+    ...verifyMsIntegrity(store),
     ...verifyAuditoryPremisesIntegrity(store),
     ...verifyPcPhysicalLocusCustodyIntegrity(store),
     ...verifySceneIntegrity(store),

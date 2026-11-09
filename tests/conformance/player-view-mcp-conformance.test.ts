@@ -149,6 +149,8 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "chronology-capture.ts",
         "initial-runner.ts",
         "initial-setup.ts",
+        "ms-actor-runner.ts",
+        "ms-initial-actor.ts",
         "protected-store.ts",
         ...NEW_MODULES,
       ].sort(),

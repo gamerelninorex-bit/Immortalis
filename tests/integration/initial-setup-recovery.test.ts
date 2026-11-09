@@ -18,6 +18,7 @@ import {
   TemporalCoordinator,
   fixtureCanonicalAdmission,
   initializeCapturedChronology,
+  bootstrapInitialTimePrecondition,
   scanInitialSetup,
 } from "@immortalis/engine";
 import {
@@ -290,7 +291,8 @@ describe("the Temporal guard: a bootstrap-bearing prefix initializes time only f
     // a prefix with no Completion rejects even the right time (checked on a state without the Completion)
     const noCompletion = new Map(state.facts);
     noCompletion.delete(completion.key);
-    const early = fixtureCanonicalAdmission.verifyHistorical!(
+    // The owner precondition still gives NO_COMPLETION. The generic C5 fence separately refuses an unbound copied state.
+    const early = bootstrapInitialTimePrecondition(
       group({ unit: "seconds", value: 0 }) as any,
       {
         ...state,

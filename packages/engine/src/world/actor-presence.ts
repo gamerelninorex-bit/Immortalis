@@ -1,4 +1,5 @@
 import {
+  namedActorExistenceBasisKey,
   ActorPhysicalPresenceSchema,
   ActorSetupPlacementSchema,
   ExistingActorCouplingSchema,
@@ -20,6 +21,13 @@ import {
   type OwnerFact,
   type WorldSetupClosure,
 } from "@immortalis/contracts";
+import { msR1GroupCheck } from "../ms-setup/r1.ts";
+import { isMsCompletionRule } from "../ms-setup/prefix.ts";
+import {
+  MS_R1_PLACEMENT_V1_RULE,
+  MS_R1_CLOSURE_V1_RULE,
+  MS_R1_PRESENCE_V1_RULE,
+} from "../ms-setup/rules.ts";
 import { actorBoundaryViolation, existingActorSourceViolation } from "../actor/derive.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
@@ -317,6 +325,16 @@ export function worldActorPresenceGroupCheck(
   }
   const w = group.writes[0]!;
   const kind = resolveKeyKind(w.key);
+  const msRule = [MS_R1_PLACEMENT_V1_RULE, MS_R1_CLOSURE_V1_RULE, MS_R1_PRESENCE_V1_RULE].some(
+    (r) => canonicalEqual(r, group.rule),
+  );
+  const msSource = [...state.facts.values()].some((f) => isMsCompletionRule(f.provenance.rule));
+  if (msRule || msSource) return msR1GroupCheck(group, state);
+  if (
+    (kind === "actor_setup_placement" || kind === "actor_physical_presence") &&
+    state.facts.has(namedActorExistenceBasisKey((w.value as { actor_id: string }).actor_id))
+  )
+    return refInvalid("an MS existence basis cannot enter the legacy R1 route");
   if (kind === "actor_setup_placement") {
     const p = ActorSetupPlacementSchema.parse(w.value);
     const missing = pinAll(group, state, [

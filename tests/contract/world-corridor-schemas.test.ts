@@ -121,6 +121,7 @@ describe("the registered kind", () => {
       [
         "world_fallback_physical_entity",
         // Initial Locality Bootstrap v0.9 (CORE_V9): the sealed bootstrap records are one more facet of the same owner
+        "world_initial_actor_setup",
         "world_initial_setup",
         "world_locus",
         "world_profile",

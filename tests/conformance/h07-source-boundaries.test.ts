@@ -18,8 +18,6 @@ const unchanged = {
     "3aba7a80634026009c1e3331f9d676b784452b0ee072d4aae2233425b4d1d265",
   "packages/contracts/src/commit.ts":
     "a99df55a0c1efbe2ab366a0d3d55cea52496a0ed1e0cdf5974e37c5a8f20d2c8",
-  "packages/engine/src/world/actor-presence.ts":
-    "e26e2cc5018c36a1dc401de2fb3545171f8684570ade41ff595247c6ca29d46e",
   "packages/engine/src/world/auditory-premises.ts":
     "4de3420c206f0522a7af3221912fccdf9e3189facff7ffe8a4dbf3c28fdac6e6",
 };

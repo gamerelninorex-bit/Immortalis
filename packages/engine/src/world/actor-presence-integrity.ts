@@ -8,6 +8,12 @@ import {
   type CommitGroup,
   type OwnerFact,
 } from "@immortalis/contracts";
+import {
+  MS_R1_PLACEMENT_V1_RULE,
+  MS_R1_CLOSURE_V1_RULE,
+  MS_R1_PRESENCE_V1_RULE,
+} from "../ms-setup/rules.ts";
+import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import {
@@ -37,7 +43,13 @@ import type { IntegrityViolation } from "./integrity.ts";
 export function verifyActorPresenceIntegrity(store: CampaignStore): readonly IntegrityViolation[] {
   const out: IntegrityViolation[] = [];
   const all = store.listFacts();
-  const chain = all.filter(isActorPresenceChainFact);
+  const chain = all.filter(
+    (f) =>
+      isActorPresenceChainFact(f) &&
+      ![MS_R1_PLACEMENT_V1_RULE, MS_R1_CLOSURE_V1_RULE, MS_R1_PRESENCE_V1_RULE].some((r) =>
+        canonicalEqual(r, f.provenance.rule),
+      ),
+  );
   if (chain.length === 0) return out;
 
   const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));

@@ -195,3 +195,17 @@ export * from "./pc-collection/state.ts";
 export * from "./pc-movement/derive.ts";
 export * from "./pc-movement/integrity.ts";
 export * from "./world/physical-subject.ts";
+export * from "./ms-setup/rules.ts";
+export * from "./ms-setup/protocol.ts";
+export * from "./ms-setup/prefix.ts";
+export * from "./ms-setup/admission.ts";
+export * from "./ms-setup/r1.ts";
+export {
+  inspectMsFenceView,
+  msFenceMetrics,
+  msFenceCheck,
+  msFenceFullCheck,
+} from "./ms-setup/fence.ts";
+export type { MsFenceView } from "./ms-setup/fence.ts";
+export * from "./ms-setup/integrity.ts";
+export * from "./ms-setup/publisher.ts";

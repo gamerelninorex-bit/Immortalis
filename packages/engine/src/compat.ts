@@ -4,6 +4,19 @@ import { BUILD_SPEC_IDENTITY, runtimeContractSha256 } from "@immortalis/contract
 export const BUILD_RUNTIME_CONTRACT_SHA256 = runtimeContractSha256(BUILD_SPEC_IDENTITY) as string;
 
 /**
+ * M-S v0.8 is an additive source-qualified lowering within the unchanged RC/IM snapshot.
+ * Existing no-MS campaigns retain their original values/rules/receipts. The exact new companion/profile
+ * changes historyVerificationId, so old checkpoint policy evidence forces strict replay; it never licenses
+ * a source re-pin, migration, rule relabel, historical MS branch or checkpoint bypass.
+ */
+export const MS_RUNTIME_COMPATIBILITY = Object.freeze({
+  runtime_contract_sha256: "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+  lowering: "MS-SETUP-V08-LOWERING",
+  source_pin: "2026-11-09T00:43:08.394Z",
+  historical_policy: "STRICT_REPLAY_ON_POLICY_CHANGE",
+});
+
+/**
  * Runtime Contract snapshots written BEFORE the Initial Locality Bootstrap v0.9 surfaces existed. A campaign created under one of these
  * keeps living under it: this build opens, replays and extends it, but under `legacyContractAdmission`, which REFUSES every v0.9
  * surface (the six bootstrap record kinds, the WG_INITIAL_DELEGATION Referee branch and the OPTION_A_V9 projection rules). The
