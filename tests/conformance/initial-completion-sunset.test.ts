@@ -119,7 +119,15 @@ const REVIEWED: Readonly<Record<string, string>> = {
   world_source_condition: "SELECTED_SOURCE_FIELDS",
   world_source_delivery: "OWNER_CHECKS_ONLY",
 };
-const ids = ALL_FACT_KINDS.map((k) => k.id);
+// Preserve the independently reviewed ninety-row V9 table; the additive MS exact-set test covers all ninety-three.
+const ids = ALL_FACT_KINDS.map((k) => k.id).filter(
+  (k) =>
+    ![
+      "initial_actor_setup_issue",
+      "initial_actor_setup_response",
+      "named_actor_existence_basis",
+    ].includes(k),
+);
 
 describe("BOOTSTRAP_SUNSET_POLICY_V9 is explicit, complete and exactly reviewed", () => {
   it("the actual imported ALL_FACT_KINDS equals the 90-row policy: 84 baseline + 6 bootstrap kinds, no synthesized row", () => {

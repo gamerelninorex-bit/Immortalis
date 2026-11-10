@@ -8,15 +8,15 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "6f182fc931f94d0a819c159d2fded2ae1fc81c5ffbdab744b3f873fb7aa94af4",
+    "243aadf40288284b00fd015b7190049a74bb4b7be595d78aaa3368b6c3b663d6",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "8fc1229fb31349f6b9ec3afbdb5b273c9031b352a777d9c090b424c8cebc135d",
+    "592aae876c665ae69cbb5fcdaffa30c543b1c7c2452acfe0ffc1992cfc598cf7",
   "packages/engine/src/owners/admission.ts":
-    "67a526f091dec113647d6100cd2660612ebf2c2e9435f61fad3c72aa246a80f9",
+    "3c4e55be23335db1bb355730c40a40b9a2bae1d1826d994fb2b0111b719c8466",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -26,7 +26,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "8d53dd9affa1c46734abde91045735cb7fdad8e9a4b5633b3d836ef7a96db276",
+    "3c99036fb5130b3f5c987bdf6d2db0f705b969140220a14c1bc354b50e020d33",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
@@ -36,7 +36,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/operator/src/confirmation.ts":
     "7283bae5d6144fd44f7ea6ec17a3d7e44040745339766e6b72ce274dc8ba16c7",
   "packages/operator/src/index.ts":
-    "20c9574bc69ed925888a1b232829b7a98a82bcf8c1484a0adb40a30a8e782b34",
+    "12b217c21778585ae2400402ed5a3fd63b2d12dedcb8cbcdd057f30fb2721245",
   "packages/operator/src/observation.ts":
     "afb54d18665a1527335cea3cb5c22ceccfbe106e68e708a6f63d2575d7b61669",
   "packages/operator/src/original-pc.ts":
@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "0e8a59599374f7f4ca23b5955493d4aa41698b06b1d2d3331c6be1f53e833738",
+  "packages/operator/src": "165724690bc2002d295daf9904057033db97ecd79ea4c0b847a5a0bfa1b03225",
   "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
 };
 

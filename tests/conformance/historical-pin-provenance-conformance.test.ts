@@ -122,6 +122,17 @@ describe("census of the examined suites as they stand: changed paths hold only h
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
     // source-observation suites carried: the play-context slice deliberately changed that file (see the comment in each suite's map)
+    // F-2: the five removed guards are restored, including the duplicate H-07 R1 pin.
+    for (const [path, count] of [
+      ["packages/engine/src/temporal", 1],
+      ["packages/engine/src/commit", 1],
+      ["packages/engine/src/world/actor-presence.ts", 2],
+      ["packages/engine/src/world/actor-presence-integrity.ts", 1],
+    ] as const)
+      expect(
+        rows.filter((r) => r.path === path),
+        path,
+      ).toHaveLength(count);
     expect(rows).toHaveLength(578);
     expect(onChanged).toHaveLength(40);
     expect(exempt).toHaveLength(538);

@@ -1,0 +1,58 @@
+
+ RUN  v5.0.2 /workspace/Immortalis
+
+ ❯ |integration| tests/integration/checkpoint-persistence.test.ts (14 tests | 1 failed) 22658ms
+   ❯ H-07 interruption, migration and corruption (8)
+     × a cold proof consumed by an owner validator refuses the open and releases its writer lock 238ms
+ ❯ |integration| tests/integration/initial-setup-recovery.test.ts (9 tests | 1 failed) 457ms
+   ❯ the Temporal guard: a bootstrap-bearing prefix initializes time only from the captured chronology (3)
+     × the same pure precondition runs in historical verification against each incremental pre-state (a plain KERNEL_RULE mismatch rejects) 40ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| tests/integration/checkpoint-persistence.test.ts > H-07 interruption, migration and corruption > a cold proof consumed by an owner validator refuses the open and releases its writer lock
+AssertionError: expected { ok: false, error: { …(3) } } to match object { ok: false, …(1) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "error": {
+-     "code": "CANON_INTEGRITY",
++     "code": "INTEGRITY_JOURNAL",
+    },
+    "ok": false,
+  }
+
+ ❯ tests/integration/checkpoint-persistence.test.ts:340:20
+    338|     );
+    339|     const opened = await CanonicalCampaign.open(dir, { extension: SYNT…
+    340|     expect(opened).toMatchObject({ ok: false, error: { code: "CANON_IN…
+       |                    ^
+    341|     expect(readdirSync(dir)).not.toContain("LOCK");
+    342|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |integration| tests/integration/initial-setup-recovery.test.ts > the Temporal guard: a bootstrap-bearing prefix initializes time only from the captured chronology > the same pure precondition runs in historical verification against each incremental pre-state (a plain KERNEL_RULE mismatch rejects)
+AssertionError: expected 'MS_FENCE_UNKNOWN' to be 'NO_COMPLETION' // Object.is equality
+
+Expected: "NO_COMPLETION"
+Received: "MS_FENCE_UNKNOWN"
+
+ ❯ tests/integration/initial-setup-recovery.test.ts:300:45
+    298|       } as any,
+    299|     );
+    300|     expect((early?.details as any)?.reason).toBe("NO_COMPLETION");
+       |                                             ^
+    301|   });
+    302|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 293 passed (295)
+      Tests  2 failed | 5530 passed (5532)
+   Start at  02:19:48
+   Duration  1997.86s (tests 94%, import 5%)

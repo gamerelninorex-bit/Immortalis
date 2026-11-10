@@ -8,6 +8,10 @@ import {
   type CommitGroup,
   type InitialSetupInput,
 } from "@immortalis/contracts";
+import { isMsInputRule, isMsCompletionRule } from "../ms-setup/prefix.ts";
+import { msTimePins } from "../ms-setup/r1.ts";
+import { msPinViolation, msReject } from "../ms-setup/admission.ts";
+import { msFenceCheck } from "../ms-setup/fence.ts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { chronologyEvidenceViolation, scanInitialSetup } from "../initial-setup/admission.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
@@ -70,6 +74,8 @@ export function bootstrapInitialTimePrecondition(
         reason: "COMPLETION_INPUT",
       });
     const input = InitialSetupInputSchema.parse(inputFact.value);
+    if (isMsInputRule(inputFact.provenance.rule) !== isMsCompletionRule(c.provenance.rule))
+      return msReject("MS_ROUTE_PAIR");
     const here = { hash: input.chronology.document_hash, time: input.chronology.document.time };
     if (agreed && agreed.hash !== here.hash)
       return reject(
@@ -124,5 +130,12 @@ export function bootstrapInitialTimePrecondition(
         basis: w.basis,
       },
     );
+  if (index.completions.some((c) => isMsCompletionRule(c.provenance.rule))) {
+    const fence = msFenceCheck(group, state);
+    if (fence) return fence;
+    const pins = msTimePins(state);
+    if (!pins) return msReject("MS_TIME_SOURCE");
+    return msPinViolation(group, state, pins);
+  }
   return null;
 }

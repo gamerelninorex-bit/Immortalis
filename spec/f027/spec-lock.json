@@ -403,6 +403,21 @@
         "native_pin": "2026-11-03T00:54:41.601Z"
       },
       "note": "Section-scoped, Sovereign-ratified clarification of the v0.9 CORE_V9 contract (BLUE C-1/C-2 v0.4, RED PASS pin 2026-11-03T00:42:43.420Z, CE-1/CE-2/CE-3 incorporated). It amends neither the ratified v0.9 source nor the executable companion pages, does not re-pin any frozen source and is not itself executable authority; its executable consequences are registered additively by GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING."
+    },
+    {
+      "id": "MS-SETUP-V08-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/41220af901e0810687b3c2ae39c69701",
+      "native_pin": "2026-11-08T23:36:18.355Z",
+      "sections": [
+        "M-S v0.8 A–D — Design Only"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Additive A–D design lineage only; exact v0.3 executable adoption is separately recorded by the pinned BLUE brief. Original frozen sources and executable lowerings are preserved."
     }
   ],
   "executable_lowerings": [
@@ -692,6 +707,73 @@
         "does not admit a production parser V1 route or a read-either reader",
         "does not prove a quotation's meaning, an interpretation's correctness or a favourable scene",
         "does not promote any fixture evidence to T2 or T3 acceptance"
+      ]
+    },
+    {
+      "id": "MS-SETUP-V08-LOWERING",
+      "title": "M-S v0.8 Executable Companion v0.3 — bounded T1",
+      "url": "https://app.notion.com/p/41320af901e081d885d5f047b4e0b8bb",
+      "native_pin": "2026-11-09T00:43:08.394Z",
+      "section": "§§2–7 / C1–C7 / V",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "MS-SETUP-V08-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-03",
+      "composing_im": [
+        "IM-07",
+        "IM-02"
+      ],
+      "fact_kinds": [
+        "initial_actor_setup_issue",
+        "initial_actor_setup_response",
+        "named_actor_existence_basis"
+      ],
+      "rule_map": [
+        "INITIAL_SETUP_INPUT_MS_V3_RULE",
+        "INITIAL_LOCALITY_COMPLETION_MS_V3_RULE",
+        "MS_ACTOR_SETUP_ISSUE_V1_RULE",
+        "MS_ACTOR_SETUP_RESPONSE_V1_RULE",
+        "MS_NAMED_ACTOR_EXISTENCE_V1_RULE",
+        "MS_R1_PLACEMENT_V1_RULE",
+        "MS_R1_CLOSURE_V1_RULE",
+        "MS_R1_PRESENCE_V1_RULE",
+        "MS_CAPTURED_CHRONOLOGY_PRECONDITION_V1",
+        "MS_SETUP_PHASE_FENCE_V1"
+      ],
+      "authority_lineage": [
+        "F-027 v1.0 — https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639 @ 2026-09-29T00:40:44.707Z; original frozen sources preserved",
+        "M-S v0.8 A–D DESIGN ratification — https://app.notion.com/p/41220af901e0810687b3c2ae39c69701 @ 2026-11-08T23:36:18.355Z; no unwritten technical encoding adopted by that record",
+        "M-S v0.8 semantic candidate — https://app.notion.com/p/41120af901e081eca8d7f16a5c5d51d8 @ 2026-11-07T02:37:17.218Z; nonconflicting v0.7/v0.6/v0.5/v0.4 inherited only as scoped there",
+        "Initial Locality Bootstrap v0.9 semantic source — https://app.notion.com/p/40b20af901e081069bb7ce5118a047b1 @ 2026-11-01T12:13:42.692Z; CORE_V9 and OPTION_A_V9 compose outside the exact MS alternatives",
+        "Initial Locality Bootstrap v0.9 executable contract — https://app.notion.com/p/40b20af901e08198abdacb340e3507df @ 2026-11-01T12:13:53.634Z; legacy rules unchanged",
+        "C1/C2 v0.4 — https://app.notion.com/p/40d20af901e081309889e8333d2a9286 @ 2026-11-03T00:51:23.053Z; V9 hash meanings unchanged, actor-only profile separately namespaced",
+        "R1 Stage-One v1.1 — https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d @ 2026-10-23T09:27:39.157Z; MS-only placement/closure/presence alternatives",
+        "S1-P1 composing source — https://app.notion.com/p/3e120af901e081ec9de8fea870221a0d @ 2026-10-23T12:26:49.599Z; original acoustic callers and eligibility remain unchanged",
+        "Canonical Role Registry — https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a @ 2026-09-25T08:21:22.816Z; role.world/permission.world_process.resolve isolated author and role.archivist/permission.canon.write owner-admitted publication",
+        "F-014A v3.3 — https://app.notion.com/p/3e520af901e081619a59c069a36db420 @ 2026-09-25T00:18:36.828Z; no capability, cognition or rights expansion",
+        "WS-016 integration map — https://app.notion.com/p/3e220af901e08168b37ccee101d23e49 @ 2026-09-24T17:38:59.210Z; shared capability and PC compilation consumers not widened"
+      ],
+      "manifest_file": "spec/f027/ms-setup-v08-manifest.json",
+      "manifest_sha256": "d5d3bf6d8226a511f2ef22d37877be55dd8575aa27362aa26df607be975724b2",
+      "history_policy_suffix": "+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1",
+      "sunset_delta": "THREE_EXPLICIT_UNREVIEWED_BLOCK_ROWS_93_TOTAL_ORIGINAL_90_UNCHANGED",
+      "runtime_contract_compatibility": "RC-01–RC-16 and IM-01–IM-17 snapshot unchanged. New full-source-qualified alternatives only; changed history policy forces strict verified replay before checkpoint reuse. No old source is reinterpreted.",
+      "scope": "One source-qualified ORIGINAL world/locus; one licensed leaf/index 0; one isolated ACTOR attempt; opaque existence; initial B1, complete closure, captured t0 and B2.",
+      "does_not": [
+        "replace or re-pin any original frozen source, addendum or lowering",
+        "widen the SCOPE/SCENE transport or shared capability/coupling consumers",
+        "enable hearing, independent initiative, personality, Health, ordinary travel, PC handover, generic exceptions or retcons",
+        "claim original-message production, genuine-host/client, retained-storage restart or broader release acceptance"
       ]
     }
   ],

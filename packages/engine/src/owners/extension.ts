@@ -4,6 +4,7 @@ import { canonicalAdmission, legacyContractAdmission } from "./admission.ts";
 import { isLegacyRuntimeContract } from "../compat.ts";
 import { CANONICAL_OWNER_REGISTRY, resolveKey } from "./registry.ts";
 import { reject } from "./rejection.ts";
+import { msFenceCheck } from "../ms-setup/fence.ts";
 
 /**
  * Additional owner/facet pairs a build registers beside the canonical and IM-02 kernel ones — the
@@ -67,8 +68,12 @@ export function storeBindings(
   }
   const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...extension.owners]);
   const admission: WriteAdmission = {
+    ...(base.initializeView ? { initializeView: base.initializeView } : {}),
+    ...(base.committedView ? { committedView: base.committedView } : {}),
     ...(base.historyVerificationId ? { historyVerificationId: base.historyVerificationId } : {}),
     check(group, state) {
+      const fence = msFenceCheck(group, state);
+      if (fence) return fence;
       if (!extension.owners.has(group.owner)) return base.check(group, state);
       for (const w of group.writes) {
         if (resolveKey(w.key)) {
@@ -83,6 +88,8 @@ export function storeBindings(
     },
     // the canonical historical verification is forwarded unchanged: an extension owner's groups write no canonical key
     verifyHistorical(group, state) {
+      const fence = msFenceCheck(group, state);
+      if (fence) return fence;
       if (extension.owners.has(group.owner)) return null;
       return base.verifyHistorical?.(group, state) ?? null;
     },

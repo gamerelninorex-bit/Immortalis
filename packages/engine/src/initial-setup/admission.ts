@@ -1,5 +1,11 @@
 import { createPublicKey } from "node:crypto";
 import {
+  INITIAL_SETUP_INPUT_MS_V3_RULE,
+  INITIAL_LOCALITY_COMPLETION_MS_V3_RULE,
+} from "../ms-setup/rules.ts";
+import { isMsInputRule, msEarlierSessionViolation } from "../ms-setup/prefix.ts";
+import { strictEd25519Key, planMsActor, msGenesis } from "../ms-setup/protocol.ts";
+import {
   CANON_WRITE_AUTHORITY,
   CHRONOLOGY_DOCUMENT_MAX_BYTES,
   CONTEXT_MANIFEST_MISMATCH,
@@ -83,6 +89,14 @@ import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
  * evidence never mixes with fixtures.
  */
 export interface InitialSetupPolicy {
+  /** Trusted startup enrollment only; never populated from campaign/model content. Historical replay uses the admitted pin. */
+  readonly msActorBinding?: {
+    readonly key_id: string;
+    readonly public_key: string;
+    readonly driver_id: string;
+    readonly driver_config_hash: string;
+  };
+  readonly historical?: boolean;
   readonly syntheticEvidence: "REJECT" | "REQUIRE";
   /**
    * The parser versions this admission accepts for a NEW bootstrap Input. Absent: production (REJECT) accepts V2 only and the fixture
@@ -276,7 +290,16 @@ function metadataViolation(
       "AUTHORITY",
       "a bootstrap record is published by role.archivist + permission.canon.write",
     );
-  if (!canonicalEqual(group.rule, INITIAL_SETUP_RULES[kindId]))
+  const msRule =
+    kindId === "initial_setup_input"
+      ? INITIAL_SETUP_INPUT_MS_V3_RULE
+      : kindId === "initial_locality_completion"
+        ? INITIAL_LOCALITY_COMPLETION_MS_V3_RULE
+        : null;
+  if (
+    !canonicalEqual(group.rule, INITIAL_SETUP_RULES[kindId]) &&
+    !(msRule && canonicalEqual(group.rule, msRule))
+  )
     return refuse("RULE", "the group carries the record's own governing citation", { key: w.key });
   if (w.basis !== INITIAL_SETUP_BASIS || w.secrecy !== INITIAL_SETUP_SECRECY || w.unit !== null)
     return refuse("METADATA", "a bootstrap record carries its fixed OwnerFact metadata", {
@@ -414,6 +437,29 @@ function checkInput(
     });
   const fx = fixtureViolation(i, policy);
   if (fx) return fx;
+  if (isMsInputRule(group.rule)) {
+    if (i.parser !== INITIAL_LOCALITY_PARSER_V2 || !strictEd25519Key(i.runner.public_key))
+      return refuse(
+        "MS_ACTOR_PROFILE",
+        "MS Input requires the strict Ed25519/V2 actor profile before any reservation",
+      );
+    const tuple = {
+      key_id: i.runner.key_id,
+      public_key: i.runner.public_key,
+      driver_id: i.runner.driver_id,
+      driver_config_hash: i.runner.driver_config_hash,
+    };
+    if (
+      !policy.historical &&
+      (!policy.msActorBinding || !canonicalEqual(tuple, policy.msActorBinding))
+    )
+      return refuse(
+        "MS_ACTOR_PROFILE",
+        "no matching actor-capable binding was enrolled by trusted startup",
+      );
+    const earlier = msEarlierSessionViolation(state.facts, i, false);
+    if (earlier) return refuse(earlier, earlier);
+  }
   // a NEW bootstrap Input must name a parser this admission supports: production supports V2 only (no V1 route, no compatibility reader)
   if (!allowedParsers(policy).includes(i.parser))
     return refuse(
@@ -681,6 +727,7 @@ export type ManifestVerdict = "MATCH" | "MISMATCH" | "UNVERIFIABLE";
 export function manifestVerdict(
   state: CampaignState,
   response: InitialSetupResponse,
+  sourceRead?: "MS_CHAIN_READ",
 ): ManifestVerdict {
   const index = scanInitialSetup(state.facts);
   const session = sessionOf(index, response.setup_id);
@@ -693,7 +740,7 @@ export function manifestVerdict(
   const reservation = factAt(state, response.reservation);
   const inv = reservation ? InitialSetupInvocationSchema.safeParse(reservation.value) : undefined;
   if (!inv?.success || inv.data.phase !== response.phase) return "UNVERIFIABLE";
-  const projection = genesisProjection(state.facts);
+  const projection = sourceRead ? msGenesis(state.facts) : genesisProjection(state.facts);
   if (!projection.ok) return "UNVERIFIABLE";
   let producer;
   if (response.phase === "SCOPE") {
@@ -1162,6 +1209,7 @@ function checkGrant(group: CommitGroup, state: CampaignState): Rejection | null 
 export function completionViolation(
   state: CampaignState,
   c: InitialLocalityCompletion,
+  sourceRead?: "MS_CHAIN_READ",
 ): { code: string; message: string } | null {
   const inputFact = factAt(state, c.input);
   const grantFact = factAt(state, c.grant);
@@ -1185,7 +1233,7 @@ export function completionViolation(
       code: "BINDING",
       message: "the Completion's records belong to different sessions or phases",
     };
-  const projection = genesisProjection(state.facts);
+  const projection = sourceRead ? msGenesis(state.facts) : genesisProjection(state.facts);
   if (!projection.ok || projection.value.projection_hash !== input.projection_hash)
     return {
       code: "PROJECTION_CHANGED",
@@ -1243,6 +1291,12 @@ export function completionViolation(
     genesis: genesisValueIndex(input, projection.value.facts),
   });
   if (bad) return bad;
+  if (!sourceRead && isMsInputRule(inputFact.provenance.rule)) {
+    const earlier = msEarlierSessionViolation(state.facts, input, true);
+    if (earlier) return { code: earlier, message: earlier };
+    const plan = planMsActor(state, initialLocalityCompletionKey(c.world_id, c.locus_id), c);
+    if (!plan.ok) return plan.error;
+  }
   return null;
 }
 
@@ -1261,6 +1315,19 @@ function checkCompletion(group: CommitGroup, state: CampaignState): Rejection | 
   const index = scanInitialSetup(state.facts);
   const session = sessionOf(index, c.setup_id);
   if (!session) return reject("PREREQUISITE_MISSING", "the Completion's session has no Input");
+  if (
+    !isMsInputRule(session.input.provenance.rule) &&
+    !canonicalEqual(session.input.provenance.rule, INITIAL_SETUP_RULES.initial_setup_input)
+  )
+    return refuse("MS_ROUTE_PAIR", "the Input carries no registered full route citation");
+  const expectedRule = isMsInputRule(session.input.provenance.rule)
+    ? INITIAL_LOCALITY_COMPLETION_MS_V3_RULE
+    : INITIAL_SETUP_RULES.initial_locality_completion;
+  if (!canonicalEqual(group.rule, expectedRule))
+    return refuse(
+      "MS_ROUTE_PAIR",
+      "Input and Completion must use their exact registered route pair",
+    );
   if (index.completion || session.disposition)
     return reject(
       "REFERENCE_INVALID",

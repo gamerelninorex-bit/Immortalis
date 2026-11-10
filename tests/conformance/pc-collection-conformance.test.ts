@@ -420,6 +420,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "initial_setup_grant",
       "initial_locality_completion",
       "initial_setup_disposition",
+      "initial_actor_setup_issue",
+      "initial_actor_setup_response",
     ]);
   });
 

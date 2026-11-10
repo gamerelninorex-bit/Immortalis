@@ -160,6 +160,8 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "chronology-capture.ts",
         "initial-runner.ts",
         "initial-setup.ts",
+        "ms-actor-runner.ts",
+        "ms-initial-actor.ts",
         "protected-store.ts",
         ...NEW_MODULES,
         ...ADVANCE_MODULES,

@@ -1,5 +1,23 @@
 import { z } from "zod";
 import {
+  MS_FACT_KIND_IDS,
+  FACET_WORLD_INITIAL_ACTOR_SETUP,
+  FACET_ACTOR_EXISTENCE,
+  InitialActorSetupIssueSchema,
+  InitialActorSetupResponseSchema,
+  NamedActorExistenceBasisSchema,
+} from "@immortalis/contracts";
+import {
+  INITIAL_SETUP_INPUT_MS_V3_RULE,
+  INITIAL_LOCALITY_COMPLETION_MS_V3_RULE,
+  MS_ACTOR_SETUP_ISSUE_V1_RULE,
+  MS_ACTOR_SETUP_RESPONSE_V1_RULE,
+  MS_NAMED_ACTOR_EXISTENCE_V1_RULE,
+  MS_R1_PLACEMENT_V1_RULE,
+  MS_R1_CLOSURE_V1_RULE,
+  MS_R1_PRESENCE_V1_RULE,
+} from "../ms-setup/rules.ts";
+import {
   FACET_WORLD_INITIAL_SETUP,
   INITIAL_SETUP_FACT_KIND_IDS,
   InitialLocalityCompletionSchema,
@@ -423,6 +441,7 @@ export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_
 export const CULTURE_ADJUDICATION_FACT_KIND_IDS = ["culture_adjudication_decision"] as const;
 export const REFEREE_FACT_KIND_IDS = ["referee_decision"] as const;
 export type FactKindId =
+  | (typeof MS_FACT_KIND_IDS)[number]
   | (typeof INITIAL_SETUP_FACT_KIND_IDS)[number]
   | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
   | (typeof CULTURE_ADJUDICATION_FACT_KIND_IDS)[number]
@@ -1265,6 +1284,12 @@ export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world-state/actor/${ID}/setup-placement$`),
     valueSchema: ActorSetupPlacementSchema,
     rule: WORLD_ACTOR_PRESENCE_RULE,
+    alternateRules: [
+      {
+        rule: MS_R1_PLACEMENT_V1_RULE,
+        admits: (v) => ActorSetupPlacementSchema.safeParse(v).success,
+      },
+    ],
   },
   {
     id: "world_setup_closure",
@@ -1276,6 +1301,9 @@ export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world/${ID}/setup-closure$`),
     valueSchema: WorldSetupClosureSchema,
     rule: WORLD_ACTOR_PRESENCE_RULE,
+    alternateRules: [
+      { rule: MS_R1_CLOSURE_V1_RULE, admits: (v) => WorldSetupClosureSchema.safeParse(v).success },
+    ],
   },
   {
     id: "actor_physical_presence",
@@ -1287,6 +1315,12 @@ export const WORLD_ACTOR_PRESENCE_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^world-state/actor/${ID}/presence$`),
     valueSchema: ActorPhysicalPresenceSchema,
     rule: WORLD_ACTOR_PRESENCE_RULE,
+    alternateRules: [
+      {
+        rule: MS_R1_PRESENCE_V1_RULE,
+        admits: (v) => ActorPhysicalPresenceSchema.safeParse(v).success,
+      },
+    ],
   },
 ];
 
@@ -3216,6 +3250,12 @@ export const INITIAL_SETUP_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`${SETUP_ROOT}/${HEX64}/input$`),
     valueSchema: InitialSetupInputSchema,
     rule: INITIAL_SETUP_RULES.initial_setup_input,
+    alternateRules: [
+      {
+        rule: INITIAL_SETUP_INPUT_MS_V3_RULE,
+        admits: (v) => InitialSetupInputSchema.safeParse(v).success,
+      },
+    ],
   },
   {
     id: "initial_setup_invocation",
@@ -3260,6 +3300,12 @@ export const INITIAL_SETUP_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`${SETUP_ROOT}/completion$`),
     valueSchema: InitialLocalityCompletionSchema,
     rule: INITIAL_SETUP_RULES.initial_locality_completion,
+    alternateRules: [
+      {
+        rule: INITIAL_LOCALITY_COMPLETION_MS_V3_RULE,
+        admits: (v) => InitialLocalityCompletionSchema.safeParse(v).success,
+      },
+    ],
   },
   {
     id: "initial_setup_disposition",
@@ -3282,6 +3328,42 @@ export const INITIAL_SETUP_FACT_KINDS: readonly FactKind[] = [
  * the IM-06 Diplomacy External Recognition kind, the IM-06 Diplomacy Externalized Claim / Dispute kind, the IM-06 Diplomacy Relation Edge kind and the IM-06 Diplomacy Framework kind,
  * and the infrastructure-only IM-12 Causal Draw precommit and result kinds (F-027-CD1).
  */
+export const MS_FACT_KINDS: readonly FactKind[] = [
+  {
+    id: "initial_actor_setup_issue",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_ACTOR_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/initial-actor/${HEX64}/issue$`),
+    valueSchema: InitialActorSetupIssueSchema,
+    rule: MS_ACTOR_SETUP_ISSUE_V1_RULE,
+  },
+  {
+    id: "initial_actor_setup_response",
+    owner: OWNER_WORLD_STATE,
+    facet: FACET_WORLD_INITIAL_ACTOR_SETUP,
+    im: "IM-03",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/initial-actor/${HEX64}/response$`),
+    valueSchema: InitialActorSetupResponseSchema,
+    rule: MS_ACTOR_SETUP_RESPONSE_V1_RULE,
+  },
+  {
+    id: "named_actor_existence_basis",
+    owner: OWNER_NAMED_ACTOR,
+    facet: FACET_ACTOR_EXISTENCE,
+    im: "IM-07",
+    rc: ["RC-02"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^named-actor/${ID}/existence-basis$`),
+    valueSchema: NamedActorExistenceBasisSchema,
+    rule: MS_NAMED_ACTOR_EXISTENCE_V1_RULE,
+  },
+];
+
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
   ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
@@ -3313,6 +3395,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_SOURCE_CONDITION_FACT_KINDS,
   ...PC_COLLECTION_FACT_KINDS,
   ...INITIAL_SETUP_FACT_KINDS,
+  ...MS_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

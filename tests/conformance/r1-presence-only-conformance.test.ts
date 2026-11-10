@@ -62,15 +62,20 @@ describe("negative reachability: no actor observation can be produced on this he
       ALL_FACT_KINDS.map((k) => k.id)
         .filter((id) => /actor/.test(id))
         .sort(),
-    ).toEqual([
-      "actor_physical_presence",
-      // S1-P1 W1: the actor's raw physical faculty and receptivity, a World-State fact; it is not an observation, a receipt or a packet
-      "actor_raw_sensory_state",
-      "actor_setup_placement",
-      "named_actor_capability",
-      "named_actor_capability_basis",
-      "world_actor_coupling",
-    ]);
+    ).toEqual(
+      [
+        "actor_physical_presence",
+        // S1-P1 W1: the actor's raw physical faculty and receptivity, a World-State fact; it is not an observation, a receipt or a packet
+        "actor_raw_sensory_state",
+        "actor_setup_placement",
+        "named_actor_capability",
+        "named_actor_capability_basis",
+        "named_actor_existence_basis",
+        "initial_actor_setup_issue",
+        "initial_actor_setup_response",
+        "world_actor_coupling",
+      ].sort(),
+    );
   });
 
   it("the owner path refuses a fabricated actor-observation referee decision: nothing is written", async () => {

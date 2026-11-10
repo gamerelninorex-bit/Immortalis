@@ -8,6 +8,9 @@ import {
   type Result,
 } from "@immortalis/contracts";
 import { sha256Canonical } from "../hash.ts";
+import { isMsCompletionRule } from "../ms-setup/prefix.ts";
+import { msTimePins } from "../ms-setup/r1.ts";
+import { verifyMsIntegrity } from "../ms-setup/integrity.ts";
 import {
   PRODUCTION_INITIAL_SETUP_POLICY,
   scanInitialSetup,
@@ -69,7 +72,30 @@ export async function initializeCapturedChronology(
     input: { fact_key: inputFact.key, version: inputFact.version },
     capture_hash: capture.capture_hash,
   });
+  if (isMsCompletionRule(completionFact.provenance.rule)) {
+    const prior = store.committedGroup(`captured-chronology:${digest}:intent`);
+    if (prior) {
+      if (verifyMsIntegrity(store).length)
+        return fail(
+          "CAPTURED_CHRONOLOGY_UNAVAILABLE",
+          "MS historical source requalification failed",
+        );
+      return store.commit(prior) as Promise<Result<CommitOutcome, CapturedChronologyErrorCode>>;
+    }
+  }
   const coordinator = new TemporalCoordinator(store, new StageProviderRegistry());
+  const msPins = isMsCompletionRule(completionFact.provenance.rule)
+    ? msTimePins({
+        campaign_id: store.head().campaign_id,
+        revision: store.head().revision,
+        facts,
+      })
+    : null;
+  if (isMsCompletionRule(completionFact.provenance.rule) && !msPins)
+    return fail(
+      "CAPTURED_CHRONOLOGY_UNAVAILABLE",
+      "MS requires its complete source-qualified R1 closure and B1",
+    );
   const written = await coordinator.establishCanonicalTime({
     group_id: `captured-chronology:${digest}:group`,
     intent_id: `captured-chronology:${digest}:intent`,
@@ -77,11 +103,15 @@ export async function initializeCapturedChronology(
     basis: CAPTURED_CHRONOLOGY_BASIS[capture.grade],
     secrecy: "engine-internal",
     time: capture.document.time,
-    reads: [
-      { key: completionFact.key, version: completionFact.version },
-      { key: inputFact.key, version: inputFact.version },
-    ],
-    depends_on: [completionFact.provenance.group_id, inputFact.provenance.group_id],
+    reads: msPins
+      ? msPins.map((p) => ({ key: p.fact_key, version: p.version }))
+      : [
+          { key: completionFact.key, version: completionFact.version },
+          { key: inputFact.key, version: inputFact.version },
+        ],
+    depends_on: msPins
+      ? [...new Set(msPins.map((p) => facts.get(p.fact_key)!.provenance.group_id))].sort()
+      : [completionFact.provenance.group_id, inputFact.provenance.group_id],
   });
   if (!written.ok) return written as { ok: false; error: Failure<CapturedChronologyErrorCode> };
   return written;

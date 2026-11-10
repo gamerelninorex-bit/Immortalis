@@ -34,6 +34,9 @@ export type OwnerRegistry = ReadonlyMap<string, ReadonlySet<string>>;
  * prerequisites to the owner that the governing source assigns (IA-03).
  */
 export interface WriteAdmission {
+  /** Internal transient-view lifecycle, never a group field or persisted authority. */
+  initializeView?(state: CampaignState, checked: (id: string) => boolean): void;
+  committedView?(before: CampaignState, after: CampaignState, group: CommitGroup): void;
   /** Stable identity of the historical verifier. Absent => checkpoint history cannot be trusted. */
   readonly historyVerificationId?: string;
   check(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
@@ -197,6 +200,13 @@ export class CampaignCore {
     this.#params = params;
     this.#state = params.state;
     this.#headSha256 = params.headSha256;
+    // Only genesis or the existing policy-bound verified checkpoint history can seed a view.
+    // A caller's detached non-genesis state is not verified-open evidence.
+    if (params.state.revision === 0 || params.history !== undefined)
+      params.admission?.initializeView?.(
+        params.state,
+        (id) => params.history?.ruleChecked(id) ?? false,
+      );
   }
 
   get state(): CampaignState {
@@ -248,7 +258,9 @@ export class CampaignCore {
   /** Called by a store after the entry is durable. */
   accept(prepared: Extract<Prepared, { kind: "apply" }>): void {
     this.endReplay();
+    const before = this.#state;
     this.adopt(prepared.entry, prepared.nextState);
+    this.#params.admission?.committedView?.(before, prepared.nextState, prepared.entry.group);
     if (this.#params.admission !== undefined) this.#ruleChecked.add(prepared.entry.group.group_id);
   }
 
@@ -385,7 +397,13 @@ export class CampaignCore {
     }
     if (canonicalEqual(computed.entry, entry) === false)
       return mismatch("recomputed entry differs");
+    const beforeAdoption = this.#state;
     this.adopt(computed.entry, computed.nextState);
+    this.#params.admission?.committedView?.(
+      beforeAdoption,
+      computed.nextState,
+      computed.entry.group,
+    );
     if (historical !== undefined) this.#ruleChecked.add(entry.group.group_id);
     return ok(undefined);
   }

@@ -6,12 +6,10 @@
 import { rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  CANON_WRITE_AUTHORITY,
-  OWNER_TEMPORAL_KERNEL,
-  FACET_TEMPORAL_COORDINATION,
   TEMPORAL_STATE_KEY,
   initialLocalityCompletionKey,
   initialSetupInputKey,
+  type CommitGroup,
 } from "@immortalis/contracts";
 import {
   StageProviderRegistry,
@@ -19,6 +17,7 @@ import {
   fixtureCanonicalAdmission,
   initializeCapturedChronology,
   scanInitialSetup,
+  type CampaignState,
 } from "@immortalis/engine";
 import {
   InitialSetupService,
@@ -39,6 +38,7 @@ import {
   harness,
   intakeRequest,
   reopenFixtureCampaign,
+  openFixtureCampaign,
   type Harness,
 } from "../support/initial-setup.ts";
 import { must } from "../support/temporal.ts";
@@ -253,51 +253,42 @@ describe("the Temporal guard: a bootstrap-bearing prefix initializes time only f
   });
 
   it("the same pure precondition runs in historical verification against each incremental pre-state (a plain KERNEL_RULE mismatch rejects)", async () => {
-    const { h, completion } = await completed();
-    const state = {
-      campaign_id: BOOTSTRAP_CAMPAIGN,
-      revision: h.store.head().revision,
-      facts: factsOf(h.store),
+    const trace: { group: CommitGroup; before: CampaignState }[] = [];
+    const admission = {
+      ...fixtureCanonicalAdmission,
+      committedView(before: CampaignState, after: CampaignState, group: CommitGroup) {
+        fixtureCanonicalAdmission.committedView?.(before, after, group);
+        trace.push({ group, before });
+      },
     };
-    const group = (value: unknown, over: Record<string, unknown> = {}) => ({
-      campaign_id: BOOTSTRAP_CAMPAIGN,
-      group_id: "g:time",
-      intent_id: "i:time",
-      owner: OWNER_TEMPORAL_KERNEL,
-      facet: FACET_TEMPORAL_COORDINATION,
-      cause: "c:time",
-      rule: h.store.getFact("world/world-fixture-1/profile")!.provenance.rule,
-      authority: { ...CANON_WRITE_AUTHORITY },
-      reads: [],
-      depends_on: [],
-      writes: [
-        {
-          key: TEMPORAL_STATE_KEY,
-          owner: OWNER_TEMPORAL_KERNEL,
-          facet: FACET_TEMPORAL_COORDINATION,
-          value: { canonical_time: value, last_transaction: null, continuation: null },
-          unit: null,
-          basis: "x",
-          secrecy: "y",
-          expected_version: 0,
-        },
-      ],
-      ...over,
+    const h = await harness({ open: await openFixtureCampaign(undefined, {}, admission) });
+    const intake = await h.service.intake(await intakeRequest(h));
+    expect((await h.service.advance(intake.setup_id!)).status).toBe("COMPLETED");
+    await must(initializeCapturedChronology(h.store, { policy: FIXTURE_POLICY }));
+    const time = trace.find((t) => t.group.writes[0]!.key === TEMPORAL_STATE_KEY)!;
+    const completion = trace.find(
+      (t) =>
+        t.group.writes[0]!.key ===
+        initialLocalityCompletionKey("world-fixture-1", "locus-fixture-1"),
+    )!;
+    // These are the core's actual bound incremental states, not copied maps that C5 rejects first.
+    const verify = (g: CommitGroup, state = time.before) =>
+      fixtureCanonicalAdmission.verifyHistorical!(g, state);
+    expect(verify(time.group)).toBeNull();
+    const wrong = structuredClone(time.group);
+    (wrong.writes[0]!.value as any).canonical_time.value = 9;
+    expect(verify(wrong)).toMatchObject({
+      code: "VALUE_INVALID",
+      details: { reason: "TIME_MISMATCH" },
     });
-    const verify = (g: any) => fixtureCanonicalAdmission.verifyHistorical!(g, state as any);
-    const mismatch = verify(group({ unit: "seconds", value: 9 }));
-    expect(mismatch?.code).toBeDefined();
-    // a prefix with no Completion rejects even the right time (checked on a state without the Completion)
-    const noCompletion = new Map(state.facts);
-    noCompletion.delete(completion.key);
-    const early = fixtureCanonicalAdmission.verifyHistorical!(
-      group({ unit: "seconds", value: 0 }) as any,
-      {
-        ...state,
-        facts: noCompletion,
-      } as any,
-    );
-    expect((early?.details as any)?.reason).toBe("NO_COMPLETION");
+    expect(verify(time.group, completion.before)).toMatchObject({
+      code: "PREREQUISITE_MISSING",
+      details: { reason: "NO_COMPLETION" },
+    });
+    expect(verify(time.group, { ...time.before })).toMatchObject({
+      details: { reason: "MS_FENCE_UNKNOWN" },
+    });
+    await h.campaign.close();
   });
 
   it("a never-bootstrap prefix keeps its existing initialization", async () => {

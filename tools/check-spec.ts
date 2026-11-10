@@ -201,6 +201,13 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     sections: BOOTSTRAP_V9.coreSections.length,
     titles: BOOTSTRAP_V9.coreSections,
   },
+  "MS-SETUP-V08-LINEAGE": {
+    of: null,
+    url: "https://app.notion.com/p/41220af901e0810687b3c2ae39c69701",
+    pin: "2026-11-08T23:36:18.355Z",
+    sections: 1,
+    titles: ["M-S v0.8 A–D — Design Only"],
+  },
 };
 
 /** The exclusions both current-look lowerings (31 October 2026) carry, as separate strings, in this order. */
@@ -297,6 +304,16 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       operation: "INITIAL_LOCALITY_COMPLETION_V9",
       does_not: BOOTSTRAP_V9.coreDoesNot,
     },
+  },
+  "MS-SETUP-V08-LOWERING": {
+    url: "https://app.notion.com/p/41320af901e081d885d5f047b4e0b8bb",
+    pin: "2026-11-09T00:43:08.394Z",
+    kinds: [
+      "initial_actor_setup_issue",
+      "initial_actor_setup_response",
+      "named_actor_existence_basis",
+    ],
+    lineage: ["MS-SETUP-V08-LINEAGE"],
   },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -891,6 +908,24 @@ export function checkSpec(root: string): string[] {
   }
   errors.push(...checkBootstrapV9(lineage, lowerings));
   errors.push(...checkBootstrapC1C2(lineage, lowerings));
+  const ms = lowerings.find((e) => e["id"] === "MS-SETUP-V08-LOWERING");
+  const manifestPath = "spec/f027/ms-setup-v08-manifest.json";
+  const manifestHash = "d5d3bf6d8226a511f2ef22d37877be55dd8575aa27362aa26df607be975724b2";
+  if (!existsSync(at(manifestPath)) || hashFile(at(manifestPath)) !== manifestHash)
+    errors.push("MS literal manifest bytes differ from the adopted identity-bound JSON");
+  else {
+    const manifest = JSON.parse(read(manifestPath));
+    if (
+      ms?.["manifest_file"] !== manifestPath ||
+      ms["manifest_sha256"] !== manifestHash ||
+      JSON.stringify(ms["rule_map"]) !== JSON.stringify(manifest.clause) ||
+      JSON.stringify(ms["authority_lineage"]) !== JSON.stringify(manifest.authority_lineage) ||
+      ms["history_policy_suffix"] !== manifest.historical_policy_suffix
+    )
+      errors.push(
+        "MS lowering must bind the exact literal manifest, ordered lineage, rule map and historical policy",
+      );
+  }
 
   const snapshot = lock.snapshot_files ?? {};
   for (const rel of [

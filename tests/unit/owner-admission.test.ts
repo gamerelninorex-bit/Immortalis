@@ -158,6 +158,7 @@ describe("registry: every key space has exactly one owner/facet and there is no 
         "world_state",
         [
           "world_fallback_physical_entity",
+          "world_initial_actor_setup",
           // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the World-State owner for the six sealed bootstrap records
           "world_initial_setup",
           "world_locus",
@@ -188,7 +189,7 @@ describe("registry: every key space has exactly one owner/facet and there is no 
       // IM-05 (eighth slice): Logistics, one facet; there is no fallback Logistics owner
       ["logistics", ["logistics_state"]],
       // IM-07 (ninth slice): the Named-Actor owner, one actor-profile facet; there is no fallback actor owner
-      ["named_actor", ["actor_profile"]],
+      ["named_actor", ["actor_existence", "actor_profile"]],
       // IM-10 (tenth slice): the Epistemic Access owner, one facet; there is no fallback Epistemic owner
       ["epistemic_access", ["epistemic_access"]],
       // IM-09 (eleventh slice): the KTI owner, one facet; there is no fallback KTI owner

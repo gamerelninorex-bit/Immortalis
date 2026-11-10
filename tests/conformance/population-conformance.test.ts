@@ -265,6 +265,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "initial-setup",
       "kti",
       "logistics",
+      "ms-setup",
       "owners",
       "pc-capability",
       "pc-collection",

@@ -10,6 +10,7 @@ import {
   CanonicalCampaign,
   fixtureCanonicalAdmission,
   type CampaignStore,
+  type StageOwnerExtension,
 } from "@immortalis/engine";
 import {
   ChronologyCaptureStore,
@@ -51,13 +52,16 @@ export const scratch = (prefix: string): string => mkdtempSync(join(tmpdir(), pr
 export async function openFixtureCampaign(
   campaignId = BOOTSTRAP_CAMPAIGN,
   sourceOver: Record<string, unknown> = {},
+  admission = fixtureCanonicalAdmission,
+  extension?: StageOwnerExtension,
 ) {
   const dir = scratch("immortalis-bootstrap-campaign-");
   const campaign = await must(
     CanonicalCampaign.create(dir, {
       campaignId,
       buildId: "bootstrap-t1",
-      testkitFixtureAdmission: fixtureCanonicalAdmission,
+      testkitFixtureAdmission: admission,
+      ...(extension ? { extension } : {}),
     }),
   );
   await must(campaign.establishWorld({ ...publication(1), world: fixtureWorld() }));
@@ -96,6 +100,7 @@ export async function harness(
     keys?: ReturnType<typeof generateFixtureRunnerKeys>;
     driver?: ScriptedIsolatedDriver;
     campaignId?: string;
+    route?: "MS";
   } = {},
 ): Promise<Harness> {
   const campaignId = options.campaignId ?? BOOTSTRAP_CAMPAIGN;
@@ -123,6 +128,7 @@ export async function harness(
     runner,
     verifier: verifier as any,
     policy: FIXTURE_POLICY,
+    ...(options.route ? { route: options.route } : {}),
   });
   const captureStore = new ChronologyCaptureStore({ dir: outboxDir, macKey });
   return {

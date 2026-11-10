@@ -35,6 +35,11 @@ import {
 } from "@immortalis/contracts";
 import { INITIAL_SETUP_BASIS, INITIAL_SETUP_SECRECY, initialSetupIdentities } from "./admission.ts";
 import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
+import {
+  INITIAL_SETUP_INPUT_MS_V3_RULE,
+  INITIAL_LOCALITY_COMPLETION_MS_V3_RULE,
+} from "../ms-setup/rules.ts";
+import { isMsInputRule } from "../ms-setup/prefix.ts";
 
 /**
  * TRUSTED publication builders for the v0.9 bootstrap records: pure functions from a record value and the committed facts to the
@@ -64,6 +69,7 @@ function setupGroup(
   value: unknown,
   facts: Facts,
   pins: readonly Pin[],
+  governingRule?: SourceRef,
 ): CommitGroup {
   const ids = initialSetupIdentities(key);
   return {
@@ -71,7 +77,7 @@ function setupGroup(
     ...ids,
     owner: OWNER_WORLD_STATE,
     facet: FACET_WORLD_INITIAL_SETUP,
-    rule: INITIAL_SETUP_RULES[kind] as SourceRef,
+    rule: governingRule ?? (INITIAL_SETUP_RULES[kind] as SourceRef),
     authority: { ...CANON_WRITE_AUTHORITY },
     ...pinGroup(facts, pins),
     writes: [
@@ -94,7 +100,12 @@ const pinFor = (facts: Facts, key: string): Pin => ({
   version: facts.get(key)?.version ?? 1,
 });
 
-export const buildInputGroup = (campaignId: string, facts: Facts, input: InitialSetupInput) =>
+export const buildInputGroup = (
+  campaignId: string,
+  facts: Facts,
+  input: InitialSetupInput,
+  route?: "MS",
+) =>
   setupGroup(
     campaignId,
     "initial_setup_input",
@@ -102,6 +113,7 @@ export const buildInputGroup = (campaignId: string, facts: Facts, input: Initial
     input,
     facts,
     input.genesis,
+    route === "MS" ? INITIAL_SETUP_INPUT_MS_V3_RULE : undefined,
   );
 
 export const buildInvocationGroup = (
@@ -153,6 +165,9 @@ export const buildCompletionGroup = (
     c,
     facts,
     [c.input, c.grant, c.scene_response],
+    facts.get(c.input.fact_key) && isMsInputRule(facts.get(c.input.fact_key)!.provenance.rule)
+      ? INITIAL_LOCALITY_COMPLETION_MS_V3_RULE
+      : undefined,
   );
 
 export const buildDispositionGroup = (

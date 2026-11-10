@@ -30,9 +30,11 @@ type Published = Promise<Result<CommitOutcome, StoreCommitErrorCode>>;
  */
 export class InitialSetupPublisher {
   readonly #store: CampaignStore;
+  readonly #route: "MS" | undefined;
 
-  constructor(store: CampaignStore) {
+  constructor(store: CampaignStore, route?: "MS") {
     this.#store = store;
+    this.#route = route;
   }
 
   get #facts() {
@@ -43,7 +45,7 @@ export class InitialSetupPublisher {
   }
 
   input(i: InitialSetupInput): Published {
-    return this.#store.commit(buildInputGroup(this.#campaign, this.#facts, i));
+    return this.#store.commit(buildInputGroup(this.#campaign, this.#facts, i, this.#route));
   }
   invocation(v: InitialSetupInvocation): Published {
     return this.#store.commit(buildInvocationGroup(this.#campaign, this.#facts, v));

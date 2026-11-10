@@ -173,21 +173,23 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the composed predecessor modules are pinned (the referee and epistemic trees excepted: PR #94 changed them); P1 adds no Health, F-014D, referee or Temporal producer", () => {
+  it("the predecessor modules and explicit MS temporal/commit compositions retain their regression pins; P1 added no Health, F-014D or referee producer", () => {
     const expected: Record<string, string> = {
+      // Authorized MS composition identities; unchanged siblings are also individually pinned.
+      "packages/engine/src/temporal":
+        "0dc735d59959ec6ecd752a1a0b531bf10f564ff1f25dfca886814f39a769ffbb",
+      "packages/engine/src/commit":
+        "c2958df6a3295cececb6854eeb8cc964012f0c70184e241809234f322380e8b4",
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
-      "packages/engine/src/temporal":
-        "616eac431452e31fcce97c8798b7a83cd0041619fadbe0663971666fe3362104",
       "packages/engine/src/persistence":
+        // F-1: scope existing verified-node memoization to canonical open verification; no retained cache.
         // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
         // H-07 S2: a policy-transition first open replays history once (the successor is proved from durable files; the reopen is bounded).
         // H-07 S3: the strict pass releases its per-fact digest cache when it ends (one call in checkpoint-package.ts; no receipt meaning changes).
         // H-07 S3-I1: the retained legacy v1 loader releases it too (one call in file-package.ts after its replay loop).
-        "2d9eb8fc80c678dfae9010c375690d3fff89e07f6ddff7baffc82b40d9736b99",
+        "91957dbee278d08fb70814e1bb1ea79894fecc8f383db4d6cdf375b5e98e3a14",
       // H-07 S3: an incremental evaluator of the SAME canonical full-state SHA-256 serves one strict-replay step (state-digest.ts, plus a diagnostic `retained` getter; `#compute` is byte-identical).
-      "packages/engine/src/commit":
-        "857cd5c2d3ddb26b8f2e525e3f7f0e7c27c757c94c542da464a96bbbe9a6e8ae",
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);
     // The referee and epistemic trees are not in the map above on purpose: PR #94 changed them (R-1, F-1, L12, the scene work), so the value main
@@ -197,14 +199,15 @@ describe("nothing outside the physical-source slice was built", () => {
     expect(treeSha("packages/engine/src/epistemic")).not.toBe(EPISTEMIC_TREE_AT_MAIN);
   });
 
-  it("R1 is preserved: its contract, rules, verifier and eligibility predicate are byte-identical to the merged foundation", () => {
+  it("R1 contracts, eligibility and custody remain pinned, with explicit current MS dispatch identities", () => {
     const expected: Record<string, string> = {
       "packages/contracts/src/actor-presence.ts":
         "828ef1ea9d36376d3179ed5765e78b3a9cdd8a984220faf17e00387913576a26",
+      // Current source-qualified MS composition; legacy behavioral regressions remain separate.
       "packages/engine/src/world/actor-presence.ts":
-        "e26e2cc5018c36a1dc401de2fb3545171f8684570ade41ff595247c6ca29d46e",
+        "9f53460f72c03e5953ec2c80e49455bd59b910b0bb041ba38e54705878743ad5",
       "packages/engine/src/world/actor-presence-integrity.ts":
-        "65c230148f0499cefd115a42987261af528fc76eed97dc62159f2632e08d4e18",
+        "550b675db14367b0b02a9a9743e09bda0de4506e1b7be876715970d5b552b85e",
       "packages/engine/src/world/setup-eligibility.ts":
         "6a8b584be266f78c80cb087569e455d2ca399da00a0fea16866e9d5072be4738",
       "docs/actor-presence-foundation.md":
@@ -314,7 +317,7 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
     expect(lock["implementation_authority_addenda"].map((a: any) => a.id)).toEqual(["F-027-CD1"]);
     // 31 October 2026 appended exactly ONE further, non-executable lineage row after the original four (current-look-lowering-conformance)
     // + the two Initial Locality Bootstrap v0.9 lineage rows (core and the adopted OPTION_A_V9 row), appended after it, and the additive C-1/C-2 row
-    expect(lock["design_lineage_successors"]).toHaveLength(8);
+    expect(lock["design_lineage_successors"]).toHaveLength(9);
     expect(lock["design_lineage_successors"][4].id).toBe("PC-CURRENT-LOOK-PREMISE-LINEAGE");
   });
 
@@ -329,8 +332,12 @@ describe("the F-027 lock: one additive executable lowering, apart from everythin
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
+      "MS-SETUP-V08-LOWERING",
     ]);
-    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual(rows.slice(0, 5).map((r) => r.id));
+    expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual([
+      ...rows.slice(0, 5).map((r) => r.id),
+      "MS-SETUP-V08-LOWERING",
+    ]);
   });
 
   it("the P1 lowering cites the WG native pin, composes with F-027, supersedes nothing and names exactly its kinds", () => {

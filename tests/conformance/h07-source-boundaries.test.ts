@@ -18,12 +18,13 @@ const unchanged = {
     "3aba7a80634026009c1e3331f9d676b784452b0ee072d4aae2233425b4d1d265",
   "packages/contracts/src/commit.ts":
     "a99df55a0c1efbe2ab366a0d3d55cea52496a0ed1e0cdf5974e37c5a8f20d2c8",
+  // Restored R1 implementation pin at the authorized MS composition.
   "packages/engine/src/world/actor-presence.ts":
-    "e26e2cc5018c36a1dc401de2fb3545171f8684570ade41ff595247c6ca29d46e",
+    "9f53460f72c03e5953ec2c80e49455bd59b910b0bb041ba38e54705878743ad5",
   "packages/engine/src/world/auditory-premises.ts":
     "4de3420c206f0522a7af3221912fccdf9e3189facff7ffe8a4dbf3c28fdac6e6",
 };
-it("the frozen snapshot artifacts and the R1/S1-P1 historical rule implementations retain their source bytes (not the F-027 lock or the owner registry, which F-027 v0.8 changed on purpose)", () => {
+it("the frozen snapshot artifacts, S1-P1 implementation and explicit MS-composed R1 implementation retain their regression identities", () => {
   for (const [file, hash] of Object.entries(unchanged)) expect(sha(source(file)), file).toBe(hash);
 });
 it("the H-01 lock arbiter remains byte-identical", () => {
