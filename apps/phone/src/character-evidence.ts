@@ -222,6 +222,7 @@ export type CharacterOpen =
 export async function openCharacterCampaign(
   config: PhoneConfig,
   buildId: string = BUILD_ID,
+  captureReadVerification = false,
 ): Promise<CharacterOpen> {
   const no = (state: CharacterState): CharacterOpen => ({ ok: false, state });
   const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
@@ -263,7 +264,10 @@ export async function openCharacterCampaign(
         ? unavailable(kept.error.code, "the retained keep record cannot be read now")
         : blocked(kept.error.code, "the retained keep record is not a valid one of this campaign"),
     );
-  const opened = await CanonicalCampaign.open(config.campaignDir, { buildId });
+  const opened = await CanonicalCampaign.open(config.campaignDir, {
+    buildId,
+    captureReadVerification,
+  });
   if (!opened.ok)
     return no(
       unavailable(

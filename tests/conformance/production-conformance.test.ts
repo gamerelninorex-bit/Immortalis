@@ -330,6 +330,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "read-verification.ts",
       "scene-custody.ts",
       "setup-eligibility.ts",
       "source-condition.ts",

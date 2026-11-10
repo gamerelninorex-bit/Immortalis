@@ -6,7 +6,9 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { CanonicalCampaign } from "@immortalis/engine";
+import { CanonicalCampaign, nodeFs } from "@immortalis/engine";
+import * as canonicalIntegrity from "../../packages/engine/src/world/integrity.ts";
+import { vi } from "vitest";
 import type { Policy } from "./original-pc.ts";
 import {
   ACTUATOR,
@@ -87,7 +89,54 @@ export async function canonOf(dir: string) {
 /** what the package's own `open` and `verify` do is the common verified-open cost of ANY open; what happens outside them is the operation's */
 export async function metered<T>(op: () => Promise<T>, storeProto: any) {
   const campaignProto = CanonicalCampaign.prototype as any;
-  const counts = { open: 0, listDirect: 0, listInOpen: 0, verifyDirect: 0, getFact: 0, group: 0 };
+  const counts = {
+    open: 0,
+    listDirect: 0,
+    listInOpen: 0,
+    verifyDirect: 0,
+    ownerVerificationPasses: 0,
+    fsReads: 0,
+    fsReadBytes: 0,
+    fsWrites: 0,
+    fsWriteBytes: 0,
+    fsMetadataReads: 0,
+    getFact: 0,
+    group: 0,
+  };
+  const ownerVerifier = vi.spyOn(canonicalIntegrity, "verifyCanonicalIntegrity");
+  const fsOriginal = { ...nodeFs };
+  for (const name of ["readFile", "readRange"] as const)
+    (nodeFs as any)[name] = async (...args: any[]) => {
+      const bytes = await (fsOriginal[name] as any)(...args);
+      counts.fsReads++;
+      counts.fsReadBytes += bytes.length;
+      return bytes;
+    };
+  nodeFs.readRangeSync = (...args) => {
+    const bytes = fsOriginal.readRangeSync(...args);
+    counts.fsReads++;
+    counts.fsReadBytes += bytes.length;
+    return bytes;
+  };
+  for (const name of ["fileSize", "list"] as const)
+    (nodeFs as any)[name] = async (...args: any[]) => {
+      counts.fsMetadataReads++;
+      return (fsOriginal[name] as any)(...args);
+    };
+  for (const name of [
+    "writeFileDurable",
+    "appendDurable",
+    "createExclusive",
+    "mkdirp",
+    "truncate",
+    "remove",
+  ] as const)
+    (nodeFs as any)[name] = async (...args: any[]) => {
+      counts.fsWrites++;
+      if (typeof args[1] === "string" || Buffer.isBuffer(args[1]))
+        counts.fsWriteBytes += Buffer.byteLength(args[1]);
+      return (fsOriginal[name] as any)(...args);
+    };
   const trace: string[] = [];
   const out = { counts, trace, value: undefined as unknown as T };
   let inOpen = 0;
@@ -135,6 +184,9 @@ export async function metered<T>(op: () => Promise<T>, storeProto: any) {
   try {
     out.value = await op();
   } finally {
+    counts.ownerVerificationPasses = ownerVerifier.mock.calls.length;
+    ownerVerifier.mockRestore();
+    Object.assign(nodeFs, fsOriginal);
     (CanonicalCampaign as any).open = original.open;
     storeProto.listFacts = original.list;
     storeProto.getFact = original.getFact;

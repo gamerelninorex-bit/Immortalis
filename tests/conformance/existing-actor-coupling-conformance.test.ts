@@ -213,6 +213,7 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "pc-locus-custody-integrity.ts",
       "pc-locus-custody.ts",
       "physical-subject.ts",
+      "read-verification.ts",
       "scene-custody.ts",
       "setup-eligibility.ts",
       "source-condition.ts",
