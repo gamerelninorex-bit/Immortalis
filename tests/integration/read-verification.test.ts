@@ -66,18 +66,20 @@ describe("actual open verification, bounded reuse and strict fallback", () => {
     const c = await open(await fixture());
     const spy = vi.spyOn(c, "verify");
     try {
-      await c.withReadVerification(async (verify) => {
-        const fact = c.store.getFact("world/world-0/profile") as any;
-        const before = c.store.head();
-        const owner = fact.owner;
-        fact.owner = "not-the-owner";
-        expect(c.store.head()).toEqual(before);
-        expect(verify().length).toBeGreaterThan(0);
-        expect(spy).toHaveBeenCalledTimes(1);
-        fact.owner = owner;
-        expect(verify()).toEqual([]);
-        expect(spy).toHaveBeenCalledTimes(2); // strict, even after the bytes were restored
-      });
+      await expect(
+        c.withReadVerification(async (verify) => {
+          const fact = c.store.getFact("world/world-0/profile") as any;
+          const before = c.store.head();
+          const owner = fact.owner;
+          fact.owner = "not-the-owner";
+          expect(c.store.head()).toEqual(before);
+          expect(verify().length).toBeGreaterThan(0);
+          expect(spy).toHaveBeenCalledTimes(1);
+          fact.owner = owner;
+          expect(verify()).toEqual([]);
+          expect(spy).toHaveBeenCalledTimes(2); // strict, even after the bytes were restored
+        }),
+      ).rejects.toThrow("basis changed");
     } finally {
       await c.close();
     }
@@ -87,19 +89,22 @@ describe("actual open verification, bounded reuse and strict fallback", () => {
     const c = await open(await fixture());
     const spy = vi.spyOn(c, "verify");
     try {
-      await c.withReadVerification(async (verify) => {
-        expect(verify()).toEqual([]);
-        expect(
-          (
-            await c.establishWorld({
-              ...publication(99),
-              world: fixtureWorld({ world_id: "later" }),
-            })
-          ).ok,
-        ).toBe(true);
-        expect(verify()).toEqual([]);
-        expect(spy).toHaveBeenCalledTimes(1);
-      });
+      await expect(
+        c.withReadVerification(async (verify) => {
+          expect(verify()).toEqual([]);
+          expect(
+            (
+              await c.establishWorld({
+                ...publication(99),
+                world: fixtureWorld({ world_id: "later" }),
+              })
+            ).ok,
+          ).toBe(true);
+          expect(verify()).toEqual([]);
+          expect(spy).toHaveBeenCalledTimes(1);
+        }),
+      ).rejects.toThrow("basis changed");
+      expect(c.store.getFact("world/later/profile")).toBeDefined();
     } finally {
       await c.close();
     }
@@ -164,6 +169,24 @@ describe("actual open verification, bounded reuse and strict fallback", () => {
 });
 
 describe("fresh backing evidence, after a successful reused verification", () => {
+  it("withholds output after a same-head change following the callback's last verification/await", async () => {
+    const c = await open(await fixture());
+    const fact = c.store.getFact("world/world-0/profile") as any;
+    const original = fact.value.premise;
+    try {
+      await expect(
+        c.withReadVerification(async (verify) => {
+          expect(verify()).toEqual([]);
+          await Promise.resolve();
+          fact.value.premise += " altered after verification";
+          return "must not escape";
+        }),
+      ).rejects.toThrow("basis changed");
+    } finally {
+      fact.value.premise = original;
+      await c.close();
+    }
+  });
   it("reuses the actual M-S owner chain and its addressed rule-checked evidence", async () => {
     const h = await msHarness();
     expect(await h.actorService.advance()).toEqual({ status: "COMPLETED" });
@@ -191,22 +214,24 @@ describe("fresh backing evidence, after a successful reused verification", () =>
           : join(dir, "journal.jsonl");
       const before = readFileSync(file);
       try {
-        await c.withReadVerification(async (verify) => {
-          expect(verify()).toEqual([]);
-          const head = c.store.head();
-          const bytes = Buffer.from(before);
-          const offset = damaged === "index" ? manifest.head.checkpoint.index.offset : 0;
-          bytes[offset] = 33; // invalid JSON/hash at an actually consumed historical proof
-          writeFileSync(file, bytes);
-          expect(c.store.head()).toEqual(head);
-          let refused: boolean;
-          try {
-            refused = verify().length > 0;
-          } catch {
-            refused = true;
-          }
-          expect(refused).toBe(true);
-        });
+        await expect(
+          c.withReadVerification(async (verify) => {
+            expect(verify()).toEqual([]);
+            const head = c.store.head();
+            const bytes = Buffer.from(before);
+            const offset = damaged === "index" ? manifest.head.checkpoint.index.offset : 0;
+            bytes[offset] = 33; // invalid JSON/hash at an actually consumed historical proof
+            writeFileSync(file, bytes);
+            expect(c.store.head()).toEqual(head);
+            let refused: boolean;
+            try {
+              refused = verify().length > 0;
+            } catch {
+              refused = true;
+            }
+            expect(refused).toBe(true);
+          }),
+        ).rejects.toThrow();
       } finally {
         writeFileSync(file, before);
         await c.close();

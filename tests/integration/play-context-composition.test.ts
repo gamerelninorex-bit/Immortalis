@@ -118,9 +118,9 @@ describe("positive delivery: one composition, the same readings the independent 
     expect(m.value.status).toBe("QUALIFIED");
     // one verified open (its own journal replay and canonical verification are the common cost of ANY open) ...
     expect(m.counts.open).toBe(1);
-    // Two reader enumerations plus three freshness hashes of the complete fact basis. All
+    // Two reader enumerations plus entry/exit freshness hashes of the complete fact basis. All
     // owner checks ran in open; none is silently omitted or counted under a renamed helper.
-    expect(m.counts.listDirect).toBe(5);
+    expect(m.counts.listDirect).toBe(4);
     expect(m.counts.verifyDirect).toBe(0);
     expect(m.counts.ownerVerificationPasses).toBe(1);
     // the unchanged gateway's own fixed trace (fourteen identity reads, then the projection's fixed eight) is present, in order, once

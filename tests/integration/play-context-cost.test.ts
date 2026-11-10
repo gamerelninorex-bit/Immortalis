@@ -205,7 +205,7 @@ describe("whole-operation cost of resuming play: matched fixture, unrelated hist
             typeof (CanonicalCampaign.prototype as any).withReadVerification === "function";
           expect(one.counters.verifications).toBe(reuse ? 0 : 1);
           expect(one.counters.owner_verification_passes).toBe(reuse ? 1 : 2);
-          expect(one.counters.enumerations).toBeLessThanOrEqual(reuse ? 5 : 2);
+          expect(one.counters.enumerations).toBeLessThanOrEqual(reuse ? 4 : 2);
           expect(one.counters.opens).toBeLessThan(legacy.counters.opens);
           expect(one.counters.enumerations).toBeLessThan(legacy.counters.enumerations);
           // the terminal read-only status carries the briefing from ONE open as well (it used to open once for the play state alone)

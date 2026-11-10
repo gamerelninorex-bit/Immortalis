@@ -343,7 +343,8 @@ export class CanonicalCampaign {
   /**
    * Consume the opt-in open's real verification for ONE read operation. Every use freshly
    * authenticates the verifier's inputs; a changed/unknown basis permanently falls back to the
-   * complete verifier. No proof survives this callback (including failure), another scope or close.
+   * complete verifier. A final fresh check prevents publication from a basis changed during the
+   * callback, including after its last await. No proof survives failure, another scope or close.
    * General verify() is unchanged. This is trusted engineering plumbing, never host authority.
    */
   async withReadVerification<T>(
@@ -353,13 +354,22 @@ export class CanonicalCampaign {
     this.#readVerification = undefined;
     let active = true;
     try {
-      return await read(() => {
+      const result = await read(() => {
         if (!active || this.#closed) throw new Error("verification read scope is closed");
         return proof &&
           withCheckpointHistoryReadCache(this.store, () => proof.dependencies.unchanged())
           ? proof.violations
           : this.verify();
       });
+      if (this.#closed) throw new Error("verification read scope is closed");
+      if (
+        proof &&
+        !withCheckpointHistoryReadCache(this.store, () => proof.dependencies.unchanged())
+      ) {
+        this.verify();
+        throw new Error("verification read basis changed");
+      }
+      return result;
     } finally {
       active = false;
       proof?.dependencies.release();

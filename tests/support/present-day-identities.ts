@@ -26,7 +26,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "c8e5be7572408cdc9e1145d1f791de6f63f44851481ef0b39de7046316ec48b6",
+    "7da0f5bfa6f114f6347e25e268127c2c0e50df8f414084a29c77745c32d42717",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":

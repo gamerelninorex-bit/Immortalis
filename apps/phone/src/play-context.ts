@@ -35,7 +35,7 @@ import { playOf, playUnavailable, type PlayRead } from "./play-evidence.ts";
  *
  * ONE composition per call, from ONE owner-verified open of the campaign (`openCharacterCampaign`: operator, retained setup identity,
  * retained KEEP and the package's own journal replay and canonical verification). The readers share one fact listing; the complete
- * open verification's exact inputs are freshly re-authenticated at each proof use, rather than repeating its owner derivations.
+ * open verification's exact inputs are freshly re-authenticated before composition and again before any result is returned.
  * The existing readers (`readLocality`, `characterStateOf`, `playOf`) judge exactly as they always did, handed the
  * facts they would have listed themselves. The Glance runs through `readPlayerViewGlanceOnOpen`: the authentication, host binding, KEEP,
  * canonical-binding, residue, integrity, release and binding proofs of the standalone player-view read, then the unchanged gateway with
@@ -167,11 +167,14 @@ export async function readPlayContext(
   }
   const { campaign, pin, keep, stateDir } = open;
   try {
-    return await campaign.withReadVerification(async (verify) => {
+    return await campaign.withReadVerification(async (freshVerification) => {
       // campaign isolation: a package that holds another campaign is not this campaign's briefing
       if (campaign.store.head().campaign_id !== config.campaignId) return blockedContext();
-      // One shared reader listing; verify re-authenticates this open's actual verification inputs.
+      // One verification result shared inside this private composition. The scope re-authenticates
+      // the complete basis again after the last await, before any briefing can escape.
       const facts: readonly OwnerFact[] = campaign.store.listFacts();
+      const violations = freshVerification();
+      const verify = () => violations;
       const shared = { facts, verify };
 
       const found = readLocality(campaign, config.campaignId, pin, shared);
