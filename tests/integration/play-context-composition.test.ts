@@ -111,17 +111,18 @@ describe("positive delivery: one composition, the same readings the independent 
     expect(bothTrees(dirs)).toEqual(before);
   });
 
-  it("opens the campaign once, enumerates it once and verifies it once, and the Glance read trace is the gateway's fixed one", async () => {
+  it("opens once, reuses the actual complete verification with fresh input checks, and preserves the fixed Glance trace", async () => {
     const dirs = await boundCopy(observed);
     const config = await configFor(dirs);
     const m = await metered(() => readPlayContext(config), storeProto);
     expect(m.value.status).toBe("QUALIFIED");
     // one verified open (its own journal replay and canonical verification are the common cost of ANY open) ...
     expect(m.counts.open).toBe(1);
-    // ... and, after it, the briefing's ONE full enumeration (shared by the setting, character and play readers) plus the ONE the unchanged
-    // epistemic-integrity proof of the player view makes for itself (`verifyEpistemicIntegrity` takes no list), and ONE canonical verification
-    expect(m.counts.listDirect).toBe(2);
-    expect(m.counts.verifyDirect).toBe(1);
+    // Two reader enumerations plus three freshness hashes of the complete fact basis. All
+    // owner checks ran in open; none is silently omitted or counted under a renamed helper.
+    expect(m.counts.listDirect).toBe(5);
+    expect(m.counts.verifyDirect).toBe(0);
+    expect(m.counts.ownerVerificationPasses).toBe(1);
     // the unchanged gateway's own fixed trace (fourteen identity reads, then the projection's fixed eight) is present, in order, once
     const gateway = await gatewayTrace(dirs, config);
     expect(gateway.length).toBeGreaterThanOrEqual(22);

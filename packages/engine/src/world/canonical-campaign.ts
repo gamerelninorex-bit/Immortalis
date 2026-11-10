@@ -61,6 +61,7 @@ import { msCanonicalAdmission } from "../owners/admission.ts";
 import type { InitialSetupPolicy } from "../initial-setup/admission.ts";
 import { verifyMsIntegrity } from "../ms-setup/integrity.ts";
 import { withCheckpointHistoryReadCache } from "../persistence/checkpoint-package.ts";
+import { ReadVerification } from "./read-verification.ts";
 import {
   storeBindings,
   type ExtensionErrorCode,
@@ -236,6 +237,9 @@ export class CanonicalCampaign {
   readonly store: FileCampaignStore;
 
   readonly #extension: StageOwnerExtension | undefined;
+  #readVerification:
+    { dependencies: ReadVerification; violations: readonly IntegrityViolation[] } | undefined;
+  #closed = false;
 
   private constructor(store: FileCampaignStore, extension: StageOwnerExtension | undefined) {
     this.store = store;
@@ -278,9 +282,12 @@ export class CanonicalCampaign {
       /** TESTKIT-ONLY (see `storeBindings`): the T1 fixture admission. Production never supplies it. */
       testkitFixtureAdmission?: WriteAdmission;
       msActorBinding?: InitialSetupPolicy["msActorBinding"];
+      /** Trusted read composer only. Captures actual verification dependencies; never skips validation. */
+      captureReadVerification?: boolean;
     } = {},
   ): Promise<Result<CanonicalCampaign, CanonicalOpenCode>> {
-    const { extension, testkitFixtureAdmission, msActorBinding, ...rest } = options;
+    const { extension, testkitFixtureAdmission, msActorBinding, captureReadVerification, ...rest } =
+      options;
     const bindings = storeBindings(
       extension,
       testkitFixtureAdmission ??
@@ -301,23 +308,62 @@ export class CanonicalCampaign {
     });
     if (!opened.ok) return opened;
     let violations: readonly IntegrityViolation[];
+    // Extensions and explicit audits retain the strict behavior; pre-migration validation above
+    // is unchanged. Only the ordinary reader opts in; other opens pay no capture work.
+    let readVerification: ReadVerification | undefined;
     try {
+      readVerification =
+        captureReadVerification && !extension && !options.audit
+          ? new ReadVerification(opened.value)
+          : undefined;
       violations = withCheckpointHistoryReadCache(opened.value, () =>
-        verifyAll(opened.value, extension),
+        verifyAll(readVerification?.view ?? opened.value, extension),
       );
     } catch (e) {
+      readVerification?.release();
       await opened.value.close().catch(() => undefined);
       return fail("CANON_INTEGRITY", "historical owner evidence could not be verified", {
         cause: String(e),
       });
     }
     if (violations.length > 0) {
+      readVerification?.release();
       await opened.value.close();
       return fail("CANON_INTEGRITY", "the campaign does not match this build's canonical owners", {
         violations: violations.slice(0, 10),
       });
     }
-    return ok(new CanonicalCampaign(opened.value, extension));
+    const campaign = new CanonicalCampaign(opened.value, extension);
+    campaign.#readVerification = readVerification
+      ? { dependencies: readVerification, violations: Object.freeze(violations) }
+      : undefined;
+    return ok(campaign);
+  }
+
+  /**
+   * Consume the opt-in open's real verification for ONE read operation. Every use freshly
+   * authenticates the verifier's inputs; a changed/unknown basis permanently falls back to the
+   * complete verifier. No proof survives this callback (including failure), another scope or close.
+   * General verify() is unchanged. This is trusted engineering plumbing, never host authority.
+   */
+  async withReadVerification<T>(
+    read: (verify: () => readonly IntegrityViolation[]) => Promise<T>,
+  ): Promise<T> {
+    const proof = this.#readVerification;
+    this.#readVerification = undefined;
+    let active = true;
+    try {
+      return await read(() => {
+        if (!active || this.#closed) throw new Error("verification read scope is closed");
+        return proof &&
+          withCheckpointHistoryReadCache(this.store, () => proof.dependencies.unchanged())
+          ? proof.violations
+          : this.verify();
+      });
+    } finally {
+      active = false;
+      proof?.dependencies.release();
+    }
   }
 
   /** Re-runs the canonical and temporal integrity verification against current state. */
@@ -326,6 +372,9 @@ export class CanonicalCampaign {
   }
 
   close(): Promise<void> {
+    this.#closed = true;
+    this.#readVerification?.dependencies.release();
+    this.#readVerification = undefined;
     return this.store.close();
   }
 

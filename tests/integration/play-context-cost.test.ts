@@ -19,7 +19,10 @@
 //   PLAY_CONTEXT_EVIDENCE_DIR   where the raw JSON is written                  (default: not written)
 //   PLAY_CONTEXT_BUILD          "base" | "head" label recorded in the raw JSON (default "head")
 //   PLAY_CONTEXT_EXACT_SHA      the exact commit under test                    (default "unknown")
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
+import { createHash } from "node:crypto";
 import { cpus, platform, release } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -39,12 +42,16 @@ import {
   finished,
 } from "../support/play-context.ts";
 import { openOrdinary } from "../support/locality.ts";
+import { readPlayContext } from "../../apps/phone/src/play-context.ts";
+import { keepFileName } from "../../packages/operator/src/original-pc-keep.ts";
 
 const sizes = (process.env["PLAY_CONTEXT_SIZES"] ?? "0,40").split(",").map(Number);
 const reps = Number(process.env["PLAY_CONTEXT_REPS"] ?? "1");
 const evidenceDir = process.env["PLAY_CONTEXT_EVIDENCE_DIR"];
 const build = process.env["PLAY_CONTEXT_BUILD"] ?? "head";
 const exactSha = process.env["PLAY_CONTEXT_EXACT_SHA"] ?? "unknown";
+const comparisonBase = process.env["PLAY_CONTEXT_COMPARE_BASE_DIR"];
+const parity: { case: string; sha256: string }[] = [];
 
 const LEGACY = [
   "original_setting_status",
@@ -82,9 +89,15 @@ interface Journey {
     readonly opens: number;
     readonly enumerations: number;
     readonly verifications: number;
+    readonly owner_verification_passes: number;
     readonly fact_reads: number;
     readonly group_reads: number;
     readonly enumerations_inside_open_and_verify: number;
+    readonly campaign_fs_reads: number;
+    readonly campaign_fs_read_bytes: number;
+    readonly campaign_fs_writes: number;
+    readonly campaign_fs_write_bytes: number;
+    readonly campaign_fs_metadata_reads: number;
   };
 }
 
@@ -118,9 +131,15 @@ async function measure(chat: any, tools: readonly string[], proto: any): Promise
       opens: m.counts.open,
       enumerations: m.counts.listDirect,
       verifications: m.counts.verifyDirect,
+      owner_verification_passes: m.counts.ownerVerificationPasses,
       fact_reads: m.counts.getFact,
       group_reads: m.counts.group,
       enumerations_inside_open_and_verify: m.counts.listInOpen,
+      campaign_fs_reads: m.counts.fsReads,
+      campaign_fs_read_bytes: m.counts.fsReadBytes,
+      campaign_fs_writes: m.counts.fsWrites,
+      campaign_fs_write_bytes: m.counts.fsWriteBytes,
+      campaign_fs_metadata_reads: m.counts.fsMetadataReads,
     },
   };
 }
@@ -182,8 +201,11 @@ describe("whole-operation cost of resuming play: matched fixture, unrelated hist
           // the briefing is ONE round trip and ONE verified open, and enumerates the package once for all of its readers
           expect(one.round_trips).toBe(1);
           expect(one.counters.opens).toBe(1);
-          expect(one.counters.verifications).toBe(1);
-          expect(one.counters.enumerations).toBeLessThanOrEqual(2);
+          const reuse =
+            typeof (CanonicalCampaign.prototype as any).withReadVerification === "function";
+          expect(one.counters.verifications).toBe(reuse ? 0 : 1);
+          expect(one.counters.owner_verification_passes).toBe(reuse ? 1 : 2);
+          expect(one.counters.enumerations).toBeLessThanOrEqual(reuse ? 5 : 2);
           expect(one.counters.opens).toBeLessThan(legacy.counters.opens);
           expect(one.counters.enumerations).toBeLessThan(legacy.counters.enumerations);
           // the terminal read-only status carries the briefing from ONE open as well (it used to open once for the play state alone)
@@ -212,6 +234,49 @@ describe("whole-operation cost of resuming play: matched fixture, unrelated hist
     expect(b.journal_entries_before).toBeGreaterThan(a.journal_entries_before);
   });
 
+  it.skipIf(!comparisonBase)(
+    "returns byte-identical readbacks to the exact base on the SAME retained package",
+    async () => {
+      for (const kind of [
+        "earned",
+        "unbound-host",
+        "wrong-campaign",
+        "missing-keep",
+        "corrupt-manifest",
+      ] as const) {
+        const s = await cloneSlot(looked);
+        const config = { ...s.config };
+        if (kind === "unbound-host") config.playerViewHostId = "unbound-host";
+        if (kind === "wrong-campaign") config.campaignId = "another-campaign";
+        if (kind === "missing-keep") rmSync(join(s.operatorDir, keepFileName(s.config.campaignId)));
+        if (kind === "corrupt-manifest") {
+          const file = join(s.campaignDir, "manifest.json");
+          writeFileSync(
+            file,
+            readFileSync(file, "utf8").replace(s.config.campaignId, "forged-campaign"),
+          );
+        }
+        const input = JSON.stringify(config);
+        const baseOutput = execFileSync(
+          process.execPath,
+          [
+            "--experimental-strip-types",
+            "--disable-warning=ExperimentalWarning",
+            "--input-type=module",
+            "--eval",
+            'import {readFileSync} from "node:fs"; const {readPlayContext}=await import(process.argv[1]); process.stdout.write(JSON.stringify(await readPlayContext(JSON.parse(readFileSync(0,"utf8")))));',
+            pathToFileURL(join(comparisonBase!, "apps/phone/src/play-context.ts")).href,
+          ],
+          { input, encoding: "utf8", maxBuffer: 1024 * 1024 },
+        );
+        const headOutput = JSON.stringify(await readPlayContext(config));
+        expect(headOutput, kind).toBe(baseOutput);
+        parity.push({ case: kind, sha256: createHash("sha256").update(headOutput).digest("hex") });
+      }
+    },
+    120_000,
+  );
+
   it("records the raw measurements when asked", () => {
     if (!evidenceDir) return;
     mkdirSync(evidenceDir, { recursive: true });
@@ -225,12 +290,15 @@ describe("whole-operation cost of resuming play: matched fixture, unrelated hist
           os: `${platform()} ${release()}`,
           cpus: cpus().length,
           cpu_model: cpus()[0]?.model,
+          process_memory: process.memoryUsage(),
+          process_resources: process.resourceUsage(),
           repetitions: Math.max(1, reps),
           sizes,
           label:
             "MECHANISM / T1 only: scripted client and hosts, real owners and transport, one process, local temporary disk. Model/client latency, genuine host, named client and retained storage are UNRUN.",
           campaign_open_is_CanonicalCampaign_open: typeof CanonicalCampaign.open === "function",
           results: raw,
+          exact_base_output_parity: parity,
         },
         null,
         2,

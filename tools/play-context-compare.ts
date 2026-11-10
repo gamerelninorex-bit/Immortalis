@@ -45,10 +45,10 @@ const c = (j: Journey | null | undefined, k: string): string => (j ? String(j.co
 const out: string[] = [];
 const line = (...cells: (string | number)[]) => out.push(`| ${cells.join(" | ")} |`);
 out.push(
-  "| unrelated facts added | facts before | journal entries | journey | build | tool round trips | response bytes | verified opens | enumerations by the operation | canonical verifications | fact reads | group reads | enumerations inside open/verify (common) | wall ms median (min–max) |",
+  "| unrelated facts added | facts before | journal entries | journey | build | tool round trips | response bytes | verified opens | enumerations by the operation | explicit verifications | full owner verification passes | fact reads | group reads | enumerations inside open/verify | campaign FS reads | campaign FS read bytes | campaign FS writes | campaign FS write bytes | wall ms median (min–max) |",
 );
 out.push(
-  "| ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+  "| ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
 );
 for (const size of head.sizes) {
   const h = head.rows.get(size)!;
@@ -57,6 +57,7 @@ for (const size of head.sizes) {
   const entries = [
     ["separate reads (setting, character, Glance, play_status)", "base", b, (r: Row) => r.legacy],
     ["separate reads (setting, character, Glance, play_status)", "head", h, (r: Row) => r.legacy],
+    ["`get_play_context` (one call)", "base", b, (r: Row) => r.one],
     ["`get_play_context` (one call)", "head", h, (r: Row) => r.one],
     [
       "terminal read-only `play_status` after a material operation",
@@ -84,9 +85,14 @@ for (const size of head.sizes) {
       c(j, "opens"),
       c(j, "enumerations"),
       c(j, "verifications"),
+      c(j, "owner_verification_passes"),
       c(j, "fact_reads"),
       c(j, "group_reads"),
       c(j, "enumerations_inside_open_and_verify"),
+      c(j, "campaign_fs_reads"),
+      c(j, "campaign_fs_read_bytes"),
+      c(j, "campaign_fs_writes"),
+      c(j, "campaign_fs_write_bytes"),
       ms(pooled(rows, pick)),
     );
   }

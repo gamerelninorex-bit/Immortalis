@@ -34,8 +34,9 @@ import { playOf, playUnavailable, type PlayRead } from "./play-evidence.ts";
  *   character awareness         the current earned observation presentation, byte for byte, or its unchanged opaque refusal.
  *
  * ONE composition per call, from ONE owner-verified open of the campaign (`openCharacterCampaign`: operator, retained setup identity,
- * retained KEEP and the package's own journal replay and canonical verification). The package is enumerated once and verified once for
- * all of its readers; the existing readers (`readLocality`, `characterStateOf`, `playOf`) judge exactly as they always did, handed the
+ * retained KEEP and the package's own journal replay and canonical verification). The readers share one fact listing; the complete
+ * open verification's exact inputs are freshly re-authenticated at each proof use, rather than repeating its owner derivations.
+ * The existing readers (`readLocality`, `characterStateOf`, `playOf`) judge exactly as they always did, handed the
  * facts they would have listed themselves. The Glance runs through `readPlayerViewGlanceOnOpen`: the authentication, host binding, KEEP,
  * canonical-binding, residue, integrity, release and binding proofs of the standalone player-view read, then the unchanged gateway with
  * its fixed read trace. A player-view authorization the operator never made is that component's refusal; this read binds nothing.
@@ -154,7 +155,7 @@ export async function readPlayContext(
 ): Promise<PlayContextRead> {
   let open: Awaited<ReturnType<typeof openCharacterCampaign>>;
   try {
-    open = await openCharacterCampaign(config, BUILD_ID);
+    open = await openCharacterCampaign(config, BUILD_ID, true);
   } catch {
     return unavailableContext();
   }
@@ -166,46 +167,46 @@ export async function readPlayContext(
   }
   const { campaign, pin, keep, stateDir } = open;
   try {
-    // campaign isolation: a package that holds another campaign is not this campaign's briefing
-    if (campaign.store.head().campaign_id !== config.campaignId) return blockedContext();
-    // the ONE enumeration and the ONE canonical verification of this open, shared by every reader below
-    const facts: readonly OwnerFact[] = campaign.store.listFacts();
-    let violations: { readonly length: number } | undefined;
-    const verify = () => (violations ??= campaign.verify());
-    const shared = { facts, verify };
+    return await campaign.withReadVerification(async (verify) => {
+      // campaign isolation: a package that holds another campaign is not this campaign's briefing
+      if (campaign.store.head().campaign_id !== config.campaignId) return blockedContext();
+      // One shared reader listing; verify re-authenticates this open's actual verification inputs.
+      const facts: readonly OwnerFact[] = campaign.store.listFacts();
+      const shared = { facts, verify };
 
-    const found = readLocality(campaign, config.campaignId, pin, shared);
-    const state = characterStateOf(campaign, config, pin, keep, { ...shared, setting: found });
-    const play = playOf(campaign, facts);
+      const found = readLocality(campaign, config.campaignId, pin, shared);
+      const state = characterStateOf(campaign, config, pin, keep, { ...shared, setting: found });
+      const play = playOf(campaign, facts);
 
-    const setting: SettingPart =
-      found.kind === "READY"
-        ? { state: "ESTABLISHED", readback: found.readback }
-        : found.kind === "FAILED"
-          ? { state: "BLOCKED" }
-          : { state: "NOT_ESTABLISHED" };
-    const character: CharacterPart =
-      state.kind === "BOUND"
-        ? { state: "BOUND", readback: readbackOf(state) }
-        : state.kind === "BLOCKED"
-          ? { state: "BLOCKED" }
-          : state.kind === "UNAVAILABLE"
-            ? { state: "UNAVAILABLE" }
-            : { state: "NOT_BOUND" };
-    const status: ContextStatus =
-      setting.state === "BLOCKED" || character.state === "BLOCKED"
-        ? "BLOCKED"
-        : character.state === "UNAVAILABLE"
-          ? "UNAVAILABLE"
-          : setting.state === "ESTABLISHED" && character.state === "BOUND"
-            ? "QUALIFIED"
-            : "NOT_QUALIFIED";
-    // the Glance is read only for a campaign that is a supported-play campaign; everything else is the same refusal it would be
-    const observation =
-      status === "QUALIFIED"
-        ? await observationOf(config, { campaign, keep, verify }, stateDir, o.note)
-        : refusal();
-    return { status, setting, character, play, observation };
+      const setting: SettingPart =
+        found.kind === "READY"
+          ? { state: "ESTABLISHED", readback: found.readback }
+          : found.kind === "FAILED"
+            ? { state: "BLOCKED" }
+            : { state: "NOT_ESTABLISHED" };
+      const character: CharacterPart =
+        state.kind === "BOUND"
+          ? { state: "BOUND", readback: readbackOf(state) }
+          : state.kind === "BLOCKED"
+            ? { state: "BLOCKED" }
+            : state.kind === "UNAVAILABLE"
+              ? { state: "UNAVAILABLE" }
+              : { state: "NOT_BOUND" };
+      const status: ContextStatus =
+        setting.state === "BLOCKED" || character.state === "BLOCKED"
+          ? "BLOCKED"
+          : character.state === "UNAVAILABLE"
+            ? "UNAVAILABLE"
+            : setting.state === "ESTABLISHED" && character.state === "BOUND"
+              ? "QUALIFIED"
+              : "NOT_QUALIFIED";
+      // the Glance is read only for a campaign that is a supported-play campaign; everything else is the same refusal it would be
+      const observation =
+        status === "QUALIFIED"
+          ? await observationOf(config, { campaign, keep, verify }, stateDir, o.note)
+          : refusal();
+      return { status, setting, character, play, observation };
+    });
   } catch {
     return unavailableContext();
   } finally {

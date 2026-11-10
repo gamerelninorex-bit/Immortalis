@@ -70,7 +70,7 @@ PY
 cp tests/integration/play-context-cost.test.ts "$base_dir/tests/integration/play-context-cost.test.ts"
 cp tests/support/play-context.ts "$base_dir/tests/support/play-context.ts"
 run() { # run <tree> <build> <sha> <round>
-  (cd "$1" && PLAY_CONTEXT_BUILD="$2" PLAY_CONTEXT_EXACT_SHA="$3" PLAY_CONTEXT_SIZES="$sizes" PLAY_CONTEXT_REPS="$reps" \
+  (cd "$1" && PLAY_CONTEXT_BUILD="$2" PLAY_CONTEXT_EXACT_SHA="$3" PLAY_CONTEXT_SIZES="$sizes" PLAY_CONTEXT_REPS="$reps" PLAY_CONTEXT_COMPARE_BASE_DIR="$base_dir" \
     PLAY_CONTEXT_EVIDENCE_DIR="$evidence_dir/raw/round-$4" \
     pnpm exec vitest run tests/integration/play-context-cost.test.ts > "$evidence_dir/raw/round-$4-$2.log" 2>&1)
 }
