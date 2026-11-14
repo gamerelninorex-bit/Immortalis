@@ -27,7 +27,8 @@ import {
   FREIGHT_FACT_KIND_IDS,
   FREIGHT_SUNSET_POLICY_DELTA,
 } from "@immortalis/engine";
-import { code } from "../support/f027.ts";
+import * as engine from "@immortalis/engine";
+import { code, lock } from "../support/f027.ts";
 import { FREIGHT_BASE_COMMIT, FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 
 const walk = (dir: string): string[] =>
@@ -218,5 +219,55 @@ describe("reviewed sunset policy: every registered kind has a row; the freight r
     expect(BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1.map((r) => r.kind).sort()).toEqual(
       ALL_FACT_KINDS.map((k) => k.id).sort(),
     );
+  });
+});
+
+describe("source-lock receipt route: the capability is registered, bound to the code and kept narrow", () => {
+  const row = (list: string, id: string) =>
+    (lock as unknown as Record<string, Record<string, unknown>[]>)[list]!.find(
+      (r) => r["id"] === id,
+    )!;
+
+  it("the lowering row names exactly the registered kinds, the five owner rules and the history policy the engine uses, and composes with F-027", () => {
+    const low = row("executable_lowerings", "ROADBED-FREIGHT-FI-LOWERING") as Record<string, any>;
+    expect(low["fact_kinds"]).toEqual([...FREIGHT_FACT_KIND_IDS]);
+    expect(low["history_policy_suffix"]).toBe(engine.FREIGHT_HISTORY_POLICY_SUFFIX);
+    expect(low["relation"]).toBe("COMPOSES_WITH");
+    expect(low["supersedes"]).toBeNull();
+    expect(low["superseded_by"]).toBeNull();
+    expect(low["cites_design_lineage"]).toEqual(["ROADBED-FREIGHT-FI-LINEAGE"]);
+    for (const name of low["rule_map"] as string[]) {
+      const rule = (engine as unknown as Record<string, unknown>)[name];
+      expect(rule, name).toBeDefined();
+      expect(
+        FREIGHT_FACT_KINDS.some((k) => k.rule === rule),
+        name,
+      ).toBe(true);
+    }
+    expect(low["technical_encoding_review"]).toMatch(/BLUE review/);
+  });
+
+  it("the lineage row is design-only, never executable, never a frozen pin, and does not rewrite any frozen source", () => {
+    const lin = row("design_lineage_successors", "ROADBED-FREIGHT-FI-LINEAGE") as Record<
+      string,
+      any
+    >;
+    expect(lin["executable"]).toBe(false);
+    expect(lin["status"]).toBe("DESIGN_RATIFIED");
+    expect(lin["narrows_frozen_pin"]).toBe(false);
+    expect(lin["of_frozen_source"]).toBeNull();
+    expect((lock as any).frozen_sources).toHaveLength(23);
+    expect(JSON.stringify(lin["sections"])).toMatch(/R2-D18 v1\.2\.1/);
+    expect(JSON.stringify(lin["sections"])).toMatch(/R3-T17 CT-1\.\.CT-4/);
+  });
+
+  it("the lowering states the exclusions the slice honours: no positive F1, no W1/W4, no new owner, no F-028 expansion", () => {
+    const low = row("executable_lowerings", "ROADBED-FREIGHT-FI-LOWERING") as Record<string, any>;
+    const text = JSON.stringify(low["does_not"]);
+    expect(text).toMatch(/positive definitive F1 terminal refusal/);
+    expect(text).toMatch(/W1/);
+    expect(text).toMatch(/W4/);
+    expect(text).toMatch(/add an owner/);
+    expect(text).toMatch(/F-028/);
   });
 });

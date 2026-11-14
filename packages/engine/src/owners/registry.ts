@@ -3431,9 +3431,10 @@ export const MS_FACT_KINDS: readonly FactKind[] = [
 
 /**
  * The ROADBED control page: BLUE Formal Universal Hard Preflight v6.2 R3-T25 (the bounded Builder brief) and its ratified
- * predecessors. `native_pin` is the page's native last-edited pin OBSERVED AT BUILDER INTAKE (the fetch that contains R3-T25); the
- * ratified source pins it carries are named in the lineage and recorded in spec/f027/spec-lock.json. It is a construction and
- * design-lineage source: it rewrites no frozen pin, and every kind below is a TECHNICAL LOWERING of ratified semantics.
+ * predecessors. `native_pin` is the instant the page was FETCHED at Builder intake (the read that contains R3-T25; that read exposes no
+ * separate last-edited field); the ratified source pins the page carries are named in the lineage and recorded in
+ * spec/f027/spec-lock.json. It is a construction and design-lineage source: it rewrites no frozen pin, and every kind below is a
+ * TECHNICAL LOWERING of ratified semantics.
  */
 export const ROADBED_SOURCE = {
   artifact: "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",

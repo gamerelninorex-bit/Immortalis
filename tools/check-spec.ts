@@ -208,6 +208,18 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     sections: 1,
     titles: ["M-S v0.8 A–D — Design Only"],
   },
+  // ROADBED (R2-D18 v1.2.1 / R3-T2 as corrected by R3-T17 / R3-T25): the page as fetched at Builder intake; the ratified pins it carries are in the section titles
+  "ROADBED-FREIGHT-FI-LINEAGE": {
+    of: null,
+    url: "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",
+    pin: "2026-11-13T06:14:52.876Z",
+    sections: 3,
+    titles: [
+      "R2-D18 v1.2.1 — Economy–Logistics–GIP Minimum Foundation (source pin 2026-11-11T16:11:26.161Z; Sovereign scoped source ratification R2-D22 at 2026-11-11T16:29:38.518Z)",
+      "R3-T2 §§2–5 — scoped F-016 EL-01F / EL-02S and F-017 first-freight stage overlay as corrected by R3-T17 CT-1..CT-4 (Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z; R3-T21 documentary re-freeze)",
+      "R3-T25 — BLUE Formal Universal Hard Preflight v6.2, conditional-scope PASS and bounded Builder brief (13 November 2026)",
+    ],
+  },
 };
 
 /** The exclusions both current-look lowerings (31 October 2026) carry, as separate strings, in this order. */
@@ -314,6 +326,39 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       "named_actor_existence_basis",
     ],
     lineage: ["MS-SETUP-V08-LINEAGE"],
+  },
+  "ROADBED-FREIGHT-FI-LOWERING": {
+    url: "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",
+    pin: "2026-11-13T06:14:52.876Z",
+    kinds: [
+      "world_opening_attestation",
+      "world_site_condition",
+      "world_governing_premise",
+      "world_governing_premise_head",
+      "gip_opening_basis",
+      "gip_instrument_clause",
+      "gip_legal_readiness_seal",
+      "production_material_specification",
+      "production_input_lot",
+      "economy_origin_allocation",
+      "economy_origin_lot_slot",
+      "economy_accepted_output_holding",
+      "economy_freight_request",
+      "economy_freight_allocation",
+      "economy_freight_directive_use_slot",
+      "economy_freight_cargo_slot",
+      "economy_freight_requirement_slot",
+      "economy_freight_withdrawal",
+      "economy_freight_close",
+      "economy_freight_use_consumption",
+      "economy_freight_result",
+      "economy_destination_adequacy",
+      "logistics_service_basis",
+      "logistics_service_slot",
+      "logistics_unused_release",
+      "logistics_freight_dispatch_enrollment",
+    ],
+    lineage: ["ROADBED-FREIGHT-FI-LINEAGE"],
   },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -924,6 +969,47 @@ export function checkSpec(root: string): string[] {
     )
       errors.push(
         "MS lowering must bind the exact literal manifest, ordered lineage, rule map and historical policy",
+      );
+  }
+
+  // -- ROADBED first-profile freight: the exclusions and encodings the lowering row must carry, kept literal ------------------------
+  const freight = lowerings.find((e) => e["id"] === "ROADBED-FREIGHT-FI-LOWERING");
+  if (freight) {
+    if (freight["history_policy_suffix"] !== "+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z")
+      errors.push(
+        "ROADBED freight lowering must carry its exact historical-verification policy suffix",
+      );
+    if (
+      freight["sunset_delta"] !==
+      "TWENTY_SIX_EXPLICIT_UNREVIEWED_BLOCK_ROWS_119_TOTAL_ORIGINAL_93_UNCHANGED"
+    )
+      errors.push("ROADBED freight lowering must name its restrictive sunset delta");
+    if (
+      JSON.stringify(freight["rule_map"]) !==
+      JSON.stringify([
+        "FREIGHT_WORLD_RULE",
+        "FREIGHT_GIP_RULE",
+        "FREIGHT_PRODUCTION_RULE",
+        "FREIGHT_ECONOMY_RULE",
+        "FREIGHT_LOGISTICS_RULE",
+      ])
+    )
+      errors.push("ROADBED freight lowering must name its five owner rule citations in order");
+    const dn = freight["does_not"];
+    if (
+      !Array.isArray(dn) ||
+      dn.length !== 6 ||
+      !String(dn[0]).startsWith(
+        "lower, persist or simulate a positive definitive F1 terminal refusal",
+      ) ||
+      !String(dn[1]).startsWith("admit withdrawal cause W1")
+    )
+      errors.push(
+        "ROADBED freight lowering must keep positive F1 and W1/W4 out of its executable scope (six ordered exclusions)",
+      );
+    if (typeof freight["technical_encoding_review"] !== "string")
+      errors.push(
+        "ROADBED freight lowering must record that its technical encodings await BLUE review",
       );
   }
 
