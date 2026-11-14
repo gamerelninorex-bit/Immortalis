@@ -418,6 +418,23 @@
       "supersedes": null,
       "superseded_by": null,
       "note": "Additive A–D design lineage only; exact v0.3 executable adoption is separately recorded by the pinned BLUE brief. Original frozen sources and executable lowerings are preserved."
+    },
+    {
+      "id": "ROADBED-FREIGHT-FI-LINEAGE",
+      "of_frozen_source": null,
+      "url": "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",
+      "native_pin": "2026-11-13T06:14:52.876Z",
+      "sections": [
+        "R2-D18 v1.2.1 — Economy–Logistics–GIP Minimum Foundation (source pin 2026-11-11T16:11:26.161Z; Sovereign scoped source ratification R2-D22 at 2026-11-11T16:29:38.518Z)",
+        "R3-T2 §§2–5 — scoped F-016 EL-01F / EL-02S and F-017 first-freight stage overlay as corrected by R3-T17 CT-1..CT-4 (Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z; R3-T21 documentary re-freeze)",
+        "R3-T25 — BLUE Formal Universal Hard Preflight v6.2, conditional-scope PASS and bounded Builder brief (13 November 2026)"
+      ],
+      "status": "DESIGN_RATIFIED",
+      "executable": false,
+      "narrows_frozen_pin": false,
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "Additive ROADBED design lineage only: ratified SOURCE ARCHITECTURE (R2-D18 v1.2.1 and the R3-T2 overlay as corrected by R3-T17) and the bounded Builder brief R3-T25. The native pin is the instant the ROADBED page was fetched at Builder intake (the page exposes no separate last-edited field in that read); the ratified section pins it carries are named in `sections`. Positive definitive F1 terminal refusal is WITHHELD (R3-T23 B1-C / CT-1) and W4 is not source-qualified: neither is lowered. Original frozen sources and every earlier executable lowering are preserved."
     }
   ],
   "executable_lowerings": [
@@ -774,6 +791,87 @@
         "widen the SCOPE/SCENE transport or shared capability/coupling consumers",
         "enable hearing, independent initiative, personality, Health, ordinary travel, PC handover, generic exceptions or retcons",
         "claim original-message production, genuine-host/client, retained-storage restart or broader release acceptance"
+      ]
+    },
+    {
+      "id": "ROADBED-FREIGHT-FI-LOWERING",
+      "title": "ROADBED R3-T25 — first-profile institutional freight, Foundation F + Integration I (bounded Builder lowering)",
+      "url": "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",
+      "native_pin": "2026-11-13T06:14:52.876Z",
+      "section": "R2-D18 v1.2.1 §§1–5 / R3-T2 §§2–5 / R3-T25",
+      "status": "FROZEN_EXECUTABLE_LOWERING",
+      "executable": true,
+      "relation": "COMPOSES_WITH",
+      "composed_with": {
+        "id": "F-027",
+        "version": "v1.0",
+        "package_native_pin": "2026-09-29T00:40:44.707Z"
+      },
+      "cites_design_lineage": [
+        "ROADBED-FREIGHT-FI-LINEAGE"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "primary_im": "IM-06",
+      "composing_im": [
+        "IM-03",
+        "IM-05",
+        "IM-02"
+      ],
+      "fact_kinds": [
+        "world_opening_attestation",
+        "world_site_condition",
+        "world_governing_premise",
+        "world_governing_premise_head",
+        "gip_opening_basis",
+        "gip_instrument_clause",
+        "gip_legal_readiness_seal",
+        "production_material_specification",
+        "production_input_lot",
+        "economy_origin_allocation",
+        "economy_origin_lot_slot",
+        "economy_accepted_output_holding",
+        "economy_freight_request",
+        "economy_freight_allocation",
+        "economy_freight_directive_use_slot",
+        "economy_freight_cargo_slot",
+        "economy_freight_requirement_slot",
+        "economy_freight_withdrawal",
+        "economy_freight_close",
+        "economy_freight_use_consumption",
+        "economy_freight_result",
+        "economy_destination_adequacy",
+        "logistics_service_basis",
+        "logistics_service_slot",
+        "logistics_unused_release",
+        "logistics_freight_dispatch_enrollment"
+      ],
+      "rule_map": [
+        "FREIGHT_WORLD_RULE",
+        "FREIGHT_GIP_RULE",
+        "FREIGHT_PRODUCTION_RULE",
+        "FREIGHT_ECONOMY_RULE",
+        "FREIGHT_LOGISTICS_RULE"
+      ],
+      "authority_lineage": [
+        "F-027 v1.0 — https://app.notion.com/p/3ea20af901e081bc9c55d2c5a49cf639 @ 2026-09-29T00:40:44.707Z; original frozen sources preserved",
+        "ROADBED R2-D18 v1.2.1 — https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97 @ source pin 2026-11-11T16:11:26.161Z; Sovereign scoped source ratification R2-D22 at 2026-11-11T16:29:38.518Z; seven separately addressable clauses C-01..C-07, Packages F and I, PO-1..PO-7",
+        "ROADBED R3-T2 §§2–5 as corrected by R3-T17 CT-1..CT-4 — https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97 ; RED R3-T18 / BLUE R3-T19 verbatim PASS; Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z; R3-T21 at 2026-11-13T04:53:30.313Z; request class R2-D18-v1.2.1/first-profile/economy-fixed-freight only",
+        "ROADBED R3-T25 — https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97 @ 2026-11-13T06:14:52.876Z; construction objective and acceptance boundary; positive definitive F1 terminal refusal WITHHELD under R3-T23 B1-C / CT-1",
+        "WS-004 Economy / Exchange / Demand v1.1; WS-007 GIP; WS-010 Logistics v1; WS-003 World-State; F-017 — owner law unchanged, pinned by the F-027 frozen sources"
+      ],
+      "history_policy_suffix": "+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z",
+      "sunset_delta": "TWENTY_SIX_EXPLICIT_UNREVIEWED_BLOCK_ROWS_119_TOTAL_ORIGINAL_93_UNCHANGED",
+      "runtime_contract_compatibility": "RC-01–RC-16 and IM-01–IM-17 snapshot unchanged. New full-source-qualified kinds only, under EXISTING owners; the one changed history policy forces a strict verified replay (every first-profile group re-derived against its true pre-state) before checkpoint reuse. No old source is reinterpreted.",
+      "technical_encoding_review": "The kind labels, key spaces, seal and event wire details, version pins and slot encodings and the typed Scope Binding qualification carried in the original `legal` slice are TECHNICAL LOWERINGS of ratified semantics and are not frozen source literals; they await independent BLUE review (R3-T25).",
+      "scope": "One Economy-fixed single-whole-cargo, single-leg institutional freight leg under the sealed first profile: GM-authored world evidence and competent antecedent; GIP readiness with seven separately addressable provisions C-01..C-07 and a fail-closed typed qualification of the Instrument's Scope Binding (at the seal and at every applicability read: an authored, opaque binding alone never yields `applies`); Production's prospective material specification and dedicated input lot; Economy C-05/C-06 fixation with three exclusive slots; genuine W2/W3 protection, F2 unused release, F4 at the close's own cut and exactly-once cancellation (Foundation F); independently evidenced non-agentive service, L0/L1, E1/TE, earned LD → WT/ECT-01 → LR → ER and independently sourced AD (Integration I).",
+      "does_not": [
+        "lower, persist or simulate a positive definitive F1 terminal refusal: no Logistics refusal kind, key or receipt exists, and temporary shortage, unknown, provisional or S0/S1-negative status is not F1",
+        "admit withdrawal cause W1 (positive F1) or W4 (no source-qualified service-by boundary exists)",
+        "add an owner, a second physical custodian, title, facility inventory, a stored eligibility flag or a Logistics-owned economic request",
+        "change the WS-007 Instrument's legacy scalar `operative_effect` or any frozen source, lowering or runtime-contract row",
+        "create a retcon, override or NPC initiative, fabricate a player choice, or mix GM, NPC and NPK knowledge",
+        "expand into F-028 or First-Full Playable, or claim a genuine host, named client, retained-storage restart, paid host or throughput acceptance"
       ]
     }
   ],

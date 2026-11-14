@@ -105,7 +105,9 @@ import {
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
-import { resolveKey, type FactKind } from "./registry.ts";
+import { resolveKey, type FactKind, type FREIGHT_FACT_KIND_IDS } from "./registry.ts";
+import { FREIGHT_HISTORY_POLICY_SUFFIX, freightIdentityMismatch } from "../freight/common.ts";
+import { freightGroupCheck } from "../freight/route.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
 
 function checkLocus(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
@@ -490,17 +492,28 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
  */
 function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
   return {
-    initializeView: initializeMsFence,
-    committedView: advanceMsFence,
+    initializeView(state, checked) {
+      initializeMsFence(state, checked);
+      initializeGipOwnerHead(state);
+    },
+    // durable adoption carries BOTH derived views forward: the MS fence and the campaign-wide GIP owner head (a memoized pure
+    // function of state; see gip/owner-head.ts). Neither is a group field or persisted authority.
+    committedView(before, after, group) {
+      advanceMsFence(before, after, group);
+      advanceGipOwnerHead(before, after, group);
+    },
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}`,
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}`,
     verifyHistorical(group, state) {
       return (
         msFenceCheck(group, state) ??
         msActorGroupCheck(group, state) ??
         worldActorPresenceHistoricalCheck(group, state) ??
         auditoryPremisesHistoricalCheck(group, state) ??
+        // ROADBED first-profile freight: replay re-derives every freight group against the ACTUAL incremental pre-state it was
+        // committed on, so a tampered or fabricated freight fact cannot survive a reopen (null/undefined fall through)
+        freightGroupCheck(group, state) ??
         initialSetupHistoricalCheck(group, state, { ...policy, historical: true })
       );
     },
@@ -552,6 +565,11 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       if (ms) return ms;
       if (group.facet === "world_initial_actor_setup" || group.facet === "actor_existence")
         return ms;
+      // ROADBED first-profile institutional freight (Foundation F + Integration I): every group that writes a first-profile
+      // kind is re-derived by ITS OWN owner's rule in the freight module, through this one route. A group that writes none is
+      // untouched, and every owner line below is exactly as it was.
+      const freight = freightGroupCheck(group, state);
+      if (freight !== undefined) return freight;
       // IM-03 v0.9 Initial Locality Bootstrap records (a facet of the World-State owner), each re-derived from the pre-state.
       if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
         return initialSetupGroupCheck(group, state, policy);
@@ -771,6 +789,9 @@ export function identityMismatch(
   value: unknown,
 ): string | null {
   const v = value as Record<string, unknown>;
+  // ROADBED first-profile freight kinds: one shared statement of "the identity in the key is the identity in the value"
+  const freight = freightIdentityMismatch(kind.id, ids, value);
+  if (freight !== undefined) return freight;
   switch (kind.id) {
     case "world_profile":
       return v["world_id"] === ids[0] ? null : "world_id does not match the key";
@@ -1077,6 +1098,12 @@ export function identityMismatch(
         ? null
         : "cohort identity does not match the key";
     }
+    default: {
+      // Exhaustiveness is preserved: the only ids not listed above are the freight kinds, each answered by
+      // `freightIdentityMismatch` before this switch. A new kind without its own case fails to typecheck here.
+      const answeredAbove: (typeof FREIGHT_FACT_KIND_IDS)[number] = kind.id;
+      return `no identity rule is stated for ${answeredAbove}`;
+    }
   }
 }
 
@@ -1103,4 +1130,5 @@ function dependencyCheck(
 import { namedActorExistenceBasisKey } from "@immortalis/contracts";
 import { msActorGroupCheck } from "../ms-setup/admission.ts";
 import { initializeMsFence, advanceMsFence, msFenceCheck } from "../ms-setup/fence.ts";
+import { advanceGipOwnerHead, initializeGipOwnerHead } from "../freight/gip-owner-head.ts";
 import { MS_HISTORY_POLICY_SUFFIX } from "../ms-setup/rules.ts";

@@ -1,0 +1,347 @@
+{
+  "meta": {
+    "tool": "tools/freight-benchmark.ts",
+    "commit": "d7e2c739591831eb773741737d65fc131bde657b",
+    "node": "v22.23.4",
+    "platform": "linux-x64",
+    "sizes": [
+      0,
+      100,
+      500,
+      2000
+    ],
+    "reps": 5,
+    "worlds": [
+      "quarry",
+      "textile"
+    ],
+    "mechanism_only": true,
+    "claims": "NONE beyond the measured samples: no throughput, capacity or latency claim; no genuine host, named client, retained storage or paid host"
+  },
+  "equal_causal_work_across_dormant_sizes": {
+    "quarry": true,
+    "textile": true
+  },
+  "rows": [
+    {
+      "world": "quarry",
+      "dormant_loci": 0,
+      "samples": 5,
+      "facts_before": 0,
+      "operation_ms": [
+        303,
+        350.4,
+        312.4,
+        404.9,
+        309.4
+      ],
+      "operation_ms_median": 312.38131699999997,
+      "commit_p50_ms_median": 5.713421000000039,
+      "commit_p95_ms_median": 8.397088999999937,
+      "reopen_ms": [
+        75.9,
+        71.5,
+        81.6,
+        77.3,
+        72.2
+      ],
+      "reopen_ms_median": 75.94751000000008,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8136,
+      "fs_write_bytes": 416344,
+      "reopen_gip_head_scanned_facts": 0,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "quarry",
+      "dormant_loci": 100,
+      "samples": 5,
+      "facts_before": 101,
+      "operation_ms": [
+        387.8,
+        444.8,
+        352.9,
+        376.4,
+        443.8
+      ],
+      "operation_ms_median": 387.83386800000005,
+      "commit_p50_ms_median": 7.4650910000000295,
+      "commit_p95_ms_median": 11.952345000000037,
+      "reopen_ms": [
+        168.1,
+        169.4,
+        176.2,
+        252.1,
+        212.1
+      ],
+      "reopen_ms_median": 176.22128999999995,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8136,
+      "fs_write_bytes": 1584178,
+      "reopen_gip_head_scanned_facts": 146,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "quarry",
+      "dormant_loci": 500,
+      "samples": 5,
+      "facts_before": 501,
+      "operation_ms": [
+        660.9,
+        614.5,
+        610.1,
+        600.2,
+        673.9
+      ],
+      "operation_ms_median": 614.4604719999998,
+      "commit_p50_ms_median": 13.307142999999996,
+      "commit_p95_ms_median": 17.51375300000018,
+      "reopen_ms": [
+        403.5,
+        473.3,
+        528.1,
+        423.1,
+        426
+      ],
+      "reopen_ms_median": 425.95163799999955,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 523140,
+      "fs_write_bytes": 2332470,
+      "reopen_gip_head_scanned_facts": 512,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "quarry",
+      "dormant_loci": 2000,
+      "samples": 5,
+      "facts_before": 2001,
+      "operation_ms": [
+        1648,
+        1571.3,
+        1678.6,
+        1607.4,
+        1501.3
+      ],
+      "operation_ms_median": 1607.3617830000003,
+      "commit_p50_ms_median": 39.54139700000087,
+      "commit_p95_ms_median": 57.927866999998514,
+      "reopen_ms": [
+        1557.7,
+        1579.2,
+        1583.5,
+        1725.2,
+        1494.3
+      ],
+      "reopen_ms_median": 1579.1627709999957,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8136,
+      "fs_write_bytes": 429475,
+      "reopen_gip_head_scanned_facts": 1920,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "textile",
+      "dormant_loci": 0,
+      "samples": 5,
+      "facts_before": 0,
+      "operation_ms": [
+        353,
+        350.1,
+        347.1,
+        349.9,
+        310.5
+      ],
+      "operation_ms_median": 349.881542,
+      "commit_p50_ms_median": 6.453762999999981,
+      "commit_p95_ms_median": 9.866970000000038,
+      "reopen_ms": [
+        91.8,
+        83.8,
+        86.7,
+        83.8,
+        98.3
+      ],
+      "reopen_ms_median": 86.73153200000002,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8424,
+      "fs_write_bytes": 415222,
+      "reopen_gip_head_scanned_facts": 0,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "textile",
+      "dormant_loci": 100,
+      "samples": 5,
+      "facts_before": 101,
+      "operation_ms": [
+        436.3,
+        414.1,
+        421.5,
+        456.3,
+        411.6
+      ],
+      "operation_ms_median": 421.48983,
+      "commit_p50_ms_median": 8.084324000000038,
+      "commit_p95_ms_median": 13.832331999999951,
+      "reopen_ms": [
+        179.3,
+        178.7,
+        176.4,
+        192.1,
+        183.3
+      ],
+      "reopen_ms_median": 179.308493,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8424,
+      "fs_write_bytes": 1583262,
+      "reopen_gip_head_scanned_facts": 146,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "textile",
+      "dormant_loci": 500,
+      "samples": 5,
+      "facts_before": 501,
+      "operation_ms": [
+        637.8,
+        744.3,
+        656.5,
+        685.8,
+        643.3
+      ],
+      "operation_ms_median": 656.459824,
+      "commit_p50_ms_median": 14.171595000000707,
+      "commit_p95_ms_median": 20.340291999999863,
+      "reopen_ms": [
+        491.5,
+        436.5,
+        443.7,
+        431.5,
+        436.7
+      ],
+      "reopen_ms_median": 436.74683000000005,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 523429,
+      "fs_write_bytes": 2331148,
+      "reopen_gip_head_scanned_facts": 512,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "world": "textile",
+      "dormant_loci": 2000,
+      "samples": 5,
+      "facts_before": 2001,
+      "operation_ms": [
+        1724.5,
+        1822.8,
+        1768.6,
+        1703.6,
+        1693.4
+      ],
+      "operation_ms_median": 1724.5081229999996,
+      "commit_p50_ms_median": 43.054525999999896,
+      "commit_p95_ms_median": 62.07944700000371,
+      "reopen_ms": [
+        1688.9,
+        1571.2,
+        1759.5,
+        1653.7,
+        1541.8
+      ],
+      "reopen_ms_median": 1653.7466549999954,
+      "canonical_commits": 36,
+      "owner_reads": 262,
+      "derivations": 14,
+      "gip_head_scans": 0,
+      "gip_head_scanned_facts": 0,
+      "gip_head_advances": 7,
+      "fs_read_bytes": 8424,
+      "fs_write_bytes": 428353,
+      "reopen_gip_head_scanned_facts": 1920,
+      "verify_violations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

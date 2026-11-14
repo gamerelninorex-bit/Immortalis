@@ -76,6 +76,7 @@ import { verifyNamedActorIntegrity } from "../actor/integrity.ts";
 import { verifyPcCapabilityIntegrity } from "../pc-capability/integrity.ts";
 import { verifyCausalDrawIntegrity } from "../causal-draw/integrity.ts";
 import { verifyEconomyIntegrity } from "../economy/integrity.ts";
+import { verifyFreightIntegrity } from "../freight/integrity.ts";
 import { verifyEpistemicIntegrity } from "../epistemic/integrity.ts";
 import { verifyDiplomacyIntegrity } from "../diplomacy/integrity.ts";
 import { verifyGipIntegrity } from "../gip/integrity.ts";
@@ -993,6 +994,7 @@ function verifyAll(
     ...verifyProductionIntegrity(store),
     ...verifySourceDrawdownIntegrity(store),
     ...verifyEconomyIntegrity(store),
+    ...verifyFreightIntegrity(store),
     ...verifyEntityTransitionIntegrity(store),
     ...verifyExistingActorCouplingIntegrity(store),
     ...verifyActorPresenceIntegrity(store),

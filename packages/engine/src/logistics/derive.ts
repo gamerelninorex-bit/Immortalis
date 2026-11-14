@@ -1,7 +1,11 @@
 import {
+  EconomyFreightRequestSchema,
   EntityTransitionCauseSchema,
+  FREIGHT_PROFILE,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
+  MovementServiceRequestSchema,
+  OWNER_ECONOMY,
   OWNER_LOGISTICS,
   OWNER_PC_EXISTENCE,
   OWNER_WORLD_STATE,
@@ -19,6 +23,7 @@ import {
   logisticsTransferId,
   logisticsTransferKey,
   ok,
+  economyFreightRequestKey,
   pcMovementRequestKey,
   worldCorridorKey,
   worldEntityTransitionKey,
@@ -27,6 +32,7 @@ import {
   worldPcLocusCustodyKey,
   worldProfileKey,
   type CanonicalTime,
+  type EconomyFreightRequest,
   type EntityTransitionCause,
   type EntityTransitionClose,
   type LogisticsCommitment,
@@ -69,6 +75,43 @@ const worldOf = (r: Pick<MovementServiceRequest, "destination">): string =>
   r.destination.world.entity_id;
 
 /**
+ * The WS-010 §3.1 request Logistics reads from Economy's sealed first-profile freight request, field by field (the ratified
+ * source-to-schema map of R3-T25 §4; nothing is silently dropped — the remaining request fields are read where they are used):
+ *
+ *   request_ref                    → request_id            requesting_owner_ref        → source.owner
+ *   moved_object_or_quantity_ref   → subject               destination_or_use_locus_ref → destination
+ *   allocation (the Economy cause) → source.cause_ref      legal_priority (none)        → priority_authority_ref: null
+ *
+ * `origin_ref`, `quantity`, `material_handling`, `ceiling`, `institution`, `purpose` and the legal pins are not copied into
+ * Logistics' commitment envelope: the service-admission and first-dispatch derivations read them from the request itself.
+ */
+export const movementRequestOfFreight = (r: EconomyFreightRequest): MovementServiceRequest => ({
+  request_id: r.request_ref,
+  source: { owner: r.requesting_owner_ref, cause_ref: r.allocation.fact_key },
+  subject: r.moved_object_or_quantity_ref,
+  destination: r.destination_or_use_locus_ref,
+  priority_authority_ref: null,
+});
+
+/**
+ * The Movement Service Request a committed foreign fact carries, read by the kind its own key resolves to: Economy's sealed
+ * first-profile freight request (projected as above) or the existing interface envelope. Undefined when it is neither.
+ */
+export function movementRequestOf(fact: {
+  readonly key: string;
+  readonly value: unknown;
+}): MovementServiceRequest | undefined {
+  if (resolveKey(fact.key)?.kind.id === "economy_freight_request") {
+    const freight = EconomyFreightRequestSchema.safeParse(fact.value);
+    return freight.success && freight.data.request_class === FREIGHT_PROFILE
+      ? movementRequestOfFreight(freight.data)
+      : undefined;
+  }
+  const parsed = MovementServiceRequestSchema.safeParse(fact.value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
  * Whether a request is its source's own fact lawfully readable by Logistics: held in the SOURCE owner's own key
  * space — never any registered owner's, so never Logistics' or World-State's — and written by the source it names
  * (WS-010 §3.1: the request is an interface envelope, not Logistics-owned state). Returns a message, or null.
@@ -88,6 +131,18 @@ export function requestSourceViolation(
       key !== pcMovementRequestKey(request.subject.entity_id)
     )
       return "a PC-owned movement request is the PC-state owner's own fact at the PC's own request slot";
+    return null;
+  }
+  // The one OTHER registered key space a request may live in: Economy's own sealed first-profile freight request, at the key its
+  // immutable request identity derives (ROADBED R3-T2 §2 EL-01F / G-6: request class `R2-D18-v1.2.1/first-profile/economy-fixed-freight`
+  // exactly; no other Economy, Trade Corridor, Diplomacy or Military requester inherits it). Logistics never owns it.
+  if (resolveKey(key)?.kind.id === "economy_freight_request") {
+    if (
+      owner !== OWNER_ECONOMY ||
+      request.source.owner !== owner ||
+      key !== economyFreightRequestKey(request.request_id)
+    )
+      return "a first-profile freight request is Economy's own sealed fact at the key its request identity derives";
     return null;
   }
   if (resolveKey(key) !== null || owner === OWNER_LOGISTICS || owner === OWNER_WORLD_STATE)

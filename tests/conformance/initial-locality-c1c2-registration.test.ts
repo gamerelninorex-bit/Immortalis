@@ -35,12 +35,13 @@ const row = (list: string, id: string) => lock[list].find((r: any) => r.id === i
 describe("the C-1/C-2 clarification is registered additively and bound to the code", () => {
   it("appends exactly one lineage row and one lowering row after the four v0.9 rows, leaving those rows' ids and order intact", () => {
     const ids = (k: string) => lock[k].map((r: any) => r.id);
-    expect(ids("design_lineage_successors").slice(-4, -1)).toEqual([
+    // the M-S v0.8 and ROADBED R3-T25 freight rows were appended after these (one each, last), so the window moves back by two
+    expect(ids("design_lineage_successors").slice(-5, -2)).toEqual([
       "GM-INITIAL-BOOTSTRAP-V9-LINEAGE",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LINEAGE",
       BOOTSTRAP_C1C2_LINEAGE_ID,
     ]);
-    expect(ids("executable_lowerings").slice(-4, -1)).toEqual([
+    expect(ids("executable_lowerings").slice(-5, -2)).toEqual([
       "GM-INITIAL-BOOTSTRAP-V9-LOWERING",
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
       BOOTSTRAP_C1C2_LOWERING_ID,

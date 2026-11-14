@@ -220,6 +220,11 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "initial_setup_disposition",
       "initial_actor_setup_issue",
       "initial_actor_setup_response",
+      // ROADBED R3-T25 freight: four further sealed/advancing kinds under the existing World-State owner (new isolated facets)
+      "world_opening_attestation",
+      "world_site_condition",
+      "world_governing_premise",
+      "world_governing_premise_head",
     ]);
     expect([...expectedKindIds({ owner: "world_state" })].sort()).toEqual(
       ALL_FACT_KINDS.filter((k) => k.owner === "world_state")
@@ -231,12 +236,15 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
     );
     expect([...CANONICAL_OWNER_REGISTRY.get("world_state")!].sort()).toEqual([
       "world_fallback_physical_entity",
+      "world_governing_premise",
       // Initial Locality Bootstrap v0.9 (CORE_V9): one more facet of the same owner for the six sealed bootstrap records
       "world_initial_actor_setup",
       "world_initial_setup",
       "world_locus",
+      "world_opening_provenance",
       "world_profile",
       "world_scene_closure",
+      "world_site_condition",
       "world_source_condition",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.get("role_registry")!]).toEqual([
@@ -247,6 +255,11 @@ describe("IA-03 owner exclusivity: the World-State custodian gained one fact kin
       "logistics_commitment",
       "logistics_transfer",
       "logistics_delivery",
+      // ROADBED R3-T25 freight: the Non-Agentive Service Basis, its slot, the F2 unused release and the dispatch enrollment receipt
+      "logistics_service_basis",
+      "logistics_service_slot",
+      "logistics_unused_release",
+      "logistics_freight_dispatch_enrollment",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.keys()].sort()).toEqual(
       [...new Set(ALL_FACT_KINDS.map((k) => k.owner))].sort(),

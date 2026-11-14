@@ -1,4 +1,5 @@
 import {
+  EconomyFreightUseConsumptionSchema,
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
   LogisticsCommitmentSchema,
@@ -10,6 +11,7 @@ import {
   WorldCorridorSchema,
   WorldLocusSchema,
   compareTime,
+  economyFreightUseConsumptionKey,
   logisticsBoundaryId,
   logisticsCommitmentId,
   logisticsCommitmentKey,
@@ -45,6 +47,7 @@ import {
   deriveRetirement,
   deriveTransfer,
   deliveryOfCommitment,
+  movementRequestOf,
 } from "./derive.ts";
 
 /**
@@ -116,6 +119,16 @@ function pinnedNow(group: CommitGroup, state: CampaignState): CanonicalTime | Re
 
 function checkCommitment(group: CommitGroup, state: CampaignState, w: Write): Rejection | null {
   const c = LogisticsCommitmentSchema.parse(w.value);
+  // a first-profile Economy freight request is served only by the first-profile service admission (its independently sourced
+  // service and Economy's per-act status): the route-less and corridor-qualified foundation paths never admit it
+  if (
+    c.freight !== undefined ||
+    resolveKey(c.request.fact_key)?.kind.id === "economy_freight_request"
+  )
+    return bad(
+      "a first-profile freight request is committed only by its service admission, with its service slot",
+      { key: w.key },
+    );
   const rid = c.request.request_id;
   const world = c.origin.world.entity_id;
   if (
@@ -264,6 +277,13 @@ function checkDispatch(group: CommitGroup, state: CampaignState, w: Write): Reje
   if (w.key !== logisticsTransferKey(world, c.moved.entity_id)) {
     return ref("the transfer is at the key derived from its entity", { key: w.key });
   }
+  // a first-profile freight commitment dispatches only by its first-dispatch act (Economy's independent per-act status and
+  // the enrollment receipt): the foundation dispatch never dispatches it
+  if (c.freight !== undefined || t.freight !== undefined)
+    return bad(
+      "a first-profile freight commitment is dispatched only by its first-dispatch act, with its enrollment receipt",
+      { key: w.key },
+    );
   const now = pinnedNow(group, state);
   if ("code" in now) return now;
   if (!state.facts.has(c.moved.fact_key))
@@ -291,7 +311,7 @@ function checkDispatch(group: CommitGroup, state: CampaignState, w: Write): Reje
 }
 
 /** The engaged, unretired, declared boundary a Logistics stage commits at (the object is the engagement). */
-function engagedBoundaryViolation(
+export function engagedBoundaryViolation(
   state: CampaignState,
   requestId: string,
   boundaryAt: CanonicalTime,
@@ -349,16 +369,35 @@ function checkDelivery(group: CommitGroup, state: CampaignState, w: Write): Reje
     "the Movement Service Request",
   );
   if (isRejection(requestP)) return requestP;
-  const request = MovementServiceRequestSchema.safeParse(requestP.fact.value);
+  const request = movementRequestOf(requestP.fact);
   if (
-    !request.success ||
+    !request ||
     requestP.fact.owner !== c.request.owner ||
     requestP.fact.version !== c.request.version
   ) {
     return ref("the request is still the one this commitment pinned", { key: c.request.fact_key });
   }
+  // ROADBED first-profile freight (R3-T2 §4 `E1 → LD`): the earned delivery of a freight transfer also reads Economy's
+  // one-use consumption of THIS first dispatch, pinned at its current version; without it nothing is delivered
+  if (c.freight !== undefined) {
+    const consumptionP = requirePrerequisite(
+      group,
+      state,
+      economyFreightUseConsumptionKey(c.freight.directive_use_id),
+      "Economy's one-use consumption of the first dispatch",
+    );
+    if (isRejection(consumptionP)) return consumptionP;
+    const consumption = EconomyFreightUseConsumptionSchema.safeParse(consumptionP.fact.value);
+    if (
+      !consumption.success ||
+      consumption.data.request.request_ref !== c.request.request_id ||
+      consumption.data.dispatch_event.transfer.fact_key !== transferFact!.key ||
+      consumption.data.dispatch_event.transfer.transfer_id !== t.transfer_id
+    )
+      return ref("the one-use consumption is of this very first dispatch", { key: w.key });
+  }
   const expected = deliveryOfCommitment(c);
-  const fromRequest = deriveDelivery(request.data, c.delivery.at);
+  const fromRequest = deriveDelivery(request, c.delivery.at);
   if (!expected.ok || !fromRequest.ok || !canonicalEqual(expected.value, fromRequest.value)) {
     return bad("the request is the one the commitment was derived from", { key: w.key });
   }

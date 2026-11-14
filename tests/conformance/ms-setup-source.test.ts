@@ -31,9 +31,18 @@ describe("M-S exact ratified source and additive registration", () => {
     expect(head.frozen_sources).toEqual(base.frozen_sources);
     expect(head.frozen_sources).toHaveLength(23);
     expect(head.implementation_authority_addenda).toEqual(base.implementation_authority_addenda);
-    expect(head.executable_lowerings).toHaveLength(8);
+    // ROADBED R3-T25 freight appended one further lineage row and one further lowering row after M-S's (both additive, both last)
+    expect(head.executable_lowerings).toHaveLength(9);
     expect(head.executable_lowerings.slice(0, 7)).toEqual(base.executable_lowerings);
-    expect(head.design_lineage_successors.slice(0, -1)).toEqual(base.design_lineage_successors);
+    expect(head.executable_lowerings[7].id).toBe("MS-SETUP-V08-LOWERING");
+    expect(head.executable_lowerings[8].id).toBe("ROADBED-FREIGHT-FI-LOWERING");
+    expect(head.design_lineage_successors.slice(0, -2)).toEqual(base.design_lineage_successors);
+    expect(head.design_lineage_successors[head.design_lineage_successors.length - 2].id).toBe(
+      "MS-SETUP-V08-LINEAGE",
+    );
+    expect(head.design_lineage_successors[head.design_lineage_successors.length - 1].id).toBe(
+      "ROADBED-FREIGHT-FI-LINEAGE",
+    );
     expect(head.snapshot_files).toEqual(base.snapshot_files);
   });
   it("retains all ninety policy rows verbatim and covers exactly ninety-three registered kinds with the restrictive delta", () => {
@@ -42,20 +51,29 @@ describe("M-S exact ratified source and additive registration", () => {
     );
     const rows = engine.BOOTSTRAP_SUNSET_POLICY_MS_V08;
     expect(rows).toHaveLength(93);
-    expect(engine.ALL_FACT_KINDS).toHaveLength(93);
+    // ROADBED R3-T25 freight registered 26 further kinds after M-S (reviewed in its own sunset delta, tests/conformance/freight-profile-conformance):
+    // the M-S table covers exactly the ninety-three kinds registered at M-S
+    const msKinds = engine.ALL_FACT_KINDS.filter(
+      (k) => !engine.FREIGHT_FACT_KIND_IDS.includes(k.id as never),
+    );
+    expect(msKinds).toHaveLength(93);
     expect(rows.slice(0, 90)).toEqual(engine.BOOTSTRAP_SUNSET_POLICY_V9);
     expect(rows.slice(90).map((r) => r.kind)).toEqual([...MS_FACT_KIND_IDS]);
     expect(rows.slice(90).every((r) => r.policy === "UNREVIEWED_BLOCK")).toBe(true);
-    expect(rows.map((r) => r.kind).sort()).toEqual(engine.ALL_FACT_KINDS.map((k) => k.id).sort());
+    expect(rows.map((r) => r.kind).sort()).toEqual(msKinds.map((k) => k.id).sort());
     expect(new Set(rows.map((r) => r.kind)).size).toBe(93);
     expect(canonicalJson(engine.MS_RUNTIME_COMPATIBILITY)).toContain(
       "STRICT_REPLAY_ON_POLICY_CHANGE",
     );
+    // the freight slice appends its own history-policy suffix after M-S's (a policy change replays history once, strictly)
     expect(engine.canonicalAdmission.historyVerificationId).toBe(
-      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX,
+      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX + engine.FREIGHT_HISTORY_POLICY_SUFFIX,
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
-      basePolicy + "+fixture-evidence-t1" + engine.MS_HISTORY_POLICY_SUFFIX,
+      basePolicy +
+        "+fixture-evidence-t1" +
+        engine.MS_HISTORY_POLICY_SUFFIX +
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX,
     );
   });
 });

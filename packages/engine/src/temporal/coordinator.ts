@@ -44,6 +44,7 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
 import { continuationRequestViolation } from "./admission.ts";
+import { freightDispatchPendingViolation } from "../freight/dispatch-fence.ts";
 import {
   TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
   TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
@@ -280,6 +281,14 @@ export class TemporalCoordinator {
     if (!state)
       return failure("TEMPORAL_STATE_ABSENT", "no canonical temporal basis is established");
     const o = object.data;
+    // RC-16: a registration whose acknowledgement was lost is reconciled by IDENTITY. The group is rebuilt from the boundary index
+    // as it stands NOW, which already holds this object once it committed; so a re-presented registration of the very object the
+    // original group wrote is answered by that original group (its original receipt), never by a new, different one.
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    if (prior && prior.group_id === p.data.group_id) {
+      const original = prior.writes.find((w) => w.key === temporalObjectKey(o.object_id));
+      if (original && canonicalEqual(original.value, o)) return this.#store.commit(prior);
+    }
     const writes: KernelWrite[] = [
       { key: temporalObjectKey(o.object_id), value: o, expected_version: 0 },
     ];
@@ -457,6 +466,13 @@ export class TemporalCoordinator {
       target,
     );
     if (unregistered) return failure("ENROLLMENT_PENDING", unregistered);
+    // The same holds for a committed first dispatch that is not yet enrolled and consumed: its original delivery boundary may
+    // not be reached, and the advance is refused before anything is opened. Completing the enrollment lifts the refusal.
+    const undispatched = freightDispatchPendingViolation(
+      { get: (k) => this.#store.getFact(k) },
+      target,
+    );
+    if (undispatched) return failure("ENROLLMENT_PENDING", undispatched);
     // A held continuation is consumed or it stays. This slice authorizes continuation and has no
     // cancellation/supersession mechanism, so unrelated progress cannot silently abandon it.
     const held = state.continuation;

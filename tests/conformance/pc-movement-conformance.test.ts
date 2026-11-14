@@ -243,11 +243,21 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "initial_setup_disposition",
       "initial_actor_setup_issue",
       "initial_actor_setup_response",
+      // ROADBED R3-T25 freight: four further sealed/advancing kinds under the existing World-State owner (new isolated facets)
+      "world_opening_attestation",
+      "world_site_condition",
+      "world_governing_premise",
+      "world_governing_premise_head",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "logistics").map((k) => k.id)).toEqual([
       "logistics_commitment",
       "logistics_transfer",
       "logistics_delivery",
+      // ROADBED R3-T25 freight: the Non-Agentive Service Basis, its slot, the F2 unused release and the dispatch enrollment receipt
+      "logistics_service_basis",
+      "logistics_service_slot",
+      "logistics_unused_release",
+      "logistics_freight_dispatch_enrollment",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "role_registry").map((k) => k.id)).toEqual([
       "player_character_binding",

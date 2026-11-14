@@ -315,6 +315,8 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       .filter((f) => /gip_governance_instrument|GovernanceInstrument|gipInstrument/.test(code(f)))
       .sort();
     expect(touching).toEqual([
+      // ROADBED R3-T25 freight: the first-profile GIP adapter reads and verifies the sealed Instrument clauses
+      "packages/engine/src/freight/gip.ts",
       // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the reviewed 90-row sunset policy has one row per registered kind
       "packages/engine/src/initial-setup/sunset-policy.ts",
       "packages/engine/src/owners/admission.ts",

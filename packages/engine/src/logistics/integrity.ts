@@ -3,7 +3,6 @@ import {
   EntityTransitionCloseSchema,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
-  MovementServiceRequestSchema,
   ResolutionTransactionSchema,
   TemporalObjectSchema,
   WorldCorridorSchema,
@@ -35,6 +34,7 @@ import {
   deriveRetirement,
   deriveTransfer,
   deliveryOfCommitment,
+  movementRequestOf,
   requestSourceViolation,
 } from "./derive.ts";
 
@@ -106,7 +106,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     const entityId = entityOfKey(cf);
     const rid = c.request.request_id;
     const requestFact = byKey.get(c.request.fact_key);
-    const request = parsed(requestFact, MovementServiceRequestSchema);
+    const request = requestFact ? movementRequestOf(requestFact) : undefined;
     const entityFact = byKey.get(c.moved.fact_key);
     const entity = entityFact ? parsePhysicalSubject(entityFact.value) : undefined;
     if (!requestFact || !request || !entityFact || !entity) {
@@ -183,7 +183,13 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
         ...(corridor !== undefined ? { corridor } : {}),
       });
       const committed = { ...c, state: { status: "COMMITTED" as const } };
-      if (!derived.ok || !canonicalEqual(derived.value, committed)) {
+      // a first-profile freight commitment is that same envelope plus its freight part (verified by the freight verifier)
+      const expected = !derived.ok
+        ? undefined
+        : c.freight !== undefined
+          ? { ...derived.value, freight: c.freight }
+          : derived.value;
+      if (!expected || !canonicalEqual(expected, committed)) {
         bad(cf.key, "a commitment is exactly what the request and the entity determine");
       }
     }
@@ -196,7 +202,8 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     // an entity committed to a movement changes locus only through that movement's own delivery result
     const transitionFact = byKey.get(worldEntityTransitionKey(world, entityId));
     const transition = parsed(transitionFact, EntityTransitionCloseSchema);
-    if (transitionFact && transition) {
+    // (a freight commitment released UNUSED no longer commits the entity to a movement)
+    if (transitionFact && transition && c.state.status !== "RELEASED_UNUSED") {
       if (transition.cause.fact_key !== logisticsDeliveryKey(world, entityId))
         bad(
           cf.key,
@@ -209,7 +216,18 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     if (c.state.status === "COMMITTED") {
       if (transfer?.state.status === "RETIRED")
         bad(cf.key, "a retired transfer's commitment is released with it, atomically");
-      if (cf.version !== 1) bad(cf.key, "a committed commitment is at its establishment");
+      // a freight service admitted after a prior request's unused release sits at a later version of the entity's one slot
+      if (cf.version !== 1 && c.freight === undefined)
+        bad(cf.key, "a committed commitment is at its establishment");
+    } else if (c.state.status === "RELEASED_UNUSED") {
+      // F2: the unused release leaves no Transfer Record and was committed atomically with its immutable release event
+      const releaseFact = byKey.get(c.state.unused_release.fact_key);
+      if (transferFact) bad(cf.key, "an unused release leaves no Transfer Record");
+      if (!releaseFact || releaseFact.provenance.group_id !== cf.provenance.group_id)
+        bad(
+          cf.key,
+          "a commitment is released unused only together with its immutable unused-release event",
+        );
     } else {
       if (!transfer || transfer.state.status !== "RETIRED")
         bad(cf.key, "a released commitment is released only with the retirement of its transfer");
@@ -238,10 +256,16 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
       continue;
     }
     const rid = c.request.request_id;
+    // the commitment version the dispatch pinned: its establishment (1), or — for a freight service admitted after a prior
+    // request's unused release — the version it was committed at, i.e. the version before its own release
+    const dispatchedAgainst =
+      c.freight === undefined
+        ? 1
+        : commitmentFact.version - (c.state.status === "COMMITTED" ? 0 : 1);
     if (
       t.commitment.fact_key !== commitmentFact.key ||
       t.commitment.commitment_id !== c.commitment_id ||
-      t.commitment.version !== 1 ||
+      t.commitment.version !== dispatchedAgainst ||
       t.request.request_id !== rid ||
       t.moved.fact_key !== c.moved.fact_key ||
       t.moved.entity_id !== c.moved.entity_id
@@ -254,7 +278,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
       commitment: {
         key: commitmentFact.key,
         owner: commitmentFact.owner,
-        version: 1,
+        version: dispatchedAgainst,
         value: { ...c, state: { status: "COMMITTED" } },
       },
       transitioned: false,
@@ -303,7 +327,7 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
           commitment: {
             key: commitmentFact.key,
             owner: commitmentFact.owner,
-            version: 1,
+            version: dispatchedAgainst,
             value: { ...c, state: { status: "COMMITTED" } },
           },
           transfer: {
@@ -410,10 +434,8 @@ export function verifyLogisticsIntegrity(store: CampaignStore): readonly Integri
     // a retired boundary leaves neither a delivery-less nor an unretired transfer (checked per transfer above)
     if (o.value.next_boundary === null) {
       const rid = o.value.object_id.slice("obj-logistics-".length);
-      const request = parsed(
-        byKey.get(o.value.dependencies[0]!.reads[0]!.source.fact_key),
-        MovementServiceRequestSchema,
-      );
+      const requestFact = byKey.get(o.value.dependencies[0]!.reads[0]!.source.fact_key);
+      const request = requestFact ? movementRequestOf(requestFact) : undefined;
       const transferFact = request
         ? byKey.get(
             logisticsTransferKey(request.destination.world.entity_id, request.subject.entity_id),

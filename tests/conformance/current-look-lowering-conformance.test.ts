@@ -131,6 +131,8 @@ describe("the lock: one non-executable lineage row and two additive executable l
       // the Sovereign-adopted C-1/C-2 clarification (3 November 2026), registered additively after them
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
       "MS-SETUP-V08-LINEAGE",
+      // ROADBED R3-T25 first-profile freight (13 November 2026), appended last
+      "ROADBED-FREIGHT-FI-LINEAGE",
     ]);
     expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
@@ -206,6 +208,7 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "CPAA-C1-F1-INITIAL-COMPLETION-V9-LOWERING",
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
       "MS-SETUP-V08-LOWERING",
+      "ROADBED-FREIGHT-FI-LOWERING",
     ]);
     // the required table lists the unconditional rows; the OPTION_A_V9 rows are checked conditionally on option_a_status
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual([
@@ -213,10 +216,12 @@ describe("the lock: one non-executable lineage row and two additive executable l
         .slice(0, 5)
         .map((r) => r.id),
       "MS-SETUP-V08-LOWERING",
+      "ROADBED-FREIGHT-FI-LOWERING",
     ]);
     expect(Object.keys(REQUIRED_DESIGN_LINEAGE)).toEqual([
       ...lock["design_lineage_successors"].slice(0, 6).map((r: any) => r.id),
       "MS-SETUP-V08-LINEAGE",
+      "ROADBED-FREIGHT-FI-LINEAGE",
     ]);
     expect(sha(rows()[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
     expect(sha(rows()[1])).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
@@ -766,9 +771,9 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "55e48507870cadaf2cba0c1248e867e78d15cf62172175cd7057fdcb2cc69dd4";
+const CURRENT_V08_LOCK_SHA256 = "8c0754d36599fcdf0cf5647d042b61492724fa742b5fd30ea62d37ff961971af";
 const CURRENT_V08_REGISTRY_SHA256 =
-  "4c4d938fd66ab3578dd167a57a55d05d6b8f62e5ab91e843bc3b444cac7133fa";
+  "0a51e2ce3288e19872d09ea08245480fab4a012315b141d732961e0e198cb56e";
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")
@@ -792,6 +797,9 @@ function lockWithoutV08Rows(): string {
     "MS-SETUP-V08-LINEAGE",
     "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
     "MS-SETUP-V08-LOWERING",
+    // and the ROADBED R3-T25 first-profile freight rows (13 November 2026)
+    "ROADBED-FREIGHT-FI-LINEAGE",
+    "ROADBED-FREIGHT-FI-LOWERING",
   ]);
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
     (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),
@@ -833,7 +841,7 @@ function currentIdentitiesIn(text: string): string[] {
 }
 
 describe("provenance: original identities are history, today's are asserted only here and labeled as today's (H-PROVENANCE)", () => {
-  it("the ORIGINAL main lock is exactly the current lock minus the three v0.8 rows: same git blob and SHA-256 as before this PR touched it", () => {
+  it("the ORIGINAL main lock is exactly the current lock minus the three v0.8 rows (and the later M-S and ROADBED freight rows): same git blob and SHA-256 as before this PR touched it", () => {
     const original = lockWithoutV08Rows();
     expect(gitBlobOf(original)).toBe(ORIGINAL_MAIN_LOCK_BLOB);
     expect(sha256Of(original)).toBe(ORIGINAL_MAIN_LOCK_SHA256);

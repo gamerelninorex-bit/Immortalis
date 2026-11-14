@@ -7,7 +7,7 @@ import type {
   Result,
   SpecIdentity,
 } from "@immortalis/contracts";
-import type { CommitErrorCode } from "../commit/campaign-core.ts";
+import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts";
 
 /**
  * IM-17 — provider-neutral persistence contract for one open campaign.
@@ -75,6 +75,12 @@ export interface CampaignStore {
    * checkpoint anchored under the same historical verification policy. OPTIONAL: a store without it proves nothing, so an R1-bearing history fails CLOSED.
    */
   ruleCheckedGroupIds?(): ReadonlySet<string>;
+  /**
+   * The store's current canonical state object, READ-ONLY. OPTIONAL: it lets a derived, memoized pure function of committed
+   * state (the GIP owner head) be shared between admission and an owner operation instead of being recomputed by a full
+   * listing. It exposes nothing `getFact`/`listFacts` do not already expose, and a store without it is simply read by listing.
+   */
+  canonicalState?(): CampaignState;
   /** Releases the campaign. Committed state is already durable; close never "saves". */
   close(): Promise<void>;
 }

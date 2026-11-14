@@ -49,8 +49,7 @@ const UNCHANGED: Record<string, string> = {
     "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
-  "packages/engine/src/persistence/file-package.ts":
-    "50d5a2bd7bc0940f43212ee494d24b3b71d6aef658f645fb59aea2565754a9ea", // H-07 S1 scoped persistence successor, then S3-I1 (one core.endReplay() call in the v1 loader); H-01 arbitration remains independently byte-locked.
+  // ROADBED R3-T25 freight: packages/engine/src/persistence/file-package.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/operator/src/bin.ts":
     "1b3f71e0f10cb036da1a505a3f26dce25f39957ae577efc5a8a0be7a9c184d4e",
   "packages/operator/src/session.ts":

@@ -422,6 +422,11 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "initial_setup_disposition",
       "initial_actor_setup_issue",
       "initial_actor_setup_response",
+      // ROADBED R3-T25 freight: four further sealed/advancing kinds under the existing World-State owner (new isolated facets)
+      "world_opening_attestation",
+      "world_site_condition",
+      "world_governing_premise",
+      "world_governing_premise_head",
     ]);
   });
 

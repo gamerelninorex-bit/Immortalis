@@ -3,10 +3,11 @@ import {
   LOGISTICS_OPERATION_ESTABLISH_DELIVERY,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
-  MovementServiceRequestSchema,
+  OWNER_ECONOMY,
   OWNER_LOGISTICS,
   OWNER_WORLD_STATE,
   READ_MODE_NOW,
+  economyFreightUseConsumptionKey,
   logisticsBoundaryId,
   logisticsCommitmentKey,
   logisticsDeliveryKey,
@@ -25,7 +26,8 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { entityTransitionDeclaration } from "../world/entity-transition.ts";
-import { deliveryOfCommitment } from "./derive.ts";
+import { economyFreightReceiptDeclaration } from "../freight/economy.ts";
+import { deliveryOfCommitment, movementRequestOf } from "./derive.ts";
 
 /**
  * Builders for the Logistics side of the temporal declaration (RC-10 "dependency declarations"; WS-010 §20; F-017
@@ -56,7 +58,19 @@ export function logisticsDeliveryDeclaration(c: LogisticsCommitment): Dependency
   const world = c.origin.world.entity_id;
   return {
     stage: logisticsDeliveryStage(c.request.request_id),
-    reads: [now({ owner: c.request.owner, fact_key: c.request.fact_key })],
+    reads: [
+      now({ owner: c.request.owner, fact_key: c.request.fact_key }),
+      // ROADBED first-profile freight (R3-T2 §4: `E1 → LD`): the earned delivery is a dependent of Economy's one-use
+      // consumption of the first dispatch, so an unconsumed dispatch is never delivered (the stage stays unresolved)
+      ...(c.freight !== undefined
+        ? [
+            now({
+              owner: OWNER_ECONOMY,
+              fact_key: economyFreightUseConsumptionKey(c.freight.directive_use_id),
+            }),
+          ]
+        : []),
+    ],
     produces: [logisticsDeliveryKey(world, c.moved.entity_id)],
     declares_close: null,
   };
@@ -92,13 +106,16 @@ export function logisticsTemporalObject(
     value: delivery.value,
   });
   const third = logisticsRetirementDeclaration(c);
+  // ROADBED first-profile freight (R3-T2 §4: `LD → WT → LR → ER`): Economy's receipt is the fourth stage of the SAME object and
+  // boundary, a dependent of the destination commit and of the retirement. Absent for every other transfer, unchanged.
+  const fourth = economyFreightReceiptDeclaration(c);
   return {
     object_id: logisticsObjectId(rid),
     owning_ref: { owner: OWNER_LOGISTICS, process_id: logisticsProcessId(rid) },
     last_resolved_basis: t.dispatched_at,
     partition: { class: "EXACT-PARTITION" },
     next_boundary: { boundary_id: logisticsBoundaryId(rid), at: c.delivery.at },
-    dependencies: [first, second, third],
+    dependencies: fourth ? [first, second, third, fourth] : [first, second, third],
     continuation: { resume_from: "LAST_RESOLVED_BASIS", reconciliation_due: [] },
     // the facts the object's work depends on that no engaged stage of it produces
     invalidators: [...first.reads, ...second.reads]
@@ -136,14 +153,12 @@ export function logisticsObjectViolation(
   );
   const requestRead = first?.reads[0];
   const requestFact = requestRead ? state.facts.get(requestRead.source.fact_key) : undefined;
-  const request = requestFact
-    ? MovementServiceRequestSchema.safeParse(requestFact.value)
-    : undefined;
-  if (!requestFact || !request?.success || request.data.request_id !== requestId) {
+  const request = requestFact ? movementRequestOf(requestFact) : undefined;
+  if (!requestFact || !request || request.request_id !== requestId) {
     return "a Logistics temporal object names a committed request that fixes it";
   }
-  const world = request.data.destination.world.entity_id;
-  const entityId = request.data.subject.entity_id;
+  const world = request.destination.world.entity_id;
+  const entityId = request.subject.entity_id;
   const commitmentFact = state.facts.get(logisticsCommitmentKey(world, entityId));
   const transferFact = state.facts.get(logisticsTransferKey(world, entityId));
   const commitment = commitmentFact

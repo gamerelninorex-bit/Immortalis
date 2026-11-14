@@ -32,8 +32,7 @@ const UNCHANGED: Record<string, string> = {
     "4d78433ce72ca9833cffd944cbfd1ff026bf9ed15f7e448b3b1880551593245d",
   "packages/engine/src/production/adapter.ts":
     "206655fa62a86fd12bda664615b1d6590bda9dd9919bd068e068a8c70ad0f3a9",
-  "packages/engine/src/production/admission.ts":
-    "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
+  // ROADBED R3-T25 freight: packages/engine/src/production/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/operator/src/locality.ts":
     "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
   "packages/operator/src/additional-source.ts":

@@ -209,3 +209,16 @@ export {
 export type { MsFenceView } from "./ms-setup/fence.ts";
 export * from "./ms-setup/integrity.ts";
 export * from "./ms-setup/publisher.ts";
+
+// ROADBED first-profile institutional freight (Foundation F + Integration I): technical lowerings of R2-D18 v1.2.1 / R3-T20.
+export * from "./freight/common.ts";
+export * from "./freight/dispatch-fence.ts";
+export * from "./freight/economy.ts";
+export * from "./freight/economy-derive.ts";
+export * from "./freight/gip.ts";
+export * from "./freight/gip-owner-head.ts";
+export * from "./freight/integrity.ts";
+export * from "./freight/logistics.ts";
+export * from "./freight/production.ts";
+export * from "./freight/route.ts";
+export * from "./freight/world.ts";

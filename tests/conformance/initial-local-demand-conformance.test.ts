@@ -58,20 +58,17 @@ const UNCHANGED: Record<string, string> = {
     "0248ff1d7999482d69ec7ff289f68334306e95e442cf092595dfb98c9e4e414b",
   "packages/engine/src/economy/provider.ts":
     "f3140211dc6b86f111799faa0ac42aeb6aebfd472d4132612165c087481bd283",
-  "packages/engine/src/economy/integrity.ts":
-    "93548d9357bc317fe9dd253956353ee840424ac69eaa41e2287a0f7825e2145b",
+  // ROADBED R3-T25 freight: packages/engine/src/economy/integrity.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/production/adapter.ts":
     "206655fa62a86fd12bda664615b1d6590bda9dd9919bd068e068a8c70ad0f3a9",
-  "packages/engine/src/production/admission.ts":
-    "00a008aaccdb38a48bda1f101327ff5edbc31be67ea545127d2719fe12aac8b6",
+  // ROADBED R3-T25 freight: packages/engine/src/production/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/production/derive.ts":
     "9eb905d6e45590ee96ea961515dcba64e9b9adb6dbd88b3f92f06d3f6598cd1c",
   "packages/engine/src/production/provider.ts":
     "9780cbcf860633de5d7f46e355f8e1fad3a4b1d69d5696ff75b277f6cd55690c",
   "packages/engine/src/production/integrity.ts":
     "858fd65d9e5829c095362b67c340fc8bfb3c9e8fc07db6864d3788cfb435dd2c",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/operator/src/locality.ts":
