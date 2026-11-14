@@ -148,15 +148,15 @@ independent surface oracle (`tests/support/expected-surface.ts`) acknowledges th
 
 See `tests/integration/freight-*.test.ts` (titles name their PO) and `tests/conformance/freight-profile-conformance.test.ts`.
 
-| PO   | Subject                                                                                     | Principal evidence                                                                    |
-| ---- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| PO-1 | Resolution triggers; no manual "fix allocation"                                             | `freight-foundation`, `freight-foundation-refusals`, `freight-service` (tamper cases) |
-| PO-2 | Typed lowering; clause IDs as authority refs; unique lot/output and tie cases               | `freight-foundation-refusals` (the refusal matrix)                                    |
-| PO-3 | Mutation/head coverage P-1..P-4; replay/integrity/load paths                                | `freight-withdrawal`, `freight-replay-integrity`, `freight-integrity`                 |
-| PO-4 | Package F exit: Economy-only cancellation, one cut, slots released once, no Logistics write | `freight-withdrawal`                                                                  |
-| PO-5 | I: withdrawal, service and time fences; recovery                                            | `freight-service`, `freight-recovery` (durable-cut matrices)                          |
-| PO-6 | Scope and evidence: NULL-PC original world only; mechanism labelled                         | `freight-opening`, `freight-replay-integrity`                                         |
-| PO-7 | Independent witnesses: two real worlds; negatives; races; replay                            | `freight-delivery`, `freight-service`, `freight-withdrawal`                           |
+| PO   | Subject                                                                                     | Principal evidence                                                                                                                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PO-1 | Resolution triggers; no manual "fix allocation"                                             | `freight-foundation`, `freight-foundation-refusals`, `freight-service` (tamper cases)                                                                                                                         |
+| PO-2 | Typed lowering; clause IDs as authority refs; unique lot/output and tie cases               | `freight-foundation-refusals` (the refusal matrix)                                                                                                                                                            |
+| PO-3 | Mutation/head coverage P-1..P-4; replay/integrity/load paths                                | `freight-withdrawal`, `freight-replay-integrity`, `freight-integrity`                                                                                                                                         |
+| PO-4 | Package F exit: Economy-only cancellation, one cut, slots released once, no Logistics write | `freight-withdrawal`                                                                                                                                                                                          |
+| PO-5 | I: withdrawal, service and time fences; recovery                                            | `freight-service`, `freight-recovery` (durable-cut matrices)                                                                                                                                                  |
+| PO-6 | Scope and evidence: NULL-PC original world only; mechanism labelled                         | `freight-opening`, `freight-replay-integrity`                                                                                                                                                                 |
+| PO-7 | Independent witnesses: two real worlds; negatives; races; replay                            | `freight-delivery`, `freight-service`, `freight-withdrawal`, `freight-receipt-derivation` (ER: look-alike cargo, wrong beneficiary, other world, wrong locus/boundary/state; AD: unit, amount, specification) |
 
 ## 8. Evidence limits
 
