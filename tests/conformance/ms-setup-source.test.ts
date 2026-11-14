@@ -42,20 +42,29 @@ describe("M-S exact ratified source and additive registration", () => {
     );
     const rows = engine.BOOTSTRAP_SUNSET_POLICY_MS_V08;
     expect(rows).toHaveLength(93);
-    expect(engine.ALL_FACT_KINDS).toHaveLength(93);
+    // ROADBED R3-T25 freight registered 26 further kinds after M-S (reviewed in its own sunset delta, tests/conformance/freight-profile-conformance):
+    // the M-S table covers exactly the ninety-three kinds registered at M-S
+    const msKinds = engine.ALL_FACT_KINDS.filter(
+      (k) => !engine.FREIGHT_FACT_KIND_IDS.includes(k.id as never),
+    );
+    expect(msKinds).toHaveLength(93);
     expect(rows.slice(0, 90)).toEqual(engine.BOOTSTRAP_SUNSET_POLICY_V9);
     expect(rows.slice(90).map((r) => r.kind)).toEqual([...MS_FACT_KIND_IDS]);
     expect(rows.slice(90).every((r) => r.policy === "UNREVIEWED_BLOCK")).toBe(true);
-    expect(rows.map((r) => r.kind).sort()).toEqual(engine.ALL_FACT_KINDS.map((k) => k.id).sort());
+    expect(rows.map((r) => r.kind).sort()).toEqual(msKinds.map((k) => k.id).sort());
     expect(new Set(rows.map((r) => r.kind)).size).toBe(93);
     expect(canonicalJson(engine.MS_RUNTIME_COMPATIBILITY)).toContain(
       "STRICT_REPLAY_ON_POLICY_CHANGE",
     );
+    // the freight slice appends its own history-policy suffix after M-S's (a policy change replays history once, strictly)
     expect(engine.canonicalAdmission.historyVerificationId).toBe(
-      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX,
+      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX + engine.FREIGHT_HISTORY_POLICY_SUFFIX,
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
-      basePolicy + "+fixture-evidence-t1" + engine.MS_HISTORY_POLICY_SUFFIX,
+      basePolicy +
+        "+fixture-evidence-t1" +
+        engine.MS_HISTORY_POLICY_SUFFIX +
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX,
     );
   });
 });

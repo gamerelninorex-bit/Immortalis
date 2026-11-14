@@ -41,14 +41,12 @@ const UNCHANGED: Record<string, string> = {
     "53703c6eab2f1129c27b44f1c03904fdba60e33777523d0d95a570efb8b75e33",
   "packages/engine/src/economy/derive.ts":
     "0248ff1d7999482d69ec7ff289f68334306e95e442cf092595dfb98c9e4e414b",
-  "packages/engine/src/economy/integrity.ts":
-    "93548d9357bc317fe9dd253956353ee840424ac69eaa41e2287a0f7825e2145b",
+  // ROADBED R3-T25 freight: packages/engine/src/economy/integrity.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/economy/provider.ts":
     "f3140211dc6b86f111799faa0ac42aeb6aebfd472d4132612165c087481bd283",
   "packages/engine/src/economy/declaration.ts":
     "155c19637229779675a2a489ddbcd3a77e33123913ff581fbbc158391bfd16bd",
-  "packages/engine/src/persistence/store.ts":
-    "2405d8f8d8afa44bcb63e6a5ef73a476b1a3632f63c307c5d615ef7b063f4ff1",
+  // ROADBED R3-T25 freight: packages/engine/src/persistence/store.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
 };
 
 describe("IA-01 source/version fidelity: the reallocation cites the SAME WS-004 rule at its exact spec-locked pin", () => {

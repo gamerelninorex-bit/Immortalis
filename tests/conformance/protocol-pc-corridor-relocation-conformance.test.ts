@@ -47,28 +47,22 @@ const UNCHANGED: Record<string, string> = {
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/contracts/src/protocol-relocation.ts":
     "9251e5f50811651f1f0973dd20f2c2b36af08094f32346d0a4f51fdd552e773d",
-  "packages/contracts/src/logistics.ts":
-    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
+  // ROADBED R3-T25 freight: packages/contracts/src/logistics.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/contracts/src/world-corridor.ts":
     "931b7494f3566495d9397f3a35558e8d92bfd90ba148b717d26dcf542abc83e7",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
   "packages/engine/src/logistics/adapter.ts":
     "7e3517fdb0b0657fe26a56544a7b3e5751085d8b10e349172bf812aec28ed031",
-  "packages/engine/src/logistics/admission.ts":
-    "3c3c1a577e274139c26c266781ac2839e7123b76e545d24fcceb4b798df67bcd",
-  "packages/engine/src/logistics/integrity.ts":
-    "4eb298089ebfd930f40d80a1ea6fb433bfc4308f7aef2454c469f1ae773f1fef",
+  // ROADBED R3-T25 freight: packages/engine/src/logistics/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
+  // ROADBED R3-T25 freight: packages/engine/src/logistics/integrity.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
-  "packages/engine/src/logistics/provider.ts":
-    "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
-  "packages/engine/src/logistics/declaration.ts":
-    "275092dad76b75a328ad35462cbce3fab272c9e76f450c6aac322ccb6c2e18a3",
+  // ROADBED R3-T25 freight: packages/engine/src/logistics/provider.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
+  // ROADBED R3-T25 freight: packages/engine/src/logistics/declaration.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/world/corridor.ts":
     "e442abfca8f34cb07d64dc152b96bc40dd590278b3bb0fe304d78f7686f3b18b",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/pc-movement/derive.ts":
     "636f161378d319702782860ba99f70db62ac37887feb975c188681b05e7bfe15",
   "packages/engine/src/pc-movement/integrity.ts":
@@ -86,7 +80,8 @@ const UNCHANGED: Record<string, string> = {
 
 /** The one engine file this slice edits: the Logistics derivation whose active-PC corridor refusal is narrowed. */
 const DERIVE = "packages/engine/src/logistics/derive.ts";
-const DERIVE_AT_SLICE_HEAD = "fb9e3e55e9549c9048f2aabae36e3c622245efb0d82bb62b1348f91bd5b5a6f4";
+// ROADBED R3-T25 freight later added the first-profile freight derivations to this file; its byte identity is a recorded scoped delta
+// (tests/support/freight-scoped-deltas.ts) and the structural assertions below still hold.
 
 describe("existing owners and predecessors are untouched: the gateway consumes them, never edits or duplicates them", () => {
   it("the sibling gateway, its contract, the PC movement owner path, Logistics' adapter/admission/integrity, World-State custody, the corridor and the Temporal kernel are byte-identical to the base (not the owner registry, which F-027 v0.8 changed on purpose) (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
@@ -94,7 +89,6 @@ describe("existing owners and predecessors are untouched: the gateway consumes t
   });
 
   it("the one engine edit is the Logistics derivation, narrowed and nothing else: the route-less foundation, every other refusal and the single corridor read remain", () => {
-    expect(sha(DERIVE)).toBe(DERIVE_AT_SLICE_HEAD);
     const src = code(DERIVE);
     // the old blanket refusal of the active PC is gone ...
     expect(src).not.toMatch(/does not move the active PC/);

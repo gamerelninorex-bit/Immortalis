@@ -168,7 +168,11 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
     ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
-    expect(classes.filter((c) => /Logistics/.test(c!))).toEqual(["LogisticsAdapter"]);
+    // ROADBED R3-T25 freight: the first-profile Logistics adapter is the one further adapter of the one Logistics owner (no second owner)
+    expect(classes.filter((c) => /Logistics/.test(c!)).sort()).toEqual([
+      "LogisticsAdapter",
+      "LogisticsFreightAdapter",
+    ]);
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([
       "checkpoint-package.ts",
@@ -324,6 +328,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "diplomacy",
       "economy",
       "epistemic",
+      "freight",
       "gip",
       "initial-setup",
       "kti",

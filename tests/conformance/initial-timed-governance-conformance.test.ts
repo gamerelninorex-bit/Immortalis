@@ -59,8 +59,7 @@ const UNCHANGED: Record<string, string> = {
     "f1d6629d99aeb17f4f36265621fd6906447ef74336dd80b32e75c2561d874af5",
   "packages/engine/src/gip/integrity.ts":
     "221d03fa9508a4c19c301f1421cc1b90f4efdef489b84abf677337f87e9913b1",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/operator/src/locality.ts":

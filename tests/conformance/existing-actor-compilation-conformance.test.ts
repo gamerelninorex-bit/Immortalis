@@ -203,23 +203,29 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
 
   it("no adapter, class or directory was added, and the registered adapter surfaces are unchanged", () => {
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES).sort()).toEqual([
+      // ROADBED R3-T25 freight adds five adapters, one per EXISTING owner (World-State, GIP, Production, Economy, Logistics): no new owner
       "CausalDrawAdapter",
       "CultureAdapter",
       "CultureAdjudicationAdapter",
       "DiplomacyAdapter",
       "EconomyAdapter",
+      "EconomyFreightAdapter",
       "EpistemicAccessAdapter",
       "GipAdapter",
+      "GipFreightAdapter",
       "KtiAdapter",
       "LogisticsAdapter",
+      "LogisticsFreightAdapter",
       "NamedActorAdapter",
       "PcCapabilityAdapter",
       "PcCollectionAdapter",
       "PopulationAdapter",
       "ProductionAdapter",
+      "ProductionFreightAdapter",
       "RefereeAdjudicationAdapter",
       "SourceDrawdownAdapter",
       "TemporalCoordinator",
+      "WorldFreightAdapter",
     ]);
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");
     expect(
@@ -235,6 +241,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "diplomacy",
       "economy",
       "epistemic",
+      "freight",
       "gip",
       "initial-setup",
       "kti",

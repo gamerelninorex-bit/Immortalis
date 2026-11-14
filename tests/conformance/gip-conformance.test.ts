@@ -213,6 +213,10 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       )
       .sort();
     expect(touching).toEqual([
+      // ROADBED R3-T25 freight: the first-profile GIP adapter and the GIP owner-head signature (an existing GIP owner path, relocated to
+      // packages/engine/src/freight/ so the predecessor GIP directory stays byte-identical)
+      "packages/engine/src/freight/gip-owner-head.ts",
+      "packages/engine/src/freight/gip.ts",
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",
       "packages/engine/src/temporal/admission.ts",
@@ -382,6 +386,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "diplomacy",
       "economy",
       "epistemic",
+      "freight",
       "gip",
       "initial-setup",
       "kti",

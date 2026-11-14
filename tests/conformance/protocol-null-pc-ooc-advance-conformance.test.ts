@@ -47,8 +47,7 @@ const UNCHANGED: Record<string, string> = {
     "a535533b4ae92b71805634bc742627e45bb2223a0311631303b63c211ed588d5",
   "packages/contracts/src/world-foundation.ts":
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
-  "packages/engine/src/temporal/admission.ts":
-    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -59,12 +58,10 @@ const UNCHANGED: Record<string, string> = {
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/world/entity-transition-provider.ts":
     "8fa5792dc8fd4f46e9ac4d0a3d54678a8eef7d3d8370921622d8a3ff8ea5b49a",
-  "packages/engine/src/logistics/provider.ts":
-    "c85b24ea7c721d1230cb69e7a0f3926409974723d79f592eb9186b784fa7a111",
+  // ROADBED R3-T25 freight: packages/engine/src/logistics/provider.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/production/provider.ts":
     "9780cbcf860633de5d7f46e355f8e1fad3a4b1d69d5696ff75b277f6cd55690c",
   "packages/engine/src/economy/provider.ts":

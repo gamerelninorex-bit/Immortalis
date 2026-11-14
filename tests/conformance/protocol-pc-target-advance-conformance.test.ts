@@ -59,12 +59,10 @@ const UNCHANGED: Record<string, string> = {
     "571a02c42970cea354a4b537627645246e42168b59de1e88196ff8844ee9cc72",
   "packages/contracts/src/pc-movement.ts":
     "35c05f1e78aca3c11c32d141dbb43cdc99c71237027ed7dbceea4e3dd048ea10",
-  "packages/contracts/src/logistics.ts":
-    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
+  // ROADBED R3-T25 freight: packages/contracts/src/logistics.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/contracts/src/gip-instrument.ts":
     "4506c97e3c80aa720d7576b8224bd3fd8a144661eb4ad5c8c9538178eca97d77",
-  "packages/engine/src/temporal/admission.ts":
-    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -75,8 +73,7 @@ const UNCHANGED: Record<string, string> = {
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/logistics/locus.ts":
     "c265b8c99bd4f1345a9d8346d258de6149d071d73de0cd05aad26f80a3848038",
   "packages/engine/src/logistics/adapter.ts":

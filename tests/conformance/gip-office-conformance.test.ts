@@ -93,7 +93,7 @@ describe("IA-03 owner exclusivity and the lifecycle guard: an ADVANCING office u
     ).toBe(false);
     // (the GIP kind inventory is the central oracle's: stated against it, not a literal)
     expect(GIP_FACT_KINDS.filter((k) => k.owner === "gip").map((k) => k.id)).toEqual(
-      expectedKindIds({ owner: "gip" }),
+      expectedKindIds({ owner: "gip", group: "GIP_FACT_KINDS" }),
     );
   });
 

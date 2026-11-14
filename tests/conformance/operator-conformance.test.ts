@@ -60,12 +60,9 @@ const UNCHANGED: Record<string, string> = {
     "426cb9e790b435d75a4f6a1df39c792616310421e17eb953aa2f382ae4370e0c",
   "packages/contracts/src/temporal.ts":
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
-  "packages/contracts/src/logistics.ts":
-    "2030cb9ad580464eebd52ec26d44fd8dfdddeb5e75fe171db69db3b881786df1",
-  "packages/engine/src/persistence/file-package.ts":
-    "50d5a2bd7bc0940f43212ee494d24b3b71d6aef658f645fb59aea2565754a9ea", // H-07 S1 scoped persistence successor, then S3-I1 (one core.endReplay() call in the v1 loader); H-01 arbitration remains independently byte-locked.
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/contracts/src/logistics.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
+  // ROADBED R3-T25 freight: packages/engine/src/persistence/file-package.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/protocol/src/null-pc-ooc-advance.ts":
     "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
   "packages/protocol/src/null-pc-ooc-held-continuation.ts":

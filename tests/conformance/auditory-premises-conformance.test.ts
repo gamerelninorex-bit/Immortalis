@@ -176,19 +176,12 @@ describe("nothing outside the physical-source slice was built", () => {
   it("the predecessor modules and explicit MS temporal/commit compositions retain their regression pins; P1 added no Health, F-014D or referee producer", () => {
     const expected: Record<string, string> = {
       // Authorized MS composition identities; unchanged siblings are also individually pinned.
-      "packages/engine/src/temporal":
-        "0dc735d59959ec6ecd752a1a0b531bf10f564ff1f25dfca886814f39a769ffbb",
+      // ROADBED R3-T25 freight: packages/engine/src/temporal is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
       "packages/engine/src/commit":
         "c2958df6a3295cececb6854eeb8cc964012f0c70184e241809234f322380e8b4",
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
-      "packages/engine/src/persistence":
-        // F-1: scope existing verified-node memoization to canonical open verification; no retained cache.
-        // H-07 R-01: verify and reconcile obsolete checkpoint snapshots after interruption.
-        // H-07 S2: a policy-transition first open replays history once (the successor is proved from durable files; the reopen is bounded).
-        // H-07 S3: the strict pass releases its per-fact digest cache when it ends (one call in checkpoint-package.ts; no receipt meaning changes).
-        // H-07 S3-I1: the retained legacy v1 loader releases it too (one call in file-package.ts after its replay loop).
-        "91957dbee278d08fb70814e1bb1ea79894fecc8f383db4d6cdf375b5e98e3a14",
+      // ROADBED R3-T25 freight: packages/engine/src/persistence is a recorded scoped delta of the freight slice (pinned file by file in tests/support/freight-scoped-deltas.ts)
       // H-07 S3: an incremental evaluator of the SAME canonical full-state SHA-256 serves one strict-replay step (state-digest.ts, plus a diagnostic `retained` getter; `#compute` is byte-identical).
     };
     for (const [dir, hash] of Object.entries(expected)) expect(treeSha(dir), dir).toBe(hash);

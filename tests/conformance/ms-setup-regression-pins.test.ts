@@ -1,9 +1,10 @@
 // F-2 repair: explicit implementation identities, not governing source citations.
-// The five composed files changed under the ratified M-S brief. The eight siblings retain
-// their exact bytes from original main 8fa45367c3850e9528ba871ae6608dc178217e62.
+// The five composed files changed under the ratified M-S brief. Six siblings retain (ROADBED R3-T25 freight later changed two of the
+// original eight: temporal/admission.ts and temporal/coordinator.ts, pinned in tests/support/freight-scoped-deltas.ts) their exact bytes from original main 8fa45367c3850e9528ba871ae6608dc178217e62.
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
+import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const composed: Record<string, string> = {
   "packages/engine/src/temporal/bootstrap.ts":
@@ -20,10 +21,8 @@ const composed: Record<string, string> = {
 const unchanged: Record<string, string> = {
   "packages/engine/src/commit/state-digest.ts":
     "293be3b88962fad208926b620feeea710fb910ffd4aea9d71b99a4627881b714",
-  "packages/engine/src/temporal/admission.ts":
-    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/graph.ts":
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
@@ -44,14 +43,27 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         "packages/engine/src/world/actor-presence-integrity.ts",
       ])
       .sort();
+    // ROADBED R3-T25 freight changed two further temporal files (admission.ts, coordinator.ts): they are scoped deltas pinned in
+    // tests/support/freight-scoped-deltas.ts (and no longer "unchanged siblings"), so the coverage has no hole.
+    const freightDeltas = Object.keys(FREIGHT_SCOPED_DELTAS).filter(
+      (p) =>
+        p.startsWith("packages/engine/src/temporal/") ||
+        p.startsWith("packages/engine/src/commit/"),
+    );
+    expect(freightDeltas.sort()).toEqual([
+      "packages/engine/src/temporal/admission.ts",
+      "packages/engine/src/temporal/coordinator.ts",
+    ]);
     expect(Object.keys(composed)).toHaveLength(5);
-    expect(Object.keys(unchanged)).toHaveLength(8);
-    expect(Object.keys({ ...composed, ...unchanged }).sort()).toEqual(actual);
+    expect(Object.keys(unchanged)).toHaveLength(6);
+    expect([...Object.keys({ ...composed, ...unchanged }), ...freightDeltas].sort()).toEqual(
+      actual,
+    );
   });
   it("pins all five authorized integration files at the composed head bytes", () => {
     for (const [path, expected] of Object.entries(composed)) expect(sha(path), path).toBe(expected);
   });
-  it("retains all eight unmodified siblings at the original main bytes", () => {
+  it("retains all six remaining unmodified siblings at the original main bytes", () => {
     for (const [path, expected] of Object.entries(unchanged))
       expect(sha(path), path).toBe(expected);
   });

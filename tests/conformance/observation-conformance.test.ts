@@ -48,8 +48,7 @@ const CHANGED_AFTER_THE_SLICE_HEAD = new Set([
 const MODIFIED: Record<string, string> = {
   "packages/engine/src/epistemic/provider.ts":
     "bfe7857aad391ec1374210ebf81bbb76dfb062ae7a5e27958b3adfcd4891dc5e",
-  "packages/engine/src/temporal/coordinator.ts":
-    "f06f3121b81375e38c091fb06b8ace0a6fa8e7030cb7aa1ad95c5e8d24279111",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/providers.ts":
     "8c0813fef2fa6f47d0da64fd698d107e58edbf7bee8708feeff22b94f4001841",
   "packages/contracts/src/epistemic-access.ts":
@@ -78,8 +77,7 @@ const MODIFIED: Record<string, string> = {
     "7dc6a0fcea270484087444f940e688d1206864b9789b75617f8125e34e0126e4",
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
-  "packages/engine/src/temporal/admission.ts":
-    "3990ae27fd762da31553118d3c9502b60fa74c4c4fc334399be2a5d6f132620d",
+  // ROADBED R3-T25 freight: packages/engine/src/temporal/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/temporal/integrity.ts":
     "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
   "packages/operator/src/cli.ts":
