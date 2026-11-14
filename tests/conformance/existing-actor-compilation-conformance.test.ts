@@ -264,6 +264,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
     expect(readdirSync("packages/engine/src/owners").sort()).toEqual([
       "admission.ts",
       "extension.ts",
+      "governing-rule.ts",
       "registry.ts",
       "rejection.ts",
     ]);

@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "c23469d315646b0ec364c5d5121469791c1ee1e6785e722209e8523062ecc9ce",
   "packages/engine/src/owners/admission.ts":
-    "eb710bfc9566b0eecf156ce55b615e6c72c641abaab5bfc320db02f9fab46a86",
+    "43a2e1f35ac4635bea3f2edb840696bc657b6092e757043e7a9b0a49a214ff4c",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -30,7 +30,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
-    "26cc582af168b53d73c8d4564b90718fbfb63b999aed75b7ad290ff0dfbe6911",
+    "a08b2d19418ec635c4dfa32b172520ab82566c9f4583d6165578d7334ab30ede",
   "packages/operator/src/cli.ts":
     "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":

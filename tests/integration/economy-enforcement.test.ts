@@ -38,6 +38,7 @@ import {
 import {
   CanonicalCampaign,
   EconomyAdapter,
+  ECONOMY_RULE,
   StageProviderRegistry,
   TemporalCoordinator,
   nodeFs,
@@ -147,14 +148,8 @@ const rawGroup = (
   owner,
   facet,
   cause: `raw-cause-${n}`,
-  rule: {
-    artifact: "test://raw",
-    native_pin: "p",
-    clause: "c",
-    authority_lineage: ["l"],
-    effective_basis: "b",
-    supersedes: null,
-  },
+  // A02: use the registered citation so these probes reach the intended owner/stage guard.
+  rule: ECONOMY_RULE,
   authority: { ...CANON_WRITE_AUTHORITY },
   reads: [],
   depends_on: [],

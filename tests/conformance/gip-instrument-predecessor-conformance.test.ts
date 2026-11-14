@@ -169,7 +169,7 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with the
     ]);
     const registry = code("packages/engine/src/owners/registry.ts");
     expect(registry.match(/legacyRule\s*[?]?:/g)).toHaveLength(EXPECTED_LEGACY_RULE_SOURCE_SLOTS);
-    expect(code("packages/engine/src/world/integrity.ts")).toMatch(
+    expect(code("packages/engine/src/owners/governing-rule.ts")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );
   });
