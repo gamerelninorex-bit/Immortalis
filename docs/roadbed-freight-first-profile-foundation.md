@@ -209,32 +209,34 @@ receipt as the Temporal safe gate; the typed `scope_qualification` of the Scope 
 (`FREIGHT_BENCH_SIZES`, default 0/100/500/2000 unrelated loci; 5 fresh-process samples each, both worlds). Results are in
 `docs/evidence/roadbed-freight/` (raw samples + `summary.json`).
 
-### Results (commit `dc46e9e`, Node v22.23.4, linux-x64, 5 fresh-process samples per cell)
+### Results (commit `d7e2c73`, Node v22.23.4, linux-x64, 5 fresh-process samples per cell)
 
 Deterministic counters are **exactly equal in every cell** (`equal_causal_work_across_dormant_sizes`: quarry `true`, textile `true`): the
-operation performs 25 acts / 36 canonical commits / 72 canonical writes / 247 exact-key owner reads / 14 derivations and **zero** full GIP-head
+operation performs 25 acts / 36 canonical commits / 72 canonical writes / 262 exact-key owner reads / 14 derivations and **zero** full GIP-head
 scans (7 incremental head advances) whatever unrelated history the campaign carries, and the campaign verifies with 0 violations after the
-operation and after a cold reopen. Freight therefore adds **no history-proportional work of its own**.
+operation and after a cold reopen. Freight therefore adds **no history-proportional work of its own**. (The exact-key owner reads rose from
+247 to 262 when the Scope Binding qualification, the Basis and C-04 became part of every applicability read; the count is still independent of
+history.)
 
 | World   | Dormant loci | Commits | Owner reads | Derivations | GIP-head scans / advances | Operation elapsed ms (min–max) | Freight commit: mean ms / hashed | Unrelated commit at same depth: mean ms / hashed | Cold reopen med ms | Facts visited at open (GIP head, once) |
 | ------- | ------------ | ------- | ----------- | ----------- | ------------------------- | ------------------------------ | -------------------------------- | ------------------------------------------------ | ------------------ | -------------------------------------- |
-| quarry  | 0            | 36      | 247         | 14          | 0 / 7                     | 341–426 (med 365)              | 7.1 / 0.12 MB                    | —                                                | 93                 | 0                                      |
-| quarry  | 100          | 36      | 247         | 14          | 0 / 7                     | 367–524 (med 428)              | 9.0 / 0.27 MB                    | 4.6 / 0.12 MB                                    | 167                | 146                                    |
-| quarry  | 500          | 36      | 247         | 14          | 0 / 7                     | 650–782 (med 701)              | 16.7 / 0.78 MB                   | 10.6 / 0.61 MB                                   | 434                | 512                                    |
-| quarry  | 2000         | 36      | 247         | 14          | 0 / 7                     | 1572–1970 (med 1718)           | 44.4 / 2.57 MB                   | 41.8 / 2.45 MB                                   | 1504               | 1920                                   |
-| textile | 0            | 36      | 247         | 14          | 0 / 7                     | 315–344 (med 329)              | 6.4 / 0.12 MB                    | —                                                | 78                 | 0                                      |
-| textile | 100          | 36      | 247         | 14          | 0 / 7                     | 380–427 (med 390)              | 8.3 / 0.27 MB                    | 4.2 / 0.12 MB                                    | 164                | 146                                    |
-| textile | 500          | 36      | 247         | 14          | 0 / 7                     | 662–700 (med 678)              | 15.9 / 0.78 MB                   | 10.9 / 0.61 MB                                   | 423                | 512                                    |
-| textile | 2000         | 36      | 247         | 14          | 0 / 7                     | 1542–1751 (med 1675)           | 43.5 / 2.57 MB                   | 37.1 / 2.45 MB                                   | 1509               | 1920                                   |
+| quarry  | 0            | 36      | 262         | 14          | 0 / 7                     | 303–405 (med 312)              | 6.0 / 0.12 MB                    | —                                                | 76                 | 0                                      |
+| quarry  | 100          | 36      | 262         | 14          | 0 / 7                     | 353–445 (med 388)              | 8.1 / 0.27 MB                    | 3.8 / 0.12 MB                                    | 176                | 146                                    |
+| quarry  | 500          | 36      | 262         | 14          | 0 / 7                     | 600–674 (med 614)              | 14.5 / 0.78 MB                   | 10.1 / 0.61 MB                                   | 426                | 512                                    |
+| quarry  | 2000         | 36      | 262         | 14          | 0 / 7                     | 1501–1679 (med 1607)           | 41.6 / 2.57 MB                   | 35.4 / 2.45 MB                                   | 1579               | 1920                                   |
+| textile | 0            | 36      | 262         | 14          | 0 / 7                     | 310–353 (med 350)              | 6.8 / 0.12 MB                    | —                                                | 87                 | 0                                      |
+| textile | 100          | 36      | 262         | 14          | 0 / 7                     | 412–456 (med 421)              | 8.8 / 0.27 MB                    | 3.8 / 0.12 MB                                    | 179                | 146                                    |
+| textile | 500          | 36      | 262         | 14          | 0 / 7                     | 638–744 (med 656)              | 15.6 / 0.78 MB                   | 9.3 / 0.61 MB                                    | 437                | 512                                    |
+| textile | 2000         | 36      | 262         | 14          | 0 / 7                     | 1693–1823 (med 1725)           | 44.8 / 2.57 MB                   | 37.3 / 2.45 MB                                   | 1654               | 1920                                   |
 
-**Plainly stated limitation.** Whole-operation _elapsed_ time is **not** independent of dormant history in this build: it grows from ~0.35 s
+**Plainly stated limitation.** Whole-operation _elapsed_ time is **not** independent of dormant history in this build: it grows from ~0.3 s
 (no dormant history) to ~1.7 s (2000 unrelated facts). The same growth is present in an _unrelated, non-freight_ commit on the same history
-(last column pair: ≈ 42 ms and ≈ 2.45 MB hashed per commit at 2000 facts versus ≈ 44 ms and ≈ 2.57 MB for a freight commit), i.e. it is the
-canonical commit path's per-commit state hashing, which is inherited and is outside this slice. A freight commit costs about 5 % more hashed
-bytes than an unrelated one at the same depth. Cold reopen time grows with history (strict replay) and visits each fact once to build the
-incremental GIP head; neither is a routine per-act scan. **No throughput, capacity or latency claim is made**; the samples are what one machine
-measured, and the commit-path scaling is recorded here as a finding for BLUE rather than repaired (it is predecessor behaviour, not source
-law of this profile).
+(last column pair: ≈ 35–37 ms and ≈ 2.45 MB hashed per commit at 2000 facts versus ≈ 42–45 ms and ≈ 2.57 MB for a freight commit), i.e. it is
+the canonical commit path's per-commit state hashing, which is inherited and is outside this slice. A freight commit costs about 5 % more
+hashed bytes than an unrelated one at the same depth. Cold reopen time grows with history (strict replay) and visits each fact once to build
+the incremental GIP head; neither is a routine per-act scan. **No throughput, capacity or latency claim is made**; the samples are what one
+machine measured, and the commit-path scaling is recorded here as a finding for BLUE rather than repaired (it is predecessor behaviour, not
+source law of this profile).
 
 Reproduce: `node --experimental-strip-types tools/freight-benchmark.ts matrix <outDir>` (`FREIGHT_BENCH_SIZES`, `FREIGHT_BENCH_REPS`,
 `FREIGHT_BENCH_WORLDS`). Raw samples: `docs/evidence/roadbed-freight/benchmark/raw/*.json`; summary: `…/summary.json`.
