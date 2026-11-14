@@ -349,6 +349,22 @@ function prematureAdmissionKeys(a: OpeningAttestation): readonly string[] {
 // Scope Binding qualification (WS-007 §5, §5.2; R2-D18 §§1.2, 2, 3.1) — fail-closed, typed, never parsed
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Every authored field of a WS-007 Scope Binding, and so every field `qualifyScope` accounts for. A binding field that is not listed
+ * here is not qualified, and the drift guard in tests/conformance/freight-profile-conformance.test.ts fails until it is.
+ */
+export const SCOPE_BINDING_FIELDS_QUALIFIED = [
+  "scope_binding_id",
+  "institution_id",
+  "office_id",
+  "scope_type",
+  "scope_ref",
+  "target_condition",
+  "inheritance_rule",
+  "exception_refs",
+  "priority_or_conflict_rule_ref",
+] as const;
+
 export interface ScopeResult {
   readonly applicability: ClauseApplicability;
   readonly reason: string;
@@ -363,13 +379,15 @@ export interface ScopeResult {
  * source's typed qualification of exactly that binding, and the answer is an exact comparison — no prose is parsed, no scope
  * taxonomy is invented, no reference is resolved except "is this the jurisdiction world (or a world that exists and is not)":
  *
- *  - the committed binding is the binding the order names and is, field for field, the one the source qualified (reference, verbatim
- *    target text, exception references, conflict rule); a binding that diverges is `unresolved`, or `does_not_apply` when it is
- *    provably bound to ANOTHER existing world;
- *  - exceptions and a priority/conflict rule the binding authors must also be disposed of by the order's own coverage items;
+ *  - the committed binding is the binding the order names and is, field for field (every authored field: SCOPE_BINDING_FIELDS_QUALIFIED),
+ *    the one the source qualified (classification, reference, verbatim target text, inheritance rule, exception references, conflict
+ *    rule); a binding that diverges is `unresolved`, or `does_not_apply` when it is provably bound to ANOTHER existing world;
+ *  - an inheritance rule, exceptions and a priority/conflict rule the binding authors must also be disposed of by the order's own
+ *    coverage items (incorporation, exceptions, priority_precedence); no authored field is ever assumed immaterial;
  *  - the profile resolves only a scope reference that IS the jurisdiction world (anything else is `unresolved`);
  *  - the qualified target must equal the proposed transaction (world, endpoints, material, purpose) — else `does_not_apply`;
- *  - an exception that reaches the transaction is `does_not_apply`; a conflict rule that displaces the clauses is `contested`.
+ *  - an inheritance rule whose conditions the source determined unmet, or an exception that reaches the transaction, is
+ *    `does_not_apply`; a conflict rule that displaces the clauses is `contested`.
  */
 export function qualifyScope(
   src: Pick<FreightSource, "getFact">,
@@ -401,8 +419,13 @@ export function qualifyScope(
     }
     return out("unresolved", "SCOPE_REF_UNQUALIFIED");
   }
+  if (binding.scope_type !== q.scope_type) return out("unresolved", "SCOPE_TYPE_UNQUALIFIED");
   if (binding.target_condition !== q.target_condition)
     return out("unresolved", "SCOPE_TARGET_CONDITION_UNQUALIFIED");
+  // an inheritance rule is conditional jurisdictional inheritance (WS-007 §5.1): never claimed immaterial, never parsed — it must be
+  // exactly the one the source qualified, and the order's coverage must evidence an incorporation premise for it
+  if ((binding.inheritance_rule ?? null) !== q.inheritance_rule)
+    return out("unresolved", "SCOPE_INHERITANCE_UNQUALIFIED");
   const authored = [...(binding.exception_refs ?? [])].sort();
   const qualified = [...q.exception_refs].sort();
   if (authored.length !== qualified.length || authored.some((r, i) => r !== qualified[i]))
@@ -411,6 +434,8 @@ export function qualifyScope(
     return out("unresolved", "SCOPE_CONFLICT_RULE_UNQUALIFIED");
   const coverage = (item: (typeof COVERAGE_ITEMS)[number]) =>
     cover.items.find((i) => i.item === item)?.disposition;
+  if (q.inheritance_rule !== null && coverage("incorporation") !== "evidenced")
+    return out("unresolved", "SCOPE_INHERITANCE_NOT_EVIDENCED_BY_COVERAGE");
   if (qualified.length > 0 && coverage("exceptions") !== "evidenced")
     return out("unresolved", "SCOPE_EXCEPTIONS_NOT_EVIDENCED_BY_COVERAGE");
   if (q.priority_or_conflict_rule_ref !== null && coverage("priority_precedence") !== "evidenced")
@@ -427,6 +452,8 @@ export function qualifyScope(
     t.purpose !== terms.purpose
   )
     return out("does_not_apply", "SCOPE_TARGET_EXCLUDES_TRANSACTION");
+  if (q.inheritance_determination?.conditions_satisfied === false)
+    return out("does_not_apply", "SCOPE_INHERITANCE_CONDITION_UNMET");
   if (q.exception_determinations.some((d) => d.reaches_transaction))
     return out("does_not_apply", "SCOPE_EXCEPTION_REACHES_TRANSACTION");
   if (q.conflict_determination?.displaces_clauses === true)

@@ -437,6 +437,8 @@ export type ClausePremise = z.infer<typeof ClausePremiseSchema>;
  */
 export const ScopeQualificationSchema = z
   .strictObject({
+    /** the Binding's authored classification of its scope, as authored (free text, never matched against a vocabulary) */
+    scope_type: Text,
     /** the Binding's authored opaque scope reference, as authored */
     scope_ref: EntityId,
     /** the Binding's authored target condition, VERBATIM: compared byte for byte, never parsed */
@@ -449,6 +451,10 @@ export const ScopeQualificationSchema = z
       material_class: Id,
       purpose: Id,
     }),
+    /** the Binding's optional `inheritance_rule`, VERBATIM (null when the Binding authors none): carried, never parsed or executed */
+    inheritance_rule: Text.nullable(),
+    /** required exactly when that rule exists: the GM's determination of whether the rule's conditions are satisfied for this transaction */
+    inheritance_determination: z.strictObject({ conditions_satisfied: z.boolean() }).nullable(),
     /** the Binding's `exception_refs`, exactly as authored (empty when the Binding authors none) */
     exception_refs: z.array(EntityId),
     /** the GM's determination, for EACH authored exception, of whether it reaches this transaction */
@@ -473,6 +479,11 @@ export const ScopeQualificationSchema = z
       bad("every authored exception is determined exactly once, and no other", [
         "exception_determinations",
       ]);
+    if ((q.inheritance_rule === null) !== (q.inheritance_determination === null))
+      bad(
+        "an inheritance determination exists exactly when the Binding authors an inheritance rule",
+        ["inheritance_determination"],
+      );
     if ((q.priority_or_conflict_rule_ref === null) !== (q.conflict_determination === null))
       bad("a conflict determination exists exactly when the Binding authors a conflict rule", [
         "conflict_determination",

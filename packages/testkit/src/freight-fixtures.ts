@@ -263,6 +263,7 @@ function build(s: Spec): FreightWorldFixture {
       },
     },
   ];
+  const scopeType = "institutional self-provision and single-site supply";
   const scopeTargetCondition = `material moved from ${s.origin.id} to ${s.destination.id} for ${s.purpose}`;
   const legal: LegalPremise = {
     basis_id: s.basisId,
@@ -283,6 +284,7 @@ function build(s: Spec): FreightWorldFixture {
     // the GM's typed reading of the Scope Binding below: it bounds this world and reaches exactly this one transaction; it authors no
     // exception and no conflict rule
     scope_qualification: {
+      scope_type: scopeType,
       scope_ref: s.worldId,
       target_condition: scopeTargetCondition,
       target: {
@@ -292,6 +294,8 @@ function build(s: Spec): FreightWorldFixture {
         material_class: s.specification.materialClass,
         purpose: s.purpose,
       },
+      inheritance_rule: null,
+      inheritance_determination: null,
       exception_refs: [],
       exception_determinations: [],
       priority_or_conflict_rule_ref: null,
@@ -435,7 +439,7 @@ function build(s: Spec): FreightWorldFixture {
       scope_binding_id: s.bindingId,
       institution_id: s.institution.id,
       office_id: s.office.id,
-      scope_type: "institutional self-provision and single-site supply",
+      scope_type: scopeType,
       scope_ref: s.worldId,
       target_condition: scopeTargetCondition,
     },

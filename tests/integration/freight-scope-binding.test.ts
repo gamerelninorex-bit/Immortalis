@@ -3,7 +3,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { gipReadinessSealKey, gipScopeBindingKey, type OwnerFact } from "@immortalis/contracts";
+import {
+  OpeningBasisSchema,
+  ScopeBindingSchema,
+  InstrumentClauseSchema,
+  gipReadinessSealKey,
+  gipScopeBindingKey,
+  type OwnerFact,
+} from "@immortalis/contracts";
 import {
   freightPublication as pub,
   quarryWorksFixture,
@@ -23,6 +30,8 @@ import {
   evaluateClauses,
   groupOfPlan,
   openFileCampaign,
+  qualifyScope,
+  SCOPE_BINDING_FIELDS_QUALIFIED,
   storeSource,
   type FreightSource,
 } from "@immortalis/engine";
@@ -244,6 +253,108 @@ describe("G-1 — the Scope Binding must bound THIS transaction: seal-time falsi
   });
 });
 
+describe("G-1R — every authored Scope Binding field is qualified: scope_type and inheritance_rule are never assumed immaterial", () => {
+  it("a changed scope_type, or a type the source qualified differently, is unresolved (both worlds)", async () => {
+    for (const base of [quarryWorksFixture, textileWorkshopFixture]) {
+      const committed = edited(base, (x) => (x.scopeBinding.scope_type += " (altered)"));
+      expect(reasonOf(await sealRefusal(committed))).toMatchObject({
+        applicability: "unresolved",
+        reason: "SCOPE_TYPE_UNQUALIFIED",
+      });
+      const qualified = edited(
+        base,
+        (x) => (x.legal.scope_qualification.scope_type = "a different class"),
+      );
+      expect(reasonOf(await sealRefusal(qualified))).toMatchObject({
+        applicability: "unresolved",
+        reason: "SCOPE_TYPE_UNQUALIFIED",
+      });
+    }
+  });
+
+  it("an inheritance rule the source did not qualify (newly present, dropped, or reworded) is unresolved", async () => {
+    const present = edited(
+      quarryWorksFixture,
+      (x) => (x.scopeBinding.inheritance_rule = "passes to child territories"),
+    );
+    expect(reasonOf(await sealRefusal(present))).toMatchObject({
+      applicability: "unresolved",
+      reason: "SCOPE_INHERITANCE_UNQUALIFIED",
+    });
+    const dropped = edited(textileWorkshopFixture, (x) => {
+      x.legal.scope_qualification.inheritance_rule = "passes to child territories";
+      x.legal.scope_qualification.inheritance_determination = { conditions_satisfied: true };
+    });
+    expect(reasonOf(await sealRefusal(dropped))).toMatchObject({
+      applicability: "unresolved",
+      reason: "SCOPE_INHERITANCE_UNQUALIFIED",
+    });
+    const reworded = edited(quarryWorksFixture, (x) => {
+      x.scopeBinding.inheritance_rule = "passes to child territories";
+      x.legal.scope_qualification.inheritance_rule = "passes to no one";
+      x.legal.scope_qualification.inheritance_determination = { conditions_satisfied: true };
+    });
+    expect(reasonOf(await sealRefusal(reworded))).toMatchObject({
+      applicability: "unresolved",
+      reason: "SCOPE_INHERITANCE_UNQUALIFIED",
+    });
+  });
+
+  it("a QUALIFIED inheritance rule: unmet conditions are does_not_apply; it is lawful only if the order's coverage evidences incorporation", async () => {
+    const qualify = (satisfied: boolean, coverage: "evidenced" | "established_inapplicable") =>
+      edited(quarryWorksFixture, (x) => {
+        x.scopeBinding.inheritance_rule = "passes to child territories on charter";
+        x.legal.scope_qualification.inheritance_rule = "passes to child territories on charter";
+        x.legal.scope_qualification.inheritance_determination = { conditions_satisfied: satisfied };
+        x.legal.coverage.find((c: any) => c.item === "incorporation").disposition = coverage;
+      });
+    expect(reasonOf(await sealRefusal(qualify(false, "evidenced")))).toMatchObject({
+      applicability: "does_not_apply",
+      reason: "SCOPE_INHERITANCE_CONDITION_UNMET",
+    });
+    expect(reasonOf(await sealRefusal(qualify(true, "established_inapplicable")))).toMatchObject({
+      applicability: "unresolved",
+      reason: "SCOPE_INHERITANCE_NOT_EVIDENCED_BY_COVERAGE",
+    });
+    // positive control: the source qualified the rule, determined its conditions satisfied, and the coverage evidences it
+    const f = await world(qualify(true, "evidenced"));
+    await openThroughSeal(f);
+    expect(f.campaign.store.getFact(gipReadinessSealKey(f.fx.sealId))).toBeDefined();
+  });
+
+  it("drift guard: every field the Scope Binding schema authors is accounted for, and changing ANY one never yields `applies`", async () => {
+    expect(Object.keys(ScopeBindingSchema.shape).sort()).toEqual(
+      [...SCOPE_BINDING_FIELDS_QUALIFIED].sort(),
+    );
+    const f = await world(quarryWorksFixture());
+    await openThroughSeal(f);
+    const src = storeSource(f.campaign.store);
+    const fact = (key: string) => src.getFact(key)!.value;
+    const basis = OpeningBasisSchema.parse(fact(`gip/opening-basis/${f.fx.sealId}`));
+    const binding = ScopeBindingSchema.parse(fact(f.fx.instrument.scope_binding_ref));
+    const c04Pin = (fact(`gip/readiness-seal/${f.fx.sealId}`) as any).clauses.find(
+      (c: any) => c.clause === "C-04",
+    );
+    const c04 = InstrumentClauseSchema.parse(fact(c04Pin.fact_key));
+    if (c04.clause !== "C-04") throw new Error("C-04 expected");
+    expect(
+      qualifyScope(src, basis, binding, c04).applicability,
+      "control: the lawful binding",
+    ).toBe("applies");
+    for (const field of SCOPE_BINDING_FIELDS_QUALIFIED) {
+      const changed: any = structuredClone(binding);
+      const was = changed[field];
+      if (field === "exception_refs") changed[field] = [...(was ?? []), "x"];
+      else if (typeof was === "string") changed[field] = `${was}-changed`;
+      else changed[field] = "added";
+      expect(
+        qualifyScope(src, basis, changed, c04).applicability,
+        `changing ${field} must never yield applies`,
+      ).not.toBe("applies");
+    }
+  });
+});
+
 describe("G-1 — read time: every material applicability read re-qualifies the binding, so no downstream act follows", () => {
   /** the source as the act sees it, with the sealed Scope Binding changed at the SAME version (the head is untouched on purpose) */
   const withBinding = (f: Freight, change: (v: any) => void): FreightSource => {
@@ -276,6 +387,12 @@ describe("G-1 — read time: every material applicability read re-qualifies the 
       "an unqualified conflict rule",
       (v) => (v.priority_or_conflict_rule_ref = "y"),
       /SCOPE_CONFLICT_RULE_UNQUALIFIED/,
+    ],
+    ["a changed scope_type", (v) => (v.scope_type += " (altered)"), /SCOPE_TYPE_UNQUALIFIED/],
+    [
+      "an unqualified inheritance rule",
+      (v) => (v.inheritance_rule = "z"),
+      /SCOPE_INHERITANCE_UNQUALIFIED/,
     ],
   ];
 

@@ -119,22 +119,34 @@ exactly that binding (`ScopeQualificationSchema`, stored on the Opening Basis): 
 transaction its target reaches (world, endpoints, material, purpose), every authored exception and conflict rule, and the GM's determination
 of whether each reaches the transaction. `qualifyScope` (`freight/gip.ts`) compares; it parses no prose and invents no scope taxonomy:
 
-| Defect (all other premises and clauses valid)                                                        | GIP answer                                          |
-| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| committed binding bound to ANOTHER existing world                                                    | `does_not_apply` (`SCOPE_BINDING_OF_ANOTHER_WORLD`) |
-| binding's reference, target text, exceptions or conflict rule differ from the source's qualification | `unresolved`                                        |
-| qualified scope reference is not the jurisdiction world (the profile resolves nothing else)          | `unresolved`                                        |
-| qualified target excludes the proposed origin, destination, material or purpose                      | `does_not_apply`                                    |
-| an authored exception reaches the transaction                                                        | `does_not_apply`                                    |
-| an authored exception or conflict rule the order's coverage does not evidence                        | `unresolved`                                        |
-| a conflict rule displaces the clauses                                                                | `contested`                                         |
-| an unresolved publication or notice coverage item                                                    | readiness refused (`unresolved`)                    |
+| Defect (all other premises and clauses valid)                                                                                                         | GIP answer                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| committed binding bound to ANOTHER existing world                                                                                                     | `does_not_apply` (`SCOPE_BINDING_OF_ANOTHER_WORLD`)    |
+| binding's classification (`scope_type`), reference, target text, inheritance rule, exceptions or conflict rule differ from the source's qualification | `unresolved`                                           |
+| a qualified inheritance rule whose conditions the source determined unmet                                                                             | `does_not_apply` (`SCOPE_INHERITANCE_CONDITION_UNMET`) |
+| an inheritance rule, exception or conflict rule the order's coverage (`incorporation`, `exceptions`, `priority_precedence`) does not evidence         | `unresolved`                                           |
+| qualified scope reference is not the jurisdiction world (the profile resolves nothing else)                                                           | `unresolved`                                           |
+| qualified target excludes the proposed origin, destination, material or purpose                                                                       | `does_not_apply`                                       |
+| an authored exception reaches the transaction                                                                                                         | `does_not_apply`                                       |
+| an authored exception or conflict rule the order's coverage does not evidence                                                                         | `unresolved`                                           |
+| a conflict rule displaces the clauses                                                                                                                 | `contested`                                            |
+| an unresolved publication or notice coverage item                                                                                                     | readiness refused (`unresolved`)                       |
 
 It runs at the seal (an unqualified binding is never sealed) and inside `evaluateClauses`, which every material read uses (C-05, C-06/E0,
 L0, L1, AD, withdrawal): the binding, the Basis and C-04 are read at the sealed versions and are guarded by the act that relies on them.
 Falsifiers: `tests/integration/freight-scope-binding.test.ts`. The first-profile qualification is a Builder technical lowering for BLUE
 review; if the ratified source cannot support a typed predicate for a given scope, the question is to be isolated for BLUE/RED/Sovereign, and
 the engine already answers it fail-closed (`unresolved`), never `applies`.
+
+**Disposition of `scope_type` and `inheritance_rule` (BLUE G-1R).** The first profile does NOT claim either field immaterial. The ratified
+first-profile source, in the text the Builder holds, does not make conditional jurisdictional inheritance irrelevant to a direct-world scope
+(BLUE reads WS-007 §5 and §5.1 as treating scope and inheritance as applicability inputs; the Builder did not re-derive that text and relies
+on no immateriality claim). Every authored field of the WS-007 binding is therefore accounted for (`SCOPE_BINDING_FIELDS_QUALIFIED`, guarded
+against drift): `scope_type` and `inheritance_rule` are carried VERBATIM in the source's qualification and compared byte for byte; a
+changed, newly present, dropped or reworded field is `unresolved`; an authored inheritance rule additionally needs the GM's determination of
+whether its conditions are satisfied for this transaction (unmet is `does_not_apply`) and an `incorporation` coverage item that evidences it.
+No free text is parsed, no taxonomy is invented, no WS-007 field changes and no broader jurisdiction is granted. If BLUE/RED/Sovereign rule
+either field source-immaterial in the direct-world profile, the carrying is simply never exercised.
 
 ## 5. What is NOT built (source-unresolved or unqualified) — and why
 
@@ -237,6 +249,10 @@ hashed bytes than an unrelated one at the same depth. Cold reopen time grows wit
 the incremental GIP head; neither is a routine per-act scan. **No throughput, capacity or latency claim is made**; the samples are what one
 machine measured, and the commit-path scaling is recorded here as a finding for BLUE rather than repaired (it is predecessor behaviour, not
 source law of this profile).
+
+The later G-1R change (qualifying `scope_type` and `inheritance_rule`) only compares two more already-read fields and adds no read or
+derivation; a single-sample spot check per world (dormant size 0) after it reproduces exactly the same counters (25 acts, 36 commits, 72
+writes, 262 reads, 14 derivations, 0 scans, 7 advances, 0 violations). The matrix itself was not rerun for it.
 
 Reproduce: `node --experimental-strip-types tools/freight-benchmark.ts matrix <outDir>` (`FREIGHT_BENCH_SIZES`, `FREIGHT_BENCH_REPS`,
 `FREIGHT_BENCH_WORLDS`). Raw samples: `docs/evidence/roadbed-freight/benchmark/raw/*.json`; summary: `…/summary.json`.

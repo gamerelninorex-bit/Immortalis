@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GovernanceInstrumentSchema,
+  ScopeBindingSchema,
+  ScopeQualificationSchema,
   FREIGHT_CLAUSES,
   FREIGHT_CLAUSE_EFFECT,
   FREIGHT_WITHDRAWAL_CAUSES,
@@ -25,6 +27,7 @@ import {
   BOOTSTRAP_SUNSET_POLICY_MS_V08,
   CANONICAL_OWNER_REGISTRY,
   FREIGHT_FACT_KINDS,
+  SCOPE_BINDING_FIELDS_QUALIFIED,
   FREIGHT_FACT_KIND_IDS,
   FREIGHT_SUNSET_POLICY_DELTA,
 } from "@immortalis/engine";
@@ -141,6 +144,27 @@ describe("source scope: the withheld and unqualified branches are not representa
     for (const p of Object.keys(FREIGHT_SCOPED_DELTAS)) {
       expect(p, p).not.toMatch(/packages\/engine\/src\/gip\/|packages\/contracts\/src\/gip/);
     }
+  });
+});
+
+describe("the Scope Binding: every authored field is qualified, none is assumed immaterial (BLUE G-1 / G-1R)", () => {
+  it("the engine accounts for exactly the fields the WS-007 binding schema authors, and the source qualification carries each", () => {
+    expect(Object.keys(ScopeBindingSchema.shape).sort()).toEqual(
+      [...SCOPE_BINDING_FIELDS_QUALIFIED].sort(),
+    );
+    const q = Object.keys(ScopeQualificationSchema.shape);
+    for (const field of [
+      "scope_type",
+      "scope_ref",
+      "target_condition",
+      "inheritance_rule",
+      "priority_or_conflict_rule_ref",
+    ])
+      expect(q, field).toContain(field);
+    // exceptions are qualified as references plus a determination each; the identity fields are compared with the Basis
+    expect(q).toContain("exception_refs");
+    expect(q).toContain("exception_determinations");
+    expect(q).toContain("inheritance_determination");
   });
 });
 
