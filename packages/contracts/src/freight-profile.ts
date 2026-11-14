@@ -295,8 +295,7 @@ export type ProtectedHeadPin = z.infer<typeof ProtectedHeadPinSchema>;
 // addressable clauses of ONE Instrument, the Legal Readiness Seal, and derived applicability (R2-D18 §§1, 1.2, 2, 2.1, 3.1).
 // =============================================================================================
 
-export const gipOpeningBasisKey = (basisId: string): string =>
-  `gip/opening-basis/${basisId}`;
+export const gipOpeningBasisKey = (basisId: string): string => `gip/opening-basis/${basisId}`;
 export const gipInstrumentClauseKey = (instrumentId: string, provisionId: string): string =>
   `gip/instrument/${instrumentId}/clause/${provisionId}`;
 export const gipReadinessSealKey = (sealId: string): string => `gip/readiness-seal/${sealId}`;

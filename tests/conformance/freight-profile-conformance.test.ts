@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests build and inspect arbitrary owner values */
 // Conformance evidence for ROADBED R3-T25 (BLUE Formal Universal Hard Preflight v6.2): the first-profile institutional freight capability
 // (Foundation F + Integration I) under R2-D18 v1.2.1 / R3-T2 / R3-T17. MECHANISM ONLY: structural and source-faithfulness checks of what was
 // built and what was deliberately NOT built. Behavioural evidence lives in tests/integration/freight-*.test.ts.

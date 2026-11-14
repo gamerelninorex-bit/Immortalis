@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FACET_WORLD_SOURCE_CONDITION,
+  LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
   TEMPORAL_STATE_KEY,
   productionExtractionKey,
   productionReserveKey,
@@ -394,7 +395,13 @@ describe("Turnless Temporal: earned, exact, horizon-independent, engaged-only", 
     ];
     const touched = new Set(
       spy.getFacts.filter(
-        (k) => !k.startsWith("temporal/") && !k.startsWith("synthetic-") && !k.startsWith("gip/"),
+        (k) =>
+          !k.startsWith("temporal/") &&
+          !k.startsWith("synthetic-") &&
+          !k.startsWith("gip/") &&
+          // Logistics' one fixed-key freight dispatch/enrollment receipt: a single keyed read on every advance (the pending-dispatch
+          // fence of ROADBED R3-T25), never a scan
+          k !== LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
       ),
     );
     for (const k of touched) expect(allowed, k).toContain(k);

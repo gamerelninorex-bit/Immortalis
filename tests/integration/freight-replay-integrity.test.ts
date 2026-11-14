@@ -7,7 +7,11 @@ import {
   economyDestinationAdequacyKey,
   economyFreightWithdrawalKey,
 } from "@immortalis/contracts";
-import { freightPublication as pub, quarryWorksFixture, textileWorkshopFixture } from "@immortalis/testkit";
+import {
+  freightPublication as pub,
+  quarryWorksFixture,
+  textileWorkshopFixture,
+} from "@immortalis/testkit";
 import {
   CANONICAL_OWNER_REGISTRY,
   CanonicalCampaign,
@@ -50,7 +54,6 @@ describe("PO-3 — replay re-derives every first-profile group against its true 
     // a campaign that has only reached the fixed request
     const target = await createFreightCampaign(join(dir, "target"), quarryWorksFixture());
     const ref = await foundationThroughFixation(target);
-    const fx = target.fx;
     await target.campaign.close();
 
     // a store with NO owner admission at all lets the forged groups commit (the hash chain stays valid)
@@ -67,12 +70,17 @@ describe("PO-3 — replay re-derives every first-profile group against its true 
       }),
     ];
     const accepted = await store.commit(forged[0]!);
-    expect(accepted.ok, "the permissive store accepted the forgery: only replay can catch it").toBe(true);
+    expect(accepted.ok, "the permissive store accepted the forgery: only replay can catch it").toBe(
+      true,
+    );
     await store.close();
 
     const reopened = await CanonicalCampaign.open(join(dir, "target"), { buildId: "replay-check" });
     expect(reopened.ok).toBe(false);
-    if (!reopened.ok) expect(JSON.stringify(reopened.error)).toMatch(/historical verification|not a valid transition|REPLAY_MISMATCH/);
+    if (!reopened.ok)
+      expect(JSON.stringify(reopened.error)).toMatch(
+        /historical verification|not a valid transition|REPLAY_MISMATCH/,
+      );
 
     // and a forged cancellation (no owner-admitted trigger exists at that cut)
     const target2 = await createFreightCampaign(join(dir, "target2"), textileWorkshopFixture());
@@ -94,7 +102,10 @@ describe("PO-3 — replay re-derives every first-profile group against its true 
         pinned: { fact_key: "x", version: 1 },
         observed: { fact_key: "x", version: 2 },
       },
-      entity: { fact_key: `world/${fx2.worldId}/entity/${keysOf(fx2).entityId}`, entity_id: keysOf(fx2).entityId },
+      entity: {
+        fact_key: `world/${fx2.worldId}/entity/${keysOf(fx2).entityId}`,
+        entity_id: keysOf(fx2).entityId,
+      },
       logistics_guard: {
         branch: "NO_SERVICE_FOR_THIS_REQUEST",
         commitment: { fact_key: "logistics/commitment/x/y", version: 0 },
@@ -104,10 +115,19 @@ describe("PO-3 — replay re-derives every first-profile group against its true 
       admitted_at: fx2.t0,
       effect: "PROTECTION_ONLY_RELEASES_NOTHING_CLOSES_NOTHING",
     };
-    const g = groupOfPlan(permissive2.value, pub("forged", 2), "economy", "economy_state", FREIGHT_ECONOMY_RULE, {
-      reads: [],
-      writes: [{ key: economyFreightWithdrawalKey(ref2), value: withdrawal, expected_version: 0 }],
-    });
+    const g = groupOfPlan(
+      permissive2.value,
+      pub("forged", 2),
+      "economy",
+      "economy_state",
+      FREIGHT_ECONOMY_RULE,
+      {
+        reads: [],
+        writes: [
+          { key: economyFreightWithdrawalKey(ref2), value: withdrawal, expected_version: 0 },
+        ],
+      },
+    );
     expect((await permissive2.value.commit(g)).ok).toBe(true);
     await permissive2.value.close();
     const again = await CanonicalCampaign.open(join(dir, "target2"), { buildId: "replay-check" });
@@ -133,21 +153,37 @@ describe("PO-6 — GM-authored original setting only: honest provenance, no fabr
     const f = await createFreightCampaign(join(dir, "gm"), textileWorkshopFixture());
     open.push(f);
     await throughDeliveryAndAdequacy(f);
-    const facts = f.campaign.store.listFacts().filter((x) => FREIGHT_FACT_KIND_IDS.includes(resolveKey(x.key)!.kind.id as never));
+    const facts = f.campaign.store
+      .listFacts()
+      .filter((x) => FREIGHT_FACT_KIND_IDS.includes(resolveKey(x.key)!.kind.id as never));
     expect(facts.length).toBeGreaterThan(20);
     for (const fact of facts) {
       const group = f.campaign.store.committedGroup(fact.provenance.intent_id)!;
-      expect(group.authority).toEqual({ role: "role.archivist", permission: "permission.canon.write" });
-      expect(JSON.stringify(fact.value), fact.key).not.toMatch(/role\.player|player_choice|permission\.player/);
+      expect(group.authority).toEqual({
+        role: "role.archivist",
+        permission: "permission.canon.write",
+      });
+      expect(JSON.stringify(fact.value), fact.key).not.toMatch(
+        /role\.player|player_choice|permission\.player/,
+      );
     }
     // the GM's premise is attested under the GM's adjudication authority and is explicitly NOT a player choice
     const attestation = f.world.attestation(f.fx.worldId)!.value;
-    expect(attestation.setup_operation.authored_under).toEqual({ role: "role.gm", permission: "permission.rule.adjudicate" });
-    expect(attestation.setup_operation.authorship).toBe("GM_AUTHORED_ORIGINAL_SETTING_PREMISES_NOT_PLAYER_CHOICE");
+    expect(attestation.setup_operation.authored_under).toEqual({
+      role: "role.gm",
+      permission: "permission.rule.adjudicate",
+    });
+    expect(attestation.setup_operation.authorship).toBe(
+      "GM_AUTHORED_ORIGINAL_SETTING_PREMISES_NOT_PLAYER_CHOICE",
+    );
     expect(attestation.mode).toBe("ORIGINAL_WORLD_NULL_PC");
     // NULL-PC throughout: no binding, no PC existence, no player-owned fact
     expect(f.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)).toBeUndefined();
-    expect(f.campaign.store.listFacts().filter((x) => x.owner === "pc_existence" || x.owner === "role_registry")).toEqual([]);
+    expect(
+      f.campaign.store
+        .listFacts()
+        .filter((x) => x.owner === "pc_existence" || x.owner === "role_registry"),
+    ).toEqual([]);
   });
 
   it("the GM's ordinary prose is preserved verbatim beside its typed lowering, and survives a reopen unchanged", async () => {
@@ -164,22 +200,33 @@ describe("PO-6 — GM-authored original setting only: honest provenance, no fabr
     open.push(again);
     check(again);
     // a premise the GM did not author is not invented: the typed premises carry exactly the authored totals
-    expect(again.productionFreight.materialSpecification(f.fx.specification.specification_id)!.value.quantity).toEqual(
-      f.fx.specification.quantity,
-    );
+    expect(
+      again.productionFreight.materialSpecification(f.fx.specification.specification_id)!.value
+        .quantity,
+    ).toEqual(f.fx.specification.quantity);
   });
 
   it("the engine adds no privileged read or player-facing disclosure path: no projection, epistemic, referee or protocol code names the freight kinds", async () => {
     const { readFile, readdir } = await import("node:fs/promises");
     const names = [...FREIGHT_FACT_KIND_IDS, "freight/"];
-    const roots = ["packages/engine/src/projection", "packages/engine/src/presentation", "packages/engine/src/epistemic", "packages/engine/src/referee", "packages/protocol/src", "apps/phone/src"];
+    const roots = [
+      "packages/engine/src/projection",
+      "packages/engine/src/presentation",
+      "packages/engine/src/epistemic",
+      "packages/engine/src/referee",
+      "packages/protocol/src",
+      "apps/phone/src",
+    ];
     for (const root of roots) {
       for (const entry of await readdir(join(process.cwd(), root), { recursive: true })) {
         if (!String(entry).endsWith(".ts")) continue;
         const text = await readFile(join(process.cwd(), root, String(entry)), "utf8");
-        for (const n of names) expect(text.includes(n), `${root}/${String(entry)} names ${n}`).toBe(false);
+        for (const n of names)
+          expect(text.includes(n), `${root}/${String(entry)} names ${n}`).toBe(false);
       }
     }
-    expect((await outcome(Promise.resolve({ ok: true as const, value: { replayed: false } }))).code).toBe("OK");
+    expect(
+      (await outcome(Promise.resolve({ ok: true as const, value: { replayed: false } }))).code,
+    ).toBe("OK");
   });
 });

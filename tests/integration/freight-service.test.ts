@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests build and inspect arbitrary owner values */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,10 +48,7 @@ import {
   outcome,
   produceAndAccept,
   originSelfProvision,
-  establishSetting,
   attestAndInitialize,
-  assembleLegal,
-  sealReadiness,
   throughDeliveryAndAdequacy,
   variant,
   countKind,

@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GIP_SUNSET_ENROLLMENT_KEY,
+  LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
   PLAYER_CHARACTER_BINDING_KEY,
   temporalObjectKey,
   temporalTransactionAuthorityKey,
@@ -430,6 +431,9 @@ describe("causally engaged set and dormant-state economy (brief §4.8, §5.3)", 
           // and GIP's one fixed-key enrollment receipt: a target is refused while a committed sunset is not yet registered
           // (sunset slice); a single keyed read, never a scan of Instruments
           GIP_SUNSET_ENROLLMENT_KEY,
+          // and Logistics' one fixed-key freight dispatch/enrollment receipt: the pending-dispatch fence (ROADBED R3-T25) applies on EVERY
+          // advance path, so it is one keyed read, never a scan and never a per-object read
+          LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
         ],
         `unexpected read of ${key}`,
       ).toContain(key);

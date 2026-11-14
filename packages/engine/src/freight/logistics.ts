@@ -39,7 +39,6 @@ import {
   worldEntityTransitionKey,
   worldLocusKey,
   worldProfileKey,
-  type CanonicalTime,
   type CommitGroup,
   type EconomyFreightRequest,
   type EconomyStatusWitness,
@@ -79,7 +78,7 @@ import { worldCorridorViolation } from "../world/corridor.ts";
 import { parsePhysicalSubject } from "../world/physical-subject.ts";
 import { deriveCommitment, deriveTransfer, movementRequestOfFreight } from "../logistics/derive.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
-import { readDispatchEnrollment, pendingDispatchEnrollment } from "./dispatch-fence.ts";
+import { readDispatchEnrollment } from "./dispatch-fence.ts";
 
 /**
  * IM-05 Logistics — the service half of the ROADBED first freight profile (R2-D18 v1.2.1 §4 steps 5-8, §5; R3-T2 §§2-5 EL-01F

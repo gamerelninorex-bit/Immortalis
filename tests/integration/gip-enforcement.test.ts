@@ -171,7 +171,9 @@ describe("owner exclusivity: only the GIP owner writes the Institution Identity 
       "gip/institution/i1/faction",
       "gip/institution/i1/instrument/x",
       "gip/office/o1",
-      "gip/instrument/x/clause/c1",
+      // (`gip/instrument/<id>/clause/<id>` is a MODELLED key since ROADBED R3-T25 first-profile freight: a GIP-owner-only clause fact)
+      "gip/instrument/x/clause",
+      "gip/instrument/x/clause/c1/extra",
       "gip/instrument",
       "gip/relation/a/b",
       "gips/institution/i1/identity",

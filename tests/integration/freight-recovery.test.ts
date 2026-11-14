@@ -111,7 +111,9 @@ async function cutMatrix(
           await step.run(re);
           await runSteps(re, steps.slice(i + 1));
         } catch (e) {
-          throw new Error(`${step.name} @${failAt}/${when} (crashed=${crashed}): ${String(e)}`);
+          throw new Error(`${step.name} @${failAt}/${when} (crashed=${crashed}): ${String(e)}`, {
+            cause: e,
+          });
         }
         const head = re.campaign.store.head();
         expect(head.revision, `${step.name} @${failAt}/${when}: revision`).toBe(refHead.revision);

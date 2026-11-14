@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests build and inspect arbitrary owner values */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   COVERAGE_ITEMS,
-  GM_ADJUDICATION_AUTHORITY,
   OpeningAttestationSchema,
   worldOpeningAttestationKey,
   worldSiteConditionKey,
@@ -59,7 +59,6 @@ async function world(fx: FreightWorldFixture): Promise<Freight> {
   open.push(f);
   return f;
 }
-const GM = { ...GM_ADJUDICATION_AUTHORITY };
 
 describe("PO-6/PO-1 — the opening is the GM's original NULL-PC setting, attested once and never rescued", () => {
   it("refuses a player-authored, mismatched-authority, second, late or player-bearing opening", async () => {
