@@ -217,6 +217,7 @@ export * from "./freight/economy.ts";
 export * from "./freight/economy-derive.ts";
 export * from "./freight/gip.ts";
 export * from "./freight/gip-owner-head.ts";
+export * from "./freight/integrity.ts";
 export * from "./freight/logistics.ts";
 export * from "./freight/production.ts";
 export * from "./freight/route.ts";

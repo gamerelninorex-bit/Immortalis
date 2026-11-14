@@ -50,6 +50,8 @@ export interface IntegrityViolation {
     | "SOURCE_DRAWDOWN_STATE"
     /** IM-06 Economy state: see verifyEconomyIntegrity */
     | "ECONOMY_STATE"
+    /** ROADBED first-profile freight cross-fact state (requests, allocations, slots, releases, premise heads): see verifyFreightIntegrity */
+    | "FREIGHT_STATE"
     /** World-State entity transitions (ECT-01): see verifyEntityTransitionIntegrity */
     | "ENTITY_TRANSITION_STATE"
     /** World-State existing-actor coupling anchors: see verifyExistingActorCouplingIntegrity */
