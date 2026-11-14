@@ -425,6 +425,61 @@ export const ClausePremiseSchema = z.discriminatedUnion("clause", [
 ]);
 export type ClausePremise = z.infer<typeof ClausePremiseSchema>;
 
+/**
+ * The original source's qualification of the Instrument's Scope Binding (WS-007 §5, §5.2; R2-D18 §§1.2, 2, 3.1). The Scope Binding is
+ * authored, opaque GIP content: `scope_ref` is never resolved, `target_condition` is free text that is never parsed, and generic GIP
+ * establishment evaluates none of it. So GIP can never read "applies" from the binding alone. The first profile instead carries, in the
+ * ORIGINAL GM slice, the GM's typed reading of exactly what that binding bounds: the single transaction its target condition reaches, the
+ * binding's authored text VERBATIM, every authored exception and conflict rule and the GM's determination of whether each reaches this
+ * transaction. Applicability is then an exact comparison of the committed binding with that qualification and of the qualified target
+ * with the proposed transaction — and anything it cannot establish is not `applies` (fail-closed). No prose is parsed and no scope
+ * taxonomy is invented: a scope reference that is not the jurisdiction world is simply not resolved by this profile.
+ */
+export const ScopeQualificationSchema = z
+  .strictObject({
+    /** the Binding's authored opaque scope reference, as authored */
+    scope_ref: EntityId,
+    /** the Binding's authored target condition, VERBATIM: compared byte for byte, never parsed */
+    target_condition: Text,
+    /** the GM's typed reading of that condition: the one transaction it reaches */
+    target: z.strictObject({
+      world_id: EntityId,
+      origin_locus_id: EntityId,
+      destination_locus_id: EntityId,
+      material_class: Id,
+      purpose: Id,
+    }),
+    /** the Binding's `exception_refs`, exactly as authored (empty when the Binding authors none) */
+    exception_refs: z.array(EntityId),
+    /** the GM's determination, for EACH authored exception, of whether it reaches this transaction */
+    exception_determinations: z.array(
+      z.strictObject({ ref: EntityId, reaches_transaction: z.boolean() }),
+    ),
+    /** the Binding's single `priority_or_conflict_rule_ref`, as authored (null when absent) */
+    priority_or_conflict_rule_ref: EntityId.nullable(),
+    /** required exactly when that reference exists: whether the rule displaces the Instrument's clauses for this transaction */
+    conflict_determination: z.strictObject({ displaces_clauses: z.boolean() }).nullable(),
+  })
+  .superRefine((q, ctx) => {
+    const bad = (message: string, path: string[]) =>
+      ctx.addIssue({ code: "custom", message, path });
+    const refs = [...q.exception_refs].sort();
+    const determined = q.exception_determinations.map((d) => d.ref).sort();
+    if (
+      refs.length !== determined.length ||
+      refs.some((r, i) => r !== determined[i]) ||
+      refs.some((r, i) => i > 0 && r === refs[i - 1])
+    )
+      bad("every authored exception is determined exactly once, and no other", [
+        "exception_determinations",
+      ]);
+    if ((q.priority_or_conflict_rule_ref === null) !== (q.conflict_determination === null))
+      bad("a conflict determination exists exactly when the Binding authors a conflict rule", [
+        "conflict_determination",
+      ]);
+  });
+export type ScopeQualification = z.infer<typeof ScopeQualificationSchema>;
+
 /** The typed lowering of the one `legal` slice: the original governing order as the GM authored it. */
 export const LegalPremiseSchema = z.strictObject({
   basis_id: EntityId,
@@ -443,6 +498,8 @@ export const LegalPremiseSchema = z.strictObject({
   }),
   coverage: z.array(CoverageItemSchema),
   clauses: z.array(ClausePremiseSchema),
+  /** the original source's qualification of the Instrument's Scope Binding (see ScopeQualificationSchema) */
+  scope_qualification: ScopeQualificationSchema,
 });
 export type LegalPremise = z.infer<typeof LegalPremiseSchema>;
 
@@ -469,6 +526,8 @@ export const OpeningBasisSchema = z.strictObject({
     /** every coverage item exactly once, in COVERAGE_ITEMS order, each evidenced or expressly established inapplicable */
     items: z.array(CoverageItemSchema).length(COVERAGE_ITEMS.length),
   }),
+  /** the original source's qualification of the Instrument's Scope Binding: what GIP's applicability compares the committed binding with */
+  scope_qualification: ScopeQualificationSchema,
   original: SliceProvenanceSchema,
 });
 export type OpeningBasis = z.infer<typeof OpeningBasisSchema>;

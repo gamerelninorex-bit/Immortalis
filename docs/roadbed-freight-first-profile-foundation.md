@@ -20,7 +20,7 @@ One coherent operation over a real file-backed canonical campaign, in two stages
 | 1    | Attest the one original GM envelope (typed slices + verbatim prose, digest)                                                                                                                | World-State                      | R2-D18 §1, §1.1; PO-6 |
 | 2    | Initialize canonical T0                                                                                                                                                                    | Temporal                         | existing              |
 | 3    | Assemble legal source: Opening Basis with Closed Governing Coverage → institution → office → Scope Binding → one Instrument → seven separately addressable clauses C-01..C-07              | GIP                              | §§1, 1.2, 2, 2.1      |
-| 4    | Seal readiness at T0 (immutable provenance + protected heads P-1..P-4 + GIP owner head; **never** an eligibility flag)                                                                     | GIP                              | §§1.1, 3.1, 3.2       |
+| 4    | Seal readiness at T0 (immutable provenance + protected heads P-1..P-4 + GIP owner head; **never** an eligibility flag; refused unless the Scope Binding bounds this transaction, §4a)      | GIP                              | §§1.1, 3.1, 3.2       |
 | 5    | Admit the objective site condition and Production's prospective material specification and dedicated input lot (each only from a typed original slice)                                     | World-State, Production          | §1.1                  |
 | 6    | **C-05** origin self-provision: one exclusive Production Request from the admitted material and the ONE dedicated lot; earned whole output accepted by World-State as one conserved entity | Economy, Production, World-State | §2.1, §4 steps 2–3    |
 | 7    | **E0 / C-06** fixation: ONE request with three individually exclusive slots (directive-use, conserved cargo, site requirement), immutable identity                                         | Economy                          | §4 step 4             |
@@ -110,6 +110,32 @@ Clause → typed term schema (`packages/contracts/src/freight-profile.ts`) → w
 | R3-T2 §4 `LD → WT → LR → ER`                                                           | `EconomyFreightReceiptSchema`, `economyFreightReceiptStage` (fourth stage of the one logistics object)                     | `economyFreightReceiptProvider`                                                                          |
 | §4 step 10 AD                                                                          | `EconomyDestinationAdequacySchema`                                                                                         | `recordDestinationAdequacy`                                                                              |
 
+### 4a. The Scope Binding is qualified, fail-closed (BLUE review G-1)
+
+WS-007 §5 gives a Scope Binding as authored, opaque content: `scope_ref` is never resolved, `target_condition` is free text, and exceptions
+and a priority/conflict rule are references. Generic GIP establishment evaluates none of it, so a syntactically valid binding must never be
+read as `applies` by itself. The first profile therefore carries, in the ORIGINAL `legal` slice, the GM's typed `scope_qualification` of
+exactly that binding (`ScopeQualificationSchema`, stored on the Opening Basis): the binding's reference and target text verbatim, the one
+transaction its target reaches (world, endpoints, material, purpose), every authored exception and conflict rule, and the GM's determination
+of whether each reaches the transaction. `qualifyScope` (`freight/gip.ts`) compares; it parses no prose and invents no scope taxonomy:
+
+| Defect (all other premises and clauses valid)                                                        | GIP answer                                          |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| committed binding bound to ANOTHER existing world                                                    | `does_not_apply` (`SCOPE_BINDING_OF_ANOTHER_WORLD`) |
+| binding's reference, target text, exceptions or conflict rule differ from the source's qualification | `unresolved`                                        |
+| qualified scope reference is not the jurisdiction world (the profile resolves nothing else)          | `unresolved`                                        |
+| qualified target excludes the proposed origin, destination, material or purpose                      | `does_not_apply`                                    |
+| an authored exception reaches the transaction                                                        | `does_not_apply`                                    |
+| an authored exception or conflict rule the order's coverage does not evidence                        | `unresolved`                                        |
+| a conflict rule displaces the clauses                                                                | `contested`                                         |
+| an unresolved publication or notice coverage item                                                    | readiness refused (`unresolved`)                    |
+
+It runs at the seal (an unqualified binding is never sealed) and inside `evaluateClauses`, which every material read uses (C-05, C-06/E0,
+L0, L1, AD, withdrawal): the binding, the Basis and C-04 are read at the sealed versions and are guarded by the act that relies on them.
+Falsifiers: `tests/integration/freight-scope-binding.test.ts`. The first-profile qualification is a Builder technical lowering for BLUE
+review; if the ratified source cannot support a typed predicate for a given scope, the question is to be isolated for BLUE/RED/Sovereign, and
+the engine already answers it fail-closed (`unresolved`), never `applies`.
+
 ## 5. What is NOT built (source-unresolved or unqualified) — and why
 
 - **Positive definitive F1 terminal refusal — WITHHELD** (R3-T23 B1-C, CT-1). No Logistics refusal kind, key, state or receipt exists, and
@@ -144,6 +170,14 @@ Clause → typed term schema (`packages/contracts/src/freight-profile.ts`) → w
 Older conformance suites dropped their byte-identity pins on these files (each with a comment), exactly as the M-S slice did, and the
 independent surface oracle (`tests/support/expected-surface.ts`) acknowledges the 26 kinds, three facets and five adapters.
 
+**Coverage of the removed historical pins.** Older suites no longer assert that these files are _unchanged_ — that is deliberately no longer
+true. Nothing was removed silently: every removed assertion (55 of them: 53 file pins and 2 directory-tree pins, in 22 suites; 52 of them were rows of the historical-pin census) is recorded in
+`tests/support/freight-removed-pins.ts`, and `freight-profile-conformance` recomputes each from the base commit's own bytes (history-guarded:
+a shallow checkout skips it and says so), together with the base of every recorded delta. The slice-head bytes of the changed files are
+pinned in `tests/support/freight-scoped-deltas.ts`, except the files whose present-day identity another table owns (the five of
+`present-day-identities.ts` and `owners/registry.ts`). The reduced historical-pin census (578 → 526) is bookkeeping for those removals, not an
+improvement in correctness: the 40 pins on files PR #94 changed remain history, untouched.
+
 ## 7. Acceptance PO-1 … PO-7
 
 See `tests/integration/freight-*.test.ts` (titles name their PO) and `tests/conformance/freight-profile-conformance.test.ts`.
@@ -167,7 +201,7 @@ retained-storage restart, paid host, and any model-played GM session. The benchm
 
 Technical lowerings that were not frozen source literals and that BLUE should review before they are treated as settled: the 26 kind labels
 and key shapes; the seal's field set and the GIP owner-head signature; the `RELEASED_UNUSED` commitment state; the dispatch-enrolment
-receipt as the Temporal safe gate; the `FREIGHT_HISTORY_POLICY_SUFFIX`; and the kernel RC-16 reconcile in `registerObject`.
+receipt as the Temporal safe gate; the typed `scope_qualification` of the Scope Binding (§4a); the `FREIGHT_HISTORY_POLICY_SUFFIX`; and the kernel RC-16 reconcile in `registerObject`.
 
 ## 10. Cost
 

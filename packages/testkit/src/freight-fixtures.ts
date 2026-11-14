@@ -263,6 +263,7 @@ function build(s: Spec): FreightWorldFixture {
       },
     },
   ];
+  const scopeTargetCondition = `material moved from ${s.origin.id} to ${s.destination.id} for ${s.purpose}`;
   const legal: LegalPremise = {
     basis_id: s.basisId,
     governing_order: { order_id: s.order.id, title: s.order.title },
@@ -279,6 +280,23 @@ function build(s: Spec): FreightWorldFixture {
     },
     coverage: COVERAGE_ITEMS.map((item) => s.coverage[item]),
     clauses,
+    // the GM's typed reading of the Scope Binding below: it bounds this world and reaches exactly this one transaction; it authors no
+    // exception and no conflict rule
+    scope_qualification: {
+      scope_ref: s.worldId,
+      target_condition: scopeTargetCondition,
+      target: {
+        world_id: s.worldId,
+        origin_locus_id: s.origin.id,
+        destination_locus_id: s.destination.id,
+        material_class: s.specification.materialClass,
+        purpose: s.purpose,
+      },
+      exception_refs: [],
+      exception_determinations: [],
+      priority_or_conflict_rule_ref: null,
+      conflict_determination: null,
+    },
   };
   const siteCondition: SiteConditionPremise = {
     condition_id: s.condition.id,
@@ -419,7 +437,7 @@ function build(s: Spec): FreightWorldFixture {
       office_id: s.office.id,
       scope_type: "institutional self-provision and single-site supply",
       scope_ref: s.worldId,
-      target_condition: `material moved from ${s.origin.id} to ${s.destination.id} for ${s.purpose}`,
+      target_condition: scopeTargetCondition,
     },
     instrument: {
       instrument_id: s.instrumentId,

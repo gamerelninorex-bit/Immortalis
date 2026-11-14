@@ -33,6 +33,7 @@ import {
   ok,
   productionInputLotKey,
   productionMaterialSpecificationKey,
+  worldProfileKey,
   worldSiteConditionKey,
   type ClauseApplicability,
   type ClausePremise,
@@ -46,6 +47,7 @@ import {
   type OpeningAttestation,
   type OwnerFact,
   type Publication,
+  type ScopeBinding,
   type Result,
   type SchemaIssues,
 } from "@immortalis/contracts";
@@ -195,6 +197,7 @@ export function deriveOpeningBasis(src: FreightSource, worldId: string): Planned
       clause_provision_ids: bySlot.map((found) => found[0]!.provision_id),
       items: items.map((found) => found[0]!),
     },
+    scope_qualification: p.scope_qualification,
     original: provenance,
   });
   if (!value.success)
@@ -342,6 +345,95 @@ function prematureAdmissionKeys(a: OpeningAttestation): readonly string[] {
   return keys;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Scope Binding qualification (WS-007 §5, §5.2; R2-D18 §§1.2, 2, 3.1) — fail-closed, typed, never parsed
+// ---------------------------------------------------------------------------------------------
+
+export interface ScopeResult {
+  readonly applicability: ClauseApplicability;
+  readonly reason: string;
+  /** keys the qualification consulted beyond the binding/Basis/C-04 the caller read (the act that relies on it guards each) */
+  readonly reads: readonly string[];
+}
+
+/**
+ * Whether the Instrument's committed Scope Binding bounds THIS transaction. The binding is authored, opaque GIP content (its
+ * `scope_ref` is never resolved, its `target_condition` is free text, its exceptions and conflict rule are references): generic
+ * GIP establishment evaluates none of it, so `applies` can never be read from the binding alone. The Basis carries the ORIGINAL
+ * source's typed qualification of exactly that binding, and the answer is an exact comparison — no prose is parsed, no scope
+ * taxonomy is invented, no reference is resolved except "is this the jurisdiction world (or a world that exists and is not)":
+ *
+ *  - the committed binding is the binding the order names and is, field for field, the one the source qualified (reference, verbatim
+ *    target text, exception references, conflict rule); a binding that diverges is `unresolved`, or `does_not_apply` when it is
+ *    provably bound to ANOTHER existing world;
+ *  - exceptions and a priority/conflict rule the binding authors must also be disposed of by the order's own coverage items;
+ *  - the profile resolves only a scope reference that IS the jurisdiction world (anything else is `unresolved`);
+ *  - the qualified target must equal the proposed transaction (world, endpoints, material, purpose) — else `does_not_apply`;
+ *  - an exception that reaches the transaction is `does_not_apply`; a conflict rule that displaces the clauses is `contested`.
+ */
+export function qualifyScope(
+  src: Pick<FreightSource, "getFact">,
+  basis: OpeningBasis,
+  binding: ScopeBinding,
+  c04: Extract<InstrumentClause, { clause: "C-04" }> | undefined,
+): ScopeResult {
+  const reads: string[] = [];
+  const out = (applicability: ClauseApplicability, reason: string): ScopeResult => ({
+    applicability,
+    reason,
+    reads,
+  });
+  const q = basis.scope_qualification;
+  const cover = basis.closed_governing_coverage;
+  if (!c04) return out("unresolved", "SCOPE_TRANSACTION_UNREADABLE");
+  if (
+    binding.scope_binding_id !== cover.scope_binding_id ||
+    binding.institution_id !== basis.constitutive_competence.institution_id ||
+    binding.office_id !== basis.constitutive_competence.office_id
+  )
+    return out("unresolved", "SCOPE_BINDING_NOT_THE_ORDERS");
+  if (binding.scope_ref !== q.scope_ref) {
+    // provably another world: a world profile exists under that reference and it is not the jurisdiction's
+    if (binding.scope_ref !== cover.world_id) {
+      const other = worldProfileKey(binding.scope_ref);
+      reads.push(other);
+      if (src.getFact(other)) return out("does_not_apply", "SCOPE_BINDING_OF_ANOTHER_WORLD");
+    }
+    return out("unresolved", "SCOPE_REF_UNQUALIFIED");
+  }
+  if (binding.target_condition !== q.target_condition)
+    return out("unresolved", "SCOPE_TARGET_CONDITION_UNQUALIFIED");
+  const authored = [...(binding.exception_refs ?? [])].sort();
+  const qualified = [...q.exception_refs].sort();
+  if (authored.length !== qualified.length || authored.some((r, i) => r !== qualified[i]))
+    return out("unresolved", "SCOPE_EXCEPTIONS_UNQUALIFIED");
+  if ((binding.priority_or_conflict_rule_ref ?? null) !== q.priority_or_conflict_rule_ref)
+    return out("unresolved", "SCOPE_CONFLICT_RULE_UNQUALIFIED");
+  const coverage = (item: (typeof COVERAGE_ITEMS)[number]) =>
+    cover.items.find((i) => i.item === item)?.disposition;
+  if (qualified.length > 0 && coverage("exceptions") !== "evidenced")
+    return out("unresolved", "SCOPE_EXCEPTIONS_NOT_EVIDENCED_BY_COVERAGE");
+  if (q.priority_or_conflict_rule_ref !== null && coverage("priority_precedence") !== "evidenced")
+    return out("unresolved", "SCOPE_CONFLICT_RULE_NOT_EVIDENCED_BY_COVERAGE");
+  if (q.scope_ref !== cover.world_id)
+    return out("unresolved", "SCOPE_REF_NOT_THE_JURISDICTION_WORLD");
+  const t = q.target;
+  const terms = c04.terms;
+  if (
+    t.world_id !== cover.world_id ||
+    t.origin_locus_id !== cover.origin_locus_id ||
+    t.destination_locus_id !== cover.destination_locus_id ||
+    t.material_class !== terms.material_class ||
+    t.purpose !== terms.purpose
+  )
+    return out("does_not_apply", "SCOPE_TARGET_EXCLUDES_TRANSACTION");
+  if (q.exception_determinations.some((d) => d.reaches_transaction))
+    return out("does_not_apply", "SCOPE_EXCEPTION_REACHES_TRANSACTION");
+  if (q.conflict_determination?.displaces_clauses === true)
+    return out("contested", "SCOPE_CONFLICT_RULE_DISPLACES");
+  return out("applies", "SCOPE_QUALIFIED");
+}
+
 /** The seal's identity is its Basis's: one Basis is sealed once, and a second seal is unrepresentable. */
 export const sealIdOfBasis = (basisId: string): string => basisId;
 
@@ -457,6 +549,7 @@ export function deriveReadinessSeal(src: FreightSource, worldId: string): Planne
   // all seven clauses, in slot order, each the committed fact its provision determines
   const clauses = [];
   const clauseKeys = [];
+  let c04: Extract<InstrumentClause, { clause: "C-04" }> | undefined;
   for (const slot of FREIGHT_CLAUSES) {
     const c = p.clauses.find((x) => x.clause === slot);
     const key = c ? gipInstrumentClauseKey(p.instrument_id, c.provision_id) : undefined;
@@ -475,7 +568,18 @@ export function deriveReadinessSeal(src: FreightSource, worldId: string): Planne
       version: fact.version,
     });
     clauseKeys.push(key);
+    if (parsed.data.clause === "C-04") c04 = parsed.data;
   }
+  // the Scope Binding must bound THIS transaction (fail-closed: readiness is never sealed on an unqualified binding)
+  const scope = qualifyScope(src, basis.data, binding.data, c04);
+  if (scope.applicability !== "applies")
+    return not(
+      scope.applicability,
+      "the Instrument's Scope Binding does not bound this transaction",
+      {
+        reason: scope.reason,
+      },
+    );
 
   // T0, NULL-PC and no premature premise admission
   const clock = src.getFact(TEMPORAL_STATE_KEY);
@@ -536,6 +640,7 @@ export function deriveReadinessSeal(src: FreightSource, worldId: string): Planne
       bindingKey,
       instrumentKey,
       ...clauseKeys,
+      ...scope.reads,
       ...protectedHeadKeys(heads.value),
       TEMPORAL_STATE_KEY,
       PLAYER_CHARACTER_BINDING_KEY,
@@ -656,6 +761,29 @@ export function evaluateClauses(
   // any owner-admitted protected World-State governing-premise change since the seal
   const changed = protectedHeadChange(src, seal.world_state_protected_heads);
   if (changed) return all("unresolved", `PROTECTED_HEAD_CHANGED_${changed.protected_class}`);
+
+  // the Instrument's Scope Binding must (still) bound this transaction: read at the sealed version, compared with the source's
+  // qualification, fail-closed. Every act that relies on `applies` guards the keys read here.
+  reads.add(seal.scope_binding.fact_key);
+  const bindingFact = src.getFact(seal.scope_binding.fact_key);
+  const binding = bindingFact ? ScopeBindingSchema.safeParse(bindingFact.value) : undefined;
+  if (!bindingFact || !binding?.success || bindingFact.version !== seal.scope_binding.version)
+    return all("unresolved", "SCOPE_BINDING_UNREADABLE");
+  const basisFact = src.getFact(seal.basis.fact_key);
+  const basis = basisFact ? OpeningBasisSchema.safeParse(basisFact.value) : undefined;
+  const c04Pin = seal.clauses.find((c) => c.clause === "C-04");
+  if (c04Pin) reads.add(c04Pin.fact_key);
+  const c04Fact = c04Pin ? src.getFact(c04Pin.fact_key) : undefined;
+  const c04Parsed = c04Fact ? InstrumentClauseSchema.safeParse(c04Fact.value) : undefined;
+  if (!basisFact || !basis?.success) return all("unresolved", "BASIS_UNREADABLE");
+  const scope = qualifyScope(
+    src,
+    basis.data,
+    binding.data,
+    c04Parsed?.success && c04Parsed.data.clause === "C-04" ? c04Parsed.data : undefined,
+  );
+  for (const k of scope.reads) reads.add(k);
+  if (scope.applicability !== "applies") return all(scope.applicability, scope.reason);
 
   const answers = queries.map((q): ClauseAnswer => {
     const pin = seal.clauses.find((c) => c.clause === q.clause)!;

@@ -31,6 +31,8 @@ import {
 import * as engine from "@immortalis/engine";
 import { code, lock } from "../support/f027.ts";
 import { FREIGHT_BASE_COMMIT, FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
+import { REMOVED_HISTORICAL_PINS } from "../support/freight-removed-pins.ts";
+import { execFileSync } from "node:child_process";
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => {
@@ -271,4 +273,60 @@ describe("source-lock receipt route: the capability is registered, bound to the 
     expect(text).toMatch(/add an owner/);
     expect(text).toMatch(/F-028/);
   });
+});
+
+describe("auditable predecessor evidence: what the older suites used to assert is preserved and verifiable", () => {
+  const git = (...args: string[]): Buffer | null => {
+    try {
+      return execFileSync("git", args, {
+        stdio: ["ignore", "pipe", "ignore"],
+        maxBuffer: 64 * 1024 * 1024,
+      });
+    } catch {
+      return null;
+    }
+  };
+  const historyAvailable = git("cat-file", "-e", `${FREIGHT_BASE_COMMIT}^{commit}`) !== null;
+  // CI checks out with full history; a shallow checkout SKIPS these and reports them as skipped, never as passed.
+  const only = it.skipIf(!historyAvailable);
+  const identityAtBase = (path: string): string | null => {
+    const type = git("cat-file", "-t", `${FREIGHT_BASE_COMMIT}:${path}`)?.toString("utf8").trim();
+    if (type === "blob") {
+      const blob = git("show", `${FREIGHT_BASE_COMMIT}:${path}`);
+      return blob === null ? null : createHash("sha256").update(blob).digest("hex");
+    }
+    const names = git("ls-tree", "-r", "--name-only", FREIGHT_BASE_COMMIT, "--", path);
+    if (names === null) return null;
+    const h = createHash("sha256");
+    for (const f of names.toString("utf8").split("\n").filter(Boolean).sort()) {
+      const b = git("show", `${FREIGHT_BASE_COMMIT}:${f}`);
+      if (b === null) return null;
+      h.update(`${f}\0${createHash("sha256").update(b).digest("hex")}\n`);
+    }
+    return h.digest("hex");
+  };
+
+  it("every removed historical pin is recorded once, and every changed file's recorded base is a removed pin or a recorded delta", () => {
+    expect(REMOVED_HISTORICAL_PINS.length).toBeGreaterThan(50);
+    const keys = REMOVED_HISTORICAL_PINS.map((p) => `${p.suite}\0${p.path}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const p of REMOVED_HISTORICAL_PINS)
+      expect(p.value, `${p.suite} ${p.path}`).toMatch(/^[0-9a-f]{64}$/);
+    // a removed FILE pin of a path with a recorded delta is exactly that delta's base: the claim "unchanged since main" was true, and is
+    // now deliberately false
+    for (const p of REMOVED_HISTORICAL_PINS) {
+      const delta = FREIGHT_SCOPED_DELTAS[p.path];
+      if (delta) expect(p.value, `${p.suite} ${p.path}`).toBe(delta.base);
+    }
+  });
+
+  only(
+    "every removed pin and every recorded delta base is what the base commit's own bytes hash to",
+    () => {
+      for (const p of REMOVED_HISTORICAL_PINS)
+        expect(identityAtBase(p.path), `${p.suite} ${p.path}`).toBe(p.value);
+      for (const [path, pin] of Object.entries(FREIGHT_SCOPED_DELTAS))
+        expect(identityAtBase(path), path).toBe(pin.base);
+    },
+  );
 });
