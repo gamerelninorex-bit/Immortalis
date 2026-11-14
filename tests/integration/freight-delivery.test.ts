@@ -38,7 +38,9 @@ describe.each([
     const k = keysOf(fx);
     const locus = resolveEntityLocus(f.campaign.store, fx.worldId, k.entityId);
     expect(locus?.phase).toBe("DESTINATION_COMMITTED");
-    const use = f.economy.useConsumption(f.economy.freightRequest(requestRef)!.value.directive_use_id)!;
+    const use = f.economy.useConsumption(
+      f.economy.freightRequest(requestRef)!.value.directive_use_id,
+    )!;
     expect(use.value.dispatched.amount).toBe(fx.expected.required);
     expect(use.value.unused_headroom.amount).toBe(fx.expected.unusedHeadroom);
     expect(f.economy.receipt(requestRef)!.value.received).toEqual({

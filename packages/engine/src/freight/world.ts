@@ -42,7 +42,7 @@ import {
   type WorldSiteCondition,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
-import { sha256Canonical } from "../hash.ts";
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import {
   canonicalNow,
   checkPlan,
@@ -554,9 +554,7 @@ export class WorldFreightAdapter {
     const prior = committedAct(this.#store, p.data, (g) => {
       const w = g.writes.find((x) => x.key === key);
       const was = w ? OpeningAttestationSchema.safeParse(w.value) : undefined;
-      return (
-        !!was?.success && JSON.stringify(inputOfAttestation(was.data)) === JSON.stringify(i.data)
-      );
+      return !!was?.success && canonicalEqual(inputOfAttestation(was.data), i.data);
     });
     if (!prior.ok) return prior;
     if (prior.value) return this.#store.commit(prior.value);

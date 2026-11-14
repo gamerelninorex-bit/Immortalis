@@ -712,11 +712,7 @@ export function gipFreightGroupCheck(group: CommitGroup, state: CampaignState): 
   const first = group.writes[0]!;
   if (kinds.has("gip_opening_basis")) {
     const b = OpeningBasisSchema.parse(first.value);
-    return checkPlan(
-      group,
-      state,
-      deriveOpeningBasis(src, b.closed_governing_coverage.world_id),
-    );
+    return checkPlan(group, state, deriveOpeningBasis(src, b.closed_governing_coverage.world_id));
   }
   if (kinds.has("gip_instrument_clause")) {
     const c = InstrumentClauseSchema.parse(first.value);

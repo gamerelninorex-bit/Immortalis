@@ -55,6 +55,7 @@ import {
   type SchemaIssues,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
+import { canonicalEqual } from "../hash.ts";
 import { deriveFreightStatus, requestServiceOf } from "./economy-derive.ts";
 import {
   canonicalNow,
@@ -110,7 +111,7 @@ const readAs = <T>(
   return parsed.success ? { fact, value: parsed.data } : undefined;
 };
 const pinOf = (fact: OwnerFact) => ({ fact_key: fact.key, version: fact.version });
-const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+const same = canonicalEqual;
 
 function sealedRequest(
   src: Pick<FreightSource, "getFact">,

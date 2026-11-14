@@ -64,4 +64,3 @@ export function freightDispatchPendingViolation(
   if (c === -1) return null;
   return "canonical time may not reach the delivery boundary of a committed first dispatch that is not yet enrolled and consumed: complete the Temporal enrollment and Economy's one-use consumption first";
 }
-

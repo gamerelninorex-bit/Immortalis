@@ -96,13 +96,8 @@ import {
   type Result,
   type WorldSiteCondition,
 } from "@immortalis/contracts";
-import { sha256Canonical } from "../hash.ts";
-import {
-  evaluateClauses,
-  readSeal,
-  type ClauseAnswer,
-  type SealContext,
-} from "./gip.ts";
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import { evaluateClauses, readSeal, type ClauseAnswer, type SealContext } from "./gip.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
 import {
   canonicalNow,
@@ -1567,8 +1562,8 @@ export function deriveFreightReceipt(p: ReceiptPrior): Result<ReceiptResult, "NO
     tr.cause.owner !== OWNER_LOGISTICS ||
     tr.cause.fact_key !== p.delivery.key ||
     tr.cause.cause_id !== delivery.data.cause_id ||
-    JSON.stringify(tr.locus.from) !== JSON.stringify(r.origin_ref) ||
-    JSON.stringify(tr.locus.to) !== JSON.stringify(r.destination_or_use_locus_ref)
+    !canonicalEqual(tr.locus.from, r.origin_ref) ||
+    !canonicalEqual(tr.locus.to, r.destination_or_use_locus_ref)
   )
     return no(
       "World-State has not committed THIS entity's destination for THIS delivery, from the request's origin to its destination",
@@ -1693,7 +1688,7 @@ export function deriveDestinationAdequacy(src: FreightSource, requestRef: string
     !transition ||
     locus.phase !== "DESTINATION_COMMITTED" ||
     locus.authority !== "WORLD_STATE" ||
-    JSON.stringify(locus.stationary) !== JSON.stringify(r.destination_or_use_locus_ref)
+    !canonicalEqual(locus.stationary, r.destination_or_use_locus_ref)
   )
     return refuse(
       "WITHHELD",

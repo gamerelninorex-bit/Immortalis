@@ -281,6 +281,14 @@ export class TemporalCoordinator {
     if (!state)
       return failure("TEMPORAL_STATE_ABSENT", "no canonical temporal basis is established");
     const o = object.data;
+    // RC-16: a registration whose acknowledgement was lost is reconciled by IDENTITY. The group is rebuilt from the boundary index
+    // as it stands NOW, which already holds this object once it committed; so a re-presented registration of the very object the
+    // original group wrote is answered by that original group (its original receipt), never by a new, different one.
+    const prior = this.#store.committedGroup(p.data.intent_id);
+    if (prior && prior.group_id === p.data.group_id) {
+      const original = prior.writes.find((w) => w.key === temporalObjectKey(o.object_id));
+      if (original && canonicalEqual(original.value, o)) return this.#store.commit(prior);
+    }
     const writes: KernelWrite[] = [
       { key: temporalObjectKey(o.object_id), value: o, expected_version: 0 },
     ];

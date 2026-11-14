@@ -20,7 +20,10 @@ import { isWorldFreightFacet, worldFreightGroupCheck } from "./world.ts";
  *   Economy      C-05 · C-06 (E0/E2) · C-07 withdrawal-pending · C · E1 · ER (an IM-02 stage) · AD
  *   Logistics    service basis · L0 · F2 unused release · L1/F3 first dispatch (delivery and retirement remain the IM-02 stages)
  */
-export function freightGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null | undefined {
+export function freightGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+): Rejection | null | undefined {
   if (group.owner === "world_state" && isWorldFreightFacet(group.facet))
     return worldFreightGroupCheck(group, state);
   if (writesGipFreightKind(group)) return gipFreightGroupCheck(group, state);

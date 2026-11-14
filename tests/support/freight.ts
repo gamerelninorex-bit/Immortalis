@@ -20,6 +20,7 @@ import {
   type FileCampaignOptions,
 } from "@immortalis/engine";
 import {
+  economyFreightRequestRef,
   economyOriginRequestId,
   economyRequestKey,
   productionInputLotKey,
@@ -285,7 +286,9 @@ export async function dispatchFirst(f: Freight, requestRef: string, n = 1): Prom
 
 /** E1: Economy consumes the one directive use against the committed first dispatch. */
 export async function consumeUse(f: Freight, requestRef: string, n = 1): Promise<void> {
-  await must(f.economy.consumeFirstDispatch({ ...pub("e1", n), request: { request_ref: requestRef } }));
+  await must(
+    f.economy.consumeFirstDispatch({ ...pub("e1", n), request: { request_ref: requestRef } }),
+  );
 }
 
 /** TE: Temporal registers the original request-derived object and boundary of the dispatched transfer. */
@@ -343,7 +346,8 @@ export function syncOpening(fx: FreightWorldFixture): FreightWorldFixture {
     [fx.slices.service]: fx.service,
   };
   for (const slice of fx.opening.slices)
-    if (slice.slice_id in premiseOf) (slice as { premise: unknown }).premise = premiseOf[slice.slice_id];
+    if (slice.slice_id in premiseOf)
+      (slice as { premise: unknown }).premise = premiseOf[slice.slice_id];
   return fx;
 }
 
@@ -360,7 +364,10 @@ export function variant(
 }
 
 export const outcome = async (
-  p: Promise<{ ok: true; value: unknown } | { ok: false; error: { code: string; message: string; details?: unknown } }>,
+  p: Promise<
+    | { ok: true; value: unknown }
+    | { ok: false; error: { code: string; message: string; details?: unknown } }
+  >,
 ): Promise<{ code: string; message: string; details?: unknown; replayed?: boolean }> => {
   const r = await p;
   return r.ok
@@ -373,3 +380,222 @@ export const countOwner = (f: Freight, owner: string): number =>
   f.campaign.store.listFacts().filter((x) => x.owner === owner).length;
 export const countKind = (f: Freight, prefix: string): number =>
   f.campaign.store.listFacts().filter((x) => x.key.startsWith(prefix)).length;
+
+// ---------------------------------------------------------------------------------------------
+// Durable-cut matrix support
+// ---------------------------------------------------------------------------------------------
+
+export async function openFreightCampaign(
+  dir: string,
+  fx: FreightWorldFixture,
+  o: { readonly fs?: FileCampaignOptions["fs"]; readonly buildId?: string } = {},
+): Promise<Freight> {
+  const campaign = await must(
+    CanonicalCampaign.open(dir, {
+      buildId: o.buildId ?? "roadbed-freight-open",
+      ...(o.fs ? { fs: o.fs } : {}),
+    }),
+  );
+  return wire(dir, fx, campaign);
+}
+
+export interface Step {
+  readonly name: string;
+  readonly run: (f: Freight) => Promise<unknown>;
+}
+
+/** The setting every cut matrix shares: world, two sites and the corridor (pre-existing owners; never faulted). */
+export const settingSteps = (): Step[] => [{ name: "setting", run: establishSetting }];
+
+/** One lawful life of a freight profile, as individually re-presentable durable acts. */
+export function mainSteps(fx: FreightWorldFixture): Step[] {
+  const k = keysOf(fx);
+  const assembly = { world_id: fx.worldId };
+  return [
+    {
+      name: "attest-opening",
+      run: (f) => must(f.world.attestOpening({ ...pub("opening", 1), opening: fx.opening })),
+    },
+    {
+      name: "initialize-t0",
+      run: (f) => must(f.coordinator.establishCanonicalTime({ ...pub("opening", 2), time: fx.t0 })),
+    },
+    {
+      name: "opening-basis",
+      run: (f) => must(f.gipFreight.establishOpeningBasis({ ...pub("legal", 1), assembly })),
+    },
+    {
+      name: "institution",
+      run: (f) =>
+        must(f.gip.establishInstitution({ ...pub("legal", 2), institution: fx.institution })),
+    },
+    {
+      name: "office",
+      run: (f) => must(f.gip.establishOffice({ ...pub("legal", 3), office: fx.office })),
+    },
+    {
+      name: "scope-binding",
+      run: (f) =>
+        must(f.gip.establishScopeBinding({ ...pub("legal", 4), scope_binding: fx.scopeBinding })),
+    },
+    {
+      name: "instrument",
+      run: (f) =>
+        must(
+          f.gip.establishGovernanceInstrument({ ...pub("legal", 5), instrument: fx.instrument }),
+        ),
+    },
+    {
+      name: "clauses",
+      run: (f) => must(f.gipFreight.establishInstrumentClauses({ ...pub("legal", 6), assembly })),
+    },
+    {
+      name: "seal",
+      run: (f) => must(f.gipFreight.sealReadiness({ ...pub("legal", 7), assembly })),
+    },
+    {
+      name: "site-condition",
+      run: (f) =>
+        must(
+          f.world.admitSiteCondition({
+            ...pub("premise", 1),
+            condition: { world_id: fx.worldId, slice_id: fx.slices.siteCondition },
+          }),
+        ),
+    },
+    {
+      name: "material-specification",
+      run: (f) =>
+        must(
+          f.productionFreight.admitMaterialSpecification({
+            ...pub("premise", 2),
+            premise: { world_id: fx.worldId, slice_id: fx.slices.specification },
+          }),
+        ),
+    },
+    {
+      name: "input-lot",
+      run: (f) =>
+        must(
+          f.productionFreight.admitInputLot({
+            ...pub("premise", 3),
+            premise: { world_id: fx.worldId, slice_id: fx.slices.inputLot },
+          }),
+        ),
+    },
+    { name: "C-05", run: (f) => originSelfProvision(f) },
+    {
+      name: "start-production",
+      run: (f) =>
+        must(
+          f.production.startOperation({
+            ...pub("produce", 1),
+            start: f.productionFreight.dedicatedStartInput(k.originRequest)!,
+          }),
+        ),
+    },
+    {
+      name: "register-production",
+      run: (f) =>
+        must(
+          f.coordinator.registerObject({
+            ...pub("produce", 2),
+            object: productionTemporalObject(f.production.operation(k.originRequestId)!.value, {
+              worldId: fx.worldId,
+              locusId: fx.originLocusId,
+            }),
+          }),
+        ),
+    },
+    {
+      name: "advance-production-and-acceptance",
+      run: (f) =>
+        must(
+          advanceTo(
+            f,
+            "tx-produce",
+            f.production.operation(k.originRequestId)!.value.timing.completion.at,
+          ),
+        ),
+    },
+    { name: "E0-fixation", run: (f) => fixFreight(f) },
+    { name: "service-basis", run: (f) => admitServiceBasis(f) },
+    { name: "L0", run: (f) => admitService(f, f.economy.currentRequestRef(fx.sealId)!) },
+    { name: "L1-F3", run: (f) => dispatchFirst(f, f.economy.currentRequestRef(fx.sealId)!) },
+    { name: "E1", run: (f) => consumeUse(f, f.economy.currentRequestRef(fx.sealId)!) },
+    { name: "TE", run: (f) => enrollTransfer(f) },
+    {
+      name: "advance-LD-WT-LR-ER",
+      run: (f) => must(advanceTo(f, "tx-deliver", deliveryBoundary(f))),
+    },
+    {
+      name: "AD",
+      run: (f) =>
+        must(
+          f.economy.recordDestinationAdequacy({
+            ...pub("ad", 1),
+            request: { request_ref: f.economy.currentRequestRef(fx.sealId)! },
+          }),
+        ),
+    },
+  ];
+}
+
+/** The withdrawal branch from an admitted L0: W3, F2, C, then E2 under a new identity (taken after `L0`). */
+export function branchSteps(fx: FreightWorldFixture): Step[] {
+  const ref = (f: Freight) => f.economy.currentRequestRef(fx.sealId)!;
+  return [
+    {
+      name: "prospective-change",
+      run: (f) =>
+        must(
+          f.world.admitSiteConditionChange({
+            ...pub("change", 1),
+            change: {
+              world_id: fx.worldId,
+              condition_id: fx.siteCondition.condition_id,
+              change_id: "re-survey",
+              statement: "SYNTHETIC FIXTURE: re-surveyed; the same pieces remain damaged.",
+              outcome: "STANDING",
+              authored_under: { role: "role.gm", permission: "permission.rule.adjudicate" },
+            },
+          }),
+        ),
+    },
+    {
+      name: "W3-withdrawal-pending",
+      run: (f) =>
+        must(f.economy.admitWithdrawal({ ...pub("w", 1), request: { request_ref: ref(f) } })),
+    },
+    {
+      name: "F2-unused-release",
+      run: (f) =>
+        must(
+          f.logistics.releaseUnusedService({ ...pub("f2", 1), request: { request_ref: ref(f) } }),
+        ),
+    },
+    {
+      name: "C-close",
+      run: (f) =>
+        must(f.economy.closeWithdrawnRequest({ ...pub("c", 1), request: { request_ref: ref(f) } })),
+    },
+    {
+      name: "E2-fixation",
+      run: (f) => {
+        // the FIRST request's identity is derived (never looked up as "the current one"), so this act re-presents verbatim
+        const first = economyFreightRequestRef(fx.sealId, 1);
+        return must(
+          f.economy.resolveFreightFixation({
+            ...pub("e2", 1),
+            resolution: { seal_id: fx.sealId, owner_event: f.economy.close(first)!.fact.key },
+          }),
+        );
+      },
+    },
+    { name: "L0-again", run: (f) => admitService(f, f.economy.currentRequestRef(fx.sealId)!, 2) },
+    { name: "L1-again", run: (f) => dispatchFirst(f, f.economy.currentRequestRef(fx.sealId)!, 2) },
+    { name: "E1-again", run: (f) => consumeUse(f, f.economy.currentRequestRef(fx.sealId)!, 2) },
+    { name: "TE-again", run: (f) => enrollTransfer(f, 2) },
+    { name: "advance-again", run: (f) => must(advanceTo(f, "tx-deliver-2", deliveryBoundary(f))) },
+  ];
+}
