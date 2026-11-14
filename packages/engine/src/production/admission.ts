@@ -37,6 +37,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "../temporal/identity.ts";
+import { originOperationViolation } from "./freight-premise.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore } from "../persistence/store.ts";
@@ -210,6 +211,10 @@ function checkStart(
       key: op.request.fact_key,
     });
   }
+  // ROADBED first-profile freight: a C-05 origin operation is exactly the dedicated lot's sealed operation (no substituted
+  // lot, no declared yield the sealed source does not state); every other request is unaffected
+  const origin = originOperationViolation(op, state.facts);
+  if (origin) return ref(origin, { key: op.request.fact_key });
   const out = op.transformation.output;
   if (
     !canonicalEqual(req.data.requested_output, {

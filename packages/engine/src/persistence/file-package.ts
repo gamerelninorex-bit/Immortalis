@@ -29,6 +29,7 @@ import {
   stateFromFile,
   stateSha256,
   stateToFile,
+  type CampaignState,
   type OwnerRegistry,
   type WriteAdmission,
 } from "../commit/campaign-core.ts";
@@ -779,6 +780,10 @@ class FilePackageStore implements FileCampaignStore {
 
   getFact(key: string): OwnerFact | undefined {
     return this.#core.state.facts.get(key);
+  }
+
+  canonicalState(): CampaignState {
+    return this.#core.state;
   }
 
   listFacts(): readonly OwnerFact[] {

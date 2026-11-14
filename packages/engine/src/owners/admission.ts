@@ -70,13 +70,15 @@ import {
 } from "../initial-setup/rules.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
+import { economyFreightGroupCheck, writesEconomyFreightKind } from "../economy/freight.ts";
 import { epistemicGroupCheck } from "../epistemic/admission.ts";
 import { gipGroupCheck } from "../gip/admission.ts";
+import { gipFreightGroupCheck, writesGipFreightKind } from "../gip/freight-readiness.ts";
 import { cultureGroupCheck } from "../culture/admission.ts";
 import { cultureAdjudicationGroupCheck } from "../culture-adjudication/admission.ts";
 import { refereeGroupCheck, refereeQualificationViolation } from "../referee/admission.ts";
 import { ktiGroupCheck } from "../kti/admission.ts";
-import { logisticsGroupCheck } from "../logistics/admission.ts";
+import { engagedBoundaryViolation, logisticsGroupCheck } from "../logistics/admission.ts";
 import { pcCapabilityGroupCheck } from "../pc-capability/admission.ts";
 import {
   pcCollectionGroupCheck,
@@ -88,6 +90,10 @@ import {
 import { pcMovementGroupCheck } from "../pc-movement/derive.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
+import {
+  productionFreightGroupCheck,
+  writesProductionFreightKind,
+} from "../production/freight-premise.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import { bootstrapInitialTimePrecondition } from "../temporal/bootstrap.ts";
@@ -104,8 +110,10 @@ import {
 } from "../world/auditory-premises.ts";
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
+import { isWorldFreightFacet, worldFreightGroupCheck } from "../world/freight-opening.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
-import { resolveKey, type FactKind } from "./registry.ts";
+import { resolveKey, type FactKind, type FREIGHT_FACT_KIND_IDS } from "./registry.ts";
+import { freightIdentityMismatch } from "./freight-common.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
 
 function checkLocus(group: CommitGroup, state: CampaignState, key: string, value: unknown) {
@@ -491,7 +499,12 @@ function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) 
 function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
   return {
     initializeView: initializeMsFence,
-    committedView: advanceMsFence,
+    // durable adoption carries BOTH derived views forward: the MS fence and the campaign-wide GIP owner head (a memoized pure
+    // function of state; see gip/owner-head.ts). Neither is a group field or persisted authority.
+    committedView(before, after, group) {
+      advanceMsFence(before, after, group);
+      advanceGipOwnerHead(before, after, group);
+    },
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
     historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}`,
@@ -555,6 +568,9 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       // IM-03 v0.9 Initial Locality Bootstrap records (a facet of the World-State owner), each re-derived from the pre-state.
       if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
         return initialSetupGroupCheck(group, state, policy);
+      // ROADBED first-profile freight: World-State's opening attestation, objective site condition and typed governing premises.
+      if (group.owner === OWNER_WORLD_STATE && isWorldFreightFacet(group.facet))
+        return worldFreightGroupCheck(group, state);
       // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
       // boundary-index and engaged-object updates).
       if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
@@ -567,11 +583,18 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
             : populationGroupCheck(group, state);
       // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
       if (group.owner === OWNER_PRODUCTION)
-        return group.writes.some((w) => isDrawdownProductionKey(w.key))
-          ? sourceDrawdownGroupCheck(group, state)
-          : productionGroupCheck(group, state);
+        // ROADBED first-profile freight: the prospective material specification and the dedicated input lot, each re-derived
+        return writesProductionFreightKind(group)
+          ? productionFreightGroupCheck(group, state)
+          : group.writes.some((w) => isDrawdownProductionKey(w.key))
+            ? sourceDrawdownGroupCheck(group, state)
+            : productionGroupCheck(group, state);
       // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
-      if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
+      if (group.owner === OWNER_ECONOMY)
+        // ROADBED first-profile freight: C-05, E0/E2, C-07 withdrawal-pending, C, E1, the ER stage and AD, each re-derived
+        return writesEconomyFreightKind(group)
+          ? economyFreightGroupCheck(group, state, engagedBoundaryViolation)
+          : economyGroupCheck(group, state);
       // IM-05 Logistics groups: a commitment, a dispatch, a delivery result and a retirement are each re-derived.
       if (group.owner === OWNER_LOGISTICS) return logisticsGroupCheck(group, state);
       // IM-07 Named-Actor capability groups: an establishment basis and a capability close are each re-derived.
@@ -597,7 +620,11 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       // IM-09 Culture groups: a sealed Social Update Context and a Communicative Convention Close are each re-derived.
       if (group.owner === OWNER_CULTURE) return cultureGroupCheck(group, state);
       // IM-06 GIP groups: one Institution Identity, Office / Authority Locus, Authority Scope Binding or Governance Instrument establishment, each created once.
-      if (group.owner === OWNER_GIP) return gipGroupCheck(group, state);
+      if (group.owner === OWNER_GIP)
+        // ROADBED first-profile freight: the Constitutive Basis, the addressable clauses and the Legal Readiness Seal
+        return writesGipFreightKind(group)
+          ? gipFreightGroupCheck(group, state)
+          : gipGroupCheck(group, state);
       // IM-06 Diplomacy groups: one External Recognition, Externalized Claim / Dispute, Relation Edge or Framework establishment, created once.
       if (group.owner === OWNER_DIPLOMACY) return diplomacyGroupCheck(group, state);
       // IM-12 Causal Draw provenance groups (F-027-CD1): one precommit or one result, each created once and re-derived.
@@ -771,6 +798,9 @@ export function identityMismatch(
   value: unknown,
 ): string | null {
   const v = value as Record<string, unknown>;
+  // ROADBED first-profile freight kinds: one shared statement of "the identity in the key is the identity in the value"
+  const freight = freightIdentityMismatch(kind.id, ids, value);
+  if (freight !== undefined) return freight;
   switch (kind.id) {
     case "world_profile":
       return v["world_id"] === ids[0] ? null : "world_id does not match the key";
@@ -1077,6 +1107,12 @@ export function identityMismatch(
         ? null
         : "cohort identity does not match the key";
     }
+    default: {
+      // Exhaustiveness is preserved: the only ids not listed above are the freight kinds, each answered by
+      // `freightIdentityMismatch` before this switch. A new kind without its own case fails to typecheck here.
+      const answeredAbove: (typeof FREIGHT_FACT_KIND_IDS)[number] = kind.id;
+      return `no identity rule is stated for ${answeredAbove}`;
+    }
   }
 }
 
@@ -1103,4 +1139,5 @@ function dependencyCheck(
 import { namedActorExistenceBasisKey } from "@immortalis/contracts";
 import { msActorGroupCheck } from "../ms-setup/admission.ts";
 import { initializeMsFence, advanceMsFence, msFenceCheck } from "../ms-setup/fence.ts";
+import { advanceGipOwnerHead } from "../gip/owner-head.ts";
 import { MS_HISTORY_POLICY_SUFFIX } from "../ms-setup/rules.ts";

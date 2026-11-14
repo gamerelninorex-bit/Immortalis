@@ -757,6 +757,9 @@ class CheckpointStore implements FileCampaignStore {
   getFact(key: string) {
     return this.#core.state.facts.get(key);
   }
+  canonicalState() {
+    return this.#core.state;
+  }
   listFacts() {
     return stateToFile(this.#core.state).facts;
   }

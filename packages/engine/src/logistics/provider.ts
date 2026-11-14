@@ -1,4 +1,5 @@
 import {
+  EconomyFreightUseConsumptionSchema,
   EntityTransitionCauseSchema,
   EntityTransitionCloseSchema,
   FACET_LOGISTICS_STATE,
@@ -6,7 +7,6 @@ import {
   LOGISTICS_OPERATION_RETIRE_TRANSFER,
   LogisticsCommitmentSchema,
   LogisticsTransferSchema,
-  MovementServiceRequestSchema,
   OWNER_LOGISTICS,
   OWNER_WORLD_STATE,
   logisticsCommitmentKey,
@@ -21,7 +21,7 @@ import {
   type StageProvider,
   type StageWrite,
 } from "../temporal/providers.ts";
-import { deriveDelivery, deriveRetirement } from "./derive.ts";
+import { deriveDelivery, deriveRetirement, movementRequestOf } from "./derive.ts";
 
 /**
  * IM-05 — the two Logistics owner operations (WS-010 §10.4, §23), exposed to the IM-02 coordinator through the
@@ -43,19 +43,41 @@ export const logisticsDeliveryProvider: StageProvider = {
   rule: LOGISTICS_RULE,
   compute(input: StageInput): readonly StageWrite[] {
     // the one read: the request, in its source's own key space (no registered key space holds it) — or, for the active PC, the
-    // PC-owned request in the PC-state owner's own request slot
+    // PC-owned request in the PC-state owner's own request slot — or, for a ROADBED first-profile freight transfer, Economy's
+    // sealed freight request TOGETHER WITH Economy's one-use consumption of this first dispatch (R3-T2 §4 `E1 → LD`)
     const requests = input.reads.filter((r) => {
       const kind = resolveKey(r.fact.key)?.kind.id;
-      return kind === undefined || kind === "pc_movement_request";
+      return (
+        kind === undefined || kind === "pc_movement_request" || kind === "economy_freight_request"
+      );
     });
-    if (input.reads.length !== 1 || requests.length !== 1)
+    const freight =
+      requests.length === 1 &&
+      resolveKey(requests[0]!.fact.key)?.kind.id === "economy_freight_request";
+    if (input.reads.length !== (freight ? 2 : 1) || requests.length !== 1)
       throw unresolved("SOURCE_ABSENT", "a delivery reads exactly one movement request");
     const requestFact = requests[0]!.fact;
-    const request = MovementServiceRequestSchema.safeParse(requestFact.value);
-    if (!request.success) throw unresolved("SOURCE_INVALID", "the request violates its contract");
+    const request = movementRequestOf(requestFact);
+    if (!request) throw unresolved("SOURCE_INVALID", "the request violates its contract");
+    if (freight) {
+      const other = input.reads.find((r) => r.fact.key !== requestFact.key)?.fact;
+      const consumption = other
+        ? EconomyFreightUseConsumptionSchema.safeParse(other.value)
+        : undefined;
+      if (
+        !other ||
+        resolveKey(other.key)?.kind.id !== "economy_freight_use_consumption" ||
+        !consumption?.success ||
+        consumption.data.request.request_ref !== request.request_id
+      )
+        throw unresolved(
+          "SOURCE_INVALID",
+          "a freight delivery reads Economy's one-use consumption of its own first dispatch",
+        );
+    }
     const key = logisticsDeliveryKey(
-      request.data.destination.world.entity_id,
-      request.data.subject.entity_id,
+      request.destination.world.entity_id,
+      request.subject.entity_id,
     );
     if (input.produces.length !== 1 || input.produces[0] !== key)
       throw unresolved("SOURCE_INVALID", "the delivery does not write its entity's own slot");
@@ -63,7 +85,7 @@ export const logisticsDeliveryProvider: StageProvider = {
       throw unresolved("SOURCE_INVALID", "the delivery is already established");
     // established and effective AT the declared boundary being resolved (never backdated to the dispatch, never at
     // a requested horizon)
-    const derived = deriveDelivery(request.data, input.span.to);
+    const derived = deriveDelivery(request, input.span.to);
     if (!derived.ok) throw unresolved("SOURCE_INVALID", derived.error.message);
     EntityTransitionCauseSchema.parse(derived.value);
     return [

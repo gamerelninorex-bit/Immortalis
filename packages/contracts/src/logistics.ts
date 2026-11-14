@@ -3,6 +3,10 @@ import { Id, Version } from "./ids.ts";
 import { FALLBACK_BASIS, FACET_WORLD_FALLBACK_ENTITY } from "./production.ts";
 import { CanonicalTimeSchema, StageKeySchema, compareTime } from "./temporal.ts";
 import { EntityId, FactRefSchema, OWNER_WORLD_STATE } from "./world-foundation.ts";
+import {
+  LogisticsFreightCommitmentSchema,
+  LogisticsFreightTransferSchema,
+} from "./freight-profile.ts";
 
 /**
  * Single-Leg Logistics Transfer & Destination Handoff Backbone Foundation — executable contracts.
@@ -181,6 +185,12 @@ export const LogisticsCommitmentSchema = z
     delivery: z.strictObject({ boundary_id: Id, at: CanonicalTimeSchema }),
     /** WS-010 §23.5: the commitment is released only after the destination owner's commit */
     release_condition: z.literal("AFTER_DESTINATION_OWNER_COMMIT"),
+    /**
+     * Present ONLY on a ROADBED first-profile Economy-fixed freight commitment (request class
+     * `R2-D18-v1.2.1/first-profile/economy-fixed-freight`): the independently sourced service it was admitted against, the whole
+     * cargo, and Economy's EL-02S current status for this service-admission act. Its absence is every other commitment, unchanged.
+     */
+    freight: LogisticsFreightCommitmentSchema.optional(),
     state: z.discriminatedUnion("status", [
       z.strictObject({ status: z.literal("COMMITTED") }),
       z.strictObject({
@@ -189,11 +199,22 @@ export const LogisticsCommitmentSchema = z
         destination_commit: FactPin,
         by_stage: StageKeySchema,
       }),
+      /**
+       * F2 (first-profile freight only): the UNUSED release of a committed service that never dispatched, by Logistics' own
+       * immutable unused-release event. It is not the after-destination release above and is never a substitute for it.
+       */
+      z.strictObject({
+        status: z.literal("RELEASED_UNUSED"),
+        released_at: CanonicalTimeSchema,
+        unused_release: z.strictObject({ fact_key: Id, event_id: EntityId }),
+      }),
     ]),
   })
   .superRefine((c, ctx) => {
     const bad = (message: string, path: string[]) =>
       ctx.addIssue({ code: "custom", message, path });
+    if (c.state.status === "RELEASED_UNUSED" && c.freight === undefined)
+      bad("only a first-profile freight commitment has an unused release", ["state"]);
     if (compareTime(c.committed_at, c.delivery.at) !== -1)
       bad("the delivery boundary lies after the commitment", ["delivery"]);
     if (c.origin.world.entity_id !== c.destination.world.entity_id)
@@ -223,6 +244,11 @@ export const LogisticsTransferSchema = z
     moved: z.strictObject({ fact_key: Id, entity_id: EntityId }),
     /** the canonical basis the dispatch committed at; the delivery result is established from it */
     dispatched_at: CanonicalTimeSchema,
+    /**
+     * Present ONLY on a ROADBED first-profile freight first dispatch (L1 / F3): Economy's independently re-derived EL-02S current
+     * status for this first-dispatch act and the whole dispatched quantity. First dispatch is never delivery.
+     */
+    freight: LogisticsFreightTransferSchema.optional(),
     state: z.discriminatedUnion("status", [
       z.strictObject({
         status: z.literal("IN_TRANSFER"),

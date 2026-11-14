@@ -18,6 +18,37 @@ import {
   MS_R1_PRESENCE_V1_RULE,
 } from "../ms-setup/rules.ts";
 import {
+  ConstitutiveBasisSchema,
+  EconomyAcceptedOutputHoldingSchema,
+  EconomyDestinationAdequacySchema,
+  EconomyFreightAllocationSchema,
+  EconomyFreightCloseSchema,
+  EconomyFreightReceiptSchema,
+  EconomyFreightRequestSchema,
+  EconomyFreightSlotSchema,
+  EconomyFreightUseConsumptionSchema,
+  EconomyFreightWithdrawalSchema,
+  EconomyOriginAllocationSchema,
+  EconomyOriginLotSlotSchema,
+  FACET_WORLD_GOVERNING_PREMISE,
+  FACET_WORLD_OPENING_PROVENANCE,
+  FACET_WORLD_SITE_CONDITION,
+  InstrumentClauseSchema,
+  LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
+  LegalReadinessSealSchema,
+  LogisticsFreightDispatchEnrollmentSchema,
+  LogisticsServiceBasisSchema,
+  LogisticsServiceSlotSchema,
+  LogisticsUnusedReleaseSchema,
+  OpeningAttestationSchema,
+  ProductionInputLotSchema,
+  ProductionMaterialSpecificationSchema,
+  WorldGoverningPremiseHeadSchema,
+  WorldGoverningPremiseSchema,
+  WorldSiteConditionSchema,
+  isEconomyFreightRequestRef,
+} from "@immortalis/contracts";
+import {
   FACET_WORLD_INITIAL_SETUP,
   INITIAL_SETUP_FACT_KIND_IDS,
   InitialLocalityCompletionSchema,
@@ -440,7 +471,37 @@ export const DIPLOMACY_FACT_KIND_IDS = [
 export const CAUSAL_DRAW_FACT_KIND_IDS = ["causal_draw_precommit", "causal_draw_result"] as const;
 export const CULTURE_ADJUDICATION_FACT_KIND_IDS = ["culture_adjudication_decision"] as const;
 export const REFEREE_FACT_KIND_IDS = ["referee_decision"] as const;
+/** ROADBED first-profile institutional freight (F + I): technical lowerings of R2-D18 v1.2.1 / R3-T20 (see FREIGHT_FACT_KINDS). */
+export const FREIGHT_FACT_KIND_IDS = [
+  "world_opening_attestation",
+  "world_site_condition",
+  "world_governing_premise",
+  "world_governing_premise_head",
+  "gip_constitutive_basis",
+  "gip_instrument_clause",
+  "gip_legal_readiness_seal",
+  "production_material_specification",
+  "production_input_lot",
+  "economy_origin_allocation",
+  "economy_origin_lot_slot",
+  "economy_accepted_output_holding",
+  "economy_freight_request",
+  "economy_freight_allocation",
+  "economy_freight_directive_use_slot",
+  "economy_freight_cargo_slot",
+  "economy_freight_requirement_slot",
+  "economy_freight_withdrawal",
+  "economy_freight_close",
+  "economy_freight_use_consumption",
+  "economy_freight_receipt",
+  "economy_destination_adequacy",
+  "logistics_service_basis",
+  "logistics_service_slot",
+  "logistics_unused_release",
+  "logistics_freight_dispatch_enrollment",
+] as const;
 export type FactKindId =
+  | (typeof FREIGHT_FACT_KIND_IDS)[number]
   | (typeof MS_FACT_KIND_IDS)[number]
   | (typeof INITIAL_SETUP_FACT_KIND_IDS)[number]
   | (typeof CAUSAL_DRAW_FACT_KIND_IDS)[number]
@@ -3364,11 +3425,452 @@ export const MS_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+// =================================================================================================================================
+// ROADBED first-profile institutional freight (Foundation F + Integration I).
+// =================================================================================================================================
+
+/**
+ * The ROADBED control page: BLUE Formal Universal Hard Preflight v6.2 R3-T25 (the bounded Builder brief) and its ratified
+ * predecessors. `native_pin` is the page's native last-edited pin OBSERVED AT BUILDER INTAKE (the fetch that contains R3-T25); the
+ * ratified source pins it carries are named in the lineage and recorded in spec/f027/spec-lock.json. It is a construction and
+ * design-lineage source: it rewrites no frozen pin, and every kind below is a TECHNICAL LOWERING of ratified semantics.
+ */
+export const ROADBED_SOURCE = {
+  artifact: "https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97",
+  native_pin: "2026-11-13T06:14:52.876Z",
+} as const;
+
+const ROADBED_RATIFIED_LINEAGE =
+  "ROADBED R2-D18 v1.2.1 — Economy–Logistics–GIP Minimum Foundation, source pin 2026-11-11T16:11:26.161Z, Sovereign scoped source ratification R2-D22 at 2026-11-11T16:29:38.518Z (https://app.notion.com/p/41520af901e0816c9a1cf63ef4e15a97): seven separately addressable clauses C-01..C-07, Packages F and I, PO-1..PO-7";
+const ROADBED_INTERFACE_LINEAGE =
+  "ROADBED R3-T2 §§2-5 scoped F-016 EL-01F / EL-02S and F-017 first-freight stage overlay as corrected by the exact R3-T17 CT-1..CT-4 successor (RED R3-T18 / BLUE R3-T19 verbatim PASS), Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z, affected-scope documentary re-freeze R3-T21 at 2026-11-13T04:53:30.313Z; request class R2-D18-v1.2.1/first-profile/economy-fixed-freight only";
+const ROADBED_BRIEF_LINEAGE =
+  "ROADBED R3-T25 — BLUE Formal Universal Hard Preflight v6.2, conditional-scope PASS and bounded Builder brief (13 November 2026), cited as the construction objective and acceptance boundary; positive definitive F1 terminal refusal WITHHELD under R3-T23 B1-C / CT-1 (no Logistics refusal kind, key or receipt exists); new kind labels, keys, seals and event wire details are TECHNICAL LOWERINGS, not frozen source literals, and await independent BLUE review";
+
+const roadbedRule = (clause: string, ownerLineage: readonly string[]): SourceRef => ({
+  artifact: ROADBED_SOURCE.artifact,
+  native_pin: ROADBED_SOURCE.native_pin,
+  clause,
+  authority_lineage: [
+    SPEC_LOCK_BASIS,
+    ROADBED_RATIFIED_LINEAGE,
+    ROADBED_INTERFACE_LINEAGE,
+    ROADBED_BRIEF_LINEAGE,
+    ...ownerLineage,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "pinned-by-spec-lock",
+  supersedes: null,
+});
+
+const pinnedOwner = (label: string, source: { artifact: string; native_pin: string }): string =>
+  `${label}, spec-locked pin ${source.native_pin} (${source.artifact})`;
+
+/** World-State: the Opening Source Attestation, the objective site condition and typed governing-premise admission with isolated heads. */
+export const FREIGHT_WORLD_RULE: SourceRef = roadbedRule(
+  "R2-D18 v1.2.1 §1 (Opening Source Attestation; Destination objective condition), §1.1 (opening seal and ordering: the entire original accepted GM envelope and its individually identified immutable slices; NULL-PC original-world profile only), §3.2 (protected mutation surface: closed P-1..P-4 classes, per-kind isolated heads, new entries and owner-proven absence; exhaustive non-protected write exclusion), §3.3-§3.4 (live dependencies; owner admission is the only legal change), §3.6 (no self-invalidation)",
+  [
+    pinnedOwner(
+      "WG World Generation & World-State Kernel (World-State owns world-side setting facts and physical premises; F-016 fallback custody and ECT-01 unchanged)",
+      WG_SOURCE,
+    ),
+  ],
+);
+
+/** GIP: the Opening Constitutive Basis with Closed Governing Coverage, seven addressable clauses of ONE Instrument and the Legal Readiness Seal. */
+export const FREIGHT_GIP_RULE: SourceRef = roadbedRule(
+  "R2-D18 v1.2.1 §1 (Opening Constitutive Basis including Closed Governing Coverage; Legal Readiness Seal), §1.1 (bounded GIP assembly order through readiness at canonical T0), §1.2 (independent legal coverage: silence is not absence), §2 (one Instrument, seven separately addressable operative clauses C-01..C-07 with their WS-007 §4.2 effect classes), §2.1 (operative force and routine text), §3.1 (never store eligibility: derived applies / does_not_apply / contested / unresolved), §3.2 (post-seal GIP owner head from the completed commit, without self-digest)",
+  [
+    pinnedOwner(
+      "WS-007 GIP Working Operational Draft v2.1 §§4.1-4.4 (scalar operative_effect preserved; §4.4 addressable clauses), §5 Scope Binding",
+      WS007_SOURCE,
+    ),
+  ],
+);
+
+/** Production: the prospective repair-material specification and the dedicated input lot, each admitted from its own sealed slice. */
+export const FREIGHT_PRODUCTION_RULE: SourceRef = roadbedRule(
+  "R2-D18 v1.2.1 §1 (Prospective repair-material specification: Production-owned, a premise and not an undertaking, Reserve or inventory; institutional origin control and the dedicated input lot), §1.1 (admitted from a distinct sealed slice before any origin operation; exact class, positive total amount and unit are authored opening facts, never computed; Production §3 Tier B persistence test), §2.1 C-05 (one dedicated lot uniquely qualifying for one specified origin operation), §4 steps 1-2",
+  [
+    pinnedOwner(
+      "WS-003 Production & Resources v1 §§2, 3 (Tier B), 4, 13A (the request is a prospective need, never supply)",
+      WS003_SOURCE,
+    ),
+  ],
+);
+
+/** Economy: C-05, the accepted-output holding, C-06 E0 with three exclusive slots, C-07 W2/W3 and C, E1, ER and AD. */
+export const FREIGHT_ECONOMY_RULE: SourceRef = roadbedRule(
+  "R2-D18 v1.2.1 §2.1 (C-05 origin direction; C-06 shipment direction; C-07 withdrawal direction W2/W3 and the irrevocable closure duty), §3.3 (live dependencies rechecked at the consuming act), §3.5 (GIP current applicability → Economy current allocation/status → Logistics), §4 steps 2-5, 7-8, 10, §5 (withdrawal state machine); R3-T2 §2 EL-01F (F2/F3 owner-committed results, F4 derived at C's own cut and never stored; one-use consumption keyed by the immutable first-dispatch event), §3 EL-02S (pending / withdrawal-pending / terminal; freshly rederived per act), §4 (E0, E1, C, ER, AD, E2); R3-T17 CT-2 (create-once protective withdrawal-pending admission), CT-4; positive F1 / W1 WITHHELD (CT-1, R3-T23 B1-C)",
+  [
+    pinnedOwner(
+      "WS-004 Economy / Exchange / Demand v1.1 §2.1 (Holding relation fields; allocation claims), §§9.1, 20, 25-28 (scoped resolution triggers; external-dependency registration)",
+      WS004_SOURCE,
+    ),
+  ],
+);
+
+/** Logistics: the Non-Agentive Service Basis and slot, L0 and L1 freight parts, the immutable unused release (F2) and the dispatch enrollment receipt. */
+export const FREIGHT_LOGISTICS_RULE: SourceRef = roadbedRule(
+  "R2-D18 v1.2.1 §4 step 6 (independently admitted Non-Agentive Service Basis; service admission and first dispatch each repeat the current Economy read), step 7 (unused service release only after owner-proof of no dispatch under a fence excluding a concurrent dispatch), step 8 (dispatch/enrollment fence on every advance path), §5; R3-T2 §2 EL-01F (F2 unused release; F3 first dispatch = Transfer Record owner key, committed version, content digest and canonical dispatch commit receipt; F4 never a Logistics fact), §3 EL-02S, §4 (L0, L1, TE), §5 (branch exclusion); R3-T17 CT-1 (F1 derived only: no Logistics state, key, record or receipt), CT-4 (F2 grounded by the WS-010 release act)",
+  [
+    pinnedOwner(
+      "WS-010 Logistics v1 §§2.1, 3.1 (foreign-owner request), 3.2, 3.4, 4.1, 4.3, 5, 9-11, 20, 23",
+      WS010_SOURCE,
+    ),
+    F017_LINEAGE,
+  ],
+);
+
+const freightKind = (
+  id: (typeof FREIGHT_FACT_KIND_IDS)[number],
+  owner: string,
+  facet: string,
+  im: string,
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+  governing: SourceRef,
+): FactKind => ({
+  id,
+  owner,
+  facet,
+  im,
+  rc: ["RC-02", "RC-07"],
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: governing,
+});
+
+const P_CLASS = "(P-[1-4])";
+
+/**
+ * The first-profile freight kinds. Existing owners only (World-State, GIP, Production, Economy, Logistics): no new owner, no
+ * second physical custodian, no Logistics-owned economic request, no Logistics refusal record and no stored eligibility. The
+ * three World-State facets are new and isolated, so a physical write can never advance a governing-premise head.
+ */
+export const FREIGHT_FACT_KINDS: readonly FactKind[] = [
+  freightKind(
+    "world_opening_attestation",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_OPENING_PROVENANCE,
+    "IM-03",
+    "SEALED",
+    new RegExp(`^world/${ID}/opening-attestation$`),
+    OpeningAttestationSchema,
+    FREIGHT_WORLD_RULE,
+  ),
+  freightKind(
+    "world_site_condition",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_SITE_CONDITION,
+    "IM-03",
+    "ADVANCING",
+    new RegExp(`^world/${ID}/site-condition/${ID}$`),
+    WorldSiteConditionSchema,
+    FREIGHT_WORLD_RULE,
+  ),
+  freightKind(
+    "world_governing_premise",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_GOVERNING_PREMISE,
+    "IM-03",
+    "SEALED",
+    new RegExp(`^world/${ID}/governing-premise/${P_CLASS}/${ID}$`),
+    WorldGoverningPremiseSchema,
+    FREIGHT_WORLD_RULE,
+  ),
+  freightKind(
+    "world_governing_premise_head",
+    OWNER_WORLD_STATE,
+    FACET_WORLD_GOVERNING_PREMISE,
+    "IM-03",
+    "ADVANCING",
+    new RegExp(`^world/${ID}/governing-premise-head/${P_CLASS}$`),
+    WorldGoverningPremiseHeadSchema,
+    FREIGHT_WORLD_RULE,
+  ),
+  freightKind(
+    "gip_constitutive_basis",
+    OWNER_GIP,
+    FACET_GIP_INSTITUTION_IDENTITY,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^gip/constitutive-basis/${ID}$`),
+    ConstitutiveBasisSchema,
+    FREIGHT_GIP_RULE,
+  ),
+  freightKind(
+    "gip_instrument_clause",
+    OWNER_GIP,
+    FACET_GIP_INSTITUTION_IDENTITY,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^gip/instrument/${ID}/clause/${ID}$`),
+    InstrumentClauseSchema,
+    FREIGHT_GIP_RULE,
+  ),
+  freightKind(
+    "gip_legal_readiness_seal",
+    OWNER_GIP,
+    FACET_GIP_INSTITUTION_IDENTITY,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^gip/readiness-seal/${ID}$`),
+    LegalReadinessSealSchema,
+    FREIGHT_GIP_RULE,
+  ),
+  freightKind(
+    "production_material_specification",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    "SEALED",
+    new RegExp(`^production/material-specification/${ID}$`),
+    ProductionMaterialSpecificationSchema,
+    FREIGHT_PRODUCTION_RULE,
+  ),
+  freightKind(
+    "production_input_lot",
+    OWNER_PRODUCTION,
+    FACET_PRODUCTION_STATE,
+    "IM-05",
+    "SEALED",
+    new RegExp(`^production/input-lot/${ID}$`),
+    ProductionInputLotSchema,
+    FREIGHT_PRODUCTION_RULE,
+  ),
+  freightKind(
+    "economy_origin_allocation",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/origin-allocation/${ID}$`),
+    EconomyOriginAllocationSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_origin_lot_slot",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/origin-lot-slot/${ID}$`),
+    EconomyOriginLotSlotSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_accepted_output_holding",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "ADVANCING",
+    new RegExp(`^economy/accepted-output-holding/${ID}/${ID}$`),
+    EconomyAcceptedOutputHoldingSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_request",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/freight-request/${ID}$`),
+    EconomyFreightRequestSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_allocation",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "ADVANCING",
+    new RegExp(`^economy/freight-allocation/${ID}$`),
+    EconomyFreightAllocationSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_directive_use_slot",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "ADVANCING",
+    new RegExp(`^economy/freight-slot/directive-use/${ID}$`),
+    EconomyFreightSlotSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_cargo_slot",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "ADVANCING",
+    new RegExp(`^economy/freight-slot/cargo/${ID}/${ID}$`),
+    EconomyFreightSlotSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_requirement_slot",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "ADVANCING",
+    new RegExp(`^economy/freight-slot/requirement/${ID}$`),
+    EconomyFreightSlotSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_withdrawal",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/freight-withdrawal/${ID}$`),
+    EconomyFreightWithdrawalSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_close",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/freight-close/${ID}$`),
+    EconomyFreightCloseSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_use_consumption",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/freight-use/${ID}$`),
+    EconomyFreightUseConsumptionSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_freight_receipt",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/freight-receipt/${ID}$`),
+    EconomyFreightReceiptSchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "economy_destination_adequacy",
+    OWNER_ECONOMY,
+    FACET_ECONOMY_STATE,
+    "IM-06",
+    "SEALED",
+    new RegExp(`^economy/destination-adequacy/${ID}$`),
+    EconomyDestinationAdequacySchema,
+    FREIGHT_ECONOMY_RULE,
+  ),
+  freightKind(
+    "logistics_service_basis",
+    OWNER_LOGISTICS,
+    FACET_LOGISTICS_STATE,
+    "IM-05",
+    "SEALED",
+    new RegExp(`^logistics/service-basis/${ID}$`),
+    LogisticsServiceBasisSchema,
+    FREIGHT_LOGISTICS_RULE,
+  ),
+  freightKind(
+    "logistics_service_slot",
+    OWNER_LOGISTICS,
+    FACET_LOGISTICS_STATE,
+    "IM-05",
+    "ADVANCING",
+    new RegExp(`^logistics/service-slot/${ID}$`),
+    LogisticsServiceSlotSchema,
+    FREIGHT_LOGISTICS_RULE,
+  ),
+  freightKind(
+    "logistics_unused_release",
+    OWNER_LOGISTICS,
+    FACET_LOGISTICS_STATE,
+    "IM-05",
+    "SEALED",
+    new RegExp(`^logistics/unused-release/${ID}$`),
+    LogisticsUnusedReleaseSchema,
+    FREIGHT_LOGISTICS_RULE,
+  ),
+  freightKind(
+    "logistics_freight_dispatch_enrollment",
+    OWNER_LOGISTICS,
+    FACET_LOGISTICS_STATE,
+    "IM-05",
+    "ADVANCING",
+    new RegExp(`^${escape(LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY)}$`),
+    LogisticsFreightDispatchEnrollmentSchema,
+    FREIGHT_LOGISTICS_RULE,
+  ),
+];
+
+const hasFreightPart = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  (value as { freight?: unknown }).freight !== undefined;
+
+/**
+ * Existing kinds a first-profile group lawfully writes together with a freight kind, each under the freight rule of its own
+ * owner and only for the one value class named (additive: nothing is superseded and every existing citation is unchanged):
+ * the dedicated input lot's Reserve (with its lot record), the C-05 Production Request (with its origin allocation), and a
+ * freight commitment / Transfer Record (with the service slot, the unused-release event or the enrollment receipt).
+ */
+const withFreightRule = (
+  kinds: readonly FactKind[],
+  id: FactKindId,
+  governing: SourceRef,
+  admits: (value: unknown) => boolean,
+): readonly FactKind[] =>
+  kinds.map((k) =>
+    k.id === id
+      ? { ...k, alternateRules: [...(k.alternateRules ?? []), { rule: governing, admits }] }
+      : k,
+  );
+const PRODUCTION_FACT_KINDS_WITH_FREIGHT = withFreightRule(
+  PRODUCTION_FACT_KINDS,
+  "production_reserve",
+  FREIGHT_PRODUCTION_RULE,
+  (value) => ProductionReserveSchema.safeParse(value).success,
+);
+const ECONOMY_FACT_KINDS_WITH_FREIGHT = withFreightRule(
+  ECONOMY_FACT_KINDS,
+  "economy_request",
+  FREIGHT_ECONOMY_RULE,
+  (value) => {
+    const r = ProductionRequestSchema.safeParse(value);
+    return (
+      r.success && r.data.source.owner === OWNER_ECONOMY && r.data.request_id.startsWith("origin:")
+    );
+  },
+);
+const LOGISTICS_FACT_KINDS_WITH_FREIGHT = withFreightRule(
+  withFreightRule(
+    LOGISTICS_FACT_KINDS,
+    "logistics_commitment",
+    FREIGHT_LOGISTICS_RULE,
+    hasFreightPart,
+  ),
+  "logistics_transfer",
+  FREIGHT_LOGISTICS_RULE,
+  hasFreightPart,
+);
+/** Whether a request identity is a first-profile Economy freight request identity (the registered discriminator's key space). */
+export const isFreightRequestIdentity = isEconomyFreightRequestRef;
+
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...FACT_KINDS,
   ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
   ...POPULATION_FACT_KINDS,
-  ...PRODUCTION_FACT_KINDS,
+  ...PRODUCTION_FACT_KINDS_WITH_FREIGHT,
   ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,
   ...WORLD_CORRIDOR_FACT_KINDS,
   ...WORLD_FALLBACK_FACT_KINDS,
@@ -3378,9 +3880,9 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...WORLD_SCENE_FACT_KINDS,
   ...WORLD_ACTOR_PRESENCE_FACT_KINDS,
   ...WORLD_AUDITORY_PREMISES_FACT_KINDS,
-  ...ECONOMY_FACT_KINDS,
+  ...ECONOMY_FACT_KINDS_WITH_FREIGHT,
   ...ECONOMY_HOLDING_FACT_KINDS,
-  ...LOGISTICS_FACT_KINDS,
+  ...LOGISTICS_FACT_KINDS_WITH_FREIGHT,
   ...NAMED_ACTOR_FACT_KINDS,
   ...PC_CAPABILITY_FACT_KINDS,
   ...PC_MOVEMENT_FACT_KINDS,
@@ -3396,6 +3898,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...PC_COLLECTION_FACT_KINDS,
   ...INITIAL_SETUP_FACT_KINDS,
   ...MS_FACT_KINDS,
+  ...FREIGHT_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

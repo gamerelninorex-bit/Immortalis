@@ -13,6 +13,7 @@ export * from "./economy-holding-fixtures.ts";
 export * from "./epistemic-fixtures.ts";
 export * from "./entity-fixtures.ts";
 export * from "./fault-fs.ts";
+export * from "./freight-fixtures.ts";
 export * from "./gip-fixtures.ts";
 export * from "./in-memory-store.ts";
 export * from "./initial-setup-fixtures.ts";

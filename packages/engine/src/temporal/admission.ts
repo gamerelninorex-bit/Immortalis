@@ -43,6 +43,7 @@ import {
 } from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipEnrollmentPendingViolation, gipObjectViolation } from "../gip/declaration.ts";
+import { freightDispatchPendingViolation } from "../logistics/freight.ts";
 import { cultureObjectViolation } from "../culture/declaration.ts";
 import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
@@ -297,6 +298,10 @@ function checkTransaction(
   // reach that sunset, because nothing in the active index would engage it (F-014B: no advance silently passes material work)
   const unregisteredSunset = gipEnrollmentPendingViolation(state.facts, tx.outcome.actual_stop);
   if (unregisteredSunset) return bad(unregisteredSunset);
+  // ROADBED R2-D18 §4 step 8: a committed first-profile first dispatch that is not yet both enrolled here and consumed by Economy
+  // fences its own original delivery boundary on EVERY advance path, a raw kernel commit included
+  const undispatched = freightDispatchPendingViolation(state.facts, tx.outcome.actual_stop);
+  if (undispatched) return bad(undispatched);
   // 5. continuation is the outcome; a continuing transaction consumes the remainder the state holds.
   const { remainder, unresolved_dependents } = tx.outcome;
   const expectedContinuation =

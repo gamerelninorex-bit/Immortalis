@@ -44,6 +44,7 @@ import {
 import { canonicalEqual } from "../hash.ts";
 import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
 import { continuationRequestViolation } from "./admission.ts";
+import { dispatchEnrollmentPendingViolation } from "./enrollment.ts";
 import {
   TEMPORAL_PC_COLLECTION_LAPSE_RETIREMENT_RULE,
   TEMPORAL_PC_COLLECTION_RETIREMENT_RULE,
@@ -457,6 +458,13 @@ export class TemporalCoordinator {
       target,
     );
     if (unregistered) return failure("ENROLLMENT_PENDING", unregistered);
+    // The same holds for a committed first dispatch that is not yet enrolled and consumed: its original delivery boundary may
+    // not be reached, and the advance is refused before anything is opened. Completing the enrollment lifts the refusal.
+    const undispatched = dispatchEnrollmentPendingViolation(
+      { get: (k) => this.#store.getFact(k) },
+      target,
+    );
+    if (undispatched) return failure("ENROLLMENT_PENDING", undispatched);
     // A held continuation is consumed or it stays. This slice authorizes continuation and has no
     // cancellation/supersession mechanism, so unrelated progress cannot silently abandon it.
     const held = state.continuation;

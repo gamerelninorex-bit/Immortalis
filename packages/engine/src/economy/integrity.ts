@@ -2,6 +2,7 @@ import {
   CohortFactSchema,
   DurableCompletionEnvelopeSchema,
   EconomyDemandEnvelopeSchema,
+  EconomyOriginAllocationSchema,
   EconomyRealizationSchema,
   FallbackPhysicalEntitySchema,
   OWNER_ECONOMY,
@@ -144,10 +145,18 @@ export function verifyEconomyIntegrity(store: CampaignStore): readonly Integrity
       bad(df.key, "a physical result for the request existed before the demand was committed");
   }
 
+  // ROADBED first-profile freight: a C-05 Production Request is owned by its origin allocation (never by a Population demand)
+  const originRequestKeys = new Set(
+    ofKind("economy_origin_allocation").flatMap(
+      (af) => parsed(af, EconomyOriginAllocationSchema)?.production_request.fact_key ?? [],
+    ),
+  );
   for (const rf of requests) {
-    const owned = demands.some(
-      (df) => parsed(df, EconomyDemandEnvelopeSchema)?.allocation.request.fact_key === rf.key,
-    );
+    const owned =
+      originRequestKeys.has(rf.key) ||
+      demands.some(
+        (df) => parsed(df, EconomyDemandEnvelopeSchema)?.allocation.request.fact_key === rf.key,
+      );
     if (!owned) bad(rf.key, "an Economy request has no demand that allocated to it");
   }
 
@@ -220,6 +229,9 @@ export function verifyEconomyIntegrity(store: CampaignStore): readonly Integrity
   for (const of_ of ofKind("production_operation")) {
     const op = parsed(of_, ProductionOperationSchema);
     if (!op || op.request.owner !== OWNER_ECONOMY) continue;
+    // a first-profile origin operation has no realized-access stage: its Economy consequence is the separately triggered
+    // accepted-output holding and fixation (C-06), an owner act and not a stage of the operation's boundary
+    if (originRequestKeys.has(op.request.fact_key)) continue;
     const obj = parsed(
       byKey.get(temporalObjectKey(productionObjectId(op.operation_id))),
       TemporalObjectSchema,
