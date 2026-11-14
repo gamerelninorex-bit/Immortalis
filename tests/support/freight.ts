@@ -3,6 +3,7 @@ import {
   EconomyFreightAdapter,
   GipAdapter,
   GipFreightAdapter,
+  LogisticsFreightAdapter,
   ProductionAdapter,
   ProductionFreightAdapter,
   StageProviderRegistry,
@@ -15,6 +16,7 @@ import {
   worldFallbackAcceptanceProvider,
   logisticsDeliveryProvider,
   logisticsRetirementProvider,
+  logisticsTemporalObject,
   type FileCampaignOptions,
 } from "@immortalis/engine";
 import {
@@ -25,9 +27,14 @@ import {
   productionOutputReference,
   worldFallbackEntityKey,
   worldSiteConditionKey,
+  LogisticsCommitmentSchema,
+  LogisticsTransferSchema,
+  logisticsCommitmentKey,
+  logisticsTransferKey,
   type CanonicalTime,
 } from "@immortalis/contracts";
 import {
+  cloneFixture,
   freightPublication,
   prodAdvanceRequest,
   type FreightWorldFixture,
@@ -50,6 +57,7 @@ export interface Freight {
   readonly production: ProductionAdapter;
   readonly productionFreight: ProductionFreightAdapter;
   readonly economy: EconomyFreightAdapter;
+  readonly logistics: LogisticsFreightAdapter;
 }
 
 export const freightProviders = (): StageProviderRegistry =>
@@ -73,6 +81,7 @@ const wire = (dir: string, fx: FreightWorldFixture, campaign: CanonicalCampaign)
   production: new ProductionAdapter(campaign.store),
   productionFreight: new ProductionFreightAdapter(campaign.store),
   economy: new EconomyFreightAdapter(campaign.store),
+  logistics: new LogisticsFreightAdapter(campaign.store),
 });
 
 export async function createFreightCampaign(
@@ -120,7 +129,7 @@ export async function attestAndInitialize(f: Freight): Promise<void> {
 export async function assembleLegal(f: Freight): Promise<void> {
   const { fx, gip, gipFreight } = f;
   const assembly = { world_id: fx.worldId };
-  await must(gipFreight.establishConstitutiveBasis({ ...pub("legal", 1), assembly }));
+  await must(gipFreight.establishOpeningBasis({ ...pub("legal", 1), assembly }));
   await must(gip.establishInstitution({ ...pub("legal", 2), institution: fx.institution }));
   await must(gip.establishOffice({ ...pub("legal", 3), office: fx.office }));
   await must(gip.establishScopeBinding({ ...pub("legal", 4), scope_binding: fx.scopeBinding }));
@@ -242,3 +251,125 @@ export async function foundationThroughFixation(f: Freight): Promise<string> {
   await produceAndAccept(f);
   return fixFreight(f);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Integration I
+// ---------------------------------------------------------------------------------------------
+
+/** Logistics independently admits its Non-Agentive Service Basis from its own sealed slice. */
+export async function admitServiceBasis(f: Freight): Promise<void> {
+  await must(
+    f.logistics.admitServiceBasis({
+      ...pub("service", 1),
+      service: { world_id: f.fx.worldId, slice_id: f.fx.slices.service },
+    }),
+  );
+}
+
+export const basisIdOf = (f: Freight): string => f.fx.service.basis_id;
+
+/** L0: service admission for one fixed request. */
+export async function admitService(f: Freight, requestRef: string, n = 1): Promise<void> {
+  await must(
+    f.logistics.admitService({
+      ...pub("l0", n),
+      admission: { request_ref: requestRef, basis_id: basisIdOf(f) },
+    }),
+  );
+}
+
+/** L1 / F3: the first dispatch. */
+export async function dispatchFirst(f: Freight, requestRef: string, n = 1): Promise<void> {
+  await must(f.logistics.dispatchFirst({ ...pub("l1", n), request: { request_ref: requestRef } }));
+}
+
+/** E1: Economy consumes the one directive use against the committed first dispatch. */
+export async function consumeUse(f: Freight, requestRef: string, n = 1): Promise<void> {
+  await must(f.economy.consumeFirstDispatch({ ...pub("e1", n), request: { request_ref: requestRef } }));
+}
+
+/** TE: Temporal registers the original request-derived object and boundary of the dispatched transfer. */
+export async function enrollTransfer(f: Freight, n = 1): Promise<void> {
+  const { fx } = f;
+  const entityId = keysOf(fx).entityId;
+  const c = f.campaign.store.getFact(logisticsCommitmentKey(fx.worldId, entityId))!;
+  const t = f.campaign.store.getFact(logisticsTransferKey(fx.worldId, entityId))!;
+  await must(
+    f.coordinator.registerObject({
+      ...pub("te", n),
+      object: logisticsTemporalObject(
+        LogisticsCommitmentSchema.parse(c.value),
+        LogisticsTransferSchema.parse(t.value),
+      ),
+    }),
+  );
+}
+
+/** The service boundary of the sealed service premise: the earned delivery boundary. */
+export const deliveryBoundary = (f: Freight): CanonicalTime => f.fx.service.delivery_boundary_at;
+
+/** Everything through a safely enrolled and consumed first dispatch. */
+export async function throughDispatch(f: Freight): Promise<string> {
+  const requestRef = await foundationThroughFixation(f);
+  await admitServiceBasis(f);
+  await admitService(f, requestRef);
+  await dispatchFirst(f, requestRef);
+  await consumeUse(f, requestRef);
+  await enrollTransfer(f);
+  return requestRef;
+}
+
+/** The full chain: advance to the earned boundary, then Economy's independent adequacy conclusion. */
+export async function throughDeliveryAndAdequacy(f: Freight): Promise<string> {
+  const requestRef = await throughDispatch(f);
+  await must(advanceTo(f, "tx-deliver", deliveryBoundary(f)));
+  await must(
+    f.economy.recordDestinationAdequacy({ ...pub("ad", 1), request: { request_ref: requestRef } }),
+  );
+  return requestRef;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Variants and probes
+// ---------------------------------------------------------------------------------------------
+
+/** Writes the typed premises of a (possibly edited) fixture back into its sealed GM envelope, exactly as authored. */
+export function syncOpening(fx: FreightWorldFixture): FreightWorldFixture {
+  const premiseOf: Record<string, unknown> = {
+    [fx.slices.legal]: fx.legal,
+    [fx.slices.siteCondition]: fx.siteCondition,
+    [fx.slices.specification]: fx.specification,
+    [fx.slices.inputLot]: fx.inputLot,
+    [fx.slices.service]: fx.service,
+  };
+  for (const slice of fx.opening.slices)
+    if (slice.slice_id in premiseOf) (slice as { premise: unknown }).premise = premiseOf[slice.slice_id];
+  return fx;
+}
+
+type Mutable<T> = { -readonly [K in keyof T]: T[K] extends object ? Mutable<T[K]> : T[K] };
+
+/** An independent copy of a fixture world with ONE authored premise edited, and its sealed envelope kept in step. */
+export function variant(
+  base: FreightWorldFixture,
+  edit: (fx: Mutable<FreightWorldFixture>) => void,
+): FreightWorldFixture {
+  const fx = cloneFixture(base) as Mutable<FreightWorldFixture>;
+  edit(fx);
+  return syncOpening(fx as FreightWorldFixture);
+}
+
+export const outcome = async (
+  p: Promise<{ ok: true; value: unknown } | { ok: false; error: { code: string; message: string; details?: unknown } }>,
+): Promise<{ code: string; message: string; details?: unknown; replayed?: boolean }> => {
+  const r = await p;
+  return r.ok
+    ? { code: "OK", message: "", replayed: (r.value as { replayed: boolean }).replayed === true }
+    : { code: r.error.code, message: r.error.message, details: r.error.details };
+};
+
+/** The number of committed facts of one owner (a probe: "nothing was written"). */
+export const countOwner = (f: Freight, owner: string): number =>
+  f.campaign.store.listFacts().filter((x) => x.owner === owner).length;
+export const countKind = (f: Freight, prefix: string): number =>
+  f.campaign.store.listFacts().filter((x) => x.key.startsWith(prefix)).length;

@@ -21,8 +21,8 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
-import { gipOwnerHeadOfFacts, gipOwnerHeadOfState } from "../gip/owner-head.ts";
-import { reject, type Rejection } from "./rejection.ts";
+import { gipOwnerHeadOfFacts, gipOwnerHeadOfState } from "./gip-owner-head.ts";
+import { reject, type Rejection } from "../owners/rejection.ts";
 
 /**
  * Shared plumbing of the ROADBED first-profile freight lowering (R3-T25 §8: one integration owner controls the shared
@@ -31,6 +31,13 @@ import { reject, type Rejection } from "./rejection.ts";
  * group, admission to re-derive it from committed state — so a committed freight fact is exactly what the committed upstream
  * facts determine, for a raw `store.commit` as much as for an adapter call.
  */
+
+/**
+ * The historical-verification policy identity of the ROADBED first freight profile. Replay re-derives every first-profile group
+ * against its actual pre-state, so checkpoint evidence earned under any build without these rules is never trusted: the first
+ * open under this policy replays strictly (Charter principle 8; checkpoint reuse requires the same `historyVerificationId`).
+ */
+export const FREIGHT_HISTORY_POLICY_SUFFIX = "+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z";
 
 /** A committed-fact source: the current canonical cut a derivation reads. */
 export interface FreightSource {
@@ -204,20 +211,23 @@ export function checkPlan(
 
 export type FreightErrorCode = StoreCommitErrorCode | FreightRefusalCode | "INPUT_INVALID";
 
-/** Builds the one group of an owner act from its plan and publishes it by the archivist path. */
-export async function publishPlan(
-  store: CampaignStore,
+/**
+ * Builds the one group of an owner act from its plan, pinning every fact the derivation read at its CURRENT version (0 =
+ * owner-proven absence) and depending on the group that committed it. Pure apart from reads; nothing is committed.
+ */
+export function groupOfPlan(
+  store: Pick<CampaignStore, "getFact" | "head">,
   p: Publication,
   owner: string,
   facet: string,
   rule: SourceRef,
   plan: FreightPlan,
-): Promise<Result<CommitOutcome, FreightErrorCode>> {
+): CommitGroup {
   const reads = plan.reads.map((key) => ({ key, version: store.getFact(key)?.version ?? 0 }));
   const depends_on = [
     ...new Set(plan.reads.flatMap((key) => store.getFact(key)?.provenance.group_id ?? [])),
   ];
-  const group: CommitGroup = {
+  return {
     campaign_id: store.head().campaign_id,
     group_id: p.group_id,
     intent_id: p.intent_id,
@@ -239,7 +249,18 @@ export async function publishPlan(
       expected_version: w.expected_version,
     })),
   };
-  return store.commit(group);
+}
+
+/** Builds the one group of an owner act from its plan and publishes it by the archivist path. */
+export async function publishPlan(
+  store: CampaignStore,
+  p: Publication,
+  owner: string,
+  facet: string,
+  rule: SourceRef,
+  plan: FreightPlan,
+): Promise<Result<CommitOutcome, FreightErrorCode>> {
+  return store.commit(groupOfPlan(store, p, owner, facet, rule, plan));
 }
 
 /**
@@ -386,7 +407,7 @@ export function freightIdentityMismatch(
       return entity(v["world"]) === ids[0] && v["protected_class"] === ids[1]
         ? null
         : no("governing-premise head");
-    case "gip_constitutive_basis":
+    case "gip_opening_basis":
       return v["basis_id"] === ids[0] ? null : no("basis");
     case "gip_instrument_clause":
       return (v["instrument"] as { instrument_id?: string }).instrument_id === ids[0] &&
@@ -410,7 +431,7 @@ export function freightIdentityMismatch(
     case "economy_freight_allocation":
     case "economy_freight_withdrawal":
     case "economy_freight_close":
-    case "economy_freight_receipt":
+    case "economy_freight_result":
     case "economy_destination_adequacy":
       return (v["request"] as { request_ref?: string }).request_ref === ids[0]
         ? null

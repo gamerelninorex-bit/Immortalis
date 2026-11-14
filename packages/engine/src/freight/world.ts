@@ -58,7 +58,7 @@ import {
   type FreightErrorCode,
   type FreightSource,
   type Planned,
-} from "../owners/freight-common.ts";
+} from "./common.ts";
 import { FREIGHT_WORLD_RULE, resolveKey } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore, CommitOutcome } from "../persistence/store.ts";

@@ -42,7 +42,7 @@ import {
   economyFreightCargoSlotKey,
   economyFreightCloseKey,
   economyFreightDirectiveUseSlotKey,
-  economyFreightReceiptKey,
+  economyFreightResultKey,
   economyFreightReceiptStage,
   economyFreightRequestKey,
   economyFreightRequestRef,
@@ -102,7 +102,7 @@ import {
   readSeal,
   type ClauseAnswer,
   type SealContext,
-} from "../gip/freight-readiness.ts";
+} from "./gip.ts";
 import { resolveEntityLocus } from "../logistics/locus.ts";
 import {
   canonicalNow,
@@ -112,7 +112,7 @@ import {
   type FreightRefusalCode,
   type FreightSource,
   type Planned,
-} from "../owners/freight-common.ts";
+} from "./common.ts";
 
 /**
  * IM-06 Economy — pure derivations of the ROADBED first freight profile (R2-D18 v1.2.1 §2.1, §3.3, §3.5, §4, §5; R3-T2 §§2-5
@@ -1587,7 +1587,7 @@ export function deriveFreightReceipt(p: ReceiptPrior): Result<ReceiptResult, "NO
     return no(
       "the holding is not this request's encumbered accepted output of the same beneficiary",
     );
-  const receiptKey = economyFreightReceiptKey(requestRef);
+  const receiptKey = economyFreightResultKey(requestRef);
   const receipt = EconomyFreightReceiptSchema.safeParse({
     request: { fact_key: p.request.key, request_ref: requestRef, version: 1 },
     consumption: pinOf(p.consumption),

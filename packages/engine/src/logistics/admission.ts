@@ -49,7 +49,6 @@ import {
   deliveryOfCommitment,
   movementRequestOf,
 } from "./derive.ts";
-import { logisticsFreightGroupCheck, writesLogisticsFreightKind } from "./freight.ts";
 
 /**
  * IM-11 admission for the IM-05 Logistics owner (IM-03 owner resolution; WS-010 §§2, 3, 4.1, 9, 10, 11, 23, 27).
@@ -74,9 +73,6 @@ import { logisticsFreightGroupCheck, writesLogisticsFreightKind } from "./freigh
 export function logisticsGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
   const kindOf = (key: string) => resolveKey(key)?.kind.id;
   const ws = group.writes;
-  // ROADBED first-profile freight: service-basis admission, service admission (L0), unused release (F2) and first dispatch
-  // (L1 / F3), each re-derived. Delivery and retirement of a freight transfer remain the two IM-02 stages below.
-  if (writesLogisticsFreightKind(group)) return logisticsFreightGroupCheck(group, state);
   const of = (id: string) => ws.filter((w) => kindOf(w.key) === id);
   const commitmentW = of("logistics_commitment");
   const transferW = of("logistics_transfer");

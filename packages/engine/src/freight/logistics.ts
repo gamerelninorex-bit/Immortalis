@@ -55,7 +55,7 @@ import {
   type SchemaIssues,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
-import { deriveFreightStatus, requestServiceOf } from "../economy/freight-derive.ts";
+import { deriveFreightStatus, requestServiceOf } from "./economy-derive.ts";
 import {
   canonicalNow,
   checkPlan,
@@ -70,14 +70,15 @@ import {
   type FreightRefusalCode,
   type FreightSource,
   type Planned,
-} from "../owners/freight-common.ts";
+} from "./common.ts";
 import { FREIGHT_LOGISTICS_RULE, resolveKey } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore, CommitOutcome } from "../persistence/store.ts";
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { parsePhysicalSubject } from "../world/physical-subject.ts";
-import { deriveCommitment, deriveTransfer, movementRequestOfFreight } from "./derive.ts";
-import { resolveEntityLocus } from "./locus.ts";
+import { deriveCommitment, deriveTransfer, movementRequestOfFreight } from "../logistics/derive.ts";
+import { resolveEntityLocus } from "../logistics/locus.ts";
+import { readDispatchEnrollment, pendingDispatchEnrollment } from "./dispatch-fence.ts";
 
 /**
  * IM-05 Logistics — the service half of the ROADBED first freight profile (R2-D18 v1.2.1 §4 steps 5-8, §5; R3-T2 §§2-5 EL-01F
@@ -494,56 +495,6 @@ export function deriveUnusedRelease(src: FreightSource, requestRef: string): Pla
 // L1 / F3 — committed first dispatch and its enrollment receipt
 // ---------------------------------------------------------------------------------------------
 
-/** The enrollment receipt of the most recent first-profile first dispatch, by its one fixed key. */
-export function readDispatchEnrollment(
-  src: Pick<FreightSource, "getFact">,
-): Read<LogisticsFreightDispatchEnrollment> | undefined {
-  return readAs(
-    src,
-    LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY,
-    LogisticsFreightDispatchEnrollmentSchema,
-  );
-}
-
-/**
- * Whether a committed first dispatch is still unsafe to pass: its Temporal object is not registered (TE) or Economy's one-use
- * consumption (E1) is absent. Both hang independently off L1; both are prerequisites of the earned delivery.
- */
-export function pendingDispatchEnrollment(
-  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
-): LogisticsFreightDispatchEnrollment | undefined {
-  const fact = facts.get(LOGISTICS_FREIGHT_DISPATCH_ENROLLMENT_KEY);
-  const parsed = fact ? LogisticsFreightDispatchEnrollmentSchema.safeParse(fact.value) : undefined;
-  if (!parsed?.success) return undefined;
-  const receipt = parsed.data;
-  const enrolled =
-    facts.get(temporalObjectKey(logisticsObjectId(receipt.request_id))) !== undefined;
-  const consumed =
-    facts.get(economyFreightUseConsumptionKey(receipt.directive_use_id)) !== undefined;
-  return enrolled && consumed ? undefined : receipt;
-}
-
-/**
- * The dispatch / enrollment fence (R2-D18 §4 step 8): while a committed first dispatch is not yet both enrolled with the
- * Temporal kernel and consumed by Economy, canonical time may not REACH its original delivery boundary — on any path. The
- * same rule is used by the coordinator (a typed pre-stage refusal on INITIAL, HELD and RESUME) and by kernel admission (a raw
- * commit, always with the transaction's actual stop), so they cannot drift. It holds the affected advance only: an advance
- * that stops before the boundary is unaffected, and completing the enrollment and the consumption lifts the refusal. Returns a
- * message, or null.
- */
-export function freightDispatchPendingViolation(
-  facts: Pick<ReadonlyMap<string, OwnerFact>, "get">,
-  stop: CanonicalTime | null,
-): string | null {
-  const pending = pendingDispatchEnrollment(facts);
-  if (!pending) return null;
-  if (stop === null)
-    return "a condition-only request cannot be bounded before the delivery boundary of a committed first dispatch that is not yet enrolled and consumed";
-  const c = compareTime(stop, pending.delivery.at);
-  if (c === -1) return null;
-  return "canonical time may not reach the delivery boundary of a committed first dispatch that is not yet enrolled and consumed: complete the Temporal enrollment and Economy's one-use consumption first";
-}
-
 /**
  * L1 / F3 (R2-D18 §4 step 6; R3-T2 §2 "F3", §4 "L1"): Logistics commits the ORIGINAL first dispatch — the Transfer Record
  * that makes it the entity's one authoritative movement locus — and, in the same group, its enrollment receipt. It is never
@@ -600,7 +551,7 @@ export function deriveFreightDispatch(src: FreightSource, requestRef: string): P
   } satisfies LogisticsTransfer);
   if (!transfer.success)
     return refuse("NOT_ADMISSIBLE", "the result is not a representable first dispatch");
-  const prior = readDispatchEnrollment(src);
+  const prior = readDispatchEnrollment({ get: (k) => src.getFact(k) });
   const priorReads: string[] = [];
   if (prior) {
     const objectKey = temporalObjectKey(logisticsObjectId(prior.value.request_id));
@@ -983,6 +934,6 @@ export class LogisticsFreightAdapter {
     return readAs(this.#store, logisticsUnusedReleaseKey(requestRef), LogisticsUnusedReleaseSchema);
   }
   dispatchEnrollment(): Read<LogisticsFreightDispatchEnrollment> | undefined {
-    return readDispatchEnrollment(this.#store);
+    return readDispatchEnrollment({ get: (k) => this.#store.getFact(k) });
   }
 }

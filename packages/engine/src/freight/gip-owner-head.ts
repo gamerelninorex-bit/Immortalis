@@ -5,7 +5,7 @@ import {
   type OwnerFact,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
-import { freightWorkCounters } from "../owners/freight-common.ts";
+import { freightWorkCounters } from "./common.ts";
 
 /**
  * The campaign-wide GIP owner head (ROADBED R2-D18 v1.2.1 §3.2: "any authoritative GIP change anywhere in the campaign ...
@@ -43,6 +43,11 @@ export function gipOwnerHeadOfState(state: CampaignState): GipOwnerHead {
     heads.set(state, head);
   }
   return head;
+}
+
+/** Open / genesis: the one place the head is computed from a whole state, alongside the other derived views built there. */
+export function initializeGipOwnerHead(state: CampaignState): void {
+  gipOwnerHeadOfState(state);
 }
 
 /** Durable adoption only: carries the memo from the pre-state to the post-state of one committed group. */

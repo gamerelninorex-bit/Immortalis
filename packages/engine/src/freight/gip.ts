@@ -1,7 +1,7 @@
 import {
   AssembleLegalInputSchema,
   COVERAGE_ITEMS,
-  ConstitutiveBasisSchema,
+  OpeningBasisSchema,
   FACET_GIP_INSTITUTION_IDENTITY,
   FREIGHT_CLAUSES,
   FREIGHT_CLAUSE_EFFECT,
@@ -22,7 +22,7 @@ import {
   SiteConditionPremiseSchema,
   TEMPORAL_STATE_KEY,
   fail,
-  gipConstitutiveBasisKey,
+  gipOpeningBasisKey,
   gipInstitutionIdentityKey,
   gipInstrumentClauseKey,
   gipInstrumentKey,
@@ -37,7 +37,7 @@ import {
   type ClauseApplicability,
   type ClausePremise,
   type CommitGroup,
-  type ConstitutiveBasis,
+  type OpeningBasis,
   type FreightClause,
   type GipOwnerHead,
   type InstrumentClause,
@@ -66,7 +66,7 @@ import {
   type FreightRefusalCode,
   type FreightSource,
   type Planned,
-} from "../owners/freight-common.ts";
+} from "./common.ts";
 import { FREIGHT_GIP_RULE, resolveKey } from "../owners/registry.ts";
 import { reject, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore, CommitOutcome } from "../persistence/store.ts";
@@ -75,8 +75,8 @@ import {
   protectedHeadKeys,
   protectedHeadPins,
   readOpeningAttestation,
-} from "../world/freight-opening.ts";
-import { gipOwnerHeadAfterCreate } from "./owner-head.ts";
+} from "./world.ts";
+import { gipOwnerHeadAfterCreate } from "./gip-owner-head.ts";
 
 /**
  * IM-06 GIP — the legal half of the ROADBED first freight profile (R2-D18 v1.2.1 §§1, 1.1, 1.2, 2, 2.1, 3.1, 3.2, 3.5).
@@ -96,7 +96,7 @@ import { gipOwnerHeadAfterCreate } from "./owner-head.ts";
 interface LegalSource {
   readonly attestation: { readonly fact: OwnerFact; readonly value: OpeningAttestation };
   readonly premise: LegalPremise;
-  readonly provenance: ConstitutiveBasis["original"];
+  readonly provenance: OpeningBasis["original"];
 }
 
 /**
@@ -150,7 +150,7 @@ function legalSource(src: FreightSource, worldId: string): Result<LegalSource, F
  * dispositions as authored — an unresolved or contested item is carried, and it is the SEAL that then refuses readiness.
  * Established after canonical T0 and before any other assembly write.
  */
-export function deriveConstitutiveBasis(src: FreightSource, worldId: string): Planned {
+export function deriveOpeningBasis(src: FreightSource, worldId: string): Planned {
   const source = legalSource(src, worldId);
   if (!source.ok) return source;
   const { attestation, premise: p, provenance } = source.value;
@@ -173,9 +173,9 @@ export function deriveConstitutiveBasis(src: FreightSource, worldId: string): Pl
       "the order does not establish all seven operative clauses: permission alone never supplies a direction",
       { missing: FREIGHT_CLAUSES.filter((_, i) => bySlot[i]!.length === 0) },
     );
-  const key = gipConstitutiveBasisKey(p.basis_id);
+  const key = gipOpeningBasisKey(p.basis_id);
   if (src.getFact(key)) return refuse("NOT_ADMISSIBLE", "the Basis is established once", { key });
-  const value = ConstitutiveBasisSchema.safeParse({
+  const value = OpeningBasisSchema.safeParse({
     basis_id: p.basis_id,
     profile: FREIGHT_PROFILE,
     governing_order: p.governing_order,
@@ -230,7 +230,7 @@ export function deriveInstrumentClauses(src: FreightSource, worldId: string): Pl
   const source = legalSource(src, worldId);
   if (!source.ok) return source;
   const { premise: p, provenance } = source.value;
-  const basisKey = gipConstitutiveBasisKey(p.basis_id);
+  const basisKey = gipOpeningBasisKey(p.basis_id);
   const instrumentKey = gipInstrumentKey(p.instrument_id);
   const basis = src.getFact(basisKey);
   const instrument = src.getFact(instrumentKey);
@@ -362,7 +362,7 @@ export function deriveReadinessSeal(src: FreightSource, worldId: string): Planne
   const not = (applicability: ClauseApplicability, message: string, details?: object) =>
     refuse("WITHHELD", message, { applicability, ...details });
 
-  const basisKey = gipConstitutiveBasisKey(p.basis_id);
+  const basisKey = gipOpeningBasisKey(p.basis_id);
   const institutionKey = gipInstitutionIdentityKey(p.institution.institution_id);
   const officeKey = gipOfficeAuthorityLocusKey(
     p.institution.institution_id,
@@ -391,7 +391,7 @@ export function deriveReadinessSeal(src: FreightSource, worldId: string): Planne
           .map(([k]) => k),
       },
     );
-  const basis = ConstitutiveBasisSchema.safeParse(facts.basis.value);
+  const basis = OpeningBasisSchema.safeParse(facts.basis.value);
   const institution = InstitutionIdentitySchema.safeParse(facts.institution.value);
   const office = OfficeAuthorityLocusSchema.safeParse(facts.office.value);
   const binding = ScopeBindingSchema.safeParse(facts.binding.value);
@@ -696,7 +696,7 @@ export function evaluateClauses(
 // ---------------------------------------------------------------------------------------------
 
 const FREIGHT_GIP_KINDS = new Set([
-  "gip_constitutive_basis",
+  "gip_opening_basis",
   "gip_instrument_clause",
   "gip_legal_readiness_seal",
 ]);
@@ -710,18 +710,18 @@ export function gipFreightGroupCheck(group: CommitGroup, state: CampaignState): 
   if (kinds.size !== 1)
     return reject("VALUE_INVALID", "a legal assembly act writes one kind of GIP fact");
   const first = group.writes[0]!;
-  if (kinds.has("gip_constitutive_basis")) {
-    const b = ConstitutiveBasisSchema.parse(first.value);
+  if (kinds.has("gip_opening_basis")) {
+    const b = OpeningBasisSchema.parse(first.value);
     return checkPlan(
       group,
       state,
-      deriveConstitutiveBasis(src, b.closed_governing_coverage.world_id),
+      deriveOpeningBasis(src, b.closed_governing_coverage.world_id),
     );
   }
   if (kinds.has("gip_instrument_clause")) {
     const c = InstrumentClauseSchema.parse(first.value);
     const basis = src.getFact(c.covered_revision.basis.fact_key);
-    const parsed = basis ? ConstitutiveBasisSchema.safeParse(basis.value) : undefined;
+    const parsed = basis ? OpeningBasisSchema.safeParse(basis.value) : undefined;
     if (!parsed?.success)
       return reject("PREREQUISITE_MISSING", "a clause is qualified under a committed Basis", {
         key: c.covered_revision.basis.fact_key,
@@ -800,8 +800,8 @@ export class GipFreightAdapter {
   }
 
   /** Establishes the Opening Constitutive Basis (with the Closed Governing Coverage) from the sealed legal slice. */
-  establishConstitutiveBasis(input: Publication & { readonly assembly: unknown }) {
-    return this.#act(input, "gip_constitutive_basis", deriveConstitutiveBasis);
+  establishOpeningBasis(input: Publication & { readonly assembly: unknown }) {
+    return this.#act(input, "gip_opening_basis", deriveOpeningBasis);
   }
 
   /** Establishes the separately addressable clauses of the one committed Instrument from the sealed legal slice. */
@@ -816,9 +816,9 @@ export class GipFreightAdapter {
 
   // -- typed reads and the derived query, by identity (none scans, none writes) ------------------
 
-  constitutiveBasis(basisId: string): { fact: OwnerFact; value: ConstitutiveBasis } | undefined {
-    const fact = this.#store.getFact(gipConstitutiveBasisKey(basisId));
-    const parsed = fact ? ConstitutiveBasisSchema.safeParse(fact.value) : undefined;
+  openingBasis(basisId: string): { fact: OwnerFact; value: OpeningBasis } | undefined {
+    const fact = this.#store.getFact(gipOpeningBasisKey(basisId));
+    const parsed = fact ? OpeningBasisSchema.safeParse(fact.value) : undefined;
     return fact && parsed?.success ? { fact, value: parsed.data } : undefined;
   }
   clause(

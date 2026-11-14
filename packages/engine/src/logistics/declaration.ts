@@ -26,7 +26,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { entityTransitionDeclaration } from "../world/entity-transition.ts";
-import { economyFreightReceiptDeclaration } from "../economy/freight.ts";
+import { economyFreightReceiptDeclaration } from "../freight/economy.ts";
 import { deliveryOfCommitment, movementRequestOf } from "./derive.ts";
 
 /**

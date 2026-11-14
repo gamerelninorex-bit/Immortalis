@@ -1,3 +1,5 @@
+import { FREIGHT_FACT_KIND_IDS } from "../owners/registry.ts";
+
 /**
  * BOOTSTRAP_SUNSET_POLICY_V9 — the COMPLETE explicit, normative policy of OPTION_A_V9 (Initial Locality Bootstrap v0.9 companion,
  * "CPAA Projection and Canonical Sunset"): one row for each of the 84 baseline registry kinds and the six bootstrap kinds (90 rows).
@@ -592,4 +594,23 @@ export const BOOTSTRAP_SUNSET_POLICY_V9: readonly SunsetPolicyRow[] = [
 export const BOOTSTRAP_SUNSET_POLICY_MS_V08: readonly SunsetPolicyRow[] = [
   ...BOOTSTRAP_SUNSET_POLICY_V9,
   ...MS_SUNSET_POLICY_DELTA,
+];
+
+/**
+ * Restrictive additive delta under the ROADBED first-profile institutional freight lowering (R2-D18 v1.2.1 / R3-T20 / R3-T25):
+ * the freight kinds belong to a NULL-PC original-world profile that is incompatible with the player-bearing Initial Locality
+ * Bootstrap route, so none of them earns a bootstrap exception. Each row is `UNREVIEWED_BLOCK`, which is exactly what a runtime
+ * unknown kind already is: this delta grants no permission and changes no existing row. The rows are listed so that coverage of
+ * every registered kind stays an executable exact-set obligation.
+ */
+const FREIGHT_BLOCK_EFFECT =
+  "First-profile freight facts belong to the NULL-PC original-world profile, which is incompatible with this bootstrap route: a post-Completion admission conservatively withholds the bounded exception. Existing canon is retained.";
+export const FREIGHT_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] = FREIGHT_FACT_KIND_IDS.map(
+  (kind) => ({ kind, policy: "UNREVIEWED_BLOCK" as const, effect: FREIGHT_BLOCK_EFFECT }),
+);
+
+/** Every registered kind: the 90 reviewed rows, the 3 M-S rows and the 26 first-profile freight rows. */
+export const BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1: readonly SunsetPolicyRow[] = [
+  ...BOOTSTRAP_SUNSET_POLICY_MS_V08,
+  ...FREIGHT_SUNSET_POLICY_DELTA,
 ];

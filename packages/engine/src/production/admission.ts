@@ -37,7 +37,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "../temporal/identity.ts";
-import { originOperationViolation } from "./freight-premise.ts";
+import { originOperationViolation } from "../freight/production.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore } from "../persistence/store.ts";

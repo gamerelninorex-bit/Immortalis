@@ -25,7 +25,7 @@ import {
   economyFreightCargoSlotKey,
   economyFreightCloseKey,
   economyFreightDirectiveUseSlotKey,
-  economyFreightReceiptKey,
+  economyFreightResultKey,
   economyFreightReceiptStage,
   economyFreightRequestKey,
   economyFreightRequirementSlotKey,
@@ -70,7 +70,7 @@ import {
   type FreightRefusalCode,
   type FreightSource,
   type Planned,
-} from "../owners/freight-common.ts";
+} from "./common.ts";
 import { FREIGHT_ECONOMY_RULE, resolveKey } from "../owners/registry.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import type { CampaignStore, CommitOutcome } from "../persistence/store.ts";
@@ -95,7 +95,7 @@ import {
   type AdequacyStatus,
   type FreightActKind,
   type FreightStatus,
-} from "./freight-derive.ts";
+} from "./economy-derive.ts";
 
 /**
  * IM-06 Economy — admission, the receipt stage and the authored operations of the ROADBED first freight profile.
@@ -126,7 +126,7 @@ const FREIGHT_ECONOMY_KINDS = new Set([
   "economy_freight_withdrawal",
   "economy_freight_close",
   "economy_freight_use_consumption",
-  "economy_freight_receipt",
+  "economy_freight_result",
   "economy_destination_adequacy",
 ]);
 const kindOf = (key: string): string | undefined => resolveKey(key)?.kind.id;
@@ -176,7 +176,7 @@ export function economyFreightReceiptDeclaration(
       now({ owner: OWNER_WORLD_STATE, fact_key: worldEntityTransitionKey(world, entityId) }),
     ],
     produces: [
-      economyFreightReceiptKey(requestRef),
+      economyFreightResultKey(requestRef),
       economyFreightAllocationKey(requestRef),
       economyAcceptedOutputHoldingKey(world, entityId),
     ],
@@ -211,7 +211,7 @@ export const economyFreightReceiptProvider: StageProvider = {
     const parsed = EconomyFreightRequestSchema.safeParse(request.value);
     if (!parsed.success) throw unresolved("SOURCE_INVALID", "the request violates its contract");
     const requestRef = parsed.data.request_ref;
-    const receiptKey = economyFreightReceiptKey(requestRef);
+    const receiptKey = economyFreightResultKey(requestRef);
     const allocationKey = economyFreightAllocationKey(requestRef);
     const holdingKey = parsed.data.holding.fact_key;
     if (
@@ -415,7 +415,7 @@ export function economyFreightGroupCheck(
     const u = EconomyFreightUseConsumptionSchema.parse(consumption.value);
     return checkPlan(group, state, deriveUseConsumption(src, u.request.request_ref));
   }
-  const receipt = one("economy_freight_receipt");
+  const receipt = one("economy_freight_result");
   if (receipt) return checkReceipt(group, state, receipt, engaged);
   const adequacy = one("economy_destination_adequacy");
   if (adequacy) {
@@ -658,7 +658,7 @@ export class EconomyFreightAdapter {
     );
   }
   receipt(requestRef: string): Typed<EconomyFreightReceipt> | undefined {
-    return this.#read(economyFreightReceiptKey(requestRef), EconomyFreightReceiptSchema);
+    return this.#read(economyFreightResultKey(requestRef), EconomyFreightReceiptSchema);
   }
   destinationAdequacy(requestRef: string): Typed<EconomyDestinationAdequacy> | undefined {
     return this.#read(economyDestinationAdequacyKey(requestRef), EconomyDestinationAdequacySchema);

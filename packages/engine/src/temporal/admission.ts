@@ -43,7 +43,7 @@ import {
 } from "../epistemic/declaration.ts";
 import { diplomacyObjectViolation } from "../diplomacy/declaration.ts";
 import { gipEnrollmentPendingViolation, gipObjectViolation } from "../gip/declaration.ts";
-import { freightDispatchPendingViolation } from "../logistics/freight.ts";
+import { freightDispatchPendingViolation } from "../freight/dispatch-fence.ts";
 import { cultureObjectViolation } from "../culture/declaration.ts";
 import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";

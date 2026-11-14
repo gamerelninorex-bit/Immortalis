@@ -295,8 +295,8 @@ export type ProtectedHeadPin = z.infer<typeof ProtectedHeadPinSchema>;
 // addressable clauses of ONE Instrument, the Legal Readiness Seal, and derived applicability (R2-D18 §§1, 1.2, 2, 2.1, 3.1).
 // =============================================================================================
 
-export const gipConstitutiveBasisKey = (basisId: string): string =>
-  `gip/constitutive-basis/${basisId}`;
+export const gipOpeningBasisKey = (basisId: string): string =>
+  `gip/opening-basis/${basisId}`;
 export const gipInstrumentClauseKey = (instrumentId: string, provisionId: string): string =>
   `gip/instrument/${instrumentId}/clause/${provisionId}`;
 export const gipReadinessSealKey = (sealId: string): string => `gip/readiness-seal/${sealId}`;
@@ -448,7 +448,7 @@ export const LegalPremiseSchema = z.strictObject({
 export type LegalPremise = z.infer<typeof LegalPremiseSchema>;
 
 /** Opening Constitutive Basis, including the Closed Governing Coverage as one immutable component (R2-D18 §1, §1.2). */
-export const ConstitutiveBasisSchema = z.strictObject({
+export const OpeningBasisSchema = z.strictObject({
   basis_id: EntityId,
   profile: FreightProfileLiteral,
   governing_order: z.strictObject({ order_id: EntityId, title: Text }),
@@ -472,7 +472,7 @@ export const ConstitutiveBasisSchema = z.strictObject({
   }),
   original: SliceProvenanceSchema,
 });
-export type ConstitutiveBasis = z.infer<typeof ConstitutiveBasisSchema>;
+export type OpeningBasis = z.infer<typeof OpeningBasisSchema>;
 
 const clauseFactCommon = {
   provision_id: EntityId,
@@ -655,8 +655,8 @@ export const economyFreightCloseKey = (requestRef: string): string =>
   `economy/freight-close/${requestRef}`;
 export const economyFreightUseConsumptionKey = (directiveUseId: string): string =>
   `economy/freight-use/${directiveUseId}`;
-export const economyFreightReceiptKey = (requestRef: string): string =>
-  `economy/freight-receipt/${requestRef}`;
+export const economyFreightResultKey = (requestRef: string): string =>
+  `economy/freight-result/${requestRef}`;
 export const economyDestinationAdequacyKey = (requestRef: string): string =>
   `economy/destination-adequacy/${requestRef}`;
 
