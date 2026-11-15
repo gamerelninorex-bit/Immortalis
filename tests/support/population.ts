@@ -53,6 +53,7 @@ import {
   PARTITION_BURDEN,
 } from "@immortalis/testkit";
 import { must } from "./temporal.ts";
+import type { TemporalObject } from "@immortalis/contracts";
 
 export interface PopSeeded {
   readonly campaign: CanonicalCampaign;
@@ -64,6 +65,8 @@ export const popCoordinator = (store: CampaignStore): TemporalCoordinator =>
   new TemporalCoordinator(store, populationProviders(), populationBarrierEvaluator);
 
 export interface PopSeedOptions {
+  /** A01 source-frontier fixtures keep registration real while varying declared NOW/CLOSE inputs. */
+  readonly ordinaryObject?: TemporalObject;
   /** further registers close #2's stage reads (lawful, but not declared by the consumer's barrier) */
   readonly extraSources?: readonly { owner: string; fact_key: string }[];
   readonly buildId?: string;
@@ -176,7 +179,7 @@ export async function seededPopulationCampaign(
   await must(coordinator.establishCanonicalTime({ ...temporalPublication(1), time: POP_T0 }));
   let n = 2;
   for (const object of [
-    popClose1Object(),
+    o.ordinaryObject ?? popClose1Object(),
     popClose2Object({}, [...(o.extraSources ?? [])]),
     popOtherObject(),
     popConsumerObject(1),

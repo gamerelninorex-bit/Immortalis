@@ -67,13 +67,17 @@ describe("M-S exact ratified source and additive registration", () => {
     );
     // the freight slice appends its own history-policy suffix after M-S's (a policy change replays history once, strictly)
     expect(engine.canonicalAdmission.historyVerificationId).toBe(
-      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX + engine.FREIGHT_HISTORY_POLICY_SUFFIX,
+      basePolicy +
+        engine.MS_HISTORY_POLICY_SUFFIX +
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX +
+        "+POPULATION-STAGE-AUTHORITY-V2",
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
       basePolicy +
         "+fixture-evidence-t1" +
         engine.MS_HISTORY_POLICY_SUFFIX +
-        engine.FREIGHT_HISTORY_POLICY_SUFFIX,
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX +
+        "+POPULATION-STAGE-AUTHORITY-V2",
     );
   });
 });

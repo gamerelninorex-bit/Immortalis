@@ -24,6 +24,7 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
+import { populationStageAuthorityViolation } from "./stage-authority.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "../owners/rejection.ts";
 import {
   applyEnvelopes,
@@ -86,6 +87,35 @@ export function populationGroupCheck(group: CommitGroup, state: CampaignState): 
     "VALUE_INVALID",
     "Population state changes only by establishment, Cohort instantiation or an ordinary reconciliation",
   );
+}
+
+/** A01's historical policy is only the stage boundary, not all of today's new-write admission. */
+export function populationHistoricalCheck(
+  group: CommitGroup,
+  state: CampaignState,
+): Rejection | null {
+  const reconciliation = group.writes.some((w) => {
+    const kind = resolveKey(w.key)?.kind.id;
+    return (
+      kind === "population_close" ||
+      ((kind === "population_ledger" || kind === "population_cohort") && w.expected_version > 0)
+    );
+  });
+  if (!reconciliation) return null;
+  const closes = group.writes.filter((w) => resolveKey(w.key)?.kind.id === "population_close");
+  const close = ReconciliationCloseSchema.safeParse(closes[0]?.value);
+  if (
+    closes.length !== 1 ||
+    !close.success ||
+    closes[0]!.key !== populationCloseKey(close.data.ledger_id)
+  ) {
+    return reject(
+      "VALUE_INVALID",
+      "a historical Population reconciliation has its typed ordinary close",
+    );
+  }
+  const violation = populationStageAuthorityViolation(group, state, close.data);
+  return violation ? reject("VALUE_INVALID", violation) : null;
 }
 
 function checkEstablishment(
@@ -187,6 +217,9 @@ function checkReconciliation(
   const pl = PopulationBasisSchema.parse(priorFact.value);
   const nl = PopulationBasisSchema.parse(ledgerW.value);
   const c = ReconciliationCloseSchema.parse(closeW.value);
+
+  const authority = populationStageAuthorityViolation(group, state, c);
+  if (authority) return bad(authority);
 
   if (
     c.ledger_id !== ledgerId ||
