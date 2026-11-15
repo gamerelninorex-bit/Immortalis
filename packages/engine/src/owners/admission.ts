@@ -49,6 +49,7 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import { classifyGoverningRule } from "./governing-rule.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { existingActorSourceViolation } from "../actor/derive.ts";
 import { causalDrawGroupCheck } from "../causal-draw/admission.ts";
@@ -555,6 +556,14 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         }
         const mismatch = identityMismatch(kind, ids, parsed.data);
         if (mismatch) return reject("VALUE_INVALID", mismatch, { key: w.key });
+        const citation = classifyGoverningRule(kind, group.rule, w.value);
+        if (citation === "INVALID" || citation === "HISTORICAL") {
+          return reject(
+            "REFERENCE_INVALID",
+            "a new write must use a current governing-rule citation for its value class",
+            { key: w.key },
+          );
+        }
         const dependent = dependencyCheck(kind, group, state, w.key, parsed.data);
         if (dependent) return dependent;
       }

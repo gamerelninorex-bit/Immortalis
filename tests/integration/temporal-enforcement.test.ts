@@ -17,6 +17,7 @@ import {
 } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
+  factKind,
   TemporalCoordinator,
   verifyTemporalIntegrity,
   type CampaignStore,
@@ -247,14 +248,8 @@ describe("the kernel's key spaces are exclusive, for a raw store.commit as much 
     owner: "temporal_kernel",
     facet: "temporal_coordination",
     cause: "raw-cause",
-    rule: {
-      artifact: "a",
-      native_pin: "p",
-      clause: "c",
-      authority_lineage: ["l"],
-      effective_basis: "b",
-      supersedes: null,
-    },
+    // A02: these probes target Temporal lifecycle rules, so supply the actual kernel citation.
+    rule: factKind("temporal_state").rule,
     authority: { ...CANON_WRITE_AUTHORITY },
     reads: [],
     depends_on: [],

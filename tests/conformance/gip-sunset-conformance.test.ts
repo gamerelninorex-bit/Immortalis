@@ -132,7 +132,7 @@ describe("IA-01 source/version fidelity: a truthful successor citation, with bot
     expect(enrollment.laterLegacyRules).toBeUndefined();
     const registry = code("packages/engine/src/owners/registry.ts");
     expect(registry.match(/laterLegacyRules\s*[?]?:/g)).toHaveLength(2); // the one field declaration and the one entry
-    expect(code("packages/engine/src/world/integrity.ts")).toMatch(
+    expect(code("packages/engine/src/owners/governing-rule.ts")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );
   });

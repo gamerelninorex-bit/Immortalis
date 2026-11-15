@@ -21,6 +21,7 @@ import {
   identityMismatch,
 } from "../owners/admission.ts";
 import { resolveKey, type FactKind } from "../owners/registry.ts";
+import { classifyGoverningRule } from "../owners/governing-rule.ts";
 import { couplingActorStillNonPcViolation } from "./actor-coupling.ts";
 import { worldCorridorViolation } from "./corridor.ts";
 import type { CampaignStore } from "../persistence/store.ts";
@@ -101,24 +102,7 @@ export interface IntegrityViolation {
  * tamper, or a fact stamped with an obsolete citation it never lawfully carried still fails closed.
  */
 function governingRuleLawful(kind: FactKind, fact: OwnerFact): boolean {
-  if (canonicalEqual(fact.provenance.rule, kind.rule)) return true;
-  if (
-    kind.alternateRules?.some(
-      (alt) => canonicalEqual(fact.provenance.rule, alt.rule) && alt.admits(fact.value),
-    )
-  ) {
-    return true;
-  }
-  const legacy = kind.legacyRule;
-  return (
-    (legacy !== undefined &&
-      canonicalEqual(fact.provenance.rule, legacy.rule) &&
-      legacy.admits(fact.value)) ||
-    (kind.laterLegacyRules?.some(
-      (later) => canonicalEqual(fact.provenance.rule, later.rule) && later.admits(fact.value),
-    ) ??
-      false)
-  );
+  return classifyGoverningRule(kind, fact.provenance.rule, fact.value) !== "INVALID";
 }
 
 /** The committed facts as they stood BEFORE `revision`: a write is judged at the time it was made (shared by load verifiers). */

@@ -210,11 +210,20 @@ describe("the earlier citations are refused as NEW WRITES at admission, and noth
       ] as const) {
         const refused: any = await c.store.commit(groupOf(n, rule));
         expect(refused.ok, n).toBe(false);
-        // refused for its governing citation, not for any other reason
-        expect(refused.error.code, n).toBe("VALUE_INVALID");
-        expect(refused.error.message, n).toMatch(
-          /carries the (scene|direct-perception) governing citation/,
-        );
+        // A02 rejects unregistered/wrong-class citations at the shared gate. The registered
+        // kind-level citation still reaches the owner's narrower operation-specific guard.
+        if (n === "kind") {
+          expect(refused.error.code, n).toBe("VALUE_INVALID");
+          expect(refused.error.message, n).toMatch(
+            /carries the (scene|direct-perception) governing citation/,
+          );
+        } else {
+          expect(refused.error.code, n).toBe("REFERENCE_INVALID");
+          expect(refused.error.message, n).toBe(
+            "a new write must use a current governing-rule citation for its value class",
+          );
+          expect(refused.error.details.key, n).toBe(groups.physical.writes[0]!.key);
+        }
         expect(head(c), `${n}: no journal mutation`).toEqual(before);
       }
       // the control: the very group the lawful path wrote
@@ -245,10 +254,11 @@ describe("the earlier citations are refused as NEW WRITES at admission, and noth
       ] as const) {
         const refused: any = await c.store.commit(groupOf(n, rule));
         expect(refused.ok, n).toBe(false);
-        expect(refused.error.code, n).toBe("VALUE_INVALID");
+        expect(refused.error.code, n).toBe("REFERENCE_INVALID");
         expect(refused.error.message, n).toBe(
-          "a viewing record carries its own governing citation",
+          "a new write must use a current governing-rule citation for its value class",
         );
+        expect(refused.error.details.key, n).toBe(groups.viewing.writes[0]!.key);
         expect(head(c), `${n}: no journal mutation`).toEqual(before);
       }
       expect(c.store.listFacts().some((f) => VIEWING_KEY.test(f.key))).toBe(false);

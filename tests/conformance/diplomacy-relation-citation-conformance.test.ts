@@ -169,7 +169,7 @@ describe("IA-01 registration: one historical entry, through the existing legacyR
     expect(
       readFileSync("packages/engine/src/owners/registry.ts", "utf8").match(/legacyRule\s*[?]?:/g),
     ).toHaveLength(EXPECTED_LEGACY_RULE_SOURCE_SLOTS);
-    expect(readFileSync("packages/engine/src/world/integrity.ts", "utf8")).toMatch(
+    expect(readFileSync("packages/engine/src/owners/governing-rule.ts", "utf8")).toMatch(
       /const legacy = kind\.legacyRule;/,
     );
   });
