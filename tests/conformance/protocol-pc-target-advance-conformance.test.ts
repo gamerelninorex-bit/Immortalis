@@ -88,10 +88,7 @@ const UNCHANGED: Record<string, string> = {
     "fd383cd4a49037233e357dcc4f2f566472f4c6a6083efe16cdbf3946fb30614a",
   "packages/protocol/src/pc-transfer-advance.ts":
     "92ac714a567384f2e4c4410f1525b9f803ea3821b5deee22da3e7ab5c3af6ee1",
-  "packages/protocol/src/null-pc-ooc-advance.ts":
-    "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
-  "packages/protocol/src/null-pc-ooc-held-continuation.ts":
-    "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
+  // ROADBED GM freight bridge: this file is a recorded scoped delta of the GM-freight slice (its base is recorded in tests/support/gm-freight-removed-pins.ts and its head in tests/support/gm-freight-scoped-deltas.ts); it is no longer asserted byte-identical to main here.
   "packages/contracts/src/protocol-null-pc-advance.ts":
     "c7018747d8745074d8ced47daa49cadb57d4e296f944edb965a2be35f30ecf60",
   "packages/contracts/src/protocol-null-pc-held-advance.ts":
@@ -211,8 +208,15 @@ describe("the module composes the existing kernel and shipped owner providers on
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
-    expect(providerList(MODULE)).toBe(providerList(NULL_INITIAL));
-    expect(providerList(MODULE)).toBe(providerList(NULL_HELD));
+    // ROADBED GM freight bridge: the NULL-PC gateways additionally register the shipped first-profile freight receipt provider (the NULL-PC
+    // first profile only); this active-PC gateway is unchanged and is the same set without it
+    const withoutFreightEr = (list: string) =>
+      list
+        .split(",")
+        .filter((n) => n !== "economyFreightReceiptProvider")
+        .join(",");
+    expect(providerList(MODULE)).toBe(withoutFreightEr(providerList(NULL_INITIAL)));
+    expect(providerList(MODULE)).toBe(withoutFreightEr(providerList(NULL_HELD)));
     expect(providerList(MODULE).split(",")).toHaveLength(15);
     expect(providerList(MODULE).split(",")).toContain("gipSunsetExpiryProvider");
     expect(src).toMatch(

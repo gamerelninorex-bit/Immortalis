@@ -8,13 +8,13 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "7fcb9bb7947639f20d0209a082dcf62a2cc2828d58f7aae3f16066614013fa85",
+    "2630833c190f1bd0aa06935b9aa0d5547ad22a2a955fdc3777cadddd5ccbad50",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "c23469d315646b0ec364c5d5121469791c1ee1e6785e722209e8523062ecc9ce",
+    "0e42dda37410a8e378aa1dbe4a6ffe2e2b54055a225bc4c2fbb05a1042cf54dd",
   "packages/engine/src/owners/admission.ts":
     "43a2e1f35ac4635bea3f2edb840696bc657b6092e757043e7a9b0a49a214ff4c",
   "packages/engine/src/referee/adapter.ts":
@@ -53,8 +53,8 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "165724690bc2002d295daf9904057033db97ecd79ea4c0b847a5a0bfa1b03225",
-  "packages/protocol/src": "8fc3a1cabfd3d2415ca15013ec946d65c2c59bd363c9e35a826ff07447403186",
+  "packages/operator/src": "c9bb8be444ac312f7e1bc68585b45382bbe25807b501cd9f5c2923b0eca1eca0",
+  "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",
 };
 
 const fileSha256 = (path: string): string =>

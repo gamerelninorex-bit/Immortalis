@@ -153,6 +153,9 @@ describe("existing owners, the gateway, the Temporal kernel, GIP, the command se
       "immortalis-advance-request": "./src/advance-request-bin.ts",
       "immortalis-advance-request-bind": "./src/advance-request-bind-bin.ts",
       "immortalis-advance-request-answer": "./src/advance-request-answer-bin.ts",
+      // ROADBED GM freight bridge: two further entry points, added mechanically; the entries above are unchanged
+      "immortalis-gm-freight": "./src/gm-freight-bin.ts",
+      "immortalis-gm-freight-bind": "./src/gm-freight-bind-bin.ts",
     });
     expect(pkg.dependencies).toEqual({
       "@immortalis/contracts": "workspace:*",

@@ -99,8 +99,7 @@ const UNCHANGED: Record<string, string> = {
   "spec/f027/acceptance-register.yaml":
     "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
   "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
-  "packages/protocol/src/null-pc-ooc-advance.ts":
-    "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
+  // ROADBED GM freight bridge: this file is a recorded scoped delta of the GM-freight slice (its base is recorded in tests/support/gm-freight-removed-pins.ts and its head in tests/support/gm-freight-scoped-deltas.ts); it is no longer asserted byte-identical to main here.
   "packages/contracts/src/protocol-null-pc-advance.ts":
     "c7018747d8745074d8ced47daa49cadb57d4e296f944edb965a2be35f30ecf60",
 };
@@ -157,7 +156,8 @@ describe("existing owners, the Temporal kernel, the predecessor gateways and the
   });
 
   it("the initial gateway is not relaxed or shared: it still refuses a held continuation, and this module does not import it", () => {
-    expect(sha(INITIAL)).toBe(UNCHANGED[INITIAL]);
+    // ROADBED GM freight bridge: the initial gateway is a recorded scoped delta (it additionally registers the shipped freight ER provider); its
+    // structural guarantees below are unchanged
     expect(code(INITIAL)).toMatch(/state\.continuation !== null/);
     expect(code(INITIAL)).toMatch(/existing\.continues !== null\) return refusal\(\)/);
     expect(specifiersOf(MODULE).sort()).toEqual(["@immortalis/contracts", "@immortalis/engine"]);
@@ -181,6 +181,7 @@ describe("the module composes the existing kernel and shipped owner providers on
       "StageProviderRegistry",
       "TemporalCoordinator",
       "canonicalEqual",
+      "economyFreightReceiptProvider",
       "economyRealizationProvider",
       "epistemicPacketProvider",
       "gipSunsetExpiryProvider",
@@ -201,12 +202,12 @@ describe("the module composes the existing kernel and shipped owner providers on
     ]);
   });
 
-  it("registers exactly the fifteen real shipped owner stage providers, in the same set as the initial NULL-PC gateway (no drift, no fixture, no wrapper, no new provider) with the existing Population barrier evaluator", () => {
+  it("registers exactly the sixteen real shipped owner stage providers, in the same set as the initial NULL-PC gateway (no drift, no fixture, no wrapper, no new provider) with the existing Population barrier evaluator", () => {
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
     expect(providerList(MODULE)).toBe(providerList(INITIAL));
-    expect(providerList(MODULE).split(",")).toHaveLength(15);
+    expect(providerList(MODULE).split(",")).toHaveLength(16);
     expect(src).toMatch(
       /new TemporalCoordinator\(\s*store,\s*ownerProviders\(\),\s*populationBarrierEvaluator,?\s*\)/,
     );

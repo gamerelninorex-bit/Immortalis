@@ -160,6 +160,7 @@ describe("the module composes the existing kernel and shipped owner providers on
     ).toEqual([
       "StageProviderRegistry",
       "TemporalCoordinator",
+      "economyFreightReceiptProvider",
       "economyRealizationProvider",
       "epistemicPacketProvider",
       "gipSunsetExpiryProvider",
@@ -180,12 +181,12 @@ describe("the module composes the existing kernel and shipped owner providers on
     ]);
   });
 
-  it("registers exactly the fifteen real shipped owner stage providers (the sunset slice's GIP sunset provider is the twelfth; the exact finite raw-source drawdown slice's three are the others; no fixture, no wrapper, no new provider of this gateway) with the existing Population barrier evaluator", () => {
+  it("registers exactly the sixteen real shipped owner stage providers (the ROADBED GM freight bridge slice adds the shipped first-profile freight receipt provider, economyFreightReceiptProvider, so the earned ER stage is not left PROVIDER_ABSENT) (the sunset slice's GIP sunset provider is the twelfth; the exact finite raw-source drawdown slice's three are the others; no fixture, no wrapper, no new provider of this gateway) with the existing Population barrier evaluator", () => {
     const src = identifiers(MODULE);
     expect(src.match(/new StageProviderRegistry\(/g)).toHaveLength(1);
     expect(src.match(/new TemporalCoordinator\(/g)).toHaveLength(1);
     expect(src).toMatch(
-      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*productionSourceDeltaProvider,\s*worldSourceDeliveryProvider,\s*productionReserveInflowProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
+      /new StageProviderRegistry\(\[\s*productionCompletionProvider,\s*productionSourceDeltaProvider,\s*worldSourceDeliveryProvider,\s*productionReserveInflowProvider,\s*worldFallbackAcceptanceProvider,\s*economyRealizationProvider,\s*economyFreightReceiptProvider,\s*worldEntityTransitionProvider,\s*logisticsDeliveryProvider,\s*logisticsRetirementProvider,\s*populationStageProvider,\s*epistemicPacketProvider,\s*ktiTransferResultCloseProvider,\s*namedActorCapabilityCloseProvider,\s*pcCapabilityCloseProvider,\s*gipSunsetExpiryProvider,\s*\]\)/,
     );
     expect(src).toMatch(
       /new TemporalCoordinator\(\s*store,\s*ownerProviders\(\),\s*populationBarrierEvaluator,?\s*\)/,
