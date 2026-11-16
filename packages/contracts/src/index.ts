@@ -51,6 +51,7 @@ export * from "./diplomacy-recognition.ts";
 export * from "./diplomacy-relation.ts";
 export * from "./economy.ts";
 export * from "./freight-profile.ts";
+export * from "./gm-freight.ts";
 export * from "./economy-holding.ts";
 export * from "./entity-transition.ts";
 export * from "./gip.ts";

@@ -17,6 +17,7 @@ import {
 import {
   StageProviderRegistry,
   TemporalCoordinator,
+  economyFreightReceiptProvider,
   economyRealizationProvider,
   epistemicPacketProvider,
   gipSunsetExpiryProvider,
@@ -174,6 +175,7 @@ const ownerProviders = (): StageProviderRegistry =>
     productionReserveInflowProvider,
     worldFallbackAcceptanceProvider,
     economyRealizationProvider,
+    economyFreightReceiptProvider,
     worldEntityTransitionProvider,
     logisticsDeliveryProvider,
     logisticsRetirementProvider,

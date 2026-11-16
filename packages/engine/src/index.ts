@@ -222,3 +222,4 @@ export * from "./freight/logistics.ts";
 export * from "./freight/production.ts";
 export * from "./freight/route.ts";
 export * from "./freight/world.ts";
+export * from "./freight/bridge.ts";
