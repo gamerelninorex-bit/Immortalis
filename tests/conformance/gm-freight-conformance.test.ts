@@ -98,8 +98,17 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
   it("nothing under packages/ changed except the recorded deltas, the two export lines and the slice's own new modules", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
+    // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice
     const changed = (
-      git("diff", "--name-only", GM_FREIGHT_BASE_COMMIT, "--", "packages")?.toString("utf8") ?? ""
+      git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        GM_FREIGHT_BASE_COMMIT,
+        "--",
+        "packages",
+      )?.toString("utf8") ?? ""
     )
       .split("\n")
       .filter(Boolean);
@@ -117,7 +126,15 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
     // the two export lines are the whole change to the two index files
     for (const p of PRESENT_DAY_TABLE_FILES) {
       const diff =
-        git("diff", "--numstat", GM_FREIGHT_BASE_COMMIT, "--", p)?.toString("utf8") ?? "";
+        git(
+          "-c",
+          "core.fileMode=false",
+          "diff",
+          "--numstat",
+          GM_FREIGHT_BASE_COMMIT,
+          "--",
+          p,
+        )?.toString("utf8") ?? "";
       expect(diff.trim().split(/\s+/).slice(0, 2), p).toEqual(["1", "0"]);
     }
   });
