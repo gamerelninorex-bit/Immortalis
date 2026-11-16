@@ -1,0 +1,6 @@
+{"world":"quarry-works","cut":"establish_setting","durable_steps":12,"scenarios":24,"unknown":16,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"attest_opening","durable_steps":6,"scenarios":12,"unknown":4,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"establish_legal","durable_steps":18,"scenarios":36,"unknown":28,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"initiate-1","durable_steps":16,"scenarios":32,"unknown":24,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"initiate-2","durable_steps":16,"scenarios":32,"unknown":24,"ok":6,"unavailable":2}
+{"world":"textile-workshop","cut":"initiate-adequacy","durable_steps":6,"scenarios":12,"unknown":4,"ok":6,"unavailable":2}
