@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw owner facts */
 import { afterEach, describe, expect, it } from "vitest";
 import type { GmFreightResult } from "@immortalis/engine";
-import { CanonicalCampaign } from "@immortalis/engine";
+import { CanonicalCampaign, stepName } from "@immortalis/engine";
 import {
   GM_FREIGHT_TOOLS,
   economyFreightRequestRef,
@@ -120,8 +120,10 @@ describe.each([
       const w = receiptOf(
         await rig.call(tool.withdraw, { operation_id: "w-1", world_id: fx.worldId }),
       );
-      const slug = ref.replace(/[^A-Za-z0-9._-]/g, "_");
-      expect(stepNames(w)).toEqual([`withdraw-admit-${slug}`, `withdraw-close-${slug}`]);
+      expect(stepNames(w)).toEqual([
+        stepName("withdraw-admit", ref),
+        stepName("withdraw-close", ref),
+      ]);
       expect(w.status!.request?.allocation_status).toBe("terminal");
 
       await read(rig, (c) => {
@@ -134,7 +136,7 @@ describe.each([
         await rig.call(tool.initiate, { operation_id: "go-2", world_id: fx.worldId }),
       );
       expect(again.code).toBe("GM_FREIGHT_REFUSED");
-      expect(again.details.halted.step).toBe(`e2-fixation-after-${slug}`);
+      expect(again.details.halted.step).toBe(stepName("e2-fixation-after", ref));
 
       // asking to withdraw a closed request is a no-op: nothing more is written
       const closedAgain = receiptOf(
@@ -165,14 +167,13 @@ describe.each([
           outcome: "STANDING",
         }),
       );
-      const slug1 = ref1.replace(/[^A-Za-z0-9._-]/g, "_");
       const w = receiptOf(
         await rig.call(tool.withdraw, { operation_id: "w-1", world_id: fx.worldId }),
       );
       expect(stepNames(w)).toEqual([
-        `withdraw-admit-${slug1}`,
-        `withdraw-f2-release-${slug1}`,
-        `withdraw-close-${slug1}`,
+        stepName("withdraw-admit", ref1),
+        stepName("withdraw-f2-release", ref1),
+        stepName("withdraw-close", ref1),
       ]);
       await read(rig, (c) => {
         const k = keysOf(fx);
@@ -189,13 +190,12 @@ describe.each([
       );
       const ref2 = go.status!.request!.request_ref;
       expect(ref2).not.toBe(ref1);
-      const slug2 = ref2.replace(/[^A-Za-z0-9._-]/g, "_");
       expect(stepNames(go)).toEqual([
-        `e2-fixation-after-${slug1}`,
-        `l0-service-admission-${slug2}`,
-        `l1-first-dispatch-${slug2}`,
-        `e1-consume-first-dispatch-${slug2}`,
-        `te-enroll-transfer-${slug2}`,
+        stepName("e2-fixation-after", ref1),
+        stepName("l0-service-admission", ref2),
+        stepName("l1-first-dispatch", ref2),
+        stepName("e1-consume-first-dispatch", ref2),
+        stepName("te-enroll-transfer", ref2),
       ]);
       expect(go.awaiting).toMatchObject({
         kind: "PLAYER_OOC_TIME_ADVANCE",
@@ -207,7 +207,7 @@ describe.each([
       const done = receiptOf(
         await rig.call(tool.initiate, { operation_id: "go-done", world_id: fx.worldId }),
       );
-      expect(stepNames(done)).toEqual([`ad-destination-adequacy-${slug2}`]);
+      expect(stepNames(done)).toEqual([stepName("ad-destination-adequacy", ref2)]);
       expect(done.status!.stage).toBe("COMPLETE");
       await read(rig, (c) => expect(c.verify()).toEqual([]));
     }, 300_000);
@@ -231,19 +231,21 @@ describe.each([
         );
         return r;
       });
-      const slug = ref.replace(/[^A-Za-z0-9._-]/g, "_");
       // GIP's current answer for every clause is now unresolved: the bridge's continuation reaches Logistics and the OWNER refuses the service
       const go = refusal(
         await rig.call(tool.initiate, { operation_id: "go-w2", world_id: fx.worldId }),
       );
       expect(go.code).toBe("GM_FREIGHT_REFUSED");
-      expect(go.details.halted.step).toBe(`l0-service-admission-${slug}`);
+      expect(go.details.halted.step).toBe(stepName("l0-service-admission", ref));
       expect(go.details.steps.map((x: { step: string }) => x.step)).toEqual(["service-basis"]);
       // Economy derives the W2 cause itself; it admits protection only and releases nothing, then closes once
       const w = receiptOf(
         await rig.call(tool.withdraw, { operation_id: "w-2", world_id: fx.worldId }),
       );
-      expect(stepNames(w)).toEqual([`withdraw-admit-${slug}`, `withdraw-close-${slug}`]);
+      expect(stepNames(w)).toEqual([
+        stepName("withdraw-admit", ref),
+        stepName("withdraw-close", ref),
+      ]);
       await read(rig, (c) => {
         const withdrawal: any = c.store.getFact(`economy/freight-withdrawal/${ref}`)?.value;
         expect(withdrawal.cause).toMatchObject({ kind: "W2", applicability: "unresolved" });

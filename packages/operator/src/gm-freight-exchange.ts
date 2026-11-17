@@ -45,7 +45,7 @@ const ConfigSchema = z.strictObject({
 export type GmFreightConfig = z.infer<typeof ConfigSchema>;
 
 export type GmFreightExchangeCode =
-  "NOT_CONFIGURED" | "CONFIG_INVALID" | "HOST_EXISTS" | "HOST_UNKNOWN" | "IO_FAILED";
+  "NOT_CONFIGURED" | "CONFIG_INVALID" | "HOST_EXISTS" | "HOST_UNKNOWN" | "BIND_BUSY" | "IO_FAILED";
 
 export interface GmFreightExchangeParams {
   readonly stateDir: string;
@@ -102,10 +102,84 @@ export async function readGmFreightConfig(
   return ok(parsed.data);
 }
 
+/*
+ * CRASH-SAFE, SERIALIZED ENROLLMENT (BLUE R-3, R-4).
+ *
+ * A binding is two durable writes (the host's secret file, then the config that names its digest) that must read as one. The order is
+ * fixed: SECRET FIRST, CONFIG LAST. The config is therefore the single commit point: a host exists if and only if the config names it.
+ *
+ *   - a crash after the secret and before the config leaves an ORPHAN secret file (no config entry): it authorizes nothing, and the next
+ *     bind of that host replaces it (it is removed, never trusted);
+ *   - a crash after the config leaves a COMPLETE binding whose path the caller never received: the next bind of that host recognises
+ *     its own earlier work (the secret file's digest equals the configured digest) and returns the SAME path, rotating nothing;
+ *   - a failure between the two is rolled back (the secret file is removed) so nothing is left behind by an ordinary I/O error.
+ *
+ * The compound read-modify-write of the shared config is serialized by an exclusive lock file (`bind.lock`, created with the atomic
+ * create-exclusive operation). A lock whose holder process is gone is reclaimed, and so is a lock file that stays empty or unreadable (a
+ * holder that died between creating it and writing it). The package keeps no clock and states no time, so nothing here is measured in
+ * seconds: waiting and abandonment are counted in polling attempts. Two enrollments of different hosts therefore both survive; a lost
+ * update is impossible, whether the callers share a process or not.
+ */
+const LOCK_WAIT_ATTEMPTS = 1000;
+const LOCK_UNREADABLE_ATTEMPTS = 100;
+const LOCK_POLL_MS = 15;
+
+const lockPath = (p: GmFreightExchangeParams) => join(gmFreightDir(p), "bind.lock");
+
+const holderAlive = (pid: unknown): boolean => {
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
+
+async function acquireBindLock(p: GmFreightExchangeParams): Promise<string | null> {
+  const fs = fsOf(p);
+  const mine = JSON.stringify({ pid: process.pid, token: randomBytes(8).toString("hex") });
+  let unreadable = 0;
+  for (let attempt = 0; attempt < LOCK_WAIT_ATTEMPTS; attempt++) {
+    try {
+      await fs.createExclusive(lockPath(p), `${mine}\n`);
+      return mine;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") return null;
+    }
+    // held: reclaim it only if its holder is gone (or it never became readable); otherwise wait for it
+    try {
+      const held = JSON.parse((await fs.readFile(lockPath(p))).toString("utf8")) as {
+        pid?: unknown;
+      };
+      unreadable = 0;
+      if (!holderAlive(held.pid)) await fs.remove(lockPath(p));
+    } catch {
+      // unreadable or vanished: abandoned only if it stays so
+      if (++unreadable >= LOCK_UNREADABLE_ATTEMPTS)
+        await fs.remove(lockPath(p)).catch(() => undefined);
+    }
+    await new Promise((r) => setTimeout(r, LOCK_POLL_MS));
+  }
+  return null;
+}
+
+async function releaseBindLock(p: GmFreightExchangeParams, mine: string): Promise<void> {
+  const fs = fsOf(p);
+  try {
+    // only the holder removes its own lock: never a successor's
+    if ((await fs.readFile(lockPath(p))).toString("utf8").trim() === mine)
+      await fs.remove(lockPath(p));
+  } catch {
+    // already gone
+  }
+}
+
 /**
  * Binds one concrete host identity to the campaign's GM freight tools and writes that host's owner-only secret file. The caller (the
  * trusted bind action) has ALREADY proved the campaign is the operator's NULL-PC campaign; nothing a player, a model or a host says can
- * reach this. The PATH of the secret file (never the secret) goes into the host's tool-server configuration.
+ * reach this. The PATH of the secret file (never the secret) goes into the host's tool-server configuration. Idempotent by identity: a
+ * host that is already completely bound gets its own path back and its secret is never rotated.
  */
 export async function bindGmFreightHost(
   p: GmFreightExchangeParams & { readonly operatorUid: number; readonly hostId: string },
@@ -113,37 +187,70 @@ export async function bindGmFreightHost(
   const fs = fsOf(p);
   if (!HostId.safeParse(p.hostId).success)
     return fail("CONFIG_INVALID", "the host identity is not valid");
-  const held = await readGmFreightConfig(p, p.operatorUid);
-  if (!held.ok && held.error.code !== "NOT_CONFIGURED") return held;
-  const config: GmFreightConfig = held.ok
-    ? held.value
-    : {
-        format: GM_FREIGHT_CONFIG_FORMAT,
-        format_version: FORMAT_VERSION,
-        campaign_id: p.campaignId,
-        operator_uid: p.operatorUid,
-        hosts: [],
-      };
-  if (config.hosts.some((h) => h.host_id === p.hostId))
-    return fail("HOST_EXISTS", "this host identity is already bound to this campaign");
-  if (config.hosts.length >= MAX_HOSTS)
-    return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
-  const secret = randomBytes(32).toString("hex");
-  const next: GmFreightConfig = {
-    ...config,
-    hosts: [...config.hosts, { host_id: p.hostId, secret_sha256: digestOf(secret) }],
-  };
   try {
     await fs.mkdirp(gmFreightDir(p));
     await chmod(gmFreightDir(p), 0o700);
-    await fs.createExclusive(gmFreightSecretPath(p, p.hostId), `${secret}\n`);
-    await chmod(gmFreightSecretPath(p, p.hostId), 0o600);
-    await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
-    await chmod(configPath(p), 0o600);
   } catch {
     return fail("IO_FAILED", "the GM freight binding could not be written");
   }
-  return ok({ secret_file: gmFreightSecretPath(p, p.hostId) });
+  const lock = await acquireBindLock(p);
+  if (lock === null) return fail("BIND_BUSY", "another enrollment holds the binding; try again");
+  try {
+    const held = await readGmFreightConfig(p, p.operatorUid);
+    if (!held.ok && held.error.code !== "NOT_CONFIGURED") return held;
+    const config: GmFreightConfig = held.ok
+      ? held.value
+      : {
+          format: GM_FREIGHT_CONFIG_FORMAT,
+          format_version: FORMAT_VERSION,
+          campaign_id: p.campaignId,
+          operator_uid: p.operatorUid,
+          hosts: [],
+        };
+    const secretFile = gmFreightSecretPath(p, p.hostId);
+    const entry = config.hosts.find((h) => h.host_id === p.hostId);
+    if (entry) {
+      // already named by the config (the commit point): complete only if its secret file still holds the configured secret
+      const present = readGmFreightSecretFile(secretFile);
+      if (present !== null && equalHex(digestOf(present), entry.secret_sha256))
+        return ok({ secret_file: secretFile });
+      return fail(
+        "HOST_EXISTS",
+        "this host is bound but its secret file is missing or is not its own; remove the host binding by hand",
+      );
+    }
+    // not named: any secret file at this path is an orphan of an interrupted enrollment and authorizes nothing
+    if ((await fs.fileSize(secretFile)) !== null) await fs.remove(secretFile);
+    // refused before any secret is drawn or anything is written: a fifth host would make the whole binding unreadable
+    if (config.hosts.length >= MAX_HOSTS)
+      return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
+    const secret = randomBytes(32).toString("hex");
+    const next: GmFreightConfig = {
+      ...config,
+      hosts: [...config.hosts, { host_id: p.hostId, secret_sha256: digestOf(secret) }],
+    };
+    try {
+      await fs.createExclusive(secretFile, `${secret}\n`);
+      await chmod(secretFile, 0o600);
+      await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
+      await chmod(configPath(p), 0o600);
+    } catch {
+      // The config is the commit point and a failure can be reported AFTER it took effect (a lost acknowledgement). If the config now names
+      // this host with this secret, the enrollment completed: keep the secret file and report success. Only when it provably does not
+      // is the secret file this enrollment created rolled back (if even that fails, the orphan is replaced by the next bind of this host).
+      const settled = await readGmFreightConfig(p, p.operatorUid);
+      const named = settled.ok
+        ? settled.value.hosts.find((h) => h.host_id === p.hostId)
+        : undefined;
+      if (named && equalHex(named.secret_sha256, digestOf(secret)))
+        return ok({ secret_file: secretFile });
+      await fs.remove(secretFile).catch(() => undefined);
+      return fail("IO_FAILED", "the GM freight binding could not be written");
+    }
+    return ok({ secret_file: secretFile });
+  } finally {
+    await releaseBindLock(p, lock);
+  }
 }
 
 /**

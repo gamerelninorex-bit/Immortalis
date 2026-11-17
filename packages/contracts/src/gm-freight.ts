@@ -195,7 +195,7 @@ export type GmWithdrawRequest = z.infer<typeof GmWithdrawRequestSchema>;
 /** Which earlier acts committed under this retry token (for a lost acknowledgement). Reads only. */
 export const GmReconcileRequestSchema = z.strictObject({
   operation_id: GmOperationId,
-  world_id: EntityId.optional(),
+  world_id: EntityId,
 });
 export type GmReconcileRequest = z.infer<typeof GmReconcileRequestSchema>;
 
@@ -233,6 +233,25 @@ export interface GmFreightStep {
 /** What the trusted side is waiting for, and whose it is. The GM can never supply it. */
 export type GmFreightAwaiting =
   | { readonly kind: "GM_AUTHORING"; readonly tool: GmFreightTool; readonly note: string }
+  /**
+   * Owner work is still due but this call stopped at its per-call limit. Nothing is refused and nobody else is awaited: present
+   * `gm_freight_initiate` again (a new operation_id) to continue from the committed owner position.
+   */
+  | { readonly kind: "MORE_OWNER_WORK_DUE"; readonly note: string }
+  /**
+   * The chain cannot lawfully proceed and NOTHING the GM can author will change that (a sealed original envelope is irreversible and
+   * is never re-attested). It is reported as what it is: an irreversible block, with the owner's or the profile's reason.
+   */
+  | {
+      readonly kind: "NOT_ACTIONABLE";
+      readonly reason: string;
+      readonly problems: readonly {
+        readonly slice_kind: string;
+        readonly expected: string;
+        readonly found: number;
+      }[];
+      readonly note: string;
+    }
   | {
       readonly kind: "OPERATOR_STARTING_CHRONOLOGY";
       readonly time_unit: string | null;

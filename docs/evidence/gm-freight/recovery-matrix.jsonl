@@ -1,6 +1,12 @@
 {"world":"quarry-works","cut":"establish_setting","durable_steps":12,"scenarios":24,"unknown":16,"ok":6,"unavailable":2}
 {"world":"quarry-works","cut":"attest_opening","durable_steps":6,"scenarios":12,"unknown":4,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"report_site_change","durable_steps":6,"scenarios":12,"unknown":4,"ok":6,"unavailable":2}
 {"world":"quarry-works","cut":"establish_legal","durable_steps":18,"scenarios":36,"unknown":28,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"withdraw-w3-before-l0","durable_steps":8,"scenarios":16,"unknown":8,"ok":6,"unavailable":2}
 {"world":"quarry-works","cut":"initiate-1","durable_steps":16,"scenarios":32,"unknown":24,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"withdraw-w3-f2-close","durable_steps":10,"scenarios":20,"unknown":12,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"withdraw-w2","durable_steps":8,"scenarios":16,"unknown":8,"ok":6,"unavailable":2}
 {"world":"quarry-works","cut":"initiate-2","durable_steps":16,"scenarios":32,"unknown":24,"ok":6,"unavailable":2}
 {"world":"textile-workshop","cut":"initiate-adequacy","durable_steps":6,"scenarios":12,"unknown":4,"ok":6,"unavailable":2}
+{"world":"quarry-works","cut":"initiate-e2-renewal","durable_steps":14,"scenarios":28,"unknown":20,"ok":6,"unavailable":2}
+{"world":"textile-workshop","cut":"withdraw-w3-f2-close","durable_steps":10,"scenarios":20,"unknown":12,"ok":6,"unavailable":2}

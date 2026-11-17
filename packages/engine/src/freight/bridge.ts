@@ -21,6 +21,8 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   corridorOfInput,
+  EconomyOriginAllocationSchema,
+  economyFreightCargoSlotKey,
   economyFreightCloseKey,
   economyFreightRequestRef,
   economyOriginRequestId,
@@ -80,8 +82,9 @@ import { TemporalCoordinator } from "../temporal/coordinator.ts";
 import { worldEntityTransitionProvider } from "../world/entity-transition-provider.ts";
 import { worldFallbackAcceptanceProvider } from "../world/fallback-custody.ts";
 import type { CanonicalCampaign } from "../world/canonical-campaign.ts";
-import { freightWorkCounters } from "./common.ts";
+import { freightWorkCounters, storeSource } from "./common.ts";
 import { EconomyFreightAdapter, economyFreightReceiptProvider } from "./economy.ts";
+import { deriveOriginSelfProvision, profileScope } from "./economy-derive.ts";
 import { GipFreightAdapter } from "./gip.ts";
 import { LogisticsFreightAdapter } from "./logistics.ts";
 import { ProductionFreightAdapter } from "./production.ts";
@@ -186,10 +189,32 @@ const SECRECY = "gm-owner-consultation";
 const same = (held: unknown, wanted: unknown): boolean =>
   held !== undefined && canonicalEqual(held, wanted);
 
-const slug = (s: string): string => s.replace(/[^A-Za-z0-9._-]/g, "_");
-const pubOf = (operationId: string, step: string): Publication => ({
-  group_id: `gmf:${operationId}:${step}:group`,
-  intent_id: `gmf:${operationId}:${step}:intent`,
+/**
+ * One part of an act identity, encoded INJECTIVELY and reversibly (BLUE R-1): every character outside `[A-Za-z0-9.-]`, including the
+ * escape character `_` itself, becomes `_<hex code point>_`. Distinct identities therefore can never share an encoding (`cond:a` is
+ * `cond_3a_a`, `cond_a` is `cond_5f_a`), and the encoding contains neither `:` nor `@`, the two separators below.
+ */
+export const encodeIdPart = (s: string): string =>
+  [...s]
+    .map((ch) => (/[A-Za-z0-9.-]/.test(ch) ? ch : `_${ch.codePointAt(0)!.toString(16)}_`))
+    .join("");
+
+/** The name of one owner act: a fixed stem, plus (for an act on a particular source identity) `@` and that identity encoded. */
+export const stepName = (stem: string, dynamic?: string): string =>
+  dynamic === undefined ? stem : `${stem}@${encodeIdPart(dynamic)}`;
+
+/**
+ * The durable identity of one owner act: DOMAIN-SEPARATED by the host's token, the world and the act, joined with `:`. The token cannot
+ * contain `:` (its schema), and neither the encoded world nor a step name can, so the join is unambiguous: two different acts, in two
+ * different worlds or on two different source identities, never share a group or intent identity.
+ */
+export const gmFreightActIdentity = (
+  operationId: string,
+  worldId: string,
+  step: string,
+): Publication => ({
+  group_id: `gmf:${operationId}:${encodeIdPart(worldId)}:${step}:group`,
+  intent_id: `gmf:${operationId}:${encodeIdPart(worldId)}:${step}:intent`,
   cause: `gm-freight:${step}`,
   basis: BASIS,
   secrecy: SECRECY,
@@ -275,10 +300,11 @@ class Ctx {
     step: string,
     owner: string,
     operationId: string,
+    worldId: string,
     op: (pub: Publication) => Promise<StepResult>,
     present?: () => boolean,
   ): Promise<boolean> {
-    const pub = pubOf(operationId, step);
+    const pub = gmFreightActIdentity(operationId, worldId, step);
     gmFreightWorkCounters.owner_acts_attempted++;
     if (this.store.committedGroup(pub.intent_id) === null && present?.()) {
       run.steps.push({ step, owner, disposition: "ALREADY_PRESENT", revision: null });
@@ -327,6 +353,12 @@ interface Typed<P> {
   readonly premise: P;
 }
 
+interface EnvelopeProblem {
+  readonly slice_kind: string;
+  readonly expected: string;
+  readonly found: number;
+}
+
 interface Envelope {
   readonly attestation: OpeningAttestation;
   readonly legal: Typed<LegalPremise>[];
@@ -334,6 +366,10 @@ interface Envelope {
   readonly spec: Typed<MaterialSpecificationPremise>[];
   readonly lot: Typed<InputLotPremise>[];
   readonly service: Typed<ServicePremise>[];
+  /** how many slices of each kind the sealed envelope carries (typed or not) */
+  readonly kinds: Readonly<Record<string, number>>;
+  /** the slices whose premise is not the typed reading of their kind: they can never be admitted by any owner */
+  readonly untyped: Readonly<Record<string, number>>;
 }
 
 function readEnvelope(c: Ctx, worldId: string): Envelope | undefined {
@@ -341,6 +377,7 @@ function readEnvelope(c: Ctx, worldId: string): Envelope | undefined {
   if (!attested) return undefined;
   const parsed = OpeningAttestationSchema.safeParse(attested.fact.value);
   if (!parsed.success) return undefined;
+  const untyped: Record<string, number> = {};
   const pick = <P>(
     kind: OpeningSlice["slice_kind"],
     schema: { safeParse(v: unknown): { success: true; data: P } | { success: false } },
@@ -348,8 +385,12 @@ function readEnvelope(c: Ctx, worldId: string): Envelope | undefined {
     parsed.data.envelope.slices.flatMap((slice) => {
       if (slice.slice_kind !== kind) return [];
       const p = schema.safeParse(slice.premise);
+      if (!p.success) untyped[kind] = (untyped[kind] ?? 0) + 1;
       return p.success ? [{ slice, premise: p.data }] : [];
     });
+  const kinds: Record<string, number> = {};
+  for (const slice of parsed.data.envelope.slices)
+    kinds[slice.slice_kind] = (kinds[slice.slice_kind] ?? 0) + 1;
   return {
     attestation: parsed.data,
     legal: pick("legal", LegalPremiseSchema),
@@ -357,7 +398,34 @@ function readEnvelope(c: Ctx, worldId: string): Envelope | undefined {
     spec: pick("material_specification", MaterialSpecificationPremiseSchema),
     lot: pick("input_lot", InputLotPremiseSchema),
     service: pick("service_premise", ServicePremiseSchema),
+    kinds,
+    untyped,
   };
+}
+
+/**
+ * What the irreversible seal must already carry for this profile to be able to proceed at all (BLUE R-2, R-6). Each line states the rule it
+ * mirrors; none is new source law:
+ *   - exactly one `legal` slice: GIP's `legalSource` refuses none and refuses more than one governing order;
+ *   - exactly one `site_condition` and one `material_specification`: Economy's `profileScope` withholds anything else;
+ *   - at least one `input_lot`: Economy's C-05 selects the lot by content and needs one that qualifies (exactly which is the OWNER's call
+ *     after the seal; a tie or none is the owner's refusal, never a Builder choice);
+ *   - exactly one `service_premise`: the sources name no rule by which one of several service premises serves a request, so the bridge does
+ *     NOT choose (an open source question for BLUE, RED and the Sovereign, not a Builder decision).
+ */
+export function envelopeProblems(
+  kinds: Readonly<Record<string, number>>,
+  untyped: Readonly<Record<string, number>> = {},
+): EnvelopeProblem[] {
+  const found = (k: string) => kinds[k] ?? 0;
+  const problems: EnvelopeProblem[] = [];
+  for (const k of ["legal", "site_condition", "material_specification", "service_premise"])
+    if (found(k) !== 1) problems.push({ slice_kind: k, expected: "exactly 1", found: found(k) });
+  if (found("input_lot") < 1)
+    problems.push({ slice_kind: "input_lot", expected: "at least 1", found: found("input_lot") });
+  for (const [k, n] of Object.entries(untyped))
+    if (n > 0) problems.push({ slice_kind: k, expected: "a typed premise of its kind", found: n });
+  return problems;
 }
 
 const MILESTONES = [
@@ -391,6 +459,8 @@ interface Position {
   readonly next: Next;
 }
 
+type NotActionable = Extract<GmFreightAwaiting, { kind: "NOT_ACTIONABLE" }>;
+
 type Next =
   | {
       readonly kind: "act";
@@ -399,6 +469,23 @@ type Next =
       readonly run: (pub: Publication) => Promise<StepResult>;
     }
   | { readonly kind: "await"; readonly awaiting: GmFreightAwaiting }
+  /** nothing can lawfully proceed, and nothing the GM authors changes it: reported honestly, never as an actionable step */
+  | {
+      readonly kind: "blocked";
+      readonly step: string;
+      readonly code: string;
+      readonly message: string;
+      readonly details?: unknown;
+      readonly awaiting: NotActionable;
+    }
+  /** an OWNER's own refusal found by a pure derivation BEFORE any write; the owner decides, and its words are reported */
+  | {
+      readonly kind: "refused";
+      readonly step: string;
+      readonly code: string;
+      readonly message: string;
+      readonly details?: unknown;
+    }
   | { readonly kind: "done" };
 
 const gmAuthoring = (tool: GmFreightTool, note: string): Next => ({
@@ -406,13 +493,32 @@ const gmAuthoring = (tool: GmFreightTool, note: string): Next => ({
   awaiting: { kind: "GM_AUTHORING", tool, note },
 });
 
-/** The request refs of a profile, in order (E0, E2, ...): the cargo slot is claimed at version 1, then 3, 5, ... */
-function requestRefs(c: Ctx, sealId: string): string[] {
+const blocked = (
+  step: string,
+  code: string,
+  message: string,
+  problems: readonly EnvelopeProblem[],
+  details?: unknown,
+): Next => ({
+  kind: "blocked",
+  step,
+  code,
+  message,
+  ...(details !== undefined ? { details } : {}),
+  awaiting: { kind: "NOT_ACTIONABLE", reason: code, problems, note: message },
+});
+
+/**
+ * Every request of a profile, oldest first, found by following the OWNER's own cargo-slot identity (BLUE R-7): a request is claimed at
+ * the slot's version (`freight:<seal>:<version>`), so each one is among versions 1..the slot's current version. The history is as long
+ * as the owners made it: no fixed count truncates it.
+ */
+function requestChain(c: Ctx, sealId: string, worldId: string, entityId: string): string[] {
+  const slot = c.store.getFact(economyFreightCargoSlotKey(worldId, entityId));
   const refs: string[] = [];
-  for (let v = 1; v <= 15; v += 2) {
+  for (let v = 1; v <= (slot?.version ?? 0); v++) {
     const ref = economyFreightRequestRef(sealId, v);
-    if (!c.economy.freightRequest(ref)) break;
-    refs.push(ref);
+    if (c.economy.freightRequest(ref)) refs.push(ref);
   }
   return refs;
 }
@@ -425,7 +531,8 @@ function position(c: Ctx, worldId: string): Position {
   m.setting_established = c.store.getFact(worldKey) !== undefined;
   m.opening_attested = envelope !== undefined;
   m.canonical_time_established = c.canonicalTime() !== null;
-  const legal = envelope?.legal[0]?.premise;
+  // exactly one governing order is the owner's rule (GIP `legalSource`), so this is a lookup, not a selection
+  const legal = envelope?.legal.length === 1 ? envelope.legal[0]!.premise : undefined;
   const sealId = legal?.basis_id;
   m.legal_sealed = sealId !== undefined && c.gipFreight.readinessSeal(sealId) !== undefined;
   const base = {
@@ -440,11 +547,22 @@ function position(c: Ctx, worldId: string): Position {
   const early = (next: Next): Position => ({ ...base, next });
   if (!m.setting_established)
     return early(gmAuthoring(GM_FREIGHT_TOOLS.establishSetting, "state the original setting"));
-  if (!envelope || !legal || sealId === undefined)
+  if (!envelope)
     return early(
       gmAuthoring(
         GM_FREIGHT_TOOLS.attestOpening,
-        "attest the whole original envelope, once (it must carry one legal slice)",
+        "attest the whole original envelope, once; it cannot be amended afterwards",
+      ),
+    );
+  // an envelope that cannot carry the profile is final: it was sealed once and is never re-attested (BLUE R-2)
+  const problems = envelopeProblems(envelope.kinds, envelope.untyped);
+  if (problems.length > 0 || legal === undefined || sealId === undefined)
+    return early(
+      blocked(
+        "envelope",
+        "SEALED_ENVELOPE_CANNOT_CARRY_THE_PROFILE",
+        "the original envelope is sealed and cannot be amended or attested again, and it does not carry what this profile needs; nothing the GM can author changes that",
+        problems,
       ),
     );
   if (!m.canonical_time_established) {
@@ -469,71 +587,78 @@ function position(c: Ctx, worldId: string): Position {
       ),
     );
 
-  // -- the premises, each admitted by its own owner from its own sealed slice -------------------------------------------------
-  const premiseActs: Next[] = [];
-  for (const s of envelope.site)
-    if (!c.world.siteCondition(worldId, s.premise.condition_id))
-      premiseActs.push({
-        kind: "act",
-        step: `site-condition-${slug(s.slice.slice_id)}`,
-        owner: "world_state",
-        run: (pub) =>
-          c.world.admitSiteCondition({
-            ...pub,
-            condition: { world_id: worldId, slice_id: s.slice.slice_id },
-          }),
-      });
-  for (const s of envelope.spec)
-    if (!c.productionFreight.materialSpecification(s.premise.specification_id))
-      premiseActs.push({
-        kind: "act",
-        step: `material-specification-${slug(s.slice.slice_id)}`,
-        owner: "production",
-        run: (pub) =>
-          c.productionFreight.admitMaterialSpecification({
-            ...pub,
-            premise: { world_id: worldId, slice_id: s.slice.slice_id },
-          }),
-      });
-  for (const s of envelope.lot)
-    if (!c.productionFreight.inputLot(s.premise.lot_id))
-      premiseActs.push({
-        kind: "act",
-        step: `input-lot-${slug(s.slice.slice_id)}`,
-        owner: "production",
-        run: (pub) =>
-          c.productionFreight.admitInputLot({
-            ...pub,
-            premise: { world_id: worldId, slice_id: s.slice.slice_id },
-          }),
-      });
-  m.premises_admitted =
-    premiseActs.length === 0 &&
-    envelope.site.length + envelope.spec.length + envelope.lot.length > 0;
-  if (premiseActs.length > 0) return early(premiseActs[0]!);
-  const spec = envelope.spec[0]?.premise;
-  if (!spec)
+  // -- the profile's own condition, prerequisite and lot, as the OWNERS select them (BLUE R-6): nothing is indexed, nothing is guessed -----
+  const scope = profileScope(storeSource(c.store), sealId);
+  if (!scope.ok)
     return early({
-      kind: "await",
-      awaiting: {
-        kind: "GM_AUTHORING",
-        tool: GM_FREIGHT_TOOLS.attestOpening,
-        note: "the sealed envelope has no typed material specification; the envelope cannot be amended, so this profile cannot proceed",
-      },
+      kind: "refused",
+      step: "profile-scope",
+      code: scope.error.code,
+      message: scope.error.message,
+      ...(scope.error.details !== undefined ? { details: bounded(scope.error.details) } : {}),
     });
-  // the owner event that opens C-05 is the dedicated lot's admission; with no lot the specification's admission is offered and Economy's own
-  // rule answers (it withholds: no dedicated source lot qualifies). Nothing here pre-empts that answer.
-  const lot = envelope.lot[0]?.premise;
-  const originOwnerEvent = lot
-    ? productionInputLotKey(lot.lot_id)
-    : productionMaterialSpecificationKey(spec.specification_id);
+  const { conditionId, specificationId } = scope.value;
+  const conditionSlice = envelope.site.find((s) => s.premise.condition_id === conditionId)!.slice;
+  const specSlice = envelope.spec.find(
+    (s) => s.premise.specification_id === specificationId,
+  )!.slice;
+  const specKey = productionMaterialSpecificationKey(specificationId);
+  if (!c.world.siteCondition(worldId, conditionId))
+    return early({
+      kind: "act",
+      step: stepName("site-condition", conditionSlice.slice_id),
+      owner: "world_state",
+      run: (pub) =>
+        c.world.admitSiteCondition({
+          ...pub,
+          condition: { world_id: worldId, slice_id: conditionSlice.slice_id },
+        }),
+    });
+  if (!c.productionFreight.materialSpecification(specificationId))
+    return early({
+      kind: "act",
+      step: stepName("material-specification", specSlice.slice_id),
+      owner: "production",
+      run: (pub) =>
+        c.productionFreight.admitMaterialSpecification({
+          ...pub,
+          premise: { world_id: worldId, slice_id: specSlice.slice_id },
+        }),
+    });
 
   // -- C-05 origin self-provision, then Production's own operation ------------------------------------------------------------
-  const originRequestId = economyOriginRequestId(spec.specification_id);
+  const originRequestId = economyOriginRequestId(specificationId);
   const originRequestKey = economyRequestKey(originRequestId);
   const entityId = productionOutputReference(originRequestId);
-  m.origin_self_provision_fixed = c.economy.originAllocation(spec.specification_id) !== undefined;
-  if (!m.origin_self_provision_fixed)
+  m.origin_self_provision_fixed = c.economy.originAllocation(specificationId) !== undefined;
+  if (!m.origin_self_provision_fixed) {
+    // Economy's own pure derivation says which input lot qualifies (exactly one, by content). Run before anything is written for a lot, it
+    // answers either with the plan (the lot is admitted), with a refusal that names the qualifying lot not yet admitted, or with the owner's
+    // refusal (a tie, none, a requirement that no longer stands): the last is reported with no write at all.
+    const dry = deriveOriginSelfProvision(storeSource(c.store), sealId, specKey);
+    if (!dry.ok) {
+      const lotKey = (dry.error.details as { key?: unknown } | undefined)?.key;
+      const lotSlice = envelope.lot.find((l) => productionInputLotKey(l.premise.lot_id) === lotKey);
+      if (lotSlice && !c.productionFreight.inputLot(lotSlice.premise.lot_id))
+        return early({
+          kind: "act",
+          step: stepName("input-lot", lotSlice.slice.slice_id),
+          owner: "production",
+          run: (pub) =>
+            c.productionFreight.admitInputLot({
+              ...pub,
+              premise: { world_id: worldId, slice_id: lotSlice.slice.slice_id },
+            }),
+        });
+      return early({
+        kind: "refused",
+        step: "c05-origin-self-provision",
+        code: dry.error.code,
+        message: dry.error.message,
+        ...(dry.error.details !== undefined ? { details: bounded(dry.error.details) } : {}),
+      });
+    }
+    const allocation = EconomyOriginAllocationSchema.parse(dry.value.writes[0]!.value);
     return early({
       kind: "act",
       step: "c05-origin-self-provision",
@@ -541,9 +666,11 @@ function position(c: Ctx, worldId: string): Position {
       run: (pub) =>
         c.economy.resolveOriginSelfProvision({
           ...pub,
-          resolution: { seal_id: sealId, owner_event: originOwnerEvent },
+          resolution: { seal_id: sealId, owner_event: allocation.input_lot.fact_key },
         }),
     });
+  }
+  m.premises_admitted = true;
   const operation = c.production.operation(originRequestId);
   m.production_started = operation !== undefined;
   if (!operation)
@@ -586,7 +713,7 @@ function position(c: Ctx, worldId: string): Position {
     });
 
   // -- the fixed request (E0, or E2 after a proven unused close) -------------------------------------------------------------
-  const refs = requestRefs(c, sealId);
+  const refs = requestChain(c, sealId, worldId, entityId);
   const ref = refs[refs.length - 1];
   const close = ref ? c.economy.close(ref) : undefined;
   const allocation = ref ? c.economy.allocation(ref)?.value.state.status : undefined;
@@ -607,7 +734,7 @@ function position(c: Ctx, worldId: string): Position {
   if (close || allocation === "terminal")
     return lateEarly({
       kind: "act",
-      step: `e2-fixation-after-${slug(ref)}`,
+      step: stepName("e2-fixation-after", ref),
       owner: "economy",
       run: (pub) =>
         c.economy.resolveFreightFixation({
@@ -624,17 +751,9 @@ function position(c: Ctx, worldId: string): Position {
     );
 
   // -- Integration I: the independently evidenced service, with fresh Economy status at each act ----------------------------
-  const service = envelope.service[0]?.premise;
-  if (!service)
-    return lateEarly({
-      kind: "await",
-      awaiting: {
-        kind: "GM_AUTHORING",
-        tool: GM_FREIGHT_TOOLS.attestOpening,
-        note: "the sealed envelope has no typed service premise; the envelope cannot be amended",
-      },
-    });
-  const sliceOf = envelope.service[0]!.slice.slice_id;
+  // exactly one service premise is a precondition of the seal (envelopeProblems): this is a lookup, not a selection
+  const serviceSlice = envelope.service[0]!;
+  const service = serviceSlice.premise;
   m.service_basis_admitted = c.logistics.serviceBasis(service.basis_id) !== undefined;
   if (!m.service_basis_admitted)
     return lateEarly({
@@ -644,7 +763,7 @@ function position(c: Ctx, worldId: string): Position {
       run: (pub) =>
         c.logistics.admitServiceBasis({
           ...pub,
-          service: { world_id: worldId, slice_id: sliceOf },
+          service: { world_id: worldId, slice_id: serviceSlice.slice.slice_id },
         }),
     });
   const commitmentFact = c.store.getFact(logisticsCommitmentKey(worldId, entityId));
@@ -654,7 +773,7 @@ function position(c: Ctx, worldId: string): Position {
   if (!m.service_committed_l0)
     return lateEarly({
       kind: "act",
-      step: `l0-service-admission-${slug(ref)}`,
+      step: stepName("l0-service-admission", ref),
       owner: "logistics",
       run: (pub) =>
         c.logistics.admitService({
@@ -668,7 +787,7 @@ function position(c: Ctx, worldId: string): Position {
   if (!m.first_dispatch_l1_f3)
     return lateEarly({
       kind: "act",
-      step: `l1-first-dispatch-${slug(ref)}`,
+      step: stepName("l1-first-dispatch", ref),
       owner: "logistics",
       run: (pub) => c.logistics.dispatchFirst({ ...pub, request: { request_ref: ref } }),
     });
@@ -677,7 +796,7 @@ function position(c: Ctx, worldId: string): Position {
   if (!m.directive_use_consumed_e1)
     return lateEarly({
       kind: "act",
-      step: `e1-consume-first-dispatch-${slug(ref)}`,
+      step: stepName("e1-consume-first-dispatch", ref),
       owner: "economy",
       run: (pub) => c.economy.consumeFirstDispatch({ ...pub, request: { request_ref: ref } }),
     });
@@ -685,7 +804,7 @@ function position(c: Ctx, worldId: string): Position {
   if (!m.transfer_enrolled_te)
     return lateEarly({
       kind: "act",
-      step: `te-enroll-transfer-${slug(ref)}`,
+      step: stepName("te-enroll-transfer", ref),
       owner: "temporal",
       run: (pub) =>
         c.coordinator.registerObject({
@@ -708,7 +827,7 @@ function position(c: Ctx, worldId: string): Position {
   if (!m.destination_adequacy_ad)
     return lateEarly({
       kind: "act",
-      step: `ad-destination-adequacy-${slug(ref)}`,
+      step: stepName("ad-destination-adequacy", ref),
       owner: "economy",
       run: (pub) => c.economy.recordDestinationAdequacy({ ...pub, request: { request_ref: ref } }),
     });
@@ -760,7 +879,7 @@ function statusOf(c: Ctx, campaignId: string, worldId: string | null): GmFreight
     stage,
     milestones: pos.milestones,
     request,
-    awaiting: pos.next.kind === "await" ? pos.next.awaiting : null,
+    awaiting: pos.next.kind === "await" || pos.next.kind === "blocked" ? pos.next.awaiting : null,
   };
 }
 
@@ -768,64 +887,72 @@ function statusOf(c: Ctx, campaignId: string, worldId: string | null): GmFreight
 // Operations
 // ---------------------------------------------------------------------------------------------
 
-const MAX_ACTS_PER_CALL = 32;
+/** The fixed-name acts of the setting, the opening, the legal source and the profile's first owner acts. */
+const STATIC_STEPS = [
+  "setting-world",
+  "setting-origin",
+  "setting-destination",
+  "setting-corridor",
+  "attest-opening",
+  "legal-opening-basis",
+  "legal-institution",
+  "legal-office",
+  "legal-scope-binding",
+  "legal-instrument",
+  "legal-clauses",
+  "legal-seal",
+  "site-change",
+  "c05-origin-self-provision",
+  "production-start",
+  "production-register",
+  "e0-fixation",
+  "service-basis",
+] as const;
 
-/** Every act committed under this retry token, found by identity (exact-key lookups of derived identities; no scan). */
+/** The acts that repeat per request: one per request ever fixed on the profile, named by that request's identity. */
+const PER_REQUEST_STEPS = [
+  "l0-service-admission",
+  "l1-first-dispatch",
+  "e1-consume-first-dispatch",
+  "te-enroll-transfer",
+  "ad-destination-adequacy",
+  "withdraw-admit",
+  "withdraw-f2-release",
+  "withdraw-close",
+  "e2-fixation-after",
+] as const;
+
+/**
+ * Every act committed under this retry token IN THIS WORLD, found by identity (exact-key lookups of derived identities; no scan). The world is
+ * part of every act identity (BLUE R-1), so the question is asked of one world: another world under the same token is a different set of acts.
+ */
 function committedUnderToken(
   c: Ctx,
   operationId: string,
-  worldId: string | undefined,
+  worldId: string,
 ): { step: string; revision: number }[] {
-  const names = new Set<string>([
-    "setting-world",
-    "setting-origin",
-    "setting-destination",
-    "setting-corridor",
-    "attest-opening",
-    "legal-opening-basis",
-    "legal-institution",
-    "legal-office",
-    "legal-scope-binding",
-    "legal-instrument",
-    "legal-clauses",
-    "legal-seal",
-    "site-change",
-    "c05-origin-self-provision",
-    "production-start",
-    "production-register",
-    "e0-fixation",
-    "service-basis",
-  ]);
-  if (worldId !== undefined) {
-    const env = readEnvelope(c, worldId);
-    for (const s of env?.site ?? []) names.add(`site-condition-${slug(s.slice.slice_id)}`);
-    for (const s of env?.spec ?? []) names.add(`material-specification-${slug(s.slice.slice_id)}`);
-    for (const s of env?.lot ?? []) names.add(`input-lot-${slug(s.slice.slice_id)}`);
-    const sealId = env?.legal[0]?.premise.basis_id;
-    if (sealId !== undefined) {
-      const refs = requestRefs(c, sealId);
-      for (const ref of refs) {
-        for (const stem of [
-          "l0-service-admission",
-          "l1-first-dispatch",
-          "e1-consume-first-dispatch",
-          "te-enroll-transfer",
-          "ad-destination-adequacy",
-          "withdraw-admit",
-          "withdraw-f2-release",
-          "withdraw-close",
-          "e2-fixation-after",
-        ])
-          names.add(`${stem}-${slug(ref)}`);
+  const names = new Set<string>(STATIC_STEPS);
+  const env = readEnvelope(c, worldId);
+  if (env) {
+    for (const x of env.site) names.add(stepName("site-condition", x.slice.slice_id));
+    for (const x of env.spec) names.add(stepName("material-specification", x.slice.slice_id));
+    for (const x of env.lot) names.add(stepName("input-lot", x.slice.slice_id));
+    // the requests of the profile, from the OWNER's cargo-slot history (BLUE R-7): as many as the owners made, none dropped
+    const sealId = env.legal.length === 1 ? env.legal[0]!.premise.basis_id : undefined;
+    if (sealId !== undefined)
+      for (const x of env.spec) {
+        const entityId = productionOutputReference(
+          economyOriginRequestId(x.premise.specification_id),
+        );
+        for (const ref of requestChain(c, sealId, worldId, entityId))
+          for (const stem of PER_REQUEST_STEPS) names.add(stepName(stem, ref));
       }
-    }
   }
   const found: { step: string; revision: number }[] = [];
   for (const step of [...names].sort()) {
-    const group = c.store.committedGroup(pubOf(operationId, step).intent_id);
-    if (group === null) continue;
-    const receipt = c.store.lookupReceipt(pubOf(operationId, step).intent_id);
-    found.push({ step, revision: receipt?.revision ?? 0 });
+    const intent = gmFreightActIdentity(operationId, worldId, step).intent_id;
+    if (c.store.committedGroup(intent) === null) continue;
+    found.push({ step, revision: c.store.lookupReceipt(intent)?.revision ?? 0 });
   }
   return found;
 }
@@ -870,7 +997,7 @@ function finish(
     steps,
     awaiting: run.awaiting,
     committed_under_token:
-      operationId === null ? [] : committedUnderToken(c, operationId, worldId ?? undefined),
+      operationId === null || worldId === null ? [] : committedUnderToken(c, operationId, worldId),
     status: statusOf(c, c.store.head().campaign_id, worldId),
   } satisfies GmFreightReceipt);
 }
@@ -926,6 +1053,7 @@ async function establishSetting(
         "setting-world",
         "world_state",
         op,
+        worldId,
         (pub) => c.campaign.establishWorld({ ...pub, world }),
         equal(worldProfileKey(worldId), world),
       ))
@@ -937,6 +1065,7 @@ async function establishSetting(
         "setting-origin",
         "world_state",
         op,
+        worldId,
         (pub) => c.campaign.establishLocus({ ...pub, locus: origin }),
         equal(worldLocusKey(worldId, origin.locus_id), origin),
       ))
@@ -948,6 +1077,7 @@ async function establishSetting(
         "setting-destination",
         "world_state",
         op,
+        worldId,
         (pub) => c.campaign.establishLocus({ ...pub, locus: destination }),
         equal(worldLocusKey(worldId, destination.locus_id), destination),
       ))
@@ -958,6 +1088,7 @@ async function establishSetting(
       "setting-corridor",
       "world_state",
       op,
+      worldId,
       (pub) => c.campaign.establishCorridor({ ...pub, corridor }),
       equal(
         worldCorridorKey(worldId, corridor.from_locus_id, corridor.to_locus_id),
@@ -990,7 +1121,24 @@ async function attestOpening(
       premise: x.premise,
     })),
   };
-  await c.perform(run, "attest-opening", "world_state", a.operation_id, (pub) =>
+  // the seal is irreversible (the envelope can never be amended or attested again), so an envelope that cannot carry the first profile is
+  // refused BEFORE it is written (BLUE R-2). This mirrors owner rules, adds none: see `envelopeProblems`. An envelope already attested is
+  // judged by the owner as before (an identical re-presentation replays; a different one conflicts), so the gate applies only to a new one.
+  const kinds: Record<string, number> = {};
+  for (const x of o.slices) kinds[x.slice_kind] = (kinds[x.slice_kind] ?? 0) + 1;
+  const problems = envelopeProblems(kinds);
+  if (problems.length > 0 && c.world.attestation(o.world_id) === undefined) {
+    run.halt = {
+      kind: "REFUSED",
+      step: "attest-opening",
+      code: "ENVELOPE_CANNOT_CARRY_THE_PROFILE",
+      message:
+        "the original envelope cannot be amended once attested, and this one does not carry what the first freight profile needs; nothing was written",
+      details: { problems },
+    };
+    return finish(c, s, run, GM_FREIGHT_TOOLS.attestOpening, a.operation_id, o.world_id);
+  }
+  await c.perform(run, "attest-opening", "world_state", a.operation_id, o.world_id, (pub) =>
     c.world.attestOpening({ ...pub, opening }),
   );
   return finish(c, s, run, GM_FREIGHT_TOOLS.attestOpening, a.operation_id, o.world_id);
@@ -1005,14 +1153,25 @@ async function establishLegal(
   const op = a.operation_id;
   const worldId = a.world_id;
   const envelope = readEnvelope(c, worldId);
-  const legal = envelope?.legal[0]?.premise;
-  if (!envelope || !legal) {
+  if (!envelope) {
     run.halt = {
       kind: "REFUSED",
       step: "legal-opening-basis",
       code: "PREREQUISITE_MISSING",
+      message: "the original envelope is attested before the legal source is assembled",
+    };
+    return finish(c, s, run, GM_FREIGHT_TOOLS.establishLegal, op, worldId);
+  }
+  const envelopeIssues = envelopeProblems(envelope.kinds, envelope.untyped);
+  const legal = envelope.legal.length === 1 ? envelope.legal[0]!.premise : undefined;
+  if (envelopeIssues.length > 0 || !legal) {
+    run.halt = {
+      kind: "REFUSED",
+      step: "legal-opening-basis",
+      code: "SEALED_ENVELOPE_CANNOT_CARRY_THE_PROFILE",
       message:
-        "the original envelope with its legal slice is attested before the legal source is assembled",
+        "the original envelope is sealed and cannot be amended or attested again, and it does not carry what this profile needs; nothing the GM can author changes that",
+      details: { problems: envelopeIssues },
     };
     return finish(c, s, run, GM_FREIGHT_TOOLS.establishLegal, op, worldId);
   }
@@ -1089,20 +1248,60 @@ async function establishLegal(
     ],
   ];
   for (const [step, owner, run1, present] of steps)
-    if (!(await c.perform(run, step, owner, op, run1, present))) break;
+    if (!(await c.perform(run, step, owner, op, worldId, run1, present))) break;
   return finish(c, s, run, GM_FREIGHT_TOOLS.establishLegal, op, worldId);
 }
 
-async function initiate(c: Ctx, s: SessionBinding, a: GmInitiateRequest): Promise<GmFreightResult> {
+/** Per-call ceiling on owner acts. Trusted-side configuration, never a request field: a host cannot raise, lower or see it. */
+export const DEFAULT_MAX_ACTS_PER_CALL = 32;
+
+async function initiate(
+  c: Ctx,
+  s: SessionBinding,
+  a: GmInitiateRequest,
+  maxActs: number,
+): Promise<GmFreightResult> {
   const run = new Run();
-  for (let i = 0; i < MAX_ACTS_PER_CALL; i++) {
+  const performed = new Set<string>();
+  for (;;) {
     const next = position(c, a.world_id).next;
     if (next.kind === "done") break;
-    if (next.kind === "await") {
+    if (next.kind === "await" || next.kind === "blocked") {
       run.awaiting = next.awaiting;
       break;
     }
-    if (!(await c.perform(run, next.step, next.owner, a.operation_id, next.run))) break;
+    if (next.kind === "refused") {
+      // an OWNER's own refusal, found by its pure derivation before any write: reported in the owner's words, nothing invented
+      run.halt = {
+        kind: "REFUSED",
+        step: next.step,
+        code: next.code,
+        message: next.message,
+        ...(next.details !== undefined ? { details: next.details } : {}),
+      };
+      break;
+    }
+    if (performed.size >= maxActs) {
+      // not a failure and nobody else is awaited: the call stopped at its ceiling with owner work still due (BLUE R-8)
+      run.awaiting = {
+        kind: "MORE_OWNER_WORK_DUE",
+        note: "owner work is still due and this call stopped at its per-call limit; present gm_freight_initiate again (a new operation_id) to continue from the committed owner position",
+      };
+      break;
+    }
+    if (performed.has(next.step)) {
+      // a defensive invariant: an act that reports success yet leaves the position unchanged would repeat forever
+      run.halt = {
+        kind: "REFUSED",
+        step: next.step,
+        code: "NO_PROGRESS",
+        message:
+          "an owner act reported success but the committed position did not advance; the bridge stopped rather than repeat it",
+      };
+      break;
+    }
+    performed.add(next.step);
+    if (!(await c.perform(run, next.step, next.owner, a.operation_id, a.world_id, next.run))) break;
   }
   return finish(c, s, run, GM_FREIGHT_TOOLS.initiate, a.operation_id, a.world_id);
 }
@@ -1113,7 +1312,7 @@ async function reportSiteChange(
   a: GmReportSiteChangeRequest,
 ): Promise<GmFreightResult> {
   const run = new Run();
-  await c.perform(run, "site-change", "world_state", a.operation_id, (pub) =>
+  await c.perform(run, "site-change", "world_state", a.operation_id, a.world_id, (pub) =>
     c.world.admitSiteConditionChange({
       ...pub,
       change: {
@@ -1148,20 +1347,22 @@ async function withdraw(c: Ctx, s: SessionBinding, a: GmWithdrawRequest): Promis
   // C-07: Economy alone derives whether a W2 / W3 cause exists; with none it admits nothing and the owner's refusal is reported
   if (status() !== "withdrawal-pending" && status() !== "terminal")
     if (
-      !(await c.perform(run, `withdraw-admit-${slug(ref)}`, "economy", op, (pub) =>
+      !(await c.perform(run, stepName("withdraw-admit", ref), "economy", op, a.world_id, (pub) =>
         c.economy.admitWithdrawal({ ...pub, request: target }),
       ))
     )
       return finish(c, s, run, GM_FREIGHT_TOOLS.withdraw, op, a.world_id);
   // F2: only where Logistics holds a committed, undispatched service for exactly this request
-  const spec = pos.envelope?.spec[0]?.premise.specification_id;
+  // the profile's one specification is the OWNER's selection (Economy `profileScope`), never the first slice found (BLUE R-6)
+  const scope =
+    pos.sealId === undefined ? undefined : profileScope(storeSource(c.store), pos.sealId);
   const committed =
-    spec === undefined
+    scope === undefined || !scope.ok
       ? undefined
       : (c.store.getFact(
           logisticsCommitmentKey(
             a.world_id,
-            productionOutputReference(economyOriginRequestId(spec)),
+            productionOutputReference(economyOriginRequestId(scope.value.specificationId)),
           ),
         )?.value as LogisticsCommitment | undefined);
   if (
@@ -1171,13 +1372,18 @@ async function withdraw(c: Ctx, s: SessionBinding, a: GmWithdrawRequest): Promis
     c.logistics.unusedRelease(ref) === undefined
   )
     if (
-      !(await c.perform(run, `withdraw-f2-release-${slug(ref)}`, "logistics", op, (pub) =>
-        c.logistics.releaseUnusedService({ ...pub, request: target }),
+      !(await c.perform(
+        run,
+        stepName("withdraw-f2-release", ref),
+        "logistics",
+        op,
+        a.world_id,
+        (pub) => c.logistics.releaseUnusedService({ ...pub, request: target }),
       ))
     )
       return finish(c, s, run, GM_FREIGHT_TOOLS.withdraw, op, a.world_id);
   if (status() === "withdrawal-pending")
-    await c.perform(run, `withdraw-close-${slug(ref)}`, "economy", op, (pub) =>
+    await c.perform(run, stepName("withdraw-close", ref), "economy", op, a.world_id, (pub) =>
       c.economy.closeWithdrawnRequest({ ...pub, request: target }),
     );
   return finish(c, s, run, GM_FREIGHT_TOOLS.withdraw, op, a.world_id);
@@ -1230,6 +1436,11 @@ const MUTATORS: ReadonlySet<string> = new Set([
   GM_FREIGHT_TOOLS.withdraw,
 ]);
 
+/** Trusted-side configuration of one operation. It is never read from a request. */
+export interface GmFreightLimits {
+  readonly maxActsPerCall?: number;
+}
+
 /**
  * The host's one operation. `session` is the trusted binding; `tool` and `args` are the host's untrusted input. A forged session,
  * an unknown tool or a campaign with a player character bound is refused before the host's arguments are read for meaning.
@@ -1238,11 +1449,17 @@ export async function runGmFreightOperation(
   session: TrustedGmFreightSession,
   tool: string,
   args: unknown,
+  limits: GmFreightLimits | undefined = undefined,
 ): Promise<GmFreightResult> {
   const before = { ...freightWorkCounters };
   gmFreightWorkCounters.operations++;
   try {
-    return await dispatchOperation(session, tool, args);
+    return await dispatchOperation(
+      session,
+      tool,
+      args,
+      limits?.maxActsPerCall ?? DEFAULT_MAX_ACTS_PER_CALL,
+    );
   } finally {
     for (const k of Object.keys(
       gmFreightWorkCounters.in_operation,
@@ -1255,6 +1472,7 @@ async function dispatchOperation(
   session: TrustedGmFreightSession,
   tool: string,
   args: unknown,
+  maxActs: number,
 ): Promise<GmFreightResult> {
   const bound = sessions.get(session);
   if (bound === undefined || !Object.hasOwn(GM_FREIGHT_REQUEST_SCHEMAS, tool)) return unavailable();
@@ -1277,13 +1495,13 @@ async function dispatchOperation(
       case GM_FREIGHT_TOOLS.establishLegal:
         return await establishLegal(c, bound, a);
       case GM_FREIGHT_TOOLS.initiate:
-        return await initiate(c, bound, a);
+        return await initiate(c, bound, a, maxActs);
       case GM_FREIGHT_TOOLS.reportSiteChange:
         return await reportSiteChange(c, bound, a);
       case GM_FREIGHT_TOOLS.withdraw:
         return await withdraw(c, bound, a);
       case GM_FREIGHT_TOOLS.reconcile: {
-        const r = a as { operation_id: string; world_id?: string };
+        const r = a as { operation_id: string; world_id: string };
         return ok({
           audience: GM_FREIGHT_AUDIENCE,
           tool: GM_FREIGHT_TOOLS.reconcile,

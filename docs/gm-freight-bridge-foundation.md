@@ -39,7 +39,7 @@ canonical owner.
 | `gm_freight_initiate`           | World-State site condition → Production specification and lot → Economy C-05 → Production start → Temporal registration → _(player's time)_ → Economy E0 → Logistics service basis, L0, L1/F3 → Economy E1 → Temporal enrolment → _(player's time)_ → Economy AD; stops at the first refusal or wait |
 | `gm_freight_report_site_change` | World-State: one prospective site-condition change under the GM's adjudication authority                                                                                                                                                                                                             |
 | `gm_freight_withdraw`           | Economy W2/W3 withdrawal-pending → Logistics F2 unused release (only where a service is committed) → Economy close C                                                                                                                                                                                 |
-| `gm_freight_reconcile`          | none (reads derived identities); the acts committed under a retry token, with their revisions                                                                                                                                                                                                        |
+| `gm_freight_reconcile`          | none (reads derived identities); the acts committed under a retry token IN THE NAMED WORLD, with their revisions                                                                                                                                                                                     |
 
 ## 2. Who owns what: the GM, the engine, the operator, the player
 
@@ -109,14 +109,28 @@ from validity and current force). **Not implemented, as before:** positive F1 te
 
 ## 6. Identity, replay and recovery (RC-16)
 
-Every owner act is published under a deterministic identity `gmf:<operation_id>:<act>` derived from the host's own retry token. The same token and terms
+Every owner act is published under a deterministic identity `gmf:<operation_id>:<world_id, encoded>:<act>` derived from the host's own retry token, the world and the act. An act on a particular source identity (a slice, a request) carries it after `@`, and every identity part is encoded injectively (`_<hex code point>_` for each character outside `[A-Za-z0-9.-]`, the escape character included), so two different worlds, slices or requests can never share an identity (`encodeIdPart`, `stepName`, `gmFreightActIdentity`). The token is the host's own but is not namespaced by host: a second host presenting the same token with the same terms replays what committed, and with different terms meets the owner's `INTENT_CONFLICT` and writes nothing (tested). The same token and terms
 **replay** what committed (the owner returns the ORIGINAL receipt, `disposition: REPLAYED`); the same token with changed terms is the owner's
 `INTENT_CONFLICT` (`GM_FREIGHT_INTENT_CONFLICT`) and writes nothing; the same authored content under another token is `ALREADY_PRESENT` (nothing written,
 no revision claimed). A commit that may have happened without a reply is `GM_FREIGHT_OUTCOME_UNKNOWN` (never "safely absent"): the host calls
 `gm_freight_reconcile` and presents the same request with the same token. The lane **does not refuse on residue** of an interrupted commit (an unadopted
 journal tail): unlike the read lanes, re-presenting the same identities is this lane's recovery path, and committed canon is the only thing read or written.
 `gm_freight_initiate`/`withdraw` choose their next act from committed owner state (exact keys, no scan), so they are naturally idempotent and continue
-from whatever the owners hold, however it was reached.
+from whatever the owners hold, however it was reached. `gm_freight_reconcile` requires the world: the same token in another world is a different set of acts.
+
+### 6.1 Repairs after BLUE's HOLD on the first head (R-1 … R-8)
+
+| Finding                                                          | Repair                                                                                                                                                                                                                                                                                                                                     | Where it is falsified                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| R-1 lossy, world-free act identity                               | the injective, world-scoped identity above; reconcile is per world                                                                                                                                                                                                                                                                         | `gm-freight-identity.test.ts` (R-1)                              |
+| R-2 an irreversible seal the bridge could not carry              | an envelope that cannot carry the profile is refused BEFORE it is written (`ENVELOPE_CANNOT_CARRY_THE_PROFILE`, with the exact problems); an envelope already sealed that cannot carry it is reported as `NOT_ACTIONABLE` (an irreversible block, nothing the GM can author), never as an actionable GM step; `establish_legal` refuses it | R-2 cases (nine envelope defects; a World-State-seeded envelope) |
+| R-3 / R-4 non-crash-safe, unserialized host enrolment            | secret-before-config with the config as the commit point, orphan replacement, idempotent re-bind, an exclusive lock file with stale/dead-holder reclaim; a lost-acknowledgement config write is re-read before any rollback                                                                                                                | `gm-freight-bind.test.ts` (including cross-process races)        |
+| R-5 recovery claimed for every mutating tool but not cut for all | cut matrices for `report_site_change`, W2, W3 before L0, W3 with F2 and close, the renewed request E2, and two-host contention; the claim is now stated exactly (`docs/evidence/gm-freight/README.md`)                                                                                                                                     | `gm-freight-recovery-withdrawal.test.ts`                         |
+| R-6 first-slice indexing                                         | the profile's condition and prerequisite are Economy's own `profileScope`; the lot is the one Economy's own dry derivation selects (C-05); the service premise is exactly one by precondition; a tie or none is the OWNER's refusal reported before any lot is written                                                                     | R-6 case, the C-05 refusal cases                                 |
+| R-7 request chain capped at eight                                | the chain is read from the owners' own cargo-slot version history, however long                                                                                                                                                                                                                                                            | R-7 (nine renewals; fails if capped at eight)                    |
+| R-8 silent stop at 32 acts                                       | the per-call ceiling is trusted-side configuration (`limits.maxActsPerCall`, never a request field); stopping at it is `MORE_OWNER_WORK_DUE`, a continuation, not a failure; the end state equals the uncapped run's                                                                                                                       | R-8 cases                                                        |
+
+Because act identities changed, a campaign written by the first head is not reconcilable by this one; no such campaign exists (the first head was never merged).
 
 ## 7. Predecessor changes (scoped deltas, for BLUE review)
 
@@ -155,6 +169,12 @@ missing-cause refusals are tested at the owners through the bridge (W3 with no c
    advanced time would have needed a new authority the sources do not grant. Consequence: a complete chain needs a human at those two points.
 3. **Attestation is sealed once, so the typed readings are validated before anything is written** (strict schemas, per slice kind); a premise that does not
    parse never reaches the owner. Cross-slice consistency is judged by the owners at admission, as before, and a sealed envelope cannot be amended.
+   **Open question for BLUE, RED and the Sovereign (not a Builder decision): pre-seal readiness.** To stop the bridge sealing an envelope it could never carry,
+   `attest_opening` refuses one that lacks exactly one legal, site-condition, material-specification and service slice, or any input lot (`envelopeProblems`).
+   Each line mirrors an owner's existing selection rule (GIP `legalSource`, Economy `profileScope`, Economy C-05) and adds no source law, but it does move a
+   refusal earlier than the owner would give it. Whether the bridge should gate at all, or only report after the fact, is for BLUE to direct.
+   3a. **Open question: which service premise serves a request.** The sources name no rule choosing one of several service premises, so the bridge does not
+   choose: more than one is refused before the seal and reported `NOT_ACTIONABLE` if already sealed. A selection rule, if wanted, must come from the sources.
 4. **The Instrument's three references are derived** rather than supplied (§5), so the model cannot point an Instrument at an authority other than the one
    it established. If BLUE prefers them supplied and verified, that is a small change.
 5. **Per-call strict re-open** (the pattern of every existing lane) keeps the package lock short so the operator's console is never starved, at a cost

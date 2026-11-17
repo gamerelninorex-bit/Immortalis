@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { CanonicalCampaign, resolveEntityLocus } from "@immortalis/engine";
+import { CanonicalCampaign, resolveEntityLocus, stepName } from "@immortalis/engine";
 import { GM_FREIGHT_TOOLS, type GmFreightReconciliation } from "@immortalis/contracts";
 import { quarryWorksFixture, textileWorkshopFixture } from "@immortalis/testkit";
 import { keysOf } from "../support/freight.ts";
@@ -94,9 +94,9 @@ describe.each(WORLDS)("GM freight bridge — %s (MECHANISM ONLY)", (_label, fixt
       await rig.call(GM_FREIGHT_TOOLS.initiate, { operation_id: "go-1", world_id: fx.worldId }),
     );
     expect(stepNames(go1)).toEqual([
-      "site-condition-slice-b-site-condition",
-      "material-specification-slice-c-material-specification",
-      "input-lot-slice-d-input-lot",
+      "site-condition@slice-b-site-condition",
+      "material-specification@slice-c-material-specification",
+      "input-lot@slice-d-input-lot",
       "c05-origin-self-provision",
       "production-start",
       "production-register",
@@ -122,10 +122,10 @@ describe.each(WORLDS)("GM freight bridge — %s (MECHANISM ONLY)", (_label, fixt
     expect(stepNames(go2)).toEqual([
       "e0-fixation",
       "service-basis",
-      `l0-service-admission-${ref!.replace(/[^A-Za-z0-9._-]/g, "_")}`,
-      `l1-first-dispatch-${ref!.replace(/[^A-Za-z0-9._-]/g, "_")}`,
-      `e1-consume-first-dispatch-${ref!.replace(/[^A-Za-z0-9._-]/g, "_")}`,
-      `te-enroll-transfer-${ref!.replace(/[^A-Za-z0-9._-]/g, "_")}`,
+      stepName("l0-service-admission", ref!),
+      stepName("l1-first-dispatch", ref!),
+      stepName("e1-consume-first-dispatch", ref!),
+      stepName("te-enroll-transfer", ref!),
     ]);
     expect(go2.awaiting).toMatchObject({
       kind: "PLAYER_OOC_TIME_ADVANCE",
@@ -138,9 +138,7 @@ describe.each(WORLDS)("GM freight bridge — %s (MECHANISM ONLY)", (_label, fixt
     const go3 = receiptOf(
       await rig.call(GM_FREIGHT_TOOLS.initiate, { operation_id: "go-3", world_id: fx.worldId }),
     );
-    expect(stepNames(go3)).toEqual([
-      `ad-destination-adequacy-${ref!.replace(/[^A-Za-z0-9._-]/g, "_")}`,
-    ]);
+    expect(stepNames(go3)).toEqual([stepName("ad-destination-adequacy", ref!)]);
     expect(go3.awaiting).toBeNull();
     expect(go3.status!.stage).toBe("COMPLETE");
 
@@ -190,7 +188,10 @@ describe.each(WORLDS)("GM freight bridge — %s (MECHANISM ONLY)", (_label, fixt
     const refused = await rig.call(GM_FREIGHT_TOOLS.establishSetting, edited);
     expect(refused.ok ? "OK" : refused.error.code).toBe("GM_FREIGHT_INTENT_CONFLICT");
     // reconciliation by identity reports exactly what committed under the token
-    const rec = await rig.call(GM_FREIGHT_TOOLS.reconcile, { operation_id: "tok" });
+    const rec = await rig.call(GM_FREIGHT_TOOLS.reconcile, {
+      operation_id: "tok",
+      world_id: fx.worldId,
+    });
     expect(
       rec.ok && (rec.value as unknown as GmFreightReconciliation).committed.map((s) => s.step),
     ).toEqual(["setting-corridor", "setting-destination", "setting-origin", "setting-world"]);

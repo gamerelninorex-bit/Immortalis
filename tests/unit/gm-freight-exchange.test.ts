@@ -33,13 +33,15 @@ describe("binding", () => {
     expect(config).toContain("secret_sha256");
   });
 
-  it("refuses a second binding of the same host, an invalid host identity and a fifth host", async () => {
+  it("binds the same host idempotently (its own path back, its secret never rotated), refuses an invalid host identity and a fifth host", async () => {
     const stateDir = freshState();
-    expect((await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "h1" })).ok).toBe(
-      true,
-    );
+    const first = await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "h1" });
+    if (!first.ok) throw new Error("bind");
+    const secret = readGmFreightSecretFile(first.value.secret_file);
     const again = await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "h1" });
-    expect(again.ok ? "OK" : again.error.code).toBe("HOST_EXISTS");
+    expect(again.ok && again.value.secret_file).toBe(first.value.secret_file);
+    expect(readGmFreightSecretFile(first.value.secret_file)).toBe(secret);
+    expect((await readGmFreightConfig(ex(stateDir), uid)).ok).toBe(true);
     const bad = await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "../x" });
     expect(bad.ok ? "OK" : bad.error.code).toBe("CONFIG_INVALID");
     for (const h of ["h2", "h3", "h4"])
@@ -48,8 +50,9 @@ describe("binding", () => {
       );
     const fifth = await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "h5" });
     expect(fifth.ok ? "OK" : fifth.error.code).toBe("CONFIG_INVALID");
-    // the config the refusal left behind is still readable
-    expect((await readGmFreightConfig(ex(stateDir), uid)).ok).toBe(true);
+    // the config the refusal left behind is still readable, and a refused host left no secret file
+    const config = await readGmFreightConfig(ex(stateDir), uid);
+    expect(config.ok && config.value.hosts.map((h) => h.host_id)).toEqual(["h1", "h2", "h3", "h4"]);
   });
 });
 

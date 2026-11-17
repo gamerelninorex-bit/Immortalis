@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { GmFreightResult } from "@immortalis/engine";
 import { CanonicalCampaign, GipAdapter } from "@immortalis/engine";
-import { GM_FREIGHT_TOOLS } from "@immortalis/contracts";
+import { GM_FREIGHT_TOOLS, productionInputLotKey } from "@immortalis/contracts";
 import {
   freightPublication,
   quarryWorksFixture,
@@ -261,22 +261,43 @@ describe("the sealed original envelope and the setting's order of authorship", (
 });
 
 describe("material refusals after the seal: the owners judge the premises the GM specified", () => {
-  it("withholds C-05 when no dedicated lot exists, and when two qualifying lots tie, and writes no Production or Economy fact", async () => {
+  it("refuses to seal an envelope with no lot at all; withholds C-05 for a lot that does not qualify and for two that tie, writing no lot, Production or Economy fact for either", async () => {
+    // (a) no lot at all can never qualify, and the seal is irreversible: refused BEFORE anything is written (BLUE R-2)
     const none = variant(quarryWorksFixture(), (fx) => {
       fx.opening.slices = fx.opening.slices.filter(
         (s: { slice_kind: string }) => s.slice_kind !== "input_lot",
       );
     });
-    const rigNone = await throughChronology(none);
-    receiptOf(await rigNone.call(tool.establishLegal, legalRequest(none)));
+    const rigNone = await newGmRig(none);
+    receiptOf(await rigNone.call(tool.establishSetting, settingRequest(none)));
+    const before = await heads(rigNone);
+    const r00 = refusal(await rigNone.call(tool.attestOpening, attestRequest(none)));
+    expect(r00.details.halted.code).toBe("ENVELOPE_CANNOT_CARRY_THE_PROFILE");
+    expect(r00.details.halted.details.problems).toEqual([
+      { slice_kind: "input_lot", expected: "at least 1", found: 0 },
+    ]);
+    expect(await heads(rigNone)).toEqual(before);
+
+    // (b) a lot that is present but does not qualify (a different class): the OWNER withholds, and no lot is admitted for it
+    const wrong = variant(quarryWorksFixture(), (fx) => {
+      fx.inputLot.dedicated_operation.output.output_class = "some-other-material";
+    });
+    const rigWrong = await throughChronology(wrong);
+    receiptOf(await rigWrong.call(tool.establishLegal, legalRequest(wrong)));
     const r0 = refusal(
-      await rigNone.call(tool.initiate, { operation_id: "go", world_id: none.worldId }),
+      await rigWrong.call(tool.initiate, { operation_id: "go", world_id: wrong.worldId }),
     );
     expect(r0.details.halted.step).toBe("c05-origin-self-provision");
     expect(r0.details.halted.code).toBe("WITHHELD");
     expect(r0.details.halted.message).toMatch(/no dedicated source lot qualifies/);
+    expect(r0.details.steps.map((s: { step: string }) => s.step)).toEqual([
+      "site-condition@slice-b-site-condition",
+      "material-specification@slice-c-material-specification",
+    ]);
 
+    // (c) two qualifying lots: the owner's tie is reported before ANY lot is written
     const tie = quarryWorksFixture();
+    const original = tie.inputLot;
     const twin = JSON.parse(
       JSON.stringify(tie.opening.slices.find((s) => s.slice_kind === "input_lot")),
     );
@@ -293,13 +314,19 @@ describe("material refusals after the seal: the owners judge the premises the GM
     );
     expect(r1.details.halted.code).toBe("WITHHELD");
     expect(r1.details.halted.message).toMatch(/a tie is never broken/);
-    // both lots and the condition and specification were admitted by their owners; nothing of Economy or Production was started
     expect(r1.details.steps.map((s: { step: string }) => s.step)).toEqual([
-      "site-condition-slice-b-site-condition",
-      "material-specification-slice-c-material-specification",
-      "input-lot-slice-d-input-lot",
-      "input-lot-slice-d-input-lot-twin",
+      "site-condition@slice-b-site-condition",
+      "material-specification@slice-c-material-specification",
     ]);
+    const c = await must(
+      CanonicalCampaign.open(rigTie.campaignDir, { buildId: "gm-freight-test-read" }),
+    );
+    try {
+      for (const lot of [original.lot_id, "twin-lot"])
+        expect(c.store.getFact(productionInputLotKey(lot))).toBeUndefined();
+    } finally {
+      await c.close();
+    }
   }, 180_000);
 
   it("refuses a service that cannot carry the whole cargo and a service whose handling is incompatible, at the owner's own act", async () => {
@@ -357,9 +384,9 @@ describe("material refusals after the seal: the owners judge the premises the GM
     expect(r.code).toBe("GM_FREIGHT_REFUSED");
     expect(r.details.halted.step).toBe("c05-origin-self-provision");
     expect(r.details.steps.map((s: { step: string }) => s.step)).toEqual([
-      "site-condition-slice-b-site-condition",
-      "material-specification-slice-c-material-specification",
-      "input-lot-slice-d-input-lot",
+      "site-condition@slice-b-site-condition",
+      "material-specification@slice-c-material-specification",
+      "input-lot@slice-d-input-lot",
     ]);
   }, 120_000);
 });

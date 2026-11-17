@@ -186,7 +186,7 @@ describe("authority is the trusted side's: nothing the host states is a role, a 
         outcome: "STANDING",
       },
       [tool.withdraw]: { operation_id: "oc-f", world_id: rig.fx.worldId },
-      [tool.reconcile]: { operation_id: "oc-g" },
+      [tool.reconcile]: { operation_id: "oc-g", world_id: rig.fx.worldId },
       [tool.status]: {},
     };
     for (const [t, base] of Object.entries(bases))

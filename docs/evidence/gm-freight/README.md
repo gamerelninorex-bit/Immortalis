@@ -29,17 +29,25 @@ Elapsed time through the tool path is **not independent of unrelated dormant his
 
 **Provisional limit, owning route and reconsideration trigger.** Owning route: the existing persistence/open-cost line (H-07 retained-storage evidence and the engine-wide architectural audit R01), not this slice. Reconsider before any T2 (genuine host) or T3 (named client / retained restart) claim on a campaign with more than a few hundred unrelated committed facts, or when a live session shows a host call whose latency matters to play; the candidate repairs (checkpoint-assisted open for the mutating lane, or holding the lock across one GM turn) change the lock/starvation tradeoff and need their own authorization — neither is built here.
 
-## Recovery: crash and lost-acknowledgement matrix (`tests/integration/gm-freight-recovery.test.ts`)
+## Recovery: crash and lost-acknowledgement matrix (`tests/integration/gm-freight-recovery.test.ts`, `tests/integration/gm-freight-recovery-withdrawal.test.ts`)
 
-For each mutating tool at its natural point in the chain, the filesystem fails at **every** durable operation of the whole call (before the operation takes effect, and after it took effect so that the caller sees a failure), the dead process's lock is reclaimed, the campaign is re-opened under strict replay and verified, `gm_freight_reconcile` reports what committed, and the SAME call with the SAME `operation_id` is presented again. Every scenario converged on a final canonical revision and state hash **byte-identical to the uninterrupted run**, and no call that left a commit behind was ever reported as a plain refusal.
+For each cell the filesystem fails at **every** durable operation of the whole call (before the operation takes effect, and after it took effect so that the caller sees a failure), the dead process's lock is reclaimed, the campaign is re-opened under strict replay and verified, `gm_freight_reconcile` reports what committed, and the SAME call with the SAME `operation_id` is presented again. Every scenario converged on a final canonical revision and state hash **byte-identical to the uninterrupted run**, and no call that left a commit behind was ever reported as a plain refusal.
 
-| World            | Tool call         | Durable steps in the call | Scenarios | Reported unknown outcome | Reported ok | Reported unavailable |
-| ---------------- | ----------------- | ------------------------- | --------- | ------------------------ | ----------- | -------------------- |
-| quarry-works     | establish_setting | 12                        | 24        | 16                       | 6           | 2                    |
-| quarry-works     | attest_opening    | 6                         | 12        | 4                        | 6           | 2                    |
-| quarry-works     | establish_legal   | 18                        | 36        | 28                       | 6           | 2                    |
-| quarry-works     | initiate-1        | 16                        | 32        | 24                       | 6           | 2                    |
-| quarry-works     | initiate-2        | 16                        | 32        | 24                       | 6           | 2                    |
-| textile-workshop | initiate-adequacy | 6                         | 12        | 4                        | 6           | 2                    |
+**What is and is not covered (stated exactly).** All six mutating tools are cut: `establish_setting`, `attest_opening`, `establish_legal`, `report_site_change`, `withdraw` and `initiate`. `initiate` is cut at its first ask, its second ask (E0 through enrolment), the renewed request E2 through enrolment, and the adequacy ask; `withdraw` is cut as W3 before L0, W3 with the exact unused release F2 and close, and W2. Every cell uses one prefix state; the cuts are per durable operation of one call, not a search of all interleavings. Two bound hosts are exercised for contention and for token reuse (no fault injected during that contention). The Textile Workshop is cut for the adequacy ask and for W3 with F2; the other cells run on the Quarry Works fixture. Prefix states the bridge would not stop at are seeded through the owners' own adapters and labelled so in the tests.
 
-Total: **148** fault scenarios.
+| World            | Cut                   | Durable steps in the call | Scenarios | Reported unknown outcome | Reported ok | Reported unavailable |
+| ---------------- | --------------------- | ------------------------- | --------- | ------------------------ | ----------- | -------------------- |
+| quarry-works     | establish_setting     | 12                        | 24        | 16                       | 6           | 2                    |
+| quarry-works     | attest_opening        | 6                         | 12        | 4                        | 6           | 2                    |
+| quarry-works     | establish_legal       | 18                        | 36        | 28                       | 6           | 2                    |
+| quarry-works     | initiate-1            | 16                        | 32        | 24                       | 6           | 2                    |
+| quarry-works     | initiate-2            | 16                        | 32        | 24                       | 6           | 2                    |
+| quarry-works     | report_site_change    | 6                         | 12        | 4                        | 6           | 2                    |
+| quarry-works     | withdraw-w3-before-l0 | 8                         | 16        | 8                        | 6           | 2                    |
+| quarry-works     | withdraw-w3-f2-close  | 10                        | 20        | 12                       | 6           | 2                    |
+| quarry-works     | withdraw-w2           | 8                         | 16        | 8                        | 6           | 2                    |
+| quarry-works     | initiate-e2-renewal   | 14                        | 28        | 20                       | 6           | 2                    |
+| textile-workshop | initiate-adequacy     | 6                         | 12        | 4                        | 6           | 2                    |
+| textile-workshop | withdraw-w3-f2-close  | 10                        | 20        | 12                       | 6           | 2                    |
+
+Total: **260** fault scenarios (the first head recorded 148 for the first six cells and claimed every mutating tool; that claim was wrong and is withdrawn).

@@ -9,6 +9,7 @@ import {
   bindTrustedGmFreightSession,
   runGmFreightOperation,
   type FsOps,
+  type GmFreightLimits,
   type GmFreightResult,
 } from "@immortalis/engine";
 import { authorizeGmFreightHost } from "./gm-freight-exchange.ts";
@@ -44,6 +45,8 @@ export interface GmFreightParams {
   readonly buildId?: string;
   readonly campaignFs?: FsOps;
   readonly ledgerFs?: FsOps;
+  /** trusted-side configuration of the operation (the per-call act ceiling): never read from a host request, and the stdio server sets none */
+  readonly limits?: GmFreightLimits;
 }
 
 export const GM_FREIGHT_BUILD_ID = "gm-freight-bridge";
@@ -79,7 +82,7 @@ export async function callGmFreight(
       // this lane's recovery path (RC-16), and the next commit supersedes the residue. Only committed canon is ever read or written.
       if (campaign.store.head().campaign_id !== p.campaignId) return refusal();
       const session = bindTrustedGmFreightSession({ campaign, hostId: authorized.value.host_id });
-      return await runGmFreightOperation(session, tool, args);
+      return await runGmFreightOperation(session, tool, args, p.limits);
     } finally {
       await campaign.close().catch(() => undefined);
     }
