@@ -12,3 +12,7 @@ docs/evidence/s4-initial-ledger/benchmark
 docs/evidence/s4-initial-ledger/mutation-results-*.json
 tests/fixtures/s4-legacy-pc-c6ea29d/activation/package/manifest.json
 tests/fixtures/s4-legacy-pc-c6ea29d/handover/package/manifest.json
+
+# Retained canonical JSON bytes: never reformat historical campaign witnesses.
+tests/fixtures/r02-a01-pre-s4/*/manifest.json
+tests/fixtures/r02-a01-pre-s4/*/state.0000000000.json

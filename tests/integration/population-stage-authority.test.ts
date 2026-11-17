@@ -1,5 +1,5 @@
 // A01: real owner-produced groups, canonical raw admission and verified reopening. No helper-only pass.
-import { readFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -540,7 +540,7 @@ describe("A01 Population stage admission is independent of an honest coordinator
   });
 });
 
-describe("A01 preserves canonical bytes produced by the accepted pre-repair engine", () => {
+describe("A01 preserves pre-S-4 records and post-S-4 seeds independently", () => {
   // Captured by the disposable baseline source investigation, before any implementation edits.
   const golden = {
     ordinary: [
@@ -557,7 +557,61 @@ describe("A01 preserves canonical bytes produced by the accepted pre-repair engi
     ],
   };
   for (const mode of ["ordinary", "pcb", "interrupted"] as const) {
-    it(`keeps the ${mode} state and complete journal/receipt chain identical`, async () => {
+    it(`preserves the retained pre-S-4 ${mode} package and every original receipt without re-citing or backfilling`, async () => {
+      const dir = tempDir();
+      cpSync(join(import.meta.dirname, "../fixtures/r02-a01-pre-s4", mode), dir, {
+        recursive: true,
+      });
+      mkdirSync(join(dir, "history"), { recursive: true });
+      const journal = readFileSync(join(dir, "journal.jsonl"));
+      const entries = entriesOf(dir);
+      const c = await must(
+        CanonicalCampaign.open(dir, { extension: POPULATION_FIXTURE_EXTENSION }),
+      );
+      expect([c.store.head().state_sha256, c.store.head().journal_head_sha256]).toEqual(
+        golden[mode],
+      );
+      expect(c.verify()).toEqual([]);
+      expect(c.standingInstructionLedger(c.binding()!.value.active_pc.entity_id)).toBeUndefined();
+      for (const e of entries) expect(c.store.lookupReceipt(e.group.intent_id)).toEqual(e.receipt);
+      await c.close();
+      expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journal);
+      const re = await must(
+        CanonicalCampaign.open(dir, { extension: POPULATION_FIXTURE_EXTENSION }),
+      );
+      expect([re.store.head().state_sha256, re.store.head().journal_head_sha256]).toEqual(
+        golden[mode],
+      );
+      if (mode === "interrupted") {
+        const resumed = await must(
+          popCoordinator(re.store).advance(advanceToRequest("tx-baseline-interrupted", POP_TP)),
+        );
+        expect(resumed.adopted).toContainEqual(popClose1Object().dependencies[0]!.stage);
+        expect(re.store.getFact(ledgerKey)!.version).toBe(2);
+        expect(re.verify()).toEqual([]);
+      }
+      await re.close();
+    });
+  }
+
+  // Independently measured on pristine merged main bdc46e7: S-4 adds a ledger and cites its binding rule.
+  // These new-seed identities do not replace the old goldens checked against retained packages above.
+  const currentGolden = {
+    ordinary: [
+      "ed7f4c62d0e4958b89cce8800d46125fc06eed81110636dd1ef3c8ed5f93db8e",
+      "72f037dfe7084220420c95ea1dbc8e67dcb4225a11c6d8b0bd190c30290f54df",
+    ],
+    pcb: [
+      "8a5a1de9c255d364117c9576aba2ad6af0d2849c49f6a46a0183be34409cd028",
+      "cab295078712acf49126e7a5cb3e8446cfa4c1f3aa902bacb29384636f98b01e",
+    ],
+    interrupted: [
+      "b863a5e1945c9ae735cc30daa88580b0edd8aa3d067f7f0b945f90acc5b22507",
+      "bbcb93af71c9b235669ea680d9f27a07a7e45e5afc6ea46b157933b4dc94bf51",
+    ],
+  };
+  for (const mode of ["ordinary", "pcb", "interrupted"] as const) {
+    it(`keeps the post-S-4 ${mode} seed identical to pristine merged main`, async () => {
       const dir = tempDir(),
         s = mode === "pcb" ? await seededPendingConsumer(dir) : await seededPopulationCampaign(dir);
       if (mode === "interrupted") {
@@ -588,7 +642,7 @@ describe("A01 preserves canonical bytes produced by the accepted pre-repair engi
           ),
         );
       const head = s.campaign.store.head();
-      expect([head.state_sha256, head.journal_head_sha256]).toEqual(golden[mode]);
+      expect([head.state_sha256, head.journal_head_sha256]).toEqual(currentGolden[mode]);
       expect(s.campaign.verify()).toEqual([]);
       const entries = entriesOf(dir),
         journal = readFileSync(join(dir, "journal.jsonl"));
