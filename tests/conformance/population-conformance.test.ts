@@ -247,6 +247,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "derive.ts",
       "integrity.ts",
       "provider.ts",
+      "stage-authority.ts",
     ]);
     expect(
       readdirSync("packages/engine/src")
