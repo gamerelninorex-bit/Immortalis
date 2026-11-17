@@ -8,6 +8,7 @@ import {
   ALL_FACT_KINDS,
   BOOTSTRAP_SUNSET_POLICY_V9,
   FREIGHT_FACT_KIND_IDS,
+  PC_STANDING_LEDGER_FACT_KIND_IDS,
   completionOf,
   policyCoverageViolations,
   qualifies,
@@ -121,7 +122,8 @@ const REVIEWED: Readonly<Record<string, string>> = {
   world_source_delivery: "OWNER_CHECKS_ONLY",
 };
 // Preserve the independently reviewed ninety-row V9 table; the additive MS exact-set test covers all ninety-three, and the ROADBED freight
-// sunset delta (tests/conformance/freight-profile-conformance) covers the twenty-six freight kinds registered after M-S.
+// sunset delta (tests/conformance/freight-profile-conformance) covers the twenty-six freight kinds registered after M-S, and the S-4 ledger delta
+// (tests/conformance/pc-standing-ledger-conformance) covers the two Standing Instruction ledger kinds registered after that.
 const ids = ALL_FACT_KINDS.map((k) => k.id).filter(
   (k) =>
     ![
@@ -129,6 +131,7 @@ const ids = ALL_FACT_KINDS.map((k) => k.id).filter(
       "initial_actor_setup_response",
       "named_actor_existence_basis",
       ...FREIGHT_FACT_KIND_IDS,
+      ...PC_STANDING_LEDGER_FACT_KIND_IDS,
     ].includes(k),
 );
 

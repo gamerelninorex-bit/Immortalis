@@ -51,6 +51,7 @@ import {
   establishActorBasis,
   existingActorContract,
   existingActorSummary,
+  activateActor,
   handoverActor,
   readyForHandover,
   reopenExistingActor,
@@ -74,7 +75,7 @@ async function lifecycle(s: ExistingActorSeeded, upTo: "ready" | "later" | "hand
   if (upTo === "ready") return;
   await establishActorBasis(s, 2, A, D);
   if (upTo === "later") return;
-  await must(handoverActor(s, 1));
+  await must(activateActor(s, 1));
 }
 
 async function referenceRun() {
@@ -144,8 +145,8 @@ describe("save → close → load → continue preserves the handover at every d
       expect(existingActorSummary(r.campaign, r.coordinator)).toEqual(before);
       expect(r.campaign.verify()).toEqual([]);
       if (cut.upTo === "ready") await establishActorBasis(r, 2, A, D);
-      if (cut.upTo !== "handed") await must(handoverActor(r, 1));
-      else expect((await must(handoverActor(r, 1))).replayed).toBe(true);
+      if (cut.upTo !== "handed") await must(activateActor(r, 1));
+      else expect((await must(activateActor(r, 1))).replayed).toBe(true);
       same(r.campaign.store.head(), ref.head);
       expect(existingActorSummary(r.campaign, r.coordinator)).toEqual(ref.summary);
       await expectOwnership(r, true);
@@ -243,12 +244,13 @@ describe("a lost reply or a retry converges by identity (RC-16)", () => {
         return typeof v === "function" ? v.bind(target) : v;
       },
     });
-    const lost = await handoverActor(s, 1);
+    // S-4: the ledger group commits normally (the wrapper loses only the BINDING's reply), then the handover's reply is lost
+    const lost = await activateActor(s, 1);
     expect(!lost.ok && lost.error.code).toBe("UNKNOWN_OUTCOME");
     (s.campaign as any).store = real;
     const committed = structuredClone(real.getFact(PLAYER_CHARACTER_BINDING_KEY)!);
     const head = real.head();
-    const retry = await must(handoverActor(s, 1));
+    const retry = await must(activateActor(s, 1));
     expect(retry.replayed).toBe(true);
     expect(real.head()).toEqual(head);
     expect(real.getFact(PLAYER_CHARACTER_BINDING_KEY)).toEqual(committed);
@@ -264,7 +266,7 @@ describe("a lost reply or a retry converges by identity (RC-16)", () => {
     const refused = await handoverActor(s, 1, A, { locus_id: "locus-elsewhere" });
     expect(refused.ok).toBe(false);
     expect(s.campaign.store.head()).toEqual(head);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.campaign.binding()!.fact.version).toBe(1);
     await expectOwnership(s, true);
   });

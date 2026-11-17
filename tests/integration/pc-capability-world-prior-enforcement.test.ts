@@ -41,7 +41,7 @@ import {
   establishWorldPrior,
   establishWorldPriorRandomized,
   handedOverWithUnresolvedCapability,
-  handoverActor,
+  activateActor,
   pcDrawResultGroup,
   rawWorldPriorBasis,
   readyForCarryForward,
@@ -263,7 +263,7 @@ describe("the one-owner boundary: nothing the predecessor already fixed is re-re
   it("a Named-Actor basis or capability for the same capability refuses the establishment, raw or through the owner", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(await refused(s, rawWorldPriorBasis(s, 50, A, C))).toBe("KEY_NOT_ADMITTED");
     expect(await codeOf(establishWorldPrior(s, 51, A, C))).toBe("KEY_NOT_ADMITTED");
     expect(await codeOf(establishWorldPriorRandomized(s, 52, A, C))).toBe("KEY_NOT_ADMITTED");
@@ -325,7 +325,7 @@ describe("once Causal Draw evidence exists for the PC slot, only the establishme
   it("neither a carried nor a generated basis can sidestep the draw: every other establishment over draw evidence is refused", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     // draw evidence for the PC slot made by anyone holding the ports (a raw draw): the carry-forward may not fill the slot
     await must(drawPcSlot(s.campaign.store, s.entropy, A, C));
     expect(await codeOf(carryForward(s, 1, A, C))).toBe("REFERENCE_INVALID");

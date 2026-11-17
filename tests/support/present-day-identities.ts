@@ -8,15 +8,15 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "2630833c190f1bd0aa06935b9aa0d5547ad22a2a955fdc3777cadddd5ccbad50",
+    "92a0d702a9852379f6cc257fe21129866dcbcc7fff2af30006f1bc3752181e08",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "0e42dda37410a8e378aa1dbe4a6ffe2e2b54055a225bc4c2fbb05a1042cf54dd",
+    "18a0edbe9aadf9c6aa2282a475d25600c55a1d264141aa2973a0bb46e9fa3f8e",
   "packages/engine/src/owners/admission.ts":
-    "43a2e1f35ac4635bea3f2edb840696bc657b6092e757043e7a9b0a49a214ff4c",
+    "163097933e61a4a0dc5fe737050c13f0551d14147dcfc2123dc55330e0c81b6f",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -26,11 +26,11 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "a33a89be176ffd691d7bde3b0774ccd59e8c902d2be9e9f78b7440b0b5854199",
+    "d9f2a9f59af9de83b092b715c1d6813c919556eb92789b499921ea3a97dcbbcc",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
-    "a08b2d19418ec635c4dfa32b172520ab82566c9f4583d6165578d7334ab30ede",
+    "119cfb273b7ced5007b39cc8fcfcedf9ca5793d0b12ce0de4d12cb34466a110e",
   "packages/operator/src/cli.ts":
     "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":
@@ -40,7 +40,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/operator/src/observation.ts":
     "afb54d18665a1527335cea3cb5c22ceccfbe106e68e708a6f63d2575d7b61669",
   "packages/operator/src/original-pc.ts":
-    "3ba2c4a726e080d697c3edc7610971d2c4318eb293f9aed27fab8cdee4f8347a",
+    "eeeb2f272bee74d1f1c37a32c342820247b04598ace307514dc6bfe041356d17",
   "packages/operator/src/referee-exchange.ts":
     "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
   "packages/operator/src/referee-mcp.ts":
@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "b84d0d76dba272143cc9f6c5ced160aa7f9ab6eed33ecec3fb684b9b7d62ba89",
+  "packages/operator/src": "749a4bf67adf5d813a7a5d4e4f6283874dfc90ebab31e01a94eee81580653f53",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",
 };
 

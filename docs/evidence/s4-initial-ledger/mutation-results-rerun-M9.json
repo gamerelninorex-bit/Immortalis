@@ -1,0 +1,24 @@
+{
+ "M9 replay (historical) ledger check disabled": {
+  "failed_tests": 10,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-history.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-history.test.ts",
+    "a version digest that is not the SHA-256 of its content"
+   ],
+   [
+    "pc-standing-ledger-history.test.ts",
+    "a head that points at a version that is not the one it travels with"
+   ],
+   [
+    "pc-standing-ledger-history.test.ts",
+    "an origin that cites the PC's creation under another commit identity"
+   ]
+  ],
+  "secs": 10
+ }
+}

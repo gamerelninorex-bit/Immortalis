@@ -37,13 +37,13 @@ import {
 } from "@immortalis/testkit";
 import {
   actorBasisPin,
-  bindingInput,
   compileExistingActor,
   establishActorBasis,
   existingActorContract,
   existingActorSummary,
   seededExistingActorCampaign,
   type ExistingActorSeeded,
+  activateFreshPc,
 } from "../support/existing-actor.ts";
 import {
   receiveBasis,
@@ -237,7 +237,7 @@ describe("existing generated-PC behavior is unchanged (evidence 1)", () => {
     expect(
       Object.keys(s.campaign.store.getFact(pcExistenceContractKey(FIXTURE_PC_ID))!.value as object),
     ).not.toContain("existing_actor_compilation");
-    await must(s.campaign.bindPlayerCharacter(bindingInput(FIXTURE_PC_ID, 4)));
+    await must(activateFreshPc(s, FIXTURE_PC_ID, 4));
     expect(s.campaign.binding()!.value.transition.basis).toMatchObject({
       bridge: "NATIVE_ALREADY_THERE",
       established_by: "EXPLICIT_PLAYER_AUTHORED_FACT",

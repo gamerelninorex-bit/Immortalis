@@ -44,7 +44,7 @@ import {
   closePcCapability,
   establishActorBasis,
   existingActorSummary,
-  handoverActor,
+  activateActor,
   rawCarryBasis,
   readyForCarryForward,
   reopenExistingActor,
@@ -66,7 +66,7 @@ type UpTo = "ready" | "handed" | "carried" | "closed";
 async function lifecycle(s: ExistingActorSeeded, upTo: UpTo) {
   await readyForCarryForward(s);
   if (upTo === "ready") return;
-  await must(handoverActor(s, 1));
+  await must(activateActor(s, 1));
   if (upTo === "handed") return;
   await must(carryForward(s, 1));
   if (upTo === "carried") return;
@@ -151,7 +151,7 @@ describe("save → close → load → continue preserves the carry-forward at ev
       await expectOwnership(r, cut.upTo);
       if (cut.upTo === "ready") {
         // the probe above committed a pre-cutover actor write the reference never made: judge only the ownership result
-        await must(handoverActor(r, 1));
+        await must(activateActor(r, 1));
         await must(carryForward(r, 1));
         await closePcCapability(r, 20);
         expect(r.pcs.capability(A, C)!.value.marker).toBe("C");
@@ -269,7 +269,7 @@ describe("a lost reply or a crash converges by identity (RC-16)", () => {
     // before the handover: refused (no cutover), nothing written
     expect((await carryForward(s, 1)).ok).toBe(false);
     expect(s.campaign.store.head()).toEqual(head);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     await must(carryForward(s, 1));
     expect(s.pcs.basis(A, C)!.fact.version).toBe(1);
     await expectOwnership(s, "carried");
@@ -413,7 +413,7 @@ describe("load verification proves the carry-forward from committed history alon
     const s = await seededExistingActorCampaign(dir);
     await readyForCarryForward(s);
     await establishActorBasis(s, 3, A, D);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     await s.campaign.close();
     const store = await must(
       openFileCampaign(dir, {

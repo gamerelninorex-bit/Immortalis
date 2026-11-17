@@ -182,6 +182,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, cl
       "pc_collection_mechanism",
       "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
+      // S-4: the PC's own Standing Instruction ledger, a separate non-intrinsic facet of the same owner (no new owner)
+      "standing_instruction_ledger",
     ]);
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "pc_existence").map((k) => k.id)).toEqual([
       "pc_existence_contract",
@@ -196,6 +198,9 @@ describe("IA-03 owner exclusivity: no new owner, facet, fact kind, key space, cl
       "pc_collection_cycle_attestation",
       "pc_intrinsic_clarification",
       "pc_delegated_clarification",
+      // S-4: the PC's own Standing Instruction ledger (head, then sealed version), registered after the freight kinds
+      "pc_standing_instruction_ledger_head",
+      "pc_standing_instruction_ledger_version",
     ]);
     expect(existsSync("migrations/manifests/pc-capability-world-prior.json")).toBe(false);
   });

@@ -34,6 +34,12 @@ import {
   GM_FREIGHT_BASE_COMMIT,
   GM_FREIGHT_SCOPED_DELTAS,
 } from "../support/gm-freight-scoped-deltas.ts";
+import {
+  S4_BASE_COMMIT,
+  S4_NEW_MODULES,
+  S4_PRESENT_DAY_FILES,
+  S4_SCOPED_DELTAS,
+} from "../support/pc-standing-ledger-scoped-deltas.ts";
 
 const sha256 = (v: string | Buffer): string => createHash("sha256").update(v).digest("hex");
 const file = (p: string): string => sha256(readFileSync(p));
@@ -121,9 +127,14 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...Object.keys(GM_FREIGHT_SCOPED_DELTAS),
       ...PRESENT_DAY_TABLE_FILES,
       ...NEW_MODULES,
+      // the LATER S-4 slice's recorded changes (its own table and conformance suite police them; this suite polices the GM slice)
+      ...Object.keys(S4_SCOPED_DELTAS),
+      ...S4_PRESENT_DAY_FILES,
+      ...S4_NEW_MODULES,
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
-    // the two export lines are the whole change to the two index files
+    // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4
+    // later added its own export lines, recorded and policed by its own suite)
     for (const p of PRESENT_DAY_TABLE_FILES) {
       const diff =
         git(
@@ -132,6 +143,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
           "diff",
           "--numstat",
           GM_FREIGHT_BASE_COMMIT,
+          S4_BASE_COMMIT,
           "--",
           p,
         )?.toString("utf8") ?? "";
@@ -142,9 +154,16 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
   it("no owner, fact kind, facet, governing rule, source lock, register or gate changed", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
+    // registry.ts and admission.ts were changed LATER, by S-4 (the GM slice left them as they were; S-4 records the change in its own
+    // table and its present-day identities live in one place): they are compared at the S-4 base, which is main after this slice merged
     for (const p of [
       "packages/engine/src/owners/registry.ts",
       "packages/engine/src/owners/admission.ts",
+    ]) {
+      const afterGm = git("show", `${S4_BASE_COMMIT}:${p}`);
+      expect(afterGm === null ? atBase(p) : sha256(afterGm), p).toBe(atBase(p));
+    }
+    for (const p of [
       "spec/f027/spec-lock.json",
       "spec/f027/acceptance-register.yaml",
       "spec/f027/open-gates.yaml",

@@ -8,6 +8,7 @@ import {
   FACET_PC_COLLECTION_MECHANISM,
   FACET_PC_INTRINSIC_CLARIFICATION,
   FACET_PC_VOLUNTARY_COMMITMENT,
+  FACET_PC_STANDING_INSTRUCTION_LEDGER,
   FACET_POPULATION_PC_OCCUPANCY,
   FACET_POPULATION_WORKFORCE_SCOPE,
   FACET_WORLD_SCENE_CLOSURE,
@@ -87,6 +88,12 @@ import {
   pcReachGroupCheck,
 } from "../pc-collection/admission.ts";
 import { pcMovementGroupCheck } from "../pc-movement/derive.ts";
+import {
+  bindingLedgerCheck,
+  pcLedgerGroupCheck,
+  pcLedgerHistoricalCheck,
+} from "./pc-standing-ledger-admission.ts";
+import { PC_LEDGER_HISTORY_POLICY_SUFFIX } from "./pc-standing-ledger.ts";
 import { populationGroupCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
@@ -106,7 +113,12 @@ import {
 import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
-import { resolveKey, type FactKind, type FREIGHT_FACT_KIND_IDS } from "./registry.ts";
+import {
+  PC_LEDGER_BINDING_RULE,
+  resolveKey,
+  type FactKind,
+  type FREIGHT_FACT_KIND_IDS,
+} from "./registry.ts";
 import { FREIGHT_HISTORY_POLICY_SUFFIX, freightIdentityMismatch } from "../freight/common.ts";
 import { freightGroupCheck } from "../freight/route.ts";
 import { isRejection, reject, requirePrerequisite, type Rejection } from "./rejection.ts";
@@ -378,6 +390,21 @@ function checkExistenceContract(group: CommitGroup, state: CampaignState, value:
 }
 
 function checkBinding(group: CommitGroup, state: CampaignState, value: unknown) {
+  const base = checkBindingBase(group, state, value);
+  if (base) return base;
+  // S-4c: every binding path judged above is lawful as before; a NEW binding must additionally carry the S-4 citation and consume
+  // the same PC's qualified, strictly older ledger head. An authentic old binding is judged by `verifyHistorical`, never here.
+  if (!canonicalEqual(group.rule, PC_LEDGER_BINDING_RULE)) {
+    return reject(
+      "REFERENCE_INVALID",
+      "a new binding must cite the S-4 governing rule: a fresh write that carries the original binding citation is not admitted, because it would bind a PC with no qualified Standing Instruction ledger head",
+      { key: PLAYER_CHARACTER_BINDING_KEY },
+    );
+  }
+  return bindingLedgerCheck(group, state, PlayerCharacterBindingSchema.parse(value));
+}
+
+function checkBindingBase(group: CommitGroup, state: CampaignState, value: unknown) {
   const b = PlayerCharacterBindingSchema.parse(value);
   if (state.facts.has(namedActorExistenceBasisKey(b.active_pc.entity_id)))
     return reject(
@@ -505,7 +532,7 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
     },
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}`,
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`,
     verifyHistorical(group, state) {
       return (
         msFenceCheck(group, state) ??
@@ -515,6 +542,9 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         // ROADBED first-profile freight: replay re-derives every freight group against the ACTUAL incremental pre-state it was
         // committed on, so a tampered or fabricated freight fact cannot survive a reopen (null/undefined fall through)
         freightGroupCheck(group, state) ??
+        // S-4: a ledger group is judged by the rule it was admitted under; a binding committed under the S-4 citation must have
+        // consumed its older head, while one committed under the ORIGINAL citation replays under its original policy
+        pcLedgerHistoricalCheck(group, state) ??
         initialSetupHistoricalCheck(group, state, { ...policy, historical: true })
       );
     },
@@ -606,6 +636,12 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       // IM-07 PC capability profile groups (a facet of the one I-002 PC owner): a received basis and a PC Capability Close are each re-derived.
       if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_CAPABILITY_PROFILE)
         return pcCapabilityGroupCheck(group, state);
+      // S-4 initial Standing Instruction ledger (a fifth facet of the one PC owner): head + sealed version, initialization only.
+      if (
+        group.owner === OWNER_PC_EXISTENCE &&
+        group.facet === FACET_PC_STANDING_INSTRUCTION_LEDGER
+      )
+        return pcLedgerGroupCheck(group, state);
       // IM-07 PC movement groups (a third facet of the one I-002 PC owner): the player's commitment-of-record and the PC-owned request are each re-derived.
       if (group.owner === OWNER_PC_EXISTENCE && group.facet === FACET_PC_VOLUNTARY_COMMITMENT)
         return group.writes.some((w) => resolveKey(w.key)?.kind.id.startsWith("pc_collection_"))
@@ -1008,6 +1044,12 @@ export function identityMismatch(
       return v["pc_id"] === ids[0] && v["capability_id"] === ids[1]
         ? null
         : "PC and capability identity does not match the key";
+    case "pc_standing_instruction_ledger_head":
+      return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
+    case "pc_standing_instruction_ledger_version":
+      return v["pc_id"] === ids[0] && String(v["sequence"]) === ids[1]
+        ? null
+        : "pc_id and sequence do not match the key";
     case "pc_movement_commitment":
       return v["pc_id"] === ids[0] ? null : "PC identity does not match the key";
     case "pc_movement_request":

@@ -40,7 +40,7 @@ import {
   compileExistingActor,
   establishActorBasis,
   existingActorContract,
-  handoverActor,
+  activateActor,
   rawCarryBasis,
   readyForCarryForward,
   seededExistingActorCampaign,
@@ -72,7 +72,7 @@ async function handedOver(extra = false): Promise<ExistingActorSeeded> {
     );
     await closeActorCapability(s, 11, A, D);
   }
-  await must(handoverActor(s, 1));
+  await must(activateActor(s, 1));
   return s;
 }
 
@@ -170,7 +170,7 @@ describe("only the same identity's already-authoritative capability carries", ()
     await establishActorBasis(s, 1, A, C);
     await must(coupleActor(s, 1, A));
     await must(compileExistingActor(s, 1, existingActorContract(A, [actorBasisPin(A, C)])));
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.actors.capability(A, C)).toBeUndefined();
     const g = rawCarryBasis(s, 50, A, C, (v) => (v.establishment.source.version = 1));
     expect(await refused(s, g)).toBe("PREREQUISITE_MISSING");

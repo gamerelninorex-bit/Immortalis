@@ -10,6 +10,8 @@ import {
   actorCapabilityBasisKey,
   pcExistenceContractKey,
   worldActorCouplingKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
@@ -32,6 +34,7 @@ import {
   coupleActor,
   establishActorBasis,
   existingActorContract,
+  activateActor,
   handoverActor,
   handoverInput,
   rawHandover,
@@ -155,7 +158,7 @@ describe("the world and locus are exactly the committed coupling's: a rival plac
       "PREREQUISITE_MISSING",
     );
     // the lawful handover is still available, and it is the coupling's
-    await must(handoverActor(s, 4));
+    await must(activateActor(s, 4));
     expect(s.campaign.binding()!.value.coupling.locus.entity_id).toBe(L);
   });
 
@@ -360,6 +363,10 @@ describe("a stale or fabricated basis fails closed", () => {
 
   it("a raw handover that does not read and depend on what it consumes is refused: the pins are not decoration", async () => {
     const s = await ready();
+    // S-4: the PC's own ledger is a prerequisite the handover reads and depends on, so it is committed first (owner step).
+    await must(
+      s.campaign.initializePcStandingInstructionLedger({ pc_id: A, world_id: W, locus_id: L }),
+    );
     const lawful = rawHandover(s, 50, A);
     const droppedRead = (key: string): CommitGroup => ({
       ...lawful,
@@ -371,6 +378,8 @@ describe("a stale or fabricated basis fails closed", () => {
       worldLocusKey(W, L),
       couplingKey,
       actorCapabilityBasisKey(A, C),
+      pcStandingLedgerHeadKey(A),
+      pcStandingLedgerVersionKey(A, 1),
     ]) {
       const r = await s.campaign.store.commit(droppedRead(key));
       expect(!r.ok && r.error.code, key).toBe("REFERENCE_INVALID");
@@ -409,7 +418,7 @@ describe("a stale or fabricated basis fails closed", () => {
     await establishActorBasis(s, 2, A, D);
     await must(coupleActor(s, 1, A, { actor_state: [actorBasisPin(A, C)] }));
     await must(compileExistingActor(s, 1, existingActorContract(A, [actorBasisPin(A, D)])));
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.campaign.binding()!.value.intrinsic_authority_migration).toEqual([
       { owner: "world_state", fact_key: couplingKey, version: 1 },
       actorBasisPin(A, D),
@@ -560,7 +569,7 @@ describe("the handover writes exactly the binding: it reaches no other owner and
 describe("after the handover nothing re-opens the cutover", () => {
   it("a second handover, an ordinary activation and a rival fresh contract are all refused; the first binding stands", async () => {
     const s = await ready();
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const fact = structuredClone(s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!);
     expect(await codeOf(handoverActor(s, 2))).toBe("VERSION_CONFLICT");
     const rawAgain = await s.campaign.store.commit(rawHandover(s, 51, A));

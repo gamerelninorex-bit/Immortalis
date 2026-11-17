@@ -1,0 +1,61 @@
+{
+ "dormant": 500,
+ "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
+ "has_ledger_initializer": true,
+ "groups_committed_by_the_action": 2,
+ "journal_entries_after": 505,
+ "package_bytes_after": 5259183,
+ "rows": [
+  {
+   "label": "cold open (before the action)",
+   "elapsed_ms": 330.377864,
+   "cpu_user_ms": 466.999,
+   "cpu_system_ms": 39.536,
+   "read_calls": 3892,
+   "read_bytes": 3556947,
+   "write_calls": 1,
+   "write_bytes": 98,
+   "admission_check_calls": 0,
+   "admission_verify_historical_calls": 119
+  },
+  {
+   "label": "action: ledger initialization + binding",
+   "elapsed_ms": 56.607799,
+   "cpu_user_ms": 100.294,
+   "cpu_system_ms": 0,
+   "read_calls": 90,
+   "read_bytes": 49941,
+   "write_calls": 4,
+   "write_bytes": 20721,
+   "admission_check_calls": 2,
+   "admission_verify_historical_calls": 0
+  },
+  {
+   "label": "full verify()",
+   "elapsed_ms": 225.49774600000012,
+   "cpu_user_ms": 280.715,
+   "cpu_system_ms": 2.893,
+   "read_calls": 4658,
+   "read_bytes": 3118453,
+   "write_calls": 0,
+   "write_bytes": 0,
+   "admission_check_calls": 0,
+   "admission_verify_historical_calls": 0
+  },
+  {
+   "label": "cold reopen (after the action)",
+   "elapsed_ms": 303.480376,
+   "cpu_user_ms": 379.68,
+   "cpu_system_ms": 14.034,
+   "read_calls": 3985,
+   "read_bytes": 3646147,
+   "write_calls": 1,
+   "write_bytes": 98,
+   "admission_check_calls": 0,
+   "admission_verify_historical_calls": 121
+  }
+ ],
+ "node": "v22.23.4",
+ "platform": "linux-x64 6.18.44-fc-v553",
+ "cpus": 4
+}

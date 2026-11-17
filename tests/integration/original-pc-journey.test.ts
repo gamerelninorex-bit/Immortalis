@@ -99,7 +99,9 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     // an ordinary process: the canonical owner registry only
     const campaign = await openOrdinary(dirs.campaignDir);
     expect(campaign.verify()).toEqual([]);
-    expect(campaign.store.head().revision).toBe(before.revision + 4);
+    // the character's contract, its IR record, its PC-owned Standing Instruction ledger (S-4: one extra atomic group), its placement
+    // and the binding
+    expect(campaign.store.head().revision).toBe(before.revision + 5);
     const pc = campaign.playerCharacter(PC_ID)!;
     expect(pc.fact).toMatchObject({
       owner: "pc_existence",
@@ -191,13 +193,20 @@ describe("a human authors, reviews, revises and keeps a character, then separate
     expect(irRead).toBeDefined();
     expect(irRead.key).not.toBe(i002Read.key);
     expect(bindGroup.writes).toHaveLength(1);
+    // the ledger is its own atomic group, strictly older than the binding that consumes it
+    const ledgerHead = campaign.store.getFact(`pc/${PC_ID}/standing-instruction-ledger/head`)!;
+    expect(ledgerHead.provenance.group_id).not.toBe(binding.fact.provenance.group_id);
+    expect(bindGroup.depends_on).toContain(ledgerHead.provenance.group_id);
+    expect(campaign.store.committedGroup(ledgerHead.provenance.intent_id)!.writes).toHaveLength(2);
     expect(
       campaign.store
         .listFacts()
         .map((f) => f.owner)
         .sort(),
     ).toEqual([
-      "pc_existence",
+      "pc_existence", // the Existence Contract
+      "pc_existence", // + the PC's Standing Instruction ledger head and
+      "pc_existence", // + its empty first version (S-4: bookkeeping, opened silently at placement)
       "referee_adjudication_kernel",
       "referee_adjudication_kernel",
       "role_registry",

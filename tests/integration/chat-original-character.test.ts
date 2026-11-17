@@ -732,6 +732,16 @@ describe("MECHANISM: a foreign, second or replaced character is blocked for engi
       expect((await offer(r.chat)).finished.data.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
       const pc = (await held(r.s)).characters[0]!.key.split("/")[1]!;
       await withCampaign(r.s.campaignDir, async (c) => {
+        // S-4: even a binding this adapter did not make consumes the PC's older ledger head
+        expect(
+          (
+            await c.initializePcStandingInstructionLedger({
+              pc_id: pc,
+              world_id: "world-courtyard",
+              locus_id: "locus-courtyard",
+            })
+          ).ok,
+        ).toBe(true);
         const out = await c.bindPlayerCharacter({
           ...pub("bind"),
           pc_id: pc,

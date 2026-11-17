@@ -80,6 +80,13 @@ describe("no lawful completed handover, no custody", () => {
       s.campaign.releasePlayerCharacter({ ...publication(3), contract: fixtureContract() }),
     );
     await must(
+      s.campaign.initializePcStandingInstructionLedger({
+        pc_id: FIXTURE_PC_ID,
+        world_id: W,
+        locus_id: L,
+      }),
+    );
+    await must(
       s.campaign.bindPlayerCharacter({
         ...publication(4),
         pc_id: FIXTURE_PC_ID,

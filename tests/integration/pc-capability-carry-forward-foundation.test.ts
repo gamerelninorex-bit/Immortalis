@@ -36,7 +36,7 @@ import {
   closeActorCapability,
   closePcCapability,
   existingActorSummary,
-  handoverActor,
+  activateActor,
   readyForCarryForward,
   seededExistingActorCampaign,
   type ExistingActorSeeded,
@@ -61,7 +61,7 @@ describe("an established actor capability is carried exactly into the PC owner a
     await readyForCarryForward(s);
     const source = structuredClone(s.campaign.store.getFact(sourceKey)!);
     expect(source).toMatchObject({ owner: "named_actor", facet: "actor_profile", version: 1 });
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const binding = s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!;
     const actorFactsBefore = s.campaign.store
       .listFacts()
@@ -169,7 +169,7 @@ describe("an established actor capability is carried exactly into the PC owner a
     for (const marker of markers) {
       const s = await seededExistingActorCampaign(tempDir());
       await readyForCarryForward(s, A, C, { marker });
-      await must(handoverActor(s, 1));
+      await must(activateActor(s, 1));
       await must(carryForward(s, 1));
       expect(s.pcs.basis(A, C)!.value.marker, JSON.stringify(marker)).toEqual(marker);
       await closePcCapability(s, 20);
@@ -182,7 +182,7 @@ describe("an established actor capability is carried exactly into the PC owner a
   it("the carry-forward invents and resolves nothing: no Causal Draw, no entropy, no clock advance, no unrelated fact", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const before = new Set(s.campaign.store.listFacts().map((f) => f.key));
     const drawsBefore = s.entropy.calls();
     const time = s.coordinator.state()!.fact.version;
@@ -207,7 +207,7 @@ describe("an established actor capability is carried exactly into the PC owner a
     expect(await codeOf(carryForward(s, 1))).toBe("PREREQUISITE_MISSING");
     expect(s.pcs.basis(A, C)).toBeUndefined();
     expect(actorBoundaryViolation(facts(s), A)).toBeNull();
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(actorBoundaryViolation(facts(s), A)).not.toBeNull();
     const head = s.campaign.store.head();
     const write = await s.actors.establishCapabilityBasis({
@@ -226,7 +226,7 @@ describe("an established actor capability is carried exactly into the PC owner a
   it("absent or foreign sources fail closed: no basis, another capability and another identity are no source", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     // D never had any actor state at all
     expect(await codeOf(carryForward(s, 2, A, D))).toBe("PREREQUISITE_MISSING");
     // another identity's capability is not this identity's source
@@ -251,7 +251,7 @@ describe("an established actor capability is carried exactly into the PC owner a
     );
     expect(s.actors.basis(A, D)).toBeDefined();
     expect(s.actors.capability(A, D)).toBeUndefined();
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     // the basis alone carries nothing
     expect(await codeOf(carryForward(s, 2, A, D))).toBe("PREREQUISITE_MISSING");
     // the actor owner can no longer close it: the post-cutover close never commits, so it can never become a source
@@ -269,7 +269,7 @@ describe("an established actor capability is carried exactly into the PC owner a
   it("the carry-forward is exactly once: the capability slot is sealed and a replay of the same intent converges", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     await must(carryForward(s, 1));
     expect((await must(carryForward(s, 1))).replayed).toBe(true);
     // a second carry of the same identity/capability is a different intent against a sealed slot

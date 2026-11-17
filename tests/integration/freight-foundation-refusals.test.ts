@@ -115,6 +115,13 @@ describe("PO-6/PO-1 — the opening is the GM's original NULL-PC setting, attest
       pc.campaign.releasePlayerCharacter({ ...pub("pc", 1), contract: fixtureContract() }),
     );
     await must(
+      pc.campaign.initializePcStandingInstructionLedger({
+        pc_id: fixtureContract().pc_id,
+        world_id: pc.fx.worldId,
+        locus_id: pc.fx.originLocusId,
+      }),
+    );
+    await must(
       pc.campaign.bindPlayerCharacter({
         ...pub("pc", 2),
         pc_id: fixtureContract().pc_id,

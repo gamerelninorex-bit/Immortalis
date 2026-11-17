@@ -307,6 +307,13 @@ describe("only the canonically bound active PC is a PC recipient: classification
       s.campaign.releasePlayerCharacter({ ...publication(3), contract: pcCapabilityContract() }),
     );
     await must(
+      s.campaign.initializePcStandingInstructionLedger({
+        pc_id: PC,
+        world_id: tk.FIXTURE_WORLD_ID,
+        locus_id: tk.FIXTURE_LOCUS_ID,
+      }),
+    );
+    await must(
       s.campaign.bindPlayerCharacter({
         ...publication(4),
         pc_id: PC,

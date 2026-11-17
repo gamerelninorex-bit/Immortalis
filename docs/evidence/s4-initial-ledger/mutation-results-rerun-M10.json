@@ -1,0 +1,16 @@
+{
+ "M10 the setup scan dates every fact before filtering (cold-open cost regression)": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-scaling.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-scaling.test.ts",
+    "the per-unrelated-fact cost of verification is identical with and without a ledger (the se"
+   ]
+  ],
+  "secs": 11
+ }
+}

@@ -1,0 +1,25 @@
+{
+ "M6 history verification id has no S-4 suffix": {
+  "failed_tests": 4,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-conformance.test.ts",
+   "pc-standing-ledger-policy.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-conformance.test.ts",
+    "the production policy identity extends the pre-S-4 one with the exact S-4 suffix, forcing "
+   ],
+   [
+    "pc-standing-ledger-policy.test.ts",
+    "the suffix is real: the pre-S-4 policy an authentic legacy build stamped is exactly this b"
+   ],
+   [
+    "pc-standing-ledger-policy.test.ts",
+    "evidence that already names the S-4 policy is trusted: nothing in the covered prefix is ju"
+   ]
+  ],
+  "secs": 10
+ }
+}

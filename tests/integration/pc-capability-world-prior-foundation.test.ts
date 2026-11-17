@@ -49,7 +49,7 @@ import {
   handedOverWithUnresolvedCapability,
   readyForCarryForward,
   carryForward,
-  handoverActor,
+  activateActor,
   seededExistingActorCampaign,
   worldPriorCauses,
   type ExistingActorSeeded,
@@ -406,7 +406,7 @@ describe("scope: only capability genuinely unfixed at handover; the predecessor'
   it("an already-authoritative pre-handover capability is carry-forward territory: never rerolled, regraded or re-established", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForCarryForward(s, A, CAP_METALWORKING, { marker: "A" });
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const sourceKey = actorCapabilityKey(A, CAP_METALWORKING);
     const head = s.campaign.store.head();
     const calls = s.entropy.calls();

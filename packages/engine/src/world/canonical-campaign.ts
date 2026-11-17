@@ -1,5 +1,16 @@
 import {
   CANON_WRITE_AUTHORITY,
+  FACET_PC_STANDING_INSTRUCTION_LEDGER,
+  InitializePcLedgerTargetSchema,
+  OWNER_PC_EXISTENCE,
+  PC_LEDGER_FIRST_SEQUENCE,
+  PcStandingLedgerHeadSchema,
+  PcStandingLedgerVersionSchema,
+  QualifyLegacyPcLedgerTargetSchema,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
+  type PcStandingLedgerHead,
+  type PcStandingLedgerVersion,
   type SourceRef,
   EXISTING_ACTOR_HANDOVER,
   EstablishCorridorInputSchema,
@@ -69,9 +80,20 @@ import {
 } from "../owners/extension.ts";
 import {
   CANONICAL_OWNER_REGISTRY,
+  PC_LEDGER_BINDING_RULE,
+  PC_LEDGER_RULE,
   WORLD_PC_LOCUS_ORIGINAL_ACTIVATION_RULE,
   factKind,
 } from "../owners/registry.ts";
+import {
+  PC_LEDGER_BASIS,
+  PC_LEDGER_SECRECY,
+  deriveLegacyPcLedger,
+  deriveNewPcLedger,
+  type LedgerFacts,
+  type LedgerPlan,
+  type WalkableLedgerFacts,
+} from "../owners/pc-standing-ledger.ts";
 import { verifyNamedActorIntegrity } from "../actor/integrity.ts";
 import { verifyPcCapabilityIntegrity } from "../pc-capability/integrity.ts";
 import { verifyCausalDrawIntegrity } from "../causal-draw/integrity.ts";
@@ -103,7 +125,7 @@ import { deriveExistingActorCoupling } from "./actor-coupling.ts";
 import { verifyExistingActorCouplingIntegrity } from "./actor-coupling-integrity.ts";
 import { verifyActorPresenceIntegrity } from "./actor-presence-integrity.ts";
 import { verifyAuditoryPremisesIntegrity } from "./auditory-premises-integrity.ts";
-import type { WriteAdmission } from "../commit/campaign-core.ts";
+import { groupSha256, type WriteAdmission } from "../commit/campaign-core.ts";
 import { resolveEntityLocus, type ResolvedEntityLocus } from "../logistics/locus.ts";
 import { derivePcMovementCommitment, derivePcMovementRequest } from "../pc-movement/derive.ts";
 import { verifyPcCollectionIntegrity } from "../pc-collection/integrity.ts";
@@ -207,6 +229,21 @@ export interface CommitPcVoluntaryMovementInput extends Publication {
 
 /** What a PC-owned Movement Service Request establishment names: the canonical PC identity only. */
 export interface EstablishPcMovementRequestInput extends Publication {
+  readonly pc_id: string;
+}
+
+/**
+ * What a new-PC Standing Instruction ledger initialization names: identities only, the same world and locus the binding will
+ * couple. There is no origin, reference, digest, instruction, sequence, publication identity or player-authorship field: the
+ * witness and its identity are derived from the committed facts, so none can be supplied (the schema is strict and rejects them).
+ */
+export interface InitializePcStandingInstructionLedgerInput {
+  readonly pc_id: string;
+  readonly world_id: string;
+  readonly locus_id: string;
+}
+/** What the L-2 qualifier names: the PC only. The operative binding is read from committed state, never supplied. */
+export interface QualifyLegacyPcStandingInstructionLedgerInput {
   readonly pc_id: string;
 }
 
@@ -562,8 +599,12 @@ export class CanonicalCampaign {
         pcKey,
         worldKey,
         locusKey,
+        // S-4c: the binding consumes the same PC's qualified ledger head and version, committed strictly earlier (it never creates them)
+        pcStandingLedgerHeadKey(input.pc_id),
+        pcStandingLedgerVersionKey(input.pc_id, PC_LEDGER_FIRST_SEQUENCE),
         ...(input.qualified_by !== undefined ? [input.qualified_by] : []),
       ],
+      PC_LEDGER_BINDING_RULE,
     );
   }
 
@@ -631,10 +672,63 @@ export class CanonicalCampaign {
       "player_character_binding",
       PLAYER_CHARACTER_BINDING_KEY,
       parsed.data,
-      [pcKey, worldKey, locusKey, couplingKey, ...migration.map((m) => m.fact_key)].filter(
-        (k, i, all) => all.indexOf(k) === i,
-      ),
+      [
+        pcKey,
+        worldKey,
+        locusKey,
+        couplingKey,
+        ...migration.map((m) => m.fact_key),
+        // S-4c: the handover consumes the same PC's qualified ledger head and version, committed strictly earlier
+        pcStandingLedgerHeadKey(ids.data.pc_id),
+        pcStandingLedgerVersionKey(ids.data.pc_id, PC_LEDGER_FIRST_SEQUENCE),
+      ].filter((k, i, all) => all.indexOf(k) === i),
+      PC_LEDGER_BINDING_RULE,
     );
+  }
+
+  /**
+   * S-4c: the PC-owned, source-qualified, EMPTY Standing Instruction ledger of a PC being created (the sequence-1 version and the
+   * PC's head, one atomic `pc_existence` group). Call it AFTER the world's setup is complete (and `world_setup_closure` committed
+   * where that predicate is used) and BEFORE the PC's binding: committing it earlier would end setup eligibility, and the binding
+   * validators require it as a strictly older fact. The caller names identities only; the ENGINE_ORIGIN_LEDGER_CLOSURE origin, its
+   * references, the digest and the group identity are all derived from what is committed, so a retry in any session converges on
+   * the same single head (a lost reply is reconciled by that identity), and a changed source conflicts.
+   *
+   * It records no instruction and no consent, interprets nothing the player said, asks no question and gives the PC no capability,
+   * knowledge, movement or time. A head with no binding is inert: if the binding then fails, the PC simply remains unbound.
+   */
+  initializePcStandingInstructionLedger(
+    input: InitializePcStandingInstructionLedgerInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const target = InitializePcLedgerTargetSchema.safeParse(input);
+    if (!target.success) return Promise.resolve(inputInvalid("ledger target", target.error));
+    // A retry after a lost acknowledgment must converge even once the binding it preceded has committed: that is reconciled against
+    // the durable ledger by identity and creates nothing. Without a ledger the PC is still created (or refused) as usual.
+    const committed = this.store.getFact(pcStandingLedgerHeadKey(target.data.pc_id));
+    const reconcile =
+      committed !== undefined && this.store.getFact(PLAYER_CHARACTER_BINDING_KEY) !== undefined;
+    const plan = deriveNewPcLedger(
+      this.#walkableFacts(),
+      target.data,
+      reconcile ? "RECONCILE" : "CREATE",
+    );
+    if (!plan.ok) return Promise.resolve(plan);
+    return reconcile ? this.#reconcileLedger(plan.value) : this.#commitLedger(plan.value);
+  }
+
+  /**
+   * S-4d / L-2: the prospective START_OF_LEDGER witness of an EXISTING bound PC. Its identity is derived only from the PC and its
+   * actual operative binding, never from a session, request, clock or horizon, so any number of retries and sessions yield one
+   * head. The old binding is cited, never rewritten; no earlier instruction is claimed, backfilled or denied. A trusted internal
+   * operation: it adds no player action, question or confirmation, and nothing calls it on open (reopening a save never mutates it).
+   */
+  qualifyLegacyPcStandingInstructionLedger(
+    input: QualifyLegacyPcStandingInstructionLedgerInput,
+  ): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const target = QualifyLegacyPcLedgerTargetSchema.safeParse(input);
+    if (!target.success) return Promise.resolve(inputInvalid("ledger target", target.error));
+    const plan = deriveLegacyPcLedger(this.#pointFacts(), target.data);
+    return plan.ok ? this.#commitLedger(plan.value) : Promise.resolve(plan);
   }
 
   /**
@@ -913,9 +1007,107 @@ export class CanonicalCampaign {
       ? resolveEntityLocus(this.store, custody.value.stationary_locus.world.entity_id, pcId)
       : undefined;
   }
+  /**
+   * The PC's Standing Instruction ledger (its head and the sequence-1 version it points at), or undefined when none is committed.
+   * An internal exact-key, source-qualified read for the binding validators and the legacy receipt reconciliation: it is no GM
+   * reader and no player or NPK disclosure, and nothing here reads an instruction (the carrier holds none).
+   */
+  standingInstructionLedger(pcId: string):
+    | {
+        readonly head: Typed<PcStandingLedgerHead>;
+        readonly version: Typed<PcStandingLedgerVersion>;
+      }
+    | undefined {
+    const head = this.#typed(pcStandingLedgerHeadKey(pcId), PcStandingLedgerHeadSchema);
+    const version = this.#typed(
+      pcStandingLedgerVersionKey(pcId, PC_LEDGER_FIRST_SEQUENCE),
+      PcStandingLedgerVersionSchema,
+    );
+    return head && version ? { head, version } : undefined;
+  }
   /** The operative binding, or undefined for the NULL state (no active PC). */
   binding(): Typed<PlayerCharacterBinding> | undefined {
     return this.#typed(PLAYER_CHARACTER_BINDING_KEY, PlayerCharacterBindingSchema);
+  }
+
+  /** The committed facts as a walkable cut: the store's own canonical state where it exposes one, else a single listing. */
+  #walkableFacts(): WalkableLedgerFacts {
+    const state = this.store.canonicalState?.();
+    return state ? state.facts : new Map(this.store.listFacts().map((f) => [f.key, f]));
+  }
+
+  /** Point lookups by exact key (the L-2 derivation reads one binding; it never walks). */
+  #pointFacts(): LedgerFacts {
+    return {
+      get: (key) => this.store.getFact(key),
+      has: (key) => this.store.getFact(key) !== undefined,
+    };
+  }
+
+  /** Commits one derived ledger plan as ONE atomic `pc_existence` group; the identity, value and pins are all derived. */
+  #commitLedger(plan: LedgerPlan): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    return this.store.commit(this.#ledgerGroup(plan));
+  }
+
+  /**
+   * The ledger a PC already holds, recovered by identity: the durable receipt of the very group this plan derives. It is the same
+   * single head, so it is returned as a replay; a PC that holds a DIFFERENT ledger is a conflict, never a silent success. Nothing is
+   * committed, so a retry after the binding has already committed neither duplicates nor disturbs anything.
+   */
+  #reconcileLedger(plan: LedgerPlan): Promise<Result<CommitOutcome, CanonicalCommitCode>> {
+    const receipt = this.store.lookupReceipt(plan.publication.intent_id);
+    return Promise.resolve(
+      receipt && receipt.group_sha256 === groupSha256(this.#ledgerGroup(plan))
+        ? ok({ receipt, replayed: true })
+        : fail(
+            "VERSION_CONFLICT",
+            "this PC already holds a different Standing Instruction ledger than the one its committed source facts derive",
+            { pc_id: plan.version.pc_id },
+          ),
+    );
+  }
+
+  #ledgerGroup(plan: LedgerPlan): CommitGroup {
+    const pcId = plan.version.pc_id;
+    const pins = plan.pinned.map((key) => ({ key, fact: this.store.getFact(key) }));
+    return {
+      campaign_id: this.store.head().campaign_id,
+      group_id: plan.publication.group_id,
+      intent_id: plan.publication.intent_id,
+      owner: OWNER_PC_EXISTENCE,
+      facet: FACET_PC_STANDING_INSTRUCTION_LEDGER,
+      cause: plan.publication.cause,
+      rule: PC_LEDGER_RULE,
+      authority: { ...CANON_WRITE_AUTHORITY },
+      // each foreign fact is read at its exact version and its group depended on; a fact that must STILL be absent is read at 0
+      reads: [
+        ...pins.map((p) => ({ key: p.key, version: p.fact?.version ?? 0 })),
+        ...plan.absent.map((key) => ({ key, version: 0 })),
+      ],
+      depends_on: [...new Set(pins.flatMap((p) => (p.fact ? [p.fact.provenance.group_id] : [])))],
+      writes: [
+        {
+          key: pcStandingLedgerHeadKey(pcId),
+          owner: OWNER_PC_EXISTENCE,
+          facet: FACET_PC_STANDING_INSTRUCTION_LEDGER,
+          value: plan.head as unknown as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: PC_LEDGER_BASIS,
+          secrecy: PC_LEDGER_SECRECY,
+          expected_version: 0,
+        },
+        {
+          key: pcStandingLedgerVersionKey(pcId, PC_LEDGER_FIRST_SEQUENCE),
+          owner: OWNER_PC_EXISTENCE,
+          facet: FACET_PC_STANDING_INSTRUCTION_LEDGER,
+          value: plan.version as unknown as CommitGroup["writes"][number]["value"],
+          unit: null,
+          basis: PC_LEDGER_BASIS,
+          secrecy: PC_LEDGER_SECRECY,
+          expected_version: 0,
+        },
+      ],
+    };
   }
 
   #typed<T>(key: string, schema: ValueSchema<T>): Typed<T> | undefined {
