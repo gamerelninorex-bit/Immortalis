@@ -125,7 +125,7 @@ describe("the S-4 policy suffix changes how a checkpoint's evidence is trusted",
   for (const [label, predecessor] of [
     ["S-4 main", `${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`],
     ["A01 reviewed head", `${PRE_S4_ID}${A01_SUFFIX}`],
-  ]) {
+  ] as const) {
     it(`checkpoint evidence naming only ${label} is replayed once under both checks without changing canon`, async () => {
       const { dir, groups } = await lawfulPackage();
       const before = await must(CanonicalCampaign.open(dir, { buildId: "combined-before" }));
