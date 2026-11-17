@@ -1,0 +1,252 @@
+{
+ "M1 pair shape/digest/head/identity check disabled": {
+  "failed_tests": 10,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-history.test.ts",
+   "pc-standing-ledger-legacy.test.ts",
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a well-formed digest that is not the content's \u2192 REFERENCE_INVALID, and nothing is committ"
+   ],
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a head that carries another digest than its version \u2192 REFERENCE_INVALID, and nothing is co"
+   ],
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a head pointing at version 2 \u2192 REFERENCE_INVALID, and nothing is committed"
+   ]
+  ],
+  "secs": 15
+ },
+ "M1b version digest not re-derived": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-history.test.ts",
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a well-formed digest that is not the content's \u2192 REFERENCE_INVALID, and nothing is committ"
+   ],
+   [
+    "pc-standing-ledger-history.test.ts",
+    "a version digest that is not the SHA-256 of its content"
+   ]
+  ],
+  "secs": 14
+ },
+ "M1c head pointer not checked": {
+  "failed_tests": 4,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-history.test.ts",
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a head that carries another digest than its version \u2192 REFERENCE_INVALID, and nothing is co"
+   ],
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a head pointing at version 2 \u2192 REFERENCE_INVALID, and nothing is committed"
+   ],
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a head pointing at another key \u2192 REFERENCE_INVALID, and nothing is committed"
+   ]
+  ],
+  "secs": 15
+ },
+ "M1d derived operation identity not checked": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a non-canonical operation identity \u2192 REFERENCE_INVALID, and nothing is committed"
+   ]
+  ],
+  "secs": 16
+ },
+ "M2a binding prerequisite violation not applied": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "the closure applicable to a binding is the closure of THE WORLD IT COUPLES: a closure of a"
+   ]
+  ],
+  "secs": 15
+ },
+ "M2b binding does not have to read/depend on the ledger": {
+  "failed_tests": 69,
+  "suite_errors": [],
+  "files": [
+   "owner-admission.test.ts",
+   "pc-standing-ledger-foundation.test.ts",
+   "pc-standing-ledger-history.test.ts",
+   "pc-standing-ledger-legacy.test.ts",
+   "pc-standing-ledger-operator.test.ts",
+   "pc-standing-ledger-recovery.test.ts",
+   "pc-standing-ledger-refusals.test.ts",
+   "pc-standing-ledger-scaling.test.ts",
+   "pc-standing-ledger-security.test.ts",
+   "world-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "owner-admission.test.ts",
+    "commits world, locus, PC, the PC's ledger and then the binding"
+   ],
+   [
+    "owner-admission.test.ts",
+    "the binding cannot be replaced or deactivated by overwrite"
+   ],
+   [
+    "owner-admission.test.ts",
+    "positive: a binding carrying the supported basis, pinned to the committed facts, commits a"
+   ]
+  ],
+  "secs": 13
+ },
+ "M3 fresh binding may keep the original citation": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a headless binding that cites the ORIGINAL citation (fresh old-cited writes fail closed) \u2192"
+   ],
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a binding that cites the ORIGINAL citation even with a head committed \u2192 REFERENCE_INVALID,"
+   ]
+  ],
+  "secs": 16
+ },
+ "M4 unclosed-setup scan disabled": {
+  "failed_tests": 3,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-foundation.test.ts",
+   "pc-standing-ledger-scaling.test.ts",
+   "pc-standing-ledger-security.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-security.test.ts",
+    "a genuine ledger group built before a setup placement existed is REFUSED when presented af"
+   ],
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "cites the genuine closure by exact key, version and commit; the closure still verifies at "
+   ],
+   [
+    "pc-standing-ledger-scaling.test.ts",
+    "walks the campaign exactly once, one comparison per fact, and resolves no key when no plac"
+   ]
+  ],
+  "secs": 16
+ },
+ "M5a closure of the coupled world not required": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "cites the genuine closure by exact key, version and commit; the closure still verifies at "
+   ],
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "the closure applicable to a binding is the closure of THE WORLD IT COUPLES: a closure of a"
+   ]
+  ],
+  "secs": 16
+ },
+ "M5b foreign/unneeded closure tolerated": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "the closure applicable to a binding is the closure of THE WORLD IT COUPLES: a closure of a"
+   ]
+  ],
+  "secs": 16
+ },
+ "M6 history verification id has no S-4 suffix": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-conformance.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-conformance.test.ts",
+    "the production policy identity extends the pre-S-4 one with the exact S-4 suffix, forcing "
+   ]
+  ],
+  "secs": 16
+ },
+ "M7 reconcile disabled (retry after binding)": {
+  "failed_tests": 3,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-recovery.test.ts",
+   "world-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-recovery.test.ts",
+    "a crash at COMMITTED_NO_ACK of the binding commit, then a fresh handle and the same operat"
+   ],
+   [
+    "pc-standing-ledger-recovery.test.ts",
+    "a crash at COMMITTED_NO_ACK of the binding commit"
+   ],
+   [
+    "world-foundation.test.ts",
+    "re-presenting a committed publication returns the original receipt and changes nothing"
+   ]
+  ],
+  "secs": 15
+ },
+ "M8 cold-open binding/ledger check disabled": {
+  "failed_tests": 0,
+  "suite_errors": [],
+  "files": [],
+  "sample": [],
+  "secs": 15
+ },
+ "M9 replay (historical) ledger check disabled": {
+  "failed_tests": 0,
+  "suite_errors": [],
+  "files": [],
+  "sample": [],
+  "secs": 16
+ }
+}

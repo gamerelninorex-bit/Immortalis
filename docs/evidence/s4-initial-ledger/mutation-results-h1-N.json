@@ -1,0 +1,146 @@
+{
+ "N1 H-1: an explicit null is accepted although the target world has a committed closure": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts",
+   "pc-standing-ledger-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-origin.test.ts",
+    "an explicit null although the target world has a committed closure \u2192 refused"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "with a REAL setup placement and closure: integrity reports it, and a real cold open refuse"
+   ]
+  ],
+  "secs": 11
+ },
+ "N2 H-1: an explicit null need not pin the closure as absent (version-0 read) at admission": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a ledger for the CLOSED world W2 with an explicit null \u2192 REFERENCE_INVALID, and neither le"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "an explicit null whose absence was never pinned (the closure key not read at version 0) \u2192 "
+   ]
+  ],
+  "secs": 12
+ },
+ "N3 H-1: the target world profile need not be read or depended on": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a target_world that the group neither read nor depended on \u2192 REFERENCE_INVALID, and neithe"
+   ]
+  ],
+  "secs": 12
+ },
+ "N4 H-1: a binding may couple a world other than the ledger's target world": {
+  "failed_tests": 3,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts",
+   "pc-standing-ledger-foundation.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "positive matrix: the initializer's ledger names the world it was qualified against and the"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a ledger whose target world is not the world its binding couples is reported at cold open,"
+   ],
+   [
+    "pc-standing-ledger-foundation.test.ts",
+    "the closure applicable to a binding is the closure of THE WORLD IT COUPLES: a closure of a"
+   ]
+  ],
+  "secs": 11
+ },
+ "N5 H-1: cold-open verification does not require the absence pin of a null": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "an explicit null whose version-0 absence pin was stripped from the history is reported by "
+   ]
+  ],
+  "secs": 11
+ },
+ "N6 H-1: the operation identity ignores the target world": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-origin.test.ts",
+    "the operation identity depends on the target world: two worlds in the same closure state n"
+   ]
+  ],
+  "secs": 12
+ },
+ "N7 H-1: another world's closure is accepted for the target world": {
+  "failed_tests": 2,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts",
+   "pc-standing-ledger-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-origin.test.ts",
+    "another world's closure cited while the target world has its own \u2192 refused"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a ledger for the CLOSED world W that cites the CLOSED world W2's closure instead of W's ow"
+   ]
+  ],
+  "secs": 12
+ },
+ "N8 H-1: a closure is accepted for a target world that has none": {
+  "failed_tests": 3,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-closure-origin.test.ts",
+   "pc-standing-ledger-origin.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-origin.test.ts",
+    "a closure cited although the target world has none (the closure key is absent) \u2192 refused"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a ledger for the UNCLOSED world W that cites the CLOSED world W2's closure \u2192 REFERENCE_INV"
+   ],
+   [
+    "pc-standing-ledger-closure-origin.test.ts",
+    "a closure cited for a world that has NONE (the target W, a closure key it does not own) \u2192 "
+   ]
+  ],
+  "secs": 12
+ }
+}

@@ -119,6 +119,9 @@ import {
   OWNER_NAMED_ACTOR,
   FACET_PC_CAPABILITY_PROFILE,
   FACET_PC_VOLUNTARY_COMMITMENT,
+  FACET_PC_STANDING_INSTRUCTION_LEDGER,
+  PcStandingLedgerHeadSchema,
+  PcStandingLedgerVersionSchema,
   MovementServiceRequestSchema,
   PcMovementCommitmentSchema,
   PcCapabilityBasisHistoricalSchema,
@@ -426,6 +429,11 @@ export const NAMED_ACTOR_FACT_KIND_IDS = [
 ] as const;
 export const PC_CAPABILITY_FACT_KIND_IDS = ["pc_capability_basis", "pc_capability"] as const;
 export const PC_MOVEMENT_FACT_KIND_IDS = ["pc_movement_commitment", "pc_movement_request"] as const;
+/** S-4 initial Standing Instruction ledger (a fifth facet of the one PC owner): see `PC_STANDING_LEDGER_FACT_KINDS`. */
+export const PC_STANDING_LEDGER_FACT_KIND_IDS = [
+  "pc_standing_instruction_ledger_head",
+  "pc_standing_instruction_ledger_version",
+] as const;
 /** CPAA-C1 v0.2 PROVISIONAL candidate lowerings (not ratified): see `PC_COLLECTION_FACT_KINDS`. */
 export const PC_COLLECTION_FACT_KIND_IDS = [
   "pc_collection_commitment",
@@ -516,6 +524,7 @@ export type FactKindId =
   | (typeof NAMED_ACTOR_FACT_KIND_IDS)[number]
   | (typeof PC_CAPABILITY_FACT_KIND_IDS)[number]
   | (typeof PC_MOVEMENT_FACT_KIND_IDS)[number]
+  | (typeof PC_STANDING_LEDGER_FACT_KIND_IDS)[number]
   | (typeof PC_COLLECTION_FACT_KIND_IDS)[number]
   | (typeof TEMPORAL_FACT_KIND_IDS)[number]
   | (typeof POPULATION_FACT_KIND_IDS)[number]
@@ -1839,6 +1848,121 @@ export const PC_MOVEMENT_FACT_KINDS: readonly FactKind[] = [
     MovementServiceRequestSchema,
   ),
 ];
+
+/**
+ * S-4 initial Standing Instruction ledger — the exact ratified source, its Sovereign ratification and the BLUE construction brief
+ * (Notion native pins). None is a spec-lock pin: `spec/f027/spec-lock.json` is frozen for this construction and is not edited, so the
+ * citations below carry `effective_basis` "ratified-design-blue-bounded-brief-not-spec-locked" and never `pinned-by-spec-lock`.
+ */
+export const S4_LEDGER_SOURCE = {
+  artifact: "https://app.notion.com/p/41920af901e0818faf11c80a4fc59e9c",
+  native_pin: "2026-11-15T13:54:22.606Z",
+} as const;
+export const S4_RATIFICATION_SOURCE = {
+  artifact: "https://app.notion.com/p/41920af901e0816db645d2d43d12e6a5",
+  native_pin: "2026-11-15T14:02:45.229Z",
+} as const;
+export const S4_BRIEF_SOURCE = {
+  artifact: "https://app.notion.com/p/41b20af901e08196ac56e27f0d91e4b7",
+  native_pin: "2026-11-17T04:59:46.616Z",
+} as const;
+
+const S4_RATIFIED_LINEAGE = `BLUE S-4 v0.4 Class 2 Effect-Bound and Setup-Order Repair, native pin ${S4_LEDGER_SOURCE.native_pin} (${S4_LEDGER_SOURCE.artifact}), §§1, 4, 5, 7; Sovereign Conditional Ratification effectuated after BLUE–RED CONCUR (S-4a YES, S-4c YES, S-4d L-2), native pin ${S4_RATIFICATION_SOURCE.native_pin} (${S4_RATIFICATION_SOURCE.artifact}); Class 2 GM interpretation, the GM standing-text reader, F-014B waiting and every other LC family are separately ratified or held and are NOT part of this lowering`;
+const S4_BRIEF_LINEAGE = `BLUE F-014B S-4 Initial Ledger Scoped Hard Preflight PASS & Pinned Construction Brief, native pin ${S4_BRIEF_SOURCE.native_pin} (${S4_BRIEF_SOURCE.artifact}), Part B1 source-to-schema map and B4 acceptance matrix, cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT a spec-lock pin); its field, key, digest and intent spellings are BLUE TECHNICAL ENCODINGS of the ratified clauses, not source literals, and await independent BLUE exact-HEAD review`;
+
+const s4Rule = (clause: string, extraLineage: readonly string[]): SourceRef => ({
+  artifact: S4_LEDGER_SOURCE.artifact,
+  native_pin: S4_LEDGER_SOURCE.native_pin,
+  clause,
+  authority_lineage: [
+    S4_RATIFIED_LINEAGE,
+    S4_BRIEF_LINEAGE,
+    ROLE_REGISTRY_LINEAGE,
+    ...extraLineage,
+    RUNTIME_TRANSLATION_LINEAGE,
+  ],
+  effective_basis: "ratified-design-blue-bounded-brief-not-spec-locked",
+  supersedes: null,
+});
+
+/**
+ * The governing rule of the two ledger kinds: S-4a (a separately versioned, provable, NON-INTRINSIC ledger held by the existing
+ * `pc_existence` custodian; no new owner, no intrinsic Existence Contract content, no perception, world, office or action),
+ * S-4c (the source-labelled ENGINE_ORIGIN_LEDGER_CLOSURE witness of a newly created PC, never PLAYER-AUTHORED, committed after
+ * `world_setup_closure` where used and before either binding variant) and S-4d / L-2 (the prospective START_OF_LEDGER witness of an
+ * existing bound PC), with §7 (an immutable version plus a small advancing head).
+ */
+export const PC_LEDGER_RULE: SourceRef = s4Rule(
+  "§1 S-4a bounded PC-state ownership grant (non-intrinsic, separately versioned ledger held by pc_existence); §4 S-4c positive ledger head before both binding paths (ENGINE_ORIGIN_LEDGER_CLOSURE, an empty witness is engine closure evidence and never PLAYER-AUTHORED, after world_setup_closure where used, separate one-owner commit, no amendment of the setup-eligibility set); §5 S-4d L-2 (a prospective START_OF_LEDGER witness for an existing PC with a deterministic identity derived only from the PC and its original operative binding); §7 immutable per-version content with a small owner-advancing head",
+  [],
+);
+
+/**
+ * The binding's additive CURRENT citation (S-4c): both binding variants consume the same PC's qualified head at a strictly older
+ * durable commit. It is registered as an `alternateRules` entry of `player_character_binding` (see `withLedgerBindingRule`), so the
+ * kind's frozen-lock `rule` is byte for byte what it was and an authentic old binding keeps loading and replaying under it; a NEW
+ * binding must carry THIS citation, and admission refuses a fresh write that carries the original one.
+ */
+export const PC_LEDGER_BINDING_RULE: SourceRef = s4Rule(
+  "§4 S-4c: the ledger head is committed after world_setup_closure (where used) and BEFORE either binding variant ACTIVATION or EXISTING_ACTOR_HANDOVER, as a separate one-owner durable commit; both variants require the head at a verified older commit version and reject every future variant (a head with no binding is inert; a crash between them yields neither a bound nor a headless PC); §5 S-4d: an authentic old binding committed under the original citation is never rewritten and replays under its original policy",
+  [
+    "Player–World Insertion & Reconciliation Working Operational Draft v1 §§2, 3, 5, 6 Step 3 and Step 6, §17 and the PC-Control Handover Contract — Single Commit Point: the binding rule that cited the original citation is unchanged for every binding committed under it",
+  ],
+);
+
+const pcLedgerKind = (
+  id: (typeof PC_STANDING_LEDGER_FACT_KIND_IDS)[number],
+  lifecycle: FactLifecycle,
+  keyPattern: RegExp,
+  valueSchema: ValueSchema,
+): FactKind => ({
+  id,
+  owner: OWNER_PC_EXISTENCE,
+  facet: FACET_PC_STANDING_INSTRUCTION_LEDGER,
+  im: "IM-07",
+  rc: ["RC-02", "RC-07"],
+  lifecycle,
+  keyPattern,
+  valueSchema,
+  rule: PC_LEDGER_RULE,
+});
+
+/**
+ * The S-4 initial Standing Instruction ledger: ONE ADVANCING head per PC and SEALED, create-only, immutable versions, in a fifth
+ * facet of the one existing PC owner (`pc_existence`). It is unrelated to the intrinsic `existence_contract` facet and holds no
+ * instruction: this package admits only the empty sequence-1 witness, and every later mutation is refused.
+ */
+export const PC_STANDING_LEDGER_FACT_KINDS: readonly FactKind[] = [
+  pcLedgerKind(
+    "pc_standing_instruction_ledger_head",
+    "ADVANCING",
+    new RegExp(`^pc/${ID}/standing-instruction-ledger/head$`),
+    PcStandingLedgerHeadSchema,
+  ),
+  pcLedgerKind(
+    "pc_standing_instruction_ledger_version",
+    "SEALED",
+    new RegExp(`^pc/${ID}/standing-instruction-ledger/version/([1-9][0-9]{0,14})$`),
+    PcStandingLedgerVersionSchema,
+  ),
+];
+
+/**
+ * The four canonical kinds with the binding's S-4 citation added as an additive CURRENT alternate (nothing is superseded and the
+ * kind's frozen-lock `rule` is unchanged). `FACT_KINDS` itself is exported untouched, so its frozen-source conformance holds.
+ */
+const withLedgerBindingRule = (kinds: readonly FactKind[]): readonly FactKind[] =>
+  kinds.map((k) =>
+    k.id === "player_character_binding"
+      ? {
+          ...k,
+          alternateRules: [
+            ...(k.alternateRules ?? []),
+            { rule: PC_LEDGER_BINDING_RULE, admits: () => true },
+          ],
+        }
+      : k,
+  );
 
 const CPAA_C1_CANDIDATE = {
   artifact: "https://app.notion.com/p/3fb20af901e081c294cbf534d24de7c0",
@@ -3868,7 +3992,7 @@ const LOGISTICS_FACT_KINDS_WITH_FREIGHT = withFreightRule(
 export const isFreightRequestIdentity = isEconomyFreightRequestRef;
 
 export const ALL_FACT_KINDS: readonly FactKind[] = [
-  ...FACT_KINDS,
+  ...withLedgerBindingRule(FACT_KINDS),
   ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS_WITH_FREIGHT,
@@ -3900,6 +4024,7 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...INITIAL_SETUP_FACT_KINDS,
   ...MS_FACT_KINDS,
   ...FREIGHT_FACT_KINDS,
+  ...PC_STANDING_LEDGER_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

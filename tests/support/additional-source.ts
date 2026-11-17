@@ -124,6 +124,13 @@ export async function bindPlayer(dirs: LocalityDirs): Promise<void> {
       contract: fixtureContract({ pc_id: "pc-ashfall-1" }),
     });
     if (!released.ok) throw new Error(`release: ${released.error.code}`);
+    // S-4: the PC's Standing Instruction ledger head is committed first; the binding consumes it
+    const ledger = await campaign.initializePcStandingInstructionLedger({
+      pc_id: "pc-ashfall-1",
+      world_id: WORLD_ID,
+      locus_id: LOCUS_ID,
+    });
+    if (!ledger.ok) throw new Error(`ledger: ${ledger.error.code}`);
     const bound = await campaign.bindPlayerCharacter({
       ...publication(902),
       pc_id: "pc-ashfall-1",

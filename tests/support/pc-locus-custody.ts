@@ -9,7 +9,7 @@ import {
 import { derivePcPhysicalLocusCustody, factKind } from "@immortalis/engine";
 import { ACTOR_SMITH, FIXTURE_CAMPAIGN, group, write } from "@immortalis/testkit";
 import {
-  handoverActor,
+  activateActor,
   readyForHandover,
   seededExistingActorCampaign,
   type ExistingActorSeeded,
@@ -46,7 +46,7 @@ export async function handedOverCampaign(
 ): Promise<ExistingActorSeeded> {
   const s = await seededExistingActorCampaign(dir, o);
   await readyForHandover(s, undefined, undefined, contract);
-  await must(handoverActor(s, 1));
+  await must(activateActor(s, 1));
   return s;
 }
 

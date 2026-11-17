@@ -15,11 +15,13 @@ import {
   pcCapabilityBasisKey,
   pcCapabilityKey,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
 } from "@immortalis/contracts";
-import { PC_CAPABILITY_RULE, factKind } from "@immortalis/engine";
+import { PC_CAPABILITY_RULE, PC_LEDGER_BINDING_RULE, factKind } from "@immortalis/engine";
 import {
   ACTOR_OTHER,
   ACTOR_SMITH,
@@ -46,6 +48,7 @@ import {
   existingActorContract,
   seededExistingActorCampaign,
   type ExistingActorSeeded,
+  activateFreshPc,
 } from "../support/existing-actor.ts";
 import { codeOf, must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
@@ -98,7 +101,12 @@ const pinning = (s: ExistingActorSeeded, ...keys: string[]) => ({
 });
 
 /** A raw first-ACTIVATION binding of `pcId`, pinned exactly as `bindPlayerCharacter` would pin it. */
-function rawBinding(s: ExistingActorSeeded, n: number, pcId: string): CommitGroup {
+function rawBinding(
+  s: ExistingActorSeeded,
+  n: number,
+  pcId: string,
+  o: { ledger?: boolean } = {},
+): CommitGroup {
   const pcKey = pcExistenceContractKey(pcId);
   const wKey = worldProfileKey(FIXTURE_WORLD_ID);
   const lKey = worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID);
@@ -134,8 +142,19 @@ function rawBinding(s: ExistingActorSeeded, n: number, pcId: string): CommitGrou
     {
       owner: "role_registry",
       facet: "player_character_binding",
-      rule: factKind("player_character_binding").rule,
-      ...pinning(s, pcKey, wKey, lKey),
+      // The original citation is how an authentic pre-S-4 binding is written; a FRESH write under S-4 must cite the S-4 rule and
+      // consume the PC's committed ledger head and version (`ledger: true`).
+      rule: o.ledger ? PC_LEDGER_BINDING_RULE : factKind("player_character_binding").rule,
+      ...(o.ledger
+        ? pinning(
+            s,
+            pcKey,
+            wKey,
+            lKey,
+            pcStandingLedgerHeadKey(pcId),
+            pcStandingLedgerVersionKey(pcId, 1),
+          )
+        : pinning(s, pcKey, wKey, lKey)),
     },
   );
 }
@@ -303,7 +322,7 @@ describe("arbitrary and new PCs cannot exploit the exception (evidence 3)", () =
         contract: fixtureContract({ pc_id: A }),
       }),
     );
-    await must(s.campaign.bindPlayerCharacter(bindingInput(A, 4)));
+    await must(activateFreshPc(s, A, 4));
     await establishActorBasis({ actors: s.actors }, 1, ACTOR_OTHER, C);
     // A is a bound fresh PC: its contract key is taken, so nothing can re-state it as an existing-actor compilation
     const again = existingActorContract(A, [actorBasisPin(ACTOR_OTHER, C)]);
@@ -377,7 +396,15 @@ describe("ordinary Role Registry activation rejects the existing-actor compilati
         contract: fixtureContract({ pc_id: ACTOR_OTHER }),
       }),
     );
-    await must(s.campaign.store.commit(rawBinding(s, 31, ACTOR_OTHER)));
+    // S-4: the fresh PC's own ledger is committed first (an ordinary owner step), then the same raw first ACTIVATION, S-4-cited.
+    await must(
+      s.campaign.initializePcStandingInstructionLedger({
+        pc_id: ACTOR_OTHER,
+        world_id: FIXTURE_WORLD_ID,
+        locus_id: FIXTURE_LOCUS_ID,
+      }),
+    );
+    await must(s.campaign.store.commit(rawBinding(s, 31, ACTOR_OTHER, { ledger: true })));
     expect(s.campaign.binding()!.value.active_pc.entity_id).toBe(ACTOR_OTHER);
     expect(s.campaign.verify()).toEqual([]);
   });

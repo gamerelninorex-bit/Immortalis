@@ -500,6 +500,16 @@ describe("retry and reopen preserve the honest state and never duplicate a relea
     const dirs = await localityCampaign();
     await author(dirs, respondingConsole({ ...STANDARD, skipPlace: true }));
     await withCampaign(dirs.campaignDir, async (c) => {
+      // S-4: even a binding this command did not make consumes the PC's older ledger head
+      expect(
+        (
+          await c.initializePcStandingInstructionLedger({
+            pc_id: PC_ID,
+            world_id: WORLD_ID,
+            locus_id: "locus-salt-pans",
+          })
+        ).ok,
+      ).toBe(true);
       const r = await c.bindPlayerCharacter({
         ...pub("foreign-bind"),
         pc_id: PC_ID,
@@ -651,7 +661,7 @@ describe("F61-R1 finding 2: a release with the same content and names but no kee
 });
 
 describe("F61-R1 finding 3: other lawful facts of the PC owner are not other characters", () => {
-  const capability = async (dirs: Awaited<ReturnType<typeof localityCampaign>>) =>
+  const capability = async (dirs: Awaited<ReturnType<typeof localityCampaign>>, bound: boolean) =>
     withCampaign(dirs.campaignDir, async (c) => {
       const r = await new PcCapabilityAdapter(c.store).receiveCapabilityBasis({
         ...pcCapabilityPublication(1),
@@ -660,8 +670,19 @@ describe("F61-R1 finding 3: other lawful facts of the PC owner are not other cha
       expect(r.ok, JSON.stringify(r)).toBe(true);
       // the PC owner now holds a second, lawful fact of another kind beside the one Existence Contract
       const facts = c.store.listFacts().filter((f) => f.owner === "pc_existence");
+      // (and, only once the character was placed and bound, the PC owner's two Standing Instruction ledger facts: bookkeeping,
+      // never another character; a released-but-unbound character has none yet, because the ledger is opened at placement)
       expect(facts.map((f) => f.key).sort()).toEqual(
-        [pcExistenceContractKey(PC_ID), `pc/${PC_ID}/capability-basis/${CAP_SAILING}`].sort(),
+        [
+          pcExistenceContractKey(PC_ID),
+          `pc/${PC_ID}/capability-basis/${CAP_SAILING}`,
+          ...(bound
+            ? [
+                `pc/${PC_ID}/standing-instruction-ledger/head`,
+                `pc/${PC_ID}/standing-instruction-ledger/version/1`,
+              ]
+            : []),
+        ].sort(),
       );
       expect(facts.filter((f) => f.facet === "existence_contract")).toHaveLength(1);
     });
@@ -692,7 +713,7 @@ describe("F61-R1 finding 3: other lawful facts of the PC owner are not other cha
         )
       ).result.status,
     ).toBe("CHARACTER_BOUND");
-    await capability(dirs);
+    await capability(dirs, true);
     expect((await status(dirs)).status).toBe("CHARACTER_BOUND");
     const head = await headOf(dirs.campaignDir);
     const again = await author(dirs, respondingConsole(STANDARD));
@@ -712,7 +733,7 @@ describe("F61-R1 finding 3: other lawful facts of the PC owner are not other cha
       }),
     );
     expect(first.result.status).toBe("CHARACTER_RELEASED_UNBOUND");
-    await capability(dirs);
+    await capability(dirs, false);
     expect((await status(dirs)).status).toBe("CHARACTER_RELEASED_UNBOUND");
     const again = await author(dirs, respondingConsole(STANDARD));
     expect(again.result.status).toBe("CHARACTER_BOUND");

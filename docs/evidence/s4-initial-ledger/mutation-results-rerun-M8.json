@@ -1,0 +1,16 @@
+{
+ "M8 cold-open binding/ledger check disabled": {
+  "failed_tests": 1,
+  "suite_errors": [],
+  "files": [
+   "pc-standing-ledger-history.test.ts"
+  ],
+  "sample": [
+   [
+    "pc-standing-ledger-history.test.ts",
+    "a world setup closure that exists for the coupled world, after a ledger that cites none (t"
+   ]
+  ],
+  "secs": 10
+ }
+}

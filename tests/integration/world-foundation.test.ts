@@ -12,14 +12,18 @@ import {
   CANON_WRITE_AUTHORITY,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldLocusKey,
   worldProfileKey,
 } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
   FACT_KINDS,
+  PC_LEDGER_BINDING_RULE,
   createFileCampaign,
   factKind,
+  resolveKey,
   type CampaignStore,
   type CreateFileCampaignParams,
 } from "@immortalis/engine";
@@ -43,6 +47,10 @@ const WORLD = worldProfileKey(FIXTURE_WORLD_ID);
 const LOCUS = worldLocusKey(FIXTURE_WORLD_ID, FIXTURE_LOCUS_ID);
 const PC = pcExistenceContractKey(FIXTURE_PC_ID);
 const KEYS = [LOCUS, PC, PLAYER_CHARACTER_BINDING_KEY, WORLD].sort();
+/** S-4: the PC's Standing Instruction ledger (its head and sealed version) is the binding's strictly older prerequisite. */
+const LEDGER_HEAD = pcStandingLedgerHeadKey(FIXTURE_PC_ID);
+const LEDGER_VERSION = pcStandingLedgerVersionKey(FIXTURE_PC_ID, 1);
+const KEYS_WITH_LEDGER = [...KEYS, LEDGER_HEAD, LEDGER_VERSION].sort();
 
 async function must<T>(
   p: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,
@@ -64,6 +72,16 @@ const bindInput = (n = 4) => ({
   insertion: fixtureInsertionFact(),
 });
 
+/** The lawful S-4 sequence: the engine derives and commits the PC's ledger from what is committed, then the binding consumes it. */
+async function lawfulBind(c: CanonicalCampaign, input: ReturnType<typeof bindInput> = bindInput()) {
+  const ledger = await c.initializePcStandingInstructionLedger({
+    pc_id: input.pc_id,
+    world_id: input.world_id,
+    locus_id: input.locus_id,
+  });
+  return ledger.ok ? c.bindPlayerCharacter(input) : ledger;
+}
+
 async function established(dir: string, buildId = "seed"): Promise<CanonicalCampaign> {
   const c = await must(CanonicalCampaign.create(dir, { campaignId: FIXTURE_CAMPAIGN, buildId }));
   await must(c.establishWorld({ ...publication(1), world: fixtureWorld() }));
@@ -75,7 +93,7 @@ async function established(dir: string, buildId = "seed"): Promise<CanonicalCamp
 describe("the acceptance path: real owners, canonical identity, lawful binding", () => {
   it("establishes world, locus, PC and binding, each under its specification-backed owner/facet", async () => {
     const c = await established(tempDir());
-    await must(c.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(c, bindInput()));
 
     const owners = Object.fromEntries(
       c.store.listFacts().map((f) => [f.key, `${f.owner}/${f.facet}`]),
@@ -85,11 +103,16 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
       [LOCUS]: "world_state/world_locus",
       [PC]: "pc_existence/existence_contract",
       [PLAYER_CHARACTER_BINDING_KEY]: "role_registry/player_character_binding",
+      [LEDGER_HEAD]: "pc_existence/standing_instruction_ledger",
+      [LEDGER_VERSION]: "pc_existence/standing_instruction_ledger",
     });
     // each fact carries the exact governing source citation of its kind (RC-01) and the archivist path
     for (const f of c.store.listFacts()) {
-      const kind = FACT_KINDS.find((k) => k.owner === f.owner && k.facet === f.facet)!;
-      expect(f.provenance.rule).toEqual(kind.rule);
+      const kind = factKind(resolveKey(f.key)!.kind.id);
+      // a NEW binding cites the S-4 additive alternate (it consumed the older ledger head); every other fact cites its kind's rule
+      expect(f.provenance.rule).toEqual(
+        kind.id === "player_character_binding" ? PC_LEDGER_BINDING_RULE : kind.rule,
+      );
       expect(f.version).toBe(1);
       expect(f.unit).toBeNull();
       expect(c.store.lookupReceipt(f.provenance.intent_id)?.basis.authority).toEqual(
@@ -113,7 +136,7 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
 
   it("the binding references the PC and the world; it copies neither (foreign facts are referenced)", async () => {
     const c = await established(tempDir());
-    await must(c.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(c, bindInput()));
     const raw = JSON.stringify(c.store.getFact(PLAYER_CHARACTER_BINDING_KEY)?.value);
     expect(raw).not.toContain(fixtureWorld().premise);
     expect(raw).not.toContain(fixtureContract().identity_agency.statement);
@@ -122,13 +145,13 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
     await c.close();
   });
 
-  it("commits exactly four facts and instantiates nothing else (no hidden expansion)", async () => {
+  it("commits exactly the four canonical facts plus the PC's two ledger facts and instantiates nothing else (no hidden expansion)", async () => {
     const dir = tempDir();
     const c = await established(dir);
-    await must(c.bindPlayerCharacter(bindInput()));
-    expect(c.store.listFacts().map((f) => f.key)).toEqual(KEYS);
-    expect(c.store.head().revision).toBe(4);
-    expect(c.store.head().journal_entries).toBe(4);
+    await must(lawfulBind(c));
+    expect(c.store.listFacts().map((f) => f.key)).toEqual(KEYS_WITH_LEDGER);
+    expect(c.store.head().revision).toBe(5); // world, locus, PC, the ledger group, the binding
+    expect(c.store.head().journal_entries).toBe(5);
     // only the four key spaces of the four fact kinds exist in this build
     expect(FACT_KINDS.map((k) => k.id).sort()).toEqual([
       "pc_existence_contract",
@@ -136,6 +159,7 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
       "world_locus",
       "world_profile",
     ]);
+    // the ledger is a SEPARATE registration of the one PC owner (its head and version), not a fifth canonical-foundation kind
     await c.close();
   });
 
@@ -143,7 +167,7 @@ describe("the acceptance path: real owners, canonical identity, lawful binding",
     const build = async () => {
       const dir = tempDir();
       const c = await established(dir, "same-build");
-      await must(c.bindPlayerCharacter(bindInput()));
+      await must(lawfulBind(c, bindInput()));
       await c.close();
       return snapshotDir(dir);
     };
@@ -176,8 +200,8 @@ describe("dependency direction through the service", () => {
     await must(c.establishWorld({ ...publication(4), world: fixtureWorld() }));
     expect(await code(c.bindPlayerCharacter(bindInput(5)))).toBe("PREREQUISITE_MISSING"); // no locus
     await must(c.establishLocus({ ...publication(6), locus: fixtureLocus() }));
-    await must(c.bindPlayerCharacter(bindInput(7)));
-    expect(c.store.listFacts().map((f) => f.key)).toEqual(KEYS);
+    await must(lawfulBind(c, bindInput(7)));
+    expect(c.store.listFacts().map((f) => f.key)).toEqual(KEYS_WITH_LEDGER);
     await c.close();
   });
 
@@ -245,7 +269,7 @@ describe("the binding consumes an explicit, already-established IR coupling basi
 
   it("POSITIVE: the authored basis is retained verbatim with only the mechanical version pins added", async () => {
     const c = await established(tempDir());
-    await must(c.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(c, bindInput()));
     const b = c.binding()!;
     expect(b.value.transition).toEqual({
       type: "ACTIVATION",
@@ -265,9 +289,9 @@ describe("the binding consumes an explicit, already-established IR coupling basi
   it("the basis is not inferred: two different authored statements give two different canonical bindings", async () => {
     const a = await established(tempDir());
     const b = await established(tempDir());
-    await must(a.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(a, bindInput()));
     await must(
-      b.bindPlayerCharacter({
+      lawfulBind(b, {
         ...bindInput(),
         insertion: fixtureInsertionFact({
           statement: "SYNTHETIC FIXTURE: another authored wording.",
@@ -284,6 +308,15 @@ describe("the binding consumes an explicit, already-established IR coupling basi
   it("RAW store.commit cannot bypass the rule: no basis, stale pins or unsupported basis are refused", async () => {
     const c = await established(tempDir());
     const k = factKind("player_character_binding");
+    // S-4: the lawful raw binding cites the S-4 rule and reads/depends on the PC's strictly older ledger (committed first)
+    await must(
+      c.initializePcStandingInstructionLedger({
+        pc_id: FIXTURE_PC_ID,
+        world_id: FIXTURE_WORLD_ID,
+        locus_id: FIXTURE_LOCUS_ID,
+      }),
+    );
+    const ledgerGroup = c.store.getFact(LEDGER_HEAD)!.provenance.group_id;
     const value = (transition: unknown) => ({
       binding_slot: "role.player_character",
       active_pc: { fact_key: PC, entity_id: FIXTURE_PC_ID },
@@ -305,9 +338,12 @@ describe("the binding consumes an explicit, already-established IR coupling basi
         {
           owner: k.owner,
           facet: k.facet,
-          rule: k.rule,
-          reads: [PC, WORLD, LOCUS].map((key) => ({ key, version: 1 })),
-          depends_on: ["wf-group-3", "wf-group-1", "wf-group-2"],
+          rule: PC_LEDGER_BINDING_RULE,
+          reads: [PC, WORLD, LOCUS, LEDGER_HEAD, LEDGER_VERSION].map((key) => ({
+            key,
+            version: 1,
+          })),
+          depends_on: ["wf-group-3", "wf-group-1", "wf-group-2", ledgerGroup],
         },
       );
     const basis = { ...fixtureInsertionFact(), pinned_versions: pins };
@@ -413,9 +449,9 @@ describe("owner exclusivity holds for the raw store, before and after reload", (
 describe("idempotence and identity (RC-16, CAL-07) on the new operations", () => {
   it("re-presenting a committed publication returns the original receipt and changes nothing", async () => {
     const c = await established(tempDir());
-    const first = await must(c.bindPlayerCharacter(bindInput()));
+    const first = await must(lawfulBind(c, bindInput()));
     const head = c.store.head();
-    const again = await must(c.bindPlayerCharacter(bindInput()));
+    const again = await must(lawfulBind(c, bindInput()));
     expect(again.replayed).toBe(true);
     expect(again.receipt).toEqual(first.receipt);
     expect(c.store.head()).toEqual(head);
@@ -424,7 +460,7 @@ describe("idempotence and identity (RC-16, CAL-07) on the new operations", () =>
 
   it("the same intent with different content is rejected; a second binding cannot overwrite the first", async () => {
     const c = await established(tempDir());
-    await must(c.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(c, bindInput()));
     expect(
       await code(
         c.establishWorld({
@@ -434,7 +470,7 @@ describe("idempotence and identity (RC-16, CAL-07) on the new operations", () =>
       ),
     ).toBe("INTENT_CONFLICT");
     expect(await code(c.bindPlayerCharacter(bindInput(5)))).toBe("VERSION_CONFLICT");
-    expect(c.store.head().revision).toBe(4);
+    expect(c.store.head().revision).toBe(5);
     await c.close();
   });
 
@@ -484,7 +520,7 @@ describe("Save. Close. Load. Continue. — the world, the PC and the binding rem
     expect(bind.before.head.spec_identity).toEqual(BUILD_SPEC_IDENTITY);
     expect(bind.before.head.created_with.build_id).toBe("process-1");
     expect(bind.before.facts).toEqual(est.facts); // byte-identical facts after reload
-    expect(bind.after.head.revision).toBe(4);
+    expect(bind.after.head.revision).toBe(5); // the ledger group, then the binding
     expect(bind.after.violations).toEqual([]);
 
     // process 3: LOAD again; everything from processes 1 and 2 unchanged; replay + second binding
@@ -732,7 +768,7 @@ describe("load fails closed on owner/facet, rule or dependency drift", () => {
     expect(await openCode(dir)).toBe("OK");
     const dir2 = tempDir();
     const c = await established(dir2);
-    await must(c.bindPlayerCharacter(bindInput()));
+    await must(lawfulBind(c, bindInput()));
     await c.close();
     expect(await openCode(dir2)).toBe("OK");
   });

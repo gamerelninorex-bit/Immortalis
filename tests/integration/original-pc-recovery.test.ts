@@ -34,7 +34,10 @@ function crashedHolder(campaignDir: string): void {
 const unknown = { ok: false, error: { code: "UNKNOWN_OUTCOME", message: "reply lost" } } as const;
 
 /** Makes one owner operation lose its acknowledgement: it commits (or, when `commit` is false, never reaches the store). */
-function loseReply(op: "releasePlayerCharacter" | "bindPlayerCharacter", commit: boolean) {
+function loseReply(
+  op: "releasePlayerCharacter" | "initializePcStandingInstructionLedger" | "bindPlayerCharacter",
+  commit: boolean,
+) {
   const original = (CanonicalCampaign.prototype as any)[op] as (
     ...a: unknown[]
   ) => Promise<unknown>;
@@ -54,7 +57,7 @@ async function reference() {
   return shapeOf(dirs);
 }
 
-describe("a lost acknowledgement at each of the two owner commits converges on the uninterrupted campaign", () => {
+describe("a lost acknowledgement at each of the owner commits (release, S-4 ledger, binding) converges on the uninterrupted campaign", () => {
   const cases = [
     ["releasePlayerCharacter", true, "the release landed but its reply was lost", 2, 5],
     [
@@ -64,8 +67,30 @@ describe("a lost acknowledgement at each of the two owner commits converges on t
       2,
       4,
     ],
-    ["bindPlayerCharacter", true, "the binding landed but its reply was lost", 0, 7],
-    ["bindPlayerCharacter", false, "the binding never reached the store", 2, 6],
+    // S-4: the character's Standing Instruction ledger is committed between the referee evidence (6) and the binding; it is internal
+    // bookkeeping the player is asked nothing about, and the rerun resumes at placement exactly as when the binding never landed
+    [
+      "initializePcStandingInstructionLedger",
+      true,
+      "the ledger landed but its reply was lost: the same command finds it by identity and binds, repeating nothing",
+      2,
+      7,
+    ],
+    [
+      "initializePcStandingInstructionLedger",
+      false,
+      "the ledger never reached the store: it is derived and committed again by the same identity",
+      2,
+      6,
+    ],
+    ["bindPlayerCharacter", true, "the binding landed but its reply was lost", 0, 8],
+    [
+      "bindPlayerCharacter",
+      false,
+      "the binding never reached the store (its ledger had landed)",
+      2,
+      7,
+    ],
   ] as const;
   for (const [op, commit, name, reAsked, revisionAfterFirst] of cases) {
     it(

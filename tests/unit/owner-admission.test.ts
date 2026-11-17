@@ -6,6 +6,8 @@ import {
   CANON_WRITE_AUTHORITY,
   PLAYER_CHARACTER_BINDING_KEY,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldLocusKey,
   worldProfileKey,
   type CommitGroup,
@@ -14,8 +16,11 @@ import {
   CANONICAL_OWNER_REGISTRY,
   CampaignCore,
   FACT_KINDS,
+  PC_LEDGER_BINDING_RULE,
+  PC_LEDGER_RULE,
   canonicalAdmission,
   couplingBasisViolation,
+  deriveNewPcLedger,
   emptyState,
   factKind,
   resolveKey,
@@ -135,6 +140,71 @@ const bindGroup = (n: number, over: Partial<CommitGroup> = {}) =>
     ...over,
   });
 
+/**
+ * S-4: the PC's Standing Instruction ledger group (head + sealed version), derived by the engine from the committed prerequisites of
+ * `c` exactly as the owner path derives it, then presented raw to the core.
+ */
+function ledgerGroup(c: CampaignCore): CommitGroup {
+  const plan = deriveNewPcLedger(c.state.facts, {
+    pc_id: FIXTURE_PC_ID,
+    world_id: FIXTURE_WORLD_ID,
+    locus_id: FIXTURE_LOCUS_ID,
+  });
+  if (!plan.ok) throw new Error(plan.error.message);
+  const p = plan.value;
+  const write = (key: string, value: unknown) => ({
+    key,
+    owner: "pc_existence",
+    facet: "standing_instruction_ledger",
+    value: value as never,
+    unit: null,
+    basis: p.publication.basis,
+    secrecy: p.publication.secrecy,
+    expected_version: 0,
+  });
+  return {
+    campaign_id: C,
+    group_id: p.publication.group_id,
+    intent_id: p.publication.intent_id,
+    owner: "pc_existence",
+    facet: "standing_instruction_ledger",
+    cause: p.publication.cause,
+    rule: PC_LEDGER_RULE,
+    authority: { ...CANON_WRITE_AUTHORITY },
+    reads: [
+      ...p.pinned.map((key) => ({ key, version: c.state.facts.get(key)?.version ?? 0 })),
+      ...p.absent.map((key) => ({ key, version: 0 })),
+    ],
+    depends_on: p.pinned.map((key) => c.state.facts.get(key)!.provenance.group_id),
+    writes: [
+      write(pcStandingLedgerHeadKey(FIXTURE_PC_ID), p.head),
+      write(pcStandingLedgerVersionKey(FIXTURE_PC_ID, 1), p.version),
+    ],
+  };
+}
+/** world, locus, PC and then the PC's ledger: everything a LAWFUL (S-4) binding consumes. */
+function seededWithLedger(): CampaignCore {
+  const c = seeded();
+  expect(commit(c, ledgerGroup(c))).toBe("OK");
+  return c;
+}
+/** The lawful S-4 binding group: it cites the S-4 rule and reads/depends on the older ledger head and version. */
+const lawfulBindGroup = (c: CampaignCore, n: number, over: Partial<CommitGroup> = {}) => {
+  const base = bindGroup(n);
+  const head = c.state.facts.get(pcStandingLedgerHeadKey(FIXTURE_PC_ID))!;
+  return {
+    ...base,
+    rule: PC_LEDGER_BINDING_RULE,
+    reads: [
+      ...base.reads,
+      { key: head.key, version: head.version },
+      { key: pcStandingLedgerVersionKey(FIXTURE_PC_ID, 1), version: 1 },
+    ],
+    depends_on: [...base.depends_on, head.provenance.group_id],
+    ...over,
+  } satisfies CommitGroup;
+};
+
 describe("registry: every key space has exactly one owner/facet and there is no fallback", () => {
   it("resolves each key to a single fact kind", () => {
     expect(resolveKey(WORLD)?.kind.id).toBe("world_profile");
@@ -179,6 +249,8 @@ describe("registry: every key space has exactly one owner/facet and there is no 
           "pc_collection_mechanism",
           "pc_intrinsic_clarification",
           "pc_voluntary_commitment",
+          // S-4: the non-intrinsic Standing Instruction ledger is one more FACET of the one PC owner, never a second PC owner
+          "standing_instruction_ledger",
         ],
       ],
       ["role_registry", ["player_character_binding"]],
@@ -224,11 +296,18 @@ describe("registry: every key space has exactly one owner/facet and there is no 
 });
 
 describe("real owners write their own facts (IA-03)", () => {
-  it("commits world, locus, PC and then the binding", () => {
-    const c = seeded();
-    expect(commit(c, bindGroup(4))).toBe("OK");
+  it("commits world, locus, PC, the PC's ledger and then the binding", () => {
+    const c = seededWithLedger();
+    expect(commit(c, lawfulBindGroup(c, 4))).toBe("OK");
     expect([...c.state.facts.keys()].sort()).toEqual(
-      [LOCUS, PC, PLAYER_CHARACTER_BINDING_KEY, WORLD].sort(),
+      [
+        LOCUS,
+        PC,
+        PLAYER_CHARACTER_BINDING_KEY,
+        WORLD,
+        pcStandingLedgerHeadKey(FIXTURE_PC_ID),
+        pcStandingLedgerVersionKey(FIXTURE_PC_ID, 1),
+      ].sort(),
     );
   });
   it("test-only owners are not registered for canonical writes (no arbitrary owner/facet)", () => {
@@ -365,16 +444,17 @@ describe("sealed canon is create-only until an owner amendment mechanism exists"
     expect(c.state.facts.get(key)?.version).toBe(1);
   });
   it("the binding cannot be replaced or deactivated by overwrite", () => {
-    const c = seeded();
-    expect(commit(c, bindGroup(4))).toBe("OK");
+    const c = seededWithLedger();
+    expect(commit(c, lawfulBindGroup(c, 4))).toBe("OK");
     const again = g(
       9,
       "player_character_binding",
       PLAYER_CHARACTER_BINDING_KEY,
       bindingValue(),
       {
-        reads: bindGroup(4).reads,
-        depends_on: bindGroup(4).depends_on,
+        rule: PC_LEDGER_BINDING_RULE,
+        reads: lawfulBindGroup(c, 4).reads,
+        depends_on: lawfulBindGroup(c, 4).depends_on,
       },
       { expected_version: 1 },
     );
@@ -502,8 +582,11 @@ describe("coupling basis: a lawful IR basis is required, not inferred from coexi
   const bindingFact = (c: CampaignCore) => c.state.facts.has(PLAYER_CHARACTER_BINDING_KEY);
 
   it("positive: a binding carrying the supported basis, pinned to the committed facts, commits and retains it", () => {
-    const c = seeded();
-    expect(commit(c, withBasis(goodBasis()))).toBe("OK");
+    const c = seededWithLedger();
+    const lawful = lawfulBindGroup(c, 4, {
+      writes: withBasis(goodBasis()).writes,
+    });
+    expect(commit(c, lawful)).toBe("OK");
     expect(c.state.facts.get(PLAYER_CHARACTER_BINDING_KEY)?.value).toMatchObject({
       transition: { type: "ACTIVATION", basis: goodBasis() },
     });

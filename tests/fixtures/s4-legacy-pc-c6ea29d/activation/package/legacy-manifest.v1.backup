@@ -1,0 +1,50 @@
+{
+  "campaign_id": "campaign-world-foundation-1",
+  "compatibility": {
+    "runtime_contract_sha256": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+  },
+  "created_with": {
+    "build_id": "s4-legacy-fixture-activation",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "format": "immortalis.campaign-package",
+  "format_version": 1,
+  "genesis_sha256": "3b656af7425efb9a2bfa2dacfb66cb22eed9810a5ff3e34c655fb18154515a79",
+  "head": {
+    "journal_bytes": 0,
+    "journal_entries": 0,
+    "journal_head_sha256": "3b656af7425efb9a2bfa2dacfb66cb22eed9810a5ff3e34c655fb18154515a79",
+    "revision": 0,
+    "state_file": "state.0000000000.json",
+    "state_sha256": "4b1ea604f93e5e37fedc7f8ac716168b4dc61154f84ed6f9aa23e9bd59c979d3"
+  },
+  "last_saved_spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+    },
+    "spec_lock_sha256": "8c0754d36599fcdf0cf5647d042b61492724fa742b5fd30ea62d37ff961971af"
+  },
+  "last_saved_with": {
+    "build_id": "s4-legacy-fixture-activation",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "self_sha256": "a73a139d277e40a8c11c6c28f8352382e32a844f8cecc8e5d7bbed09b3c373c7",
+  "spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+    },
+    "spec_lock_sha256": "8c0754d36599fcdf0cf5647d042b61492724fa742b5fd30ea62d37ff961971af"
+  }
+}

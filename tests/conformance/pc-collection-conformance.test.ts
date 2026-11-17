@@ -388,6 +388,8 @@ describe("IA-03 owner exclusivity: eight kinds (six C1 + two D-1), two new facet
       "pc_collection_mechanism",
       "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
+      // S-4: the PC's own Standing Instruction ledger, a separate non-intrinsic facet of the same owner (no new owner)
+      "standing_instruction_ledger",
     ]);
     expect([...CANONICAL_OWNER_REGISTRY.get("population")!].sort()).toEqual([
       "population_pc_occupancy",

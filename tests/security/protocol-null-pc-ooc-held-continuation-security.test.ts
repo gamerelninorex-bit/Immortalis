@@ -193,6 +193,13 @@ describe("IA-18 / IA-28: host input cannot supply authority, identity, time, tar
       s.campaign.releasePlayerCharacter({ ...publication(3), contract: fixtureContract() }),
     );
     await must(
+      s.campaign.initializePcStandingInstructionLedger({
+        pc_id: FIXTURE_PC_ID,
+        world_id: FIXTURE_WORLD_ID,
+        locus_id: FIXTURE_LOCUS_ID,
+      }),
+    );
+    await must(
       s.campaign.bindPlayerCharacter({
         ...publication(4),
         pc_id: FIXTURE_PC_ID,

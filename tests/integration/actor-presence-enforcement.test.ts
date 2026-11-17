@@ -36,6 +36,7 @@ import {
   compileExistingActor,
   coupleActor,
   existingActorContract,
+  activateActor,
   handoverActor,
 } from "../support/existing-actor.ts";
 import { must } from "../support/temporal.ts";
@@ -162,7 +163,7 @@ describe("exact-identity physical-custody exclusion", () => {
 
   it("control: without a presence the lawful handover of the prepared, coupled actor commits", async () => {
     const s = await compiled();
-    await must(handoverActor(s, 1, A));
+    await must(activateActor(s, 1, A));
     expect(s.campaign.binding()).toBeDefined();
   });
 

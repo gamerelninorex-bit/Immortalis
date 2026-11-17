@@ -3,14 +3,20 @@ import {
   EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
   ExistingActorCouplingSchema,
+  LEDGER_ORIGIN_ENGINE_CLOSURE,
+  PC_LEDGER_FIRST_SEQUENCE,
   PLAYER_CHARACTER_BINDING_KEY,
+  PcStandingLedgerVersionSchema,
   PlayerCharacterBindingSchema,
   WorldCorridorSchema,
   WorldLocusSchema,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
+  worldSetupClosureKey,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
@@ -22,6 +28,13 @@ import {
 } from "../owners/admission.ts";
 import { resolveKey, type FactKind } from "../owners/registry.ts";
 import { classifyGoverningRule } from "../owners/governing-rule.ts";
+import {
+  bindingLedgerViolation,
+  isLedgerBindingFact,
+  ledgerPairViolation,
+  targetWorldIdOf,
+  type WalkableLedgerFacts,
+} from "../owners/pc-standing-ledger.ts";
 import { couplingActorStillNonPcViolation } from "./actor-coupling.ts";
 import { worldCorridorViolation } from "./corridor.ts";
 import type { CampaignStore } from "../persistence/store.ts";
@@ -67,6 +80,8 @@ export interface IntegrityViolation {
     | "AUDITORY_PREMISES_STATE"
     /** World-State active-PC post-handover physical-locus custody: see verifyPcPhysicalLocusCustodyIntegrity */
     | "PC_LOCUS_CUSTODY_STATE"
+    /** S-4 initial Standing Instruction ledger head/version and the binding's consumption of its older head: see verifyCanonicalIntegrity */
+    | "PC_LEDGER_STATE"
     /** IM-07 active-PC voluntary-movement commitment-of-record and PC-owned request: see verifyPcMovementIntegrity */
     | "PC_MOVEMENT_STATE"
     /** CPAA-C1 v0.2 PROVISIONAL collection commitment, request, mechanism, reach judgment, occupancy and Production work record: see verifyPcCollectionIntegrity */
@@ -119,6 +134,26 @@ export function factsBefore(
     has: (k) => {
       const f = all.get(k);
       return f !== undefined && revisionOf(f) < revision;
+    },
+  };
+}
+
+/** The same cut as `factsBefore`, also walkable (the unclosed-setup scan of an engine-origin ledger pair). */
+function walkableFactsBefore(
+  revision: number,
+  all: ReadonlyMap<string, OwnerFact>,
+  revisionOf: (f: OwnerFact) => number,
+): WalkableLedgerFacts {
+  const before = factsBefore(revision, all, revisionOf);
+  return {
+    get: before.get,
+    has: before.has,
+    // the key filter runs BEFORE the receipt lookup that dates a fact, so a walk wanting a handful of keys costs a handful of lookups
+    values: function* (keyFilter?: (key: string) => boolean) {
+      for (const f of all.values()) {
+        if (keyFilter && !keyFilter(f.key)) continue;
+        if (revisionOf(f) < revision) yield f;
+      }
     },
   };
 }
@@ -285,6 +320,104 @@ export function verifyCanonicalIntegrity(
           );
         }
       }
+    } else if (kind.id === "pc_standing_instruction_ledger_head") {
+      // ADVANCING by registration, but this package admits only initialization: a head beyond its first version is an unsupported advance
+      if (fact.version !== 1) {
+        bad(
+          fact.key,
+          "UNSUPPORTED_AMENDMENT",
+          "the ledger head was advanced: only initialization is supported",
+        );
+      }
+      if (!facts.has(pcStandingLedgerVersionKey(ids[0]!, PC_LEDGER_FIRST_SEQUENCE))) {
+        bad(fact.key, "PC_LEDGER_STATE", "a ledger head has no sealed sequence-1 version");
+      }
+    } else if (kind.id === "pc_standing_instruction_ledger_version") {
+      // the sealed pair is re-judged by the one rule admission applies, against the facts as they stood BEFORE its group
+      const version = PcStandingLedgerVersionSchema.parse(parsed.data);
+      const headFact = facts.get(pcStandingLedgerHeadKey(version.pc_id));
+      if (!headFact) {
+        bad(fact.key, "PC_LEDGER_STATE", "a ledger version has no head");
+      } else {
+        if (
+          headFact.provenance.group_id !== fact.provenance.group_id ||
+          headFact.provenance.intent_id !== fact.provenance.intent_id
+        ) {
+          bad(
+            fact.key,
+            "PC_LEDGER_STATE",
+            "the ledger head and version were not committed by one atomic PC-owner group",
+          );
+        }
+        const revision = revisionOf(fact);
+        const violation = ledgerPairViolation(
+          headFact,
+          fact,
+          fact.provenance,
+          walkableFactsBefore(revision, facts, revisionOf),
+        );
+        if (violation) bad(fact.key, "PC_LEDGER_STATE", violation);
+        // the group read each foreign fact it rests on at its exact version and depended on the group that committed it
+        const group = store.committedGroup(fact.provenance.intent_id);
+        if (!group || group.writes.length !== 2) {
+          bad(
+            fact.key,
+            "PC_LEDGER_STATE",
+            "the ledger group holds exactly the head and the version",
+          );
+        }
+        const o = version.origin;
+        const pinned =
+          o.kind === LEDGER_ORIGIN_ENGINE_CLOSURE
+            ? [o.pc_creation, o.target_world, ...(o.setup_closure ? [o.setup_closure] : [])]
+            : [o.operative_binding];
+        for (const ref of pinned) {
+          const target = needs(fact, ref.fact_key);
+          if (
+            target &&
+            (!group ||
+              !group.reads.some((r) => r.key === ref.fact_key && r.version === ref.version) ||
+              !group.depends_on.includes(target.provenance.group_id))
+          ) {
+            bad(
+              fact.key,
+              "PC_LEDGER_STATE",
+              `the ledger group read the exact pinned fact and depended on its group: ${ref.fact_key}`,
+            );
+          }
+        }
+        // an explicit null closure is a claim of ABSENCE: the group pinned the target world's closure key as absent (read at version 0)
+        if (o.kind === LEDGER_ORIGIN_ENGINE_CLOSURE && o.setup_closure === null) {
+          const worldId = targetWorldIdOf(o.target_world);
+          const absent = worldId === null ? null : worldSetupClosureKey(worldId);
+          if (absent === null || !group?.reads.some((r) => r.key === absent && r.version === 0)) {
+            bad(
+              fact.key,
+              "PC_LEDGER_STATE",
+              "an explicit null closure was not pinned as absent: the target world's closure key must be read at version 0",
+            );
+          }
+        }
+        // an engine-origin ledger is committed BEFORE its PC's binding, never after it
+        if (o.kind === LEDGER_ORIGIN_ENGINE_CLOSURE) {
+          const bindingFact = facts.get(PLAYER_CHARACTER_BINDING_KEY);
+          const bound = bindingFact
+            ? PlayerCharacterBindingSchema.safeParse(bindingFact.value)
+            : undefined;
+          if (
+            bindingFact &&
+            bound?.success &&
+            bound.data.active_pc.entity_id === version.pc_id &&
+            revisionOf(bindingFact) <= revision
+          ) {
+            bad(
+              fact.key,
+              "PC_LEDGER_STATE",
+              "an engine-origin ledger was committed after its PC's binding",
+            );
+          }
+        }
+      }
     } else if (kind.id === "player_character_binding") {
       const b = PlayerCharacterBindingSchema.parse(parsed.data);
       const worldKey = worldProfileKey(b.coupling.world.entity_id);
@@ -345,6 +478,35 @@ export function verifyCanonicalIntegrity(
           locus: locusFact,
         });
         if (insufficient) bad(fact.key, "REFERENCE_INVALID", insufficient);
+      }
+      // S-4c: a binding committed under the S-4 citation consumed its PC's ledger head and version, committed strictly before it,
+      // read at their exact versions with their group depended on. A binding under the ORIGINAL citation is an authentic old
+      // headless binding and is judged by its original rule alone.
+      if (isLedgerBindingFact(fact)) {
+        const group = store.committedGroup(fact.provenance.intent_id);
+        for (const key of [
+          pcStandingLedgerHeadKey(b.active_pc.entity_id),
+          pcStandingLedgerVersionKey(b.active_pc.entity_id, PC_LEDGER_FIRST_SEQUENCE),
+        ]) {
+          const target = needs(fact, key);
+          if (
+            target &&
+            (!group ||
+              !group.reads.some((r) => r.key === key && r.version === target.version) ||
+              !group.depends_on.includes(target.provenance.group_id))
+          ) {
+            bad(
+              fact.key,
+              "PC_LEDGER_STATE",
+              `the binding read the exact ledger fact and depended on its group: ${key}`,
+            );
+          }
+        }
+        const violation = bindingLedgerViolation(
+          b,
+          factsBefore(revisionOf(fact), facts, revisionOf),
+        );
+        if (violation) bad(fact.key, "PC_LEDGER_STATE", violation);
       }
     }
   }

@@ -177,6 +177,7 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "pc_collection_mechanism",
       "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
+      "standing_instruction_ledger",
     ]);
     expect(CANONICAL_OWNER_REGISTRY.get("pc_existence")).toEqual(
       expectedOwnerFacetSet("pc_existence"),
@@ -215,6 +216,8 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       "pc_collection_cycle_attestation",
       "pc_intrinsic_clarification",
       "pc_delegated_clarification",
+      "pc_standing_instruction_ledger_head",
+      "pc_standing_instruction_ledger_version",
     ]);
     // World-State, Logistics and the Role Registry gained no kind
     expect(ALL_FACT_KINDS.filter((k) => k.owner === "world_state").map((k) => k.id)).toEqual([

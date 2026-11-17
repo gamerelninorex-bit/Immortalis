@@ -1,4 +1,4 @@
-import { FREIGHT_FACT_KIND_IDS } from "../owners/registry.ts";
+import { FREIGHT_FACT_KIND_IDS, PC_STANDING_LEDGER_FACT_KIND_IDS } from "../owners/registry.ts";
 
 /**
  * BOOTSTRAP_SUNSET_POLICY_V9 — the COMPLETE explicit, normative policy of OPTION_A_V9 (Initial Locality Bootstrap v0.9 companion,
@@ -613,4 +613,27 @@ export const FREIGHT_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] = FREIGHT_F
 export const BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1: readonly SunsetPolicyRow[] = [
   ...BOOTSTRAP_SUNSET_POLICY_MS_V08,
   ...FREIGHT_SUNSET_POLICY_DELTA,
+];
+
+/**
+ * Additive delta under the S-4 initial Standing Instruction ledger (BLUE S-4 brief, native pin 2026-11-17T04:59:46.616Z): the two
+ * ledger kinds are PC bookkeeping that asserts no non-PC presence, solitude, workforce or rights premise. They take the same row as
+ * every other PC-state kind (`pc_existence_contract`, `player_character_binding`): `OWNER_CHECKS_ONLY`, which is exactly "No direct
+ * new non-PC presence/rights assertion from this kind alone" and grants no eligibility. A restrictive `UNREVIEWED_BLOCK` would withhold
+ * the bounded Initial Scene Exception from every PC-bearing bootstrap, because every bound PC now has this ledger. This is a
+ * classification of two new kinds by the policy's own stated criterion, changes no existing row and is surfaced for BLUE review.
+ */
+const PC_LEDGER_OWNER_CHECKS_EFFECT =
+  "No direct new non-PC presence/rights assertion from this kind alone. The ledger is the PC's own bookkeeping: it records no instruction, presence, solitude, workforce or rights premise and grants no eligibility. All existing owner, standing, scope, foreign-engagement, conservation, timing and due-event checks remain effective; actual adverse outcomes still withhold.";
+export const PC_LEDGER_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] =
+  PC_STANDING_LEDGER_FACT_KIND_IDS.map((kind) => ({
+    kind,
+    policy: "OWNER_CHECKS_ONLY" as const,
+    effect: PC_LEDGER_OWNER_CHECKS_EFFECT,
+  }));
+
+/** Every registered kind: the 90 reviewed rows, the 3 M-S rows, the 26 first-profile freight rows and the 2 S-4 ledger rows. */
+export const BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1: readonly SunsetPolicyRow[] = [
+  ...BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1,
+  ...PC_LEDGER_SUNSET_POLICY_DELTA,
 ];

@@ -128,6 +128,7 @@ describe("IA-03 owner exclusivity: ONE lawful PC owner; the capability profile i
       "pc_collection_mechanism",
       "pc_intrinsic_clarification",
       "pc_voluntary_commitment",
+      "standing_instruction_ledger",
     ]);
     for (const key of ["pc/p/capability-basis/c", "pc/p/capability/c"])
       expect(

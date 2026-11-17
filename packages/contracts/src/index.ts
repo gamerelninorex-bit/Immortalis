@@ -37,6 +37,7 @@ export * from "./actor-presence.ts";
 export * from "./auditory-premises.ts";
 export * from "./pc-locus-custody.ts";
 export * from "./pc-movement.ts";
+export * from "./pc-standing-ledger.ts";
 export * from "./pc-collection.ts";
 export * from "./protocol-pc-collection.ts";
 export * from "./epistemic-access.ts";

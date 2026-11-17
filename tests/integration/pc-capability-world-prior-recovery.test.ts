@@ -50,7 +50,7 @@ import {
   establishWorldPrior,
   existingActorSummary,
   handedOverWithUnresolvedCapability,
-  handoverActor,
+  activateActor,
   rawWorldPriorBasis,
   readyForCarryForward,
   reopenExistingActor,
@@ -717,7 +717,7 @@ describe("every save written under the superseded governing-rule citation still 
     const src = tempDir();
     const s = await seededExistingActorCampaign(src);
     await readyForCarryForward(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     await must(carryForward(s, 1));
     await closePcCapability(s, 20);
     await s.campaign.close();

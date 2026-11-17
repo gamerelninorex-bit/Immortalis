@@ -1538,6 +1538,29 @@ async function place(
   }
   terminal.say(`PROGRESS referee DECIDED ${recorded.value.record.key}`);
 
+  // S-4c: the character's engine-origin Standing Instruction ledger is committed BEFORE its binding, privately, as the binding's
+  // required older prerequisite. The player is asked nothing and is shown nothing new: it is internal bookkeeping that records no
+  // instruction and no consent. If the binding then fails, the character is simply still unbound and the committed head is inert.
+  const ledger = await campaign.initializePcStandingInstructionLedger({
+    pc_id: pcId,
+    world_id: worldId,
+    locus_id: locusId,
+  });
+  if (!ledger.ok) {
+    if (UNKNOWN_OUTCOME.has(ledger.error.code)) {
+      session.markAmbiguous();
+      return result("CHARACTER_OUTCOME_UNKNOWN", [
+        `character ${pcId}: released`,
+        `internal prerequisite of the binding: ${ledger.error.code}`,
+      ]);
+    }
+    return unbound(
+      `an internal prerequisite of the binding was refused: ${ledger.error.code}`,
+      [],
+      ledger.error.code,
+    );
+  }
+
   const bindId = bindingIdOf(keep.secret, campaignId, pcId, worldId, locusId, pins, statement);
   const bound = await campaign.bindPlayerCharacter({
     ...publicationOf("bind", bindId),
@@ -1596,6 +1619,8 @@ function readBack(
   if (campaign.verify().length > 0) out.push("canonical integrity reports violations");
   const pc = campaign.playerCharacter(pcId);
   if (!pc) return [...out, "the released character is not held"];
+  if (!campaign.standingInstructionLedger(pcId))
+    out.push("the internal record the character's binding rests on is not held");
   out.push(...releaseProblems(campaignId, pc.fact, keep, campaign.store));
   out.push(...bindingProblems({ campaign, campaignId, keep }, pc.fact, expected));
   return out;

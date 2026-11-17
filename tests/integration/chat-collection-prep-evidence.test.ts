@@ -42,6 +42,26 @@ function extract() {
     "packages/operator/package.json",
   ]);
   execFileSync("tar", ["-xf", archive, "-C", dir]);
+  // S-4 overlay (the ONLY edit to the pinned base): the base operator predates the PC-owned Standing Instruction ledger, and the
+  // current engine — which both sides share — refuses a binding that does not consume one. So that the comparison still measures
+  // what it is about (review controls and I/O), the base operator's placement gets the one-line ledger step the current operator
+  // has, immediately before its binding call. The step asks and shows the player nothing, so no review control is touched.
+  const operatorSource = join(dir, "packages/operator/src/original-pc.ts");
+  const bindCall = "  const bound = await campaign.bindPlayerCharacter({";
+  const original = readFileSync(operatorSource, "utf8");
+  if (original.split(bindCall).length !== 2)
+    throw new Error(
+      "the pinned base operator's binding call site moved: the S-4 overlay cannot be placed",
+    );
+  writeFileSync(
+    operatorSource,
+    original.replace(
+      bindCall,
+      `  const s4Ledger = await campaign.initializePcStandingInstructionLedger({ pc_id: pcId, world_id: worldId, locus_id: locusId });
+  if (!s4Ledger.ok) return unbound("an internal prerequisite of the binding was refused: " + s4Ledger.error.code, [], s4Ledger.error.code);
+${bindCall}`,
+    ),
+  );
   // Each side must execute its own pinned operator, including the private ordinary-action capability module.
   // Sharing the current operator would reject the base adapter's otherwise lawful one-shot capability.
   mkdirSync(join(dir, "node_modules/@immortalis"), { recursive: true });

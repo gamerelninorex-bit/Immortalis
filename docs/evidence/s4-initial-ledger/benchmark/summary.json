@@ -1,0 +1,926 @@
+{
+ "base": {
+  "0": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b",
+   "groups_committed_by_the_action": 1,
+   "journal_entries_after": 4,
+   "package_bytes_after": 19330,
+   "open": {
+    "elapsed_ms_median": 34.0,
+    "elapsed_ms_all": [
+     33.5,
+     34.0,
+     48.4
+    ],
+    "cpu_ms_median": 44.0,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     12621
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     3
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 8.2,
+    "elapsed_ms_all": [
+     8.2,
+     7.9,
+     9.3
+    ],
+    "cpu_ms_median": 6.6,
+    "read_calls": [
+     2
+    ],
+    "read_bytes": [
+     196
+    ],
+    "write_calls": [
+     2
+    ],
+    "write_bytes": [
+     7007
+    ],
+    "admission_check_calls": [
+     1
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 1.7,
+    "elapsed_ms_all": [
+     1.7,
+     1.6,
+     2.1
+    ],
+    "cpu_ms_median": 1.6,
+    "read_calls": [
+     0
+    ],
+    "read_bytes": [
+     0
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 7.5,
+    "elapsed_ms_all": [
+     7.1,
+     7.5,
+     8.2
+    ],
+    "cpu_ms_median": 8.8,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     17124
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     4
+    ]
+   }
+  },
+  "100": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b",
+   "groups_committed_by_the_action": 1,
+   "journal_entries_after": 104,
+   "package_bytes_after": 334915,
+   "open": {
+    "elapsed_ms_median": 102.2,
+    "elapsed_ms_all": [
+     102.2,
+     99.7,
+     117.0
+    ],
+    "cpu_ms_median": 211.5,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     328202
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     103
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 11.2,
+    "elapsed_ms_all": [
+     11.0,
+     11.2,
+     15.4
+    ],
+    "cpu_ms_median": 10.6,
+    "read_calls": [
+     2
+    ],
+    "read_bytes": [
+     196
+    ],
+    "write_calls": [
+     2
+    ],
+    "write_bytes": [
+     7016
+    ],
+    "admission_check_calls": [
+     1
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 10.1,
+    "elapsed_ms_all": [
+     10.1,
+     9.1,
+     10.7
+    ],
+    "cpu_ms_median": 11.1,
+    "read_calls": [
+     0
+    ],
+    "read_bytes": [
+     0
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 50.9,
+    "elapsed_ms_all": [
+     45.6,
+     67.3,
+     50.9
+    ],
+    "cpu_ms_median": 76.8,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     332709
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     104
+    ]
+   }
+  },
+  "500": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b",
+   "groups_committed_by_the_action": 1,
+   "journal_entries_after": 504,
+   "package_bytes_after": 5248790,
+   "open": {
+    "elapsed_ms_median": 327.3,
+    "elapsed_ms_all": [
+     325.9,
+     327.3,
+     337.5
+    ],
+    "cpu_ms_median": 543.5,
+    "read_calls": [
+     3892
+    ],
+    "read_bytes": [
+     3556848
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     119
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 20.3,
+    "elapsed_ms_all": [
+     20.3,
+     20.4,
+     18.7
+    ],
+    "cpu_ms_median": 17.2,
+    "read_calls": [
+     56
+    ],
+    "read_bytes": [
+     32487
+    ],
+    "write_calls": [
+     2
+    ],
+    "write_bytes": [
+     7368
+    ],
+    "admission_check_calls": [
+     1
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 154.9,
+    "elapsed_ms_all": [
+     153.7,
+     174.1,
+     154.9
+    ],
+    "cpu_ms_median": 209.8,
+    "read_calls": [
+     4622
+    ],
+    "read_bytes": [
+     3089909
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 262.2,
+    "elapsed_ms_all": [
+     262.2,
+     242.7,
+     264.3
+    ],
+    "cpu_ms_median": 301.8,
+    "read_calls": [
+     3949
+    ],
+    "read_bytes": [
+     3603680
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     120
+    ]
+   }
+  },
+  "2000": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b",
+   "groups_committed_by_the_action": 1,
+   "journal_entries_after": 2004,
+   "package_bytes_after": 28775465,
+   "open": {
+    "elapsed_ms_median": 1013.8,
+    "elapsed_ms_all": [
+     1013.8,
+     1074.0,
+     1012.5
+    ],
+    "cpu_ms_median": 1372.8,
+    "read_calls": [
+     9329
+    ],
+    "read_bytes": [
+     11707880
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     83
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 52.2,
+    "elapsed_ms_all": [
+     54.5,
+     51.5,
+     52.2
+    ],
+    "cpu_ms_median": 48.4,
+    "read_calls": [
+     71
+    ],
+    "read_bytes": [
+     39475
+    ],
+    "write_calls": [
+     2
+    ],
+    "write_bytes": [
+     7375
+    ],
+    "admission_check_calls": [
+     1
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 776.3,
+    "elapsed_ms_all": [
+     750.9,
+     776.3,
+     929.8
+    ],
+    "cpu_ms_median": 1052.9,
+    "read_calls": [
+     27485
+    ],
+    "read_bytes": [
+     17428693
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 872.7,
+    "elapsed_ms_all": [
+     872.7,
+     801.4,
+     955.2
+    ],
+    "cpu_ms_median": 1011.5,
+    "read_calls": [
+     9401
+    ],
+    "read_bytes": [
+     11761702
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     98
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     84
+    ]
+   }
+  }
+ },
+ "head": {
+  "0": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
+   "groups_committed_by_the_action": 2,
+   "journal_entries_after": 5,
+   "package_bytes_after": 29917,
+   "open": {
+    "elapsed_ms_median": 42.1,
+    "elapsed_ms_all": [
+     42.1,
+     50.6,
+     34.8
+    ],
+    "cpu_ms_median": 52.6,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     12720
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     3
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 22.8,
+    "elapsed_ms_all": [
+     22.8,
+     24.6,
+     20.8
+    ],
+    "cpu_ms_median": 20.0,
+    "read_calls": [
+     4
+    ],
+    "read_bytes": [
+     396
+    ],
+    "write_calls": [
+     4
+    ],
+    "write_bytes": [
+     20197
+    ],
+    "admission_check_calls": [
+     2
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 6.7,
+    "elapsed_ms_all": [
+     6.7,
+     8.2,
+     5.3
+    ],
+    "cpu_ms_median": 10.6,
+    "read_calls": [
+     0
+    ],
+    "read_bytes": [
+     0
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 13.5,
+    "elapsed_ms_all": [
+     13.5,
+     21.4,
+     10.5
+    ],
+    "cpu_ms_median": 16.5,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     27711
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     5
+    ]
+   }
+  },
+  "100": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
+   "groups_committed_by_the_action": 2,
+   "journal_entries_after": 105,
+   "package_bytes_after": 345506,
+   "open": {
+    "elapsed_ms_median": 98.4,
+    "elapsed_ms_all": [
+     85.5,
+     100.0,
+     98.4
+    ],
+    "cpu_ms_median": 178.5,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     328301
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     103
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 22.9,
+    "elapsed_ms_all": [
+     20.3,
+     22.9,
+     24.0
+    ],
+    "cpu_ms_median": 27.2,
+    "read_calls": [
+     4
+    ],
+    "read_bytes": [
+     396
+    ],
+    "write_calls": [
+     4
+    ],
+    "write_bytes": [
+     20215
+    ],
+    "admission_check_calls": [
+     2
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 13.5,
+    "elapsed_ms_all": [
+     12.2,
+     13.5,
+     16.3
+    ],
+    "cpu_ms_median": 21.4,
+    "read_calls": [
+     0
+    ],
+    "read_bytes": [
+     0
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 50.1,
+    "elapsed_ms_all": [
+     46.9,
+     52.7,
+     50.1
+    ],
+    "cpu_ms_median": 71.3,
+    "read_calls": [
+     3
+    ],
+    "read_bytes": [
+     343300
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     105
+    ]
+   }
+  },
+  "500": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
+   "groups_committed_by_the_action": 2,
+   "journal_entries_after": 505,
+   "package_bytes_after": 5259381,
+   "open": {
+    "elapsed_ms_median": 336.1,
+    "elapsed_ms_all": [
+     330.3,
+     336.1,
+     347.1
+    ],
+    "cpu_ms_median": 516.8,
+    "read_calls": [
+     3892
+    ],
+    "read_bytes": [
+     3556947
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     119
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 60.3,
+    "elapsed_ms_all": [
+     57.8,
+     61.7,
+     60.3
+    ],
+    "cpu_ms_median": 103.4,
+    "read_calls": [
+     102
+    ],
+    "read_bytes": [
+     57905
+    ],
+    "write_calls": [
+     4
+    ],
+    "write_bytes": [
+     20919
+    ],
+    "admission_check_calls": [
+     2
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 192.3,
+    "elapsed_ms_all": [
+     170.8,
+     201.0,
+     192.3
+    ],
+    "cpu_ms_median": 255.0,
+    "read_calls": [
+     4684
+    ],
+    "read_bytes": [
+     3135301
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 261.2,
+    "elapsed_ms_all": [
+     255.4,
+     371.3,
+     261.2
+    ],
+    "cpu_ms_median": 363.2,
+    "read_calls": [
+     3999
+    ],
+    "read_bytes": [
+     3660603
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     121
+    ]
+   }
+  },
+  "2000": {
+   "samples": 3,
+   "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
+   "groups_committed_by_the_action": 2,
+   "journal_entries_after": 2005,
+   "package_bytes_after": 28786058,
+   "open": {
+    "elapsed_ms_median": 941.9,
+    "elapsed_ms_all": [
+     941.9,
+     978.9,
+     921.5
+    ],
+    "cpu_ms_median": 1282.3,
+    "read_calls": [
+     9329
+    ],
+    "read_bytes": [
+     11707979
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     83
+    ]
+   },
+   "action": {
+    "elapsed_ms_median": 97.6,
+    "elapsed_ms_all": [
+     91.3,
+     97.6,
+     98.8
+    ],
+    "cpu_ms_median": 105.5,
+    "read_calls": [
+     129
+    ],
+    "read_bytes": [
+     70465
+    ],
+    "write_calls": [
+     4
+    ],
+    "write_bytes": [
+     20933
+    ],
+    "admission_check_calls": [
+     2
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "verify": {
+    "elapsed_ms_median": 790.8,
+    "elapsed_ms_all": [
+     767.6,
+     790.8,
+     802.0
+    ],
+    "cpu_ms_median": 1051.9,
+    "read_calls": [
+     27571
+    ],
+    "read_bytes": [
+     17485253
+    ],
+    "write_calls": [
+     0
+    ],
+    "write_bytes": [
+     0
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     0
+    ]
+   },
+   "reopen": {
+    "elapsed_ms_median": 811.9,
+    "elapsed_ms_all": [
+     787.4,
+     811.9,
+     817.4
+    ],
+    "cpu_ms_median": 999.3,
+    "read_calls": [
+     9463
+    ],
+    "read_bytes": [
+     11824199
+    ],
+    "write_calls": [
+     1
+    ],
+    "write_bytes": [
+     99
+    ],
+    "admission_check_calls": [
+     0
+    ],
+    "admission_verify_historical_calls": [
+     85
+    ]
+   }
+  }
+ }
+}

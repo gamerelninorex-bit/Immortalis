@@ -159,6 +159,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
         "pc_collection_mechanism",
         "pc_intrinsic_clarification",
         "pc_voluntary_commitment",
+        "standing_instruction_ledger",
       ],
       role_registry: ["player_character_binding"],
       named_actor: ["actor_profile", "actor_existence"],
@@ -179,6 +180,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc_collection_cycle_attestation",
       "pc_intrinsic_clarification",
       "pc_delegated_clarification",
+      "pc_standing_instruction_ledger_head",
+      "pc_standing_instruction_ledger_version",
     ]);
     // the compilation lives in the one existing Existence Contract key space: no key space matches a handover or compilation key
     for (const key of [
@@ -265,6 +268,8 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "admission.ts",
       "extension.ts",
       "governing-rule.ts",
+      "pc-standing-ledger-admission.ts",
+      "pc-standing-ledger.ts",
       "registry.ts",
       "rejection.ts",
     ]);

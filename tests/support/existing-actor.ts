@@ -5,6 +5,7 @@ import {
   CANONICAL_OWNER_REGISTRY,
   CanonicalCampaign,
   CausalDrawAdapter,
+  PC_LEDGER_BINDING_RULE,
   createFileCampaign,
   NamedActorAdapter,
   factKind,
@@ -28,6 +29,8 @@ import {
   parseCapabilityCandidateId,
   pcCapabilityBasisKey,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
@@ -350,6 +353,40 @@ export async function handoverActor(
   return s.campaign.handoverExistingActor(handoverInput(n, pcId, over));
 }
 
+/** A FRESH PC's lawful S-4 first ACTIVATION: its Standing Instruction ledger head first, then the binding that consumes it. */
+export async function activateFreshPc(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  pcId: string,
+  n: number,
+) {
+  const ledger = await s.campaign.initializePcStandingInstructionLedger({
+    pc_id: pcId,
+    world_id: FIXTURE_WORLD_ID,
+    locus_id: FIXTURE_LOCUS_ID,
+  });
+  return ledger.ok ? s.campaign.bindPlayerCharacter(bindingInput(pcId, n)) : ledger;
+}
+
+/**
+ * The lawful S-4 sequence for a handover that is EXPECTED TO SUCCEED: the PC's Standing Instruction ledger head is committed first
+ * (derived by the engine from what is committed), then the handover consumes it as a strictly older fact. A test of a REFUSAL uses
+ * `handoverActor` (no ledger step), so the refusal it expects is the handover's own and no state changes before it.
+ */
+export async function activateActor(
+  s: Pick<ExistingActorSeeded, "campaign">,
+  n: number,
+  pcId = ACTOR_SMITH,
+  over: Parameters<typeof handoverInput>[2] = {},
+) {
+  const ledger = await s.campaign.initializePcStandingInstructionLedger({
+    pc_id: pcId,
+    world_id: over.world_id ?? FIXTURE_WORLD_ID,
+    locus_id: over.locus_id ?? FIXTURE_LOCUS_ID,
+  });
+  if (!ledger.ok) return ledger;
+  return s.campaign.handoverExistingActor(handoverInput(n, pcId, over));
+}
+
 /**
  * Everything the handover consumes, committed in the lawful order: the actor's own Named-Actor state, its World-State coupling
  * and its I-002 compilation (all through their own owners' paths). The binding slot is still NULL.
@@ -418,7 +455,15 @@ export function rawHandover(
     writer: { role: "role.archivist", permission: "permission.canon.write" },
   };
   edit(value);
-  const keys = [pcKey, wKey, lKey, cKey, ...sources.map((p) => p.fact_key)];
+  const keys = [
+    pcKey,
+    wKey,
+    lKey,
+    cKey,
+    ...sources.map((p) => p.fact_key),
+    pcStandingLedgerHeadKey(pcId),
+    pcStandingLedgerVersionKey(pcId, 1),
+  ];
   return group(
     FIXTURE_CAMPAIGN,
     n,
@@ -431,7 +476,7 @@ export function rawHandover(
     {
       owner: "role_registry",
       facet: "player_character_binding",
-      rule: factKind("player_character_binding").rule,
+      rule: PC_LEDGER_BINDING_RULE,
       reads: keys.map((k) => ({ key: k, version: version(k) })),
       depends_on: [
         ...new Set(
@@ -723,7 +768,7 @@ export async function handedOverWithUnresolvedCapability(
   otherCapabilityId = CAP_METALWORKING,
 ): Promise<void> {
   await readyForHandover(s, actorId, otherCapabilityId);
-  await must(handoverActor(s, 1, actorId));
+  await must(activateActor(s, 1, actorId));
 }
 
 /** A Causal Draw adapter wired with the PC owner's typed ports over `store` (for a draw made without the owner's operation). */

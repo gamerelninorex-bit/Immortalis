@@ -15,11 +15,13 @@ import {
   pcCapabilityBasisKey,
   pcCapabilityKey,
   pcExistenceContractKey,
+  pcStandingLedgerHeadKey,
+  pcStandingLedgerVersionKey,
   worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
 } from "@immortalis/contracts";
-import { actorBoundaryViolation, factKind } from "@immortalis/engine";
+import { PC_LEDGER_BINDING_RULE, actorBoundaryViolation } from "@immortalis/engine";
 import {
   ACTOR_OTHER,
   ACTOR_SMITH,
@@ -44,9 +46,11 @@ import {
   coupleActor,
   establishActorBasis,
   existingActorSummary,
+  activateActor,
   handoverActor,
   readyForHandover,
   seededExistingActorCampaign,
+  activateFreshPc,
 } from "../support/existing-actor.ts";
 import { seededPcCapabilityCampaign } from "../support/pc-capability.ts";
 import { codeOf, must } from "../support/temporal.ts";
@@ -66,7 +70,7 @@ describe("a compiled, coupled existing actor is handed over to the player by one
     await readyForHandover(s);
     const sourceKey = actorCapabilityBasisKey(A, C);
     const keysBefore = new Set(s.campaign.store.listFacts().map((f) => f.key));
-    const outcome = await must(handoverActor(s, 1));
+    const outcome = await must(activateActor(s, 1));
     expect(outcome.replayed).toBe(false);
 
     const fact = s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!;
@@ -92,8 +96,8 @@ describe("a compiled, coupled existing actor is handed over to the player by one
       ],
       writer: { role: "role.archivist", permission: "permission.canon.write" },
     });
-    // the same governing rule as every binding: no citation, pin or provenance was moved
-    expect(fact.provenance.rule).toEqual(factKind("player_character_binding").rule);
+    // a NEW binding cites the S-4 rule (the binding kind's additive alternate): the value, the facet and every other pin are unchanged
+    expect(fact.provenance.rule).toEqual(PC_LEDGER_BINDING_RULE);
     // no insertion fact, bridge or player-authored statement exists anywhere in it
     const text = JSON.stringify(fact.value);
     for (const absent of [
@@ -114,6 +118,8 @@ describe("a compiled, coupled existing actor is handed over to the player by one
       { key: worldLocusKey(W, L), version: 1 },
       { key: couplingKey, version: 1 },
       { key: sourceKey, version: 1 },
+      { key: pcStandingLedgerHeadKey(A), version: 1 },
+      { key: pcStandingLedgerVersionKey(A, 1), version: 1 },
     ]);
     const providers = [
       contractKey,
@@ -121,12 +127,24 @@ describe("a compiled, coupled existing actor is handed over to the player by one
       worldLocusKey(W, L),
       couplingKey,
       sourceKey,
+      pcStandingLedgerHeadKey(A),
+      pcStandingLedgerVersionKey(A, 1),
     ].map((k) => s.campaign.store.getFact(k)!.provenance.group_id);
-    expect(group.depends_on).toEqual(providers);
+    expect(group.depends_on).toEqual([...new Set(providers)]);
 
-    // exactly one new fact: the binding. Nothing else was written, copied or moved.
+    // exactly one new fact in the binding group: the binding. The only other additions are the PC's own two ledger facts, written
+    // by the ledger's own earlier group (S-4); nothing else was written, copied or moved.
     const added = s.campaign.store.listFacts().filter((f) => !keysBefore.has(f.key));
-    expect(added.map((f) => f.key)).toEqual([PLAYER_CHARACTER_BINDING_KEY]);
+    expect(added.filter((f) => f.provenance.group_id === group.group_id).map((f) => f.key)).toEqual(
+      [PLAYER_CHARACTER_BINDING_KEY],
+    );
+    expect(added.map((f) => f.key).sort()).toEqual(
+      [
+        PLAYER_CHARACTER_BINDING_KEY,
+        pcStandingLedgerHeadKey(A),
+        pcStandingLedgerVersionKey(A, 1),
+      ].sort(),
+    );
     expect(s.campaign.binding()!.value.transition.type).toBe(EXISTING_ACTOR_HANDOVER);
     expect(s.campaign.verify()).toEqual([]);
   });
@@ -143,7 +161,7 @@ describe("a compiled, coupled existing actor is handed over to the player by one
     ];
     const before = keys.map((k) => structuredClone(s.campaign.store.getFact(k)!));
     const actorBefore = existingActorSummary(s.campaign, s.coordinator).actor;
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(keys.map((k) => s.campaign.store.getFact(k))).toEqual(before);
     expect(existingActorSummary(s.campaign, s.coordinator).actor).toEqual(actorBefore);
     // still readable through the actor owner's own typed read, owned by the actor owner
@@ -162,7 +180,7 @@ describe("a compiled, coupled existing actor is handed over to the player by one
     await establishActorBasis(s, 2, A, D);
     expect(s.actors.basis(A, D)).toBeDefined();
 
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
 
     // after: the same identity is under lawful player control; the Named-Actor owner authors nothing further for it
     expect(actorBoundaryViolation(view, A)).toMatch(/lawful player-character control/);
@@ -209,7 +227,7 @@ describe("a compiled, coupled existing actor is handed over to the player by one
   it("another actor is unaffected: its prior owner stays writable while this actor is bound", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     await establishActorBasis(s, 2, ACTOR_OTHER, C);
     expect(s.actors.basis(ACTOR_OTHER, C)).toBeDefined();
     expect(s.campaign.verify()).toEqual([]);
@@ -222,15 +240,27 @@ describe("the handover produces no capability: existing capability is provenance
     await readyForHandover(s);
     await establishActorBasis(s, 2, A, D);
     const before = s.campaign.store.listFacts().map((f) => f.key);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const added = s.campaign.store
       .listFacts()
       .map((f) => f.key)
       .filter((k) => !before.includes(k));
-    expect(added).toEqual([PLAYER_CHARACTER_BINDING_KEY]);
+    // the binding, plus the PC's own S-4 ledger head and (empty) first version: bookkeeping, never a capability
+    expect([...added].sort()).toEqual(
+      [
+        PLAYER_CHARACTER_BINDING_KEY,
+        pcStandingLedgerHeadKey(A),
+        pcStandingLedgerVersionKey(A, 1),
+      ].sort(),
+    );
     const facts = s.campaign.store.listFacts();
     expect(
-      facts.filter((f) => f.owner === "pc_existence" && f.facet !== "existence_contract"),
+      facts.filter(
+        (f) =>
+          f.owner === "pc_existence" &&
+          f.facet !== "existence_contract" &&
+          f.facet !== "standing_instruction_ledger",
+      ),
     ).toEqual([]);
     expect(facts.filter((f) => f.key.startsWith("pc/") && f.key.includes("/capability"))).toEqual(
       [],
@@ -247,7 +277,7 @@ describe("the handover produces no capability: existing capability is provenance
   it("the PC capability receipt over the compilation is still refused after the handover (carry-forward is a later slice)", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const head = s.campaign.store.head();
     const r = await s.pcs.receiveCapabilityBasis({
       group_id: "pccap-group-1",
@@ -272,7 +302,7 @@ describe("the handover produces no capability: existing capability is provenance
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
     expect(s.actors.capability(A, C)).toBeUndefined();
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.actors.capability(A, C)).toBeUndefined();
     expect(s.campaign.store.listFacts().filter((f) => f.key.startsWith("causal-draw"))).toEqual([]);
   });
@@ -291,7 +321,7 @@ describe("the handover produces no capability: existing capability is provenance
     );
     await must(s.coordinator.advance(consumerAdvanceRequest("tx-1", "c1")));
     const closed = structuredClone(s.actors.capability(A, D)!.fact);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.actors.capability(A, D)!.fact).toEqual(closed);
     expect(s.campaign.verify()).toEqual([]);
   });
@@ -324,7 +354,7 @@ describe("ordinary fresh-PC activation is unchanged and remains distinct from th
     const bound = await s.campaign.bindPlayerCharacter(bindingInput(A, 4));
     expect(!bound.ok && bound.error.code).toBe("REFERENCE_INVALID");
     expect(s.campaign.binding()).toBeUndefined();
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect(s.campaign.binding()!.value.transition.type).toBe(EXISTING_ACTOR_HANDOVER);
   });
 
@@ -341,7 +371,7 @@ describe("ordinary fresh-PC activation is unchanged and remains distinct from th
         contract: fixtureContract({ pc_id: ACTOR_OTHER }),
       }),
     );
-    await must(s.campaign.bindPlayerCharacter(bindingInput(ACTOR_OTHER, 5)));
+    await must(activateFreshPc(s, ACTOR_OTHER, 5));
     expect(s.campaign.binding()!.value.transition.type).toBe("ACTIVATION");
     // the existing actor can no longer be handed over: one binding slot, one active PC
     expect(await codeOf(handoverActor(s, 6))).toBe("VERSION_CONFLICT");
@@ -353,7 +383,7 @@ describe("the binding slot stays one: no second handover, replacement or rival b
   it("a second handover of the same actor, and a handover after any binding, is a version conflict; the first stands", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const fact = structuredClone(s.campaign.store.getFact(PLAYER_CHARACTER_BINDING_KEY)!);
     const head = s.campaign.store.head();
     expect(await codeOf(handoverActor(s, 2))).toBe("VERSION_CONFLICT");
@@ -365,7 +395,7 @@ describe("the binding slot stays one: no second handover, replacement or rival b
   it("the committed coupling cannot be re-stated or replaced after the handover", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     expect((await coupleActor(s, 9)).ok).toBe(false);
     expect(s.campaign.store.getFact(couplingKey)!.version).toBe(1);
   });
@@ -373,9 +403,9 @@ describe("the binding slot stays one: no second handover, replacement or rival b
   it("the replay of the handover under its own identity is idempotent (RC-16)", async () => {
     const s = await seededExistingActorCampaign(tempDir());
     await readyForHandover(s);
-    await must(handoverActor(s, 1));
+    await must(activateActor(s, 1));
     const head = s.campaign.store.head();
-    const again = await must(handoverActor(s, 1));
+    const again = await must(activateActor(s, 1));
     expect(again.replayed).toBe(true);
     expect(s.campaign.store.head()).toEqual(head);
   });

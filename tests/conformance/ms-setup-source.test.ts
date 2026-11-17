@@ -53,8 +53,11 @@ describe("M-S exact ratified source and additive registration", () => {
     expect(rows).toHaveLength(93);
     // ROADBED R3-T25 freight registered 26 further kinds after M-S (reviewed in its own sunset delta, tests/conformance/freight-profile-conformance):
     // the M-S table covers exactly the ninety-three kinds registered at M-S
+    // (and the S-4 slice two further, the PC ledger head and version, reviewed in its own delta, tests/conformance/pc-standing-ledger-conformance)
     const msKinds = engine.ALL_FACT_KINDS.filter(
-      (k) => !engine.FREIGHT_FACT_KIND_IDS.includes(k.id as never),
+      (k) =>
+        !engine.FREIGHT_FACT_KIND_IDS.includes(k.id as never) &&
+        !engine.PC_STANDING_LEDGER_FACT_KIND_IDS.includes(k.id as never),
     );
     expect(msKinds).toHaveLength(93);
     expect(rows.slice(0, 90)).toEqual(engine.BOOTSTRAP_SUNSET_POLICY_V9);
@@ -67,13 +70,17 @@ describe("M-S exact ratified source and additive registration", () => {
     );
     // the freight slice appends its own history-policy suffix after M-S's (a policy change replays history once, strictly)
     expect(engine.canonicalAdmission.historyVerificationId).toBe(
-      basePolicy + engine.MS_HISTORY_POLICY_SUFFIX + engine.FREIGHT_HISTORY_POLICY_SUFFIX,
+      basePolicy +
+        engine.MS_HISTORY_POLICY_SUFFIX +
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX +
+        engine.PC_LEDGER_HISTORY_POLICY_SUFFIX,
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
       basePolicy +
         "+fixture-evidence-t1" +
         engine.MS_HISTORY_POLICY_SUFFIX +
-        engine.FREIGHT_HISTORY_POLICY_SUFFIX,
+        engine.FREIGHT_HISTORY_POLICY_SUFFIX +
+        engine.PC_LEDGER_HISTORY_POLICY_SUFFIX,
     );
   });
 });

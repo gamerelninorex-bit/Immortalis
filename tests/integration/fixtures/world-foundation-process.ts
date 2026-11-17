@@ -45,6 +45,14 @@ if (phase === "establish") {
 } else if (phase === "bind") {
   const c = must(await CanonicalCampaign.open(dir, { buildId: "process-2" }));
   const before = snapshot(c);
+  // S-4: the PC's ledger head is committed first; the binding then consumes it (it never creates it)
+  must(
+    await c.initializePcStandingInstructionLedger({
+      pc_id: bindInput.pc_id,
+      world_id: bindInput.world_id,
+      locus_id: bindInput.locus_id,
+    }),
+  );
   const receipt = must(await c.bindPlayerCharacter(bindInput));
   console.log(JSON.stringify({ before, receipt, after: snapshot(c) }));
   await c.close();

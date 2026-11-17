@@ -8,3 +8,7 @@ spec/f027/spec-lock.json
 packages/contracts/src/spec-identity.ts
 docs/evidence/roadbed-freight/benchmark
 docs/evidence/gm-freight/benchmark
+docs/evidence/s4-initial-ledger/benchmark
+docs/evidence/s4-initial-ledger/mutation-results-*.json
+tests/fixtures/s4-legacy-pc-c6ea29d/activation/package/manifest.json
+tests/fixtures/s4-legacy-pc-c6ea29d/handover/package/manifest.json

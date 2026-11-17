@@ -69,6 +69,13 @@ export async function seededTemporalCampaign(dir: string, o: SeedOptions = {}): 
   await must(campaign.establishLocus({ ...publication(2), locus: fixtureLocus() }));
   await must(campaign.releasePlayerCharacter({ ...publication(3), contract: fixtureContract() }));
   await must(
+    campaign.initializePcStandingInstructionLedger({
+      pc_id: FIXTURE_PC_ID,
+      world_id: FIXTURE_WORLD_ID,
+      locus_id: FIXTURE_LOCUS_ID,
+    }),
+  );
+  await must(
     campaign.bindPlayerCharacter({
       ...publication(4),
       pc_id: FIXTURE_PC_ID,
