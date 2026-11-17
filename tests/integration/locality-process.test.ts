@@ -1,6 +1,6 @@
-// The SHIPPED command line (packages/operator/src/bin.ts, no owner extension, no fixture) as real processes: a confirmed ORIGINAL
-// setup creates the standard campaign package; a SEPARATE ordinary process then opens it and reads the identical facts. The campaign
-// is created by the processes below — nothing is seeded by a test, no history is synthesised, no fixture owner is registered.
+// The shipped command line creates and reopens real campaigns with no fixture owner or synthetic history. Deterministic creation
+// cuts use a test-only entry into the same CLI's existing campaignFs seam; references, retries and completed-package cuts keep using
+// the unchanged shipped binary. Each cut's actual on-disk state is asserted before the real child is killed.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -22,6 +22,8 @@ import {
   statusArgs,
   writeSetup,
 } from "../support/locality.ts";
+import { killLocalityAtCut } from "../support/locality-cut.ts";
+import { snapshotDir } from "../support/tmp.ts";
 
 const phrase = (s: string) => /type exactly "([^"]+)"/.exec(s)![1]!;
 
@@ -330,18 +332,24 @@ describe("F60-R1: a different confirmed setup is refused across the package-only
     await c.close();
   }, 240_000);
 
-  it("kill right after the identity is retained, before the package exists: a different B is refused, A converges", async () => {
+  it("kill after identity retention but before the first package file: a different B is refused, A converges", async () => {
     const fileA = writeSetup(setupDoc());
     const reference = freshDirs();
     expect((await runShipped(establishArgs(reference, fileA), ["confirm"])).code).toBe(0);
 
     const dirs = freshDirs();
-    const killed = await runShipped(establishArgs(dirs, fileA), ["confirm"], {
-      killAfter: /PROGRESS setup PINNED/,
+    const killed = await killLocalityAtCut(establishArgs(dirs, fileA), "before-first-file", () => {
+      expect(existsSync(dirs.campaignDir)).toBe(true);
+      expect(readdirSync(dirs.campaignDir)).toEqual([]);
+      expect(existsSync(join(dirs.campaignDir, "manifest.json"))).toBe(false);
     });
     expect(killed.signal).toBe("SIGKILL");
+    expect(killed.stderr).toBe("");
+    expect(killed.stdout).toContain("PROGRESS setup PINNED");
+    expect(killed.stdout).not.toContain("PROGRESS package CREATED");
+    expect(readdirSync(dirs.campaignDir)).toEqual([]);
 
-    // whether the kill beat the package or not, B is a different confirmed setup for the same campaign
+    // The package has no file yet, but A's retained identity still excludes the different setup B.
     const refused = await runShipped(
       establishArgs(dirs, writeSetup(otherDoc()), ["--reclaim-stale-lock"]),
       ["confirm"],
@@ -349,12 +357,61 @@ describe("F60-R1: a different confirmed setup is refused across the package-only
     expect(refused.stdout).toContain("STATUS SETUP_CONFLICT");
     expect(refused.stdout).not.toContain("To confirm");
     expect(refused.code).toBe(3);
+    expect(readdirSync(dirs.campaignDir)).toEqual([]);
 
     const resumed = await runShipped(establishArgs(dirs, fileA, ["--reclaim-stale-lock"]), [
       "confirm",
     ]);
     expect(resumed.stdout).toContain("STATUS LOCALITY_READY");
+    expect(resumed.code).toBe(0);
     expect(await headOf(dirs.campaignDir)).toEqual(await headOf(reference.campaignDir));
+  }, 240_000);
+
+  it("a real during-create kill preserves the accepted pre-manifest refusal without adoption or deletion", async () => {
+    const dirs = freshDirs();
+    let atCut: Record<string, string> = {};
+    const killed = await killLocalityAtCut(
+      establishArgs(dirs, writeSetup(setupDoc())),
+      "before-manifest",
+      () => {
+        expect(readdirSync(dirs.campaignDir).sort()).toEqual([
+          "LOCK",
+          "journal.jsonl",
+          "state.0000000000.json",
+        ]);
+        expect(existsSync(join(dirs.campaignDir, "manifest.json"))).toBe(false);
+        expect(readFileSync(join(dirs.campaignDir, "journal.jsonl"))).toHaveLength(0);
+        expect(
+          JSON.parse(readFileSync(join(dirs.campaignDir, "state.0000000000.json"), "utf8")),
+        ).toEqual({ campaign_id: LOCALITY_CAMPAIGN, revision: 0, facts: [] });
+        atCut = snapshotDir(dirs.campaignDir);
+      },
+    );
+    expect(killed.signal).toBe("SIGKILL");
+    expect(killed.stderr).toBe("");
+    expect(killed.stdout).toContain("PROGRESS setup PINNED");
+    expect(killed.stdout).not.toContain("PROGRESS package CREATED");
+    expect(snapshotDir(dirs.campaignDir)).toEqual(atCut);
+
+    const other = await runShipped(
+      establishArgs(dirs, writeSetup(otherDoc()), ["--reclaim-stale-lock"]),
+      ["confirm"],
+    );
+    expect(other.code).toBe(3);
+    expect(other.stdout).toContain("STATUS SETUP_CONFLICT");
+    expect(other.stdout).not.toContain("To confirm");
+    expect(snapshotDir(dirs.campaignDir)).toEqual(atCut);
+
+    const same = await runShipped(
+      establishArgs(dirs, writeSetup(setupDoc()), ["--reclaim-stale-lock"]),
+      ["confirm"],
+    );
+    expect(same.code).toBe(3);
+    expect(same.stdout).toContain("STATUS PACKAGE_UNUSABLE");
+    expect(same.stdout).toContain("the directory is not empty and holds no campaign manifest");
+    expect(same.stdout).not.toContain("To confirm");
+    expect(same.stdout).not.toContain("PROGRESS");
+    expect(snapshotDir(dirs.campaignDir)).toEqual(atCut);
   }, 240_000);
 
   it("once a setup is confirmed, a different one is refused at every later cut with the canon unchanged", async () => {

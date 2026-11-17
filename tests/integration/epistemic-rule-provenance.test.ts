@@ -227,6 +227,41 @@ describe("every save written under the superseded citation still loads unchanged
     expect(r.store.getFact(accessEventKey(E))).toEqual(committed);
     await r.close();
   });
+
+  it("S2 companion: the same non-GIP legacy journal permits its exact old intent and refuses a fresh event intent without mutation", async () => {
+    const dir = await replay(await savedLifecycle("NAMED"), legacy());
+    const journal = readFileSync(join(dir, "journal.jsonl"));
+    for (let pass = 0; pass < 2; pass++) {
+      const campaign = await must(
+        CanonicalCampaign.open(dir, { extension: EPISTEMIC_FIXTURE_EXTENSION }),
+      );
+      const store = campaign.store,
+        head = store.head(),
+        facts = store.listFacts();
+      const old = store.committedGroup("access-intent-2")!;
+      const receipt = store.lookupReceipt(old.intent_id)!;
+      expect(old.rule).toEqual(EPISTEMIC_ACCESS_RULE_TENTH_SLICE);
+      expect(await must(store.commit(old))).toEqual({ receipt, replayed: true });
+      const fresh: CommitGroup = {
+        ...old,
+        group_id: "s2-new-group",
+        intent_id: "s2-new-intent",
+        writes: [
+          {
+            ...old.writes[0]!,
+            key: accessEventKey("s2-new-event"),
+            value: accessEvent("s2-new-event", A, withCapability) as never,
+          },
+        ],
+      };
+      expect(await codeOf(store.commit(fresh))).toBe("REFERENCE_INVALID");
+      expect(store.lookupReceipt(fresh.intent_id)).toBeNull();
+      expect(store.head()).toEqual(head);
+      expect(store.listFacts()).toEqual(facts);
+      await campaign.close();
+      expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journal);
+    }
+  });
 });
 
 describe("the superseded citation never covers an active-PC recipient's facts, nor any other drift", () => {

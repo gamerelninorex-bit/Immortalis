@@ -1,9 +1,9 @@
 // ROADBED GM-native first-profile freight bridge — clerical and structural conformance. MECHANISM ONLY; not a behavioural proof.
 //
 // What it proves: (1) the slice changed exactly the predecessor files it records, each at its recorded base and head, and nothing else under
-// packages/ that is not a new module of this slice; (2) every older suite's removed byte pin is recorded, equals the base's own bytes and is gone
-// from the suite; (3) NO owner, fact kind, facet, rule, source lock or owner registry changed; (4) the host-facing schemas reproduce the existing
-// contract schemas BY REFERENCE (the premises, the institution, the office, the Scope Binding) and add only transport fields; (5) the bridge reaches
+// packages/ that is not a new module of this slice, at its reviewed head; (2) every older suite's removed byte pin is recorded, equals the base's
+// own bytes and is gone from the suite; (3) NO owner, fact kind, facet, rule, source lock or owner registry changed in that slice; (4) the host-facing
+// schemas reproduce the existing contract schemas BY REFERENCE (the premises, the institution, the office, the Scope Binding) and add only transport fields; (5) the bridge reaches
 // the owners only through the closed list of existing adapter operations below; (6) the freight receipt stage is registered in both NULL-PC gateways
 // and nowhere else new.
 import { execFileSync } from "node:child_process";
@@ -54,8 +54,17 @@ const git = (...args: string[]): Buffer | null => {
   }
 };
 const historyAvailable = git("cat-file", "-e", `${GM_FREIGHT_BASE_COMMIT}^{commit}`) !== null;
+// PR #106's independently reviewed head. Slice-scope claims are historical: later A01 admission
+// changes must not be misattributed to freight. Current scoped deltas and schema checks remain live.
+const GM_FREIGHT_REVIEWED_HEAD = "551ef21afb15edace0066e45a0b385a8f78f2238";
+const reviewedHistoryAvailable =
+  historyAvailable && git("cat-file", "-e", `${GM_FREIGHT_REVIEWED_HEAD}^{commit}`) !== null;
 const atBase = (path: string): string | null => {
   const b = git("show", `${GM_FREIGHT_BASE_COMMIT}:${path}`);
+  return b === null ? null : sha256(b);
+};
+const atReviewedHead = (path: string): string | null => {
+  const b = git("show", `${GM_FREIGHT_REVIEWED_HEAD}:${path}`);
   return b === null ? null : sha256(b);
 };
 const keysOf = (schema: unknown): string[] =>
@@ -101,7 +110,48 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
     }
   });
 
-  it("nothing under packages/ changed except the recorded deltas, the two export lines and the slice's own new modules", () => {
+  it("at the reviewed head, nothing under packages/ changed except the recorded deltas, the two export lines and the slice's own new modules", () => {
+    if (!reviewedHistoryAvailable)
+      return console.warn("SKIPPED: shallow checkout, the reviewed base/head is not reachable");
+    // The exact original slice delta, independent of subsequent reviewed changes in the working tree.
+    const changed = (
+      git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        GM_FREIGHT_BASE_COMMIT,
+        GM_FREIGHT_REVIEWED_HEAD,
+        "--",
+        "packages",
+      )?.toString("utf8") ?? ""
+    )
+      .split("\n")
+      .filter(Boolean);
+    const allowed = new Set([
+      ...Object.keys(GM_FREIGHT_SCOPED_DELTAS),
+      ...PRESENT_DAY_TABLE_FILES,
+      ...NEW_MODULES,
+    ]);
+    for (const p of changed) expect(allowed.has(p), p).toBe(true);
+    // the two export lines are the whole change to the two index files
+    for (const p of PRESENT_DAY_TABLE_FILES) {
+      const diff =
+        git(
+          "-c",
+          "core.fileMode=false",
+          "diff",
+          "--numstat",
+          GM_FREIGHT_BASE_COMMIT,
+          GM_FREIGHT_REVIEWED_HEAD,
+          "--",
+          p,
+        )?.toString("utf8") ?? "";
+      expect(diff.trim().split(/\s+/).slice(0, 2), p).toEqual(["1", "0"]);
+    }
+  });
+
+  it("current packages/ contain only freight, S-4 and the reviewed A01 changes, including untracked files", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice
@@ -131,6 +181,10 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...Object.keys(S4_SCOPED_DELTAS),
       ...S4_PRESENT_DAY_FILES,
       ...S4_NEW_MODULES,
+      // The three additional reviewed A01 Population paths (admission is already in S4_PRESENT_DAY_FILES).
+      "packages/engine/src/population/admission.ts",
+      "packages/engine/src/population/integrity.ts",
+      "packages/engine/src/population/stage-authority.ts",
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4
@@ -151,25 +205,24 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
     }
   });
 
-  it("no owner, fact kind, facet, governing rule, source lock, register or gate changed", () => {
-    if (!historyAvailable)
-      return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
-    // registry.ts and admission.ts were changed LATER, by S-4 (the GM slice left them as they were; S-4 records the change in its own
-    // table and its present-day identities live in one place): they are compared at the S-4 base, which is main after this slice merged
+  it("the reviewed slice changed no owner, fact kind, facet, governing rule, source lock, register or gate; current frozen identities remain unchanged", () => {
+    if (!reviewedHistoryAvailable)
+      return console.warn("SKIPPED: shallow checkout, the reviewed base/head is not reachable");
     for (const p of [
       "packages/engine/src/owners/registry.ts",
       "packages/engine/src/owners/admission.ts",
-    ]) {
-      const afterGm = git("show", `${S4_BASE_COMMIT}:${p}`);
-      expect(afterGm === null ? atBase(p) : sha256(afterGm), p).toBe(atBase(p));
-    }
-    for (const p of [
       "spec/f027/spec-lock.json",
       "spec/f027/acceptance-register.yaml",
       "spec/f027/open-gates.yaml",
       "spec/f027/runtime-contract.md",
-    ])
-      expect(file(p), p).toBe(atBase(p));
+    ]) {
+      expect(atReviewedHead(p), p).toBe(atBase(p));
+      // S-4 changed registry and admission later; retain its historical base comparison as well.
+      const atS4Base = git("show", `${S4_BASE_COMMIT}:${p}`);
+      expect(atS4Base === null ? null : sha256(atS4Base), p).toBe(atBase(p));
+      // Both owners are checked by their present-day guards, never by substituting new hashes here.
+      if (!p.startsWith("packages/engine/src/owners/")) expect(file(p), p).toBe(atBase(p));
+    }
     // and the engine's freight directory gained exactly the router (no adapter, no kind): see freight-profile-conformance
     expect(existsSync("packages/engine/src/freight/bridge.ts")).toBe(true);
   });

@@ -86,6 +86,7 @@ function tamperStore(
     listFacts: () => inner.listFacts(),
     lookupReceipt: (i) => inner.lookupReceipt(i),
     committedGroup: (i) => inner.committedGroup(i),
+    ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
     close: () => inner.close(),
     commit: (g) => {
       const group = g as CommitGroup;
@@ -409,6 +410,7 @@ describe("load-time verification fails closed on Population drift (IA-30 partial
       listFacts: () => facts,
       lookupReceipt: (i) => inner.lookupReceipt(i),
       committedGroup: (i) => inner.committedGroup(i),
+      ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
       commit: (g) => inner.commit(g),
       close: () => inner.close(),
     };
@@ -503,6 +505,9 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
     );
     const refHead = ref.campaign.store.head();
     const refPop = popSummary(ref.campaign, ref.coordinator).population;
+    const refStage = ref.campaign.store.committedGroup(
+      stageIntentId(popCloseStage(LEDGER_MAIN, "close-2")),
+    )!;
     await ref.campaign.close();
 
     // count the durable steps of the transaction on a dry run
@@ -532,7 +537,12 @@ describe("unknown outcome is reconciled by identity: a failure at EVERY durable 
         const r = await popCoordinator(campaign.store).advance(
           advanceToRequest("tx-consumer-1", POP_TC),
         );
-        if (!r.ok) expect(r.error.code).toBe("UNKNOWN_OUTCOME");
+        if (!r.ok) {
+          expect(r.error.code).toBe("UNKNOWN_OUTCOME");
+          const uncertainHead = campaign.store.head();
+          expect(await codeOf(campaign.store.commit(refStage))).toBe("STORE_POISONED");
+          expect(campaign.store.head()).toEqual(uncertainHead);
+        }
         await campaign.close();
 
         const re = await reopenPopulation(dir, "restart");
@@ -620,6 +630,7 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
       listFacts: () => inner.listFacts(),
       lookupReceipt: (i) => inner.lookupReceipt(i),
       committedGroup: (i) => inner.committedGroup(i),
+      ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
       close: () => inner.close(),
       commit: (g) => {
         const group = g as CommitGroup;
@@ -697,10 +708,13 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
       closeSourceLawful: (...a) => populationBarrierEvaluator.closeSourceLawful(...a),
     };
     const c = new TemporalCoordinator(s.campaign.store, populationProviders(), liar);
-    const r = await c.advance(advanceToRequest("tx-consumer-1", POP_TC));
-    expect(r.ok).toBe(false);
-    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
-    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
+    const prior = s.population.ledger(LEDGER_MAIN);
+    const r = await must(c.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    // A01 refuses the forged due close before the kernel has a false successful-stage claim to reject.
+    expect(r.rejections.map((x) => x.code)).toEqual(["VALUE_INVALID"]);
+    expect(r.transaction.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
+    expect(r.transaction.stages).toEqual([]);
+    expect(s.population.ledger(LEDGER_MAIN)).toEqual(prior);
   });
 
   describe("load-time: historical corruption of a committed due claim fails verification", () => {
@@ -720,6 +734,7 @@ describe("PCB-01 repair 2: a false or tampered due claim is rejected at raw admi
         lookupReceipt: (i) => inner.lookupReceipt(i),
         committedGroup: (i) =>
           group ? group(structuredClone(inner.committedGroup(i))) : inner.committedGroup(i),
+        ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
         commit: (g) => inner.commit(g),
         close: () => inner.close(),
       };
@@ -788,6 +803,7 @@ describe("PCB-01 repair 3/4: the retained proof survives same-unit consequences 
       listFacts: () => inner.listFacts(),
       lookupReceipt: (i) => inner.lookupReceipt(i),
       committedGroup: (i) => inner.committedGroup(i),
+      ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
       close: () => inner.close(),
       commit: (g) => {
         const group = g as CommitGroup;
@@ -958,6 +974,7 @@ describe("PCB-01 repair 3/4: the retained proof survives same-unit consequences 
         lookupReceipt: (i) => inner.lookupReceipt(i),
         committedGroup: (i) =>
           group ? group(structuredClone(inner.committedGroup(i))) : inner.committedGroup(i),
+        ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
         commit: (g) => inner.commit(g),
         close: () => inner.close(),
       };
@@ -1071,6 +1088,7 @@ describe("PCB-01 repair 5: an undeclared source cannot manufacture trigger causa
       listFacts: () => inner.listFacts(),
       lookupReceipt: (i) => inner.lookupReceipt(i),
       committedGroup: (i) => inner.committedGroup(i),
+      ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
       close: () => inner.close(),
       commit: (g) => {
         const group = g as CommitGroup;
@@ -1089,7 +1107,7 @@ describe("PCB-01 repair 5: an undeclared source cannot manufacture trigger causa
     expect(s.population.ledger(LEDGER_MAIN)!.value.consumed_envelopes).toEqual(["env-a", "env-b"]);
   });
 
-  it("a lying evaluator cannot make raw kernel admission accept evidence derived from the B → A interaction", async () => {
+  it("a lying evaluator cannot credit a close using evidence derived from the B → A interaction", async () => {
     const s = await crossSource(false);
     const liar: typeof populationBarrierEvaluator = {
       evaluate: () => ({ due: true, envelope_ids: ["env-a-x"] }),
@@ -1101,20 +1119,14 @@ describe("PCB-01 repair 5: an undeclared source cannot manufacture trigger causa
       closeSourceLawful: (...a) => populationBarrierEvaluator.closeSourceLawful(...a),
     };
     const c = new TemporalCoordinator(s.campaign.store, populationProviders(), liar);
-    const r = await c.advance(advanceToRequest("tx-consumer-1", POP_TC));
-    expect(r.ok).toBe(false);
-    expect(!r.ok && r.error.code).toBe("REFERENCE_INVALID");
-    expect(s.coordinator.transaction("tx-consumer-1")).toBeUndefined();
-    // the Population close that DID commit supports no trigger for this consumer
-    const close = s.population.close(LEDGER_MAIN)!;
-    expect(close.value.consumed_envelopes).toEqual(["env-a-x", "env-b-n"]);
-    const writes = new Map([
-      [closeKey, close.fact.value],
-      [statusKey, s.campaign.store.getFact(statusKey)!.value],
-    ]);
-    expect(
-      populationBarrierEvaluator.evidence(populationBarrier(), POP_TC, (k) => writes.get(k)),
-    ).toBeNull();
+    const prior = s.population.ledger(LEDGER_MAIN),
+      close = s.population.close(LEDGER_MAIN);
+    const r = await must(c.advance(advanceToRequest("tx-consumer-1", POP_TC)));
+    expect(r.rejections.map((x) => x.code)).toEqual(["VALUE_INVALID"]);
+    expect(r.transaction.outcome.stop_reason).toBe("DEPENDENCY_UNRESOLVED");
+    expect(r.transaction.stages).toEqual([]);
+    expect(s.population.ledger(LEDGER_MAIN)).toEqual(prior);
+    expect(s.population.close(LEDGER_MAIN)).toEqual(close);
   });
 
   it("Population still consumes both envelopes, exactly once, when the reconciliation is due for another valid reason", async () => {
@@ -1209,6 +1221,7 @@ describe("PCB-01 repair 5: an undeclared source cannot manufacture trigger causa
         listFacts: () => facts,
         lookupReceipt: (i) => inner.lookupReceipt(i),
         committedGroup: (i) => inner.committedGroup(i),
+        ruleCheckedGroupIds: () => inner.ruleCheckedGroupIds!(),
         commit: (g) => inner.commit(g),
         close: () => inner.close(),
       };

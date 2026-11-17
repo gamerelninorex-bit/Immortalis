@@ -117,7 +117,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     pinsIn(readFileSync(suite, "utf8")).map((pin) => ({ suite, ...pin })),
   );
 
-  it("scans every pin of every examined suite: 518 pins, 40 on changed paths (history kept), 478 on unchanged paths (exempted, still true)", () => {
+  it("scans every pin of every examined suite: 516 pins, 40 on changed paths (history kept), 476 on unchanged paths (exempted, still true)", () => {
     const onChanged = rows.filter((r) => isChanged(r.path));
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
@@ -129,6 +129,8 @@ describe("census of the examined suites as they stand: changed paths hold only h
     // 518 = 526 less 8 pins of paths the ROADBED GM freight bridge slice changed (the two NULL-PC gateways, which additionally register the shipped
     // first-profile freight receipt provider, and the operator manifest, which gains two entry points): each older suite replaced that pin with a
     // comment and the paths are pinned instead as scoped deltas in tests/support/gm-freight-scoped-deltas.ts. All 8 were on unchanged-since-main paths.
+    // 516 = 518 less A01's two unchanged-since-base assertions: initial-population's Population admission
+    // and integrity pins. That suite preserves the original digests in comments, never new source identities.
     for (const [path, count] of [
       ["packages/engine/src/temporal", 0],
       ["packages/engine/src/commit", 1],
@@ -139,9 +141,9 @@ describe("census of the examined suites as they stand: changed paths hold only h
         rows.filter((r) => r.path === path),
         path,
       ).toHaveLength(count);
-    expect(rows).toHaveLength(518);
+    expect(rows).toHaveLength(516);
     expect(onChanged).toHaveLength(40);
-    expect(exempt).toHaveLength(478);
+    expect(exempt).toHaveLength(476);
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);

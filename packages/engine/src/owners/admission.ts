@@ -94,7 +94,7 @@ import {
   pcLedgerHistoricalCheck,
 } from "./pc-standing-ledger-admission.ts";
 import { PC_LEDGER_HISTORY_POLICY_SUFFIX } from "./pc-standing-ledger.ts";
-import { populationGroupCheck } from "../population/admission.ts";
+import { populationGroupCheck, populationHistoricalCheck } from "../population/admission.ts";
 import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
@@ -531,12 +531,15 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       advanceGipOwnerHead(before, after, group);
     },
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
-    // change to R1, S1-P1 or Initial Locality Bootstrap v0.9 historical verification must change this identity (and force strict replay).
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`,
+    // change to any composed historical verifier must change this identity (and force strict replay).
+    // Compose the merged S-4 policy first, then A01: neither predecessor checkpoint proves both checks ran.
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2`,
     verifyHistorical(group, state) {
       return (
         msFenceCheck(group, state) ??
         msActorGroupCheck(group, state) ??
+        // A01: every close, including an earlier one later overwritten, earns authority at its actual pre-state.
+        populationHistoricalCheck(group, state) ??
         worldActorPresenceHistoricalCheck(group, state) ??
         auditoryPremisesHistoricalCheck(group, state) ??
         // ROADBED first-profile freight: replay re-derives every freight group against the ACTUAL incremental pre-state it was

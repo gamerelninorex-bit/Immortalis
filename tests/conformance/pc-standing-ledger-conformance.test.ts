@@ -238,11 +238,11 @@ describe("the binding's frozen citation is untouched; the S-4 citation is an add
 });
 
 describe("historical verification identity: checkpoint evidence earned before S-4 is never trusted", () => {
-  it("the production policy identity extends the pre-S-4 one with the exact S-4 suffix, forcing a strict first replay", () => {
+  it("the production policy identity retains the exact S-4 suffix before A01, forcing a strict first replay", () => {
     const BEFORE =
       "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z";
     const id = canonicalAdmission.historyVerificationId!;
-    expect(id).toBe(`${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`);
+    expect(id).toBe(`${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2`);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_LEDGER_SOURCE.native_pin);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_RATIFICATION_SOURCE.native_pin);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_BRIEF_SOURCE.native_pin);
@@ -359,7 +359,27 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...S4_PRESENT_DAY_FILES,
       ...S4_NEW_MODULES,
     ]);
-    for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
+    const reviewedHead = "b93c79af0fa8e2de0384ea74003900dcc58b8822";
+    const historical = git(
+      "-c",
+      "core.fileMode=false",
+      "diff",
+      "--name-only",
+      S4_BASE_COMMIT,
+      reviewedHead,
+      "--",
+      "packages",
+    );
+    expect(historical, "authentic S-4 reviewed head is required").not.toBeNull();
+    for (const p of lines(historical)) expect(allowed.has(p), p).toBe(true);
+    // Retain the live tracked/untracked guard while accounting for the subsequent reviewed A01 paths.
+    const combinedAllowed = new Set([
+      ...allowed,
+      "packages/engine/src/population/admission.ts",
+      "packages/engine/src/population/integrity.ts",
+      "packages/engine/src/population/stage-authority.ts",
+    ]);
+    for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)
     for (const p of [...Object.keys(S4_SCOPED_DELTAS), ...S4_PRESENT_DAY_FILES])
       expect(changed.includes(p), p).toBe(true);
