@@ -38,8 +38,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "97fc8d2c066caa2d176bf2d39d4a86d4a4a84fa83308e40168646515e8707cee",
   "packages/engine/package.json":
     "36dd3befb2a4ee36ffa14b42dc8a00e3ac51497bf9baed2d9331e66a1add1f02",
-  "packages/operator/package.json":
-    "80925fae3972571622e7871ce4925baabdc58aad1071cee951cf402b4167bdd0",
+  // ROADBED GM freight bridge: this file is a recorded scoped delta of the GM-freight slice (its base is recorded in tests/support/gm-freight-removed-pins.ts and its head in tests/support/gm-freight-scoped-deltas.ts); it is no longer asserted byte-identical to main here.
   "packages/protocol/package.json":
     "f920e90c2898236e2aee2e6ba152d28eaa14a927c16681251618b1b3a71db918",
   "packages/testkit/package.json":

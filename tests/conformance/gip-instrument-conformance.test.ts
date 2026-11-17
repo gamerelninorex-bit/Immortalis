@@ -315,6 +315,9 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       .filter((f) => /gip_governance_instrument|GovernanceInstrument|gipInstrument/.test(code(f)))
       .sort();
     expect(touching).toEqual([
+      // ROADBED GM freight bridge: it DERIVES the Instrument's three references from identities the GM names (the existing key helpers and the existing
+      // contract schema); it writes no GIP key itself (every GIP act is the existing GipAdapter / GipFreightAdapter)
+      "packages/engine/src/freight/bridge.ts",
       // ROADBED R3-T25 freight: the first-profile GIP adapter reads and verifies the sealed Instrument clauses
       "packages/engine/src/freight/gip.ts",
       // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the reviewed 90-row sunset policy has one row per registered kind

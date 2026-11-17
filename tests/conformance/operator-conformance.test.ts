@@ -63,10 +63,7 @@ const UNCHANGED: Record<string, string> = {
   // ROADBED R3-T25 freight: packages/contracts/src/logistics.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   // ROADBED R3-T25 freight: packages/engine/src/persistence/file-package.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
-  "packages/protocol/src/null-pc-ooc-advance.ts":
-    "b3fe9e0c2be291ae5ea6670df42e59fde1121a35c01254230a083dd676c17c68",
-  "packages/protocol/src/null-pc-ooc-held-continuation.ts":
-    "4040a181a8b081d5d9a8c265185b13a4d559e829500a5c5986e776e4b703343c",
+  // ROADBED GM freight bridge: this file is a recorded scoped delta of the GM-freight slice (its base is recorded in tests/support/gm-freight-removed-pins.ts and its head in tests/support/gm-freight-scoped-deltas.ts); it is no longer asserted byte-identical to main here.
   "packages/contracts/src/protocol-null-pc-advance.ts":
     "c7018747d8745074d8ced47daa49cadb57d4e296f944edb965a2be35f30ecf60",
   "packages/contracts/src/protocol-null-pc-held-advance.ts":
@@ -195,6 +192,8 @@ describe("the package composes only the existing gateways and canonical reads", 
         "FileCampaignOptions",
         "FsOps",
         "GipAdapter",
+        "GmFreightLimits",
+        "GmFreightResult",
         "I002Context",
         "INSTRUCTIONS_V1",
         "INSTRUCTIONS_V2",
@@ -218,6 +217,9 @@ describe("the package composes only the existing gateways and canonical reads", 
         "StageOwnerExtension",
         "StageProviderRegistry",
         "TemporalCoordinator",
+        // ROADBED GM freight bridge: the GM freight tool transport binds a trusted session to the opened campaign and invokes the engine's one
+        // operation; it writes no canon itself
+        "bindTrustedGmFreightSession",
         "buildProducerInput",
         "canonicalEqual",
         "chronologyCaptureHash",
@@ -251,6 +253,7 @@ describe("the package composes only the existing gateways and canonical reads", 
         "pcDelegationMirror",
         "refereeCandidateItems",
         "refereeQualificationViolation",
+        "runGmFreightOperation",
         "scanInitialSetup",
         "scopeDecisionRecord",
         "scopeFingerprintOf",

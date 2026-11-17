@@ -220,6 +220,9 @@ describe("predecessor modules: exactly the recorded scoped deltas, pinned here",
 
   it("the freight engine directory is exactly the owner-path modules", () => {
     expect(readdirSync(FREIGHT_DIR).sort()).toEqual([
+      // ROADBED GM freight bridge: the trusted router/sequencer over the owner adapters below; it owns no fact, kind, facet or rule (it is not an
+      // owner path module, it lives here only so that no predecessor engine directory census gains a directory)
+      "bridge.ts",
       "common.ts",
       "dispatch-fence.ts",
       "economy-derive.ts",

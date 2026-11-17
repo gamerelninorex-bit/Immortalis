@@ -7,3 +7,4 @@ spec/f027/open-gates.yaml
 spec/f027/spec-lock.json
 packages/contracts/src/spec-identity.ts
 docs/evidence/roadbed-freight/benchmark
+docs/evidence/gm-freight/benchmark

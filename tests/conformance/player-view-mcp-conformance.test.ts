@@ -106,6 +106,13 @@ describe("existing owners, the gateway, the referee surface and the specificatio
     expect(readdirSync("packages/operator/src").sort()).toEqual(
       [
         "additional-locality.ts",
+        // ROADBED GM freight bridge: the six modules of the GM freight transport (added mechanically; the lane modules below are unchanged)
+        "gm-freight-bin.ts",
+        "gm-freight-bind-bin.ts",
+        "gm-freight-cli.ts",
+        "gm-freight-exchange.ts",
+        "gm-freight-mcp.ts",
+        "gm-freight.ts",
         "additional-source.ts",
         "bin.ts",
         "cli.ts",
@@ -212,6 +219,9 @@ describe("existing owners, the gateway, the referee surface and the specificatio
       "immortalis-advance-request": "./src/advance-request-bin.ts",
       "immortalis-advance-request-bind": "./src/advance-request-bind-bin.ts",
       "immortalis-advance-request-answer": "./src/advance-request-answer-bin.ts",
+      // ROADBED GM freight bridge: two further entry points, added mechanically; the entries above are unchanged
+      "immortalis-gm-freight": "./src/gm-freight-bin.ts",
+      "immortalis-gm-freight-bind": "./src/gm-freight-bind-bin.ts",
     });
     expect(JSON.parse(readFileSync("package.json", "utf8")).devDependencies).not.toHaveProperty(
       "@modelcontextprotocol/sdk",
