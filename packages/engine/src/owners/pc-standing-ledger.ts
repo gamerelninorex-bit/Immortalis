@@ -126,7 +126,16 @@ export function ledgerOperationDigest(body: PcStandingLedgerVersionBody): string
   const o = body.origin;
   return o.kind === LEDGER_ORIGIN_START_OF_LEDGER
     ? sha256Canonical([S4_START_OF_LEDGER_TAG, body.pc_id, o.operative_binding])
-    : sha256Canonical([S4_NEW_PC_TAG, body.pc_id, o.pc_creation, o.setup_closure]);
+    : sha256Canonical([S4_NEW_PC_TAG, body.pc_id, o.pc_creation, o.target_world, o.setup_closure]);
+}
+
+/**
+ * The world an engine-origin ledger was qualified against, named by the world profile it cites; `null` when the reference is not a
+ * world profile at all (a malformed or foreign key), which every caller treats as a refusal.
+ */
+export function targetWorldIdOf(ref: { readonly fact_key: string }): string | null {
+  const resolved = resolveKey(ref.fact_key);
+  return resolved?.kind.id === "world_profile" ? (resolved.ids[0] ?? null) : null;
 }
 
 /** The canonical publication identity of the group that writes `body`'s head and version. Derived, never caller-supplied. */
@@ -255,12 +264,15 @@ export function deriveNewPcLedger(
         origin: {
           kind: LEDGER_ORIGIN_ENGINE_CLOSURE,
           pc_creation: refOfFact(pcFact),
+          // the target world is part of what the witness rests on: the closure-or-null below is judged for THIS world, here and
+          // again in raw admission, historical replay and cold-open verification
+          target_world: refOfFact(facts.get(worldKey)!),
           setup_closure: closure ? refOfFact(closure) : null,
         },
         instructions: [],
         previous: null,
       },
-      closure ? [pcKey, closureKey] : [pcKey],
+      closure ? [pcKey, worldKey, closureKey] : [pcKey, worldKey],
       closure ? [] : [closureKey],
     ),
   );
@@ -383,12 +395,26 @@ export function ledgerOriginViolation(
   if (!ExistenceContractSchema.safeParse(facts.get(pcKey)!.value).success) {
     return "the PC existence contract is not a released Existence Contract";
   }
-  if (o.setup_closure !== null) {
-    if (resolveKey(o.setup_closure.fact_key)?.kind.id !== "world_setup_closure") {
-      return "setup_closure cites a world setup closure";
+  // The closure-or-null is a claim about ONE world: the target world this creation route was qualified against. At this commit's own
+  // cut that world either has a committed closure (the origin must cite exactly that closure) or it has none (the origin must be an
+  // explicit null). A null is never taken on trust, and a closure of any other world is never a substitute.
+  const worldId = targetWorldIdOf(o.target_world);
+  if (worldId === null) return "target_world cites a world profile";
+  const world = refViolation(o.target_world, facts, "the target world's profile");
+  if (world) return world;
+  const closureKey = worldSetupClosureKey(worldId);
+  const committedClosure = facts.get(closureKey);
+  if (committedClosure) {
+    if (o.setup_closure === null) {
+      return `the target world ${worldId} has a committed world_setup_closure: an explicit null closure is false, the ledger must cite that exact world's earlier closure`;
     }
-    const closure = refViolation(o.setup_closure, facts, "the world setup closure");
+    if (o.setup_closure.fact_key !== closureKey) {
+      return `setup_closure cites the TARGET world's closure (${closureKey}), not another world's`;
+    }
+    const closure = refViolation(o.setup_closure, facts, "the target world's setup closure");
     if (closure) return closure;
+  } else if (o.setup_closure !== null) {
+    return `the target world ${worldId} has no committed world_setup_closure: a closure is cited only where the target world's own closure is committed`;
   }
   if (facts.has(PLAYER_CHARACTER_BINDING_KEY)) {
     return "an engine-origin ledger precedes its binding: a binding already exists, so this ledger came too late";
@@ -447,7 +473,12 @@ export function bindingLedgerViolation(
   }
   const creation = refViolation(version.origin.pc_creation, facts, "the PC's Existence Contract");
   if (creation) return creation;
-  const closureKey = worldSetupClosureKey(binding.coupling.world.entity_id);
+  // the ledger was qualified, at its own commit, against ONE target world: it can only be consumed by a binding that couples that world
+  const coupledWorld = binding.coupling.world.entity_id;
+  if (targetWorldIdOf(version.origin.target_world) !== coupledWorld) {
+    return `the ledger was qualified against another world than the one this binding couples (${coupledWorld}): its closure-or-null was judged for that world, so a PC ledger cannot be carried into a different world`;
+  }
+  const closureKey = worldSetupClosureKey(coupledWorld);
   const closure = facts.get(closureKey);
   const cited = version.origin.setup_closure;
   if (closure) {

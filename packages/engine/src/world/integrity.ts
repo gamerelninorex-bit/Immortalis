@@ -16,6 +16,7 @@ import {
   worldActorCouplingKey,
   worldLocusKey,
   worldProfileKey,
+  worldSetupClosureKey,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
@@ -31,6 +32,7 @@ import {
   bindingLedgerViolation,
   isLedgerBindingFact,
   ledgerPairViolation,
+  targetWorldIdOf,
   type WalkableLedgerFacts,
 } from "../owners/pc-standing-ledger.ts";
 import { couplingActorStillNonPcViolation } from "./actor-coupling.ts";
@@ -367,7 +369,7 @@ export function verifyCanonicalIntegrity(
         const o = version.origin;
         const pinned =
           o.kind === LEDGER_ORIGIN_ENGINE_CLOSURE
-            ? [o.pc_creation, ...(o.setup_closure ? [o.setup_closure] : [])]
+            ? [o.pc_creation, o.target_world, ...(o.setup_closure ? [o.setup_closure] : [])]
             : [o.operative_binding];
         for (const ref of pinned) {
           const target = needs(fact, ref.fact_key);
@@ -381,6 +383,18 @@ export function verifyCanonicalIntegrity(
               fact.key,
               "PC_LEDGER_STATE",
               `the ledger group read the exact pinned fact and depended on its group: ${ref.fact_key}`,
+            );
+          }
+        }
+        // an explicit null closure is a claim of ABSENCE: the group pinned the target world's closure key as absent (read at version 0)
+        if (o.kind === LEDGER_ORIGIN_ENGINE_CLOSURE && o.setup_closure === null) {
+          const worldId = targetWorldIdOf(o.target_world);
+          const absent = worldId === null ? null : worldSetupClosureKey(worldId);
+          if (absent === null || !group?.reads.some((r) => r.key === absent && r.version === 0)) {
+            bad(
+              fact.key,
+              "PC_LEDGER_STATE",
+              "an explicit null closure was not pinned as absent: the target world's closure key must be read at version 0",
             );
           }
         }

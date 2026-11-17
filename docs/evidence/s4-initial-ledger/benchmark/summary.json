@@ -467,15 +467,15 @@
    "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
    "groups_committed_by_the_action": 2,
    "journal_entries_after": 5,
-   "package_bytes_after": 29719,
+   "package_bytes_after": 29917,
    "open": {
-    "elapsed_ms_median": 33.3,
+    "elapsed_ms_median": 42.1,
     "elapsed_ms_all": [
-     35.9,
-     33.3,
-     32.2
+     42.1,
+     50.6,
+     34.8
     ],
-    "cpu_ms_median": 43.6,
+    "cpu_ms_median": 52.6,
     "read_calls": [
      3
     ],
@@ -486,7 +486,7 @@
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -496,24 +496,24 @@
     ]
    },
    "action": {
-    "elapsed_ms_median": 18.1,
+    "elapsed_ms_median": 22.8,
     "elapsed_ms_all": [
-     21.0,
-     17.8,
-     18.1
+     22.8,
+     24.6,
+     20.8
     ],
-    "cpu_ms_median": 15.6,
+    "cpu_ms_median": 20.0,
     "read_calls": [
      4
     ],
     "read_bytes": [
-     392
+     396
     ],
     "write_calls": [
      4
     ],
     "write_bytes": [
-     19999
+     20197
     ],
     "admission_check_calls": [
      2
@@ -523,13 +523,13 @@
     ]
    },
    "verify": {
-    "elapsed_ms_median": 4.9,
+    "elapsed_ms_median": 6.7,
     "elapsed_ms_all": [
-     4.6,
-     4.9,
-     5.1
+     6.7,
+     8.2,
+     5.3
     ],
-    "cpu_ms_median": 8.9,
+    "cpu_ms_median": 10.6,
     "read_calls": [
      0
     ],
@@ -550,24 +550,24 @@
     ]
    },
    "reopen": {
-    "elapsed_ms_median": 10.9,
+    "elapsed_ms_median": 13.5,
     "elapsed_ms_all": [
-     9.4,
-     10.9,
-     10.9
+     13.5,
+     21.4,
+     10.5
     ],
-    "cpu_ms_median": 11.7,
+    "cpu_ms_median": 16.5,
     "read_calls": [
      3
     ],
     "read_bytes": [
-     27513
+     27711
     ],
     "write_calls": [
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -582,15 +582,15 @@
    "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
    "groups_committed_by_the_action": 2,
    "journal_entries_after": 105,
-   "package_bytes_after": 345308,
+   "package_bytes_after": 345506,
    "open": {
-    "elapsed_ms_median": 89.1,
+    "elapsed_ms_median": 98.4,
     "elapsed_ms_all": [
-     89.1,
-     88.5,
-     89.4
+     85.5,
+     100.0,
+     98.4
     ],
-    "cpu_ms_median": 160.8,
+    "cpu_ms_median": 178.5,
     "read_calls": [
      3
     ],
@@ -601,7 +601,7 @@
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -611,24 +611,24 @@
     ]
    },
    "action": {
-    "elapsed_ms_median": 24.5,
+    "elapsed_ms_median": 22.9,
     "elapsed_ms_all": [
-     24.5,
-     21.3,
-     29.2
+     20.3,
+     22.9,
+     24.0
     ],
-    "cpu_ms_median": 26.0,
+    "cpu_ms_median": 27.2,
     "read_calls": [
      4
     ],
     "read_bytes": [
-     392
+     396
     ],
     "write_calls": [
      4
     ],
     "write_bytes": [
-     20017
+     20215
     ],
     "admission_check_calls": [
      2
@@ -638,13 +638,13 @@
     ]
    },
    "verify": {
-    "elapsed_ms_median": 12.7,
+    "elapsed_ms_median": 13.5,
     "elapsed_ms_all": [
-     12.8,
-     12.7,
-     12.7
+     12.2,
+     13.5,
+     16.3
     ],
-    "cpu_ms_median": 20.5,
+    "cpu_ms_median": 21.4,
     "read_calls": [
      0
     ],
@@ -665,24 +665,24 @@
     ]
    },
    "reopen": {
-    "elapsed_ms_median": 49.8,
+    "elapsed_ms_median": 50.1,
     "elapsed_ms_all": [
-     53.0,
-     44.4,
-     49.8
+     46.9,
+     52.7,
+     50.1
     ],
-    "cpu_ms_median": 61.3,
+    "cpu_ms_median": 71.3,
     "read_calls": [
      3
     ],
     "read_bytes": [
-     343102
+     343300
     ],
     "write_calls": [
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -697,15 +697,15 @@
    "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
    "groups_committed_by_the_action": 2,
    "journal_entries_after": 505,
-   "package_bytes_after": 5259183,
+   "package_bytes_after": 5259381,
    "open": {
-    "elapsed_ms_median": 354.2,
+    "elapsed_ms_median": 336.1,
     "elapsed_ms_all": [
-     354.2,
-     366.6,
-     330.4
+     330.3,
+     336.1,
+     347.1
     ],
-    "cpu_ms_median": 541.3,
+    "cpu_ms_median": 516.8,
     "read_calls": [
      3892
     ],
@@ -716,7 +716,7 @@
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -726,24 +726,24 @@
     ]
    },
    "action": {
-    "elapsed_ms_median": 56.6,
+    "elapsed_ms_median": 60.3,
     "elapsed_ms_all": [
-     60.9,
-     41.8,
-     56.6
+     57.8,
+     61.7,
+     60.3
     ],
-    "cpu_ms_median": 100.3,
+    "cpu_ms_median": 103.4,
     "read_calls": [
-     90
+     102
     ],
     "read_bytes": [
-     49941
+     57905
     ],
     "write_calls": [
      4
     ],
     "write_bytes": [
-     20721
+     20919
     ],
     "admission_check_calls": [
      2
@@ -753,18 +753,18 @@
     ]
    },
    "verify": {
-    "elapsed_ms_median": 186.2,
+    "elapsed_ms_median": 192.3,
     "elapsed_ms_all": [
-     186.2,
-     174.7,
-     225.5
+     170.8,
+     201.0,
+     192.3
     ],
-    "cpu_ms_median": 255.5,
+    "cpu_ms_median": 255.0,
     "read_calls": [
-     4658
+     4684
     ],
     "read_bytes": [
-     3118453
+     3135301
     ],
     "write_calls": [
      0
@@ -780,24 +780,24 @@
     ]
    },
    "reopen": {
-    "elapsed_ms_median": 302.4,
+    "elapsed_ms_median": 261.2,
     "elapsed_ms_all": [
-     302.4,
-     264.8,
-     303.5
+     255.4,
+     371.3,
+     261.2
     ],
-    "cpu_ms_median": 393.7,
+    "cpu_ms_median": 363.2,
     "read_calls": [
-     3985
+     3999
     ],
     "read_bytes": [
-     3646147
+     3660603
     ],
     "write_calls": [
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -812,15 +812,15 @@
    "exact_sha": "c6ea29d3ccd7cadb83a622dc47704f449f63513b+worktree",
    "groups_committed_by_the_action": 2,
    "journal_entries_after": 2005,
-   "package_bytes_after": 28785860,
+   "package_bytes_after": 28786058,
    "open": {
-    "elapsed_ms_median": 947.3,
+    "elapsed_ms_median": 941.9,
     "elapsed_ms_all": [
-     993.0,
-     947.3,
-     926.3
+     941.9,
+     978.9,
+     921.5
     ],
-    "cpu_ms_median": 1362.1,
+    "cpu_ms_median": 1282.3,
     "read_calls": [
      9329
     ],
@@ -831,7 +831,7 @@
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0
@@ -841,24 +841,24 @@
     ]
    },
    "action": {
-    "elapsed_ms_median": 101.1,
+    "elapsed_ms_median": 97.6,
     "elapsed_ms_all": [
-     101.1,
-     101.4,
-     100.7
+     91.3,
+     97.6,
+     98.8
     ],
-    "cpu_ms_median": 112.9,
+    "cpu_ms_median": 105.5,
     "read_calls": [
-     114
+     129
     ],
     "read_bytes": [
-     61117
+     70465
     ],
     "write_calls": [
      4
     ],
     "write_bytes": [
-     20735
+     20933
     ],
     "admission_check_calls": [
      2
@@ -868,18 +868,18 @@
     ]
    },
    "verify": {
-    "elapsed_ms_median": 802.3,
+    "elapsed_ms_median": 790.8,
     "elapsed_ms_all": [
-     802.3,
-     827.3,
-     797.2
+     767.6,
+     790.8,
+     802.0
     ],
-    "cpu_ms_median": 1102.9,
+    "cpu_ms_median": 1051.9,
     "read_calls": [
-     27541
+     27571
     ],
     "read_bytes": [
-     17466529
+     17485253
     ],
     "write_calls": [
      0
@@ -895,24 +895,24 @@
     ]
    },
    "reopen": {
-    "elapsed_ms_median": 856.4,
+    "elapsed_ms_median": 811.9,
     "elapsed_ms_all": [
-     856.4,
-     912.3,
-     810.0
+     787.4,
+     811.9,
+     817.4
     ],
-    "cpu_ms_median": 1099.9,
+    "cpu_ms_median": 999.3,
     "read_calls": [
-     9446
+     9463
     ],
     "read_bytes": [
-     11808359
+     11824199
     ],
     "write_calls": [
      1
     ],
     "write_bytes": [
-     98
+     99
     ],
     "admission_check_calls": [
      0

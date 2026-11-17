@@ -1,0 +1,34 @@
+
+ RUN  v5.0.2 <repo>
+
+ ❯ |integration| tests/integration/pc-standing-ledger-closure-origin.test.ts (3 tests | 1 failed) 290ms
+   ❯ H-1: a forged null setup-closure origin is refused AT LEDGER ADMISSION (raw store.commit) (3)
+     × RED/GREEN: an explicit null after a real closure of the intended world is refused, and neither ledger fact is committed 89ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| tests/integration/pc-standing-ledger-closure-origin.test.ts > H-1: a forged null setup-closure origin is refused AT LEDGER ADMISSION (raw store.commit) > RED/GREEN: an explicit null after a real closure of the intended world is refused, and neither ledger fact is committed
+AssertionError: {"ok":true,"value":{"receipt":{"outcome":"COMMITTED","campaign_id":"campaign-world-foundation-1","group_id":"s4-ledger-group:25345499c4645735f99ef5e0d5546ec670230bc15af960d3b13f2ff11eb1035e","intent_id":"s4-ledger-intent:25345499c4645735f99ef5e0d5546ec670230bc15af960d3b13f2ff11eb1035e","revision":7,"group_sha256":"18c167f1e0babbddbc252d529a42a597231376a75743c5423e9aee925e890a55","state_sha256":"4644f2afa7506042a60e24911fb98b3bb6fa32b69c2ee4af3cde646a94a97264","basis":{"spec_lock_sha256":"8c0754d36599fcdf0cf5647d042b61492724fa742b5fd30ea62d37ff961971af","rule":{"artifact":"https://app.notion.com/p/41920af901e0818faf11c80a4fc59e9c","native_pin":"2026-11-15T13:54:22.606Z","clause":"§1 S-4a bounded PC-state ownership grant (non-intrinsic, separately versioned ledger held by pc_existence); §4 S-4c positive ledger head before both binding paths (ENGINE_ORIGIN_LEDGER_CLOSURE, an empty witness is engine closure evidence and never PLAYER-AUTHORED, after world_setup_closure where used, separate one-owner commit, no amendment of the setup-eligibility set); §5 S-4d L-2 (a prospective START_OF_LEDGER witness for an existing PC with a deterministic identity derived only from the PC and its original operative binding); §7 immutable per-version content with a small owner-advancing head","authority_lineage":["BLUE S-4 v0.4 Class 2 Effect-Bound and Setup-Order Repair, native pin 2026-11-15T13:54:22.606Z (https://app.notion.com/p/41920af901e0818faf11c80a4fc59e9c), §§1, 4, 5, 7; Sovereign Conditional Ratification effectuated after BLUE–RED CONCUR (S-4a YES, S-4c YES, S-4d L-2), native pin 2026-11-15T14:02:45.229Z (https://app.notion.com/p/41920af901e0816db645d2d43d12e6a5); Class 2 GM interpretation, the GM standing-text reader, F-014B waiting and every other LC family are separately ratified or held and are NOT part of this lowering","BLUE F-014B S-4 Initial Ledger Scoped Hard Preflight PASS & Pinned Construction Brief, native pin 2026-11-17T04:59:46.616Z (https://app.notion.com/p/41b20af901e08196ac56e27f0d91e4b7), Part B1 source-to-schema map and B4 acceptance matrix, cited as the construction objective and acceptance boundary only (NOT a game-design source, NOT a spec-lock pin); its field, key, digest and intent spellings are BLUE TECHNICAL ENCODINGS of the ratified clauses, not source literals, and await independent BLUE exact-HEAD review","Canonical Role Registry v1 / F-014C, pin 2026-09-25T08:21:22.816Z (https://app.notion.com/p/3e620af901e081f68ff1d0cc574e041a)","F-027 Runtime Contract & Translation Tranche v0.2 §5.2 rule 6 and §4 lowering set, pin 2026-09-29T00:33:04.009Z (https://app.notion.com/p/3ea20af901e081b8b958f7f3f39cb96a)"],"effective_basis":"ratified-design-blue-bounded-brief-not-spec-locked","supersedes":null},"authority":{"role":"role.archivist","permission":"permission.canon.write"}},"invariants":[{"name":"authority-present","passed":true},{"name":"owner-registered","passed":true},{"name":"owner-exclusive","passed":true},{"name":"unique-keys-in-group","passed":true},{"name":"expected-versions-current","passed":true},{"name":"reads-current","passed":true},{"name":"dependencies-committed","passed":true}]},"replayed":false}}: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/integration/pc-standing-ledger-closure-origin.test.ts:84:49
+     82|
+     83|     const refused = await s.campaign.store.commit(forged);
+     84|     expect(refused.ok, JSON.stringify(refused)).toBe(false);
+       |                                                 ^
+     85|     expect(!refused.ok && refused.error.code).toBe("REFERENCE_INVALID"…
+     86|     expect(!refused.ok && refused.error.message).toMatch(/closure/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  13:50:23
+   Duration  2.98s (transform 69%, import 20%, tests 10%)
+

@@ -70,8 +70,15 @@ export const LedgerOriginSchema = z.discriminatedUnion("kind", [
     /** the PC's released Existence Contract, the creation source this witness is qualified by */
     pc_creation: LedgerCommittedFactRefSchema,
     /**
-     * The applicable world's `world_setup_closure`. Explicitly `null` only where the lawful creation route objectively does not use
-     * that setup predicate: the world has no closure and no setup placement is waiting for one.
+     * The world profile this creation route is qualified against: the SAME world the PC's binding will couple (BLUE exact-HEAD review
+     * finding H-1 on PR #107). The closure-or-null below is judged for THIS world, at this group's own commit, in raw admission,
+     * historical replay and cold-open verification, never merely when a binding later arrives. The one narrow addition to the origin.
+     */
+    target_world: LedgerCommittedFactRefSchema,
+    /**
+     * THE TARGET WORLD'S `world_setup_closure`, and no other world's. Explicitly `null` only where the lawful creation route
+     * objectively does not use that setup predicate: that world has NO committed closure at this commit (the group then pins the
+     * closure key as absent, read at version 0) and no setup placement anywhere is waiting for one.
      */
     setup_closure: LedgerCommittedFactRefSchema.nullable(),
   }),

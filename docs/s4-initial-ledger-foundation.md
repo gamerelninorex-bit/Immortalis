@@ -35,11 +35,23 @@ Owner `pc_existence`, a separate NON-INTRINSIC facet `standing_instruction_ledge
 `content_sha256` is the SHA-256 of the UTF-8 canonical JSON of the version **without** its digest. It is re-derived, never trusted, at
 admission, in replay and on reopen. Only the first version exists: every later advance, overwrite or second version is refused.
 
-**Origin** (a strict discriminated union): `ENGINE_ORIGIN_LEDGER_CLOSURE` (a newly created PC: the PC's released Existence Contract and the
-applicable `world_setup_closure`, or an explicit `null` where the route uses none) or `START_OF_LEDGER` (an existing bound PC: its original
-operative binding). Every reference is `{ fact_key, version, commit: { group_id, intent_id } }`, checked against the committed fact.
+**Origin** (a strict discriminated union): `ENGINE_ORIGIN_LEDGER_CLOSURE` (a newly created PC: the PC's released Existence Contract, the
+**target world** it was qualified against, and that world's `world_setup_closure`, or an explicit `null` where that world has none) or
+`START_OF_LEDGER` (an existing bound PC: its original operative binding). Every reference is `{ fact_key, version, commit: { group_id,
+intent_id } }`, checked against the committed fact.
 
-**Identity** is derived from the source facts only: `s4-ledger-{group,intent,cause}:<SHA-256 of canonical JSON of [tag, pc_id, source facts]>`.
+**The target world and the closure-or-null (BLUE review H-1 on PR #107).** The closure-or-null is a claim about ONE world, so the origin
+names that world (`target_world`, a reference to its committed profile) and it is judged **at the PC-owner commit**, never first at the
+binding: if the target world has a committed closure at that cut the origin must cite exactly that closure (a closure of any other world
+is refused, and so is an explicit null); if it has none the origin must be an explicit null **and the group must pin that absence by
+reading the world's closure key at version 0**, so a closure can never slip in beneath it (the store refuses a stale read). The rule is one
+pure function of the cut before the group, applied in normal admission, in a raw `store.commit`, in historical replay (the incremental
+pre-state) and in cold-open verification. The binding must couple the same world the ledger was qualified against. This `target_world`
+field is the one narrow addition to the BLUE technical origin encoding; it enters the derived operation identity too, so two worlds in the
+same closure state never share a ledger identity.
+
+**Identity** is derived from the source facts only: `s4-ledger-{group,intent,cause}:<SHA-256 of canonical JSON of [tag, pc_id, source facts]>`
+(for a new PC the source facts are the PC's creation, the target world and the closure-or-null).
 For L-2 it is exactly `["S4_START_OF_LEDGER_V1", pc_id, original binding commit identity]` — never a clock, session, horizon or nonce — so a
 retry in another session or at another canonical time finds the same single head.
 
@@ -56,8 +68,9 @@ setup → `world_setup_closure` (where used) → **ledger (one atomic `pc_existe
   freight slice used). `FACT_KINDS`, and so the frozen-lock citation, is untouched. An authentic old binding (original citation, no ledger)
   keeps loading and replays under its original policy; a FRESH write citing the original citation is refused. The ledger check runs
   **last**, so every existing refusal keeps its reason and precedence.
-- The "applicable closure" is judged at binding time against the world the binding couples: non-null iff that world has a closure, and
-  exactly that closure. A closure of another world is refused in both directions.
+- The "applicable closure" is the closure of the ledger's target world, judged at the ledger's own commit (above). At binding time the
+  binding must couple that same world, and its closure applicability is re-checked from the committed facts: a ledger can neither be carried
+  into another world nor outlive a closure that appeared beneath it.
 - `historyVerificationId` gains the S-4 suffix, so checkpoint evidence earned before is never trusted and the first open replays strictly.
 
 ## Recovery

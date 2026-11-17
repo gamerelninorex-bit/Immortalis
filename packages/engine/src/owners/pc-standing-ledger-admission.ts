@@ -8,6 +8,7 @@ import {
   PcStandingLedgerVersionSchema,
   PlayerCharacterBindingSchema,
   pcExistenceContractKey,
+  worldSetupClosureKey,
   pcStandingLedgerHeadKey,
   pcStandingLedgerVersionKey,
   PC_LEDGER_FIRST_SEQUENCE,
@@ -23,6 +24,7 @@ import {
   PC_LEDGER_SECRECY,
   bindingLedgerViolation,
   ledgerPairViolation,
+  targetWorldIdOf,
 } from "./pc-standing-ledger.ts";
 
 /**
@@ -84,14 +86,31 @@ export function pcLedgerGroupCheck(group: CommitGroup, state: CampaignState): Re
             pcExistenceContractKey(parsedVersion.data.pc_id),
             "the PC's released Existence Contract",
           ],
+          [origin.target_world.fact_key, "the target world's profile"],
           ...(origin.setup_closure
-            ? [[origin.setup_closure.fact_key, "the applicable world setup closure"] as const]
+            ? [[origin.setup_closure.fact_key, "the target world's setup closure"] as const]
             : []),
         ]
       : [[PLAYER_CHARACTER_BINDING_KEY, "the operative player-character binding"]];
   for (const [key, what] of pins) {
     const pinned = requirePrerequisite(group, state, key, what);
     if (isRejection(pinned)) return pinned;
+  }
+  // An explicit null is a claim of ABSENCE about the target world's closure. It is never taken on trust: the group must READ that
+  // closure key at version 0 (so a closure can never slip in beneath it: the store refuses a stale read), and the origin rule below
+  // is judged against the actual pre-state, in normal admission, in a raw `store.commit` and in historical replay alike.
+  if (origin.kind === LEDGER_ORIGIN_ENGINE_CLOSURE && origin.setup_closure === null) {
+    const worldId = targetWorldIdOf(origin.target_world);
+    if (worldId !== null) {
+      const absent = worldSetupClosureKey(worldId);
+      if (!group.reads.some((r) => r.key === absent && r.version === 0)) {
+        return reject(
+          "REFERENCE_INVALID",
+          "an explicit null closure is a claim that the target world has none: the group must read that world's setup-closure key at version 0",
+          { key: absent },
+        );
+      }
+    }
   }
   const violation = ledgerPairViolation(head, version, group, state.facts);
   return violation ? reject("REFERENCE_INVALID", violation, { key: head.key }) : null;

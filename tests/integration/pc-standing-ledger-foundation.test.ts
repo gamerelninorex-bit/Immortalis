@@ -301,9 +301,8 @@ describe("positive: the ledger FOLLOWS a real world_setup_closure where the setu
     const wrong = await C.bindPlayerCharacter(bindInput(52));
     expect(wrong.ok).toBe(false);
     expect(!wrong.ok && wrong.error.code).toBe("REFERENCE_INVALID");
-    expect(!wrong.ok && wrong.error.message).toContain(
-      "not the closure of the world being coupled",
-    );
+    // the ledger was qualified, at its own commit, against W2: it cannot be carried into a different world
+    expect(!wrong.ok && wrong.error.message).toContain("qualified against another world");
     expect(C.binding()).toBeUndefined(); // refused without creating a binding
 
     // (2) the lawful target of THAT ledger binds (control: the refusal above was about the world, not the PC or the ledger)
@@ -329,9 +328,7 @@ describe("positive: the ledger FOLLOWS a real world_setup_closure where the setu
     );
     expect(reverse.ok).toBe(false);
     expect(!reverse.ok && reverse.error.code).toBe("REFERENCE_INVALID");
-    expect(!reverse.ok && reverse.error.message).toContain(
-      "without the closure of the world being coupled",
-    );
+    expect(!reverse.ok && reverse.error.message).toContain("qualified against another world");
     expect(C2.binding()).toBeUndefined();
     await C2.close();
     void [A, L2, L, worldLocusKey, FIXTURE_WORLD_ID];

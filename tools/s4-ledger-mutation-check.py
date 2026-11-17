@@ -30,11 +30,19 @@ M=[
  ("M7 reconcile disabled (retry after binding)",CAM,'reconcile ? "RECONCILE" : "CREATE"','"CREATE"'),
  ("M8 cold-open binding/ledger check disabled",INT,'const violation = bindingLedgerViolation(b, factsBefore(revisionOf(fact), facts, revisionOf));','const violation = null as string | null;'),
  ("M10 the setup scan dates every fact before filtering (cold-open cost regression)",INT,'        if (keyFilter && !keyFilter(f.key)) continue;\n','        if (keyFilter && Date.now() < 0) continue;\n'),
+ ("N1 H-1: an explicit null is accepted although the target world has a committed closure",LED,'    if (o.setup_closure === null) {\n      return `the target world','    if (Date.now() < 0 && o.setup_closure === null) {\n      return `the target world'),
+ ("N2 H-1: an explicit null need not pin the closure as absent (version-0 read) at admission",ADM,'      if (!group.reads.some((r) => r.key === absent && r.version === 0)) {','      if (Date.now() < 0 && !group.reads.some((r) => r.key === absent && r.version === 0)) {'),
+ ("N3 H-1: the target world profile need not be read or depended on",ADM,'          [origin.target_world.fact_key, "the target world\'s profile"],\n','          ...([] as never[]),\n'),
+ ("N4 H-1: a binding may couple a world other than the ledger's target world",LED,'  if (targetWorldIdOf(version.origin.target_world) !== coupledWorld) {','  if (Date.now() < 0 && targetWorldIdOf(version.origin.target_world) !== coupledWorld) {'),
+ ("N5 H-1: cold-open verification does not require the absence pin of a null",INT,'          if (absent === null || !group?.reads.some((r) => r.key === absent && r.version === 0)) {','          if (Date.now() < 0) {'),
+ ("N6 H-1: the operation identity ignores the target world",LED,'o.pc_creation, o.target_world, o.setup_closure]','o.pc_creation, o.setup_closure]'),
+ ("N7 H-1: another world\'s closure is accepted for the target world",LED,'    if (o.setup_closure.fact_key !== closureKey) {','    if (Date.now() < 0 && o.setup_closure.fact_key !== closureKey) {'),
+ ("N8 H-1: a closure is accepted for a target world that has none",LED,'  } else if (o.setup_closure !== null) {','  } else if (Date.now() < 0 && o.setup_closure !== null) {'),
  ("M9 replay (historical) ledger check disabled",ADM,'export function pcLedgerHistoricalCheck(group: CommitGroup, state: CampaignState): Rejection | null {\n','export function pcLedgerHistoricalCheck(group: CommitGroup, state: CampaignState): Rejection | null {\n  if (Date.now() > 0) return null;\n'),
 ]
 FILES=sys.argv[2:] if len(sys.argv)>2 else None
 only=sys.argv[1] if len(sys.argv)>1 else ''
-TESTS=[ 'tests/integration/pc-standing-ledger-%s.test.ts'%n for n in ('foundation','refusals','legacy','recovery','history','scaling','operator','policy')]+['tests/security/pc-standing-ledger-security.test.ts','tests/conformance/pc-standing-ledger-conformance.test.ts','tests/unit/owner-admission.test.ts','tests/unit/pc-standing-ledger-binding-prerequisite.test.ts','tests/integration/world-foundation.test.ts']
+TESTS=[ 'tests/integration/pc-standing-ledger-%s.test.ts'%n for n in ('foundation','refusals','legacy','recovery','history','scaling','operator','policy','closure-origin')]+['tests/security/pc-standing-ledger-security.test.ts','tests/conformance/pc-standing-ledger-conformance.test.ts','tests/unit/owner-admission.test.ts','tests/unit/pc-standing-ledger-binding-prerequisite.test.ts','tests/unit/pc-standing-ledger-origin.test.ts','tests/integration/world-foundation.test.ts']
 out={}
 for name,f,old,new in M:
     if only and not name.startswith(only): continue

@@ -30,7 +30,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
-    "119cfb273b7ced5007b39cc8fcfcedf9ca5793d0b12ce0de4d12cb34466a110e",
+    "5509681a0f30fa21448d0969cbfea44b503559963745eefc6490b223988bb5d4",
   "packages/operator/src/cli.ts":
     "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":

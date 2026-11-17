@@ -343,6 +343,11 @@ for (const v of VARIANTS) {
                 version: 1,
                 commit: { group_id: "x", intent_id: "y" },
               },
+              target_world: {
+                fact_key: "world/world-1/profile",
+                version: 1,
+                commit: { group_id: "x", intent_id: "y" },
+              },
               setup_closure: null,
             }),
           true,

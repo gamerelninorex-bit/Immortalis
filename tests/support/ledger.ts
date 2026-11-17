@@ -115,10 +115,11 @@ export const code = async (
 export async function rawLedgerGroup(
   campaign: CanonicalCampaign,
   edit: (g: any) => void = () => undefined,
+  over: Partial<{ pc_id: string; world_id: string; locus_id: string }> = {},
 ): Promise<CommitGroup> {
   // built from the same public derivation the owner path uses, then presented raw
   const facts = new Map(campaign.store.listFacts().map((f) => [f.key, f]));
-  const plan = deriveNewPcLedger(facts, target());
+  const plan = deriveNewPcLedger(facts, target(over));
   if (!plan.ok) throw new Error(`cannot derive a ledger plan: ${plan.error.message}`);
   return rawGroupFromPlan(campaign, plan.value, edit);
 }
