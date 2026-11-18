@@ -70,13 +70,12 @@ if (target.includes(".")) {
   }) as typeof fs.linkSync;
   syncBuiltinESMExports();
 } else if (target === "settlement") {
-  const original = fs.rmSync;
-  fs.rmSync = ((path: any, options: any) => {
+  const original = fs.unlinkSync;
+  fs.unlinkSync = (path) => {
     if (String(path) === pendingPath(config)) hit("before");
-    const result = original(path, options);
+    original(path);
     if (String(path) === pendingPath(config)) hit("after");
-    return result;
-  }) as typeof fs.rmSync;
+  };
   syncBuiltinESMExports();
 } else if (target === "manifest") {
   const original = nodeFs.writeFileDurable;
