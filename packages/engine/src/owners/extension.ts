@@ -71,10 +71,10 @@ export function storeBindings(
     ...(base.initializeView ? { initializeView: base.initializeView } : {}),
     ...(base.committedView ? { committedView: base.committedView } : {}),
     ...(base.historyVerificationId ? { historyVerificationId: base.historyVerificationId } : {}),
-    check(group, state) {
+    check(group, state, history) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
-      if (!extension.owners.has(group.owner)) return base.check(group, state);
+      if (!extension.owners.has(group.owner)) return base.check(group, state, history);
       for (const w of group.writes) {
         if (resolveKey(w.key)) {
           return reject(

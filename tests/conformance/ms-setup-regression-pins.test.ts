@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
+import { A26_ADMISSION_DELTAS } from "../support/a26-scoped-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const composed: Record<string, string> = {
@@ -11,8 +12,6 @@ const composed: Record<string, string> = {
     "ebe3f575666e768a873ab8d3d8fa47376c53cd5513f88a581d728a9156548a63",
   "packages/engine/src/temporal/captured-chronology.ts":
     "6845765e6e8c1b4830d181f55992253362daadab6a9bcc8cbf5b51410cc9e0e9",
-  "packages/engine/src/commit/campaign-core.ts":
-    "e07ca9275e1ad06bdae6d64ce85e7999bb3de5b5a06cfaca1b051ab5d36f7dfb",
   "packages/engine/src/world/actor-presence.ts":
     "9f53460f72c03e5953ec2c80e49455bd59b910b0bb041ba38e54705878743ad5",
   "packages/engine/src/world/actor-presence-integrity.ts":
@@ -54,13 +53,15 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
       "packages/engine/src/temporal/admission.ts",
       "packages/engine/src/temporal/coordinator.ts",
     ]);
-    expect(Object.keys(composed)).toHaveLength(5);
+    const a26Delta = "packages/engine/src/commit/campaign-core.ts";
+    expect(sha(a26Delta)).toBe(A26_ADMISSION_DELTAS[a26Delta].head);
+    expect(Object.keys(composed)).toHaveLength(4);
     expect(Object.keys(unchanged)).toHaveLength(6);
-    expect([...Object.keys({ ...composed, ...unchanged }), ...freightDeltas].sort()).toEqual(
-      actual,
-    );
+    expect(
+      [...Object.keys({ ...composed, ...unchanged }), ...freightDeltas, a26Delta].sort(),
+    ).toEqual(actual);
   });
-  it("pins all five authorized integration files at the composed head bytes", () => {
+  it("pins the four unaffected integration files at the composed head bytes", () => {
     for (const [path, expected] of Object.entries(composed)) expect(sha(path), path).toBe(expected);
   });
   it("retains all six remaining unmodified siblings at the original main bytes", () => {

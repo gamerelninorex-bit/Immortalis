@@ -306,6 +306,9 @@ describe("R-4 lapse settlement: nothing applicable derives → the one refusal a
     expect(call({ revisionOf: (k: string) => (k === keysChanged[0] ? 1 : 10_000) })).toBeNull();
     // an unknown revision is never admitted
     expect(call({ revisionOf: () => undefined })).toMatch(/not an admissible cause/);
+    expect(call({ declared: new Set(keysChanged), revisionOf: () => undefined })).toMatch(
+      /not an admissible cause/,
+    );
   }, 240_000);
 });
 

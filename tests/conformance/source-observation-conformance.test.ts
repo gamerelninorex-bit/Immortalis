@@ -75,8 +75,7 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "ee3a28dd7b1f5d3efb0928e920e60118e3d069fe407d4da4689d35b6a016adf8",
   "packages/engine/src/source-drawdown/derive.ts":
     "e39c94647d6842e58b01b140d047d5b2280e3079300130ad3ed26aac82f503de",
-  "packages/engine/src/source-drawdown/admission.ts":
-    "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
+  // A26 scopes the later source-drawdown admission change and retains its prior digest in tests/support/a26-scoped-deltas.ts.
   "packages/operator/src/original-pc-keep.ts":
     "0c8614f5245770f6b65b4989c520eca3b710ce598146194605832173e572e30c",
   "packages/operator/src/original-pc-locus.ts":

@@ -551,7 +551,7 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         initialSetupHistoricalCheck(group, state, { ...policy, historical: true })
       );
     },
-    check(group, state) {
+    check(group, state, history) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
       for (const w of group.writes) {
@@ -628,7 +628,7 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       // IM-05 Production groups: conservation, claims and completion are re-derived over the whole group.
       if (group.owner === OWNER_PRODUCTION)
         return group.writes.some((w) => isDrawdownProductionKey(w.key))
-          ? sourceDrawdownGroupCheck(group, state)
+          ? sourceDrawdownGroupCheck(group, state, history)
           : productionGroupCheck(group, state);
       // IM-06 Economy groups: the request is re-derived from its demand and realized access from the accepted chain.
       if (group.owner === OWNER_ECONOMY) return economyGroupCheck(group, state);
@@ -825,7 +825,8 @@ export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
     ...(base.initializeView ? { initializeView: base.initializeView } : {}),
     ...(base.committedView ? { committedView: base.committedView } : {}),
     historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
-    check: (group, state) => legacyContractSurface(group) ?? base.check(group, state),
+    check: (group, state, history) =>
+      legacyContractSurface(group) ?? base.check(group, state, history),
     verifyHistorical: (group, state) =>
       legacyContractSurface(group) ?? base.verifyHistorical?.(group, state) ?? null,
   };

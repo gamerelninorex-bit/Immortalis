@@ -29,6 +29,7 @@ import {
   ServicePremiseSchema,
   SiteConditionPremiseSchema,
 } from "@immortalis/contracts";
+import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { REMOVED_GM_FREIGHT_PINS } from "../support/gm-freight-removed-pins.ts";
 import {
   GM_FREIGHT_BASE_COMMIT,
@@ -151,7 +152,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
     }
   });
 
-  it("current packages/ contain only freight, S-4 and the reviewed A01 changes, including untracked files", () => {
+  it("current packages/ contain only the recorded freight, S-4, A01 and A26 changes, including untracked files", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice
@@ -185,6 +186,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       "packages/engine/src/population/admission.ts",
       "packages/engine/src/population/integrity.ts",
       "packages/engine/src/population/stage-authority.ts",
+      ...A26_CHANGED_SOURCE_FILES,
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4

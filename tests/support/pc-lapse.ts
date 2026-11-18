@@ -5,11 +5,19 @@ import {
   PLAYER_CHOICE_AUTHORITY,
   popPcOccupancyKey,
   productionPcCollectionLapseKey,
+  productionSourceAccountKey,
+  SourceAccountSchema,
   temporalObjectKey,
   productionExtractionObjectId,
   type CanonicalTime,
 } from "@immortalis/contracts";
-import { PopulationAdapter, TemporalCoordinator, StageProviderRegistry } from "@immortalis/engine";
+import {
+  deriveLapse,
+  PopulationAdapter,
+  PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+  TemporalCoordinator,
+  StageProviderRegistry,
+} from "@immortalis/engine";
 import {
   advanceActivePcToTarget,
   bindTrustedActivePcHeldTargetAdvanceContext,
@@ -19,7 +27,17 @@ import {
 import { FIXTURE_LOCUS_ID, FIXTURE_WORLD_ID, popPublication } from "@immortalis/testkit";
 import { pcTargetTransaction } from "./pc-target-advance.ts";
 import { must } from "./temporal.ts";
-import { ACT_A, PC, T0, extractionId, type CollectionSeeded, at } from "./pc-collection.ts";
+import {
+  ACT_A,
+  PC,
+  SRC_SOURCE_KEY,
+  T0,
+  W,
+  extractionId,
+  type CollectionSeeded,
+  at,
+} from "./pc-collection.ts";
+import { forge, keys } from "./pc-cessation.ts";
 
 export { PLAYER_CHOICE_AUTHORITY, PLAYER_CHARACTER_BINDING_KEY };
 
@@ -112,3 +130,48 @@ export const lapsePub = (n: string) => ({
   basis: "fixture-basis",
   secrecy: "fixture-visibility",
 });
+
+/** Compose the two owner writes directly, without the settlement adapter. */
+export function rawLapseGroup(s: Pick<CollectionSeeded, "campaign">, id: string) {
+  const store = s.campaign.store;
+  const derived = deriveLapse(PC, ACT_A, {
+    get: (key) => store.getFact(key),
+    has: (key) => store.getFact(key) !== undefined,
+    values: () => store.listFacts(),
+  });
+  if (!derived.ok) throw new Error(derived.error.message);
+  const lapse = derived.value;
+  const accountKey = productionSourceAccountKey(W, SRC_SOURCE_KEY);
+  const account = store.getFact(accountKey)!;
+  const value = SourceAccountSchema.parse(account.value);
+  const k = keys();
+  return forge(
+    s,
+    id,
+    "production",
+    "production_state",
+    PRODUCTION_PC_COLLECTION_LAPSE_RULE,
+    [
+      { key: lapseKey(), value: lapse, expected_version: 0 },
+      {
+        key: accountKey,
+        value: {
+          ...value,
+          open: value.open.filter((claim) => claim.extraction_id !== lapse.lapse_id),
+        },
+        expected_version: account.version,
+      },
+    ],
+    [
+      k.commitment,
+      k.work,
+      lapse.pins.extraction.fact_key,
+      lapse.pins.held_transaction.fact_key,
+      k.occupancy,
+      k.clock,
+      k.index,
+      k.object,
+      accountKey,
+    ],
+  );
+}

@@ -18,9 +18,13 @@ import {
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TemporalObjectSchema,
   EXTRACTION_OBJECT_PREFIX,
+  FACET_TEMPORAL_COORDINATION,
+  OWNER_TEMPORAL_KERNEL,
+  ResolutionTransactionSchema,
   productionPcCollectionLapseKey,
   productionPcCollectionTerminationKey,
   temporalObjectKey,
+  temporalTransactionAuthorityKey,
   ProductionExtractionSchema as ExtractionSchema,
   productionExtractionObjectId,
   PLAYER_CHARACTER_BINDING_KEY,
@@ -54,7 +58,11 @@ import {
   type ProductionExtraction,
   type WorldSourceCondition,
 } from "@immortalis/contracts";
-import type { CampaignState } from "../commit/campaign-core.ts";
+import {
+  admissionFactRevision,
+  type AdmissionHistory,
+  type CampaignState,
+} from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   PC_COLLECTION_ATTESTATION_RULE,
@@ -71,6 +79,12 @@ import {
   resolveKey,
 } from "../owners/registry.ts";
 import { parseAccount } from "../source-drawdown/derive.ts";
+import {
+  transactionAuthorityGroupId,
+  transactionAuthorityIntentId,
+  transactionGroupId,
+  transactionIntentId,
+} from "../temporal/identity.ts";
 import {
   collectionFacts,
   engagedExtractionObject,
@@ -99,7 +113,7 @@ import {
   pcCollectionWorkViolation,
   pcOccupancyState,
 } from "./derive.ts";
-import { lapseLineageHolds, pcCollectionLapseViolation } from "./lapse.ts";
+import { lapseCauseViolation, lapseLineageHolds, pcCollectionLapseViolation } from "./lapse.ts";
 import { pcClarificationViolation } from "./clarification.ts";
 import { pcDelegationViolation } from "./delegation.ts";
 import { pcOccupancyRecord } from "./state.ts";
@@ -320,6 +334,7 @@ export function pcCollectionLapseGroupCheck(
   state: CampaignState,
   lapseW: Write,
   accountW: Write,
+  history?: AdmissionHistory,
 ): Rejection | null {
   if (!canonicalEqual(group.rule, PRODUCTION_PC_COLLECTION_LAPSE_RULE))
     return ref("a lapse is governed by the R-4 lapse rule");
@@ -356,7 +371,51 @@ export function pcCollectionLapseGroupCheck(
       "VALUE_INVALID",
       "a lapse changes the account only by releasing this extraction's claim",
     );
-  return null;
+
+  // The derivation above pins the held transaction. Only its own committed opening can date the cause.
+  const held = state.facts.get(l.pins.held_transaction.fact_key)!;
+  const tx = ResolutionTransactionSchema.parse(held.value);
+  const openingKey = temporalTransactionAuthorityKey(tx.transaction_id);
+  const opening = state.facts.get(openingKey);
+  if (
+    held.owner !== OWNER_TEMPORAL_KERNEL ||
+    held.facet !== FACET_TEMPORAL_COORDINATION ||
+    held.provenance.group_id !== transactionGroupId(tx.transaction_id) ||
+    held.provenance.intent_id !== transactionIntentId(tx.transaction_id) ||
+    opening?.owner !== OWNER_TEMPORAL_KERNEL ||
+    opening.facet !== FACET_TEMPORAL_COORDINATION ||
+    opening.version !== 1 ||
+    opening.provenance.group_id !== transactionAuthorityGroupId(tx.transaction_id) ||
+    opening.provenance.intent_id !== transactionAuthorityIntentId(tx.transaction_id) ||
+    !canonicalEqual(opening.value, {
+      transaction_id: tx.transaction_id,
+      cause: tx.cause,
+      trigger: tx.trigger,
+      continues: tx.continues,
+      opening: tx.opening,
+      requested: tx.requested,
+      context: tx.context,
+      publication: { basis: held.basis, secrecy: held.secrecy },
+    })
+  )
+    return ref("a lapse requires the exact opening of its held transaction");
+  const openedAt = admissionFactRevision(history, state, openingKey);
+  const heldAt = admissionFactRevision(history, state, held.key);
+  if (openedAt === undefined || heldAt === undefined || openedAt >= heldAt)
+    return ref(
+      "a lapse requires verified history for the held transaction and its earlier opening",
+    );
+  const cause = lapseCauseViolation({
+    work: f.work.value,
+    facts: state.facts,
+    openedAt,
+    until: null,
+    revisionOf: (key) => {
+      const revision = admissionFactRevision(history, state, key);
+      return revision !== undefined && revision < heldAt ? revision : undefined;
+    },
+  });
+  return cause ? ref(cause, { key: lapseW.key }) : null;
 }
 
 /**

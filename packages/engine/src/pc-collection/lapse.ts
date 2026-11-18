@@ -484,6 +484,13 @@ export function lapseCauseViolation(input: {
   const declared = input.declared ?? declaredDependencyKeys(input.facts, input.work.work_id);
   const admissible = (k: string): boolean => {
     const r = input.revisionOf(k);
+    if (input.until === null)
+      return (
+        r !== undefined &&
+        Number.isSafeInteger(r) &&
+        r > 0 &&
+        (r < input.openedAt || declared.has(k))
+      );
     return (
       input.facts.get(k) === undefined || (r !== undefined && r < input.openedAt) || declared.has(k)
     );
