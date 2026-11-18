@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { FsOps } from "@immortalis/engine";
 import { describe, expect, it } from "vitest";
 import {
   PendingActionGrantStore,
@@ -16,14 +17,21 @@ import {
   type PendingPolicy,
   type ActionBinding,
 } from "../../apps/phone/src/pending-action.ts";
-import { tempDir } from "../support/tmp.ts";
+import { observeProtectedFs } from "../support/protected-store-fs.ts";
+import { snapshotDir, tempDir } from "../support/tmp.ts";
 
 const CAMPAIGN = "campaign-pending";
 const sha = (c: string) => c.repeat(64).slice(0, 64);
 const pin = (k: string, v = 1) => ({ fact_key: k, version: v });
 
 function rig(
-  over: { policy?: PendingPolicy; now?: { t: number }; dir?: string; key?: Buffer } = {},
+  over: {
+    policy?: PendingPolicy;
+    now?: { t: number };
+    dir?: string;
+    key?: Buffer;
+    fs?: FsOps;
+  } = {},
 ) {
   const clock = over.now ?? { t: 1_000 };
   const dir = over.dir ?? tempDir("pending-action-");
@@ -34,6 +42,7 @@ function rig(
     macKey,
     now: () => clock.t,
     policy: over.policy ?? { syntheticEvidence: "REQUIRE" },
+    ...(over.fs ? { fs: over.fs } : {}),
   });
   return { store, clock, dir, macKey };
 }
@@ -99,6 +108,59 @@ async function ready(r = rig()) {
 }
 
 describe("PendingActionGrantStore: intake keeps the player's original later request, and only that", () => {
+  it.each([0, 32])(
+    "keeps the same dispatch and original expiry across unavailable listing and reopen with %i other grants",
+    async (unrelated) => {
+      const watched = observeProtectedFs();
+      const { store, dir, macKey, clock } = await ready(rig({ fs: watched.fs }));
+      const reopen = () => rig({ dir, key: macKey, now: clock, fs: watched.fs }).store;
+      const request = intake();
+      const dispatch = await must(store.beginDispatch(request.request_id));
+      for (let i = 0; i < unrelated; i++) {
+        await must(store.intake(intake({ request_id: `other-${i}`, oauth_grant: "other-grant" })));
+      }
+      const bytes = snapshotDir(dir);
+      watched.fail("list", "EACCES");
+      for (const result of [
+        await store.list(),
+        await store.liveFor(request.client, request.oauth_grant),
+      ]) {
+        expect(result).toMatchObject({ ok: false, error: { code: "PENDING_STORE" } });
+      }
+      watched.fail("readFile", "EIO");
+      expect(await store.get(request.request_id)).toMatchObject({
+        ok: false,
+        error: { code: "PENDING_STORE" },
+      });
+      expect(await store.beginDispatch(request.request_id)).toMatchObject({
+        ok: false,
+        error: { code: "PENDING_STORE" },
+      });
+      watched.restore();
+      expect(snapshotDir(dir)).toEqual(bytes);
+
+      for (let i = 0; i < 3; i++) {
+        const reopened = reopen();
+        watched.calls.length = 0;
+        expect(await must(reopened.liveFor(request.client, request.oauth_grant))).toEqual(dispatch);
+        expect(watched.calls).toEqual([
+          "fileSize",
+          "list",
+          ...Array<string>(unrelated + 1).fill("readFile"),
+        ]);
+        watched.calls.length = 0;
+        const retry = intake({ access_expires_at_ms: 99_999 });
+        expect(await must(reopened.intake(retry))).toEqual(dispatch);
+        expect(await must(reopened.beginDispatch(request.request_id))).toEqual(dispatch);
+        expect(watched.calls).toEqual(["fileSize", "readFile", "fileSize", "readFile"]);
+      }
+      expect(snapshotDir(dir)).toEqual(bytes);
+      clock.t = request.access_expires_at_ms;
+      expect(await code(reopen().beginDispatch(request.request_id))).toBe("PENDING_EXPIRED");
+      expect(snapshotDir(dir)).toEqual(bytes);
+    },
+  );
+
   it("retains one atomic record (intent + grant) with the ORIGINAL access expiry, hashes and no bearer token", async () => {
     const { store, dir } = rig();
     const rec = await must<any>(store.intake(intake()));
@@ -332,6 +394,11 @@ describe("PendingActionGrantStore: the single live path ISSUED -> DISPATCHING ->
     expect((await must<any>(r.store.endAuthority("request-1", "REVOKED"))).intent.revision).toBe(
       dead.intent.revision,
     );
+    const reopened = rig({ dir: r.dir, key: r.macKey }).store;
+    expect(await must(reopened.intake(intake({ access_expires_at_ms: 99_999 })))).toEqual(dead);
+    expect(await must(reopened.list())).toEqual([dead]);
+    expect(await must(reopened.liveFor("client-1", "grant-1"))).toBeNull();
+    expect(await code(reopened.beginDispatch("request-1"))).toBe("PENDING_STATE");
   });
 
   it("racing writers serialize at the dispatch lock: one dispatch_ref, one winner for a retire-versus-dispatch race", async () => {

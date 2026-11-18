@@ -13,9 +13,10 @@ export interface FsOps {
   /** Exact bounded reads; synchronous variant preserves the existing synchronous cold-lookup API. */
   readRange(path: string, offset: number, length: number): Promise<Buffer>;
   readRangeSync(path: string, offset: number, length: number): Buffer;
-  /** null when the file does not exist */
-  fileSize(path: string): Promise<number | null>;
-  list(dir: string): Promise<string[]>;
+  /** null on ENOENT; use the link's own status when followSymlinks is false. */
+  fileSize(path: string, options?: { readonly followSymlinks?: boolean }): Promise<number | null>;
+  /** Lists a missing directory as empty unless the caller requires it to be present. */
+  list(dir: string, options?: { readonly requirePresent?: boolean }): Promise<string[]>;
   /** write to a temp name, fsync, rename over `path`, fsync the directory */
   writeFileDurable(path: string, data: string | Buffer): Promise<void>;
   /** append and fsync */
@@ -80,19 +81,20 @@ export const nodeFs: FsOps = {
       closeSync(h);
     }
   },
-  fileSize: async (path) => {
+  fileSize: async (path, options) => {
     try {
-      return (await fsp.stat(path)).size;
+      const stat = options?.followSymlinks === false ? fsp.lstat : fsp.stat;
+      return (await stat(path)).size;
     } catch (e) {
       if (isEnoent(e)) return null;
       throw e;
     }
   },
-  list: async (dir) => {
+  list: async (dir, options) => {
     try {
       return await fsp.readdir(dir);
     } catch (e) {
-      if (isEnoent(e)) return [];
+      if (!options?.requirePresent && isEnoent(e)) return [];
       throw e;
     }
   },

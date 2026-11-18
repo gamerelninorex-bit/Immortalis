@@ -31,6 +31,7 @@ import {
 } from "@immortalis/contracts";
 import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
+import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { REMOVED_GM_FREIGHT_PINS } from "../support/gm-freight-removed-pins.ts";
 import {
   GM_FREIGHT_BASE_COMMIT,
@@ -153,7 +154,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
     }
   });
 
-  it("current packages/ contain only the recorded freight, S-4, A01, A26 and A24 changes, including untracked files", () => {
+  it("current packages/ contain only the recorded freight, S-4, A01, A26, A24 and A05 changes, including untracked files", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice
@@ -189,6 +190,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       "packages/engine/src/population/stage-authority.ts",
       ...A26_CHANGED_SOURCE_FILES,
       A24_ADAPTER_DELTA.path,
+      ...Object.keys(A05_SOURCE_DELTAS),
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4
