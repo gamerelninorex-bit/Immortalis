@@ -48,8 +48,7 @@ const UNCHANGED: Record<string, string> = {
   // ROADBED R3-T25 freight: packages/engine/src/persistence/file-package.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/engine/src/source-drawdown/adapter.ts":
     "2c335aeda9944e9ce6d178b915580d65aa9d0693472b20fb486bd11c6f589626",
-  "packages/engine/src/source-drawdown/admission.ts":
-    "da3af9afbcc5cf70476af11e9e71f7836934dcd556ba0186404566034eb4021d",
+  // A26 scopes the later source-drawdown admission change and retains its prior digest in tests/support/a26-scoped-deltas.ts.
   "packages/engine/src/source-drawdown/integrity.ts":
     "f79af7ed5ee061e89c5354916ebc2be48d9b21724ffbf8d82f002e7e54821eaf",
   "packages/operator/src/bin.ts":

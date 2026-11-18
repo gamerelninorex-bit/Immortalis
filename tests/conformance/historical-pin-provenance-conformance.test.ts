@@ -15,6 +15,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  A26_ADMISSION_DELTAS,
+  A26_BASE_COMMIT,
+  A26_BASE_COMMIT_DIRECTORY_SHA256,
+  A26_CHANGED_SOURCE_FILES,
+  A26_DISPATCHER,
+} from "../support/a26-scoped-deltas.ts";
+import {
   EXAMINED_SUITES,
   HISTORICAL_PIN_CLAIMS,
   HISTORICAL_TREE_CLAIMS,
@@ -117,7 +124,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     pinsIn(readFileSync(suite, "utf8")).map((pin) => ({ suite, ...pin })),
   );
 
-  it("scans every pin of every examined suite: 516 pins, 40 on changed paths (history kept), 476 on unchanged paths (exempted, still true)", () => {
+  it("scans every pin of every examined suite: 513 pins, 40 on changed paths (history kept), 473 on unchanged paths (exempted, still true)", () => {
     const onChanged = rows.filter((r) => isChanged(r.path));
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
@@ -131,9 +138,11 @@ describe("census of the examined suites as they stand: changed paths hold only h
     // comment and the paths are pinned instead as scoped deltas in tests/support/gm-freight-scoped-deltas.ts. All 8 were on unchanged-since-main paths.
     // 516 = 518 less A01's two unchanged-since-base assertions: initial-population's Population admission
     // and integrity pins. That suite preserves the original digests in comments, never new source identities.
+    // 513 = 516 less A26's three former live pins: the commit directory and two source-drawdown admission pins.
+    // The original digests are verified against the exact A26 base below.
     for (const [path, count] of [
       ["packages/engine/src/temporal", 0],
-      ["packages/engine/src/commit", 1],
+      ["packages/engine/src/commit", 0],
       ["packages/engine/src/world/actor-presence.ts", 2],
       ["packages/engine/src/world/actor-presence-integrity.ts", 1],
     ] as const)
@@ -141,9 +150,9 @@ describe("census of the examined suites as they stand: changed paths hold only h
         rows.filter((r) => r.path === path),
         path,
       ).toHaveLength(count);
-    expect(rows).toHaveLength(516);
+    expect(rows).toHaveLength(513);
     expect(onChanged).toHaveLength(40);
-    expect(exempt).toHaveLength(476);
+    expect(exempt).toHaveLength(473);
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
@@ -191,6 +200,38 @@ describe("census of the examined suites as they stand: changed paths hold only h
     walk("docs");
     expect(found).toEqual([]);
   });
+});
+
+describe("A26-CB1 preserves the historical identities and pins the current admission delta", () => {
+  it("pins each current file of the admission delta", () => {
+    for (const [path, identity] of Object.entries(A26_ADMISSION_DELTAS))
+      expect(identityOf(path), path).toBe(identity.head);
+  });
+
+  it.skipIf(!reachable(A26_BASE_COMMIT))(
+    "preserves the original pins and changes only the recorded package files",
+    () => {
+      expect(treeAt(A26_BASE_COMMIT, "packages/engine/src/commit")).toBe(
+        A26_BASE_COMMIT_DIRECTORY_SHA256,
+      );
+      expect(fileAt(A26_BASE_COMMIT, A26_DISPATCHER.path)).toBe(A26_DISPATCHER.base);
+      for (const [path, identity] of Object.entries(A26_ADMISSION_DELTAS))
+        expect(fileAt(A26_BASE_COMMIT, path), path).toBe(identity.base);
+      const changed = git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        A26_BASE_COMMIT,
+        "--",
+        "packages",
+      );
+      expect(changed?.toString("utf8").trim().split("\n").sort()).toEqual(
+        [...A26_CHANGED_SOURCE_FILES].sort(),
+      );
+      expect(git("ls-files", "--others", "--exclude-standard", "--", "packages")?.length).toBe(0);
+    },
+  );
 });
 
 describe("the recorded history is true: each value matches its own Git commit (verified where the history is present)", () => {

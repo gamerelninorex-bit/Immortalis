@@ -173,12 +173,11 @@ describe("nothing outside the physical-source slice was built", () => {
     );
   });
 
-  it("the predecessor modules and explicit MS temporal/commit compositions retain their regression pins; P1 added no Health, F-014D or referee producer", () => {
+  it("the unaffected predecessor modules retain their regression pins; P1 added no Health, F-014D or referee producer", () => {
     const expected: Record<string, string> = {
       // Authorized MS composition identities; unchanged siblings are also individually pinned.
       // ROADBED R3-T25 freight: packages/engine/src/temporal is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
-      "packages/engine/src/commit":
-        "c2958df6a3295cececb6854eeb8cc964012f0c70184e241809234f322380e8b4",
+      // A26 verifies the original commit directory at its immutable base and pins its scoped campaign-core delta.
       "packages/engine/src/actor":
         "d79ba9f8d376c92586ce34ad2013137b5c624b0ff6ff37469b374169bd8e4d21",
       // ROADBED R3-T25 freight: packages/engine/src/persistence is a recorded scoped delta of the freight slice (pinned file by file in tests/support/freight-scoped-deltas.ts)
