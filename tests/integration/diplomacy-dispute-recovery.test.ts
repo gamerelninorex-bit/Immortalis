@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   EFFECT_ON_VALUES,
+  TEMPORAL_STATE_KEY,
   diplomacyDisputeKey,
   gipInstitutionIdentityKey,
   gipOfficeAuthorityLocusKey,
@@ -36,6 +37,7 @@ import {
   INSTITUTION_COURT,
   OFFICE_MAGISTRATE,
   diplomacyPublication,
+  externalRecognition,
   externalizedClaimDispute,
   fullExternalizedClaimDispute,
   group,
@@ -52,6 +54,7 @@ import {
   reopenDiplomacy,
   seededDiplomacyCampaign,
 } from "../support/diplomacy.ts";
+import { describeOriginalOutcomeRecovery } from "../support/diplomacy-recovery.ts";
 import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 
@@ -60,6 +63,59 @@ const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const magistrateKey = gipOfficeAuthorityLocusKey(INSTITUTION_COURT, OFFICE_MAGISTRATE);
 
 const plan = [DISPUTE_A, DISPUTE_B] as const;
+
+const disputeWithoutRemedy = externalizedClaimDispute(DISPUTE_A, {
+  dependency_refs: [TEMPORAL_STATE_KEY, TEMPORAL_STATE_KEY],
+  effect_on: "issuance",
+});
+const authoredDispute = {
+  ...disputeWithoutRemedy,
+  requested_remedy_or_demand: { demand: "withdrawal" },
+};
+describeOriginalOutcomeRecovery({
+  key: key(),
+  authored: authoredDispute,
+  newKey: key(DISPUTE_B),
+  newRecord: (dependencyKey) =>
+    externalizedClaimDispute(DISPUTE_B, { dependency_refs: [dependencyKey] }),
+  publish: (adapter, publication, dispute) =>
+    adapter.establishExternalizedClaimDispute({ ...publication, dispute }),
+  publishOtherKind: (adapter, publication) =>
+    adapter.establishExternalRecognition({ ...publication, recognition: externalRecognition() }),
+  readDependencies: (adapter) => adapter.externalizedClaimDispute(DISPUTE_A)?.dependencies,
+  changes: [
+    ["status", { ...authoredDispute, status: "withdrawn" }],
+    ["identity", { ...authoredDispute, dispute_id: DISPUTE_B }],
+    ["remedy type", { ...authoredDispute, requested_remedy_or_demand: "withdrawal" }],
+    ["remedy removed", disputeWithoutRemedy],
+    ["optional field added", { ...authoredDispute, adjudication_basis_ref: "different-basis" }],
+    ["effect timing", { ...authoredDispute, effect_on: "addressee_receipt" }],
+    ["party order", { ...authoredDispute, party_refs: [...authoredDispute.party_refs].reverse() }],
+    [
+      "party changed",
+      { ...authoredDispute, party_refs: ["different-party", authoredDispute.party_refs[1]] },
+    ],
+    [
+      "positions reordered",
+      {
+        ...authoredDispute,
+        communicated_position_entries: [...authoredDispute.communicated_position_entries].reverse(),
+      },
+    ],
+    [
+      "position changed",
+      {
+        ...authoredDispute,
+        communicated_position_entries: [
+          authoredDispute.communicated_position_entries[0],
+          { authored: "different" },
+        ],
+      },
+    ],
+    ["different dependency", { ...authoredDispute, dependency_refs: [courtKey] }],
+    ["unknown field", { ...authoredDispute, additional_remedy: true }, "INPUT_INVALID"],
+  ],
+});
 
 describe("save → close → load → continue at every durable cut of the establishment", () => {
   for (const cut of [0, 1, 2] as const) {

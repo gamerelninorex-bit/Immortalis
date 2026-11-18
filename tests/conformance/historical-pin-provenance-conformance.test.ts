@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
   A26_BASE_COMMIT,
@@ -208,7 +209,7 @@ describe("A26-CB1 preserves the historical identities and pins the current admis
       expect(identityOf(path), path).toBe(identity.head);
   });
 
-  it.skipIf(!reachable(A26_BASE_COMMIT))(
+  it.skipIf(!reachable(A26_BASE_COMMIT) || !reachable(A24_ADAPTER_DELTA.baseCommit))(
     "preserves the original pins and changes only the recorded package files",
     () => {
       expect(treeAt(A26_BASE_COMMIT, "packages/engine/src/commit")).toBe(
@@ -223,12 +224,37 @@ describe("A26-CB1 preserves the historical identities and pins the current admis
         "diff",
         "--name-only",
         A26_BASE_COMMIT,
+        A24_ADAPTER_DELTA.baseCommit,
         "--",
         "packages",
       );
       expect(changed?.toString("utf8").trim().split("\n").sort()).toEqual(
         [...A26_CHANGED_SOURCE_FILES].sort(),
       );
+    },
+  );
+});
+
+describe("A24-CB1 pins the bounded Diplomacy adapter correction", () => {
+  it("pins the exact current adapter bytes", () => {
+    expect(identityOf(A24_ADAPTER_DELTA.path)).toBe(A24_ADAPTER_DELTA.headSha256);
+  });
+
+  it.skipIf(!reachable(A24_ADAPTER_DELTA.baseCommit))(
+    "preserves the original adapter pin and bounds the live package delta to that path",
+    () => {
+      const { baseCommit, path, baseSha256 } = A24_ADAPTER_DELTA;
+      expect(fileAt(baseCommit, path)).toBe(baseSha256);
+      const changed = git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        baseCommit,
+        "--",
+        "packages",
+      );
+      expect(changed?.toString("utf8").trim()).toBe(path);
       expect(git("ls-files", "--others", "--exclude-standard", "--", "packages")?.length).toBe(0);
     },
   );
