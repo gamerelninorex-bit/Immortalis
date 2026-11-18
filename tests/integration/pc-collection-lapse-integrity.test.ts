@@ -13,12 +13,7 @@ import {
   temporalTransactionKey,
   type CommitGroup,
 } from "@immortalis/contracts";
-import {
-  ACTOR_FIXTURE_EXTENSION,
-  FIXTURE_LOCUS_ID,
-  FIXTURE_WORLD_ID,
-  advanceToRequest,
-} from "@immortalis/testkit";
+import { ACTOR_FIXTURE_EXTENSION, FIXTURE_LOCUS_ID, advanceToRequest } from "@immortalis/testkit";
 import { rogueReplay } from "../support/existing-actor.ts";
 import {
   ACT_A,
