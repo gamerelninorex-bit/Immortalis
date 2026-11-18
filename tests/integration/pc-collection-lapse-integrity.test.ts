@@ -4,37 +4,48 @@
 // re-derived from facts that moved afterwards: a consistent, replayable journal that is not canonical (a lapse that kept its claim, pinned a
 // stale record, stated another plan, cited a drifted rule, or a release with no lapse or no retirement) is refused by the verifiers.
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { CanonicalCampaign, TemporalCoordinator } from "@immortalis/engine";
 import {
-  CanonicalCampaign,
-  PRODUCTION_PC_COLLECTION_LAPSE_RULE,
-  TemporalCoordinator,
-  deriveLapse,
-} from "@immortalis/engine";
-import { productionSourceAccountKey, type CommitGroup } from "@immortalis/contracts";
-import { ACTOR_FIXTURE_EXTENSION, FIXTURE_LOCUS_ID, advanceToRequest } from "@immortalis/testkit";
+  productionSourceAccountKey,
+  temporalTransactionAuthorityKey,
+  temporalTransactionKey,
+  type CommitGroup,
+} from "@immortalis/contracts";
+import {
+  ACTOR_FIXTURE_EXTENSION,
+  FIXTURE_LOCUS_ID,
+  FIXTURE_WORLD_ID,
+  advanceToRequest,
+} from "@immortalis/testkit";
 import { rogueReplay } from "../support/existing-actor.ts";
 import {
   ACT_A,
+  COLLECTION_REFUSAL,
   PC,
   SRC_SOURCE_KEY,
   T0,
   TAU,
   W,
   at,
+  accountOf,
   collectionCampaign,
   collectionProviders,
   confirmAndStart,
 } from "../support/pc-collection.ts";
-import { forge, keys } from "../support/pc-cessation.ts";
+import { keys } from "../support/pc-cessation.ts";
 import {
   addLedger,
   advanceTo,
   lapseKey,
+  rawLapseGroup,
   resident,
   resumeHeld,
   settle,
   stateOf,
 } from "../support/pc-lapse.ts";
+import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const TARGET = T0.value + 4 * TAU;
@@ -178,79 +189,83 @@ describe("an R-4 history built OUTSIDE admission is refused by the load verifier
   }, 600_000);
 });
 
-describe("RED C-1 on load: a lapse derived from a sole cause committed after the crossing opened is refused by the load verifier", () => {
-  it("a lapse forced past the presenter's guard by a raw commit (admission cannot read revisions) is not a canonical campaign", async () => {
-    const dir = tempDir("immortalis-col-lapse-sibling-");
-    const s = await collectionCampaign({ dir });
-    await confirmAndStart(s, ACT_A, 3);
-    await advanceTo(s, T0.value + 4, "tx-pre");
-    // an owner write (a resident arrives) committed the instant the crossing opens: after the opening, before the stage, undeclared
-    const inner = s.campaign.store;
-    let fired = false;
-    const wrapped = new Proxy(inner, {
-      get(target, prop) {
-        const member = (target as any)[prop];
-        if (prop !== "commit") return typeof member === "function" ? member.bind(target) : member;
-        return async (group: any) => {
-          const out = await target.commit(group);
-          if (
-            !fired &&
-            out.ok &&
-            group.writes.some((w: any) =>
-              String(w.key).startsWith("temporal/transaction-authority/"),
-            )
-          ) {
-            fired = true;
-            await addLedger(s, "ledger-sibling", [resident("unit-sibling", FIXTURE_LOCUS_ID)], 956);
-          }
-          return out;
-        };
-      },
-    });
-    const crossed = await new TemporalCoordinator(wrapped as never, collectionProviders()).advance(
-      advanceToRequest("tx-sibling", at(TARGET)),
-    );
-    expect(crossed.ok && fired).toBe(true);
-    // the presenter refuses it; the owners' admission, which has no revision to read, derives the same record from the current facts
-    expect((await settle(s)).ok).toBe(false);
-    const facts = {
-      get: (key: string) => inner.getFact(key),
-      has: (key: string) => inner.getFact(key) !== undefined,
-      values: () => inner.listFacts(),
-    };
-    const derived = deriveLapse(PC, ACT_A, facts);
-    expect(derived.ok).toBe(true);
-    if (!derived.ok) return;
-    const account = inner.getFact(productionSourceAccountKey(W, SRC_SOURCE_KEY))!;
-    const group = forge(
-      s,
-      "lapse-sibling",
-      "production",
-      "production_state",
-      PRODUCTION_PC_COLLECTION_LAPSE_RULE,
-      [
-        { key: lapse, value: derived.value, expected_version: 0 },
-        {
-          key: accountKey,
-          value: { ...(account.value as any), open: [] },
-          expected_version: account.version,
+describe("A26-CB1: a sole undeclared same-instant cause cannot authorize a lapse", () => {
+  it.each(["before", "after"] as const)(
+    "refuses a sibling committed %s an unrelated change, including at raw admission",
+    async (order) => {
+      const dir = tempDir("immortalis-col-lapse-sibling-");
+      const s = await collectionCampaign({ dir });
+      await confirmAndStart(s, ACT_A, 3);
+      await advanceTo(s, T0.value + 4, "tx-pre");
+      // an owner write (a resident arrives) committed the instant the crossing opens: after the opening, before the stage, undeclared
+      const inner = s.campaign.store;
+      let fired = false;
+      const wrapped = new Proxy(inner, {
+        get(target, prop) {
+          const member = (target as any)[prop];
+          if (prop !== "commit") return typeof member === "function" ? member.bind(target) : member;
+          return async (group: any) => {
+            const out = await target.commit(group);
+            if (
+              !fired &&
+              out.ok &&
+              group.writes.some((w: any) =>
+                String(w.key).startsWith("temporal/transaction-authority/"),
+              )
+            ) {
+              fired = true;
+              const sibling = () =>
+                addLedger(s, "ledger-sibling", [resident("unit-sibling", FIXTURE_LOCUS_ID)], 956);
+              const unrelated = () =>
+                addLedger(s, "ledger-unrelated", [resident("unit-other", "place-elsewhere")], 957);
+              const ordered = order === "before" ? [sibling, unrelated] : [unrelated, sibling];
+              for (const commit of ordered) await commit();
+            }
+            return out;
+          };
         },
-      ],
-      [
-        k.commitment,
-        k.work,
-        derived.value.pins.extraction.fact_key,
-        derived.value.pins.held_transaction.fact_key,
-        k.occupancy,
-        k.clock,
-        k.index,
-        k.object,
-        accountKey,
-      ],
-    );
-    expect((await inner.commit(group)).ok).toBe(true);
-    await s.campaign.close();
-    const out = await codes(dir);
-    expect(out).toMatch(/PC_COLLECTION_STATE/);
-  }, 240_000);
+      });
+      const crossed = await new TemporalCoordinator(
+        wrapped as never,
+        collectionProviders(),
+      ).advance(advanceToRequest("tx-sibling", at(TARGET)));
+      expect(crossed.ok && fired).toBe(true);
+      const clock = stateOf(s);
+      expect(clock.canonical_time).toEqual(at(T0.value + 3 * TAU));
+      expect(clock.continuation?.unresolved_dependents).toEqual(
+        expect.arrayContaining([expect.objectContaining({ reason: "VALIDATION_REJECTED" })]),
+      );
+      const tx = clock.continuation!.from_transaction;
+      const revisionOf = (key: string) =>
+        inner.lookupReceipt(inner.getFact(key)!.provenance.intent_id)!.revision;
+      const causeAt = revisionOf("population/ledger-sibling/ledger");
+      expect(causeAt).toBeGreaterThan(revisionOf(temporalTransactionAuthorityKey(tx)));
+      expect(causeAt).toBeLessThan(revisionOf(temporalTransactionKey(tx)));
+
+      const group = rawLapseGroup(s, "lapse-sibling");
+      const before = inner.head();
+      const journal = () => readFileSync(join(dir, "journal.jsonl"));
+      const original = journal();
+      expect(JSON.stringify(await settle(s))).toBe(COLLECTION_REFUSAL);
+      expect(await inner.commit(group)).toMatchObject({
+        ok: false,
+        error: { code: "REFERENCE_INVALID", message: expect.stringContaining("admissible cause") },
+      });
+      expect(inner.head()).toEqual(before);
+      expect(journal()).toEqual(original);
+      expect(inner.getFact(lapse)).toBeUndefined();
+      expect(accountOf(s)?.open).toHaveLength(1);
+      expect(inner.getFact(k.occupancy)?.value).toMatchObject({ status: "OPEN", act_id: ACT_A });
+      await s.campaign.close();
+
+      if (order === "before") {
+        // Build the same poisoned history through the structural fixture writer, independently of live admission.
+        const poisoned = await rogueReplay(dir, undefined, async (store) => {
+          await must(store.commit(group));
+        });
+        expect(await codes(poisoned)).toMatch(/PC_COLLECTION_STATE/);
+      }
+    },
+    240_000,
+  );
 });

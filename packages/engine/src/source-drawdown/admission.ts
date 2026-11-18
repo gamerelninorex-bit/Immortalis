@@ -30,7 +30,7 @@ import {
   type SourceAccount,
   type WorldSourceCondition,
 } from "@immortalis/contracts";
-import type { CampaignState } from "../commit/campaign-core.ts";
+import type { AdmissionHistory, CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   pcCollectionStageViolation,
@@ -94,6 +94,7 @@ export const isDrawdownProductionKey = (key: string): boolean => {
 export function sourceDrawdownGroupCheck(
   group: CommitGroup,
   state: CampaignState,
+  history?: AdmissionHistory,
 ): Rejection | null {
   const kindOf = (key: string) => resolveKey(key)?.kind.id;
   const ws = group.writes;
@@ -123,7 +124,7 @@ export function sourceDrawdownGroupCheck(
     return pcCollectionTerminationGroupCheck(group, state, terminationW[0]!, accountW[0]!);
   // R-4 (NEWLY AUTHORIZED): Production's non-voluntary, non-productive lapse at the held earned boundary, with the key's claim released
   if (lapseW.length === 1 && accountW.length === 1 && ws.length === 2)
-    return pcCollectionLapseGroupCheck(group, state, lapseW[0]!, accountW[0]!);
+    return pcCollectionLapseGroupCheck(group, state, lapseW[0]!, accountW[0]!, history);
   if (deltaW.length === 1 && ws.length === 1 && deltaW[0]!.expected_version === 0)
     return checkDelta(group, state, deltaW[0]!);
   if (

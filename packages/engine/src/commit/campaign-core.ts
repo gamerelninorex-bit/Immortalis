@@ -24,6 +24,27 @@ import { IncrementalStateDigest } from "./state-digest.ts";
  */
 export type OwnerRegistry = ReadonlyMap<string, ReadonlySet<string>>;
 
+/** Addressed evidence for one serialized admission. Only this module can construct it. */
+class AdmissionHistory {
+  readonly #read: (state: CampaignState, key: string) => number | undefined;
+
+  constructor(read: (state: CampaignState, key: string) => number | undefined) {
+    this.#read = read;
+  }
+
+  static factRevision(
+    history: AdmissionHistory | undefined,
+    state: CampaignState,
+    key: string,
+  ): number | undefined {
+    return history && typeof history === "object" && #read in history
+      ? history.#read(state, key)
+      : undefined;
+  }
+}
+export type { AdmissionHistory };
+export const admissionFactRevision = AdmissionHistory.factRevision;
+
 /**
  * IM-03 owner-resolution hook consulted by IM-11 before a group can commit. It receives the parsed
  * group and the current state and returns the first rejection, or null. It must be pure. Like the
@@ -39,7 +60,11 @@ export interface WriteAdmission {
   committedView?(before: CampaignState, after: CampaignState, group: CommitGroup): void;
   /** Stable identity of the historical verifier. Absent => checkpoint history cannot be trusted. */
   readonly historyVerificationId?: string;
-  check(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
+  check(
+    group: CommitGroup,
+    state: CampaignState,
+    history?: AdmissionHistory,
+  ): Failure<CommitErrorCode> | null;
   /**
    * OPTIONAL pure historical verification (R1 Stage-One v1.1). Replay runs it on each journal group against the ACTUAL
    * incremental pre-state, so a rule that depends on a fact that later advanced (the Temporal state, for one) is judged against
@@ -144,6 +169,7 @@ export function entryHash(entry: Omit<JournalEntry, "entry_sha256">): string {
 interface LedgerRecord {
   readonly group_id: string;
   readonly group_sha256: string;
+  readonly revision: number;
   readonly receipt: CommitReceipt;
   /** the committed group itself: IM-12 cold-history lookup (evidence, never a second source of truth) */
   readonly group: CommitGroup;
@@ -307,10 +333,58 @@ export class CampaignCore {
     this.#byIntent.set(group.intent_id, {
       group_id: group.group_id,
       group_sha256: receipt.group_sha256,
+      revision: receipt.revision,
       receipt,
       group,
     });
     this.#byGroup.set(group.group_id, group.intent_id);
+  }
+
+  /** Prove the current fact version against its original hot group or verified cold address. */
+  #factRevision(state: CampaignState, key: string): number | undefined {
+    const fact = state.facts.get(key);
+    if (!fact) return undefined;
+    const hot = this.#byIntent.get(fact.provenance.intent_id);
+    const record = hot ?? this.#params.history?.byIntent(fact.provenance.intent_id);
+    if (!record) return undefined;
+    const { group, receipt } = record;
+    const revision = hot?.revision ?? receipt.revision;
+    const digest = hot?.group_sha256 ?? receipt.group_sha256;
+    if (
+      receipt.campaign_id !== state.campaign_id ||
+      group.campaign_id !== state.campaign_id ||
+      receipt.group_id !== group.group_id ||
+      receipt.intent_id !== group.intent_id ||
+      receipt.revision !== revision ||
+      !Number.isSafeInteger(revision) ||
+      revision < 1 ||
+      revision > state.revision ||
+      receipt.group_sha256 !== digest ||
+      groupSha256(group) !== digest
+    )
+      return undefined;
+    const write = group.writes.find((w) => w.key === key);
+    if (
+      !write ||
+      !canonicalEqual(fact, {
+        key: write.key,
+        owner: write.owner,
+        facet: write.facet,
+        value: write.value,
+        unit: write.unit,
+        basis: write.basis,
+        secrecy: write.secrecy,
+        version: write.expected_version + 1,
+        provenance: {
+          group_id: group.group_id,
+          intent_id: group.intent_id,
+          cause: group.cause,
+          rule: group.rule,
+        },
+      })
+    )
+      return undefined;
+    return revision;
   }
 
   prepare(input: unknown): Result<Prepared, CommitErrorCode> {
@@ -528,7 +602,12 @@ export class CampaignCore {
       if (!this.lookupGroupById(dep))
         return bad("MISSING_DEPENDENCY", "dependency group not committed", { group_id: dep });
     }
-    if (checkRegistry) return this.#params.admission?.check(group, state) ?? null;
+    if (checkRegistry && this.#params.admission) {
+      const history = new AdmissionHistory((preState, key) =>
+        preState === state && state === this.#state ? this.#factRevision(state, key) : undefined,
+      );
+      return this.#params.admission.check(group, state, history);
+    }
     return null;
   }
 }

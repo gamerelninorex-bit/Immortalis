@@ -44,7 +44,6 @@ import {
   ProductionPcCollectionLapseSchema,
   ProductionPcCollectionTerminationSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
-  temporalTransactionAuthorityKey,
   pcCollectionCessationKey,
   productionExtractionObjectId,
   productionPcCollectionLapseKey,
@@ -119,7 +118,8 @@ import {
   pcDelegationIdOf,
   pcDelegationSeal,
 } from "./delegation.ts";
-import { acceptableHeldLineage, deriveLapse, lapseCauseViolation } from "./lapse.ts";
+import { deriveLapse } from "./lapse.ts";
+import { canonicalEqual } from "../hash.ts";
 import {
   sceneClosureStatus,
   workforceScopeStatus,
@@ -1203,7 +1203,7 @@ export class PcCollectionAdapter {
    * R-4 (NEWLY AUTHORIZED), step 1: Production's NON-VOLUNTARY, NON-PRODUCTIVE lapse of the act at its own held earned boundary, DERIVED from
    * committed facts alone (no parameter for a reason, a result, a credit, a time or a boundary). In ONE atomic group it records the lapse and
    * releases the key's single claim on the source (Production's own account); the source and the Reserve are not written. It resumes, advances
-   * and consumes nothing. RED C-1: it is refused unless every premise-input fact predates the held crossing transaction's opening.
+   * and consumes nothing. The serialized Production admission checks the historical cause for both adapter and raw commits.
    */
   async lapse(
     input: Publication & { readonly pc_id: string; readonly act_id: string },
@@ -1211,32 +1211,21 @@ export class PcCollectionAdapter {
     const p = PublicationSchema.safeParse(pick(input));
     if (!p.success) return invalid("publication", p.error);
     const replay = this.#store.committedGroup(p.data.intent_id);
-    if (replay) return this.#store.commit(replay);
+    if (replay) {
+      const key = productionPcCollectionLapseKey(pcCollectionRequestId(input.pc_id, input.act_id));
+      if (
+        replay.group_id !== p.data.group_id ||
+        replay.cause !== p.data.cause ||
+        !canonicalEqual(replay.rule, PRODUCTION_PC_COLLECTION_LAPSE_RULE) ||
+        !replay.writes.some((write) => write.key === key) ||
+        replay.writes.some(
+          (write) => write.basis !== p.data.basis || write.secrecy !== p.data.secrecy,
+        )
+      )
+        return fail("INTENT_CONFLICT", "intent_id was already committed with different content");
+      return this.#store.commit(replay);
+    }
     const facts = this.#view();
-    const lineage = acceptableHeldLineage(facts);
-    if (!lineage.ok) return fail("PREREQUISITE_MISSING", lineage.error.message);
-    const opened = this.#store.getFact(
-      temporalTransactionAuthorityKey(lineage.value.held.value.transaction_id),
-    );
-    const openedAt = opened
-      ? this.#store.lookupReceipt(opened.provenance.intent_id)?.revision
-      : undefined;
-    if (openedAt === undefined)
-      return fail("PREREQUISITE_MISSING", "the held transaction's opening is not committed");
-    const work = collectionFacts(facts, input.pc_id, input.act_id);
-    if (!work)
-      return fail("PREREQUISITE_MISSING", "no started collection of this PC and act is committed");
-    const basis = lapseCauseViolation({
-      work: work.work.value,
-      facts,
-      openedAt,
-      until: null,
-      revisionOf: (k) => {
-        const f = this.#store.getFact(k);
-        return f ? this.#store.lookupReceipt(f.provenance.intent_id)?.revision : undefined;
-      },
-    });
-    if (basis) return fail("PREREQUISITE_MISSING", basis);
     const derived = deriveLapse(input.pc_id, input.act_id, facts);
     if (!derived.ok) return fail("PREREQUISITE_MISSING", derived.error.message);
     const l = derived.value;
