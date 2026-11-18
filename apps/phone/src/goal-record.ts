@@ -1,17 +1,6 @@
-import {
-  chmodSync,
-  closeSync,
-  fsyncSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeSync,
-} from "node:fs";
-import { randomBytes } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { PhoneConfig } from "./config.ts";
+import { readRetainedFile, replaceRetainedFile } from "./retained-file.ts";
 
 /**
  * The adapter's retained, NONCANONICAL record of the ONE goal it is carrying out (or last carried out): the identity of the player's
@@ -78,15 +67,9 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T =>
   typeof v === "string" && (list as readonly string[]).includes(v);
 
 export function readGoal(config: Where): GoalRead {
-  let text: string;
   try {
-    text = readFileSync(goalRecordPath(config), "utf8");
-  } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "ENOENT"
-      ? { kind: "NONE" }
-      : { kind: "UNREADABLE" };
-  }
-  try {
+    const text = readRetainedFile(goalRecordPath(config));
+    if (text === null) return { kind: "NONE" };
     const v: unknown = JSON.parse(text);
     if (
       !record(v) ||
@@ -136,34 +119,12 @@ export function readGoal(config: Where): GoalRead {
   }
 }
 
-/** Atomic replace (write a sibling, fsync, rename): a reader sees the old record or the new one, never a torn one. false = not retained. */
 export function writeGoal(config: Where, goal: GoalRecord): boolean {
-  const target = goalRecordPath(config);
-  const temp = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   const stored: Stored = {
     format: GOAL_RECORD_FORMAT,
     format_version: 1,
     campaign_id: config.campaignId,
     goal,
   };
-  try {
-    mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
-    const fd = openSync(temp, "wx", 0o600);
-    try {
-      writeSync(fd, `${JSON.stringify(stored)}\n`);
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-    chmodSync(temp, 0o600);
-    renameSync(temp, target);
-    return true;
-  } catch {
-    try {
-      rmSync(temp, { force: true });
-    } catch {
-      // nothing more to do: the record was not retained
-    }
-    return false;
-  }
+  return replaceRetainedFile(goalRecordPath(config), stored);
 }

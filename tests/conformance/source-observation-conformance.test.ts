@@ -101,8 +101,8 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "f8a337c2321371da6a294dbbdd259a2f9a6234f19eff38471d9d88049c4bc430",
   "packages/operator/src/observe-request-mcp.ts":
     "e9eb04b34eb9a15f18d85bdd96c54151b3599e917be20a901edba741f08ad666",
-  "packages/operator/src/observe-request-exchange.ts":
-    "e92b96cd575b4e6f63dff8c1a0d4888a207a0b01a14e131b123eecafe8d5bb54",
+  // RP-1 Stage 2 pins observe-request-exchange.ts against the pre-repair source in rp1-stage2-deltas.ts.
+  // Previous source SHA-256 e92b96cd575b4e6f63dff8c1a0d4888a207a0b01a14e131b123eecafe8d5bb54.
 };
 
 /** The ten existing source files the slice modified: exactly the scoped deltas, pinned at the slice head. */

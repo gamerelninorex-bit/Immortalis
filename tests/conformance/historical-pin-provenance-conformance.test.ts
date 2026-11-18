@@ -15,6 +15,11 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { A05_BASE_COMMIT, A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
+import {
+  RP1_STAGE2_BASE,
+  RP1_STAGE2_BASE_TREE,
+  RP1_STAGE2_DELTAS,
+} from "../support/rp1-stage2-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -126,7 +131,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     pinsIn(readFileSync(suite, "utf8")).map((pin) => ({ suite, ...pin })),
   );
 
-  it("scans every pin of every examined suite: 513 pins, 40 on changed paths (history kept), 473 on unchanged paths (exempted, still true)", () => {
+  it("scans every pin of every examined suite: 511 pins, 40 on changed paths (history kept), 471 on unchanged paths (exempted, still true)", () => {
     const onChanged = rows.filter((r) => isChanged(r.path));
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
@@ -152,9 +157,10 @@ describe("census of the examined suites as they stand: changed paths hold only h
         rows.filter((r) => r.path === path),
         path,
       ).toHaveLength(count);
-    expect(rows).toHaveLength(513);
+    // RP-1 Stage 2 retains the two former live Observe Exchange pins in the Stage 2 baseline.
+    expect(rows).toHaveLength(511);
     expect(onChanged).toHaveLength(40);
-    expect(exempt).toHaveLength(473);
+    expect(exempt).toHaveLength(471);
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
@@ -268,7 +274,7 @@ describe("RP-1 A05 pins the protected-store delta", () => {
   });
 
   it.skipIf(!reachable(A05_BASE_COMMIT))(
-    "preserves each base pin and bounds the live package delta to the recorded paths",
+    "preserves each base pin and bounds the Stage 1 package delta to the recorded paths",
     () => {
       for (const [path, d] of Object.entries(A05_SOURCE_DELTAS))
         expect(fileAt(A05_BASE_COMMIT, path), path).toBe(d.base);
@@ -278,15 +284,39 @@ describe("RP-1 A05 pins the protected-store delta", () => {
         "diff",
         "--name-only",
         A05_BASE_COMMIT,
+        RP1_STAGE2_BASE_TREE,
         "--",
         "packages",
       );
       expect(changed?.toString("utf8").trim().split("\n").sort()).toEqual(
         Object.keys(A05_SOURCE_DELTAS).sort(),
       );
-      expect(git("ls-files", "--others", "--exclude-standard", "--", "packages")?.length).toBe(0);
     },
   );
+});
+
+describe("RP-1 Stage 2 pins the request binding and retained-file delta", () => {
+  it("keeps the exact baseline bytes and only the recorded production delta", () => {
+    if (reachable(RP1_STAGE2_BASE))
+      expect(git("rev-parse", `${RP1_STAGE2_BASE}^{tree}`)?.toString("utf8").trim()).toBe(
+        RP1_STAGE2_BASE_TREE,
+      );
+    const paths = new Set<string>();
+    for (const [path, delta] of Object.entries(RP1_STAGE2_DELTAS)) {
+      expect(fileAt(RP1_STAGE2_BASE_TREE, path), path).toBe(delta.base);
+      expect(identityOf(path), path).toBe(delta.head);
+      paths.add(path);
+    }
+    for (const [command, args] of [
+      ["diff", ["--name-only", RP1_STAGE2_BASE_TREE]],
+      ["ls-files", ["--others", "--exclude-standard"]],
+    ] as const) {
+      const output = git("-c", "core.fileMode=false", command, ...args, "--", "apps", "packages");
+      expect(output).not.toBeNull();
+      for (const path of output!.toString("utf8").trim().split("\n").filter(Boolean))
+        expect(paths.has(path), path).toBe(true);
+    }
+  });
 });
 
 describe("the recorded history is true: each value matches its own Git commit (verified where the history is present)", () => {

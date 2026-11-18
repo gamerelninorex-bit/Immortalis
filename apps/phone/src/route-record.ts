@@ -1,17 +1,6 @@
-import {
-  chmodSync,
-  closeSync,
-  fsyncSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeSync,
-} from "node:fs";
-import { randomBytes } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { PhoneConfig } from "./config.ts";
+import { finishRetainedRemoval, readRetainedFile, replaceRetainedFile } from "./retained-file.ts";
 import {
   parseChronology,
   parseDeclare,
@@ -67,15 +56,9 @@ const record = (v: unknown): v is Record<string, unknown> =>
 export function readRouteRecord(
   config: Pick<PhoneConfig, "operatorDir" | "campaignId">,
 ): RouteRecordRead {
-  let text: string;
   try {
-    text = readFileSync(routeRecordPath(config), "utf8");
-  } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "ENOENT"
-      ? { kind: "NONE" }
-      : { kind: "UNREADABLE" };
-  }
-  try {
+    const text = readRetainedFile(routeRecordPath(config));
+    if (text === null) return { kind: "NONE" };
     const v: unknown = JSON.parse(text);
     if (
       !record(v) ||
@@ -120,33 +103,11 @@ export function readRouteRecord(
   }
 }
 
-/** Atomic replace (write a sibling, fsync, rename): a reader sees the old record or the new one, never a torn one. false = not retained. */
 export function writeRouteRecord(
   config: Pick<PhoneConfig, "operatorDir" | "campaignId">,
   r: RouteRecord,
 ): boolean {
-  const target = routeRecordPath(config);
-  const temp = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
-  try {
-    mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
-    const fd = openSync(temp, "wx", 0o600);
-    try {
-      writeSync(fd, `${JSON.stringify(r)}\n`);
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-    chmodSync(temp, 0o600);
-    renameSync(temp, target);
-    return true;
-  } catch {
-    try {
-      rmSync(temp, { force: true });
-    } catch {
-      // nothing more to do: the record was not retained
-    }
-    return false;
-  }
+  return replaceRetainedFile(routeRecordPath(config), r);
 }
 
 /** Retains one input (the others kept as they are); false when it could not be retained, or the record is unreadable. */
@@ -166,7 +127,7 @@ export function dropInputs(
   which: readonly ("chronology" | "handling" | "preparation" | "declaration")[],
 ): boolean {
   const held = readRouteRecord(config);
-  if (held.kind === "NONE") return true;
+  if (held.kind === "NONE") return finishRetainedRemoval(routeRecordPath(config), false);
   if (held.kind === "UNREADABLE") return false;
   const next: RouteRecord = {
     ...held.record,
@@ -178,10 +139,5 @@ export function dropInputs(
     next.preparation === null &&
     next.declaration === null;
   if (!empty) return writeRouteRecord(config, next);
-  try {
-    rmSync(routeRecordPath(config), { force: true });
-    return true;
-  } catch {
-    return false;
-  }
+  return finishRetainedRemoval(routeRecordPath(config), true);
 }

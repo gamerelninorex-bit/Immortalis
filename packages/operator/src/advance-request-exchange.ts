@@ -12,6 +12,7 @@ import {
   type Result,
 } from "@immortalis/contracts";
 import { nodeFs, type FsOps } from "@immortalis/engine";
+import { bindRequestHost } from "./request-host-binding.ts";
 
 /**
  * The trusted local routing state of a HOST-REQUESTED active-PC target-only time advance (BLUE v5.2-A1 bounded brief 2026-10-15, "Host-Requested
@@ -131,6 +132,14 @@ export async function readAdvanceRequestConfig(
   } catch {
     return fail("IO_FAILED", "the time-advance-request binding cannot be read");
   }
+  return parseConfig(p, operatorUid, raw);
+}
+
+function parseConfig(
+  p: AdvanceRequestExchangeParams,
+  operatorUid: number,
+  raw: string,
+): Result<AdvanceRequestConfig, "CONFIG_INVALID"> {
   let json: unknown;
   try {
     json = JSON.parse(raw);
@@ -162,41 +171,28 @@ export async function bindAdvanceRequestHost(
     readonly pcId: string;
   },
 ): Promise<Result<{ secret_file: string }, AdvanceRequestExchangeCode>> {
-  const fs = fsOf(p);
-  if (!HostId.safeParse(p.hostId).success || !EntityId.safeParse(p.pcId).success)
+  if (
+    p.campaignId.length === 0 ||
+    !HostId.safeParse(p.hostId).success ||
+    !EntityId.safeParse(p.pcId).success
+  )
     return fail("CONFIG_INVALID", "the host or character identity is not valid");
-  const held = await readAdvanceRequestConfig(p, p.operatorUid);
-  if (!held.ok && held.error.code !== "NOT_CONFIGURED") return held;
-  const config: AdvanceRequestConfig = held.ok
-    ? held.value
-    : {
-        format: ADVANCE_REQUEST_CONFIG_FORMAT,
-        format_version: FORMAT_VERSION,
-        campaign_id: p.campaignId,
-        operator_uid: p.operatorUid,
-        hosts: [],
-      };
-  if (config.hosts.some((h) => h.host_id === p.hostId))
-    return fail("HOST_EXISTS", "this host identity is already bound to this campaign");
-  // refused before any secret is drawn or anything is written: a ninth host would make the whole binding unreadable
-  if (config.hosts.length >= MAX_HOSTS)
-    return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
-  const secret = randomBytes(32).toString("hex");
-  const next: AdvanceRequestConfig = {
-    ...config,
-    hosts: [...config.hosts, { host_id: p.hostId, secret_sha256: digestOf(secret), pc_id: p.pcId }],
-  };
-  try {
-    await fs.mkdirp(advanceRequestDir(p));
-    await chmod(advanceRequestDir(p), 0o700);
-    await fs.createExclusive(advanceRequestSecretPath(p, p.hostId), `${secret}\n`);
-    await chmod(advanceRequestSecretPath(p, p.hostId), 0o600);
-    await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
-    await chmod(configPath(p), 0o600);
-  } catch {
-    return fail("IO_FAILED", "the time-advance-request binding could not be written");
-  }
-  return ok({ secret_file: advanceRequestSecretPath(p, p.hostId) });
+  return bindRequestHost<AdvanceRequestConfig>({
+    ...p,
+    dir: advanceRequestDir(p),
+    exchange: ADVANCE_REQUEST_CONFIG_FORMAT,
+    maxHosts: MAX_HOSTS,
+    secretFile: advanceRequestSecretPath(p, p.hostId),
+    initialConfig: {
+      format: ADVANCE_REQUEST_CONFIG_FORMAT,
+      format_version: FORMAT_VERSION,
+      campaign_id: p.campaignId,
+      operator_uid: p.operatorUid,
+      hosts: [],
+    },
+    parseConfig: (raw) => parseConfig(p, p.operatorUid, raw),
+    writeError: "the time-advance-request binding could not be written",
+  });
 }
 
 /**
