@@ -1,23 +1,24 @@
 // S-4 initial Standing Instruction ledger — the history-verification policy (BLUE brief B4: "Historical/cold"; Charter principle 8).
 // A checkpoint earned before S-4 recorded WHICH rules judged the history it covers. S-4 changes the rules that judge a binding (it must
 // now consume a ledger, or be an authentic old binding), so evidence earned under the previous policy must never be trusted: the first
-// open under S-4 re-judges EVERY committed group strictly, once, and then records the S-4 policy. The same package, when its evidence
-// already names the S-4 policy, is trusted as before. This is the behaviour of the policy suffix, not merely its text. T1 mechanism only.
-import { readFileSync, writeFileSync } from "node:fs";
+// open under S-4 re-judges EVERY committed group strictly, once, and then records the combined S-4/A01 policy. The same package, when its evidence
+// already names the combined policy, is trusted as before. This is the behaviour of the policy suffix, not merely its text. T1 mechanism only.
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { canonicalJson } from "@immortalis/contracts";
+import { canonicalJson, type JournalEntry } from "@immortalis/contracts";
 import {
   CanonicalCampaign,
   PC_LEDGER_HISTORY_POLICY_SUFFIX,
   canonicalAdmission,
+  fixtureCanonicalAdmission,
   sha256Canonical,
 } from "@immortalis/engine";
 import { CheckpointManifestSchema } from "../../packages/engine/src/persistence/checkpoint-package.ts";
 import { activateWithLedger, releasedCampaign } from "../support/ledger.ts";
 import { countReplays } from "../support/policy-transition.ts";
-import { must } from "../support/temporal.ts";
-import { tempDir } from "../support/tmp.ts";
+import { codeOf, must } from "../support/temporal.ts";
+import { snapshotDir, tempDir } from "../support/tmp.ts";
 
 const manifestOf = (dir: string) =>
   CheckpointManifestSchema.parse(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")));
@@ -62,9 +63,9 @@ function campaignOf(r: Awaited<ReturnType<typeof CanonicalCampaign.open>>): Cano
 }
 
 /**
- * A lawful new-PC campaign (world, locus, PC, ledger, binding = 5 groups) whose checkpoint covers all of it under the S-4 policy.
+ * A lawful new-PC campaign (world, locus, PC, ledger, binding = 5 groups) whose checkpoint covers all of it under the combined policy.
  * A checkpoint is published only by an open that judges a history under a changed policy, so the package is first left as a pre-S-4
- * build would have left it (genesis checkpoint, pre-S-4 policy), and one open then judges all 5 groups and records the S-4 policy.
+ * build would have left it (genesis checkpoint, pre-S-4 policy), and one open then judges all 5 groups and records the combined policy.
  */
 async function lawfulPackage(): Promise<{ dir: string; groups: number }> {
   const dir = tempDir();
@@ -79,17 +80,18 @@ async function lawfulPackage(): Promise<{ dir: string; groups: number }> {
 }
 
 describe("the S-4 policy suffix changes how a checkpoint's evidence is trusted", () => {
-  const S4_ID = canonicalAdmission.historyVerificationId!;
+  const CURRENT_ID = canonicalAdmission.historyVerificationId!;
+  const A01_SUFFIX = "+POPULATION-STAGE-AUTHORITY-V2";
 
-  it("the suffix is real: the pre-S-4 policy an authentic legacy build stamped is exactly this build's policy minus the suffix", () => {
+  it("the combined policy retains the authentic pre-S-4 identity plus S-4 then A01 in order", () => {
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX.length).toBeGreaterThan(0);
-    expect(S4_ID).toBe(`${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`);
-    expect(PRE_S4_ID).not.toBe(S4_ID);
+    expect(CURRENT_ID).toBe(`${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01_SUFFIX}`);
+    expect(PRE_S4_ID).not.toBe(CURRENT_ID);
   });
 
-  it("evidence that already names the S-4 policy is trusted: nothing in the covered prefix is judged again", async () => {
+  it("evidence that already names the combined policy is trusted: nothing in the covered prefix is judged again", async () => {
     const { dir, groups } = await lawfulPackage();
-    expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(S4_ID);
+    expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(CURRENT_ID);
     expect(manifestOf(dir).head.checkpoint.journal_entries).toBe(groups);
     const opened = await countReplays(() =>
       CanonicalCampaign.open(dir, { buildId: "s4-policy-trusted" }),
@@ -112,12 +114,107 @@ describe("the S-4 policy suffix changes how a checkpoint's evidence is trusted",
     expect(c.verify()).toEqual([]);
     expect(c.binding()).toBeDefined();
     await c.close();
-    // the successor evidence names the S-4 policy, so the NEXT open trusts it again
-    expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(S4_ID);
+    // the successor evidence names the combined policy, so the NEXT open trusts it again
+    expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(CURRENT_ID);
     const again = await countReplays(() =>
       CanonicalCampaign.open(dir, { buildId: "s4-policy-after" }),
     );
     await campaignOf(again.result).close();
     expect(again.entries).toBe(0);
   });
+  for (const [label, predecessor] of [
+    ["S-4 main", `${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}`],
+    ["A01 reviewed head", `${PRE_S4_ID}${A01_SUFFIX}`],
+  ] as const) {
+    it(`checkpoint evidence naming only ${label} is replayed once under both checks without changing canon`, async () => {
+      const { dir, groups } = await lawfulPackage();
+      const before = await must(CanonicalCampaign.open(dir, { buildId: "combined-before" }));
+      const head = before.store.head();
+      const facts = before.store.listFacts();
+      const receipts = facts.map(
+        (f) =>
+          [f.provenance.intent_id, before.store.lookupReceipt(f.provenance.intent_id)] as const,
+      );
+      await before.close();
+      const journal = readFileSync(join(dir, "journal.jsonl"));
+      earnedUnder(dir, predecessor);
+      const opened = await countReplays(() =>
+        CanonicalCampaign.open(dir, { buildId: "combined-upgrade" }),
+      );
+      const c = campaignOf(opened.result);
+      expect(opened.entries).toBe(groups);
+      expect(c.store.head()).toEqual(head);
+      expect(c.store.listFacts()).toEqual(facts);
+      for (const [intent, receipt] of receipts)
+        expect(c.store.lookupReceipt(intent)).toEqual(receipt);
+      expect(c.verify()).toEqual([]);
+      await c.close();
+      expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journal);
+      expect(manifestOf(dir).head.checkpoint.verification_policy).toBe(CURRENT_ID);
+      const again = await countReplays(() =>
+        CanonicalCampaign.open(dir, { buildId: "combined-trusted" }),
+      );
+      await campaignOf(again.result).close();
+      expect(again.entries).toBe(0);
+    });
+  }
 });
+
+// The canonical and fixture policies share the same historical/current boundary, despite distinct checkpoint IDs.
+for (const [label, admission] of [
+  ["canonical", canonicalAdmission],
+  ["fixture", fixtureCanonicalAdmission],
+] as const) {
+  it(`${label}: authentic old binding reopens and replays its original intent; a fresh old-cited binding refuses before mutation`, async () => {
+    const dir = tempDir();
+    cpSync(join(import.meta.dirname, "../fixtures/s4-legacy-pc-c6ea29d/activation/package"), dir, {
+      recursive: true,
+    });
+    mkdirSync(join(dir, "history"), { recursive: true });
+    const journal = readFileSync(join(dir, "journal.jsonl"));
+    const entries = journal
+      .toString("utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as JournalEntry);
+    const old = entries.at(-1)!;
+    const c = await must(CanonicalCampaign.open(dir, { testkitFixtureAdmission: admission }));
+    const head = c.store.head();
+    const facts = c.store.listFacts();
+    expect(c.verify()).toEqual([]);
+    expect(c.standingInstructionLedger(c.binding()!.value.active_pc.entity_id)).toBeUndefined();
+    expect(await must(c.store.commit(old.group))).toEqual({ receipt: old.receipt, replayed: true });
+    expect(await codeOf(c.store.commit({ ...old.group, cause: "changed-content" }))).toBe(
+      "INTENT_CONFLICT",
+    );
+    expect(c.store.head()).toEqual(head);
+    expect(c.store.listFacts()).toEqual(facts);
+    await c.close();
+    expect(readFileSync(join(dir, "journal.jsonl"))).toEqual(journal);
+
+    // An unoccupied binding slot rules out duplicate/version refusal as the explanation for rejection.
+    const freshDir = tempDir();
+    const fresh = await must(
+      CanonicalCampaign.create(freshDir, {
+        campaignId: old.group.campaign_id,
+        testkitFixtureAdmission: admission,
+      }),
+    );
+    for (const entry of entries.slice(0, -1)) await must(fresh.store.commit(entry.group));
+    expect(fresh.binding()).toBeUndefined();
+    const before = fresh.store.head();
+    const beforeFacts = fresh.store.listFacts();
+    const bytes = snapshotDir(freshDir);
+    const newIntent = {
+      ...old.group,
+      group_id: "combined-new-binding",
+      intent_id: "combined-new-binding",
+    };
+    expect(await codeOf(fresh.store.commit(newIntent))).toBe("REFERENCE_INVALID");
+    expect(fresh.store.lookupReceipt(newIntent.intent_id)).toBeNull();
+    expect(fresh.store.head()).toEqual(before);
+    expect(fresh.store.listFacts()).toEqual(beforeFacts);
+    expect(snapshotDir(freshDir)).toEqual(bytes);
+    await fresh.close();
+  });
+}

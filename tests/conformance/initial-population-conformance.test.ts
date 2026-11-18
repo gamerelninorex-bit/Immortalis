@@ -42,8 +42,8 @@ const UNCHANGED: Record<string, string> = {
     "26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b",
   "packages/engine/src/population/adapter.ts":
     "d228778def292e049d5acdc3eabdbfd98529cfb4a153f9c8ced5db459edb392d",
-  "packages/engine/src/population/admission.ts":
-    "352659bcfb65d4b996950c19ba487a8e5163a852fb9b61b0be65ff9c72af628e",
+  // A01 changes Population admission. Its historical SHA-256 at this suite's named base remains
+  // 352659bcfb65d4b996950c19ba487a8e5163a852fb9b61b0be65ff9c72af628e; it is no longer a working-tree identity.
   "packages/engine/src/population/derive.ts":
     "8a632d495e294e8e3d421190945755fee80d82f58fb673b5b02bacdc38158e0f",
   "packages/engine/src/population/provider.ts":
@@ -52,8 +52,8 @@ const UNCHANGED: Record<string, string> = {
     "e6a2a964d7df5dcb8ac229bad9a6dd7af97b27443a9b7667c50116673bd84b92",
   "packages/engine/src/population/barrier.ts":
     "f9e49354a379144fb3244ce33b2f758f4eb459aabd8aeb13183168eabdfeec1b",
-  "packages/engine/src/population/integrity.ts":
-    "a34b8d131e542f41556b0a3beb629fd40b1d83b0b9bd6a51b3621ca90156ae09",
+  // A01 also changes Population verification. Its original named-base SHA-256 remains
+  // a34b8d131e542f41556b0a3beb629fd40b1d83b0b9bd6a51b3621ca90156ae09; history is preserved, not compared with today's code.
   // ROADBED R3-T25 freight: packages/engine/src/temporal/coordinator.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
   "packages/operator/src/locality.ts":
     "21017648d2b7eab1972b29384c27c4a65534352f03d5eaae218dbd52264fc057",
@@ -76,7 +76,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the operator is touched", () => {
-  it("the gates, register, contracts, the Population and Temporal owners, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
+  it("the remaining byte-identity pins still hold; PR #94, ROADBED and A01 changes are excluded from this older slice's unchanged map", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

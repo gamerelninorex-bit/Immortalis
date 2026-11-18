@@ -36,6 +36,25 @@ export function verifyPopulationIntegrity(store: CampaignStore): readonly Integr
     return id === "population_ledger" || id === "population_close" || id === "population_cohort";
   });
   const byKey = new Map(facts.map((f) => [f.key, f]));
+  // Authority/engagement depend on the incremental pre-state, not the final clock or latest close.
+  // The current historical policy earns this evidence for every replayed group (including overwritten
+  // closes); admission earns it for a live group. An older policy's checkpoint cannot supply it.
+  const checked = store.ruleCheckedGroupIds?.();
+  for (const fact of facts) {
+    const kind = resolveKey(fact.key)!.kind.id;
+    const advanced =
+      kind === "population_close" ||
+      (kind === "population_ledger" && fact.version > 1) ||
+      (kind === "population_cohort" &&
+        CohortFactSchema.safeParse(fact.value).data?.result?.basis_stamp.basis.kind ===
+          "RECONCILIATION_CLOSE");
+    if (advanced && !checked?.has(fact.provenance.group_id)) {
+      bad(
+        fact.key,
+        "Population stage authority was not verified against its incremental pre-state (no current historical-verification or admission evidence)",
+      );
+    }
+  }
   const parsed = <T>(
     f: OwnerFact,
     schema: { safeParse(v: unknown): { success: boolean; data?: T } },
