@@ -1,6 +1,6 @@
 // Unit evidence for the GM freight binding: a host is bound by the OPERATOR to ONE campaign with its own owner-only secret; no other
 // lane's credential opens it, and a wrong host, secret, campaign or operator is one refusal.
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -81,6 +81,7 @@ describe("authorization", () => {
 
   it("the time-advance-request lane's credential opens nothing here, and this one opens nothing there", async () => {
     const stateDir = freshState();
+    mkdirSync(stateDir, { mode: 0o700 });
     const gm = await bindGmFreightHost({ ...ex(stateDir), operatorUid: uid, hostId: "same-id" });
     const adv = await bindAdvanceRequestHost({
       ...ex(stateDir),
