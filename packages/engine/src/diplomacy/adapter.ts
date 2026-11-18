@@ -1,5 +1,7 @@
 import {
   CANON_WRITE_AUTHORITY,
+  CommitGroupSchema,
+  CommitReceiptSchema,
   ExternalRecognitionSchema,
   ExternalizedClaimDisputeSchema,
   DiplomaticFrameworkSchema,
@@ -13,6 +15,7 @@ import {
   fail,
   recognitionDependencyKeys,
   type CommitGroup,
+  type CommitReceipt,
   type DiplomaticFramework,
   type ExternalRecognition,
   type ExternalizedClaimDispute,
@@ -22,6 +25,8 @@ import {
   type Result,
   type SchemaIssues,
 } from "@immortalis/contracts";
+import { groupSha256 } from "../commit/campaign-core.ts";
+import { canonicalEqual } from "../hash.ts";
 import { factKind } from "../owners/registry.ts";
 import type { CampaignStore, CommitOutcome, StoreCommitErrorCode } from "../persistence/store.ts";
 
@@ -240,39 +245,13 @@ export class DiplomacyAdapter {
         issues: issues(recognition.error),
       });
     const value = recognition.data;
-    const reads: CommitGroup["reads"][number][] = [];
-    const dependsOn = new Set<string>();
-    for (const key of recognitionDependencyKeys(value)) {
-      const dependency = this.#store.getFact(key);
-      reads.push({ key, version: dependency?.version ?? 0 });
-      if (dependency) dependsOn.add(dependency.provenance.group_id);
-    }
-    const kind = factKind("diplomacy_external_recognition");
-    const group: CommitGroup = {
-      campaign_id: this.#store.head().campaign_id,
-      group_id: p.data.group_id,
-      intent_id: p.data.intent_id,
-      owner: kind.owner,
-      facet: kind.facet,
-      cause: p.data.cause,
-      rule: kind.rule,
-      authority: { ...CANON_WRITE_AUTHORITY },
-      reads,
-      depends_on: [...dependsOn],
-      writes: [
-        {
-          key: diplomacyRecognitionKey(value.recognition_id),
-          owner: kind.owner,
-          facet: kind.facet,
-          value: value as CommitGroup["writes"][number]["value"],
-          unit: null,
-          basis: p.data.basis,
-          secrecy: p.data.secrecy,
-          expected_version: 0,
-        },
-      ],
-    };
-    return this.#store.commit(group);
+    return this.#establishWithDependencies(
+      p.data,
+      "diplomacy_external_recognition",
+      diplomacyRecognitionKey(value.recognition_id),
+      value,
+      recognitionDependencyKeys(value),
+    );
   }
 
   /**
@@ -303,39 +282,91 @@ export class DiplomacyAdapter {
         issues: issues(dispute.error),
       });
     const value = dispute.data;
-    const reads: CommitGroup["reads"][number][] = [];
-    const dependsOn = new Set<string>();
-    for (const key of disputeDependencyKeys(value)) {
-      const dependency = this.#store.getFact(key);
-      reads.push({ key, version: dependency?.version ?? 0 });
-      if (dependency) dependsOn.add(dependency.provenance.group_id);
-    }
-    const kind = factKind("diplomacy_claim_dispute");
-    const group: CommitGroup = {
+    return this.#establishWithDependencies(
+      p.data,
+      "diplomacy_claim_dispute",
+      diplomacyDisputeKey(value.dispute_id),
+      value,
+      disputeDependencyKeys(value),
+    );
+  }
+
+  async #establishWithDependencies(
+    publication: Publication,
+    kindId: "diplomacy_external_recognition" | "diplomacy_claim_dispute",
+    key: string,
+    value: ExternalRecognition | ExternalizedClaimDispute,
+    dependencyKeys: readonly string[],
+  ): Promise<Result<CommitOutcome, DiplomacyErrorCode>> {
+    const kind = factKind(kindId);
+    const group = {
       campaign_id: this.#store.head().campaign_id,
-      group_id: p.data.group_id,
-      intent_id: p.data.intent_id,
+      group_id: publication.group_id,
+      intent_id: publication.intent_id,
       owner: kind.owner,
       facet: kind.facet,
-      cause: p.data.cause,
+      cause: publication.cause,
       rule: kind.rule,
       authority: { ...CANON_WRITE_AUTHORITY },
-      reads,
-      depends_on: [...dependsOn],
       writes: [
         {
-          key: diplomacyDisputeKey(value.dispute_id),
+          key,
           owner: kind.owner,
           facet: kind.facet,
           value: value as CommitGroup["writes"][number]["value"],
           unit: null,
-          basis: p.data.basis,
-          secrecy: p.data.secrecy,
+          basis: publication.basis,
+          secrecy: publication.secrecy,
           expected_version: 0,
         },
       ],
-    };
-    return this.#store.commit(group);
+    } satisfies Omit<CommitGroup, "reads" | "depends_on">;
+
+    let committedGroup: CommitGroup | null;
+    let receipt: CommitReceipt | null;
+    try {
+      committedGroup = this.#store.committedGroup(group.intent_id);
+      receipt = this.#store.lookupReceipt(group.intent_id);
+    } catch {
+      return fail("STORE_POISONED", "historical Diplomacy evidence unavailable");
+    }
+    if (committedGroup !== null || receipt !== null) {
+      // RC-16: the saved pins are evidence of the original act. Compare every other group field
+      // against the authored retry, then let the store reconcile the original committed group.
+      const original = CommitGroupSchema.safeParse(committedGroup);
+      const originalReceipt = CommitReceiptSchema.safeParse(receipt);
+      if (
+        !original.success ||
+        !originalReceipt.success ||
+        originalReceipt.data.campaign_id !== group.campaign_id ||
+        originalReceipt.data.group_id !== group.group_id ||
+        originalReceipt.data.intent_id !== group.intent_id ||
+        originalReceipt.data.group_sha256 !== groupSha256(original.data) ||
+        !canonicalEqual(original.data, {
+          ...group,
+          reads: original.data.reads,
+          depends_on: original.data.depends_on,
+        })
+      ) {
+        return fail(
+          "INTENT_CONFLICT",
+          "intent_id does not match a complete committed Diplomacy group",
+          {
+            intent_id: group.intent_id,
+          },
+        );
+      }
+      return this.#store.commit(original.data);
+    }
+
+    const reads: CommitGroup["reads"][number][] = [];
+    const dependsOn = new Set<string>();
+    for (const dependencyKey of dependencyKeys) {
+      const dependency = this.#store.getFact(dependencyKey);
+      reads.push({ key: dependencyKey, version: dependency?.version ?? 0 });
+      if (dependency) dependsOn.add(dependency.provenance.group_id);
+    }
+    return this.#store.commit({ ...group, reads, depends_on: [...dependsOn] });
   }
 
   /**

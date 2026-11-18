@@ -11,6 +11,7 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  TEMPORAL_STATE_KEY,
   diplomacyRecognitionKey,
   gipInstitutionIdentityKey,
   gipOfficeAuthorityLocusKey,
@@ -36,6 +37,7 @@ import {
   SUCCESSOR_RULE_REF_A,
   diplomacyPublication,
   externalRecognition,
+  externalizedClaimDispute,
   fullExternalRecognition,
   group,
   instrumentFs,
@@ -50,6 +52,7 @@ import {
   seededDiplomacyCampaign,
   diplomacyFacts,
 } from "../support/diplomacy.ts";
+import { describeOriginalOutcomeRecovery } from "../support/diplomacy-recovery.ts";
 import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 
@@ -58,6 +61,43 @@ const courtKey = gipInstitutionIdentityKey(INSTITUTION_COURT);
 const magistrateKey = gipOfficeAuthorityLocusKey(INSTITUTION_COURT, OFFICE_MAGISTRATE);
 
 const plan = [RECOGNITION_A, RECOGNITION_B] as const;
+
+const authoredRecognition = externalRecognition(RECOGNITION_A, {
+  dependency_refs: [TEMPORAL_STATE_KEY, TEMPORAL_STATE_KEY],
+  withdrawal_or_supersession_condition: null,
+});
+const recognitionWithoutCondition = externalRecognition(RECOGNITION_A, {
+  dependency_refs: authoredRecognition.dependency_refs!,
+});
+describeOriginalOutcomeRecovery({
+  key: key(),
+  authored: authoredRecognition,
+  newKey: key(RECOGNITION_B),
+  newRecord: (dependencyKey) =>
+    externalRecognition(RECOGNITION_B, { dependency_refs: [dependencyKey] }),
+  publish: (adapter, publication, recognition) =>
+    adapter.establishExternalRecognition({ ...publication, recognition }),
+  publishOtherKind: (adapter, publication) =>
+    adapter.establishExternalizedClaimDispute({
+      ...publication,
+      dispute: externalizedClaimDispute(),
+    }),
+  readDependencies: (adapter) => adapter.externalRecognition(RECOGNITION_A)?.dependencies,
+  changes: [
+    ["status", { ...authoredRecognition, recognition_status: "withdrawn" }],
+    ["identity", { ...authoredRecognition, recognition_id: RECOGNITION_B }],
+    ["scope type and value", { ...authoredRecognition, recognition_scope: { region: "west" } }],
+    ["continuity", { ...authoredRecognition, continuity_basis: "personal" }],
+    ["authority", { ...authoredRecognition, authority_basis_ref: "different-authority" }],
+    ["optional field removed", recognitionWithoutCondition],
+    ["optional field added", { ...authoredRecognition, successor_rule_ref: SUCCESSOR_RULE_REF_A }],
+    [
+      "authored dependency multiplicity",
+      { ...authoredRecognition, dependency_refs: [TEMPORAL_STATE_KEY] },
+    ],
+    ["unknown field", { ...authoredRecognition, additional_condition: true }, "INPUT_INVALID"],
+  ],
+});
 
 describe("save → close → load → continue at every durable cut of the establishment", () => {
   for (const cut of [0, 1, 2] as const) {

@@ -41,6 +41,18 @@ const CONTRACT = "packages/contracts/src/diplomacy-dispute.ts";
 const ENGINE_SOURCES = readdirSync(DIPLOMACY_DIR).map((f) => join(DIPLOMACY_DIR, f));
 const dispute = factKind("diplomacy_claim_dispute");
 
+// RC-16 uses existing canonical commit receipts in the adapter. Domain receipt constructs
+// remain excluded throughout the Diplomacy engine and the dispute contract.
+const domainIdentifiers = (file: string): string => {
+  const source = identifiers(file);
+  return file === join(DIPLOMACY_DIR, "adapter.ts")
+    ? source.replace(
+        /\b(CommitReceiptSchema|CommitReceipt|lookupReceipt|originalReceipt|receipt)\b/g,
+        "",
+      )
+    : source;
+};
+
 /** The WS-008 §7 / §29.3 / §29.4 identifiers, copied verbatim from the frozen source text (independent of the contract's own constants). */
 const SOURCE_FIELDS = [
   "dispute_id",
@@ -223,7 +235,7 @@ describe("IA-03 owner exclusivity: the existing Diplomacy owner gains one Extern
   it("no Channel, Negotiation, Instrument, Clause, Binding Entry, Framework, treaty, receipt, trust or reputation construct was added, and the dispute contract names no Relation Edge (the Relation Edge is the nineteenth slice's own)", () => {
     for (const f of [...ENGINE_SOURCES, CONTRACT]) {
       // the only permitted `instrument` / `clause` token is the source field instrument_or_clause_ref
-      let text = identifiers(f).replace(/instrument_or_clause_ref/g, "");
+      let text = domainIdentifiers(f).replace(/instrument_or_clause_ref/g, "");
       // the Diplomacy engine modules (not the dispute contract) carry the lawful registered siblings' own identifiers (the central oracle's LAWFUL_SIBLING_IDENTIFIERS)
       if (f !== CONTRACT) text = stripLawfulSiblingIdentifiers(text);
       expect(text, f).not.toMatch(
@@ -307,9 +319,9 @@ describe("IA-02 strict executable contract: the WS-008 fields, nothing uninterpr
       );
   });
 
-  it("effect_on never triggers a receipt: no receipt, access or Epistemic construct is named by the dispute path, and addressee_receipt is only a stored literal", () => {
+  it("effect_on never triggers a diplomatic or Epistemic receipt, and addressee_receipt is only a stored literal", () => {
     for (const f of [...ENGINE_SOURCES, CONTRACT])
-      expect(identifiers(f), f).not.toMatch(
+      expect(domainIdentifiers(f), f).not.toMatch(
         /\b(\w*[Rr]eceipt\w*|\w*[Aa]ccess\w*|\w*[Ee]pistemic\w*|BROADCAST_EXPOSURE|\w*[Bb]roadcast\w*)\b/,
       );
   });
