@@ -39,13 +39,18 @@ describe("ProtectedStore A05 listing", () => {
     );
     const legacyPath = join(dir, LEGACY_FILE);
     expect(await readFile(legacyPath, "utf8")).toBe(LEGACY_BYTES);
-    expect(await store.create("retired", { state: "terminal" })).toEqual(ok(undefined));
+    expect(await store.create("a-first-name", { state: "terminal" })).toEqual(ok(undefined));
     await writeFile(join(dir, "interrupted.json.tmp"), "ignored scratch file");
-    const reopened = new ProtectedStore({ dir, format: FORMAT, macKey: MAC_KEY });
+    const reopened = new ProtectedStore({
+      dir,
+      format: FORMAT,
+      macKey: MAC_KEY,
+      fs: { ...nodeFs, list: async (...args) => (await nodeFs.list(...args)).sort().reverse() },
+    });
     expect(await reopened.all()).toEqual(
       ok([
         { name: LEGACY_NAME, record: { status: "retained", deadline: 5_000 } },
-        { name: "retired", record: { state: "terminal" } },
+        { name: "a-first-name", record: { state: "terminal" } },
       ]),
     );
     expect(await reopened.get(LEGACY_NAME)).toEqual(ok({ status: "retained", deadline: 5_000 }));

@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { A05_BASE_COMMIT, A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -240,8 +241,8 @@ describe("A24-CB1 pins the bounded Diplomacy adapter correction", () => {
     expect(identityOf(A24_ADAPTER_DELTA.path)).toBe(A24_ADAPTER_DELTA.headSha256);
   });
 
-  it.skipIf(!reachable(A24_ADAPTER_DELTA.baseCommit))(
-    "preserves the original adapter pin and bounds the live package delta to that path",
+  it.skipIf(!reachable(A24_ADAPTER_DELTA.baseCommit) || !reachable(A05_BASE_COMMIT))(
+    "preserves the original adapter pin and bounds the A24 package delta to that path",
     () => {
       const { baseCommit, path, baseSha256 } = A24_ADAPTER_DELTA;
       expect(fileAt(baseCommit, path)).toBe(baseSha256);
@@ -251,10 +252,38 @@ describe("A24-CB1 pins the bounded Diplomacy adapter correction", () => {
         "diff",
         "--name-only",
         baseCommit,
+        A05_BASE_COMMIT,
         "--",
         "packages",
       );
       expect(changed?.toString("utf8").trim()).toBe(path);
+    },
+  );
+});
+
+describe("RP-1 A05 pins the protected-store delta", () => {
+  it("pins the exact current private-store source and filesystem seam", () => {
+    for (const [path, d] of Object.entries(A05_SOURCE_DELTAS))
+      expect(identityOf(path), path).toBe(d.head);
+  });
+
+  it.skipIf(!reachable(A05_BASE_COMMIT))(
+    "preserves each base pin and bounds the live package delta to the recorded paths",
+    () => {
+      for (const [path, d] of Object.entries(A05_SOURCE_DELTAS))
+        expect(fileAt(A05_BASE_COMMIT, path), path).toBe(d.base);
+      const changed = git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        A05_BASE_COMMIT,
+        "--",
+        "packages",
+      );
+      expect(changed?.toString("utf8").trim().split("\n").sort()).toEqual(
+        Object.keys(A05_SOURCE_DELTAS).sort(),
+      );
       expect(git("ls-files", "--others", "--exclude-standard", "--", "packages")?.length).toBe(0);
     },
   );

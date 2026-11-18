@@ -35,6 +35,7 @@ import {
 import { classifyGoverningRule } from "../../packages/engine/src/owners/governing-rule.ts";
 import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
+import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import {
   S4_BASE_COMMIT,
@@ -374,7 +375,7 @@ describe("scope: this slice changed exactly the predecessor files it records", (
     );
     expect(historical, "authentic S-4 reviewed head is required").not.toBeNull();
     for (const p of lines(historical)) expect(allowed.has(p), p).toBe(true);
-    // Retain the live tracked/untracked guard while accounting for the subsequent A01, A26 and A24 paths.
+    // Retain the live tracked/untracked guard while accounting for the subsequent A01, A26, A24 and A05 paths.
     const combinedAllowed = new Set([
       ...allowed,
       "packages/engine/src/population/admission.ts",
@@ -382,6 +383,7 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       "packages/engine/src/population/stage-authority.ts",
       ...A26_CHANGED_SOURCE_FILES,
       A24_ADAPTER_DELTA.path,
+      ...Object.keys(A05_SOURCE_DELTAS),
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)
