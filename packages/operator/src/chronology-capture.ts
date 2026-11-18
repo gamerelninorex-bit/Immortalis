@@ -234,8 +234,8 @@ export async function captureStartingChronology(
   if (!stored.ok) {
     if (stored.error.code === "STORE_EXISTS") {
       const again = await ctx.store.read(req.capture_ref);
-      if (again.ok && again.value && again.value.capture_hash === capture.capture_hash)
-        return ok(again.value);
+      if (!again.ok) return again;
+      if (again.value && again.value.capture_hash === capture.capture_hash) return ok(again.value);
       return fail("CAPTURE_CONFLICT", "this capture reference already holds a different capture");
     }
     return stored;

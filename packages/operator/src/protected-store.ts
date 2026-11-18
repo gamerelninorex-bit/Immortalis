@@ -37,6 +37,7 @@ export class ProtectedStore {
   readonly #format: string;
   readonly #key: Buffer;
   #made = false;
+  #seenDir = false;
 
   constructor(params: {
     readonly dir: string;
@@ -74,17 +75,31 @@ export class ProtectedStore {
 
   /** Reads and authenticates one record: `null` when absent, an error when unreadable or corrupt (never repaired). */
   async get(name: string): Promise<Result<unknown | null, ProtectedStoreErrorCode>> {
-    const path = join(this.#dir, fileFor(name));
-    let raw: string;
+    const file = fileFor(name);
     try {
-      if ((await this.#fs.fileSize(path)) === null) return ok(null);
-      raw = (await this.#fs.readFile(path)).toString("utf8");
+      if ((await this.#fs.fileSize(join(this.#dir, file), { followSymlinks: false })) === null)
+        return ok(null);
+      this.#seenDir = true;
+    } catch {
+      return fail("STORE_UNREADABLE", "a protected record cannot be read");
+    }
+    const read = await this.#read(file, name);
+    return read.ok ? ok(read.value.record) : read;
+  }
+
+  async #read(
+    file: string,
+    expectedName?: string,
+  ): Promise<Result<{ name: string; record: unknown }, ProtectedStoreErrorCode>> {
+    let raw: Buffer;
+    try {
+      raw = await this.#fs.readFile(join(this.#dir, file));
     } catch {
       return fail("STORE_UNREADABLE", "a protected record cannot be read");
     }
     let env: Envelope;
     try {
-      env = JSON.parse(raw) as Envelope;
+      env = JSON.parse(raw.toString("utf8")) as Envelope;
     } catch {
       return fail("STORE_CORRUPT", "a protected record is not valid JSON");
     }
@@ -93,16 +108,24 @@ export class ProtectedStore {
       env === null ||
       env.format !== this.#format ||
       env.format_version !== PROTECTED_STORE_FORMAT_VERSION ||
-      env.name !== name ||
-      typeof env.mac !== "string"
+      typeof env.name !== "string" ||
+      (expectedName !== undefined && env.name !== expectedName) ||
+      !Object.hasOwn(env, "record") ||
+      Object.keys(env).length !== 5 ||
+      typeof env.mac !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(env.mac)
     )
       return fail("STORE_CORRUPT", "a protected record is not exactly this store's envelope");
+    if (expectedName === undefined && fileFor(env.name) !== file)
+      return fail("STORE_CORRUPT", "a protected record is not at the file its name derives");
     const { mac, ...rest } = env;
-    const want = Buffer.from(this.#mac(rest), "hex");
-    const have = Buffer.from(mac, "hex");
-    if (want.length !== have.length || !timingSafeEqual(want, have))
-      return fail("STORE_CORRUPT", "a protected record fails its integrity check");
-    return ok(env.record);
+    try {
+      if (!timingSafeEqual(Buffer.from(this.#mac(rest), "hex"), Buffer.from(mac, "hex")))
+        return fail("STORE_CORRUPT", "a protected record fails its integrity check");
+    } catch {
+      return fail("STORE_CORRUPT", "a protected record is not canonical JSON data");
+    }
+    return ok({ name: env.name, record: env.record });
   }
 
   /** Creates a record only if absent (atomic across processes); an existing one is reported, never overwritten. */
@@ -136,28 +159,22 @@ export class ProtectedStore {
   async all(): Promise<Result<{ name: string; record: unknown }[], ProtectedStoreErrorCode>> {
     let files: string[];
     try {
-      files =
-        (await this.#fs.fileSize(this.#dir)) === null && !this.#made
-          ? []
-          : await this.#fs.list(this.#dir);
+      if ((await this.#fs.fileSize(this.#dir, { followSymlinks: false })) === null) {
+        if (!this.#made && !this.#seenDir) return ok([]);
+        return fail("STORE_UNREADABLE", "the protected records cannot be listed");
+      }
+      this.#seenDir = true;
+      // An ENOENT after the presence probe means inspection failed.
+      files = await this.#fs.list(this.#dir, { requirePresent: true });
     } catch {
-      return ok([]);
+      return fail("STORE_UNREADABLE", "the protected records cannot be listed");
     }
     const out: { name: string; record: unknown }[] = [];
     for (const f of files.filter((n) => n.endsWith(".json")).sort()) {
-      let name: unknown;
-      try {
-        name = (
-          JSON.parse((await this.#fs.readFile(join(this.#dir, f))).toString("utf8")) as Envelope
-        ).name;
-      } catch {
-        return fail("STORE_CORRUPT", "a protected record is not valid JSON");
-      }
-      if (typeof name !== "string" || fileFor(name) !== f)
-        return fail("STORE_CORRUPT", "a protected record is not at the file its name derives");
-      const got = await this.get(name);
+      // Authenticate the same bytes that proved the name and filename match.
+      const got = await this.#read(f);
       if (!got.ok) return got;
-      out.push({ name, record: got.value });
+      out.push(got.value);
     }
     return ok(out);
   }

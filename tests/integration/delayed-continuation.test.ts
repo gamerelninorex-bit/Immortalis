@@ -9,6 +9,7 @@
 // projection -> strict replay) is in initial-setup-witness.test.ts; the bootstrap-bearing look -> separately authorized collection ->
 // conservation stages are NOT built (see docs/initial-locality-bootstrap-v9-foundation.md, "Bootstrap-bearing witness").
 import { readFileSync, readdirSync } from "node:fs";
+import { rename, symlink, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeAll, expect, it } from "vitest";
 import { ledgerFileName } from "@immortalis/operator";
@@ -161,6 +162,23 @@ it("the player's EARLIER original request is carried out by a NEW live continue_
     await r.chat.call("play_status");
     await r.chat.call("collection_setup_status");
     expect((await read(s)).commitments).toHaveLength(0);
+
+    // A dangling link at the retained record is an inspection failure, never an absent request.
+    const pendingDir = join(s.operatorDir, "delayed-action", "pending");
+    const pendingPath = join(pendingDir, readdirSync(pendingDir)[0]!);
+    await rename(pendingPath, `${pendingPath}.retained`);
+    await symlink(`${pendingPath}.unavailable`, pendingPath);
+    try {
+      const blocked = await r.chat.call("continue_pending_goal", { request_id: "request-1" });
+      expect(blocked.isError).toBe(true);
+      expect(JSON.stringify(blocked)).toContain(
+        "the pending-action records cannot be verified now",
+      );
+      expect(await read(s)).toEqual(before);
+    } finally {
+      await unlink(pendingPath);
+      await rename(`${pendingPath}.retained`, pendingPath);
+    }
 
     // the NEW live request
     const started = await r.chat.call("continue_pending_goal", { request_id: "request-1" });

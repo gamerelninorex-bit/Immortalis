@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { FsOps } from "@immortalis/engine";
 import { describe, expect, it } from "vitest";
 import {
   QUEUED_COMMANDS,
@@ -23,12 +24,13 @@ import {
   consumeOrdinaryAction,
 } from "../../packages/operator/src/ordinary-action.ts";
 import { consumeRequestEvidence } from "../../packages/operator/src/request-evidence.ts";
-import { tempDir } from "../support/tmp.ts";
+import { observeProtectedFs } from "../support/protected-store-fs.ts";
+import { snapshotDir, tempDir } from "../support/tmp.ts";
 
 const CAMPAIGN = "campaign-queue";
 const live = { session: "session-1", id: "7" };
 
-function rig(over: { t?: { now: number }; dir?: string; key?: Buffer } = {}) {
+function rig(over: { t?: { now: number }; dir?: string; key?: Buffer; fs?: FsOps } = {}) {
   const t = over.t ?? { now: 1_000 };
   const dir = over.dir ?? tempDir("queued-edit-");
   const macKey = over.key ?? randomBytes(32);
@@ -41,6 +43,7 @@ function rig(over: { t?: { now: number }; dir?: string; key?: Buffer } = {}) {
       REVISE_PC: (p) => Array.isArray(p["edits"]),
       REVISE_SETUP: (p) => typeof p["setup"] === "object" && p["setup"] !== null,
     },
+    ...(over.fs ? { fs: over.fs } : {}),
   });
   return { store, t, dir, macKey };
 }
@@ -159,6 +162,63 @@ describe("QueuedSetupEditStore: a legitimate edit made during the freeze is reta
 });
 
 describe("QueuedSetupEditStore: tombstones, expiry and corruption", () => {
+  it.each([0, 32])(
+    "refuses unavailable sweep and retains the expiry tombstone after reopen with %i other edits",
+    async (unrelated) => {
+      const watched = observeProtectedFs();
+      const { store, dir, macKey, t } = rig({ fs: watched.fs });
+      const reopen = () => rig({ dir, key: macKey, t, fs: watched.fs }).store;
+      const original = await must<QueuedSetupEditRecord>(store.enqueue(pcEdit()));
+      for (let i = 0; i < unrelated; i++) {
+        await must(
+          store.enqueue(
+            setupEdit({ original_request_ref: `other-${i}`, access_expires_at_ms: 50_000 }),
+          ),
+        );
+      }
+      const bytes = snapshotDir(dir);
+      t.now = original.expires_at_ms;
+      watched.fail("fileSize", "EIO");
+      expect(await code(store.list())).toBe("QUEUE_STORE");
+      expect(await code(store.sweepExpired())).toBe("QUEUE_STORE");
+      watched.fail("readFile", "EACCES");
+      expect(await code(store.get(original.queue_id))).toBe("QUEUE_STORE");
+      expect(await code(store.markApplied(original.queue_id))).toBe("QUEUE_STORE");
+      expect(snapshotDir(dir)).toEqual(bytes);
+      watched.restore();
+      const reopened = reopen();
+      watched.calls.length = 0;
+      expect(await must(reopened.sweepExpired())).toEqual([original.queue_id]);
+      expect(watched.calls).toEqual([
+        "fileSize",
+        "list",
+        ...Array<string>(unrelated + 1).fill("readFile"),
+        "fileSize",
+        "readFile",
+        "mkdirp",
+        "writeFileDurable",
+      ]);
+      const settled = snapshotDir(dir);
+      for (let i = 0; i < 3; i++) {
+        watched.calls.length = 0;
+        const retry = await must<QueuedSetupEditRecord>(
+          reopen().enqueue(pcEdit({ access_expires_at_ms: 99_999 })),
+        );
+        expect(retry).toMatchObject({
+          queue_id: original.queue_id,
+          expires_at_ms: original.expires_at_ms,
+          phase: "REJECTED",
+          reason: "EXPIRED",
+          revision: 1,
+        });
+        expect(watched.calls).toEqual(["fileSize", "readFile"]);
+      }
+      expect(await must(reopened.sweepExpired())).toEqual([]);
+      expect(await code(reopened.markApplied(original.queue_id))).toBe("QUEUE_STATE");
+      expect(snapshotDir(dir)).toEqual(settled);
+    },
+  );
+
   it("a long freeze can exhaust the ORIGINAL deadline: the edit becomes a REJECTED EXPIRED tombstone and nothing is refreshed", async () => {
     const { store, t } = rig();
     const live1 = await must<QueuedSetupEditRecord>(store.enqueue(pcEdit()));
