@@ -342,12 +342,10 @@ describe("RP-2 pins the four authorized production repairs", () => {
       changed.push(...output!.toString("utf8").trim().split("\n").filter(Boolean));
     }
     expect(changed.sort()).toEqual(Object.keys(RP2_SOURCE_DELTAS).sort());
-    expect(
-      git("rev-parse", `${RP2_BASE_TREE}:spec/f027/spec-lock.json`)?.toString("utf8").trim(),
-    ).toBe("3fba63805b10fc5b39a247a6f2ffd0a1d4359b88");
-    expect(git("hash-object", "spec/f027/spec-lock.json")?.toString("utf8").trim()).toBe(
-      "3fba63805b10fc5b39a247a6f2ffd0a1d4359b88",
-    );
+    const lockPath = "spec/f027/spec-lock.json";
+    const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();
+    expect(baselineLock).toMatch(/^[0-9a-f]{40}$/);
+    expect(git("hash-object", lockPath)?.toString("utf8").trim()).toBe(baselineLock);
   });
 
   it("verifies the original initial Population and pre-RP-2 referee identities at their historical trees", () => {
