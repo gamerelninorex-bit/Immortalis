@@ -170,6 +170,7 @@ describe("existing owners, the gateway, the read transport, the referee surface 
         "ms-actor-runner.ts",
         "ms-initial-actor.ts",
         "protected-store.ts",
+        "request-host-binding.ts",
         ...NEW_MODULES,
         ...ADVANCE_MODULES,
       ].sort(),

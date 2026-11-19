@@ -17,18 +17,7 @@ import {
   observationEventId,
   verifyEpistemicIntegrity,
 } from "@immortalis/engine";
-import { randomBytes } from "node:crypto";
-import {
-  chmodSync,
-  closeSync,
-  fsyncSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeSync,
-} from "node:fs";
+
 import { join } from "node:path";
 import {
   CHARACTER_COMMAND,
@@ -46,6 +35,7 @@ import {
   type CollectionIdentity,
 } from "./collection-recovery.ts";
 import type { PhoneConfig } from "./config.ts";
+import { finishRetainedRemoval, readRetainedFile, replaceRetainedFile } from "./retained-file.ts";
 import type { StageOutcome } from "./route-evidence.ts";
 import { validStageIdentity, type StageIdentity } from "./route-stages.ts";
 import {
@@ -165,15 +155,9 @@ const validIdentity = (v: unknown): boolean =>
   v["task_ids"][0] === v["task_id"];
 
 export function readPending(config: PhoneConfig): PendingRead {
-  let text: string;
   try {
-    text = readFileSync(pendingPath(config), "utf8");
-  } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "ENOENT"
-      ? { kind: "NONE" }
-      : { kind: "UNREADABLE" };
-  }
-  try {
+    const text = readRetainedFile(pendingPath(config));
+    if (text === null) return { kind: "NONE" };
     const v: unknown = JSON.parse(text);
     if (
       !record(v) ||
@@ -222,39 +206,13 @@ export function readPending(config: PhoneConfig): PendingRead {
   }
 }
 
-/** Atomic replace (write a sibling, fsync, rename): a reader sees the old record or the new one, never a torn one. false = not recorded. */
+/** False means publication was not acknowledged. The adapter must not dispatch on it. */
 export function writePending(config: PhoneConfig, p: PendingOperation): boolean {
-  const target = pendingPath(config);
-  const temp = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
-  try {
-    mkdirSync(config.operatorDir, { recursive: true, mode: 0o700 });
-    const fd = openSync(temp, "wx", 0o600);
-    try {
-      writeSync(fd, `${JSON.stringify(p)}\n`);
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-    chmodSync(temp, 0o600);
-    renameSync(temp, target);
-    return true;
-  } catch {
-    try {
-      rmSync(temp, { force: true });
-    } catch {
-      // nothing more to do: the record was not maintained
-    }
-    return false;
-  }
+  return replaceRetainedFile(pendingPath(config), p);
 }
 
 export function clearPending(config: PhoneConfig): boolean {
-  try {
-    rmSync(pendingPath(config), { force: true });
-    return true;
-  } catch {
-    return false;
-  }
+  return finishRetainedRemoval(pendingPath(config), true);
 }
 
 // -- owner-side readback of an observation --------------------------------------------------------------------------------------

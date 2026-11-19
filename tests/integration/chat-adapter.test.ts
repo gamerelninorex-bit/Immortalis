@@ -2631,7 +2631,9 @@ describe("MECHANISM (BLUE R3 delta): the pending record is per campaign, validat
       const [cli, stub] = stubCli();
       const s = await serve({ runCli: cli }, {}, SCENARIO);
       await s.app.close();
-      writeFileSync(pendingFile(s.config), JSON.stringify(recordOf(s.config, over)));
+      writeFileSync(pendingFile(s.config), JSON.stringify(recordOf(s.config, over)), {
+        mode: 0o600,
+      });
       const app = createPhoneServer(s.config, {
         pollMs: 300,
         recovery: STUB_RECOVERY,

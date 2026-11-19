@@ -32,6 +32,7 @@ import {
 import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
+import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { REMOVED_GM_FREIGHT_PINS } from "../support/gm-freight-removed-pins.ts";
 import {
   GM_FREIGHT_BASE_COMMIT,
@@ -191,6 +192,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...A26_CHANGED_SOURCE_FILES,
       A24_ADAPTER_DELTA.path,
       ...Object.keys(A05_SOURCE_DELTAS),
+      ...RP1_STAGE2_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4

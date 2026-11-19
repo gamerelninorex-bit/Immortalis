@@ -76,8 +76,8 @@ const UNCHANGED: Readonly<Record<string, string>> = {
     "8d06bb0cc0e6b9ffedb38ff65c2f8569ab9cd39fcfcd78530dd027102ba40b2a",
   "packages/operator/src/observe-request.ts":
     "ff97b8f7cc4b4441af72d676b055146881270931c860ae7f9b87d326e5789880",
-  "packages/operator/src/observe-request-exchange.ts":
-    "e92b96cd575b4e6f63dff8c1a0d4888a207a0b01a14e131b123eecafe8d5bb54",
+  // RP-1 Stage 2 pins observe-request-exchange.ts against the pre-repair source in rp1-stage2-deltas.ts.
+  // Previous source SHA-256 e92b96cd575b4e6f63dff8c1a0d4888a207a0b01a14e131b123eecafe8d5bb54.
   "packages/operator/src/observe-request-mcp.ts":
     "e9eb04b34eb9a15f18d85bdd96c54151b3599e917be20a901edba741f08ad666",
   "packages/operator/src/observe-request-cli.ts":

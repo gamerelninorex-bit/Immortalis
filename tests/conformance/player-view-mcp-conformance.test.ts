@@ -159,6 +159,7 @@ describe("existing owners, the gateway, the referee surface and the specificatio
         "ms-actor-runner.ts",
         "ms-initial-actor.ts",
         "protected-store.ts",
+        "request-host-binding.ts",
         ...NEW_MODULES,
       ].sort(),
     );
