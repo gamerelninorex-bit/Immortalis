@@ -44,8 +44,7 @@ const UNCHANGED: Record<string, string> = {
     "d228778def292e049d5acdc3eabdbfd98529cfb4a153f9c8ced5db459edb392d",
   // A01 changes Population admission. Its historical SHA-256 at this suite's named base remains
   // 352659bcfb65d4b996950c19ba487a8e5163a852fb9b61b0be65ff9c72af628e; it is no longer a working-tree identity.
-  "packages/engine/src/population/derive.ts":
-    "8a632d495e294e8e3d421190945755fee80d82f58fb673b5b02bacdc38158e0f",
+  // A03 changes additiveTotal. The immutable 40527749 derive.ts pin is verified by the RP-2 provenance check.
   "packages/engine/src/population/provider.ts":
     "794b2f6b876e4d1c75602534580be7dfbe7ba4fc8bbed6c7a291746449c17dcf",
   "packages/engine/src/population/declaration.ts":
@@ -76,7 +75,7 @@ const UNCHANGED: Record<string, string> = {
 };
 
 describe("nothing outside the operator is touched", () => {
-  it("the remaining byte-identity pins still hold; PR #94, ROADBED and A01 changes are excluded from this older slice's unchanged map", () => {
+  it("the remaining byte-identity pins still hold for the unchanged inputs to this slice", () => {
     for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
   });
 

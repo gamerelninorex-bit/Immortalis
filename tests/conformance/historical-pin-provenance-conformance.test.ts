@@ -20,6 +20,7 @@ import {
   RP1_STAGE2_BASE_TREE,
   RP1_STAGE2_DELTAS,
 } from "../support/rp1-stage2-deltas.ts";
+import { RP2_BASE, RP2_BASE_TREE, RP2_SOURCE_DELTAS } from "../support/rp2-source-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -131,7 +132,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     pinsIn(readFileSync(suite, "utf8")).map((pin) => ({ suite, ...pin })),
   );
 
-  it("scans every pin of every examined suite: 511 pins, 40 on changed paths (history kept), 471 on unchanged paths (exempted, still true)", () => {
+  it("scans every pin of every examined suite: 510 pins, 40 on changed paths (history kept), 470 on unchanged paths (exempted, still true)", () => {
     const onChanged = rows.filter((r) => isChanged(r.path));
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
@@ -158,9 +159,10 @@ describe("census of the examined suites as they stand: changed paths hold only h
         path,
       ).toHaveLength(count);
     // RP-1 Stage 2 retains the two former live Observe Exchange pins in the Stage 2 baseline.
-    expect(rows).toHaveLength(511);
+    // RP-2 retains the former live Population derivation pin at the initial Population suite's base below.
+    expect(rows).toHaveLength(510);
     expect(onChanged).toHaveLength(40);
-    expect(exempt).toHaveLength(471);
+    expect(exempt).toHaveLength(470);
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
@@ -301,21 +303,64 @@ describe("RP-1 Stage 2 pins the request binding and retained-file delta", () => 
       expect(git("rev-parse", `${RP1_STAGE2_BASE}^{tree}`)?.toString("utf8").trim()).toBe(
         RP1_STAGE2_BASE_TREE,
       );
-    const paths = new Set<string>();
     for (const [path, delta] of Object.entries(RP1_STAGE2_DELTAS)) {
       expect(fileAt(RP1_STAGE2_BASE_TREE, path), path).toBe(delta.base);
+      expect(fileAt(RP2_BASE_TREE, path), path).toBe(delta.head);
       expect(identityOf(path), path).toBe(delta.head);
-      paths.add(path);
     }
+    const output = git(
+      "diff",
+      "--name-only",
+      RP1_STAGE2_BASE_TREE,
+      RP2_BASE_TREE,
+      "--",
+      "apps",
+      "packages",
+    );
+    expect(output?.toString("utf8").trim().split("\n").sort()).toEqual(
+      Object.keys(RP1_STAGE2_DELTAS).sort(),
+    );
+  });
+});
+
+describe("RP-2 pins the four authorized production repairs", () => {
+  it("verifies the baseline, current blobs and exact production scope", () => {
+    expect(git("rev-parse", `${RP2_BASE}^{tree}`)?.toString("utf8").trim()).toBe(RP2_BASE_TREE);
+    for (const [path, delta] of Object.entries(RP2_SOURCE_DELTAS)) {
+      expect(git("rev-parse", `${RP2_BASE_TREE}:${path}`)?.toString("utf8").trim(), path).toBe(
+        delta.base,
+      );
+      expect(git("hash-object", path)?.toString("utf8").trim(), path).toBe(delta.head);
+    }
+    const changed: string[] = [];
     for (const [command, args] of [
-      ["diff", ["--name-only", RP1_STAGE2_BASE_TREE]],
+      ["diff", ["--name-only", RP2_BASE_TREE]],
       ["ls-files", ["--others", "--exclude-standard"]],
     ] as const) {
       const output = git("-c", "core.fileMode=false", command, ...args, "--", "apps", "packages");
       expect(output).not.toBeNull();
-      for (const path of output!.toString("utf8").trim().split("\n").filter(Boolean))
-        expect(paths.has(path), path).toBe(true);
+      changed.push(...output!.toString("utf8").trim().split("\n").filter(Boolean));
     }
+    expect(changed.sort()).toEqual(Object.keys(RP2_SOURCE_DELTAS).sort());
+    const lockPath = "spec/f027/spec-lock.json";
+    const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();
+    expect(baselineLock).toMatch(/^[0-9a-f]{40}$/);
+    expect(git("hash-object", lockPath)?.toString("utf8").trim()).toBe(baselineLock);
+  });
+
+  it("verifies the original initial Population and pre-RP-2 referee identities at their historical trees", () => {
+    expect(
+      fileAt(
+        "40527749b68781f008c6b59e97f5cf90db24618b",
+        "packages/engine/src/population/derive.ts",
+      ),
+    ).toBe("8a632d495e294e8e3d421190945755fee80d82f58fb673b5b02bacdc38158e0f");
+    expect(fileAt(RP2_BASE_TREE, "packages/operator/src/referee-exchange.ts")).toBe(
+      "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
+    );
+    expect(treeAt(RP2_BASE_TREE, "packages/operator/src")).toBe(
+      "7f0ba91b496d58ccb382fee13fe3833e93c562b735c63affc30608734cbe4752",
+    );
   });
 });
 

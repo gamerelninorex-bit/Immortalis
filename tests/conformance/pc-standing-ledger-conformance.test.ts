@@ -37,6 +37,7 @@ import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
+import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import {
   S4_BASE_COMMIT,
@@ -386,6 +387,7 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       A24_ADAPTER_DELTA.path,
       ...Object.keys(A05_SOURCE_DELTAS),
       ...RP1_STAGE2_PACKAGE_PATHS,
+      ...RP2_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)
