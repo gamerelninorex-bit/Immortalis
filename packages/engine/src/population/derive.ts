@@ -240,7 +240,7 @@ const basisKey = (s: BasisStamp): string => canonicalJson(s.basis);
 
 /**
  * The total of Cohorts that a declared partition proves additive: siblings of ONE partition, indexed on
- * the same Population fact, composed at one basis, none UNQUANTIFIED. Anything else fails closed — in
+ * the same Population fact at distinct places, composed at one basis, none UNQUANTIFIED. Anything else fails closed — in
  * particular two overlapping views, a view added to a partition, a residence Cohort added to a burden
  * Cohort, or a closed Population basis combined with another point.
  */
@@ -288,11 +288,9 @@ export function additiveTotal(
         },
       );
   }
+  const basis = basisKey((first.result as CohortResult).basis_stamp);
   for (const v of views) {
-    if (
-      basisKey((v.result as CohortResult).basis_stamp) !==
-      basisKey((first.result as CohortResult).basis_stamp)
-    )
+    if (basisKey((v.result as CohortResult).basis_stamp) !== basis)
       return fail("MIXED_BASIS", "Cohort results composed at different bases cannot be combined", {
         cohort_id: v.ref.cohort_id,
       });
@@ -300,8 +298,30 @@ export function additiveTotal(
   let lower = 0;
   let upper = 0;
   let exact = true;
+  const cohorts = new Set<string>();
+  const places = new Set<string>();
+  const members = new Set<string>();
   for (const v of views) {
-    const c = (v.result as CohortResult).cardinality;
+    const {
+      cohort_id,
+      scope: { place },
+    } = v.ref;
+    // At a single basis each unit's indexed fact names at most one place in the ledger.
+    if (cohorts.has(cohort_id) || places.has(place))
+      return fail("OVERLAP_NOT_ADDITIVE", "the partition sibling was submitted more than once", {
+        cohort_id,
+      });
+    cohorts.add(cohort_id);
+    places.add(place);
+    const result = v.result as CohortResult;
+    for (const member of result.members ?? []) {
+      if (members.has(member))
+        return fail("OVERLAP_NOT_ADDITIVE", "partition siblings have a common member", {
+          cohort_id,
+        });
+      members.add(member);
+    }
+    const c = result.cardinality;
     if (c.semantics === "EXACT") {
       lower += c.count;
       upper += c.count;

@@ -30,3 +30,38 @@ describe("canonicalJson", () => {
     );
   });
 });
+
+describe("A28 canonical JSON dense arrays", () => {
+  const deleted = [1, 2, 3];
+  Reflect.deleteProperty(deleted, "1");
+  const inherited = Object.setPrototypeOf(
+    Array(1),
+    Object.assign(Object.create(Array.prototype), {
+      0: "inherited",
+    }),
+  );
+
+  it.each([
+    { name: "one hole", value: Array(1) },
+    { name: "two holes", value: Array(2) },
+    { name: "first hole", value: Object.assign(Array(2), { 1: 1 }) },
+    { name: "middle hole", value: Object.assign(Array(3), { 0: 1, 2: 2 }) },
+    { name: "last hole", value: Object.assign(Array(2), { 0: 1 }) },
+    { name: "deleted own slot", value: deleted },
+    { name: "inherited slot", value: inherited },
+    { name: "nested array", value: { nested: [[1, Array(1)]] } },
+  ])("refuses $name before serialization or hashing", ({ value }) => {
+    expect(() => canonicalJson(value)).toThrow(TypeError);
+    expect(() => sha256Canonical(value)).toThrow(TypeError);
+  });
+
+  it("preserves dense array bytes and refuses unsupported dense values", () => {
+    expect(canonicalJson([])).toBe("[]");
+    expect(canonicalJson([null])).toBe("[null]");
+    expect(canonicalJson([1, false, "ár", [true, -0, null, { z: 1, a: 2 }]])).toBe(
+      '[1,false,"ár",[true,0,null,{"a":2,"z":1}]]',
+    );
+    for (const bad of [[undefined], { nested: [[undefined]] }, [() => 1], [1n], [-Infinity]])
+      expect(() => canonicalJson(bad)).toThrow(TypeError);
+  });
+});

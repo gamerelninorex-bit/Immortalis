@@ -42,7 +42,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/operator/src/original-pc.ts":
     "eeeb2f272bee74d1f1c37a32c342820247b04598ace307514dc6bfe041356d17",
   "packages/operator/src/referee-exchange.ts":
-    "4a90c9c2fbd76ca69611652d4af86d172d4e3155b245eea835e8b411b1d5a4ed",
+    "b887dfe9d8b27cc8ef79e04e4e57d706eb6699b4a0077c75d21d9d5a0d4dcc17",
   "packages/operator/src/referee-mcp.ts":
     "24d11bf7982efc1b2e77cddb59f43724dfb9a40a32d2dcb921d897913f6472cb",
   "packages/operator/src/referee-session.ts":
@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "7f0ba91b496d58ccb382fee13fe3833e93c562b735c63affc30608734cbe4752",
+  "packages/operator/src": "148c35e226b7974e790300c2813a71f81c716671145d599c50383f9c59a080b3",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",
 };
 

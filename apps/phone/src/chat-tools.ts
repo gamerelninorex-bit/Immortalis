@@ -1106,6 +1106,12 @@ const CHARACTER_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+const CHARACTER_FIELDS = Object.keys(CHARACTER_SCHEMA.properties);
+const BASELINE_DERIVED_FIELDS = ["contact", "embodiment", "continuity"];
+const SHORTHAND_FIELDS = CHARACTER_FIELDS.filter(
+  (field) => !BASELINE_DERIVED_FIELDS.includes(field),
+);
+
 const EDIT_LISTS = ["contact", "exception", "open", "possession"] as const;
 const EDIT_SCHEMA = {
   type: "object",
@@ -1191,16 +1197,8 @@ function listOf(path: string, v: unknown, issues: string[], min = 0): string[] {
 /** The player's offered character as the shipped authoring would take it. The model supplies untrusted CANDIDATE words; nothing is completed for the player. */
 export function parseOffer(args: Record<string, unknown>): Parsed<CharacterDraft> {
   const issues: string[] = [];
-  const known = [
-    "identity",
-    "contact",
-    "embodiment",
-    "continuity",
-    "exceptions",
-    "open",
-    "possessions",
-  ];
-  for (const k of Object.keys(args)) if (!known.includes(k)) issues.push(`${k}: is not offered`);
+  for (const k of Object.keys(args))
+    if (!CHARACTER_FIELDS.includes(k)) issues.push(`${k}: is not offered`);
   const identity = statementOf("identity", args["identity"], issues);
   const embodiment = statementOf("embodiment", args["embodiment"], issues);
   const continuity = statementOf("continuity", args["continuity"], issues);
@@ -1947,8 +1945,11 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
         ...CHARACTER_SCHEMA,
         required: ["identity"],
         anyOf: [
-          { required: ["baseline_human"] },
-          { required: ["identity", "contact", "embodiment", "continuity"] },
+          {
+            required: ["baseline_human"],
+            not: { anyOf: BASELINE_DERIVED_FIELDS.map((field) => ({ required: [field] })) },
+          },
+          { required: CHARACTER_SCHEMA.required, not: { required: ["baseline_human"] } },
         ],
         properties: {
           ...CHARACTER_SCHEMA.properties,
@@ -1979,12 +1980,7 @@ export function buildChatTools(d: ChatToolDeps): McpTool[] {
           if (
             typeof baseline !== "string" ||
             !judgeStatement(baseline).ok ||
-            !onlyKeys(characterArgs, [
-              "identity",
-              "exceptions",
-              "open_items",
-              "initial_possessions",
-            ])
+            !onlyKeys(characterArgs, SHORTHAND_FIELDS)
           )
             return text(
               "baseline human shorthand must be the player’s own wording, with exceptions separate",

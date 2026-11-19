@@ -245,16 +245,26 @@ export async function bindHost(
   // refused before any secret is drawn or anything is written: a ninth host would make the whole binding unreadable
   if (config.hosts.length >= MAX_HOSTS)
     return fail("CONFIG_INVALID", "this campaign already has the maximum number of bound hosts");
-  const secret = randomBytes(32).toString("hex");
+  if (!Array.isArray(p.operations))
+    return fail("CONFIG_INVALID", "the referee binding operations must be a list");
+  // Validate the complete reader shape before drawing a secret. The placeholder never reaches disk.
+  const host = {
+    host_id: p.hostId,
+    secret: "0".repeat(64),
+    operations: [...new Set(p.operations)],
+  };
   const next: RefereeConfig = {
     ...config,
-    hosts: [...config.hosts, { host_id: p.hostId, secret, operations: [...new Set(p.operations)] }],
+    hosts: [...config.hosts, host],
   };
+  if (!ConfigSchema.safeParse(next).success)
+    return fail("CONFIG_INVALID", "the proposed referee binding is not valid");
+  host.secret = randomBytes(32).toString("hex");
   try {
     await fs.mkdirp(refereeDir(p));
     // the secret and the binding are the operator's alone: owner-only, and the host's tool server refuses a secret file others can read
     await chmod(refereeDir(p), 0o700);
-    await fs.createExclusive(secretPath(p, p.hostId), `${secret}\n`);
+    await fs.createExclusive(secretPath(p, p.hostId), `${host.secret}\n`);
     await chmod(secretPath(p, p.hostId), 0o600);
     await fs.writeFileDurable(configPath(p), `${JSON.stringify(next, null, 2)}\n`);
     await chmod(configPath(p), 0o600);

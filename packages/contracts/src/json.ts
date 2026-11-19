@@ -30,7 +30,16 @@ export function canonicalJson(value: unknown): string {
       if (!Number.isFinite(value)) throw new TypeError("canonicalJson: non-finite number");
       return JSON.stringify(value);
     case "object": {
-      if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+      if (Array.isArray(value)) {
+        const length = value.length;
+        const parts: string[] = [];
+        for (let i = 0; i < length; i++) {
+          if (!Object.hasOwn(value, i))
+            throw new TypeError(`canonicalJson: missing array index ${i}`);
+          parts.push(canonicalJson(value[i]));
+        }
+        return `[${parts.join(",")}]`;
+      }
       const proto: unknown = Object.getPrototypeOf(value);
       if (proto !== Object.prototype && proto !== null) {
         throw new TypeError("canonicalJson: only plain objects are supported");

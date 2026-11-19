@@ -198,3 +198,92 @@ describe("Cohort derivation and arithmetic (WS-015 §§VI–X)", () => {
     });
   });
 });
+
+describe("A03 declared partition sibling uniqueness", () => {
+  const sibling = (cohortId: string, place: string, ledgerId = LEDGER_MAIN): CohortView => {
+    const ref = burdenCohort(cohortId, place, ledgerId);
+    return { ref, result: composeCohortResult(ref, mainUnits(), null, stampAt()) };
+  };
+  const left = sibling(COHORT_BURDEN_L, PLACE_L);
+  const right = sibling(COHORT_BURDEN_M, PLACE_M);
+  const bounded = (v: CohortView): CohortView => ({
+    ref: { ...v.ref, cardinality_semantics: "BOUNDED" },
+    result: {
+      cardinality: { semantics: "BOUNDED", lower: 1, upper: 3 },
+      members: null,
+      basis_stamp: stampAt(),
+    },
+  });
+
+  it.each([
+    { name: "same object", duplicate: left },
+    { name: "deep copy", duplicate: structuredClone(left) },
+    { name: "same ID at a distinct place", duplicate: sibling(left.ref.cohort_id, PLACE_M) },
+    { name: "distinct ID at the same place", duplicate: sibling("alias", PLACE_L) },
+    {
+      name: "shared member at a reported distinct place",
+      duplicate: {
+        ...right,
+        result: { ...right.result!, members: ["u-1", "u-4"] },
+      },
+    },
+  ])("rejects $name before count arithmetic", ({ duplicate }) => {
+    const before = structuredClone([left, duplicate]);
+    expect(additiveTotal([left, duplicate])).toMatchObject({
+      ok: false,
+      error: { code: "OVERLAP_NOT_ADDITIVE" },
+    });
+    expect([left, duplicate]).toEqual(before);
+  });
+
+  it("uses declared indexed places even for empty or non-enumerated siblings", () => {
+    const empty = sibling("empty", "place-empty");
+    expect(empty.result?.members).toEqual([]);
+    const duplicateEmpty = sibling("empty-alias", "place-empty");
+    expect(additiveTotal([empty, duplicateEmpty])).toMatchObject({
+      ok: false,
+      error: { code: "OVERLAP_NOT_ADDITIVE" },
+    });
+    expect(additiveTotal([bounded(left), bounded(sibling("alias", PLACE_L))])).toMatchObject({
+      ok: false,
+      error: { code: "OVERLAP_NOT_ADDITIVE" },
+    });
+    expect(additiveTotal([bounded(left), bounded(right)])).toEqual({
+      ok: true,
+      value: { semantics: "BOUNDED", lower: 2, upper: 6 },
+    });
+  });
+
+  it("preserves scope and basis refusal precedence and the empty, single and distinct sums", () => {
+    const foreignLedger = sibling(left.ref.cohort_id, PLACE_L, "ledger-foreign");
+    const foreignFact = { ...left, ref: { ...left.ref, indexed_fact: "RESIDENCE" as const } };
+    const later = { ...left, result: { ...left.result!, basis_stamp: stampAt(POP_TC) } };
+    for (const foreign of [foreignLedger, foreignFact])
+      expect(additiveTotal([left, left, foreign])).toMatchObject({
+        ok: false,
+        error: { code: "PARTITION_MISMATCH" },
+      });
+    expect(additiveTotal([left, left, later])).toMatchObject({
+      ok: false,
+      error: { code: "MIXED_BASIS" },
+    });
+    expect(additiveTotal([left, left, { ...right, result: null }])).toMatchObject({
+      ok: false,
+      error: { code: "RESULT_ABSENT" },
+    });
+    const unquantified = {
+      ...right,
+      ref: { ...right.ref, cardinality_semantics: "UNQUANTIFIED" as const },
+    };
+    expect(additiveTotal([left, left, unquantified])).toMatchObject({
+      ok: false,
+      error: { code: "UNQUANTIFIED_IN_ARITHMETIC" },
+    });
+    expect(additiveTotal([])).toMatchObject({ ok: false, error: { code: "EMPTY" } });
+    expect(additiveTotal([left])).toEqual({ ok: true, value: { semantics: "EXACT", count: 2 } });
+    expect(additiveTotal([left, right])).toEqual({
+      ok: true,
+      value: { semantics: "EXACT", count: 4 },
+    });
+  });
+});
