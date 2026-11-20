@@ -198,6 +198,8 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...RP2_PACKAGE_PATHS,
       // the LATER F-014B A0 slice's recorded paths (its own table and conformance suite police them)
       ...A0_PACKAGE_PATHS,
+      // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
+      "packages/contracts/src/temporal-gm-wait.ts",
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4

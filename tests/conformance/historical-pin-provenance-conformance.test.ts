@@ -344,7 +344,14 @@ describe("RP-2 pins the four authorized production repairs", () => {
     }
     // F-014B A0 (a later slice, based on the tree after RP-2) added its own recorded paths under packages/: its table and
     // tests/conformance/a0-scope-conformance.test.ts police them; the four RP-2 repairs above are checked exactly as before
-    expect(changed.sort()).toEqual([...Object.keys(RP2_SOURCE_DELTAS), ...A0_PACKAGE_PATHS].sort());
+    // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
+    expect(changed.sort()).toEqual(
+      [
+        ...Object.keys(RP2_SOURCE_DELTAS),
+        ...A0_PACKAGE_PATHS,
+        "packages/contracts/src/temporal-gm-wait.ts",
+      ].sort(),
+    );
     const lockPath = "spec/f027/spec-lock.json";
     const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();
     expect(baselineLock).toMatch(/^[0-9a-f]{40}$/);

@@ -410,6 +410,8 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...RP2_PACKAGE_PATHS,
       // and the F-014B A0 slice's recorded paths (its own table and conformance suite police them)
       ...A0_PACKAGE_PATHS,
+      // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
+      "packages/contracts/src/temporal-gm-wait.ts",
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)
