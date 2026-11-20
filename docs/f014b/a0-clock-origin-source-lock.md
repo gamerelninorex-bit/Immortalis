@@ -1,14 +1,29 @@
 # F-014B A0 — Clock-Origin Technical-Source Lowering (Builder candidate)
 
-**Status: BUILDER-PREPARED CANDIDATE FOR BLUE SCOPED SOURCE-FIDELITY / HARD PREFLIGHT. Not a lock, not a PASS, no code.**
+**Status: SOURCE-REVISED BUILDER CANDIDATE, amended in place to BLUE's Issue #114 direct decisions (S11, AMEND-HOLD). Not a lock, not a PASS, no production code. A0 construction stays on HOLD until an expressly executed scoped Hard Preflight passes.**
+
+Revision status (20 Nov 2026):
+
+- Binding direction for this revision: S11, [BLUE F-014B Issue #114 Direct A0/B0 Source Decisions — PR #116 Q1–Q5 / #117 OSQ1–12 & K1–K6 — AMEND-HOLD — 2026-11-20](https://app.notion.com/p/41e20af901e08163acb0f8ed695f44ad), native pin `2026-11-20T00:15:08.470Z`, also posted as Issue #114 comment 7026060101. BLUE reviewed the previous revision at draft commit `99b2123bf2b01a518d302a665c605c13e0d25da9`.
+- BLUE disposition (S11, verbatim): "AMEND (draft contracts #116/#117 with direct decisions); A0/B0 prospective construction HOLD until scoped Hard Preflight PASS."
+- Gate interpretation (S11 §1, verbatim): "current v6.2 HOLD concerns prospective construction, not source text or independent tests of presently existing code. A0 and B0 may be source-revised and exact-file-tested in preparatory, no-new-canon modes now; no production semantic change, new writer or new request interface may be implemented before applicable scoped Hard Preflight PASS."
+- This revision:
+  - resolves Q1–Q5 (§9) and lowers the rulings into §2, §3.2, §3.3, §3.7, §3.9 and §10;
+  - records K1 (§4);
+  - adds A0-T00 as a test of existing code only (§6);
+  - is accompanied by the A0-only preflight intake `docs/f014b/a0-preflight-submission.md`.
+  - No file under `packages/` or `apps/` changes.
+- Main: the census below is anchored at `0c9e74b9d5dc8845751a543ace777277b2cb1308`. Main is now `8d25f9067219d944a5262eca06de20e70a5770f3` (PR #115), which changes only `vitest.config.ts`. No census file moved.
+
+Original preparation record:
 
 - Package: F-014B **A0 — clock-origin engine contract** (master issue #114).
 - Base: `gamerelninorex-bit/Immortalis` main `0c9e74b9d5dc8845751a543ace777277b2cb1308`.
 - Prepared by: Claude Code as the Builder named in the Sovereign's F-014B construction commission (19 Nov 2026).
 - Gate state at preparation: BLUE Scoped Lowering v0.5 holds construction of A0/A1/B0/B1/B2. BLUE v0.3 §9 permits "isolated design and fixture planning" for A0 and B0. BLUE Universal Hard Preflight v6.2 (19 Nov) holds the W2 T1 slice because this A0 lowering did not exist.
-- Purpose: close the literal field/schema, owner/kind/key/lifecycle, rule, producer, admission-consumer, historical-verifier, MS and compatibility contract that CAL-TIME T-1 grants 1–5 and BLUE v0.2–v0.5 require **before** A0 construction. Every predicate below is derived from a quoted source or from the code at the base SHA. Where neither fixes one answer, it is listed in §9 rather than chosen.
+- Purpose: close the literal field/schema, owner/kind/key/lifecycle, rule, producer, admission-consumer, historical-verifier, MS and compatibility contract that CAL-TIME T-1 grants 1–5 and BLUE v0.2–v0.5 require **before** A0 construction. Every predicate below is derived from a quoted source or from the code at the base SHA. Where neither fixed one answer, the question went to BLUE; §9 records BLUE's rulings.
 
-Spellings marked **CANDIDATE** are ordinary technical encodings proposed by the Builder (or carried from BLUE v0.1's candidate names). They are not Role Registry facts until BLUE pins them.
+Spellings marked **CANDIDATE** are ordinary technical encodings proposed by the Builder (or carried from BLUE v0.1's candidate names). They are not Role Registry facts. S11 Q4 pinned four spellings, which no longer carry the label: `temporal_origin`, `temporal/origin`, `immortalis-temporal-origin` and `ONE_SI_SECOND_PER_CANONICAL_UNIT` (§3.2). S11 Q2 accepted the §3.7 segment spellings as a technical candidate, subject to exact declared re-pins.
 
 ---
 
@@ -26,8 +41,9 @@ Spellings marked **CANDIDATE** are ordinary technical encodings proposed by the 
 | S8  | [BLUE F-014B Scoped Lowering v0.2](https://app.notion.com/p/41d20af901e08123af8bdbaf314250ea)                                                                                                                                                                                                                                                                                                                                                                                                                                    | `2026-11-19T10:06:01.677Z`              | §1 A0 boundary; §4 MS shortcut prohibition; §5 history-ID activation rule and A0 non-tautology.                                                                                                                                                                                   |
 | S9  | RED reviews: [v0.2](https://app.notion.com/p/41d20af901e0810bbfe6dfa34a09cf93) `2026-11-19T10:23:56.318Z` (§3 Alt I constraints C1–C6), [v0.3](https://app.notion.com/p/41d20af901e081748aa2f3b8a7c7eec2) `2026-11-19T10:40:03.390Z` (parser enum correction; N-2), [v0.4](https://app.notion.com/p/41d20af901e081c7b7ccf3803875f590) `2026-11-19T11:05:09.838Z` (P-3), [CAL-TIME T-1 v0.4](https://app.notion.com/p/41c20af901e081789e45f0bd4be077e2) `2026-11-18T22:15:21.088Z` (§5 MS carry-forward and pair acceptance list) | Constraints this lowering must satisfy. |
 | S10 | [BLUE Universal Hard Preflight v6.2 — W2 T1 Dependency HOLD](https://app.notion.com/p/41d20af901e081aa8908d906795bfd76)                                                                                                                                                                                                                                                                                                                                                                                                          | `2026-11-19T12:48:18.740Z`              | Decisive failure: "Authentic v2 SI origin producer … EXTERNAL PREREQUISITE MISSING / SOURCE-LOWERING HOLD". This document is the missing lowering.                                                                                                                                |
+| S11 | [BLUE F-014B Issue #114 Direct A0/B0 Source Decisions — AMEND-HOLD](https://app.notion.com/p/41e20af901e08163acb0f8ed695f44ad) (Issue #114 comment 7026060101)                                                                                                                                                                                                                                                                                                                                                                   | `2026-11-20T00:15:08.470Z`              | Gate interpretation; binding direct answers to Q1–Q5 (§9); mandatory A0 fidelity conditions (§6); K1 pin-census correction (§4). Not a Sovereign grant, not an executed Hard Preflight, not permission to merge.                                                                  |
 
-No RED review of Scoped Lowering v0.5 was found (two Notion searches). The Canonical Role Registry (pin `2026-09-25T08:21:22.816Z`) contains **no** Temporal owner/kind rows. The owner-kind table actually in force is `packages/engine/src/owners/registry.ts`, so §3.2 proposes the row in that form and in the Registry's §5 interface-declaration form.
+No RED review of Scoped Lowering v0.5 was found (two Notion searches). S11 requests no new RED general review. The Canonical Role Registry (pin `2026-09-25T08:21:22.816Z`) contains **no** Temporal owner/kind rows. The owner-kind table actually in force is `packages/engine/src/owners/registry.ts`, so §3.2 proposes the row in that form and in the Registry's §5 interface-declaration form.
 
 ---
 
@@ -38,11 +54,11 @@ No RED review of Scoped Lowering v0.5 was found (two Notion searches). The Canon
 1. Strict v2 chronology document and capture schemas, and the two-arm `ChronologyEvidence` union (Alt I).
 2. The Temporal-owned SEALED origin witness kind, key, schema and owner-registry row.
 3. The shared paired-genesis rule, registered for both Temporal kinds.
-4. The registered v2-arm Input rule(s) (RED C4; see Q1).
+4. The two registered v2-arm Input rules, one per route (RED C4; S11 Q1 option A; §3.3).
 5. The paired-genesis producer branch in the existing `initialize-captured-chronology` writer.
 6. Live admission and **independent** historical verification of the pair and of version-to-genesis correspondence.
 7. The MS v3 clock-step pair, live B2 contextual membership and historical MS contextual check.
-8. The successor `historyVerificationId` (grant 3), declared re-pins, spec-lock lineage/lowering rows and check-spec validation.
+8. The successor `historyVerificationId` with two additive segments (grant 3; S11 Q2; §3.7), declared re-pins, spec-lock lineage/lowering rows and check-spec validation (S11 Q5; §3.9).
 9. A pure, unwired category-8 predicate with **negative-only** tests, labelled preparatory (S8 §5).
 
 **Not in A0:**
@@ -55,6 +71,16 @@ No RED review of Scoped Lowering v0.5 was found (two Notion searches). The Canon
 
 **Acceptance level:** everything A0 can prove is **T1 MECHANISM ONLY**, using testkit fixture authority (`fixture:` namespace, `FixtureEvidenceVerifier`). No production SI qualification exists until A1 runs (S5 §4).
 
+**Construction order (S11 Q3):**
+
+- A0 is built on its own bounded branch, **after its own formal gate**: a scoped Hard Preflight PASS on `docs/f014b/a0-preflight-submission.md`.
+- The full new verifier ID (§3.7) lands in the same code transition as A0's prospective validators. Changed validators never ship under the old identity. Sequencing never suppresses the first new verifier ID.
+- A1 starts as a dependent stacked PR as soon as it is safely source-authorized.
+- Preferred: one coherent merge/activation window for A0, actual A1 provenance and the first genuine consumer, if that avoids a redundant cold replay. A0 is **not** folded into one enormous PR, and work does **not** wait idly for the merge while independent work exists.
+- Merge timing and any deployment are Sovereign decisions.
+
+**Mandatory fidelity conditions (S11 §2):** A0-T00 first, then the conditions mapped to tests in §6. "Actual origin has not been constructed merely by describing it."
+
 ---
 
 ## 3. Literal contract
@@ -64,7 +90,7 @@ No RED review of Scoped Lowering v0.5 was found (two Notion searches). The Canon
 File: `packages/contracts/src/initial-locality.ts`. v1 declarations stay byte-identical. Additions only:
 
 ```ts
-/** CANDIDATE literal (BLUE v0.1 candidate spelling): the typed SI declaration of S1 §2. */
+/** Pinned literal (S11 Q4): the typed SI declaration of S1 §2. */
 export const SI_SCALE_DECLARATION = "ONE_SI_SECOND_PER_CANONICAL_UNIT";
 
 /** S1 §2: strict versioned captured chronology document v2. Same format domain, explicit version 2. */
@@ -110,7 +136,7 @@ Determinations:
 - **No cross-arm acceptance.** A v2 document inside a v1 capture fails the v1 arm's `format_version: z.literal(1)` document. A v1 document inside a v2 capture fails `scale` and `format_version: 2`. A v2 capture with no `scale`, an extra field, or any other `scale` value fails strict parsing.
 - **Hashes are versioned by content, with no new hash function.** S3 fixes `document_hash = SHA256(canonicalJson(document))` and "capture_hash hashes all preceding fields except itself". v2 bytes contain `format_version: 2` and `scale`, so v2 and v1 hashes never collide by construction. `chronologyDocumentHash`, `chronologyCaptureHash` and `chronologyEvidenceViolation` in `packages/engine/src/initial-setup/identity.ts` and `admission.ts` keep their bodies and widen their parameter types to the union.
 - `StartingChronologySchema` (`packages/operator/src/time-initialization.ts:17`) and the three phone parsers stay strictly v1. They already refuse v2 because v2 fails their literal. A0 adds tests that prove this (RED C5).
-- The comment at `initial-locality.ts:380–385`, which asserts a non-existent equality test, is made true by A0-T00 (§6) and amended to cite that test (RED v0.4 N-2 row).
+- The comment at `initial-locality.ts:380–385` asserts an equality test that did not exist. A0-T00 now exists as a test of existing code (`tests/contract/chronology-v1-baseline-corpus.test.ts`, this document's commit) and confirms the claim on its corpus (§6). The comment itself is amended to cite that test only at construction: no `packages/` file changes before the gate (RED v0.4 N-2 row).
 - **Producer bytes P/H/T (S9 RED v0.2 residual).** `buildProducerInput` (`engine/src/initial-setup/producer.ts:54–89`) embeds `input.chronology.document` verbatim. A v1 document yields identical P, H, T and D. A v2 document changes them only for v2 sessions. That is a version-specific hash, not a parser or identity-formula change. The pinned SCENE instruction text refers to "the captured chronology statement", which v2 keeps, so **no new instruction map** is proposed. A0-T08 verifies this; if verification fails, it becomes trip-wire W1, not a silent change.
 - **Completion is unchanged.** `InitialLocalityCompletionSchema` pins the Input and carries no chronology. The binding is the Grant's `chronology_hash` string comparison (`initial-setup/admission.ts:1179`), which works on both arms (S5 §3 correction).
 
@@ -119,8 +145,8 @@ Determinations:
 New contracts file **CANDIDATE** `packages/contracts/src/temporal-origin.ts`. A separate file is used so that `packages/contracts/src/temporal.ts`, byte-pinned by 11 conformance suites, is **not** touched. The semantics are identical; this is an engineering choice.
 
 ```ts
-export const TEMPORAL_ORIGIN_KEY = "temporal/origin"; // CANDIDATE fixed singleton key (S1 §3 "provisionally temporal/origin")
-export const TEMPORAL_ORIGIN_FORMAT = "immortalis-temporal-origin"; // CANDIDATE
+export const TEMPORAL_ORIGIN_KEY = "temporal/origin"; // pinned (S11 Q4): the single campaign key (S1 §3 "provisionally temporal/origin")
+export const TEMPORAL_ORIGIN_FORMAT = "immortalis-temporal-origin"; // pinned (S11 Q4): exactly this literal
 
 /**
  * S1 §3: one Temporal-owned, SEALED/create-only, genesis-only, campaign-unique witness. Binds campaign identity, original canonical
@@ -146,17 +172,27 @@ export const TemporalOriginSchema = z.strictObject({
 
 **Owner-registry row** (`packages/engine/src/owners/registry.ts`, appended to `TEMPORAL_FACT_KIND_IDS` and `TEMPORAL_FACT_KINDS`):
 
-| Field             | Value                                                                                                   | Source                                                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `id`              | `temporal_origin` (CANDIDATE; the spelling used by S1-lineage T-1 v0.4 and RED's T-1 v0.4 review)       | S1 §3                                                                                                                             |
-| `owner` / `facet` | `temporal_kernel` / `temporal_coordination` (the existing Temporal pair; no new owner or facet)         | S1 §3 "ONE Temporal owner/facet commit group"; grant 1 "under the Temporal owner's precisely bounded new kind/facet/key" — see Q4 |
-| `im` / `rc`       | `IM-02` / `["RC-02", "RC-05"]` (same as `temporal_state`)                                               | registry.ts:701–702                                                                                                               |
-| `lifecycle`       | `SEALED` (create-only, enforced at `owners/admission.ts:576–582` and load `world/integrity.ts:208–210`) | S1 §3                                                                                                                             |
-| `keyPattern`      | `^temporal/origin$` (no capture group, so campaign-unique like `temporal/state`)                        | S1 §3                                                                                                                             |
-| `valueSchema`     | `TemporalOriginSchema`                                                                                  | §3.2                                                                                                                              |
-| `rule`            | `TEMPORAL_CAPTURED_V2_GENESIS_RULE` (§3.3) — its only lawful citation                                   | grant 2                                                                                                                           |
+| Field             | Value                                                                                                    | Source                                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | `temporal_origin` (pinned by S11 Q4; the spelling used by S1-lineage T-1 v0.4 and RED's T-1 v0.4 review) | S1 §3                                                                                                                                                                |
+| `owner` / `facet` | `temporal_kernel` / `temporal_coordination` (the existing Temporal pair; no new owner, facet or clock)   | S1 §3 "ONE Temporal owner/facet commit group"; grant 1 "under the Temporal owner's precisely bounded new kind/facet/key"; S11 Q4 "not a new owner or a second clock" |
+| `im` / `rc`       | `IM-02` / `["RC-02", "RC-05"]` (same as `temporal_state`)                                                | registry.ts:701–702                                                                                                                                                  |
+| `lifecycle`       | `SEALED` (create-only, enforced at `owners/admission.ts:576–582` and load `world/integrity.ts:208–210`)  | S1 §3                                                                                                                                                                |
+| `keyPattern`      | `^temporal/origin$` (no capture group, so campaign-unique like `temporal/state`)                         | S1 §3; S11 Q4 "single campaign key"                                                                                                                                  |
+| `valueSchema`     | `TemporalOriginSchema`                                                                                   | §3.2                                                                                                                                                                 |
+| `rule`            | `TEMPORAL_CAPTURED_V2_GENESIS_RULE` (§3.3) — its only lawful citation                                    | grant 2                                                                                                                                                              |
 
 `identityMismatch` (`owners/admission.ts:835–1163`, exhaustive switch) gains `case "temporal_origin": return null;` because the key embeds no identities. The test oracle `tests/support/expected-surface.ts` gains the row `{ id: "temporal_origin", owner: "temporal_kernel", facet: "temporal_coordination", lifecycle: "SEALED", group: "TEMPORAL_FACT_KINDS", exampleKey: "temporal/origin" }`. Sunset policy (`engine/src/initial-setup/sunset-policy.ts`) gains a `temporal_origin` row with `OWNER_CHECKS_ONLY`, mirroring `temporal_state` at L502–507.
+
+Determinations (S11 Q4):
+
+- The four pinned names are technical lowerings of the five grants, not retroactive old-history law. No existing journal, fact or receipt is reinterpreted by them.
+- Every declaration is strict: `TemporalOriginSchema` and each nested object are `z.strictObject`. Each is cross-checked against:
+  - group owner/facet and rule — §3.5 live step 2;
+  - the original Input/Completion and their versions — §3.5 bootstrap step 4 (`governing`, `chronology.*`);
+  - coordinate/unit — `timeEquals` against the state and the governing Input's document;
+  - the immutable receipt — the generic load check `world/integrity.ts:214–216` (receipt exists and carries `CANON_WRITE_AUTHORITY`) covers the origin with no new code. On the MS route the committed group is also resolved (§3.6 integrity row).
+- The CANDIDATE file name and the TypeScript constant names are not pinned by Q4; only the four values are.
 
 **Role Registry §5 interface declaration (proposed row, for BLUE to place):**
 
@@ -175,11 +211,13 @@ export const TemporalOriginSchema = z.strictObject({
 
 All new `SourceRef`s use the existing `rule()` helper shape (`artifact`, `native_pin`, `clause`, `authority_lineage`, `effective_basis: "pinned-by-spec-lock"`, `supersedes: null`).
 
-| CANDIDATE id                                                         | Artifact / pin                                                                                                        | Registered as                                                                                                                                                                                                               | Admits                                                                                                   |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `TEMPORAL_CAPTURED_V2_GENESIS_RULE`                                  | S1 / `2026-11-18T22:23:26.085Z`, clause "§3 paired genesis (Grant 2)", lineage adds S2 and S3                         | `temporal_origin.rule`; **and** an `alternateRules` entry on `temporal_state` in the shipped `TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT` variant (registry.ts:2466), so `classifyGoverningRule` returns `ALTERNATE` | for `temporal_state`: `TemporalStateSchema` parses, `last_transaction === null`, `continuation === null` |
-| `INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE` (Q1)                     | S1 / same pin, clause "§2 v2 captured chronology Input (CORE_V9 Canonical Records + Grant 2)", lineage adds S3 and S4 | `alternateRules` entry on `initial_setup_input`                                                                                                                                                                             | `InitialSetupInputSchema` parses and `chronology.format_version === 2`                                   |
-| `INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE` (Q1, encoding A only) | as above, clause "…MS v3 route"                                                                                       | `alternateRules` entry on `initial_setup_input`                                                                                                                                                                             | same, MS route                                                                                           |
+**Selected by S11 Q1 (option A):** two separate, explicitly registered v2 Input citations, one for the non-MS arm and one for the MS-v3 arm. Each cites the adopted T-1 source S1 and never impersonates an `MS_SOURCE` clause. The original v1 rules and v1 bytes are left intact. The selection is "conditionally source-conformant": it holds only while every MS check below holds; otherwise the stop condition applies.
+
+| CANDIDATE id                                   | Artifact / pin                                                                                                        | Registered as                                                                                                                                                                                                               | Admits                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `TEMPORAL_CAPTURED_V2_GENESIS_RULE`            | S1 / `2026-11-18T22:23:26.085Z`, clause "§3 paired genesis (Grant 2)", lineage adds S2 and S3                         | `temporal_origin.rule`; **and** an `alternateRules` entry on `temporal_state` in the shipped `TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT` variant (registry.ts:2466), so `classifyGoverningRule` returns `ALTERNATE` | for `temporal_state`: `TemporalStateSchema` parses, `last_transaction === null`, `continuation === null` |
+| `INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE`    | S1 / same pin, clause "§2 v2 captured chronology Input (CORE_V9 Canonical Records + Grant 2)", lineage adds S3 and S4 | `alternateRules` entry on `initial_setup_input`                                                                                                                                                                             | `InitialSetupInputSchema` parses and `chronology.format_version === 2`                                   |
+| `INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE` | as above (S1, not `MS_SOURCE`), clause "…MS v3 route"                                                                 | `alternateRules` entry on `initial_setup_input`                                                                                                                                                                             | same, MS route                                                                                           |
 
 Determinations:
 
@@ -190,7 +228,46 @@ Determinations:
   - a v2-chronology Input must cite exactly its route's v2 rule;
   - a v1-chronology Input must cite exactly `INITIAL_SETUP_RULES.initial_setup_input` or `INITIAL_SETUP_INPUT_MS_V3_RULE`, as today.
 
-  The existing MS alternate entry (registry.ts:3438–3443) is **not** edited. Correspondence is enforced by owner admission, which is what the registry comment says alternate value classes require (registry.ts:586–590).
+  It runs live (`owners/admission.ts:617`) and on replay (`initialSetupHistoricalCheck`, `owners/admission.ts:724`). The existing MS alternate entry (registry.ts:3438–3443) is **not** edited. Its `admits` is a schema parse alone, so it would parse a v2 Input once the union lands. The correspondence above is what keeps the old v1 MS rule off the v2 arm. That is enforced by owner admission, which is what the registry comment says alternate value classes require (registry.ts:586–590).
+
+- `buildInputGroup` (`initial-setup/publish.ts:103–117`) selects the citation by route **and** chronology arm, so engine fixtures can build both v2 arms. Reachability from the operator remains A1.
+
+**MS v2 route: what changes together (S11 Q1).** An MS-v3 v2 Input is admitted as MS only under exact owner/route checks and both original Input/Completion correspondences. Every site below changes in one code transition. None ships alone.
+
+1. **`isMsInputRule`** (`ms-setup/prefix.ts:18–19`) recognises exactly `INITIAL_SETUP_INPUT_MS_V3_RULE` or `INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE`. All MS route identity flows through it, so the callers below carry a v2 MS Input as MS. Each is re-tested (A0-T04, A0-T12–A0-T14):
+   - `temporal/bootstrap.ts:77`;
+   - `initial-setup/admission.ts:440, 1294, 1319–1323`;
+   - `initial-setup/publish.ts:168`;
+   - `ms-setup/prefix.ts:51, 136`;
+   - `ms-setup/fence.ts:83, 87, 188, 205`;
+   - `ms-setup/integrity.ts:55, 73, 140, 148, 165`.
+
+   `isMsCompletionRule` is unchanged: the Completion keeps `INITIAL_LOCALITY_COMPLETION_MS_V3_RULE`.
+
+2. **The original MS source-pair predicate** stays `isMsInputRule(Input rule) === isMsCompletionRule(Completion rule)`:
+   - live at `temporal/bootstrap.ts:77` and `initial-setup/admission.ts:1318–1330`;
+   - historical at `ms-setup/integrity.ts:66–75`.
+
+   With item 1, a v2 MS Input pairs only with the MS v3 Completion rule, and a v2 non-MS Input only with `INITIAL_SETUP_RULES.initial_locality_completion`. The "registered full route citation" check (`initial-setup/admission.ts:1318–1322`) also admits the non-MS v2 rule.
+
+3. **Historical verifier.** `verifyMsIntegrity` keeps its single-write rule for MS-rule facts (`ms-setup/integrity.ts:120–129`); the v2 MS Input is a single write. It gains only the §3.6 SEALED-prefix origin exemption. The arm↔rule correspondence above runs in `verifyHistorical` through `initialSetupHistoricalCheck`.
+4. **MS live and SEALED B2 clock-prefix checks:** the §3.6 `msFenceFullCheck`, `msPrefixViolation` and `ms-setup/integrity.ts` rows.
+
+Not changed:
+
+- the ten-clause MS manifest (`spec/f027/ms-setup-v08-manifest.json`, pinned by `ms-setup-source.test.ts`);
+- `MS_PRE_CLOCK_KINDS`;
+- the clock-step exception. It stays bounded to exactly `{temporal/state, temporal/origin}` at `next === TEMPORAL_STATE_KEY` under a v2 MS Input (§3.6), and is not generalized to any other phase, kind or route.
+
+**Q1 stop condition (S11, verbatim):** "If the literal alternate cannot be registered while retaining the exact source-grade and MS provenance, stop that route alone rather than silently keeping old v1 MS authority on a new v2 arm."
+
+The Builder reads "exact source-grade and MS provenance" as (a)–(c) below. BLUE may correct that reading. At construction, the route stops if `INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE` cannot be registered as an `initial_setup_input` alternate while:
+
+- (a) it cites S1 at its native pin with the `pinned-by-spec-lock` basis;
+- (b) the MS Input keeps every existing MS admission check unchanged: the strict Ed25519/V2 actor profile and enrolled-tuple binding (from `initial-setup/admission.ts:440`), `msEarlierSessionViolation` and `planMsActor`;
+- (c) items 1–4 hold both live and on replay.
+
+If it stops, the **MS v2 route alone** stops: an MS-route Input with a v2 chronology is refused. It is never admitted under `INITIAL_SETUP_INPUT_MS_V3_RULE`. The non-MS v2 route and every v1 route are unaffected. The Builder reports the stop to BLUE and does not choose an alternative.
 
 ### 3.4 Producer (paired genesis writer)
 
@@ -266,37 +343,68 @@ One new pure function, CANDIDATE `clockOriginGenesisViolation(group, state)`, ow
 | `ms-setup/integrity.ts` L307–317              | The SEALED-prefix exactness loop exempts a `temporal_origin` fact only when it was created in the authentic clock-step genesis group. That means resolving the committed group (via the presence group's `depends_on`, as L321–331 already do for the time group), checking exactly two `expected_version 0` writes `{temporal/state, temporal/origin}`, the paired rule, the same owner/facet, and `reads`/`depends_on` equal to the original MS time pins, and re-running `bootstrapInitialTimePrecondition` correspondence against the original v2 Input/Completion. Any other SEALED origin in the prefix is still flagged. | Pin proofs at L302 and L345 (`temporal/state` v1); L120–129 single-write rule for MS-rule facts (the origin cites a non-MS rule) |
 | `ms-setup/r1.ts`, `publisher.ts`              | None. B2 pins stay `{temporal/state, version 1}` (r1.ts:183; publisher.ts:208–214).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | —                                                                                                                                |
 
-### 3.7 Historical verification identity (grant 3)
+### 3.7 Historical verification identity (grant 3; S11 Q2)
 
-- `owners/admission.ts:536`: append one segment to the composed production identity, after `+POPULATION-STAGE-AUTHORITY-V2`. CANDIDATE: `+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN`. The second component is the "affected MS historical-verifier suffix" of grant 3 (Q2). `MS_HISTORY_POLICY_SUFFIX` itself stays as the immutable identity of the old MS segment. Fixture identities keep `+fixture-evidence-t1`. Legacy identities keep `+LEGACY-PRE-V9-RUNTIME-CONTRACT`.
-- Reopen semantics already exist and are **not** changed. On a policy mismatch, `checkpoint-package.ts:418–420` sets `audit`. The first open replays the whole journal strictly from empty under the new verifier and then seals a fresh checkpoint (L601–666). Old checkpoints are never trusted under the new identity.
-- **Activation rule (S8 §5).** The new identity takes effect in the same commit that installs any changed live or historical verifier in the production admission. Validators are never shipped under the old identity. Whether A0 may merge alone (transition #1 now) or should merge with A1 and the first consumer is Q3.
+- **Old MS segment retained.** The `MS_HISTORY_POLICY_SUFFIX` literal (`ms-setup/rules.ts:42`) is unchanged. It stays the immutable identity of the old MS segment and is not renamed.
+- **Two additive segments.** Appended to the full canonical `historyVerificationId` (`owners/admission.ts:536`), after `+POPULATION-STAGE-AUTHORITY-V2`:
+  1. one explicitly versioned CAL-TIME/T-1 policy segment, CANDIDATE `+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z`;
+  2. one separately distinguishable MS v3 clock-origin policy segment, CANDIDATE `+MS-V3-CLOCK-STEP-B2-ORIGIN`.
+
+  S11 Q2 accepts these spellings as a technical candidate, subject to exact declared re-pins (§4).
+
+- **One new composed identity for every affected policy.** The segments sit in the base composition, so the production, MS (`msCanonicalAdmission`) and fixture (`+fixture-evidence-t1`, `fixtureMsCanonicalAdmission`) identities all change together. `legacyContractAdmission` (`owners/admission.ts:827`, appending `+LEGACY-PRE-V9-RUNTIME-CONTRACT`) and the extension wrapper (`owners/extension.ts:73`, copying the base) derive their changed IDs through the base and need no edit of their own.
+- **The label does not substitute for verification.** Every semantic history rule is enforced both in live `check` and in `verifyHistorical`:
+  - pair shape and correspondence — §3.5 step 4;
+  - arm↔rule correspondence — §3.3, through `initialSetupHistoricalCheck`;
+  - MS prefix and SEALED history — §3.6.
+- **Reopen semantics already exist and are not changed.** On a policy mismatch, `checkpoint-package.ts:418–420` sets `audit`. The first open replays the whole journal strictly from empty under the new verifier and then seals a fresh checkpoint (L601–666). Old checkpoints are never trusted under the new identity.
+- **Cost scope.** The cold first-open strict replay and the warm-open OB-030 costs include pre-v0.9 legacy packages, because their legacy identity derives from the changed base (§7).
+- **Activation (S8 §5; S11 Q3).** The new identity takes effect in the same code transition that installs any changed live or historical verifier in the production admission. Validators are never shipped under the old identity (§2 "Construction order").
 
 ### 3.8 Category-8 predicate (preparatory only)
 
 A pure CANDIDATE `siOriginWitnessViolation(witness: unknown, clock: CanonicalTime, campaignId: string)` checks exactly the S1 §5 predicate: strict `TemporalOriginSchema`, campaign identity, literal scale, and `origin.unit === clock.unit`. It has **no caller** in A0 and takes no store. A0 tests it negatively only. The positive read and its placement after identity-first replay belong to B1 (S8 §5; RED v0.2 R3-6).
 
-### 3.9 Spec lock and checker (RED C4; S6 §4(ii))
+### 3.9 Spec lock and checker (RED C4; S6 §4(ii); S11 Q5)
 
 Following the CORE_V9 registration pattern (S3 "Source Registration and Reader Boundary"):
 
 - `design_lineage_successors` adds CANDIDATE `CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE`: `of_frozen_source: null`, `status: "DESIGN_RATIFIED"`, `executable: false`, `narrows_frozen_pin: false`, the S1 URL and pin, sections `["§2","§3","§4","§5","§6"]`, ratification S2.
-- `executable_lowerings` adds CANDIDATE `CAL-TIME-T1-CLOCK-ORIGIN-LOWERING`:
+- `executable_lowerings` gains CANDIDATE `CAL-TIME-T1-CLOCK-ORIGIN-LOWERING` **only at actual construction**, after approved contract revision. No row labels a proposed schema executable before its governing source is independently source-fidelity accepted. Its shape:
   - `status: "FROZEN_EXECUTABLE_LOWERING"`, `relation: "COMPOSES_WITH"`, `cites_design_lineage: ["CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE", "GM-INITIAL-BOOTSTRAP-V9-LINEAGE"]`, `primary_im: "IM-02"`;
   - `fact_kinds: ["temporal_origin", "temporal_state", "initial_setup_input"]`;
   - closed fields `temporal_owner: "temporal_kernel/temporal_coordination"`, `temporal_precondition: "bootstrapInitialTimePrecondition"`, `temporal_writer: "initialize-captured-chronology"`, `genesis_rule: "TEMPORAL_CAPTURED_V2_GENESIS_RULE"`, `history_policy_segment`;
   - `does_not`: no calendar, no category 9, no GM canon read, no retrofit of v1/direct/timed-governance origins, no live category-8 read.
+- **Citation custody (S11 Q5).** The row cites:
+  - the controlling Sovereign ratification S2 at its pin;
+  - the adopted T-1 source S1 at its pin;
+  - the immutable **final** A0 contract: the GitHub commit SHA of the later _accepted_ revision of this document plus its immutable path `docs/f014b/a0-clock-origin-source-lock.md`;
+  - S11's native pin, as its review/adjudication authority.
 
-  **The URL/pin of the executable lowering artifact is BLUE's to fix (Q5).**
+  It never cites an editable PR head as though frozen. This document's own revisions, including this one, are not that final contract until BLUE accepts one.
 
-- `tools/check-spec.ts` validates the two rows field-by-field. It also checks that the composed `historyVerificationId` contains the segment and that `temporal_state`'s only alternate is the genesis rule.
+- **At construction, with the row:** the check-spec constraints, the generated identity, the historical policy and the declared re-pins (§4). Previous compatibility is safeguarded, following the MS-SETUP-V08 and ROADBED rows, which carry `history_policy_suffix` and `runtime_contract_compatibility`.
+- `tools/check-spec.ts` validates the two rows field-by-field. It also checks that the composed `historyVerificationId` contains both §3.7 segments and that `temporal_state`'s only alternate is the genesis rule.
 - Regenerate `packages/contracts/src/spec-identity.ts` through `tools/gen-spec-identity.ts`. The spec-lock SHA-256 changes and is re-pinned in `current-look-lowering-conformance` (§4).
+
+**Narrow encoding issue (S11 Q5, documented, not resolved here):**
+
+- Each existing `executable_lowerings` row carries:
+  - exactly one `url`/`native_pin` pair, which `tools/check-spec.ts` (`REQUIRED_EXECUTABLE_LOWERINGS`, L888–905) holds to one exact Notion URL and pin;
+  - `cites_design_lineage` ids;
+  - free-text `authority_lineage` strings.
+- No member anywhere in `spec/f027/spec-lock.json` types a repository commit SHA plus path citation. The lock contains no `github.com` citation, and `snapshot_commit` is null because "A commit cannot contain its own SHA".
+- The native-plus-repository custody above can therefore be written today only as unverified `authority_lineage` text, or through a new closed member that check-spec validates. Neither choice is made by this document, and no authority is invented for either. The construction preflight states the exact encoding as a declared, reviewed lowering.
 
 ---
 
 ## 4. Declared re-pins and structural guards (S7 §4 P-3)
 
 Every entry below is an **expected, declared** consequence of the A0 construction PR. Each re-pin records base and head SHA-256 and cites this lowering. None is a silent test edit. All base values were verified against the actual bytes at `0c9e74b` by census. Per the repository's provenance rule (H-PROVENANCE), present-day identities are not restated in this document; they live only in their designated tables (§8).
+
+**K1 (S11 §4):** "K1 accepted as a factual pin-census correction, not a new Source grant. Update BLUE-controlled technical source and PR delta register to reflect all 11 temporal.ts and 6 temporal/integrity.ts pins before any scoped edit. Do not silently alter protected D-3 bodies/provider memberships." Both counts are in the last row. A0 touches neither file.
+
+The A0-T00 test added in this revision touches no pinned path and needs no re-pin.
 
 | Guard / pin                                                           | Location                                                                                                                                                                                                                                                                            | A0 consequence                                                                                                                      |
 | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -310,7 +418,7 @@ Every entry below is an **expected, declared** consequence of the A0 constructio
 | `contracts/src/index.ts`, `engine/src/index.ts`                       | `present-day-identities.ts:10–17`                                                                                                                                                                                                                                                   | Re-pin (new exports).                                                                                                               |
 | `spec/f027/spec-lock.json`                                            | `contracts/src/spec-identity.ts:10`; `current-look-lowering-conformance:774, 854–855`                                                                                                                                                                                               | Regenerate and re-pin.                                                                                                              |
 | Lowering count / tail                                                 | `ms-setup-source.test.ts:28–47` (exactly 9; last ids)                                                                                                                                                                                                                               | 10; new tail.                                                                                                                       |
-| Composed historyVerificationId literal                                | `ms-setup-source.test.ts:72–91`; `pc-standing-ledger-conformance.test.ts:246–255`; `tests/integration/pc-standing-ledger-policy.test.ts:86–90`                                                                                                                                      | Expected value gains the §3.7 segment.                                                                                              |
+| Composed historyVerificationId literal                                | `ms-setup-source.test.ts:72–91`; `pc-standing-ledger-conformance.test.ts:246–255`; `tests/integration/pc-standing-ledger-policy.test.ts:86–90`                                                                                                                                      | Expected value gains the two §3.7 segments.                                                                                         |
 | Kind lists                                                            | `temporal-conformance.test.ts:80–87, 99`; `expected-surface.ts:68–107, 1057`; culture:136, population:92, kti:112 length checks                                                                                                                                                     | Add `temporal_origin`.                                                                                                              |
 | Sunset coverage                                                       | `ms-setup-source.test.ts:57–67` (93); `pc-standing-ledger-conformance.test.ts:260`                                                                                                                                                                                                  | Add the row; 94.                                                                                                                    |
 | **Not touched**                                                       | `packages/contracts/src/temporal.ts` (11 pins); `temporal/integrity.ts` (6 pins, three inside the D-3 protected gateway conformance suites); the three D-3 gateways; `packages/operator/**` (tree-pinned); `chronology-capture.ts` (a05 pin); `time-initialization.ts`; phone files | A0 is designed so none of these change. Touching the D-3 pins would be trip-wire W3.                                                |
@@ -324,48 +432,74 @@ Load integrity for the new kind comes from the generic owner/schema/SEALED check
 - Every existing v1 Input, capture, document, journal, receipt and checkpoint stays acceptable under its original law. Old journals contain only v1 captures, so the union's v1 arm is the only arm they can reach (RED C2).
 - The direct operator `initialize-time` route, never-bootstrap prefixes and `initial-timed-governance` (`operator/src/initial-timed-governance.ts:499–502`, a scratch dry-run) remain one-write opaque v1 genesis. They are never SI-eligible and never retrofitted (S1 §2; Codex arithmetic witnesses).
 - The legacy wrapper (`legacyContractAdmission`, owners/admission.ts:823–833) already refuses all bootstrap kinds. The captured route, and with it the pair, is unreachable for legacy packages.
-- Unrelated campaigns pay a one-time strict-replay first-open cost when the identity changes (S3 "Changing the single global historyVerificationId…"). §7 measures it.
+- Unrelated campaigns pay a one-time strict-replay first-open cost when the identity changes (S3 "Changing the single global historyVerificationId…"). That includes pre-v0.9 legacy packages, whose identity derives from the base (S11 Q2). §7 measures it.
 
 ---
 
-## 6. Test catalogue (all T1 MECHANISM ONLY; none run yet)
+## 6. Test catalogue (all T1 MECHANISM ONLY; A0-T00 run at this document's commit; A0-T01–A0-T17 UNRUN until construction)
 
-| ID         | Case                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Source                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| **A0-T00** | **First commit, before any schema change.** v1 corpus over the existing exports `ChronologyDocumentSchema` and `StartingChronologySchema`. Valid: arbitrary unit Id, values 0 and MAX_SAFE_INTEGER, exact format/statement. Negative: wrong version, missing/extra fields, wrong time shape, invalid unit, out-of-bounds value, coercion attempts. Identical accept/refuse, identical canonical JSON and `document_hash` where accepted. Freeze the results. | S6 §3 N-2                |
-| A0-T01     | Re-run A0-T00 unchanged after the union lands; byte/acceptance identity.                                                                                                                                                                                                                                                                                                                                                                                     | S6 §3                    |
-| A0-T02     | v2 contract table: valid v2 capture; v2 doc in v1 capture; v1 doc in v2 capture; missing/extra/other `scale`; wrong hashes; TOOL_CALL_ONLY refused at Input admission.                                                                                                                                                                                                                                                                                       | S5 §3; RED C2            |
-| A0-T03     | `StartingChronologySchema`, `initialize-time` and the three phone parsers refuse a v2 document; their source-text conformance test is unchanged.                                                                                                                                                                                                                                                                                                             | RED C5; S5 §3            |
-| A0-T04     | Input arm↔rule correspondence: v2 Input under the V9 or MS v3 rule refuses; v1 Input under a v2 rule refuses; each v2 rule admits only v2.                                                                                                                                                                                                                                                                                                                   | RED C4                   |
-| A0-T05     | Non-MS lawful v2 genesis through `initializeCapturedChronology`: the pair commits, state is version 1, origin is version 1, the same group; strict reopen replays clean.                                                                                                                                                                                                                                                                                     | S1 §3; grant 2           |
-| A0-T06     | Pair accepted in either write order; refused with a third write, a transaction write, a non-zero expected version, the wrong rule, or a mismatched basis/secrecy.                                                                                                                                                                                                                                                                                            | S1 §3; S5 §8             |
-| A0-T07     | Correspondence: v2 Input with state-only genesis refuses; v1 Input with a pair refuses (live **and** a hash-valid interposed journal on replay).                                                                                                                                                                                                                                                                                                             | S1 §2; grant 3           |
-| A0-T08     | Producer P/H/T/D: v1 session bytes identical to base; v2 differs only through the document; instruction map unchanged; delivered-bytes check passes.                                                                                                                                                                                                                                                                                                         | RED v0.2 residual        |
-| A0-T09     | Origin value forgery: wrong campaign, time, unit, capture_ref/hash, document_hash, grade, governing Completion/Input pin or version each refuses; TOOL_CALL_ONLY grade unrepresentable.                                                                                                                                                                                                                                                                      | S1 §3                    |
-| A0-T10     | Never-bootstrap prefix: origin refuses; state-only unchanged. Raw `KERNEL_RULE` pair refuses. Origin-only group refuses. Late origin after state refuses. Second origin refuses (`AMENDMENT_NOT_SUPPORTED`).                                                                                                                                                                                                                                                 | S1 §2–§3; T-1 v0.2       |
-| A0-T11     | Same-ID lost-ACK retry of the v2 genesis converges to one pair; a changed v2 capture under the same Completion cannot reuse the intent.                                                                                                                                                                                                                                                                                                                      | S3; BLUE v0.1            |
-| A0-T12     | MS v3 lawful v2: issue→response→existence→B1→closure→**pair**→B2; strict reopen; presence pins `temporal/state` v1; reads and depends_on equal `msTimePins` exactly.                                                                                                                                                                                                                                                                                         | grant 5                  |
-| A0-T13     | MS negatives: origin at PRE_CLOCK; v2 MS Input with state-only clock step; pair at any other phase; origin with different `group_id`; origin under the old rule; origin without the paired state at B2; presence refused after each.                                                                                                                                                                                                                         | RED T-1 v0.4 §5          |
-| A0-T14     | MS historical: hash-valid journal with an arbitrary SEALED origin earlier in the prefix is flagged; a lawful pair is not; a pre-change MS journal replays under its original identity.                                                                                                                                                                                                                                                                       | grant 5; RED T-1 v0.4 §5 |
-| A0-T15     | Identity transition: an old checkpoint opened under the new identity triggers cold strict replay and a fresh checkpoint; fixture and legacy suffixes are preserved.                                                                                                                                                                                                                                                                                          | grant 3                  |
-| A0-T16     | Legacy controls unchanged: `initialize-time` direct origin, never-bootstrap, timed-governance dry run, v1 captured non-MS, v1 MS, PR #107 S-4 ledger, existing `temporal-enforcement` "established alone" cases.                                                                                                                                                                                                                                             | S1 §2; S8                |
-| A0-T17     | `siOriginWitnessViolation` negatives only: malformed, wrong campaign, wrong scale, unit mismatch. Labelled PREPARATORY; no T0 PASS claimed.                                                                                                                                                                                                                                                                                                                  | S8 §5                    |
+| ID         | Case                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Source                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| **A0-T00** | **First, before any schema change. RUN NOW (existing code).** v1 corpus over the existing exports `ChronologyDocumentSchema` and `StartingChronologySchema`. Valid: arbitrary unit Id, values 0 and MAX_SAFE_INTEGER, exact format/statement. Negative: wrong version, missing/extra fields, wrong time shape, invalid unit, out-of-bounds value, coercion attempts. Identical accept/refuse, identical canonical JSON and `document_hash` where accepted. Freeze the results. Result in the next paragraph. | S6 §3 N-2; S11 §2        |
+| A0-T01     | Re-run A0-T00 unchanged after the union lands; byte/acceptance identity.                                                                                                                                                                                                                                                                                                                                                                                                                                     | S6 §3                    |
+| A0-T02     | v2 contract table: valid v2 capture; v2 doc in v1 capture; v1 doc in v2 capture; missing/extra/other `scale`; wrong hashes; TOOL_CALL_ONLY refused at Input admission.                                                                                                                                                                                                                                                                                                                                       | S5 §3; RED C2            |
+| A0-T03     | `StartingChronologySchema`, `initialize-time` and the three phone parsers refuse a v2 document; their source-text conformance test is unchanged.                                                                                                                                                                                                                                                                                                                                                             | RED C5; S5 §3            |
+| A0-T04     | Input arm↔rule correspondence, live **and** on replay: a v2 Input under the V9 or MS v3 (v1) rule refuses; a v1 Input under a v2 rule refuses; each v2 rule admits only v2; each v2 Input pairs only with its route's existing Completion rule.                                                                                                                                                                                                                                                              | RED C4; S11 Q1           |
+| A0-T05     | Non-MS lawful v2 genesis through `initializeCapturedChronology`: the pair commits, state is version 1, origin is version 1, the same group; `reads`/`depends_on` are exactly the Completion and Input pins and their groups; strict reopen replays clean.                                                                                                                                                                                                                                                    | S1 §3–§4; grant 2        |
+| A0-T06     | Pair accepted in either write order; refused with a third write, a transaction write, a non-zero expected version, the wrong rule, or a mismatched basis/secrecy.                                                                                                                                                                                                                                                                                                                                            | S1 §3; S5 §8             |
+| A0-T07     | Correspondence: v2 Input with state-only genesis refuses; v1 Input with a pair refuses (live **and** a hash-valid interposed journal on replay).                                                                                                                                                                                                                                                                                                                                                             | S1 §2; grant 3           |
+| A0-T08     | Producer P/H/T/D: v1 session bytes identical to base; v2 differs only through the document; instruction map unchanged; delivered-bytes check passes.                                                                                                                                                                                                                                                                                                                                                         | RED v0.2 residual        |
+| A0-T09     | Origin value forgery: wrong campaign, time, unit, capture_ref/hash, document_hash, grade, governing Completion/Input pin or version each refuses; TOOL_CALL_ONLY grade unrepresentable.                                                                                                                                                                                                                                                                                                                      | S1 §3; S11 Q4            |
+| A0-T10     | Never-bootstrap prefix: origin refuses; state-only unchanged. Raw `KERNEL_RULE` pair refuses. Origin-only group refuses. Late origin after state refuses. Second origin refuses (`AMENDMENT_NOT_SUPPORTED`).                                                                                                                                                                                                                                                                                                 | S1 §2–§3; T-1 v0.2       |
+| A0-T11     | Same-ID lost-ACK retry of the v2 genesis converges to one pair; a changed v2 capture under the same Completion cannot reuse the intent.                                                                                                                                                                                                                                                                                                                                                                      | S3; BLUE v0.1            |
+| A0-T12     | MS v3 lawful v2: issue→response→existence→B1→closure→**pair**→B2; strict reopen; presence pins `temporal/state` v1; reads and depends_on equal `msTimePins` exactly.                                                                                                                                                                                                                                                                                                                                         | grant 5; S11 Q1          |
+| A0-T13     | MS negatives: origin at PRE_CLOCK; v2 MS Input with state-only clock step; pair at any other phase; origin with different `group_id`; origin under the old rule; origin without the paired state at B2; presence refused after each.                                                                                                                                                                                                                                                                         | RED T-1 v0.4 §5          |
+| A0-T14     | MS historical: hash-valid journal with an arbitrary SEALED origin earlier in the prefix is flagged; a lawful pair is not; a pre-change MS journal replays under its original identity.                                                                                                                                                                                                                                                                                                                       | grant 5; RED T-1 v0.4 §5 |
+| A0-T15     | Identity transition: an old checkpoint opened under the new identity triggers cold strict replay and a fresh checkpoint; fixture and legacy suffixes are preserved; a pre-v0.9 legacy package replays strictly under its changed derived identity; the extension wrapper carries the changed base identity.                                                                                                                                                                                                  | grant 3; S11 Q2          |
+| A0-T16     | Legacy controls unchanged: `initialize-time` direct origin, never-bootstrap, timed-governance dry run, v1 captured non-MS, v1 MS, PR #107 S-4 ledger, existing `temporal-enforcement` "established alone" cases.                                                                                                                                                                                                                                                                                             | S1 §2; S8                |
+| A0-T17     | `siOriginWitnessViolation` negatives only: malformed, wrong campaign, wrong scale, unit mismatch. Labelled PREPARATORY; no T0 PASS claimed.                                                                                                                                                                                                                                                                                                                                                                  | S8 §5                    |
+
+**A0-T00 result (this document's commit).** File `tests/contract/chronology-v1-baseline-corpus.test.ts`, 60 tests, all passing:
+
+- 57 specimens with frozen verdicts: 7 accepted, 50 refused.
+- The two exports agree on every specimen:
+  - the verdict;
+  - the parse output (deep strict equality);
+  - canonical JSON;
+  - `chronologyDocumentHash`, which equals SHA-256 over the canonical JSON;
+  - for refusals, the issue lists.
+- No disagreement was found. The comment at `initial-locality.ts:380–385` holds on this corpus.
+- Frozen edge (observed existing law): `value: -0` is accepted and canonicalizes as `0`, so it shares bytes and `document_hash` with `value: 0`.
+
+**S11 mandatory fidelity conditions → tests:**
+
+| Condition (S11 §2, verbatim)                                    | Tests                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------- |
+| "first produce the missing literal v1 baseline corpus (A0-T00)" | A0-T00 (run), A0-T01                                       |
+| "strict two-arm v1/v2 schema and hashes"                        | A0-T02, A0-T03                                             |
+| "real Input/Completion pairing"                                 | A0-T04, A0-T07, A0-T09                                     |
+| "two same-group version-zero writes"                            | A0-T05, A0-T06, A0-T10, A0-T11                             |
+| "MS live B2 and SEALED history"                                 | A0-T12, A0-T13, A0-T14                                     |
+| "one qualified category-eight predicate"                        | A0-T17                                                     |
+| "no source read outside adopted budget"                         | A0-T05, A0-T12 (exact reads/depends_on); A0-T17 (no store) |
+| "historic v1/direct and existing MS invariance"                 | A0-T01, A0-T08, A0-T14, A0-T15, A0-T16                     |
 
 ---
 
 ## 7. Engineering acceptance and OB-030
 
 - **Player result:** none directly. A0 makes "two minutes" machine-verifiable as 120 SI seconds for a campaign whose author declared SI scale at setup, so later GM waits can convert durations lawfully. It adds no player question and no GM confirmation (S1 §2).
-- **Reused path:** the existing captured writer, coordinator `#kernelGroup`, bootstrap precondition, MS fence/prefix/integrity, checkpoint transition. New machinery: one kind, one schema file, one rule (or three; Q1), one pure shape check, one pure preparatory predicate.
-- **Whole-operation cost.** Genesis gains one write (bounded, once per campaign). Admission and replay gain constant-size checks. The material cost is the **first open after the identity change**: a cold strict replay of every existing campaign.
+- **Reused path:** the existing captured writer, coordinator `#kernelGroup`, bootstrap precondition, MS fence/prefix/integrity, checkpoint transition. New machinery: one kind, one schema file, three rules (S11 Q1), one pure shape check, one pure preparatory predicate.
+- **Whole-operation cost.** Genesis gains one write (bounded, once per campaign). Admission and replay gain constant-size checks. The material cost is the **first open after the identity change**: a cold strict replay of every existing campaign, pre-v0.9 legacy packages included (S11 Q2).
 - **Measurement plan (UNRUN).** Reuse `tools/h07-s2-benchmark.ts` / `h07-s2-compare.ts` (policy-transition first-open replay) on base vs candidate. Use the same pinned journals:
   - v1 no-bootstrap;
   - v1 captured;
   - v1 MS;
   - S-4 ledger;
+  - pre-v0.9 legacy packages (opened under `legacyContractAdmission`);
   - new v2 non-MS and MS.
 
-  Measure cold first open, immediate reopen and warm open. Report wall time, CPU, peak RSS, journal bytes and entries, read/write counts, and checkpoint creation, with repeated runs and environment recorded. There is no invented threshold. Any material regression goes to BLUE and, if it is a trade-off, to the Sovereign (S5 §6).
+  Measure cold first open, immediate reopen and warm open. Report wall time, CPU, peak RSS, journal bytes and entries, read/write counts, and checkpoint creation, with repeated runs and environment recorded. There is no invented threshold. Any material regression goes to BLUE and, if it is a trade-off, to the Sovereign (S5 §6). `docs/f014b/a0-preflight-submission.md` I-7 gives the exact plan.
 
 - **Claim boundary:** T1 mechanism only. No reachable producer (A1), no positive category-8 read (B1), no GM wait, no host, no retained-storage claim.
 
@@ -415,29 +549,67 @@ Files in custody scope (28):
 - `tests/conformance/operator-conformance.test.ts`
 - `tests/support/freight-scoped-deltas.ts`
 
-No new fixture or reproduction bundle exists yet. A0 fixtures will be committed with the construction PR at an immutable commit. Each will have its path, byte length and SHA-256 recorded in the repository's designated identity tables, for recipient verification.
+`git diff --stat 0c9e74b 8d25f90` lists only `vitest.config.ts`, so every census file is byte-identical on current main.
+
+The A0-T00 test is committed with this revision at `tests/contract/chronology-v1-baseline-corpus.test.ts`. It contains no digest literal: it compares computed values with each other. Reproduction: `pnpm exec vitest run --project contract tests/contract/chronology-v1-baseline-corpus.test.ts`.
+
+No new A0 fixture or reproduction bundle exists yet. A0 fixtures will be committed with the construction PR at an immutable commit. Each will have its path, byte length and SHA-256 recorded in the repository's designated identity tables, for recipient verification.
 
 ---
 
-## 9. Open source questions for BLUE (genuine; nothing below is chosen by this document)
+## 9. Resolved by BLUE (S11, native pin `2026-11-20T00:15:08.470Z`)
 
-- **Q1 — Input rule for the v2 arm per route.** RED C4 requires "a new current governing rule … for the v2 arm". Grant 5 bounds MS changes to the clock step, B2 and historical integrity, and `ms-setup-source.test.ts` pins the MS manifest at exactly ten clauses. Two faithful encodings:
-  - **A (Builder recommendation):** two T-1-sourced Input alternates, one per route. `isMsInputRule` (`prefix.ts:18–19`) also recognises the MS v2 rule, so MS route identity, bootstrap's route pairing (`bootstrap.ts:77`) and the fence view keep working. The MS manifest is untouched because the new rules cite S1, not `MS_SOURCE`.
-  - **B:** one non-MS v2 rule; an MS v2 Input keeps citing `INITIAL_SETUP_INPUT_MS_V3_RULE`, with its v2 arm registered only by the lowering row. B touches less MS code but leaves the MS v2 arm without its own rule, which reads against C4.
-- **Q2 — identity segment spelling.** Confirm the §3.7 segment. Confirm that grant 3's "affected MS historical-verifier suffix" is satisfied by an MS component appended to the global identity rather than by editing the `MS_HISTORY_POLICY_SUFFIX` constant (which would rename the old segment).
-- **Q3 — activation sequencing.** S8 §5 prefers one composed transition for A0+A1+the first genuine consumer, but forbids shipping new validators under the old identity. So either:
-  - (a) A0 merges alone with transition #1 (live validators, unreachable producer); or
-  - (b) the A0 PR stays open, reviewed but unmerged, until A1 and B1 can join it in one transition.
+The previous revision left five questions to BLUE. S11 answers each as a binding technical direction, not a new Sovereign grant. Rulings are quoted verbatim.
 
-  Merge timing is the Sovereign's. The Builder can build either way.
+- **Gate interpretation.**
+  - Ruling: "current v6.2 HOLD concerns prospective construction, not source text or independent tests of presently existing code. A0 and B0 may be source-revised and exact-file-tested in preparatory, no-new-canon modes now; no production semantic change, new writer or new request interface may be implemented before applicable scoped Hard Preflight PASS."
+  - Consequence: this revision changes documents and adds one test of existing code (A0-T00). Nothing under `packages/` or `apps/` changes.
 
-- **Q4 — kind/key/literal spellings.** Pin `temporal_origin`, `temporal/origin`, `immortalis-temporal-origin` and `ONE_SI_SECOND_PER_CANONICAL_UNIT`. Confirm that grant 1's "precisely bounded new kind/facet/key" permits reuse of the existing `temporal_coordination` facet. S1 §3's "ONE Temporal owner/facet commit group" requires the origin and state to share one facet.
-- **Q5 — executable lowering artifact.** CORE_V9's lowering rows cite a Notion executable-contract page and pin. Decide whether the `CAL-TIME-T1-CLOCK-ORIGIN-LOWERING` row cites this repository document at an immutable commit SHA, or a BLUE Notion page that adopts it.
+- **Q1 — Input rule for the v2 arm per route.** Asked: option A (two T-1-sourced Input alternates, one per route) or option B (one non-MS v2 rule; MS v2 keeps the v1 MS rule).
+  - Ruling: "select separate, explicitly registered v2 Input citations for non-MS and MS-v3 arms (option A), conditionally source-conformant. Each new rule must cite the adopted T-1 clock source, not impersonate a legacy MS_SOURCE clause. The original v1 rule and v1 bytes are left intact. Admit an MS-v3 v2 Input as MS only under exact owner/route checks and both original Input/Completion correspondence; update isMsInputRule, the original MS source-pair predicate, historical verifier, and MS live/SEALED B2 clock-prefix checks together. Do not modify the ten-clause MS manifest or generalize the clock-step exception. If the literal alternate cannot be registered while retaining the exact source-grade and MS provenance, stop that route alone rather than silently keeping old v1 MS authority on a new v2 arm."
+  - Consequence: §3.3 table, "what changes together" list and stop condition; §2 item 4; tests A0-T04, A0-T12–A0-T14.
+
+- **Q2 — identity segment spelling.** Asked: confirm the §3.7 segment, and whether an appended MS component satisfies grant 3 without editing `MS_HISTORY_POLICY_SUFFIX`.
+  - Ruling: "additive historical-verifier identity. Retain the old MS_HISTORY_POLICY_SUFFIX literal unchanged. Append one explicitly versioned CAL-TIME/T-1 policy segment and one separately distinguishable MS v3 clock-origin policy segment to the full canonical historyVerificationId. This is a new composed verifier identity for affected non-MS and MS policies; legacyContractAdmission and extension wrappers derive changed IDs through the base. Enforce all semantic history rules at live and verifyHistorical; the policy label does not substitute for verification. Cold first-open strict replay and warm-open OB-030 costs include pre-v0.9 legacy packages. The draft's precise additive segment is an acceptable technical candidate subject to exact declared repins."
+  - Consequence: §3.7 rewritten with two segments; §4 identity-literal row; §5; §7 and preflight I-7 include pre-v0.9 legacy packages; A0-T15.
+
+- **Q3 — activation sequencing.** Asked: A0 merges alone with transition #1, or stays open until A1 and B1 join one transition.
+  - Ruling: "construction/merge order. Build A0 on its own bounded branch after its own formal gate, using a full new verifier ID in the same code transition as its prospective validators; never ship changed validators under the old identity. Start A1 as a dependent stacked PR as soon as safely source-authorized. Prefer one coherent merge/activation window for A0, actual A1 provenance and first genuine consumer if that avoids redundant cold replay; do not make it one enormous PR and do not wait idly for the merge when independent work exists. Merge timing and any deployment remain Sovereign decisions. This is engineering sequencing, not authority to suppress the first new verifier ID."
+  - Consequence: §2 "Construction order"; §3.7 activation; §10.
+
+- **Q4 — kind/key/literal spellings.** Asked: pin the four spellings and confirm reuse of the existing facet.
+  - Ruling: "pin bounded technical naming as proposed: temporal_origin kind, temporal/origin single campaign key, […] and ONE_SI_SECOND_PER_CANONICAL_UNIT. Use existing temporal_kernel / temporal_coordination owner/facet, not a new owner or a second clock. To remove ambiguity: the accepted format literal is exactly immortalis-temporal-origin. All declarations must be strict and cross-checked against group owner/facet, rule, original Input/Completion, versions, coordinate/unit and immutable receipt. Names are technical lowerings of the five grants, not retroactive old-history law."
+  - Consequence: §3.1 and §3.2 drop the CANDIDATE label from exactly these four; §3.2 Q4 determinations map each cross-check; A0-T09.
+
+- **Q5 — executable lowering artifact.** Asked: whether the lowering row cites this repository document at an immutable commit or a BLUE Notion page that adopts it.
+  - Ruling: "executable-lowering citation custody. Use this BLUE adjudication page's native pin as its review/adjudication authority, paired with the exact later accepted A0 source-lock document GitHub commit SHA and immutable file path. The actual executable_lowerings entry must cite the controlling Sovereign ratification, adopted T-1 source and an immutable final A0 contract; never cite an editable PR head as though frozen, or label a proposed schema executable before its governing source is independently source-fidelity accepted. After approved contract revision, add the precise spec-lock executable lowering, check-spec constraints, generated identity and historical policy at actual construction; declare affected repins and safeguard previous compatibility. If the runtime spec-lock format cannot express these exact native-plus-repository citations, document that narrow encoding issue rather than inventing authority."
+  - Consequence: §3.9 custody wording; the executable row only at construction; the narrow encoding issue documented there.
+
+- **Mandatory A0 fidelity conditions.**
+  - Ruling: "first produce the missing literal v1 baseline corpus (A0-T00), then test strict two-arm v1/v2 schema and hashes, real Input/Completion pairing, two same-group version-zero writes, MS live B2 and SEALED history, one qualified category-eight predicate, no source read outside adopted budget, historic v1/direct and existing MS invariance. Actual origin has not been constructed merely by describing it."
+  - Consequence: A0-T00 produced and run (§6); the remaining conditions are mapped to tests (§6).
+
+- **K1.** Accepted as a factual pin-census correction (§4).
 
 ---
 
 ## 10. What is requested of BLUE
 
-1. A scoped Source-Fidelity check of §3 against S1–S9, and answers to Q1–Q5. RED is needed only if an answer would add authority beyond the five grants.
-2. A scoped Hard Preflight for A0 construction at the then-current main SHA.
-3. On PASS, the Builder implements A0 in the order A0-T00 → contracts → kind/rules → producer → live and historical admission → MS → identity → spec-lock rows → declared re-pins, on one PR that references #114. It runs the §6 tests and the §7 measurements and returns the PR URL, exact HEAD SHA and terminal CI. Nothing merges without the Sovereign.
+1. A scoped source-fidelity check of this revision's §3 against S1–S11, limited to the lowering of the Q1–Q5 rulings. RED is needed only if an answer would add authority beyond the five grants.
+2. The A0-only scoped Hard Preflight described in `docs/f014b/a0-preflight-submission.md`, executed against the then-current main SHA and this document's revised commit.
+3. On PASS, construction follows S11 Q3 (§2 "Construction order"):
+   - A0 on its own bounded branch and PR referencing #114, with the full new verifier ID in the same code transition as its validators;
+   - A1 as a dependent stacked PR once source-authorized;
+   - a coherent merge/activation window preferred, but no single enormous PR.
+4. Construction order within A0:
+   - A0-T00, already committed and re-run as A0-T01;
+   - contracts;
+   - kind/rules;
+   - producer;
+   - live and historical admission;
+   - MS;
+   - identity;
+   - spec-lock rows;
+   - declared re-pins.
+
+   Every §6 fidelity condition must pass. The Builder runs the §7 measurements and returns the PR URL, exact HEAD SHA and terminal CI. Nothing merges or deploys without the Sovereign.
