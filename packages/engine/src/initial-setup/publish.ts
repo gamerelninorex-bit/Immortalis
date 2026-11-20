@@ -123,7 +123,8 @@ export const buildInputGroup = (
     input,
     facts,
     input.genesis,
-    input.chronology.format_version === 2
+    // a record with no chronology at all (a structural-probe Input) is selected exactly as before: the v1 citations
+    (input as { chronology?: { format_version?: number } }).chronology?.format_version === 2
       ? route === "MS"
         ? INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE
         : INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE

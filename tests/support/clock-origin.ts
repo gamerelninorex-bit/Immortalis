@@ -4,10 +4,22 @@
 // and the Input that carries it) only: no builder asserts a Temporal origin, a Temporal state or a downstream verdict. Those are
 // written solely by the real captured writer and judged solely by the real admission and historical verifier.
 import {
+  CANON_WRITE_AUTHORITY,
+  CAPTURED_CHRONOLOGY_BASIS,
   CHRONOLOGY_CAPTURE_FORMAT,
+  InitialLocalityCompletionSchema,
+  InitialSetupInputSchema,
   CHRONOLOGY_DOCUMENT_FORMAT,
   SI_SCALE_DECLARATION,
+  TEMPORAL_ORIGIN_KEY,
+  TEMPORAL_STATE_KEY,
+  deriveTemporalOrigin,
+  initialLocalityCompletionKey,
+  initialSetupInputKey,
   type AuthoredEvidence,
+  type CommitGroup,
+  type SourceRef,
+  type TemporalOrigin,
   type AuthoredGrade,
   type ChronologyCapture,
   type ChronologyCaptureV2,
@@ -17,14 +29,23 @@ import {
   type InitialSetupInput,
 } from "@immortalis/contracts";
 import {
+  CANONICAL_OWNER_REGISTRY,
+  CanonicalCampaign,
   InitialSetupPublisher,
+  TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+  buildInputGroup,
   chronologyCaptureHash,
   chronologyDocumentHash,
+  fixtureCanonicalAdmission,
   genesisProjection,
+  openFileCampaign,
+  scanInitialSetup,
   scopeFingerprintOf,
   setupIdOf,
   setupMessageHash,
   sha256Canonical,
+  type CampaignState,
+  type WriteAdmission,
 } from "@immortalis/engine";
 import {
   FIXTURE_MESSAGE_METHOD,
@@ -131,6 +152,8 @@ export interface InputOptions {
   readonly request?: string;
   readonly message?: string;
   readonly route?: "MS";
+  /** the chronology capture arm of the default capture (default 2) */
+  readonly arm?: 1 | 2;
   /** replaces the chronology capture (default: a strict, correctly hashed v2 capture of the fixture author's own source) */
   readonly capture?: ChronologyEvidence;
   readonly captureOver?: Partial<CaptureOptions> & { readonly document?: ChronologyDocumentV2 };
@@ -146,25 +169,28 @@ export interface AdmittedInput {
   readonly published: Awaited<ReturnType<InitialSetupPublisher["input"]>>;
 }
 
-/** Builds and publishes an Input exactly as the trusted intake does, but carrying `over.capture` (default a strict v2 capture). */
-export async function admitInput(h: Harness, over: InputOptions = {}): Promise<AdmittedInput> {
+/** Builds (does not publish) an Input exactly as the trusted intake does, carrying `over.capture` (default a strict v2 capture). */
+export function buildInput(h: Harness, over: InputOptions = {}): InitialSetupInput {
   const request = over.request ?? "1";
   const message = over.message ?? FIXTURE_SETUP_MESSAGE;
   const author =
     over.author ??
     h.verifier.authoredEvidence({ message, request_ref: `fixture:request:${request}` });
+  const captureOptions = {
+    campaignId: h.campaignId,
+    message,
+    request,
+    captureRef: `fixture:capture:${request}`,
+    client: author.client,
+    oauthGrant: author.oauth_grant,
+    requestRef: author.request_ref,
+    ...over.captureOver,
+  };
   const capture =
     over.capture ??
-    v2Capture({
-      campaignId: h.campaignId,
-      message,
-      request,
-      captureRef: `fixture:capture:${request}`,
-      client: author.client,
-      oauthGrant: author.oauth_grant,
-      requestRef: author.request_ref,
-      ...over.captureOver,
-    });
+    (over.arm === 1
+      ? v1Capture(captureOptions as CaptureOptions)
+      : v2Capture(captureOptions as CaptureOptions));
   const projection = genesisProjection(factsOf(h.store));
   if (!projection.ok)
     throw new Error(`genesis projection unavailable: ${projection.error.message}`);
@@ -202,7 +228,261 @@ export async function admitInput(h: Harness, over: InputOptions = {}): Promise<A
     runner: h.runner.pin,
     parser: h.runner.parser,
   };
-  const input = over.edit ? over.edit(built) : built;
+  return over.edit ? over.edit(built) : built;
+}
+
+/** Builds and publishes an Input through the original publisher (the route and arm select its citation). */
+export async function admitInput(h: Harness, over: InputOptions = {}): Promise<AdmittedInput> {
+  const input = buildInput(h, over);
   const published = await new InitialSetupPublisher(h.store, over.route).input(input);
   return { ok: published.ok, setup_id: input.setup_id, input, published };
 }
+
+/** The Input group the original publisher would build, with its governing rule replaced (cross-wiring falsifiers). */
+export function inputGroupWithRule(
+  h: Harness,
+  input: InitialSetupInput,
+  rule: SourceRef,
+  route?: "MS",
+): CommitGroup {
+  return {
+    ...buildInputGroup(h.campaignId, { get: (k) => h.store.getFact(k) }, input, route),
+    rule,
+  };
+}
+
+/** `{ ok, code, reason }` of a commit result, for refusal assertions. */
+export function refusal(r: { ok: boolean; error?: { code?: string; details?: unknown } }): {
+  ok: boolean;
+  code: string | undefined;
+  reason: string | undefined;
+} {
+  return {
+    ok: r.ok,
+    code: r.error?.code,
+    reason: (r.error?.details as { reason?: string } | undefined)?.reason,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Forged Temporal genesis groups. These build RAW groups for the falsifiers: each is judged by the real admission (live) or the real
+// historical verifier (a hash-valid journal), never by this module. A forged group derives from the committed records and then
+// changes exactly the one thing the test names.
+// ---------------------------------------------------------------------------------------------------------------------
+
+type Write = CommitGroup["writes"][number];
+
+export interface PairOptions {
+  readonly tag?: string;
+  readonly order?: "state-first" | "origin-first";
+  readonly rule?: SourceRef;
+  /** the origin value, edited from the lawful derivation */
+  readonly origin?: (lawful: TemporalOrigin) => unknown;
+  /** the origin value, replaced wholesale (needed where no lawful derivation exists, e.g. a v1 chronology) */
+  readonly originValue?: unknown;
+  readonly state?: (lawful: unknown) => unknown;
+  readonly stateWrite?: Partial<Write>;
+  readonly originWrite?: Partial<Write>;
+  readonly extraWrites?: readonly Write[];
+  readonly omit?: "state" | "origin";
+  readonly reads?: CommitGroup["reads"];
+  readonly depends_on?: CommitGroup["depends_on"];
+  readonly group?: Partial<CommitGroup>;
+}
+
+/** The committed governing records of a session that reached its Completion. */
+export function governing(h: Harness) {
+  const facts = factsOf(h.store);
+  const completion = scanInitialSetup(facts).completion;
+  if (!completion) throw new Error("no Completion is committed");
+  const c = InitialLocalityCompletionSchema.parse(completion.value);
+  const inputFact = facts.get(c.input.fact_key)!;
+  const input = InitialSetupInputSchema.parse(inputFact.value);
+  return {
+    facts,
+    completion,
+    inputFact,
+    input,
+    completionKey: completion.key,
+    inputKey: inputFact.key,
+  };
+}
+
+export function pairGroup(h: Harness, o: PairOptions = {}): CommitGroup {
+  const g = governing(h);
+  const tag = o.tag ?? "forged";
+  const lawful = deriveTemporalOrigin(
+    h.campaignId,
+    g.input,
+    { fact_key: g.completion.key, version: g.completion.version },
+    { fact_key: g.inputFact.key, version: g.inputFact.version },
+  );
+  if (!lawful && o.originValue === undefined)
+    throw new Error("the governing Input has no derivable origin (not a qualified v2 capture)");
+  const basis =
+    CAPTURED_CHRONOLOGY_BASIS[g.input.chronology.grade as keyof typeof CAPTURED_CHRONOLOGY_BASIS];
+  const meta = {
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    unit: null,
+    basis,
+    secrecy: "engine-internal" as const,
+    expected_version: 0,
+  };
+  const lawfulState = {
+    canonical_time: g.input.chronology.document.time,
+    last_transaction: null,
+    continuation: null,
+  };
+  const stateW: Write = {
+    key: TEMPORAL_STATE_KEY,
+    value: (o.state ? o.state(lawfulState) : lawfulState) as Write["value"],
+    ...meta,
+    ...o.stateWrite,
+  };
+  const originW: Write = {
+    key: TEMPORAL_ORIGIN_KEY,
+    value: (o.originValue !== undefined
+      ? o.originValue
+      : o.origin
+        ? o.origin(lawful!)
+        : lawful) as Write["value"],
+    ...meta,
+    ...o.originWrite,
+  };
+  const picked = [
+    ...(o.omit === "state" ? [] : [stateW]),
+    ...(o.omit === "origin" ? [] : [originW]),
+  ];
+  const writes = [
+    ...(o.order === "origin-first" ? picked.reverse() : picked),
+    ...(o.extraWrites ?? []),
+  ];
+  return {
+    campaign_id: h.campaignId,
+    group_id: `forged-pair:${tag}:group`,
+    intent_id: `forged-pair:${tag}:intent`,
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    cause: `forged-pair:${tag}:cause`,
+    rule: o.rule ?? TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+    authority: { ...CANON_WRITE_AUTHORITY },
+    reads: o.reads ?? [
+      { key: g.completionKey, version: g.completion.version },
+      { key: g.inputKey, version: g.inputFact.version },
+    ],
+    depends_on: o.depends_on ?? [g.completion.provenance.group_id, g.inputFact.provenance.group_id],
+    writes,
+    ...o.group,
+  };
+}
+
+export interface TracedStep {
+  readonly group: CommitGroup;
+  readonly before: CampaignState;
+  readonly after: CampaignState;
+}
+
+/**
+ * The shipped fixture admission with a recorder: the REAL bound incremental states the core judged each group against. A group can
+ * then be handed to `admission.check` or `admission.verifyHistorical` with the exact pre-state it would have met (a copied map is
+ * rejected by the C5 fence view first, so only the core's own state objects are used).
+ */
+export function tracedAdmission(base: WriteAdmission = fixtureCanonicalAdmission) {
+  const trace: TracedStep[] = [];
+  const admission: WriteAdmission = {
+    ...base,
+    committedView(before, after, group) {
+      base.committedView?.(before, after, group);
+      trace.push({ group, before, after });
+    },
+  };
+  return { admission, trace };
+}
+
+/** A schema-valid origin naming pins that need not exist: for prefixes with no bootstrap record, where nothing real can be attested. */
+export const syntheticOrigin = (campaignId: string): TemporalOrigin => ({
+  format: "immortalis-temporal-origin",
+  format_version: 1,
+  campaign_id: campaignId,
+  origin: { unit: CLOCK_UNIT, value: 0 },
+  scale: SI_SCALE_DECLARATION,
+  chronology: {
+    capture_format_version: 2,
+    capture_ref: "fixture:capture:synthetic",
+    capture_hash: "a".repeat(64),
+    document_hash: "b".repeat(64),
+    grade: "ORIGINAL_MESSAGE_VERIFIED",
+  },
+  governing: {
+    completion: { fact_key: "synthetic/completion", version: 1 },
+    input: { fact_key: "synthetic/input", version: 1 },
+  },
+});
+
+/** A pair group with no governing records at all (a never-bootstrap prefix): the writes are well-formed, the claim has no support. */
+export function syntheticPairGroup(h: Harness, o: PairOptions = {}): CommitGroup {
+  const meta = {
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    unit: null,
+    basis: CAPTURED_CHRONOLOGY_BASIS.ORIGINAL_MESSAGE_VERIFIED,
+    secrecy: "engine-internal" as const,
+    expected_version: 0,
+  };
+  const stateW: Write = {
+    key: TEMPORAL_STATE_KEY,
+    value: {
+      canonical_time: { unit: CLOCK_UNIT, value: 0 },
+      last_transaction: null,
+      continuation: null,
+    },
+    ...meta,
+    ...o.stateWrite,
+  };
+  const originW: Write = {
+    key: TEMPORAL_ORIGIN_KEY,
+    value: (o.originValue ?? syntheticOrigin(h.campaignId)) as Write["value"],
+    ...meta,
+    ...o.originWrite,
+  };
+  const tag = o.tag ?? "synthetic";
+  return {
+    campaign_id: h.campaignId,
+    group_id: `forged-pair:${tag}:group`,
+    intent_id: `forged-pair:${tag}:intent`,
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    cause: `forged-pair:${tag}:cause`,
+    rule: o.rule ?? TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+    authority: { ...CANON_WRITE_AUTHORITY },
+    reads: o.reads ?? [],
+    depends_on: o.depends_on ?? [],
+    writes: [
+      ...(o.omit === "state" ? [] : [stateW]),
+      ...(o.omit === "origin" ? [] : [originW]),
+      ...(o.extraWrites ?? []),
+    ],
+    ...o.group,
+  };
+}
+
+/**
+ * Commits raw groups through a store with NO owner admission (a permissive store lets forged groups reach the journal; the hash chain
+ * stays valid), then closes it. The campaign must be closed first. The journal is then judged only by a strict replay.
+ */
+export async function commitPermissively(dir: string, groups: readonly CommitGroup[]) {
+  const opened = await openFileCampaign(dir, {
+    owners: CANONICAL_OWNER_REGISTRY,
+    admission: { check: () => null },
+  });
+  if (!opened.ok) throw new Error(JSON.stringify(opened.error));
+  const results = [];
+  for (const g of groups) results.push(await opened.value.commit(g));
+  await opened.value.close();
+  return results;
+}
+
+/** Opens a closed fixture campaign under the shipped fixture admission: with no usable checkpoint this is a strict historical replay. */
+export const strictReopen = (dir: string, admission: WriteAdmission = fixtureCanonicalAdmission) =>
+  CanonicalCampaign.open(dir, { testkitFixtureAdmission: admission });
