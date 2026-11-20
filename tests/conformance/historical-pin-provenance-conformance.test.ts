@@ -341,7 +341,10 @@ describe("RP-2 pins the four authorized production repairs", () => {
       expect(output).not.toBeNull();
       changed.push(...output!.toString("utf8").trim().split("\n").filter(Boolean));
     }
-    expect(changed.sort()).toEqual(Object.keys(RP2_SOURCE_DELTAS).sort());
+    // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
+    expect(changed.sort()).toEqual(
+      [...Object.keys(RP2_SOURCE_DELTAS), "packages/contracts/src/temporal-gm-wait.ts"].sort(),
+    );
     const lockPath = "spec/f027/spec-lock.json";
     const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();
     expect(baselineLock).toMatch(/^[0-9a-f]{40}$/);
