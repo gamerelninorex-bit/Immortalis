@@ -31,6 +31,8 @@ import {
   A0_BASE_COMMIT,
   A0_CENSUS_COMMIT,
   A0_CUSTODY_ARTIFACTS,
+  A0_DECLARED_MAIN_INCLUSIONS,
+  A0_INTEGRATED_MAIN_COMMIT,
   A0_NEW_MODULES,
   A0_OUTSIDE_PACKAGE_PATHS,
   A0_PACKAGE_PATHS,
@@ -114,7 +116,11 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     const untracked = lines(
       git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
     );
-    expect([...changed, ...untracked].sort()).toEqual([...A0_PACKAGE_PATHS].sort());
+    // main moved after the A0 intake: B0 (PR #117) added one pure request module under packages/, declared in the table; against the A0 base
+    // the difference is exactly the A0 paths plus that declared inclusion, and against the integrated main (below) it is the A0 paths alone
+    expect([...changed, ...untracked].sort()).toEqual(
+      [...A0_PACKAGE_PATHS, ...A0_DECLARED_MAIN_INCLUSIONS].sort(),
+    );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(A0_SCOPED_DELTAS), ...A0_PRESENT_DAY_FILES])
       expect(changed.includes(p), p).toBe(true);
@@ -128,6 +134,55 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         "diff",
         "--name-only",
         A0_BASE_COMMIT,
+        "--",
+        "spec",
+        "tools",
+      ),
+    );
+    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS].sort());
+  });
+
+  it("against the integrated main, this slice changed exactly the recorded files under packages/ and apps/ and added no file there beyond them", () => {
+    if (!reachable(A0_INTEGRATED_MAIN_COMMIT))
+      return console.warn("SKIPPED: the integrated main commit is not reachable");
+    // the integrated main is an ancestor of the working tree's HEAD: the merge was not a rewrite
+    expect(
+      git("merge-base", "--is-ancestor", A0_INTEGRATED_MAIN_COMMIT, "HEAD") !== null,
+      "integrated main is an ancestor of HEAD",
+    ).toBe(true);
+    const changed = lines(
+      git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        A0_INTEGRATED_MAIN_COMMIT,
+        "--",
+        "apps",
+        "packages",
+      ),
+    );
+    const untracked = lines(
+      git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
+    );
+    expect([...changed, ...untracked].sort()).toEqual([...A0_PACKAGE_PATHS].sort());
+    // the declared main inclusions are in main already: this slice does not change them
+    for (const p of A0_DECLARED_MAIN_INCLUSIONS) {
+      expect(changed.includes(p), `${p} changed against the integrated main`).toBe(false);
+      expect(git("cat-file", "-e", `${A0_INTEGRATED_MAIN_COMMIT}:${p}`) !== null, p).toBe(true);
+      expect(
+        git("cat-file", "-e", `${A0_BASE_COMMIT}:${p}`) === null,
+        `${p} is not in the A0 base`,
+      ).toBe(true);
+    }
+    // and outside packages/ it touched the lock and the checker only (among spec/ and tools/)
+    const outside = lines(
+      git(
+        "-c",
+        "core.fileMode=false",
+        "diff",
+        "--name-only",
+        A0_INTEGRATED_MAIN_COMMIT,
         "--",
         "spec",
         "tools",

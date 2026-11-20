@@ -12,6 +12,15 @@ export const A0_BASE_COMMIT = "8d25f9067219d944a5262eca06de20e70a5770f3";
 export const A0_CENSUS_COMMIT = "0c9e74b9d5dc8845751a543ace777277b2cb1308";
 /** The accepted, immutable source-lock commit; it stays an ancestor of the A0 branch. */
 export const A0_SOURCE_LOCK_COMMIT = "37ba11bd0f0f068a22731f87351a0fd9a16a885b";
+/**
+ * Main after F-014B B0 (PR #117, squash-merged) was integrated into the A0 branch by a non-rewriting merge. Against THIS commit the A0 slice
+ * changes exactly `A0_PACKAGE_PATHS` under packages/ and apps/; against `A0_BASE_COMMIT` it additionally differs by the declared main inclusions.
+ */
+export const A0_INTEGRATED_MAIN_COMMIT = "acf0da17d4c45e48114b1e3d9ec98052128fe6ea";
+/** Files that main gained between `A0_BASE_COMMIT` and `A0_INTEGRATED_MAIN_COMMIT` under packages/ and apps/ (B0's one pure request module). */
+export const A0_DECLARED_MAIN_INCLUSIONS: readonly string[] = [
+  "packages/contracts/src/temporal-gm-wait.ts",
+];
 
 export const A0_SCOPED_DELTAS: Readonly<
   Record<string, { readonly base: string; readonly head: string }>
