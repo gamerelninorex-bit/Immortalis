@@ -296,24 +296,24 @@ Following the CORE_V9 registration pattern (S3 "Source Registration and Reader B
 
 ## 4. Declared re-pins and structural guards (S7 §4 P-3)
 
-Every entry below is an **expected, declared** consequence of the A0 construction PR. Each re-pin records base and head SHA-256 and cites this lowering. None is a silent test edit. All base values were verified against the actual bytes at `0c9e74b` (by census and by the A8 table in §8).
+Every entry below is an **expected, declared** consequence of the A0 construction PR. Each re-pin records base and head SHA-256 and cites this lowering. None is a silent test edit. All base values were verified against the actual bytes at `0c9e74b` by census. Per the repository's provenance rule (H-PROVENANCE), present-day identities are not restated in this document; they live only in their designated tables (§8).
 
-| Guard / pin                                                           | Location                                                                                                                                                                                                                                                                                     | A0 consequence                                                                                                                      |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Changed-file allow-set vs RP-2 base tree `f4d7a63b…`                  | `tests/conformance/historical-pin-provenance-conformance.test.ts:326–349`                                                                                                                                                                                                                    | The new set of changed paths under `apps/` and `packages/` must be declared there, following the convention used by earlier slices. |
-| Allow-lists for `packages/`                                           | `gm-freight-conformance.test.ts:159–199`; `pc-standing-ledger-conformance.test.ts:353–392`                                                                                                                                                                                                   | Add the A0 paths.                                                                                                                   |
-| Examined-suite pin census (510 / 40 / 470)                            | `historical-pin-provenance-conformance.test.ts:135–170`                                                                                                                                                                                                                                      | Recount after re-pins.                                                                                                              |
-| `temporal/bootstrap.ts`, `temporal/captured-chronology.ts` byte pins  | `ms-setup-regression-pins.test.ts:11–14`                                                                                                                                                                                                                                                     | Re-pin (base `ebe3f575…`, `6845765e…`).                                                                                             |
-| `temporal/admission.ts`, `temporal/coordinator.ts` scoped-delta heads | `tests/support/freight-scoped-deltas.ts:66–73`                                                                                                                                                                                                                                               | New scoped-delta entries (base = current heads `fc7bb7ff…`, `36b5115b…`).                                                           |
-| `owners/admission.ts`                                                 | `tests/support/present-day-identities.ts:18–19`                                                                                                                                                                                                                                              | Re-pin (`3abec834…`).                                                                                                               |
-| `owners/registry.ts`                                                  | `current-look-lowering-conformance.test.ts:775–776, 856–857`                                                                                                                                                                                                                                 | Re-pin (`d7b63771…`).                                                                                                               |
-| `contracts/src/index.ts`, `engine/src/index.ts`                       | `present-day-identities.ts:10–17`                                                                                                                                                                                                                                                            | Re-pin (new exports).                                                                                                               |
-| `spec/f027/spec-lock.json`                                            | `contracts/src/spec-identity.ts:10`; `current-look-lowering-conformance:774, 854–855`                                                                                                                                                                                                        | Regenerate and re-pin (`8c0754d3…`).                                                                                                |
-| Lowering count / tail                                                 | `ms-setup-source.test.ts:28–47` (exactly 9; last ids)                                                                                                                                                                                                                                        | 10; new tail.                                                                                                                       |
-| Composed historyVerificationId literal                                | `ms-setup-source.test.ts:72–91`; `pc-standing-ledger-conformance.test.ts:246–255`; `tests/integration/pc-standing-ledger-policy.test.ts:86–90`                                                                                                                                               | Expected value gains the §3.7 segment.                                                                                              |
-| Kind lists                                                            | `temporal-conformance.test.ts:80–87, 99`; `expected-surface.ts:68–107, 1057`; culture:136, population:92, kti:112 length checks                                                                                                                                                              | Add `temporal_origin`.                                                                                                              |
-| Sunset coverage                                                       | `ms-setup-source.test.ts:57–67` (93); `pc-standing-ledger-conformance.test.ts:260`                                                                                                                                                                                                           | Add the row; 94.                                                                                                                    |
-| **Not touched**                                                       | `packages/contracts/src/temporal.ts` (11 pins); `temporal/integrity.ts` (6 pins, three inside the D-3 protected gateway conformance suites); the three D-3 gateways; `packages/operator/**` (tree pin `148c35e2…`); `chronology-capture.ts` (a05 pin); `time-initialization.ts`; phone files | A0 is designed so none of these change. Touching the D-3 pins would be trip-wire W3.                                                |
+| Guard / pin                                                           | Location                                                                                                                                                                                                                                                                            | A0 consequence                                                                                                                      |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Changed-file allow-set vs RP-2 base tree (`RP2_BASE_TREE`)            | `tests/conformance/historical-pin-provenance-conformance.test.ts:326–349`                                                                                                                                                                                                           | The new set of changed paths under `apps/` and `packages/` must be declared there, following the convention used by earlier slices. |
+| Allow-lists for `packages/`                                           | `gm-freight-conformance.test.ts:159–199`; `pc-standing-ledger-conformance.test.ts:353–392`                                                                                                                                                                                          | Add the A0 paths.                                                                                                                   |
+| Examined-suite pin census (510 / 40 / 470)                            | `historical-pin-provenance-conformance.test.ts:135–170`                                                                                                                                                                                                                             | Recount after re-pins.                                                                                                              |
+| `temporal/bootstrap.ts`, `temporal/captured-chronology.ts` byte pins  | `ms-setup-regression-pins.test.ts:11–14`                                                                                                                                                                                                                                            | Re-pin (base values: the current entries in that file).                                                                             |
+| `temporal/admission.ts`, `temporal/coordinator.ts` scoped-delta heads | `tests/support/freight-scoped-deltas.ts:66–73`                                                                                                                                                                                                                                      | New scoped-delta entries (base = the current recorded heads).                                                                       |
+| `owners/admission.ts`                                                 | `tests/support/present-day-identities.ts:18–19`                                                                                                                                                                                                                                     | Re-pin.                                                                                                                             |
+| `owners/registry.ts`                                                  | `current-look-lowering-conformance.test.ts:775–776, 856–857`                                                                                                                                                                                                                        | Re-pin.                                                                                                                             |
+| `contracts/src/index.ts`, `engine/src/index.ts`                       | `present-day-identities.ts:10–17`                                                                                                                                                                                                                                                   | Re-pin (new exports).                                                                                                               |
+| `spec/f027/spec-lock.json`                                            | `contracts/src/spec-identity.ts:10`; `current-look-lowering-conformance:774, 854–855`                                                                                                                                                                                               | Regenerate and re-pin.                                                                                                              |
+| Lowering count / tail                                                 | `ms-setup-source.test.ts:28–47` (exactly 9; last ids)                                                                                                                                                                                                                               | 10; new tail.                                                                                                                       |
+| Composed historyVerificationId literal                                | `ms-setup-source.test.ts:72–91`; `pc-standing-ledger-conformance.test.ts:246–255`; `tests/integration/pc-standing-ledger-policy.test.ts:86–90`                                                                                                                                      | Expected value gains the §3.7 segment.                                                                                              |
+| Kind lists                                                            | `temporal-conformance.test.ts:80–87, 99`; `expected-surface.ts:68–107, 1057`; culture:136, population:92, kti:112 length checks                                                                                                                                                     | Add `temporal_origin`.                                                                                                              |
+| Sunset coverage                                                       | `ms-setup-source.test.ts:57–67` (93); `pc-standing-ledger-conformance.test.ts:260`                                                                                                                                                                                                  | Add the row; 94.                                                                                                                    |
+| **Not touched**                                                       | `packages/contracts/src/temporal.ts` (11 pins); `temporal/integrity.ts` (6 pins, three inside the D-3 protected gateway conformance suites); the three D-3 gateways; `packages/operator/**` (tree-pinned); `chronology-capture.ts` (a05 pin); `time-initialization.ts`; phone files | A0 is designed so none of these change. Touching the D-3 pins would be trip-wire W3.                                                |
 
 Load integrity for the new kind comes from the generic owner/schema/SEALED checks (`world/integrity.ts:195–212`) and strict historical replay. `temporal/integrity.ts` filters to the five existing Temporal kinds and is deliberately not edited (see the last row).
 
@@ -371,42 +371,51 @@ Load integrity for the new kind comes from the generic owner/schema/SEALED check
 
 ---
 
-## 8. A8 artifact manifest — base bytes at `0c9e74b9d5dc8845751a543ace777277b2cb1308`
+## 8. A8 artifact custody — base bytes at `0c9e74b9d5dc8845751a543ace777277b2cb1308`
 
-Computed by the Builder in its own environment with `sha256sum` and `wc -c`. A reviewer reproduces it with `git checkout 0c9e74b9d5dc8845751a543ace777277b2cb1308 && sha256sum <path> && wc -c < <path>`.
+The base is the immutable commit above; every file below is retrievable at that commit by path. The Builder computed each file's SHA-256 and byte length from the actual bytes in its own environment during preparation.
 
-| Path                                                        | Bytes  | SHA-256                                                            |
-| ----------------------------------------------------------- | ------ | ------------------------------------------------------------------ |
-| `packages/contracts/src/initial-locality.ts`                | 29727  | `dac14adffd5812c0b446346b6e5cdf50ce60c9a079f47208a87934b62cba58dc` |
-| `packages/contracts/src/temporal.ts`                        | 34844  | `26d994f36641b712c6623dd9bdf559ff993a7acc116484a4e19e3f151a24e13b` |
-| `packages/engine/src/temporal/admission.ts`                 | 35815  | `fc7bb7ff4d03a082c46ef4d52ce5ba3ad51f37b22f612175d5be3a9a86d09667` |
-| `packages/engine/src/temporal/bootstrap.ts`                 | 6392   | `ebe3f575666e768a873ab8d3d8fa47376c53cd5513f88a581d728a9156548a63` |
-| `packages/engine/src/temporal/captured-chronology.ts`       | 5506   | `6845765e6e8c1b4830d181f55992253362daadab6a9bcc8cbf5b51410cc9e0e9` |
-| `packages/engine/src/temporal/coordinator.ts`               | 61054  | `36b5115b2721ba6999bbbe2d812cadb8990acd5afd933a31371e30a45c5cfcde` |
-| `packages/engine/src/temporal/integrity.ts`                 | 17393  | `8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918` |
-| `packages/engine/src/ms-setup/fence.ts`                     | 8880   | `97fce41b09626dc1d6cdcb9b45f5b06fe2578632722f3ec0a3e1e6c6c03c03f8` |
-| `packages/engine/src/ms-setup/prefix.ts`                    | 5361   | `daebf3a72475f89511ba08be7ffb258c5e1d0dc1e082014be36cc732b6c4f79e` |
-| `packages/engine/src/ms-setup/integrity.ts`                 | 13525  | `9f15bf0ffd39f386e608a3a64825fc0bbab5c082bfd42ac0a6960700c1876894` |
-| `packages/engine/src/ms-setup/r1.ts`                        | 7686   | `fa6a22234db790de8012d7ad52ea0b696e0fc5ce219cc5b82808131d04f05dab` |
-| `packages/engine/src/ms-setup/publisher.ts`                 | 7410   | `96492d5aa0aaffe5eded71513af60132a1a0677bd35472c58433fe8bfb70ac56` |
-| `packages/engine/src/ms-setup/admission.ts`                 | 6580   | `aeffff8cb3a2b6abfdcd8cd09af2e49b03796c047aa140ff391e66cd94304b34` |
-| `packages/engine/src/initial-setup/admission.ts`            | 69863  | `a8ca653444c5b99a108269915b0ef265a567217513cddee04e7f3e2c250d6484` |
-| `packages/engine/src/initial-setup/producer.ts`             | 11593  | `638f5749c41e2fabf44d52e264a13f5372fa427f26ddde6aab79d51bf0ab8d46` |
-| `packages/engine/src/owners/registry.ts`                    | 242556 | `d7b6377101d8b445e08631748c4cc55d9cc2d7ef10602ef2dfce47e6d271dd07` |
-| `packages/engine/src/owners/admission.ts`                   | 61624  | `3abec834fd91314386cb64aa13bd0ad08ccc031af0628bebb597a4d960c93724` |
-| `packages/operator/src/chronology-capture.ts`               | 11336  | `8eced3f49cfd761384717cbebc9eae5f86322d9cc287f51b03d05c3a3cec2b63` |
-| `packages/operator/src/initial-setup.ts`                    | 26074  | `42ed3e645182551a51d0f9d4bd1a07683c4467d9d8739a0e11323f3a1dab83fd` |
-| `packages/operator/src/time-initialization.ts`              | 5062   | `fdb414245680260fa22ad11a57b7aabdb8383b4789ce5828d7320b9a5ab3751f` |
-| `packages/operator/src/ms-initial-actor.ts`                 | 3963   | `a393c190c6a73b0099a40a8d1aa2020b3ade5da5ca050b666811be1959a5bddf` |
-| `packages/operator/src/initial-timed-governance.ts`         | 50490  | `bfd645c253ccb422c2144eceff1cd68cbba9cf88afc0619f07765a5f2e714d32` |
-| `apps/phone/src/setup-recovery.ts`                          | 10485  | `39b39d37d41a6e441f7f66ce5485144be4cea34b12da4edf2dffc79ad6c48a54` |
-| `apps/phone/src/route-confirm.ts`                           | 7528   | `7725308f6b3e46265551ca9d8a48c64a026530c3ec600fa900083ea8edc22d87` |
-| `apps/phone/src/review-sources.ts`                          | 4677   | `ae495d670d5f0c46345c218f84bb9b387b07aacf1396adc63db7f36f1cc0287c` |
-| `tests/conformance/time-initialization-conformance.test.ts` | 2493   | `56e6ab7995538d031b8bd76637c3873c3688c39163855e53c41de4efc6dfef94` |
-| `tests/conformance/operator-conformance.test.ts`            | 20928  | `897c027dcb7b622bd613bbbdda1e69c60b6a3480f59bc087b3e5cff3545f88b1` |
-| `tests/support/freight-scoped-deltas.ts`                    | 4552   | `2e0308c5015e77b4ae49674735cd798dc9675bc69e951186bccfbf1f9e69d78b` |
+**Present-day identities are deliberately not restated here.** The repository's provenance rule (H-PROVENANCE; `historical-pin-provenance-conformance.test.ts` and `current-look-lowering-conformance.test.ts`) forbids any document from stating a present-day identity, because a hash copied into prose goes stale silently. Today's identities live only in `tests/support/present-day-identities.ts` and the scoped-delta tables. The A0 construction PR records each touched file's base and head identity there, as declared re-pins (§4).
 
-No new fixture or reproduction bundle exists yet. A0 fixtures will be committed with the construction PR, each with path, commit, byte length and SHA-256, for recipient verification.
+A reviewer reproduces the exact base bytes of any path with:
+
+```sh
+git show 0c9e74b9d5dc8845751a543ace777277b2cb1308:<path> | sha256sum
+git show 0c9e74b9d5dc8845751a543ace777277b2cb1308:<path> | wc -c
+```
+
+Files in custody scope (28):
+
+- `packages/contracts/src/initial-locality.ts`
+- `packages/contracts/src/temporal.ts`
+- `packages/engine/src/temporal/admission.ts`
+- `packages/engine/src/temporal/bootstrap.ts`
+- `packages/engine/src/temporal/captured-chronology.ts`
+- `packages/engine/src/temporal/coordinator.ts`
+- `packages/engine/src/temporal/integrity.ts`
+- `packages/engine/src/ms-setup/fence.ts`
+- `packages/engine/src/ms-setup/prefix.ts`
+- `packages/engine/src/ms-setup/integrity.ts`
+- `packages/engine/src/ms-setup/r1.ts`
+- `packages/engine/src/ms-setup/publisher.ts`
+- `packages/engine/src/ms-setup/admission.ts`
+- `packages/engine/src/initial-setup/admission.ts`
+- `packages/engine/src/initial-setup/producer.ts`
+- `packages/engine/src/owners/registry.ts`
+- `packages/engine/src/owners/admission.ts`
+- `packages/operator/src/chronology-capture.ts`
+- `packages/operator/src/initial-setup.ts`
+- `packages/operator/src/time-initialization.ts`
+- `packages/operator/src/ms-initial-actor.ts`
+- `packages/operator/src/initial-timed-governance.ts`
+- `apps/phone/src/setup-recovery.ts`
+- `apps/phone/src/route-confirm.ts`
+- `apps/phone/src/review-sources.ts`
+- `tests/conformance/time-initialization-conformance.test.ts`
+- `tests/conformance/operator-conformance.test.ts`
+- `tests/support/freight-scoped-deltas.ts`
+
+No new fixture or reproduction bundle exists yet. A0 fixtures will be committed with the construction PR at an immutable commit. Each will have its path, byte length and SHA-256 recorded in the repository's designated identity tables, for recipient verification.
 
 ---
 
