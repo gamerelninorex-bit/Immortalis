@@ -82,6 +82,10 @@ function mutate(edit: (l: any) => void): string[] {
     "spec/f027/open-gates.yaml",
     "packages/contracts/src/spec-identity.ts",
     "spec/f027/ms-setup-v08-manifest.json",
+    // F-014B A0: the checker also holds the lowering row to the code that carries it (the segments, the rules, the single genesis alternate)
+    "packages/engine/src/initial-setup/rules.ts",
+    "packages/engine/src/owners/admission.ts",
+    "packages/engine/src/owners/registry.ts",
   ]) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
     cpSync(rel, join(root, rel));
@@ -131,8 +135,10 @@ describe("the lock: one non-executable lineage row and two additive executable l
       // the Sovereign-adopted C-1/C-2 clarification (3 November 2026), registered additively after them
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LINEAGE",
       "MS-SETUP-V08-LINEAGE",
-      // ROADBED R3-T25 first-profile freight (13 November 2026), appended last
+      // ROADBED R3-T25 first-profile freight (13 November 2026), appended after them
       "ROADBED-FREIGHT-FI-LINEAGE",
+      // F-014B A0 CAL-TIME T-1 clock-origin (20 November 2026), appended last
+      "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE",
     ]);
     expect(sha(lock["design_lineage_successors"].slice(0, 4))).toBe(
       "194d76ee5c8c50d1475fd0de4d25b54f3e827b16bb1c21ee10a579e05a17fd9d",
@@ -209,6 +215,7 @@ describe("the lock: one non-executable lineage row and two additive executable l
       "GM-INITIAL-BOOTSTRAP-V9-C1C2-LOWERING",
       "MS-SETUP-V08-LOWERING",
       "ROADBED-FREIGHT-FI-LOWERING",
+      "CAL-TIME-T1-CLOCK-ORIGIN-LOWERING",
     ]);
     // the required table lists the unconditional rows; the OPTION_A_V9 rows are checked conditionally on option_a_status
     expect(Object.keys(REQUIRED_EXECUTABLE_LOWERINGS)).toEqual([
@@ -217,11 +224,13 @@ describe("the lock: one non-executable lineage row and two additive executable l
         .map((r) => r.id),
       "MS-SETUP-V08-LOWERING",
       "ROADBED-FREIGHT-FI-LOWERING",
+      "CAL-TIME-T1-CLOCK-ORIGIN-LOWERING",
     ]);
     expect(Object.keys(REQUIRED_DESIGN_LINEAGE)).toEqual([
       ...lock["design_lineage_successors"].slice(0, 6).map((r: any) => r.id),
       "MS-SETUP-V08-LINEAGE",
       "ROADBED-FREIGHT-FI-LINEAGE",
+      "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE",
     ]);
     expect(sha(rows()[0])).toBe("1ddfb7f3773145f81ef3c2f43759682c444e636c430d428302e2440937ef51f8");
     expect(sha(rows()[1])).toBe("c9b62fd9505a5699c7a763c3b9383396be16212dc831bc96bf035326f49cad1e");
@@ -771,9 +780,9 @@ const ORIGINAL_MAIN_LOCK_SHA256 =
 const ORIGINAL_MAIN_REGISTRY_SHA256 =
   "7450fe62f3201981918031bb98b5e49004de642f82eb0732348314a861a4d0a2";
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
-const CURRENT_V08_LOCK_SHA256 = "8c0754d36599fcdf0cf5647d042b61492724fa742b5fd30ea62d37ff961971af";
+const CURRENT_V08_LOCK_SHA256 = "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc";
 const CURRENT_V08_REGISTRY_SHA256 =
-  "d7b6377101d8b445e08631748c4cc55d9cc2d7ef10602ef2dfce47e6d271dd07";
+  "2348ab6671678267a971e703bad14c4b17b3bc887739aa342445be89791b0588";
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")
@@ -800,6 +809,9 @@ function lockWithoutV08Rows(): string {
     // and the ROADBED R3-T25 first-profile freight rows (13 November 2026)
     "ROADBED-FREIGHT-FI-LINEAGE",
     "ROADBED-FREIGHT-FI-LOWERING",
+    // and the F-014B A0 CAL-TIME T-1 clock-origin rows (20 November 2026)
+    "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE",
+    "CAL-TIME-T1-CLOCK-ORIGIN-LOWERING",
   ]);
   copy["design_lineage_successors"] = copy["design_lineage_successors"].filter(
     (r: any) => r.id !== LINEAGE_ID && !v09.has(r.id),

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests edit raw witness values */
 // F-014B A0-T17 — the pure category-8 origin predicate, PREPARATORY AND UNWIRED. NEGATIVE tests only, plus one shape control:
 // no T0 category-8 read exists, no calendar profile, no GM canon right; a passing control proves only that a strict witness of the right
 // campaign and unit is not malformed — it is NOT a T0 PASS and no acceptance is claimed. The positive read and its placement are B1.
@@ -16,8 +17,8 @@ const witness = () => syntheticOrigin(CAMPAIGN);
 
 describe("A0-T17: siOriginWitnessViolation (preparatory, negatives only)", () => {
   it("refuses a witness that is not a strict origin", () => {
-    const w = witness() as any;
-    const { scale: _scale, ...noScale } = w;
+    const w = witness() as unknown as Record<string, any>;
+    const noScale = Object.fromEntries(Object.entries(w).filter(([k]) => k !== "scale"));
     const malformed: unknown[] = [
       undefined,
       null,

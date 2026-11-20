@@ -14,8 +14,6 @@ import {
   TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
   deriveTemporalOrigin,
-  initialLocalityCompletionKey,
-  initialSetupInputKey,
   type AuthoredEvidence,
   type CommitGroup,
   type SourceRef,
@@ -134,7 +132,7 @@ export function v2Capture(
 
 /** Rehashes a capture after a field of it was changed (the hashes of a forged-but-self-consistent capture are valid). */
 export function rehash<T extends ChronologyCapture | ChronologyCaptureV2>(c: T): T {
-  const { capture_hash: _drop, ...rest } = c;
+  const rest = Object.fromEntries(Object.entries(c).filter(([k]) => k !== "capture_hash"));
   const withDoc = { ...rest, document_hash: chronologyDocumentHash(c.document) };
   return { ...withDoc, capture_hash: chronologyCaptureHash(withDoc as never) } as T;
 }

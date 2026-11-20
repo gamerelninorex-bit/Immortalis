@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw facts */
 // F-014B A0 (CAL-TIME T-1 grant 5) — the MS v3 route with a strict v2 captured chronology. T1 MECHANISM ONLY: the MS actor answers are
 // labelled testkit fixtures; the MS owners, fence, the paired clock step, the live B2 prefix and the SEALED historical check are real.
 //
@@ -24,7 +23,6 @@ import {
   InitialLocalityCompletionSchema,
   TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
-  type CommitGroup,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { governing } from "../support/clock-origin.ts";

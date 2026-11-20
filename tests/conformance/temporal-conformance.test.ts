@@ -40,8 +40,17 @@ describe("IA-01 source/version fidelity (temporal kernel registration aspect)", 
   it("the IM-02 kernel registration cites F-014B at its exact spec-locked pin and IM lowering", () => {
     expect(F014B_SOURCE).toEqual({ artifact: f014b.url, native_pin: f014b.native_pin });
     for (const kind of TEMPORAL_FACT_KINDS) {
-      expect(kind.rule.artifact).toBe(f014b.url);
-      expect(kind.rule.native_pin).toBe(f014b.native_pin);
+      // F-014B A0: the origin witness is governed by the adopted CAL-TIME T-1 source (its own rule); the five original kinds keep F-014B
+      if (kind.id === "temporal_origin") {
+        expect(kind.rule.artifact).not.toBe(f014b.url);
+        expect(kind.rule.artifact).toBe(
+          "https://app.notion.com/p/41c20af901e0817ca9e8dcb392e3b0d7",
+        );
+        expect(kind.rule.native_pin).toBe("2026-11-18T22:23:26.085Z");
+      } else {
+        expect(kind.rule.artifact).toBe(f014b.url);
+        expect(kind.rule.native_pin).toBe(f014b.native_pin);
+      }
       expect(kind.im).toBe(f014b.primary_im);
       expect(kind.im).toBe("IM-02");
       expect(kind.rule.supersedes).toBeNull();
@@ -84,6 +93,8 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
       ["resolution_transaction", "temporal_kernel", "temporal_coordination", "SEALED"],
       // the durable authority of an OPEN transaction, committed before its first owner stage (F-014B §6 step 1)
       ["temporal_transaction_authority", "temporal_kernel", "temporal_coordination", "SEALED"],
+      // F-014B A0 (CAL-TIME T-1): the sealed origin witness, same owner and facet (no new owner, no second clock)
+      ["temporal_origin", "temporal_kernel", "temporal_coordination", "SEALED"],
     ]);
     expect(FACT_KINDS.map((k) => k.owner).sort()).toEqual([
       "pc_existence",

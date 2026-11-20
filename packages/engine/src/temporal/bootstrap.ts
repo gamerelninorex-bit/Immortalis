@@ -4,6 +4,7 @@ import {
   InitialLocalityCompletionSchema,
   InitialSetupInputSchema,
   OWNER_TEMPORAL_KERNEL,
+  TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
   TemporalOriginSchema,
   TemporalStateSchema,
@@ -43,7 +44,7 @@ const kindOf = (key: string) => resolveKey(key)?.kind.id;
  */
 export function clockOriginGenesisViolation(
   group: CommitGroup,
-  _state: CampaignState,
+  state: CampaignState,
 ): Rejection | null {
   const pairShape = (message: string, details: Record<string, unknown> = {}) =>
     reject("VALUE_INVALID", message, { reason: "ORIGIN_PAIR_SHAPE", ...details });
@@ -71,10 +72,19 @@ export function clockOriginGenesisViolation(
       return pairShape("both writes of the paired genesis carry the group's owner and facet");
   if (!genesisRule)
     return pairShape("the origin witness is created only under the paired genesis rule");
-  const state = TemporalStateSchema.safeParse(stateW.value);
-  if (!state.success || state.data.last_transaction !== null || state.data.continuation !== null)
+  const initial = TemporalStateSchema.safeParse(stateW.value);
+  if (
+    !initial.success ||
+    initial.data.last_transaction !== null ||
+    initial.data.continuation !== null
+  )
     return pairShape(
       "the initial basis of the paired genesis has no transaction and no continuation",
+    );
+  // genesis only, once: neither fact may already exist in the pre-state this group meets (replay re-checks it against each incremental state)
+  if (state.facts.has(TEMPORAL_STATE_KEY) || state.facts.has(TEMPORAL_ORIGIN_KEY))
+    return pairShape(
+      "the paired genesis is created once: temporal/state or temporal/origin already exists",
     );
   if (originW.basis !== stateW.basis || originW.secrecy !== stateW.secrecy)
     return pairShape("both writes of the paired genesis carry the same basis and secrecy");

@@ -36,6 +36,7 @@ import * as engine from "@immortalis/engine";
 import { code, lock } from "../support/f027.ts";
 import { FREIGHT_BASE_COMMIT, FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import { S4_SCOPED_DELTAS } from "../support/pc-standing-ledger-scoped-deltas.ts";
+import { A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { REMOVED_HISTORICAL_PINS } from "../support/freight-removed-pins.ts";
 import { execFileSync } from "node:child_process";
 
@@ -208,7 +209,7 @@ describe("predecessor modules: exactly the recorded scoped deltas, pinned here",
     for (const [path, pin] of Object.entries(FREIGHT_SCOPED_DELTAS)) {
       // a LATER slice (S-4) changed two of these files after the freight slice head: the freight head is then the S-4 base, the chain is
       // checked in pc-standing-ledger-conformance, and the working tree is pinned by that slice's table instead
-      const later = S4_SCOPED_DELTAS[path];
+      const later = S4_SCOPED_DELTAS[path] ?? A0_SCOPED_DELTAS[path];
       if (later) expect(later.base, path).toBe(pin.head);
       else expect(sha(path), path).toBe(pin.head);
       expect(pin.base, path).not.toBe(pin.head);
@@ -247,7 +248,11 @@ describe("predecessor modules: exactly the recorded scoped deltas, pinned here",
 describe("reviewed sunset policy: every registered kind has a row; the freight rows are the restrictive default", () => {
   it("the freight table is the M-S table plus 26 UNREVIEWED_BLOCK rows and covers exactly ALL_FACT_KINDS", () => {
     // the two S-4 ledger kinds were registered AFTER this table; their rows are the S-4 delta (tests/conformance/pc-standing-ledger-conformance)
-    const afterFreight: readonly string[] = PC_STANDING_LEDGER_FACT_KIND_IDS;
+    // and the F-014B A0 Temporal origin witness after them (the clock-origin delta)
+    const afterFreight: readonly string[] = [
+      ...PC_STANDING_LEDGER_FACT_KIND_IDS,
+      "temporal_origin",
+    ];
     const atFreight = ALL_FACT_KINDS.filter((k) => !afterFreight.includes(k.id));
     expect(BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1).toHaveLength(atFreight.length);
     expect(

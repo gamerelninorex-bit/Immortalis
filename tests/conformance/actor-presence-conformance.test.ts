@@ -198,7 +198,8 @@ describe("the F-027 lock: design lineage and executable lowering, apart from the
     const [low] = lock.executable_lowerings as any[];
     // + the two Initial Locality Bootstrap v0.9 lowerings (core and the adopted OPTION_A_V9 row) and the additive C-1/C-2 clarification row
     // + the M-S v0.8 row and the ROADBED R3-T25 freight row, each appended after it
-    expect(lock.executable_lowerings).toHaveLength(9);
+    // + the F-014B A0 CAL-TIME T-1 clock-origin row (CAL-TIME-T1-CLOCK-ORIGIN-LOWERING), appended last
+    expect(lock.executable_lowerings).toHaveLength(10);
     expect(low.id).toBe("R1-STAGE-ONE-V1.1-LOWERING");
     expect(low.executable).toBe(true);
     expect(low.relation).toBe("COMPOSES_WITH");

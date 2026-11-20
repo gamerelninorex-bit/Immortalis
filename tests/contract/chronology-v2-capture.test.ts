@@ -22,6 +22,8 @@ import { V1_DOCUMENT, V2_DOCUMENT, rehash, v1Capture, v2Capture } from "../suppo
  * A0-T02: the v2 contract table.
  * A0-T03: the legacy parsers refuse a v2 document.
  */
+const omit = (o: object, key: string): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => k !== key));
 const CAMPAIGN = "campaign-a0-contract";
 const ACCEPTED_LOCK_COMMIT = "37ba11bd0f0f068a22731f87351a0fd9a16a885b";
 const CORPUS = "tests/contract/chronology-v1-baseline-corpus.test.ts";
@@ -105,19 +107,25 @@ describe("A0-T02: the strict v2 contract table", () => {
     const v2 = v2Capture({ campaignId: CAMPAIGN });
     const v1 = v1Capture({ campaignId: CAMPAIGN });
     // a v2 document inside a v1 capture fails the v1 arm's literal-1 document
-    expect(ChronologyEvidenceSchema.safeParse({ ...v1, document: V2_DOCUMENT }).success).toBe(false);
+    expect(ChronologyEvidenceSchema.safeParse({ ...v1, document: V2_DOCUMENT }).success).toBe(
+      false,
+    );
     // a v1 document inside a v2 capture fails scale and the v2 document version
-    expect(ChronologyEvidenceSchema.safeParse({ ...v2, document: V1_DOCUMENT }).success).toBe(false);
+    expect(ChronologyEvidenceSchema.safeParse({ ...v2, document: V1_DOCUMENT }).success).toBe(
+      false,
+    );
     // the version literal and the document version must agree
     expect(ChronologyEvidenceSchema.safeParse({ ...v1, format_version: 2 }).success).toBe(false);
     expect(ChronologyEvidenceSchema.safeParse({ ...v2, format_version: 1 }).success).toBe(false);
     expect(ChronologyDocumentV2Schema.safeParse(V1_DOCUMENT).success).toBe(false);
     for (const bad of [0, 3, "2", null, undefined])
-      expect(ChronologyEvidenceSchema.safeParse({ ...v2, format_version: bad }).success).toBe(false);
+      expect(ChronologyEvidenceSchema.safeParse({ ...v2, format_version: bad }).success).toBe(
+        false,
+      );
   });
 
   it("a v2 document with no scale, an extra field, or any other scale value is refused", () => {
-    const { scale: _scale, ...noScale } = V2_DOCUMENT;
+    const noScale = omit(V2_DOCUMENT, "scale");
     expect(ChronologyDocumentV2Schema.safeParse(noScale).success).toBe(false);
     expect(ChronologyDocumentV2Schema.safeParse({ ...V2_DOCUMENT, epoch: "default" }).success).toBe(
       false,
@@ -133,9 +141,10 @@ describe("A0-T02: the strict v2 contract table", () => {
       null,
       { v: SI_SCALE_DECLARATION },
     ])
-      expect(ChronologyDocumentV2Schema.safeParse({ ...V2_DOCUMENT, scale }).success, String(scale)).toBe(
-        false,
-      );
+      expect(
+        ChronologyDocumentV2Schema.safeParse({ ...V2_DOCUMENT, scale }).success,
+        String(scale),
+      ).toBe(false);
     // every v2 capture field is closed too
     const v2 = v2Capture({ campaignId: CAMPAIGN });
     expect(ChronologyEvidenceSchema.safeParse({ ...v2, extra: 1 }).success).toBe(false);
@@ -143,17 +152,19 @@ describe("A0-T02: the strict v2 contract table", () => {
       ChronologyEvidenceSchema.safeParse({ ...v2, document: { ...V2_DOCUMENT, scale: undefined } })
         .success,
     ).toBe(false);
-    const { capture_hash: _h, ...noHash } = v2;
+    const noHash = omit(v2, "capture_hash");
     expect(ChronologyEvidenceSchema.safeParse(noHash).success).toBe(false);
   });
 
   it("a v2 capture with the wrong document_hash or capture_hash is refused by the shared capture check", () => {
     const v2 = v2Capture({ campaignId: CAMPAIGN });
     const flip = (h: string) => (h[0] === "0" ? "1" : "0") + h.slice(1);
-    expect(chronologyEvidenceViolation({ ...v2, document_hash: flip(v2.document_hash) }, CAMPAIGN))
-      .toMatchObject({ reason: "CHRONOLOGY_HASH" });
-    expect(chronologyEvidenceViolation({ ...v2, capture_hash: flip(v2.capture_hash) }, CAMPAIGN))
-      .toMatchObject({ reason: "CHRONOLOGY_HASH" });
+    expect(
+      chronologyEvidenceViolation({ ...v2, document_hash: flip(v2.document_hash) }, CAMPAIGN),
+    ).toMatchObject({ reason: "CHRONOLOGY_HASH" });
+    expect(
+      chronologyEvidenceViolation({ ...v2, capture_hash: flip(v2.capture_hash) }, CAMPAIGN),
+    ).toMatchObject({ reason: "CHRONOLOGY_HASH" });
     // a document change that keeps the old document_hash is also caught
     expect(
       chronologyEvidenceViolation(
@@ -162,7 +173,9 @@ describe("A0-T02: the strict v2 contract table", () => {
       ),
     ).toMatchObject({ reason: "CHRONOLOGY_HASH" });
     // the v2 bytes cannot be re-labelled as v1 and keep a valid capture hash
-    expect(chronologyEvidenceViolation({ ...v2, format_version: 1 } as never, CAMPAIGN)).not.toBeNull();
+    expect(
+      chronologyEvidenceViolation({ ...v2, format_version: 1 } as never, CAMPAIGN),
+    ).not.toBeNull();
     expect(chronologyEvidenceViolation(v2, "campaign-other")).toMatchObject({
       reason: "CHRONOLOGY_CAMPAIGN",
     });

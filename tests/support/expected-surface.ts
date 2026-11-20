@@ -106,6 +106,14 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "temporal/transaction-authority/t1",
   },
   {
+    id: "temporal_origin",
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    lifecycle: "SEALED",
+    group: "TEMPORAL_FACT_KINDS",
+    exampleKey: "temporal/origin",
+  },
+  {
     id: "population_ledger",
     owner: "population",
     facet: "population_state",
@@ -1510,6 +1518,7 @@ export const EXPECTED_ADAPTER_SURFACES: Readonly<Record<string, ExpectedAdapterS
       "boundaryIndex",
       "continueRemainder",
       "establishCanonicalTime",
+      "establishCanonicalTimeWithOrigin",
       "object",
       "registerObject",
       "retireLapsedObject",

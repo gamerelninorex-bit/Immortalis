@@ -14,19 +14,13 @@ import {
   INITIAL_SETUP_RULES,
   StageProviderRegistry,
   TemporalCoordinator,
-  buildCompletionGroup,
   buildProducerInput,
   deliveredProducerBytesViolation,
   factKind,
   initializeCapturedChronology,
   resolveInstructionMap,
 } from "@immortalis/engine";
-import {
-  InitialLocalityCompletionSchema,
-  TEMPORAL_ORIGIN_KEY,
-  TEMPORAL_STATE_KEY,
-  canonicalJson,
-} from "@immortalis/contracts";
+import { TEMPORAL_ORIGIN_KEY, TEMPORAL_STATE_KEY, canonicalJson } from "@immortalis/contracts";
 import { publication } from "@immortalis/testkit";
 import {
   FIXTURE_POLICY,
@@ -554,10 +548,8 @@ describe("A0-T08: producer bytes P/H/T/D", () => {
     expect(canonicalJson(pa.chronology)).toBe(canonicalJson(v1.chronology.document));
     // the v2 object embeds the v2 document verbatim; nothing else differs but the identities derived from it
     expect(pb.chronology).toEqual(v2.chronology.document);
-    const strip = (p: any) => {
-      const { chronology: _c, task_id: _t, ...rest } = p;
-      return rest;
-    };
+    const strip = (p: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(p).filter(([k]) => k !== "chronology" && k !== "task_id"));
     expect(strip(pa)).toEqual(strip(pb));
     expect(a.value.input_hash).not.toBe(b.value.input_hash);
     expect(a.value.task_id).not.toBe(b.value.task_id);

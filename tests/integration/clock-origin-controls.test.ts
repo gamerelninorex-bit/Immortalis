@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw facts */
 // F-014B A0 (CAL-TIME T-1) — legacy controls (A0-T16) and the operator half of A0-T03. T1 MECHANISM ONLY.
 //
 // Old v1, direct-operator and never-bootstrap routes stay state-only, opaque, one-write: never SI-eligible, never retrofitted, never given

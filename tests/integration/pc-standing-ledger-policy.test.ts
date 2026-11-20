@@ -82,10 +82,15 @@ async function lawfulPackage(): Promise<{ dir: string; groups: number }> {
 describe("the S-4 policy suffix changes how a checkpoint's evidence is trusted", () => {
   const CURRENT_ID = canonicalAdmission.historyVerificationId!;
   const A01_SUFFIX = "+POPULATION-STAGE-AUTHORITY-V2";
+  // F-014B A0 (CAL-TIME T-1) appended two additive segments after the A01 suffix, in the same change as its validators
+  const A0_SEGMENTS =
+    "+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN";
 
-  it("the combined policy retains the authentic pre-S-4 identity plus S-4 then A01 in order", () => {
+  it("the combined policy retains the authentic pre-S-4 identity plus S-4, A01 and the A0 segments in order", () => {
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX.length).toBeGreaterThan(0);
-    expect(CURRENT_ID).toBe(`${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01_SUFFIX}`);
+    expect(CURRENT_ID).toBe(
+      `${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01_SUFFIX}${A0_SEGMENTS}`,
+    );
     expect(PRE_S4_ID).not.toBe(CURRENT_ID);
   });
 

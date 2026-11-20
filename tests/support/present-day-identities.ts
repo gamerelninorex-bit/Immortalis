@@ -8,7 +8,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "92a0d702a9852379f6cc257fe21129866dcbcc7fff2af30006f1bc3752181e08",
+    "34cd2b85657d46f8641bbb8df09f3896a3c668afa58b5102eab09b95ccc77652",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "18a0edbe9aadf9c6aa2282a475d25600c55a1d264141aa2973a0bb46e9fa3f8e",
   "packages/engine/src/owners/admission.ts":
-    "3abec834fd91314386cb64aa13bd0ad08ccc031af0628bebb597a4d960c93724",
+    "2e3ec95e6b0e6c333c789d3baf8a2edb97a260980cd0320d22ab576972f8e1fd",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":

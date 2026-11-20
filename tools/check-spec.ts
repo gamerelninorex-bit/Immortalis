@@ -276,15 +276,6 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
     sections: 1,
     titles: ["M-S v0.8 A–D — Design Only"],
   },
-  // 18 November 2026: the adopted CAL-TIME T-1 Unified Clock-Origin Source (Sovereign-ratified, five grants). Design lineage only: the page is no
-  // frozen source and no addendum; the A0 lowering below it names BLUE's A0 PASS brief as its single native citation.
-  [CLOCK_ORIGIN.lineage_id]: {
-    of: null,
-    url: CLOCK_ORIGIN.t1.url,
-    pin: CLOCK_ORIGIN.t1.pin,
-    sections: CLOCK_ORIGIN.sections.length,
-    titles: CLOCK_ORIGIN.sections,
-  },
   // ROADBED (R2-D18 v1.2.1 / R3-T2 as corrected by R3-T17 / R3-T25): the page as fetched at Builder intake; the ratified pins it carries are in the section titles
   "ROADBED-FREIGHT-FI-LINEAGE": {
     of: null,
@@ -296,6 +287,15 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
       "R3-T2 §§2–5 — scoped F-016 EL-01F / EL-02S and F-017 first-freight stage overlay as corrected by R3-T17 CT-1..CT-4 (Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z; R3-T21 documentary re-freeze)",
       "R3-T25 — BLUE Formal Universal Hard Preflight v6.2, conditional-scope PASS and bounded Builder brief (13 November 2026)",
     ],
+  },
+  // 18 November 2026: the adopted CAL-TIME T-1 Unified Clock-Origin Source (Sovereign-ratified, five grants). Design lineage only: the page is no
+  // frozen source and no addendum; the A0 lowering below it names BLUE's A0 PASS brief as its single native citation.
+  [CLOCK_ORIGIN.lineage_id]: {
+    of: null,
+    url: CLOCK_ORIGIN.t1.url,
+    pin: CLOCK_ORIGIN.t1.pin,
+    sections: CLOCK_ORIGIN.sections.length,
+    titles: CLOCK_ORIGIN.sections,
   },
 };
 

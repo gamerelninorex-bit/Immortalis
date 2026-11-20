@@ -21,6 +21,7 @@ import {
   RP1_STAGE2_DELTAS,
 } from "../support/rp1-stage2-deltas.ts";
 import { RP2_BASE, RP2_BASE_TREE, RP2_SOURCE_DELTAS } from "../support/rp2-source-deltas.ts";
+import { A0_BASE_COMMIT, A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -341,11 +342,19 @@ describe("RP-2 pins the four authorized production repairs", () => {
       expect(output).not.toBeNull();
       changed.push(...output!.toString("utf8").trim().split("\n").filter(Boolean));
     }
-    expect(changed.sort()).toEqual(Object.keys(RP2_SOURCE_DELTAS).sort());
+    // F-014B A0 (a later slice, based on the tree after RP-2) added its own recorded paths under packages/: its table and
+    // tests/conformance/a0-scope-conformance.test.ts police them; the four RP-2 repairs above are checked exactly as before
+    expect(changed.sort()).toEqual([...Object.keys(RP2_SOURCE_DELTAS), ...A0_PACKAGE_PATHS].sort());
     const lockPath = "spec/f027/spec-lock.json";
     const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();
     expect(baselineLock).toMatch(/^[0-9a-f]{40}$/);
-    expect(git("hash-object", lockPath)?.toString("utf8").trim()).toBe(baselineLock);
+    // RP-2 left the lock exactly as its base tree had it: main after RP-2 (and PR #115), the A0 base, carries the very same blob. F-014B A0
+    // then extended the lock ADDITIVELY (one lineage row and one lowering row, appended last); that change is policed by tools/check-spec.ts,
+    // tests/conformance/clock-origin-custody-conformance.test.ts and tests/conformance/a0-scope-conformance.test.ts, not by this RP-2 claim.
+    expect(git("rev-parse", `${A0_BASE_COMMIT}:${lockPath}`)?.toString("utf8").trim()).toBe(
+      baselineLock,
+    );
+    expect(git("hash-object", lockPath)?.toString("utf8").trim()).not.toBe(baselineLock);
   });
 
   it("verifies the original initial Population and pre-RP-2 referee identities at their historical trees", () => {
