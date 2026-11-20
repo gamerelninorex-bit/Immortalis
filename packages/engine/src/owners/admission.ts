@@ -67,8 +67,10 @@ import {
   initialCompletionProjectionCheck,
 } from "../initial-setup/projection.ts";
 import {
+  CAL_TIME_T1_HISTORY_POLICY_SEGMENT,
   INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
   INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+  MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT,
 } from "../initial-setup/rules.ts";
 import { diplomacyGroupCheck } from "../diplomacy/admission.ts";
 import { economyGroupCheck } from "../economy/admission.ts";
@@ -98,7 +100,10 @@ import { populationGroupCheck, populationHistoricalCheck } from "../population/a
 import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
-import { bootstrapInitialTimePrecondition } from "../temporal/bootstrap.ts";
+import {
+  bootstrapInitialTimePrecondition,
+  clockOriginGenesisViolation,
+} from "../temporal/bootstrap.ts";
 import { existingActorCouplingViolation } from "../world/actor-coupling.ts";
 import {
   PRESENCE_EXCLUSION,
@@ -533,7 +538,10 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
     // change to any composed historical verifier must change this identity (and force strict replay).
     // Compose the merged S-4 policy first, then A01: neither predecessor checkpoint proves both checks ran.
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2`,
+    // Then CAL-TIME T-1 (F-014B A0; BLUE S11 Q2): the paired-genesis, arm/route/rule and MS clock-step / B2 / SEALED-history checks are
+    // new historical validators, so two additive, separately distinguishable segments are appended in this same change. The old MS
+    // segment literal above is retained unchanged. Every composed identity (production, MS, fixture, legacy, extension) changes.
+    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}`,
     verifyHistorical(group, state) {
       return (
         msFenceCheck(group, state) ??
@@ -735,13 +743,22 @@ function initialSetupHistoricalCheck(
     (group.owner === OWNER_POPULATION && group.facet === FACET_POPULATION_WORKFORCE_SCOPE)
   )
     return projectionPreconditions(group, state);
+  // CAL-TIME T-1 (F-014B A0): replay runs this hook, NOT `check`, so the shared pair-shape check runs here too. It covers a
+  // `temporal_origin` write wherever it appears (alone, late, in a wrong group, under any rule) as well as the initial state.
   if (
-    group.owner === OWNER_TEMPORAL_KERNEL &&
-    group.writes.some(
-      (w) => resolveKey(w.key)?.kind.id === "temporal_state" && w.expected_version === 0,
-    )
+    group.writes.some((w) => {
+      const kind = resolveKey(w.key)?.kind.id;
+      return (
+        kind === "temporal_origin" ||
+        (group.owner === OWNER_TEMPORAL_KERNEL &&
+          kind === "temporal_state" &&
+          w.expected_version === 0)
+      );
+    })
   )
-    return bootstrapInitialTimePrecondition(group, state);
+    return (
+      clockOriginGenesisViolation(group, state) ?? bootstrapInitialTimePrecondition(group, state)
+    );
   if (group.writes.some((w) => classifyFact({ key: w.key, value: w.value }) === "GENESIS"))
     return frozenBasisViolation(group, state);
   return null;
@@ -861,6 +878,7 @@ export function identityMismatch(
     case "player_character_binding":
     case "temporal_state":
     case "temporal_boundary_index":
+    case "temporal_origin":
       return null;
     case "temporal_object":
       return v["object_id"] === ids[0] ? null : "object_id does not match the key";

@@ -2,6 +2,7 @@ import {
   InitialSetupInputSchema,
   InitialLocalityCompletionSchema,
   WorldSetupClosureSchema,
+  TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
   actorPhysicalPresenceKey,
   actorSetupPlacementKey,
@@ -15,7 +16,8 @@ import {
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { msActorId, msCompletionDigest, descriptor } from "./protocol.ts";
-import { isMsInputRule, isMsCompletionRule } from "./prefix.ts";
+import { INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE } from "../initial-setup/rules.ts";
+import { isMsInputRule, isMsCompletionRule, msCompletionInput } from "./prefix.ts";
 import { msReject } from "./admission.ts";
 import { MS_SOURCE } from "./rules.ts";
 import { canonicalEqual } from "../hash.ts";
@@ -162,6 +164,28 @@ export function msFenceFullCheck(group: CommitGroup, state: CampaignState) {
     return !state.facts.has(k);
   });
   if (!next) return null;
+  // CAL-TIME T-1 grant 5 (F-014B A0): the ONE clock-step exception. When the next required phase key is temporal/state AND the real MS
+  // Completion's own Input is the qualified v2 MS Input (its v2 rule, a version 2 chronology), the clock step is exactly the PAIR of
+  // temporal/state and temporal/origin (set equality, either order). It is bound to this single phase key, kind pair and route: every
+  // other phase key keeps the single-write rule below, PRE_CLOCK stays closed, and a v1 MS Input still admits exactly one write.
+  if (next === TEMPORAL_STATE_KEY) {
+    const input = msCompletionInput(state.facts, c.data);
+    const inputFact = state.facts.get(c.data.input.fact_key);
+    if (
+      input &&
+      input.chronology.format_version === 2 &&
+      inputFact &&
+      canonicalEqual(inputFact.provenance.rule, INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE)
+    ) {
+      const keys2 = new Set(group.writes.map((w) => w.key));
+      return group.writes.length === 2 &&
+        keys2.size === 2 &&
+        keys2.has(TEMPORAL_STATE_KEY) &&
+        keys2.has(TEMPORAL_ORIGIN_KEY)
+        ? null
+        : msReject("MS_PHASE_FENCE");
+    }
+  }
   return group.writes.length === 1 && group.writes[0]!.key === next
     ? null
     : msReject("MS_PHASE_FENCE");

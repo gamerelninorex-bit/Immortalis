@@ -49,7 +49,7 @@ import { ktiObjectViolation } from "../kti/declaration.ts";
 import { logisticsObjectViolation } from "../logistics/declaration.ts";
 import { productionObjectViolation } from "../production/admission.ts";
 import { resolveKey } from "../owners/registry.ts";
-import { bootstrapInitialTimePrecondition } from "./bootstrap.ts";
+import { bootstrapInitialTimePrecondition, clockOriginGenesisViolation } from "./bootstrap.ts";
 import { isRejection, reject, requirePrerequisite } from "../owners/rejection.ts";
 import { entityTransitionObjectViolation } from "../world/entity-transition.ts";
 import {
@@ -97,6 +97,16 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
   )
     return pcCollectionRetirementGroupCheck(group, state);
 
+  // CAL-TIME T-1 (F-014B A0): a group carrying the origin witness is lawful only as the paired genesis, judged by the ONE shared
+  // pair-shape check (also called from the separate historical hook, because replay runs verifyHistorical and not this function),
+  // and then by the same state-dependent initial-time precondition as every other initial basis.
+  const originW = writes.find((w) => classify(w.key) === "temporal_origin");
+  if (originW) {
+    const shape = clockOriginGenesisViolation(group, state);
+    if (shape) return shape;
+    return bootstrapInitialTimePrecondition(group, state);
+  }
+
   if (txWs.length > 1) return reject("VALUE_INVALID", "one group records at most one transaction");
   const priorStateFact = state.facts.get(TEMPORAL_STATE_KEY);
   const prior = priorStateFact ? TemporalStateSchema.parse(priorStateFact.value) : undefined;
@@ -111,6 +121,9 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
     if (s.last_transaction !== null || s.continuation !== null) {
       return reject("VALUE_INVALID", "the initial basis has no transaction and no continuation");
     }
+    // the paired genesis rule never cites a lone state
+    const lone = clockOriginGenesisViolation(group, state);
+    if (lone) return lone;
     // v0.9: in a bootstrap-bearing prefix the initial time is the captured chronology of the governing Completion's Input, whatever
     // governing rule the group cites (a plain KERNEL_RULE write is not exempt); a never-bootstrap prefix returns null here at once
     return bootstrapInitialTimePrecondition(group, state);

@@ -3,8 +3,12 @@ import {
   InitialSetupInputSchema,
   InitialSetupInvocationSchema,
   InitialSetupDispositionSchema,
+  TEMPORAL_ORIGIN_KEY,
+  TEMPORAL_STATE_KEY,
+  TemporalOriginSchema,
   REFEREE_OP_I002,
   REFEREE_OP_INITIAL_DELEGATION,
+  deriveTemporalOrigin,
   type OwnerFact,
   type InitialLocalityCompletion,
   type InitialSetupInput,
@@ -13,10 +17,21 @@ import { canonicalEqual } from "../hash.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { scanInitialSetup } from "../initial-setup/admission.ts";
 import { msGenesis } from "./protocol.ts";
+import {
+  INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
+  TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+} from "../initial-setup/rules.ts";
 import { INITIAL_SETUP_INPUT_MS_V3_RULE, INITIAL_LOCALITY_COMPLETION_MS_V3_RULE } from "./rules.ts";
 
+/**
+ * Every MS route identity flows through this predicate. The MS v3 Input has two citations: the original v1-chronology rule and, for a
+ * strict v2 captured chronology (CAL-TIME T-1 §2, F-014B A0), `INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE`. Which one an Input may
+ * carry is fixed by its chronology arm in owner admission and on replay (`inputChronologyRuleViolation`); here both are MS. The
+ * Completion keeps its one MS rule (`isMsCompletionRule` is unchanged), so a v2 MS Input still pairs only with the MS v3 Completion.
+ */
 export const isMsInputRule = (rule: unknown): boolean =>
-  canonicalEqual(rule, INITIAL_SETUP_INPUT_MS_V3_RULE);
+  canonicalEqual(rule, INITIAL_SETUP_INPUT_MS_V3_RULE) ||
+  canonicalEqual(rule, INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE);
 export const isMsCompletionRule = (rule: unknown): boolean =>
   canonicalEqual(rule, INITIAL_LOCALITY_COMPLETION_MS_V3_RULE);
 export const MS_PRE_CLOCK_KINDS: ReadonlySet<string> = new Set([
@@ -86,7 +101,10 @@ export function msPrefixViolation(
       !resolved ||
       !(
         MS_PRE_CLOCK_KINDS.has(resolved.kind.id) ||
-        (phase === "B2" && ["temporal_state", "actor_physical_presence"].includes(resolved.kind.id))
+        (phase === "B2" &&
+          ["temporal_state", "actor_physical_presence", "temporal_origin"].includes(
+            resolved.kind.id,
+          ))
       )
     )
       return "MS_PREFIX_KIND";
@@ -115,6 +133,8 @@ export function msPrefixViolation(
     if (v.world_id !== undefined && v.world_id !== input.world_id) return "MS_PREFIX_WORLD";
     if (v.locus_id !== undefined && v.locus_id !== input.locus_id) return "MS_PREFIX_LOCUS";
   }
+  const origin = msOriginViolation(facts, input, phase);
+  if (origin) return origin;
   const earlier = msEarlierSessionViolation(facts, input, true);
   if (earlier) return earlier;
   const p = msGenesis(facts);
@@ -125,6 +145,46 @@ export function msPrefixViolation(
   )
     return "MS_GENESIS_CHANGED";
   return null;
+}
+
+/**
+ * CAL-TIME T-1 grant 5 (F-014B A0): the live B2 membership of the origin witness, judged FROM THE SUPPLIED FACT MAP ALONE (no store, no
+ * new read). `temporal_origin` is recognised ONLY at B2, ONLY with both version-one facts of the paired genesis, ONLY under the genesis
+ * rule and the one group that committed the initial state, and ONLY when it equals the origin the governing v2 MS Input, the MS
+ * Completion and that Input's capture imply (campaign, unit, coordinate, scale, capture identity and both governing pins). A v2 Input
+ * whose B2 prefix lacks it refuses, and so does a v1 Input whose prefix has one. PRE_CLOCK never accepts it, and
+ * MS_PRE_CLOCK_KINDS is NOT extended.
+ */
+function msOriginViolation(
+  facts: ReadonlyMap<string, OwnerFact>,
+  input: InitialSetupInput,
+  phase: "PRE_CLOCK" | "B2",
+): string | null {
+  const origin = facts.get(TEMPORAL_ORIGIN_KEY);
+  const v2 = input.chronology.format_version === 2;
+  if (!origin) return phase === "B2" && v2 ? "MS_PREFIX_ORIGIN" : null;
+  if (phase !== "B2" || !v2) return "MS_PREFIX_ORIGIN";
+  const state = facts.get(TEMPORAL_STATE_KEY);
+  if (!state || state.version !== 1 || origin.version !== 1) return "MS_PREFIX_ORIGIN";
+  if (
+    state.provenance.group_id !== origin.provenance.group_id ||
+    !canonicalEqual(origin.provenance.rule, TEMPORAL_CAPTURED_V2_GENESIS_RULE) ||
+    !canonicalEqual(state.provenance.rule, TEMPORAL_CAPTURED_V2_GENESIS_RULE)
+  )
+    return "MS_PREFIX_ORIGIN";
+  const parsed = TemporalOriginSchema.safeParse(origin.value);
+  const completion = scanInitialSetup(facts).completion;
+  const c = completion ? InitialLocalityCompletionSchema.safeParse(completion.value) : null;
+  if (!parsed.success || !completion || !c?.success) return "MS_PREFIX_ORIGIN";
+  const inputFact = facts.get(c.data.input.fact_key);
+  if (!inputFact || inputFact.version !== c.data.input.version) return "MS_PREFIX_ORIGIN";
+  const expected = deriveTemporalOrigin(
+    input.chronology.campaign_id,
+    input,
+    { fact_key: completion.key, version: completion.version },
+    { fact_key: inputFact.key, version: inputFact.version },
+  );
+  return expected && canonicalEqual(parsed.data, expected) ? null : "MS_PREFIX_ORIGIN";
 }
 
 export function msCompletionInput(

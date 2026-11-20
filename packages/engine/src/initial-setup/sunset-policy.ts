@@ -637,3 +637,24 @@ export const BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1: readonly SunsetPolicyRow[] = 
   ...BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1,
   ...PC_LEDGER_SUNSET_POLICY_DELTA,
 ];
+
+/**
+ * Additive delta under CAL-TIME T-1 (F-014B A0): the Temporal-owned origin witness is clock bookkeeping that asserts no non-PC
+ * presence, solitude, workforce or rights premise. It takes the same row as its sibling `temporal_state`: `OWNER_CHECKS_ONLY`, which is
+ * exactly "No direct new non-PC presence/rights assertion from this kind alone" and grants no eligibility. The existing rows are
+ * untouched (the retained 90-row base is compared verbatim against its fixture).
+ */
+export const CLOCK_ORIGIN_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] = [
+  {
+    kind: "temporal_origin",
+    policy: "OWNER_CHECKS_ONLY",
+    effect:
+      "No direct new non-PC presence/rights assertion from this kind alone. All existing owner, standing, scope, foreign-engagement, conservation, timing and due-event checks remain effective; actual adverse outcomes still withhold.",
+  },
+];
+
+/** Every registered kind: the S-4 table (121 rows) and the 1 clock-origin row. */
+export const BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1: readonly SunsetPolicyRow[] = [
+  ...BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1,
+  ...CLOCK_ORIGIN_SUNSET_POLICY_DELTA,
+];
