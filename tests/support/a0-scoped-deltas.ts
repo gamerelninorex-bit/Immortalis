@@ -104,10 +104,12 @@ export const A0_PACKAGE_PATHS: readonly string[] = [
   ...A0_NEW_MODULES,
 ];
 
-/** The two non-package files this slice changed (policed by tools/check-spec.ts and the custody conformance suite). */
+/** The non-package files this slice changed: the lock and its checker (policed by tools/check-spec.ts and the custody conformance suite), and the OB-030 measurement harness (measurement only, no production authority). */
 export const A0_OUTSIDE_PACKAGE_PATHS: readonly string[] = [
-  "tools/check-spec.ts",
   "spec/f027/spec-lock.json",
+  "tools/a0-ob030-benchmark.sh",
+  "tools/a0-ob030-benchmark.ts",
+  "tools/check-spec.ts",
 ];
 
 /**
