@@ -39,6 +39,7 @@ import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
+import { A0_PACKAGE_PATHS, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import {
   S4_BASE_COMMIT,
   S4_NEW_MODULES,
@@ -76,11 +77,21 @@ describe("A8: the frozen inputs this construction must NOT change are byte-ident
     ],
   ];
   for (const [path, length, digest] of frozen) {
-    it(`${path} is ${length} bytes, SHA-256 ${digest === null ? "the build's own lock identity" : `${digest.slice(0, 16)}…`}: neither the setup-eligibility set, the spec lock nor the charter was edited`, () => {
+    // F-014B A0 extended the lock ADDITIVELY after this slice (one lineage row and one lowering row, appended last; policed by
+    // tools/check-spec.ts and tests/conformance/clock-origin-custody-conformance.test.ts): the lock's S-4-base bytes remain the recorded
+    // history of this A8 input, and today's lock is the build's own identity
+    const extendedLater = path === "spec/f027/spec-lock.json";
+    it(`${path} is ${length} bytes, SHA-256 ${digest === null ? "the build's own lock identity" : `${digest.slice(0, 16)}…`}: neither the setup-eligibility set, the spec lock nor the charter was edited by S-4`, () => {
+      const atBase = git("show", `${S4_BASE_COMMIT}:${path}`);
+      if (extendedLater) {
+        expect(sha(path)).toBe(BUILD_SPEC_IDENTITY.spec_lock_sha256);
+        if (atBase) expect(atBase.length).toBe(length);
+        if (atBase) expect(readFileSync(path).equals(atBase), path).toBe(false);
+        return;
+      }
       expect(readFileSync(path).length).toBe(length);
       expect(sha(path)).toBe(digest ?? BUILD_SPEC_IDENTITY.spec_lock_sha256);
       // and, where Git history is available, byte-identical to the immutable base commit
-      const atBase = git("show", `${S4_BASE_COMMIT}:${path}`);
       if (atBase) expect(readFileSync(path).equals(atBase), path).toBe(true);
     });
   }
@@ -247,7 +258,10 @@ describe("historical verification identity: checkpoint evidence earned before S-
     const BEFORE =
       "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z";
     const id = canonicalAdmission.historyVerificationId!;
-    expect(id).toBe(`${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2`);
+    // F-014B A0 appended two additive segments after the A01 suffix (declared; the S-4 suffix and its position are unchanged)
+    expect(id).toBe(
+      `${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN`,
+    );
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_LEDGER_SOURCE.native_pin);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_RATIFICATION_SOURCE.native_pin);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_BRIEF_SOURCE.native_pin);
@@ -257,7 +271,9 @@ describe("historical verification identity: checkpoint evidence earned before S-
 
 describe("reviewed sunset policy: the two ledger kinds have rows, and no existing row changed", () => {
   it("the S-4 table is the freight table plus the two ledger rows, and covers exactly ALL_FACT_KINDS", () => {
-    expect(BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1).toHaveLength(ALL_FACT_KINDS.length);
+    // F-014B A0 registered the Temporal origin witness after this table (its row is the clock-origin delta)
+    const atS4 = ALL_FACT_KINDS.filter((k) => k.id !== "temporal_origin");
+    expect(BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1).toHaveLength(atS4.length);
     expect(
       BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1.slice(0, BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1.length),
     ).toEqual(BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1);
@@ -270,7 +286,7 @@ describe("reviewed sunset policy: the two ledger kinds have rows, and no existin
     expect(
       policyCoverageViolations(
         BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1,
-        ALL_FACT_KINDS.map((k) => k.id),
+        atS4.map((k) => k.id),
         Object.fromEntries(BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1.map((r) => [r.kind, r.policy])),
       ),
     ).toEqual([]);
@@ -333,7 +349,11 @@ const historyAvailable = git("cat-file", "-e", `${S4_BASE_COMMIT}^{commit}`) !==
 describe("scope: this slice changed exactly the predecessor files it records", () => {
   it("each recorded delta is pinned at its head bytes, and its base is the freight slice's head (the chain of custody)", () => {
     for (const [path, d] of Object.entries(S4_SCOPED_DELTAS)) {
-      expect(sha(path), path).toBe(d.head);
+      // a LATER slice (F-014B A0) changed two of these files after the S-4 head: the S-4 head is then the A0 base, the chain is checked in
+      // a0-scope-conformance, and the working tree is pinned by that slice's table instead
+      const later = A0_SCOPED_DELTAS[path];
+      if (later) expect(later.base, path).toBe(d.head);
+      else expect(sha(path), path).toBe(d.head);
       expect(d.base, path).not.toBe(d.head);
       expect(FREIGHT_SCOPED_DELTAS[path]?.head, path).toBe(d.base);
     }
@@ -388,6 +408,8 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...Object.keys(A05_SOURCE_DELTAS),
       ...RP1_STAGE2_PACKAGE_PATHS,
       ...RP2_PACKAGE_PATHS,
+      // and the F-014B A0 slice's recorded paths (its own table and conformance suite police them)
+      ...A0_PACKAGE_PATHS,
       // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
       "packages/contracts/src/temporal-gm-wait.ts",
     ]);

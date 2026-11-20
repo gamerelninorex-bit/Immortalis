@@ -8,7 +8,7 @@ import {
   type StageOwnerExtension,
 } from "@immortalis/engine";
 import type { CommitGroup } from "@immortalis/contracts";
-import { MsActorRunner, MsInitialActorService } from "@immortalis/operator";
+import { MsActorRunner, MsInitialActorService, type IntakeResult } from "@immortalis/operator";
 import {
   ScriptedIsolatedDriver,
   generateFixtureRunnerKeys,
@@ -24,6 +24,7 @@ import {
   intakeRequest,
   FIXTURE_POLICY,
 } from "./initial-setup.ts";
+import { admitInput, type InputOptions } from "./clock-origin.ts";
 import { must } from "./temporal.ts";
 
 export async function msHarness(
@@ -36,6 +37,14 @@ export async function msHarness(
     extension?: StageOwnerExtension;
     sourceOver?: Record<string, unknown>;
     doc?: ChronologyDocument;
+    /**
+     * F-014B A0: the MS Input carries a strict v2 captured chronology (CAL-TIME T-1). The shipped intake parses captures with the strict
+     * v1 schema and is untouched by A0, so the Input is built exactly as the service builds it and published through the engine's
+     * original publisher on the MS route; everything after it is the unchanged service.
+     */
+    v2?: Omit<InputOptions, "route">;
+    /** F-014B A0: writes the journal under another history-verification identity (an older build's), to prove a later open replays it */
+    historyId?: (current: string) => string;
   } = {},
 ) {
   const keys = generateFixtureRunnerKeys(),
@@ -84,6 +93,9 @@ export async function msHarness(
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
     ...base,
+    ...(options.historyId
+      ? { historyVerificationId: options.historyId(base.historyVerificationId!) }
+      : {}),
     initializeView: (state: CampaignState, checked: (id: string) => boolean) => {
       base.initializeView?.(state, checked);
       latest = state;
@@ -113,9 +125,14 @@ export async function msHarness(
     const terminal = await h.service.advance(prior.setup_id!);
     if (terminal.status !== "TERMINAL") throw new Error(JSON.stringify(terminal));
   }
-  const intake = await h.service.intake(
-    await intakeRequest(h, options.doc ? { doc: options.doc } : {}),
-  );
+  const intake: IntakeResult = options.v2
+    ? await (async () => {
+        const a = await admitInput(h, { ...options.v2, route: "MS" });
+        return a.ok
+          ? { status: "ADMITTED" as const, setup_id: a.setup_id, message: "accepted" }
+          : { status: "REFUSED" as const, message: JSON.stringify(a.published) };
+      })()
+    : await h.service.intake(await intakeRequest(h, options.doc ? { doc: options.doc } : {}));
   if (intake.status !== "ADMITTED") throw new Error(JSON.stringify(intake));
   const setup = await h.service.advance(intake.setup_id!);
   return {

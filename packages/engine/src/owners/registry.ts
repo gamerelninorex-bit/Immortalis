@@ -206,7 +206,9 @@ import {
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
+  TemporalOriginSchema,
   TemporalStateSchema,
+  TEMPORAL_ORIGIN_KEY,
   TransactionAuthoritySchema,
   WorldCorridorSchema,
   WorldLocusSchema,
@@ -218,8 +220,11 @@ import type { OwnerRegistry } from "../commit/campaign-core.ts";
 import {
   INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
   INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
+  INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
+  INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
   INITIAL_SETUP_RULES,
   INITIAL_SETUP_SCOPE_RULE,
+  TEMPORAL_CAPTURED_V2_GENESIS_RULE,
 } from "../initial-setup/rules.ts";
 
 /**
@@ -371,6 +376,7 @@ export const TEMPORAL_FACT_KIND_IDS = [
   "temporal_object",
   "resolution_transaction",
   "temporal_transaction_authority",
+  "temporal_origin",
 ] as const;
 export const POPULATION_FACT_KIND_IDS = [
   "population_ledger",
@@ -748,6 +754,22 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^temporal/transaction-authority/${ID}$`),
     valueSchema: TransactionAuthoritySchema,
     rule: KERNEL_RULE,
+  },
+  /**
+   * CAL-TIME T-1 §3 (F-014B A0): the campaign's one create-only, genesis-only origin witness, under the SAME Temporal owner and facet
+   * (no new owner, no second clock). Its only lawful citation is `TEMPORAL_CAPTURED_V2_GENESIS_RULE`: it exists only in the paired
+   * genesis group of a v2 captured chronology, never alone, never later, and never beside a v1 Input.
+   */
+  {
+    id: "temporal_origin",
+    owner: OWNER_TEMPORAL_KERNEL,
+    facet: FACET_TEMPORAL_COORDINATION,
+    im: "IM-02",
+    rc: ["RC-02", "RC-05"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^${escape(TEMPORAL_ORIGIN_KEY)}$`),
+    valueSchema: TemporalOriginSchema,
+    rule: TEMPORAL_CAPTURED_V2_GENESIS_RULE,
   },
 ];
 
@@ -2489,6 +2511,32 @@ const TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT: readonly FactKind[] =
       : k,
   );
 
+/**
+ * CAL-TIME T-1 §3 (F-014B A0) - the initial `temporal_state` of a v2 paired genesis cites `TEMPORAL_CAPTURED_V2_GENESIS_RULE`, the
+ * ONLY alternate citation of `temporal_state` in the shipped registry, and only for the initial basis (no transaction, no
+ * continuation). It is additive: it supersedes nothing, `KERNEL_RULE` still governs every other state write and the one-write v1 /
+ * direct-operator / never-bootstrap genesis, and the base `TEMPORAL_FACT_KINDS` keep carrying no alternate rule.
+ */
+const TEMPORAL_FACT_KINDS_WITH_V2_GENESIS: readonly FactKind[] =
+  TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT.map((k) =>
+    k.id === "temporal_state"
+      ? {
+          ...k,
+          alternateRules: [
+            {
+              rule: TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+              admits: (value: unknown) => {
+                const s = TemporalStateSchema.safeParse(value);
+                return (
+                  s.success && s.data.last_transaction === null && s.data.continuation === null
+                );
+              },
+            },
+          ],
+        }
+      : k,
+  );
+
 const CAUSAL_DRAW_RED_CLEARANCE =
   "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
 
@@ -3416,6 +3464,12 @@ export const DIPLOMACY_FACT_KINDS: readonly FactKind[] = [
   },
 ];
 
+/** An Input value whose chronology capture is the strict version 2 arm (the only value class of the two v2 Input citations). */
+const isChronologyV2Input = (value: unknown): boolean => {
+  const i = InitialSetupInputSchema.safeParse(value);
+  return i.success && i.data.chronology.format_version === 2;
+};
+
 const SETUP_ROOT = `^world/${ID}/locus/${ID}/initial-setup`;
 const HEX64 = "([0-9a-f]{64})";
 
@@ -3439,6 +3493,17 @@ export const INITIAL_SETUP_FACT_KINDS: readonly FactKind[] = [
       {
         rule: INITIAL_SETUP_INPUT_MS_V3_RULE,
         admits: (v) => InitialSetupInputSchema.safeParse(v).success,
+      },
+      // CAL-TIME T-1 §2 (F-014B A0): one explicitly registered citation per route for an Input whose chronology is a strict v2 capture.
+      // The two above (and the kind rule) admit by schema parse alone, so they would parse a v2 Input once the chronology is a union;
+      // the arm / route / rule correspondence that keeps them off the v2 arm is enforced by owner admission, live and on replay.
+      {
+        rule: INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
+        admits: isChronologyV2Input,
+      },
+      {
+        rule: INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
+        admits: isChronologyV2Input,
       },
     ],
   },
@@ -3993,7 +4058,7 @@ export const isFreightRequestIdentity = isEconomyFreightRequestRef;
 
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...withLedgerBindingRule(FACT_KINDS),
-  ...TEMPORAL_FACT_KINDS_WITH_PC_COLLECTION_RETIREMENT,
+  ...TEMPORAL_FACT_KINDS_WITH_V2_GENESIS,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS_WITH_FREIGHT,
   ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,

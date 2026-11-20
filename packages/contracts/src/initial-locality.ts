@@ -424,9 +424,57 @@ export const ChronologyCaptureSchema = z.strictObject({
   capture_hash: Sha256,
 });
 export type ChronologyCapture = z.infer<typeof ChronologyCaptureSchema>;
-/** ChronologyEvidence is the complete strict record-only capture, including its verified source grade. */
-export const ChronologyEvidenceSchema = ChronologyCaptureSchema;
-export type ChronologyEvidence = ChronologyCapture;
+
+/** Pinned literal (BLUE S11 Q4; CAL-TIME T-1 §2): the typed SI declaration of a v2 chronology. */
+export const SI_SCALE_DECLARATION = "ONE_SI_SECOND_PER_CANONICAL_UNIT";
+
+/**
+ * CAL-TIME T-1 §2: the strict versioned captured chronology document v2. Same format domain, explicit version 2. The v1 document
+ * above stays byte-identical; a v2 document is never accepted by a v1 schema (and the reverse), so the two arms cannot be confused.
+ */
+export const ChronologyDocumentV2Schema = z.strictObject({
+  format: z.literal(CHRONOLOGY_DOCUMENT_FORMAT),
+  format_version: z.literal(2),
+  /** the original authored coordinate and unit; the unit stays an opaque Id */
+  time: CanonicalTimeSchema,
+  /** the author's own words, unchanged meaning */
+  statement: Text,
+  /** exactly one SI elapsed second per canonical coordinate unit */
+  scale: z.literal(SI_SCALE_DECLARATION),
+});
+export type ChronologyDocumentV2 = z.infer<typeof ChronologyDocumentV2Schema>;
+
+/** The v2 capture arm: the v1 field set with the version literal 2 and the v2 document. */
+export const ChronologyCaptureV2Schema = z.strictObject({
+  format: z.literal(CHRONOLOGY_CAPTURE_FORMAT),
+  format_version: z.literal(2),
+  capture_ref: Id,
+  campaign_id: Id,
+  document: ChronologyDocumentV2Schema,
+  document_hash: Sha256,
+  grade: AuthoredGradeSchema,
+  source: z.strictObject({
+    client: Id,
+    oauth_grant: Id,
+    request_ref: Id,
+    original_message_hash: Sha256.nullable(),
+    method_id: Id,
+    attestation_hash: Sha256,
+  }),
+  capture_hash: Sha256,
+});
+export type ChronologyCaptureV2 = z.infer<typeof ChronologyCaptureV2Schema>;
+
+/**
+ * ChronologyEvidence is the complete strict record-only capture, including its verified source grade. Alt I: a strict two-arm union
+ * discriminated on the capture's literal format_version. The v1 arm is the existing schema object, unchanged; `InitialSetupInput`'s
+ * outer shape, its `format_version: 1`, its field set and its parser enum are unchanged.
+ */
+export const ChronologyEvidenceSchema = z.discriminatedUnion("format_version", [
+  ChronologyCaptureSchema,
+  ChronologyCaptureV2Schema,
+]);
+export type ChronologyEvidence = z.infer<typeof ChronologyEvidenceSchema>;
 
 export const RUNNER_ID = "initial-locality-runner-v1";
 export const RunnerPinSchema = z.strictObject({

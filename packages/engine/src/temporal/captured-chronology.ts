@@ -2,6 +2,7 @@ import {
   CAPTURED_CHRONOLOGY_BASIS,
   InitialLocalityCompletionSchema,
   InitialSetupInputSchema,
+  deriveTemporalOrigin,
   fail,
   isFixtureIdentity,
   type Failure,
@@ -34,6 +35,13 @@ export type CapturedChronologyErrorCode = TemporalErrorCode | "CAPTURED_CHRONOLO
  * Publication identities derive from SHA256(canonicalJson({campaign_id, completion, input, capture_hash})), so a retry reconciles by
  * identity and a different origin is never reset or overwritten. TOOL_CALL_ONLY captures refuse, and so do fixture methods under the
  * production policy.
+ *
+ * CAL-TIME T-1 (F-014B A0) branches on the governing Input's chronology capture version and on nothing else. A version 1 capture takes
+ * the existing one-write path, unchanged. A version 2 capture writes the PAIRED genesis (`temporal/state` and the SEALED
+ * `temporal/origin`, both expected_version 0, one rule, one owner/facet, the same basis and secrecy) through the coordinator's
+ * `establishCanonicalTimeWithOrigin`. The origin is derived solely from the pre-existing Completion, its own committed Input and that
+ * Input's capture: no caller-supplied field enters it. The publication identity family is the same for both arms; a v2 capture has a
+ * different capture_hash, so it can never replay as a v1 intent.
  */
 export async function initializeCapturedChronology(
   store: CampaignStore,
@@ -96,6 +104,41 @@ export async function initializeCapturedChronology(
       "CAPTURED_CHRONOLOGY_UNAVAILABLE",
       "MS requires its complete source-qualified R1 closure and B1",
     );
+  if (capture.format_version === 2) {
+    // the origin is DERIVED here from committed records only; admission and replay re-derive it and compare
+    const origin = deriveTemporalOrigin(
+      store.head().campaign_id,
+      input,
+      { fact_key: completionFact.key, version: completionFact.version },
+      { fact_key: inputFact.key, version: inputFact.version },
+    );
+    if (!origin)
+      return fail(
+        "CAPTURED_CHRONOLOGY_UNAVAILABLE",
+        "the version 2 capture does not qualify an origin witness",
+      );
+    // reads / depends_on exactly as the v1 genesis: the origin adds no read and no dependency (T-1 §4)
+    const paired = await coordinator.establishCanonicalTimeWithOrigin({
+      group_id: `captured-chronology:${digest}:group`,
+      intent_id: `captured-chronology:${digest}:intent`,
+      cause: `captured-chronology:${digest}:cause`,
+      basis: CAPTURED_CHRONOLOGY_BASIS[capture.grade],
+      secrecy: "engine-internal",
+      time: capture.document.time,
+      origin,
+      reads: msPins
+        ? msPins.map((p) => ({ key: p.fact_key, version: p.version }))
+        : [
+            { key: completionFact.key, version: completionFact.version },
+            { key: inputFact.key, version: inputFact.version },
+          ],
+      depends_on: msPins
+        ? [...new Set(msPins.map((p) => facts.get(p.fact_key)!.provenance.group_id))].sort()
+        : [completionFact.provenance.group_id, inputFact.provenance.group_id],
+    });
+    if (!paired.ok) return paired as { ok: false; error: Failure<CapturedChronologyErrorCode> };
+    return paired;
+  }
   const written = await coordinator.establishCanonicalTime({
     group_id: `captured-chronology:${digest}:group`,
     intent_id: `captured-chronology:${digest}:intent`,

@@ -132,6 +132,8 @@ const ids = ALL_FACT_KINDS.map((k) => k.id).filter(
       "named_actor_existence_basis",
       ...FREIGHT_FACT_KIND_IDS,
       ...PC_STANDING_LEDGER_FACT_KIND_IDS,
+      // and the F-014B A0 Temporal origin witness (its OWNER_CHECKS_ONLY row is the clock-origin delta)
+      "temporal_origin",
     ].includes(k),
 );
 

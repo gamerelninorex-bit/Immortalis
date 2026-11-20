@@ -34,7 +34,12 @@ import {
   type SourceRef,
 } from "@immortalis/contracts";
 import { INITIAL_SETUP_BASIS, INITIAL_SETUP_SECRECY, initialSetupIdentities } from "./admission.ts";
-import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
+import {
+  INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
+  INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
+  INITIAL_SETUP_RULES,
+  INITIAL_SETUP_SCOPE_RULE,
+} from "./rules.ts";
 import {
   INITIAL_SETUP_INPUT_MS_V3_RULE,
   INITIAL_LOCALITY_COMPLETION_MS_V3_RULE,
@@ -100,6 +105,11 @@ const pinFor = (facts: Facts, key: string): Pin => ({
   version: facts.get(key)?.version ?? 1,
 });
 
+/**
+ * The Input group. The governing citation is selected by route AND chronology arm (CAL-TIME T-1 §2, F-014B A0): a v1 chronology keeps
+ * exactly the citations it always had (the CORE_V9 rule, or the MS v3 rule on the MS route); a v2 chronology cites its route's v2 rule.
+ * Reachability of a v2 Input from the operator is A1; engine fixtures build both arms.
+ */
 export const buildInputGroup = (
   campaignId: string,
   facts: Facts,
@@ -113,7 +123,14 @@ export const buildInputGroup = (
     input,
     facts,
     input.genesis,
-    route === "MS" ? INITIAL_SETUP_INPUT_MS_V3_RULE : undefined,
+    // a record with no chronology at all (a structural-probe Input) is selected exactly as before: the v1 citations
+    (input as { chronology?: { format_version?: number } }).chronology?.format_version === 2
+      ? route === "MS"
+        ? INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE
+        : INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE
+      : route === "MS"
+        ? INITIAL_SETUP_INPUT_MS_V3_RULE
+        : undefined,
   );
 
 export const buildInvocationGroup = (

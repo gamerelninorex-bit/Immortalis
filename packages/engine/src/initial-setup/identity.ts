@@ -3,10 +3,12 @@ import {
   FIXTURE_NAMESPACE_PREFIX,
   canonicalJson,
   type ChronologyCapture,
+  type ChronologyCaptureV2,
   type Pin,
   type SetupPhase,
   type SignedEnvelope,
   type ChronologyDocument,
+  type ChronologyDocumentV2,
 } from "@immortalis/contracts";
 import { sha256Canonical, sha256Text } from "../hash.ts";
 
@@ -19,11 +21,14 @@ import { sha256Canonical, sha256Text } from "../hash.ts";
 export const setupMessageHash = (message: string): string => sha256Text(message);
 
 /** document_hash = SHA256(canonicalJson(document)) */
-export const chronologyDocumentHash = (document: ChronologyDocument): string =>
-  sha256Canonical(document);
+export const chronologyDocumentHash = (
+  document: ChronologyDocument | ChronologyDocumentV2,
+): string => sha256Canonical(document);
 
-/** capture_hash hashes all preceding fields except itself. */
-export function chronologyCaptureHash(capture: Omit<ChronologyCapture, "capture_hash">): string {
+/** capture_hash hashes all preceding fields except itself (either arm of the two-arm ChronologyEvidence union). */
+export function chronologyCaptureHash(
+  capture: Omit<ChronologyCapture, "capture_hash"> | Omit<ChronologyCaptureV2, "capture_hash">,
+): string {
   return sha256Canonical(capture);
 }
 

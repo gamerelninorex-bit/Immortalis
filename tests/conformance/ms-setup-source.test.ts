@@ -32,16 +32,21 @@ describe("M-S exact ratified source and additive registration", () => {
     expect(head.frozen_sources).toHaveLength(23);
     expect(head.implementation_authority_addenda).toEqual(base.implementation_authority_addenda);
     // ROADBED R3-T25 freight appended one further lineage row and one further lowering row after M-S's (both additive, both last)
-    expect(head.executable_lowerings).toHaveLength(9);
+    // F-014B A0 appended its own lineage and lowering row after ROADBED's (both additive, both last): ten lowerings
+    expect(head.executable_lowerings).toHaveLength(10);
     expect(head.executable_lowerings.slice(0, 7)).toEqual(base.executable_lowerings);
     expect(head.executable_lowerings[7].id).toBe("MS-SETUP-V08-LOWERING");
     expect(head.executable_lowerings[8].id).toBe("ROADBED-FREIGHT-FI-LOWERING");
-    expect(head.design_lineage_successors.slice(0, -2)).toEqual(base.design_lineage_successors);
-    expect(head.design_lineage_successors[head.design_lineage_successors.length - 2].id).toBe(
+    expect(head.executable_lowerings[9].id).toBe("CAL-TIME-T1-CLOCK-ORIGIN-LOWERING");
+    expect(head.design_lineage_successors.slice(0, -3)).toEqual(base.design_lineage_successors);
+    expect(head.design_lineage_successors[head.design_lineage_successors.length - 3].id).toBe(
       "MS-SETUP-V08-LINEAGE",
     );
-    expect(head.design_lineage_successors[head.design_lineage_successors.length - 1].id).toBe(
+    expect(head.design_lineage_successors[head.design_lineage_successors.length - 2].id).toBe(
       "ROADBED-FREIGHT-FI-LINEAGE",
+    );
+    expect(head.design_lineage_successors[head.design_lineage_successors.length - 1].id).toBe(
+      "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE",
     );
     expect(head.snapshot_files).toEqual(base.snapshot_files);
   });
@@ -57,7 +62,10 @@ describe("M-S exact ratified source and additive registration", () => {
     const msKinds = engine.ALL_FACT_KINDS.filter(
       (k) =>
         !engine.FREIGHT_FACT_KIND_IDS.includes(k.id as never) &&
-        !engine.PC_STANDING_LEDGER_FACT_KIND_IDS.includes(k.id as never),
+        !engine.PC_STANDING_LEDGER_FACT_KIND_IDS.includes(k.id as never) &&
+        // F-014B A0 registered the Temporal origin witness after the S-4 ledger (its row is the clock-origin delta,
+        // tests/conformance/a0-scope-conformance.test.ts)
+        k.id !== "temporal_origin",
     );
     expect(msKinds).toHaveLength(93);
     expect(rows.slice(0, 90)).toEqual(engine.BOOTSTRAP_SUNSET_POLICY_V9);
@@ -69,12 +77,14 @@ describe("M-S exact ratified source and additive registration", () => {
       "STRICT_REPLAY_ON_POLICY_CHANGE",
     );
     // Preserve the explicit M-S → freight → S-4 → A01 order for canonical and fixture policies.
+    // F-014B A0 appended two additive segments after the A01 suffix, in the same change as the validators they identify
     expect(engine.canonicalAdmission.historyVerificationId).toBe(
       basePolicy +
         engine.MS_HISTORY_POLICY_SUFFIX +
         engine.FREIGHT_HISTORY_POLICY_SUFFIX +
         engine.PC_LEDGER_HISTORY_POLICY_SUFFIX +
-        "+POPULATION-STAGE-AUTHORITY-V2",
+        "+POPULATION-STAGE-AUTHORITY-V2" +
+        A0_HISTORY_SEGMENTS,
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
       basePolicy +
@@ -82,7 +92,8 @@ describe("M-S exact ratified source and additive registration", () => {
         engine.MS_HISTORY_POLICY_SUFFIX +
         engine.FREIGHT_HISTORY_POLICY_SUFFIX +
         engine.PC_LEDGER_HISTORY_POLICY_SUFFIX +
-        "+POPULATION-STAGE-AUTHORITY-V2",
+        "+POPULATION-STAGE-AUTHORITY-V2" +
+        A0_HISTORY_SEGMENTS,
     );
     for (const admission of [engine.canonicalAdmission, engine.fixtureCanonicalAdmission]) {
       expect(engine.legacyContractAdmission(admission).historyVerificationId).toBe(
@@ -91,5 +102,7 @@ describe("M-S exact ratified source and additive registration", () => {
     }
   });
 });
+const A0_HISTORY_SEGMENTS =
+  "+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN";
 const basePolicy =
   "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1";

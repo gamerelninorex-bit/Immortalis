@@ -139,6 +139,74 @@ const BOOTSTRAP_C1C2 = {
 } as const;
 
 /**
+ * F-014B A0 — CAL-TIME T-1 clock-origin mechanism (BLUE A0 scoped Hard Preflight PASS; S11 Q5 citation custody). The lowering row carries
+ * exactly ONE native Notion `url`/`native_pin` pair — BLUE's A0 PASS brief — which the generic row check holds to exact equality, and its
+ * `authority_lineage` carries the controlling T-1 source, its Sovereign ratification, BLUE's 20 November decisions record and the GitHub custody
+ * pointer to the immutable accepted source-lock document. `checkClockOriginLowering` asserts EXACT equality of every one of these values,
+ * including the commit SHA and the path: they are not free prose. No second source authority and no new lock schema is introduced; the
+ * existing `authority_lineage` member of an executable-lowering row (as the MS and ROADBED rows use it) carries them.
+ */
+export const CLOCK_ORIGIN = {
+  lineage_id: "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE",
+  lowering_id: "CAL-TIME-T1-CLOCK-ORIGIN-LOWERING",
+  /** the row's single native Notion citation: BLUE's A0 scoped Hard Preflight PASS brief */
+  brief: {
+    url: "https://app.notion.com/p/41e20af901e081b2ba6ae6f08959a647",
+    pin: "2026-11-20T07:09:04.196Z",
+  },
+  t1: {
+    url: "https://app.notion.com/p/41c20af901e0817ca9e8dcb392e3b0d7",
+    pin: "2026-11-18T22:23:26.085Z",
+  },
+  ratification: {
+    url: "https://app.notion.com/p/41c20af901e081ba9fd4db4da81c8526",
+    pin: "2026-11-18T22:38:52.341Z",
+  },
+  decisions: {
+    url: "https://app.notion.com/p/41e20af901e08163acb0f8ed695f44ad",
+    pin: "2026-11-20T00:15:08.470Z",
+  },
+  /** the immutable accepted A0 source-lock document: repository, commit SHA and path (never an editable PR head) */
+  github: {
+    repository: "gamerelninorex-bit/Immortalis",
+    sha: "37ba11bd0f0f068a22731f87351a0fd9a16a885b",
+    path: "docs/f014b/a0-clock-origin-source-lock.md",
+  },
+  kinds: ["temporal_origin", "temporal_state", "initial_setup_input"],
+  segments: ["+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z", "+MS-V3-CLOCK-STEP-B2-ORIGIN"],
+  retained_ms_suffix: "+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1",
+  rules: [
+    "TEMPORAL_CAPTURED_V2_GENESIS_RULE",
+    "INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE",
+    "INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE",
+  ],
+  sections: [
+    "T-1 \u00a72 \u2014 Strict captured chronology v2 document and version-to-genesis correspondence",
+    "T-1 \u00a73 \u2014 Temporal-owned SEALED origin witness and paired genesis",
+    "T-1 \u00a74 \u2014 MS v3 clock step, live B2 prefix and SEALED history",
+    "T-1 \u00a75 \u2014 One qualified category-8 origin predicate (preparatory, unwired in A0)",
+    "T-1 \u00a76 \u2014 The five Sovereign grants and the lowering list (Sovereign ratification https://app.notion.com/p/41c20af901e081ba9fd4db4da81c8526 at 2026-11-18T22:38:52.341Z)",
+  ],
+  section:
+    "CAL-TIME T-1 \u00a7\u00a72\u20136 (grants 1\u20135) \u2014 A0 bounded clock-origin T1 mechanism construction",
+  does_not: [
+    "add a calendar profile, CAL_TIME_V1 or category 9",
+    "grant any GM canon-read right or wire a live T0 category-8 read (the one qualified read is B1)",
+    "retrofit, attest or reinterpret any v1, direct-operator, never-bootstrap or timed-governance origin",
+    "add an owner, a facet, a second clock, a recurring writer or a per-wait source record",
+    "edit the ten-clause MS manifest or MS_SOURCE, extend MS_PRE_CLOCK_KINDS, or generalize the MS clock-step pair beyond the temporal/state phase key under a qualified v2 MS Input",
+    "make an authentic production capture, original-message intake, GM admission or waiting reachable: A1, B1/W2 and B2 stay held",
+  ],
+} as const;
+/** The exact `authority_lineage` of the A0 row, in order: T-1 source, Sovereign ratification, BLUE decisions record, GitHub custody pointer. */
+export const CLOCK_ORIGIN_AUTHORITY_LINEAGE: readonly string[] = [
+  `CAL-TIME T-1 Unified Clock-Origin Source v1.0 \u2014 ${CLOCK_ORIGIN.t1.url} @ ${CLOCK_ORIGIN.t1.pin}; the adopted controlling design source`,
+  `Sovereign ratification of CAL-TIME T-1, five grants \u2014 ${CLOCK_ORIGIN.ratification.url} @ ${CLOCK_ORIGIN.ratification.pin}`,
+  `BLUE F-014B Issue #114 Direct A0/B0 Source Decisions \u2014 ${CLOCK_ORIGIN.decisions.url} @ ${CLOCK_ORIGIN.decisions.pin}; review and adjudication authority (Q1\u2013Q5)`,
+  `${CLOCK_ORIGIN.github.repository}@${CLOCK_ORIGIN.github.sha}:${CLOCK_ORIGIN.github.path}`,
+];
+
+/**
  * R1 Stage-One v1.1 section-scoped DESIGN lineage the lock records (23 October 2026), by id. A design-lineage successor says that named
  * sections of an already-frozen source (or of an existing governance source) are Sovereign-ratified; it is never executable authority and
  * never replaces, narrows or supersedes a frozen pin. `of` is the frozen source id the page extends, or null for a governance source.
@@ -219,6 +287,15 @@ export const REQUIRED_DESIGN_LINEAGE: Readonly<
       "R3-T2 §§2–5 — scoped F-016 EL-01F / EL-02S and F-017 first-freight stage overlay as corrected by R3-T17 CT-1..CT-4 (Sovereign scoped source ratification R3-T20 at 2026-11-13T04:35:38.950Z; R3-T21 documentary re-freeze)",
       "R3-T25 — BLUE Formal Universal Hard Preflight v6.2, conditional-scope PASS and bounded Builder brief (13 November 2026)",
     ],
+  },
+  // 18 November 2026: the adopted CAL-TIME T-1 Unified Clock-Origin Source (Sovereign-ratified, five grants). Design lineage only: the page is no
+  // frozen source and no addendum; the A0 lowering below it names BLUE's A0 PASS brief as its single native citation.
+  [CLOCK_ORIGIN.lineage_id]: {
+    of: null,
+    url: CLOCK_ORIGIN.t1.url,
+    pin: CLOCK_ORIGIN.t1.pin,
+    sections: CLOCK_ORIGIN.sections.length,
+    titles: CLOCK_ORIGIN.sections,
   },
 };
 
@@ -359,6 +436,20 @@ export const REQUIRED_EXECUTABLE_LOWERINGS: Readonly<
       "logistics_freight_dispatch_enrollment",
     ],
     lineage: ["ROADBED-FREIGHT-FI-LINEAGE"],
+  },
+  // F-014B A0 (20 November 2026): ONE native citation (BLUE's A0 PASS brief); the T-1 source, its ratification, BLUE's decisions record and the
+  // immutable GitHub custody pointer are the row's checked `authority_lineage` (see CLOCK_ORIGIN and checkClockOriginLowering).
+  [CLOCK_ORIGIN.lowering_id]: {
+    url: CLOCK_ORIGIN.brief.url,
+    pin: CLOCK_ORIGIN.brief.pin,
+    kinds: CLOCK_ORIGIN.kinds,
+    lineage: [CLOCK_ORIGIN.lineage_id, BOOTSTRAP_CORE_LINEAGE_ID],
+    closed: {
+      im: "IM-02",
+      section: CLOCK_ORIGIN.section,
+      operation: null,
+      does_not: CLOCK_ORIGIN.does_not,
+    },
   },
 };
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -737,6 +828,89 @@ export function checkBootstrapC1C2(
 }
 
 /** Returns a list of consistency errors; an empty list means the spec snapshot is internally consistent. */
+/**
+ * F-014B A0 custody and encoding (S11 Q5). The generic row check has already held the row's url and native_pin to BLUE's A0 PASS brief, its
+ * kinds, lineage, section, IM and ordered exclusions. This holds the rest to EXACT equality: the four-entry `authority_lineage` (T-1 source,
+ * Sovereign ratification, BLUE decisions record, GitHub custody pointer including the commit SHA and path), the owner / precondition / writer /
+ * rule names, the two history-policy segments, and that the code carries exactly those segments and rules. It never reads Git.
+ */
+export function checkClockOriginLowering(
+  lowerings: readonly Record<string, unknown>[],
+  read: (rel: string) => string,
+): string[] {
+  const errors: string[] = [];
+  const row = lowerings.find((e) => e["id"] === CLOCK_ORIGIN.lowering_id);
+  if (!row) return errors; // absence is reported by the required-lowering check
+  const id = CLOCK_ORIGIN.lowering_id;
+  const exact = (name: string, actual: unknown, expected: unknown) => {
+    if (JSON.stringify(actual) !== JSON.stringify(expected))
+      errors.push(`spec-lock.json: ${id} ${name} must equal exactly ${JSON.stringify(expected)}`);
+  };
+  exact("authority_lineage", row["authority_lineage"], CLOCK_ORIGIN_AUTHORITY_LINEAGE);
+  const pointer = CLOCK_ORIGIN_AUTHORITY_LINEAGE[3]!;
+  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+@[0-9a-f]{40}:docs\/f014b\/[a-z0-9-]+\.md$/.test(pointer))
+    errors.push(`${id}: the GitHub custody pointer must be repository@<40-hex commit>:path`);
+  exact("temporal_owner", row["temporal_owner"], "temporal_kernel/temporal_coordination");
+  exact("temporal_precondition", row["temporal_precondition"], "bootstrapInitialTimePrecondition");
+  exact("temporal_writer", row["temporal_writer"], "initialize-captured-chronology");
+  exact("genesis_rule", row["genesis_rule"], CLOCK_ORIGIN.rules[0]);
+  exact("input_rules", row["input_rules"], CLOCK_ORIGIN.rules.slice(1));
+  exact("history_policy_segments", row["history_policy_segments"], CLOCK_ORIGIN.segments);
+  exact("history_policy_suffix", row["history_policy_suffix"], CLOCK_ORIGIN.retained_ms_suffix);
+  exact("composing_im", row["composing_im"], ["IM-03"]);
+  if (typeof row["runtime_contract_compatibility"] !== "string")
+    errors.push(`${id} must record its runtime-contract compatibility`);
+  if (typeof row["technical_encoding_review"] !== "string")
+    errors.push(`${id} must record that its technical encodings are reviewed by BLUE`);
+  // the code carries exactly what the row records (text-level; the behavioural proof is the A0 conformance and integration tests)
+  try {
+    const rules = read("packages/engine/src/initial-setup/rules.ts");
+    const admission = read("packages/engine/src/owners/admission.ts");
+    for (const [what, text, needle] of [
+      [
+        "the T-1 history segment",
+        rules,
+        `\`+CAL-TIME-T1-CLOCK-ORIGIN@\${CAL_TIME_T1_SOURCE.native_pin}\``,
+      ],
+      ["the MS clock-origin history segment", rules, `"${CLOCK_ORIGIN.segments[1]}"`],
+      ["the T-1 source pin", rules, `native_pin: "${CLOCK_ORIGIN.t1.pin}"`],
+      ["the T-1 source URL", rules, `artifact: "${CLOCK_ORIGIN.t1.url}"`],
+      ["the T-1 ratification pin", rules, `native_pin: "${CLOCK_ORIGIN.ratification.pin}"`],
+      ["the BLUE decisions pin", rules, `native_pin: "${CLOCK_ORIGIN.decisions.pin}"`],
+      ["the A0 PASS brief pin", rules, `native_pin: "${CLOCK_ORIGIN.brief.pin}"`],
+      [
+        "the GitHub custody pointer",
+        rules,
+        `"${CLOCK_ORIGIN.github.repository}@${CLOCK_ORIGIN.github.sha}:${CLOCK_ORIGIN.github.path}"`,
+      ],
+      [
+        "the composed history identity (both segments after the A01 suffix, the old MS suffix retained)",
+        admission,
+        "${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}",
+      ],
+    ] as const)
+      if (!text.includes(needle)) errors.push(`${id}: the code does not carry ${what}`);
+    for (const rule of CLOCK_ORIGIN.rules)
+      if (!new RegExp(`export const ${rule}: SourceRef = `).test(rules))
+        errors.push(`${id}: the code does not register ${rule}`);
+    // temporal_state's ONLY alternate citation is the paired genesis rule
+    const registry = read("packages/engine/src/owners/registry.ts");
+    const start = registry.indexOf("const TEMPORAL_FACT_KINDS_WITH_V2_GENESIS");
+    const block = start < 0 ? "" : registry.slice(start, registry.indexOf("\n  );\n", start));
+    if (
+      start < 0 ||
+      (block.match(/rule: /g) ?? []).length !== 1 ||
+      !block.includes("rule: TEMPORAL_CAPTURED_V2_GENESIS_RULE,")
+    )
+      errors.push(
+        `${id}: temporal_state's only alternate citation must be TEMPORAL_CAPTURED_V2_GENESIS_RULE`,
+      );
+  } catch (e) {
+    errors.push(`${id}: the code carrying the lowering is unreadable: ${(e as Error).message}`);
+  }
+  return errors;
+}
+
 export function checkSpec(root: string): string[] {
   const errors: string[] = [];
   const at = (rel: string) => join(root, rel);
@@ -1012,6 +1186,8 @@ export function checkSpec(root: string): string[] {
         "ROADBED freight lowering must record that its technical encodings await BLUE review",
       );
   }
+
+  errors.push(...checkClockOriginLowering(lowerings, read));
 
   const snapshot = lock.snapshot_files ?? {};
   for (const rel of [

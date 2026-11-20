@@ -44,6 +44,8 @@ import {
   refereeDecisionIntentId,
   refereeDecisionKey,
   type ChronologyCapture,
+  type ChronologyCaptureV2,
+  type ChronologyEvidence,
   type CommitGroup,
   type InitialLocalityCompletion,
   type InitialSetupGrant,
@@ -76,7 +78,12 @@ import {
 } from "./identity.ts";
 import { buildProducerInput, contextManifestHashOf, resolveInstructionMap } from "./producer.ts";
 import { fixedSourceViolation, genesisValueIndex, provenanceViolation } from "./provenance.ts";
-import { INITIAL_SETUP_RULES, INITIAL_SETUP_SCOPE_RULE } from "./rules.ts";
+import {
+  INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
+  INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
+  INITIAL_SETUP_RULES,
+  INITIAL_SETUP_SCOPE_RULE,
+} from "./rules.ts";
 
 /**
  * IM-03 admission (and, unchanged, historical verification) of the six v0.9 Initial Locality Bootstrap record kinds, of the
@@ -278,6 +285,28 @@ export function interpretResponse(
 // Fixed record metadata
 // ---------------------------------------------------------------------------------------------------------------------
 
+/**
+ * CAL-TIME T-1 §2 (F-014B A0): the arm / route / rule correspondence of an Input. The Input's chronology capture version selects the
+ * ONLY citations that may carry it: a v1 chronology cites exactly the CORE_V9 Input rule or the MS v3 Input rule (as before), and a v2
+ * chronology cites exactly its route's v2 rule. The registry's v1 alternates admit by schema parse alone, so without this check the old
+ * v1 MS rule would admit a v2 Input; this predicate is what keeps old v1 MS authority off the v2 arm. It runs live (metadataViolation) and
+ * on replay (initialSetupHistoricalCheck calls the same admission) and again at the Temporal precondition. Returns a reason or null.
+ */
+export function inputChronologyRuleViolation(
+  chronologyFormatVersion: 1 | 2,
+  rule: unknown,
+): string | null {
+  const lawful: readonly unknown[] =
+    chronologyFormatVersion === 2
+      ? [INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE, INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE]
+      : [INITIAL_SETUP_RULES.initial_setup_input, INITIAL_SETUP_INPUT_MS_V3_RULE];
+  return lawful.some((r) => canonicalEqual(rule, r))
+    ? null
+    : chronologyFormatVersion === 2
+      ? "an Input whose chronology is a version 2 capture cites exactly its route's v2 chronology rule"
+      : "an Input whose chronology is a version 1 capture cites exactly its original CORE_V9 or MS v3 rule";
+}
+
 function metadataViolation(
   group: CommitGroup,
   kindId: keyof typeof INITIAL_SETUP_RULES,
@@ -296,7 +325,13 @@ function metadataViolation(
       : kindId === "initial_locality_completion"
         ? INITIAL_LOCALITY_COMPLETION_MS_V3_RULE
         : null;
-  if (
+  // a parsable Input is judged by its chronology arm; an unparsable value keeps exactly the original rule check (and is then refused
+  // by its schema), so no refusal reason of any v1 path changes
+  const arm = kindId === "initial_setup_input" ? InitialSetupInputSchema.safeParse(w.value) : null;
+  if (arm?.success) {
+    const wrong = inputChronologyRuleViolation(arm.data.chronology.format_version, group.rule);
+    if (wrong) return refuse("RULE", wrong, { key: w.key });
+  } else if (
     !canonicalEqual(group.rule, INITIAL_SETUP_RULES[kindId]) &&
     !(msRule && canonicalEqual(group.rule, msRule))
   )
@@ -375,20 +410,37 @@ function fixtureViolation(i: InitialSetupInput, policy: InitialSetupPolicy): Rej
   return null;
 }
 
-/** The chronology capture is checked against itself: hashes, grade use, campaign. */
-const withoutCaptureHash = (c: ChronologyCapture): Omit<ChronologyCapture, "capture_hash"> => ({
-  format: c.format,
-  format_version: c.format_version,
-  capture_ref: c.capture_ref,
-  campaign_id: c.campaign_id,
-  document: c.document,
-  document_hash: c.document_hash,
-  grade: c.grade,
-  source: c.source,
-});
+/**
+ * The chronology capture is checked against itself: hashes, grade use, campaign. Either arm of the two-arm ChronologyEvidence union
+ * is hashed over exactly its own fields (the v2 arm carries `format_version: 2` and the v2 document, so the two never collide).
+ */
+const withoutCaptureHash = (
+  c: ChronologyEvidence,
+): Omit<ChronologyCapture, "capture_hash"> | Omit<ChronologyCaptureV2, "capture_hash"> =>
+  c.format_version === 1
+    ? {
+        format: c.format,
+        format_version: c.format_version,
+        capture_ref: c.capture_ref,
+        campaign_id: c.campaign_id,
+        document: c.document,
+        document_hash: c.document_hash,
+        grade: c.grade,
+        source: c.source,
+      }
+    : {
+        format: c.format,
+        format_version: c.format_version,
+        capture_ref: c.capture_ref,
+        campaign_id: c.campaign_id,
+        document: c.document,
+        document_hash: c.document_hash,
+        grade: c.grade,
+        source: c.source,
+      };
 
 export function chronologyEvidenceViolation(
-  c: ChronologyCapture,
+  c: ChronologyEvidence,
   campaignId: string,
 ): { reason: string; message: string } | null {
   if (c.campaign_id !== campaignId)
@@ -1317,7 +1369,8 @@ function checkCompletion(group: CommitGroup, state: CampaignState): Rejection | 
   if (!session) return reject("PREREQUISITE_MISSING", "the Completion's session has no Input");
   if (
     !isMsInputRule(session.input.provenance.rule) &&
-    !canonicalEqual(session.input.provenance.rule, INITIAL_SETUP_RULES.initial_setup_input)
+    !canonicalEqual(session.input.provenance.rule, INITIAL_SETUP_RULES.initial_setup_input) &&
+    !canonicalEqual(session.input.provenance.rule, INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE)
   )
     return refuse("MS_ROUTE_PAIR", "the Input carries no registered full route citation");
   const expectedRule = isMsInputRule(session.input.provenance.rule)

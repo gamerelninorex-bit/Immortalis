@@ -4,7 +4,8 @@
 //
 // What it checks, all of it clerical and none of it behavioural:
 //   B0-70  every file the contract lists in section 5.1 is byte-identical to the base commit, read with `git show <base>:<path>` and compared with the
-//          working tree. Nothing here states a hash of any file; custody is by commit and path. The two legacy B0 test files and the accepted source
+//          working tree, EXCEPT the four files that the later F-014B A0 slice changes under its declared source transition (see the second test of
+//          the first group). Nothing here states a hash of any file; custody is by commit and path. The two legacy B0 test files and the accepted source
 //          lock are compared the same way against the commit BLUE accepted. Where that history is not reachable (a shallow checkout) the comparison is
 //          skipped, never claimed; CI checks out the full history, so it runs there.
 //   B0-71  the new module imports only zod and contracts modules, names no store, coordinator, journal, protocol package, origin-witness key, catalogue
@@ -13,9 +14,12 @@
 //          forbidden words in a title or in code.
 // Each scanner is first run on a specimen that it must flag and a specimen that it must not, so a scanner that matched nothing could not pass.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { A0_BASE_COMMIT, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { code } from "../support/f027.ts";
+import { PRESENT_DAY_CODE_IDENTITIES, identityOf } from "../support/present-day-identities.ts";
 
 /** The census base of the contract (section 5.1) and the commit at which BLUE accepted the source lock. */
 const BASE = "0c9e74b9d5dc8845751a543ace777277b2cb1308";
@@ -62,6 +66,55 @@ const SECTION_5_1_FILES = [
   "packages/engine/src/owners/admission.ts",
   "packages/engine/src/owners/registry.ts",
 ] as const;
+/**
+ * DECLARED A0 SOURCE TRANSITION (F-014B A0, the CAL-TIME T-1 clock-origin mechanism, which was built on the same base and merged into this tree
+ * after B0). The accepted A0 source lock enumerates, file by file, the production changes it makes; four of them are files that contract
+ * section 5.1 lists as byte-identical under B0. The A0 slice is the only thing allowed to change them, and only by exactly these amounts. The
+ * original (this contract's base) content and the A0 content are both recorded here as byte lengths and as the diff scope against the base
+ * (lines added, lines deleted); no hash is stated in this file. Where the A0 scoped-delta table or the present-day identity table already
+ * carries a hash for the path, the test below binds to that table rather than repeating the value. The other fourteen section 5.1 files stay
+ * byte-identical to the base. A later change to any of these four files updates this table and the A0 tables, nothing else.
+ */
+const A0_TRANSITION: Readonly<
+  Record<
+    string,
+    {
+      readonly baseBytes: number;
+      readonly a0Bytes: number;
+      readonly added: number;
+      readonly deleted: number;
+    }
+  >
+> = {
+  "packages/engine/src/temporal/coordinator.ts": {
+    baseBytes: 61054,
+    a0Bytes: 63374,
+    added: 54,
+    deleted: 0,
+  },
+  "packages/engine/src/temporal/admission.ts": {
+    baseBytes: 35815,
+    a0Bytes: 36594,
+    added: 14,
+    deleted: 1,
+  },
+  "packages/engine/src/owners/admission.ts": {
+    baseBytes: 61624,
+    a0Bytes: 62668,
+    added: 25,
+    deleted: 7,
+  },
+  "packages/engine/src/owners/registry.ts": {
+    baseBytes: 242556,
+    a0Bytes: 245498,
+    added: 66,
+    deleted: 1,
+  },
+};
+const A0_TRANSITION_PATHS: readonly string[] = Object.keys(A0_TRANSITION);
+const sha256 = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
+const a0BaseReachable = reachable(A0_BASE_COMMIT);
+
 /** Contract section 5.1: the two tree identities. B0 adds no file to either tree. */
 const SECTION_5_1_TREES = ["packages/operator/src", "packages/protocol/src"] as const;
 
@@ -75,9 +128,31 @@ const ACCEPTED_FILES = [
 
 describe("B0 refusal-only: the files that B0 must not change", () => {
   it.skipIf(!baseReachable)(
-    "B0 refusal-only: every section 5.1 file is byte-identical to the base commit",
+    "B0 refusal-only: every section 5.1 file except the four declared A0 source-transition files is byte-identical to the base commit",
     () => {
-      for (const path of SECTION_5_1_FILES) {
+      // the exemption is exactly the four declared paths, every one of them a section 5.1 file; it cannot be widened without editing this list
+      expect([...A0_TRANSITION_PATHS].sort()).toEqual([
+        "packages/engine/src/owners/admission.ts",
+        "packages/engine/src/owners/registry.ts",
+        "packages/engine/src/temporal/admission.ts",
+        "packages/engine/src/temporal/coordinator.ts",
+      ]);
+      for (const path of A0_TRANSITION_PATHS)
+        expect(SECTION_5_1_FILES as readonly string[], path).toContain(path);
+      const unchanged = SECTION_5_1_FILES.filter((p) => !A0_TRANSITION_PATHS.includes(p));
+      expect(unchanged.length).toBe(SECTION_5_1_FILES.length - 4);
+      // the three D-3 gateways, their contracts, the integrity module and the provider set are among the files that must not change
+      for (const path of [
+        "packages/protocol/src/active-pc-target-advance.ts",
+        "packages/protocol/src/null-pc-ooc-advance.ts",
+        "packages/protocol/src/null-pc-ooc-held-continuation.ts",
+        "packages/contracts/src/temporal.ts",
+        "packages/engine/src/temporal/integrity.ts",
+        "packages/engine/src/temporal/providers.ts",
+      ])
+        expect(unchanged, path).toContain(path);
+
+      for (const path of unchanged) {
         const atBase = atRef(BASE, path);
         expect(atBase, `${path} exists at the base`).not.toBeNull();
         expect(sameBytes(atBase, readFileSync(path)), path).toBe(true);
@@ -88,6 +163,41 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
       flipped[0] = (flipped[0]! + 1) % 256;
       expect(sameBytes(sample, flipped)).toBe(false);
       expect(sameBytes(sample, Buffer.from(sample))).toBe(true);
+    },
+  );
+
+  it.skipIf(!baseReachable)(
+    "B0 refusal-only: the four section 5.1 files that F-014B A0 changes match the declared A0 source transition exactly, in length, in diff scope and against the A0 tables",
+    () => {
+      for (const [path, t] of Object.entries(A0_TRANSITION)) {
+        const atBase = atRef(BASE, path);
+        expect(atBase, `${path} exists at the base`).not.toBeNull();
+        const now = readFileSync(path);
+        // original content and A0 content, by length
+        expect(atBase!.length, `${path} original length`).toBe(t.baseBytes);
+        expect(now.length, `${path} A0 length`).toBe(t.a0Bytes);
+        expect(sameBytes(atBase, now), `${path} really did change`).toBe(false);
+        // diff scope: lines added and deleted against the base, nothing renamed, nothing binary
+        const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
+        expect(stat, `${path} numstat`).toEqual([[String(t.added), String(t.deleted), path]]);
+        // the A0 base is the same content as this contract's base: B0 changed none of these files
+        if (a0BaseReachable)
+          expect(sameBytes(atBase, atRef(A0_BASE_COMMIT, path)), `${path} A0 base`).toBe(true);
+        // bound to the tables that own the present-day identities, without repeating any value
+        const delta = A0_SCOPED_DELTAS[path];
+        if (delta !== undefined) {
+          expect(sha256(atBase!), `${path} original identity`).toBe(delta.base);
+          expect(sha256(now), `${path} A0 identity`).toBe(delta.head);
+        }
+      }
+      expect(identityOf("packages/engine/src/owners/admission.ts")).toBe(
+        PRESENT_DAY_CODE_IDENTITIES["packages/engine/src/owners/admission.ts"],
+      );
+      // the scanner is not vacuous: a path outside the declared set has no transition and a changed length is told apart
+      expect(A0_TRANSITION["packages/protocol/src/null-pc-ooc-advance.ts"]).toBeUndefined();
+      expect(
+        Buffer.concat([readFileSync(A0_TRANSITION_PATHS[0]!), Buffer.from("x")]).length,
+      ).not.toBe(A0_TRANSITION[A0_TRANSITION_PATHS[0]!]!.a0Bytes);
     },
   );
 

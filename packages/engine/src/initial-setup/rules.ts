@@ -122,3 +122,88 @@ export const INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE: SourceRef = rule(
 
 export const CAPTURED_CHRONOLOGY_RULE_CLAUSE =
   "Selection and Chronology Checks — initialize-captured-chronology: the unchanged structural KERNEL_RULE citation plus the mandatory state-dependent bootstrapInitialTimePrecondition";
+
+// ---------------------------------------------------------------------------------------------------------------------
+// CAL-TIME T-1 Unified Clock-Origin Source v1.0 (F-014B A0, T1 MECHANISM ONLY)
+// ---------------------------------------------------------------------------------------------------------------------
+
+/**
+ * Governing sources of the A0 clock-origin mechanism. The adopted CAL-TIME T-1 source and its Sovereign ratification (five grants)
+ * are the design authority; BLUE's 20 November decisions record and its A0 scoped Hard Preflight PASS brief direct the bounded
+ * technical lowering, and the accepted A0 source lock is the immutable final contract. They are source-locked by the
+ * `CAL-TIME-T1-CLOCK-ORIGIN-LOWERING` row added to `spec/f027/spec-lock.json` in the same change; `tools/check-spec.ts` asserts every
+ * value here by exact equality.
+ *
+ * Nothing here re-pins a frozen source, supersedes a CORE_V9 / MS rule, or reinterprets a v1 / direct-operator / never-bootstrap /
+ * timed-governance origin: the three rules below are additive alternates, and the v1 rules remain exactly as they were.
+ */
+export const CAL_TIME_T1_SOURCE = {
+  artifact: "https://app.notion.com/p/41c20af901e0817ca9e8dcb392e3b0d7",
+  native_pin: "2026-11-18T22:23:26.085Z",
+} as const;
+export const CAL_TIME_T1_RATIFICATION = {
+  artifact: "https://app.notion.com/p/41c20af901e081ba9fd4db4da81c8526",
+  native_pin: "2026-11-18T22:38:52.341Z",
+} as const;
+export const A0_BLUE_DECISIONS_RECORD = {
+  artifact: "https://app.notion.com/p/41e20af901e08163acb0f8ed695f44ad",
+  native_pin: "2026-11-20T00:15:08.470Z",
+} as const;
+export const A0_BLUE_PASS_BRIEF = {
+  artifact: "https://app.notion.com/p/41e20af901e081b2ba6ae6f08959a647",
+  native_pin: "2026-11-20T07:09:04.196Z",
+} as const;
+/** The immutable accepted A0 source-lock document: repository, commit and path, never an editable PR head. */
+export const A0_SOURCE_LOCK_CUSTODY =
+  "gamerelninorex-bit/Immortalis@37ba11bd0f0f068a22731f87351a0fd9a16a885b:docs/f014b/a0-clock-origin-source-lock.md";
+
+export const CAL_TIME_T1_LINEAGE_ID = "CAL-TIME-T1-CLOCK-ORIGIN-LINEAGE";
+export const CAL_TIME_T1_LOWERING_ID = "CAL-TIME-T1-CLOCK-ORIGIN-LOWERING";
+
+/**
+ * The two additive segments of the composed `historyVerificationId` (BLUE S11 Q2). The old `MS_HISTORY_POLICY_SUFFIX` literal is
+ * retained unchanged; these are distinguishable and are appended after `+POPULATION-STAGE-AUTHORITY-V2`, in the same change as the
+ * validators they identify. Every composed identity (production, MS, fixture, legacy, extension) therefore changes.
+ */
+export const CAL_TIME_T1_HISTORY_POLICY_SEGMENT = `+CAL-TIME-T1-CLOCK-ORIGIN@${CAL_TIME_T1_SOURCE.native_pin}`;
+export const MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT = "+MS-V3-CLOCK-STEP-B2-ORIGIN";
+
+const T1_LINEAGE: readonly string[] = [
+  `CAL-TIME T-1 Unified Clock-Origin Source v1.0 — lowering ${CAL_TIME_T1_LOWERING_ID} over design lineage ${CAL_TIME_T1_LINEAGE_ID} (adopted source ${CAL_TIME_T1_SOURCE.artifact} at ${CAL_TIME_T1_SOURCE.native_pin})`,
+  `Sovereign ratification of CAL-TIME T-1, five grants: ${CAL_TIME_T1_RATIFICATION.artifact} at ${CAL_TIME_T1_RATIFICATION.native_pin}`,
+  `Initial Locality Bootstrap v0.9 CORE_V9 executable contract ${INITIAL_BOOTSTRAP_CONTRACT_SOURCE.artifact} at ${INITIAL_BOOTSTRAP_CONTRACT_SOURCE.native_pin}, ratified at ${INITIAL_BOOTSTRAP_RATIFICATION.artifact} ${INITIAL_BOOTSTRAP_RATIFICATION.native_pin}; the v1 rules and v1 bytes are unchanged`,
+  `BLUE F-014B Issue #114 direct decisions Q1-Q5 (${A0_BLUE_DECISIONS_RECORD.artifact} at ${A0_BLUE_DECISIONS_RECORD.native_pin}) and A0 scoped Hard Preflight PASS (${A0_BLUE_PASS_BRIEF.artifact} at ${A0_BLUE_PASS_BRIEF.native_pin}); immutable accepted contract ${A0_SOURCE_LOCK_CUSTODY}`,
+  `composes WITH F-027 v1.0 (package pin ${F027_PACKAGE_PIN}); T1 MECHANISM ONLY: no production qualification, no calendar, no category 9, no GM canon read, no retrofit of any v1, direct-operator, never-bootstrap or timed-governance origin`,
+];
+
+const t1Rule = (clause: string): SourceRef => ({
+  artifact: CAL_TIME_T1_SOURCE.artifact,
+  native_pin: CAL_TIME_T1_SOURCE.native_pin,
+  clause,
+  authority_lineage: [...T1_LINEAGE],
+  effective_basis: "pinned-by-spec-lock",
+  supersedes: null,
+});
+
+/**
+ * The rule of the Temporal-owned SEALED `temporal_origin` kind, and the ONLY alternate citation of `temporal_state`: one group of
+ * exactly two version-zero writes (`temporal/state` and `temporal/origin`) citing it is the paired genesis of a v2 captured chronology.
+ * It is not an `MS_SOURCE` artifact, so the MS fence never treats the pair as an MS-source group.
+ */
+export const TEMPORAL_CAPTURED_V2_GENESIS_RULE: SourceRef = t1Rule(
+  "TEMPORAL_CAPTURED_V2_GENESIS_RULE: §3 paired genesis (Grant 2) — exactly temporal/state and the SEALED temporal/origin, both expected_version 0, in ONE temporal_kernel/temporal_coordination group, derived from the governing Completion and its own Input's v2 captured chronology",
+);
+
+/** The non-MS Input citation of a v2 captured chronology (the arm / route / rule correspondence is enforced live and on replay). */
+export const INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE: SourceRef = t1Rule(
+  "INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE: §2 v2 captured chronology Input (CORE_V9 Canonical Records + Grant 2) — admits only an Input whose chronology is a strict version 2 capture, on the non-MS route",
+);
+
+/**
+ * The MS-v3 Input citation of a v2 captured chronology. It cites T-1, never an MS_SOURCE clause, and is admitted as MS only under the
+ * original MS Input checks (the strict Ed25519/V2 actor profile, the enrolled tuple, the earlier-session rules) and its exact MS
+ * Completion pairing, live and on replay.
+ */
+export const INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE: SourceRef = t1Rule(
+  "INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE: §2 v2 captured chronology Input, MS v3 route (CORE_V9 Canonical Records + Grant 2 + Grant 5) — admits only an Input whose chronology is a strict version 2 capture, on the MS v3 route",
+);

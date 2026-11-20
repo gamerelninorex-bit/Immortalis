@@ -596,18 +596,22 @@ describe("A01 preserves pre-S-4 records and post-S-4 seeds independently", () =>
 
   // Independently measured on pristine merged main bdc46e7: S-4 adds a ledger and cites its binding rule.
   // These new-seed identities do not replace the old goldens checked against retained packages above.
+  // F-014B A0 (declared re-pin): a NEW campaign's journal head commits to the build's spec identity (file-package.ts passes
+  // `spec_lock_sha256` into the genesis), and A0's two additive lock rows changed that identity. The canonical STATE hashes below are
+  // exactly the ones measured on main (the seeds' state is unchanged); only the three journal heads were re-measured at the A0 head.
+  // The retained pre-S-4 packages above are old journals and keep their original goldens.
   const currentGolden = {
     ordinary: [
       "ed7f4c62d0e4958b89cce8800d46125fc06eed81110636dd1ef3c8ed5f93db8e",
-      "72f037dfe7084220420c95ea1dbc8e67dcb4225a11c6d8b0bd190c30290f54df",
+      "261749e43b43c759c900a8d1f0f45b2b1432752ebed9802bf32ce54ff790d43f",
     ],
     pcb: [
       "8a5a1de9c255d364117c9576aba2ad6af0d2849c49f6a46a0183be34409cd028",
-      "cab295078712acf49126e7a5cb3e8446cfa4c1f3aa902bacb29384636f98b01e",
+      "258dfaa591df832be84a91a90d772f7234464e0e9dfaeafe1576c1a01c450d71",
     ],
     interrupted: [
       "b863a5e1945c9ae735cc30daa88580b0edd8aa3d067f7f0b945f90acc5b22507",
-      "bbcb93af71c9b235669ea680d9f27a07a7e45e5afc6ea46b157933b4dc94bf51",
+      "335308c1abbf96c9f01e111b16a8ad6e61525640d001f232507f71028473daea",
     ],
   };
   for (const mode of ["ordinary", "pcb", "interrupted"] as const) {

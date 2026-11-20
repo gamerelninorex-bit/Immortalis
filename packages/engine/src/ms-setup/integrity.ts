@@ -13,8 +13,12 @@ import {
   actorSetupPlacementKey,
   worldSetupClosureKey,
   actorPhysicalPresenceKey,
+  FACET_TEMPORAL_COORDINATION,
+  OWNER_TEMPORAL_KERNEL,
+  TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
   canonicalJson,
+  deriveTemporalOrigin,
   worldProfileKey,
   worldLocusKey,
   timeEquals,
@@ -24,6 +28,7 @@ import {
 import type { CampaignStore } from "../persistence/store.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
 import { canonicalEqual } from "../hash.ts";
+import { TEMPORAL_CAPTURED_V2_GENESIS_RULE } from "../initial-setup/rules.ts";
 import { resolveKey } from "../owners/registry.ts";
 import { actorBoundaryViolation } from "../actor/derive.ts";
 import { presenceRivalViolation } from "../world/actor-presence.ts";
@@ -306,12 +311,41 @@ export function verifyMsIntegrity(store: CampaignStore): readonly IntegrityViola
     }
     // SEALED before-revision set is exact. ADVANCING membership/absence remains tier-1 history evidence.
     const last = presence ?? closure ?? p ?? b ?? r ?? q ?? cf;
+    // CAL-TIME T-1 grant 5 (F-014B A0): the origin witness is the ONE SEALED fact allowed in the B2 prefix, and only the authentic one:
+    // the origin of the clock-step genesis group that the B2 presence group itself depends on, resolved from the journal. That group is
+    // exactly the two version-zero writes {temporal/state, temporal/origin} under the genesis rule and the Temporal owner/facet, the
+    // committed value equals the origin the original v2 MS Input and Completion imply, and the group's exact reads / depends_on (the
+    // original MS time pins) are proved below with the existing time-group proof. Any other SEALED origin is still flagged.
+    const authenticClockOrigin = (o: OwnerFact): boolean => {
+      if (o.key !== TEMPORAL_ORIGIN_KEY || o.version !== 1 || !presence) return false;
+      const g = store.committedGroup(o.provenance.intent_id);
+      const pg = store.committedGroup(presence.provenance.intent_id);
+      if (!g || !pg || !checked?.has(g.group_id) || !pg.depends_on.includes(g.group_id))
+        return false;
+      const stateWrite = g.writes.find((w) => w.key === TEMPORAL_STATE_KEY);
+      const originWrite = g.writes.find((w) => w.key === TEMPORAL_ORIGIN_KEY);
+      if (
+        g.writes.length !== 2 ||
+        !stateWrite ||
+        !originWrite ||
+        stateWrite.expected_version !== 0 ||
+        originWrite.expected_version !== 0 ||
+        g.owner !== OWNER_TEMPORAL_KERNEL ||
+        g.facet !== FACET_TEMPORAL_COORDINATION ||
+        !canonicalEqual(g.rule, TEMPORAL_CAPTURED_V2_GENESIS_RULE) ||
+        !canonicalEqual(originWrite.value, o.value)
+      )
+        return false;
+      const expected = deriveTemporalOrigin(store.head().campaign_id, ip.data, pinOf(cf), pinOf(i));
+      return expected !== null && canonicalEqual(o.value, expected);
+    };
     for (const f of all) {
       const kind = resolveKey(f.key)?.kind;
       if (
         revision(f) < revision(last) &&
         kind?.lifecycle === "SEALED" &&
-        !MS_PRE_CLOCK_KINDS.has(kind.id)
+        !MS_PRE_CLOCK_KINDS.has(kind.id) &&
+        !(kind.id === "temporal_origin" && authenticClockOrigin(f))
       )
         bad(last.key, "unexpected create-only fact in the historical MS setup prefix: " + f.key);
     }

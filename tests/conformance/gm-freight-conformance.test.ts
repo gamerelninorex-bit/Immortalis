@@ -34,6 +34,7 @@ import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
+import { A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
 import { REMOVED_GM_FREIGHT_PINS } from "../support/gm-freight-removed-pins.ts";
 import {
   GM_FREIGHT_BASE_COMMIT,
@@ -195,6 +196,8 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...Object.keys(A05_SOURCE_DELTAS),
       ...RP1_STAGE2_PACKAGE_PATHS,
       ...RP2_PACKAGE_PATHS,
+      // the LATER F-014B A0 slice's recorded paths (its own table and conformance suite police them)
+      ...A0_PACKAGE_PATHS,
       // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
       "packages/contracts/src/temporal-gm-wait.ts",
     ]);
@@ -232,8 +235,10 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       // S-4 changed registry and admission later; retain its historical base comparison as well.
       const atS4Base = git("show", `${S4_BASE_COMMIT}:${p}`);
       expect(atS4Base === null ? null : sha256(atS4Base), p).toBe(atBase(p));
-      // Both owners are checked by their present-day guards, never by substituting new hashes here.
-      if (!p.startsWith("packages/engine/src/owners/")) expect(file(p), p).toBe(atBase(p));
+      // Both owners are checked by their present-day guards, never by substituting new hashes here. F-014B A0 later extended the lock
+      // additively (policed by tools/check-spec.ts and clock-origin-custody-conformance); the reviewed head above is this slice's claim.
+      if (!p.startsWith("packages/engine/src/owners/") && p !== "spec/f027/spec-lock.json")
+        expect(file(p), p).toBe(atBase(p));
     }
     // and the engine's freight directory gained exactly the router (no adapter, no kind): see freight-profile-conformance
     expect(existsSync("packages/engine/src/freight/bridge.ts")).toBe(true);

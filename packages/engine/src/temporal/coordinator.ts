@@ -4,8 +4,10 @@ import {
   ResolutionRequestSchema,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
+  TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
+  TemporalOriginSchema,
   TemporalStateSchema,
   PublicationSchema,
   temporalTransactionAuthorityKey,
@@ -35,6 +37,7 @@ import {
   type StageKey,
   type StageRecord,
   type TemporalObject,
+  type TemporalOrigin,
   type TemporalRead,
   type TemporalState,
   type TransactionAuthority,
@@ -43,6 +46,7 @@ import {
 } from "@immortalis/contracts";
 import { canonicalEqual } from "../hash.ts";
 import { gipEnrollmentPendingViolation } from "../gip/declaration.ts";
+import { TEMPORAL_CAPTURED_V2_GENESIS_RULE } from "../initial-setup/rules.ts";
 import { continuationRequestViolation } from "./admission.ts";
 import { freightDispatchPendingViolation } from "../freight/dispatch-fence.ts";
 import {
@@ -252,6 +256,56 @@ export class TemporalCoordinator {
         {
           ...(input.reads ? { reads: input.reads } : {}),
           ...(input.depends_on ? { depends_on: input.depends_on } : {}),
+        },
+      ),
+    );
+  }
+
+  /**
+   * CAL-TIME T-1 §3 (F-014B A0): the PAIRED genesis of a v2 captured chronology. Exactly one group of exactly two version-zero writes,
+   * `temporal/state` (the initial basis) and `temporal/origin` (the SEALED witness), under the genesis rule, one owner/facet and the same
+   * basis and secrecy on both. The origin value is supplied by the trusted captured writer, derived solely from the governing
+   * Completion, its own Input and that Input's v2 capture; admission and the historical verifier re-derive and compare it, so a caller
+   * cannot supply a field that is not the committed one. Reads and dependencies are the caller's, exactly as for the v1 genesis.
+   */
+  async establishCanonicalTimeWithOrigin(
+    input: Publication & {
+      readonly time: unknown;
+      readonly origin: TemporalOrigin;
+      readonly reads: CommitGroup["reads"];
+      readonly depends_on: readonly string[];
+    },
+  ): Promise<Result<CommitOutcome, TemporalErrorCode>> {
+    const p = PublicationSchema.safeParse({
+      group_id: input.group_id,
+      intent_id: input.intent_id,
+      cause: input.cause,
+      basis: input.basis,
+      secrecy: input.secrecy,
+    });
+    if (!p.success)
+      return failure("INPUT_INVALID", "publication failed validation", { issues: issues(p.error) });
+    const value = TemporalStateSchema.safeParse({
+      canonical_time: input.time,
+      last_transaction: null,
+      continuation: null,
+    });
+    if (!value.success)
+      return failure("INPUT_INVALID", "time failed validation", { issues: issues(value.error) });
+    const origin = TemporalOriginSchema.safeParse(input.origin);
+    if (!origin.success)
+      return failure("INPUT_INVALID", "origin failed validation", { issues: issues(origin.error) });
+    return this.#store.commit(
+      this.#kernelGroup(
+        p.data,
+        [
+          { key: TEMPORAL_STATE_KEY, value: value.data, expected_version: 0 },
+          { key: TEMPORAL_ORIGIN_KEY, value: origin.data, expected_version: 0 },
+        ],
+        {
+          reads: input.reads,
+          depends_on: input.depends_on,
+          rule: TEMPORAL_CAPTURED_V2_GENESIS_RULE,
         },
       ),
     );

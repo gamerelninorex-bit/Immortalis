@@ -211,6 +211,8 @@ describe("IA-03 owner/key exclusivity: one owner, one facet, one more kind in on
       "resolution_transaction",
       "temporal_boundary_index",
       "temporal_object",
+      // F-014B A0 (CAL-TIME T-1): the one sealed origin witness, under the same owner and facet
+      "temporal_origin",
       "temporal_state",
       "temporal_transaction_authority",
     ]);
