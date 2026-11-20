@@ -8,9 +8,13 @@
 //   seed   <kind> <outDir>               builds `<outDir>/package` (+ `<outDir>/meta.json`) with the fixture campaign flows of THIS checkout.
 //                                        kinds: captured-v1 | captured-v2 | ms-v1 | ms-v2. A0OB_SEAL_SUFFIX (optional) writes the package
 //                                        under a stand-in history-verification identity (an earlier build's) so a later open must replay it.
+//   prewarm <kind> <fixtureDir>          opens the fixture package in place once under THIS build and closes it: the open that seals this
+//                                        build's checkpoint (a package written by another build is cold even at its first open here).
 //   sample <kind> <variant> <fixtureDir> <out.json>
 //                                        one fresh-process sample on a private copy: first open, immediate reopen, warm open (third open), an
-//                                        exact read-back digest. variant `genuine` opens under the build's own admission; `forced-cold`
+//                                        exact read-back digest. variants `genuine` and `prewarmed` open under the build's own admission
+//                                        (`prewarmed` names a fixture that was pre-opened once at BASE, so BASE's first open is warm and
+//                                        HEAD's is the transition); `forced-cold`
 //                                        appends a label to the admission's history-verification identity so the checkpoint cannot be
 //                                        trusted and the first open is a full strict replay by that build's own verifier on identical bytes.
 //                                        kinds also include legacy-pre-v09 and s4-ledger (committed fixtures; production admission).
@@ -212,7 +216,7 @@ async function seed(kind: string, out: string) {
 // -- the operation under test -----------------------------------------------------------------------------------------------------------
 function admissionFor(kind: string, variant: string, meta: any): any {
   if (kind === "legacy-pre-v09" || kind === "s4-ledger") {
-    if (variant !== "genuine")
+    if (variant === "forced-cold")
       throw new Error("committed fixtures open under the production admission only");
     const admission = E.canonicalAdmission;
     const verify = admission.verifyHistorical.bind(admission);
@@ -243,6 +247,25 @@ const policyOf = (dir: string): unknown => {
     return null;
   }
 };
+
+/**
+ * Opens the fixture package IN PLACE once under this build's own admission and closes it: the open that seals this build's checkpoint. A package
+ * written by another build carries that build's checkpoint, which matches neither BASE's identity nor HEAD's, so even BASE's first open of it
+ * is cold; BASE's warm baseline therefore needs the package pre-opened once at BASE (preflight I-7). Nothing is measured here.
+ */
+async function prewarm(kind: string, fixture: string) {
+  const meta = existsSync(join(fixture, "meta.json"))
+    ? JSON.parse(readFileSync(join(fixture, "meta.json"), "utf8"))
+    : {};
+  const admission = admissionFor(kind, "genuine", meta);
+  const dir = join(fixture, "package");
+  mkdirSync(join(dir, "history"), { recursive: true });
+  const opened = await E.CanonicalCampaign.open(
+    dir,
+    admission ? { testkitFixtureAdmission: admission } : {},
+  );
+  await must<{ close(): Promise<void> }>(opened).close();
+}
 
 async function sample(kind: string, variant: string, fixture: string, out: string) {
   const work = mkdtempSync(join(tmpdir(), "immortalis-a0ob-"));
@@ -323,7 +346,7 @@ async function sample(kind: string, variant: string, fixture: string, out: strin
 // -- the reducer ------------------------------------------------------------------------------------------------------------------------
 function compare(evidenceDir: string, baseSha: string, headSha: string) {
   const rawDir = join(evidenceDir, "raw");
-  const NAME = /^sample-(.+?)-(genuine|forced-cold)-(\d+)-(base|head)\.json$/;
+  const NAME = /^sample-(.+?)-(genuine|forced-cold|prewarmed)-(\d+)-(base|head)\.json$/;
   type Cell = { reps: any[]; refusal?: string };
   const cells = new Map<string, Cell>();
   for (const f of readdirSync(rawDir).sort()) {
@@ -350,8 +373,8 @@ function compare(evidenceDir: string, baseSha: string, headSha: string) {
     "",
     "median over the measured repetitions (rep 0 excluded); wall ms / CPU ms (user+system) / peak RSS MB; first = first open, second = immediate reopen, third = warm open",
     "",
-    "| kind | variant | build | n | journal B | entries | first wall | first CPU | second wall | third wall | RSS MB | replay calls (first) | groups verified (first) | policy after first open |",
-    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    "| kind | variant | build | n | journal B | entries | first wall | first CPU | second wall | third wall | RSS MB | groups verified (first) | first read KB | first write KB | first fsyncs | first sha256 MB | policy after first open |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
   ];
   const keys = [...cells.keys()].sort();
   for (const k of keys) {
@@ -359,13 +382,13 @@ function compare(evidenceDir: string, baseSha: string, headSha: string) {
     const c = cells.get(k)!;
     if (c.reps.length === 0) {
       lines.push(
-        `| ${kind} | ${variant} | ${build} | 0 | - | - | REFUSED | - | - | - | - | - | - | ${(c.refusal ?? "").replace(/\|/g, "/").slice(0, 160)} |`,
+        `| ${kind} | ${variant} | ${build} | 0 | - | - | REFUSED | - | - | - | - | - | - | - | - | - | ${(c.refusal ?? "").replace(/\|/g, "/").slice(0, 160)} |`,
       );
       continue;
     }
     const col = (i: number, f: (r: any) => number) => median(c.reps.map((r) => f(r.passes[i])));
     lines.push(
-      `| ${kind} | ${variant} | ${build} | ${c.reps.length} | ${c.reps[0].journal_bytes} | ${c.reps[0].journal_entries} | ${fmt(col(0, (p) => p.elapsed_ms))} | ${fmt(col(0, (p) => p.cpu_user_ms + p.cpu_system_ms))} | ${fmt(col(1, (p) => p.elapsed_ms))} | ${fmt(col(2, (p) => p.elapsed_ms))} | ${fmt(median(c.reps.map((r) => r.peak_rss_kb)) / 1024)} | ${col(0, (p) => p.replay_entries)} | ${col(0, (p) => p.groups_verified)} | ${String(c.reps[0].verification_policy_after_first_open).slice(-120)} |`,
+      `| ${kind} | ${variant} | ${build} | ${c.reps.length} | ${c.reps[0].journal_bytes} | ${c.reps[0].journal_entries} | ${fmt(col(0, (p) => p.elapsed_ms))} | ${fmt(col(0, (p) => p.cpu_user_ms + p.cpu_system_ms))} | ${fmt(col(1, (p) => p.elapsed_ms))} | ${fmt(col(2, (p) => p.elapsed_ms))} | ${fmt(median(c.reps.map((r) => r.peak_rss_kb)) / 1024)} | ${col(0, (p) => p.groups_verified)} | ${fmt(col(0, (p) => p.read_bytes) / 1024)} | ${fmt(col(0, (p) => p.write_bytes) / 1024)} | ${col(0, (p) => p.fsyncs)} | ${fmt(col(0, (p) => p.sha256_bytes) / 1048576)} | ${String(c.reps[0].verification_policy_after_first_open).slice(-120)} |`,
     );
   }
   lines.push(
@@ -399,6 +422,9 @@ function compare(evidenceDir: string, baseSha: string, headSha: string) {
 if (mode === "seed") {
   const [kind, out] = args as [string, string];
   await seed(kind, out);
+} else if (mode === "prewarm") {
+  const [kind, fixture] = args as [string, string];
+  await prewarm(kind, fixture);
 } else if (mode === "sample") {
   const [kind, variant, fixture, out] = args as [string, string, string, string];
   await sample(kind, variant, fixture, out);
@@ -406,5 +432,5 @@ if (mode === "seed") {
   const [dir, baseSha, headSha] = args as [string, string, string];
   compare(dir, baseSha, headSha);
 } else {
-  throw new Error("usage: seed|sample|compare (see the header comment)");
+  throw new Error("usage: seed|prewarm|sample|compare (see the header comment)");
 }

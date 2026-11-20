@@ -7,7 +7,9 @@
 #                         cold; BASE is expected to refuse them and the refusal is recorded as the result
 #   legacy-pre-v09        the committed pre-v0.9 legacy package (opened under the legacy admission; cold at BOTH builds, its identity matches neither)
 #   s4-ledger             the committed S-4 ledger package
-# variant forced-cold re-opens identical bytes at BOTH builds under a labelled identity, so each build's own verifier replays them in full.
+# variants: genuine = the fixture exactly as sealed (a package sealed by BASE is opened warm by BASE; one written by another build is cold at both);
+#           prewarmed = a copy pre-opened once at BASE (BASE then opens it warm, HEAD through the transition), v1 and committed packages only;
+#           forced-cold = identical bytes re-opened at BOTH builds under a labelled identity, so each build's own verifier replays them in full.
 # Fresh process per sample, rep 0 excluded as the warmup, raw per-sample JSON retained. No threshold is invented.
 #   A0OB_BASE_SHA      the exact base under test (required)    A0OB_EXACT_SHA  the exact head under test (default HEAD)
 #   A0OB_EVIDENCE_DIR  output directory (default /tmp/immortalis-a0ob-evidence)    A0OB_REPS  measured repetitions per cell (default 5)
@@ -46,19 +48,30 @@ both() { # both <tag> <kind> <variant> <fixture>: BASE then HEAD on the identica
 # fixtures: v1 journals sealed by the BASE tree; v2 journals only HEAD can write, under a stand-in earlier identity
 for kind in captured-v1 ms-v1; do
   run "$base_dir" base "$base_sha" seed "$kind" "$evidence_dir/fixtures/$kind"
+  cp -r "$evidence_dir/fixtures/$kind" "$evidence_dir/fixtures/$kind-prewarmed"
+  run "$base_dir" base "$base_sha" prewarm "$kind" "$evidence_dir/fixtures/$kind-prewarmed"
 done
 for kind in captured-v2 ms-v2; do
   A0OB_SEAL_SUFFIX="+A0OB-STAND-IN-PRIOR-SEAL" run "$repo_dir" head "$head_sha" seed "$kind" "$evidence_dir/fixtures/$kind"
 done
+# the committed packages are copied before any open (the committed bytes are never touched), then one copy is pre-opened at BASE
+mkdir -p "$evidence_dir/fixtures/legacy-pre-v09-prewarmed" "$evidence_dir/fixtures/s4-ledger-prewarmed"
+cp -r "$repo_dir/tests/fixtures/legacy-base-eafbb127/package" "$evidence_dir/fixtures/legacy-pre-v09-prewarmed/package"
+cp -r "$repo_dir/tests/fixtures/s4-legacy-pc-c6ea29d/activation/package" "$evidence_dir/fixtures/s4-ledger-prewarmed/package"
+run "$base_dir" base "$base_sha" prewarm legacy-pre-v09 "$evidence_dir/fixtures/legacy-pre-v09-prewarmed"
+run "$base_dir" base "$base_sha" prewarm s4-ledger "$evidence_dir/fixtures/s4-ledger-prewarmed"
 for rep in $(seq 0 "$reps"); do
   for kind in captured-v1 ms-v1; do
     both "$rep" "$kind" genuine "$evidence_dir/fixtures/$kind"
+    both "$rep" "$kind" prewarmed "$evidence_dir/fixtures/$kind-prewarmed"
     both "$rep" "$kind" forced-cold "$evidence_dir/fixtures/$kind"
   done
   for kind in captured-v2 ms-v2; do
     both "$rep" "$kind" genuine "$evidence_dir/fixtures/$kind"
   done
   both "$rep" legacy-pre-v09 genuine "$repo_dir/tests/fixtures/legacy-base-eafbb127"
+  both "$rep" legacy-pre-v09 prewarmed "$evidence_dir/fixtures/legacy-pre-v09-prewarmed"
   both "$rep" s4-ledger genuine "$repo_dir/tests/fixtures/s4-legacy-pc-c6ea29d/activation"
+  both "$rep" s4-ledger prewarmed "$evidence_dir/fixtures/s4-ledger-prewarmed"
 done
 node --experimental-strip-types --no-warnings tools/a0-ob030-benchmark.ts compare "$evidence_dir" "$base_sha" "$head_sha"
