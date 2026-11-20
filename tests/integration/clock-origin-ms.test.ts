@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests edit raw Input values */
 // F-014B A0 (CAL-TIME T-1 grant 5) — the MS v3 route with a strict v2 captured chronology. T1 MECHANISM ONLY: the MS actor answers are
 // labelled testkit fixtures; the MS owners, fence, the paired clock step, the live B2 prefix and the SEALED historical check are real.
 //
@@ -13,9 +14,11 @@ import {
   MS_PRE_CLOCK_KINDS,
   TEMPORAL_CAPTURED_V2_GENESIS_RULE,
   CanonicalCampaign,
+  initializeCapturedChronology,
   inspectMsFenceView,
   isMsCompletionRule,
   isMsInputRule,
+  msCanonicalAdmission,
   resolveKey,
   verifyMsIntegrity,
 } from "@immortalis/engine";
@@ -23,9 +26,11 @@ import {
   InitialLocalityCompletionSchema,
   TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
+  type CommitGroup,
   type OwnerFact,
 } from "@immortalis/contracts";
-import { governing } from "../support/clock-origin.ts";
+import { governing, rehash } from "../support/clock-origin.ts";
+import { FIXTURE_POLICY } from "../support/initial-setup.ts";
 import { msHarness, mustMsReopen } from "../support/ms-setup.ts";
 import { must } from "../support/temporal.ts";
 
@@ -97,6 +102,14 @@ describe("A0-T12: the MS v3 chain with a v2 captured chronology", () => {
     // the origin is NOT a pre-clock kind
     expect(MS_PRE_CLOCK_KINDS.has("temporal_origin")).toBe(false);
 
+    // A0-T11 (MS): the lost-acknowledgement retry of the pair converges. The writer reconciles by the committed intent after the MS integrity
+    // verifier re-qualifies the whole history (which now holds the origin earlier than B2), and answers with the original receipt
+    const headBefore = h.store.head();
+    const retried = await must(initializeCapturedChronology(h.store, { policy: FIXTURE_POLICY }));
+    expect(retried.replayed).toBe(true);
+    expect(h.store.head()).toEqual(headBefore);
+    expect(byKind(h, "temporal_origin")).toHaveLength(1);
+
     // strict reopen under the same admission, and an independent replay under a changed policy identity
     const head = h.store.head();
     await h.campaign.close();
@@ -166,6 +179,45 @@ describe("A0-T04 (MS direction): a v2 MS Input pairs only with the MS v3 Complet
     // and the Completion is the MS rule itself
     const c = InitialLocalityCompletionSchema.parse(g.completion.value);
     expect(c.input).toEqual({ fact_key: g.inputKey, version: g.inputFact.version });
+    await h.campaign.close();
+  });
+
+  it("the v2 MS Input keeps every original MS authentication and fixture ban: the strict actor profile, the enrolled tuple, the grade and production admission", async () => {
+    const h = await msHarness({ v2: {} });
+    const g = governing(h);
+    const inputStep = h.trace.find((t) => t.group.writes[0]!.key === g.inputKey)!;
+    const withInput = (edit: (i: any) => unknown) =>
+      ({
+        ...inputStep.group,
+        writes: [
+          { ...inputStep.group.writes[0]!, value: edit(structuredClone(g.inputFact.value)) },
+        ],
+      }) as CommitGroup;
+    // the V1 parser is not the strict Ed25519/V2 actor profile an MS Input requires before any reservation
+    const v1Parser = withInput((i) => ({ ...i, parser: "INITIAL_LOCALITY_PARSER_V1" }));
+    for (const verdict of [
+      h.admission.check(v1Parser, inputStep.before),
+      h.admission.verifyHistorical!(v1Parser, inputStep.before),
+    ])
+      expect(reason(verdict)).toBe("MS_ACTOR_PROFILE");
+    // a runner tuple that trusted startup did not enrol is refused LIVE (replay is judged against the journal's own record)
+    const foreign = withInput((i) => ({
+      ...i,
+      runner: { ...i.runner, key_id: "fixture:key:foreign" },
+    }));
+    expect(reason(h.admission.check(foreign, inputStep.before))).toBe("MS_ACTOR_PROFILE");
+    // a TOOL_CALL_ONLY capture can never qualify an Input, MS or not
+    const toolCall = withInput((i) => ({
+      ...i,
+      chronology: rehash({ ...i.chronology, grade: "TOOL_CALL_ONLY" }),
+    }));
+    expect(reason(h.admission.check(toolCall, inputStep.before))).toBe("CHRONOLOGY_GRADE");
+    // production MS admission bans the reserved fixture: namespace, whatever the arm
+    const production = msCanonicalAdmission(h.actorRunner.binding);
+    expect(reason(production.check(inputStep.group, inputStep.before))).toBe("FIXTURE_NAMESPACE");
+    expect(reason(production.verifyHistorical!(inputStep.group, inputStep.before))).toBe(
+      "FIXTURE_NAMESPACE",
+    );
     await h.campaign.close();
   });
 });

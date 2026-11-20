@@ -124,6 +124,14 @@ describe("replay of the v2 chain at its Completion: the Temporal hook judges for
       ],
       ["an origin-only group", { omit: "state" }, "ORIGIN_PAIR_SHAPE"],
       [
+        "the origin listed first with a state coordinate that is not the Input's",
+        {
+          order: "origin-first",
+          state: (s: any) => ({ ...s, canonical_time: { ...s.canonical_time, value: 5 } }),
+        },
+        "TIME_MISMATCH",
+      ],
+      [
         "a state with a transaction",
         { state: (s: any) => ({ ...s, last_transaction: "tx" }) },
         "ORIGIN_PAIR_SHAPE",

@@ -61,6 +61,25 @@ describe("A0-T13: the clock-step pair exists only at the MS clock phase, under t
     expect(h.admission.check(pair, clock.before)).toBeNull();
     expect(h.admission.verifyHistorical!(pair, clock.before)).toBeNull();
 
+    // the keys are found by kind, not position: the pair listed origin-first is the same lawful pair, and a forged state in that order refuses
+    const reversed = { ...pair, writes: [...pair.writes].reverse() };
+    expect(reversed.writes[0]!.key).toBe(TEMPORAL_ORIGIN_KEY);
+    expect(h.admission.check(reversed, clock.before)).toBeNull();
+    expect(h.admission.verifyHistorical!(reversed, clock.before)).toBeNull();
+    const forgedState = {
+      ...reversed,
+      writes: reversed.writes.map((w) =>
+        w.key === TEMPORAL_STATE_KEY
+          ? { ...w, value: { ...(w.value as any), canonical_time: { unit: "seconds", value: 9 } } }
+          : w,
+      ),
+    };
+    for (const verdict of [
+      h.admission.check(forgedState, clock.before),
+      h.admission.verifyHistorical!(forgedState, clock.before),
+    ])
+      expect(reason(verdict)).toBe("TIME_MISMATCH");
+
     // every MS phase other than the clock step, from the Completion's own step to B2
     const first = h.trace.indexOf(stepOf(h, g.completionKey));
     const phases = h.trace.slice(first).filter((t) => t !== clock && t.group.writes.length === 1);

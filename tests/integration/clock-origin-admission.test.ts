@@ -204,6 +204,20 @@ describe("A0-T06: the pair's shape", () => {
         { reason: "BASIS_LABEL" },
       ],
       ["an origin-only group", { omit: "state" }, { reason: "ORIGIN_PAIR_SHAPE" }],
+      // the keys are found by RESOLVED KIND, never by array position: listing the origin first changes no verdict, lawful or forged
+      [
+        "the origin listed first with a state coordinate that is not the Input's",
+        {
+          order: "origin-first",
+          state: (s: any) => ({ ...s, canonical_time: { ...s.canonical_time, value: 5 } }),
+        },
+        { reason: "TIME_MISMATCH" },
+      ],
+      [
+        "the origin listed first with an origin of another campaign",
+        { order: "origin-first", origin: (o) => ({ ...o, campaign_id: "campaign-other" }) },
+        { reason: "ORIGIN_CAMPAIGN" },
+      ],
       [
         "a state carrying a transaction",
         { state: (s: any) => ({ ...s, last_transaction: "tx-forged" }) },
