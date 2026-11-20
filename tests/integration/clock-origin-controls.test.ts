@@ -13,12 +13,20 @@ import {
   CanonicalCampaign,
   StageProviderRegistry,
   TemporalCoordinator,
+  INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
+  LEGACY_RUNTIME_CONTRACT_SURFACE,
   factKind,
   initializeCapturedChronology,
+  legacyContractAdmission,
 } from "@immortalis/engine";
 import { initializeTime } from "@immortalis/operator";
 import { fixtureWorld, publication } from "@immortalis/testkit";
-import { FIXTURE_POLICY, harness, intakeRequest } from "../support/initial-setup.ts";
+import {
+  FIXTURE_POLICY,
+  harness,
+  intakeRequest,
+  openFixtureCampaign,
+} from "../support/initial-setup.ts";
 import {
   FIXTURE_CAMPAIGN,
   copyCampaign,
@@ -26,7 +34,14 @@ import {
   openSession,
   scriptedTerminal,
 } from "../support/operator.ts";
-import { V2_DOCUMENT, strictReopen } from "../support/clock-origin.ts";
+import {
+  V2_DOCUMENT,
+  buildInput,
+  inputGroupWithRule,
+  strictReopen,
+  syntheticPairGroup,
+  tracedAdmission,
+} from "../support/clock-origin.ts";
 import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 
@@ -102,4 +117,25 @@ describe("A0-T16 / A0-T03: the direct operator initialize-time route", () => {
     expect(coordinator.state()!.value.canonical_time).toEqual({ unit: "season", value: 7 });
     await s.close();
   }, 120_000);
+});
+
+describe("A0-T16 / A0-T15: the captured route, and so the pair, is unreachable inside a pre-v0.9 legacy package", () => {
+  it("under the legacy wrapper an origin has no bootstrap record to attest and the six record kinds are refused outright", async () => {
+    const { admission, trace } = tracedAdmission();
+    const h = await harness({ open: await openFixtureCampaign(undefined, {}, admission) });
+    const state = trace.at(-1)!.after;
+    const legacy = legacyContractAdmission(admission);
+    const pair = syntheticPairGroup(h, { tag: "legacy" });
+    // the derived legacy identity carries the new segments, so a legacy package replays strictly on its first open
+    expect(legacy.historyVerificationId).toContain("+CAL-TIME-T1-CLOCK-ORIGIN@");
+    for (const verdict of [legacy.check(pair, state), legacy.verifyHistorical!(pair, state)])
+      expect(verdict).toMatchObject({ details: { reason: "NO_BOOTSTRAP_WITNESS" } });
+    // and the Completion that the captured route requires is itself refused: the route cannot start
+    const admitted = buildInput(h);
+    const inputGroup = inputGroupWithRule(h, admitted, INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE);
+    expect(legacy.check(inputGroup, state)).toMatchObject({
+      details: { reason: LEGACY_RUNTIME_CONTRACT_SURFACE },
+    });
+    await h.campaign.close();
+  });
 });
