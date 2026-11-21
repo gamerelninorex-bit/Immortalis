@@ -11,6 +11,7 @@ export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062.json",
   "packages/engine/src/gm-wait-catalogue-current.ts",
   "packages/engine/src/gm-wait-catalogue.ts",
+  "packages/engine/src/gm-wait-present-reader.ts",
 ];
 
 /** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator). */
@@ -31,4 +32,6 @@ export const B1_S2S3_EVIDENCE_PREFIX = "docs/evidence/f014b-s2s3/";
  * IS the wiring that pin was waiting for (BLUE S2/S3 v6.2 section 3, category 8; CAL-TIME T-1 grant 4), and the pure S3 reader is its one
  * caller. No other production file may name it (b1-s2s3-scope-conformance.test.ts).
  */
-export const B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS: readonly string[] = [];
+export const B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS: readonly string[] = [
+  "packages/engine/src/gm-wait-present-reader.ts",
+];

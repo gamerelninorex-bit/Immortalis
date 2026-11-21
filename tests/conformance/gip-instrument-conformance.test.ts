@@ -320,6 +320,9 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       "packages/engine/src/freight/bridge.ts",
       // ROADBED R3-T25 freight: the first-profile GIP adapter reads and verifies the sealed Instrument clauses
       "packages/engine/src/freight/gip.ts",
+      // F-014B B1 S3 (the pure GM-wait present-basis reader; MECHANISM ONLY, NON-WRITING, UNWIRED): it READS the sunset Instrument by its exact key
+      // and parses it with the existing schema to classify the GIP source class; it writes no GIP key and registers nothing
+      "packages/engine/src/gm-wait-present-reader.ts",
       // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the reviewed 90-row sunset policy has one row per registered kind
       "packages/engine/src/initial-setup/sunset-policy.ts",
       "packages/engine/src/owners/admission.ts",

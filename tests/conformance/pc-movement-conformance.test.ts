@@ -351,6 +351,9 @@ describe("IA-03 owner exclusivity: one facet and two kinds under the existing PC
       // Initial Locality Bootstrap v0.9 (OPTION_A_V9): the explicit 90-row BOOTSTRAP_SUNSET_POLICY_V9 has one reviewed row per registered kind,
       // and so necessarily names both movement kinds (OWNER_CHECKS_ONLY: the record alone asserts no non-PC presence or rights)
       "packages/engine/src/initial-setup/sunset-policy.ts",
+      // F-014B B1 S3 (the pure GM-wait present-basis reader; MECHANISM ONLY, NON-WRITING, UNWIRED): it READS the PC movement request, commitment and
+      // registered object by exact key to tell a moving PC from a stationary one; it writes, admits and registers nothing
+      "packages/engine/src/gm-wait-present-reader.ts",
     ]);
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>

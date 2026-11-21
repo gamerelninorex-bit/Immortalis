@@ -214,6 +214,9 @@ describe("[S2] [mechanism only] default deny is structural: nothing but UNDECLAR
       "enforcement boundary claims runtime enforcement": (m) =>
         ((m["policy"] as Record<string, unknown>)["enforcement_boundary"] =
           "RUNTIME_ALL_ENROLLED_VETO"),
+      "value-schema fingerprint scope claims refinement coverage": (m) =>
+        ((m["policy"] as Record<string, unknown>)["value_schema_fp_scope"] =
+          "STRUCTURAL_AND_REFINEMENTS"),
       "extension group history verified": (m) =>
         ((m["extension_dispatch"] as Record<string, unknown>)[
           "historical_verification_of_extension_groups"

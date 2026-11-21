@@ -217,6 +217,9 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       // packages/engine/src/freight/ so the predecessor GIP directory stays byte-identical)
       "packages/engine/src/freight/gip-owner-head.ts",
       "packages/engine/src/freight/gip.ts",
+      // F-014B B1 S3 (the pure GM-wait present-basis reader; MECHANISM ONLY, NON-WRITING, UNWIRED): it READS the sunset Instrument and its Temporal
+      // object by exact key to classify the GIP source class (the Instrument schema and OWNER_GIP are consulted, nothing is registered, written or admitted)
+      "packages/engine/src/gm-wait-present-reader.ts",
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",
       "packages/engine/src/temporal/admission.ts",

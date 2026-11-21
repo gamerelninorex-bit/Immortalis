@@ -41,7 +41,11 @@ import {
   A0_SOURCE_LOCK_COMMIT,
 } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
-import { B1_S2S3_PACKAGE_PATHS, B1_S2S3_TOOLS_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
+import {
+  B1_S2S3_PACKAGE_PATHS,
+  B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS,
+  B1_S2S3_TOOLS_PATHS,
+} from "../support/b1-s2s3-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -437,7 +441,7 @@ describe("the registry, rules and sunset row are exactly what the lock declares"
   });
 });
 
-describe("the category-8 predicate is unwired: it has no caller outside tests, no store and no read", () => {
+describe("the category-8 predicate is unwired from every GM-wait writer, host and admission path: it has no store, no read and one declared pure caller", () => {
   const walk = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
@@ -446,7 +450,38 @@ describe("the category-8 predicate is unwired: it has no caller outside tests, n
     const hits = [...walk("packages"), ...walk("apps")]
       .filter((f) => /\.(ts|mts|js|mjs)$/.test(f) && !f.includes("node_modules"))
       .filter((f) => readFileSync(f, "utf8").includes("siOriginWitnessViolation"));
-    expect(hits).toEqual(["packages/contracts/src/temporal-origin.ts"]);
+    // DECLARED SUPERSESSION (F-014B B1 S2/S3; BLUE Q3, accepted conditionally). Category 8 of the GM-wait T0 read set is the fixed read of the
+    // temporal/origin witness for a genuinely fresh SI INITIAL, and a PURE, present-only helper consumer of this predicate now exists: the S3
+    // reader declared in tests/support/b1-s2s3-scoped-deltas.ts. That is exactly the wiring this pin was waiting for, and nothing more.
+    // The A0 invariant this suite exists to keep is PRESERVED and asserted just below: the predicate stays a pure function, and NO production
+    // GM-wait host, admission, authority writer or driver path names it or imports the S3 reader.
+    expect([...hits].sort()).toEqual(
+      [
+        "packages/contracts/src/temporal-origin.ts",
+        ...B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS,
+      ].sort(),
+    );
+    const writerSide = [
+      "packages/engine/src/temporal",
+      "packages/engine/src/owners",
+      "packages/engine/src/initial-setup",
+      "packages/engine/src/ms-setup",
+      "packages/protocol",
+      "packages/operator",
+      "apps",
+    ];
+    for (const dir of writerSide)
+      for (const f of walk(dir).filter(
+        (x) => /\.(ts|mts|js|mjs)$/.test(x) && !x.includes("node_modules"),
+      ))
+        expect(readFileSync(f, "utf8").includes("siOriginWitnessViolation"), f).toBe(false);
+    const production = [...walk("packages"), ...walk("apps")].filter(
+      (f) => /\.(ts|mts|js|mjs)$/.test(f) && !f.includes("node_modules"),
+    );
+    for (const f of production.filter(
+      (x) => !B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS.includes(x),
+    ))
+      expect(readFileSync(f, "utf8").includes("gm-wait-present-reader"), f).toBe(false);
     const source = readFileSync("packages/contracts/src/temporal-origin.ts", "utf8");
     const body = source.slice(source.indexOf("export function siOriginWitnessViolation"));
     // a pure function of (witness, clock, campaign): no import of a store, no engine, no filesystem, no clock, no random
