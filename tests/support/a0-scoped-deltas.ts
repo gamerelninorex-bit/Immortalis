@@ -69,9 +69,12 @@ export const A0_SCOPED_DELTAS: Readonly<
     base: "daebf3a72475f89511ba08be7ffb258c5e1d0dc1e082014be36cc732b6c4f79e",
     head: "bfe32ccee306f3b4f4e6d323e0adaa86056a2bfbdb4a1746f798e2dd7419b7a7",
   },
+  // RE-BASELINED by F-014B B1 S1 (a later slice; the header of this table says a later change updates this table only): the head is the
+  // present-day identity of the file with the live origin guard. Its A0 end state is recorded, by length and diff scope, as the base of the
+  // S1 transition in tests/support/b1-s1-scoped-deltas.ts, and the B0 invariance test composes the two.
   "packages/engine/src/temporal/admission.ts": {
     base: "fc7bb7ff4d03a082c46ef4d52ce5ba3ad51f37b22f612175d5be3a9a86d09667",
-    head: "cf4071f768034b1612bc0d0843879bd77b817b2a33bfcd31d2569fcadf2f2dc7",
+    head: "50a0ebc2f9e00444c336d840654e3a1816a8fa33ac6e42d6a7126dbd52bc3ca7",
   },
   "packages/engine/src/temporal/bootstrap.ts": {
     base: "ebe3f575666e768a873ab8d3d8fa47376c53cd5513f88a581d728a9156548a63",
