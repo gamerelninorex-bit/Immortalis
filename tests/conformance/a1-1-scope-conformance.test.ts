@@ -19,6 +19,7 @@ import {
   A1_1_PACKAGE_PATHS,
   A1_1_TRANSITION,
 } from "../support/a1-1-scoped-deltas.ts";
+import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -73,7 +74,11 @@ describe("A1-1 scope: the declared transition is the two production files and th
       const untracked = lines(
         git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
       );
-      expect([...changed, ...untracked].sort()).toEqual([...A1_1_PACKAGE_PATHS].sort());
+      // Declared inclusion (F-014B B1 S2/S3, a later slice): the paths in tests/support/b1-s2s3-scoped-deltas.ts, which that slice's own table and
+      // scope conformance suite police; A1-1 itself changes none of them.
+      expect([...changed, ...untracked].sort()).toEqual(
+        [...A1_1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
+      );
       // the declared allow-list is not a place to park files that did not change
       expect(A1_1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
     },

@@ -6,6 +6,9 @@ spec/f027/acceptance-register.yaml
 spec/f027/open-gates.yaml
 spec/f027/spec-lock.json
 packages/contracts/src/spec-identity.ts
+
+# F-014B B1 S2/S3: retained canonical manifest bytes. The file IS the hashed bytes (custody is by length and SHA-256): never reformat.
+packages/engine/gm-wait-catalogue/manifests/*.json
 docs/evidence/roadbed-freight/benchmark
 docs/evidence/gm-freight/benchmark
 docs/evidence/s4-initial-ledger/benchmark

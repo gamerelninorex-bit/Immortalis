@@ -41,6 +41,7 @@ import {
   A0_SOURCE_LOCK_COMMIT,
 } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
+import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -122,7 +123,12 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     // Declared inclusion (F-014B A1-1, a later slice): the two existing operator files in tests/support/a1-1-scoped-deltas.ts, which that
     // slice's own table and scope conformance suite police; A0 itself still changes none of them.
     expect([...changed, ...untracked].sort()).toEqual(
-      [...A0_PACKAGE_PATHS, ...A0_DECLARED_MAIN_INCLUSIONS, ...A1_1_PACKAGE_PATHS].sort(),
+      [
+        ...A0_PACKAGE_PATHS,
+        ...A0_DECLARED_MAIN_INCLUSIONS,
+        ...A1_1_PACKAGE_PATHS,
+        ...B1_S2S3_PACKAGE_PATHS,
+      ].sort(),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(A0_SCOPED_DELTAS), ...A0_PRESENT_DAY_FILES])
@@ -170,7 +176,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     );
     // (and the F-014B A1-1 slice's two declared operator files, which that slice's own table and suite police)
     expect([...changed, ...untracked].sort()).toEqual(
-      [...A0_PACKAGE_PATHS, ...A1_1_PACKAGE_PATHS].sort(),
+      [...A0_PACKAGE_PATHS, ...A1_1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
     );
     // the declared main inclusions are in main already: this slice does not change them
     for (const p of A0_DECLARED_MAIN_INCLUSIONS) {
