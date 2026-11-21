@@ -177,7 +177,8 @@ const coordinatorOn = (store: CampaignStore) => new TemporalCoordinator(store, s
 
 const clone = <T>(v: T): T => (v === undefined ? v : structuredClone(v));
 /** absent facts, receipts and groups are `null` (never `undefined`), so a captured record survives a JSON round trip unchanged */
-const orNull = <T>(v: T | undefined | null): T | null => (v === undefined || v === null ? null : structuredClone(v));
+const orNull = <T>(v: T | undefined | null): T | null =>
+  v === undefined || v === null ? null : structuredClone(v);
 
 /** Whole-campaign custody: head, every fact, every receipt of every fact's provenance. Equality of two of these is equality of history. */
 function summary(store: CampaignStore) {
@@ -224,7 +225,9 @@ function spy(base: WriteAdmission, idSuffix = ""): Spy {
   const verdicts = new Map<string, string | null>();
   const admission: WriteAdmission = {
     ...base,
-    ...(idSuffix ? { historyVerificationId: `${base.historyVerificationId ?? "structural"}${idSuffix}` } : {}),
+    ...(idSuffix
+      ? { historyVerificationId: `${base.historyVerificationId ?? "structural"}${idSuffix}` }
+      : {}),
     verifyHistorical: (g, s) => {
       n++;
       const r = base.verifyHistorical?.(g, s) ?? null;
@@ -285,9 +288,16 @@ async function reopenMatrix(
   const out: Partial<Record<ModeName, ReopenObservation>> = {};
   for (const mode of modes) {
     const copy = copyOf(dir);
-    const r = await openUnder(copy, admission, { ...MODES[mode], ...(extension ? { extension } : {}) });
+    const r = await openUnder(copy, admission, {
+      ...MODES[mode],
+      ...(extension ? { extension } : {}),
+    });
     if (!r.ok) {
-      out[mode] = { ok: false, calls: r.calls, error: { code: r.error.code, message: r.error.message } };
+      out[mode] = {
+        ok: false,
+        calls: r.calls,
+        error: { code: r.error.code, message: r.error.message },
+      };
       continue;
     }
     const store = r.campaign.store;
@@ -322,7 +332,8 @@ async function buildOldZeroStage(): Promise<OldJournal> {
   await must(c.establishCanonicalTime({ ...temporalPublication(1), time: T0 }));
   await must(c.advance(request("tx-old-ordinary", ORDINARY_TRIGGER, at(150))));
   await must(c.advance(request("tx-old-literal", GM_TRIGGER, at(200))));
-  for (let i = 0; i < PAD; i++) await must(c.advance(request(`tx-pad-${i}`, ORDINARY_TRIGGER, at(201 + i))));
+  for (let i = 0; i < PAD; i++)
+    await must(c.advance(request(`tx-pad-${i}`, ORDINARY_TRIGGER, at(201 + i))));
   const ids = ["tx-old-ordinary", "tx-old-literal"];
   const out: OldJournal = {
     dir,
@@ -349,7 +360,10 @@ const literalTransaction = (id = PC_TARGET_TX) =>
   pcTargetTransaction(id, { trigger: { kind: GM_TRIGGER, ref: "choice-gm-literal" } });
 
 /** the gateway over a private copy of the template, opened under `admission` */
-async function gatewayRig(admission: WriteAdmission = canonicalAdmission, dir = copyOf(SUNSET_TEMPLATE)) {
+async function gatewayRig(
+  admission: WriteAdmission = canonicalAdmission,
+  dir = copyOf(SUNSET_TEMPLATE),
+) {
   const r = await openUnder(dir, admission);
   if (!r.ok) throw new Error(`gateway rig did not open: ${JSON.stringify(r.error)}`);
   return { dir, campaign: r.campaign, coordinator: coordinatorOn(r.campaign.store) };
@@ -367,7 +381,8 @@ async function buildOldStageBearing(): Promise<OldJournal> {
   const rig = await gatewayRig();
   expect(await viaGateway(rig, literalTransaction())).toEqual(PC_TARGET_COMMITTED);
   const c = coordinatorOn(rig.campaign.store);
-  for (let i = 0; i < PAD; i++) await must(c.advance(request(`tx-pad-${i}`, ORDINARY_TRIGGER, at(301 + i))));
+  for (let i = 0; i < PAD; i++)
+    await must(c.advance(request(`tx-pad-${i}`, ORDINARY_TRIGGER, at(301 + i))));
   const out: OldJournal = {
     dir: rig.dir,
     summary: summary(rig.campaign.store),
@@ -384,7 +399,8 @@ async function buildOldStageBearing(): Promise<OldJournal> {
 /** (c) interrupted stage-bearing: authority-open and the credited stage committed; the SEAL group is not (store wrapper), then closed. */
 async function buildOldInterrupted(): Promise<OldJournal> {
   const rig = await gatewayRig();
-  const isSeal = (g: CommitGroup) => g.writes.some((w) => w.key === temporalTransactionKey(PC_TARGET_TX));
+  const isSeal = (g: CommitGroup) =>
+    g.writes.some((w) => w.key === temporalTransactionKey(PC_TARGET_TX));
   crashWhen(rig as never, isSeal);
   expect(await viaGateway(rig, literalTransaction())).toEqual(PC_TARGET_UNKNOWN);
   const store = (rig.campaign as any).store as CampaignStore;
@@ -429,14 +445,35 @@ beforeAll(async () => {
   SUNSET_TEMPLATE = await gatewayTemplate();
   if (FROZEN) [ZERO, STAGE, INTERRUPTED] = [thaw("zero"), thaw("stage"), thaw("interrupted")];
   else {
-    [ZERO, STAGE, INTERRUPTED] = [await buildOldZeroStage(), await buildOldStageBearing(), await buildOldInterrupted()];
-    if (FREEZE_TO) for (const [name, j] of [["zero", ZERO], ["stage", STAGE], ["interrupted", INTERRUPTED]] as const) freeze(name, j);
+    [ZERO, STAGE, INTERRUPTED] = [
+      await buildOldZeroStage(),
+      await buildOldStageBearing(),
+      await buildOldInterrupted(),
+    ];
+    if (FREEZE_TO)
+      for (const [name, j] of [
+        ["zero", ZERO],
+        ["stage", STAGE],
+        ["interrupted", INTERRUPTED],
+      ] as const)
+        freeze(name, j);
   }
   log("builds", {
     frozen: FROZEN ?? null,
-    zero: { head: ZERO.headRevision, revisions: ZERO.revisions, checkpoint: manifestOf(ZERO.dir).head.checkpoint.revision },
-    stage: { head: STAGE.headRevision, revisions: STAGE.revisions, checkpoint: manifestOf(STAGE.dir).head.checkpoint.revision },
-    interrupted: { head: INTERRUPTED.headRevision, checkpoint: manifestOf(INTERRUPTED.dir).head.checkpoint.revision },
+    zero: {
+      head: ZERO.headRevision,
+      revisions: ZERO.revisions,
+      checkpoint: manifestOf(ZERO.dir).head.checkpoint.revision,
+    },
+    stage: {
+      head: STAGE.headRevision,
+      revisions: STAGE.revisions,
+      checkpoint: manifestOf(STAGE.dir).head.checkpoint.revision,
+    },
+    interrupted: {
+      head: INTERRUPTED.headRevision,
+      checkpoint: manifestOf(INTERRUPTED.dir).head.checkpoint.revision,
+    },
   });
 }, 600_000);
 
@@ -445,11 +482,15 @@ describe("a. historical seal-only player+literal transaction (no stage, no autho
   it("[existing law] original-version production admission recorded it; the record sits INSIDE the checkpoint prefix, so warm and cold reopen are genuinely different rigs", () => {
     const cp = manifestOf(ZERO.dir).head.checkpoint.revision;
     const lit = ZERO.captures["tx-old-literal"]!;
-    log("a.record", { checkpoint: cp, literalRevision: ZERO.revisions["tx-old-literal"], head: ZERO.headRevision });
+    log("a.record", {
+      checkpoint: cp,
+      literalRevision: ZERO.revisions["tx-old-literal"],
+      head: ZERO.headRevision,
+    });
     expect(cp).toBe(128);
     expect(ZERO.revisions["tx-old-literal"]).toBeLessThan(cp);
     expect(ZERO.headRevision).toBeGreaterThan(cp);
-    const v = (lit.seal!.value as any);
+    const v = lit.seal!.value as any;
     expect(v.trigger.kind).toBe(GM_TRIGGER);
     expect(v.context).toEqual(PLAYER);
     expect(v.stages).toEqual([]); // seal-only: the kernel's lazy carry
@@ -460,8 +501,19 @@ describe("a. historical seal-only player+literal transaction (no stage, no autho
   });
 
   it("[existing law] WARM, COLD (audit) and COLD (checkpoint invalidated) reopen all keep the exact transaction, context, receipt and whole-campaign history", async () => {
-    const m = await reopenMatrix(ZERO.dir, canonicalAdmission, ["tx-old-ordinary", "tx-old-literal"]);
-    log("a.matrix", Object.fromEntries(Object.entries(m).map(([k, o]) => [k, { ok: o.ok, calls: o.calls, cp: o.checkpointRevisionAfter, v: o.violations }])));
+    const m = await reopenMatrix(ZERO.dir, canonicalAdmission, [
+      "tx-old-ordinary",
+      "tx-old-literal",
+    ]);
+    log(
+      "a.matrix",
+      Object.fromEntries(
+        Object.entries(m).map(([k, o]) => [
+          k,
+          { ok: o.ok, calls: o.calls, cp: o.checkpointRevisionAfter, v: o.violations },
+        ]),
+      ),
+    );
     for (const [mode, o] of Object.entries(m)) {
       expect(o.ok, mode).toBe(true);
       expect(o.violations, mode).toEqual([]);
@@ -482,7 +534,11 @@ describe("b. historical stage-bearing player+literal authority + owner stage + s
   it("[existing law] the unchanged gateway recorded authority-open, one real GIP stage and the seal under the player pair + the literal", () => {
     const c = STAGE.captures[PC_TARGET_TX]!;
     const v = c.seal!.value as any;
-    log("b.record", { checkpoint: manifestOf(STAGE.dir).head.checkpoint.revision, revisions: STAGE.revisions, head: STAGE.headRevision });
+    log("b.record", {
+      checkpoint: manifestOf(STAGE.dir).head.checkpoint.revision,
+      revisions: STAGE.revisions,
+      head: STAGE.headRevision,
+    });
     expect(manifestOf(STAGE.dir).head.checkpoint.revision).toBe(128);
     expect(STAGE.revisions[PC_TARGET_TX]).toBeLessThan(128);
     expect(v.trigger.kind).toBe(GM_TRIGGER);
@@ -496,7 +552,12 @@ describe("b. historical stage-bearing player+literal authority + owner stage + s
 
   it("[existing law] WARM, COLD (audit) and COLD (checkpoint invalidated) reopen accept and preserve authority, stage, seal and every receipt", async () => {
     const m = await reopenMatrix(STAGE.dir, canonicalAdmission, [PC_TARGET_TX]);
-    log("b.matrix", Object.fromEntries(Object.entries(m).map(([k, o]) => [k, { ok: o.ok, calls: o.calls, v: o.violations }])));
+    log(
+      "b.matrix",
+      Object.fromEntries(
+        Object.entries(m).map(([k, o]) => [k, { ok: o.ok, calls: o.calls, v: o.violations }]),
+      ),
+    );
     for (const [mode, o] of Object.entries(m)) {
       expect(o.ok, mode).toBe(true);
       expect(o.violations, mode).toEqual([]);
@@ -514,13 +575,21 @@ describe("c. INTERRUPTED stage-bearing player+literal: authority-open and credit
     const before = INTERRUPTED.captures[PC_TARGET_TX]!;
     expect(before.authority).toBeDefined();
     expect(before.seal).toBeNull();
-    const m = await reopenMatrix(INTERRUPTED.dir, canonicalAdmission, [PC_TARGET_TX], ["warm", "coldAudit"]);
+    const m = await reopenMatrix(
+      INTERRUPTED.dir,
+      canonicalAdmission,
+      [PC_TARGET_TX],
+      ["warm", "coldAudit"],
+    );
     for (const [mode, o] of Object.entries(m)) {
       expect(o.ok, mode).toBe(true);
       expect(o.summary, mode).toEqual(INTERRUPTED.summary);
       expect(o.violations, mode).toEqual([]);
     }
-    log("c.cut", { head: INTERRUPTED.headRevision, authorityRevision: before.authorityReceipt!.revision });
+    log("c.cut", {
+      head: INTERRUPTED.headRevision,
+      authorityRevision: before.authorityReceipt!.revision,
+    });
   });
 
   it("[existing law] after reopen the SAME transaction id resumes and seals under the PRE-EXISTING authority (not re-opened, one new revision), carrying the literal and the player pair", async () => {
@@ -539,7 +608,16 @@ describe("c. INTERRUPTED stage-bearing player+literal: authority-open and credit
     expect(v.stages.length).toBe(1);
     // the seal repeats exactly what the authority opened (the pre-existing authority equality)
     const a = after.authority!.value as any;
-    for (const f of ["transaction_id", "cause", "continues", "trigger", "opening", "requested", "context"]) expect(v[f], f).toEqual(a[f]);
+    for (const f of [
+      "transaction_id",
+      "cause",
+      "continues",
+      "trigger",
+      "opening",
+      "requested",
+      "context",
+    ])
+      expect(v[f], f).toEqual(a[f]);
     expect(rig.campaign.verify()).toEqual([]);
     await rig.campaign.close();
   });
@@ -590,11 +668,18 @@ describe("d. same-ID retry, same-ID conflict and a new id", () => {
       expect(diff.ok, kind).toBe(false);
       expect(e.code, kind).toBe("TRANSACTION_CONFLICT");
       // same intent, different digest, straight at the kernel store: INTENT_CONFLICT
-      const raw = await campaign.store.commit({ ...stored.sealGroup!, cause: `${stored.sealGroup!.cause}-changed` });
+      const raw = await campaign.store.commit({
+        ...stored.sealGroup!,
+        cause: `${stored.sealGroup!.cause}-changed`,
+      });
       expect(raw.ok, kind).toBe(false);
       expect(raw.ok ? "" : raw.error.code, kind).toBe("INTENT_CONFLICT");
       expect(campaign.store.head().revision, kind).toBe(head);
-      out[kind] = { coordinatorCode: e.code, coordinatorMessage: e.message, storeCode: raw.ok ? null : raw.error.code };
+      out[kind] = {
+        coordinatorCode: e.code,
+        coordinatorMessage: e.message,
+        storeCode: raw.ok ? null : raw.error.code,
+      };
     }
     // a NEW id with the ordinary kind is a fresh transaction; under today's unchanged law a NEW id with the literal is ALSO admitted
     const head = campaign.store.head().revision;
@@ -621,7 +706,6 @@ describe("d. same-ID retry, same-ID conflict and a new id", () => {
   });
 });
 
-
 // ===========================================================================================================================
 // e. SIMULATION: a TEST-LOCAL phase-aware admission wrapper. It is TEST CODE. It is not S1, it names no production seam, and
 //    nothing here claims what S1 will do. It exists to make the two placements and the preserve/deny contrast falsifiable.
@@ -638,7 +722,8 @@ interface Mutation {
   readonly denies: (context: unknown, kind: unknown, ref: unknown) => boolean;
 }
 
-const unphasedDeny = (context: unknown, kind: unknown) => temporalOriginPairing(context, kind) === "DENY";
+const unphasedDeny = (context: unknown, kind: unknown) =>
+  temporalOriginPairing(context, kind) === "DENY";
 const BASELINE: Mutation = {
   name: "baseline",
   authority: true,
@@ -660,7 +745,11 @@ const refusal = (placement: string, key: string) =>
 function liveDeny(group: CommitGroup, m: Mutation) {
   for (const w of group.writes) {
     const v: any = w.value;
-    if (m.authority && isAuthorityKey(w.key) && m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref))
+    if (
+      m.authority &&
+      isAuthorityKey(w.key) &&
+      m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref)
+    )
       return refusal("authority-open", w.key);
     if (isSealKey(w.key) && m.seal !== "none") {
       const stages = Array.isArray(v?.stages) ? v.stages.length : 0;
@@ -668,7 +757,8 @@ function liveDeny(group: CommitGroup, m: Mutation) {
         m.seal === "all" ||
         (m.seal === "zero-stage" && stages === 0) ||
         (m.seal === "stage-bearing" && stages > 0);
-      if (applies && m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref)) return refusal("seal", w.key);
+      if (applies && m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref))
+        return refusal("seal", w.key);
     }
   }
   return null;
@@ -677,7 +767,10 @@ function liveDeny(group: CommitGroup, m: Mutation) {
 function historicalDeny(group: CommitGroup, m: Mutation) {
   for (const w of group.writes) {
     const v: any = w.value;
-    if ((isAuthorityKey(w.key) || isSealKey(w.key)) && m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref))
+    if (
+      (isAuthorityKey(w.key) || isSealKey(w.key)) &&
+      m.denies(v?.context, v?.trigger?.kind, v?.trigger?.ref)
+    )
       return refusal("historical", w.key);
   }
   return null;
@@ -689,10 +782,13 @@ function phaseAware(base: WriteAdmission, m: Mutation = BASELINE): WriteAdmissio
     ...base,
     historyVerificationId: m.historical === "new-id" ? `${baseId}+SIM-HISTORICAL-DENY` : baseId,
     check: (g, s, h) => liveDeny(g, m) ?? base.check(g, s, h),
-    verifyHistorical:
-      m.historical === "none"
-        ? base.verifyHistorical
-        : (g, s) => historicalDeny(g, m) ?? base.verifyHistorical?.(g, s) ?? null,
+    // "none" keeps the base's own verifyHistorical, the very same function (see the identity assertion in section e)
+    ...(m.historical === "none"
+      ? {}
+      : {
+          verifyHistorical: (g: CommitGroup, s: any) =>
+            historicalDeny(g, m) ?? base.verifyHistorical?.(g, s) ?? null,
+        }),
   };
 }
 
@@ -717,8 +813,10 @@ const errOf = (r: { ok: boolean; error?: unknown }) =>
 
 const Z3 = "Z3 a NEW player+literal zero-stage transaction is refused";
 const Z4 = "Z4 the refusal left no new revision, no receipt, no sealed record and no time change";
-const S3 = "S3 a NEW stage-bearing player+literal advance through the shipped gateway is refused (uniform host refusal)";
-const S4 = "S4 nothing was left behind: no authority record, no credited stage, no receipt, no revision, no time change";
+const S3 =
+  "S3 a NEW stage-bearing player+literal advance through the shipped gateway is refused (uniform host refusal)";
+const S4 =
+  "S4 nothing was left behind: no authority record, no credited stage, no receipt, no revision, no time change";
 
 /** RIG-Z: zero-stage placement (the SEAL group is the only commit) over the stage-less historical journal of case a. */
 async function rigZero(admission: WriteAdmission): Promise<Check[]> {
@@ -726,12 +824,19 @@ async function rigZero(admission: WriteAdmission): Promise<Check[]> {
   const chk = (name: string, ok: boolean, observed?: unknown) => list.push({ name, ok, observed });
   try {
     const opened = await openUnder(copyOf(ZERO.dir), admission);
-    chk("Z0 the old stage-less journal reopens WARM under the candidate", opened.ok, opened.ok ? null : opened.error);
+    chk(
+      "Z0 the old stage-less journal reopens WARM under the candidate",
+      opened.ok,
+      opened.ok ? null : opened.error,
+    );
     if (!opened.ok) return list;
     const { campaign } = opened;
     const store = campaign.store;
     const c = coordinatorOn(store);
-    chk("Z1 the old record is intact after reopen", same(capture(store, "tx-old-literal"), ZERO.captures["tx-old-literal"]));
+    chk(
+      "Z1 the old record is intact after reopen",
+      same(capture(store, "tx-old-literal"), ZERO.captures["tx-old-literal"]),
+    );
     const head0 = store.head().revision;
     const time0 = c.state()!.value.canonical_time;
     const retry = await c.advance(request("tx-old-literal", GM_TRIGGER, at(200)));
@@ -763,8 +868,15 @@ async function rigZero(admission: WriteAdmission): Promise<Check[]> {
     }
     const hc = store.head().revision;
     const ctl = await c.advance(request("tx-new-ordinary", ORDINARY_TRIGGER, at(target)));
-    chk("Z6 the ordinary control is admitted in the same campaign (+1 revision)", ctl.ok && store.head().revision === hc + 1, errOf(ctl));
-    chk("Z7 temporal integrity of the campaign holding both is clean", campaign.verify().length === 0 && verifyTemporalIntegrity(store).length === 0);
+    chk(
+      "Z6 the ordinary control is admitted in the same campaign (+1 revision)",
+      ctl.ok && store.head().revision === hc + 1,
+      errOf(ctl),
+    );
+    chk(
+      "Z7 temporal integrity of the campaign holding both is clean",
+      campaign.verify().length === 0 && verifyTemporalIntegrity(store).length === 0,
+    );
     await campaign.close();
     const m = await reopenMatrix(ZERO.dir, admission, ["tx-old-literal"]);
     for (const mode of ["warm", "coldAudit", "coldInvalidated"] as const)
@@ -809,7 +921,10 @@ async function rigStage(admission: WriteAdmission): Promise<Check[]> {
       same(out, PC_TARGET_COMMITTED) && rig.campaign.store.head().revision === head + 1,
       out,
     );
-    chk("S1b the pre-existing authority fact was adopted, not re-written", same(capture(rig.campaign.store, PC_TARGET_TX).authority, authority));
+    chk(
+      "S1b the pre-existing authority fact was adopted, not re-written",
+      same(capture(rig.campaign.store, PC_TARGET_TX).authority, authority),
+    );
     await rig.campaign.close();
   });
   await attempt("S2", async () => {
@@ -819,7 +934,10 @@ async function rigStage(admission: WriteAdmission): Promise<Check[]> {
     const e: any = r.ok ? null : r.error;
     chk(
       "S2 a differently stated attempt on the interrupted old authority conflicts (TRANSACTION_CONFLICT / INTENT_CONFLICT), never an admission",
-      !r.ok && e.code === "TRANSACTION_CONFLICT" && e.details?.code === "INTENT_CONFLICT" && same(summary(rig.campaign.store), before),
+      !r.ok &&
+        e.code === "TRANSACTION_CONFLICT" &&
+        e.details?.code === "INTENT_CONFLICT" &&
+        same(summary(rig.campaign.store), before),
       errOf(r),
     );
     await rig.campaign.close();
@@ -833,8 +951,10 @@ async function rigStage(admission: WriteAdmission): Promise<Check[]> {
     chk(
       S4,
       same(after, before) &&
-        rig.campaign.store.getFact(temporalTransactionAuthorityKey("tx-new-stage-literal")) === undefined &&
-        rig.campaign.store.lookupReceipt(transactionAuthorityIntentId("tx-new-stage-literal")) === null,
+        rig.campaign.store.getFact(temporalTransactionAuthorityKey("tx-new-stage-literal")) ===
+          undefined &&
+        rig.campaign.store.lookupReceipt(transactionAuthorityIntentId("tx-new-stage-literal")) ===
+          null,
       { revisionBefore: before.head.revision, revisionAfter: after.head.revision },
     );
     await rig.campaign.close();
@@ -853,8 +973,15 @@ async function rigStage(admission: WriteAdmission): Promise<Check[]> {
   await attempt("S6", async () => {
     for (const kind of NEAR_MISS_TRIGGERS) {
       const rig = await gatewayRig(admission);
-      const out = await viaGateway(rig, pcTargetTransaction("tx-near", { trigger: { kind, ref: "choice-near" } }));
-      chk(`S6 near-miss kind "${kind}" stated by the trusted side is admitted`, same(out, PC_TARGET_COMMITTED), out);
+      const out = await viaGateway(
+        rig,
+        pcTargetTransaction("tx-near", { trigger: { kind, ref: "choice-near" } }),
+      );
+      chk(
+        `S6 near-miss kind "${kind}" stated by the trusted side is admitted`,
+        same(out, PC_TARGET_COMMITTED),
+        out,
+      );
       await rig.campaign.close();
     }
   });
@@ -906,7 +1033,9 @@ describe("e. [simulation] test-local phase-aware wrapper at BOTH placements; ver
   it("[simulation] the refusal codes a phase-aware deny produces at each placement (observation only, no S1 claim)", async () => {
     const z = await openUnder(copyOf(ZERO.dir), phaseAware(canonicalAdmission));
     if (!z.ok) throw new Error(JSON.stringify(z.error));
-    const r = await coordinatorOn(z.campaign.store).advance(request("tx-obs-literal", GM_TRIGGER, at(1000)));
+    const r = await coordinatorOn(z.campaign.store).advance(
+      request("tx-obs-literal", GM_TRIGGER, at(1000)),
+    );
     const zErr = errOf(r);
     await z.campaign.close();
     // the coordinator maps ANY non-fatal authority-open refusal to TRANSACTION_CONFLICT (existing behaviour)
@@ -916,22 +1045,100 @@ describe("e. [simulation] test-local phase-aware wrapper at BOTH placements; ver
     await rig.campaign.close();
     log("e.errors", { zeroStageSeal: zErr, stageBearingAuthorityOpen: sErr });
     expect(zErr).toMatchObject({ code: "VALUE_INVALID", details: { placement: "seal" } });
-    expect(sErr).toMatchObject({ code: "TRANSACTION_CONFLICT", details: { code: "VALUE_INVALID" } });
+    expect(sErr).toMatchObject({
+      code: "TRANSACTION_CONFLICT",
+      details: { code: "VALUE_INVALID" },
+    });
   });
 
   // -------- mutation table: each mutant is applied to the TEST-LOCAL wrapper and run through BOTH rigs --------
   const MUTANTS: readonly { m: Mutation; killedBy: readonly ("Z" | "S")[]; note: string }[] = [
-    { m: { ...BASELINE, name: "M1 authority-only (no seal arm)", seal: "none" }, killedBy: ["Z"], note: "the stage-free seal is the only commit of a zero-stage wait: RIG-Z admits the literal" },
-    { m: { ...BASELINE, name: "M2 zero-stage-seal-only (no authority arm)", authority: false }, killedBy: ["S"], note: "RIG-S: authority and stage commit before the seal; the stage-bearing seal is not denied" },
-    { m: { ...BASELINE, name: "M3 seal-only on ALL seals (no authority arm)", authority: false, seal: "all" }, killedBy: ["S"], note: "RIG-S: authority + credited stage are left behind, the seal is refused" },
-    { m: { ...BASELINE, name: "M4 universal seal veto (authority arm + deny at every seal)", seal: "all" }, killedBy: ["S"], note: "only S1 sees it: the interrupted OLD authority can no longer seal. S7 (exact retry of an already sealed record) stays green because the kernel answers a same-digest retry from its receipt BEFORE admission" },
-    { m: { ...BASELINE, name: "M5 inverted stage predicate (seal deny only on stage-bearing seals)", seal: "stage-bearing" }, killedBy: ["Z", "S"], note: "zero-stage literal admitted; interrupted old authority refused at seal" },
-    { m: { ...BASELINE, name: "M6 historical deny, SAME verifier id", historical: "same-id" }, killedBy: ["Z", "S"], note: "cold(audit) and cold(invalidated) reopen fail; warm survives only because the checkpoint prefix is skipped" },
-    { m: { ...BASELINE, name: "M7 historical deny AND changed verifier id", historical: "new-id" }, killedBy: ["Z", "S"], note: "warm reopen is forced to strict replay by the id change and fails too" },
-    { m: { ...BASELINE, name: "M8 case-folded literal", denies: (c, k) => unphasedDeny(c, k) || (typeof k === "string" && k.toLowerCase() === GM_TRIGGER.toLowerCase()) }, killedBy: ["Z", "S"], note: "the near-miss Ids Z5/S6 are refused" },
-    { m: { ...BASELINE, name: "M9 prefix match", denies: (c, k) => unphasedDeny(c, k) || (typeof k === "string" && k.startsWith(GM_TRIGGER)) }, killedBy: ["Z", "S"], note: "GM_INTERPRETED_PC_WAIT_2 is refused" },
-    { m: { ...BASELINE, name: "M10 wrong field (deny on trigger.ref, never on kind)", denies: (_c, _k, ref) => ref === GM_TRIGGER }, killedBy: ["Z", "S"], note: "the hook never fires on the literal: both new-literal refusals are lost" },
-    { m: { ...BASELINE, name: "M11 kind-only (ignores the pair)", denies: (_c, k) => k === GM_TRIGGER }, killedBy: [], note: "SURVIVES: equivalent in the reachable space. Under the player-only schema every record is the player pair, and a GM pair is refused by the typed value; the mutant differs only for a GM pair + literal, which S4's strict GM branch (unbuilt) will make representable" },
+    {
+      m: { ...BASELINE, name: "M1 authority-only (no seal arm)", seal: "none" },
+      killedBy: ["Z"],
+      note: "the stage-free seal is the only commit of a zero-stage wait: RIG-Z admits the literal",
+    },
+    {
+      m: { ...BASELINE, name: "M2 zero-stage-seal-only (no authority arm)", authority: false },
+      killedBy: ["S"],
+      note: "RIG-S: authority and stage commit before the seal; the stage-bearing seal is not denied",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M3 seal-only on ALL seals (no authority arm)",
+        authority: false,
+        seal: "all",
+      },
+      killedBy: ["S"],
+      note: "RIG-S: authority + credited stage are left behind, the seal is refused",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M4 universal seal veto (authority arm + deny at every seal)",
+        seal: "all",
+      },
+      killedBy: ["S"],
+      note: "only S1 sees it: the interrupted OLD authority can no longer seal. S7 (exact retry of an already sealed record) stays green because the kernel answers a same-digest retry from its receipt BEFORE admission",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M5 inverted stage predicate (seal deny only on stage-bearing seals)",
+        seal: "stage-bearing",
+      },
+      killedBy: ["Z", "S"],
+      note: "zero-stage literal admitted; interrupted old authority refused at seal",
+    },
+    {
+      m: { ...BASELINE, name: "M6 historical deny, SAME verifier id", historical: "same-id" },
+      killedBy: ["Z", "S"],
+      note: "cold(audit) and cold(invalidated) reopen fail; warm survives only because the checkpoint prefix is skipped",
+    },
+    {
+      m: { ...BASELINE, name: "M7 historical deny AND changed verifier id", historical: "new-id" },
+      killedBy: ["Z", "S"],
+      note: "warm reopen is forced to strict replay by the id change and fails too",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M8 case-folded literal",
+        denies: (c, k) =>
+          unphasedDeny(c, k) ||
+          (typeof k === "string" && k.toLowerCase() === GM_TRIGGER.toLowerCase()),
+      },
+      killedBy: ["Z", "S"],
+      note: "the near-miss Ids Z5/S6 are refused",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M9 prefix match",
+        denies: (c, k) => unphasedDeny(c, k) || (typeof k === "string" && k.startsWith(GM_TRIGGER)),
+      },
+      killedBy: ["Z", "S"],
+      note: "GM_INTERPRETED_PC_WAIT_2 is refused",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M10 wrong field (deny on trigger.ref, never on kind)",
+        denies: (_c, _k, ref) => ref === GM_TRIGGER,
+      },
+      killedBy: ["Z", "S"],
+      note: "the hook never fires on the literal: both new-literal refusals are lost",
+    },
+    {
+      m: {
+        ...BASELINE,
+        name: "M11 kind-only (ignores the pair)",
+        denies: (_c, k) => k === GM_TRIGGER,
+      },
+      killedBy: [],
+      note: "SURVIVES: equivalent in the reachable space. Under the player-only schema every record is the player pair, and a GM pair is refused by the typed value; the mutant differs only for a GM pair + literal, which S4's strict GM branch (unbuilt) will make representable",
+    },
   ];
 
   for (const { m, killedBy, note } of MUTANTS) {
@@ -966,8 +1173,13 @@ describe("f. [pure] B0 classifiers versus a stored historical player-origin tran
         out[`${label}.seal`] = { pairing: "DENY", historicalVerdict: null };
         if (c.authority) {
           const a: any = c.authority.value;
-          expect(temporalOriginPairing(a.context, a.trigger.kind), `${label} authority`).toBe("DENY");
-          expect(r.verdicts.get(transactionAuthorityIntentId(id)), `${label} authority verdict`).toBeNull();
+          expect(temporalOriginPairing(a.context, a.trigger.kind), `${label} authority`).toBe(
+            "DENY",
+          );
+          expect(
+            r.verdicts.get(transactionAuthorityIntentId(id)),
+            `${label} authority verdict`,
+          ).toBeNull();
           out[`${label}.authority`] = { pairing: "DENY", historicalVerdict: null };
         }
       }
@@ -988,28 +1200,38 @@ describe("f. [pure] B0 classifiers versus a stored historical player-origin tran
       ["player + literal", PLAYER, GM_TRIGGER, "DENY"],
       ["GM + literal", GM, GM_TRIGGER, "GM_WAIT"],
       ["GM + ordinary", GM, ORDINARY_TRIGGER, "DENY"],
-      ["mixed (GM role, player permission)", { role: GM.role, permission: PLAYER.permission }, GM_TRIGGER, "DENY"],
+      [
+        "mixed (GM role, player permission)",
+        { role: GM.role, permission: PLAYER.permission },
+        GM_TRIGGER,
+        "DENY",
+      ],
       ["player + near-miss (case)", PLAYER, "gm_interpreted_pc_wait", "LEGACY_PLAYER"],
       ["player + empty kind", PLAYER, "", "DENY"],
     ] as const;
-    for (const [label, ctx, kind, want] of rows) expect(temporalOriginPairing(ctx, kind), label).toBe(want);
+    for (const [label, ctx, kind, want] of rows)
+      expect(temporalOriginPairing(ctx, kind), label).toBe(want);
   });
 
   it("[pure] continuationContextViolation: the STORED historical player-origin value cannot satisfy a GM remainder; one change away (a player remainder) it is accepted", () => {
-    const stored = (ZERO.captures["tx-old-literal"]!.seal!.value as any);
+    const stored = ZERO.captures["tx-old-literal"]!.seal!.value as any;
     const prior = { context: stored.context };
     const viaGm = continuationContextViolation(prior, { context: GM });
     const viaPlayer = continuationContextViolation(prior, { context: { ...PLAYER } });
-    const mixed = continuationContextViolation(prior, { context: { role: GM.role, permission: PLAYER.permission } });
+    const mixed = continuationContextViolation(prior, {
+      context: { role: GM.role, permission: PLAYER.permission },
+    });
     log("f.continuationContext", { viaGm, viaPlayer, mixed });
     expect(viaGm).toMatch(/exactly the role and permission/);
     expect(mixed).toMatch(/exactly the role and permission/);
     expect(viaPlayer).toBeNull(); // the control: the same stored record continued under the SAME pair
     // the literal is not part of the rule: a stored record with the ordinary kind gives the same verdicts
-    const ord = (ZERO.captures["tx-old-ordinary"]!.seal!.value as any);
+    const ord = ZERO.captures["tx-old-ordinary"]!.seal!.value as any;
     expect(continuationContextViolation({ context: ord.context }, { context: GM })).toBe(viaGm);
     // a non-pair context is refused rather than compared
-    expect(continuationContextViolation({ context: "role.player" as never }, { context: GM })).toMatch(/must be a pair/);
+    expect(
+      continuationContextViolation({ context: "role.player" as never }, { context: GM }),
+    ).toMatch(/must be a pair/);
   });
 
   it("[pure] gmContinuationLinkViolation compares only a CALLER-SUPPLIED held identity: it does not authenticate stored state", () => {
@@ -1019,13 +1241,21 @@ describe("f. [pure] B0 classifiers versus a stored historical player-origin tran
       gm_wait: { phase: "CONTINUATION" as const, from_transaction: from },
     });
     // 1. a stored historical PLAYER-origin identity, supplied by the caller as `held`, satisfies the link
-    expect(gmContinuationLinkViolation(req("tx-old-literal"), { from_transaction: "tx-old-literal" })).toBeNull();
+    expect(
+      gmContinuationLinkViolation(req("tx-old-literal"), { from_transaction: "tx-old-literal" }),
+    ).toBeNull();
     // 2. a FABRICATED identity that exists nowhere in the store satisfies it just as well
     expect(ZERO.captures["tx-fabricated"]).toBeUndefined();
-    expect(gmContinuationLinkViolation(req("tx-fabricated"), { from_transaction: "tx-fabricated" })).toBeNull();
+    expect(
+      gmContinuationLinkViolation(req("tx-fabricated"), { from_transaction: "tx-fabricated" }),
+    ).toBeNull();
     // 3. only a MISMATCH between the two caller-supplied values, an absent held value, or a non-CONTINUATION is refused
-    expect(gmContinuationLinkViolation(req("tx-old-literal"), { from_transaction: "tx-other" })).toMatch(/exactly the persisted continuation/);
-    expect(gmContinuationLinkViolation(req("tx-old-literal"), null)).toMatch(/no continuation is held/);
+    expect(
+      gmContinuationLinkViolation(req("tx-old-literal"), { from_transaction: "tx-other" }),
+    ).toMatch(/exactly the persisted continuation/);
+    expect(gmContinuationLinkViolation(req("tx-old-literal"), null)).toMatch(
+      /no continuation is held/,
+    );
     expect(
       gmContinuationLinkViolation(
         { continues: null, gm_wait: { phase: "INITIAL" } as never },
@@ -1036,7 +1266,11 @@ describe("f. [pure] B0 classifiers versus a stored historical player-origin tran
     //    never reach it. The stored record's origin (player + literal) is invisible to it by construction.
     expect(gmContinuationLinkViolation.length).toBe(2);
     expect((stored.seal!.value as any).context).toEqual(PLAYER);
-    log("f.link", { storedOrigin: "player+literal", acceptedAsHeld: true, fabricatedAccepted: true });
+    log("f.link", {
+      storedOrigin: "player+literal",
+      acceptedAsHeld: true,
+      fabricatedAccepted: true,
+    });
   });
 });
 
@@ -1047,23 +1281,72 @@ describe("g. known older non-literal journals (retained fixture packages; nothin
   const R02 = join(import.meta.dirname, "../fixtures/r02-a01-pre-s4");
   const LEGACY = join(import.meta.dirname, "../fixtures/legacy-base-eafbb127/package");
   const golden = {
-    ordinary: ["6101bfd0fcd5ac37887f19853400b7dabd3f3e397381d544b9901de8e545df91", "dfbd13d02efeaa703922eefcc97a3eec400ea176bbb7029608f45314a96de819"],
-    pcb: ["710e868d55b2882cc7656b5e4989be194ee0b47db3869a3281081ec0c50bbced", "76eecf5e73f095143d8fe3d96ed7ffb5b6c380f4cc52017404b3c31fe0dabc8a"],
-    interrupted: ["793fd9f8eb36783193e1e99f5fa119d7e51fac62ba072b53acaa4dc2ded7fee6", "6528409b884cfdb634e188c458011e58c1bcce72c121e9b80d6aba1b989666ed"],
+    ordinary: [
+      "6101bfd0fcd5ac37887f19853400b7dabd3f3e397381d544b9901de8e545df91",
+      "dfbd13d02efeaa703922eefcc97a3eec400ea176bbb7029608f45314a96de819",
+    ],
+    pcb: [
+      "710e868d55b2882cc7656b5e4989be194ee0b47db3869a3281081ec0c50bbced",
+      "76eecf5e73f095143d8fe3d96ed7ffb5b6c380f4cc52017404b3c31fe0dabc8a",
+    ],
+    interrupted: [
+      "793fd9f8eb36783193e1e99f5fa119d7e51fac62ba072b53acaa4dc2ded7fee6",
+      "6528409b884cfdb634e188c458011e58c1bcce72c121e9b80d6aba1b989666ed",
+    ],
   } as const;
-  const MS_BINDING = { key_id: "e2-key", public_key: "e2-public-key", driver_id: "e2-driver", driver_config_hash: "0".repeat(64) };
-  const admissions: readonly { name: string; label: "[existing law]" | "[simulation]"; admission: WriteAdmission }[] = [
-    { name: "production canonicalAdmission", label: "[existing law]", admission: canonicalAdmission },
-    { name: "MS production (msCanonicalAdmission)", label: "[existing law]", admission: msCanonicalAdmission(MS_BINDING) },
-    { name: "MS fixture (fixtureMsCanonicalAdmission)", label: "[existing law]", admission: fixtureMsCanonicalAdmission(MS_BINDING) },
-    { name: "T1 fixture (fixtureCanonicalAdmission)", label: "[existing law]", admission: fixtureCanonicalAdmission },
-    { name: "pre-v0.9 legacy (legacyContractAdmission(production))", label: "[existing law]", admission: legacyContractAdmission(canonicalAdmission) },
-    { name: "phase-aware wrapper over production", label: "[simulation]", admission: phaseAware(canonicalAdmission) },
-    { name: "legacy(phase-aware wrapper)", label: "[simulation]", admission: legacyContractAdmission(phaseAware(canonicalAdmission)) },
+  const MS_BINDING = {
+    key_id: "e2-key",
+    public_key: "e2-public-key",
+    driver_id: "e2-driver",
+    driver_config_hash: "0".repeat(64),
+  };
+  const admissions: readonly {
+    name: string;
+    label: "[existing law]" | "[simulation]";
+    admission: WriteAdmission;
+  }[] = [
+    {
+      name: "production canonicalAdmission",
+      label: "[existing law]",
+      admission: canonicalAdmission,
+    },
+    {
+      name: "MS production (msCanonicalAdmission)",
+      label: "[existing law]",
+      admission: msCanonicalAdmission(MS_BINDING),
+    },
+    {
+      name: "MS fixture (fixtureMsCanonicalAdmission)",
+      label: "[existing law]",
+      admission: fixtureMsCanonicalAdmission(MS_BINDING),
+    },
+    {
+      name: "T1 fixture (fixtureCanonicalAdmission)",
+      label: "[existing law]",
+      admission: fixtureCanonicalAdmission,
+    },
+    {
+      name: "pre-v0.9 legacy (legacyContractAdmission(production))",
+      label: "[existing law]",
+      admission: legacyContractAdmission(canonicalAdmission),
+    },
+    {
+      name: "phase-aware wrapper over production",
+      label: "[simulation]",
+      admission: phaseAware(canonicalAdmission),
+    },
+    {
+      name: "legacy(phase-aware wrapper)",
+      label: "[simulation]",
+      admission: legacyContractAdmission(phaseAware(canonicalAdmission)),
+    },
   ];
 
   const entriesOf = (dir: string) =>
-    readFileSync(join(dir, "journal.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { group: CommitGroup; receipt: unknown });
+    readFileSync(join(dir, "journal.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l) as { group: CommitGroup; receipt: unknown });
 
   for (const mode of ["ordinary", "pcb", "interrupted"] as const) {
     it(`[existing law]+[simulation] retained pre-S-4 ${mode} package: opens warm and cold under every admission, keeping the exact head and every original receipt`, async () => {
@@ -1073,13 +1356,21 @@ describe("g. known older non-literal journals (retained fixture packages; nothin
           const dir = copyOf(join(R02, mode));
           const journal = readFileSync(join(dir, "journal.jsonl"));
           const entries = entriesOf(dir);
-          const r = await openUnder(dir, a.admission, { ...MODES[m], extension: POPULATION_FIXTURE_EXTENSION });
+          const r = await openUnder(dir, a.admission, {
+            ...MODES[m],
+            extension: POPULATION_FIXTURE_EXTENSION,
+          });
           if (!r.ok) {
-            table[`${a.name} / ${m}`] = { ok: false, error: { code: r.error.code, message: r.error.message } };
+            table[`${a.name} / ${m}`] = {
+              ok: false,
+              error: { code: r.error.code, message: r.error.message },
+            };
             continue;
           }
           const head = r.campaign.store.head();
-          const receiptsKept = entries.every((e) => same(r.campaign.store.lookupReceipt(e.group.intent_id), e.receipt));
+          const receiptsKept = entries.every((e) =>
+            same(r.campaign.store.lookupReceipt(e.group.intent_id), e.receipt),
+          );
           const cell = {
             ok: true,
             golden: same([head.state_sha256, head.journal_head_sha256], golden[mode]),
@@ -1089,7 +1380,10 @@ describe("g. known older non-literal journals (retained fixture packages; nothin
           };
           table[`${a.name} / ${m}`] = cell;
           await r.campaign.close();
-          expect(readFileSync(join(dir, "journal.jsonl")).equals(journal), `${a.name} ${m} journal bytes`).toBe(true);
+          expect(
+            readFileSync(join(dir, "journal.jsonl")).equals(journal),
+            `${a.name} ${m} journal bytes`,
+          ).toBe(true);
         }
       }
       log(`g.r02.${mode}`, table);
@@ -1104,13 +1398,22 @@ describe("g. known older non-literal journals (retained fixture packages; nothin
 
   it("[existing law]+[simulation] the RETAINED interrupted old authority (a real pre-S-4 package, non-literal) resumes and seals under production and under the phase-aware wrapper", async () => {
     const out: Record<string, unknown> = {};
-    for (const a of admissions.filter((x) => x.name.startsWith("production") || x.name.startsWith("phase-aware"))) {
+    for (const a of admissions.filter(
+      (x) => x.name.startsWith("production") || x.name.startsWith("phase-aware"),
+    )) {
       const dir = copyOf(join(R02, "interrupted"));
       const r = await openUnder(dir, a.admission, { extension: POPULATION_FIXTURE_EXTENSION });
       if (!r.ok) throw new Error(`${a.name}: ${JSON.stringify(r.error)}`);
       const head = r.campaign.store.head().revision;
-      const resumed = await popCoordinator(r.campaign.store).advance(advanceToRequest("tx-baseline-interrupted", POP_TP));
-      out[a.name] = { ok: resumed.ok, adopted: resumed.ok ? resumed.value.adopted.length : null, revisions: r.campaign.store.head().revision - head, verify: r.campaign.verify().length };
+      const resumed = await popCoordinator(r.campaign.store).advance(
+        advanceToRequest("tx-baseline-interrupted", POP_TP),
+      );
+      out[a.name] = {
+        ok: resumed.ok,
+        adopted: resumed.ok ? resumed.value.adopted.length : null,
+        revisions: r.campaign.store.head().revision - head,
+        verify: r.campaign.verify().length,
+      };
       expect(resumed.ok, a.name).toBe(true);
       if (resumed.ok) expect(resumed.value.adopted.length, a.name).toBeGreaterThan(0);
       expect(r.campaign.verify(), a.name).toEqual([]);
@@ -1125,7 +1428,9 @@ describe("g. known older non-literal journals (retained fixture packages; nothin
       const dir = copyOf(LEGACY);
       const before = readFileSync(join(dir, "journal.jsonl"));
       const r = await openUnder(dir, a.admission, { audit: true });
-      out[a.name] = r.ok ? { ok: true, revision: r.campaign.store.head().revision } : { ok: false, error: { code: r.error.code, message: r.error.message } };
+      out[a.name] = r.ok
+        ? { ok: true, revision: r.campaign.store.head().revision }
+        : { ok: false, error: { code: r.error.code, message: r.error.message } };
       if (r.ok) await r.campaign.close();
       expect(r.ok, a.name).toBe(true);
       expect(readFileSync(join(dir, "journal.jsonl")).equals(before), a.name).toBe(true);
