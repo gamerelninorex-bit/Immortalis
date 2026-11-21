@@ -188,7 +188,10 @@ export type Opened =
   | { ok: true; campaign: CanonicalCampaign; calls: number; verdicts: Map<string, string | null> }
   | { ok: false; error: { code: string; message: string; details?: unknown }; calls: number };
 
-/** `admission` omitted opens through the plain production path (no test seam at all). */
+/**
+ * `admission` omitted opens through the plain production path (no test seam at all). The build id below is part of the frozen custody
+ * (the saved head records the build that last saved it, and the frozen summaries were written with this one): do not rename it.
+ */
 export async function openUnder(
   dir: string,
   admission: WriteAdmission | undefined,

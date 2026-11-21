@@ -778,20 +778,11 @@ const ADMISSIONS: readonly { name: string; admission: WriteAdmission }[] = [
 describe("g. [existing law] known older non-literal journals (retained fixture packages; nothing invented here)", () => {
   const R02 = join(import.meta.dirname, "../fixtures/r02-a01-pre-s4");
   const LEGACY = join(import.meta.dirname, "../fixtures/legacy-base-eafbb127/package");
-  const golden = {
-    ordinary: [
-      "6101bfd0fcd5ac37887f19853400b7dabd3f3e397381d544b9901de8e545df91",
-      "dfbd13d02efeaa703922eefcc97a3eec400ea176bbb7029608f45314a96de819",
-    ],
-    pcb: [
-      "710e868d55b2882cc7656b5e4989be194ee0b47db3869a3281081ec0c50bbced",
-      "76eecf5e73f095143d8fe3d96ed7ffb5b6c380f4cc52017404b3c31fe0dabc8a",
-    ],
-    interrupted: [
-      "793fd9f8eb36783193e1e99f5fa119d7e51fac62ba072b53acaa4dc2ded7fee6",
-      "6528409b884cfdb634e188c458011e58c1bcce72c121e9b80d6aba1b989666ed",
-    ],
-  } as const;
+  // the head each retained package recorded when it was written: its own manifest is the custody (the packages are pinned by their own suites)
+  const golden = (mode: "ordinary" | "pcb" | "interrupted") => {
+    const h = manifestOf(join(R02, mode)).head;
+    return [h.state_sha256, h.journal_head_sha256];
+  };
 
   const entriesOf = (dir: string) =>
     readFileSync(join(dir, "journal.jsonl"), "utf8")
@@ -824,7 +815,7 @@ describe("g. [existing law] known older non-literal journals (retained fixture p
           );
           const cell = {
             ok: true,
-            golden: same([head.state_sha256, head.journal_head_sha256], golden[mode]),
+            golden: same([head.state_sha256, head.journal_head_sha256], golden(mode)),
             receiptsKept,
             violations: r.campaign.verify().length,
             calls: r.calls,
