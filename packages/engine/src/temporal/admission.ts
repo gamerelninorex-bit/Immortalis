@@ -3,6 +3,7 @@ import {
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
   OWNER_POPULATION,
+  PLAYER_CHOICE_AUTHORITY,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
@@ -59,6 +60,31 @@ import {
 } from "./identity.ts";
 
 type Rejection = Failure<CommitErrorCode>;
+
+/**
+ * F-014B B1 S1 (Q-HIST-1 Option A). The trigger kind reserved for strict GM-mediated waiting. The B0 module that names it
+ * (contracts/src/temporal-gm-wait.ts) is deliberately not exported from the contracts index, so this file states the literal
+ * once, locally; a conformance test pins it equal to the B0 constant. Compared by exact string equality: no case folding, no
+ * prefix match.
+ */
+const GM_WAIT_TRIGGER_KIND = "GM_INTERPRETED_PC_WAIT";
+
+/**
+ * The B0 pairing table's row "player pair + the GM waiting trigger", applied to a NEW LIVE write only (Option A: a record
+ * that was lawfully admitted before S1 stays valid player-origin history). Called from the two live placements below and
+ * nowhere else; it is not a historical predicate, and replay never reaches it (replay runs `verifyHistorical`, and a
+ * replayed entry is not validated against the registry). Returns a message, or null.
+ */
+export function livePlayerPairTriggerViolation(
+  context: { readonly role: string; readonly permission: string },
+  trigger: { readonly kind: string },
+): string | null {
+  return trigger.kind === GM_WAIT_TRIGGER_KIND &&
+    context.role === PLAYER_CHOICE_AUTHORITY.role &&
+    context.permission === PLAYER_CHOICE_AUTHORITY.permission
+    ? "a new transaction stated under the player pair may not use the trigger reserved for GM-interpreted waiting"
+    : null;
+}
 
 /**
  * IM-02 kernel admission: the cross-fact rules of F-014B §2 that IM-11 enforces at publication, so a
@@ -218,6 +244,11 @@ function checkAuthority(
   const a = TransactionAuthoritySchema.parse(w.value);
   const bad = (message: string, details?: Record<string, unknown>) =>
     reject("REFERENCE_INVALID", message, { key: w.key, ...details });
+  // B1 S1: placement one of two. A stage-bearing transaction is first judged here, before any owner stage or authority is
+  // durable. The SEAL of a stage-bearing transaction is not judged again (see checkTransaction): an authority committed
+  // before S1 must still be able to seal exactly once.
+  const pairing = livePlayerPairTriggerViolation(a.context, a.trigger);
+  if (pairing) return reject("VALUE_INVALID", pairing, { key: w.key });
   if (group.writes.length !== 1) {
     return reject("VALUE_INVALID", "a transaction is opened by its authority alone");
   }
@@ -285,6 +316,12 @@ function checkTransaction(
   idxW: CommitGroup["writes"][number] | undefined,
 ): Rejection | null {
   const tx: ResolutionTransaction = ResolutionTransactionSchema.parse(txValue);
+  // B1 S1: placement two of two. A stage-free transaction commits its state and its seal and NO authority record, so this
+  // seal is the only group that can judge it. A stage-bearing seal is not judged here: its authority group already was.
+  if (tx.stages.length === 0) {
+    const pairing = livePlayerPairTriggerViolation(tx.context, tx.trigger);
+    if (pairing) return reject("VALUE_INVALID", pairing, { key: txKey });
+  }
   const stateFact = state.facts.get(TEMPORAL_STATE_KEY)!;
   const pinned = requirePrerequisite(group, state, TEMPORAL_STATE_KEY, "the temporal state");
   if (isRejection(pinned)) return pinned;
