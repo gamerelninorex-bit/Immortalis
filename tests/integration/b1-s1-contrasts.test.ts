@@ -12,7 +12,7 @@
 // (see the answer file); this file shows the rigs that must then pass.
 //
 // Evidence lines: set B1S1_LOG=<file> to append every observation as one JSON line.
-import { appendFileSync, cpSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -176,6 +176,8 @@ async function productionCampaign(dir: string, admission?: WriteAdmission) {
 const coordinatorOn = (store: CampaignStore) => new TemporalCoordinator(store, shippedProviders());
 
 const clone = <T>(v: T): T => (v === undefined ? v : structuredClone(v));
+/** absent facts, receipts and groups are `null` (never `undefined`), so a captured record survives a JSON round trip unchanged */
+const orNull = <T>(v: T | undefined | null): T | null => (v === undefined || v === null ? null : structuredClone(v));
 
 /** Whole-campaign custody: head, every fact, every receipt of every fact's provenance. Equality of two of these is equality of history. */
 function summary(store: CampaignStore) {
@@ -192,12 +194,12 @@ function capture(store: CampaignStore, id: string) {
   const sealIntent = transactionIntentId(id);
   const authIntent = transactionAuthorityIntentId(id);
   return {
-    seal: clone(store.getFact(temporalTransactionKey(id))),
-    authority: clone(store.getFact(temporalTransactionAuthorityKey(id))),
-    sealReceipt: clone(store.lookupReceipt(sealIntent)),
-    authorityReceipt: clone(store.lookupReceipt(authIntent)),
-    sealGroup: clone(store.committedGroup(sealIntent)),
-    authorityGroup: clone(store.committedGroup(authIntent)),
+    seal: orNull(store.getFact(temporalTransactionKey(id))),
+    authority: orNull(store.getFact(temporalTransactionAuthorityKey(id))),
+    sealReceipt: orNull(store.lookupReceipt(sealIntent)),
+    authorityReceipt: orNull(store.lookupReceipt(authIntent)),
+    sealGroup: orNull(store.committedGroup(sealIntent)),
+    authorityGroup: orNull(store.committedGroup(authIntent)),
   };
 }
 
@@ -401,10 +403,37 @@ let ZERO: OldJournal;
 let STAGE: OldJournal;
 let INTERRUPTED: OldJournal;
 
+/**
+ * FREEZING. Once S1 lands, the generators above can no longer commit a player+literal record. S1's own tests must therefore read
+ * packages written by the UNCHANGED build and committed as immutable fixtures:
+ *   B1S1_FREEZE_TO=<dir>  after generating, copy each closed package and its expected custody (expected.json) under <dir>/<name>/
+ *   B1S1_FROZEN=<dir>     do not generate; read the packages and the expected custody from <dir>/<name>/
+ */
+const FROZEN = process.env["B1S1_FROZEN"];
+const FREEZE_TO = process.env["B1S1_FREEZE_TO"];
+const freeze = (name: string, j: OldJournal): void => {
+  const root = join(FREEZE_TO!, name);
+  mkdirSync(root, { recursive: true });
+  cpSync(j.dir, join(root, "package"), { recursive: true });
+  const { dir: _dir, ...expected } = j;
+  void _dir;
+  writeFileSync(join(root, "expected.json"), JSON.stringify(expected));
+};
+const thaw = (name: string): OldJournal => {
+  const root = join(FROZEN!, name);
+  const expected = JSON.parse(readFileSync(join(root, "expected.json"), "utf8"));
+  return { ...expected, dir: join(root, "package") };
+};
+
 beforeAll(async () => {
   SUNSET_TEMPLATE = await gatewayTemplate();
-  [ZERO, STAGE, INTERRUPTED] = [await buildOldZeroStage(), await buildOldStageBearing(), await buildOldInterrupted()];
+  if (FROZEN) [ZERO, STAGE, INTERRUPTED] = [thaw("zero"), thaw("stage"), thaw("interrupted")];
+  else {
+    [ZERO, STAGE, INTERRUPTED] = [await buildOldZeroStage(), await buildOldStageBearing(), await buildOldInterrupted()];
+    if (FREEZE_TO) for (const [name, j] of [["zero", ZERO], ["stage", STAGE], ["interrupted", INTERRUPTED]] as const) freeze(name, j);
+  }
   log("builds", {
+    frozen: FROZEN ?? null,
     zero: { head: ZERO.headRevision, revisions: ZERO.revisions, checkpoint: manifestOf(ZERO.dir).head.checkpoint.revision },
     stage: { head: STAGE.headRevision, revisions: STAGE.revisions, checkpoint: manifestOf(STAGE.dir).head.checkpoint.revision },
     interrupted: { head: INTERRUPTED.headRevision, checkpoint: manifestOf(INTERRUPTED.dir).head.checkpoint.revision },
@@ -424,7 +453,7 @@ describe("a. historical seal-only player+literal transaction (no stage, no autho
     expect(v.trigger.kind).toBe(GM_TRIGGER);
     expect(v.context).toEqual(PLAYER);
     expect(v.stages).toEqual([]); // seal-only: the kernel's lazy carry
-    expect(lit.authority).toBeUndefined(); // no durable authority exists for a zero-stage transaction
+    expect(lit.authority).toBeNull(); // no durable authority exists for a zero-stage transaction
     expect(lit.sealReceipt).toBeDefined();
     // the unphased B0 classifier calls this very stored record DENY, although the unchanged verifier admitted and sealed it
     expect(temporalOriginPairing(v.context, v.trigger.kind)).toBe("DENY");
@@ -484,7 +513,7 @@ describe("c. INTERRUPTED stage-bearing player+literal: authority-open and credit
   it("[existing law] the store wrapper left exactly authority + stage durable and no sealed record; closing and reopening keeps that cut", async () => {
     const before = INTERRUPTED.captures[PC_TARGET_TX]!;
     expect(before.authority).toBeDefined();
-    expect(before.seal).toBeUndefined();
+    expect(before.seal).toBeNull();
     const m = await reopenMatrix(INTERRUPTED.dir, canonicalAdmission, [PC_TARGET_TX], ["warm", "coldAudit"]);
     for (const [mode, o] of Object.entries(m)) {
       expect(o.ok, mode).toBe(true);
