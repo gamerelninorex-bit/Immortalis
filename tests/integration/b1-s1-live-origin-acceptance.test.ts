@@ -18,6 +18,7 @@ import {
   ResolutionRequestSchema,
   TransactionContextSchema,
   temporalTransactionAuthorityKey,
+  temporalTransactionKey,
   type CanonicalTime,
 } from "@immortalis/contracts";
 import {
@@ -526,6 +527,45 @@ describe("A5 a held player-origin continuation", () => {
     expect(
       await advanceOriginal(trustedOriginalHeld(r, { transaction: otherOrdinary(PC_TARGET_TX2) })),
     ).toEqual(PC_TARGET_COMMITTED);
+    await r.campaign.close();
+  });
+
+  it("A5 [s1 guard] a stage-free CONTINUATION seal (its stage is refused again, so nothing is credited) may not state the literal either; the unchanged seal commits and holds the work again (control)", async () => {
+    const r = await heldRig();
+    const restoreStage = refuseGipStageOf(r); // the continuing transaction credits no stage: its seal group is the last commit
+    const probe = probeCommits(r.campaign, (g) =>
+      isSealGroup(g) && !isAuthorityGroup(g) ? withTriggerKind(g, GM_TRIGGER) : g,
+    );
+    await advanceOriginal(trustedOriginalHeld(r, { transaction: otherOrdinary(PC_TARGET_TX2) }));
+    const sealAttempts = probe.seen.filter((x) => isSealGroup(x.group));
+    expect(sealAttempts.length).toBe(1);
+    const judged = sealAttempts[0]!.group.writes.find((w) =>
+      /^temporal\/transaction\//.test(w.key),
+    )!.value as any;
+    expect(judged.stages).toEqual([]);
+    expect(judged.continues).toBe(PC_TARGET_TX);
+    expect(judged.trigger.kind).toBe(GM_TRIGGER);
+    expect(sealAttempts[0]!.result.error).toMatchObject({
+      code: "VALUE_INVALID",
+      message: GUARD_MESSAGE,
+    });
+    expect(r.campaign.store.getFact(temporalTransactionKey(PC_TARGET_TX2))).toBeUndefined();
+    expect(r.coordinator.state()!.value.continuation).toMatchObject({
+      from_transaction: PC_TARGET_TX,
+    });
+    // control, one change away: the seal is not rewritten
+    probe.restore();
+    expect(
+      await advanceOriginal(trustedOriginalHeld(r, { transaction: otherOrdinary(PC_TARGET_TX2) })),
+    ).toEqual(PC_TARGET_COMMITTED);
+    const sealed = r.coordinator.transaction(PC_TARGET_TX2)!.value;
+    expect(sealed.stages).toEqual([]);
+    expect(sealed.continues).toBe(PC_TARGET_TX);
+    expect(sealed.trigger.kind).toBe("player-pc-target-resume-choice");
+    expect(r.coordinator.state()!.value.continuation).toMatchObject({
+      from_transaction: PC_TARGET_TX2,
+    });
+    restoreStage();
     await r.campaign.close();
   });
 
