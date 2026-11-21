@@ -22,6 +22,7 @@ import {
 } from "../support/rp1-stage2-deltas.ts";
 import { RP2_BASE, RP2_BASE_TREE, RP2_SOURCE_DELTAS } from "../support/rp2-source-deltas.ts";
 import { A0_BASE_COMMIT, A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
+import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -345,11 +346,14 @@ describe("RP-2 pins the four authorized production repairs", () => {
     // F-014B A0 (a later slice, based on the tree after RP-2) added its own recorded paths under packages/: its table and
     // tests/conformance/a0-scope-conformance.test.ts police them; the four RP-2 repairs above are checked exactly as before
     // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
+    // Declared inclusion (F-014B A1-1): the two existing operator files in tests/support/a1-1-scoped-deltas.ts (the strict version 2 capture and the
+    // widened intake type); no new file. That slice's own table and tests/conformance/a1-1-scope-conformance.test.ts police them.
     expect(changed.sort()).toEqual(
       [
         ...Object.keys(RP2_SOURCE_DELTAS),
         ...A0_PACKAGE_PATHS,
         "packages/contracts/src/temporal-gm-wait.ts",
+        ...A1_1_PACKAGE_PATHS,
       ].sort(),
     );
     const lockPath = "spec/f027/spec-lock.json";

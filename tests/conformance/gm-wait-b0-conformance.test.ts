@@ -5,7 +5,8 @@
 // What it checks, all of it clerical and none of it behavioural:
 //   B0-70  every file the contract lists in section 5.1 is byte-identical to the base commit, read with `git show <base>:<path>` and compared with the
 //          working tree, EXCEPT the four files that the later F-014B A0 slice changes under its declared source transition (see the second test of
-//          the first group). Nothing here states a hash of any file; custody is by commit and path. The two legacy B0 test files and the accepted source
+//          the first group) and, in the operator tree, the two files that the later F-014B A1-1 slice changes under its declared transition (the third
+//          and fourth tests). Nothing here states a hash of any file; custody is by commit and path. The two legacy B0 test files and the accepted source
 //          lock are compared the same way against the commit BLUE accepted. Where that history is not reachable (a shallow checkout) the comparison is
 //          skipped, never claimed; CI checks out the full history, so it runs there.
 //   B0-71  the new module imports only zod and contracts modules, names no store, coordinator, journal, protocol package, origin-witness key, catalogue
@@ -18,6 +19,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { A0_BASE_COMMIT, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
+import { A1_1_PACKAGE_PATHS, A1_1_TRANSITION } from "../support/a1-1-scoped-deltas.ts";
 import { code } from "../support/f027.ts";
 import { PRESENT_DAY_CODE_IDENTITIES, identityOf } from "../support/present-day-identities.ts";
 
@@ -202,7 +204,7 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
   );
 
   it.skipIf(!baseReachable)(
-    "B0 refusal-only: the operator and protocol source trees are those of the base commit, with no file added, removed or changed",
+    "B0 refusal-only: the protocol source tree is that of the base commit, and the operator tree differs from it by exactly the declared A1-1 files, with no file added or removed",
     () => {
       for (const tree of SECTION_5_1_TREES) {
         // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of content
@@ -212,11 +214,39 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const untracked = lines(git("ls-files", "--others", "--exclude-standard", "--", tree));
         const tracked = lines(git("ls-files", "--", tree)).sort();
         const atBase = lines(git("ls-tree", "-r", "--name-only", BASE, "--", tree)).sort();
+        // DECLARED A1-1 TRANSITION (F-014B A1-1, built on a base whose operator tree is this contract's): the two existing operator files in
+        // tests/support/a1-1-scoped-deltas.ts, checked by length and diff scope in the next test. No other file of either tree changes.
+        const declared = A1_1_PACKAGE_PATHS.filter((p) => p.startsWith(`${tree}/`)).sort();
         expect(atBase.length, `${tree} is not empty at the base`).toBeGreaterThan(0);
-        expect(changed, `${tree} changed`).toEqual([]);
+        expect(changed, `${tree} changed`).toEqual(declared);
         expect(untracked, `${tree} untracked`).toEqual([]);
         expect(tracked, `${tree} file list`).toEqual(atBase);
       }
+      // the declared set lies wholly inside the operator tree: the protocol tree has no declared change
+      expect(A1_1_PACKAGE_PATHS.every((p) => p.startsWith("packages/operator/src/"))).toBe(true);
+    },
+  );
+
+  it.skipIf(!baseReachable)(
+    "B0 refusal-only: the two operator files that F-014B A1-1 changes match the declared A1-1 transition exactly, in length and in diff scope",
+    () => {
+      for (const [path, t] of Object.entries(A1_1_TRANSITION)) {
+        const original = atRef(BASE, path);
+        expect(original, `${path} exists at the base`).not.toBeNull();
+        // original content and A1-1 content, by length
+        expect(original!.length, `${path} original length`).toBe(t.baseBytes);
+        const now = readFileSync(path);
+        expect(now.length, `${path} A1-1 length`).toBe(t.a1Bytes);
+        expect(sameBytes(original, now), `${path} really did change`).toBe(false);
+        // diff scope: lines added and deleted against the base, nothing renamed, nothing binary
+        const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
+        expect(stat, `${path} numstat`).toEqual([[String(t.added), String(t.deleted), path]]);
+      }
+      // the scanner is not vacuous: a path outside the declared set has no transition, and a changed length is told apart
+      expect(A1_1_TRANSITION["packages/operator/src/cli.ts"]).toBeUndefined();
+      expect(
+        Buffer.concat([readFileSync(A1_1_PACKAGE_PATHS[0]!), Buffer.from("x")]).length,
+      ).not.toBe(A1_1_TRANSITION[A1_1_PACKAGE_PATHS[0]!]!.a1Bytes);
     },
   );
 

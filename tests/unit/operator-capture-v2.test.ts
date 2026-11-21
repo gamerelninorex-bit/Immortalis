@@ -262,6 +262,12 @@ describe("A1-T01 [mechanism only] the version 2 request: the operator derives th
       ["authored is an array", requestV2({ authored: [AUTHORED.statement, 0, "seconds"] as any })],
       ["authored is null", requestV2({ authored: null as any })],
       [
+        "authored is an array that carries the three members",
+        requestV2({ authored: Object.assign([], AUTHORED) as any }),
+      ],
+      ["authored is undefined", requestV2({ authored: undefined as any })],
+      ["authored is a string", requestV2({ authored: AUTHORED.statement as any })],
+      [
         "a version 1 document is also named",
         { ...requestV2(), document: expectedV1Document(AUTHORED) },
       ],
@@ -274,6 +280,64 @@ describe("A1-T01 [mechanism only] the version 2 request: the operator derives th
       expect(await allOf(t.store), name).toEqual([]); // no record of either arm
       expect(term.asks(), name).toBe(0); // and nobody was asked to confirm something the operator could not derive
     }
+  });
+
+  it("A1-T01 [mechanism only] the order of the authored members is not part of the words: the same capture results", async () => {
+    const t = rig();
+    const reordered = { value: AUTHORED.value, unit: AUTHORED.unit, statement: AUTHORED.statement };
+    const captured = must(
+      await captureStartingChronology(
+        t.ctx({ terminal: scriptedConsole("confirm") }),
+        requestV2({ authored: reordered }),
+      ),
+    );
+    expect(captured).toEqual(
+      expectedCapture({
+        arm: 2,
+        campaignId: CAMPAIGN,
+        captureRef: "fixture:capture:v2-1",
+        authored: AUTHORED,
+        grade: OP,
+        source: operatorSource(FIXTURE_MESSAGE_METHOD),
+      }),
+    );
+  });
+
+  it("A1-T01 [mechanism only] the envelope the operator seals is itself checked against the strict contract: a malformed reference or source is refused unasked", async () => {
+    const cases: [string, Partial<CaptureRequestV2>][] = [
+      ["an empty capture reference", { capture_ref: "" }],
+      [
+        "an attestation that is not a SHA-256",
+        { source: { ...operatorSource(FIXTURE_MESSAGE_METHOD), attestation_hash: "not-a-hash" } },
+      ],
+      ["an empty client", { source: { ...operatorSource(FIXTURE_MESSAGE_METHOD), client: "" } }],
+    ];
+    for (const [name, over] of cases) {
+      const t = rig();
+      const term = scriptedConsole("confirm");
+      const r = await captureStartingChronology(t.ctx({ terminal: term }), requestV2(over));
+      expect(codeOf(r), name).toBe("DOCUMENT_INVALID");
+      expect(term.asks(), name).toBe(0);
+      expect(await allOf(t.store), name).toEqual([]);
+    }
+  });
+
+  it("A1-T01 [mechanism only] the document keeps its transport bound: a statement over it is refused unasked, and one under it is the control", async () => {
+    const under = rig();
+    const small = await captureStartingChronology(
+      under.ctx({ terminal: scriptedConsole("confirm") }),
+      requestV2({ authored: { ...AUTHORED, statement: "x".repeat(60_000) } }),
+    );
+    expect(codeOf(small)).toBe("OK");
+    const over = rig();
+    const term = scriptedConsole("confirm");
+    const big = await captureStartingChronology(
+      over.ctx({ terminal: term }),
+      requestV2({ authored: { ...AUTHORED, statement: "x".repeat(70_000) } }),
+    );
+    expect(codeOf(big)).toBe("DOCUMENT_OVERSIZE");
+    expect(term.asks()).toBe(0);
+    expect(await allOf(over.store)).toEqual([]);
   });
 
   it("A1-T01 [mechanism only] a declining console records nothing; no console is an unresolved authority; the confirming console is the control", async () => {
@@ -467,6 +531,56 @@ describe("A1-T02 [mechanism only] the protected store: both arms side by side, s
     );
     expect(elsewhere.campaign_id).toBe("campaign-elsewhere");
     expect(elsewhere.capture_hash).not.toBe(stored.capture_hash);
+  });
+
+  it("A1-T02 [mechanism only] a diagnostic TOOL_CALL_ONLY capture is never reused: the same words under two references are two records", async () => {
+    const t = rig();
+    const first = must(
+      await captureStartingChronology(
+        t.ctx(),
+        requestV2({ capture_ref: "tool-a", grade: "TOOL_CALL_ONLY" }),
+      ),
+    );
+    const second = must(
+      await captureStartingChronology(
+        t.ctx(),
+        requestV2({ capture_ref: "tool-b", grade: "TOOL_CALL_ONLY" }),
+      ),
+    );
+    expect(second.capture_ref).toBe("tool-b");
+    expect(second.document_hash).toBe(first.document_hash);
+    expect(second.capture_hash).not.toBe(first.capture_hash);
+    expect(await allOf(t.store)).toHaveLength(2);
+  });
+
+  it("A1-T02 [mechanism only] a stored capture is reused only for its own grade: the same words requested under another grade are a new question to that grade's mechanism", async () => {
+    const t = rig();
+    const stored = must(
+      await captureStartingChronology(t.ctx({ terminal: scriptedConsole("confirm") }), requestV2()),
+    );
+    expect(stored.grade).toBe(OP);
+    // one change: the original-message grade (a fixture proof for a message); the stored operator-confirmed record is not reused for it
+    const hash = sha256("SYNTHETIC FIXTURE: message");
+    const verifier = new FixtureEvidenceVerifier();
+    const spy = vi.spyOn(verifier, "verifyOriginalMessage");
+    const original = must(
+      await captureStartingChronology(
+        t.ctx({ verifier: verifier as any }),
+        requestV2({
+          capture_ref: "fixture:capture:v2-original",
+          grade: "ORIGINAL_MESSAGE_VERIFIED",
+          source: {
+            ...operatorSource(FIXTURE_MESSAGE_METHOD),
+            original_message_hash: hash,
+            attestation_hash: fixtureProofHash(hash),
+          },
+        }),
+      ),
+    );
+    expect(original.grade).toBe("ORIGINAL_MESSAGE_VERIFIED");
+    expect(original.capture_hash).not.toBe(stored.capture_hash);
+    expect(spy).toHaveBeenCalledTimes(1); // the grade's own mechanism ran
+    expect(await allOf(t.store)).toHaveLength(2);
   });
 
   it("A1-T02 [mechanism only] the same capture reference with different content is a conflict for every grade, in both directions between the arms, and overwrites nothing", async () => {

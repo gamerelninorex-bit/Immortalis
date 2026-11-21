@@ -53,7 +53,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/epistemic":
     "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
-  "packages/operator/src": "148c35e226b7974e790300c2813a71f81c716671145d599c50383f9c59a080b3",
+  "packages/operator/src": "e6a921130710ba5495a05378a057ec92983f8ee8252db5c09d7ae11e4279f7d7",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",
 };
 

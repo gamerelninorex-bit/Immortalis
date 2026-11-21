@@ -34,6 +34,7 @@ import {
   scanInitialSetup,
 } from "@immortalis/engine";
 import {
+  InitialSetupService,
   MsActorRunner,
   UnavailableEvidenceVerifier,
   captureStartingChronology,
@@ -289,6 +290,32 @@ describe("A1-T03 [mechanism only] the operator's version 2 capture through the e
     expect(engine.ok).toBe(false);
     expect(reasonOf(engine as any)).toBe("AUTHOR_GRADE");
     expect((await publisher.input(committed)).ok).toBe(true);
+  });
+
+  it("A1-T03 [mechanism only] the author proof is still checked exactly as before: another message is a hash mismatch and an unverified proof is an unresolved authority", async () => {
+    const h = await harness();
+    const { request } = await v2Intake(h);
+    // one change: the message is not the one the proof maps to
+    const other = await h.service.intake({
+      ...request,
+      message: `${request.message} Also something else.`,
+    });
+    expect(other.status).toBe("REFUSED");
+    expect(other.reason).toBe("AUTHOR_MESSAGE_HASH");
+    noSetup(h);
+    // one change: the verifier refuses the (otherwise identical) author proof
+    const unverified = new InitialSetupService({
+      campaignId: h.campaignId,
+      store: h.store,
+      runner: h.runner,
+      verifier: UnavailableEvidenceVerifier,
+      policy: FIXTURE_POLICY,
+    });
+    const refused = await unverified.intake(request);
+    expect(refused.status).toBe("UNRESOLVED_AUTHORITY");
+    noSetup(h);
+    // control: the same request through the service whose verifier accepts the fixture proof
+    expect((await h.service.intake(request)).status).toBe("ADMITTED");
   });
 
   it("A1-T03 [mechanism only] under the unavailable production verifier a promoted grade is an unresolved authority and an operator-confirmed capture still needs a verified author", async () => {
