@@ -19,6 +19,9 @@ export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [
   "tools/gen-gm-wait-catalogue.ts",
 ];
 
+/** The tools this slice adds (the A0 suite checks spec/ and tools/ against its recorded set; these are declared here). */
+export const B1_S2S3_TOOLS_PATHS: readonly string[] = ["tools/gen-gm-wait-catalogue.ts"];
+
 /** Evidence written by this slice (custody, mutation results, cost): any file under this prefix is declared. */
 export const B1_S2S3_EVIDENCE_PREFIX = "docs/evidence/f014b-s2s3/";
 

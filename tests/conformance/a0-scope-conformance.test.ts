@@ -41,7 +41,7 @@ import {
   A0_SOURCE_LOCK_COMMIT,
 } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
-import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
+import { B1_S2S3_PACKAGE_PATHS, B1_S2S3_TOOLS_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -148,7 +148,8 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         "tools",
       ),
     );
-    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS].sort());
+    // (and the F-014B B1 S2/S3 slice's declared generator, which that slice's own table and suite police)
+    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS].sort());
   });
 
   it("against the integrated main, this slice changed exactly the recorded files under packages/ and apps/ and added no file there beyond them", () => {
@@ -200,7 +201,8 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         "tools",
       ),
     );
-    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS].sort());
+    // (and the F-014B B1 S2/S3 slice's declared generator, which that slice's own table and suite police)
+    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS].sort());
   });
 });
 
