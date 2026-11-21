@@ -38,6 +38,15 @@ S1's B1S1-C3 (the B0 module is imported by no production file) holds unchanged: 
 | `tests/conformance/pc-movement-conformance.test.ts`               | 354-356                                      | the three extra allow-lists (3 of 3): one commented entry in the allowed set, the reader reads the PC movement records by exact key                                                                                                                                                                                                                |
 | `.prettierignore`                                                 | 9-11                                         | the comment and the manifest glob                                                                                                                                                                                                                                                                                                                  |
 
+## Gates re-run on the merged tree (EXECUTED, merge commit 4964386)
+
+- prettier (format:check), eslint, tsc and check:spec: exit 0.
+- The four-project vitest run (unit, contract, conformance, security): 292 test files, 5261 tests, all passed. Main alone now carries S1's tests; this lane adds the same four test files and 92 tests as before.
+- Integration files, run on the merged tree: `b1-s1-live-origin-guard`, `b1-s1-live-origin-acceptance`, `b1-s1-old-authority-completion`, `advance-request`, `advance-request-custody`, `advance-request-recovery`, and this lane's `gm-wait-present-s3-committed` and `gm-wait-present-s3-cost`: 8 files, 132 tests, all passed. The full integration project was not re-run (CI does).
+- `tools/gen-gm-wait-catalogue.ts --check`: OK, digest `f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062`, 330227 bytes. The census of the merged tree is the same as before the merge, so the manifest did not change.
+- Squash simulation onto main `c4b7de8` (throwaway clone, detached, `git merge --squash` of the merge commit, committed): tree `70f9adad6b24717762660052cb1aaaf6ab4e81a9`, identical to the branch tree. On it: prettier, eslint, tsc and check:spec exit 0; the conformance project 95 files, 1678 tests, all passed.
+- Against main, `packages/` differs only by this lane's four added files; `packages/engine/src/temporal/admission.ts` is byte-identical to main.
+
 ## The diff (merged tree against origin/main, shared files only, zero context lines)
 
 ```diff
