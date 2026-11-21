@@ -354,3 +354,36 @@ export const isAuthorityGroup = (g: CommitGroup) =>
   g.writes.some((w) => /^temporal\/transaction-authority\//.test(w.key));
 export const isSealGroup = (g: CommitGroup) =>
   g.writes.some((w) => /^temporal\/transaction\//.test(w.key));
+
+/** The same group with the context of every transaction value (authority or seal) replaced; every other field is untouched. */
+export const withContext = (g: CommitGroup, context: unknown): CommitGroup => ({
+  ...g,
+  writes: g.writes.map((w) => {
+    const v: any = w.value;
+    return v && typeof v === "object" && "context" in v && "trigger" in v
+      ? { ...w, value: { ...v, context } }
+      : w;
+  }),
+});
+
+/** A store whose commits are rewritten in flight and recorded with the kernel's own verdict (for a store that is not a campaign). */
+export function proxyStore(
+  store: CampaignStore,
+  rewrite: (g: CommitGroup) => CommitGroup,
+): { readonly store: CampaignStore; readonly seen: { group: CommitGroup; result: any }[] } {
+  const seen: { group: CommitGroup; result: any }[] = [];
+  const proxied = new Proxy(store, {
+    get(target, prop) {
+      if (prop === "commit")
+        return async (g: CommitGroup) => {
+          const sent = rewrite(g);
+          const result = await target.commit(sent);
+          seen.push({ group: sent, result });
+          return result;
+        };
+      const v = Reflect.get(target, prop, target);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+  return { store: proxied, seen };
+}
