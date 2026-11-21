@@ -14,14 +14,18 @@ export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/src/gm-wait-present-reader.ts",
 ];
 
-/** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator). */
+/** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator and the mutation sanity check). */
 export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [
   ".prettierignore",
   "tools/gen-gm-wait-catalogue.ts",
+  "tools/gm-wait-catalogue-mutation-check.py",
 ];
 
 /** The tools this slice adds (the A0 suite checks spec/ and tools/ against its recorded set; these are declared here). */
-export const B1_S2S3_TOOLS_PATHS: readonly string[] = ["tools/gen-gm-wait-catalogue.ts"];
+export const B1_S2S3_TOOLS_PATHS: readonly string[] = [
+  "tools/gen-gm-wait-catalogue.ts",
+  "tools/gm-wait-catalogue-mutation-check.py",
+];
 
 /** Evidence written by this slice (custody, mutation results, cost): any file under this prefix is declared. */
 export const B1_S2S3_EVIDENCE_PREFIX = "docs/evidence/f014b-s2s3/";
