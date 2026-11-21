@@ -1,0 +1,634 @@
+{
+  "mutants": [
+    {
+      "id": "S2-M01",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "set-valued lists are not sorted (kinds)",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] manifest schema and canonical bytes > [S2] [mechanism only] a permutation of every set-valued list leaves the digest unchanged, and the presented order is reported"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-M02",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "duplicate tuples are not detected",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] strict structure, duplicates and unknown references are refused > [S2] [mechanism only] a duplicated tuple identity in any keyed section is refused and gets no digest"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M03",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the digest omits the policy section",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] manifest schema and canonical bytes > [S2] [mechanism only] every change to a bound source pin, policy identity or entry field changes the digest"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-M05",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "an uppercase hex digest is accepted",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] a supplied digest is accepted only if it is the current retained manifest > [S2] [mechanism only] the verdict is exactly the expected one for a table of supplied values"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M06",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "a stale retained digest is accepted as current",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] a supplied digest is accepted only if it is the current retained manifest > [S2] [mechanism only] only the current retained manifest is admissible for a fresh INITIAL; a stale one resolves history only"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M07",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "an unknown digest is accepted",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] a supplied digest is accepted only if it is the current retained manifest > [S2] [mechanism only] the retained set is empty: even the current digest is unknown, never trusted by name"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M08",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "forged retained bytes are trusted by name",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] a supplied digest is accepted only if it is the current retained manifest > [S2] [mechanism only] the verdict is exactly the expected one for a table of supplied values"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M15",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the disposition schema admits INERT",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] default deny is structural: nothing but UNDECLARED and ACTIONABLE_OR_UNSAFE is representable > [S2] [mechanism only] a literal that would classify a member safe is refused by the strict schema, so no digest exists for it"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M16",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the Epistemic literal admits INTERRUPTION_GUARDED",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] default deny is structural: nothing but UNDECLARED and ACTIONABLE_OR_UNSAFE is representable > [S2] [mechanism only] a literal that would classify a member safe is refused by the strict schema, so no digest exists for it"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M17",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the static verdict grants a permission",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] default deny is structural: nothing but UNDECLARED and ACTIONABLE_OR_UNSAFE is representable > [S2] [mechanism only] the static verdict is UNDECLARED, ACTIONABLE_OR_UNSAFE and never a permission, for a covered and an unknown capability alike"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M18",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the manifest schema stops being strict",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] strict structure, duplicates and unknown references are refused > [S2] [mechanism only] an unknown member at any depth, or a missing member, is a schema violation and gets no digest"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M19",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "a late extension owner is ignored by the coverage",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] coverage: a census taken from the declarations against the manifest > [S2] [mechanism only] each way the census departs from the manifest is its own named violation"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-M20",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "a census-method disagreement is ignored",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] coverage: a census taken from the declarations against the manifest > [S2] [mechanism only] each way the census departs from the manifest is its own named violation"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-M21",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "an added provider is reported as a mere change",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] coverage: a census taken from the declarations against the manifest > [S2] [mechanism only] each way the census departs from the manifest is its own named violation"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-M22",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "the value-schema scope literal is relaxed",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] default deny is structural: nothing but UNDECLARED and ACTIONABLE_OR_UNSAFE is representable > [S2] [mechanism only] a literal that would classify a member safe is refused by the strict schema, so no digest exists for it"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2.test.ts"]
+    },
+    {
+      "id": "S2-M23",
+      "file": "packages/engine/src/gm-wait-catalogue.ts",
+      "description": "a changed generated-key route is not reported",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "first_failing_test": "[S2] [mechanism only] coverage: a census taken from the declarations against the manifest > [S2] [mechanism only] each way the census departs from the manifest is its own named violation"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-catalogue-s2.test.ts",
+        "tests/conformance/gm-wait-catalogue-s2-census.test.ts"
+      ]
+    },
+    {
+      "id": "S2-G01",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "the scanner ignores un-annotated provider literals",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a module-private, un-annotated provider is invisible to reflection but caught by the AST, and denies the coverage"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G02",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "the event-trigger census is dropped",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a manifest missing any one branch of the census is named, section by section"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G03",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "the alternate-rule references are dropped from the kinds",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a manifest missing any one branch of the census is named, section by section"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G04",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "extension owners are not read from the bindings",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a late extension owner is named by the coverage, while the historical-verification identity does NOT change"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G05",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "a provider in no site is reported REGISTERED",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a provider added to an existing registry list changes the site, the provider status and the Culture route"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G06",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "the generated-key (produces) census is dropped",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a changed generated-key (produces) path is named, with no change to the counts"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G07",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": ".register calls are not censused",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] adversarial additions change the coverage and the digest > [S2] [mechanism only] a .register call and a non-literal registry argument are opaque registry sites"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G08",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "an adopted pin is not checked against its native verification",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] policy and source pins are bound > [S2] [mechanism only] an adopted input without a native verification at exactly its pin, or with an unlisted ratification, fails the build"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G09",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "a source line number enters the digest",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "[S2] [mechanism only] byte custody of the retained manifest > [S2] [mechanism only] a supplied digest is judged against the retained directory: current accepted, forged bytes and unknown names denied"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"]
+    },
+    {
+      "id": "S2-G10",
+      "file": "tools/gen-gm-wait-catalogue.ts",
+      "description": "the reflection skips provider modules",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-catalogue-s2-census.test.ts",
+        "first_failing_test": "load error: the manifest just built does not cover its own census: [{\"code\":\"CENSUS_METHODS_DISAGREE\",\"key\":\"culture|culture-commit-communicative-convention-close\"},{\"code\":\"CENSUS_METHODS_DISAGREE\",\"key\":\"econom"
+      },
+      "suites_run": ["tests/conformance/gm-wait-catalogue-s2-census.test.ts"],
+      "explanation": "Killed at suite setup, not by an assertion: the generator refuses to build a manifest when the two census methods disagree (CENSUS_METHODS_DISAGREE), which is the behaviour the mutant removes the agreement from."
+    },
+    {
+      "id": "S3-M01",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a malformed GIP receipt is VALID_ABSENT",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] source classes: valid absence is distinct from malformed > [S3] [mechanism only] a malformed GIP receipt is INVALID where the legacy predicate reads it as absent"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M02",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a malformed freight receipt is VALID_ABSENT",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] source classes: valid absence is distinct from malformed > [S3] [mechanism only] a malformed freight receipt is INVALID where the legacy predicate reads it as absent"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M03",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a malformed PC occupancy is read as none",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] malformed records are INVALID where the legacy readers see absence or a throw > [S3] [mechanism only] a malformed occupancy, custody, binding, movement record or clock is a refusal of its own kind and never reads as an absent record"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M04",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the boundary index is read",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] forbidden reads: no future index, schedule, due count or whole-world scan is reachable > [S3] [mechanism only] a read of any other fact kind cannot be requested: each template reads only keys of its own category"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M05",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the GIP receipt's future instant enters the evidence",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] GIP: pending, complete, invalid, and a hidden-future twin over real campaigns > [S3] [mechanism only] twin COMPLETE campaigns that differ only in the hidden sunset instant give identical evidence: the future instant is in no class, trace or verdict"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M06",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the origin witness is read on a CONTINUATION",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] a CONTINUATION whose source transaction exists proceeds through categories 1-7 and never reads the origin witness, even when one is committed"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M07",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the identity short-circuit on an existing sealed result is skipped",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] a sealed transaction is EXISTING_RESULT and nothing else is read; with the transaction record removed and its authority kept the call is PENDING custody"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M08",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "an open unsealed authority does not end the call",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] a sealed transaction is EXISTING_RESULT and nothing else is read; with the transaction record removed and its authority kept the call is PENDING custody"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M09",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a registered movement object is not an engagement",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] each movement record alone engages the PC (a registered object, a request, a commitment or a transfer): the records are read independently, and with none the PC is stationary"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M10",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a movement request alone is not an engagement",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] each movement record alone engages the PC (a registered object, a request, a commitment or a transfer): the records are read independently, and with none the PC is stationary"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M11",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a committed destination reads as settled",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] a committed, handed-over PC: the finite read trace and the PC-chain matrix > [S3] [mechanism only] a PC in transfer is IN_TRANSFER; after the earned delivery its destination is committed and it is not a settled stationary PC"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M12",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the freight pending stages become distinct classes",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] freight: the first-profile dispatch enrollment, its original E1 and TE, over a real campaign > [S3] [mechanism only] a dispatch whose E1 and TE are absent is PENDING; with E1 only it is still PENDING; with both it is COMPLETE; the pending class is one normalized class"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M13",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "an absence witness is recorded as version 1",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] source classes: valid absence is distinct from malformed > [S3] [mechanism only] an empty world is VALID_ABSENT in every addressed category it can be, with a version-0 witness for every key, and the verdict is not a permission"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M14",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the read cap is not enforced",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] the closed key-template table and the oracle > [S3] [mechanism only] the read cap is enforced: a read that would exceed it is refused, not performed"
+      },
+      "suites_run": ["tests/conformance/gm-wait-present-s3.test.ts"]
+    },
+    {
+      "id": "S3-M15",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the observed basis is not compared",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] category 2 and category 8: the present basis and the fixed origin read > [S3] [mechanism only] the observed basis must equal the present canonical time exactly; a stale, missing or malformed basis refuses"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M16",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "siOriginWitnessViolation is not applied",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] category 2 and category 8: the present basis and the fixed origin read > [S3] [mechanism only] the origin witness is read exactly once for a fresh INITIAL, and its absence means an opaque origin, not permission"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M17",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "the production catalogue yields a positive",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] category 5 (PROVISIONAL): the ledger is at most a partial candidate witness > [S3] [mechanism only] no ledger is UNKNOWN; a ledger without a catalogue-named access class is UNKNOWN; the proven ledger is PARTIAL_WITNESS only; none of them is ever a positive under the production catalogue"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M18",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a synthetic policy may carry a production digest",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] the closed verdict: permission is never the default, and the only positive is the synthetic test policy > [S3] [mechanism only] a synthetic policy id may not be a digest or a retained production digest"
+      },
+      "suites_run": ["tests/conformance/gm-wait-present-s3.test.ts"]
+    },
+    {
+      "id": "S3-M19",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "an absent origin is acceptable",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] a committed, handed-over PC: the finite read trace and the PC-chain matrix > [S3] [mechanism only] the synthetic test policy is the only positive: the same stationary world with a qualified origin witness added is a positive control, and the production catalogue still refuses it"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M20",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "an absent ledger is a partial witness",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] source classes: valid absence is distinct from malformed > [S3] [mechanism only] an empty world is VALID_ABSENT in every addressed category it can be, with a version-0 witness for every key, and the verdict is not a permission"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M21",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "an unproven PC identity counts as proven (category 5)",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] source classes: valid absence is distinct from malformed > [S3] [mechanism only] category 5: a consistent ledger whose operative PC identity is unproven is UNKNOWN, not a witness, and the proof requirements are carried in the trace"
+      },
+      "suites_run": [
+        "tests/conformance/gm-wait-present-s3.test.ts",
+        "tests/integration/gm-wait-present-s3-committed.test.ts"
+      ]
+    },
+    {
+      "id": "S3-M22",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "category-5 visibility is not required",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] category 5 (PROVISIONAL): the ledger is at most a partial candidate witness > [S3] [mechanism only] no ledger is UNKNOWN; a ledger without a catalogue-named access class is UNKNOWN; the proven ledger is PARTIAL_WITNESS only; none of them is ever a positive under the production catalogue"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M23",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a partial witness satisfies the commitments premise",
+      "result": "SURVIVED",
+      "killed_by": null,
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"],
+      "explanation": "EQUIVALENT MUTANT (REASONED): a synthetic test policy carries no catalogue, so commitmentsOf can never prove the visibility or the governing rule under it and category 5 is never PARTIAL_WITNESS there; the added condition is therefore never true on any reachable input. The integration test asserts the reachable fact instead (a synthetic policy classifies even a fully consistent ledger UNKNOWN with visibility and governing policy UNPROVEN)."
+    },
+    {
+      "id": "S3-M24",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a binding for another PC is not a mismatch",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] identity first: a sealed result, an open authority, a foreign PC, and movement records told apart one at a time > [S3] [mechanism only] a binding that couples another PC is PC_MISMATCH, not a stationary PC and not an absent one"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M25",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a corrupt original E1 reads as pending",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/integration/gm-wait-present-s3-committed.test.ts",
+        "first_failing_test": "[S3] [mechanism only] freight: the first-profile dispatch enrollment, its original E1 and TE, over a real campaign > [S3] [mechanism only] a dispatch whose E1 and TE are absent is PENDING; with E1 only it is still PENDING; with both it is COMPLETE; the pending class is one normalized class"
+      },
+      "suites_run": ["tests/integration/gm-wait-present-s3-committed.test.ts"]
+    },
+    {
+      "id": "S3-M26",
+      "file": "packages/engine/src/gm-wait-present-reader.ts",
+      "description": "a source that throws is an absence",
+      "result": "KILLED",
+      "killed_by": {
+        "suite": "tests/conformance/gm-wait-present-s3.test.ts",
+        "first_failing_test": "[S3] [mechanism only] the closed key-template table and the oracle > [S3] [mechanism only] a source that throws is unreadable, never an absence, and a stale or inserted zero key is reported by the witnesses"
+      },
+      "suites_run": ["tests/conformance/gm-wait-present-s3.test.ts"]
+    }
+  ],
+  "killed": 51,
+  "survived": 1,
+  "tool": "tools/gm-wait-catalogue-mutation-check.py",
+  "procedure": "one mutant at a time: apply a one-site text substitution to a production file or the generator, run the listed suites in order until one fails, restore the file in a finally; a clean baseline run must pass first; every anchor must occur exactly once (--anchors).",
+  "history": "first full run: 49 killed, 3 survived (S3-M05, S3-M06, S3-M23). S3-M05 and S3-M06 were real test holes (no COMPLETE hidden-future twin; no CONTINUATION whose source transaction exists) and were closed by two new integration tests; S3-M23 is an equivalent mutant. Those three and S2-G10 were re-run against the final tests and merged into this file."
+}

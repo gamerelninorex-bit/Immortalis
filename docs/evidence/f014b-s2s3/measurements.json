@@ -1,0 +1,110 @@
+{
+  "node": "v22.23.5",
+  "platform": "linux",
+  "t0_reads_vs_world_size": [
+    {
+      "n": 0,
+      "facts": 25,
+      "reads": 18,
+      "cold_us": 4351,
+      "warm_p50_us": 300,
+      "warm_p95_us": 639
+    },
+    {
+      "n": 20,
+      "facts": 46,
+      "reads": 18,
+      "cold_us": 675,
+      "warm_p50_us": 261,
+      "warm_p95_us": 411
+    },
+    {
+      "n": 60,
+      "facts": 86,
+      "reads": 18,
+      "cold_us": 655,
+      "warm_p50_us": 277,
+      "warm_p95_us": 513
+    }
+  ],
+  "hashing_and_build": {
+    "manifest_bytes": 330227,
+    "sha256_us": {
+      "p50": 380,
+      "p95": 483
+    },
+    "verify_supplied_digest_us": {
+      "p50": 381,
+      "p95": 440
+    },
+    "generate_cold_in_process_ms": 1001,
+    "census_warm_ms": {
+      "p50": 847,
+      "max": 971
+    },
+    "canonical_bytes_ms": 4.8,
+    "census_counts": {
+      "kinds": 122,
+      "providers": 17,
+      "sites": 18,
+      "provider_declarations": 17,
+      "registry_sites": 18,
+      "register_calls": 0,
+      "close_declarations": 6,
+      "event_trigger_declarations": 1,
+      "object_literals": 6,
+      "register_object_calls": 6,
+      "produces_expressions": 18
+    }
+  },
+  "cold_cli_check": {
+    "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types tools/gen-gm-wait-catalogue.ts --check",
+    "runs": [
+      {
+        "exit": 0,
+        "wall_ms": 1314
+      },
+      {
+        "exit": 0,
+        "wall_ms": 1325
+      },
+      {
+        "exit": 0,
+        "wall_ms": 1326
+      },
+      {
+        "exit": 0,
+        "wall_ms": 1195
+      },
+      {
+        "exit": 0,
+        "wall_ms": 1278
+      }
+    ],
+    "max_child_rss_kb": 220872,
+    "note": "each run is a fresh node process: import of the engine, reflection of three roots, AST scan of five roots, build, compare with the retained bytes"
+  },
+  "gate_cost_on_main_vs_branch": {
+    "label": "EXECUTED, single runs on the same machine; indicative only",
+    "main_0cff287": {
+      "test_files": 287,
+      "tests": 5153,
+      "vitest_s": 90.5,
+      "typecheck_s": 23,
+      "lint_s": 21,
+      "format_check_s": 30
+    },
+    "branch_gate_c5": {
+      "test_files": 291,
+      "tests": 5245,
+      "vitest_s": 94.87
+    },
+    "note": "the four-project vitest run grew by 4 files and 92 tests and about 4.4 s; the integration project is not part of it"
+  },
+  "t0_read_set": {
+    "max_reads_cap": 25,
+    "reads_in_committed_stationary_pc_world": 18,
+    "world_sizes_tested_unrelated_ledgers": [0, 20, 60],
+    "conclusion": "the read count is the same at every world size (EXECUTED): T0 cost does not grow with the world"
+  }
+}

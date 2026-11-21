@@ -5,7 +5,7 @@ Each mutant disables or weakens exactly ONE rule in a production file by a one-s
 the file and records whether a test failed (KILLED) or none did (SURVIVED). Mutants run one at a time; every file is restored in a
 `finally`, and the run aborts if a clean baseline does not pass first. Usage:
 
-    python3 tools/gm-wait-catalogue-mutation-check.py [--out docs/evidence/f014b-s2s3/mutation-results.json] [--only M1,M2] [--anchors]
+    python3 tools/gm-wait-catalogue-mutation-check.py [--out docs/evidence/f014b-s2s3/mutation-results.json] [--only M1,M2] [--merge] [--anchors]
 
 `--anchors` only verifies that every mutant's anchor occurs exactly once (no test run).
 """
@@ -82,6 +82,10 @@ def run(tests):
     p = subprocess.run(["npx", "vitest", "run", *tests], cwd=ROOT, capture_output=True, text=True)
     out = p.stdout + p.stderr
     failed = sorted(set(re.findall(r"FAIL\s+\|[a-z]+\|\s+(\S+) > (.+)", out)))
+    if p.returncode != 0 and not failed:
+        # a suite that fails at load (a generator or module that refuses to build): keep the first error line as the reason
+        m = re.search(r"^Error: (.+)$", out, re.M)
+        failed = [("(suite failed to load)", ("load error: " + m.group(1)[:200]) if m else "load error")]
     return p.returncode, failed, round(time.time() - t0, 1)
 
 def main():
@@ -120,8 +124,13 @@ def main():
             open(path, "w", encoding="utf8").write(original)
         results.append({"id": mid, "file": f, "description": desc, "result": "KILLED" if killed_by else "SURVIVED", "killed_by": killed_by, "suites_run": tests})
         print(f"{mid} {'KILLED' if killed_by else 'SURVIVED'}  {desc}")
-    os.makedirs(os.path.dirname(os.path.join(ROOT, out)), exist_ok=True)
-    json.dump({"mutants": results, "killed": sum(r["result"] == "KILLED" for r in results), "survived": sum(r["result"] == "SURVIVED" for r in results)}, open(os.path.join(ROOT, out), "w"), indent=2)
+    outp = os.path.join(ROOT, out)
+    os.makedirs(os.path.dirname(outp), exist_ok=True)
+    if "--merge" in argv and os.path.exists(outp):
+        old = {r["id"]: r for r in json.load(open(outp))["mutants"]}
+        old.update({r["id"]: r for r in results})
+        results = [old[mid] for mid, *_ in M if mid in old]
+    json.dump({"mutants": results, "killed": sum(r["result"] == "KILLED" for r in results), "survived": sum(r["result"] == "SURVIVED" for r in results)}, open(outp, "w"), indent=2)
     print(f"killed {sum(r['result'] == 'KILLED' for r in results)} survived {sum(r['result'] == 'SURVIVED' for r in results)} of {len(results)}")
 
 main()

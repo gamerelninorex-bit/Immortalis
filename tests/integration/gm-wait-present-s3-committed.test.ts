@@ -465,7 +465,7 @@ describe("[S3] [mechanism only] category 5 (PROVISIONAL): the ledger is at most 
       });
       expect(partialOrigin.basis.commitments.cls).toBe("PARTIAL_WITNESS");
       expect(partialOrigin.verdict).toEqual({ kind: "REFUSE", reason: "CATALOGUE_UNDECLARED" });
-      // the synthetic policy still needs its explicit fixture premise: a partial witness never answers the commitments question
+      // the synthetic policy still needs its explicit fixture premise: without it the commitments question is unestablished, whatever the ledger says
       const noPremise = makeSyntheticTestPolicy("closed-test-policy-nopremise-2", {
         accept_complete_gip: true,
         accept_complete_freight: true,
@@ -474,6 +474,15 @@ describe("[S3] [mechanism only] category 5 (PROVISIONAL): the ledger is at most 
       expect(classify(w, withOrigin, noPremise).verdict).toEqual({
         kind: "UNKNOWN",
         reason: "PC_KNOWN_COMMITMENTS_UNESTABLISHED",
+      });
+      // a synthetic test policy carries no catalogue, so it proves neither the visibility nor the governing rule: even a fully consistent
+      // ledger is UNKNOWN there, and the fixture premise (not the ledger) is what its positive rests on
+      const syn = classify(w, withOrigin, synthetic);
+      expect(syn.basis.commitments.cls).toBe("UNKNOWN");
+      expect(syn.basis.commitments.proof).toEqual({
+        EXACT_OPERATIVE_PC_IDENTITY: "PROVEN",
+        CURRENT_SOURCE_PERMISSION_VISIBILITY: "UNPROVEN",
+        GOVERNING_POLICY: "UNPROVEN",
       });
     } finally {
       await s.campaign.close();
@@ -519,6 +528,29 @@ describe("[S3] [mechanism only] GIP: pending, complete, invalid, and a hidden-fu
     } finally {
       await pending.campaign.close();
       await done.campaign.close();
+    }
+  });
+
+  it("[S3] [mechanism only] twin COMPLETE campaigns that differ only in the hidden sunset instant give identical evidence: the future instant is in no class, trace or verdict", async () => {
+    const a = await seededSunsetCampaign(tempDir("gm-wait-gip-ca-"));
+    const b = await seededSunsetCampaign(tempDir("gm-wait-gip-cb-"));
+    try {
+      await establishSunset(a, 4, sunsetInstrument(undefined, gipAt(200)));
+      await establishSunset(b, 4, sunsetInstrument(undefined, gipAt(900_000)));
+      const wa = worldOf(a.campaign.store, a.campaign.store.head().campaign_id);
+      const wb = worldOf(b.campaign.store, b.campaign.store.head().campaign_id);
+      const ra = classify(wa);
+      const rb = classify(wb);
+      expect(ra.basis.gip.cls).toBe("COMPLETE");
+      expect(rb.basis.gip.cls).toBe("COMPLETE");
+      expect(rb.basis.gip).toEqual(ra.basis.gip);
+      expect(sig(rb)).toEqual(sig(ra));
+      expect(rb.verdict).toEqual(ra.verdict);
+      expect(JSON.stringify(rb.basis)).not.toMatch(/900000/);
+      expect(JSON.stringify(rb.witnesses)).not.toMatch(/900000/);
+    } finally {
+      await a.campaign.close();
+      await b.campaign.close();
     }
   });
 
@@ -680,6 +712,38 @@ describe("[S3] [mechanism only] identity first: a sealed result, an open authori
         kind: "REFUSE",
         reason: "IDENTITY_SOURCE_INVALID",
       });
+    } finally {
+      await s.campaign.close();
+    }
+  });
+
+  it("[S3] [mechanism only] a CONTINUATION whose source transaction exists proceeds through categories 1-7 and never reads the origin witness, even when one is committed", async () => {
+    const s = await collectionCampaign();
+    try {
+      const w = handoverWorld(s);
+      await confirmAndStart(s, ACT_A, 3);
+      const done = await advanceTo(s, T0.value + 3 * TAU, "tx-complete");
+      expect(done).toMatchObject({ ok: true });
+      const withOrigin = new Overlay(w.store).set(
+        TEMPORAL_ORIGIN_KEY,
+        originFact({ campaign: w.campaign, unit: w.clock().unit }),
+      );
+      const cont = classify(w, withOrigin, production, {
+        phase: "CONTINUATION",
+        transaction_id: "tx-cont",
+        from_transaction: "tx-complete",
+        observed_basis: null,
+      });
+      // the source resolves (so the call goes past category 1), the new transaction is absent, and no origin key is asked for or recorded
+      expect(cont.basis.identity).toEqual({ cls: "VALID_ABSENT", state: "NONE" });
+      expect(cont.witnesses.some((x) => x.template === "identity.from_tx")).toBe(true);
+      expect(cont.basis.origin).toBe("NOT_READ_BY_RULE");
+      expect(withOrigin.asked).not.toContain(TEMPORAL_ORIGIN_KEY);
+      expect(cont.witnesses.some((x) => x.key === TEMPORAL_ORIGIN_KEY)).toBe(false);
+      expect(new Set(cont.witnesses.map((x) => x.category))).toEqual(new Set([1, 2, 3, 5, 6, 7]));
+      // the same world as a fresh INITIAL does read it
+      const fresh = classify(w, withOrigin);
+      expect(fresh.witnesses.some((x) => x.key === TEMPORAL_ORIGIN_KEY)).toBe(true);
     } finally {
       await s.campaign.close();
     }
