@@ -40,6 +40,7 @@ import {
   A0_SCOPED_DELTAS,
   A0_SOURCE_LOCK_COMMIT,
 } from "../support/a0-scoped-deltas.ts";
+import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -117,9 +118,11 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
       git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
     );
     // main moved after the A0 intake: B0 (PR #117) added one pure request module under packages/, declared in the table; against the A0 base
-    // the difference is exactly the A0 paths plus that declared inclusion, and against the integrated main (below) it is the A0 paths alone
+    // the difference is exactly the A0 paths plus that declared inclusion, and against the integrated main (below) it is the A0 paths alone.
+    // Declared inclusion (F-014B A1-1, a later slice): the two existing operator files in tests/support/a1-1-scoped-deltas.ts, which that
+    // slice's own table and scope conformance suite police; A0 itself still changes none of them.
     expect([...changed, ...untracked].sort()).toEqual(
-      [...A0_PACKAGE_PATHS, ...A0_DECLARED_MAIN_INCLUSIONS].sort(),
+      [...A0_PACKAGE_PATHS, ...A0_DECLARED_MAIN_INCLUSIONS, ...A1_1_PACKAGE_PATHS].sort(),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(A0_SCOPED_DELTAS), ...A0_PRESENT_DAY_FILES])
@@ -165,7 +168,10 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     const untracked = lines(
       git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
     );
-    expect([...changed, ...untracked].sort()).toEqual([...A0_PACKAGE_PATHS].sort());
+    // (and the F-014B A1-1 slice's two declared operator files, which that slice's own table and suite police)
+    expect([...changed, ...untracked].sort()).toEqual(
+      [...A0_PACKAGE_PATHS, ...A1_1_PACKAGE_PATHS].sort(),
+    );
     // the declared main inclusions are in main already: this slice does not change them
     for (const p of A0_DECLARED_MAIN_INCLUSIONS) {
       expect(changed.includes(p), `${p} changed against the integrated main`).toBe(false);
@@ -198,7 +204,8 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     "packages/protocol",
     "packages/contracts/src/temporal.ts",
     "packages/engine/src/temporal/integrity.ts",
-    // legacy operator and phone surfaces: v1-only parsers keep refusing v2, the capture store, intake and direct initialize-time stay
+    // legacy operator and phone surfaces: v1-only parsers keep refusing v2, the capture store, intake and direct initialize-time stay.
+    // (F-014B A1-1, a later slice, extends exactly two operator files, declared in tests/support/a1-1-scoped-deltas.ts and expected below.)
     "packages/operator",
     "apps",
     // MS machinery A0 does not touch: the R1 pin discipline, the publishers and the ten-clause manifest's source
@@ -221,10 +228,12 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
+      // a forbidden path moves by nothing, except the declared A1-1 inclusions that lie inside it (the two operator files)
+      const declared = A1_1_PACKAGE_PATHS.filter((a) => a === p || a.startsWith(`${p}/`)).sort();
       expect(
         lines(git("-c", "core.fileMode=false", "diff", "--name-only", A0_BASE_COMMIT, "--", p)),
         p,
-      ).toEqual([]);
+      ).toEqual(declared);
       expect(lines(git("ls-files", "--others", "--exclude-standard", "--", p)), p).toEqual([]);
     }
   });

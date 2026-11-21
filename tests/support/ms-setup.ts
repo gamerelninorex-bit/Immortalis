@@ -38,9 +38,9 @@ export async function msHarness(
     sourceOver?: Record<string, unknown>;
     doc?: ChronologyDocument;
     /**
-     * F-014B A0: the MS Input carries a strict v2 captured chronology (CAL-TIME T-1). The shipped intake parses captures with the strict
-     * v1 schema and is untouched by A0, so the Input is built exactly as the service builds it and published through the engine's
-     * original publisher on the MS route; everything after it is the unchanged service.
+     * F-014B A0: the MS Input carries a strict v2 captured chronology (CAL-TIME T-1). The intake parsed captures with the strict v1
+     * schema when A0 was built (F-014B A1-1 later widened it), so the Input is built exactly as the service builds it and published
+     * through the engine's original publisher on the MS route; everything after it is the unchanged service.
      */
     v2?: Omit<InputOptions, "route">;
     /** F-014B A0: writes the journal under another history-verification identity (an older build's), to prove a later open replays it */

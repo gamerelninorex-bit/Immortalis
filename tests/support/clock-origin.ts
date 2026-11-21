@@ -112,7 +112,7 @@ export function v1Capture(
   return { ...head, capture_hash: chronologyCaptureHash(head) };
 }
 
-/** A strict v2 capture with correct hashes. A FIXTURE UPSTREAM RECORD: the authentic v2 capture path is A1. */
+/** A strict v2 capture with correct hashes. A FIXTURE UPSTREAM RECORD: the operator-produced v2 capture is F-014B A1-1's (T1 mechanism only), and an authentic one is A1-2's. */
 export function v2Capture(
   o: CaptureOptions & { readonly document?: ChronologyDocumentV2 },
 ): ChronologyCaptureV2 {
@@ -140,10 +140,11 @@ export function rehash<T extends ChronologyCapture | ChronologyCaptureV2>(c: T):
 // ---------------------------------------------------------------------------------------------------------------------
 // The upstream setup chain through the ORIGINAL fixture publication path.
 //
-// The shipped operator intake (`InitialSetupService.intake`) parses a capture with the strict v1 schema and is deliberately untouched
-// by A0; reaching it with a v2 capture is A1. So the Input is built here exactly as the service builds it and published through the
-// engine's real `InitialSetupPublisher`, whose group builder and the owner admission judge it like any other Input. Everything after
-// the Input (SCOPE, Referee classification, Grant, SCENE, Completion) is the unchanged `InitialSetupService.advance`.
+// The operator intake (`InitialSetupService.intake`) parsed a capture with the strict v1 schema when A0 was built, and A0 left it
+// untouched; F-014B A1-1 widened it to the two-arm union (the A1 tests exercise that path). The A0 tests keep building the Input here
+// exactly as the service builds it and publishing it through the engine's real `InitialSetupPublisher`, whose group builder and the owner
+// admission judge it like any other Input, so they stay independent of the operator's capture producer. Everything after the Input (SCOPE,
+// Referee classification, Grant, SCENE, Completion) is the unchanged `InitialSetupService.advance`.
 // ---------------------------------------------------------------------------------------------------------------------
 
 export interface InputOptions {

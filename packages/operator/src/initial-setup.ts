@@ -7,7 +7,7 @@ import {
   ScopeDecisionRecordSchema,
   refereeDecisionKey,
   type AuthoredEvidence,
-  type ChronologyCapture,
+  type ChronologyEvidence,
   type InitialSetupDisposition,
   type InitialSetupInput,
   type InitialSetupResponse,
@@ -84,7 +84,8 @@ export interface IntakeRequest {
   readonly authenticated_setup_request_id: string;
   readonly message: string;
   readonly author: AuthoredEvidence;
-  readonly chronology: ChronologyCapture;
+  /** either strict arm of the record-only capture; the author check in `intake` is the same for both */
+  readonly chronology: ChronologyEvidence;
 }
 
 /** An authorization only the trusted operator code mints; ordinary host tools never construct one. */

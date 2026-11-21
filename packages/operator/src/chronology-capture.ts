@@ -1,15 +1,22 @@
 import { join } from "node:path";
 import {
   CHRONOLOGY_CAPTURE_FORMAT,
+  CHRONOLOGY_DOCUMENT_FORMAT,
   CHRONOLOGY_DOCUMENT_MAX_BYTES,
-  ChronologyCaptureSchema,
   ChronologyDocumentSchema,
+  ChronologyDocumentV2Schema,
+  ChronologyEvidenceSchema,
+  SI_SCALE_DECLARATION,
   canonicalJson,
   fail,
   isReservedEvidenceIdentity,
   ok,
   type AuthoredGrade,
   type ChronologyCapture,
+  type ChronologyCaptureV2,
+  type ChronologyDocument,
+  type ChronologyDocumentV2,
+  type ChronologyEvidence,
   type Result,
 } from "@immortalis/contracts";
 import {
@@ -35,6 +42,13 @@ import type { FsOps } from "@immortalis/engine";
  * `UnavailableEvidenceVerifier`); OPERATOR_CONFIRMED_RECORD_ONLY is the new record-only confirmation that shows the whole document to
  * the actual operator once and durably records the acceptance BEFORE consuming its ephemeral token; TOOL_CALL_ONLY is caller
  * authentication plus model-formed arguments only, capturable for diagnostics/T1 but never qualifying live Input admission.
+ *
+ * Two strict arms (CAL-TIME T-1, F-014B A1-1; T1 MECHANISM ONLY). A version 1 request names the whole document and takes exactly the path
+ * it always took. A version 2 request (`CaptureRequestV2`) carries only the author's own statement, coordinate and unit plus the author's
+ * declaration that one canonical unit is one SI second; the operator derives the document's format, version and scale, the hashes, the
+ * campaign binding and the capture envelope. There is NO default scale and NO default unit: a request without the declaration is
+ * refused, never turned into a version 2 (and never into a version 1). The grade is still established only by its own mechanism, so a
+ * confirmation is never authorship of the original message and a model-formed call never rises above TOOL_CALL_ONLY.
  */
 export type ChronologyCaptureErrorCode =
   | "DOCUMENT_INVALID"
@@ -81,6 +95,24 @@ export interface CaptureRequest {
   };
 }
 
+/**
+ * The version 2 request: the author's own words and the author's SI declaration, nothing else. The caller names no `format`,
+ * `format_version`, `scale`, hash, campaign or envelope member (an extra member in `authored` is refused); `declares_one_si_second_per_unit`
+ * must be exactly `true`, so an absent, false or otherwise-spelled declaration is refused. `grade` and `source` mean exactly what they
+ * mean for a version 1 request: the grade still has to be established by its own mechanism.
+ */
+export interface CaptureRequestV2 {
+  readonly capture_ref: string;
+  readonly authored: {
+    readonly statement: string;
+    readonly value: number;
+    readonly unit: string;
+  };
+  readonly declares_one_si_second_per_unit: true;
+  readonly grade: AuthoredGrade;
+  readonly source: CaptureRequest["source"];
+}
+
 export class ChronologyCaptureStore {
   readonly #store: ProtectedStore;
   constructor(params: { readonly dir: string; readonly macKey: Buffer; readonly fs?: FsOps }) {
@@ -92,25 +124,26 @@ export class ChronologyCaptureStore {
     });
   }
 
+  /** A stored record is read back under the strict two-arm union: either exact arm, nothing else, no extra member. */
   async read(
     captureRef: string,
-  ): Promise<Result<ChronologyCapture | null, ChronologyCaptureErrorCode>> {
+  ): Promise<Result<ChronologyEvidence | null, ChronologyCaptureErrorCode>> {
     const got = await this.#store.get(`capture:${captureRef}`);
     if (!got.ok) return got;
     if (got.value === null) return ok(null);
-    const parsed = ChronologyCaptureSchema.safeParse(got.value);
+    const parsed = ChronologyEvidenceSchema.safeParse(got.value);
     if (!parsed.success)
       return fail("STORE_CORRUPT", "a stored capture violates its strict contract");
     return ok(parsed.data);
   }
 
   /** Every durable capture (fail-closed on corruption). */
-  async all(): Promise<Result<ChronologyCapture[], ChronologyCaptureErrorCode>> {
+  async all(): Promise<Result<ChronologyEvidence[], ChronologyCaptureErrorCode>> {
     const all = await this.#store.all();
     if (!all.ok) return all;
-    const out: ChronologyCapture[] = [];
+    const out: ChronologyEvidence[] = [];
     for (const { record } of all.value) {
-      const parsed = ChronologyCaptureSchema.safeParse(record);
+      const parsed = ChronologyEvidenceSchema.safeParse(record);
       if (!parsed.success)
         return fail("STORE_CORRUPT", "a stored capture violates its strict contract");
       out.push(parsed.data);
@@ -118,7 +151,7 @@ export class ChronologyCaptureStore {
     return ok(out);
   }
 
-  async create(capture: ChronologyCapture): Promise<Result<void, ChronologyCaptureErrorCode>> {
+  async create(capture: ChronologyEvidence): Promise<Result<void, ChronologyCaptureErrorCode>> {
     return this.#store.create(`capture:${capture.capture_ref}`, capture);
   }
 }
@@ -135,21 +168,101 @@ export interface CaptureContext {
   readonly terminal?: OperatorTerminal;
 }
 
+type DerivedDocument =
+  | { readonly arm: 1; readonly document: ChronologyDocument }
+  | { readonly arm: 2; readonly document: ChronologyDocumentV2 };
+
+const isV2Request = (req: CaptureRequest | CaptureRequestV2): req is CaptureRequestV2 =>
+  Object.hasOwn(req, "authored");
+
 /**
- * Records the author's chronology once. Reuse of an existing valid record-only capture of the same document and a qualifying source
- * returns it WITHOUT another question. The returned capture is the complete strict record Input admission snapshots.
+ * The chronology document of a request. A version 1 request names the whole document and it is parsed strictly, exactly as it always
+ * was. A version 2 request names only the author's statement, coordinate and unit and the author's declaration; the document's format,
+ * version and scale are derived HERE. Nothing is defaulted: an absent declaration, an extra or missing authored member, or a document
+ * the strict version 2 schema refuses is a refusal, never a version 2 and never a quietly demoted version 1.
  */
-export async function captureStartingChronology(
-  ctx: CaptureContext,
-  req: CaptureRequest,
-): Promise<Result<ChronologyCapture, ChronologyCaptureErrorCode>> {
-  const doc = ChronologyDocumentSchema.safeParse(req.document);
+function deriveDocument(
+  req: CaptureRequest | CaptureRequestV2,
+): Result<DerivedDocument, ChronologyCaptureErrorCode> {
+  if (!isV2Request(req)) {
+    const doc = ChronologyDocumentSchema.safeParse(req.document);
+    if (!doc.success)
+      return fail(
+        "DOCUMENT_INVALID",
+        "the chronology is not a valid strict starting chronology (no default unit, no default origin)",
+      );
+    return ok({ arm: 1, document: doc.data });
+  }
+  if (Object.hasOwn(req, "document"))
+    return fail(
+      "DOCUMENT_INVALID",
+      "a capture request names its chronology exactly once: the authored words, or a version 1 document",
+    );
+  if (req.declares_one_si_second_per_unit !== true)
+    return fail(
+      "DOCUMENT_INVALID",
+      "a version 2 chronology needs the author's own declaration of one SI second per canonical unit: no scale is defaulted",
+    );
+  const authored: unknown = req.authored;
+  if (
+    typeof authored !== "object" ||
+    authored === null ||
+    Array.isArray(authored) ||
+    Object.keys(authored).sort().join() !== "statement,unit,value"
+  )
+    return fail(
+      "DOCUMENT_INVALID",
+      "the authored chronology is exactly {statement, value, unit}: the operator derives every other member and nothing is defaulted",
+    );
+  const doc = ChronologyDocumentV2Schema.safeParse({
+    format: CHRONOLOGY_DOCUMENT_FORMAT,
+    format_version: 2,
+    time: { unit: req.authored.unit, value: req.authored.value },
+    statement: req.authored.statement,
+    scale: SI_SCALE_DECLARATION,
+  });
   if (!doc.success)
     return fail(
       "DOCUMENT_INVALID",
-      "the chronology is not a valid strict starting chronology (no default unit, no default origin)",
+      "the authored chronology is not a valid strict version 2 starting chronology (no default unit, no default origin, no default scale)",
     );
-  if (Buffer.byteLength(canonicalJson(doc.data), "utf8") > CHRONOLOGY_DOCUMENT_MAX_BYTES)
+  return ok({ arm: 2, document: doc.data });
+}
+
+const sealV1 = (w: Omit<ChronologyCapture, "capture_hash">): ChronologyCapture => ({
+  ...w,
+  capture_hash: chronologyCaptureHash(w),
+});
+const sealV2 = (w: Omit<ChronologyCaptureV2, "capture_hash">): ChronologyCaptureV2 => ({
+  ...w,
+  capture_hash: chronologyCaptureHash(w),
+});
+
+/**
+ * Records the author's chronology once. Reuse of an existing valid record-only capture of the same document and a qualifying source
+ * returns it WITHOUT another question. The returned capture is the complete strict record Input admission snapshots. A version 1 request
+ * returns a version 1 capture and a version 2 request a version 2 capture; the two never share a document hash, so neither reuses the other.
+ */
+export function captureStartingChronology(
+  ctx: CaptureContext,
+  req: CaptureRequest,
+): Promise<Result<ChronologyCapture, ChronologyCaptureErrorCode>>;
+export function captureStartingChronology(
+  ctx: CaptureContext,
+  req: CaptureRequestV2,
+): Promise<Result<ChronologyCaptureV2, ChronologyCaptureErrorCode>>;
+export function captureStartingChronology(
+  ctx: CaptureContext,
+  req: CaptureRequest | CaptureRequestV2,
+): Promise<Result<ChronologyEvidence, ChronologyCaptureErrorCode>>;
+export async function captureStartingChronology(
+  ctx: CaptureContext,
+  req: CaptureRequest | CaptureRequestV2,
+): Promise<Result<ChronologyEvidence, ChronologyCaptureErrorCode>> {
+  const derived = deriveDocument(req);
+  if (!derived.ok) return derived;
+  const { document } = derived.value;
+  if (Buffer.byteLength(canonicalJson(document), "utf8") > CHRONOLOGY_DOCUMENT_MAX_BYTES)
     return fail("DOCUMENT_OVERSIZE", "the chronology document exceeds its transport bound");
   const synthetic = isReservedEvidenceIdentity(req.source.method_id);
   if (synthetic && ctx.policy.syntheticEvidence === "REJECT")
@@ -163,7 +276,7 @@ export async function captureStartingChronology(
       "the synthetic-evidence capture accepts only namespaced methods",
     );
 
-  const document_hash = chronologyDocumentHash(doc.data);
+  const document_hash = chronologyDocumentHash(document);
   const existing = await ctx.store.all();
   if (!existing.ok) return existing;
   const reusable = existing.value.find(
@@ -192,21 +305,29 @@ export async function captureStartingChronology(
       );
   }
 
-  const withoutHash: Omit<ChronologyCapture, "capture_hash"> = {
-    format: CHRONOLOGY_CAPTURE_FORMAT,
-    format_version: 1,
-    capture_ref: req.capture_ref,
-    campaign_id: ctx.campaignId,
-    document: doc.data,
-    document_hash,
-    grade: req.grade,
-    source: req.source,
-  };
-  const capture: ChronologyCapture = {
-    ...withoutHash,
-    capture_hash: chronologyCaptureHash(withoutHash),
-  };
-  if (!ChronologyCaptureSchema.safeParse(capture).success)
+  const capture: ChronologyEvidence =
+    derived.value.arm === 1
+      ? sealV1({
+          format: CHRONOLOGY_CAPTURE_FORMAT,
+          format_version: 1,
+          capture_ref: req.capture_ref,
+          campaign_id: ctx.campaignId,
+          document: derived.value.document,
+          document_hash,
+          grade: req.grade,
+          source: req.source,
+        })
+      : sealV2({
+          format: CHRONOLOGY_CAPTURE_FORMAT,
+          format_version: 2,
+          capture_ref: req.capture_ref,
+          campaign_id: ctx.campaignId,
+          document: derived.value.document,
+          document_hash,
+          grade: req.grade,
+          source: req.source,
+        });
+  if (!ChronologyEvidenceSchema.safeParse(capture).success)
     return fail("DOCUMENT_INVALID", "the capture violates its strict contract");
 
   if (req.grade === "OPERATOR_CONFIRMED_RECORD_ONLY") {
@@ -215,11 +336,13 @@ export async function captureStartingChronology(
         "UNRESOLVED_AUTHORITY",
         "no operator console is attached to confirm the chronology",
       );
-    const subject = subjectOf({ campaign_id: ctx.campaignId, document: doc.data });
+    const subject = subjectOf({ campaign_id: ctx.campaignId, document });
     const token = await requestOperatorConfirmation(ctx.terminal, "capture-chronology", subject, [
       "STARTING CHRONOLOGY — OUT OF CHARACTER; recorded ONLY. No canonical time is established and no time passes.",
-      JSON.stringify(doc.data, null, 2),
-      "These are the setting author's own words and coordinate. Nothing is defaulted or estimated.",
+      JSON.stringify(document, null, 2),
+      derived.value.arm === 1
+        ? "These are the setting author's own words and coordinate. Nothing is defaulted or estimated."
+        : "These are the setting author's own words, coordinate and declared scale (one canonical unit is exactly one SI second). Nothing is defaulted or estimated.",
     ]);
     if (!token) return fail("DECLINED", "not confirmed; nothing was recorded");
     // the acceptance is durable BEFORE the ephemeral token is consumed: the in-memory token is never the durable proof
@@ -250,9 +373,9 @@ export async function captureStartingChronology(
  */
 export async function verifyCaptureForIntake(
   ctx: Pick<CaptureContext, "campaignId" | "verifier" | "policy">,
-  capture: ChronologyCapture,
-): Promise<Result<ChronologyCapture, ChronologyCaptureErrorCode>> {
-  const parsed = ChronologyCaptureSchema.safeParse(capture);
+  capture: ChronologyEvidence,
+): Promise<Result<ChronologyEvidence, ChronologyCaptureErrorCode>> {
+  const parsed = ChronologyEvidenceSchema.safeParse(capture);
   if (!parsed.success) return fail("DOCUMENT_INVALID", "the capture violates its strict contract");
   const synthetic = isReservedEvidenceIdentity(capture.source.method_id);
   if (synthetic && ctx.policy.syntheticEvidence === "REJECT")

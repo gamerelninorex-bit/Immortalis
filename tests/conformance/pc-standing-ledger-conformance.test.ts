@@ -36,6 +36,7 @@ import { classifyGoverningRule } from "../../packages/engine/src/owners/governin
 import { A26_CHANGED_SOURCE_FILES } from "../support/a26-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
+import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
@@ -412,6 +413,8 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...A0_PACKAGE_PATHS,
       // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
       "packages/contracts/src/temporal-gm-wait.ts",
+      // Declared inclusion (F-014B A1-1): the two existing operator files (its own table and conformance suite police them); no new file.
+      ...A1_1_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)
