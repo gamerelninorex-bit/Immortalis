@@ -49,7 +49,7 @@ import {
 import { PC_TARGET_REFUSAL, PC_TARGET_TX, pcTargetTransaction } from "./pc-target-advance.ts";
 import { SUNSET_MID } from "./gip-sunset.ts";
 import { tempDir } from "./tmp.ts";
-import { B1_S1_FROZEN_ROOT } from "./b1-s1-frozen-fixtures.ts";
+import { B1_S1_FROZEN_PACKAGES, B1_S1_FROZEN_ROOT } from "./b1-s1-frozen-fixtures.ts";
 
 export const GM_TRIGGER = GM_INTERPRETED_PC_WAIT;
 export const ORDINARY_TRIGGER = "operator-progression-choice"; // a kind the shipped operator states (operator/src/commands.ts)
@@ -151,8 +151,8 @@ export interface OldJournal {
   readonly headRevision: number;
 }
 
-/** A frozen package and the custody its generator wrote with it (`name` is `zero`, `stage` or `interrupted`). */
-export const thaw = (name: "zero" | "stage" | "interrupted"): OldJournal => {
+/** A frozen package and the custody its generator wrote with it (`name` is a key of the packages table). */
+export const thaw = (name: keyof typeof B1_S1_FROZEN_PACKAGES): OldJournal => {
   const root = join(import.meta.dirname, "..", "..", B1_S1_FROZEN_ROOT, name);
   const expected = JSON.parse(readFileSync(join(root, "expected.json"), "utf8"));
   return { ...expected, dir: join(root, "package") };

@@ -12,6 +12,17 @@
 // keep it in the merged history, so no test asserts that it is an ancestor of HEAD. `expected.json` is the custody written at generation
 // time: the whole-campaign summary (head, every fact, every receipt), the sealed record / authority capture per transaction, the
 // revision of each sealed record, and the head revision.
+//
+// Two packages were added in repair round 1 (BLUE: a player+literal authority with NO credited stage and NO seal is lawful pre-S1 history that S1
+// must still be able to finish). They were generated the same way, by the same unchanged build, through the real coordinator and kernel and the
+// shipped gateway, in a throwaway checkout of `B1_S1_FROZEN_GENERATOR_COMMIT` (production admission untouched), by a generator script kept outside
+// this tree (it is a recipe, not a dependency of any test):
+//   authority-only                   the shipped gateway states the literal; the authority-open commits; the first owner stage never does (the
+//                                    store reports an unknown outcome for that one group, as in a crash); the campaign is closed. No credited
+//                                    stage, no sealed record.
+//   authority-then-stage-free-seal   the same request, but the kernel refuses the owner stage non-fatally (IM-11); the transaction seals with
+//                                    stages [] and holds the work; an ordinary-trigger continuation then completes it; then 130 ordinary pads
+//                                    so that a checkpoint lies after the record.
 
 /** The main the packages were generated from, with the production admission unchanged. */
 export const B1_S1_FROZEN_GENERATOR_COMMIT = "0cff287a0fd01c9be993ae660d8dbf370596bb73";
@@ -29,7 +40,7 @@ export const B1_S1_FROZEN_GENERATOR_SOURCE = {
 
 export const B1_S1_FROZEN_ROOT = "tests/fixtures/b1-s1-frozen";
 
-/** The three packages, the transactions each holds, and the revisions the generator recorded. */
+/** The five packages, the transactions each holds, and the revisions the generator recorded. */
 export const B1_S1_FROZEN_PACKAGES = {
   zero: {
     /** stage-less: an ordinary transaction, then the literal one (the SEAL group is its only commit), then 130 ordinary pads */
@@ -51,12 +62,87 @@ export const B1_S1_FROZEN_PACKAGES = {
     checkpointRevision: 0,
     authorityRevision: 17,
   },
+  "authority-only": {
+    /** stage-bearing, interrupted BEFORE its first owner stage: the authority-open is the head; no credited stage, no sealed record */
+    headRevision: 17,
+    checkpointRevision: 0,
+    authorityRevision: 17,
+  },
+  "authority-then-stage-free-seal": {
+    /** authority-open, the owner stage refused (not credited), the stage-free seal over that authority, an ordinary continuation, then 130 pads */
+    headRevision: 151,
+    checkpointRevision: 128,
+    authorityRevision: 17,
+    sealRevision: 18,
+    continuationSealRevision: 21,
+  },
 } as const;
 
 /** Every file of the frozen tree, keyed by its path below `B1_S1_FROZEN_ROOT`. An empty `history` directory is not stored by git. */
 export const B1_S1_FROZEN_FILES: Readonly<
   Record<string, { readonly bytes: number; readonly sha256: string }>
 > = {
+  "authority-only/expected.json": {
+    bytes: 126642,
+    sha256: "c21e05a56e3035fb04ebd10fc365fc5db84149156ad4130a6dfff6c2f52f6593",
+  },
+  "authority-only/package/journal.jsonl": {
+    bytes: 113725,
+    sha256: "801d8259218c0765a4df68d080b34995fb3bf2b88033f52ec6ec4909bf1da61d",
+  },
+  "authority-only/package/legacy-journal.v1.backup": {
+    bytes: 0,
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  },
+  "authority-only/package/legacy-manifest.v1.backup": {
+    bytes: 2124,
+    sha256: "b193b4e57f0d9737d6cbb6d1d85e95da4f09d04d6c17ca6148df70cf249410b0",
+  },
+  "authority-only/package/legacy-state.v1.backup": {
+    bytes: 72,
+    sha256: "2771c2554d803cef5a8366bdf14b3fb75af2b5a48d1f723d045716b806024dc7",
+  },
+  "authority-only/package/manifest.json": {
+    bytes: 2709,
+    sha256: "ddce9b2c128d5a805bed7b90aff59f6ca5059f06bdcd166d2be32482bf6cd98f",
+  },
+  "authority-only/package/state.0000000000.json": {
+    bytes: 72,
+    sha256: "2771c2554d803cef5a8366bdf14b3fb75af2b5a48d1f723d045716b806024dc7",
+  },
+  "authority-then-stage-free-seal/expected.json": {
+    bytes: 825762,
+    sha256: "aa8a4ffaf337e27f1e82bb6abb20fbb6c436be5b6d9caa6d56fe45f36326f74c",
+  },
+  "authority-then-stage-free-seal/package/history/index.0000000128.36853f374f2260181464834d659a906899598cf9317059e64ac4af5836b0eda9.json":
+    {
+      bytes: 864336,
+      sha256: "85a510004cfa3af1a3f56eed66f2916d3d15d9775f48649fa791dd9899877900",
+    },
+  "authority-then-stage-free-seal/package/journal.jsonl": {
+    bytes: 887447,
+    sha256: "5432709af33a8b3a4f13bfc593839dbaf0877da674a21ad440533d421ea33cec",
+  },
+  "authority-then-stage-free-seal/package/legacy-journal.v1.backup": {
+    bytes: 0,
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  },
+  "authority-then-stage-free-seal/package/legacy-manifest.v1.backup": {
+    bytes: 2124,
+    sha256: "b193b4e57f0d9737d6cbb6d1d85e95da4f09d04d6c17ca6148df70cf249410b0",
+  },
+  "authority-then-stage-free-seal/package/legacy-state.v1.backup": {
+    bytes: 72,
+    sha256: "2771c2554d803cef5a8366bdf14b3fb75af2b5a48d1f723d045716b806024dc7",
+  },
+  "authority-then-stage-free-seal/package/manifest.json": {
+    bytes: 3059,
+    sha256: "e4ea84869ad8cbb40dec937ca0b74710c5fabb990450cfe690aa00eeeb2048a6",
+  },
+  "authority-then-stage-free-seal/package/state.0000000128.json": {
+    bytes: 403255,
+    sha256: "b741f4cf59821bb423926bcd305160532cd604a46e423b4cc36f414033061476",
+  },
   "interrupted/expected.json": {
     bytes: 126924,
     sha256: "0430f53e79e1bb701f34dead9b57670fb592e84359f2fb9e1770c9cb5ba5fad5",
