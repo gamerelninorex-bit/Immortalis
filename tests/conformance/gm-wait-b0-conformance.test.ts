@@ -20,6 +20,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { A0_BASE_COMMIT, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS, A1_1_TRANSITION } from "../support/a1-1-scoped-deltas.ts";
+import { B1_S1_TRANSITION } from "../support/b1-s1-scoped-deltas.ts";
 import { code } from "../support/f027.ts";
 import { PRESENT_DAY_CODE_IDENTITIES, identityOf } from "../support/present-day-identities.ts";
 
@@ -177,11 +178,20 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const now = readFileSync(path);
         // original content and A0 content, by length
         expect(atBase!.length, `${path} original length`).toBe(t.baseBytes);
-        expect(now.length, `${path} A0 length`).toBe(t.a0Bytes);
+        // DECLARED S1 RE-BASELINE (F-014B S1, a later slice): it changes the first of these files once more. Its transition in
+        // tests/support/b1-s1-scoped-deltas.ts starts at the A0 end state recorded here (the chain of custody), so for such a path the
+        // length now is the S1 length, the diff scope against the contract base is the A0 scope plus the S1 scope (an additive change on
+        // disjoint hunks), and the A0 table head names the present-day identity. The other three files are exactly as A0 left them.
+        const s1 = B1_S1_TRANSITION[path];
+        if (s1 !== undefined)
+          expect(s1.baseBytes, `${path} S1 starts at the A0 end state`).toBe(t.a0Bytes);
+        expect(now.length, `${path} current length`).toBe(s1?.s1Bytes ?? t.a0Bytes);
         expect(sameBytes(atBase, now), `${path} really did change`).toBe(false);
         // diff scope: lines added and deleted against the base, nothing renamed, nothing binary
         const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
-        expect(stat, `${path} numstat`).toEqual([[String(t.added), String(t.deleted), path]]);
+        expect(stat, `${path} numstat`).toEqual([
+          [String(t.added + (s1?.added ?? 0)), String(t.deleted + (s1?.deleted ?? 0)), path],
+        ]);
         // the A0 base is the same content as this contract's base: B0 changed none of these files
         if (a0BaseReachable)
           expect(sameBytes(atBase, atRef(A0_BASE_COMMIT, path)), `${path} A0 base`).toBe(true);
@@ -189,7 +199,7 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const delta = A0_SCOPED_DELTAS[path];
         if (delta !== undefined) {
           expect(sha256(atBase!), `${path} original identity`).toBe(delta.base);
-          expect(sha256(now), `${path} A0 identity`).toBe(delta.head);
+          expect(sha256(now), `${path} present-day identity`).toBe(delta.head);
         }
       }
       expect(identityOf("packages/engine/src/owners/admission.ts")).toBe(

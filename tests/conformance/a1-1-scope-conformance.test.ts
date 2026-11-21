@@ -19,6 +19,7 @@ import {
   A1_1_PACKAGE_PATHS,
   A1_1_TRANSITION,
 } from "../support/a1-1-scoped-deltas.ts";
+import { B1_S1_PACKAGE_PATHS } from "../support/b1-s1-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -73,7 +74,11 @@ describe("A1-1 scope: the declared transition is the two production files and th
       const untracked = lines(
         git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
       );
-      expect([...changed, ...untracked].sort()).toEqual([...A1_1_PACKAGE_PATHS].sort());
+      // Declared inclusion (F-014B B1 S1, a later slice): the one Temporal admission file in tests/support/b1-s1-scoped-deltas.ts, which
+      // that slice's own table and scope conformance suite police; A1-1 itself still changes none of it.
+      expect([...changed, ...untracked].sort()).toEqual(
+        [...A1_1_PACKAGE_PATHS, ...B1_S1_PACKAGE_PATHS].sort(),
+      );
       // the declared allow-list is not a place to park files that did not change
       expect(A1_1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
     },
@@ -138,10 +143,11 @@ describe("A1-1 scope: the declared transition is the two production files and th
         "packages/operator/src/time-initialization.ts",
       ];
       for (const p of FORBIDDEN) {
+        // the one declared S1 path inside a forbidden tree (packages/engine/src/temporal) is that slice's, not A1-1's
         expect(
           lines(git("-c", "core.fileMode=false", "diff", "--name-only", A1_1_BASE_COMMIT, "--", p)),
           p,
-        ).toEqual([]);
+        ).toEqual(B1_S1_PACKAGE_PATHS.filter((s1) => s1.startsWith(`${p}/`)));
         expect(lines(git("ls-files", "--others", "--exclude-standard", "--", p)), p).toEqual([]);
       }
       // the guard is not vacuous: it finds the two files this slice DID change
