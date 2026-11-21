@@ -7,7 +7,9 @@
 export const B1_S2S3_BASE_COMMIT = "0cff287a0fd01c9be993ae660d8dbf370596bb73";
 
 /** Every path under packages/ this slice adds (production modules and the retained manifest bytes). */
-export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [];
+export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [
+  "packages/engine/src/gm-wait-catalogue.ts",
+];
 
 /** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator). */
 export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [".prettierignore"];
