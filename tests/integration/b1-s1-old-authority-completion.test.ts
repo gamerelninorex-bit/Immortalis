@@ -902,6 +902,11 @@ describe("R1-D the stage-free player+literal seal is refused unless it completes
     await r.campaign.close();
   });
 
+  // RECORDED LIMIT. While the typed context is the player pair alone, every value that reaches the guard states that pair, so the pair test
+  // inside the guard (role and permission) and the context line of the shared equality law cannot be told apart from a kind-only test or from
+  // no context comparison by ANY value the kernel can be given: the case below shows the typed value refuses first, and the kernel check
+  // throws at its own schema parse. Those mutations are equivalent here. They stop being equivalent the day a later slice admits a second
+  // pair to the typed contract (the positive GM waiting path); that slice must add the case then, not this one.
   it("[pure] the player pair is the only context a seal or an authority can state to the kernel: a non-player context is refused by the typed value, and the kernel check itself rejects it at its own schema parse, so the pair test inside the guard is never asked", async () => {
     const o = await openUnder(copyOf(AUTH_ONLY.dir), canonicalAdmission);
     if (!o.ok) throw new Error(JSON.stringify(o.error));
