@@ -278,7 +278,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
 });
 
 describe("the accepted source-lock artifacts are the immutable bytes BLUE passed", () => {
-  it("their size and SHA-256 are the custody table's, and the source-lock commit is an ancestor of this branch", () => {
+  it("their size and SHA-256 are the custody table's now, and (where the commit is reachable) at the source-lock commit", () => {
     for (const [path, c] of Object.entries(A0_CUSTODY_ARTIFACTS)) {
       const bytes = readFileSync(path);
       expect(bytes.length, path).toBe(c.bytes);
@@ -291,7 +291,10 @@ describe("the accepted source-lock artifacts are the immutable bytes BLUE passed
     ).toBe(11598);
     if (!reachable(A0_SOURCE_LOCK_COMMIT))
       return console.warn("SKIPPED: shallow checkout, the source-lock commit is not reachable");
-    expect(git("merge-base", "--is-ancestor", A0_SOURCE_LOCK_COMMIT, "HEAD")).not.toBeNull();
+    // Custody (BLUE Q5) is the accepted bytes at the pinned commit, which the loop below and the unconditional working-tree
+    // check above hold. It is NOT ancestry: A0 reached main by a squash merge, which keeps the source-lock commit retrievable
+    // (it is the pinned custody pointer) but does not keep it in main's history, so an ancestry assertion fails on main by
+    // construction, as the post-merge main run showed. The pre-merge branch did retain it; that was incidental, not custody.
     for (const path of Object.keys(A0_CUSTODY_ARTIFACTS)) {
       const atCommit = git("show", `${A0_SOURCE_LOCK_COMMIT}:${path}`);
       expect(atCommit && sha(atCommit), path).toBe(A0_CUSTODY_ARTIFACTS[path]!.sha256);
