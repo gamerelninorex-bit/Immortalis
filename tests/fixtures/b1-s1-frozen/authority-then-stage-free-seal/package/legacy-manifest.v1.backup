@@ -1,0 +1,50 @@
+{
+  "campaign_id": "campaign-ashfall",
+  "compatibility": {
+    "runtime_contract_sha256": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+  },
+  "created_with": {
+    "build_id": "immortalis-operator",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "format": "immortalis.campaign-package",
+  "format_version": 1,
+  "genesis_sha256": "3453403252814169282bedc304ffc01fbd8ac3730aa58bdac1bc23a1103ac19e",
+  "head": {
+    "journal_bytes": 0,
+    "journal_entries": 0,
+    "journal_head_sha256": "3453403252814169282bedc304ffc01fbd8ac3730aa58bdac1bc23a1103ac19e",
+    "revision": 0,
+    "state_file": "state.0000000000.json",
+    "state_sha256": "b0e258f5c383c20578def87fd9dca157eb4e0e757575259aae4e6e94731cacb9"
+  },
+  "last_saved_spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+    },
+    "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc"
+  },
+  "last_saved_with": {
+    "build_id": "immortalis-operator",
+    "package": "@immortalis/engine",
+    "version": "0.0.0"
+  },
+  "self_sha256": "a1ca82fce2abd69037161361c300b6a9002a8a5162dd5d0528c7c9a43277e5ad",
+  "spec_identity": {
+    "line": "f027",
+    "package_native_pin": "2026-09-29T00:40:44.707Z",
+    "package_version": "v1.0",
+    "snapshot_files": {
+      "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+      "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+      "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+    },
+    "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc"
+  }
+}

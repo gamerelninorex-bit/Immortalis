@@ -3,6 +3,7 @@ import {
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
   OWNER_POPULATION,
+  PLAYER_CHOICE_AUTHORITY,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
@@ -59,6 +60,32 @@ import {
 } from "./identity.ts";
 
 type Rejection = Failure<CommitErrorCode>;
+
+/**
+ * F-014B B1 S1 (Q-HIST-1 Option A). The trigger kind reserved for strict GM-mediated waiting. The B0 module that names it
+ * (contracts/src/temporal-gm-wait.ts) is deliberately not exported from the contracts index, so this file states the literal
+ * once, locally; a conformance test pins it equal to the B0 constant. Compared by exact string equality: no case folding, no
+ * prefix match.
+ */
+const GM_WAIT_TRIGGER_KIND = "GM_INTERPRETED_PC_WAIT";
+
+/**
+ * The B0 pairing table's row "player pair + the GM waiting trigger", applied to a NEW LIVE write only (Option A: a record
+ * that was lawfully admitted before S1 stays valid player-origin history). Called from the two live placements below and
+ * nowhere else; it is not a historical predicate, and replay never reaches it (replay runs `verifyHistorical`, and a
+ * replayed entry is not validated against the registry). Returns a message, or null. Module-private: S1 is a live owner-admission
+ * guard, not a consumer contract of the engine.
+ */
+function livePlayerPairTriggerViolation(
+  context: { readonly role: string; readonly permission: string },
+  trigger: { readonly kind: string },
+): string | null {
+  return trigger.kind === GM_WAIT_TRIGGER_KIND &&
+    context.role === PLAYER_CHOICE_AUTHORITY.role &&
+    context.permission === PLAYER_CHOICE_AUTHORITY.permission
+    ? "a new transaction stated under the player pair may not use the trigger reserved for GM-interpreted waiting"
+    : null;
+}
 
 /**
  * IM-02 kernel admission: the cross-fact rules of F-014B §2 that IM-11 enforces at publication, so a
@@ -218,6 +245,11 @@ function checkAuthority(
   const a = TransactionAuthoritySchema.parse(w.value);
   const bad = (message: string, details?: Record<string, unknown>) =>
     reject("REFERENCE_INVALID", message, { key: w.key, ...details });
+  // B1 S1: placement one of two. A stage-bearing transaction is first judged here, before any owner stage or authority is
+  // durable. The SEAL of a stage-bearing transaction is not judged again (see checkTransaction): an authority committed
+  // before S1 must still be able to seal exactly once.
+  const pairing = livePlayerPairTriggerViolation(a.context, a.trigger);
+  if (pairing) return reject("VALUE_INVALID", pairing, { key: w.key });
   if (group.writes.length !== 1) {
     return reject("VALUE_INVALID", "a transaction is opened by its authority alone");
   }
@@ -274,6 +306,65 @@ function checkAuthority(
   return null;
 }
 
+/**
+ * The law that a sealed transaction repeats exactly what its durable authority opened (F-014B §6 step 1; RC-05): true when it does NOT.
+ * The ONE comparison, used by the stage-bearing arm of `checkTransaction` and by the S1 completion exception below.
+ */
+function departsFromItsAuthority(
+  tx: ResolutionTransaction,
+  authority: unknown,
+  txWrite: CommitGroup["writes"][number] | undefined,
+): boolean {
+  const a = TransactionAuthoritySchema.safeParse(authority);
+  return (
+    !a.success ||
+    a.data.transaction_id !== tx.transaction_id ||
+    a.data.cause !== tx.cause ||
+    a.data.continues !== tx.continues ||
+    !canonicalEqual(a.data.trigger, tx.trigger) ||
+    !canonicalEqual(a.data.opening, tx.opening) ||
+    !canonicalEqual(a.data.requested, tx.requested) ||
+    !canonicalEqual(a.data.context, tx.context) ||
+    a.data.publication.basis !== txWrite?.basis ||
+    a.data.publication.secrecy !== txWrite?.secrecy
+  );
+}
+
+/**
+ * B1 S1 (Q-HIST-1 Option A), the completion exception to the stage-free denial. A stage-free seal that states the player pair and the
+ * trigger reserved for GM waiting is NEW unless the SAME transaction already holds the authority it opened before S1 (a record that was
+ * lawfully admitted then stays valid player-origin history, and its transaction must still be able to finish exactly once). This is true
+ * only when that authority is verified from the committed state alone: the record sits at the exact authority key of this transaction;
+ * its provenance is the canonical authority group (identities derived from the transaction alone, as `checkAuthority` demands of every
+ * opening); and the seal repeats it under the same law as a stage-bearing seal (`departsFromItsAuthority`). A record merely present under
+ * a related key, or a seal that departs from the authority in any compared field, does not qualify.
+ *
+ * What is NOT required: the seal group's `reads` and `depends_on` need not name the authority. The coordinator pins and depends on the
+ * authority in the seal group only when it cites stages; a stage-free seal over an earlier authority carries neither, so requiring them
+ * would refuse the very completion this exception exists for. Nor can admission see the immutable receipt (it sees the committed state,
+ * not the receipt store): the provenance group and intent identities are the state-visible binding to it.
+ */
+function completesItsOwnOpenedAuthority(
+  group: CommitGroup,
+  state: CampaignState,
+  tx: ResolutionTransaction,
+  txKey: string,
+): boolean {
+  const id = tx.transaction_id;
+  const authority = state.facts.get(temporalTransactionAuthorityKey(id));
+  return (
+    authority !== undefined &&
+    authority.provenance.group_id === transactionAuthorityGroupId(id) &&
+    authority.provenance.intent_id === transactionAuthorityIntentId(id) &&
+    authority.provenance.cause === transactionCause(id) &&
+    !departsFromItsAuthority(
+      tx,
+      authority.value,
+      group.writes.find((x) => x.key === txKey),
+    )
+  );
+}
+
 function checkTransaction(
   group: CommitGroup,
   state: CampaignState,
@@ -285,6 +376,15 @@ function checkTransaction(
   idxW: CommitGroup["writes"][number] | undefined,
 ): Rejection | null {
   const tx: ResolutionTransaction = ResolutionTransactionSchema.parse(txValue);
+  // B1 S1: placement two of two. A stage-free transaction commits its state and its seal and NO authority record, so this
+  // seal is the only group that can judge it. A stage-bearing seal is not judged here: its authority group already was.
+  // The one exception is the completion of a transaction whose OWN authority was durably opened before S1 (see below).
+  if (tx.stages.length === 0) {
+    const pairing = livePlayerPairTriggerViolation(tx.context, tx.trigger);
+    if (pairing && !completesItsOwnOpenedAuthority(group, state, tx, txKey)) {
+      return reject("VALUE_INVALID", pairing, { key: txKey });
+    }
+  }
   const stateFact = state.facts.get(TEMPORAL_STATE_KEY)!;
   const pinned = requirePrerequisite(group, state, TEMPORAL_STATE_KEY, "the temporal state");
   if (isRejection(pinned)) return pinned;
@@ -364,20 +464,8 @@ function checkTransaction(
     const authKey = temporalTransactionAuthorityKey(tx.transaction_id);
     const auth = requirePrerequisite(group, state, authKey, "the transaction authority");
     if (isRejection(auth)) return auth;
-    const a = TransactionAuthoritySchema.safeParse(auth.fact.value);
     const txWrite = group.writes.find((x) => x.key === txKey);
-    if (
-      !a.success ||
-      a.data.transaction_id !== tx.transaction_id ||
-      a.data.cause !== tx.cause ||
-      a.data.continues !== tx.continues ||
-      !canonicalEqual(a.data.trigger, tx.trigger) ||
-      !canonicalEqual(a.data.opening, tx.opening) ||
-      !canonicalEqual(a.data.requested, tx.requested) ||
-      !canonicalEqual(a.data.context, tx.context) ||
-      a.data.publication.basis !== txWrite?.basis ||
-      a.data.publication.secrecy !== txWrite?.secrecy
-    ) {
+    if (departsFromItsAuthority(tx, auth.fact.value, txWrite)) {
       return bad("a transaction repeats exactly what its durable authority opened", {
         authority: authKey,
       });
