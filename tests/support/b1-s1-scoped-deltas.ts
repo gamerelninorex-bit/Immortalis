@@ -7,6 +7,11 @@
 // file listed there updates that table only) and the identity of its tree. Custody is the bytes at the pinned base commit, not ancestry: a
 // squash merge keeps the commit retrievable but does not keep it in the merged history, so no test asserts that it is an ancestor of HEAD.
 //
+// The change is additive except for ONE pure move (repair round 1): the stage-bearing arm's inline comparison of a sealed transaction with the
+// authority it opened is moved, verbatim, into a module-private helper that the completion exception also calls, so the law is written once.
+// The deletions recorded below are exactly that block; tests/conformance/b1-s1-scope-conformance.test.ts checks that each moved line stands
+// verbatim in the helper. The guard and both helpers are module-private: no public name is added to the engine.
+//
 // A later change to the file updates this table, and the two tables above, and nothing else.
 export const B1_S1_BASE_COMMIT = "0cff287a0fd01c9be993ae660d8dbf370596bb73";
 
@@ -26,9 +31,9 @@ export const B1_S1_TRANSITION: Readonly<
 > = {
   "packages/engine/src/temporal/admission.ts": {
     baseBytes: 36594,
-    s1Bytes: 38875,
-    added: 37,
-    deleted: 0,
+    s1Bytes: 41687,
+    added: 101,
+    deleted: 13,
   },
 };
 

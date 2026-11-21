@@ -80,10 +80,18 @@ let SUNSET_TEMPLATE: string;
 let ZERO: OldJournal;
 let STAGE: OldJournal;
 let INTERRUPTED: OldJournal;
+let AUTHORITY_ONLY: OldJournal;
+let AUTHORITY_THEN_SEAL: OldJournal;
 
 beforeAll(async () => {
   SUNSET_TEMPLATE = await gatewayTemplate();
-  [ZERO, STAGE, INTERRUPTED] = [thaw("zero"), thaw("stage"), thaw("interrupted")];
+  [ZERO, STAGE, INTERRUPTED, AUTHORITY_ONLY, AUTHORITY_THEN_SEAL] = [
+    thaw("zero"),
+    thaw("stage"),
+    thaw("interrupted"),
+    thaw("authority-only"),
+    thaw("authority-then-stage-free-seal"),
+  ];
 }, 600_000);
 
 const rig = (admission: WriteAdmission | undefined = canonicalAdmission, dir?: string) =>
@@ -177,6 +185,8 @@ describe("A2 [s1 guard] a raw kernel commit of a group the coordinator did not b
       ["stage-less", ZERO, ["tx-old-literal"]],
       ["stage-bearing", STAGE, [PC_TARGET_TX]],
       ["interrupted", INTERRUPTED, [PC_TARGET_TX]],
+      ["authority-only", AUTHORITY_ONLY, [PC_TARGET_TX]],
+      ["authority-then-stage-free-seal", AUTHORITY_THEN_SEAL, [PC_TARGET_TX, PC_TARGET_TX2]],
     ];
     for (const [label, old, ids] of cases) {
       const o = await openUnder(copyOf(old.dir), canonicalAdmission);
@@ -357,7 +367,7 @@ describe("A4 retry, checkpoint re-verification, tamper and journal integrity", (
         throw new Error("the live check was consulted while opening a journal");
       },
     };
-    for (const old of [ZERO, STAGE, INTERRUPTED]) {
+    for (const old of [ZERO, STAGE, INTERRUPTED, AUTHORITY_ONLY, AUTHORITY_THEN_SEAL]) {
       const m = await reopenMatrix(old.dir, noLive, Object.keys(old.captures));
       for (const [mode, o] of Object.entries(m)) {
         expect(o.ok, `${mode}: ${JSON.stringify(o.error)}`).toBe(true);
@@ -367,7 +377,7 @@ describe("A4 retry, checkpoint re-verification, tamper and journal integrity", (
   });
 
   it("A4 [existing law] checkpoint old-history re-verification: a forced strict replay judges every entry of the old journals with the unchanged verifier and finds every one admitted", async () => {
-    for (const old of [ZERO, STAGE]) {
+    for (const old of [ZERO, STAGE, AUTHORITY_THEN_SEAL]) {
       const m = await reopenMatrix(old.dir, canonicalAdmission, Object.keys(old.captures), [
         "coldAudit",
         "coldInvalidated",
@@ -392,6 +402,8 @@ describe("A4 retry, checkpoint re-verification, tamper and journal integrity", (
       ["stage-less", ZERO],
       ["stage-bearing", STAGE],
       ["interrupted", INTERRUPTED],
+      ["authority-only", AUTHORITY_ONLY],
+      ["authority-then-stage-free-seal", AUTHORITY_THEN_SEAL],
     ] as const) {
       for (const mode of ["audit", "invalidated"] as const) {
         const options =

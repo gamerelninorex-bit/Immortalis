@@ -4,8 +4,9 @@
 //   B1S1-C1  the frozen pre-S1 campaign packages are exactly the bytes recorded in tests/support/b1-s1-frozen-fixtures.ts
 //   B1S1-C2  scope: the slice changed exactly the one declared production file (length and diff scope), nothing it is forbidden to touch moved,
 //            and nothing outside tests/ changed beyond the declared tooling file
-//   B1S1-C3  the engine's local copy of the reserved trigger literal equals the B0 constant; the live guard's verdict equals the B0 pairing table
-//            on the player-pair rows; the guard is named in no historical path; the B0 module is imported by no production file
+//   B1S1-C3  the engine's local copy of the reserved trigger literal equals the B0 constant (a bounded source-value pin); the live guard is
+//            module-private (no new public engine name); the equality law is written once; the guard is named in no historical path; the B0
+//            module is imported by no production file. The guard's BEHAVIOUR against the B0 pairing rows is judged by the integration tests.
 //   B1S1-C4  the inert E1 baseline corpus is the exact recorded bytes and is run by nothing
 //   B1S1-C5  labels: every S1 test title says what it is and claims nothing more; no test asserts commit ancestry
 //
@@ -17,12 +18,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { Id } from "@immortalis/contracts";
-import { livePlayerPairTriggerViolation } from "@immortalis/engine";
-import {
-  GM_INTERPRETED_PC_WAIT,
-  temporalOriginPairing,
-} from "../../packages/contracts/src/temporal-gm-wait.ts"; // the merged B0 module; unexported from the contracts index
+import * as engine from "@immortalis/engine";
+import { GM_INTERPRETED_PC_WAIT } from "../../packages/contracts/src/temporal-gm-wait.ts"; // the merged B0 module; unexported from the contracts index
 import { B1_S1_E1_ARTIFACT } from "../support/b1-s1-evidence-custody.ts";
 import { code } from "../support/f027.ts";
 import {
@@ -39,6 +36,8 @@ import {
   B1_S1_UNTOUCHED,
 } from "../support/b1-s1-scoped-deltas.ts";
 
+/** The lines the base commit carried inline in the stage-bearing arm and the production file no longer does: the moved comparison (see B1S1-C2). */
+const MOVED_BLOCK_DELETIONS = 13;
 const sha256 = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -128,12 +127,46 @@ describe("B1-S1 custody: the frozen pre-S1 campaign packages", () => {
       B1_S1_FROZEN_PACKAGES.interrupted.authorityRevision,
     );
     expect(cutCapture.seal).toBeNull();
+    // repair round 1: the authority with NO credited stage and NO seal (the authority-open is the head), and the authority sealed stage-free
+    const only = JSON.parse(
+      readFileSync(`${B1_S1_FROZEN_ROOT}/authority-only/expected.json`, "utf8"),
+    );
+    const onlyCapture = only.captures["tx-pc-target-advance"];
+    expect(onlyCapture.authorityReceipt.revision).toBe(
+      B1_S1_FROZEN_PACKAGES["authority-only"].authorityRevision,
+    );
+    expect(onlyCapture.authorityReceipt.revision).toBe(
+      B1_S1_FROZEN_PACKAGES["authority-only"].headRevision,
+    );
+    expect(onlyCapture.seal).toBeNull();
+    const free = JSON.parse(
+      readFileSync(`${B1_S1_FROZEN_ROOT}/authority-then-stage-free-seal/expected.json`, "utf8"),
+    );
+    const freeRow = B1_S1_FROZEN_PACKAGES["authority-then-stage-free-seal"];
+    const freeCapture = free.captures["tx-pc-target-advance"];
+    expect(freeCapture.authorityReceipt.revision).toBe(freeRow.authorityRevision);
+    expect(freeCapture.sealReceipt.revision).toBe(freeRow.sealRevision);
+    expect(freeCapture.seal.value.stages).toEqual([]);
+    expect(free.revisions["tx-pc-target-resume-2"]).toBe(freeRow.continuationSealRevision);
+    // the packages built through the shipped gateway were all last saved by the one build id the earlier gateway packages record
+    for (const name of [
+      "stage",
+      "interrupted",
+      "authority-only",
+      "authority-then-stage-free-seal",
+    ]) {
+      const m = JSON.parse(
+        readFileSync(`${B1_S1_FROZEN_ROOT}/${name}/package/manifest.json`, "utf8"),
+      );
+      expect(m.last_saved_with.build_id, name).toBe("b1s1-e2-reopen");
+      expect(m.created_with.build_id, name).toBe("immortalis-operator");
+    }
   });
 });
 
 describe("B1-S1 scope: one production file changed, by its declared amount, and nothing it is forbidden to touch", () => {
   it.skipIf(!baseReachable)(
-    "B1S1-C2 the declared file has its declared original and S1 length and diff scope (purely additive), and no other path under apps/ or packages/ is a source change (tracked or not)",
+    "B1S1-C2 the declared file has its declared original and S1 length and diff scope (additive, plus ONE pure move), and no other path under apps/ or packages/ is a source change (tracked or not)",
     () => {
       for (const [path, t] of Object.entries(B1_S1_TRANSITION)) {
         expect(atBase(path)!.length, `${path} original length`).toBe(t.baseBytes);
@@ -142,7 +175,8 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
           l.split("\t"),
         );
         expect(stat, `${path} numstat`).toEqual([[String(t.added), String(t.deleted), path]]);
-        expect(t.deleted, `${path} deletes nothing`).toBe(0);
+        // the only deletions are the stage-bearing arm's inline authority comparison, moved into one helper (see the next case)
+        expect(t.deleted, `${path} deletions are the moved block`).toBe(MOVED_BLOCK_DELETIONS);
       }
       const changed = changedSince("apps", "packages");
       expect([...changed, ...untrackedIn("apps", "packages")].sort()).toEqual(
@@ -191,21 +225,81 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
       }
     },
   );
+
+  it.skipIf(!baseReachable)(
+    "B1S1-C2 the deletions are a PURE MOVE: every compared field line the base carried inline in the stage-bearing arm now stands, verbatim and in order, in the one helper, and the law is written exactly once",
+    () => {
+      const ADMISSION = "packages/engine/src/temporal/admission.ts";
+      const removed = git("diff", "-U0", B1_S1_BASE_COMMIT, "--", ADMISSION)!
+        .toString("utf8")
+        .split("\n")
+        .filter((l) => /^-[^-]/.test(l))
+        .map((l) => l.slice(1).trim());
+      expect(removed).toHaveLength(MOVED_BLOCK_DELETIONS);
+      // the wrappers of the old inline condition; everything else removed is a compared-field line
+      const wrappers = [
+        "const a = TransactionAuthoritySchema.safeParse(auth.fact.value);",
+        "if (",
+        ") {",
+      ];
+      for (const w of wrappers) expect(removed).toContain(w);
+      const moved = removed.filter((l) => !wrappers.includes(l));
+      expect(moved).toHaveLength(MOVED_BLOCK_DELETIONS - wrappers.length);
+      const now = readFileSync(ADMISSION, "utf8")
+        .split("\n")
+        .map((l) => l.trim());
+      const at = now.findIndex((_, i) => moved.every((m, k) => now[i + k] === m));
+      expect(at, "the moved comparison stands contiguous and verbatim").toBeGreaterThan(-1);
+      expect(now[at - 1]).toBe("return (");
+      expect(now[at - 2]).toBe("const a = TransactionAuthoritySchema.safeParse(authority);");
+      // ONE law: each compared field is spelled once in code, in the helper, and both arms call that helper
+      const source = code(ADMISSION);
+      for (const field of moved.filter((m) => m.startsWith("!canonicalEqual")))
+        expect(source.split(field).length - 1, field).toBe(1);
+      expect(source.split("a.data.cause !== tx.cause").length - 1).toBe(1);
+      expect(source.split("departsFromItsAuthority(").length - 1).toBe(3); // the definition and the two arms
+      // the non-vacuity of the scanner: the base spelled the same law once, inline
+      const base = atBase(ADMISSION)!.toString("utf8");
+      expect(base.split("a.data.cause !== tx.cause").length - 1).toBe(1);
+      expect(base).not.toContain("departsFromItsAuthority");
+    },
+  );
 });
 
-describe("B1-S1 pairing: the engine's local literal and live guard against the B0 pairing table", () => {
-  const PLAYER = { role: "role.player", permission: "permission.player_choice.commit" };
-  const GM = { role: "role.gm", permission: "permission.rule.adjudicate" };
+describe("B1-S1 pairing: the engine's local literal against the B0 constant, and the guard's visibility", () => {
   const ADMISSION = "packages/engine/src/temporal/admission.ts";
+  /** The exports the module carried at the base commit, and still carries: S1 adds no public name to the engine. */
+  const BASE_EXPORTS = [
+    "continuationRequestViolation",
+    "populationReadViolation",
+    "temporalGroupCheck",
+  ] as const;
+  const PRIVATE = [
+    "livePlayerPairTriggerViolation",
+    "departsFromItsAuthority",
+    "completesItsOwnOpenedAuthority",
+    "GM_WAIT_TRIGGER_KIND",
+  ] as const;
+  /** every declaration form that would make `name` an export of a module (the scanner is pinned on a specimen below) */
+  const exportsName = (text: string, name: string): boolean =>
+    new RegExp(
+      [
+        `export\\s+(?:async\\s+)?(?:function\\*?|const|let|var|class|type|interface|enum)\\s+${name}\\b`,
+        `export\\s*(?:type\\s*)?\\{[^}]*\\b${name}\\b[^}]*\\}`,
+        `export\\s+default\\s+${name}\\b`,
+      ].join("|"),
+    ).test(text);
 
-  it("B1S1-C3 the engine's local constant is spelled once and equals the B0 constant", () => {
-    const m = [
-      ...readFileSync(ADMISSION, "utf8").matchAll(/const GM_WAIT_TRIGGER_KIND = "([^"]*)";/g),
-    ];
+  it("B1S1-C3 the engine's local constant is spelled once and equals the B0 constant (a bounded source-value pin: the literal is read from the source text and compared with the B0 module imported by relative path)", () => {
+    const source = readFileSync(ADMISSION, "utf8");
+    const m = [...source.matchAll(/^const GM_WAIT_TRIGGER_KIND = "([^"]*)";$/gm)];
     expect(m.length).toBe(1);
     expect(m[0]![1]).toBe(GM_INTERPRETED_PC_WAIT);
+    // the constant is used by the guard and by nothing else in the file
+    expect(code(ADMISSION).split("GM_WAIT_TRIGGER_KIND").length - 1).toBe(2);
     // the pin is not vacuous: a one-character difference is told apart
     expect(`${GM_INTERPRETED_PC_WAIT}x`).not.toBe(m[0]![1]);
+    expect(GM_INTERPRETED_PC_WAIT.toLowerCase()).not.toBe(m[0]![1]);
   });
 
   it("B1S1-C3 the production files that spell the literal are exactly the B0 module and the engine's local copy, each with its recorded reason", () => {
@@ -217,62 +311,60 @@ describe("B1-S1 pairing: the engine's local literal and live guard against the B
       expect(reason.length).toBeGreaterThan(20);
   });
 
-  it("B1S1-C3 the live guard's verdict equals the B0 pairing table on every player-pair row the typed trigger can express; it is silent on every other pair", () => {
-    const kinds = [
-      "operator-progression-choice",
-      "player-pc-target-choice",
-      GM_INTERPRETED_PC_WAIT,
-      GM_INTERPRETED_PC_WAIT.toLowerCase(),
-      `${GM_INTERPRETED_PC_WAIT}_2`,
-      `x${GM_INTERPRETED_PC_WAIT}`,
-      `${GM_INTERPRETED_PC_WAIT} `,
-      ` ${GM_INTERPRETED_PC_WAIT}`,
-      GM_INTERPRETED_PC_WAIT.replaceAll("_", "-"),
-      GM_INTERPRETED_PC_WAIT.slice(0, -1),
-      "",
-    ];
-    let denied = 0;
-    for (const kind of kinds) {
-      // rows the typed trigger cannot express (an empty or padded kind) are refused before admission, so the guard is never asked
-      const expressible = Id.safeParse(kind).success;
-      const verdict = livePlayerPairTriggerViolation(PLAYER, { kind }) !== null;
-      if (expressible) {
-        expect(verdict, JSON.stringify(kind)).toBe(temporalOriginPairing(PLAYER, kind) === "DENY");
-        if (verdict) denied++;
-      } else {
-        expect(verdict, JSON.stringify(kind)).toBe(false);
-      }
+  it("B1S1-C3 the live guard is NOT a public name: neither admission.ts nor the engine index exports it or any helper of this slice, and the module exports exactly what it did at the base commit", async () => {
+    const source = readFileSync(ADMISSION, "utf8");
+    for (const name of PRIVATE)
+      expect(exportsName(source, name), `source exports ${name}`).toBe(false);
+    // the runtime namespaces say the same as the text
+    const module = await import("../../packages/engine/src/temporal/admission.ts");
+    expect(Object.keys(module).sort()).toEqual([...BASE_EXPORTS]);
+    for (const name of PRIVATE) {
+      expect(name in module, `module has ${name}`).toBe(false);
+      expect(name in engine, `engine index has ${name}`).toBe(false);
     }
-    expect(denied).toBe(1); // exactly the literal itself: no case folding, no prefix, no suffix
-    // the guard does not duplicate the typed value: every other pair is refused earlier, and the guard stays silent on it
-    for (const ctx of [
-      GM,
-      { role: GM.role, permission: PLAYER.permission },
-      { role: PLAYER.role, permission: GM.permission },
+    // and at the base commit the module's declared exports were the same three
+    const baseSource = atBase(ADMISSION)?.toString("utf8");
+    if (baseSource) {
+      const declared = [
+        ...baseSource.matchAll(/^export\s+(?:async\s+)?(?:function|const|class)\s+(\w+)/gm),
+      ].map((m) => m[1]!);
+      expect(declared.sort()).toEqual([...BASE_EXPORTS]);
+    }
+    // the scanner is not vacuous: it finds each way of exporting a name, and passes a private function
+    for (const specimen of [
+      "export function livePlayerPairTriggerViolation(a) {}",
+      "export const livePlayerPairTriggerViolation = () => null;",
+      "export async function livePlayerPairTriggerViolation() {}",
+      "export { x, livePlayerPairTriggerViolation };",
+      "export { livePlayerPairTriggerViolation as other };",
+      "export default livePlayerPairTriggerViolation;",
     ])
-      for (const kind of [GM_INTERPRETED_PC_WAIT, "operator-progression-choice"])
-        expect(
-          livePlayerPairTriggerViolation(ctx, { kind }),
-          `${ctx.role}/${ctx.permission}/${kind}`,
-        ).toBeNull();
+      expect(exportsName(specimen, "livePlayerPairTriggerViolation"), specimen).toBe(true);
+    expect(
+      exportsName("function livePlayerPairTriggerViolation() {}", "livePlayerPairTriggerViolation"),
+    ).toBe(false);
+    expect(
+      exportsName(
+        "export function livePlayerPairTriggerViolation2() {}",
+        "livePlayerPairTriggerViolation",
+      ),
+    ).toBe(false);
   });
 
-  it("B1S1-C3 the guard is named in the changed file only (its definition and its two placements) and the B0 module and its unphased classifier are used by no production file", () => {
+  it("B1S1-C3 the guard is named in the changed file only (its definition and its two placements), the completion exception is named once beside its call, and the B0 module and its unphased classifier are used by no production file", () => {
     const files = productionFiles();
-    const naming = files
-      .map(
-        (f) =>
-          [f, readFileSync(f, "utf8").split("livePlayerPairTriggerViolation").length - 1] as const,
-      )
-      .filter(([, n]) => n > 0);
-    expect(naming).toEqual([[ADMISSION, 3]]);
+    const count = (name: string) =>
+      files.map((f) => [f, code(f).split(name).length - 1] as const).filter(([, n]) => n > 0);
+    expect(count("livePlayerPairTriggerViolation")).toEqual([[ADMISSION, 3]]);
+    expect(count("completesItsOwnOpenedAuthority")).toEqual([[ADMISSION, 2]]); // the definition and its one call
+    expect(count("departsFromItsAuthority")).toEqual([[ADMISSION, 3]]); // the definition and the two arms
     const b0 = "packages/contracts/src/temporal-gm-wait.ts";
     // code only: the guard's comment names the B0 module as the reason the engine cannot import it
     for (const f of files.filter((x) => x !== b0))
       expect(code(f), f).not.toMatch(/temporal-gm-wait|temporalOriginPairing|parseGmWaitRequest/);
     // the unphased DENY is used in no historical path: the historical verifier's file does not mention the guard or the literal
     expect(readFileSync("packages/engine/src/owners/admission.ts", "utf8")).not.toMatch(
-      /livePlayerPairTriggerViolation|GM_WAIT_TRIGGER_KIND|GM_INTERPRETED_PC_WAIT/,
+      /livePlayerPairTriggerViolation|completesItsOwnOpenedAuthority|GM_WAIT_TRIGGER_KIND|GM_INTERPRETED_PC_WAIT/,
     );
     // and the contracts index still does not export the B0 module
     expect(readFileSync("packages/contracts/src/index.ts", "utf8")).not.toMatch(/temporal-gm-wait/);
@@ -314,6 +406,7 @@ describe("B1-S1 labels: every S1 test says what it is and claims nothing more", 
   const INTEGRATION = [
     "tests/integration/b1-s1-live-origin-guard.test.ts",
     "tests/integration/b1-s1-live-origin-acceptance.test.ts",
+    "tests/integration/b1-s1-old-authority-completion.test.ts",
   ] as const;
   const SELF = "tests/conformance/b1-s1-scope-conformance.test.ts";
   const TITLE = /\bit(?:\.skipIf\([^)]*\))?\(\s*([`"])((?:(?!\1)[^\\\n])+)\1/g;

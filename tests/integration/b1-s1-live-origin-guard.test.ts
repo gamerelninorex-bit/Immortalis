@@ -74,10 +74,18 @@ let SUNSET_TEMPLATE: string;
 let ZERO: OldJournal;
 let STAGE: OldJournal;
 let INTERRUPTED: OldJournal;
+let AUTHORITY_ONLY: OldJournal;
+let AUTHORITY_THEN_SEAL: OldJournal;
 
 beforeAll(async () => {
   SUNSET_TEMPLATE = await gatewayTemplate();
-  [ZERO, STAGE, INTERRUPTED] = [thaw("zero"), thaw("stage"), thaw("interrupted")];
+  [ZERO, STAGE, INTERRUPTED, AUTHORITY_ONLY, AUTHORITY_THEN_SEAL] = [
+    thaw("zero"),
+    thaw("stage"),
+    thaw("interrupted"),
+    thaw("authority-only"),
+    thaw("authority-then-stage-free-seal"),
+  ];
   log("frozen", {
     zero: {
       head: ZERO.headRevision,
@@ -577,7 +585,7 @@ async function rigStage(admission: WriteAdmission | undefined): Promise<Check[]>
 
 describe("e. [s1 guard] the production admission refuses a NEW player+literal write at BOTH placements and preserves every old record", () => {
   it("[s1 guard] the verifier identity is the one the frozen packages were saved under, so a warm reopen still trusts their checkpoints", () => {
-    for (const j of [ZERO, STAGE, INTERRUPTED])
+    for (const j of [ZERO, STAGE, INTERRUPTED, AUTHORITY_ONLY, AUTHORITY_THEN_SEAL])
       expect(manifestOf(j.dir).head.checkpoint.verification_policy).toBe(
         canonicalAdmission.historyVerificationId,
       );
@@ -882,6 +890,8 @@ describe("h. [existing law] the frozen player+literal journals reopen warm and c
     ["stage-less", () => ZERO],
     ["stage-bearing", () => STAGE],
     ["interrupted", () => INTERRUPTED],
+    ["authority-only", () => AUTHORITY_ONLY],
+    ["authority-then-stage-free-seal", () => AUTHORITY_THEN_SEAL],
   ] as const) {
     it(`[existing law] ${label}: every composition opens warm and audit with the frozen whole-campaign summary and a clean integrity report`, async () => {
       const old = pick();

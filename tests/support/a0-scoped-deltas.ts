@@ -74,7 +74,7 @@ export const A0_SCOPED_DELTAS: Readonly<
   // S1 transition in tests/support/b1-s1-scoped-deltas.ts, and the B0 invariance test composes the two.
   "packages/engine/src/temporal/admission.ts": {
     base: "fc7bb7ff4d03a082c46ef4d52ce5ba3ad51f37b22f612175d5be3a9a86d09667",
-    head: "50a0ebc2f9e00444c336d840654e3a1816a8fa33ac6e42d6a7126dbd52bc3ca7",
+    head: "58a48ae262ef72424cc53d88202339244aadde50897dc299b23bdee36c4029c4",
   },
   "packages/engine/src/temporal/bootstrap.ts": {
     base: "ebe3f575666e768a873ab8d3d8fa47376c53cd5513f88a581d728a9156548a63",
