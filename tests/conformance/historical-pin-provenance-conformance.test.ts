@@ -23,6 +23,7 @@ import {
 import { RP2_BASE, RP2_BASE_TREE, RP2_SOURCE_DELTAS } from "../support/rp2-source-deltas.ts";
 import { A0_BASE_COMMIT, A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
+import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
 import {
   A26_ADMISSION_DELTAS,
@@ -354,6 +355,7 @@ describe("RP-2 pins the four authorized production repairs", () => {
         ...A0_PACKAGE_PATHS,
         "packages/contracts/src/temporal-gm-wait.ts",
         ...A1_1_PACKAGE_PATHS,
+        ...B1_S2S3_PACKAGE_PATHS,
       ].sort(),
     );
     const lockPath = "spec/f027/spec-lock.json";

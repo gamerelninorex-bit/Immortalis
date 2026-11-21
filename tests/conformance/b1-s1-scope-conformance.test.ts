@@ -35,6 +35,12 @@ import {
   B1_S1_TRANSITION,
   B1_S1_UNTOUCHED,
 } from "../support/b1-s1-scoped-deltas.ts";
+import {
+  B1_S2S3_EVIDENCE_PREFIX,
+  B1_S2S3_OUTSIDE_PACKAGE_PATHS,
+  B1_S2S3_PACKAGE_PATHS,
+  B1_S2S3_TOOLS_PATHS,
+} from "../support/b1-s2s3-scoped-deltas.ts";
 
 /** The lines the base commit carried inline in the stage-bearing arm and the production file no longer does: the moved comparison (see B1S1-C2). */
 const MOVED_BLOCK_DELETIONS = 13;
@@ -179,8 +185,9 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
         expect(t.deleted, `${path} deletions are the moved block`).toBe(MOVED_BLOCK_DELETIONS);
       }
       const changed = changedSince("apps", "packages");
+      // Declared inclusion (F-014B B1 S2/S3, a later slice): its new package paths, policed by that slice's own table and suite.
       expect([...changed, ...untrackedIn("apps", "packages")].sort()).toEqual(
-        [...B1_S1_PACKAGE_PATHS].sort(),
+        [...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
       );
       // the declared allow-list is not a place to park files that did not change
       expect(B1_S1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
@@ -193,16 +200,29 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
       const outside = [...changedSince("."), ...untrackedIn(".")].filter(
         (p) => !p.startsWith("tests/"),
       );
-      expect(outside.sort()).toEqual([...B1_S1_PACKAGE_PATHS, ...B1_S1_NON_PACKAGE_PATHS].sort());
+      // Declared inclusion (F-014B B1 S2/S3): its new package paths, its tooling and its evidence directory (policed by that slice's own suite).
+      const s2s3 = new Set([...B1_S2S3_PACKAGE_PATHS, ...B1_S2S3_OUTSIDE_PACKAGE_PATHS]);
+      const expected = new Set([...B1_S1_PACKAGE_PATHS, ...B1_S1_NON_PACKAGE_PATHS, ...s2s3]);
+      expect(
+        [...new Set(outside.filter((p) => !p.startsWith(B1_S2S3_EVIDENCE_PREFIX)))].sort(),
+      ).toEqual([...expected].sort());
     },
   );
 
   it.skipIf(!baseReachable)(
     "B1S1-C2 every path the slice is forbidden to touch (the historical verifier's file and identity, the D-3 integrity, coordinator, owner registry, the typed contract, the gateways, the B0 module and its tests, the A0 and A1-1 modules, the spec lock) is byte-identical to the base commit, tracked or not",
     () => {
+      // (F-014B B1 S2/S3 adds only its own declared tooling under tools/: nothing else there moves)
+      const s2s3Tools = new Set(B1_S2S3_TOOLS_PATHS);
       for (const p of B1_S1_UNTOUCHED) {
-        expect(changedSince(p), p).toEqual([]);
-        expect(untrackedIn(p), p).toEqual([]);
+        expect(
+          changedSince(p).filter((x) => !s2s3Tools.has(x)),
+          p,
+        ).toEqual([]);
+        expect(
+          untrackedIn(p).filter((x) => !s2s3Tools.has(x)),
+          p,
+        ).toEqual([]);
       }
       // the guard is not vacuous: it finds the one file this slice DID change
       for (const p of B1_S1_PACKAGE_PATHS) expect(changedSince(p)).toEqual([p]);
