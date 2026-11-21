@@ -13,6 +13,12 @@ import { sha256Text } from "./hash.ts";
  * `INTERRUPTION_GUARDED` are unrepresentable in manifest version 1). The census that FILLS a manifest from the actual registry,
  * provider and extension declarations is `tools/gen-gm-wait-catalogue.ts` (it needs the TypeScript compiler, a root dev dependency).
  *
+ * BUILD/TEST-TIME COVERAGE ONLY. The census and the coverage comparison below falsify an added dormant provider, an added
+ * alternate registration site, a changed generated-key (`produces`) path and a late extension at build and test time. Runtime
+ * enforcement and enrolment admission remain S4 / F-014B section 10 source gates; nothing in this module is, or describes, a
+ * runtime all-enrolled veto. An unknown capability is `UNDECLARED`, never a production-safe verdict. The counts a census records
+ * (providers, registry sites, Closes, routes) are an inspected observation the manifest is regenerated from, not a closed set.
+ *
  * The internal keys and tuple order below are technical engineering, not frozen wire law: no wire schema, persistence policy or raw
  * admission behavior changes. This module is deliberately NOT exported from the package index.
  */
@@ -104,7 +110,9 @@ export const CloseEntrySchema = z.strictObject({ name_expr: Text, name_value: Te
 export const EventTriggerEntrySchema = z.strictObject({ kind: Text, provider: Text });
 export const ObjectRouteEntrySchema = z.strictObject({
   route_id: Text,
-  kind: z.enum(["OBJECT_LITERAL", "REGISTER_OBJECT_CALL"]),
+  kind: z.enum(["OBJECT_LITERAL", "REGISTER_OBJECT_CALL", "PRODUCES_EXPRESSION"]),
+  /** sha256 of the normalised source expression of a generated-key (`produces`) path; null for the other kinds */
+  fp: Sha256.nullable(),
 });
 
 export const ExtensionDispatchSchema = z.strictObject({
@@ -140,6 +148,7 @@ export const ScopeSchema = z.strictObject({
     event_trigger_declarations: z.number().int().nonnegative(),
     object_literals: z.number().int().nonnegative(),
     register_object_calls: z.number().int().nonnegative(),
+    produces_expressions: z.number().int().nonnegative(),
   }),
 });
 
@@ -147,6 +156,10 @@ export const PolicySchema = z.strictObject({
   epistemic: z.literal(EPISTEMIC_ACTIONABLE_OR_UNSAFE),
   default_disposition: Disposition,
   value_schema_fp_scope: z.literal("STRUCTURAL_ONLY"),
+  /** what this manifest is: build/test-time coverage. Runtime enforcement and enrolment admission are NOT here (S4 / section 10 gates) */
+  enforcement_boundary: z.literal(
+    "BUILD_TEST_TIME_COVERAGE_ONLY_RUNTIME_ENFORCEMENT_AND_ENROLMENT_ADMISSION_REMAIN_S4_SECTION_10_SOURCE_GATES",
+  ),
   evaluator: z.strictObject({ id: z.literal("NONE_SECTION_10_NOT_ACCEPTED") }),
   live_admission: z.strictObject({ id: z.literal("NOT_INSTALLED_NO_GM_WRITER") }),
   historical_verification: z.strictObject({
@@ -514,6 +527,7 @@ export const COVERAGE_VIOLATION_CODES = [
   "EVENT_TRIGGER_CHANGED",
   "OBJECT_ROUTE_NOT_IN_MANIFEST",
   "OBJECT_ROUTE_MISSING_FROM_CENSUS",
+  "OBJECT_ROUTE_CHANGED",
   "EXTENSION_OWNER_NOT_IN_MANIFEST",
   "EXTENSION_DISPATCH_CHANGED",
   "CULTURE_ROUTE_CHANGED",
@@ -632,6 +646,7 @@ export function catalogueCoverageViolations(
       {
         added: "OBJECT_ROUTE_NOT_IN_MANIFEST",
         missing: "OBJECT_ROUTE_MISSING_FROM_CENSUS",
+        changed: "OBJECT_ROUTE_CHANGED",
       },
     ),
   );

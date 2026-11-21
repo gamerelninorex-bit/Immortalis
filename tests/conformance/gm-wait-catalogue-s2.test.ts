@@ -153,7 +153,14 @@ describe("[S2] [mechanism only] manifest schema and canonical bytes", () => {
         (m.closes[0] as { name_value: string | null }).name_value = "changed";
       },
       "object route": (m) => {
-        m.object_routes.push({ route_id: "object_literal@gamma", kind: "OBJECT_LITERAL" });
+        m.object_routes.push({
+          route_id: "object_literal@gamma",
+          kind: "OBJECT_LITERAL",
+          fp: null,
+        });
+      },
+      "generated-key expression fingerprint": (m) => {
+        (m.object_routes[1] as { fp: string | null }).fp = sha("another-produces-expr");
       },
       "extension dispatch structure": (m) => {
         m.extension_dispatch.structure_sha256 = sha("another-structure");
@@ -204,6 +211,9 @@ describe("[S2] [mechanism only] default deny is structural: nothing but UNDECLAR
         (((m["providers"] as Record<string, unknown>[])[0] as Record<string, unknown>)[
           "disposition"
         ] = "INERT"),
+      "enforcement boundary claims runtime enforcement": (m) =>
+        ((m["policy"] as Record<string, unknown>)["enforcement_boundary"] =
+          "RUNTIME_ALL_ENROLLED_VETO"),
       "extension group history verified": (m) =>
         ((m["extension_dispatch"] as Record<string, unknown>)[
           "historical_verification_of_extension_groups"
@@ -495,12 +505,24 @@ describe("[S2] [mechanism only] coverage: a census taken from the declarations a
         "EVENT_TRIGGER_NOT_IN_MANIFEST:trig-2",
       ],
       [
+        "a changed generated-key expression",
+        {
+          ...c,
+          object_routes: c.object_routes.map((r) =>
+            r.kind === "PRODUCES_EXPRESSION"
+              ? { ...r, fp: sha("a different produces expression") }
+              : r,
+          ),
+        },
+        "OBJECT_ROUTE_CHANGED:produces@alpha#build",
+      ],
+      [
         "an added object route",
         {
           ...c,
           object_routes: [
             ...c.object_routes,
-            { route_id: "object_literal@zz", kind: "OBJECT_LITERAL" as const },
+            { route_id: "object_literal@zz", kind: "OBJECT_LITERAL" as const, fp: null },
           ],
         },
         "OBJECT_ROUTE_NOT_IN_MANIFEST:object_literal@zz",

@@ -8,11 +8,16 @@ export const B1_S2S3_BASE_COMMIT = "0cff287a0fd01c9be993ae660d8dbf370596bb73";
 
 /** Every path under packages/ this slice adds (production modules and the retained manifest bytes). */
 export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [
+  "packages/engine/gm-wait-catalogue/manifests/f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062.json",
+  "packages/engine/src/gm-wait-catalogue-current.ts",
   "packages/engine/src/gm-wait-catalogue.ts",
 ];
 
 /** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator). */
-export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [".prettierignore"];
+export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [
+  ".prettierignore",
+  "tools/gen-gm-wait-catalogue.ts",
+];
 
 /** Evidence written by this slice (custody, mutation results, cost): any file under this prefix is declared. */
 export const B1_S2S3_EVIDENCE_PREFIX = "docs/evidence/f014b-s2s3/";

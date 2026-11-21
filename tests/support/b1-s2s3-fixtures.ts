@@ -46,6 +46,8 @@ export function miniManifest(): GmWaitCatalogueManifest {
       epistemic: "ACTIONABLE_OR_UNSAFE",
       default_disposition: "UNDECLARED",
       value_schema_fp_scope: "STRUCTURAL_ONLY",
+      enforcement_boundary:
+        "BUILD_TEST_TIME_COVERAGE_ONLY_RUNTIME_ENFORCEMENT_AND_ENROLMENT_ADMISSION_REMAIN_S4_SECTION_10_SOURCE_GATES",
       evaluator: { id: "NONE_SECTION_10_NOT_ACCEPTED" },
       live_admission: { id: "NOT_INSTALLED_NO_GM_WRITER" },
       historical_verification: {
@@ -143,7 +145,10 @@ export function miniManifest(): GmWaitCatalogueManifest {
     sites: [{ site_id: "site-a", members: ["alpha|alpha-op"], opaque: false }],
     closes: [{ name_expr: "ALPHA_CLOSE", name_value: "alpha-close" }],
     event_triggers: [{ kind: "trig-1", provider: "alpha|alpha-op" }],
-    object_routes: [{ route_id: "object_literal@alpha", kind: "OBJECT_LITERAL" }],
+    object_routes: [
+      { route_id: "object_literal@alpha", kind: "OBJECT_LITERAL", fp: null },
+      { route_id: "produces@alpha#build", kind: "PRODUCES_EXPRESSION", fp: sha("produces-expr") },
+    ],
     extension_dispatch: {
       function: "storeBindings",
       structure_sha256: sha("ext-structure"),
@@ -170,6 +175,7 @@ export function miniManifest(): GmWaitCatalogueManifest {
         event_trigger_declarations: 1,
         object_literals: 1,
         register_object_calls: 0,
+        produces_expressions: 1,
       },
     },
   };
