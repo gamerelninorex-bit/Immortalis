@@ -22,6 +22,7 @@ import {
   B1_S2S3_PACKAGE_PATHS,
   B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS,
 } from "../support/b1-s2s3-scoped-deltas.ts";
+import { B1_S1_PACKAGE_PATHS } from "../support/b1-s1-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -70,7 +71,10 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
     () => {
       const changed = changedSince("apps", "packages");
       const untracked = untrackedIn("apps", "packages");
-      expect([...changed, ...untracked].sort()).toEqual([...B1_S2S3_PACKAGE_PATHS].sort());
+      // Declared inclusion (F-014B B1 S1, merged first): its one Temporal admission file, policed by that slice's own table and suite.
+      expect([...changed, ...untracked].sort()).toEqual(
+        [...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
+      );
       // every declared path is an ADDED file: absent from the base commit
       for (const p of B1_S2S3_PACKAGE_PATHS)
         expect(git("cat-file", "-e", `${B1_S2S3_BASE_COMMIT}:${p}`), `${p} is new`).toBeNull();
@@ -83,7 +87,11 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
       const outside = [...changedSince("."), ...untrackedIn(".")].filter(
         (p) => !p.startsWith("tests/"),
       );
-      const declared = new Set([...B1_S2S3_PACKAGE_PATHS, ...B1_S2S3_OUTSIDE_PACKAGE_PATHS]);
+      const declared = new Set([
+        ...B1_S1_PACKAGE_PATHS,
+        ...B1_S2S3_PACKAGE_PATHS,
+        ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
+      ]);
       const unexpected = outside.filter(
         (p) => !declared.has(p) && !p.startsWith(B1_S2S3_EVIDENCE_PREFIX),
       );
@@ -124,9 +132,17 @@ describe("[scope] [mechanism only] B1 S2/S3 forbidden files are byte-identical t
   it.skipIf(!baseReachable)(
     "[scope] [mechanism only] no forbidden path changed, tracked or not, and the guard is not vacuous",
     () => {
+      // (the one Temporal admission file F-014B B1 S1 declares in its own table is the only change another slice may carry here)
+      const otherSlices = new Set(B1_S1_PACKAGE_PATHS);
       for (const p of FORBIDDEN) {
-        expect(changedSince(p), p).toEqual([]);
-        expect(untrackedIn(p), p).toEqual([]);
+        expect(
+          changedSince(p).filter((x) => !otherSlices.has(x)),
+          p,
+        ).toEqual([]);
+        expect(
+          untrackedIn(p).filter((x) => !otherSlices.has(x)),
+          p,
+        ).toEqual([]);
       }
       // not vacuous: the guard finds a path this slice DID change (the formatter ignore list)
       expect(changedSince(".prettierignore")).toEqual([".prettierignore"]);

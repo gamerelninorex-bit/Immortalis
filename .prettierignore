@@ -19,3 +19,6 @@ tests/fixtures/s4-legacy-pc-c6ea29d/handover/package/manifest.json
 # Retained canonical JSON bytes: never reformat historical campaign witnesses.
 tests/fixtures/r02-a01-pre-s4/*/manifest.json
 tests/fixtures/r02-a01-pre-s4/*/state.0000000000.json
+
+# B1 S1: frozen pre-S1 campaign packages and their custody file. Retained canonical JSON bytes: never reformat them (custody is by length and SHA-256).
+tests/fixtures/b1-s1-frozen/**/*.json

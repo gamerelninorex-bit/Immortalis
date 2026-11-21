@@ -6,15 +6,16 @@ authority, mutates no canonical state and grants no permission. Every catalogue 
 
 Labels: EXECUTED = a command was run and its output observed; REASONED = derived from source text or code without running it; UNKNOWN = not established.
 
-| File                                   | What it holds                                                                                                                                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `custody.md`                           | the retained manifest (path, length, SHA-256), the regeneration command and what makes `--check` fail, toolchain, the source register and its verification state |
-| `coverage-and-hook-sites.md`           | how the census works, the falsification set, and the three runtime hook sites this slice does not touch                                                          |
-| `s3-present-reader.md`                 | the eight-category read set, source classes, verdicts, category 5 (provisional) and the missing producer/consumer authority, the declared A0 re-pin              |
-| `proposals-for-blue.md`                | every item built on the Builder's own proposal, for BLUE exact-head review, and what is UNKNOWN                                                                  |
-| `measurements.md`, `measurements.json` | T0 reads against world size, hashing, build-time traversal, cold and warm timings, cost to the existing gates                                                    |
-| `mutation.md`, `mutation-results.json` | the mutation sanity check: table, survivors and their explanation                                                                                                |
-| `records.md`                           | gate counts, the full integration project run, the squash simulation, the trial merge over PR #121, and forbidden-file byte identity                             |
+| File                                   | What it holds                                                                                                                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `custody.md`                           | the retained manifest (path, length, SHA-256), the regeneration command and what makes `--check` fail, toolchain, the source register and its verification state                  |
+| `coverage-and-hook-sites.md`           | how the census works, the falsification set, and the three runtime hook sites this slice does not touch                                                                           |
+| `s3-present-reader.md`                 | the eight-category read set, source classes, verdicts, category 5 (provisional) and the missing producer/consumer authority, the declared A0 re-pin                               |
+| `proposals-for-blue.md`                | every item built on the Builder's own proposal, for BLUE exact-head review, and what is UNKNOWN                                                                                   |
+| `measurements.md`, `measurements.json` | T0 reads against world size, hashing, build-time traversal, cold and warm timings, cost to the existing gates                                                                     |
+| `mutation.md`, `mutation-results.json` | the mutation sanity check: table, survivors and their explanation                                                                                                                 |
+| `records.md`                           | gate counts, the full integration project run, the squash simulation, the trial merge over PR #121, and forbidden-file byte identity                                              |
+| `shared-pin-delta.md`                  | the exact line-level edits to shared scope suites after integrating main (PR #121 merged), the three extra GIP / PC-movement allow-lists, and the gates re-run on the merged tree |
 
 Files this slice adds (all new; no existing production file under `packages/` is changed): `packages/engine/src/gm-wait-catalogue.ts`, `gm-wait-catalogue-current.ts`, `gm-wait-present-reader.ts`,
 `packages/engine/gm-wait-catalogue/manifests/<digest>.json`, `tools/gen-gm-wait-catalogue.ts`, `tools/gm-wait-catalogue-mutation-check.py`, and tests under `tests/`. The declared table is

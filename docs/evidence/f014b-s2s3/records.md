@@ -225,4 +225,4 @@ What each hunk asserts now, with no S1 assertion loosened for any other path:
 - S2/S3 (4)-(6): this lane's own scope suite tolerates exactly the one Temporal admission file S1 declares in its table, in the declared-paths, outside-tests and forbidden-tree assertions, and nothing else.
   S1's B1S1-C3 (the B0 module is imported by no production file) holds: the S2/S3 production modules do not import `temporal-gm-wait.ts`.
 
-Status: this delta has NOT been applied to this branch. Integration with main is pending the coordinator's go (BLUE sequencing).
+Status: this was the trial. After the coordinator's go the delta was applied in a merge of main c4b7de8 into this branch; the result and the line-level delta are in `shared-pin-delta.md`, and the gates re-run on the merged tree are recorded there.
