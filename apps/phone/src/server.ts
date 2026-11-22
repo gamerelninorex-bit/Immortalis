@@ -68,6 +68,7 @@ import type { LocalityOutcome } from "./locality-evidence.ts";
 import { readPlayContext, unavailableContext, type PlayContextRead } from "./play-context.ts";
 import { readPlay } from "./play-evidence.ts";
 import type { ToolContext } from "./mcp-http.ts";
+import { buildGmWaitTool } from "./gm-wait-tool.ts";
 import { createMcpHttp, type McpHttp } from "./mcp-http.ts";
 import { createOAuth, type OAuthServer, type SecretCheck } from "./oauth.ts";
 import { openOAuthGrantLedger, type OAuthGrantLedger } from "./oauth-ledger.ts";
@@ -2894,15 +2895,27 @@ export function createPhoneServer(config: PhoneConfig, deps: PhoneDeps = {}): Ph
       serverInfo: { name: "immortalis-chat", version: "0.1.0" },
       ...(deps.negotiation ? { negotiation: deps.negotiation } : {}),
       instructions: TOOL_INSTRUCTIONS,
-      tools: buildChatTools({
-        reviews,
-        advanceOpening: (ctx) => pumpOpening({ authority: ctx, internal: true }),
-        config,
-        runs: playerRuns,
-        ...(deps.chat ?? {}),
-        callReferee: refereeTool,
-        ...(delayedDeps ? { delayed: delayedDeps } : {}),
-      }),
+      tools: [
+        ...buildChatTools({
+          reviews,
+          advanceOpening: (ctx) => pumpOpening({ authority: ctx, internal: true }),
+          config,
+          runs: playerRuns,
+          ...(deps.chat ?? {}),
+          callReferee: refereeTool,
+          ...(delayedDeps ? { delayed: delayedDeps } : {}),
+        }),
+        // F-014B A1-2a: the non-writing GM waiting verification exists only when the operator listed an enrolled GM waiting host
+        ...((config.gmWaitHostIds?.length ?? 0) > 0
+          ? [
+              buildGmWaitTool({
+                config,
+                now,
+                oauthStatus: (client, grant) => oauthLedger?.status(client, grant) ?? "UNAVAILABLE",
+              }),
+            ]
+          : []),
+      ],
     });
   }
   const readForm = (req: IncomingMessage): Promise<Record<string, unknown> | undefined> =>

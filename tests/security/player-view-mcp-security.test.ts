@@ -122,7 +122,10 @@ describe("the transport cannot reach authority it was not given", () => {
       (x) =>
         !NEW_FILES.includes(x) &&
         !x.includes("/observe-request") &&
-        !x.includes("/advance-request"),
+        !x.includes("/advance-request") &&
+        // F-014B A1-2a (GM waiting ingress): its `gm-wait*` modules reach the same `openAuthorizedPlayerView` proof and are bound by
+        // tests/conformance/a1-2a-scope-conformance.test.ts (they never call the read gateway, its binder, its tool name or its credential)
+        !x.includes("/gm-wait"),
     ))
       expect(code(f), f).not.toMatch(
         /readCurrentObservationGlance|bindTrustedCurrentPlayerContext|read_current_observation_glance|PROTOCOL_OP_READ_CURRENT_OBSERVATION_GLANCE|player-view/,

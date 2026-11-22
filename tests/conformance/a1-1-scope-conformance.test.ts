@@ -21,6 +21,7 @@ import {
 } from "../support/a1-1-scoped-deltas.ts";
 import { B1_S1_PACKAGE_PATHS } from "../support/b1-s1-scoped-deltas.ts";
 import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
+import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -78,7 +79,12 @@ describe("A1-1 scope: the declared transition is the two production files and th
       // Declared inclusions (F-014B B1 S1 and B1 S2/S3, later slices): the paths in tests/support/b1-s1-scoped-deltas.ts and
       // tests/support/b1-s2s3-scoped-deltas.ts, which those slices' own tables and scope conformance suites police; A1-1 itself changes none of them.
       expect([...changed, ...untracked].sort()).toEqual(
-        [...A1_1_PACKAGE_PATHS, ...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
+        [
+          ...A1_1_PACKAGE_PATHS,
+          ...B1_S1_PACKAGE_PATHS,
+          ...B1_S2S3_PACKAGE_PATHS,
+          ...A1_2A_PACKAGE_PATHS,
+        ].sort(),
       );
       // the declared allow-list is not a place to park files that did not change
       expect(A1_1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
@@ -144,11 +150,15 @@ describe("A1-1 scope: the declared transition is the two production files and th
         "packages/operator/src/time-initialization.ts",
       ];
       for (const p of FORBIDDEN) {
-        // the one declared S1 path inside a forbidden tree (packages/engine/src/temporal) is that slice's, not A1-1's
+        // the declared S1 path inside a forbidden tree (packages/engine/src/temporal) is that slice's, and the declared A1-2a paths under apps/ and packages/operator are that slice's, not A1-1's
         expect(
           lines(git("-c", "core.fileMode=false", "diff", "--name-only", A1_1_BASE_COMMIT, "--", p)),
           p,
-        ).toEqual(B1_S1_PACKAGE_PATHS.filter((s1) => s1.startsWith(`${p}/`)));
+        ).toEqual(
+          [...B1_S1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]
+            .filter((d) => d.startsWith(`${p}/`))
+            .sort(),
+        );
         expect(lines(git("ls-files", "--others", "--exclude-standard", "--", p)), p).toEqual([]);
       }
       // the guard is not vacuous: it finds the two files this slice DID change
@@ -211,7 +221,6 @@ describe("A1-T08 [mechanism only] the legacy controls and the version 1 direct r
         "apps/phone/src/route-stages.ts",
         "apps/phone/src/chat-tools.ts",
         "tests/integration/legacy-package-compat.test.ts",
-        "tests/integration/phone-bridge.test.ts",
         "tests/integration/initial-setup-falsifiers.test.ts",
         "tests/unit/protected-store.test.ts",
       ];
@@ -220,6 +229,18 @@ describe("A1-T08 [mechanism only] the legacy controls and the version 1 direct r
         expect(base, `${p} exists at the base`).not.toBeNull();
         expect(base!.equals(readFileSync(p)), p).toBe(true);
       }
+      // F-014B A1-2a: the phone bridge's static census of apps/phone/src gains exactly ONE line, the name of the new GM waiting tool module
+      // (declared in tests/support/a1-2a-scoped-deltas.ts); every other byte of the file is the base commit's.
+      const bridge = "tests/integration/phone-bridge.test.ts";
+      const stat = lines(
+        git("-c", "core.fileMode=false", "diff", "--numstat", A1_1_BASE_COMMIT, "--", bridge),
+      );
+      expect(stat).toEqual([`1\t0\t${bridge}`]);
+      expect(
+        lines(
+          git("-c", "core.fileMode=false", "diff", "-U0", A1_1_BASE_COMMIT, "--", bridge),
+        ).filter((l) => /^[+-][^+-]/.test(l)),
+      ).toEqual(['+      "gm-wait-tool.ts",']);
       // not vacuous: one byte of difference is told apart
       const sample = atBase(same[0]!)!;
       const flipped = Buffer.from(sample);
