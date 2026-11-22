@@ -33,7 +33,7 @@ M = [
   ("S2-M15", CORE, "the disposition schema admits INERT", "const Disposition = z.literal(DISPOSITION_UNDECLARED);", 'const Disposition = z.enum(["UNDECLARED", "INERT"]);', [T_CORE]),
   ("S2-M16", CORE, "the Epistemic literal admits INTERRUPTION_GUARDED", "epistemic: z.literal(EPISTEMIC_ACTIONABLE_OR_UNSAFE),", 'epistemic: z.enum(["ACTIONABLE_OR_UNSAFE", "INTERRUPTION_GUARDED"]),', [T_CORE]),
   ("S2-M17", CORE, "the static verdict grants a permission", "    permits: false,\n    coverage:", "    permits: true as never,\n    coverage:", [T_CORE]),
-  ("S2-M18", CORE, "the manifest schema stops being strict", "export const GmWaitCatalogueManifestSchema = z.strictObject({", "export const GmWaitCatalogueManifestSchema = z.looseObject({", [T_CORE]),
+  ("S2-M18", CORE, "the v1 manifest schema stops being strict", "export const GmWaitCatalogueManifestV1Schema = z.strictObject({", "export const GmWaitCatalogueManifestV1Schema = z.looseObject({", [T_CORE]),
   ("S2-M19", CORE, "a late extension owner is ignored by the coverage", "if (!have.has(o))", "if (false && !have.has(o))", [T_CORE, T_CENSUS]),
   ("S2-M20", CORE, "a census-method disagreement is ignored", "if (p.found_by.length !== 2)", "if (false)", [T_CORE, T_CENSUS]),
   ("S2-M21", CORE, "an added provider is reported as a mere change", 'added: "PROVIDER_NOT_IN_MANIFEST",', 'added: "PROVIDER_CHANGED",', [T_CORE, T_CENSUS]),

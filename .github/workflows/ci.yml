@@ -40,6 +40,9 @@ jobs:
       - name: Spec-lock / acceptance register / open-gates consistency
         if: ${{ !cancelled() }}
         run: pnpm run check:spec
+      - name: Static GM-wait catalogue and retained archive
+        if: ${{ !cancelled() }}
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types tools/gen-gm-wait-catalogue.ts --check
       - name: Zero-confirmation opening (mechanism only; live client UNRUN)
         if: ${{ !cancelled() }}
         run: pnpm exec vitest run tests/integration/zero-confirmation-opening.test.ts

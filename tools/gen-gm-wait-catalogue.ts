@@ -1,4 +1,4 @@
-// F-014B B1 S2 - the GM-wait catalogue census, manifest builder and byte-custody generator.
+// F-014B B1 - the GM-wait catalogue census, manifest builder and byte-custody generator.
 //
 //   node --disable-warning=ExperimentalWarning --experimental-strip-types tools/gen-gm-wait-catalogue.ts --check   (default; fails on drift)
 //   node --disable-warning=ExperimentalWarning --experimental-strip-types tools/gen-gm-wait-catalogue.ts --write   (writes the digest-named manifest and the current-digest module)
@@ -14,12 +14,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
 import * as contracts from "@immortalis/contracts";
 import {
-  type CatalogueCensus,
+  type CatalogueCensusV2,
   type GmWaitCatalogueManifest,
-  GmWaitCatalogueManifestSchema,
+  type GmWaitCatalogueManifestV2,
+  GM_WAIT_CATALOGUE_MANIFEST_VERSION,
+  GmWaitCatalogueManifestV2Schema,
   catalogueCanonicalBytes,
   catalogueCoverageViolations,
-  catalogueDigest,
   normalizeManifest,
   valueSchemaFingerprint,
 } from "../packages/engine/src/gm-wait-catalogue.ts";
@@ -43,6 +44,7 @@ import { inputBasisViolation } from "../packages/engine/src/culture/derive.ts";
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const MANIFEST_DIR = "packages/engine/gm-wait-catalogue/manifests";
 export const CURRENT_MODULE = "packages/engine/src/gm-wait-catalogue-current.ts";
+const V1_ARCHIVE_SHA256 = "f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062";
 /** Roots the AST scan covers (production sources only: the testkit and the tests are fixtures, not production certification). */
 export const AST_ROOTS = [
   "apps",
@@ -76,9 +78,9 @@ export interface AdoptedInput {
   };
 }
 
-const verified = (pin: string) => ({
+const verified = (pin: string, on = "2026-11-21") => ({
   observed_page_last_edited_at: pin,
-  verified_on: "2026-11-21",
+  verified_on: on,
 });
 const P = {
   prospective: ["41a20af9-01e0-811f-9c75-d404f82674cc", "2026-11-16T15:18:44.683Z"],
@@ -90,6 +92,8 @@ const P = {
   consolidated: ["41520af9-01e0-81f6-b8d5-ec29df56296e", "2026-11-11T00:34:47.360Z"],
   twoBlocker: ["41520af9-01e0-817e-bc38-fd479338b87c", "2026-11-11T02:29:27.464Z"],
   am3Rat: ["41a20af9-01e0-81ec-bd92-fefe3a524dc4", "2026-11-16T06:58:35.373Z"],
+  terminalRed: ["42020af9-01e0-81ba-9830-d14070ec9789", "2026-11-22T13:02:53.745Z"],
+  terminalRat: ["42020af9-01e0-81f6-9ab3-e6c32e4f19e7", "2026-11-22T13:06:43.623Z"],
 } as const;
 const ref = (p: readonly [string, string]) => ({ page_uuid: p[0], native_pin: p[1] });
 
@@ -139,7 +143,7 @@ export const ADOPTED_INPUTS: readonly AdoptedInput[] = [
   {
     ...ref(P.consolidated),
     label: "F-014B GM-Mediated Passive Waiting Consolidated v0.6",
-    clauses: ["section-3", "section-4", "section-5", "section-6"],
+    clauses: ["section-3", "section-4", "section-5", "section-6", "section-10"],
     ratification: null,
     verification: verified(P.consolidated[1]),
   },
@@ -156,6 +160,29 @@ export const ADOPTED_INPUTS: readonly AdoptedInput[] = [
     clauses: ["AM-3.1", "AM-3.2", "AM-3.3", "AM-3.P"],
     ratification: null,
     verification: verified(P.am3Rat[1]),
+  },
+  {
+    ...ref(P.terminalRed),
+    label: "F-014B Terminal RED controlling riders (bounded design and prerequisites)",
+    clauses: ["R-3", "R-5", "R-6", "R-7e", "R-8", "R-9", "R-E.1", "R-H.1 (prerequisite only)"],
+    ratification: ref(P.terminalRat),
+    verification: verified(P.terminalRed[1], "2026-11-22"),
+  },
+  {
+    ...ref(P.terminalRat),
+    label: "Sovereign ratification: F-014B Terminal RED (design only)",
+    clauses: [
+      "D1",
+      "D2",
+      "D3(a)",
+      "D4(c)",
+      "D4(e)",
+      "R-E with R-E.1",
+      "N8",
+      "R-9 (controlling reading)",
+    ],
+    ratification: null,
+    verification: verified(P.terminalRat[1], "2026-11-22"),
   },
 ];
 
@@ -204,6 +231,40 @@ export function readSourceFiles(root: string, roots: readonly string[]): SourceF
     for (const abs of walkTs(join(root, r)).sort())
       files.set(relative(root, abs).split("\\").join("/"), readFileSync(abs, "utf8"));
   return { files };
+}
+
+const sourceFingerprints = new Map<string, { text: string; sha256: string }>();
+
+/**
+ * Bind the source of predicates and their helpers even when reflection reports an identical shape.
+ * Tree structure retains parsing decisions (including automatic semicolon insertion), and leaf text
+ * retains literal content. Comments and spacing between tokens carry no identity. The generated
+ * current pointer is excluded to avoid a digest depending on itself.
+ */
+function sourcePolicy(files: ReadonlyMap<string, string>): CatalogueCensusV2["source_policy"] {
+  return {
+    algorithm: "TS_SYNTAX_TREE_SHA256_V1",
+    unproven_declarations: "DENY",
+    files: [...files]
+      .filter(([path]) => path !== CURRENT_MODULE)
+      .sort(([a], [b]) => cmp(a, b))
+      .map(([path, text]) => {
+        const previous = sourceFingerprints.get(path);
+        if (previous?.text === text) return { path, sha256: previous.sha256 };
+        const source = ts.createSourceFile(path, text, ts.ScriptTarget.ES2023, true);
+        const syntax: (number | string)[] = [];
+        const visit = (node: ts.Node): void => {
+          const children = node.getChildren(source).filter((child) => !ts.isJSDoc(child));
+          syntax.push(node.kind, children.length);
+          if (children.length === 0) syntax.push(node.getText(source));
+          else children.forEach(visit);
+        };
+        visit(source);
+        const sha256 = sha256Canonical(syntax);
+        sourceFingerprints.set(path, { text, sha256 });
+        return { path, sha256 };
+      }),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -522,7 +583,7 @@ const notionUuid = (artifact: string): string => {
 type RuleSourceRef = GmWaitCatalogueManifest["rules"][number]["source_ref"];
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-export async function buildCensus(opts: CensusOptions = {}): Promise<CatalogueCensus> {
+export async function buildCensus(opts: CensusOptions = {}): Promise<CatalogueCensusV2> {
   const root = opts.root ?? REPO_ROOT;
   const astFiles = new Map(readSourceFiles(root, AST_ROOTS).files);
   for (const x of opts.extraRoots ?? [])
@@ -717,6 +778,7 @@ export async function buildCensus(opts: CensusOptions = {}): Promise<CatalogueCe
   }));
 
   return {
+    source_policy: sourcePolicy(astFiles),
     historical_verification: {
       canonical_id: canonicalId,
       legacy_contract_suffix: legacyId.slice(canonicalId.length),
@@ -757,12 +819,12 @@ export async function buildCensus(opts: CensusOptions = {}): Promise<CatalogueCe
 // ---------------------------------------------------------------------------------------------
 
 export function buildManifest(
-  census: CatalogueCensus,
+  census: CatalogueCensusV2,
   adopted: readonly AdoptedInput[] = ADOPTED_INPUTS,
-): GmWaitCatalogueManifest {
+): GmWaitCatalogueManifestV2 {
   assertAdoptedInputsVerified(adopted);
-  const m: GmWaitCatalogueManifest = {
-    manifest_version: 1,
+  const m: GmWaitCatalogueManifestV2 = {
+    manifest_version: GM_WAIT_CATALOGUE_MANIFEST_VERSION,
     format: "immortalis-gm-wait-catalogue",
     policy: {
       epistemic: "ACTIONABLE_OR_UNSAFE",
@@ -775,6 +837,7 @@ export function buildManifest(
       historical_verification: census.historical_verification,
       owner_policy: census.owner_policy,
       audience_projection: census.audience_projection,
+      source_policy: census.source_policy,
       conversion: {
         rule: "SI_SUBDAY_V1",
         factors: { second: 1, minute: 60, hour: 3600 },
@@ -800,11 +863,11 @@ export function buildManifest(
     closes: census.closes,
     event_triggers: census.event_triggers,
     object_routes: census.object_routes,
-    extension_dispatch: census.extension_dispatch,
+    extension_dispatch: { ...census.extension_dispatch, historical_coverage: "UNRETIRED_DENY" },
     culture_route: census.culture_route,
     scope: census.scope,
   };
-  return normalizeManifest(GmWaitCatalogueManifestSchema.parse(m));
+  return normalizeManifest(GmWaitCatalogueManifestV2Schema.parse(m));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -815,7 +878,7 @@ export const currentModuleText = (digest: string, retained: readonly string[]): 
   `// GENERATED by tools/gen-gm-wait-catalogue.ts --write. Do not edit: a drift fails \`--check\` and the S2 conformance suite.\n` +
   `// The digest names the build's current GM-wait catalogue manifest (packages/engine/gm-wait-catalogue/manifests/<digest>.json).\n` +
   `export const GM_WAIT_CATALOGUE_CURRENT_SHA256 =\n  "${digest}";\n\n` +
-  `/** Every retained manifest, by digest: a fresh INITIAL is admitted only for the current one; a retained one resolves history. */\n` +
+  `/** Every retained manifest, by digest. Only the current identity qualifies for a fresh INITIAL digest check. */\n` +
   `export const GM_WAIT_CATALOGUE_RETAINED_SHA256: readonly string[] = [\n${retained.map((d) => `  "${d}",\n`).join("")}];\n`;
 
 export const retainedDigests = (
@@ -832,7 +895,7 @@ export const retainedDigests = (
 };
 
 export interface Generated {
-  readonly manifest: GmWaitCatalogueManifest;
+  readonly manifest: GmWaitCatalogueManifestV2;
   readonly bytes: string;
   readonly digest: string;
   readonly byteLength: number;
@@ -850,7 +913,7 @@ export async function generate(opts: CensusOptions = {}): Promise<Generated> {
   return {
     manifest,
     bytes,
-    digest: catalogueDigest(manifest),
+    digest: sha256Text(bytes),
     byteLength: Buffer.byteLength(bytes, "utf8"),
   };
 }
@@ -866,6 +929,23 @@ export const defaultLocations = (root: string = REPO_ROOT): DriftLocations => ({
   currentModule: CURRENT_MODULE,
 });
 
+function retainedArchiveProblems(loc: DriftLocations, retained: readonly string[]): string[] {
+  const problems: string[] = [];
+  if (!retained.includes(V1_ARCHIVE_SHA256))
+    problems.push(`missing required v1 archive ${V1_ARCHIVE_SHA256}.json`);
+  for (const digest of retained) {
+    try {
+      const bytes = readFileSync(join(loc.root, loc.manifestDir, `${digest}.json`), "utf8");
+      if (sha256Text(bytes) === digest && catalogueCanonicalBytes(JSON.parse(bytes)) === bytes)
+        continue;
+    } catch {
+      // Report an unreadable or invalid archive by its digest, the same as a byte mismatch.
+    }
+    problems.push(`invalid retained manifest ${digest}.json`);
+  }
+  return problems;
+}
+
 /** What differs between the freshly measured manifest and the files at `loc`; an empty list means no drift. */
 export function checkDrift(g: Generated, loc: DriftLocations = defaultLocations()): string[] {
   const problems: string[] = [];
@@ -874,9 +954,14 @@ export function checkDrift(g: Generated, loc: DriftLocations = defaultLocations(
     problems.push(`no retained manifest ${loc.manifestDir}/${g.digest}.json`);
   else if (readFileSync(manifestPath, "utf8") !== g.bytes)
     problems.push("the retained manifest bytes differ from the census");
-  const retained = [...new Set([...retainedDigests(loc.root, loc.manifestDir), g.digest])].sort(
-    cmp,
+  const onDisk = retainedDigests(loc.root, loc.manifestDir);
+  problems.push(
+    ...retainedArchiveProblems(
+      loc,
+      onDisk.filter((d) => d !== g.digest),
+    ),
   );
+  const retained = [...new Set([...onDisk, g.digest])].sort(cmp);
   const currentPath = join(loc.root, loc.currentModule);
   if (
     !existsSync(currentPath) ||
@@ -897,15 +982,14 @@ async function main(): Promise<number> {
     return 0;
   }
   if (mode === "--write") {
+    const retained = retainedDigests();
+    const archiveProblems = retainedArchiveProblems(defaultLocations(), retained);
+    if (archiveProblems.length > 0) throw new Error(archiveProblems.join("\n"));
     const manifestPath = join(REPO_ROOT, MANIFEST_DIR, `${g.digest}.json`);
     mkdirSync(dirname(manifestPath), { recursive: true });
-    if (existsSync(manifestPath) && readFileSync(manifestPath, "utf8") !== g.bytes)
-      throw new Error(
-        `${manifestPath} exists with different bytes: a retained manifest is never rewritten`,
-      );
-    writeFileSync(manifestPath, g.bytes);
-    const retained = [...new Set([...retainedDigests(), g.digest])].sort(cmp);
-    writeFileSync(join(REPO_ROOT, CURRENT_MODULE), currentModuleText(g.digest, retained));
+    if (!retained.includes(g.digest)) writeFileSync(manifestPath, g.bytes, { flag: "wx" });
+    const indexed = [...new Set([...retained, g.digest])].sort(cmp);
+    writeFileSync(join(REPO_ROOT, CURRENT_MODULE), currentModuleText(g.digest, indexed));
     console.log(
       `wrote ${relative(REPO_ROOT, manifestPath)} (${g.byteLength} bytes) and ${CURRENT_MODULE}`,
     );

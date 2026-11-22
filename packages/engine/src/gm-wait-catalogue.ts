@@ -9,8 +9,9 @@ import { sha256Text } from "./hash.ts";
  *
  * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments: no clock, no randomness, no filesystem,
  * no store, no network. Nothing here installs a writer, opens an authority, changes an owner rule or classifies any capability safe:
- * every entry is `UNDECLARED` and the Epistemic member stays `ACTIONABLE_OR_UNSAFE` (`INERT`, `PASSIVE_PROVEN` and
- * `INTERRUPTION_GUARDED` are unrepresentable in manifest version 1). The census that FILLS a manifest from the actual registry,
+ * every generated entry is `UNDECLARED` and the Epistemic member stays `ACTIONABLE_OR_UNSAFE`. Version 2 represents all five
+ * source dispositions as vocabulary. Validation bars positive classifications while the evaluator and member proofs are absent.
+ * The census that fills a manifest from the actual registry,
  * provider and extension declarations is `tools/gen-gm-wait-catalogue.ts` (it needs the TypeScript compiler, a root dev dependency).
  *
  * BUILD/TEST-TIME COVERAGE ONLY. The census and the coverage comparison below falsify an added dormant provider, an added
@@ -24,7 +25,7 @@ import { sha256Text } from "./hash.ts";
  */
 
 export const GM_WAIT_CATALOGUE_FORMAT = "immortalis-gm-wait-catalogue";
-export const GM_WAIT_CATALOGUE_MANIFEST_VERSION = 1;
+export const GM_WAIT_CATALOGUE_MANIFEST_VERSION = 2;
 export const DISPOSITION_UNDECLARED = "UNDECLARED";
 export const EPISTEMIC_ACTIONABLE_OR_UNSAFE = "ACTIONABLE_OR_UNSAFE";
 
@@ -179,8 +180,8 @@ export const PolicySchema = z.strictObject({
   }),
 });
 
-export const GmWaitCatalogueManifestSchema = z.strictObject({
-  manifest_version: z.literal(GM_WAIT_CATALOGUE_MANIFEST_VERSION),
+export const GmWaitCatalogueManifestV1Schema = z.strictObject({
+  manifest_version: z.literal(1),
   format: z.literal(GM_WAIT_CATALOGUE_FORMAT),
   policy: PolicySchema,
   sources: z.array(SourceEntrySchema),
@@ -196,7 +197,38 @@ export const GmWaitCatalogueManifestSchema = z.strictObject({
   culture_route: CultureRouteSchema,
   scope: ScopeSchema,
 });
+
+const V2Disposition = z.enum([
+  "INERT",
+  "PASSIVE_PROVEN",
+  EPISTEMIC_ACTIONABLE_OR_UNSAFE,
+  DISPOSITION_UNDECLARED,
+  "INTERRUPTION_GUARDED",
+]);
+
+const SourcePolicySchema = z.strictObject({
+  algorithm: z.literal("TS_SYNTAX_TREE_SHA256_V1"),
+  files: z.array(z.strictObject({ path: Text, sha256: Sha256 })).min(1),
+  unproven_declarations: z.literal("DENY"),
+});
+
+export const GmWaitCatalogueManifestV2Schema = GmWaitCatalogueManifestV1Schema.extend({
+  manifest_version: z.literal(GM_WAIT_CATALOGUE_MANIFEST_VERSION),
+  kinds: z.array(KindEntrySchema.extend({ disposition: V2Disposition })),
+  providers: z.array(ProviderEntrySchema.extend({ disposition: V2Disposition })),
+  policy: PolicySchema.extend({ source_policy: SourcePolicySchema }),
+  extension_dispatch: ExtensionDispatchSchema.extend({
+    historical_coverage: z.literal("UNRETIRED_DENY"),
+  }),
+});
+
+export const GmWaitCatalogueManifestSchema = z.discriminatedUnion("manifest_version", [
+  GmWaitCatalogueManifestV1Schema,
+  GmWaitCatalogueManifestV2Schema,
+]);
 export type GmWaitCatalogueManifest = z.infer<typeof GmWaitCatalogueManifestSchema>;
+export type GmWaitCatalogueManifestV1 = z.infer<typeof GmWaitCatalogueManifestV1Schema>;
+export type GmWaitCatalogueManifestV2 = z.infer<typeof GmWaitCatalogueManifestV2Schema>;
 
 // ---------------------------------------------------------------------------------------------
 // Canonical form: set-valued lists sorted by their declared string tuples; source-semantic order preserved
@@ -260,12 +292,17 @@ const normScope = (s: GmWaitCatalogueManifest["scope"]): GmWaitCatalogueManifest
   ) as GmWaitCatalogueManifest["scope"]["census_methods"],
 });
 
+const normSourcePolicy = (p: GmWaitCatalogueManifestV2["policy"]["source_policy"]) => ({
+  ...p,
+  files: sortedBy(p.files, (f) => f.path),
+});
+
 /**
  * Sorts every set-valued list by its declared tuple (BLUE R-1: "Canonically sort set-valued lists by their declared string tuples").
  * `authority_lineage` (source-semantic order) is NOT a set and keeps its order. Takes an already schema-valid manifest; duplicates
  * are not removed here (see `validateManifest`).
  */
-export function normalizeManifest(m: GmWaitCatalogueManifest): GmWaitCatalogueManifest {
+export function normalizeManifest<T extends GmWaitCatalogueManifest>(m: T): T {
   return {
     ...m,
     policy: {
@@ -277,6 +314,9 @@ export function normalizeManifest(m: GmWaitCatalogueManifest): GmWaitCatalogueMa
         })),
       },
       audience_projection: normAudience(m.policy.audience_projection),
+      ...(m.manifest_version === 2
+        ? { source_policy: normSourcePolicy(m.policy.source_policy) }
+        : {}),
     },
     sources: sortedBy(m.sources, SECTION_KEYS.sources).map(normSource),
     rules: sortedBy(m.rules, SECTION_KEYS.rules),
@@ -300,6 +340,7 @@ export const MANIFEST_VIOLATION_CODES = [
   "DUPLICATE_TUPLE",
   "UNSORTED_SET",
   "UNKNOWN_REF",
+  "UNPROVEN_DISPOSITION",
 ] as const;
 export type ManifestViolationCode = (typeof MANIFEST_VIOLATION_CODES)[number];
 export interface ManifestViolation {
@@ -345,6 +386,52 @@ export function validateManifest(raw: unknown): readonly ManifestViolation[] {
     ["object_routes", m.object_routes.map(SECTION_KEYS.object_routes)],
     ["owners", m.policy.owner_policy.owners.map(SECTION_KEYS.owners)],
     ["unresolved_declarations", m.unresolved_declarations],
+    ...(m.manifest_version === 2
+      ? ([
+          ["policy.source_policy.files", m.policy.source_policy.files.map((f) => f.path)],
+          ["scope.ast_roots", m.scope.ast_roots],
+          ["scope.reflection_roots", m.scope.reflection_roots],
+          ["scope.excluded_roots", m.scope.excluded_roots],
+          ["scope.census_methods", m.scope.census_methods],
+          ["extension_dispatch.extension_owners", m.extension_dispatch.extension_owners],
+          [
+            "policy.audience_projection.audience_fact_kind_ids",
+            m.policy.audience_projection.audience_fact_kind_ids,
+          ],
+          [
+            "policy.audience_projection.access_classes",
+            m.policy.audience_projection.access_classes,
+          ],
+          ...m.policy.owner_policy.owners.map(
+            (o) => [`owners.${o.owner}.facets`, o.facets] as const,
+          ),
+          ...m.kinds.flatMap(
+            (k) =>
+              [
+                [`kinds.${k.id}.rc`, k.rc],
+                [`kinds.${k.id}.legacy_refs`, k.legacy_refs],
+                [`kinds.${k.id}.later_legacy_refs`, k.later_legacy_refs],
+                [`kinds.${k.id}.alternate_refs`, k.alternate_refs],
+              ] as const,
+          ),
+          ...m.providers.flatMap(
+            (p) =>
+              [
+                [`providers.${SECTION_KEYS.providers(p)}.found_by`, p.found_by],
+                [`providers.${SECTION_KEYS.providers(p)}.site_ids`, p.site_ids],
+                [`providers.${SECTION_KEYS.providers(p)}.effect_kind_ids`, p.effect_kind_ids],
+              ] as const,
+          ),
+          ...m.sites.map((s) => [`sites.${s.site_id}.members`, s.members] as const),
+          ...m.sources.map(
+            (s) =>
+              [
+                `sources.${SECTION_KEYS.sources(s)}`,
+                s.origin === "CODE_RULE" ? s.rule_ids : s.clauses,
+              ] as const,
+          ),
+        ] as const)
+      : []),
   ];
   for (const [section, keys] of sections) {
     for (const d of duplicatesOf(keys)) out.push({ code: "DUPLICATE_TUPLE", section, detail: d });
@@ -367,6 +454,24 @@ export function validateManifest(raw: unknown): readonly ManifestViolation[] {
   for (const [section, ids] of refs)
     for (const id of ids)
       if (!ruleIds.has(id)) out.push({ code: "UNKNOWN_REF", section, detail: id });
+  if (m.manifest_version === 2) {
+    // Positive classifications require both independently accepted all-enrolled evaluation and
+    // per-member source certificates. This version has no way to assert either proof.
+    for (const [section, entries] of [
+      ["kinds", m.kinds],
+      ["providers", m.providers],
+    ] as const)
+      for (const e of entries)
+        if (
+          e.disposition !== DISPOSITION_UNDECLARED &&
+          e.disposition !== EPISTEMIC_ACTIONABLE_OR_UNSAFE
+        )
+          out.push({
+            code: "UNPROVEN_DISPOSITION",
+            section,
+            detail: `${"id" in e ? e.id : SECTION_KEYS.providers(e)}: ${e.disposition}`,
+          });
+  }
   return out;
 }
 
@@ -499,6 +604,10 @@ export interface CatalogueCensus {
   readonly scope: GmWaitCatalogueManifest["scope"];
 }
 
+export interface CatalogueCensusV2 extends CatalogueCensus {
+  readonly source_policy: GmWaitCatalogueManifestV2["policy"]["source_policy"];
+}
+
 export const COVERAGE_VIOLATION_CODES = [
   "KIND_NOT_IN_MANIFEST",
   "KIND_MISSING_FROM_CENSUS",
@@ -519,6 +628,8 @@ export const COVERAGE_VIOLATION_CODES = [
   "SITE_MISSING_FROM_CENSUS",
   "SITE_MEMBERS_CHANGED",
   "OPAQUE_REGISTRY_SITE",
+  "UNRESOLVED_REGISTRY_MEMBER",
+  "UNRESOLVED_CLOSE_DECLARATION",
   "CLOSE_NOT_IN_MANIFEST",
   "CLOSE_MISSING_FROM_CENSUS",
   "CLOSE_CHANGED",
@@ -532,6 +643,7 @@ export const COVERAGE_VIOLATION_CODES = [
   "EXTENSION_DISPATCH_CHANGED",
   "CULTURE_ROUTE_CHANGED",
   "POLICY_PIN_DRIFT",
+  "SOURCE_POLICY_CHANGED",
   "SCOPE_CHANGED",
 ] as const;
 export type CoverageViolationCode = (typeof COVERAGE_VIOLATION_CODES)[number];
@@ -681,5 +793,32 @@ export function catalogueCoverageViolations(
     out.push({ code: "POLICY_PIN_DRIFT", key: "audience_projection" });
   if (bytesOf(normScope(census.scope)) !== bytesOf(normScope(manifest.scope)))
     out.push({ code: "SCOPE_CHANGED", key: "scope" });
+  if (manifest.manifest_version === 2) {
+    if ("source_policy" in census) {
+      const policy = (census as CatalogueCensusV2).source_policy;
+      out.push(
+        ...diffKeyed(
+          policy.files,
+          manifest.policy.source_policy.files,
+          (f) => f.path,
+          (f) => f,
+          {
+            added: "SOURCE_POLICY_CHANGED",
+            missing: "SOURCE_POLICY_CHANGED",
+            changed: "SOURCE_POLICY_CHANGED",
+          },
+        ),
+      );
+    } else {
+      out.push({ code: "SOURCE_POLICY_CHANGED", key: "source_policy" });
+    }
+    for (const s of census.sites)
+      for (const m of s.members)
+        if (m.startsWith("UNRESOLVED:"))
+          out.push({ code: "UNRESOLVED_REGISTRY_MEMBER", key: `${s.site_id}:${m}` });
+    for (const c of census.closes)
+      if (c.name_value === null)
+        out.push({ code: "UNRESOLVED_CLOSE_DECLARATION", key: c.name_expr });
+  }
   return out;
 }

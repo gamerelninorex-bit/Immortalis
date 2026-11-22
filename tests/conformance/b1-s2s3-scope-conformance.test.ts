@@ -138,7 +138,11 @@ describe("[scope] [mechanism only] B1 S2/S3 forbidden files are byte-identical t
     "[scope] [mechanism only] no forbidden path changed, tracked or not, and the guard is not vacuous",
     () => {
       // (the one Temporal admission file F-014B B1 S1 declares in its own table, and the paths F-014B A1-2a declares in its own, are the only changes another slice may carry here)
-      const otherSlices = new Set([...B1_S1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]);
+      const otherSlices = new Set([
+        ...B1_S1_PACKAGE_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
+        ".github/workflows/ci.yml", // B1 v2 runs the static catalogue drift check.
+      ]);
       for (const p of FORBIDDEN) {
         expect(
           changedSince(p).filter((x) => !otherSlices.has(x)),
@@ -223,7 +227,7 @@ describe("[scope] [mechanism only] B1 S2/S3 tests label themselves", () => {
   const TITLE =
     /(?<![.\w])(?:it|test)(?:\.\w+\((?:[^()]|\([^()]*\))*\))?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;
   const titlesOf = (text: string): string[] => [...text.matchAll(TITLE)].map((m) => m[2] as string);
-  const LABEL = /^\[(S2|S3|scope)\] \[mechanism only\] /;
+  const LABEL = /^\[(B1|S2|S3|scope)\] \[mechanism only\] /;
   const CLAIM =
     /\b(PASS(ES|ED)?|certif\w+|production[- ]ready|playable|safe to wait|eligible for production)\b/i;
 

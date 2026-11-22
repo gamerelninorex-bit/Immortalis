@@ -6,17 +6,19 @@
 // A later change to a file below updates this table and nothing else.
 export const B1_S2S3_BASE_COMMIT = "0cff287a0fd01c9be993ae660d8dbf370596bb73";
 
-/** Every path under packages/ this slice adds (production modules and the retained manifest bytes). */
+/** Catalogue package paths, including both retained manifest versions. */
 export const B1_S2S3_PACKAGE_PATHS: readonly string[] = [
+  "packages/engine/gm-wait-catalogue/manifests/e9049723f8b217d0557bcd4dcbfd126a58cb9777b82663e5c6f17a6842510500.json",
   "packages/engine/gm-wait-catalogue/manifests/f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062.json",
   "packages/engine/src/gm-wait-catalogue-current.ts",
   "packages/engine/src/gm-wait-catalogue.ts",
   "packages/engine/src/gm-wait-present-reader.ts",
 ];
 
-/** The non-package paths this slice changes or adds outside tests/ (a formatter ignore line for the retained canonical manifest bytes, the generator and the mutation sanity check). */
+/** The non-package paths for the catalogue, including the B1 v2 CI drift check. */
 export const B1_S2S3_OUTSIDE_PACKAGE_PATHS: readonly string[] = [
   ".prettierignore",
+  ".github/workflows/ci.yml",
   "tools/gen-gm-wait-catalogue.ts",
   "tools/gm-wait-catalogue-mutation-check.py",
 ];

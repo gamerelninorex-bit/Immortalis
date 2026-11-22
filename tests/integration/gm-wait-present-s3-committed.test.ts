@@ -265,6 +265,10 @@ describe("[S3] [mechanism only] a committed, handed-over PC: the finite read tra
       expect(
         classify(w, withOrigin, production, { catalogue_sha256: "0".repeat(64) }).verdict,
       ).toEqual({ kind: "REFUSE", reason: "CATALOGUE_DIGEST_NOT_ACCEPTED" });
+      const stale = "f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062";
+      const old = classify(w, withOrigin, production, { catalogue_sha256: stale });
+      expect(old.basis.catalogue.digest).toBe("DIGEST_STALE_RETAINED");
+      expect(old.verdict).toEqual({ kind: "REFUSE", reason: "CATALOGUE_DIGEST_NOT_ACCEPTED" });
     } finally {
       await s.campaign.close();
     }
