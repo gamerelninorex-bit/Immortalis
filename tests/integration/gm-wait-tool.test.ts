@@ -15,6 +15,7 @@ import { createMcpHttp, type ToolContext } from "../../apps/phone/src/mcp-http.t
 import { createOAuth, type OAuthScope } from "../../apps/phone/src/oauth.ts";
 import { openOAuthGrantLedger } from "../../apps/phone/src/oauth-ledger.ts";
 import { runGmWaitBindCli } from "../../packages/operator/src/gm-wait-cli.ts";
+import { bindGmWaitClient } from "../../packages/operator/src/gm-wait-exchange.ts";
 import { Chat, PLAYER, REFEREE, chatConfig, pkce } from "../support/chat-client.ts";
 import { LOCALITY_CAMPAIGN, type LocalityDirs } from "../support/locality.ts";
 import { BASIS, observationCampaign } from "../support/observation.ts";
@@ -55,7 +56,12 @@ interface Rig {
   readonly config: PhoneConfig;
   readonly oauth: ReturnType<typeof createOAuth>;
   readonly ledger: ReturnType<typeof openOAuthGrantLedger>;
-  readonly link: (scope: OAuthScope) => Promise<Chat>;
+  /** a real consent and token exchange; a referee client is AUTHORIZED for the host by the operator unless `authorize` is false */
+  readonly link: (scope: OAuthScope, authorize?: boolean) => Promise<Chat>;
+  /** the operator authorizes (or withdraws) the OAuth client of a linked chat for the host */
+  readonly authorize: (chat: Chat, mode?: "add" | "remove") => Promise<void>;
+  /** a legitimately renewed grant: a second consent of the SAME registered client, a new grant, a new session */
+  readonly renew: (chat: Chat) => Promise<void>;
   readonly disk: () => { campaign: Record<string, string>; operator: Record<string, string> };
   readonly stop: () => Promise<void>;
   readonly calls: { verified: number };
@@ -123,10 +129,18 @@ async function rig(over: { hosts?: string[]; enroll?: boolean } = {}): Promise<R
   });
   const server = createServer((req, res) => void mcp.handle(req, res));
   await new Promise<void>((resolve) => server.listen(config.port, "127.0.0.1", resolve));
-  const link = async (scope: OAuthScope): Promise<Chat> => {
-    const chat = new Chat(config.publicUrl!);
-    const registration = oauth.register({ redirect_uris: [chat.redirect] });
-    chat.clientId = String(registration.body["client_id"]);
+  const authorize = async (chat: Chat, mode: "add" | "remove" = "add"): Promise<void> => {
+    // an unenrolled host cannot be given a client: that refusal is the point of the unenrolled case
+    await bindGmWaitClient({
+      stateDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      operatorUid: process.getuid!(),
+      hostId: HOST,
+      client: chat.clientId,
+      mode,
+    });
+  };
+  const consent = async (chat: Chat, scope: OAuthScope): Promise<void> => {
     const { verifier, challenge } = pkce();
     const decision = oauth.decide(
       {
@@ -146,7 +160,16 @@ async function rig(over: { hosts?: string[]; enroll?: boolean } = {}): Promise<R
     });
     expect(token.status).toBe(200);
     chat.access = String(token.body["access_token"]);
+    chat.session = "";
     await chat.init();
+  };
+  const renew = (chat: Chat) => consent(chat, "referee");
+  const link = async (scope: OAuthScope, authorizeClient = scope === "referee"): Promise<Chat> => {
+    const chat = new Chat(config.publicUrl!);
+    const registration = oauth.register({ redirect_uris: [chat.redirect] });
+    chat.clientId = String(registration.body["client_id"]);
+    await consent(chat, scope);
+    if (authorizeClient) await authorize(chat);
     return chat;
   };
   return {
@@ -155,6 +178,8 @@ async function rig(over: { hosts?: string[]; enroll?: boolean } = {}): Promise<R
     oauth,
     ledger,
     link,
+    authorize,
+    renew,
     calls,
     beforeVerify,
     disk: () => ({ campaign: treeOf(dirs.campaignDir), operator: treeOf(dirs.operatorDir) }),
@@ -319,6 +344,65 @@ describe("[A1-2a] [mechanism only] the connected-client ingress over the real OA
         issues: ["context"],
       });
       expect(r.disk()).toEqual(before);
+    } finally {
+      await r.stop();
+    }
+  });
+
+  it("[A1-2a] [mechanism only] A1R-01 two independently valid referee clients: B cannot select A's host, A passes, a revoked A fails, a legitimately renewed A succeeds, a withdrawn A fails", async () => {
+    const r = await rig();
+    try {
+      const a = await r.link("referee"); // authorized by the operator for the host
+      const b = await r.link("referee", false); // a valid referee-lane client the operator never authorized
+      expect(a.clientId).not.toBe(b.clientId);
+      const before = r.disk();
+      // B: a valid grant, the referee scope, the listed host id: the tool is offered and the ingress is reached, and it is refused opaquely
+      expect(names(await b.rpc("tools/list"))).toEqual([GM_WAIT_TOOL]);
+      const denied = await b.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() });
+      expect(denied.isError).toBe(true);
+      expect(denied.text).toBe(OPAQUE);
+      expect(JSON.stringify(denied.json)).not.toMatch(/GM_WAIT_REQUEST_READY/);
+      // A: passes
+      const granted = await a.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() });
+      expect(granted.data?.status).toBe("GM_WAIT_REQUEST_READY");
+      expect(r.calls.verified).toBe(2);
+      // B's own malformed or forged request is no better: the opaque refusal comes before any request-specific reason
+      const probe = await b.call(GM_WAIT_TOOL, {
+        host_id: HOST,
+        request: initial({
+          context: { role: "role.gm", permission: "permission.rule.adjudicate" },
+        }),
+      });
+      expect(probe.text).toBe(OPAQUE);
+      // a legitimately renewed grant of the SAME client A: a new grant and a new session, and it passes
+      const grantsBefore = r.oauth.grants()!.length;
+      await r.renew(a);
+      expect(r.oauth.grants()!.length).toBe(grantsBefore + 1);
+      expect((await a.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() })).data?.status).toBe(
+        "GM_WAIT_REQUEST_READY",
+      );
+      // the operator revokes A's grants: the transport denies, and B is still refused
+      for (const g of r.oauth.grants()!.filter((x) => x.client === a.clientId))
+        expect(r.oauth.revokeGrant(g.client, g.grant, "OPERATOR")).toBe("REVOKED");
+      const calledBefore = r.calls.verified;
+      const revoked = await a.rpc("tools/call", {
+        name: GM_WAIT_TOOL,
+        arguments: { host_id: HOST, request: initial() },
+      });
+      expect(revoked.status).toBe(401);
+      expect(r.calls.verified).toBe(calledBefore);
+      expect((await b.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() })).text).toBe(OPAQUE);
+      // the operator withdraws A's client authorization (a fresh consent of A is then a valid grant of an unauthorized client)
+      await r.renew(a);
+      expect((await a.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() })).isError).toBe(
+        false,
+      );
+      await r.authorize(a, "remove");
+      const withdrawn = await a.call(GM_WAIT_TOOL, { host_id: HOST, request: initial() });
+      expect(withdrawn.isError).toBe(true);
+      expect(withdrawn.text).toBe(OPAQUE);
+      // and nothing was written by any of it (the ledger and the client binding are the operator's, not this call's)
+      expect(r.disk().campaign).toEqual(before.campaign);
     } finally {
       await r.stop();
     }

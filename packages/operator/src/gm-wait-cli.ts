@@ -1,5 +1,6 @@
 import type { FsOps } from "@immortalis/engine";
-import { bindGmWaitHost } from "./gm-wait-exchange.ts";
+import { bindGmWaitClient, bindGmWaitHost } from "./gm-wait-exchange.ts";
+import { verifyLocalOperator } from "./local-operator.ts";
 import { openAuthorizedPlayerView } from "./player-view.ts";
 import { defaultOperatorDir } from "./session.ts";
 
@@ -95,8 +96,75 @@ export async function runGmWaitBindCli(
       `secret file (owner-only; the trusted server reads it by PATH, never give the contents to a host): ${bound.value.secret_file}`,
     );
     out(`list ${hostId} in IMMORTALIS_GM_WAIT_HOST_IDS so the phone service offers the operation.`);
+    out(
+      `the host is unusable until you authorize the OAuth client that will call it: ${GM_WAIT_CLIENT_USAGE}`,
+    );
     return 0;
   } finally {
     await campaign.close().catch(() => undefined);
   }
+}
+
+export const GM_WAIT_CLIENT_USAGE =
+  "usage: node --experimental-strip-types packages/operator/src/gm-wait-bind-bin.ts client --campaign <dir> --campaign-id <id> --host-id <id> --client-id <oauth client id> [--mode add|remove] [--operator-dir <dir>]";
+
+const CLIENT_FLAGS = [
+  "--campaign",
+  "--campaign-id",
+  "--host-id",
+  "--client-id",
+  "--mode",
+  "--operator-dir",
+] as const;
+
+/**
+ * The TRUSTED operator action that authorizes (or withdraws) one OAuth CLIENT for one ENROLLED GM waiting host (BLUE A1R-01). The client identity
+ * is the one the operator reads in its own operator view of grants; it is never a grant (a renewed grant of the same client keeps working, and a
+ * revoked grant stops at the grant ledger), and only its digest is stored. Without an authorized client an enrolled host is unusable.
+ */
+export async function runGmWaitClientCli(
+  argv: readonly string[],
+  streams: CliStreams = {},
+): Promise<number> {
+  const out = streams.out ?? ((l: string) => process.stdout.write(`${l}\n`));
+  const flags = flagsOf(argv, CLIENT_FLAGS);
+  const mode = flags?.get("--mode") ?? "add";
+  if (
+    !flags ||
+    !flags.has("--campaign") ||
+    !flags.has("--campaign-id") ||
+    !flags.has("--host-id") ||
+    !flags.has("--client-id") ||
+    (mode !== "add" && mode !== "remove")
+  ) {
+    errorLineOf(streams)(GM_WAIT_CLIENT_USAGE);
+    return 64;
+  }
+  const campaignDir = flags.get("--campaign")!;
+  const campaignId = flags.get("--campaign-id")!;
+  const stateDir = flags.get("--operator-dir") ?? defaultOperatorDir(campaignDir);
+  const owner = verifyLocalOperator(campaignDir, "campaign");
+  const state = verifyLocalOperator(stateDir, "operator-state");
+  if (!owner.ok || !state.ok || state.value.uid !== owner.value.uid) {
+    out("STATUS GM_WAIT_CLIENT_NOT_CHANGED OPERATOR_UNVERIFIED");
+    out("the local operator is not verified for this campaign; nothing was changed.");
+    return 69;
+  }
+  const bound = await bindGmWaitClient({
+    stateDir,
+    campaignId,
+    operatorUid: owner.value.uid,
+    hostId: flags.get("--host-id")!,
+    client: flags.get("--client-id")!,
+    mode,
+    ...(streams.ledgerFs ? { fs: streams.ledgerFs } : {}),
+  });
+  if (!bound.ok) {
+    out(`STATUS GM_WAIT_CLIENT_NOT_CHANGED ${bound.error.code}`);
+    out(bound.error.message);
+    return 69;
+  }
+  out(`STATUS GM_WAIT_CLIENT_${mode === "add" ? "AUTHORIZED" : "WITHDRAWN"}`);
+  out(`host ${flags.get("--host-id")!} now has ${bound.value.clients} authorized client(s).`);
+  return 0;
 }

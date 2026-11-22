@@ -21,13 +21,17 @@ a verdict or an authorization.
    `role.gm` / `permission.rule.adjudicate` pair from `GM_ADJUDICATION_AUTHORITY`. A request that names a context, role, permission, campaign, character, host,
    client, grant, session, source, original message or setup input is refused as an over-claim, never overwritten.
 2. **The enrollment, not the OAuth scope, is the GM.** `referee` is only the transport lane that offers the tool. The authority is the operator's enrollment of the
-   named host for this one operation, proved afresh per call (secret, campaign, kept and bound active PC, writer lock, residue, integrity).
+   named host for this one operation, proved afresh per call (secret, campaign, kept and bound active PC, writer lock, residue, integrity), **and the operator's
+   authorization of the calling OAuth client for that host** (A1R-01, below).
 3. **Opaque before authentication, specific after.** Every failure of the proofs is the one `GM_WAIT_UNAVAILABLE`; only a caller already proved the enrolled GM is
    told what is wrong with the request (`NOT_AN_OBJECT`, `TOO_LARGE`, `OVERCLAIM`, `INVALID_B0_REQUEST` with the B0 issues).
 4. **The operator package may not import the unexported B0 module** (a standing pin). The phone service hands the UNCHANGED `parseGmWaitRequest` to the ingress,
    which re-checks the authority-bearing parts itself (context pair, trigger literal, phase) so a permissive parser cannot widen the verdict. The trigger literal has
    one local copy (`GM_WAIT_OPERATION`), pinned equal to the B0 constant by `tests/conformance/a1-2a-scope-conformance.test.ts`.
-5. **Nothing is qualified that the brief reserves.** The verdict lists `unqualified`: observed basis against the clock, catalogue digest, continuation link,
+5. **Nothing is qualified that the brief reserves.** The GM-supplied `transaction_id`, `cause` and `publication` are unqualified syntax only (BLUE Q2; F-014B v0.6
+   §6.1 reserves the canonical transaction identity for the later owner admission, derived from the authenticated GM session and JSON-RPC request identity, which
+   must also validate the original cause and publication). The ready message and the tool text say so; nothing here is carried into canon.
+   The verdict lists `unqualified`: observed basis against the clock, catalogue digest, continuation link,
    transaction identity, Temporal admission and player choice. It derives no `transaction_id`, `cause` or `publication`; the GM supplies them as B0 states.
 
 ## Acceptance matrix (all T1 mechanism only; every title carries `[A1-2a] [mechanism only]`)
@@ -70,8 +74,8 @@ growth of unrelated campaign history (the dominant term is the shared open/verif
 - No genuine AI GM (T2), no named client (T3), no retained-storage restart. The scripted client speaks OAuth 2.1 and MCP and is not a model.
 - The connected `IMMORTALIS_T2` plugin exposes no wait tool today; this slice builds the server side. Offering the operation to that host is a deployment step
   (`IMMORTALIS_GM_WAIT_HOST_IDS`) not exercised against it here.
-- The OAuth `referee` grant is not pinned to one client or grant per host: any `referee`-scope grant may name an enrolled host id. The authority is the enrollment
-  and the per-call proofs. A per-grant pin is an option for BLUE before S4 relies on the identity of the caller.
+- The OAuth `referee` scope alone is not the Game Master (BLUE A1R-01, repaired below). A grant is still not pinned: any legitimately renewed grant of an
+  authorized client works, by design.
 - The ingress opens the campaign (writer lock) per call, as the player-view and request transports do: a campaign whose single writer is active refuses opaquely.
 - `tests/unit/review-projection.test.ts` fails on pristine `024b109` too, in this shallow checkout (`git rev-parse 1ff595a…^{tree}` cannot resolve a historical
   object). It is environmental, not caused by this slice; a full-history CI checkout is the witness.
@@ -82,3 +86,19 @@ growth of unrelated campaign history (the dominant term is the shared open/verif
 The older "nothing else changed" suites extend their allow-lists from `tests/support/a1-2a-scoped-deltas.ts`. Two are not pure list extensions:
 the A1-T08 pin of `tests/integration/phone-bridge.test.ts` is now "the base plus exactly one census line" (`+ "gm-wait-tool.ts",`), and the recorded
 `packages/operator/src` tree identity in `tests/support/present-day-identities.ts` was re-recorded as its own comment instructs.
+
+## Repair round 1 — BLUE A1R-01 (head `e941fda…` AMEND)
+
+BLUE: any valid `referee`-scope client could choose any listed `host_id`. Repair, bounded and additive:
+
+- `gm-wait-exchange.ts` gains `clients.json` in the host's own directory: per enrolled host, at most four SHA-256 digests of **OAuth client identities** (never a
+  grant, never a token), written only by the operator's `client` action (`gm-wait-bind-bin.ts client --host-id … --client-id … [--mode add|remove]`); default deny
+  (an enrolled host with no authorized client is unusable).
+- `gm-wait-ingress.ts` checks `transport.client` (taken by the MCP transport from the verified token, never an argument) against that binding on every call and again
+  in the second read after every proof; either failure is the one opaque refusal. A grant is not pinned: a legitimately renewed grant of the same client passes,
+  a revoked grant fails in the ledger, expiry still fails.
+- Tests: two independently valid referee clients (B refused opaquely, even for a forged request; A passes; A's renewed grant passes; A's revoked grants get the
+  transport 401; B still refused; a withdrawn authorization refuses A), client authorized for another host only, no authorized client, tampered binding
+  (other operator, other campaign, not JSON), the binding changing between the two reads, the four-client limit, and a mutation of each of the two checks.
+  Digest-only storage is asserted. Zero-write and byte-identity assertions are retained.
+- Q1 answered YES (client, not grant). Q2 answered YES (wording added above).

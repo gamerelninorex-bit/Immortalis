@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { nodeFs, type FsOps } from "@immortalis/engine";
 import {
+  bindGmWaitClient,
   bindGmWaitHost,
   gmWaitDir,
   gmWaitSecretPath,
@@ -110,6 +111,16 @@ async function enrolled(hostId = HOST) {
     { out: (l) => out.push(l), error: (l) => out.push(l) },
   );
   expect(code, out.join("\n")).toBe(0);
+  // the operator authorizes the OAuth client that will call this host (BLUE A1R-01): without one the host is unusable
+  const authorized = await bindGmWaitClient({
+    stateDir: dirs.operatorDir,
+    campaignId: LOCALITY_CAMPAIGN,
+    operatorUid: UID,
+    hostId,
+    client: TRANSPORT.client,
+    mode: "add",
+  });
+  expect(authorized.ok).toBe(true);
   const secretFile = gmWaitSecretPath(
     { stateDir: dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN },
     hostId,
@@ -150,6 +161,8 @@ describe("[A1-2a] [mechanism only] the enrolled GM host, a bound character and a
     if (!r.ok) return;
     const v = r.value;
     expect(v.status).toBe("GM_WAIT_REQUEST_READY");
+    // BLUE Q2: the GM-supplied transaction identity, cause and publication are unqualified syntax, and the verdict says so
+    expect(v.message).toMatch(/unqualified syntax, not a canonical identity/);
     expect(v.canonical).toBe(false);
     expect(v.effects).toBe("NONE");
     // the trusted side stated the one existing GM pair; the host did not
@@ -598,6 +611,183 @@ describe("[A1-2a] [mechanism only] A03-A16 refusals at the operator boundary, ea
             rewritten.hosts = [];
             return Buffer.from(JSON.stringify(rewritten));
           }
+        }
+        return data;
+      },
+    };
+    const r = await verifyGmWaitIngress(
+      params(e.dirs, e.secret, { ledgerFs: flipping }),
+      TRANSPORT,
+      initial(),
+    );
+    expect(reads).toBe(2);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toEqual(UNAVAILABLE);
+    expect(disk(e.dirs)).toEqual(before);
+  });
+
+  it("[A1-2a] [mechanism only] A1R-01 a host is usable only by the OAuth client the operator authorized for it: another client, an unauthorized host, a withdrawn client and a tampered binding are the one opaque refusal", async () => {
+    // another valid client presenting the very same host and secret
+    await refuses(
+      "another client",
+      (e) =>
+        verifyGmWaitIngress(
+          params(e.dirs, e.secret),
+          { ...TRANSPORT, client: "client-B" },
+          initial(),
+        ),
+      "UNAVAILABLE",
+    );
+    // a client authorized for ANOTHER enrolled host only
+    let second = "";
+    await refuses(
+      "client authorized for another host",
+      (e) =>
+        verifyGmWaitIngress(params(e.dirs, second, { hostId: "gm-wait-2" }), TRANSPORT, initial()),
+      "UNAVAILABLE",
+      async (e) => {
+        const bound = await bindGmWaitHost({
+          stateDir: e.dirs.operatorDir,
+          campaignId: LOCALITY_CAMPAIGN,
+          operatorUid: UID,
+          hostId: "gm-wait-2",
+          pcId: PC_ID,
+        });
+        expect(bound.ok).toBe(true);
+        second = readGmWaitSecretFile(
+          gmWaitSecretPath(
+            { stateDir: e.dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN },
+            "gm-wait-2",
+          ),
+        )!;
+        await bindGmWaitClient({
+          stateDir: e.dirs.operatorDir,
+          campaignId: LOCALITY_CAMPAIGN,
+          operatorUid: UID,
+          hostId: HOST,
+          client: "client-B",
+          mode: "add",
+        });
+      },
+    );
+    // an enrolled host with NO authorized client at all is unusable (default deny)
+    await refuses(
+      "no authorized client",
+      (e) => verifyGmWaitIngress(params(e.dirs, e.secret), TRANSPORT, initial()),
+      "UNAVAILABLE",
+      async (e) => {
+        await bindGmWaitClient({
+          stateDir: e.dirs.operatorDir,
+          campaignId: LOCALITY_CAMPAIGN,
+          operatorUid: UID,
+          hostId: HOST,
+          client: TRANSPORT.client,
+          mode: "remove",
+        });
+      },
+    );
+    // the operator's binding names the client by digest only; a file of another operator or campaign is no binding
+    for (const [name, tamper] of [
+      [
+        "another operator",
+        (t: string) => t.replace(`"operator_uid": ${UID}`, `"operator_uid": ${UID + 1}`),
+      ],
+      ["another campaign", (t: string) => t.replace(LOCALITY_CAMPAIGN, "campaign-other")],
+      ["not JSON", () => "{"],
+    ] as const)
+      await refuses(
+        `client binding of ${name}`,
+        (e) => verifyGmWaitIngress(params(e.dirs, e.secret), TRANSPORT, initial()),
+        "UNAVAILABLE",
+        (e) => {
+          const path = join(
+            gmWaitDir({ stateDir: e.dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN }),
+            "clients.json",
+          );
+          const text = readFileSync(path, "utf8");
+          expect(text).not.toContain(TRANSPORT.client);
+          expect(text).toMatch(/"client_sha256s"/);
+          writeFileSync(path, tamper(text));
+          chmodSync(path, 0o600);
+        },
+      );
+    // the authorized client itself still passes, and a second authorized client is independent of the first
+    const { dirs, secret } = await enrolled();
+    await bindGmWaitClient({
+      stateDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      operatorUid: UID,
+      hostId: HOST,
+      client: "client-B",
+      mode: "add",
+    });
+    for (const client of [TRANSPORT.client, "client-B"])
+      expect(
+        (await verifyGmWaitIngress(params(dirs, secret), { ...TRANSPORT, client }, initial())).ok,
+      ).toBe(true);
+    expect(
+      (
+        await verifyGmWaitIngress(
+          params(dirs, secret),
+          { ...TRANSPORT, client: "client-C" },
+          initial(),
+        )
+      ).ok,
+    ).toBe(false);
+    // a client is authorized per host, at most four per host, and only for a host that is enrolled
+    const add = (client: string) =>
+      bindGmWaitClient({
+        stateDir: dirs.operatorDir,
+        campaignId: LOCALITY_CAMPAIGN,
+        operatorUid: UID,
+        hostId: HOST,
+        client,
+        mode: "add",
+      });
+    // the authorized client and client-B are two; two more fill the four, and a fifth is refused without changing the file
+    expect((await add("c1")).ok).toBe(true);
+    expect((await add("c2")).ok).toBe(true);
+    const full = readFileSync(
+      join(
+        gmWaitDir({ stateDir: dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN }),
+        "clients.json",
+      ),
+      "utf8",
+    );
+    const fifth = await add("c3");
+    expect(fifth.ok).toBe(false);
+    expect(
+      readFileSync(
+        join(
+          gmWaitDir({ stateDir: dirs.operatorDir, campaignId: LOCALITY_CAMPAIGN }),
+          "clients.json",
+        ),
+        "utf8",
+      ),
+    ).toBe(full);
+    const unenrolled = await bindGmWaitClient({
+      stateDir: dirs.operatorDir,
+      campaignId: LOCALITY_CAMPAIGN,
+      operatorUid: UID,
+      hostId: "gm-unknown",
+      client: "c1",
+      mode: "add",
+    });
+    expect(unenrolled.ok).toBe(false);
+  });
+
+  it("[A1-2a] [mechanism only] A1R-01 the client authorization changing between the first proof and the handoff is no authorization", async () => {
+    const e = await enrolled();
+    const before = disk(e.dirs);
+    let reads = 0;
+    const flipping: FsOps = {
+      ...nodeFs,
+      readFile: async (path: string) => {
+        const data = await nodeFs.readFile(path);
+        if (/gm-wait-[0-9a-f]{32}\/clients\.json$/.test(path)) {
+          reads += 1;
+          if (reads === 2)
+            return Buffer.from(JSON.stringify({ ...JSON.parse(data.toString("utf8")), hosts: [] }));
         }
         return data;
       },

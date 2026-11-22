@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { chmod } from "node:fs/promises";
 import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -18,6 +19,10 @@ import { bindRequestHost } from "./request-host-binding.ts";
  *   gm-wait-<campaign>/config.json    the TRUSTED binding of concrete host identities to the ONE character the operator kept and placed
  *                                      (written by the operator's bind action, never by a host, a player or a model)
  *   gm-wait-<campaign>/<host>.secret  the host's shared secret (owner-only), read by the trusted server by PATH, never from a request
+ *   gm-wait-<campaign>/clients.json   the operator's AUTHORIZED OAuth CLIENTS per enrolled host (SHA-256 of the client identity, at most four per
+ *                                      host; written only by the operator's authorize-client action). A host with no authorized client is
+ *                                      unusable: default deny. A grant is never pinned, so a legitimately renewed grant of the same client
+ *                                      works, while another client holding the same lane scope can never select this host (BLUE A1R-01).
  *
  * What a matching secret proves is only that the process holding it was started from a configuration this operating-system user wrote for
  * this campaign. It confers NO role and NO permission by itself: the one authority the adapter states for an enrolled host is the EXISTING
@@ -57,6 +62,26 @@ const ConfigSchema = z.strictObject({
 });
 export type GmWaitConfig = z.infer<typeof ConfigSchema>;
 
+export const GM_WAIT_CLIENTS_FORMAT = "immortalis-operator-gm-wait-clients";
+/** The most clients one host may authorize; `ClientsSchema` rejects a larger file, so `bindGmWaitClient` must never write one. */
+const MAX_CLIENTS_PER_HOST = 4;
+
+const ClientsSchema = z.strictObject({
+  format: z.literal(GM_WAIT_CLIENTS_FORMAT),
+  format_version: z.literal(FORMAT_VERSION),
+  campaign_id: z.string().min(1),
+  operator_uid: z.number().int().nonnegative(),
+  hosts: z
+    .array(
+      z.strictObject({
+        host_id: HostId,
+        client_sha256s: z.array(Digest).min(1).max(MAX_CLIENTS_PER_HOST),
+      }),
+    )
+    .max(MAX_HOSTS),
+});
+export type GmWaitClients = z.infer<typeof ClientsSchema>;
+
 export type GmWaitExchangeCode =
   "NOT_CONFIGURED" | "CONFIG_INVALID" | "HOST_EXISTS" | "HOST_UNKNOWN" | "IO_FAILED";
 
@@ -74,6 +99,7 @@ export const gmWaitDir = (p: GmWaitExchangeParams): string =>
     `gm-wait-${createHash("sha256").update(p.campaignId, "utf8").digest("hex").slice(0, 32)}`,
   );
 const configPath = (p: GmWaitExchangeParams) => join(gmWaitDir(p), "config.json");
+const clientsPath = (p: GmWaitExchangeParams) => join(gmWaitDir(p), "clients.json");
 export const gmWaitSecretPath = (p: GmWaitExchangeParams, hostId: string): string =>
   join(gmWaitDir(p), `${hostId}.secret`);
 
@@ -186,6 +212,110 @@ export async function authorizeGmWaitHost(
   if (!entry || !wellFormed || !matches)
     return fail("HOST_UNKNOWN", "the GM waiting host is not authorized");
   return ok({ pc_id: entry.pc_id, operation: config.value.operation });
+}
+
+const emptyClients = (p: GmWaitExchangeParams, operatorUid: number): GmWaitClients => ({
+  format: GM_WAIT_CLIENTS_FORMAT,
+  format_version: FORMAT_VERSION,
+  campaign_id: p.campaignId,
+  operator_uid: operatorUid,
+  hosts: [],
+});
+
+async function readClients(
+  p: GmWaitExchangeParams,
+  operatorUid: number,
+): Promise<Result<GmWaitClients | null, GmWaitExchangeCode>> {
+  const fs = fsOf(p);
+  let raw: string;
+  try {
+    if ((await fs.fileSize(clientsPath(p))) === null) return ok(null);
+    raw = (await fs.readFile(clientsPath(p))).toString("utf8");
+  } catch {
+    return fail("IO_FAILED", "the GM waiting client binding cannot be read");
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return fail("CONFIG_INVALID", "the GM waiting client binding is not valid");
+  }
+  const parsed = ClientsSchema.safeParse(json);
+  if (
+    !parsed.success ||
+    parsed.data.campaign_id !== p.campaignId ||
+    parsed.data.operator_uid !== operatorUid ||
+    new Set(parsed.data.hosts.map((h) => h.host_id)).size !== parsed.data.hosts.length
+  )
+    return fail(
+      "CONFIG_INVALID",
+      "the GM waiting client binding is not this campaign's or this operator's",
+    );
+  return ok(parsed.data);
+}
+
+/**
+ * Whether the OAuth client `client` (the identity the MCP transport verified from the bearer token, never a tool argument) is one the operator
+ * authorized for `hostId`. Default deny: an unreadable, foreign or absent binding, a host with no authorized client and any other client are all
+ * `false`. Compares by digest, in constant time over every authorized entry. It names no grant: a renewed grant of the same client passes, a
+ * revoked grant fails in the grant ledger, and another client holding the same transport scope never selects this host.
+ */
+export async function authorizeGmWaitClient(
+  p: GmWaitExchangeParams,
+  operatorUid: number,
+  hostId: string,
+  client: string,
+): Promise<boolean> {
+  const held = await readClients(p, operatorUid);
+  if (!held.ok || held.value === null) return false;
+  const entry = held.value.hosts.find((h) => h.host_id === hostId);
+  const presented = digestOf(client);
+  let match = false;
+  for (const d of entry?.client_sha256s ?? []) if (equalHex(d, presented)) match = true;
+  return entry !== undefined && match;
+}
+
+/**
+ * The operator's action: authorize (or withdraw) one OAuth client for one ENROLLED host. The host must already be enrolled for this campaign;
+ * nothing a client, a model or a host says can reach this. Only the SHA-256 of the client identity is stored.
+ */
+export async function bindGmWaitClient(
+  p: GmWaitExchangeParams & {
+    readonly operatorUid: number;
+    readonly hostId: string;
+    readonly client: string;
+    readonly mode: "add" | "remove";
+  },
+): Promise<Result<{ clients: number }, GmWaitExchangeCode>> {
+  if (!HostId.safeParse(p.hostId).success || p.client.length < 1 || p.client.length > 4096)
+    return fail("CONFIG_INVALID", "the host or client identity is not valid");
+  const fs = fsOf(p);
+  const config = await readGmWaitConfig(p, p.operatorUid);
+  if (!config.ok) return config;
+  if (!config.value.hosts.some((h) => h.host_id === p.hostId))
+    return fail("HOST_UNKNOWN", "this host is not enrolled for this campaign");
+  const held = await readClients(p, p.operatorUid);
+  if (!held.ok) return held;
+  const current = held.value ?? emptyClients(p, p.operatorUid);
+  const digest = digestOf(p.client);
+  const others = current.hosts.filter((h) => h.host_id !== p.hostId);
+  const mine = current.hosts.find((h) => h.host_id === p.hostId)?.client_sha256s ?? [];
+  const next =
+    p.mode === "add" ? [...new Set([...mine, digest])] : mine.filter((d) => !equalHex(d, digest));
+  if (next.length > MAX_CLIENTS_PER_HOST)
+    return fail("CONFIG_INVALID", "this host already has the maximum number of authorized clients");
+  const out: GmWaitClients = {
+    ...current,
+    hosts: [...others, ...(next.length > 0 ? [{ host_id: p.hostId, client_sha256s: next }] : [])],
+  };
+  try {
+    await fs.mkdirp(gmWaitDir(p));
+    await fs.writeFileDurable(clientsPath(p), `${JSON.stringify(out, null, 2)}\n`);
+    await chmod(clientsPath(p), 0o600);
+  } catch {
+    return fail("IO_FAILED", "the GM waiting client binding could not be written");
+  }
+  return ok({ clients: next.length });
 }
 
 /**

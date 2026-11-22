@@ -137,11 +137,25 @@ describe("[A1-2a] [mechanism only] [nowrite] the ingress writes nothing and inve
     }
   });
 
-  it("[A1-2a] [mechanism only] [nowrite] the exchange reads with read-only file calls and writes only through the existing request-host binding", () => {
+  it("[A1-2a] [mechanism only] [nowrite] the exchange reads with read-only file calls; its only writes are the existing request-host binding and the operator's own client action, to its own file", () => {
     const exchange = code(read("packages/operator/src/gm-wait-exchange.ts"));
     expect(exchange).toMatch(/bindRequestHost</);
-    expect(exchange).not.toMatch(WRITERS);
-    expect(exchange).not.toMatch(/writeFileSync|mkdirSync|chmodSync|renameSync|unlinkSync/);
+    // the one function that writes is the operator's `bindGmWaitClient`; it writes the client binding file and nothing else
+    const start = exchange.indexOf("export async function bindGmWaitClient");
+    const end = exchange.indexOf("\n}\n", start);
+    expect(start).toBeGreaterThan(0);
+    const action = exchange.slice(start, end);
+    const rest = exchange.slice(0, start) + exchange.slice(end);
+    expect(rest).not.toMatch(WRITERS);
+    expect(rest).not.toMatch(/writeFileSync|mkdirSync|chmodSync|renameSync|unlinkSync/);
+    const targets = [...action.matchAll(/\b(?:writeFileDurable|chmod)\(\s*([A-Za-z]+)\(/g)].map(
+      (m) => m[1],
+    );
+    expect(targets).toEqual(["clientsPath", "clientsPath"]);
+    expect(action).not.toMatch(/createExclusive|remove\(|appendDurable|truncate/);
+    // the client action is reachable from no read path: the ingress and the tool never name it
+    for (const f of READ_SIDE)
+      expect(code(read(f)), f).not.toMatch(/bindGmWaitClient|bindGmWaitHost/);
   });
 
   it("[A1-2a] [mechanism only] [nowrite] no new permission or role string, no generic GM writer, no scene-event grant and no override flag exists", () => {

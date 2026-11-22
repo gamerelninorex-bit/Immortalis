@@ -1,3 +1,7 @@
-import { runGmWaitBindCli } from "./gm-wait-cli.ts";
+import { runGmWaitBindCli, runGmWaitClientCli } from "./gm-wait-cli.ts";
 
-process.exitCode = await runGmWaitBindCli(process.argv.slice(2));
+const [first, ...rest] = process.argv.slice(2);
+process.exitCode =
+  first === "client"
+    ? await runGmWaitClientCli(rest)
+    : await runGmWaitBindCli(process.argv.slice(2));

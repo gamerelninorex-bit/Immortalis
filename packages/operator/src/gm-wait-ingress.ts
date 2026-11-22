@@ -8,7 +8,11 @@ import {
   type Result,
 } from "@immortalis/contracts";
 import type { FsOps } from "@immortalis/engine";
-import { authorizeGmWaitHost, GM_WAIT_OPERATION } from "./gm-wait-exchange.ts";
+import {
+  authorizeGmWaitClient,
+  authorizeGmWaitHost,
+  GM_WAIT_OPERATION,
+} from "./gm-wait-exchange.ts";
 import { verifyLocalOperator } from "./local-operator.ts";
 import { openAuthorizedPlayerView } from "./player-view.ts";
 
@@ -29,7 +33,8 @@ import { openAuthorizedPlayerView } from "./player-view.ts";
  *   1. the invoking operating-system user owns the campaign package and the owner-only retained-state directory
  *      (`verifyLocalOperator`, the boundary the package already rests on);
  *   2. the host is one the operator enrolled for THIS campaign's GM waiting operation, holding its own secret (a referee host, `gm-scene`,
- *      a player-view, observation, time-advance or freight credential, a host name or a model name opens nothing here);
+ *      a player-view, observation, time-advance or freight credential, a host name or a model name opens nothing here), AND the OAuth client
+ *      that made the call is one the operator authorized for that host (not a grant: a renewed grant of the same client passes);
  *   3. the campaign opens through the engine's owner-verified re-open under its single-writer lock, is the campaign the host was enrolled
  *      for, has no uncommitted residue, and the enrolled character, the operator's retained keep and the canonical active-PC binding are
  *      ONE character (`openAuthorizedPlayerView`, the same proofs every read makes): a stale or replaced character, an unestablished
@@ -37,8 +42,8 @@ import { openAuthorizedPlayerView } from "./player-view.ts";
  *   4. the authority is the EXISTING `role.gm` / `permission.rule.adjudicate` pair, stated here by the trusted code and never read from
  *      the request: a request that names a context, a role, a permission, a campaign, a character, a host or a transport identity of its
  *      own is an over-claim and is refused, never silently overwritten;
- *   5. the enrollment is read a second time after every proof, and a change between the two reads is a refusal (no authorization carries
- *      across a change of the operator's mind);
+ *   5. the enrollment and the client authorization are read a second time after every proof, and a change between the two reads is a
+ *      refusal (no authorization carries across a change of the operator's mind);
  *   6. only then is the candidate parsed, UNCHANGED, by the strict B0 request contract. The original human message is neither required
  *      nor claimed: the GM is trusted to interpret an ordinary wait, and this verdict is not an attestation of any player's words, of any
  *      setup input or of any player choice.
@@ -169,7 +174,7 @@ export type GmWaitIngressResult = Result<
 >;
 
 export const GM_WAIT_READY_MESSAGE =
-  "This request is well formed and the configured GM, the campaign and the character are verified. Nothing was recorded, advanced, decided or announced: it is not an admission, not a receipt and no time has passed. The player's character has perceived nothing from it.";
+  "This request is well formed and the configured GM, the campaign and the character are verified. Nothing was recorded, advanced, decided or announced: it is not an admission, not a receipt and no time has passed. The player's character has perceived nothing from it. The transaction_id, cause and publication you supplied are unqualified syntax, not a canonical identity: the later owner admission derives the canonical transaction identity from the authenticated GM session and request identity and validates the original cause and publication itself.";
 
 const unavailable = (): GmWaitIngressResult =>
   fail(GM_WAIT_UNAVAILABLE, GM_WAIT_UNAVAILABLE_MESSAGE);
@@ -184,7 +189,7 @@ const sha256 = (text: string): string => createHash("sha256").update(text, "utf8
 
 const wellFormedTransport = (t: GmWaitTransport): boolean =>
   [t.client, t.grant, t.session, t.requestId].every(
-    (v) => typeof v === "string" && v.length > 0 && v.length <= 512,
+    (v, i) => typeof v === "string" && v.length > 0 && v.length <= (i === 0 ? 4096 : 512),
   );
 
 /** The candidate must be plain, owned data of a bounded size; never an exotic object whose members a getter could change between reads. */
@@ -226,6 +231,10 @@ export async function verifyGmWaitIngress(
     };
     const enrolled = await authorizeGmWaitHost(exchange, owner.value.uid, p.hostId, p.secret);
     if (!enrolled.ok || enrolled.value.operation !== GM_WAIT_OPERATION) return unavailable();
+    // the OAuth client that made this call must be one the operator authorized for this host (BLUE A1R-01): another client holding the same
+    // transport scope can never select it. The grant is deliberately not pinned: a renewed grant of the same client passes.
+    if (!(await authorizeGmWaitClient(exchange, owner.value.uid, p.hostId, transport.client)))
+      return unavailable();
     const view = await openAuthorizedPlayerView({
       campaignDir: p.campaignDir,
       campaignId: p.campaignId,
@@ -243,6 +252,8 @@ export async function verifyGmWaitIngress(
       // the enrollment is read again after every proof: a change in between is no authorization at all
       const again = await authorizeGmWaitHost(exchange, owner.value.uid, p.hostId, p.secret);
       if (!again.ok || again.value.pc_id !== enrolled.value.pc_id) return unavailable();
+      if (!(await authorizeGmWaitClient(exchange, owner.value.uid, p.hostId, transport.client)))
+        return unavailable();
 
       // from here the caller is the proved, enrolled GM: a refusal of the REQUEST may say what is wrong with it
       const plain = plainCandidate(request);
