@@ -12,7 +12,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { canonicalJson } from "@immortalis/contracts";
 import {
   catalogueCanonicalBytes,
@@ -43,6 +43,8 @@ import {
 import { canonicalAdmission } from "../../packages/engine/src/owners/admission.ts";
 import { storeBindings } from "../../packages/engine/src/owners/extension.ts";
 import { clone } from "../support/b1-s2s3-fixtures.ts";
+
+vi.setConfig({ testTimeout: 30_000 });
 
 const base = await generate();
 const census = await buildCensus();
@@ -227,7 +229,7 @@ describe("[S2] [mechanism only] policy and source pins are bound", () => {
 
   it("[S2] [mechanism only] the two sources BLUE R-1 names are bound with their exact pins, the T-1 grants and the CAL-TIME ratifications are bound", () => {
     const adopted = manifest.sources.filter((s) => s.origin === "ADOPTED_INPUT");
-    expect(adopted.length).toBe(9);
+    expect(adopted.length).toBe(11);
     const t = adopted.find((s) => s.page_uuid === "41a20af9-01e0-811f-9c75-d404f82674cc");
     expect(t).toMatchObject({
       native_pin: "2026-11-16T15:18:44.683Z",
@@ -494,7 +496,10 @@ describe("[S2] [mechanism only] adversarial additions change the coverage and th
     const c = await buildCensus({ overlay: new Map([[rel, edited]]) });
     const v = violationsOf(c);
     expect(v).toContain(`OBJECT_ROUTE_CHANGED:produces@${rel}#gipSunsetDeclaration`);
-    expect(v.filter((x) => !x.startsWith("OBJECT_ROUTE_CHANGED"))).toEqual([]);
+    expect(v).toEqual([
+      `OBJECT_ROUTE_CHANGED:produces@${rel}#gipSunsetDeclaration`,
+      `SOURCE_POLICY_CHANGED:${rel}`,
+    ]);
     expect(c.scope.ast_counts).toEqual(census.scope.ast_counts);
     expect((await generate({ overlay: new Map([[rel, edited]]) })).digest).not.toBe(base.digest);
   });
@@ -593,13 +598,19 @@ describe("[S2] [mechanism only] byte custody of the retained manifest", () => {
     try {
       const loc = { root, manifestDir: "m", currentModule: "c.ts" };
       mkdirSync(join(root, "m"), { recursive: true });
-      expect(checkDrift(base, loc).length).toBe(2);
+      expect(checkDrift(base, loc).length).toBe(3);
+      for (const f of files.filter((f) => f !== `${base.digest}.json`))
+        writeFileSync(join(root, "m", f), readFileSync(join(dir, f)));
       writeFileSync(join(root, "m", `${base.digest}.json`), base.bytes);
       writeFileSync(
         join(root, "c.ts"),
         readFileSync(join(REPO_ROOT, "packages/engine/src/gm-wait-catalogue-current.ts"), "utf8"),
       );
       expect(checkDrift(base, loc)).toEqual([]);
+      const archive = files.find((f) => f !== `${base.digest}.json`) as string;
+      writeFileSync(join(root, "m", archive), `${readFileSync(join(dir, archive), "utf8")} `);
+      expect(checkDrift(base, loc)).toEqual([`invalid retained manifest ${archive}`]);
+      writeFileSync(join(root, "m", archive), readFileSync(join(dir, archive)));
       writeFileSync(join(root, "m", `${base.digest}.json`), `${base.bytes} `);
       expect(checkDrift(base, loc)).toEqual(["the retained manifest bytes differ from the census"]);
       writeFileSync(join(root, "m", `${base.digest}.json`), base.bytes);

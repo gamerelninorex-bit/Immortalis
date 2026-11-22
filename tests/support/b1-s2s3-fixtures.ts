@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type {
   CatalogueCensus,
-  GmWaitCatalogueManifest,
+  GmWaitCatalogueManifestV1,
 } from "../../packages/engine/src/gm-wait-catalogue.ts";
 
 export const sha = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
@@ -23,7 +23,7 @@ const R1 = sha("rule-1");
 const R2 = sha("rule-2");
 const [RA, RB] = R1 < R2 ? [R1, R2] : [R2, R1];
 
-export function miniManifest(): GmWaitCatalogueManifest {
+export function miniManifest(): GmWaitCatalogueManifestV1 {
   const kind = (id: string, owner: string, facet: string, rule_ref: string) => ({
     id,
     owner,
@@ -182,7 +182,7 @@ export function miniManifest(): GmWaitCatalogueManifest {
 }
 
 /** The census that corresponds exactly to a manifest (the code-derived part of it). */
-export function censusOf(m: GmWaitCatalogueManifest): CatalogueCensus {
+export function censusOf(m: GmWaitCatalogueManifestV1): CatalogueCensus {
   return {
     historical_verification: m.policy.historical_verification,
     owner_policy: m.policy.owner_policy,

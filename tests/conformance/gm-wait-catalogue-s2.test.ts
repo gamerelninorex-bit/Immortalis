@@ -20,7 +20,7 @@ import {
   validateManifest,
   valueSchemaFingerprint,
   verifySuppliedDigest,
-  type GmWaitCatalogueManifest,
+  type GmWaitCatalogueManifestV1,
 } from "../../packages/engine/src/gm-wait-catalogue.ts";
 import {
   censusOf,
@@ -90,7 +90,7 @@ describe("[S2] [mechanism only] manifest schema and canonical bytes", () => {
     const lineage = (
       p.rules.find(
         (r) => r.source_ref.authority_lineage.length === 2,
-      ) as GmWaitCatalogueManifest["rules"][number]
+      ) as GmWaitCatalogueManifestV1["rules"][number]
     ).source_ref;
     lineage.authority_lineage.reverse();
     expect(catalogueDigest(p)).not.toBe(catalogueDigest(m));
@@ -98,7 +98,7 @@ describe("[S2] [mechanism only] manifest schema and canonical bytes", () => {
 
   it("[S2] [mechanism only] every change to a bound source pin, policy identity or entry field changes the digest", () => {
     const base = catalogueDigest(miniManifest());
-    const mutations: Record<string, (m: GmWaitCatalogueManifest) => void> = {
+    const mutations: Record<string, (m: GmWaitCatalogueManifestV1) => void> = {
       "adopted source native pin": (m) => {
         const s = m.sources.find((x) => x.origin === "ADOPTED_INPUT");
         if (s?.origin === "ADOPTED_INPUT") s.native_pin = "2026-11-16T15:18:44.684Z";
@@ -270,28 +270,28 @@ describe("[S2] [mechanism only] strict structure, duplicates and unknown referen
   });
 
   it("[S2] [mechanism only] a duplicated tuple identity in any keyed section is refused and gets no digest", () => {
-    const dup: Record<string, (m: GmWaitCatalogueManifest) => void> = {
+    const dup: Record<string, (m: GmWaitCatalogueManifestV1) => void> = {
       sources: (m) =>
-        void m.sources.push(clone(m.sources[0] as GmWaitCatalogueManifest["sources"][number])),
+        void m.sources.push(clone(m.sources[0] as GmWaitCatalogueManifestV1["sources"][number])),
       rules: (m) =>
-        void m.rules.push(clone(m.rules[0] as GmWaitCatalogueManifest["rules"][number])),
+        void m.rules.push(clone(m.rules[0] as GmWaitCatalogueManifestV1["rules"][number])),
       kinds: (m) =>
-        void m.kinds.push(clone(m.kinds[0] as GmWaitCatalogueManifest["kinds"][number])),
+        void m.kinds.push(clone(m.kinds[0] as GmWaitCatalogueManifestV1["kinds"][number])),
       providers: (m) =>
         void m.providers.push(
-          clone(m.providers[0] as GmWaitCatalogueManifest["providers"][number]),
+          clone(m.providers[0] as GmWaitCatalogueManifestV1["providers"][number]),
         ),
       sites: (m) =>
-        void m.sites.push(clone(m.sites[0] as GmWaitCatalogueManifest["sites"][number])),
+        void m.sites.push(clone(m.sites[0] as GmWaitCatalogueManifestV1["sites"][number])),
       closes: (m) =>
-        void m.closes.push(clone(m.closes[0] as GmWaitCatalogueManifest["closes"][number])),
+        void m.closes.push(clone(m.closes[0] as GmWaitCatalogueManifestV1["closes"][number])),
       event_triggers: (m) =>
         void m.event_triggers.push(
-          clone(m.event_triggers[0] as GmWaitCatalogueManifest["event_triggers"][number]),
+          clone(m.event_triggers[0] as GmWaitCatalogueManifestV1["event_triggers"][number]),
         ),
       object_routes: (m) =>
         void m.object_routes.push(
-          clone(m.object_routes[0] as GmWaitCatalogueManifest["object_routes"][number]),
+          clone(m.object_routes[0] as GmWaitCatalogueManifestV1["object_routes"][number]),
         ),
       owners: (m) =>
         void m.policy.owner_policy.owners.push(

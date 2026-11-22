@@ -40,6 +40,7 @@ import {
   B1_S2S3_OUTSIDE_PACKAGE_PATHS,
   B1_S2S3_PACKAGE_PATHS,
   B1_S2S3_TOOLS_PATHS,
+  B1_V2_WORKFLOW_PATH,
 } from "../support/b1-s2s3-scoped-deltas.ts";
 import {
   A1_2A_B0_PRODUCTION_USERS,
@@ -228,15 +229,18 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
   it.skipIf(!baseReachable)(
     "B1S1-C2 every path the slice is forbidden to touch (the historical verifier's file and identity, the D-3 integrity, coordinator, owner registry, the typed contract, the gateways, the B0 module and its tests, the A0 and A1-1 modules, the spec lock) is byte-identical to the base commit, tracked or not",
     () => {
-      // (F-014B B1 S2/S3 adds only its own declared tooling under tools/, and A1-2a only its declared apps/ and operator paths: nothing else there moves)
-      const s2s3Tools = new Set([...B1_S2S3_TOOLS_PATHS, ...A1_2A_PACKAGE_PATHS]);
+      const successorPaths = new Set([
+        ...B1_S2S3_TOOLS_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
+        B1_V2_WORKFLOW_PATH,
+      ]);
       for (const p of B1_S1_UNTOUCHED) {
         expect(
-          changedSince(p).filter((x) => !s2s3Tools.has(x)),
+          changedSince(p).filter((x) => !successorPaths.has(x)),
           p,
         ).toEqual([]);
         expect(
-          untrackedIn(p).filter((x) => !s2s3Tools.has(x)),
+          untrackedIn(p).filter((x) => !successorPaths.has(x)),
           p,
         ).toEqual([]);
       }
