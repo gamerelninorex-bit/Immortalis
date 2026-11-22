@@ -21,6 +21,7 @@ import {
   B1_S2S3_OUTSIDE_PACKAGE_PATHS,
   B1_S2S3_PACKAGE_PATHS,
   B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS,
+  B1_V2_WORKFLOW_PATH,
 } from "../support/b1-s2s3-scoped-deltas.ts";
 import { B1_S1_PACKAGE_PATHS } from "../support/b1-s1-scoped-deltas.ts";
 import { A1_2A_EVIDENCE_PREFIX, A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
@@ -141,7 +142,7 @@ describe("[scope] [mechanism only] B1 S2/S3 forbidden files are byte-identical t
       const otherSlices = new Set([
         ...B1_S1_PACKAGE_PATHS,
         ...A1_2A_PACKAGE_PATHS,
-        ".github/workflows/ci.yml", // B1 v2 runs the static catalogue drift check.
+        B1_V2_WORKFLOW_PATH,
       ]);
       for (const p of FORBIDDEN) {
         expect(
