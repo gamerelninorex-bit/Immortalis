@@ -1263,6 +1263,7 @@ describe("static: the front end opens no shell, evaluates nothing and holds no m
       "config.ts",
       "confirm-text.ts",
       "delayed-continuation.ts",
+      "gm-wait-tool.ts",
       "goal-record.ts",
       "goal.ts",
       "locality-evidence.ts",

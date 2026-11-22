@@ -20,6 +20,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { A0_BASE_COMMIT, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS, A1_1_TRANSITION } from "../support/a1-1-scoped-deltas.ts";
+import { A1_2A_NEW_PRODUCTION_PATHS, A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
 import { B1_S1_TRANSITION } from "../support/b1-s1-scoped-deltas.ts";
 import { code } from "../support/f027.ts";
 import { PRESENT_DAY_CODE_IDENTITIES, identityOf } from "../support/present-day-identities.ts";
@@ -224,13 +225,18 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const untracked = lines(git("ls-files", "--others", "--exclude-standard", "--", tree));
         const tracked = lines(git("ls-files", "--", tree)).sort();
         const atBase = lines(git("ls-tree", "-r", "--name-only", BASE, "--", tree)).sort();
+        // DECLARED A1-2a ADDITIONS (F-014B A1-2a: four new operator modules, tests/support/a1-2a-scoped-deltas.ts) ride in the same declared set.
         // DECLARED A1-1 TRANSITION (F-014B A1-1, built on a base whose operator tree is this contract's): the two existing operator files in
         // tests/support/a1-1-scoped-deltas.ts, checked by length and diff scope in the next test. No other file of either tree changes.
-        const declared = A1_1_PACKAGE_PATHS.filter((p) => p.startsWith(`${tree}/`)).sort();
+        const declared = [...A1_1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]
+          .filter((p) => p.startsWith(`${tree}/`))
+          .sort();
         expect(atBase.length, `${tree} is not empty at the base`).toBeGreaterThan(0);
         expect(changed, `${tree} changed`).toEqual(declared);
         expect(untracked, `${tree} untracked`).toEqual([]);
-        expect(tracked, `${tree} file list`).toEqual(atBase);
+        // the file list is the base's, plus exactly the new files F-014B A1-2a declares inside this tree
+        const added = A1_2A_NEW_PRODUCTION_PATHS.filter((p) => p.startsWith(`${tree}/`));
+        expect(tracked, `${tree} file list`).toEqual([...atBase, ...added].sort());
       }
       // the declared set lies wholly inside the operator tree: the protocol tree has no declared change
       expect(A1_1_PACKAGE_PATHS.every((p) => p.startsWith("packages/operator/src/"))).toBe(true);

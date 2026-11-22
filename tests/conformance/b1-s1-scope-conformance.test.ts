@@ -41,6 +41,12 @@ import {
   B1_S2S3_PACKAGE_PATHS,
   B1_S2S3_TOOLS_PATHS,
 } from "../support/b1-s2s3-scoped-deltas.ts";
+import {
+  A1_2A_B0_PRODUCTION_USERS,
+  A1_2A_EVIDENCE_PREFIX,
+  A1_2A_LITERAL_FILES,
+  A1_2A_PACKAGE_PATHS,
+} from "../support/a1-2a-scoped-deltas.ts";
 
 /** The lines the base commit carried inline in the stage-bearing arm and the production file no longer does: the moved comparison (see B1S1-C2). */
 const MOVED_BLOCK_DELETIONS = 13;
@@ -187,7 +193,7 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
       const changed = changedSince("apps", "packages");
       // Declared inclusion (F-014B B1 S2/S3, a later slice): its new package paths, policed by that slice's own table and suite.
       expect([...changed, ...untrackedIn("apps", "packages")].sort()).toEqual(
-        [...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
+        [...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS].sort(),
       );
       // the declared allow-list is not a place to park files that did not change
       expect(B1_S1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
@@ -201,10 +207,20 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
         (p) => !p.startsWith("tests/"),
       );
       // Declared inclusion (F-014B B1 S2/S3): its new package paths, its tooling and its evidence directory (policed by that slice's own suite).
-      const s2s3 = new Set([...B1_S2S3_PACKAGE_PATHS, ...B1_S2S3_OUTSIDE_PACKAGE_PATHS]);
+      const s2s3 = new Set([
+        ...B1_S2S3_PACKAGE_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
+        ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
+      ]);
       const expected = new Set([...B1_S1_PACKAGE_PATHS, ...B1_S1_NON_PACKAGE_PATHS, ...s2s3]);
       expect(
-        [...new Set(outside.filter((p) => !p.startsWith(B1_S2S3_EVIDENCE_PREFIX)))].sort(),
+        [
+          ...new Set(
+            outside.filter(
+              (p) => !p.startsWith(B1_S2S3_EVIDENCE_PREFIX) && !p.startsWith(A1_2A_EVIDENCE_PREFIX),
+            ),
+          ),
+        ].sort(),
       ).toEqual([...expected].sort());
     },
   );
@@ -212,8 +228,8 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
   it.skipIf(!baseReachable)(
     "B1S1-C2 every path the slice is forbidden to touch (the historical verifier's file and identity, the D-3 integrity, coordinator, owner registry, the typed contract, the gateways, the B0 module and its tests, the A0 and A1-1 modules, the spec lock) is byte-identical to the base commit, tracked or not",
     () => {
-      // (F-014B B1 S2/S3 adds only its own declared tooling under tools/: nothing else there moves)
-      const s2s3Tools = new Set(B1_S2S3_TOOLS_PATHS);
+      // (F-014B B1 S2/S3 adds only its own declared tooling under tools/, and A1-2a only its declared apps/ and operator paths: nothing else there moves)
+      const s2s3Tools = new Set([...B1_S2S3_TOOLS_PATHS, ...A1_2A_PACKAGE_PATHS]);
       for (const p of B1_S1_UNTOUCHED) {
         expect(
           changedSince(p).filter((x) => !s2s3Tools.has(x)),
@@ -326,7 +342,10 @@ describe("B1-S1 pairing: the engine's local literal against the B0 constant, and
     const spelling = productionFiles()
       .filter((f) => readFileSync(f, "utf8").includes(GM_INTERPRETED_PC_WAIT))
       .sort();
-    expect(spelling).toEqual(Object.keys(B1_S1_LITERAL_FILES).sort());
+    // (F-014B A1-2a adds one declared local copy in the operator package, pinned equal to the B0 constant by its own suite)
+    expect(spelling).toEqual(
+      [...Object.keys(B1_S1_LITERAL_FILES), ...Object.keys(A1_2A_LITERAL_FILES)].sort(),
+    );
     for (const reason of Object.values(B1_S1_LITERAL_FILES))
       expect(reason.length).toBeGreaterThan(20);
   });
@@ -380,7 +399,8 @@ describe("B1-S1 pairing: the engine's local literal against the B0 constant, and
     expect(count("departsFromItsAuthority")).toEqual([[ADMISSION, 3]]); // the definition and the two arms
     const b0 = "packages/contracts/src/temporal-gm-wait.ts";
     // code only: the guard's comment names the B0 module as the reason the engine cannot import it
-    for (const f of files.filter((x) => x !== b0))
+    // (F-014B A1-2a: the phone service hands the unchanged B0 parser to the operator ingress; its one declared user is exempt)
+    for (const f of files.filter((x) => x !== b0 && !(x in A1_2A_B0_PRODUCTION_USERS)))
       expect(code(f), f).not.toMatch(/temporal-gm-wait|temporalOriginPairing|parseGmWaitRequest/);
     // the unphased DENY is used in no historical path: the historical verifier's file does not mention the guard or the literal
     expect(readFileSync("packages/engine/src/owners/admission.ts", "utf8")).not.toMatch(

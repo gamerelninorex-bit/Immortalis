@@ -18,6 +18,11 @@ export interface PhoneConfig {
   readonly refereeHostIds: readonly string[];
   /** Optional explicit operator scopes for custom host identities; never read from a client. */
   readonly refereeBindings?: readonly RefereeBinding[];
+  /**
+   * F-014B A1-2a: the operator-ENROLLED GM waiting host identities the phone service may offer the non-writing GM waiting verification
+   * to (each enrolled by `immortalis-gm-wait-bind`; at most 4). Empty or absent: the operation does not exist. Never read from a client.
+   */
+  readonly gmWaitHostIds?: readonly string[];
   readonly bindHost: string;
   readonly port: number;
   /** `proxy`: TLS ends at the platform's edge and every non-health request must say so (`x-forwarded-proto: https`); `insecure-loopback`: plain HTTP on 127.0.0.1 for local development only */
@@ -97,6 +102,16 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
         "IMMORTALIS_REFEREE_BINDINGS must map every listed host to explicit supported operations",
       );
   }
+  const gmWaitHostIds = (env["IMMORTALIS_GM_WAIT_HOST_IDS"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+  if (gmWaitHostIds.length > 4 || new Set(gmWaitHostIds).size !== gmWaitHostIds.length)
+    problems.push("IMMORTALIS_GM_WAIT_HOST_IDS must list at most 4 distinct host identities");
+  if (gmWaitHostIds.some((h) => !HOST_ID.test(h)))
+    problems.push("a GM waiting host identity is not valid");
+  if (gmWaitHostIds.some((h) => hostIds.includes(h)))
+    problems.push("a GM waiting host identity must not also be a referee host identity");
   const transportRaw = env["IMMORTALIS_TRANSPORT"] ?? "proxy";
   if (transportRaw !== "proxy" && transportRaw !== "insecure-loopback")
     problems.push("IMMORTALIS_TRANSPORT must be proxy or insecure-loopback");
@@ -149,6 +164,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
       refereeToken,
       refereeHostIds: hostIds,
       ...(refereeBindings ? { refereeBindings } : {}),
+      ...(gmWaitHostIds.length > 0 ? { gmWaitHostIds } : {}),
       bindHost,
       port,
       transport,

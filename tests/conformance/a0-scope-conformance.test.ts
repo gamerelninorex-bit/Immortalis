@@ -46,6 +46,7 @@ import {
   B1_S2S3_SI_ORIGIN_WITNESS_PRODUCTION_CALLERS,
   B1_S2S3_TOOLS_PATHS,
 } from "../support/b1-s2s3-scoped-deltas.ts";
+import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -132,6 +133,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         ...A0_DECLARED_MAIN_INCLUSIONS,
         ...A1_1_PACKAGE_PATHS,
         ...B1_S2S3_PACKAGE_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
       ].sort(),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
@@ -181,7 +183,12 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     );
     // (and the F-014B A1-1 slice's two declared operator files, which that slice's own table and suite police)
     expect([...changed, ...untracked].sort()).toEqual(
-      [...A0_PACKAGE_PATHS, ...A1_1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS].sort(),
+      [
+        ...A0_PACKAGE_PATHS,
+        ...A1_1_PACKAGE_PATHS,
+        ...B1_S2S3_PACKAGE_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
+      ].sort(),
     );
     // the declared main inclusions are in main already: this slice does not change them
     for (const p of A0_DECLARED_MAIN_INCLUSIONS) {
@@ -240,8 +247,10 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
-      // a forbidden path moves by nothing, except the declared A1-1 inclusions that lie inside it (the two operator files)
-      const declared = A1_1_PACKAGE_PATHS.filter((a) => a === p || a.startsWith(`${p}/`)).sort();
+      // a forbidden path moves by nothing, except the declared A1-1 and A1-2a inclusions that lie inside it
+      const declared = [...A1_1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]
+        .filter((a) => a === p || a.startsWith(`${p}/`))
+        .sort();
       expect(
         lines(git("-c", "core.fileMode=false", "diff", "--name-only", A0_BASE_COMMIT, "--", p)),
         p,
