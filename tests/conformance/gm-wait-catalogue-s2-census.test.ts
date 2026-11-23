@@ -304,7 +304,7 @@ describe("[S2] [mechanism only] policy and source pins are bound", () => {
     // The same dispatcher now refuses a reserved workshop key in extension history before its existing skip.
     expect(returns).toEqual([
       ...originalReturns.slice(0, 7),
-      'verifyHistorical: return reject("KEY_NOT_ADMITTED", "extension history cannot interpret a reserved workshop key", );',
+      'verifyHistorical: return reject("KEY_NOT_ADMITTED", "extension history cannot interpret a reserved workshop key");',
       ...originalReturns.slice(7),
     ]);
     expect(manifest.extension_dispatch.early_return_count).toBe(10);
