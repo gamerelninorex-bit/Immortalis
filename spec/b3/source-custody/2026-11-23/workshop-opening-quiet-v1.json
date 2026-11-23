@@ -1,0 +1,1134 @@
+{
+  "acceptance_proofs": {
+    "T100": "crash each required opening group => no qualified half-open campaign; clock 300 exact",
+    "T101": "due stage C1..C4 terminal else unresolved protected ACTIVE; no fake occurrence",
+    "T102": "recovery before, same instant, after I correctly ordered by Temporal §15",
+    "T94": "both original profile variants same manifest bytes => same authored input and group order; historical import/late selection/out of order refuse",
+    "T95": "GM issue/accept/revoke refuse; seeded GIP instruction and Named Actor duty precede wait",
+    "T96": "order/charter cannot be same group; QO.5 source pin recomputed; holder change prevents grant",
+    "T97": "no inference of recognition/speech/privacy; extra local PC cannot acquire notice",
+    "T98": "incoherent Health Close status and coverage rejected; exact stamp verified",
+    "T99": "outside route not automatically counted, policy change => UNKNOWN until reanchored",
+    "no_executable_tests_run": true,
+    "no_real_owner_receipts_claimed": true
+  },
+  "admission_controls": {
+    "creation_only": true,
+    "entire_incomplete_opening_discarded": true,
+    "historical_world_reuse": false,
+    "no_GM_player_or_tool_late_selection": true,
+    "no_Health_automatic_normality": true,
+    "no_in_scene_NPC_assent_or_issuer_power": true,
+    "no_receipt_from_world_occurrence_alone": true,
+    "no_runtime_authority_from_file_alone": true,
+    "no_unverified_future_read_before_OPEN": true
+  },
+  "campaign_class": "QUALIFICATION",
+  "disposable_only": true,
+  "id": "workshop-opening-quiet-v1",
+  "opening_contract": {
+    "QO5_competence": "Qualified immutable source pin is setting constitutive practice PRE-EXISTING the first GIP founding-order write; never derived from GIP office or from the charter it later validates.",
+    "RD5A_charter_future_operation_ref": "At step4, charter may carry only a profile-predeclared operation key/identity as a forward address (NOT a fabricated committed FactRef); step5 must publish the exact original Production operation before step6 instruction and otherwise the entire opening is unqualified.",
+    "RD5A_legal_proof": "The bare generic instrument operative_effect and free-text office powers are never sufficient: QO founding-order and original own-source charter/instruction relations are verified at exact prestate.",
+    "RD5A_reuse_policy": "Existing gip_governance_instrument already carries the effect class; exactly two QO-only typed strict variants of that existing kind encode RD.5 charter/instruction. No additional GIP charter/instruction kind IDs; leave historic generic kind/writes unchanged.",
+    "actor_route_correction": "M-S exact current code requires exactly ONE actor leaf per initial locality completion, so it cannot create both Rowan and Mara from one response. QO original qualified source must use two separate QO-specific Named Actor existence branches, never counterfeit M-S output.",
+    "all_groups_at_original_t0": true,
+    "authoring_mode": "source authoring literal values where exact schema permits; original-owner producer methods for dependent/decision outputs; no invented referee facts or actor choice; all groups commit only by owner",
+    "canonical_time": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "current_profile_only": "Original group fact journal, strict replay and source policy identification; NO transfer to historical campaigns",
+    "each_group_exactly_one_original_owner_facet": true,
+    "founding_order_source_kind": "gip_qualification_founding_order is the ONE bounded GIP-owned source projection for RED QO.4/QO.5; no standing general founder power or cross-campaign law",
+    "gip_literal_key_branch": "One registered existing GIP kind name gets two strict QO-only key/value/lifecycle branches matching RED RD.5 literal keys. Mere relabel does not work; the registry key resolver, schema union, and original admission/historical replay must be extended with frozen legacy policies preserved.",
+    "group_count": 25,
+    "journal_revisions_strictly_increase": true,
+    "nine_phase_order": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_GM_authored_sources": true,
+    "opening_time": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "owner_decision_proof": "No signed referee/MS verdict is present in this file. Those are original producers and must be generated under their own permissions at qualification creation; a void/missing owner proof rejects, not a default-success.",
+    "owner_group_publications": [
+      {
+        "alias": "world",
+        "authored_value": {
+          "insertion_supporting_constraints": [
+            {
+              "aspect": "locus",
+              "statement": "The qualified opening has exactly one workshop bay at the single original locale."
+            },
+            {
+              "aspect": "qualification",
+              "statement": "This source profile exists only for one disposable QUALIFICATION campaign and is not portable to a historical settlement."
+            }
+          ],
+          "material_world_law_departures": [],
+          "premise": "A single fictional workshop operated only as a disposable Immortalis source-qualification case.",
+          "reference_causal_basis": {
+            "established_canon": "One fictional local workshop, one designated operative PC, and two originally authored attendant/supervisor role existences; no real historical setting is changed.",
+            "mode": "ORIGINAL"
+          },
+          "world_id": "b3-qualification-workshop-world"
+        },
+        "facet": "world_profile",
+        "group_writes": [
+          "world_profile"
+        ],
+        "kind": "world_profile",
+        "owner": "world_state",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 1,
+        "requires": [],
+        "sequence": 1,
+        "source_contract_refs": [
+          "WorldProfileSchema",
+          "QO.2"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "workshop_locus",
+        "authored_value": {
+          "constraints": [
+            {
+              "aspect": "physical-locality",
+              "statement": "One bounded workshop bay in the original world; a physical PC and attendant can be co-located here."
+            }
+          ],
+          "designation": "Workshop Bay 1",
+          "locus_id": "workshop-opening-quiet-v1",
+          "world": {
+            "entity_id": "b3-qualification-workshop-world",
+            "fact_key": "world/b3-qualification-workshop-world/profile"
+          }
+        },
+        "facet": "world_locus",
+        "group_writes": [
+          "world_locus"
+        ],
+        "kind": "world_locus",
+        "owner": "world_state",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 1,
+        "requires": [
+          "world"
+        ],
+        "sequence": 2,
+        "source_contract_refs": [
+          "WorldLocusSchema",
+          "QO.2"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_host",
+        "facet": "existence_contract",
+        "group_writes": [
+          "pc_existence_contract"
+        ],
+        "kind": "pc_existence_contract",
+        "owner": "pc_existence",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 2,
+        "producer_contract": {
+          "inputs": {
+            "contact": "One embodied human visitor capable of choosing for himself",
+            "continuity": "one continuing physical life, no unexplained duplicates",
+            "embodiment": "one ordinary human body",
+            "identity": "Bob, an ordinary embodied human workshop visitor",
+            "pc_id": "b3-qualification-pc-bob",
+            "presence": "I am originally present at Workshop Bay 1",
+            "scripted_testkit_author_only": true
+          },
+          "negative": "no signed/confirmed original player-authorship, or the user declines placement -> no contract/binding/custody; fixture cannot supply a referee verdict",
+          "operation": "original-player-author-character",
+          "source": "I-002 original player authorization, TESTKIT source input is not independent human participation"
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 3,
+        "source_contract_refs": [
+          "I-002",
+          "QO.4(2)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "native_compatibility_verdict",
+        "facet": "referee_provenance",
+        "group_writes": [
+          "referee_decision"
+        ],
+        "kind": "referee_decision",
+        "owner": "referee_kernel",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 2,
+        "producer_contract": {
+          "inputs": {
+            "host": "actual authorized referee host or explicitly labelled scripted fixture",
+            "locus_alias": "workshop_locus",
+            "pc_contract_alias": "pc_host",
+            "pc_id": "b3-qualification-pc-bob",
+            "raw_decision_preseeded": false,
+            "world_alias": "world"
+          },
+          "negative": "if original presence is unsupported or the host fails, no qualifying BIND_ELIGIBLE decision",
+          "operation": "IR_NATIVE_COMPATIBILITY",
+          "source": "referee-derived original decision with original task binding"
+        },
+        "requires": [
+          "pc_host",
+          "workshop_locus"
+        ],
+        "sequence": 4,
+        "source_contract_refs": [
+          "IR_NATIVE_COMPATIBILITY",
+          "QO.4(2)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_binding",
+        "facet": "player_character_binding",
+        "group_writes": [
+          "player_character_binding"
+        ],
+        "kind": "player_character_binding",
+        "owner": "role_registry",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 2,
+        "producer_contract": {
+          "inputs": {
+            "kind": "FIRST_NATIVE_ACTIVATION",
+            "locus_alias": "workshop_locus",
+            "native_decision_alias": "native_compatibility_verdict",
+            "pc_id": "b3-qualification-pc-bob",
+            "world_alias": "world"
+          },
+          "negative": "noneligible native decision, wrong operative PC, or no original actor author -> binding not issued",
+          "operation": "original-role-registry-activate",
+          "source": "Role Registry original authorized binding"
+        },
+        "requires": [
+          "pc_host",
+          "native_compatibility_verdict"
+        ],
+        "sequence": 5,
+        "source_contract_refs": [
+          "I-002",
+          "QO.4(2)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "physical_placement_verdict",
+        "facet": "referee_provenance",
+        "group_writes": [
+          "referee_decision"
+        ],
+        "kind": "referee_decision",
+        "owner": "referee_kernel",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 2,
+        "producer_contract": {
+          "inputs": {
+            "locus_alias": "workshop_locus",
+            "pc_binding_alias": "pc_binding",
+            "physical_placement_statement": "The one embodied operative PC is actually present at Workshop Bay 1 at activation",
+            "raw_verdict_preseeded": false,
+            "world_alias": "world"
+          },
+          "negative": "host unavailable or source statement materially contradicts world/custody -> no PHYSICAL_ELIGIBLE decision",
+          "operation": "IR_PHYSICAL_PLACEMENT",
+          "source": "Referee authenticated original physical placement decision"
+        },
+        "requires": [
+          "pc_binding",
+          "workshop_locus"
+        ],
+        "sequence": 6,
+        "source_contract_refs": [
+          "IR_PHYSICAL_PLACEMENT",
+          "QO.4(2)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_placement",
+        "facet": "world_pc_locus_custody",
+        "group_writes": [
+          "world_pc_locus_custody"
+        ],
+        "kind": "world_pc_locus_custody",
+        "owner": "world_state",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 2,
+        "producer_contract": {
+          "inputs": {
+            "binding_alias": "pc_binding",
+            "locus_alias": "workshop_locus",
+            "native_alias": "native_compatibility_verdict",
+            "pc_id": "b3-qualification-pc-bob",
+            "physical_alias": "physical_placement_verdict",
+            "source_branch": "ORIGINAL_ACTIVATION",
+            "world_alias": "world"
+          },
+          "negative": "absent/wrong-host original referee, wrong locus or stale binding -> no custody and no later occurrence",
+          "operation": "world-state-original-pc-locus-custody",
+          "source": "actual World-State original activation, no invented co-location"
+        },
+        "requires": [
+          "pc_binding",
+          "physical_placement_verdict",
+          "native_compatibility_verdict"
+        ],
+        "sequence": 7,
+        "source_contract_refs": [
+          "QO.4(2)",
+          "D1"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "supervisor_existence",
+        "facet": "actor_existence",
+        "group_writes": [
+          "named_actor_existence_basis"
+        ],
+        "kind": "named_actor_existence_basis",
+        "owner": "named_actor",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 3,
+        "producer_contract": {
+          "inputs": {
+            "actor_id": "b3-qualification-supervisor-rowan",
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "original_non_pc": true,
+            "profile_source": "EXTERNALLY_PINNED_QO_SOURCE_AT_CREATION",
+            "source_role": "duty_supervisor",
+            "standing_issued_instruction": false,
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          },
+          "negative": "if source profile pin/class/role/actor identity is absent, duplicated, historical-world or post-creation, reject; never accept two actors from one M-S ACTOR_PRODUCER_REQUIRED constraint",
+          "operation": "QO_NATIVE_NAMED_ACTOR_ORIGINAL_EXISTENCE",
+          "source": "RED QO.2/QO.4 prospective independent original Named Actor existence, not pre-existing M-S one-leaf route"
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 8,
+        "source_contract_refs": [
+          "QO.2",
+          "QO.4(3)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_existence",
+        "facet": "actor_existence",
+        "group_writes": [
+          "named_actor_existence_basis"
+        ],
+        "kind": "named_actor_existence_basis",
+        "owner": "named_actor",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 3,
+        "producer_contract": {
+          "inputs": {
+            "actor_id": "b3-qualification-attendant-mara",
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "original_non_pc": true,
+            "profile_source": "EXTERNALLY_PINNED_QO_SOURCE_AT_CREATION",
+            "source_role": "attendant",
+            "standing_issued_instruction": false,
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          },
+          "negative": "if source profile pin/class/role/actor identity is absent, duplicated, historical-world or post-creation, reject; never accept two actors from one M-S ACTOR_PRODUCER_REQUIRED constraint",
+          "operation": "QO_NATIVE_NAMED_ACTOR_ORIGINAL_EXISTENCE",
+          "source": "RED QO.2/QO.4 prospective independent original Named Actor existence, not pre-existing M-S one-leaf route"
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 9,
+        "source_contract_refs": [
+          "QO.2",
+          "QO.4(3)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "actor_setup_placement",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "actor_setup_placement"
+        ],
+        "kind": "actor_setup_placement",
+        "owner": "world_state",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 3,
+        "producer_contract": {
+          "inputs": {
+            "actor_alias": "attendant_existence",
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "placement_scope": "one QO attendant, stationary at original Bay 1",
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          },
+          "negative": "actor identity not current original source or locus conflicts -> no placement",
+          "operation": "QO_NATIVE_ORIGINAL_ACTOR_PLACEMENT",
+          "source": "QO-specific original actor placement, not a counterfeit M-S source"
+        },
+        "requires": [
+          "attendant_existence"
+        ],
+        "sequence": 10,
+        "source_contract_refs": [
+          "QO.4(3)",
+          "R1"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "actor_setup_closure",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "world_setup_closure"
+        ],
+        "kind": "world_setup_closure",
+        "owner": "world_state",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 3,
+        "producer_contract": {
+          "inputs": {
+            "expected_actor_aliases": [
+              "supervisor_existence",
+              "attendant_existence"
+            ],
+            "placed_attendant_alias": "actor_setup_placement"
+          },
+          "negative": "missing original attended-placement predecessor or extra named actor -> fail closed",
+          "operation": "QO_NATIVE_ORIGINAL_ACTOR_SETUP_CLOSE",
+          "source": "QO owner setup chain does not reuse M-S one-actor signed closure"
+        },
+        "requires": [
+          "actor_setup_placement"
+        ],
+        "sequence": 11,
+        "source_contract_refs": [
+          "QO.4(3)",
+          "R1"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_presence",
+        "facet": "world_actor_presence",
+        "group_writes": [
+          "actor_physical_presence"
+        ],
+        "kind": "actor_physical_presence",
+        "owner": "world_state",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 3,
+        "producer_contract": {
+          "inputs": {
+            "attendant_alias": "attendant_existence",
+            "closure_alias": "actor_setup_closure",
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "same_original_actor": true
+          },
+          "negative": "no original setup closure, a moved actor or stale existence -> reject; profile text alone never proves I-time attendance",
+          "operation": "QO_R1_ORIGINAL_ACTOR_PRESENCE",
+          "source": "R1 new QO-only original admitted branch without false M-S receipt"
+        },
+        "requires": [
+          "actor_setup_closure",
+          "attendant_existence"
+        ],
+        "sequence": 12,
+        "source_contract_refs": [
+          "QO.4(3)",
+          "R1"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "founding_order",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_qualification_founding_order"
+        ],
+        "kind": "gip_qualification_founding_order",
+        "owner": "gip",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 4,
+        "producer_contract": {
+          "inputs": {
+            "campaign_class": "QUALIFICATION",
+            "constitutive_practice": "Sovereign-pinned immutable QO source rule pre-dates this group; no office/holder creates competence",
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "order_id": "b3-qualification-workshop-foundation",
+            "profile_id": "workshop-opening-quiet-v1",
+            "source_rule_ref": "RECOMPUTE_EXTERNAL_MANIFEST_SHA256_AT_CREATION",
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          },
+          "negative": "invalid source-pinned QO bytes, profile modified after creation, GIP order citing own rule or holder self-constitution -> no order",
+          "operation": "QO5_ORIGINAL_CONSTITUTIVE_GIP_FOUNDING_ORDER",
+          "source": "RED QO.5 & GIP §8 step8(iii); GIP alone publishes order, profile is prior rule not owner"
+        },
+        "requires": [
+          "supervisor_existence",
+          "attendant_existence"
+        ],
+        "sequence": 13,
+        "source_contract_refs": [
+          "QO.5",
+          "GIP §8 step8(iii)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "institution",
+        "authored_value": {
+          "continuity_status": "continuing",
+          "identity_label": "Workshop Qualification Institution",
+          "institution_id": "b3-qualification-workshop-institution"
+        },
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_institution_identity"
+        ],
+        "kind": "gip_institution_identity",
+        "owner": "gip",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 4,
+        "requires": [
+          "founding_order"
+        ],
+        "sequence": 14,
+        "source_contract_refs": [
+          "InstitutionIdentitySchema",
+          "QO.4(4)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "supervisor_office",
+        "authored_value": {
+          "authority_source_ref": "gip/qualification-founding-order/workshop-opening-quiet-v1",
+          "competence_scope": "One qualification workshop and one source-defined operation only; not any historical institution",
+          "duties": [
+            "The charter alone governs exactly one completion monitoring/reporting direction"
+          ],
+          "holder_ref": "named-actor/b3-qualification-supervisor-rowan/existence-basis",
+          "institution_id": "b3-qualification-workshop-institution",
+          "office_id": "b3-qualification-notice-supervisor",
+          "powers": [],
+          "removal_rule": "A holder change permanently ends this specific standing instruction.",
+          "selection_rule": "Holder fixed only by original immutable QO profile; no post-creation self-appointment.",
+          "succession_rule": "No succession in this disposable profile."
+        },
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_office_authority_locus"
+        ],
+        "kind": "gip_office_authority_locus",
+        "owner": "gip",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 4,
+        "requires": [
+          "institution",
+          "founding_order"
+        ],
+        "sequence": 15,
+        "source_contract_refs": [
+          "OfficeAuthorityLocusHolderSchema",
+          "QO.4(4)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_post",
+        "authored_value": {
+          "authority_source_ref": "gip/qualification-founding-order/workshop-opening-quiet-v1",
+          "competence_scope": "One qualification workshop and one source-defined operation only; not any historical institution",
+          "duties": [
+            "The standing attendant post has no power to issue other instructions"
+          ],
+          "holder_ref": "named-actor/b3-qualification-attendant-mara/existence-basis",
+          "institution_id": "b3-qualification-workshop-institution",
+          "office_id": "b3-qualification-attendant-post",
+          "powers": [],
+          "removal_rule": "A holder change permanently ends this specific standing instruction.",
+          "selection_rule": "Holder fixed only by original immutable QO profile; no post-creation self-appointment.",
+          "succession_rule": "No succession in this disposable profile."
+        },
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_office_authority_locus"
+        ],
+        "kind": "gip_office_authority_locus",
+        "owner": "gip",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 4,
+        "requires": [
+          "institution",
+          "founding_order"
+        ],
+        "sequence": 16,
+        "source_contract_refs": [
+          "OfficeAuthorityLocusHolderSchema",
+          "QO.4(4)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "local_scope",
+        "authored_value": {
+          "institution_id": "b3-qualification-workshop-institution",
+          "office_id": "b3-qualification-notice-supervisor",
+          "scope_binding_id": "b3-qualification-local-notice-scope",
+          "scope_ref": "workshop-opening-quiet-v1",
+          "scope_type": "QUALIFICATION_ONLY_SINGLE_WORKSHOP",
+          "target_condition": "Applies only to one original job and the designated operative PC in disposable QUALIFICATION campaign."
+        },
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_scope_binding"
+        ],
+        "kind": "gip_scope_binding",
+        "owner": "gip",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 4,
+        "requires": [
+          "supervisor_office"
+        ],
+        "sequence": 17,
+        "source_contract_refs": [
+          "ScopeBindingSchema",
+          "QO.4(4)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "charter",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_governance_instrument"
+        ],
+        "kind": "gip_governance_instrument",
+        "owner": "gip",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 4,
+        "producer_contract": {
+          "inputs": {
+            "effect": "authority_grant",
+            "exact_red_key": "gip/local-completion-notice/campaign/{campaign_id}/charter",
+            "exact_red_schema": "RD.5 charter SEALED strict value",
+            "future_reference_must_be_verified_at_phase5": true,
+            "future_source_operation_key": "production/operation/b3-qualification-bracket-job",
+            "old_kind_rule_must_continue": "gip/instrument/{instrument_id}",
+            "prior_order": "founding_order",
+            "profile_id": "workshop-opening-quiet-v1",
+            "same-kind-as-existing": "gip_governance_instrument",
+            "scope": "local_scope",
+            "source_office": "supervisor_office"
+          },
+          "negative": "generic GIP author-provided authority grant alone lacks original competence; charter update, wrong RED literal key or copied future Production receipt -> reject",
+          "operation": "QO_RD5_CHARTER_WITHIN_EXISTING_GIP_KIND",
+          "source": "RED RD.1,RD.5,RD.5A; source branch supports RED literal keys with existing kind ID and owner facet"
+        },
+        "requires": [
+          "founding_order",
+          "institution",
+          "supervisor_office",
+          "local_scope"
+        ],
+        "sequence": 18,
+        "source_contract_refs": [
+          "RD.5",
+          "RD.5A",
+          "QO.5"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "economy_request",
+        "facet": "economy_state",
+        "group_writes": [
+          "economy_request"
+        ],
+        "kind": "economy_request",
+        "owner": "economy",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 5,
+        "producer_contract": {
+          "inputs": {
+            "carrier_origin": "sealed original QO setting",
+            "no_reuse_of_population_demand": true,
+            "output_class": "bracket",
+            "population_carrier_required": false,
+            "quantity": {
+              "amount": 1,
+              "unit": "unit"
+            },
+            "request_id": "b3-qualification-bracket-job",
+            "request_type": "one local bracket request",
+            "scope": {
+              "locus": {
+                "entity_id": "workshop-opening-quiet-v1",
+                "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+              },
+              "world": {
+                "entity_id": "b3-qualification-workshop-world",
+                "fact_key": "world/b3-qualification-workshop-world/profile"
+              }
+            },
+            "source_owner": "economy"
+          },
+          "negative": "wrong campaign class, copied Population demand, absent world/locus or forged request -> reject. Generic Economy request route must not accept without its lawful source",
+          "operation": "QO_ORIGINAL_ECONOMY_REQUESTER",
+          "source": "RED QO.2 prescribes original Economy requester; qualification-only original branch, not false Population ledger"
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 19,
+        "source_contract_refs": [
+          "QO.2",
+          "QO.4(5)",
+          "ProductionRequestSchema"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_reserve",
+        "authored_value": {
+          "claims": [],
+          "condition": "raw-local-stock",
+          "consumed": [],
+          "established": {
+            "amount": 1,
+            "unit": "unit"
+          },
+          "holding": "HELD_LOCAL_BY_PRODUCTION",
+          "locality": {
+            "locus": {
+              "entity_id": "workshop-opening-quiet-v1",
+              "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v1"
+            },
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          },
+          "material_class": "bracket-stock",
+          "quantity": {
+            "amount": 1,
+            "unit": "unit"
+          },
+          "reserve_id": "b3-qualification-bracket-stock"
+        },
+        "facet": "production_state",
+        "group_writes": [
+          "production_reserve"
+        ],
+        "kind": "production_reserve",
+        "owner": "production",
+        "payload_mode": "EXACT_AUTHORED_VALUE",
+        "phase": 5,
+        "requires": [
+          "economy_request"
+        ],
+        "sequence": 20,
+        "source_contract_refs": [
+          "ProductionReserveSchema",
+          "QO.4(5)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_start",
+        "facet": "production_state",
+        "group_writes": [
+          "production_reserve",
+          "production_claim",
+          "production_operation"
+        ],
+        "kind": "production_operation",
+        "owner": "production",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 5,
+        "producer_contract": {
+          "inputs": {
+            "completion_cases": [
+              {
+                "at": {
+                  "unit": "b3-qualification-in-world-second-v1",
+                  "value": 600
+                },
+                "case_id": "QUIET_AFTER"
+              }
+            ],
+            "conserved_output_reference": "durable:b3-qualification-bracket-job",
+            "input": {
+              "material_class": "bracket-stock",
+              "quantity": {
+                "amount": 1,
+                "unit": "unit"
+              }
+            },
+            "operation_id": "b3-qualification-bracket-job",
+            "output": {
+              "condition": "finished",
+              "output_class": "bracket",
+              "quantity": {
+                "amount": 1,
+                "unit": "unit"
+              },
+              "reference": "durable:b3-qualification-bracket-job"
+            },
+            "request_alias": "economy_request",
+            "reserve_alias": "production_reserve",
+            "source_output_class": "bracket",
+            "started_at": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "support_basis": {
+              "labor": "NON_MATERIAL_EMBEDDED",
+              "specialist_competence": "NON_MATERIAL",
+              "tier": "TIER_A_EMBEDDED_BASELINE"
+            }
+          },
+          "negative": "separate single-write claim/operation would violate productionGroupCheck; atomically commit reserve advancement+claim+operation only when source request+reserve are valid",
+          "operation": "PRODUCTION_ORIGINAL_ATOMIC_START",
+          "source": "Production start operation public adapter; 3 kinds in ONE owner group with original exact delta"
+        },
+        "requires": [
+          "economy_request",
+          "production_reserve"
+        ],
+        "sequence": 21,
+        "source_contract_refs": [
+          "ProductionOperationSchema",
+          "ProductionClaimSchema",
+          "QO.4(5)"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_temporal_enrolment",
+        "facet": "temporal_coordination",
+        "group_writes": [
+          "temporal_object"
+        ],
+        "kind": "temporal_object",
+        "owner": "temporal_kernel",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 5,
+        "producer_contract": {
+          "inputs": {
+            "completion_case_at_creation_only": true,
+            "due_object_id": "derived-from-original-production-operation-id",
+            "original_operation_alias": "production_start",
+            "world_state_fallback_acceptance_dependency": "world-accept-production-fallback"
+          },
+          "negative": "no original production start/strict boundary or fabricated World-State acceptance dependency -> refuse enrolment and unqualified opening",
+          "operation": "PRODUCTION_ORIGINAL_TEMPORAL_REGISTER",
+          "source": "Production original temporal object and source-declared fallback stage edge"
+        },
+        "requires": [
+          "production_start"
+        ],
+        "sequence": 22,
+        "source_contract_refs": [
+          "QO.4(5)",
+          "Production §20",
+          "Temporal §15"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "instruction",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_governance_instrument"
+        ],
+        "kind": "gip_governance_instrument",
+        "owner": "gip",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 6,
+        "producer_contract": {
+          "inputs": {
+            "attendant_existence_alias": "attendant_existence",
+            "charter_alias": "charter",
+            "disclosure_scope": "COMPLETION_CONFIRMED_TO_DESIGNATED_PC",
+            "exact_red_key": "gip/local-completion-notice/campaign/{campaign_id}/instruction/{instruction_id}",
+            "issued_basis": "pinned QO source",
+            "monitor_scope": "MONITOR_ACCEPTED_COMPLETION",
+            "must_check_operation_now_committed": true,
+            "operation_alias": "production_start",
+            "original_issuer_decision_created": false,
+            "pc_binding_alias": "pc_binding",
+            "source_holder_alias": "supervisor_office",
+            "source_schema": "RED RD.5 instruction strict ADVANCING"
+          },
+          "negative": "GM/caller attempts issue, absent original operation, changed holder or missing exactly bound job/recipient -> refuse; later revocation one-way only",
+          "operation": "QO_RD5_ISSUE_WITHIN_EXISTING_GIP_KIND",
+          "source": "RED RD.2/5/5A original source instruction; no generic GIP policy substitution"
+        },
+        "requires": [
+          "charter",
+          "production_start",
+          "production_temporal_enrolment"
+        ],
+        "sequence": 23,
+        "source_contract_refs": [
+          "RD.2",
+          "RD.5",
+          "RD.5A"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "accepted_standing_duty",
+        "facet": "actor_profile",
+        "group_writes": [
+          "named_actor_local_notice_duty"
+        ],
+        "kind": "named_actor_local_notice_duty",
+        "owner": "named_actor",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 6,
+        "producer_contract": {
+          "inputs": {
+            "acceptance_basis": "SEEDED_STANDING_POST_DUTY",
+            "attendant_alias": "attendant_existence",
+            "no_NPC_choice_receipt": true,
+            "profile_id": "workshop-opening-quiet-v1",
+            "source_instruction_alias": "instruction",
+            "source_terms": "original instruction exact issued version"
+          },
+          "negative": "no original GIP issued instruction, contradictory owner duty or attempt by GM to invent acceptance -> refuse",
+          "operation": "QO_RD6_ORIGINAL_STANDING_DUTY",
+          "source": "RED RD.3/RD.6, Codex strict actor duty shell"
+        },
+        "requires": [
+          "instruction",
+          "attendant_existence"
+        ],
+        "sequence": 24,
+        "source_contract_refs": [
+          "RD.3",
+          "RD.6"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "coverage_anchor",
+        "facet": "health_condition_process",
+        "group_writes": [
+          "health_pc_sensory_coverage_anchor"
+        ],
+        "kind": "health_pc_sensory_coverage_anchor",
+        "owner": "health",
+        "payload_mode": "AUTHENTIC_OWNER_DERIVATION",
+        "phase": 9,
+        "producer_contract": {
+          "inputs": {
+            "host_alias": "pc_host",
+            "known_conditions_exactly": [],
+            "modality": "AUDITORY",
+            "opening_scope_start": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "operative_binding_alias": "pc_binding",
+            "scoped_source_classes": "health_pc_relevant_condition plus glassbell source when present",
+            "source_inventory": []
+          },
+          "negative": "missing source chain/unknown host or policy, late/gapped coverage or missing exposure->condition -> INCOMPLETE/UNKNOWN; no empty-ledger auto normality",
+          "operation": "R_H_ORIGINAL_HEALTH_COVERAGE_ANCHOR",
+          "source": "RED RH.4/RH.5/RH.6; original verified segment inventory"
+        },
+        "requires": [
+          "pc_binding"
+        ],
+        "sequence": 25,
+        "source_contract_refs": [
+          "RH.4",
+          "RH.5",
+          "RH.6"
+        ],
+        "source_scope": "QUALIFICATION_ONLY"
+      }
+    ],
+    "phases": [
+      "1-world-and-locus",
+      "2-operative-pc-custody",
+      "3-actors-and-R1-presence",
+      "4-GIP-founding-order-to-charter",
+      "5-economy-and-production",
+      "6-instruction-then-standing-duty",
+      "7-glassbell-exposure-only-if-selected",
+      "8-Health-condition-and-Temporal-boundary-only-if-selected",
+      "9-Health-anchor"
+    ],
+    "prior_mistakes_retired": [
+      "M-S actor existence cardinality (one source leaf, not two)",
+      "Production start group atomic 3-write requirement",
+      "two GIP RD.5 paths need explicit strict kind-scoped key and value branches",
+      "runtime owner verdict not pre-authored from QO fixture"
+    ],
+    "production_atomicity": "Production original start is ONE group with 3 writes: updated Reserve, new Claim and new Operation, then a separate Temporal enrollment, not separate Claim and Operation groups.",
+    "runtime_receipts": "NONE ARE PRE-ASSERTED IN MANIFEST. Each real owner verifies its authored group from exact locked manifest+current prior state and supplies original group receipt.",
+    "source_validity": "PROPOSED — source pin not yet adopted and no runtime publication yet",
+    "time_unit": "b3-qualification-in-world-second-v1"
+  },
+  "post_opening_contract": {
+    "B2": "B2 marker and index source contract per bound brief; actual implementation acceptance and runtime admission separately gated",
+    "Health_qualification": "UNKNOWN for incomplete, wrong host/policy, unproved original exposure or recovery, lost source history. AVAILABLE never means general intrinsic hearing normality.",
+    "early_or_late": "Glassbell before-recovery case uses genuine Production completion at t=240 -> relevant Health ACTIVE; after-recovery at t=600 -> recovery due first; quiet t=600 -> no source glassbell impairment. All other D1/Epistemic/actor preconditions must be separately verified.",
+    "notice": "Only D3(b) source reservation/declared stage after present-only T0; one objective occasion, only separate verified Epistemic makes receipt",
+    "source_closes": "No generic GM/§10 positive; S4/H-07 and legacy remain unchanged"
+  },
+  "profile_policy": {
+    "actor_source_route": "QO_ONLY_TWO_INDEPENDENT_NAMED_ACTOR_EXISTENCE_BRANCHES, not M-S one-actor signed route",
+    "attendant_id": "b3-qualification-attendant-mara",
+    "attendant_post_id": "b3-qualification-attendant-post",
+    "auditory_condition_effect": "NO_ADMITTED_RELEVANT_CONDITION",
+    "condition_route": "NONE",
+    "expected_key_formats": {
+      "gip_existing_instrument_generic": "gip/instrument/{instrument_id}",
+      "red_charter": "gip/local-completion-notice/campaign/{campaign_id}/charter",
+      "red_instruction": "gip/local-completion-notice/campaign/{campaign_id}/instruction/{instruction_id}"
+    },
+    "first_notice_proposition": "the single operation output has been accepted into custody at Workshop Bay 1",
+    "fixture_case_selection": "trusted QA runner at creation only, from an immutable enumerated case ID in this manifest; never GM/player after creation",
+    "fixture_job_completion_rule": "Production must independently validate exactly the bound case completion instant; no synthetic receipt or pre-OPEN future scan",
+    "founding_order_issuer": "source:sovereign-adopted-immutable-qualification-profile-pin; actual GIP owner admits source_rule_ref from verified external pin",
+    "health_coverage": "original per-host, per-policy anchor after all opening condition work; absence never universal clearance",
+    "historical_campaign_import": "FORBIDDEN",
+    "institution_id": "b3-qualification-workshop-institution",
+    "locus_id": "workshop-opening-quiet-v1",
+    "narrator_can_author_issue_or_acceptance": false,
+    "no_medical_real_world_claim": true,
+    "npc_choice_receipt_created": false,
+    "opening_time": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "operation_labor_basis": {
+      "labor": "NON_MATERIAL_EMBEDDED",
+      "specialist_competence": "NON_MATERIAL",
+      "tier": "TIER_A_EMBEDDED_BASELINE"
+    },
+    "operative_pc_id": "b3-qualification-pc-bob",
+    "output_reference_class": "one ordinary bracket; actual conserved reference derived only by Production",
+    "privacy_claim": false,
+    "production_cases": [
+      {
+        "case_id": "QUIET_AFTER",
+        "completion_at": {
+          "unit": "b3-qualification-in-world-second-v1",
+          "value": 600
+        }
+      }
+    ],
+    "production_operation_id": "b3-qualification-bracket-job",
+    "profile_acts_as_competence_standard_per_QO5": true,
+    "realm": "one fictional workshop in one world and one local locus",
+    "recovery_boundary": null,
+    "request_source_route": "QO_ONLY_ECONOMY_REQUEST_ORIGIN, not an unsupported Population unit or fabricated demand",
+    "scope": "one immutable workshop, one local operative PC, one attendant, one source-accepted conserved operation, one bounded notice",
+    "setup_route": "QO-only for two original non-PC Named Actor existences; original PC must be honestly authored through player/testkit original PC route and referee",
+    "site_designation": "Workshop Bay 1",
+    "source_manifest_qualification": "Exact authored inputs + recomputable owner producer contracts, not pre-authorised actor/referee decisions; admitted outputs must be separately committed and verified",
+    "supervisor_id": "b3-qualification-supervisor-rowan",
+    "supervisor_office_id": "b3-qualification-notice-supervisor",
+    "temporal_source_clock": "CanonicalTimeSchema permits an opaque string unit with nonnegative safe integer value. This fixed QUALIFICATION-only unit defines an in-world second; 300 = exactly five minutes, 240 = four, 600 = ten.",
+    "time_source_assertion": {
+      "one_unit_equals": "one-in-world-second",
+      "source": "disposable profile original authoring, not a global clock or a conversion inferred by Temporal",
+      "unit": "b3-qualification-in-world-second-v1"
+    },
+    "world_id": "b3-qualification-workshop-world"
+  },
+  "schema": "immortalis.blue.b3.qo.source-authored-owner-inputs.v3",
+  "sha256_binding": {
+    "byte_change": "must have new profile ID and separate authorization",
+    "hash_algorithm": "SHA-256 over this exact UTF-8 JSON, sorted keys, 2-space indentation, trailing LF",
+    "profile_pin_stored_externally": "Sovereign source-catalogue entry fixes digest; no self-referential hash appears in this file",
+    "runtime_profile_source_ref": "QO.5 group source_rule_ref must equal independently rehashed candidate bytes adopted in catalogue"
+  },
+  "source_census": {
+    "exact_official_main": "940a1ca29b34af8488c9ea3ea2f1903aeba52660",
+    "existing_GIP_carrier": "gip_governance_instrument",
+    "existing_GIP_office": "gip_office_authority_locus",
+    "existing_GIP_scope": "gip_scope_binding",
+    "existing_actor_existence": "named_actor_existence_basis",
+    "existing_pc_custody": "world_pc_locus_custody",
+    "existing_temporal_object": "temporal_object",
+    "prospective_source_kinds": [
+      "gip_qualification_founding_order",
+      "named_actor_local_notice_duty",
+      "health_pc_sensory_coverage_anchor",
+      "health_pc_relevant_condition",
+      "health_pc_sensory_close",
+      "world_opening_glassbell_exposure",
+      "world_addressed_notice_enrolment",
+      "world_addressed_notice_pc_reservation",
+      "world_addressed_notice_occurrence"
+    ],
+    "source_adoption": "pending: no owner added, code or grant installed by these bytes"
+  },
+  "source_law": {
+    "main": "940a1ca29b34af8488c9ea3ea2f1903aeba52660",
+    "previous_blue_candidate": "https://app.notion.com/p/42120af901e0811ba0facbd0f46a8e91",
+    "red": "https://app.notion.com/p/42120af901e08188b816facf08e088ba",
+    "sovereign_design_approval": "https://app.notion.com/p/42120af901e0811cba77eaa53b9ed06d"
+  },
+  "status": "SOURCE-DESIGN-CANDIDATE_PENDING_EXACT_SOVEREIGN_ADOPTION_NO_WRITER_PERMISSION"
+}
