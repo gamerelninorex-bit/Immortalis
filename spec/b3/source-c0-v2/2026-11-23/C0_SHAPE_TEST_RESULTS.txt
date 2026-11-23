@@ -1,0 +1,4 @@
+workshop-opening-quiet-v2.json SOURCE SHAPE PASS (NOT strict engine QV-1)
+workshop-opening-quiet-v2.json 12/12 static mutants rejected
+workshop-opening-glassbell-v2.json SOURCE SHAPE PASS (NOT strict engine QV-1)
+workshop-opening-glassbell-v2.json 12/12 static mutants rejected
