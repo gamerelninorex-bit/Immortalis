@@ -268,7 +268,6 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "admission.ts",
       "extension.ts",
       "governing-rule.ts",
-      "if6b-stage.ts",
       "pc-standing-ledger-admission.ts",
       "pc-standing-ledger.ts",
       "registry.ts",

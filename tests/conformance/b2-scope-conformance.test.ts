@@ -285,7 +285,10 @@ describe("the registry, the rules and the sunset rows are exactly what the brief
   });
 
   it("the Temporal directory gained no file: the custody and identity modules live at the engine source root, as the B1 catalogue modules do", () => {
-    expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
+    const atB2 = lines(
+      git("ls-tree", "--name-only", `${IF6B_BASE_COMMIT}:packages/engine/src/temporal`),
+    );
+    expect(atB2.sort()).toEqual([
       "admission.ts",
       "bootstrap.ts",
       "captured-chronology.ts",
@@ -296,5 +299,8 @@ describe("the registry, the rules and the sunset rows are exactly what the brief
       "partition.ts",
       "providers.ts",
     ]);
+    expect(readdirSync("packages/engine/src/temporal").sort()).toEqual(
+      [...atB2, "if6b-stage.ts"].sort(),
+    );
   });
 });

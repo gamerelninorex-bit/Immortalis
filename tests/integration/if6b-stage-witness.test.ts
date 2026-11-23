@@ -11,7 +11,7 @@ import {
   qualifyIf6bOwnerStage,
   type If6bOwnerVerifier,
   type If6bStageWitness,
-} from "../../packages/engine/src/owners/if6b-stage.ts";
+} from "../../packages/engine/src/temporal/if6b-stage.ts";
 import {
   at,
   authorityGroupOf,

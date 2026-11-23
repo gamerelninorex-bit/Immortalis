@@ -274,7 +274,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     }
   });
 
-  it("the Temporal directory gained no file (its exact listing is asserted elsewhere), and the three D-3 gateways are among the untouched", () => {
+  it("the Temporal directory retains the original list plus the inert IF-6b verifier, and the three D-3 gateways are among the untouched", () => {
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
       "bootstrap.ts",
@@ -282,6 +282,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
       "coordinator.ts",
       "graph.ts",
       "identity.ts",
+      "if6b-stage.ts",
       "integrity.ts",
       "partition.ts",
       "providers.ts",
