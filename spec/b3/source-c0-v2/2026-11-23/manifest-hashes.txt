@@ -1,0 +1,7 @@
+     278 5e22345f74008aef99dcc4cae36638d9f51cf4b9b8f210519242df645c4f2319 C0_SHAPE_TEST_RESULTS.txt
+    7468 a205bf416cc84ef6a42d0db1ff10186b87335766d7107387d3cd95531641da2d C0_SOURCE_AUTHORING_PROGRESS.md
+   25268 67a218b8dca0ca7b5b0d872c5b51e2faecc3ddb36445bb20cc27ebbafd4570bd author_profiles.py
+     578 3833b5ef6e1f68e9c72965913f7b9df7225c22784c02cbb04ec44ad653049c26 manifest-v2.json
+    7214 e20ab551bb0ab1227e19535ddb537e4774e56c07fa6361ab84d4b5edb8a84120 validate_authoring.py
+  103051 a0f651201066e0b9036e5613b5b3a25542dfc467f597be2d7ff17013a1c3b8b3 workshop-opening-glassbell-v2.json
+   91758 356470c2aa5ac57211df1fac25fef276a2f0a152960dd18c9f9aa6b3f00c5fbb workshop-opening-quiet-v2.json
