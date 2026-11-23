@@ -26,7 +26,7 @@ import {
 import type { WorkshopRecipientSource } from "../../epistemic/workshop-notice.ts";
 import type { WorkshopOfficeRevocationSource } from "../../gip/completion-direction.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
-import { canonicalEqual, sha256Canonical } from "../../hash.ts";
+import { sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
 import { stageGroupId, stageIntentId, transactionCause } from "../../temporal/identity.ts";
 import {
