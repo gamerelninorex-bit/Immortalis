@@ -20,6 +20,7 @@ import {
   ExistenceContractSchema,
   PlayerCharacterBindingSchema,
 } from "@immortalis/contracts";
+import * as workshop from "../../packages/engine/src/owners/workshop/index.ts";
 import { code, gates, lock, register } from "../support/f027.ts";
 import {
   EXPECTED_ADAPTER_SURFACES,
@@ -228,14 +229,20 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "RefereeAdjudicationAdapter",
       "SourceDrawdownAdapter",
       "TemporalCoordinator",
+      "WorldFreightAdapter",
+    ]);
+    expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");
+    expect(
+      Object.keys(workshop)
+        .filter((name) => name.endsWith("Adapter"))
+        .sort(),
+    ).toEqual([
       "WorkshopGipAdapter",
       "WorkshopGlassbellAdapter",
       "WorkshopHealthAdapter",
       "WorkshopNamedActorAdapter",
       "WorkshopNoticeAdapter",
-      "WorldFreightAdapter",
     ]);
-    expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");
     expect(
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
@@ -277,6 +284,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc-standing-ledger.ts",
       "registry.ts",
       "rejection.ts",
+      "workshop",
     ]);
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",
