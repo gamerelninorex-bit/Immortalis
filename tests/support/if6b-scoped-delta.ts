@@ -6,3 +6,5 @@ export const IF6B_PACKAGE_PATHS: readonly string[] = [
   IF6B_ENGINE_PATH,
 ];
 export const IF6B_BASE_COMMIT = "728104565662fece3e76be5b94c28f3c4201dbb7";
+export const IF6B_ENGINE_SHA256 =
+  "5116074200a8f21fd3efd376e1423234ca17272d27041c0b9dc93b67f4a2e0d8";

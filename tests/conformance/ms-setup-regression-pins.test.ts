@@ -8,6 +8,7 @@ import { A26_ADMISSION_DELTAS } from "../support/a26-scoped-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import { A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { B2_SCOPED_DELTAS, bytesNowGiven } from "../support/b2-scoped-deltas.ts";
+import { IF6B_ENGINE_PATH, IF6B_ENGINE_SHA256 } from "../support/if6b-scoped-delta.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 // F-014B A0 (CAL-TIME T-1) changed temporal/bootstrap.ts and temporal/captured-chronology.ts after the M-S slice: their pins were replaced by this
 // comment, as the freight slice did for admission.ts and coordinator.ts, and the two paths are pinned instead as scoped deltas in
@@ -79,6 +80,7 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         p !== a26Delta,
     );
     expect(b2Only).toEqual(["packages/engine/src/temporal/integrity.ts"]);
+    expect(sha(IF6B_ENGINE_PATH)).toBe(IF6B_ENGINE_SHA256);
     expect(Object.keys(composed)).toHaveLength(2);
     expect(Object.keys(unchanged)).toHaveLength(5);
     expect(
@@ -88,6 +90,7 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         ...a0Only,
         ...b2Only,
         a26Delta,
+        IF6B_ENGINE_PATH,
       ].sort(),
     ).toEqual(actual);
   });
