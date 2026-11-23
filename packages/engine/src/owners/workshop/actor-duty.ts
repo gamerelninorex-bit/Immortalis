@@ -11,8 +11,8 @@ import {
   WorkshopInstructionSchema,
   workshopDutyKey,
   type WorkshopDuty,
-} from "@immortalis/contracts";
-import type { CampaignStore } from "../persistence/store.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
 import {
   workshopClock,
   workshopGroup,
@@ -21,9 +21,9 @@ import {
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../workshop/publication.ts";
-import { WORKSHOP_DUTY_RULE, type WorkshopFixtureIdentity } from "../workshop/source.ts";
-import { workshopInstructionValidity } from "../gip/completion-direction.ts";
+} from "./publication.ts";
+import { WORKSHOP_DUTY_RULE, type WorkshopFixtureIdentity } from "./source.ts";
+import { workshopInstructionValidity } from "./gip-direction.ts";
 
 export function deriveWorkshopDuty(
   view: WorkshopView,

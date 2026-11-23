@@ -4,8 +4,6 @@ import {
   ACCESS_CLASS_ENGINE_SEALED,
   AccessEventSchema,
   JsonValueSchema,
-  WorkshopNoticeEnrolmentSchema,
-  workshopEnrolmentKey,
   GmWaitByPcIndexSchema,
   temporalGmWaitByPcKey,
   timeEquals,
@@ -14,29 +12,33 @@ import {
   MODE_BOUNDED_SHARED_ACCESS,
   OWNER_EPISTEMIC_ACCESS,
   RECIPIENT_ROLE_PLAYER_CHARACTER,
-  WorkshopNoticeOccurrenceSchema,
-  WorkshopSensoryCloseSchema,
   accessEventKey,
   accessPacketKey,
   accessProvenanceKey,
-  workshopCloseKey,
   type OwnerFact,
-  type WorkshopNoticeBinding,
 } from "@immortalis/contracts";
-import { gmWaitTransactionId } from "../gm-wait-identity.ts";
-import { sha256Canonical } from "../hash.ts";
-import { EPISTEMIC_ACCESS_RULE } from "../owners/registry.ts";
-import type { CampaignStore } from "../persistence/store.ts";
-import { stageGroupId, stageIntentId, transactionCause } from "../temporal/identity.ts";
+import {
+  WorkshopNoticeEnrolmentSchema,
+  workshopEnrolmentKey,
+  WorkshopNoticeOccurrenceSchema,
+  WorkshopSensoryCloseSchema,
+  workshopCloseKey,
+  type WorkshopNoticeBinding,
+} from "../../../../contracts/src/workshop-opening.ts";
+import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
+import { sha256Canonical } from "../../hash.ts";
+import { EPISTEMIC_ACCESS_RULE } from "../registry.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
+import { stageGroupId, stageIntentId, transactionCause } from "../../temporal/identity.ts";
 import {
   workshopMatches,
   workshopGroup,
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../workshop/publication.ts";
-import { workshopHost } from "../world/workshop-glassbell.ts";
-import { deriveAccessProducts, type CapabilityCloseRead } from "./derive.ts";
+} from "./publication.ts";
+import { workshopHost } from "./glassbell.ts";
+import { deriveAccessProducts, type CapabilityCloseRead } from "../../epistemic/derive.ts";
 
 export const WORKSHOP_RECEIVE_NOTICE = "epistemic-receive-addressed-notice";
 

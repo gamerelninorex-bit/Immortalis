@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "6d99c68407b6d15b01c06cb7ba62d14b4068986d130f6eef95d35410b8e6c19b",
   "packages/engine/src/owners/admission.ts":
-    "4c105c39111634cc97bb2e1b6c5a93da09ceaac3882b4efd0fb849f7dc5f234f",
+    "6e6ac9c666ea034efe3ac5cba3705304773b01f4f14ae86a5f9ac1d92e0c5b59",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -26,11 +26,11 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "d9f2a9f59af9de83b092b715c1d6813c919556eb92789b499921ea3a97dcbbcc",
+    "759905c32bbf65d4b2d0f3343f31c5b9593932219c4530c13402b4b270e56e2d",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
-    "5509681a0f30fa21448d0969cbfea44b503559963745eefc6490b223988bb5d4",
+    "abfe45d0383f8a9801acd4e0073389c6a1de27e1f347657d82816dce7f16a891",
   "packages/operator/src/cli.ts":
     "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":

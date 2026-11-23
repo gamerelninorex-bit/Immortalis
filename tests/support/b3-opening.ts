@@ -12,9 +12,6 @@ import {
   economyRequestId,
   economyRequestKey,
   productionOperationKey,
-  workshopCharterKey,
-  workshopConditionKey,
-  workshopExposureKey,
   worldLocusKey,
   worldProfileKey,
   gipInstitutionIdentityKey,
@@ -22,6 +19,11 @@ import {
   gipScopeBindingKey,
   type OwnerFact,
 } from "@immortalis/contracts";
+import {
+  workshopCharterKey,
+  workshopConditionKey,
+  workshopExposureKey,
+} from "../../packages/contracts/src/workshop-opening.ts";
 import {
   CanonicalCampaign,
   EconomyAdapter,
@@ -31,19 +33,21 @@ import {
   RefereeAdjudicationAdapter,
   StageProviderRegistry,
   TemporalCoordinator,
-  WorkshopGipAdapter,
-  WorkshopGlassbellAdapter,
-  WorkshopHealthAdapter,
-  WorkshopNamedActorAdapter,
   productionTemporalObject,
   refereeCandidateItems,
   resolveKey,
   sha256Canonical,
+} from "@immortalis/engine";
+import {
+  WorkshopGipAdapter,
+  WorkshopGlassbellAdapter,
+  WorkshopHealthAdapter,
+  WorkshopNamedActorAdapter,
   workshopFixtureIdentity,
   WorkshopOpeningProfileSchema,
   workshopHealthRecoveryProvider,
   workshopHealthTemporalObject,
-} from "@immortalis/engine";
+} from "../../packages/engine/src/owners/workshop/index.ts";
 import { compileContract, EMPTY_DRAFT } from "@immortalis/operator";
 import { economyProviders } from "@immortalis/testkit";
 import { msHarness } from "./ms-setup.ts";

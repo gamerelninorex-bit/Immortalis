@@ -5,7 +5,6 @@ import {
   GmWaitByPcIndexSchema,
   temporalGmWaitByPcKey,
   timeAtOrBefore,
-  workshopOccurrenceKey,
   TEMPORAL_ORIGIN_KEY,
   TemporalOriginSchema,
   compareTime,
@@ -17,6 +16,7 @@ import {
   type OwnerFact,
   type TemporalObject,
 } from "@immortalis/contracts";
+import { workshopOccurrenceKey } from "../../../../contracts/src/workshop-opening.ts";
 import {
   FACET_HEALTH_CONDITION_PROCESS,
   HEALTH_GLASSBELL_RECOVERY,
@@ -34,13 +34,13 @@ import {
   type WorkshopCondition,
   type WorkshopCoverageAnchor,
   type WorkshopSensoryClose,
-} from "@immortalis/contracts";
-import { canonicalEqual, sha256Canonical } from "../hash.ts";
-import type { CampaignState } from "../commit/campaign-core.ts";
-import { stageAuthorityViolation } from "../production/admission.ts";
-import type { CampaignStore } from "../persistence/store.ts";
-import { StageUnresolvedError, type StageProvider } from "../temporal/providers.ts";
-import { workshopHost } from "../world/workshop-glassbell.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import { canonicalEqual, sha256Canonical } from "../../hash.ts";
+import type { CampaignState } from "../../commit/campaign-core.ts";
+import { stageAuthorityViolation } from "../../production/admission.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
+import { StageUnresolvedError, type StageProvider } from "../../temporal/providers.ts";
+import { workshopHost } from "./glassbell.ts";
 import {
   workshopClock,
   workshopGroup,
@@ -49,14 +49,14 @@ import {
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../workshop/publication.ts";
+} from "./publication.ts";
 import {
   WORKSHOP_ANCHOR_RULE,
   WORKSHOP_CLOSE_RULE,
   WORKSHOP_CONDITION_RULE,
   WORKSHOP_NOTICE_RULE,
   type WorkshopFixtureIdentity,
-} from "../workshop/source.ts";
+} from "./source.ts";
 
 const conditionId = (campaign: string, pc: string, host: string, exposure: string) =>
   sha256Canonical([campaign, pc, host, exposure, "GLASSBELL_FIELD_V1"]);

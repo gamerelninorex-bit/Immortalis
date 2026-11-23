@@ -1,22 +1,26 @@
+import { OWNER_PRODUCTION } from "@immortalis/contracts";
+import { productionObjectViolation } from "../../production/admission.ts";
 import {
   AccessDisseminationEventSchema,
   AccessEventSchema,
   OWNER_EPISTEMIC_ACCESS,
   OWNER_TEMPORAL_KERNEL,
   TemporalObjectSchema,
+  type CommitGroup,
+} from "@immortalis/contracts";
+import {
   WorkshopCharterSchema,
   WorkshopDutySchema,
   WorkshopNoticeEnrolmentSchema,
   WorkshopSensoryCloseSchema,
-  type CommitGroup,
-} from "@immortalis/contracts";
-import type { CampaignState } from "../commit/campaign-core.ts";
-import { deriveWorkshopDuty } from "../actor/local-notice-duty.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import type { CampaignState } from "../../commit/campaign-core.ts";
+import { deriveWorkshopDuty } from "./actor-duty.ts";
 import {
   deriveWorkshopCharter,
   deriveWorkshopInstruction,
   deriveWorkshopRevocation,
-} from "../gip/completion-direction.ts";
+} from "./gip-direction.ts";
 import {
   concernsWorkshopHealth,
   deriveWorkshopAnchor,
@@ -24,28 +28,21 @@ import {
   deriveWorkshopCondition,
   verifyWorkshopRecovery,
   workshopHealthObjectViolation,
-} from "../health/workshop-sensory.ts";
-import { canonicalEqual } from "../hash.ts";
-import { resolveKey, WORKSHOP_FACT_KINDS } from "../owners/registry.ts";
-import { reject, type Rejection } from "../owners/rejection.ts";
-import { deriveWorkshopExposure } from "../world/workshop-glassbell.ts";
+} from "./health-sensory.ts";
+import { canonicalEqual } from "../../hash.ts";
+import { resolveKey } from "../registry.ts";
+import { resolveWorkshopKey } from "./registry.ts";
+import { reject, type Rejection } from "../rejection.ts";
+import { deriveWorkshopExposure } from "./glassbell.ts";
 import {
   deriveNoticeEnrolment,
   deriveNoticeOccurrence,
   deriveNoticeSettlement,
   type WorkshopNoticeSource,
-} from "../world/addressed-notice/publication.ts";
-import {
-  concernsWorkshopNotice,
-  workshopNoticeObjectViolation,
-} from "../world/addressed-notice/temporal.ts";
-import {
-  deriveWorkshopReceipt,
-  type WorkshopRecipientSource,
-} from "../epistemic/workshop-notice.ts";
+} from "./notice-publication.ts";
+import { concernsWorkshopNotice, workshopNoticeObjectViolation } from "./notice-temporal.ts";
+import { deriveWorkshopReceipt, type WorkshopRecipientSource } from "./epistemic-notice.ts";
 import type { WorkshopFixtureIdentity } from "./source.ts";
-
-const kinds = new Set(WORKSHOP_FACT_KINDS.map((kind) => kind.id));
 
 export function workshopGroupCheck(
   group: CommitGroup,
@@ -54,6 +51,8 @@ export function workshopGroupCheck(
   historyId: string,
   noticeSource?: WorkshopNoticeSource & { readonly recipientSource?: WorkshopRecipientSource },
 ): Rejection | null | undefined {
+  const found = group.writes.find((write) => resolveWorkshopKey(write.key));
+  if (!found && group.owner !== OWNER_EPISTEMIC_ACCESS) return undefined;
   const view = {
     campaign_id: state.campaign_id,
     revision: state.revision,
@@ -66,7 +65,7 @@ export function workshopGroupCheck(
       const event = AccessDisseminationEventSchema.safeParse(w.value);
       return (
         event.success &&
-        resolveKey(event.data.source.fact_key)?.kind.id === "world_addressed_notice_occurrence"
+        resolveWorkshopKey(event.data.source.fact_key)?.id === "world_addressed_notice_occurrence"
       );
     })
   ) {
@@ -82,10 +81,6 @@ export function workshopGroupCheck(
           "an addressed workshop receipt requires original occurrence, Health Close and recipient evidence",
         );
   }
-  const found = group.writes.find((write) => {
-    const kind = resolveKey(write.key)?.kind;
-    return kind && kinds.has(kind.id);
-  });
   if (!found) return undefined;
   if (!profile || state.campaign_id !== profile.campaignId) {
     return reject(
@@ -96,7 +91,18 @@ export function workshopGroupCheck(
       },
     );
   }
-  const kind = resolveKey(found.key)!.kind;
+  const kind = resolveWorkshopKey(found.key)!;
+  if (
+    group.owner !== kind.owner ||
+    group.facet !== kind.facet ||
+    found.owner !== kind.owner ||
+    found.facet !== kind.facet
+  )
+    return reject(
+      "KEY_NOT_ADMITTED",
+      "workshop fact is owned by a different original owner/facet",
+      { key: found.key },
+    );
   let expected: CommitGroup | undefined;
   switch (kind.id) {
     case "gip_local_completion_notice_charter": {
@@ -204,22 +210,6 @@ export function workshopGroupCheck(
       );
 }
 
-// These native owners have their dedicated object checks below this seam.
-// The isolated Profiles do not grant a generic extension owner credit.
-const NATIVE_WORKSHOP_TEMPORAL_OWNERS = new Set([
-  "production",
-  "named_actor",
-  "pc_existence",
-  "epistemic_access",
-  "kti",
-  "culture",
-  "gip",
-  "logistics",
-  "diplomacy",
-  "world_state",
-  "population",
-]);
-
 export function workshopTemporalHistoryCheck(
   group: CommitGroup,
   state: CampaignState,
@@ -236,7 +226,8 @@ export function workshopTemporalHistoryCheck(
       if (
         profile &&
         write.expected_version === 0 &&
-        !NATIVE_WORKSHOP_TEMPORAL_OWNERS.has(o.data.owning_ref.owner)
+        (o.data.owning_ref.owner !== OWNER_PRODUCTION ||
+          !!productionObjectViolation(o.data, state, true))
       )
         return reject(
           "REFERENCE_INVALID",

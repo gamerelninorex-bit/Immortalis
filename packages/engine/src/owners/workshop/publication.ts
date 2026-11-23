@@ -6,11 +6,11 @@ import {
   type OwnerFact,
   type SourceRef,
 } from "@immortalis/contracts";
-import type { WorkshopFactRef } from "@immortalis/contracts";
-import type { CampaignState } from "../commit/campaign-core.ts";
-import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../gm-wait-catalogue-current.ts";
-import { canonicalEqual, sha256Canonical } from "../hash.ts";
-import type { CampaignStore } from "../persistence/store.ts";
+import type { WorkshopFactRef } from "../../../../contracts/src/workshop-opening.ts";
+import type { CampaignState } from "../../commit/campaign-core.ts";
+import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../gm-wait-catalogue-current.ts";
+import { canonicalEqual, sha256Canonical } from "../../hash.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
 
 export type WorkshopView = Pick<CampaignState, "campaign_id" | "revision"> & {
   readonly get: (key: string) => OwnerFact | undefined;

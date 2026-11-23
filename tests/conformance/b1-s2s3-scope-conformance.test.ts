@@ -16,6 +16,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  B3_PACKAGE_PATHS,
+  B3_NON_PACKAGE_PATHS,
+  B3_SOURCE_PATHS,
+} from "../support/b3-scoped-deltas.ts";
+import {
   B1_S2S3_BASE_COMMIT,
   B1_S2S3_EVIDENCE_PREFIX,
   B1_S2S3_OUTSIDE_PACKAGE_PATHS,
@@ -82,6 +87,7 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
           A1_2A_PACKAGE_PATHS,
           B1_S2S3_PACKAGE_PATHS,
           B2_PACKAGE_PATHS,
+          B3_PACKAGE_PATHS,
         ),
       );
       // every declared path is an ADDED file: absent from the base commit
@@ -102,13 +108,16 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
         ...B1_S2S3_PACKAGE_PATHS,
         ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
         ...B2_PACKAGE_PATHS,
+        ...B3_PACKAGE_PATHS,
+        ...B3_SOURCE_PATHS,
       ]);
       const unexpected = outside.filter(
         (p) =>
           !declared.has(p) &&
           !p.startsWith(B1_S2S3_EVIDENCE_PREFIX) &&
           !p.startsWith(A1_2A_EVIDENCE_PREFIX) &&
-          !p.startsWith(B2_EVIDENCE_PREFIX),
+          !p.startsWith(B2_EVIDENCE_PREFIX) &&
+          !B3_NON_PACKAGE_PATHS.includes(p),
       );
       expect(unexpected).toEqual([]);
       for (const p of B1_S2S3_OUTSIDE_PACKAGE_PATHS)
@@ -154,6 +163,8 @@ describe("[scope] [mechanism only] B1 S2/S3 forbidden files are byte-identical t
         ...A1_2A_PACKAGE_PATHS,
         B1_V2_WORKFLOW_PATH,
         ...B2_PACKAGE_PATHS,
+        ...B3_PACKAGE_PATHS,
+        ...B3_SOURCE_PATHS,
       ]);
       for (const p of FORBIDDEN) {
         expect(

@@ -4,16 +4,18 @@ import {
   OWNER_WORLD_STATE,
   ProductionOperationSchema,
   READ_MODE_NOW,
-  WorkshopNoticeEnrolmentSchema,
   productionCompletionKey,
-  workshopOccurrenceKey,
-  workshopReservationKey,
   type OwnerFact,
   type TemporalObject,
 } from "@immortalis/contracts";
+import {
+  WorkshopNoticeEnrolmentSchema,
+  workshopOccurrenceKey,
+  workshopReservationKey,
+} from "../../../../contracts/src/workshop-opening.ts";
 import { canonicalEqual } from "../../hash.ts";
-import { workshopMatches, type WorkshopView } from "../../workshop/publication.ts";
-import { WORKSHOP_OCCURRENCE_OPERATION, workshopNoticeStage } from "./publication.ts";
+import { workshopMatches, type WorkshopView } from "./publication.ts";
+import { WORKSHOP_OCCURRENCE_OPERATION, workshopNoticeStage } from "./notice-publication.ts";
 
 export function workshopNoticeTemporalObject(
   enrolment: OwnerFact,

@@ -21,6 +21,7 @@ import {
   policyCoverageViolations,
   sunsetPolicyOf,
 } from "@immortalis/engine";
+import { B3_BASE_COMMIT } from "../support/b3-scoped-deltas.ts";
 import { A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import {
   B2_BASE_COMMIT,
@@ -50,14 +51,24 @@ const lines = (b: Buffer | null): string[] =>
   (b?.toString("utf8") ?? "").split("\n").filter(Boolean);
 // content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice
 const diffNames = (...paths: string[]): string[] =>
-  lines(git("-c", "core.fileMode=false", "diff", "--name-only", B2_BASE_COMMIT, "--", ...paths));
-const untracked = (...paths: string[]): string[] =>
-  lines(git("ls-files", "--others", "--exclude-standard", "--", ...paths));
+  lines(
+    git(
+      "-c",
+      "core.fileMode=false",
+      "diff",
+      "--name-only",
+      B2_BASE_COMMIT,
+      B3_BASE_COMMIT,
+      "--",
+      ...paths,
+    ),
+  );
 
 describe("the B2 scoped-delta table: every pin is a real byte change, recorded once, chained to the earlier slices", () => {
-  it("each recorded head is the file's bytes now, and differs from its base", () => {
+  it("each recorded head is the file's bytes at merged B2, and differs from its base", () => {
     for (const [path, d] of Object.entries(B2_SCOPED_DELTAS)) {
-      expect(sha(readFileSync(path)), path).toBe(d.head);
+      const atB2 = git("show", `${B3_BASE_COMMIT}:${path}`);
+      expect(atB2 === null ? null : sha(atB2), path).toBe(d.head);
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(B2_SCOPED_DELTAS)).toHaveLength(10);
@@ -117,13 +128,11 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     const changed = diffNames("apps", "packages");
-    const added = untracked("apps", "packages");
-    // later slices (an A-/B-series package after this one) extend the allow-list through their own tables; at this head there is none
-    expect([...changed, ...added].sort()).toEqual([...B2_PACKAGE_PATHS].sort());
+    expect([...changed].sort()).toEqual([...B2_PACKAGE_PATHS].sort());
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(B2_SCOPED_DELTAS), ...B2_PRESENT_DAY_FILES])
       expect(changed.includes(p), p).toBe(true);
-    for (const p of B2_NEW_MODULES) expect(added.includes(p) || changed.includes(p), p).toBe(true);
+    for (const p of B2_NEW_MODULES) expect(changed.includes(p), p).toBe(true);
   });
 
   it("outside packages/ and apps/ the slice touched no spec, tool, workflow, manifest or lockfile; its evidence is the only addition under docs/", () => {
@@ -131,8 +140,7 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     expect(diffNames("spec", "tools", ".github", "package.json", "pnpm-lock.yaml")).toEqual([]);
     // evidence is new files only, under the declared prefix (tracked once committed, untracked before)
-    for (const p of [...diffNames("docs"), ...untracked("docs")])
-      expect(p.startsWith(B2_EVIDENCE_PREFIX), p).toBe(true);
+    for (const p of diffNames("docs")) expect(p.startsWith(B2_EVIDENCE_PREFIX), p).toBe(true);
   });
 
   const FORBIDDEN = [
@@ -173,7 +181,6 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
       expect(diffNames(p), p).toEqual([]);
-      expect(untracked(p), p).toEqual([]);
     }
   });
 

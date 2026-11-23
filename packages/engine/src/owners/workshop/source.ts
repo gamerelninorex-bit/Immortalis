@@ -14,7 +14,7 @@ import {
   z,
   type SourceRef,
 } from "@immortalis/contracts";
-import { sha256Bytes } from "../initial-setup/identity.ts";
+import { sha256Bytes } from "../../initial-setup/identity.ts";
 
 export const WORKSHOP_PRODUCTION_PROFILES: readonly string[] = Object.freeze([]);
 

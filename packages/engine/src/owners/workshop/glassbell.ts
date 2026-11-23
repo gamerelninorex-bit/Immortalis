@@ -15,8 +15,8 @@ import {
   WORKSHOP_SECOND,
   workshopExposureKey,
   type WorkshopGlassbellExposure,
-} from "@immortalis/contracts";
-import type { CampaignStore } from "../persistence/store.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
 import {
   workshopClock,
   workshopGroup,
@@ -24,8 +24,8 @@ import {
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../workshop/publication.ts";
-import { WORKSHOP_EXPOSURE_RULE, type WorkshopFixtureIdentity } from "../workshop/source.ts";
+} from "./publication.ts";
+import { WORKSHOP_EXPOSURE_RULE, type WorkshopFixtureIdentity } from "./source.ts";
 
 export function workshopHost(view: WorkshopView) {
   const binding = view.get(PLAYER_CHARACTER_BINDING_KEY);

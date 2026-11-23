@@ -32,10 +32,10 @@ import {
   workshopInstructionKey,
   type WorkshopCharter,
   type WorkshopInstruction,
-} from "@immortalis/contracts";
-import { workshopProductionStages } from "../workshop/production-stages.ts";
-import { canonicalEqual, sha256Canonical } from "../hash.ts";
-import type { CampaignStore } from "../persistence/store.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import { workshopProductionStages } from "./production-stages.ts";
+import { canonicalEqual, sha256Canonical } from "../../hash.ts";
+import type { CampaignStore } from "../../persistence/store.ts";
 import {
   workshopClock,
   workshopGroup,
@@ -44,12 +44,12 @@ import {
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../workshop/publication.ts";
+} from "./publication.ts";
 import {
   WORKSHOP_CHARTER_RULE,
   WORKSHOP_INSTRUCTION_RULE,
   type WorkshopFixtureIdentity,
-} from "../workshop/source.ts";
+} from "./source.ts";
 
 export type WorkshopCharterInputs = {
   readonly institution: string;

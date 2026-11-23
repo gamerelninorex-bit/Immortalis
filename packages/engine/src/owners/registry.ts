@@ -1,28 +1,3 @@
-import {
-  OWNER_HEALTH,
-  FACET_GIP_COMPLETION_DIRECTION,
-  FACET_HEALTH_CONDITION_PROCESS,
-  WorkshopCharterSchema,
-  WorkshopInstructionSchema,
-  WorkshopDutySchema,
-  WorkshopGlassbellExposureSchema,
-  WorkshopConditionSchema,
-  WorkshopCoverageAnchorSchema,
-  WorkshopSensoryCloseSchema,
-  WorkshopNoticeEnrolmentSchema,
-  WorkshopNoticeReservationSchema,
-  WorkshopNoticeOccurrenceSchema,
-} from "@immortalis/contracts";
-import {
-  WORKSHOP_CHARTER_RULE,
-  WORKSHOP_INSTRUCTION_RULE,
-  WORKSHOP_DUTY_RULE,
-  WORKSHOP_EXPOSURE_RULE,
-  WORKSHOP_CONDITION_RULE,
-  WORKSHOP_ANCHOR_RULE,
-  WORKSHOP_CLOSE_RULE,
-  WORKSHOP_NOTICE_RULE,
-} from "../workshop/source.ts";
 import { z } from "zod";
 import {
   MS_FACT_KIND_IDS,
@@ -547,20 +522,7 @@ export const FREIGHT_FACT_KIND_IDS = [
   "logistics_unused_release",
   "logistics_freight_dispatch_enrollment",
 ] as const;
-export const WORKSHOP_FACT_KIND_IDS = [
-  "gip_local_completion_notice_charter",
-  "gip_local_completion_notice_instruction",
-  "named_actor_local_notice_duty",
-  "world_opening_glassbell_exposure",
-  "health_pc_relevant_condition",
-  "health_pc_sensory_coverage_anchor",
-  "health_pc_sensory_function_close",
-  "world_addressed_notice_enrolment",
-  "world_addressed_notice_pc_reservation",
-  "world_addressed_notice_occurrence",
-] as const;
 export type FactKindId =
-  | (typeof WORKSHOP_FACT_KIND_IDS)[number]
   | (typeof FREIGHT_FACT_KIND_IDS)[number]
   | (typeof MS_FACT_KIND_IDS)[number]
   | (typeof INITIAL_SETUP_FACT_KIND_IDS)[number]
@@ -4156,119 +4118,6 @@ const LOGISTICS_FACT_KINDS_WITH_FREIGHT = withFreightRule(
 /** Whether a request identity is a first-profile Economy freight request identity (the registered discriminator's key space). */
 export const isFreightRequestIdentity = isEconomyFreightRequestRef;
 
-export const WORKSHOP_FACT_KINDS: readonly FactKind[] = [
-  {
-    id: "gip_local_completion_notice_charter",
-    owner: OWNER_GIP,
-    facet: FACET_GIP_COMPLETION_DIRECTION,
-    im: "IM-06",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^gip/local-completion-notice/campaign/${ID}/charter$`),
-    valueSchema: WorkshopCharterSchema,
-    rule: WORKSHOP_CHARTER_RULE,
-  },
-  {
-    id: "gip_local_completion_notice_instruction",
-    owner: OWNER_GIP,
-    facet: FACET_GIP_COMPLETION_DIRECTION,
-    im: "IM-06",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "ADVANCING",
-    keyPattern: new RegExp(`^gip/local-completion-notice/campaign/${ID}/instruction/${HEX64}$`),
-    valueSchema: WorkshopInstructionSchema,
-    rule: WORKSHOP_INSTRUCTION_RULE,
-  },
-  {
-    id: "named_actor_local_notice_duty",
-    owner: OWNER_NAMED_ACTOR,
-    facet: FACET_ACTOR_PROFILE,
-    im: "IM-07",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^actor/${ID}/local-notice-duty/${HEX64}$`),
-    valueSchema: WorkshopDutySchema,
-    rule: WORKSHOP_DUTY_RULE,
-  },
-  {
-    id: "world_opening_glassbell_exposure",
-    owner: OWNER_WORLD_STATE,
-    facet: FACET_WORLD_LOCUS,
-    im: "IM-03",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^world/${ID}/opening-glassbell-exposure/${ID}$`),
-    valueSchema: WorkshopGlassbellExposureSchema,
-    rule: WORKSHOP_EXPOSURE_RULE,
-  },
-  {
-    id: "health_pc_relevant_condition",
-    owner: OWNER_HEALTH,
-    facet: FACET_HEALTH_CONDITION_PROCESS,
-    im: "IM-08",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "ADVANCING",
-    keyPattern: new RegExp(`^health/pc/${ID}/condition/${HEX64}$`),
-    valueSchema: WorkshopConditionSchema,
-    rule: WORKSHOP_CONDITION_RULE,
-  },
-  {
-    id: "health_pc_sensory_coverage_anchor",
-    owner: OWNER_HEALTH,
-    facet: FACET_HEALTH_CONDITION_PROCESS,
-    im: "IM-08",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^health/pc/${ID}/auditory/coverage/${HEX64}$`),
-    valueSchema: WorkshopCoverageAnchorSchema,
-    rule: WORKSHOP_ANCHOR_RULE,
-  },
-  {
-    id: "health_pc_sensory_function_close",
-    owner: OWNER_HEALTH,
-    facet: FACET_HEALTH_CONDITION_PROCESS,
-    im: "IM-08",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^health/pc/${ID}/auditory/sensory-close/${HEX64}$`),
-    valueSchema: WorkshopSensoryCloseSchema,
-    rule: WORKSHOP_CLOSE_RULE,
-  },
-  {
-    id: "world_addressed_notice_enrolment",
-    owner: OWNER_WORLD_STATE,
-    facet: FACET_WORLD_LOCUS,
-    im: "IM-03",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "ADVANCING",
-    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/addressed-notice/enrolment/${HEX64}$`),
-    valueSchema: WorkshopNoticeEnrolmentSchema,
-    rule: WORKSHOP_NOTICE_RULE,
-  },
-  {
-    id: "world_addressed_notice_pc_reservation",
-    owner: OWNER_WORLD_STATE,
-    facet: FACET_WORLD_LOCUS,
-    im: "IM-03",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "ADVANCING",
-    keyPattern: new RegExp(`^world-state/addressed-notice/campaign/${ID}/by-pc/${ID}$`),
-    valueSchema: WorkshopNoticeReservationSchema,
-    rule: WORKSHOP_NOTICE_RULE,
-  },
-  {
-    id: "world_addressed_notice_occurrence",
-    owner: OWNER_WORLD_STATE,
-    facet: FACET_WORLD_LOCUS,
-    im: "IM-03",
-    rc: ["RC-02", "RC-07"],
-    lifecycle: "SEALED",
-    keyPattern: new RegExp(`^world/${ID}/locus/${ID}/addressed-notice/occurrence/${HEX64}$`),
-    valueSchema: WorkshopNoticeOccurrenceSchema,
-    rule: WORKSHOP_NOTICE_RULE,
-  },
-];
-
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...withLedgerBindingRule(FACT_KINDS),
   ...TEMPORAL_FACT_KINDS_WITH_GM_WAIT_OPENING,
@@ -4303,7 +4152,6 @@ export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...MS_FACT_KINDS,
   ...FREIGHT_FACT_KINDS,
   ...PC_STANDING_LEDGER_FACT_KINDS,
-  ...WORKSHOP_FACT_KINDS,
 ];
 
 export const factKind = (id: FactKindId): FactKind => {

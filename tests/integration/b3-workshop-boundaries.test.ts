@@ -1,25 +1,23 @@
 import { describe, expect, it } from "vitest";
+import { ALL_FACT_KINDS, sha256Canonical } from "@immortalis/engine";
 import {
-  ALL_FACT_KINDS,
   deriveNoticeEnrolment,
   WorkshopNoticeAdapter,
-  sha256Canonical,
   workshopNoticeBoundary,
   workshopNoticePresentBasis,
   workshopProductionStages,
-} from "@immortalis/engine";
+  WORKSHOP_FACT_KINDS,
+} from "../../packages/engine/src/owners/workshop/index.ts";
+import { temporalTransactionKey, type CommitGroup, type OwnerFact } from "@immortalis/contracts";
 import {
   WORKSHOP_NOTICE_CLASS,
-  temporalTransactionKey,
   WORKSHOP_SECOND,
   WorkshopConditionSchema,
   WorkshopDutySchema,
   WorkshopNoticeBindingSchema,
   WorkshopNoticeOccurrenceSchema,
   WorkshopSensoryCloseSchema,
-  type CommitGroup,
-  type OwnerFact,
-} from "@immortalis/contracts";
+} from "../../packages/contracts/src/workshop-opening.ts";
 import { prodAdvanceRequest } from "@immortalis/testkit";
 import { openingPublication, openWorkshop } from "../support/b3-opening.ts";
 import { requireLaneXEvidence } from "../support/b3-evidence.ts";
@@ -100,6 +98,21 @@ describe("B3 native boundary qualification (Lane O)", () => {
         ok: false,
         error: { details: { reason: "WORKSHOP_OBJECT_OWNER_UNVALIDATED" } },
       });
+      for (const owner of ["gip", "production"]) {
+        const spoofed = await h.register.registerObject({
+          ...openingPublication(`mismatched-native-owner-${owner}`),
+          object: {
+            ...o,
+            object_id: `mismatched-native-owner-${owner}`,
+            owning_ref: { owner, process_id: "unowned-workshop-process" },
+            dependencies: [],
+          },
+        });
+        expect(spoofed).toMatchObject({
+          ok: false,
+          error: { details: { reason: "WORKSHOP_OBJECT_OWNER_UNVALIDATED" } },
+        });
+      }
       await must(
         h.register.registerObject({
           ...pub,
@@ -190,7 +203,11 @@ describe("B3 native boundary qualification (Lane O)", () => {
       expect(h.admission.check(invalid, origin.before)?.code).toBe("KEY_NOT_ADMITTED");
       for (const group of h.trace.map(({ group }) => group)) {
         for (const w of group.writes)
-          expect(ALL_FACT_KINDS.filter((kind) => kind.keyPattern.test(w.key))).toHaveLength(1);
+          expect(
+            [...ALL_FACT_KINDS, ...WORKSHOP_FACT_KINDS].filter((kind) =>
+              kind.keyPattern.test(w.key),
+            ),
+          ).toHaveLength(1);
       }
     } finally {
       await h.campaign.close();

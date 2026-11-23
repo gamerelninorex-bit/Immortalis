@@ -9,22 +9,24 @@ import {
   PLAYER_CHARACTER_BINDING_KEY,
   PlayerCharacterBindingSchema,
   ProductionOperationSchema,
-  WorkshopDutySchema,
-  WorkshopInstructionSchema,
-  WORKSHOP_NOTICE_CLASS,
   actorPhysicalPresenceKey,
   productionCompletionKey,
   z,
   worldFallbackEntityKey,
   worldPcLocusCustodyKey,
-  workshopOccurrenceKey,
   type OwnerFact,
-  type WorkshopNoticeBinding,
 } from "@immortalis/contracts";
+import {
+  WorkshopDutySchema,
+  WorkshopInstructionSchema,
+  WORKSHOP_NOTICE_CLASS,
+  workshopOccurrenceKey,
+  type WorkshopNoticeBinding,
+} from "../../../../contracts/src/workshop-opening.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
-import { workshopInstructionValidity } from "../../gip/completion-direction.ts";
-import { workshopHost } from "../workshop-glassbell.ts";
-import { workshopMatches, workshopRef, type WorkshopView } from "../../workshop/publication.ts";
+import { workshopInstructionValidity } from "./gip-direction.ts";
+import { workshopHost } from "./glassbell.ts";
+import { workshopMatches, workshopRef, type WorkshopView } from "./publication.ts";
 
 export const workshopNoticeId = (campaign: string, pc: string, operationKey: string) =>
   sha256Canonical([WORKSHOP_NOTICE_CLASS, campaign, pc, operationKey]);

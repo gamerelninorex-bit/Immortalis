@@ -1,6 +1,7 @@
 // S-4 initial Standing Instruction ledger — CONFORMANCE of the lowering to its source, brief and frozen inputs (BLUE brief Part B1, B6).
 // MECHANISM ONLY. Governing lock: spec/f027/spec-lock.json (F-027 v1.0), which this construction does NOT edit; the S-4 sources are
 // ratified design plus a BLUE bounded brief, never spec-lock pins, and the registry says so.
+import { B3_PACKAGE_PATHS } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -428,6 +429,7 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...A1_2A_PACKAGE_PATHS,
       // and the F-014B B2 slice's recorded paths (its own table and conformance suite police them)
       ...B2_PACKAGE_PATHS,
+      ...B3_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)

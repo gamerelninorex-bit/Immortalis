@@ -204,7 +204,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
     expect(contract.legacyRule).toBeUndefined();
   });
 
-  it("no adapter, class or directory was added, and the registered adapter surfaces are unchanged", () => {
+  it("the original adapter surfaces are unchanged, with only the isolated qualification adapters added", () => {
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES).sort()).toEqual([
       // ROADBED R3-T25 freight adds five adapters, one per EXISTING owner (World-State, GIP, Production, Economy, Logistics): no new owner
       "CausalDrawAdapter",
@@ -228,6 +228,11 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "RefereeAdjudicationAdapter",
       "SourceDrawdownAdapter",
       "TemporalCoordinator",
+      "WorkshopGipAdapter",
+      "WorkshopGlassbellAdapter",
+      "WorkshopHealthAdapter",
+      "WorkshopNamedActorAdapter",
+      "WorkshopNoticeAdapter",
       "WorldFreightAdapter",
     ]);
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");

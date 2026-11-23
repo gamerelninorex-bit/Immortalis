@@ -6,25 +6,27 @@ import {
   GmWaitResolutionTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   OWNER_WORLD_STATE,
-  WorkshopNoticeEnrolmentSchema,
-  WorkshopNoticeReservationSchema,
-  WORKSHOP_NOTICE_CLASS,
   gmWaitIndexIsTerminal,
   temporalGmWaitByPcKey,
   temporalGmWaitMarkerKey,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
   timeAtOrBefore,
+  type CommitGroup,
+  type OwnerFact,
+} from "@immortalis/contracts";
+import {
+  WorkshopNoticeEnrolmentSchema,
+  WorkshopNoticeReservationSchema,
+  WORKSHOP_NOTICE_CLASS,
   workshopEnrolmentKey,
   workshopOccurrenceKey,
   workshopReservationKey,
-  type CommitGroup,
-  type OwnerFact,
   type WorkshopNoticeBinding,
   type WorkshopNoticeEnrolment,
-} from "@immortalis/contracts";
-import type { WorkshopRecipientSource } from "../../epistemic/workshop-notice.ts";
-import type { WorkshopOfficeRevocationSource } from "../../gip/completion-direction.ts";
+} from "../../../../contracts/src/workshop-opening.ts";
+import type { WorkshopRecipientSource } from "./epistemic-notice.ts";
+import type { WorkshopOfficeRevocationSource } from "./gip-direction.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
@@ -37,13 +39,13 @@ import {
   workshopRef,
   workshopView,
   type WorkshopView,
-} from "../../workshop/publication.ts";
-import { WORKSHOP_NOTICE_RULE } from "../../workshop/source.ts";
+} from "./publication.ts";
+import { WORKSHOP_NOTICE_RULE } from "./source.ts";
 import {
   workshopBoundaryProof,
   workshopNoticeBoundary,
   workshopNoticePresentBasis,
-} from "./qualification.ts";
+} from "./notice-qualification.ts";
 
 export const WORKSHOP_OCCURRENCE_OPERATION = "world-state-occur-addressed-notice";
 export const workshopNoticeStage = (b: WorkshopNoticeBinding) => ({

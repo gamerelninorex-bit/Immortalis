@@ -1,3 +1,4 @@
+import { resolveWorkshopKey } from "../owners/workshop/registry.ts";
 import {
   CANON_WRITE_AUTHORITY,
   EXISTING_ACTOR_HANDOVER,
@@ -170,7 +171,10 @@ function walkableFactsBefore(
  */
 export function verifyCanonicalIntegrity(
   store: CampaignStore,
-  options: { readonly isExtensionFact?: (fact: OwnerFact) => boolean } = {},
+  options: {
+    readonly isExtensionFact?: (fact: OwnerFact) => boolean;
+    readonly workshopCampaign?: string;
+  } = {},
 ): readonly IntegrityViolation[] {
   const facts = new Map<string, OwnerFact>(store.listFacts().map((f) => [f.key, f]));
   const out: IntegrityViolation[] = [];
@@ -195,7 +199,27 @@ export function verifyCanonicalIntegrity(
     // An extension owner's facts are outside the canonical key spaces by construction and are
     // verified by that owner's own admission; the canonical check does not claim them.
     if (options.isExtensionFact?.(fact)) continue;
+    const workshop = resolveWorkshopKey(fact.key);
     const resolved = resolveKey(fact.key);
+    if (workshop && options.workshopCampaign === store.head().campaign_id) {
+      if (fact.owner !== workshop.owner || fact.facet !== workshop.facet)
+        bad(fact.key, "WRONG_OWNER_FACET", "workshop fact has the wrong original owner/facet");
+      if (
+        !workshop.valueSchema.safeParse(fact.value).success ||
+        (workshop.lifecycle === "SEALED" && fact.version !== 1)
+      )
+        bad(
+          fact.key,
+          "VALUE_INVALID",
+          "workshop fact does not match its registered shape or lifecycle",
+        );
+      if (
+        !canonicalEqual(fact.provenance.rule, workshop.rule) ||
+        !store.ruleCheckedGroupIds?.().has(fact.provenance.group_id)
+      )
+        bad(fact.key, "RULE_DRIFT", "workshop fact lacks original owner replay verification");
+      continue;
+    }
     if (!resolved) {
       bad(fact.key, "UNREGISTERED_KEY", "key is outside every registered key space");
       continue;

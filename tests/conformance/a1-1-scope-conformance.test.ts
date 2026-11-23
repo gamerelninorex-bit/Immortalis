@@ -10,6 +10,7 @@
 //
 // Custody is the bytes at the pinned base commit (tests/support/a1-1-scoped-deltas.ts), never ancestry. Where that commit is not retrievable (a
 // shallow checkout) the comparisons are SKIPPED and reported as skipped, never claimed.
+import { B3_PACKAGE_PATHS } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -91,6 +92,7 @@ describe("A1-1 scope: the declared transition is the two production files and th
           B1_S2S3_PACKAGE_PATHS,
           A1_2A_PACKAGE_PATHS,
           B2_PACKAGE_PATHS,
+          B3_PACKAGE_PATHS,
         ),
       );
       // the declared allow-list is not a place to park files that did not change
@@ -168,6 +170,7 @@ describe("A1-1 scope: the declared transition is the two production files and th
             B1_S1_PACKAGE_PATHS,
             A1_2A_PACKAGE_PATHS,
             B2_PACKAGE_PATHS,
+            B3_PACKAGE_PATHS,
             Object.keys(B2_B0_SECTION_5_1_EDITS).filter((d) => d.startsWith("tests/")),
           ).filter((d) => d === p || d.startsWith(`${p}/`)),
         );

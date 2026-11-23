@@ -1,26 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   TEMPORAL_BOUNDARY_INDEX_KEY,
-  WorkshopFactRefSchema,
-  type WorkshopFactRef,
   TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
+  economyRequestKey,
+  temporalObjectKey,
+} from "@immortalis/contracts";
+import {
+  WorkshopFactRefSchema,
+  type WorkshopFactRef,
   WORKSHOP_SECOND,
   WorkshopCharterSchema,
   WorkshopConditionSchema,
   WorkshopCoverageAnchorSchema,
   WorkshopDutySchema,
   WorkshopInstructionSchema,
-  economyRequestKey,
-  temporalObjectKey,
-} from "@immortalis/contracts";
+} from "../../packages/contracts/src/workshop-opening.ts";
 import {
   CanonicalCampaign,
   canonicalAdmission,
   fixtureMsCanonicalAdmission,
+} from "@immortalis/engine";
+import {
   WORKSHOP_PRODUCTION_PROFILES,
   workshopFixtureIdentity,
-} from "@immortalis/engine";
+} from "../../packages/engine/src/owners/workshop/index.ts";
 import { openingPublication, openWorkshop, workshopRawProfile } from "../support/b3-opening.ts";
 import { must } from "../support/temporal.ts";
 

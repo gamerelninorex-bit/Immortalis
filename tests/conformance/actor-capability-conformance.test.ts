@@ -185,9 +185,10 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
     expect(
       classes.filter((c) => /Coordinator|Scheduler|Journal|Ledger|Store/.test(c!)).sort(),
     ).toEqual(["CheckpointStore", "FilePackageStore", "TemporalCoordinator"]);
-    expect(classes.filter((c) => /Actor|Capability/.test(c!))).toEqual([
+    expect(classes.filter((c) => /Actor|Capability/.test(c!)).sort()).toEqual([
       "NamedActorAdapter",
       "PcCapabilityAdapter",
+      "WorkshopNamedActorAdapter",
     ]);
     expect(PACKAGE_FORMAT_VERSION).toBe(1);
     expect(readdirSync("packages/engine/src/persistence").sort()).toEqual([

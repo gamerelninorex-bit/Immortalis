@@ -1,3 +1,4 @@
+import { workshopCampaignFor } from "../owners/workshop/registry.ts";
 import {
   CANON_WRITE_AUTHORITY,
   FACET_PC_STANDING_INSTRUCTION_LEDGER,
@@ -279,9 +280,16 @@ export class CanonicalCampaign {
     { dependencies: ReadVerification; violations: readonly IntegrityViolation[] } | undefined;
   #closed = false;
 
-  private constructor(store: FileCampaignStore, extension: StageOwnerExtension | undefined) {
+  readonly #workshopCampaign: string | undefined;
+
+  private constructor(
+    store: FileCampaignStore,
+    extension: StageOwnerExtension | undefined,
+    workshopCampaign?: string,
+  ) {
     this.store = store;
     this.#extension = extension;
+    this.#workshopCampaign = workshopCampaign;
   }
 
   /**
@@ -306,7 +314,15 @@ export class CanonicalCampaign {
     );
     if (!bindings.ok) return bindings;
     const created = await createFileCampaign(dir, { ...rest, ...bindings.value });
-    return created.ok ? ok(new CanonicalCampaign(created.value, extension)) : created;
+    return created.ok
+      ? ok(
+          new CanonicalCampaign(
+            created.value,
+            extension,
+            workshopCampaignFor(testkitFixtureAdmission),
+          ),
+        )
+      : created;
   }
 
   /**
@@ -332,11 +348,12 @@ export class CanonicalCampaign {
         (msActorBinding ? msCanonicalAdmission(msActorBinding) : undefined),
     );
     if (!bindings.ok) return bindings;
+    const workshopCampaign = workshopCampaignFor(testkitFixtureAdmission);
     const opened = await openFileCampaign(dir, {
       ...rest,
       ...bindings.value,
       beforeMigrationCheck(store) {
-        const violations = verifyAll(store, extension);
+        const violations = verifyAll(store, extension, workshopCampaign);
         return violations.length
           ? fail("CANON_INTEGRITY", "the campaign does not match this build's canonical owners", {
               violations: violations.slice(0, 10),
@@ -355,7 +372,7 @@ export class CanonicalCampaign {
           ? new ReadVerification(opened.value)
           : undefined;
       violations = withCheckpointHistoryReadCache(opened.value, () =>
-        verifyAll(readVerification?.view ?? opened.value, extension),
+        verifyAll(readVerification?.view ?? opened.value, extension, workshopCampaign),
       );
     } catch (e) {
       readVerification?.release();
@@ -371,7 +388,7 @@ export class CanonicalCampaign {
         violations: violations.slice(0, 10),
       });
     }
-    const campaign = new CanonicalCampaign(opened.value, extension);
+    const campaign = new CanonicalCampaign(opened.value, extension, workshopCampaign);
     campaign.#readVerification = readVerification
       ? { dependencies: readVerification, violations: Object.freeze(violations) }
       : undefined;
@@ -416,7 +433,7 @@ export class CanonicalCampaign {
 
   /** Re-runs the canonical and temporal integrity verification against current state. */
   verify(): readonly IntegrityViolation[] {
-    return verifyAll(this.store, this.#extension);
+    return verifyAll(this.store, this.#extension, this.#workshopCampaign);
   }
 
   close(): Promise<void> {
@@ -1176,9 +1193,11 @@ export class CanonicalCampaign {
 function verifyAll(
   store: FileCampaignStore,
   extension: StageOwnerExtension | undefined,
+  workshopCampaign?: string,
 ): readonly IntegrityViolation[] {
   return [
     ...verifyCanonicalIntegrity(store, {
+      ...(workshopCampaign !== undefined ? { workshopCampaign } : {}),
       isExtensionFact: (f) => extension?.owners.get(f.owner)?.has(f.facet) === true,
     }),
     ...verifyTemporalIntegrity(store),

@@ -6,6 +6,7 @@
 // schemas reproduce the existing contract schemas BY REFERENCE (the premises, the institution, the office, the Scope Binding) and add only transport fields; (5) the bridge reaches
 // the owners only through the closed list of existing adapter operations below; (6) the freight receipt stage is registered in both NULL-PC gateways
 // and nowhere else new.
+import { B3_PACKAGE_PATHS } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -210,6 +211,7 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...A1_2A_PACKAGE_PATHS,
       // and the F-014B B2 slice's recorded paths (its own table and conformance suite police them)
       ...B2_PACKAGE_PATHS,
+      ...B3_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4
