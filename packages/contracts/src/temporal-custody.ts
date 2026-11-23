@@ -4,6 +4,7 @@ import { SourceRefSchema } from "./source-ref.ts";
 import {
   CanonicalTimeSchema,
   ResolutionTransactionSchema,
+  StageRecordSchema,
   TransactionAuthoritySchema,
 } from "./temporal.ts";
 import { EntityId, PLAYER_CHOICE_AUTHORITY } from "./world-foundation.ts";
@@ -292,6 +293,36 @@ export const GmWaitResolutionTransactionSchema = z
   });
 export type GmWaitResolutionTransaction = z.infer<typeof GmWaitResolutionTransactionSchema>;
 
+/** Prospective IF-6b, with the original B2 zero-stage schema retained separately. */
+export const GM_WAIT_IF6B_POLICY = "F-014B-IF-6b-D2-AD5@2026-11-23T11:42:34.869Z";
+export const GmWaitStagedTransactionSchema = z
+  .strictObject({
+    ...GmWaitResolutionTransactionSchema.shape,
+    stage_policy: z.literal(GM_WAIT_IF6B_POLICY),
+    engaged: ResolutionTransactionSchema.shape.engaged,
+    boundaries_crossed: ResolutionTransactionSchema.shape.boundaries_crossed,
+    stages: z.array(StageRecordSchema).min(1),
+    rule_versions: ResolutionTransactionSchema.shape.rule_versions,
+  })
+  .superRefine(({ origin, x, context, stage_policy, ...t }, ctx) => {
+    void origin;
+    void x;
+    void context;
+    void stage_policy;
+    const checked = ResolutionTransactionSchema.safeParse({
+      ...t,
+      context: PLAYER_CHOICE_AUTHORITY,
+    });
+    if (!checked.success)
+      for (const issue of checked.error.issues)
+        ctx.addIssue({ code: "custom", message: issue.message, path: issue.path });
+  });
+export const GmWaitStoredTransactionSchema = z.union([
+  GmWaitResolutionTransactionSchema,
+  GmWaitStagedTransactionSchema,
+]);
+export type GmWaitStoredTransaction = z.infer<typeof GmWaitStoredTransactionSchema>;
+
 /** A stored authority / seal of either origin. The legacy member is first, so every existing value parses exactly as before. */
 export const TransactionAuthorityStoredSchema = z.union([
   TransactionAuthoritySchema,
@@ -299,5 +330,5 @@ export const TransactionAuthorityStoredSchema = z.union([
 ]);
 export const ResolutionTransactionStoredSchema = z.union([
   ResolutionTransactionSchema,
-  GmWaitResolutionTransactionSchema,
+  GmWaitStoredTransactionSchema,
 ]);

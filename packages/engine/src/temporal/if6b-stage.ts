@@ -1,5 +1,7 @@
 import {
+  BoundaryIndexSchema,
   FACET_PRODUCTION_STATE,
+  GM_WAIT_IF6B_POLICY,
   FACET_WORLD_LOCUS,
   GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
@@ -9,6 +11,10 @@ import {
   PRODUCTION_OPERATION_COMPLETE,
   StageKeySchema,
   TEMPORAL_STATE_KEY,
+  TEMPORAL_BOUNDARY_INDEX_KEY,
+  TemporalObjectSchema,
+  compareTime,
+  temporalObjectKey,
   TemporalStateSchema,
   WORLD_OPERATION_ACCEPT_FALLBACK,
   timeAtOrBefore,
@@ -19,14 +25,18 @@ import {
   type CommitGroup,
   type OwnerFact,
   type StageKey,
+  type StageRecord,
+  type SourceRef,
 } from "@immortalis/contracts";
 import { groupSha256, type CampaignState } from "../commit/campaign-core.ts";
-import { deriveGmWaitFence } from "../gm-wait-custody.ts";
+import { deriveGmWaitFence, type GmWaitFence } from "../gm-wait-custody.ts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import { stageGroupId, stageIntentId } from "./identity.ts";
 
-export const IF6B_POLICY = "F-014B-IF-6b-D2-AD5@2026-11-23T11:42:34.869Z";
+export const IF6B_POLICY = GM_WAIT_IF6B_POLICY;
 
-export type If6bStageClass = "RH_RECOVERY" | "RH_OCCURRENCE" | "D3_COMPLETION";
+export type If6bStageClass =
+  "RH_RECOVERY" | "RH_OCCURRENCE" | "D3_COMPLETION" | "FIXTURE_ECONOMY_DRAFT";
 
 type OriginalFact = Pick<OwnerFact, "key" | "version"> & { readonly group_id: string };
 
@@ -78,6 +88,12 @@ function permitted(source: If6bOwnerVerifier): boolean {
           source.facet === FACET_WORLD_LOCUS &&
           source.operation === WORLD_OPERATION_ACCEPT_FALLBACK)
       );
+    case "FIXTURE_ECONOMY_DRAFT":
+      return (
+        source.owner === "economy" &&
+        source.facet === "economy_state" &&
+        source.operation === "economy-record-realized-access"
+      );
     default:
       return false;
   }
@@ -95,16 +111,15 @@ function exactPredecessor(group: CommitGroup, state: CampaignState, ref: Origina
 
 /**
  * Verify the source side of a stage at the actual OPEN prestate. Registration is construction-time only.
- * This interface does not grant fence admission. A future successor must also install durable stage custody and a
- * corresponding staged settlement policy before it can use a qualified witness to admit a group. The existing
- * W2 zero-stage seal cannot represent it.
+ * The common fence adds the indexed declaration and the durable stage ordering before using this result.
  */
 export function qualifyIf6bOwnerStage(
   group: CommitGroup,
   state: CampaignState,
   sources: readonly If6bOwnerVerifier[],
+  fence = deriveGmWaitFence(state),
+  earnedAt?: CanonicalTime,
 ): If6bStageWitness | undefined {
-  const fence = deriveGmWaitFence(state);
   const active = fence.active;
   if (
     fence.unknown !== null ||
@@ -156,7 +171,7 @@ export function qualifyIf6bOwnerStage(
       witness.groupId !== group.group_id ||
       witness.groupDigest !== groupSha256(group) ||
       !canonicalEqual(witness.reservation, reservation) ||
-      !timeEquals(witness.at, clock.data.canonical_time) ||
+      !timeEquals(witness.at, earnedAt ?? clock.data.canonical_time) ||
       !timeAtOrBefore(authority.data.opening.basis_time, witness.at) ||
       !timeAtOrBefore(witness.at, authority.data.requested.target)
     )
@@ -186,4 +201,149 @@ export function qualifyIf6bOwnerStage(
     matches.push(witness);
   }
   return matches.length === 1 ? matches[0] : undefined;
+}
+
+export interface If6bAdmission {
+  readonly ownerVerifiers: readonly If6bOwnerVerifier[];
+  readonly fixtureEconomyDraft?: true;
+  readonly preparation: (
+    marker: import("@immortalis/contracts").GmWaitMarker,
+    state: CampaignState,
+  ) => boolean;
+}
+
+interface HistoryAdmission {
+  readonly historyVerificationId?: string;
+}
+const installed = new WeakMap<HistoryAdmission, If6bAdmission>();
+
+/** Only a constructed fixture admission with a separate replay identity can install the draft route. */
+export function installIf6b<T extends HistoryAdmission>(admission: T, policy: If6bAdmission): T {
+  if (!admission.historyVerificationId?.endsWith("+" + IF6B_POLICY))
+    throw new Error("IF-6b needs its own historical verifier identity");
+  installed.set(
+    admission,
+    Object.freeze({ ...policy, ownerVerifiers: Object.freeze([...policy.ownerVerifiers]) }),
+  );
+  return admission;
+}
+
+export function if6bAdmissionOf(admission: HistoryAdmission | undefined) {
+  return admission && installed.get(admission);
+}
+
+export interface If6bCommittedStage {
+  readonly at: CanonicalTime;
+  readonly record: StageRecord;
+  readonly rule: SourceRef;
+}
+
+export function if6bDueObjects(state: CampaignState, target: CanonicalTime) {
+  const index = BoundaryIndexSchema.safeParse(state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)?.value);
+  return (index.success ? index.data.entries : [])
+    .filter((e) => timeAtOrBefore(e.at, target))
+    .map((entry) => {
+      const fact = state.facts.get(temporalObjectKey(entry.object_id));
+      const object = TemporalObjectSchema.safeParse(fact?.value);
+      return { entry, fact, object: object.success ? object.data : undefined };
+    });
+}
+
+/** The exact indexed declaration, current source reads and prior durable stages qualify before the owner commits. */
+export function if6bStageFor(
+  group: CommitGroup,
+  state: CampaignState,
+  fence: GmWaitFence,
+  admission: HistoryAdmission | undefined,
+): If6bStageWitness | undefined {
+  const runtime = if6bAdmissionOf(admission);
+  const x = fence.active;
+  if (!runtime || !x || fence.unknown !== null || group.cause !== "transaction:" + x.transactionId)
+    return undefined;
+  const marker = GmWaitMarkerSchema.safeParse(state.facts.get(temporalGmWaitMarkerKey(x.x))?.value);
+  const authority = GmWaitTransactionAuthoritySchema.safeParse(
+    state.facts.get(x.authorityKey)?.value,
+  );
+  if (
+    !authority.success ||
+    !marker.success ||
+    marker.data.policy.history_verification_id !== admission?.historyVerificationId
+  )
+    return undefined;
+
+  const due = if6bDueObjects(state, authority.data.requested.target);
+  const declarations = due.flatMap(({ entry, object }) =>
+    (object?.dependencies ?? []).map((decl) => ({ entry, decl })),
+  );
+  const exact = declarations.filter(
+    ({ decl }) =>
+      stageGroupId(decl.stage) === group.group_id && stageIntentId(decl.stage) === group.intent_id,
+  );
+  const match = exact[0];
+  const credited = (stage: StageKey) =>
+    fence.stages?.some((s) => canonicalEqual(s.record.stage, stage)) === true;
+  if (
+    exact.length !== 1 ||
+    !match ||
+    credited(match.decl.stage) ||
+    declarations.some(
+      ({ entry, decl }) => compareTime(entry.at, match.entry.at) === -1 && !credited(decl.stage),
+    ) ||
+    !canonicalEqual(group.writes.map((w) => w.key).sort(), [...match.decl.produces].sort()) ||
+    group.depends_on.length !== group.reads.length + 1 ||
+    group.depends_on.at(-1) !== x.authorityGroupId ||
+    group.reads.some((r, i) => {
+      const fact = state.facts.get(r.key);
+      return (
+        !fact || fact.version !== r.version || fact.provenance.group_id !== group.depends_on[i]
+      );
+    }) ||
+    match.decl.reads.some(
+      (r) =>
+        !group.reads.some(
+          (g) => g.key === r.source.fact_key && state.facts.get(g.key)?.owner === r.source.owner,
+        ),
+    )
+  )
+    return undefined;
+  const witness = qualifyIf6bOwnerStage(
+    group,
+    state,
+    runtime.ownerVerifiers.filter(
+      (v) => v.class !== "FIXTURE_ECONOMY_DRAFT" || runtime.fixtureEconomyDraft === true,
+    ),
+    fence,
+    match.entry.at,
+  );
+  return witness && canonicalEqual(witness.stage, match.decl.stage) ? witness : undefined;
+}
+
+export function recordIf6bStage(
+  group: CommitGroup,
+  state: CampaignState,
+  witness: If6bStageWitness,
+  receipt: import("@immortalis/contracts").CommitReceipt,
+): If6bCommittedStage {
+  return {
+    at: witness.at,
+    rule: group.rule,
+    record: {
+      stage: witness.stage,
+      group_id: group.group_id,
+      intent_id: group.intent_id,
+      revision: receipt.revision,
+      group_sha256: receipt.group_sha256,
+      reads: group.reads.map((r) => ({
+        mode: "AS-OF-NOW",
+        source: { owner: state.facts.get(r.key)!.owner, fact_key: r.key },
+        source_basis: {
+          version: r.version,
+          committed_by: state.facts.get(r.key)!.provenance.group_id,
+        },
+        invalidators: [],
+      })),
+      writes: group.writes.map((w) => ({ key: w.key, version: w.expected_version + 1 })),
+      validation: { invariants: receipt.invariants.map((i) => i.name) },
+    },
+  };
 }
